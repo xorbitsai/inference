@@ -1,0 +1,16 @@
+[build-system]
+requires = [
+    "setuptools<64",
+]
+build-backend = "setuptools.build_meta"
+
+[tool.black]
+include = '\.pyi?$'
+extend-exclude = '''
+^/plexar/(_version.py)
+'''
+
+[tool.cibuildwheel]
+build = ["cp38-*", "cp39-*", "cp310-*", "cp311-*"]
+skip = "pp* *musllinux* *i686 cp36* cp310-win32 cp311-win32"
+manylinux-x86_64-image = "manylinux2014"
