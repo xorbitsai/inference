@@ -13,16 +13,17 @@
 # limitations under the License.
 
 
-from . import _version
-
-__version__ = _version.get_versions()["version"]
-
-
 def install():
-    from .model import install as install_model
+    from .. import MODEL_SPECS, ModelSpec
+    from .vicuna import VicunaUncensoredGgml
 
-    install_model()
-
-
-install()
-del install
+    MODEL_SPECS.append(
+        ModelSpec(
+            name="vicuna-uncensored",
+            n_parameters_in_billions=7,
+            fmt="ggml",
+            quantization="q4_0",
+            url="https://huggingface.co/vicuna/ggml-vicuna-7b-1.1/blob/main/ggml-vic7b-uncensored-q4_0.bin",
+            cls=VicunaUncensoredGgml,
+        ),
+    )
