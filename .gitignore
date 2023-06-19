@@ -119,16 +119,6 @@ venv.bak/
 # mkdocs documentation
 /site
 
-# cython compiled files
-python/xorbits/_mars/*.c*
-python/xorbits/_mars/*.h*
-python/xorbits/_mars/core/**/*.c*
-python/xorbits/_mars/learn/cluster/*.c*
-python/xorbits/_mars/learn/utils/*.c*
-python/xorbits/_mars/lib/*.c*
-python/xorbits/_mars/oscar/**/*.c*
-python/xorbits/_mars/serialization/*.c*
-
 # mypy
 .mypy_cache/
 .dmypy.json
