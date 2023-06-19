@@ -12,17 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import xoscar as xo
 
-from . import _version
-
-__version__ = _version.get_versions()["version"]
-
-
-def install():
-    from .model import install as install_model
-
-    install_model()
+from ..model.llm.core import Model
 
 
-install()
-del install
+class ModelActor(xo.Actor):
+    def __init__(self, model: Model):
+        super().__init__()
+        self._model = model
+
+    async def __post_create__(self):
+        self._model.load()
+
+    def __getattr__(self, item):
+        return getattr(self._model, item)

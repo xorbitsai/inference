@@ -12,17 +12,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
-from . import _version
-
-__version__ = _version.get_versions()["version"]
-
-
-def install():
-    from .model import install as install_model
-
-    install_model()
-
-
-install()
-del install
+from .model import ModelActor
