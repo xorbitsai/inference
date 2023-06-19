@@ -1,4 +1,4 @@
-files: python/xoscar
+files: python/plexar
 repos:
   - repo: https://github.com/psf/black
     rev: 23.1.0
@@ -13,12 +13,12 @@ repos:
     rev: 6.0.0
     hooks:
       - id: flake8
-        args: [--config, python/setup.cfg]
+        args: [--config, setup.cfg]
   - repo: https://github.com/pycqa/isort
     rev: 5.12.0
     hooks:
       - id: isort
-        args: [--sp, python/setup.cfg]
+        args: [--sp, setup.cfg]
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: v1.0.1
     hooks:
@@ -29,4 +29,4 @@ repos:
     rev: v2.2.2
     hooks:
       - id: codespell
-        args: [ --config, python/setup.cfg]
+        args: [ --config, setup.cfg]
