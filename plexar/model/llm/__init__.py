@@ -16,6 +16,18 @@
 def install():
     from .. import MODEL_SPECS, ModelSpec
     from .vicuna import VicunaUncensoredGgml
+    from .wizardlm import WizardlmGgml
+
+    MODEL_SPECS.append(
+        ModelSpec(
+            name="wizardlm",
+            n_parameters_in_billions=7,
+            fmt="ggml",
+            quantization="q4_0",
+            url="https://huggingface.co/TheBloke/WizardLM-7B-V1.0-Uncensored-GGML/resolve/main/wizardlm-7b-v1.0-uncensored.ggmlv3.q4_0.bin",
+            cls=WizardlmGgml,
+        ),
+    )
 
     MODEL_SPECS.append(
         ModelSpec(

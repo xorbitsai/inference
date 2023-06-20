@@ -51,8 +51,11 @@ class ModelSpec:
     def cache(self):
         assert self.url is not None
 
-        save_path = os.path.join(PLEXAR_CACHE_DIR, str(self), "model.bin")
+        save_dir = os.path.join(PLEXAR_CACHE_DIR, str(self))
+        if not os.path.exists(save_dir):
+            os.makedirs(save_dir, exist_ok=True)
 
+        save_path = os.path.join(save_dir, "model.bin")
         if os.path.exists(save_path):
             os.remove(save_path)
 
