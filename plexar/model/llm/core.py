@@ -59,10 +59,10 @@ class ChatHistory:
     ) -> str:
         ret = system_prompt
         for i, o in zip(self._inputs, self._outputs):
-            ret += f"{sep} {user_name}: {i}"
-            ret += f"{sep} {assistant_name}: {o}"
-        ret += f"{sep} {user_name}: {input}"
-        ret += f"{sep} {assistant_name}:"
+            ret += f"{sep}{user_name}: {i}"
+            ret += f"{sep}{assistant_name}: {o}"
+        ret += f"{sep}{user_name}: {input}"
+        ret += f"{sep}{assistant_name}:"
         return ret
 
     def append(self, i: str, o: str):
