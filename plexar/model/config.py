@@ -12,4 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# TODO: add an API actor running along with the model actor.
+VICNA_CONFIG = {
+    "model_path": "/Users/hekaisheng/Downloads/Wizard-Vicuna-7B-Uncensored.ggmlv3.q2_K.bin"
+}
+
+WIZARD_CONFIG = {"model_path": "/Users/hekaisheng/Downloads/model.bin"}

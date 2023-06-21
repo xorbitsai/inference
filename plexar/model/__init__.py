@@ -18,7 +18,7 @@ from typing import List, Optional, Type
 
 from tqdm import tqdm
 
-from ..common import PLEXAR_CACHE_DIR
+from ..constants import PLEXAR_CACHE_DIR
 
 
 class ModelSpec:

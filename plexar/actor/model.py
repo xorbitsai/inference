@@ -12,12 +12,28 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import Dict
+
 import xoscar as xo
 
 from ..model.llm.core import Model
 
 
+class ModelManagerActor(xo.Actor):
+    models: Dict[str, xo.ActorRef] = dict()
+
+    def add_model(self, model_uid: str, ref: xo.ActorRef):
+        self.models[model_uid] = ref
+
+    def get_model(self, model_uid: str):
+        return self.models[model_uid]
+
+
 class ModelActor(xo.Actor):
+    @classmethod
+    def gen_uid(cls, model: Model):
+        return f"{model.name}-model-actor"
+
     def __init__(self, model: Model):
         super().__init__()
         self._model = model

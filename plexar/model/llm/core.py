@@ -18,7 +18,7 @@ import logging
 import textwrap
 from abc import abstractmethod
 from time import time
-from typing import List, Optional, TypedDict
+from typing import Dict, List, Optional, Tuple, Type, TypedDict
 
 logger = logging.getLogger(__name__)
 
@@ -69,11 +69,31 @@ class ChatHistory:
         self._inputs.append(i)
         self._outputs.append(o)
 
+    def clear(self):
+        self._inputs = []
+        self._outputs = []
+
 
 class Model(abc.ABC):
+    name: str
+
+    def __init__(self, *args, **kwargs):
+        pass
+
     @abstractmethod
     def load(self):
         pass
+
+
+MODEL_TO_CLS: Dict[str, Tuple[Type[Model], Dict]] = dict()
+
+
+def register_model(config: Dict):
+    def wrap_cls(cls: Type[Model]):
+        MODEL_TO_CLS[cls.name] = (cls, config)
+        return cls
+
+    return wrap_cls
 
 
 class LlamaCppModel(Model):
@@ -157,3 +177,6 @@ class LlamaCppChatModel(LlamaCppModel):
         completion = self.generate(full_prompt, generate_config)
         self._history.append(prompt, completion["text"])
         return completion
+
+    def clear(self):
+        self._history.clear()
