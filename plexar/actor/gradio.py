@@ -32,6 +32,11 @@ class GradioApp:
     async def select_models(self, models: List[str]):
         if len(models) != self._model_limits:
             raise gr.Error("Please choose 2 models")
+        if self._models:
+            destroy_tasks = []
+            for ref in self._models.values():
+                destroy_tasks.append(ref.destroy())
+            await asyncio.gather(*destroy_tasks)
         create_tasks = []
         for model in models:
             cls, kwargs = MODEL_TO_CLS[model]
