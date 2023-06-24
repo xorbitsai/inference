@@ -14,9 +14,22 @@
 
 
 def install():
+    from plexar.model.llm.core import LlamaCppModel
+
     from .. import MODEL_SPECS, ModelSpec
     from .vicuna import VicunaUncensoredGgml
     from .wizardlm import WizardlmGgml
+
+    MODEL_SPECS.append(
+        ModelSpec(
+            name="baichuan",
+            n_parameters_in_billions=7,
+            fmt="ggml",
+            quantization="q4_0",
+            url="https://huggingface.co/TheBloke/baichuan-llama-7B-GGML/resolve/main/baichuan-llama-7b.ggmlv3.q4_0.bin",
+            cls=LlamaCppModel,
+        )
+    )
 
     MODEL_SPECS.append(
         ModelSpec(
