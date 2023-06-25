@@ -135,8 +135,6 @@ class LlamaCppModel(Model):
 
 
 class LlamaCppChatModel(LlamaCppModel):
-    _history = ChatHistory()
-
     def __init__(
         self,
         model_path: str,
@@ -151,6 +149,7 @@ class LlamaCppChatModel(LlamaCppModel):
         self._sep: str = sep
         self._user_name: str = user_name
         self._assistant_name: str = assistant_name
+        self._history = ChatHistory()
 
     def chat(
         self, prompt: str, generate_config: Optional[LlamaCppGenerateConfig] = None
