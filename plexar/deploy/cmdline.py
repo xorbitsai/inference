@@ -26,6 +26,22 @@ def cli():
 
 
 @cli.group()
+@click.option("--address", "-a")
+def controller(address: str):
+    from ..deploy.controller import main
+
+    main(address=address)
+
+
+@cli.group()
+@click.option("--controller_address")
+def worker(address: str, controller_address: str):
+    from ..deploy.worker import main
+
+    main(address=address, controller_address=controller_address)
+
+
+@cli.group()
 def model():
     pass
 

@@ -11,7 +11,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from typing import TYPE_CHECKING, Any, Dict, Iterator
+
+from typing import TYPE_CHECKING, Any, Iterator
 
 import xoscar as xo
 
@@ -19,16 +20,6 @@ from .common import IteratorActor, IteratorWrapper
 
 if TYPE_CHECKING:
     from ..model.llm.core import Model
-
-
-class ModelManagerActor(xo.Actor):
-    models: Dict[str, xo.ActorRef] = dict()
-
-    def add_model(self, model_uid: str, ref: xo.ActorRef):
-        self.models[model_uid] = ref
-
-    def get_model(self, model_uid: str):
-        return self.models[model_uid]
 
 
 class ModelActor(xo.Actor):
