@@ -69,8 +69,17 @@ class ChatHistory:
         self._inputs.append(i)
         self._outputs.append(o)
 
+    def clear(self):
+        self._inputs = []
+        self._outputs = []
+
 
 class Model(abc.ABC):
+    name: str
+
+    def __init__(self, *args, **kwargs):
+        pass
+
     @abstractmethod
     def load(self):
         pass
@@ -126,8 +135,6 @@ class LlamaCppModel(Model):
 
 
 class LlamaCppChatModel(LlamaCppModel):
-    _history = ChatHistory()
-
     def __init__(
         self,
         model_path: str,
@@ -142,6 +149,7 @@ class LlamaCppChatModel(LlamaCppModel):
         self._sep: str = sep
         self._user_name: str = user_name
         self._assistant_name: str = assistant_name
+        self._history = ChatHistory()
 
     def chat(
         self, prompt: str, generate_config: Optional[LlamaCppGenerateConfig] = None
@@ -157,3 +165,6 @@ class LlamaCppChatModel(LlamaCppModel):
         completion = self.generate(full_prompt, generate_config)
         self._history.append(prompt, completion["text"])
         return completion
+
+    def clear(self):
+        self._history.clear()
