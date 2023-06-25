@@ -12,13 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import abc
 import contextlib
 import logging
 import textwrap
-from abc import abstractmethod
 from time import time
 from typing import List, Optional, TypedDict
+
+from plexar.model.core import Model
 
 logger = logging.getLogger(__name__)
 
@@ -72,17 +72,6 @@ class ChatHistory:
     def clear(self):
         self._inputs = []
         self._outputs = []
-
-
-class Model(abc.ABC):
-    name: str
-
-    def __init__(self, *args, **kwargs):
-        pass
-
-    @abstractmethod
-    def load(self):
-        pass
 
 
 class LlamaCppModel(Model):
