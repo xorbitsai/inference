@@ -17,21 +17,8 @@ import platform
 import sys
 from sysconfig import get_config_vars
 
-import numpy as np
-import versioneer
-from Cython.Build import cythonize
 from pkg_resources import parse_version
-from setuptools import Extension, setup
-
-try:
-    import distutils.ccompiler
-
-    if sys.platform != "win32":
-        from numpy.distutils.ccompiler import CCompiler_compile
-
-        distutils.ccompiler.CCompiler.compile = CCompiler_compile
-except ImportError:
-    pass
+from setuptools import setup
 
 # From https://github.com/pandas-dev/pandas/pull/24274:
 # For mac, ensure extensions are built for macos 10.9 when compiling on a
@@ -56,55 +43,8 @@ if sys.platform == "darwin":
 repo_root = os.path.dirname(os.path.abspath(__file__))
 os.chdir(repo_root)
 
-
-cythonize_kw = dict(language_level=sys.version_info[0])
-define_macros = []
-if os.environ.get("CYTHON_TRACE"):
-    define_macros.append(("CYTHON_TRACE_NOGIL", "1"))
-    define_macros.append(("CYTHON_TRACE", "1"))
-    cythonize_kw["compiler_directives"] = {"linetrace": True}
-
-# Fixes Python 3.11 compatibility issue
-#
-# see also:
-# - https://github.com/cython/cython/issues/4500
-# - https://github.com/scoder/cython/commit/37f270155dbb5907435a1e83fdc90e403d776af5
-if sys.version_info >= (3, 11):
-    define_macros.append(("CYTHON_FAST_THREAD_STATE", "0"))
-
-cy_extension_kw = {
-    "define_macros": define_macros,
-}
-
-if "MSC" in sys.version:
-    extra_compile_args = ["/std:c11", "/Ot", "/I" + os.path.join(repo_root, "misc")]
-    cy_extension_kw["extra_compile_args"] = extra_compile_args
-else:
-    extra_compile_args = ["-O3"]
-    if sys.platform != "darwin":
-        # for macOS, we assume that C++ 11 is enabled by default
-        extra_compile_args.append("-std=c++0x")
-    cy_extension_kw["extra_compile_args"] = extra_compile_args
-
-
-def _discover_pyx():
-    exts = dict()
-    for root, _, files in os.walk(os.path.join(repo_root, "plexar"), followlinks=True):
-        for fn in files:
-            if not fn.endswith(".pyx"):
-                continue
-            full_fn = os.path.relpath(os.path.join(root, fn), repo_root)
-            mod_name = full_fn.replace(".pyx", "").replace(os.path.sep, ".")
-            exts[mod_name] = Extension(
-                mod_name, [full_fn], include_dirs=[np.get_include()], **cy_extension_kw
-            )
-    return exts
-
-
-extensions_dict = _discover_pyx()
-cy_extensions = list(extensions_dict.values())
-
-extensions = cythonize(cy_extensions, **cythonize_kw)
+sys.path.append(repo_root)
+versioneer = __import__("versioneer")
 
 
 # build long description
@@ -118,7 +58,6 @@ def build_long_description():
 setup_options = dict(
     version=versioneer.get_version(),
     cmdclass=versioneer.get_cmdclass(),
-    ext_modules=extensions,
     long_description=build_long_description(),
     long_description_content_type="text/markdown",
 )
