@@ -14,13 +14,10 @@
 
 from typing import Optional
 
-from ..config import VICNA_CONFIG
-from .core import LlamaCppChatModel, LlamaCppModelConfig, register_model
+from .core import LlamaCppChatModel, LlamaCppModelConfig
 
 
-@register_model(VICNA_CONFIG)
 class VicunaUncensoredGgml(LlamaCppChatModel):
-    name = "Vicuna"
     _system_prompt = (
         "A chat between a curious human and an artificial intelligence assistant."
         " The assistant gives helpful, detailed, and polite answers to the human's"

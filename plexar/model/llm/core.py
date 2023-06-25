@@ -18,7 +18,7 @@ import logging
 import textwrap
 from abc import abstractmethod
 from time import time
-from typing import Dict, List, Optional, Tuple, Type, TypedDict
+from typing import List, Optional, TypedDict
 
 logger = logging.getLogger(__name__)
 
@@ -83,17 +83,6 @@ class Model(abc.ABC):
     @abstractmethod
     def load(self):
         pass
-
-
-MODEL_TO_CLS: Dict[str, Tuple[Type[Model], Dict]] = dict()
-
-
-def register_model(config: Dict):
-    def wrap_cls(cls: Type[Model]):
-        MODEL_TO_CLS[cls.name] = (cls, config)
-        return cls
-
-    return wrap_cls
 
 
 class LlamaCppModel(Model):

@@ -14,13 +14,10 @@
 
 from typing import Optional
 
-from ..config import WIZARD_CONFIG
-from .core import LlamaCppChatModel, LlamaCppModelConfig, register_model
+from .core import LlamaCppChatModel, LlamaCppModelConfig
 
 
-@register_model(config=WIZARD_CONFIG)
 class WizardlmGgml(LlamaCppChatModel):
-    name = "Wizard"
     _system_prompt = "You are a helpful AI assistant.\n"
     _sep = "\n"
     _user_name = "USER"

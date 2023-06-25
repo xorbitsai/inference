@@ -19,7 +19,10 @@ import gradio as gr
 import xoscar as xo
 
 from ..api import API
-from ..model.llm.core import MODEL_TO_CLS
+from ..model import MODEL_SPECS
+from ..model.config import model_config
+
+name_to_spec = dict((spec.name, spec) for spec in MODEL_SPECS)
 
 
 class GradioApp:
@@ -39,7 +42,8 @@ class GradioApp:
             await asyncio.gather(*destroy_tasks)
         create_tasks = []
         for model in models:
-            cls, kwargs = MODEL_TO_CLS[model]
+            kwargs = model_config[model]
+            cls = name_to_spec[model].cls
             create_tasks.append(self._api.create_model(cls, **kwargs))
         model_refs = await asyncio.gather(*create_tasks)
         self._models = dict(zip(models, model_refs))
@@ -63,7 +67,7 @@ class GradioApp:
         with gr.Blocks() as blocks:
             gr.Markdown("# Chat with LLMs")
             choice = gr.CheckboxGroup(
-                list(MODEL_TO_CLS.keys()),
+                list(model_config.keys()),
                 label="Choose models to deploy",
             )
             create_button = gr.Button("create")

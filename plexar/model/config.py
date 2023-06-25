@@ -12,8 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-VICNA_CONFIG = {
-    "model_path": "/Users/hekaisheng/Downloads/Wizard-Vicuna-7B-Uncensored.ggmlv3.q2_K.bin"
-}
 
-WIZARD_CONFIG = {"model_path": "/Users/hekaisheng/Downloads/model.bin"}
+# only for demo now
+model_config = {
+    "vicuna-uncensored": {
+        "model_path": "/Users/hekaisheng/Downloads/Wizard-Vicuna-7B-Uncensored.ggmlv3.q2_K.bin"
+    },
+    "wizardlm": {"model_path": "/Users/hekaisheng/Downloads/model.bin"},
+}
