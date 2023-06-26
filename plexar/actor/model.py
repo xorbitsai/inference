@@ -11,12 +11,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-from typing import Dict
+from typing import TYPE_CHECKING, Any, Dict, Iterator
 
 import xoscar as xo
 
-from ..model.llm.core import Model
+from .common import IteratorActor, IteratorWrapper
+
+if TYPE_CHECKING:
+    from ..model.llm.core import Model
 
 
 class ModelManagerActor(xo.Actor):
@@ -31,15 +33,39 @@ class ModelManagerActor(xo.Actor):
 
 class ModelActor(xo.Actor):
     @classmethod
-    def gen_uid(cls, model: Model):
+    def gen_uid(cls, model: "Model"):
         return f"{model.__class__}-model-actor"
 
-    def __init__(self, model: Model):
+    def __init__(self, model: "Model"):
         super().__init__()
         self._model = model
 
     async def __post_create__(self):
         self._model.load()
 
-    def __getattr__(self, item):
-        return getattr(self._model, item)
+    async def _create_iterator_actor(self, it: Iterator) -> IteratorWrapper:
+        uid = str(id(it))
+        await xo.create_actor(IteratorActor, address=self.address, uid=uid, it=it)
+        return IteratorWrapper(iter_actor_addr=self.address, iter_actor_uid=uid)
+
+    async def _wrap_iterator(self, ret: Any):
+        if hasattr(ret, "__iter__"):
+            return await self._create_iterator_actor(iter(ret))
+        else:
+            return ret
+
+    async def generate(self, prompt: str, *args, **kwargs):
+        if not hasattr(self._model, "generate"):
+            raise AttributeError("generate")
+
+        return self._wrap_iterator(
+            getattr(self._model, "generate")(prompt, *args, **kwargs)
+        )
+
+    async def chat(self, prompt: str, *args, **kwargs):
+        if not hasattr(self._model, "chat"):
+            raise AttributeError("chat")
+
+        return self._wrap_iterator(
+            getattr(self._model, "chat")(prompt, *args, **kwargs)
+        )

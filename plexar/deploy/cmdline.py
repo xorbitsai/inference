@@ -39,7 +39,7 @@ def model_list():
 @click.option("--path", "-p")
 def model_launch(path):
     import asyncio
-    import textwrap
+    import sys
 
     import xoscar as xo
 
@@ -48,7 +48,7 @@ def model_launch(path):
     async def _run():
         await xo.create_actor_pool(address="localhost:9999", n_process=1)
 
-        vu = VicunaUncensoredGgml(model_path=path, llamacpp_model_config={})
+        vu = VicunaUncensoredGgml(model_path=path)
         vu_ref = await xo.create_actor(
             ModelActor, address="localhost:9999", uid="vu", model=vu
         )
@@ -58,9 +58,16 @@ def model_launch(path):
             if i == "exit":
                 break
 
-            completion = await vu_ref.chat(i)
-            text = "\n".join(textwrap.wrap(completion["text"], width=80))
-            print(f"Assistant:\n{text}")
+            print(f"Assistant:")
+            length = 0
+            async for chunk in await vu_ref.chat(i):
+                sys.stdout.write(chunk["text"])
+                sys.stdout.flush()
+                length += len(chunk["text"])
+                if length >= 80:
+                    print()
+                    length = 0
+            print()
 
     loop = asyncio.get_event_loop()
     loop.run_until_complete(_run())
