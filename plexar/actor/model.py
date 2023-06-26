@@ -11,12 +11,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-from typing import Dict
+from typing import TYPE_CHECKING, Dict, Iterator
 
 import xoscar as xo
 
-from ..model.llm.core import Model
+from .common import IteratorActor, IteratorWrapper
+
+if TYPE_CHECKING:
+    from ..model.llm.core import Model
 
 
 class ModelManagerActor(xo.Actor):
@@ -41,5 +43,25 @@ class ModelActor(xo.Actor):
     async def __post_create__(self):
         self._model.load()
 
+    async def _create_iterator_actor(self, it: Iterator) -> IteratorWrapper:
+        address = self.address
+        uid = str(id(it))
+        await xo.create_actor(IteratorActor, address=self.address, uid=uid, it=it)
+        return IteratorWrapper(iter_actor_addr=address, iter_actor_uid=uid)
+
     def __getattr__(self, item):
-        return getattr(self._model, item)
+        def wrap(func: callable):
+            async def wrapper(*args, **kwargs):
+                ret = func(*args, **kwargs)
+                if hasattr("ret", "__iter__"):
+                    return await self._create_iterator_actor(iter(ret))
+                else:
+                    return ret
+
+            return wrapper
+
+        attr = getattr(self._model, item)
+        if callable(attr):
+            return wrap(attr)
+        else:
+            return attr
