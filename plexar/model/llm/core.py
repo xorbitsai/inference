@@ -45,9 +45,11 @@ class ChatHistory:
     _inputs: List[str]
     _outputs: List[str]
 
-    def __init__(self):
-        self._inputs = []
-        self._outputs = []
+    def __init__(
+        self, inputs: Optional[List[str]] = None, outputs: Optional[List[str]] = None
+    ):
+        self._inputs = inputs or []
+        self._outputs = outputs or []
 
     def to_prompt(
         self,
@@ -55,13 +57,13 @@ class ChatHistory:
         sep: str,
         user_name: str,
         assistant_name: str,
-        input: str,
+        input_: str,
     ) -> str:
         ret = system_prompt
         for i, o in zip(self._inputs, self._outputs):
             ret += f"{sep}{user_name}: {i}"
             ret += f"{sep}{assistant_name}: {o}"
-        ret += f"{sep}{user_name}: {input}"
+        ret += f"{sep}{user_name}: {input_}"
         ret += f"{sep}{assistant_name}:"
         return ret
 
@@ -149,12 +151,15 @@ class LlamaCppChatModel(LlamaCppModel):
         self._sep: str = sep
         self._user_name: str = user_name
         self._assistant_name: str = assistant_name
-        self._history = ChatHistory()
 
     def chat(
-        self, prompt: str, generate_config: Optional[LlamaCppGenerateConfig] = None
+        self,
+        prompt: str,
+        chat_history: Optional[ChatHistory] = None,
+        generate_config: Optional[LlamaCppGenerateConfig] = None,
     ) -> Completion:
-        full_prompt = self._history.to_prompt(
+        chat_history = chat_history or ChatHistory()
+        full_prompt = chat_history.to_prompt(
             self._system_prompt,
             self._sep,
             self._user_name,
@@ -163,8 +168,5 @@ class LlamaCppChatModel(LlamaCppModel):
         )
 
         completion = self.generate(full_prompt, generate_config)
-        self._history.append(prompt, completion["text"])
+        chat_history.append(prompt, completion["text"])
         return completion
-
-    def clear(self):
-        self._history.clear()

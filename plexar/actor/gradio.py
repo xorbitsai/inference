@@ -21,6 +21,7 @@ import xoscar as xo
 from ..api import API
 from ..model import MODEL_SPECS
 from ..model.config import model_config
+from ..model.llm.core import ChatHistory
 
 name_to_spec = dict((spec.name, spec) for spec in MODEL_SPECS)
 
@@ -52,16 +53,15 @@ class GradioApp:
         if not self._models:
             raise gr.Error("Please create models first")
         chat_tasks = []
-        for ref in self._models.values():
-            chat_tasks.append(ref.chat(message))
+        for ref, chat_history in zip(self._models.values(), chats):
+            inputs = [c[0] for c in chat_history]
+            outputs = [c[1] for c in chat_history]
+            history = ChatHistory(inputs=inputs, outputs=outputs)
+            chat_tasks.append(ref.chat(message, chat_history=history))
         answers = await asyncio.gather(*chat_tasks)
         for answer, chat in zip(answers, chats):
             chat.append((message, answer["text"]))
         return message, *chats
-
-    async def clear(self):
-        for ref in self._models.values():
-            await ref.clear()
 
     def build(self):
         with gr.Blocks() as blocks:
@@ -78,8 +78,7 @@ class GradioApp:
                     ]
                 with gr.Column():
                     msg = gr.Textbox()
-                    clear_button = gr.ClearButton(components=[msg] + chats)
-                    clear_button.click(self.clear)
+                    gr.ClearButton(components=[msg] + chats)
                     msg.submit(self.generate, [msg] + chats, [msg] + chats)
             create_button.click(self.select_models, [choice])
         return blocks
