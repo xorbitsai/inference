@@ -20,10 +20,15 @@ from ..actor.service import ControllerActor, WorkerActor
 
 
 async def _start_worker(address: str, controller_address: str):
-    pool = await xo.create_actor_pool(address=address)
-    await xo.create_actor(WorkerActor, address=address, uid="controller")
+    pool = await xo.create_actor_pool(address=address, n_process=0)
+    await xo.create_actor(
+        WorkerActor,
+        address=address,
+        uid=WorkerActor.uid(),
+        controller_address=controller_address,
+    )
     controller_ref: xo.ActorRefType[ControllerActor] = await xo.actor_ref(
-        address=controller_address, uid=ControllerActor.uid
+        address=controller_address, uid=ControllerActor.uid()
     )
     await controller_ref.add_worker(address)
     await pool.join()

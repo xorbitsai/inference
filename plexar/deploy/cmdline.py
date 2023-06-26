@@ -25,7 +25,7 @@ def cli():
     pass
 
 
-@cli.group()
+@cli.command()
 @click.option("--address", "-a")
 def controller(address: str):
     from ..deploy.controller import main
@@ -33,8 +33,9 @@ def controller(address: str):
     main(address=address)
 
 
-@cli.group()
-@click.option("--controller_address")
+@cli.command()
+@click.option("--address", "-a")
+@click.option("--controller-address")
 def worker(address: str, controller_address: str):
     from ..deploy.worker import main
 

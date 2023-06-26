@@ -14,7 +14,7 @@
 
 import asyncio
 import uuid
-from typing import Optional
+from typing import List, Optional
 
 import xoscar as xo
 
@@ -30,53 +30,46 @@ class Client:
         except RuntimeError:
             self._loop = asyncio.new_event_loop()
 
-        self._controller_ref: Optional[
-            xo.ActorRefType["ControllerActor"]
-        ] = asyncio.run_coroutine_threadsafe(
-            xo.actor_ref(address=self._endpoint, uid=ControllerActor.uid), self._loop
-        ).result()
+        coro = xo.actor_ref(address=self._endpoint, uid=ControllerActor.uid())
+        self._controller_ref: xo.ActorRefType[
+            "ControllerActor"
+        ] = self._loop.run_until_complete(self._loop.create_task(coro))
 
     @classmethod
     def gen_model_uid(cls) -> str:
         # generate a time-based uuid.
         return str(uuid.uuid1())
 
-    def create_model(
+    def launch_model(
         self,
         model_name: str,
-        n_parameters_in_billions: Optional[int],
-        fmt: Optional[str],
-        quantization: Optional[str],
-    ) -> xo.ActorRefType["ModelActor"]:
+        n_parameters_in_billions: Optional[int] = None,
+        fmt: Optional[str] = None,
+        quantization: Optional[str] = None,
+        **kwargs
+    ) -> str:
         model_uid = self.gen_model_uid()
-
-        from plexar.model import MODEL_SPECS
-
-        for model_spec in MODEL_SPECS:
-            if model_spec.match(
-                model_name, n_parameters_in_billions, fmt, quantization
-            ):
-                pass
 
         coro = self._controller_ref.launch_builtin_model(
             model_uid=model_uid,
             model_name=model_name,
+            n_parameters_in_billions=n_parameters_in_billions,
+            fmt=fmt,
+            quantization=quantization,
+            **kwargs
         )
-        return asyncio.run_coroutine_threadsafe(coro, self._loop).result()
+        self._loop.run_until_complete(self._loop.create_task(coro))
 
-    def terminate_model(self):
-        pass
+        return model_uid
 
-    def list_models(self):
-        pass
+    def terminate_model(self, model_uid: str):
+        coro = self._controller_ref.terminate_model(model_uid)
+        return self._loop.run_until_complete(self._loop.create_task(coro))
 
-    def get_model(self):
-        pass
+    def list_models(self) -> List[str]:
+        coro = self._controller_ref.list_models()
+        return self._loop.run_until_complete(self._loop.create_task(coro))
 
-    def generate(self):
-        # llm
-        pass
-
-    def transcribe(self):
-        # speech.
-        pass
+    def get_model(self, model_uid: str) -> xo.ActorRefType["ModelActor"]:
+        coro = self._controller_ref.get_model(model_uid)
+        return self._loop.run_until_complete(self._loop.create_task(coro))

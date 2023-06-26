@@ -12,11 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Dict, List
+from logging import getLogger
+from typing import Dict, List, Optional
 
 import xoscar as xo
 
 from plexar.actor import ModelActor
+
+logger = getLogger(__name__)
 
 
 class ControllerActor(xo.Actor):
@@ -25,8 +28,8 @@ class ControllerActor(xo.Actor):
         self._workers: List[xo.ActorRefType[WorkerActor]] = []
         self._model_uid_to_worker: Dict[str, xo.ActorRefType[WorkerActor]] = {}
 
-    @property
-    def uid(self):
+    @classmethod
+    def uid(cls) -> str:
         return "plexar_controller"
 
     async def _choose_worker(self) -> xo.ActorRefType["WorkerActor"]:
@@ -50,9 +53,10 @@ class ControllerActor(xo.Actor):
         self,
         model_uid: str,
         model_name: str,
-        n_parameters_in_billions: int,
-        fmt: str,
-        quantization: str,
+        n_parameters_in_billions: Optional[int],
+        fmt: Optional[str],
+        quantization: Optional[str],
+        **kwargs
     ) -> xo.ActorRefType["ModelActor"]:
         assert model_uid not in self._model_uid_to_worker
 
@@ -63,6 +67,7 @@ class ControllerActor(xo.Actor):
             n_parameters_in_billions=n_parameters_in_billions,
             fmt=fmt,
             quantization=quantization,
+            **kwargs
         )
         self._model_uid_to_worker[model_uid] = worker_ref
 
@@ -73,20 +78,20 @@ class ControllerActor(xo.Actor):
 
         worker_ref = self._model_uid_to_worker[model_uid]
         await worker_ref.terminate_model(model_uid=model_uid)
+        del self._model_uid_to_worker[model_uid]
 
     async def get_model(self, model_uid: str):
         assert model_uid in self._model_uid_to_worker
 
         worker_ref = self._model_uid_to_worker[model_uid]
-        await worker_ref.get_model(model_uid=model_uid)
+        return await worker_ref.get_model(model_uid=model_uid)
 
     async def list_models(self) -> List[str]:
         return list(self._model_uid_to_worker.keys())
 
     async def add_worker(self, worker_address: str):
-        self._workers.append(
-            await xo.create_actor_ref(address=worker_address, uid=WorkerActor.uid)
-        )
+        worker_ref = await xo.actor_ref(address=worker_address, uid=WorkerActor.uid())
+        self._workers.append(worker_ref)
 
 
 class WorkerActor(xo.Actor):
@@ -95,26 +100,26 @@ class WorkerActor(xo.Actor):
         self._controller_address = controller_address
         self._model_uid_to_model: Dict[str, xo.ActorRefType["ModelActor"]] = {}
 
-    @property
-    def uid(self):
+    @classmethod
+    def uid(cls) -> str:
         return "plexar_worker"
 
     async def __post_create__(self):
         controller_ref: xo.ActorRefType["ControllerActor"] = await xo.actor_ref(
-            address=ControllerActor, uid=ControllerActor.uid
+            address=self._controller_address, uid=ControllerActor.uid()
         )
         await controller_ref.add_worker(self.address)
 
-    def get_model_count(self) -> int:
+    async def get_model_count(self) -> int:
         return len(self._model_uid_to_model)
 
     async def launch_builtin_model(
         self,
         model_uid: str,
         model_name: str,
-        n_parameters_in_billions: int,
-        fmt: str,
-        quantization: str,
+        n_parameters_in_billions: Optional[int],
+        fmt: Optional[str],
+        quantization: Optional[str],
         **kwargs
     ) -> xo.ActorRefType["ModelActor"]:
         assert model_uid not in self._model_uid_to_model
@@ -143,6 +148,7 @@ class WorkerActor(xo.Actor):
 
         model_ref = self._model_uid_to_model[model_uid]
         await xo.destroy_actor(model_ref)
+        del self._model_uid_to_model[model_uid]
 
     async def list_models(self) -> List[str]:
         return list(self._model_uid_to_model.keys())

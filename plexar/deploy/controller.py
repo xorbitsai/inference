@@ -20,8 +20,8 @@ from ..actor.service import ControllerActor
 
 
 async def _start_controller(address: str):
-    pool = await xo.create_actor_pool(address=address)
-    await xo.create_actor(ControllerActor, address=address, uid=ControllerActor.uid)
+    pool = await xo.create_actor_pool(address=address, n_process=0)
+    await xo.create_actor(ControllerActor, address=address, uid=ControllerActor.uid())
     # TODO: start RESTful actor
     # TODO: start Gradio actor
     await pool.join()
