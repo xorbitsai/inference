@@ -33,10 +33,10 @@ class ModelManagerActor(xo.Actor):
 
 class ModelActor(xo.Actor):
     @classmethod
-    def gen_uid(cls, model: Model):
+    def gen_uid(cls, model: "Model"):
         return f"{model.__class__}-model-actor"
 
-    def __init__(self, model: Model):
+    def __init__(self, model: "Model"):
         super().__init__()
         self._model = model
 
