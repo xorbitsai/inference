@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from typing import TYPE_CHECKING, Dict, Iterator
+from typing import TYPE_CHECKING, Any, Dict, Iterator
 
 import xoscar as xo
 
@@ -44,24 +44,28 @@ class ModelActor(xo.Actor):
         self._model.load()
 
     async def _create_iterator_actor(self, it: Iterator) -> IteratorWrapper:
-        address = self.address
         uid = str(id(it))
         await xo.create_actor(IteratorActor, address=self.address, uid=uid, it=it)
-        return IteratorWrapper(iter_actor_addr=address, iter_actor_uid=uid)
+        return IteratorWrapper(iter_actor_addr=self.address, iter_actor_uid=uid)
 
-    def __getattr__(self, item):
-        def wrap(func: callable):
-            async def wrapper(*args, **kwargs):
-                ret = func(*args, **kwargs)
-                if hasattr("ret", "__iter__"):
-                    return await self._create_iterator_actor(iter(ret))
-                else:
-                    return ret
-
-            return wrapper
-
-        attr = getattr(self._model, item)
-        if callable(attr):
-            return wrap(attr)
+    async def _wrap_iterator(self, ret: Any):
+        if hasattr(ret, "__iter__"):
+            return await self._create_iterator_actor(iter(ret))
         else:
-            return attr
+            return ret
+
+    async def generate(self, prompt: str, *args, **kwargs):
+        if not hasattr(self._model, "generate"):
+            raise AttributeError("generate")
+
+        return self._wrap_iterator(
+            getattr(self._model, "generate")(prompt, *args, **kwargs)
+        )
+
+    async def chat(self, prompt: str, *args, **kwargs):
+        if not hasattr(self._model, "chat"):
+            raise AttributeError("chat")
+
+        return self._wrap_iterator(
+            getattr(self._model, "chat")(prompt, *args, **kwargs)
+        )
