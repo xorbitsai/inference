@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from logging import getLogger
-from typing import Dict, List, Optional
+from typing import Callable, Dict, List, Optional
 
 import xoscar as xo
 
@@ -22,10 +22,27 @@ from plexar.actor import ModelActor
 logger = getLogger(__name__)
 
 
+def log(func: Callable):
+    import time
+    from functools import wraps
+
+    @wraps(func)
+    def wrapped(*args, **kwargs):
+        logger.debug(f"Enter {func.__name__}, args: {args}, kwargs: {kwargs}")
+        start = time.time()
+        ret = func(*args, **kwargs)
+        logger.debug(
+            f"Leave {func.__name__}, elapsed time: {int(time.time() - start)} ms"
+        )
+        return ret
+
+    return wrapped
+
+
 class ControllerActor(xo.Actor):
     def __init__(self):
         super().__init__()
-        self._workers: List[xo.ActorRefType[WorkerActor]] = []
+        self._worker_address_to_worker: Dict[str, xo.ActorRefType[WorkerActor]] = {}
         self._model_uid_to_worker: Dict[str, xo.ActorRefType[WorkerActor]] = {}
 
     @classmethod
@@ -36,7 +53,7 @@ class ControllerActor(xo.Actor):
         # TODO: better allocation strategy.
         min_running_model_count = None
         target_worker = None
-        for worker in self._workers:
+        for worker in self._worker_address_to_worker.values():
             running_model_count = await worker.get_model_count()
             if (
                 min_running_model_count is None
@@ -49,6 +66,7 @@ class ControllerActor(xo.Actor):
 
         raise RuntimeError("TODO")
 
+    @log
     async def launch_builtin_model(
         self,
         model_uid: str,
@@ -56,7 +74,7 @@ class ControllerActor(xo.Actor):
         n_parameters_in_billions: Optional[int],
         fmt: Optional[str],
         quantization: Optional[str],
-        **kwargs
+        **kwargs,
     ) -> xo.ActorRefType["ModelActor"]:
         assert model_uid not in self._model_uid_to_worker
 
@@ -67,12 +85,13 @@ class ControllerActor(xo.Actor):
             n_parameters_in_billions=n_parameters_in_billions,
             fmt=fmt,
             quantization=quantization,
-            **kwargs
+            **kwargs,
         )
         self._model_uid_to_worker[model_uid] = worker_ref
 
         return model_ref
 
+    @log
     async def terminate_model(self, model_uid: str):
         assert model_uid in self._model_uid_to_worker
 
@@ -80,18 +99,23 @@ class ControllerActor(xo.Actor):
         await worker_ref.terminate_model(model_uid=model_uid)
         del self._model_uid_to_worker[model_uid]
 
+    @log
     async def get_model(self, model_uid: str):
         assert model_uid in self._model_uid_to_worker
 
         worker_ref = self._model_uid_to_worker[model_uid]
         return await worker_ref.get_model(model_uid=model_uid)
 
+    @log
     async def list_models(self) -> List[str]:
         return list(self._model_uid_to_worker.keys())
 
+    @log
     async def add_worker(self, worker_address: str):
+        assert worker_address not in self._worker_address_to_worker
+
         worker_ref = await xo.actor_ref(address=worker_address, uid=WorkerActor.uid())
-        self._workers.append(worker_ref)
+        self._worker_address_to_worker[worker_address] = worker_ref
 
 
 class WorkerActor(xo.Actor):
@@ -113,6 +137,7 @@ class WorkerActor(xo.Actor):
     async def get_model_count(self) -> int:
         return len(self._model_uid_to_model)
 
+    @log
     async def launch_builtin_model(
         self,
         model_uid: str,
@@ -120,7 +145,7 @@ class WorkerActor(xo.Actor):
         n_parameters_in_billions: Optional[int],
         fmt: Optional[str],
         quantization: Optional[str],
-        **kwargs
+        **kwargs,
     ) -> xo.ActorRefType["ModelActor"]:
         assert model_uid not in self._model_uid_to_model
 
@@ -143,6 +168,7 @@ class WorkerActor(xo.Actor):
 
         raise ValueError("TODO")
 
+    @log
     async def terminate_model(self, model_uid: str):
         assert model_uid in self._model_uid_to_model
 
@@ -150,9 +176,11 @@ class WorkerActor(xo.Actor):
         await xo.destroy_actor(model_ref)
         del self._model_uid_to_model[model_uid]
 
+    @log
     async def list_models(self) -> List[str]:
         return list(self._model_uid_to_model.keys())
 
+    @log
     async def get_model(self, model_uid: str) -> xo.ActorRefType["ModelActor"]:
         assert model_uid in self._model_uid_to_model
 

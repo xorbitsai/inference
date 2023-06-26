@@ -16,7 +16,7 @@ import asyncio
 
 import xoscar as xo
 
-from ..actor.service import ControllerActor, WorkerActor
+from ..actor.service import WorkerActor
 
 
 async def _start_worker(address: str, controller_address: str):
@@ -27,10 +27,6 @@ async def _start_worker(address: str, controller_address: str):
         uid=WorkerActor.uid(),
         controller_address=controller_address,
     )
-    controller_ref: xo.ActorRefType[ControllerActor] = await xo.actor_ref(
-        address=controller_address, uid=ControllerActor.uid()
-    )
-    await controller_ref.add_worker(address)
     await pool.join()
 
 

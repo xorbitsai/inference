@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import logging
 
 import click
 
@@ -27,8 +28,12 @@ def cli():
 
 @cli.command()
 @click.option("--address", "-a")
-def controller(address: str):
+@click.option("--log-level", default="INFO", type=str)
+def controller(address: str, log_level: str):
     from ..deploy.controller import main
+
+    if log_level:
+        logging.basicConfig(level=logging.getLevelName(log_level.upper()))
 
     main(address=address)
 
@@ -36,8 +41,12 @@ def controller(address: str):
 @cli.command()
 @click.option("--address", "-a")
 @click.option("--controller-address")
-def worker(address: str, controller_address: str):
+@click.option("--log-level", default="INFO", type=str)
+def worker(address: str, controller_address: str, log_level: str):
     from ..deploy.worker import main
+
+    if log_level:
+        logging.basicConfig(level=logging.getLevelName(log_level.upper()))
 
     main(address=address, controller_address=controller_address)
 
