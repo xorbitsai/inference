@@ -15,6 +15,8 @@
 
 # only for demo now
 model_config = {
-    "vicuna-uncensored": {"model_path": ""},
-    "wizardlm": {""},
+    "vicuna-uncensored": {
+        "model_path": "/Users/hekaisheng/Downloads/Wizard-Vicuna-7B-Uncensored.ggmlv3.q2_K.bin"
+    },
+    "wizardlm": {"model_path": "/Users/hekaisheng/Downloads/model.bin"},
 }

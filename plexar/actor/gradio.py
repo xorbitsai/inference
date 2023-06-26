@@ -49,19 +49,67 @@ class GradioApp:
         model_refs = await asyncio.gather(*create_tasks)
         self._models = dict(zip(models, model_refs))
 
-    async def generate(self, message, *chats: List):
+    async def generate(self, message, *chat_components: List):
         if not self._models:
             raise gr.Error("Please create models first")
+        [chats, max_tokens, temperatures, top_ps] = [
+            chat_components[i : i + 4]
+            for i in range(0, len(chat_components), self._model_limits)
+        ]
         chat_tasks = []
-        for ref, chat_history in zip(self._models.values(), chats):
-            inputs = [c[0] for c in chat_history]
-            outputs = [c[1] for c in chat_history]
+        for ref, chat, max_token, temperature, top_p in zip(
+            self._models.values(), chats, max_tokens, temperatures, top_ps
+        ):
+            print(max_token, temperature, top_p)
+            inputs = [c[0] for c in chat]
+            outputs = [c[1] for c in chat]
             history = ChatHistory(inputs=inputs, outputs=outputs)
-            chat_tasks.append(ref.chat(message, chat_history=history))
+            generate_config = dict(
+                max_tokens=max_token,
+                temperature=temperature,
+                top_p=top_p,
+            )
+            chat_tasks.append(
+                ref.chat(
+                    message,
+                    chat_history=history,
+                    generate_config=generate_config,
+                )
+            )
         answers = await asyncio.gather(*chat_tasks)
         for answer, chat in zip(answers, chats):
             chat.append((message, answer["text"]))
         return message, *chats
+
+    @staticmethod
+    def _build_chatbot():
+        with gr.Column():
+            max_token = gr.Slider(
+                128,
+                512,
+                value=128,
+                step=1,
+                label="Max tokens",
+                info="The maximum number of tokens to generate.",
+            )
+            temperature = gr.Slider(
+                0.2,
+                1,
+                value=0.8,
+                step=0.01,
+                label="Temperature",
+                info="The temperature to use for sampling.",
+            )
+            top_p = gr.Slider(
+                0.2,
+                1,
+                value=0.95,
+                step=0.01,
+                label="Top P",
+                info="The top-p value to use for sampling.",
+            )
+            chat = gr.Chatbot(show_label=False)
+        return chat, max_token, temperature, top_p
 
     def build(self):
         with gr.Blocks() as blocks:
@@ -73,12 +121,25 @@ class GradioApp:
             create_button = gr.Button("create")
             with gr.Box():
                 with gr.Row():
-                    chats = [
-                        gr.Chatbot(show_label=False) for _ in range(self._model_limits)
-                    ]
+                    chats = []
+                    max_tokens = []
+                    temperatures = []
+                    top_ps = []
+                    for _ in range(self._model_limits):
+                        with gr.Column():
+                            chat, max_token, temperature, top_p = self._build_chatbot()
+                            chats.append(chat)
+                            max_tokens.append(max_token)
+                            temperatures.append(temperature)
+                            top_ps.append(top_p)
+
                 with gr.Column():
                     msg = gr.Textbox()
                     gr.ClearButton(components=[msg] + chats)
-                    msg.submit(self.generate, [msg] + chats, [msg] + chats)
+                    msg.submit(
+                        self.generate,
+                        [msg] + chats + max_tokens + temperatures + top_ps,
+                        [msg] + chats,
+                    )
             create_button.click(self.select_models, [choice])
         return blocks
