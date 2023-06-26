@@ -16,5 +16,5 @@
 # only for demo now
 model_config = {
     "vicuna-uncensored": {"model_path": ""},
-    "wizardlm": {"model_path": ""},
+    "wizardlm": {""},
 }
