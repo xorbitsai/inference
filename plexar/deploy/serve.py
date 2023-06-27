@@ -24,6 +24,7 @@ def run():
         pool = await xo.create_actor_pool(address="127.0.0.1", n_process=4)
         app = GradioApp(xoscar_endpoint=pool.external_address)
         demo = app.build()
+        demo.queue(concurrency_count=5)
         demo.launch()
 
     loop = asyncio.get_event_loop()
