@@ -11,7 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from typing import TYPE_CHECKING, Any, Dict, Iterator
+
+import inspect
+from typing import TYPE_CHECKING, Any
 
 import xoscar as xo
 
@@ -19,16 +21,6 @@ from .common import IteratorActor, IteratorWrapper
 
 if TYPE_CHECKING:
     from ..model.llm.core import Model
-
-
-class ModelManagerActor(xo.Actor):
-    models: Dict[str, xo.ActorRef] = dict()
-
-    def add_model(self, model_uid: str, ref: xo.ActorRef):
-        self.models[model_uid] = ref
-
-    def get_model(self, model_uid: str):
-        return self.models[model_uid]
 
 
 class ModelActor(xo.Actor):
@@ -43,14 +35,11 @@ class ModelActor(xo.Actor):
     async def __post_create__(self):
         self._model.load()
 
-    async def _create_iterator_actor(self, it: Iterator) -> IteratorWrapper:
-        uid = str(id(it))
-        await xo.create_actor(IteratorActor, address=self.address, uid=uid, it=it)
-        return IteratorWrapper(iter_actor_addr=self.address, iter_actor_uid=uid)
-
-    async def _wrap_iterator(self, ret: Any):
-        if hasattr(ret, "__iter__"):
-            return await self._create_iterator_actor(iter(ret))
+    async def _wrap_generator(self, ret: Any):
+        if inspect.isgenerator(ret):
+            uid = str(id(ret))
+            await xo.create_actor(IteratorActor, address=self.address, uid=uid, it=ret)
+            return IteratorWrapper(iter_actor_addr=self.address, iter_actor_uid=uid)
         else:
             return ret
 
@@ -58,7 +47,7 @@ class ModelActor(xo.Actor):
         if not hasattr(self._model, "generate"):
             raise AttributeError("generate")
 
-        return self._wrap_iterator(
+        return self._wrap_generator(
             getattr(self._model, "generate")(prompt, *args, **kwargs)
         )
 
@@ -66,6 +55,6 @@ class ModelActor(xo.Actor):
         if not hasattr(self._model, "chat"):
             raise AttributeError("chat")
 
-        return self._wrap_iterator(
+        return self._wrap_generator(
             getattr(self._model, "chat")(prompt, *args, **kwargs)
         )

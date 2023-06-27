@@ -14,7 +14,6 @@
 
 import abc
 import logging
-import textwrap
 from abc import abstractmethod
 from time import time
 from typing import TYPE_CHECKING, Any, Iterator, List, Optional, TypedDict, Union
@@ -181,7 +180,18 @@ class LlamaCppModel(Model):
     def generate(
         self, prompt: str, generate_config: Optional[LlamaCppGenerateConfig] = None
     ) -> Union[Completion, Iterator[Completion]]:
-        logger.debug("prompt:\n%s", "\n".join(textwrap.wrap(prompt, width=80)))
+        def generator_wrapper(_prompt: str, _generate_config, _start: float):
+            assert self._llm is not None
+            for _completion_chunk in self._llm(prompt=_prompt, **_generate_config):
+                _completion = self._get_completion(_completion_chunk)
+                _elapsed = time() - _start
+                _completion["elapsed_time"] = int(_elapsed)
+                yield _completion
+
+        logger.debug(
+            "Enter generate, prompt: %s, generate config: %s", prompt, generate_config
+        )
+
         generate_config = self._sanitize_generate_config(generate_config)
 
         start = time()
@@ -199,15 +209,9 @@ class LlamaCppModel(Model):
             )
             elapsed = time() - start
             completion["elapsed_time"] = int(elapsed)
-            logger.debug("completion:\n%s", completion)
             return completion
         else:
-            for completion_chunk in self._llm(prompt=prompt, **generate_config):
-                completion = self._get_completion(completion_chunk)
-                elapsed = time() - start
-                completion["elapsed_time"] = int(elapsed)
-                yield completion
-            logger.debug("completion:\n%s", completion)
+            return generator_wrapper(prompt, generate_config, start)
 
     @classmethod
     def _get_completion(

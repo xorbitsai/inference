@@ -48,7 +48,24 @@ class ModelSpec:
     def __str__(self):
         return f"{self.name}-{self.n_parameters_in_billions}b-{self.format}-{self.quantization}"
 
-    def cache(self):
+    def match(
+        self,
+        name: str,
+        n_parameters_in_billions: Optional[int],
+        fmt: Optional[str] = None,
+        quantization: Optional[str] = None,
+    ) -> bool:
+        return (
+            name == self.name
+            and (
+                n_parameters_in_billions is None
+                or n_parameters_in_billions == self.n_parameters_in_billions
+            )
+            and (fmt is None or fmt == self.format)
+            and (quantization is None or quantization == self.quantization)
+        )
+
+    def cache(self) -> str:
         assert self.url is not None
 
         save_dir = os.path.join(PLEXAR_CACHE_DIR, str(self))
@@ -57,7 +74,8 @@ class ModelSpec:
 
         save_path = os.path.join(save_dir, "model.bin")
         if os.path.exists(save_path):
-            os.remove(save_path)
+            # TODO: verify the integrity.
+            return save_path
 
         with tqdm(
             unit="B",
@@ -74,6 +92,8 @@ class ModelSpec:
                     blocksize
                 ),
             )
+
+        return save_path
 
 
 MODEL_SPECS: List[ModelSpec] = []
