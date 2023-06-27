@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import asyncio
-import time
 from typing import List, Tuple
 
 import gradio as gr
@@ -60,7 +59,7 @@ class GradioApp:
         top_p: float,
     ):
         if not message:
-            return message, chat
+            yield message, chat
         if not self._models:
             raise gr.Error(f"Please create model first")
         inputs = [c[0] for c in chat]
@@ -71,15 +70,16 @@ class GradioApp:
             temperature=temperature,
             top_p=top_p,
         )
-        print("before", time.time(), self._models[int(model_idx)][0])
-        answer = await self._models[int(model_idx)][1].chat(
+        chat += [[message, ""]]
+
+        chat_generator = await self._models[int(model_idx)][1].chat(
             message,
             chat_history=history,
             generate_config=generate_config,
         )
-        chat.append((message, answer["text"]))
-        print("after", time.time(), self._models[int(model_idx)][0])
-        return "", chat
+        async for chunk in chat_generator:
+            chat[-1][1] += chunk["text"]
+            yield "", chat
 
     def _build_chatbot(self, model_idx: int):
         with gr.Column():
@@ -114,7 +114,6 @@ class GradioApp:
                 self.generate,
                 [model_idx, text, chat, max_token, temperature, top_p],
                 [text, chat],
-                queue=False,
             )
         return text, chat, max_token, temperature, top_p
 
@@ -144,8 +143,6 @@ class GradioApp:
                     def _pass_to_all(msg, *text):
                         return [""] + [msg] * len(text)
 
-                    msg.submit(
-                        _pass_to_all, [msg] + texts, [msg] + texts, postprocess=False
-                    )
+                    msg.submit(_pass_to_all, [msg] + texts, [msg] + texts)
             create_button.click(self.select_models, [choice])
         return blocks
