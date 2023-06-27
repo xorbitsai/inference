@@ -22,27 +22,37 @@ from ..actor.service import ControllerActor, WorkerActor
 
 def run():
     async def start_gradio():
-        pool = await xo.create_actor_pool(address="127.0.0.1", n_process=4)
-        controller = await xo.create_actor(
-            ControllerActor, address=pool.external_address, uid=ControllerActor.uid()
-        )
-        await xo.create_actor(
-            WorkerActor,
-            address=pool.external_address,
-            uid=WorkerActor.uid(),
-            controller_address=pool.external_address,
-        )
-        await controller.launch_builtin_model("x1", "vicuna-uncensored")
-        await controller.launch_builtin_model("x2", "wizardlm")
-        app = GradioApp(xoscar_endpoint=pool.external_address)
-        demo = app.build()
-        demo.queue(concurrency_count=20)
-        demo.launch()
+        pool = None
+        demo = None
+        try:
+            pool = await xo.create_actor_pool(address="127.0.0.1", n_process=4)
+            controller = await xo.create_actor(
+                ControllerActor,
+                address=pool.external_address,
+                uid=ControllerActor.uid(),
+            )
+            await xo.create_actor(
+                WorkerActor,
+                address=pool.external_address,
+                uid=WorkerActor.uid(),
+                controller_address=pool.external_address,
+            )
+            await controller.launch_builtin_model("x1", "vicuna-uncensored")
+            await controller.launch_builtin_model("x2", "wizardlm")
+            app = GradioApp(xoscar_endpoint=pool.external_address)
+            demo = app.build()
+            demo.queue(concurrency_count=20)
+            demo.launch()
+        except asyncio.CancelledError:
+            if demo is not None:
+                demo.close()
+            if pool is not None:
+                await pool.stop()
 
     loop = asyncio.get_event_loop()
     task = loop.create_task(start_gradio())
     try:
-        loop.run_until_complete(start_gradio())
+        loop.run_until_complete(task)
     except KeyboardInterrupt:
         task.cancel()
 

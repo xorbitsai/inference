@@ -160,7 +160,7 @@ class WorkerActor(xo.Actor):
             if model_spec.match(
                 model_name, n_parameters_in_billions, fmt, quantization
             ):
-                logger.debug(f"Matched model sepc for %s: %s", model_uid, model_spec)
+                logger.debug(f"Matched model spec for %s: %s", model_uid, model_spec)
 
                 model_cls = model_spec.cls
                 assert model_cls is not None
