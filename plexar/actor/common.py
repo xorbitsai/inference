@@ -28,6 +28,7 @@ class IteratorActor(xo.Actor):
         try:
             return self._iter.__next__()
         except StopIteration:
+            # TODO: define an exception
             raise Exception("StopIteration")
 
 
@@ -53,7 +54,7 @@ class IteratorWrapper(Generic[T]):
             assert self._iter_actor_ref is not None
             return await self._iter_actor_ref.next()
         except Exception as e:
-            if str(e) == "StopIteration":
+            if "StopIteration" in str(e):
                 await xo.destroy_actor(self._iter_actor_ref)
                 raise StopAsyncIteration
             else:

@@ -180,10 +180,19 @@ class LlamaCppModel(Model):
     def generate(
         self, prompt: str, generate_config: Optional[LlamaCppGenerateConfig] = None
     ) -> Union[Completion, Iterator[Completion]]:
-        logger.debug("prompt:\n%s")
+        def generator_wrapper(_prompt: str, _generate_config, _start: float):
+            assert self._llm is not None
+            for _completion_chunk in self._llm(prompt=_prompt, **_generate_config):
+                _completion = self._get_completion(_completion_chunk)
+                _elapsed = time() - _start
+                _completion["elapsed_time"] = int(_elapsed)
+                yield _completion
+
+        logger.debug(
+            "Enter generate, prompt: %s, generate config: %s", prompt, generate_config
+        )
 
         generate_config = self._sanitize_generate_config(generate_config)
-        logger.debug("generate config:\n%s", generate_config)
 
         start = time()
         assert self._llm is not None
@@ -200,19 +209,9 @@ class LlamaCppModel(Model):
             )
             elapsed = time() - start
             completion["elapsed_time"] = int(elapsed)
-            logger.debug("completion:\n%s", completion)
             return completion
         else:
-            final_completion = None
-            for completion_chunk in self._llm(prompt=prompt, **generate_config):
-                completion = self._get_completion(completion_chunk)
-                elapsed = time() - start
-                completion["elapsed_time"] = int(elapsed)
-                final_completion = completion
-                yield completion
-
-            assert final_completion is not None
-            logger.debug("completion:\n%s", final_completion)
+            return generator_wrapper(prompt, generate_config, start)
 
     @classmethod
     def _get_completion(

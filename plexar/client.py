@@ -13,8 +13,9 @@
 # limitations under the License.
 
 import asyncio
+import threading
 import uuid
-from typing import List, Optional
+from typing import Any, Coroutine, List, Optional
 
 import xoscar as xo
 
@@ -22,18 +23,53 @@ from .actor.model import ModelActor
 from .actor.service import ControllerActor
 
 
-class Client:
-    def __init__(self, endpoint: str):
-        self._endpoint = endpoint
-        try:
-            self._loop = asyncio.get_running_loop()
-        except RuntimeError:
-            self._loop = asyncio.new_event_loop()
+class Isolation:
+    # TODO: better move isolation to xoscar.
+    def __init__(self, loop: asyncio.AbstractEventLoop, threaded: bool = True):
+        self._loop = loop
+        self._threaded = threaded
 
-        coro = xo.actor_ref(address=self._endpoint, uid=ControllerActor.uid())
-        self._controller_ref: xo.ActorRefType[
-            "ControllerActor"
-        ] = self._loop.run_until_complete(self._loop.create_task(coro))
+        self._stopped = None
+        self._thread = None
+        self._thread_ident = None
+
+    def _run(self):
+        asyncio.set_event_loop(self._loop)
+        self._stopped = asyncio.Event()
+        self._loop.run_until_complete(self._stopped.wait())
+
+    def start(self):
+        if self._threaded:
+            self._thread = thread = threading.Thread(target=self._run)
+            thread.daemon = True
+            thread.start()
+            self._thread_ident = thread.ident
+
+    def call(self, coro: Coroutine) -> Any:
+        fut = asyncio.run_coroutine_threadsafe(coro, self._loop)
+        return fut.result()
+
+    @property
+    def thread_ident(self):
+        return self._thread_ident
+
+    async def _stop(self):
+        self._stopped.set()
+
+    def stop(self):
+        if self._threaded:
+            asyncio.run_coroutine_threadsafe(self._stop(), self._loop).result()
+            self._thread.join()
+
+
+class Client:
+    def __init__(self, controller_address: str):
+        self._controller_address = controller_address
+        self._isolation = Isolation(asyncio.new_event_loop(), threaded=True)
+        self._isolation.start()
+        self._controller_ref: xo.ActorRefType["ControllerActor"] = self._isolation.call(
+            xo.actor_ref(address=self._controller_address, uid=ControllerActor.uid())
+        )
 
     @classmethod
     def gen_model_uid(cls) -> str:
@@ -58,18 +94,18 @@ class Client:
             quantization=quantization,
             **kwargs
         )
-        self._loop.run_until_complete(self._loop.create_task(coro))
+        self._isolation.call(coro)
 
         return model_uid
 
     def terminate_model(self, model_uid: str):
         coro = self._controller_ref.terminate_model(model_uid)
-        return self._loop.run_until_complete(self._loop.create_task(coro))
+        return self._isolation.call(coro)
 
     def list_models(self) -> List[str]:
         coro = self._controller_ref.list_models()
-        return self._loop.run_until_complete(self._loop.create_task(coro))
+        return self._isolation.call(coro)
 
     def get_model(self, model_uid: str) -> xo.ActorRefType["ModelActor"]:
         coro = self._controller_ref.get_model(model_uid)
-        return self._loop.run_until_complete(self._loop.create_task(coro))
+        return self._isolation.call(coro)

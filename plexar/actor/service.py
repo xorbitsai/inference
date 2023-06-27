@@ -18,6 +18,7 @@ from typing import Callable, Dict, List, Optional
 import xoscar as xo
 
 from plexar.actor import ModelActor
+from plexar.model import ModelSpec
 
 logger = getLogger(__name__)
 
@@ -107,8 +108,11 @@ class ControllerActor(xo.Actor):
         return await worker_ref.get_model(model_uid=model_uid)
 
     @log
-    async def list_models(self) -> List[str]:
-        return list(self._model_uid_to_worker.keys())
+    async def list_models(self) -> List[tuple[str, ModelSpec]]:
+        ret = []
+        for worker in self._worker_address_to_worker.values():
+            ret.extend(await worker.list_models())
+        return ret
 
     @log
     async def add_worker(self, worker_address: str):
@@ -123,6 +127,7 @@ class WorkerActor(xo.Actor):
         super().__init__()
         self._controller_address = controller_address
         self._model_uid_to_model: Dict[str, xo.ActorRefType["ModelActor"]] = {}
+        self._model_uid_to_model_spec: Dict[str, ModelSpec] = {}
 
     @classmethod
     def uid(cls) -> str:
@@ -155,6 +160,8 @@ class WorkerActor(xo.Actor):
             if model_spec.match(
                 model_name, n_parameters_in_billions, fmt, quantization
             ):
+                logger.debug(f"Matched model sepc for %s: %s", model_uid, model_spec)
+
                 model_cls = model_spec.cls
                 assert model_cls is not None
 
@@ -164,6 +171,7 @@ class WorkerActor(xo.Actor):
                     ModelActor, address=self.address, uid=model_uid, model=model
                 )
                 self._model_uid_to_model[model_uid] = model_ref
+                self._model_uid_to_model_spec[model_uid] = model_spec
                 return model_ref
 
         raise ValueError("TODO")
@@ -177,8 +185,8 @@ class WorkerActor(xo.Actor):
         del self._model_uid_to_model[model_uid]
 
     @log
-    async def list_models(self) -> List[str]:
-        return list(self._model_uid_to_model.keys())
+    async def list_models(self) -> List[tuple[str, ModelSpec]]:
+        return list(self._model_uid_to_model_spec.items())
 
     @log
     async def get_model(self, model_uid: str) -> xo.ActorRefType["ModelActor"]:
