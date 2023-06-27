@@ -17,11 +17,23 @@ import asyncio
 import xoscar as xo
 
 from ..actor.gradio import GradioApp
+from ..actor.service import ControllerActor, WorkerActor
 
 
 def run():
     async def start_gradio():
         pool = await xo.create_actor_pool(address="127.0.0.1", n_process=4)
+        controller = await xo.create_actor(
+            ControllerActor, address=pool.external_address, uid=ControllerActor.uid()
+        )
+        await xo.create_actor(
+            WorkerActor,
+            address=pool.external_address,
+            uid=WorkerActor.uid(),
+            controller_address=pool.external_address,
+        )
+        await controller.launch_builtin_model("x1", "vicuna-uncensored")
+        await controller.launch_builtin_model("x2", "wizardlm")
         app = GradioApp(xoscar_endpoint=pool.external_address)
         demo = app.build()
         demo.queue(concurrency_count=20)

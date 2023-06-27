@@ -12,46 +12,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import asyncio
-from typing import List, Tuple
+from typing import List
 
 import gradio as gr
-import xoscar as xo
 
-from ..api import API
-from ..model import MODEL_SPECS
-from ..model.config import model_config
+from ..client import Client
 from ..model.llm.core import ChatHistory
-
-name_to_spec = dict((spec.name, spec) for spec in MODEL_SPECS)
 
 
 class GradioApp:
     def __init__(self, xoscar_endpoint: str):
         self._xoscar_endpoint = xoscar_endpoint
-        self._api = API(xoscar_endpoint)
-        self._model_limits = 2
-        self._models: List[Tuple[str, xo.ActorRef]] = []
-
-    async def select_models(self, models: List[str]):
-        if len(models) != self._model_limits:
-            raise gr.Error("Please choose 2 models")
-        if self._models:
-            destroy_tasks = []
-            for _, ref in self._models:
-                destroy_tasks.append(ref.destroy())
-            await asyncio.gather(*destroy_tasks)
-        create_tasks = []
-        for model in models:
-            kwargs = model_config[model]
-            cls = name_to_spec[model].cls
-            create_tasks.append(self._api.create_model(cls, **kwargs))
-        model_refs = await asyncio.gather(*create_tasks)
-        self._models = list(zip(models, model_refs))
+        self._api = Client(xoscar_endpoint)
+        self._models = self._api.list_models()
 
     async def generate(
         self,
-        model_idx: int,
+        model: str,
         message: str,
         chat: List,
         max_token: int,
@@ -71,8 +48,8 @@ class GradioApp:
             top_p=top_p,
         )
         chat += [[message, ""]]
-
-        chat_generator = await self._models[int(model_idx)][1].chat(
+        model_ref = self._api.get_model(model)
+        chat_generator = await model_ref.chat(
             message,
             chat_history=history,
             generate_config=generate_config,
@@ -81,8 +58,8 @@ class GradioApp:
             chat[-1][1] += chunk["text"]
             yield "", chat
 
-    def _build_chatbot(self, model_idx: int):
-        with gr.Column():
+    def _build_chatbot(self, model_uid: str, model_name: str):
+        with gr.Accordion("Parameters", open=False):
             max_token = gr.Slider(
                 128,
                 512,
@@ -107,32 +84,27 @@ class GradioApp:
                 label="Top P",
                 info="The top-p value to use for sampling.",
             )
-            chat = gr.Chatbot(show_label=False)
-            text = gr.Textbox(visible=False)
-            model_idx = gr.Number(model_idx, visible=False)
-            text.change(
-                self.generate,
-                [model_idx, text, chat, max_token, temperature, top_p],
-                [text, chat],
-            )
+        chat = gr.Chatbot(label=model_name)
+        text = gr.Textbox(visible=False)
+        model = gr.Textbox(model_uid, visible=False)
+        text.change(
+            self.generate,
+            [model, text, chat, max_token, temperature, top_p],
+            [text, chat],
+        )
         return text, chat, max_token, temperature, top_p
 
     def build(self):
         with gr.Blocks() as blocks:
             gr.Markdown("# Chat with LLMs")
-            choice = gr.CheckboxGroup(
-                list(model_config.keys()),
-                label="Choose models to deploy",
-            )
-            create_button = gr.Button("create")
             model_components = []
             with gr.Box():
                 with gr.Row():
                     chats = []
                     texts = []
-                    for model_idx in range(self._model_limits):
+                    for model in self._models:
                         with gr.Column():
-                            components = self._build_chatbot(model_idx)
+                            components = self._build_chatbot(model[0], model[1].name)
                             model_components.append(components)
                             texts.append(components[0])
                             chats.append(components[1])
@@ -144,5 +116,4 @@ class GradioApp:
                         return [""] + [msg] * len(text)
 
                     msg.submit(_pass_to_all, [msg] + texts, [msg] + texts)
-            create_button.click(self.select_models, [choice])
         return blocks

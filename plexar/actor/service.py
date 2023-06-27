@@ -28,10 +28,10 @@ def log(func: Callable):
     from functools import wraps
 
     @wraps(func)
-    def wrapped(*args, **kwargs):
+    async def wrapped(*args, **kwargs):
         logger.debug(f"Enter {func.__name__}, args: {args}, kwargs: {kwargs}")
         start = time.time()
-        ret = func(*args, **kwargs)
+        ret = await func(*args, **kwargs)
         logger.debug(
             f"Leave {func.__name__}, elapsed time: {int(time.time() - start)} ms"
         )
@@ -72,9 +72,9 @@ class ControllerActor(xo.Actor):
         self,
         model_uid: str,
         model_name: str,
-        n_parameters_in_billions: Optional[int],
-        fmt: Optional[str],
-        quantization: Optional[str],
+        n_parameters_in_billions: Optional[int] = None,
+        fmt: Optional[str] = None,
+        quantization: Optional[str] = None,
         **kwargs,
     ) -> xo.ActorRefType["ModelActor"]:
         assert model_uid not in self._model_uid_to_worker
@@ -173,8 +173,11 @@ class WorkerActor(xo.Actor):
                 self._model_uid_to_model[model_uid] = model_ref
                 self._model_uid_to_model_spec[model_uid] = model_spec
                 return model_ref
-
-        raise ValueError("TODO")
+        available_models = "\n".join(model_spec.name for model_spec in MODEL_SPECS)
+        raise ValueError(
+            f"\nModel {model_name} can't match any model, here are available models:\n"
+            f"{available_models}"
+        )
 
     @log
     async def terminate_model(self, model_uid: str):
