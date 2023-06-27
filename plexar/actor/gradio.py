@@ -24,7 +24,13 @@ class GradioApp:
     def __init__(self, xoscar_endpoint: str):
         self._xoscar_endpoint = xoscar_endpoint
         self._api = Client(xoscar_endpoint)
-        self._models = self._api.list_models()
+        # model string to model uid
+        self._models = dict((str(m[1]), m[0]) for m in self._api.list_models())
+
+    def _refresh_and_get_models(self) -> List[str]:
+        print("refresh==================================")
+        self._models = dict((str(m[1]), m[0]) for m in self._api.list_models())
+        return list(self._models.keys())
 
     async def generate(
         self,
@@ -86,18 +92,17 @@ class GradioApp:
             )
         chat = gr.Chatbot(label=model_name)
         text = gr.Textbox(visible=False)
-        model = gr.Textbox(model_uid, visible=False)
+        model_uid = gr.Textbox(model_uid, visible=False)
         text.change(
             self.generate,
-            [model, text, chat, max_token, temperature, top_p],
+            [model_uid, text, chat, max_token, temperature, top_p],
             [text, chat],
         )
-        return text, chat, max_token, temperature, top_p
+        return text, chat, max_token, temperature, top_p, model_uid
 
-    def build(self):
+    def build_multiple(self):
         with gr.Blocks() as blocks:
             gr.Markdown("# Chat with LLMs")
-            model_components = []
             with gr.Box():
                 with gr.Row():
                     chats = []
@@ -105,7 +110,6 @@ class GradioApp:
                     for model in self._models:
                         with gr.Column():
                             components = self._build_chatbot(model[0], model[1].name)
-                            model_components.append(components)
                             texts.append(components[0])
                             chats.append(components[1])
                 with gr.Column():
@@ -116,4 +120,36 @@ class GradioApp:
                         return [""] + [msg] * len(text)
 
                     msg.submit(_pass_to_all, [msg] + texts, [msg] + texts)
+        return blocks
+
+    def build(self):
+        with gr.Blocks() as blocks:
+            gr.Markdown("# Chat with LLM")
+
+            selected_model = gr.Dropdown(
+                choices=self._refresh_and_get_models(),
+                label="select launched model",
+            )
+            with gr.Box():
+                with gr.Column():
+                    components = self._build_chatbot("", "")
+                    msg = gr.Textbox()
+                    model_text = components[0]
+                    gr.ClearButton(components=[msg, model_text])
+                    chat, model_uid = components[1], components[-1]
+
+                    def update_message(text_in: str):
+                        return "", text_in
+
+                    msg.submit(update_message, inputs=[msg], outputs=[msg, model_text])
+
+            def select_model(model_name: str):
+                uid = self._models[model_name]
+                return gr.Chatbot.update(label=model_name, value=[]), gr.Textbox.update(
+                    value=uid
+                )
+
+            selected_model.change(
+                select_model, inputs=[selected_model], outputs=[chat, model_uid]
+            )
         return blocks
