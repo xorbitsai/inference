@@ -22,7 +22,7 @@ from ..actor.service import ControllerActor, RESTAPIActor
 async def _start_controller(address: str):
     pool = await xo.create_actor_pool(address=address, n_process=0)
     controller_ref = await xo.create_actor(ControllerActor, address=address, uid=ControllerActor.uid())
-    rest_ref = await xo.create_actor(RESTAPIActor, address=address, uid="restful", addr = "0.0.0.0:8000")
+    rest_ref = await xo.create_actor(RESTAPIActor, address=address, uid="restful", host="0.0.0.0", port=8000)
     # TODO: start Gradio actor
     await pool.join()
 
