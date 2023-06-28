@@ -21,6 +21,7 @@ import xoscar as xo
 
 from .actor.model import ModelActor
 from .actor.service import ControllerActor
+from .model import ModelSpec
 
 
 class Isolation:
@@ -102,7 +103,7 @@ class Client:
         coro = self._controller_ref.terminate_model(model_uid)
         return self._isolation.call(coro)
 
-    def list_models(self) -> List[str]:
+    def list_models(self) -> List[tuple[str, ModelSpec]]:
         coro = self._controller_ref.list_models()
         return self._isolation.call(coro)
 

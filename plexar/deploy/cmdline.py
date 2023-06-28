@@ -16,9 +16,12 @@ import logging
 
 import click
 
-from ..constants import PLEXAR_DEFAULT_HOST, PLEXAR_DEFAULT_CONTROLLER_PORT, PLEXAR_DEFAULT_WORKER_PORT
-
 from .. import __version__
+from ..constants import (
+    PLEXAR_DEFAULT_CONTROLLER_PORT,
+    PLEXAR_DEFAULT_HOST,
+    PLEXAR_DEFAULT_WORKER_PORT,
+)
 
 
 @click.group(name="plexar")
@@ -29,11 +32,15 @@ def cli():
 
 @cli.command()
 @click.option(
-    "--address","-a",
+    "--address",
+    "-a",
     default=f"{PLEXAR_DEFAULT_HOST}:{PLEXAR_DEFAULT_CONTROLLER_PORT}",
-    type=str
+    type=str,
 )
 @click.option("--log-level", default="INFO", type=str)
+@click.option("--share", is_flag=True)
+@click.option("--host", "-h", default=None, type=str)
+@click.option("--port", "-p", default=None, type=int)
 def controller(address: str, log_level: str):
     from ..deploy.controller import main
 
@@ -45,7 +52,8 @@ def controller(address: str, log_level: str):
 
 @cli.command()
 @click.option(
-    "--address", "-a",
+    "--address",
+    "-a",
     default=f"{PLEXAR_DEFAULT_HOST}:{PLEXAR_DEFAULT_WORKER_PORT}",
     type=str,
 )
@@ -79,21 +87,31 @@ def model_list():
 @click.option("--size-in-billions", "-s", default=None, type=int)
 @click.option("--model-format", "-f", default=None, type=str)
 @click.option("--quantization", "-q", default=None, type=str)
+@click.option("--share", is_flag=True)
+@click.option("--host", "-h", default=None, type=str)
+@click.option("--port", "-p", default=None, type=int)
 def model_launch(
-        name: str,
-        size_in_billions: int,
-        model_format: str,
-        quantization: str
+    name: str,
+    size_in_billions: int,
+    model_format: str,
+    quantization: str,
+    share: bool,
+    host: str,
+    port: str,
 ):
     address = f"{PLEXAR_DEFAULT_HOST}:{PLEXAR_DEFAULT_CONTROLLER_PORT}"
 
     from .local import main
+
     main(
         address=address,
         model_name=name,
         size_in_billions=size_in_billions,
         model_format=model_format,
-        quantization=quantization
+        quantization=quantization,
+        share=share,
+        host=host,
+        port=port,
     )
 
 
