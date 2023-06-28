@@ -20,6 +20,11 @@ import xoscar as xo
 from plexar.actor import ModelActor
 from plexar.model import ModelSpec
 
+from fastapi import FastAPI, APIRouter
+from fastapi import HTTPException
+import asyncio
+from uvicorn import Config, Server
+
 logger = getLogger(__name__)
 
 
@@ -120,6 +125,65 @@ class ControllerActor(xo.Actor):
 
         worker_ref = await xo.actor_ref(address=worker_address, uid=WorkerActor.uid())
         self._worker_address_to_worker[worker_address] = worker_ref
+
+
+class RESTAPIActor(xo.Actor):
+    def __init__(self, addr: str):
+        super().__init__()
+        self._address = addr
+        self._controller_ref = None
+        app = FastAPI()
+        self.router = APIRouter()
+        self.router.add_api_route("/models", self.list_models, methods=["GET"])
+        self.router.add_api_route("/models/{model_uid}", self.get_model, methods=["GET"])
+        self.router.add_api_route("/models", self.launch_model, methods=["POST"])
+        self.router.add_api_route("/models/{model_uid}", self.terminate_model, methods=["DELETE"])
+        app.include_router(self.router)
+
+        # uvicorn
+        loop = asyncio.get_event_loop()
+        config = Config(app=app, loop=loop, host="0.0.0.0", port=8000)
+        server = Server(config)
+        loop.create_task(server.serve())
+
+    async def _start_controller(self):
+        self._controller_ref = await xo.actor_ref(
+            address=self._address, uid=ControllerActor.uid()
+        )
+
+    async def list_models(self) -> List[str]:
+        await self._start_controller()
+        return await self._controller_ref.list_models()
+
+    async def get_model(self, model_uid: str):
+        await self._start_controller()
+        return await self._controller_ref.get_model(model_uid)
+
+    async def launch_model(
+        self,
+        model_uid: str = None,
+        model_name: str = None,
+        n_parameters_in_billions: int = None,
+        fmt: str = None,
+        quantization: str = None
+    ):
+        await self._start_controller()
+        if model_uid is None:
+            model_uid = self._controller_ref.gen_model_uid()
+
+        await self._controller_ref.launch_builtin_model(
+            model_uid=model_uid,
+            model_name=model_name,
+            n_parameters_in_billions=n_parameters_in_billions,
+            fmt=fmt,
+            quantization=quantization
+        )
+        return {"model_uid": model_uid}
+
+    async def terminate_model(self, model_uid: str):
+        await self._start_controller()
+        await self._controller_ref.terminate_model(model_uid)
+        return {"message": "Model terminated successfully."}
 
 
 class WorkerActor(xo.Actor):
