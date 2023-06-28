@@ -45,40 +45,41 @@ class GradioApp:
     ):
         if not message:
             yield message, chat
-        if not self._models:
-            raise gr.Error(f"Please create model first")
-        inputs = []
-        outputs = []
-        for c in chat:
-            inputs.append(c[0])
-            out = c[1]
-            # remove finish reason
-            finish_reason_idx = out.find("[finish reason: ")
-            if finish_reason_idx == -1:
-                outputs.append(out)
-            else:
-                outputs.append(out[:finish_reason_idx])
-        chat = list([i, o] for i, o in zip(inputs, outputs))
-        history = ChatHistory(inputs=inputs, outputs=outputs)
-        generate_config = dict(
-            max_tokens=max_token,
-            temperature=temperature,
-            top_p=top_p,
-        )
-        chat += [[message, ""]]
-        model_ref = self._api.get_model(model)
-        chat_generator = await model_ref.chat(
-            message,
-            chat_history=history,
-            generate_config=generate_config,
-        )
-        chunk = None
-        async for chunk in chat_generator:
-            chat[-1][1] += chunk["choices"][0]["text"]
-            yield "", chat
-        if show_finish_reason and chunk is not None:
-            chat[-1][1] += f"[finish reason: {chunk['finish_reason']}]"
-            yield "", chat
+        else:
+            if not self._models:
+                raise gr.Error(f"Please create model first")
+            inputs = []
+            outputs = []
+            for c in chat:
+                inputs.append(c[0])
+                out = c[1]
+                # remove finish reason
+                finish_reason_idx = out.find("[finish reason: ")
+                if finish_reason_idx == -1:
+                    outputs.append(out)
+                else:
+                    outputs.append(out[:finish_reason_idx])
+            chat = list([i, o] for i, o in zip(inputs, outputs))
+            history = ChatHistory(inputs=inputs, outputs=outputs)
+            generate_config = dict(
+                max_tokens=max_token,
+                temperature=temperature,
+                top_p=top_p,
+            )
+            chat += [[message, ""]]
+            model_ref = self._api.get_model(model)
+            chat_generator = await model_ref.chat(
+                message,
+                chat_history=history,
+                generate_config=generate_config,
+            )
+            chunk = None
+            async for chunk in chat_generator:
+                chat[-1][1] += chunk["choices"][0]["text"]
+                yield "", chat
+            if show_finish_reason and chunk is not None:
+                chat[-1][1] += f"[finish reason: {chunk['finish_reason']}]"
+                yield "", chat
 
     def _build_chatbot(self, model_uid: str, model_name: str):
         with gr.Accordion("Parameters", open=False):
