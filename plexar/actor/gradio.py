@@ -53,8 +53,8 @@ class GradioApp:
             for c in chat:
                 inputs.append(c[0])
                 out = c[1]
-                # remove finish reason
-                finish_reason_idx = out.find("[finish reason: ")
+                # remove stop reason
+                finish_reason_idx = out.find("[stop reason: ")
                 if finish_reason_idx == -1:
                     outputs.append(out)
                 else:
@@ -78,7 +78,7 @@ class GradioApp:
                 chat[-1][1] += chunk["choices"][0]["text"]
                 yield "", chat
             if show_finish_reason and chunk is not None:
-                chat[-1][1] += f"[finish reason: {chunk['finish_reason']}]"
+                chat[-1][1] += f"[stop reason: {chunk['finish_reason']}]"
                 yield "", chat
 
     def _build_chatbot(self, model_uid: str, model_name: str):
@@ -107,7 +107,7 @@ class GradioApp:
                 label="Top P",
                 info="The top-p value to use for sampling.",
             )
-            show_finish_reason = gr.Checkbox(label="show finish reason")
+            show_finish_reason = gr.Checkbox(label="show stop reason")
         chat = gr.Chatbot(label=model_name)
         text = gr.Textbox(visible=False)
         model_uid = gr.Textbox(model_uid, visible=False)
