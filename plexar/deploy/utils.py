@@ -12,13 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
-from pathlib import Path
+import xoscar as xo
 
-PLEXAR_HOME = str(Path.home() / ".plexar")
-PLEXAR_CACHE_DIR = os.path.join(PLEXAR_HOME, "cache")
-PLEXAR_LOG_DIR = os.path.join(PLEXAR_HOME, "logs")
+from typing import TYPE_CHECKING
 
-PLEXAR_DEFAULT_HOST = "127.0.0.1"
-PLEXAR_DEFAULT_CONTROLLER_PORT = 9998
-PLEXAR_DEFAULT_WORKER_PORT = 9999
+if TYPE_CHECKING:
+    from xoscar.backends.pool import MainActorPoolType
+
+
+async def create_actor_pool(address: str, n_process: int) -> "MainActorPoolType":
+    return await xo.create_actor_pool(address=address, n_process=n_process)
+

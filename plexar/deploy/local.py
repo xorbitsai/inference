@@ -14,28 +14,53 @@
 
 import asyncio
 
-import xoscar as xo
-
-from ..actor.service import ControllerActor
-
-
-async def start_controller_components(address: str):
-    await xo.create_actor(ControllerActor, address=address, uid=ControllerActor.uid())
-    # TODO: start RESTful actor
-    # TODO: start Gradio actor
+from .controller import start_controller_components
+from .worker import start_worker_components
 
 
-async def _start_controller(address: str):
+async def _start_local_cluster(
+        address: str,
+        model_name: str,
+        size_in_billions: int,
+        model_format: str,
+        quantization: str
+):
     from .utils import create_actor_pool
 
     pool = await create_actor_pool(address=address, n_process=0)
     await start_controller_components(address=address)
+    await start_worker_components(address=address, controller_address=address)
+
+    # TODO: async client
+    from ..client import Client
+    client = Client(controller_address=address)
+    client.launch_model(
+        model_name=model_name,
+        n_parameters_in_billions=size_in_billions,
+        fmt=model_format,
+        quantization=quantization
+    )
+
     await pool.join()
 
 
-def main(address: str):
+def main(
+    address: str,
+    model_name: str,
+    size_in_billions: int,
+    model_format: str,
+    quantization: str
+):
     loop = asyncio.get_event_loop()
-    task = loop.create_task(_start_controller(address))
+    task = loop.create_task(
+        _start_local_cluster(
+            address=address,
+            model_name=model_name,
+            size_in_billions=size_in_billions,
+            model_format=model_format,
+            quantization=quantization,
+        )
+    )
 
     try:
         loop.run_until_complete(task)
