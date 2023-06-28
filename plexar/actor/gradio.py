@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import uuid
 from typing import List
 
 import gradio as gr
@@ -28,7 +29,6 @@ class GradioApp:
         self._models = dict((str(m[1]), m[0]) for m in self._api.list_models())
 
     def _refresh_and_get_models(self) -> List[str]:
-        print("refresh==================================")
         self._models = dict((str(m[1]), m[0]) for m in self._api.list_models())
         return list(self._models.keys())
 
@@ -130,6 +130,15 @@ class GradioApp:
                 choices=self._refresh_and_get_models(),
                 label="select launched model",
             )
+
+            # It's a trick, create an invisible Number with callable value
+            # and set every to 5 to trigger update every 5 seconds
+            def _refresh_models():
+                return gr.Dropdown.update(choices=self._refresh_and_get_models())
+
+            n = gr.Text(value=lambda *_: str(uuid.uuid4()), visible=False, every=5)
+            n.change(_refresh_models, inputs=None, outputs=[selected_model])
+
             with gr.Box():
                 with gr.Column():
                     components = self._build_chatbot("", "")
