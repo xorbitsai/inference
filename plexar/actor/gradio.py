@@ -137,15 +137,17 @@ class GradioApp:
                 return gr.Dropdown.update(choices=self._refresh_and_get_models())
 
             n = gr.Text(value=lambda *_: str(uuid.uuid4()), visible=False, every=5)
-            n.change(_refresh_models, inputs=None, outputs=[selected_model])
+            n.change(
+                _refresh_models, inputs=None, outputs=[selected_model], queue=False
+            )
 
             with gr.Box():
                 with gr.Column():
                     components = self._build_chatbot("", "")
                     msg = gr.Textbox()
                     model_text = components[0]
-                    gr.ClearButton(components=[msg, model_text])
                     chat, model_uid = components[1], components[-1]
+                    gr.ClearButton(components=[chat, msg, model_text])
 
                     def update_message(text_in: str):
                         return "", text_in
@@ -159,6 +161,9 @@ class GradioApp:
                 )
 
             selected_model.change(
-                select_model, inputs=[selected_model], outputs=[chat, model_uid]
+                select_model,
+                inputs=[selected_model],
+                outputs=[chat, model_uid],
+                postprocess=False,
             )
         return blocks
