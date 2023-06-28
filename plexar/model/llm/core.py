@@ -248,8 +248,8 @@ class LlamaCppChatModel(LlamaCppModel):
 
     def chat(
         self,
-        system_prompt: Optional[str],
         prompt: str,
+        system_prompt: Optional[str] = None,
         chat_history: Optional[ChatHistory] = None,
         generate_config: Optional[LlamaCppGenerateConfig] = None,
     ) -> Union[Completion, Iterator[Completion]]:
