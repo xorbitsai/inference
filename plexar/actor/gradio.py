@@ -37,17 +37,28 @@ class GradioApp:
         self,
         model: str,
         message: str,
-        chat: List,
+        chat: List[List[str]],
         max_token: int,
         temperature: float,
         top_p: float,
+        show_finish_reason: bool,
     ):
         if not message:
             yield message, chat
         if not self._models:
             raise gr.Error(f"Please create model first")
-        inputs = [c[0] for c in chat]
-        outputs = [c[1] for c in chat]
+        inputs = []
+        outputs = []
+        for c in chat:
+            inputs.append(c[0])
+            out = c[1]
+            # remove finish reason
+            finish_reason_idx = out.find("[finish reason: ")
+            if finish_reason_idx == -1:
+                outputs.append(out)
+            else:
+                outputs.append(out[:finish_reason_idx])
+        chat = list([i, o] for i, o in zip(inputs, outputs))
         history = ChatHistory(inputs=inputs, outputs=outputs)
         generate_config = dict(
             max_tokens=max_token,
@@ -61,8 +72,12 @@ class GradioApp:
             chat_history=history,
             generate_config=generate_config,
         )
+        chunk = None
         async for chunk in chat_generator:
             chat[-1][1] += chunk["choices"][0]["text"]
+            yield "", chat
+        if show_finish_reason and chunk is not None:
+            chat[-1][1] += f"[finish reason: {chunk['finish_reason']}]"
             yield "", chat
 
     def _build_chatbot(self, model_uid: str, model_name: str):
@@ -91,15 +106,16 @@ class GradioApp:
                 label="Top P",
                 info="The top-p value to use for sampling.",
             )
+            show_finish_reason = gr.Checkbox(label="show finish reason")
         chat = gr.Chatbot(label=model_name)
         text = gr.Textbox(visible=False)
         model_uid = gr.Textbox(model_uid, visible=False)
         text.change(
             self.generate,
-            [model_uid, text, chat, max_token, temperature, top_p],
+            [model_uid, text, chat, max_token, temperature, top_p, show_finish_reason],
             [text, chat],
         )
-        return text, chat, max_token, temperature, top_p, model_uid
+        return text, chat, max_token, temperature, top_p, show_finish_reason, model_uid
 
     def build_multiple(self):
         with gr.Blocks() as blocks:
