@@ -127,7 +127,9 @@ class GradioApp:
         with gr.Blocks() as blocks:
             gr.Markdown("# Chat with LLM")
 
+            models = self._refresh_and_get_models()
             selected_model = gr.Dropdown(
+                value=models[0] if len(models) > 0 else None,
                 choices=self._refresh_and_get_models(),
                 label="select launched model",
             )
@@ -135,7 +137,8 @@ class GradioApp:
             # It's a trick, create an invisible Number with callable value
             # and set every to 5 to trigger update every 5 seconds
             def _refresh_models():
-                return gr.Dropdown.update(choices=self._refresh_and_get_models())
+                launched = self._refresh_and_get_models()
+                return gr.Dropdown.update(value=launched[0], choices=launched)
 
             n = gr.Text(value=lambda *_: str(uuid.uuid4()), visible=False, every=5)
             n.change(
