@@ -33,7 +33,9 @@ async def _start_worker(address: str, controller_address: str):
     from .utils import create_actor_pool
 
     pool = await create_actor_pool(address=address, n_process=0)
-    await start_worker_components(address=address, controller_address=controller_address)
+    await start_worker_components(
+        address=address, controller_address=controller_address
+    )
     await pool.join()
 
 

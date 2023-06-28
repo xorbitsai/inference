@@ -24,6 +24,7 @@ logger = getLogger(__name__)
 
 
 def log(func: Callable):
+    # TODO: support non-async function
     import time
     from functools import wraps
 
