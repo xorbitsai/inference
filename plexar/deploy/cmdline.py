@@ -79,7 +79,29 @@ def model():
 
 @model.command("list")
 def model_list():
-    raise NotImplemented
+    import sys
+
+    from tabulate import tabulate
+
+    from ..model import MODEL_FAMILIES
+
+    table = []
+    for model_family in MODEL_FAMILIES:
+        table.append(
+            [
+                model_family.model_name,
+                model_family.model_format,
+                model_family.model_sizes_in_billions,
+                model_family.quantizations,
+            ]
+        )
+
+    print(
+        tabulate(
+            table, headers=["Name", "Format", "Size (in billions)", "Quantization"]
+        ),
+        file=sys.stderr,
+    )
 
 
 @model.command("launch")

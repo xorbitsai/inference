@@ -80,8 +80,8 @@ class Client:
     def launch_model(
         self,
         model_name: str,
-        n_parameters_in_billions: Optional[int] = None,
-        fmt: Optional[str] = None,
+        model_size_in_billions: Optional[int] = None,
+        model_format: Optional[str] = None,
         quantization: Optional[str] = None,
         **kwargs
     ) -> str:
@@ -90,8 +90,8 @@ class Client:
         coro = self._controller_ref.launch_builtin_model(
             model_uid=model_uid,
             model_name=model_name,
-            n_parameters_in_billions=n_parameters_in_billions,
-            fmt=fmt,
+            model_size_in_billions=model_size_in_billions,
+            model_format=model_format,
             quantization=quantization,
             **kwargs
         )
