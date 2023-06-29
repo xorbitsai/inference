@@ -19,10 +19,9 @@ import xoscar as xo
 from ..actor.gradio import GradioActor
 from ..actor.service import ControllerActor, RESTAPIActor
 
-
 async def start_controller_components(address: str, share: bool, host: str, port: int):
     await xo.create_actor(ControllerActor, address=address, uid=ControllerActor.uid())
-    await xo.create_actor(RESTAPIActor, address=address, uid="restful", host="0.0.0.0", port=8000)
+    await xo.create_actor(RESTAPIActor, address=address, uid="restful", host=host, port=port)
     gradio = await xo.create_actor(
         GradioActor,
         xoscar_endpoint=address,
