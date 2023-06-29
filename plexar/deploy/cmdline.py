@@ -11,13 +11,17 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import logging
 
 import click
 
-from plexar.actor import ModelActor
-
 from .. import __version__
+from ..constants import (
+    PLEXAR_DEFAULT_CONTROLLER_PORT,
+    PLEXAR_DEFAULT_HOST,
+    PLEXAR_DEFAULT_WORKER_PORT,
+)
 
 
 @click.group(name="plexar")
@@ -27,8 +31,16 @@ def cli():
 
 
 @cli.command()
-@click.option("--address", "-a")
+@click.option(
+    "--address",
+    "-a",
+    default=f"{PLEXAR_DEFAULT_HOST}:{PLEXAR_DEFAULT_CONTROLLER_PORT}",
+    type=str,
+)
 @click.option("--log-level", default="INFO", type=str)
+@click.option("--share", is_flag=True)
+@click.option("--host", "-h", default=None, type=str)
+@click.option("--port", "-p", default=None, type=int)
 def controller(address: str, log_level: str):
     from ..deploy.controller import main
 
@@ -39,8 +51,17 @@ def controller(address: str, log_level: str):
 
 
 @cli.command()
-@click.option("--address", "-a")
-@click.option("--controller-address")
+@click.option(
+    "--address",
+    "-a",
+    default=f"{PLEXAR_DEFAULT_HOST}:{PLEXAR_DEFAULT_WORKER_PORT}",
+    type=str,
+)
+@click.option(
+    "--controller-address",
+    default=f"{PLEXAR_DEFAULT_HOST}:{PLEXAR_DEFAULT_CONTROLLER_PORT}",
+    type=str,
+)
 @click.option("--log-level", default="INFO", type=str)
 def worker(address: str, controller_address: str, log_level: str):
     from ..deploy.worker import main
@@ -62,42 +83,36 @@ def model_list():
 
 
 @model.command("launch")
-@click.option("--path", "-p")
-def model_launch(path):
-    import asyncio
-    import sys
+@click.option("--name", "-n", type=str)
+@click.option("--size-in-billions", "-s", default=None, type=int)
+@click.option("--model-format", "-f", default=None, type=str)
+@click.option("--quantization", "-q", default=None, type=str)
+@click.option("--share", is_flag=True)
+@click.option("--host", "-h", default=None, type=str)
+@click.option("--port", "-p", default=None, type=int)
+def model_launch(
+    name: str,
+    size_in_billions: int,
+    model_format: str,
+    quantization: str,
+    share: bool,
+    host: str,
+    port: str,
+):
+    address = f"{PLEXAR_DEFAULT_HOST}:{PLEXAR_DEFAULT_CONTROLLER_PORT}"
 
-    import xoscar as xo
+    from .local import main
 
-    from plexar.model.llm.vicuna import VicunaUncensoredGgml
-
-    async def _run():
-        await xo.create_actor_pool(address="localhost:9999", n_process=1)
-
-        vu = VicunaUncensoredGgml(model_path=path)
-        vu_ref = await xo.create_actor(
-            ModelActor, address="localhost:9999", uid="vu", model=vu
-        )
-
-        while True:
-            i = input("User:\n")
-            if i == "exit":
-                break
-
-            print(f"Assistant:")
-            length = 0
-            async for chunk in await vu_ref.chat(i):
-                sys.stdout.write(chunk["text"])
-                sys.stdout.flush()
-                length += len(chunk["text"])
-                if length >= 80:
-                    print()
-                    length = 0
-            print()
-
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(_run())
-    loop.close()
+    main(
+        address=address,
+        model_name=name,
+        size_in_billions=size_in_billions,
+        model_format=model_format,
+        quantization=quantization,
+        share=share,
+        host=host,
+        port=port,
+    )
 
 
 if __name__ == "__main__":

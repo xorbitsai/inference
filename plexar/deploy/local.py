@@ -14,34 +14,45 @@
 
 import asyncio
 
-import xoscar as xo
-
-from ..actor.service import WorkerActor
-
-
-async def start_worker_components(address: str, controller_address: str):
-    await xo.create_actor(
-        WorkerActor,
-        address=address,
-        uid=WorkerActor.uid(),
-        controller_address=controller_address,
-    )
-    # TODO: start resource actor
+from .controller import start_controller_components
+from .worker import start_worker_components
 
 
-async def _start_worker(address: str, controller_address: str):
+async def _start_local_cluster(
+    address: str,
+    model_name: str,
+    size_in_billions: int,
+    model_format: str,
+    quantization: str,
+    share: bool,
+    host: str,
+    port: int,
+):
     from .utils import create_actor_pool
 
     pool = await create_actor_pool(address=address, n_process=0)
-    await start_worker_components(
-        address=address, controller_address=controller_address
+    await start_controller_components(
+        address=address, share=share, host=host, port=port
     )
+    await start_worker_components(address=address, controller_address=address)
+
+    # TODO: async client
+    from ..client import Client
+
+    client = Client(controller_address=address)
+    client.launch_model(
+        model_name=model_name,
+        n_parameters_in_billions=size_in_billions,
+        fmt=model_format,
+        quantization=quantization,
+    )
+
     await pool.join()
 
 
-def main(address: str, controller_address: str):
+def main(*args, **kwargs):
     loop = asyncio.get_event_loop()
-    task = loop.create_task(_start_worker(address, controller_address))
+    task = loop.create_task(_start_local_cluster(*args, **kwargs))
 
     try:
         loop.run_until_complete(task)

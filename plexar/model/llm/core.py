@@ -253,12 +253,14 @@ class LlamaCppChatModel(LlamaCppModel):
     def chat(
         self,
         prompt: str,
+        system_prompt: Optional[str] = None,
         chat_history: Optional[ChatHistory] = None,
         generate_config: Optional[LlamaCppGenerateConfig] = None,
     ) -> Union[Completion, Iterator[Completion]]:
         chat_history = chat_history or ChatHistory()
+        system_prompt = system_prompt or self._system_prompt
         full_prompt = chat_history.to_prompt(
-            self._system_prompt,
+            system_prompt,
             self._sep,
             self._user_name,
             self._assistant_name,

@@ -12,9 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import TYPE_CHECKING
 
-# only for demo now
-model_config = {
-    "vicuna-uncensored": {"model_path": ""},
-    "wizardlm": {""},
-}
+import xoscar as xo
+
+if TYPE_CHECKING:
+    from xoscar.backends.pool import MainActorPoolType
+
+
+async def create_actor_pool(address: str, n_process: int) -> "MainActorPoolType":
+    return await xo.create_actor_pool(address=address, n_process=n_process)

@@ -18,3 +18,7 @@ from pathlib import Path
 PLEXAR_HOME = str(Path.home() / ".plexar")
 PLEXAR_CACHE_DIR = os.path.join(PLEXAR_HOME, "cache")
 PLEXAR_LOG_DIR = os.path.join(PLEXAR_HOME, "logs")
+
+PLEXAR_DEFAULT_HOST = "127.0.0.1"
+PLEXAR_DEFAULT_CONTROLLER_PORT = 9998
+PLEXAR_DEFAULT_WORKER_PORT = 9999
