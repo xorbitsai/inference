@@ -47,7 +47,7 @@ async def _start_controller(address: str, host: str, port: int, share: bool):
 
 def main(*args, **kwargs):
     loop = asyncio.get_event_loop()
-    task = loop.create_task(_start_controller(*args, *kwargs))
+    task = loop.create_task(_start_controller(*args, **kwargs))
 
     try:
         loop.run_until_complete(task)
