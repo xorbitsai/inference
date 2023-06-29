@@ -12,63 +12,125 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 import os
 import urllib.request
-from typing import List, Optional, Type
+from typing import Callable, List, Optional, Type
 
 from tqdm import tqdm
 
 from ..constants import PLEXAR_CACHE_DIR
 
+logger = logging.getLogger(__name__)
+
 
 class ModelSpec:
-    name: str
-    n_parameters_in_billions: Optional[int] = None
-    format: Optional[str] = None
-    quantization: Optional[str] = None
-    url: Optional[str] = None
-    cls: Optional[Type] = None
-
     def __init__(
         self,
-        name: str,
-        n_parameters_in_billions: Optional[int],
-        fmt: Optional[str] = None,
-        quantization: Optional[str] = None,
-        url: Optional[str] = None,
-        cls: Optional[Type] = None,
+        model_name: str,
+        model_format: str,
+        model_size_in_billions: int,
+        quantization: str,
+        url: str,
     ):
-        self.name = name
-        self.n_parameters_in_billions = n_parameters_in_billions
-        self.format = fmt
+        self.model_name = model_name
+        self.model_format = model_format
+        self.model_size_in_billions = model_size_in_billions
         self.quantization = quantization
         self.url = url
-        self.cls = cls
 
     def __str__(self):
-        return f"{self.name}-{self.n_parameters_in_billions}b-{self.format}-{self.quantization}"
+        return (
+            f"{self.model_name}-{self.model_format}-{self.model_size_in_billions}b"
+            f"-{self.quantization}"
+        )
 
     def match(
         self,
-        name: str,
-        n_parameters_in_billions: Optional[int],
-        fmt: Optional[str] = None,
+        model_name: str,
+        model_format: Optional[str] = None,
+        model_size_in_billions: Optional[int] = None,
         quantization: Optional[str] = None,
     ) -> bool:
         return (
-            name == self.name
+            model_name == self.model_name
             and (
-                n_parameters_in_billions is None
-                or n_parameters_in_billions == self.n_parameters_in_billions
+                model_size_in_billions is None
+                or model_size_in_billions == self.model_size_in_billions
             )
-            and (fmt is None or fmt == self.format)
+            and (model_format is None or model_format == self.model_format)
             and (quantization is None or quantization == self.quantization)
         )
 
-    def cache(self) -> str:
-        assert self.url is not None
 
-        save_dir = os.path.join(PLEXAR_CACHE_DIR, str(self))
+class ModelFamily:
+    def __init__(
+        self,
+        model_name: str,
+        model_format: str,
+        model_sizes_in_billions: List[int],
+        quantizations: List[str],
+        url_generator: Callable[[int, str], str],
+        cls: Type,
+    ):
+        self.model_name = model_name
+        self.model_sizes_in_billions = model_sizes_in_billions
+        self.model_format = model_format
+        self.quantizations = quantizations
+        self.url_generator = url_generator
+        self.cls = cls
+
+    def __str__(self):
+        return f"{self.model_name}-{self.model_format}"
+
+    def __iter__(self):
+        model_specs = []
+        for model_size in self.model_sizes_in_billions:
+            for quantization in self.quantizations:
+                model_specs.append(
+                    ModelSpec(
+                        model_name=self.model_name,
+                        model_size_in_billions=model_size,
+                        model_format=self.model_format,
+                        quantization=quantization,
+                        url=self.url_generator(model_size, quantization),
+                    )
+                )
+        return iter(model_specs)
+
+    def match(
+        self,
+        model_name: str,
+        model_format: Optional[str] = None,
+        model_size_in_billions: Optional[int] = None,
+        quantization: Optional[str] = None,
+    ) -> Optional[ModelSpec]:
+        for model_spec in self:
+            if model_spec.match(
+                model_name=model_name,
+                model_format=model_format,
+                model_size_in_billions=model_size_in_billions,
+                quantization=quantization,
+            ):
+                return model_spec
+        return None
+
+    def cache(
+        self,
+        model_size_in_billions: Optional[int] = None,
+        quantization: Optional[str] = None,
+    ) -> str:
+        # by default, choose the smallest size.
+        model_size_in_billions = (
+            model_size_in_billions or self.model_sizes_in_billions[0]
+        )
+        # by default, choose the most coarse-grained quantization.
+        quantization = quantization or self.quantizations[0]
+
+        url = self.url_generator(model_size_in_billions, quantization)
+
+        full_name = f"{str(self)}-{model_size_in_billions}b-{quantization}"
+        save_dir = os.path.join(PLEXAR_CACHE_DIR, full_name)
         if not os.path.exists(save_dir):
             os.makedirs(save_dir, exist_ok=True)
 
@@ -77,26 +139,31 @@ class ModelSpec:
             # TODO: verify the integrity.
             return save_path
 
-        with tqdm(
-            unit="B",
-            unit_scale=True,
-            unit_divisor=1024,
-            miniters=1,
-            desc="Downloading",
-            ncols=80,
-        ) as progress:
-            urllib.request.urlretrieve(
-                self.url,
-                save_path,
-                reporthook=lambda blocknum, blocksize, totalsize: progress.update(
-                    blocksize
-                ),
-            )
+        try:
+            with tqdm(
+                unit="B",
+                unit_scale=True,
+                unit_divisor=1024,
+                miniters=1,
+                desc=f"Downloading {full_name}",
+            ) as progress:
+                urllib.request.urlretrieve(
+                    url,
+                    save_path,
+                    reporthook=lambda blocknum, blocksize, totalsize: progress.update(
+                        blocksize
+                    ),
+                )
+            # TODO: verify the integrity.
+        except:
+            if os.path.exists(save_path):
+                os.remove(save_path)
+            raise RuntimeError(f"Failed to download {full_name} from {url}")
 
         return save_path
 
 
-MODEL_SPECS: List[ModelSpec] = []
+MODEL_FAMILIES: List[ModelFamily] = []
 
 
 def install():
