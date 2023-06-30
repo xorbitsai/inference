@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from logging import getLogger
-from typing import Callable, Dict, List, Optional
+from typing import Callable, Dict, List, Optional, Union, Literal
 
 import xoscar as xo
 
@@ -25,6 +25,132 @@ from fastapi import HTTPException
 import asyncio
 from uvicorn import Config, Server
 import uuid
+import llama_cpp
+from pydantic import BaseModel, BaseSettings, Field, create_model_from_typeddict
+
+max_tokens_field = Field(
+    default=16, ge=1, le=2048, description="The maximum number of tokens to generate."
+)
+
+temperature_field = Field(
+    default=0.8,
+    ge=0.0,
+    le=2.0,
+    description="Adjust the randomness of the generated text.\n\n"
+    + "Temperature is a hyperparameter that controls the randomness of the generated text. It affects the probability distribution of the model's output tokens. A higher temperature (e.g., 1.5) makes the output more random and creative, while a lower temperature (e.g., 0.5) makes the output more focused, deterministic, and conservative. The default value is 0.8, which provides a balance between randomness and determinism. At the extreme, a temperature of 0 will always pick the most likely next token, leading to identical outputs in each run.",
+)
+
+top_p_field = Field(
+    default=0.95,
+    ge=0.0,
+    le=1.0,
+    description="Limit the next token selection to a subset of tokens with a cumulative probability above a threshold P.\n\n"
+    + "Top-p sampling, also known as nucleus sampling, is another text generation method that selects the next token from a subset of tokens that together have a cumulative probability of at least p. This method provides a balance between diversity and quality by considering both the probabilities of tokens and the number of tokens to sample from. A higher value for top_p (e.g., 0.95) will lead to more diverse text, while a lower value (e.g., 0.5) will generate more focused and conservative text.",
+)
+
+stop_field = Field(
+    default=None,
+    description="A list of tokens at which to stop generation. If None, no stop tokens are used.",
+)
+
+stream_field = Field(
+    default=False,
+    description="Whether to stream the results as they are generated. Useful for chatbots.",
+)
+
+top_k_field = Field(
+    default=40,
+    ge=0,
+    description="Limit the next token selection to the K most probable tokens.\n\n"
+    + "Top-k sampling is a text generation method that selects the next token only from the top k most likely tokens predicted by the model. It helps reduce the risk of generating low-probability or nonsensical tokens, but it may also limit the diversity of the output. A higher value for top_k (e.g., 100) will consider more tokens and lead to more diverse text, while a lower value (e.g., 10) will focus on the most probable tokens and generate more conservative text.",
+)
+
+repeat_penalty_field = Field(
+    default=1.1,
+    ge=0.0,
+    description="A penalty applied to each token that is already generated. This helps prevent the model from repeating itself.\n\n"
+    + "Repeat penalty is a hyperparameter used to penalize the repetition of token sequences during text generation. It helps prevent the model from generating repetitive or monotonous text. A higher value (e.g., 1.5) will penalize repetitions more strongly, while a lower value (e.g., 0.9) will be more lenient.",
+)
+
+presence_penalty_field = Field(
+    default=0.0,
+    ge=-2.0,
+    le=2.0,
+    description="Positive values penalize new tokens based on whether they appear in the text so far, increasing the model's likelihood to talk about new topics.",
+)
+
+frequency_penalty_field = Field(
+    default=0.0,
+    ge=-2.0,
+    le=2.0,
+    description="Positive values penalize new tokens based on their existing frequency in the text so far, decreasing the model's likelihood to repeat the same line verbatim.",
+)
+
+mirostat_mode_field = Field(
+    default=0,
+    ge=0,
+    le=2,
+    description="Enable Mirostat constant-perplexity algorithm of the specified version (1 or 2; 0 = disabled)"
+)
+
+mirostat_tau_field = Field(
+    default=5.0,
+    ge=0.0,
+    le=10.0,
+    description="Mirostat target entropy, i.e. the target perplexity - lower values produce focused and coherent text, larger values produce more diverse and less coherent text"
+)
+
+mirostat_eta_field = Field(
+    default=0.1,
+    ge=0.001,
+    le=1.0,
+    description="Mirostat learning rate"
+)
+
+
+# CreateComplete request
+class CreateCompletionRequest(BaseModel):
+    prompt: str
+    suffix: Optional[str] = Field(None)
+    max_tokens: int = max_tokens_field
+    temperature: float = temperature_field
+    top_p: float = top_p_field
+    mirostat_mode: int = mirostat_mode_field
+    mirostat_tau: float = mirostat_tau_field
+    mirostat_eta: float = mirostat_eta_field
+    echo: bool = Field(
+        default=False,
+        description="Whether to echo the prompt in the generated text. Useful for chatbots.",
+    )
+    stop: Optional[Union[str, List[str]]] = stop_field
+    stream: bool = stream_field
+    logprobs: Optional[int] = Field(
+        default=None,
+        ge=0,
+        description="The number of logprobs to generate. If None, no logprobs are generated.",
+    )
+    presence_penalty: Optional[float] = presence_penalty_field
+    frequency_penalty: Optional[float] = frequency_penalty_field
+    logit_bias: Optional[Dict[str, float]] = Field(None)
+    logprobs: Optional[int] = Field(None)
+
+    model: str
+    n: Optional[int] = 1
+    best_of: Optional[int] = 1
+    user: Optional[str] = Field(None)
+
+    # llama.cpp specific parameters
+    top_k: int = top_k_field
+    repeat_penalty: float = repeat_penalty_field
+    logit_bias_type: Optional[Literal["input_ids", "tokens"]] = Field(None)
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "prompt": "\n\n### Instructions:\nWhat is the capital of France?\n\n### Response:\n",
+                "stop": ["\n", "###"],
+            }
+        }
 
 logger = getLogger(__name__)
 
@@ -73,6 +199,11 @@ class ControllerActor(xo.Actor):
             return target_worker
 
         raise RuntimeError("TODO")
+    
+    async def get_worker(self, model_uid: str) -> xo.ActorRefType["WorkerActor"]:
+        if model_uid not in self._model_uid_to_worker:
+            raise Exception(f"Worker for model UID '{model_uid}' not found.")
+        return self._model_uid_to_worker[model_uid]
 
     @log
     async def launch_builtin_model(
@@ -138,6 +269,9 @@ class RESTAPIActor(xo.Actor):
         self.router.add_api_route("/v1/models", self.list_models, methods=["GET"])
         self.router.add_api_route("/v1/models", self.launch_model, methods=["POST"])
         self.router.add_api_route("/v1/models/{model_uid}", self.terminate_model, methods=["DELETE"])
+        self.router.add_api_route("/v1/completions", self.create_completion, methods=["POST"])
+        # self.router.add_api_route("/v1/embeddings", self.create_embedding, methods=["POST"])
+        # self.router.add_api_route("/v1/chat/completions", self.create_chat_completion, methods=["POST"])
         app.include_router(self.router)
 
         # uvicorn
@@ -158,7 +292,6 @@ class RESTAPIActor(xo.Actor):
     async def list_models(self) -> List[str]:
         models = await self._controller_ref.list_models()
         return [model_uid for model_uid, _ in models]
-
 
     async def launch_model(self, request: Request) -> str:
         payload = await request.json()
@@ -184,6 +317,40 @@ class RESTAPIActor(xo.Actor):
         await self._controller_ref.terminate_model(model_uid)
         return {"message": "Model terminated successfully."}
 
+    async def create_completion(self, 
+        # request: Request,
+        body: CreateCompletionRequest
+    ):
+
+        exclude = {
+            "prompt",
+            "model",
+            "n",
+            "best_of",
+            "logit_bias",
+            "logit_bias_type",
+            "user",
+        }
+        kwargs = body.dict(exclude=exclude)            
+
+        if body.logit_bias is not None:
+            kwargs['logits_processor'] = llama_cpp.LogitsProcessorList([
+                make_logit_bias_processor(llama, body.logit_bias, body.logit_bias_type),
+        ])
+
+        model_uid = body.model
+        prompt = body.prompt
+        worker_ref = await self._controller_ref.get_worker(model_uid)
+        model = await worker_ref.get_model(model_uid)
+        
+        if body.stream: #TODO
+            import sys
+            async for c in await model.generate(body.prompt, kwargs):
+                sys.stdout.write(c['text'])
+        else:
+            return await model.generate(body.prompt, kwargs)
+
+    
 
 class WorkerActor(xo.Actor):
     def __init__(self, controller_address: str):
