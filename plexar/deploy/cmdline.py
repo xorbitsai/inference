@@ -41,7 +41,13 @@ def cli():
 @click.option("--share", is_flag=True)
 @click.option("--host", "-h", default=None, type=str)
 @click.option("--port", "-p", default=None, type=int)
-def controller(address: str, log_level: str, share: bool, host: str, port: int):
+def controller(
+    address: str,
+    log_level: str,
+    share: bool,
+    host: str,
+    port: str,
+):
     from ..deploy.controller import main
 
     if log_level:
@@ -79,7 +85,29 @@ def model():
 
 @model.command("list")
 def model_list():
-    raise NotImplemented
+    import sys
+
+    from tabulate import tabulate
+
+    from ..model import MODEL_FAMILIES
+
+    table = []
+    for model_family in MODEL_FAMILIES:
+        table.append(
+            [
+                model_family.model_name,
+                model_family.model_format,
+                model_family.model_sizes_in_billions,
+                model_family.quantizations,
+            ]
+        )
+
+    print(
+        tabulate(
+            table, headers=["Name", "Format", "Size (in billions)", "Quantization"]
+        ),
+        file=sys.stderr,
+    )
 
 
 @model.command("launch")

@@ -42,8 +42,8 @@ async def _start_local_cluster(
     client = Client(controller_address=address)
     client.launch_model(
         model_name=model_name,
-        n_parameters_in_billions=size_in_billions,
-        fmt=model_format,
+        model_size_in_billions=size_in_billions,
+        model_format=model_format,
         quantization=quantization,
     )
 

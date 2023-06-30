@@ -79,9 +79,9 @@ class ControllerActor(xo.Actor):
         self,
         model_uid: str,
         model_name: str,
-        n_parameters_in_billions: Optional[int] = None,
-        fmt: Optional[str] = None,
-        quantization: Optional[str] = None,
+        model_size_in_billions: Optional[int],
+        model_format: Optional[str],
+        quantization: Optional[str],
         **kwargs,
     ) -> xo.ActorRefType["ModelActor"]:
         assert model_uid not in self._model_uid_to_worker
@@ -90,8 +90,8 @@ class ControllerActor(xo.Actor):
         model_ref = await worker_ref.launch_builtin_model(
             model_uid=model_uid,
             model_name=model_name,
-            n_parameters_in_billions=n_parameters_in_billions,
-            fmt=fmt,
+            model_size_in_billions=model_size_in_billions,
+            model_format=model_format,
             quantization=quantization,
             **kwargs,
         )
@@ -210,36 +210,41 @@ class WorkerActor(xo.Actor):
         self,
         model_uid: str,
         model_name: str,
-        n_parameters_in_billions: Optional[int],
-        fmt: Optional[str],
+        model_size_in_billions: Optional[int],
+        model_format: Optional[str],
         quantization: Optional[str],
         **kwargs,
     ) -> xo.ActorRefType["ModelActor"]:
         assert model_uid not in self._model_uid_to_model
 
-        from plexar.model import MODEL_SPECS
+        from plexar.model import MODEL_FAMILIES
 
-        for model_spec in MODEL_SPECS:
-            if model_spec.match(
-                model_name, n_parameters_in_billions, fmt, quantization
-            ):
-                logger.debug(f"Matched model spec for %s: %s", model_uid, model_spec)
+        for model_family in MODEL_FAMILIES:
+            model_spec = model_family.match(
+                model_name=model_name,
+                model_format=model_format,
+                model_size_in_billions=model_size_in_billions,
+                quantization=quantization,
+            )
 
-                model_cls = model_spec.cls
-                assert model_cls is not None
+            if model_spec is None:
+                continue
 
-                save_path = model_spec.cache()
-                model = model_cls(save_path, kwargs)
-                model_ref = await xo.create_actor(
-                    ModelActor, address=self.address, uid=model_uid, model=model
-                )
-                self._model_uid_to_model[model_uid] = model_ref
-                self._model_uid_to_model_spec[model_uid] = model_spec
-                return model_ref
-        available_models = "\n".join(model_spec.name for model_spec in MODEL_SPECS)
+            cls = model_family.cls
+            save_path = model_family.cache(
+                model_spec.model_size_in_billions, model_spec.quantization
+            )
+            model = cls(save_path, kwargs)
+            model_ref = await xo.create_actor(
+                ModelActor, address=self.address, uid=model_uid, model=model
+            )
+            self._model_uid_to_model[model_uid] = model_ref
+            self._model_uid_to_model_spec[model_uid] = model_spec
+            return model_ref
+
         raise ValueError(
-            f"\nModel {model_name} can't match any model, here are available models:\n"
-            f"{available_models}"
+            f"Model not found, name: {model_name}, format: {model_format},"
+            f" size: {model_size_in_billions}, quantization: {quantization}"
         )
 
     @log

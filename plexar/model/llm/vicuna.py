@@ -40,3 +40,27 @@ class VicunaUncensoredGgml(LlamaCppChatModel):
             assistant_name=self._assistant_name,
             llamacpp_model_config=llamacpp_model_config,
         )
+
+
+class VicunaCensoredGgml(LlamaCppChatModel):
+    _system_prompt = (
+        "A chat between a curious user and an artificial intelligence assistant. The assistant"
+        " gives helpful, detailed, and polite answers to the user's questions.\n"
+    )
+    _sep = "\n"
+    _user_name = "USER"
+    _assistant_name = "ASSISTANT"
+
+    def __init__(
+        self,
+        model_path: str,
+        llamacpp_model_config: Optional[LlamaCppModelConfig] = None,
+    ):
+        super().__init__(
+            model_path,
+            system_prompt=self._system_prompt,
+            sep=self._sep,
+            user_name=self._user_name,
+            assistant_name=self._assistant_name,
+            llamacpp_model_config=llamacpp_model_config,
+        )
