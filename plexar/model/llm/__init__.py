@@ -17,6 +17,7 @@ def install():
     from plexar.model.llm.core import LlamaCppModel
 
     from .. import MODEL_FAMILIES, ModelFamily
+    from .orca import OrcaMiniGgml
     from .vicuna import VicunaCensoredGgml, VicunaUncensoredGgml
     from .wizardlm import WizardlmGgml
 
@@ -143,4 +144,25 @@ def install():
             url_generator=vicuna_v1_3_url_generator,
             cls=VicunaCensoredGgml,
         ),
+    )
+
+    orca_url_generator = lambda model_size, quantization: (
+        f"https://huggingface.co/TheBloke/orca_mini_{model_size}B-GGML/resolve/main/orca-mini-"
+        f"{model_size}b.ggmlv3.{quantization}.bin"
+    )
+    MODEL_FAMILIES.append(
+        ModelFamily(
+            model_name="orca",
+            model_sizes_in_billions=[3, 7, 13],
+            model_format="ggmlv3",
+            quantizations=[
+                "q4_0",
+                "q4_1",
+                "q5_0",
+                "q5_1",
+                "q8_0",
+            ],
+            url_generator=orca_url_generator,
+            cls=OrcaMiniGgml,
+        )
     )
