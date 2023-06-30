@@ -23,10 +23,10 @@ from ..model.llm.core import ChatHistory
 
 
 class GradioApp:
-    def __init__(self, xoscar_endpoint: str):
+    def __init__(self, xoscar_endpoint: str, gladiator_num: int = 2):
         self._xoscar_endpoint = xoscar_endpoint
         self._api = Client(xoscar_endpoint)
-        # model string to model uid
+        self._gladiator_num = gladiator_num
         self._models = dict((str(m[1]), m[0]) for m in self._api.list_models())
 
     def _refresh_and_get_models(self) -> List[str]:
@@ -92,7 +92,7 @@ class GradioApp:
             max_token = gr.Slider(
                 128,
                 1024,
-                value=128,
+                value=256,
                 step=1,
                 label="Max tokens",
                 info="The maximum number of tokens to generate.",
@@ -150,82 +150,95 @@ class GradioApp:
             model_uid,
         )
 
-    def build_multiple(self):
-        with gr.Blocks() as blocks:
-            gr.Markdown("# Chat with LLMs")
-            with gr.Box():
-                with gr.Row():
-                    chats = []
-                    texts = []
-                    for model in self._models:
-                        with gr.Column():
-                            components = self._build_chatbot(model[0], model[1].name)
-                            texts.append(components[0])
-                            chats.append(components[1])
-                with gr.Column():
-                    msg = gr.Textbox()
-                    gr.ClearButton(components=[msg] + chats)
+    def _build_chat_column(self):
+        models = self._refresh_and_get_models()
 
-                    def _pass_to_all(msg, *text):
-                        return [""] + [msg] * len(text)
-
-                    msg.submit(_pass_to_all, [msg] + texts, [msg] + texts)
-        return blocks
-
-    def build(self):
-        with gr.Blocks() as blocks:
-            gr.Markdown("# Chat with LLM")
-
-            models = self._refresh_and_get_models()
+        with gr.Column():
             selected_model = gr.Dropdown(
                 value=models[0] if len(models) > 0 else None,
                 choices=self._refresh_and_get_models(),
                 label="select launched model",
+                container=False,
             )
 
             # It's a trick, create an invisible Number with callable value
             # and set every to 5 to trigger update every 5 seconds
             def _refresh_models():
                 launched = self._refresh_and_get_models()
-                return gr.Dropdown.update(value=launched[0], choices=launched)
+                value = launched[0] if len(launched) > 0 else None
+                return gr.Dropdown.update(value=value, choices=launched)
 
             n = gr.Text(value=lambda *_: str(uuid.uuid4()), visible=False, every=5)
             n.change(
                 _refresh_models, inputs=None, outputs=[selected_model], queue=False
             )
+            components = self._build_chatbot("", "")
+            model_text = components[0]
+            chat, model_uid = components[1], components[-1]
 
-            with gr.Box():
-                with gr.Column():
-                    components = self._build_chatbot("", "")
-                    msg = gr.Textbox()
-                    model_text = components[0]
-                    chat, model_uid = components[1], components[-1]
-                    gr.ClearButton(components=[chat, msg, model_text])
-
-                    def update_message(text_in: str):
-                        return "", text_in
-
-                    msg.submit(update_message, inputs=[msg], outputs=[msg, model_text])
-
-            def select_model(model_name: str):
-                uid = self._models[model_name]
-                return gr.Chatbot.update(label=model_name, value=[]), gr.Textbox.update(
-                    value=uid
-                )
-
-            selected_model.change(
-                select_model,
-                inputs=[selected_model],
-                outputs=[chat, model_uid],
-                postprocess=False,
+        def select_model(model_name: str):
+            uid = self._models[model_name]
+            return gr.Chatbot.update(label=model_name, value=[]), gr.Textbox.update(
+                value=uid
             )
+
+        selected_model.change(
+            select_model,
+            inputs=[selected_model],
+            outputs=[chat, model_uid],
+            postprocess=False,
+        )
+        return chat, model_text
+
+    def _build_arena(self):
+        with gr.Box():
+            with gr.Row():
+                chat_and_text = [
+                    self._build_chat_column() for _ in range(self._gladiator_num)
+                ]
+                texts = [c[1] for c in chat_and_text]
+                chats = [c[1] for c in chat_and_text]
+
+            msg = gr.Textbox()
+
+            def update_message(text_in: str):
+                return "", text_in, text_in
+
+            msg.submit(update_message, inputs=[msg], outputs=[msg] + texts)
+
+        gr.ClearButton(components=[msg] + chats + texts)
+
+    def _build_single(self):
+        chat, model_text = self._build_chat_column()
+
+        msg = gr.Textbox()
+
+        def update_message(text_in: str):
+            return "", text_in
+
+        msg.submit(update_message, inputs=[msg], outputs=[msg, model_text])
+        gr.ClearButton(components=[chat, msg, model_text])
+
+    def build(self):
+        with gr.Blocks() as blocks:
+            with gr.Tab("Chat"):
+                self._build_single()
+            with gr.Tab("Arena"):
+                self._build_arena()
         return blocks
 
 
 class GradioActor(xo.Actor):
-    def __init__(self, xoscar_endpoint: str, host: str, port: int, share: bool):
+    def __init__(
+        self,
+        xoscar_endpoint: str,
+        host: str,
+        port: int,
+        share: bool,
+        gladiator_num: int = 2,
+    ):
         super().__init__()
-        self._gradio_cls = GradioApp(xoscar_endpoint)
+        self._gradio_cls = GradioApp(xoscar_endpoint, gladiator_num)
         self._host = host
         self._port = port
         self._share = share
