@@ -135,9 +135,9 @@ class RESTAPIActor(xo.Actor):
         self._controller_ref = None
         app = FastAPI()
         self.router = APIRouter()
-        self.router.add_api_route("/models", self.list_models, methods=["GET"])
-        self.router.add_api_route("/models", self.launch_model, methods=["POST"])
-        self.router.add_api_route("/models/{model_uid}", self.terminate_model, methods=["DELETE"])
+        self.router.add_api_route("/v1/models", self.list_models, methods=["GET"])
+        self.router.add_api_route("/v1/models", self.launch_model, methods=["POST"])
+        self.router.add_api_route("/v1/models/{model_uid}", self.terminate_model, methods=["DELETE"])
         app.include_router(self.router)
 
         # uvicorn
@@ -163,8 +163,8 @@ class RESTAPIActor(xo.Actor):
     async def launch_model(self, request: Request) -> str:
         payload = await request.json()
         model_name = payload.get('model_name')
-        n_parameters_in_billions = payload.get('n_parameters_in_billions')
-        fmt = payload.get('fmt')
+        model_size_in_billions = payload.get('model_size_in_billions')
+        model_format = payload.get('model_format')
         quantization = payload.get('quantization')
         kwargs = payload.get('kwargs', {}) or {}
 
@@ -173,8 +173,8 @@ class RESTAPIActor(xo.Actor):
         await self._controller_ref.launch_builtin_model(
             model_uid=model_uid,
             model_name=model_name,
-            n_parameters_in_billions=n_parameters_in_billions,
-            fmt=fmt,
+            model_size_in_billions=model_size_in_billions,
+            model_format=model_format,
             quantization=quantization,
             **kwargs
         )
