@@ -45,7 +45,7 @@ def install_ffmpeg():
             print("Unsupported Linux distribution.")
 
     elif system == "Darwin":  # macOS
-        subprocess.run(["brew", "install", "ffmpeg"])
+        subprocess.run(["pip", "install", "ffmpeg-python"])
 
     elif system == "Windows":
         package_managers = ["choco", "scoop"]
@@ -67,17 +67,12 @@ def install_ffmpeg():
 def get_audio_devices() -> str:
     install_audio_packages("sounddevice")
     install_audio_packages("soundfile")
+    import sounddevice as sd
 
-    command = "curl -s https://raw.githubusercontent.com/spatialaudio/python-sounddevice/master/examples/rec_unlimited.py | python - --list-devices"
-    process = subprocess.Popen(command, stdout=subprocess.PIPE, shell=True)
-    output, error = process.communicate()
-
-    if error:
-        return "Error occurred: " + str(error)
-    else:
-        print("Audio devices:")
-        print(output.decode())
-        return input("Please select the audio device you want to record: ")
+    devices = sd.query_devices()
+    print("Audio devices:")
+    print(devices)
+    return input("Please select the audio device you want to record: ")
 
 
 q: queue.Queue = queue.Queue()
@@ -90,7 +85,7 @@ def callback(indata, frames, time, status):
     q.put(indata.copy())
 
 
-def record_unlimited() -> str:
+def record_unlimited() -> numpy.ndarray:
     import os
 
     import sounddevice as sd
@@ -113,10 +108,7 @@ def record_unlimited() -> str:
         print("\nRecording finished: " + repr(filename))
     except Exception as e:
         print(type(e).__name__ + ": " + str(e))
-    return os.path.abspath(filename)
 
-
-def convert_wav_to_array(filename: str) -> numpy.ndarray:
     try:
         import ffmpeg
     except ImportError:
@@ -124,11 +116,11 @@ def convert_wav_to_array(filename: str) -> numpy.ndarray:
 
     try:
         y, _ = (
-            ffmpeg.input(filename, threads=0)
+            ffmpeg.input(os.path.abspath(filename), threads=0)
             .output("-", format="s16le", acodec="pcm_s16le", ac=1, ar=16000)
             .run(cmd=["ffmpeg", "-nostdin"], capture_stdout=True, capture_stderr=True)
         )
     except ffmpeg.Error as e:
         raise RuntimeError(f"Failed to load audio: {e.stderr.decode()}") from e
-
+    os.remove(filename)
     return numpy.frombuffer(y, numpy.int16).flatten().astype(numpy.float32) / 32768.0

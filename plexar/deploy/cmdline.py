@@ -131,6 +131,9 @@ def model_launch(
 
     from .local import main
 
+    # TODO: remove
+    logging.basicConfig(level=logging.getLevelName(logging.DEBUG))
+
     main(
         address=address,
         model_name=name,

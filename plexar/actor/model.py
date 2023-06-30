@@ -58,3 +58,9 @@ class ModelActor(xo.Actor):
         return self._wrap_generator(
             getattr(self._model, "chat")(prompt, *args, **kwargs)
         )
+
+    async def transcribe(self, *args, **kwargs):
+        if not hasattr(self._model, "transcribe"):
+            raise AttributeError("transcribe")
+
+        return self._wrap_generator(getattr(self._model, "transcribe")(*args, **kwargs))

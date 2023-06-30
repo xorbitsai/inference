@@ -14,15 +14,17 @@
 
 
 def install():
-    from plexar.model.srm.core import WhisperCpp
+    from plexar.model.srm.whisper import WhisperGgml
 
     from .. import MODEL_FAMILIES, ModelFamily
 
     MODEL_FAMILIES.append(
         ModelFamily(
             model_name="whisper",
-            model_format="cpp",
-            model_sizes_in_billions=[7],
-            cls=WhisperCpp,
+            model_format="ggmlv3",
+            model_sizes_in_billions=[None],
+            quantizations=[None],
+            url_generator=lambda size, quantization: "http://www.google.com",
+            cls=WhisperGgml,
         )
     )

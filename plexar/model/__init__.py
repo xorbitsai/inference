@@ -168,5 +168,7 @@ MODEL_FAMILIES: List[ModelFamily] = []
 
 def install():
     from .llm import install as llm_install
+    from .srm import install as srm_install
 
     llm_install()
+    srm_install()
