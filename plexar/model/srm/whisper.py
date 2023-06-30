@@ -17,7 +17,6 @@ from typing import List
 
 import numpy as np
 
-from ..srm.utils import convert_wav_to_array, record_unlimited
 from .core import SpeechRecognitionModel
 
 try:
@@ -26,15 +25,15 @@ except ImportError:  # pragma: no cover
     subprocess.check_call(["pip", "install", "whispercpp"])
 
 
+
 class WhisperGgml(SpeechRecognitionModel):
-    pass
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.whisper_model = None
 
-
-class WhisperCpp(SpeechRecognitionModel):
-    def get_array_output(self) -> np.ndarray:
-        return convert_wav_to_array(record_unlimited())
+    def load(self):
+        self.whisper_model = Whisper.from_pretrained("base")
 
     def transcribe(self, inp: np.ndarray) -> List[str]:
-        w = Whisper.from_pretrained("base")
-        res = w.transcribe(inp)
+        res = self.whisper_model.transcribe(inp)
         return [res]

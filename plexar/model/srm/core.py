@@ -22,4 +22,5 @@ from plexar.model.core import Model
 class SpeechRecognitionModel(Model, ABC):
     @abstractmethod
     def transcribe(self, inp: np.ndarray) -> List[str]:
-        pass
+        raise NotImplementedError
+    
