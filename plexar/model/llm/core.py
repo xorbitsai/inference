@@ -12,14 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import abc
 import logging
-from abc import abstractmethod
 from time import time
 from typing import TYPE_CHECKING, Any, Iterator, List, Optional, TypedDict, Union
 
 from llama_cpp import Completion as LlamaCppCompletion
 from llama_cpp import CompletionChunk as LlamaCppCompletionChunk
+
+from plexar.model.core import Model
 
 if TYPE_CHECKING:
     from llama_cpp import LogitsProcessorList, StoppingCriteriaList
@@ -125,17 +125,6 @@ class ChatHistory:
     def clear(self):
         self._inputs = []
         self._outputs = []
-
-
-class Model(abc.ABC):
-    name: str
-
-    def __init__(self, *args, **kwargs):
-        pass
-
-    @abstractmethod
-    def load(self):
-        pass
 
 
 class LlamaCppModel(Model):
