@@ -1,0 +1,49 @@
+name: Python CI
+
+on:
+  push:
+    branches:
+      - '*'
+  pull_request:
+    types: ['opened', 'reopened', 'synchronize']
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ "ubuntu-latest" ]
+        python-version: [ "3.10" ]
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - name: Set up Python environment
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+      - name: flake8 Lint
+        uses: py-actions/flake8@v2
+        with:
+          path: "plexar"
+          args: "--config setup.cfg"
+      - name: black
+        uses: psf/black@stable
+        with:
+          src: "plexar"
+          options: "--check"
+      - uses: isort/isort-action@master
+        with:
+          sortPaths: "plexar"
+          configuration: "--check-only --diff --sp setup.cfg"
+      - name: mypy
+        run: pip install mypy && mypy plexar
+      - name: codespell
+        run: pip install codespell && codespell plexar
