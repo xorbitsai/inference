@@ -17,7 +17,7 @@ from typing import Callable, Dict, List, Optional
 
 import xoscar as xo
 
-from plexar.actor import ModelActor
+from plexar.core import ModelActor
 from plexar.model import ModelSpec
 
 logger = getLogger(__name__)
@@ -41,7 +41,7 @@ def log(func: Callable):
     return wrapped
 
 
-class ControllerActor(xo.Actor):
+class SupervisorActor(xo.Actor):
     def __init__(self):
         super().__init__()
         self._worker_address_to_worker: Dict[str, xo.ActorRefType[WorkerActor]] = {}
@@ -49,7 +49,7 @@ class ControllerActor(xo.Actor):
 
     @classmethod
     def uid(cls) -> str:
-        return "plexar_controller"
+        return "plexar_supervisor"
 
     async def _choose_worker(self) -> xo.ActorRefType["WorkerActor"]:
         # TODO: better allocation strategy.
@@ -124,9 +124,9 @@ class ControllerActor(xo.Actor):
 
 
 class WorkerActor(xo.Actor):
-    def __init__(self, controller_address: str):
+    def __init__(self, supervisor_address: str):
         super().__init__()
-        self._controller_address = controller_address
+        self._supervisor_address = supervisor_address
         self._model_uid_to_model: Dict[str, xo.ActorRefType["ModelActor"]] = {}
         self._model_uid_to_model_spec: Dict[str, ModelSpec] = {}
 
@@ -135,10 +135,10 @@ class WorkerActor(xo.Actor):
         return "plexar_worker"
 
     async def __post_create__(self):
-        controller_ref: xo.ActorRefType["ControllerActor"] = await xo.actor_ref(
-            address=self._controller_address, uid=ControllerActor.uid()
+        supervisor_ref: xo.ActorRefType["SupervisorActor"] = await xo.actor_ref(
+            address=self._supervisor_address, uid=SupervisorActor.uid()
         )
-        await controller_ref.add_worker(self.address)
+        await supervisor_ref.add_worker(self.address)
 
     async def get_model_count(self) -> int:
         return len(self._model_uid_to_model)

@@ -18,8 +18,8 @@ import click
 
 from .. import __version__
 from ..constants import (
-    PLEXAR_DEFAULT_CONTROLLER_PORT,
     PLEXAR_DEFAULT_HOST,
+    PLEXAR_DEFAULT_SUPERVISOR_PORT,
     PLEXAR_DEFAULT_WORKER_PORT,
 )
 
@@ -34,21 +34,21 @@ def cli():
 @click.option(
     "--address",
     "-a",
-    default=f"{PLEXAR_DEFAULT_HOST}:{PLEXAR_DEFAULT_CONTROLLER_PORT}",
+    default=f"{PLEXAR_DEFAULT_HOST}:{PLEXAR_DEFAULT_SUPERVISOR_PORT}",
     type=str,
 )
 @click.option("--log-level", default="INFO", type=str)
 @click.option("--share", is_flag=True)
 @click.option("--host", "-h", default=None, type=str)
 @click.option("--port", "-p", default=None, type=int)
-def controller(
+def supervisor(
     address: str,
     log_level: str,
     share: bool,
     host: str,
     port: str,
 ):
-    from ..deploy.controller import main
+    from ..deploy.supervisor import main
 
     if log_level:
         logging.basicConfig(level=logging.getLevelName(log_level.upper()))
@@ -64,18 +64,18 @@ def controller(
     type=str,
 )
 @click.option(
-    "--controller-address",
-    default=f"{PLEXAR_DEFAULT_HOST}:{PLEXAR_DEFAULT_CONTROLLER_PORT}",
+    "--supervisor-address",
+    default=f"{PLEXAR_DEFAULT_HOST}:{PLEXAR_DEFAULT_SUPERVISOR_PORT}",
     type=str,
 )
 @click.option("--log-level", default="INFO", type=str)
-def worker(address: str, controller_address: str, log_level: str):
+def worker(address: str, supervisor_address: str, log_level: str):
     from ..deploy.worker import main
 
     if log_level:
         logging.basicConfig(level=logging.getLevelName(log_level.upper()))
 
-    main(address=address, controller_address=controller_address)
+    main(address=address, supervisor_address=supervisor_address)
 
 
 @cli.group()
@@ -127,7 +127,7 @@ def model_launch(
     host: str,
     port: str,
 ):
-    address = f"{PLEXAR_DEFAULT_HOST}:{PLEXAR_DEFAULT_CONTROLLER_PORT}"
+    address = f"{PLEXAR_DEFAULT_HOST}:{PLEXAR_DEFAULT_SUPERVISOR_PORT}"
 
     from .local import main
 
