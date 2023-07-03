@@ -62,7 +62,7 @@ class GradioApp:
             generate_config=generate_config,
         )
         async for chunk in chat_generator:
-            chat[-1][1] += chunk["text"]
+            chat[-1][1] += chunk["choices"][0]["text"]
             yield "", chat
 
     def _build_chatbot(self, model_uid: str, model_name: str):
