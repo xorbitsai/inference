@@ -111,7 +111,7 @@ def model_list():
 
 
 @model.command("launch")
-@click.option("--name", "-n", default=None, type=str)
+@click.option("--name", "-n", type=str)
 @click.option("--size-in-billions", "-s", default=None, type=int)
 @click.option("--model-format", "-f", default=None, type=str)
 @click.option("--quantization", "-q", default=None, type=str)
