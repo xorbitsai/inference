@@ -15,11 +15,9 @@
 import abc
 import logging
 from abc import abstractmethod
-from time import time
 from typing import TYPE_CHECKING, Any, Iterator, List, Optional, TypedDict, Union
 
-from llama_cpp import Completion as LlamaCppCompletion
-from llama_cpp import CompletionChunk as LlamaCppCompletionChunk
+from .types import Completion
 
 if TYPE_CHECKING:
     from llama_cpp import LogitsProcessorList, StoppingCriteriaList
@@ -40,14 +38,6 @@ class StrictTypedDict(TypedDict):
             )
 
         super().__setitem__(key, value)
-
-
-class Completion(StrictTypedDict, total=False):
-    text: str
-    prompt_tokens: Optional[int]
-    completion_tokens: Optional[int]
-    finish_reason: Optional[str]
-    elapsed_time: Optional[int]
 
 
 class LlamaCppGenerateConfig(StrictTypedDict, total=False):
@@ -180,13 +170,12 @@ class LlamaCppModel(Model):
     def generate(
         self, prompt: str, generate_config: Optional[LlamaCppGenerateConfig] = None
     ) -> Union[Completion, Iterator[Completion]]:
-        def generator_wrapper(_prompt: str, _generate_config, _start: float):
+        def generator_wrapper(
+            _prompt: str, _generate_config: LlamaCppGenerateConfig
+        ) -> Iterator[Completion]:
             assert self._llm is not None
             for _completion_chunk in self._llm(prompt=_prompt, **_generate_config):
-                _completion = self._get_completion(_completion_chunk)
-                _elapsed = time() - _start
-                _completion["elapsed_time"] = int(_elapsed)
-                yield _completion
+                yield _completion_chunk
 
         logger.debug(
             "Enter generate, prompt: %s, generate config: %s", prompt, generate_config
@@ -194,7 +183,6 @@ class LlamaCppModel(Model):
 
         generate_config = self._sanitize_generate_config(generate_config)
 
-        start = time()
         assert self._llm is not None
 
         stream = True
@@ -204,34 +192,11 @@ class LlamaCppModel(Model):
             stream = generate_config["stream"]
 
         if not stream:
-            completion = self._get_completion(
-                self._llm(prompt=prompt, **generate_config)
-            )
-            elapsed = time() - start
-            completion["elapsed_time"] = int(elapsed)
+            completion = self._llm(prompt=prompt, **generate_config)
+
             return completion
         else:
-            return generator_wrapper(prompt, generate_config, start)
-
-    @classmethod
-    def _get_completion(
-        cls, completion: Union["LlamaCppCompletion", "LlamaCppCompletionChunk"]
-    ):
-        usage = completion.get("usage", None)
-        prompt_tokens = usage["prompt_tokens"] if usage else None
-        completion_tokens = usage["completion_tokens"] if usage else None
-
-        return Completion(
-            text=cls._format_completion(completion["choices"][0]["text"]),
-            prompt_tokens=prompt_tokens,
-            completion_tokens=completion_tokens,
-            finish_reason=completion["choices"][0]["finish_reason"],
-            elapsed_time=None,
-        )
-
-    @classmethod
-    def _format_completion(cls, text: str):
-        return text
+            return generator_wrapper(prompt, generate_config)
 
 
 class LlamaCppChatModel(LlamaCppModel):
@@ -278,11 +243,11 @@ class LlamaCppChatModel(LlamaCppModel):
             tokens = []
             for completion_chunk in self.generate(full_prompt, generate_config):
                 assert not isinstance(completion_chunk, str)
-                tokens.append(completion_chunk["text"])
+                tokens.append(completion_chunk["choices"][0]["text"])
                 yield completion_chunk
             chat_history.append(prompt, "".join(tokens))
         else:
             completion = self.generate(full_prompt, generate_config)
             assert not isinstance(completion, Iterator)
-            chat_history.append(prompt, completion["text"])
+            chat_history.append(prompt, completion["choices"][0]["text"])
             return completion
