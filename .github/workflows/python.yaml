@@ -44,6 +44,6 @@ jobs:
           sortPaths: "plexar"
           configuration: "--check-only --diff --sp setup.cfg"
       - name: mypy
-        run: pip install mypy && mypy --install-types --non-interactive && mypy plexar
+        run: pip install mypy && mypy --install-types --non-interactive plexar
       - name: codespell
         run: pip install codespell && codespell plexar
