@@ -16,13 +16,13 @@ import asyncio
 
 import xoscar as xo
 
-from ..actor.gradio import GradioActor
-from ..actor.service import ControllerActor
+from ..core.gradio import GradioActor
+from ..core.service import SupervisorActor
 
 
-async def start_controller_components(address: str, share: bool, host: str, port: int):
-    await xo.create_actor(ControllerActor, address=address, uid=ControllerActor.uid())
-    # TODO: start RESTful actor
+async def start_supervisor_components(address: str, share: bool, host: str, port: int):
+    await xo.create_actor(SupervisorActor, address=address, uid=SupervisorActor.uid())
+    # TODO: start RESTful core
     gradio = await xo.create_actor(
         GradioActor,
         xoscar_endpoint=address,
@@ -35,11 +35,11 @@ async def start_controller_components(address: str, share: bool, host: str, port
     await gradio.launch()
 
 
-async def _start_controller(address: str, host: str, port: int, share: bool):
+async def _start_supervisor(address: str, host: str, port: int, share: bool):
     from .utils import create_actor_pool
 
     pool = await create_actor_pool(address=address, n_process=0)
-    await start_controller_components(
+    await start_supervisor_components(
         address=address, host=host, port=port, share=share
     )
     await pool.join()
@@ -47,7 +47,7 @@ async def _start_controller(address: str, host: str, port: int, share: bool):
 
 def main(*args, **kwargs):
     loop = asyncio.get_event_loop()
-    task = loop.create_task(_start_controller(*args, **kwargs))
+    task = loop.create_task(_start_supervisor(*args, **kwargs))
 
     try:
         loop.run_until_complete(task)

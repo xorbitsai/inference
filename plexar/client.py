@@ -19,8 +19,8 @@ from typing import Any, Coroutine, List, Optional
 
 import xoscar as xo
 
-from .actor.model import ModelActor
-from .actor.service import ControllerActor
+from .core.model import ModelActor
+from .core.service import SupervisorActor
 from .model import ModelSpec
 
 
@@ -64,12 +64,12 @@ class Isolation:
 
 
 class Client:
-    def __init__(self, controller_address: str):
-        self._controller_address = controller_address
+    def __init__(self, supervisor_address: str):
+        self._supervisor_address = supervisor_address
         self._isolation = Isolation(asyncio.new_event_loop(), threaded=True)
         self._isolation.start()
-        self._controller_ref: xo.ActorRefType["ControllerActor"] = self._isolation.call(
-            xo.actor_ref(address=self._controller_address, uid=ControllerActor.uid())
+        self._supervisor_ref: xo.ActorRefType["SupervisorActor"] = self._isolation.call(
+            xo.actor_ref(address=self._supervisor_address, uid=SupervisorActor.uid())
         )
 
     @classmethod
@@ -87,7 +87,7 @@ class Client:
     ) -> str:
         model_uid = self.gen_model_uid()
 
-        coro = self._controller_ref.launch_builtin_model(
+        coro = self._supervisor_ref.launch_builtin_model(
             model_uid=model_uid,
             model_name=model_name,
             model_size_in_billions=model_size_in_billions,
@@ -100,13 +100,13 @@ class Client:
         return model_uid
 
     def terminate_model(self, model_uid: str):
-        coro = self._controller_ref.terminate_model(model_uid)
+        coro = self._supervisor_ref.terminate_model(model_uid)
         return self._isolation.call(coro)
 
     def list_models(self) -> List[tuple[str, ModelSpec]]:
-        coro = self._controller_ref.list_models()
+        coro = self._supervisor_ref.list_models()
         return self._isolation.call(coro)
 
     def get_model(self, model_uid: str) -> xo.ActorRefType["ModelActor"]:
-        coro = self._controller_ref.get_model(model_uid)
+        coro = self._supervisor_ref.get_model(model_uid)
         return self._isolation.call(coro)
