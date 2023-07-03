@@ -12,21 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
+import uuid
 from logging import getLogger
-from typing import Callable, Dict, List, Optional, Union, Literal
+from typing import Callable, Dict, List, Literal, Optional, Union
 
 import xoscar as xo
+from fastapi import APIRouter, FastAPI, Request
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
+from uvicorn import Config, Server
 
 from plexar.actor import ModelActor
 from plexar.model import ModelSpec
-
-from fastapi import FastAPI, APIRouter, Request
-from fastapi import HTTPException
-import asyncio
-from uvicorn import Config, Server
-import uuid
-import llama_cpp
-from pydantic import BaseModel, BaseSettings, Field, create_model_from_typeddict
 
 max_tokens_field = Field(
     default=16, ge=1, le=2048, description="The maximum number of tokens to generate."
@@ -90,21 +88,18 @@ mirostat_mode_field = Field(
     default=0,
     ge=0,
     le=2,
-    description="Enable Mirostat constant-perplexity algorithm of the specified version (1 or 2; 0 = disabled)"
+    description="Enable Mirostat constant-perplexity algorithm of the specified version (1 or 2; 0 = disabled)",
 )
 
 mirostat_tau_field = Field(
     default=5.0,
     ge=0.0,
     le=10.0,
-    description="Mirostat target entropy, i.e. the target perplexity - lower values produce focused and coherent text, larger values produce more diverse and less coherent text"
+    description="Mirostat target entropy, i.e. the target perplexity - lower values produce focused and coherent text, larger values produce more diverse and less coherent text",
 )
 
 mirostat_eta_field = Field(
-    default=0.1,
-    ge=0.001,
-    le=1.0,
-    description="Mirostat learning rate"
+    default=0.1, ge=0.001, le=1.0, description="Mirostat learning rate"
 )
 
 
@@ -132,7 +127,6 @@ class CreateCompletionRequest(BaseModel):
     presence_penalty: Optional[float] = presence_penalty_field
     frequency_penalty: Optional[float] = frequency_penalty_field
     logit_bias: Optional[Dict[str, float]] = Field(None)
-    logprobs: Optional[int] = Field(None)
 
     model: str
     n: Optional[int] = 1
@@ -151,6 +145,61 @@ class CreateCompletionRequest(BaseModel):
                 "stop": ["\n", "###"],
             }
         }
+
+
+class CreateEmbeddingRequest(BaseModel):
+    model: str
+    input: Union[str, List[str]] = Field(description="The input to embed.")
+    user: Optional[str]
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "input": "The food was delicious and the waiter...",
+            }
+        }
+
+
+class CreateChatCompletionRequest(BaseModel):
+    # messages: List[ChatCompletionRequestMessage] = Field(
+    #     default=[], description="A list of messages to generate completions for."
+    # )
+    prompt: str
+    max_tokens: int = max_tokens_field
+    temperature: float = temperature_field
+    top_p: float = top_p_field
+    mirostat_mode: int = mirostat_mode_field
+    mirostat_tau: float = mirostat_tau_field
+    mirostat_eta: float = mirostat_eta_field
+    stop: Optional[List[str]] = stop_field
+    stream: bool = stream_field
+    presence_penalty: Optional[float] = presence_penalty_field
+    frequency_penalty: Optional[float] = frequency_penalty_field
+    logit_bias: Optional[Dict[str, float]] = Field(None)
+
+    model: str
+    n: Optional[int] = 1
+    user: Optional[str] = Field(None)
+
+    # llama.cpp specific parameters
+    top_k: int = top_k_field
+    repeat_penalty: float = repeat_penalty_field
+    logit_bias_type: Optional[Literal["input_ids", "tokens"]] = Field(None)
+
+    # class Config:
+    #     schema_extra = {
+    #         "example": {
+    #             "messages": [
+    #                 ChatCompletionRequestMessage(
+    #                     role="system", content="You are a helpful assistant."
+    #                 ),
+    #                 ChatCompletionRequestMessage(
+    #                     role="user", content="What is the capital of France?"
+    #                 ),
+    #             ]
+    #         }
+    #     }
+
 
 logger = getLogger(__name__)
 
@@ -199,7 +248,7 @@ class ControllerActor(xo.Actor):
             return target_worker
 
         raise RuntimeError("TODO")
-    
+
     async def get_worker(self, model_uid: str) -> xo.ActorRefType["WorkerActor"]:
         if model_uid not in self._model_uid_to_worker:
             raise Exception(f"Worker for model UID '{model_uid}' not found.")
@@ -261,17 +310,25 @@ class ControllerActor(xo.Actor):
 
 
 class RESTAPIActor(xo.Actor):
-    def __init__(self, host:str, port:int):
+    def __init__(self, host: str, port: int):
         super().__init__()
-        self._controller_ref = None
+        self._controller_ref: xo.ActorRefType["ControllerActor"]
         app = FastAPI()
         self.router = APIRouter()
         self.router.add_api_route("/v1/models", self.list_models, methods=["GET"])
         self.router.add_api_route("/v1/models", self.launch_model, methods=["POST"])
-        self.router.add_api_route("/v1/models/{model_uid}", self.terminate_model, methods=["DELETE"])
-        self.router.add_api_route("/v1/completions", self.create_completion, methods=["POST"])
-        # self.router.add_api_route("/v1/embeddings", self.create_embedding, methods=["POST"])
-        # self.router.add_api_route("/v1/chat/completions", self.create_chat_completion, methods=["POST"])
+        self.router.add_api_route(
+            "/v1/models/{model_uid}", self.terminate_model, methods=["DELETE"]
+        )
+        self.router.add_api_route(
+            "/v1/completions", self.create_completion, methods=["POST"]
+        )
+        self.router.add_api_route(
+            "/v1/embeddings", self.create_embedding, methods=["POST"]
+        )
+        self.router.add_api_route(
+            "/v1/chat/completions", self.create_chat_completion, methods=["POST"]
+        )
         app.include_router(self.router)
 
         # uvicorn
@@ -279,12 +336,12 @@ class RESTAPIActor(xo.Actor):
         config = Config(app=app, loop=loop, host=host, port=port)
         server = Server(config)
         loop.create_task(server.serve())
-    
+
     async def __post_create__(self):
         self._controller_ref = await xo.actor_ref(
             address=self.address, uid=ControllerActor.uid()
         )
-    
+
     def gen_model_uid(self) -> str:
         # generate a time-based uuid.
         return str(uuid.uuid1())
@@ -295,11 +352,11 @@ class RESTAPIActor(xo.Actor):
 
     async def launch_model(self, request: Request) -> str:
         payload = await request.json()
-        model_name = payload.get('model_name')
-        model_size_in_billions = payload.get('model_size_in_billions')
-        model_format = payload.get('model_format')
-        quantization = payload.get('quantization')
-        kwargs = payload.get('kwargs', {}) or {}
+        model_name = payload.get("model_name")
+        model_size_in_billions = payload.get("model_size_in_billions")
+        model_format = payload.get("model_format")
+        quantization = payload.get("quantization")
+        kwargs = payload.get("kwargs", {}) or {}
 
         model_uid = self.gen_model_uid()
 
@@ -309,19 +366,15 @@ class RESTAPIActor(xo.Actor):
             model_size_in_billions=model_size_in_billions,
             model_format=model_format,
             quantization=quantization,
-            **kwargs
+            **kwargs,
         )
-        return model_uid
+        return JSONResponse(content={"model_uid": model_uid})
 
     async def terminate_model(self, model_uid: str):
         await self._controller_ref.terminate_model(model_uid)
         return {"message": "Model terminated successfully."}
 
-    async def create_completion(self, 
-        # request: Request,
-        body: CreateCompletionRequest
-    ):
-
+    async def create_completion(self, request: Request, body: CreateCompletionRequest):
         exclude = {
             "prompt",
             "model",
@@ -331,26 +384,53 @@ class RESTAPIActor(xo.Actor):
             "logit_bias_type",
             "user",
         }
-        kwargs = body.dict(exclude=exclude)            
+        kwargs = body.dict(exclude=exclude)
 
         if body.logit_bias is not None:
-            kwargs['logits_processor'] = llama_cpp.LogitsProcessorList([
-                make_logit_bias_processor(llama, body.logit_bias, body.logit_bias_type),
-        ])
-
+            raise NotImplementedError
         model_uid = body.model
-        prompt = body.prompt
         worker_ref = await self._controller_ref.get_worker(model_uid)
         model = await worker_ref.get_model(model_uid)
-        
-        if body.stream: #TODO
+
+        if body.stream:  # TODO
             import sys
+
             async for c in await model.generate(body.prompt, kwargs):
-                sys.stdout.write(c['text'])
+                sys.stdout.write(c["text"])
         else:
             return await model.generate(body.prompt, kwargs)
 
-    
+    async def create_embedding(self, request: CreateEmbeddingRequest):
+        raise NotImplementedError
+
+    async def create_chat_completion(
+        self,
+        request: Request,
+        body: CreateChatCompletionRequest,
+    ):
+        exclude = {
+            "n",
+            "prompt",
+            "model",
+            "logit_bias",
+            "logit_bias_type",
+            "user",
+        }
+
+        kwargs = body.dict(exclude=exclude)
+        if body.logit_bias is not None:
+            raise NotImplementedError
+
+        model_uid = body.model
+        worker_ref = await self._controller_ref.get_worker(model_uid)
+        model = await worker_ref.get_model(model_uid)
+
+        if body.stream:
+            raise NotImplementedError
+
+        else:
+            return await model.chat(body.prompt, kwargs)
+
 
 class WorkerActor(xo.Actor):
     def __init__(self, controller_address: str):

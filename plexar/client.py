@@ -17,6 +17,7 @@ import threading
 import uuid
 from typing import Any, Coroutine, List, Optional
 
+import requests
 import xoscar as xo
 
 from .actor.model import ModelActor
@@ -83,7 +84,7 @@ class Client:
         model_size_in_billions: Optional[int] = None,
         model_format: Optional[str] = None,
         quantization: Optional[str] = None,
-        **kwargs
+        **kwargs,
     ) -> str:
         model_uid = self.gen_model_uid()
 
@@ -93,7 +94,7 @@ class Client:
             model_size_in_billions=model_size_in_billions,
             model_format=model_format,
             quantization=quantization,
-            **kwargs
+            **kwargs,
         )
         self._isolation.call(coro)
 
@@ -110,3 +111,49 @@ class Client:
     def get_model(self, model_uid: str) -> xo.ActorRefType["ModelActor"]:
         coro = self._controller_ref.get_model(model_uid)
         return self._isolation.call(coro)
+
+
+class RestfulClient:
+    def __init__(self, base_url):
+        self.base_url = base_url
+
+    def list_models(self):
+        url = f"{self.base_url}/v1/models"
+        response = requests.get(url)
+        response_data = response.json()
+        return response_data
+
+    def launch_model(
+        self,
+        model_name: str,
+        model_size_in_billions: Optional[int] = None,
+        model_format: Optional[str] = None,
+        quantization: Optional[str] = None,
+        **kwargs,
+    ) -> str:
+        url = f"{self.base_url}/v1/models"
+        payload = {
+            "model_name": model_name,
+            "model_size_in_billions": model_size_in_billions,
+            "model_format": model_format,
+            "quantization": quantization,
+            "kwargs": kwargs,
+        }
+        response = requests.post(url, json=payload)
+        response_data = response.json()
+        model_uid = response_data["model_uid"]
+        return model_uid
+
+    def terminate_model(self, model_uid):
+        url = f"{self.base_url}/v1/models/{model_uid}"
+        response = requests.delete(url)
+        response_data = response.json()
+        return response_data
+
+    def create_completion(self, model_uid, prompt, **kwargs):
+        request_body = {"model": model_uid, "prompt": prompt, **kwargs}
+
+        url = f"{self.base_url}/v1/completions"
+        response = requests.post(url, json=request_body)
+        response_data = response.json()
+        return response_data
