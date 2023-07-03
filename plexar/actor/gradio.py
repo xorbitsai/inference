@@ -12,26 +12,42 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import uuid
-from typing import List
+from typing import List, Optional
 
 import gradio as gr
 import xoscar as xo
 
 from ..client import Client
+from ..model import MODEL_FAMILIES
 from ..model.llm.core import ChatHistory
+
+MODEL_TO_FAMILIES = dict(
+    (model_family.model_name, model_family) for model_family in MODEL_FAMILIES
+)
 
 
 class GradioApp:
-    def __init__(self, xoscar_endpoint: str, gladiator_num: int = 2):
+    def __init__(
+        self, xoscar_endpoint: str, gladiator_num: int = 2, max_model_num: int = 2
+    ):
         self._xoscar_endpoint = xoscar_endpoint
         self._api = Client(xoscar_endpoint)
         self._gladiator_num = gladiator_num
-        self._models = dict((str(m[1]), m[0]) for m in self._api.list_models())
+        self._max_model_num = max_model_num
 
-    def _refresh_and_get_models(self) -> List[str]:
-        self._models = dict((str(m[1]), m[0]) for m in self._api.list_models())
-        return list(self._models.keys())
+    def _create_model(
+        self,
+        model_name: str,
+        model_size_in_billions: Optional[int] = None,
+        model_format: Optional[str] = None,
+        quantization: Optional[str] = None,
+    ):
+        models = self._api.list_models()
+        if len(models) >= self._max_model_num:
+            self._api.terminate_model(models[0][0])
+        return self._api.launch_model(
+            model_name, model_size_in_billions, model_format, quantization
+        )
 
     async def generate(
         self,
@@ -47,7 +63,9 @@ class GradioApp:
         if not message:
             yield message, chat
         else:
-            if not self._models:
+            try:
+                model_ref = self._api.get_model(model)
+            except KeyError:
                 raise gr.Error(f"Please create model first")
             inputs = []
             outputs = []
@@ -73,7 +91,6 @@ class GradioApp:
                 top_p=top_p,
             )
             chat += [[message, ""]]
-            model_ref = self._api.get_model(model)
             chat_generator = await model_ref.chat(
                 message,
                 chat_history=history,
@@ -151,40 +168,94 @@ class GradioApp:
         )
 
     def _build_chat_column(self):
-        models = self._refresh_and_get_models()
-
         with gr.Column():
-            selected_model = gr.Dropdown(
-                value=models[0] if len(models) > 0 else None,
-                choices=self._refresh_and_get_models(),
-                label="select launched model",
-                container=False,
+            with gr.Row():
+                model_name = gr.Dropdown(
+                    choices=[m.model_name for m in MODEL_FAMILIES],
+                    label="model name",
+                    scale=2,
+                )
+                model_format = gr.Dropdown(
+                    choices=[],
+                    interactive=False,
+                    label="model format",
+                    scale=2,
+                )
+                model_size_in_billions = gr.Dropdown(
+                    choices=[],
+                    interactive=False,
+                    label="model size in billions",
+                    scale=1,
+                )
+                quantization = gr.Dropdown(
+                    choices=[],
+                    interactive=False,
+                    label="quantization",
+                    scale=1,
+                )
+            create_model = gr.Button(value="create")
+
+            def select_model_name(model_name: str):
+                if model_name:
+                    model_family = MODEL_TO_FAMILIES[model_name]
+                    formats = [model_family.model_format]
+                    model_sizes_in_billions = [
+                        str(b) for b in model_family.model_sizes_in_billions
+                    ]
+                    quantizations = model_family.quantizations
+                    return (
+                        gr.Dropdown.update(
+                            choices=formats,
+                            interactive=True,
+                            value=model_family.model_format,
+                        ),
+                        gr.Dropdown.update(
+                            choices=model_sizes_in_billions,
+                            interactive=True,
+                            value=model_sizes_in_billions[0],
+                        ),
+                        gr.Dropdown.update(
+                            choices=quantizations,
+                            interactive=True,
+                            value=quantizations[0],
+                        ),
+                    )
+                else:
+                    return (
+                        gr.Dropdown.update(),
+                        gr.Dropdown.update(),
+                        gr.Dropdown.update(),
+                    )
+
+            model_name.change(
+                select_model_name,
+                inputs=[model_name],
+                outputs=[model_format, model_size_in_billions, quantization],
             )
 
-            # It's a trick, create an invisible Number with callable value
-            # and set every to 5 to trigger update every 5 seconds
-            def _refresh_models():
-                launched = self._refresh_and_get_models()
-                value = launched[0] if len(launched) > 0 else None
-                return gr.Dropdown.update(value=value, choices=launched)
-
-            n = gr.Text(value=lambda *_: str(uuid.uuid4()), visible=False, every=5)
-            n.change(
-                _refresh_models, inputs=None, outputs=[selected_model], queue=False
-            )
             components = self._build_chatbot("", "")
             model_text = components[0]
             chat, model_uid = components[1], components[-1]
 
-        def select_model(model_name: str):
-            uid = self._models[model_name]
-            return gr.Chatbot.update(label=model_name, value=[]), gr.Textbox.update(
-                value=uid
+        def select_model(
+            _model_name: str,
+            _model_format: str,
+            _model_size_in_billions: str,
+            _quantization: str,
+        ):
+            model_uid = self._create_model(
+                _model_name, int(_model_size_in_billions), _model_format, _quantization
             )
+            return gr.Chatbot.update(
+                label="-".join(
+                    [_model_name, _model_size_in_billions, _model_format, _quantization]
+                ),
+                value=[],
+            ), gr.Textbox.update(value=model_uid)
 
-        selected_model.change(
+        create_model.click(
             select_model,
-            inputs=[selected_model],
+            inputs=[model_name, model_format, model_size_in_billions, quantization],
             outputs=[chat, model_uid],
             postprocess=False,
         )
@@ -196,8 +267,8 @@ class GradioApp:
                 chat_and_text = [
                     self._build_chat_column() for _ in range(self._gladiator_num)
                 ]
+                chats = [c[0] for c in chat_and_text]
                 texts = [c[1] for c in chat_and_text]
-                chats = [c[1] for c in chat_and_text]
 
             msg = gr.Textbox()
 
