@@ -26,7 +26,7 @@ async def start_worker_components(address: str, supervisor_address: str):
         uid=WorkerActor.uid(),
         supervisor_address=supervisor_address,
     )
-    # TODO: start resource core
+    # TODO: start resource actor
 
 
 async def _start_worker(address: str, supervisor_address: str):
