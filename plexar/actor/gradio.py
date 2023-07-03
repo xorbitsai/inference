@@ -28,12 +28,17 @@ MODEL_TO_FAMILIES = dict(
 
 class GradioApp:
     def __init__(
-        self, xoscar_endpoint: str, gladiator_num: int = 2, max_model_num: int = 2
+        self,
+        xoscar_endpoint: str,
+        gladiator_num: int = 2,
+        max_model_num: int = 2,
+        use_launched_model: bool = False,
     ):
         self._xoscar_endpoint = xoscar_endpoint
         self._api = Client(xoscar_endpoint)
         self._gladiator_num = gladiator_num
         self._max_model_num = max_model_num
+        self._use_launched_model = use_launched_model
 
     def _create_model(
         self,
@@ -291,12 +296,28 @@ class GradioApp:
         gr.ClearButton(components=[chat, msg, model_text])
 
     def build(self):
-        with gr.Blocks() as blocks:
-            with gr.Tab("Chat"):
-                self._build_single()
-            with gr.Tab("Arena"):
-                self._build_arena()
-        return blocks
+        if self._use_launched_model:
+            uid, model_spec = self._api.list_models()[0]
+            with gr.Blocks() as blocks:
+                gr.Markdown(f"Chat with {model_spec.model_name}")
+                components = self._build_chatbot(uid, model_spec.model_name)
+                model_text = components[0]
+                chat = components[1]
+                msg = gr.Textbox()
+
+                def update_message(text_in: str):
+                    return "", text_in
+
+                msg.submit(update_message, inputs=[msg], outputs=[msg, model_text])
+                gr.ClearButton(components=[chat, msg, model_text])
+                return blocks
+        else:
+            with gr.Blocks() as blocks:
+                with gr.Tab("Chat"):
+                    self._build_single()
+                with gr.Tab("Arena"):
+                    self._build_arena()
+            return blocks
 
 
 class GradioActor(xo.Actor):
@@ -306,10 +327,13 @@ class GradioActor(xo.Actor):
         host: str,
         port: int,
         share: bool,
+        use_launched_model: bool = False,
         gladiator_num: int = 2,
     ):
         super().__init__()
-        self._gradio_cls = GradioApp(xoscar_endpoint, gladiator_num)
+        self._gradio_cls = GradioApp(
+            xoscar_endpoint, gladiator_num, use_launched_model=use_launched_model
+        )
         self._host = host
         self._port = port
         self._share = share
