@@ -106,7 +106,7 @@ class GradioApp:
                 chat[-1][1] += chunk["choices"][0]["text"]
                 yield "", chat
             if show_finish_reason and chunk is not None:
-                chat[-1][1] += f"[ stop reason: {chunk['choices']['finish_reason']}]"
+                chat[-1][1] += f"[ stop reason: {chunk['choices'][0]['finish_reason']}]"
                 yield "", chat
 
     def _build_chatbot(self, model_uid: str, model_name: str):
