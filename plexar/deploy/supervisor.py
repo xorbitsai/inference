@@ -22,7 +22,7 @@ from ..core.service import SupervisorActor
 
 async def start_supervisor_components(address: str, share: bool, host: str, port: int):
     await xo.create_actor(SupervisorActor, address=address, uid=SupervisorActor.uid())
-    # TODO: start RESTful core
+    # TODO: start RESTful actor
     gradio = await xo.create_actor(
         GradioActor,
         xoscar_endpoint=address,
