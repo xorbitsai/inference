@@ -18,7 +18,7 @@ def install():
 
     from .. import MODEL_FAMILIES, ModelFamily
     from .orca import OrcaMiniGgml
-    from .vicuna import VicunaCensoredGgml, VicunaUncensoredGgml
+    from .vicuna import VicunaCensoredGgml
     from .wizardlm import WizardlmGgml
 
     baichuan_url_generator = lambda model_size, quantization: (
