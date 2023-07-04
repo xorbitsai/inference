@@ -18,6 +18,7 @@ import gradio as gr
 import xoscar as xo
 
 from ..client import Client
+from ..locale.utils import Locale
 from ..model import MODEL_FAMILIES, ModelSpec
 from ..model.llm.core import ChatHistory
 
@@ -39,6 +40,7 @@ class GradioApp:
         self._gladiator_num = gladiator_num
         self._max_model_num = max_model_num
         self._use_launched_model = use_launched_model
+        self._locale = Locale()
 
     def _create_model(
         self,
@@ -71,14 +73,14 @@ class GradioApp:
             try:
                 model_ref = self._api.get_model(model)
             except KeyError:
-                raise gr.Error(f"Please create model first")
+                raise gr.Error(self._locale(f"Please create model first"))
             inputs = []
             outputs = []
             for c in chat:
                 inputs.append(c[0])
                 out = c[1]
                 # remove stop reason
-                finish_reason_idx = out.find("[stop reason: ")
+                finish_reason_idx = out.find(f"[{self._locale('stop reason')}: ")
                 if finish_reason_idx == -1:
                     outputs.append(out)
                 else:
@@ -106,44 +108,48 @@ class GradioApp:
                 chat[-1][1] += chunk["choices"][0]["text"]
                 yield "", chat
             if show_finish_reason and chunk is not None:
-                chat[-1][1] += f"[ stop reason: {chunk['choices'][0]['finish_reason']}]"
+                chat[-1][
+                    1
+                ] += f" [{self._locale('stop reason')}: {chunk['choices'][0]['finish_reason']}]"
                 yield "", chat
 
     def _build_chatbot(self, model_uid: str, model_name: str):
-        with gr.Accordion("Parameters", open=False):
+        with gr.Accordion(self._locale("Parameters"), open=False):
             max_token = gr.Slider(
                 128,
                 1024,
                 value=256,
                 step=1,
-                label="Max tokens",
-                info="The maximum number of tokens to generate.",
+                label=self._locale("Max tokens"),
+                info=self._locale("The maximum number of tokens to generate."),
             )
             temperature = gr.Slider(
                 0.2,
                 1,
                 value=0.8,
                 step=0.01,
-                label="Temperature",
-                info="The temperature to use for sampling.",
+                label=self._locale("Temperature"),
+                info=self._locale("The temperature to use for sampling."),
             )
             top_p = gr.Slider(
                 0.2,
                 1,
                 value=0.95,
                 step=0.01,
-                label="Top P",
-                info="The top-p value to use for sampling.",
+                label=self._locale("Top P"),
+                info=self._locale("The top-p value to use for sampling."),
             )
             window_size = gr.Slider(
                 0,
                 50,
                 value=10,
                 step=1,
-                label="Window size",
-                info="Window size of chat history.",
+                label=self._locale("Window size"),
+                info=self._locale("Window size of chat history."),
             )
-            show_finish_reason = gr.Checkbox(label="show stop reason")
+            show_finish_reason = gr.Checkbox(
+                label=f"{self._locale('Show stop reason')}"
+            )
         chat = gr.Chatbot(label=model_name)
         text = gr.Textbox(visible=False)
         model_uid = gr.Textbox(model_uid, visible=False)
@@ -177,28 +183,28 @@ class GradioApp:
             with gr.Row():
                 model_name = gr.Dropdown(
                     choices=[m.model_name for m in MODEL_FAMILIES],
-                    label="model name",
+                    label=self._locale("model name"),
                     scale=2,
                 )
                 model_format = gr.Dropdown(
                     choices=[],
                     interactive=False,
-                    label="model format",
+                    label=self._locale("model format"),
                     scale=2,
                 )
                 model_size_in_billions = gr.Dropdown(
                     choices=[],
                     interactive=False,
-                    label="model size in billions",
+                    label=self._locale("model size in billions"),
                     scale=1,
                 )
                 quantization = gr.Dropdown(
                     choices=[],
                     interactive=False,
-                    label="quantization",
+                    label=self._locale("quantization"),
                     scale=1,
                 )
-            create_model = gr.Button(value="create")
+            create_model = gr.Button(value=self._locale("create"))
 
             def select_model_name(model_name: str):
                 if model_name:
@@ -275,7 +281,7 @@ class GradioApp:
                 chats = [c[0] for c in chat_and_text]
                 texts = [c[1] for c in chat_and_text]
 
-            msg = gr.Textbox()
+            msg = gr.Textbox(label=self._locale("Input"))
 
             def update_message(text_in: str):
                 return "", text_in, text_in
@@ -287,7 +293,7 @@ class GradioApp:
     def _build_single(self):
         chat, model_text = self._build_chat_column()
 
-        msg = gr.Textbox()
+        msg = gr.Textbox(label=self._locale("Input"))
 
         def update_message(text_in: str):
             return "", text_in
@@ -312,7 +318,9 @@ class GradioApp:
         ]
         choice_to_uid = dict(zip(choices, uid_to_model_spec.keys()))
         model_selection = gr.Dropdown(
-            label="select model", choices=choices, value=choices[default_index]
+            label=self._locale("select model"),
+            choices=choices,
+            value=choices[default_index],
         )
         components = self._build_chatbot(
             models[default_index][0], choices[default_index]
@@ -340,7 +348,7 @@ class GradioApp:
                 chats = [c[0] for c in chat_and_text]
                 texts = [c[1] for c in chat_and_text]
 
-            msg = gr.Textbox()
+            msg = gr.Textbox(label=self._locale("Input"))
 
             def update_message(text_in: str):
                 return "", text_in, text_in
@@ -353,9 +361,9 @@ class GradioApp:
         if self._use_launched_model:
             models = self._api.list_models()
             with gr.Blocks() as blocks:
-                with gr.Tab("Chat"):
+                with gr.Tab(self._locale("Chat")):
                     chat, model_text = self._build_single_with_launched(models, 0)
-                    msg = gr.Textbox()
+                    msg = gr.Textbox(label=self._locale("Input"))
 
                     def update_message(text_in: str):
                         return "", text_in
@@ -363,14 +371,14 @@ class GradioApp:
                     msg.submit(update_message, inputs=[msg], outputs=[msg, model_text])
                     gr.ClearButton(components=[chat, msg, model_text])
                 if len(models) > 2:
-                    with gr.Tab("Arena"):
+                    with gr.Tab(self._locale("Arena")):
                         self._build_arena_with_launched(models)
             return blocks
         else:
             with gr.Blocks() as blocks:
-                with gr.Tab("Chat"):
+                with gr.Tab(self._locale("Chat")):
                     self._build_single()
-                with gr.Tab("Arena"):
+                with gr.Tab(self._locale("Arena")):
                     self._build_arena()
             return blocks
 
