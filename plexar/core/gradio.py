@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
 import gradio as gr
 import xoscar as xo
@@ -20,7 +20,9 @@ import xoscar as xo
 from ..client import Client
 from ..locale.utils import Locale
 from ..model import MODEL_FAMILIES, ModelSpec
-from ..model.llm.core import ChatHistory
+
+if TYPE_CHECKING:
+    from ..model.llm.types import ChatCompletionChunk, ChatCompletionMessage
 
 MODEL_TO_FAMILIES = dict(
     (model_family.model_name, model_family) for model_family in MODEL_FAMILIES
@@ -74,24 +76,20 @@ class GradioApp:
                 model_ref = self._api.get_model(model)
             except KeyError:
                 raise gr.Error(self._locale(f"Please create model first"))
-            inputs = []
-            outputs = []
+
+            history: "List[ChatCompletionMessage]" = []
             for c in chat:
-                inputs.append(c[0])
+                history.append({"role": "user", "content": c[0]})
+
                 out = c[1]
-                # remove stop reason
                 finish_reason_idx = out.find(f"[{self._locale('stop reason')}: ")
-                if finish_reason_idx == -1:
-                    outputs.append(out)
-                else:
-                    outputs.append(out[:finish_reason_idx])
-            chat = list([i, o] for i, o in zip(inputs, outputs))
-            if window_size == 0:
-                history = ChatHistory()
-            else:
-                history = ChatHistory(
-                    inputs=inputs[-window_size:], outputs=outputs[-window_size:]
-                )
+                if finish_reason_idx != -1:
+                    out = out[:finish_reason_idx]
+                history.append({"role": "assistant", "content": out})
+
+            if window_size != 0:
+                history = history[-(window_size // 2) :]
+
             generate_config = dict(
                 max_tokens=max_token,
                 temperature=temperature,
@@ -103,14 +101,18 @@ class GradioApp:
                 chat_history=history,
                 generate_config=generate_config,
             )
-            chunk = None
+            chunk: Optional["ChatCompletionChunk"] = None
             async for chunk in chat_generator:
-                chat[-1][1] += chunk["choices"][0]["text"]
-                yield "", chat
+                delta = chunk["choices"][0]["delta"]
+                if "content" not in delta:
+                    continue
+                else:
+                    chat[-1][1] += delta["content"]
+                    yield "", chat
             if show_finish_reason and chunk is not None:
                 chat[-1][
                     1
-                ] += f" [{self._locale('stop reason')}: {chunk['choices'][0]['finish_reason']}]"
+                ] += f"[{self._locale('stop reason')}: {chunk['choices'][0]['finish_reason']}]"
                 yield "", chat
 
     def _build_chatbot(self, model_uid: str, model_name: str):
