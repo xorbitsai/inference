@@ -17,7 +17,13 @@ import logging
 from abc import abstractmethod
 from typing import TYPE_CHECKING, Any, Iterator, List, Optional, TypedDict, Union
 
-from .types import Completion
+from .types import (
+    ChatCompletion,
+    ChatCompletionChunk,
+    ChatCompletionMessage,
+    Completion,
+    CompletionChunk,
+)
 
 if TYPE_CHECKING:
     from llama_cpp import LogitsProcessorList, StoppingCriteriaList
@@ -82,41 +88,6 @@ class LlamaCppModelConfig(StrictTypedDict, total=False):
     verbose: bool
 
 
-class ChatHistory:
-    _inputs: List[str]
-    _outputs: List[str]
-
-    def __init__(
-        self, inputs: Optional[List[str]] = None, outputs: Optional[List[str]] = None
-    ):
-        self._inputs = inputs or []
-        self._outputs = outputs or []
-
-    def to_prompt(
-        self,
-        system_prompt: str,
-        sep: str,
-        user_name: str,
-        assistant_name: str,
-        input_: str,
-    ) -> str:
-        ret = system_prompt
-        for i, o in zip(self._inputs, self._outputs):
-            ret += f"{sep}{user_name}: {i}"
-            ret += f"{sep}{assistant_name}: {o}"
-        ret += f"{sep}{user_name}: {input_}"
-        ret += f"{sep}{assistant_name}:"
-        return ret
-
-    def append(self, i: str, o: str):
-        self._inputs.append(i)
-        self._outputs.append(o)
-
-    def clear(self):
-        self._inputs = []
-        self._outputs = []
-
-
 class Model(abc.ABC):
     name: str
 
@@ -169,10 +140,10 @@ class LlamaCppModel(Model):
 
     def generate(
         self, prompt: str, generate_config: Optional[LlamaCppGenerateConfig] = None
-    ) -> Union[Completion, Iterator[Completion]]:
+    ) -> Union[Completion, Iterator[CompletionChunk]]:
         def generator_wrapper(
             _prompt: str, _generate_config: LlamaCppGenerateConfig
-        ) -> Iterator[Completion]:
+        ) -> Iterator[CompletionChunk]:
             assert self._llm is not None
             for _completion_chunk in self._llm(prompt=_prompt, **_generate_config):
                 yield _completion_chunk
@@ -215,22 +186,89 @@ class LlamaCppChatModel(LlamaCppModel):
         self._user_name: str = user_name
         self._assistant_name: str = assistant_name
 
+    def _to_prompt(
+        self,
+        prompt: str,
+        system_prompt: str,
+        chat_history: List[ChatCompletionMessage],
+    ):
+        ret = system_prompt
+        for message in chat_history:
+            role_name, content = message
+            ret += f"{self._sep}{role_name}: {content}"
+        ret += f"{self._sep}{self._user_name}: {prompt}"
+        ret += f"{self._sep}{self._assistant_name}:"
+        return ret
+
+    @staticmethod
+    def _convert_chat_completion_chunks_to_chat(
+        chunks: Iterator[CompletionChunk],
+    ) -> Iterator[ChatCompletionChunk]:
+        for i, chunk in enumerate(chunks):
+            if i == 0:
+                yield {
+                    "id": "chat" + chunk["id"],
+                    "model": chunk["model"],
+                    "created": chunk["created"],
+                    "object": "chat.completion.chunk",
+                    "choices": [
+                        {
+                            "index": 0,
+                            "delta": {
+                                "role": "assistant",
+                            },
+                            "finish_reason": None,
+                        }
+                    ],
+                }
+            yield {
+                "id": "chat" + chunk["id"],
+                "model": chunk["model"],
+                "created": chunk["created"],
+                "object": "chat.completion.chunk",
+                "choices": [
+                    {
+                        "index": 0,
+                        "delta": {
+                            "content": chunk["choices"][0]["text"],
+                        },
+                        "finish_reason": chunk["choices"][0]["finish_reason"],
+                    }
+                ],
+            }
+
+    @staticmethod
+    def _convert_text_completion_to_chat(completion: Completion) -> ChatCompletion:
+        return {
+            "id": "chat" + completion["id"],
+            "object": "chat.completion",
+            "created": completion["created"],
+            "model": completion["model"],
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {
+                        "role": "assistant",
+                        "content": completion["choices"][0]["text"],
+                    },
+                    "finish_reason": completion["choices"][0]["finish_reason"],
+                }
+            ],
+            "usage": completion["usage"],
+        }
+
     def chat(
         self,
         prompt: str,
         system_prompt: Optional[str] = None,
-        chat_history: Optional[ChatHistory] = None,
+        chat_history: Optional[List[ChatCompletionMessage]] = None,
         generate_config: Optional[LlamaCppGenerateConfig] = None,
-    ) -> Union[Completion, Iterator[Completion]]:
-        chat_history = chat_history or ChatHistory()
+    ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
         system_prompt = system_prompt or self._system_prompt
-        full_prompt = chat_history.to_prompt(
-            system_prompt,
-            self._sep,
-            self._user_name,
-            self._assistant_name,
-            prompt,
-        )
+        chat_history = chat_history or []
+        full_prompt = self._to_prompt(prompt, system_prompt, chat_history=chat_history)
+
+        logger.debug("Full prompt:\n%s", full_prompt)
 
         stream = True
         generate_config = generate_config or {}
@@ -240,14 +278,10 @@ class LlamaCppChatModel(LlamaCppModel):
             stream = generate_config["stream"]
 
         if stream:
-            tokens = []
-            for completion_chunk in self.generate(full_prompt, generate_config):
-                assert not isinstance(completion_chunk, str)
-                tokens.append(completion_chunk["choices"][0]["text"])
-                yield completion_chunk
-            chat_history.append(prompt, "".join(tokens))
+            return self._convert_chat_completion_chunks_to_chat(
+                self.generate(full_prompt, generate_config)
+            )
         else:
-            completion = self.generate(full_prompt, generate_config)
-            assert not isinstance(completion, Iterator)
-            chat_history.append(prompt, completion["choices"][0]["text"])
-            return completion
+            return self._convert_text_completion_to_chat(
+                self.generate(full_prompt, generate_config)
+            )
