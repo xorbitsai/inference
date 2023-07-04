@@ -20,11 +20,14 @@ from typing import Callable, Dict, List, Literal, Optional, Union
 import xoscar as xo
 from fastapi import APIRouter, FastAPI, Request
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field, create_model_from_typeddict
 from uvicorn import Config, Server
 
 from plexar.actor import ModelActor
 from plexar.model import ModelSpec
+
+import llama_cpp
 
 max_tokens_field = Field(
     default=16, ge=1, le=2048, description="The maximum number of tokens to generate."
@@ -103,7 +106,7 @@ mirostat_eta_field = Field(
 )
 
 
-# CreateComplete request
+# CreateComplete request and response
 class CreateCompletionRequest(BaseModel):
     prompt: str
     suffix: Optional[str] = Field(None)
@@ -146,6 +149,7 @@ class CreateCompletionRequest(BaseModel):
             }
         }
 
+CreateCompletionResponse = create_model_from_typeddict(llama_cpp.Completion)
 
 class CreateEmbeddingRequest(BaseModel):
     model: str
@@ -159,12 +163,17 @@ class CreateEmbeddingRequest(BaseModel):
             }
         }
 
+class ChatCompletionRequestMessage(BaseModel):
+    role: Literal["system", "user", "assistant"] = Field(
+        default="user", description="The role of the message."
+    )
+    content: str = Field(default="", description="The content of the message.")
+
 
 class CreateChatCompletionRequest(BaseModel):
-    # messages: List[ChatCompletionRequestMessage] = Field(
-    #     default=[], description="A list of messages to generate completions for."
-    # )
-    prompt: str
+    messages: List[ChatCompletionRequestMessage] = Field(
+        default=[], description="A list of messages to generate completions for."
+    )
     max_tokens: int = max_tokens_field
     temperature: float = temperature_field
     top_p: float = top_p_field
@@ -186,20 +195,22 @@ class CreateChatCompletionRequest(BaseModel):
     repeat_penalty: float = repeat_penalty_field
     logit_bias_type: Optional[Literal["input_ids", "tokens"]] = Field(None)
 
-    # class Config:
-    #     schema_extra = {
-    #         "example": {
-    #             "messages": [
-    #                 ChatCompletionRequestMessage(
-    #                     role="system", content="You are a helpful assistant."
-    #                 ),
-    #                 ChatCompletionRequestMessage(
-    #                     role="user", content="What is the capital of France?"
-    #                 ),
-    #             ]
-    #         }
-    #     }
+    class Config:
+        schema_extra = {
+            "example": {
+                "messages": [
+                    ChatCompletionRequestMessage(
+                        role="system", content="You are a helpful assistant."
+                    ),
+                    ChatCompletionRequestMessage(
+                        role="user", content="What is the capital of France?"
+                    ),
+                ]
+            }
+        }
 
+
+CreateChatCompletionResponse = create_model_from_typeddict(llama_cpp.ChatCompletion)
 
 logger = getLogger(__name__)
 
@@ -314,6 +325,13 @@ class RESTAPIActor(xo.Actor):
         super().__init__()
         self._controller_ref: xo.ActorRefType["ControllerActor"]
         app = FastAPI()
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=["*"],
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
         self.router = APIRouter()
         self.router.add_api_route("/v1/models", self.list_models, methods=["GET"])
         self.router.add_api_route("/v1/models", self.launch_model, methods=["POST"])
@@ -321,7 +339,7 @@ class RESTAPIActor(xo.Actor):
             "/v1/models/{model_uid}", self.terminate_model, methods=["DELETE"]
         )
         self.router.add_api_route(
-            "/v1/completions", self.create_completion, methods=["POST"]
+            "/v1/completions", self.create_completion, methods=["POST"], response_model=CreateCompletionResponse
         )
         self.router.add_api_route(
             "/v1/embeddings", self.create_embedding, methods=["POST"]
