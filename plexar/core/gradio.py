@@ -12,13 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import List, Optional
+from typing import Dict, List, Optional, Tuple
 
 import gradio as gr
 import xoscar as xo
 
 from ..client import Client
-from ..model import MODEL_FAMILIES
+from ..model import MODEL_FAMILIES, ModelSpec
 from ..model.llm.core import ChatHistory
 
 MODEL_TO_FAMILIES = dict(
@@ -106,7 +106,7 @@ class GradioApp:
                 chat[-1][1] += chunk["choices"][0]["text"]
                 yield "", chat
             if show_finish_reason and chunk is not None:
-                chat[-1][1] += f"[stop reason: {chunk['finish_reason']}]"
+                chat[-1][1] += f"[ stop reason: {chunk['choices'][0]['finish_reason']}]"
                 yield "", chat
 
     def _build_chatbot(self, model_uid: str, model_name: str):
@@ -295,22 +295,77 @@ class GradioApp:
         msg.submit(update_message, inputs=[msg], outputs=[msg, model_text])
         gr.ClearButton(components=[chat, msg, model_text])
 
+    def _build_single_with_launched(
+        self, models: List[Tuple[str, ModelSpec]], default_index: int
+    ):
+        uid_to_model_spec: Dict[str, ModelSpec] = dict((m[0], m[1]) for m in models)
+        choices = [
+            "-".join(
+                [
+                    s.model_name,
+                    str(s.model_size_in_billions),
+                    s.model_format,
+                    s.quantization,
+                ]
+            )
+            for s in uid_to_model_spec.values()
+        ]
+        choice_to_uid = dict(zip(choices, uid_to_model_spec.keys()))
+        model_selection = gr.Dropdown(
+            label="select model", choices=choices, value=choices[default_index]
+        )
+        components = self._build_chatbot(
+            models[default_index][0], choices[default_index]
+        )
+        model_text = components[0]
+        model_uid = components[-1]
+        chat = components[1]
+
+        def select_model(model_name):
+            uid = choice_to_uid[model_name]
+            return gr.Chatbot.update(label=model_name), uid
+
+        model_selection.change(
+            select_model, inputs=[model_selection], outputs=[chat, model_uid]
+        )
+        return chat, model_text
+
+    def _build_arena_with_launched(self, models: List[Tuple[str, ModelSpec]]):
+        with gr.Box():
+            with gr.Row():
+                chat_and_text = [
+                    self._build_single_with_launched(models, i)
+                    for i in range(self._gladiator_num)
+                ]
+                chats = [c[0] for c in chat_and_text]
+                texts = [c[1] for c in chat_and_text]
+
+            msg = gr.Textbox()
+
+            def update_message(text_in: str):
+                return "", text_in, text_in
+
+            msg.submit(update_message, inputs=[msg], outputs=[msg] + texts)
+
+        gr.ClearButton(components=[msg] + chats + texts)
+
     def build(self):
         if self._use_launched_model:
-            uid, model_spec = self._api.list_models()[0]
+            models = self._api.list_models()
             with gr.Blocks() as blocks:
-                gr.Markdown(f"Chat with {model_spec.model_name}")
-                components = self._build_chatbot(uid, model_spec.model_name)
-                model_text = components[0]
-                chat = components[1]
-                msg = gr.Textbox()
+                with gr.Tab("Chat"):
+                    chat, model_text = self._build_single_with_launched(models, 0)
+                    msg = gr.Textbox()
 
-                def update_message(text_in: str):
-                    return "", text_in
+                    def update_message(text_in: str):
+                        return "", text_in
 
-                msg.submit(update_message, inputs=[msg], outputs=[msg, model_text])
-                gr.ClearButton(components=[chat, msg, model_text])
-                return blocks
+                    msg.submit(update_message, inputs=[msg], outputs=[msg, model_text])
+                    gr.ClearButton(components=[chat, msg, model_text])
+                if len(models) > 2:
+                    with gr.Tab("Arena"):
+                        self._build_arena_with_launched(models)
+            return blocks
         else:
             with gr.Blocks() as blocks:
                 with gr.Tab("Chat"):
