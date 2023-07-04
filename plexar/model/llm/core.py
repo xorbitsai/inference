@@ -193,10 +193,9 @@ class LlamaCppChatModel(LlamaCppModel):
         chat_history: List[ChatCompletionMessage],
     ):
         ret = system_prompt
-        if chat_history:
-            for message in chat_history:
-                role_name, content = message
-                ret += f"{self._sep}{role_name}: {content}"
+        for message in chat_history:
+            role_name, content = message
+            ret += f"{self._sep}{role_name}: {content}"
         ret += f"{self._sep}{self._user_name}: {prompt}"
         ret += f"{self._sep}{self._assistant_name}:"
         return ret
