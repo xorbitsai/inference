@@ -194,8 +194,9 @@ class LlamaCppChatModel(LlamaCppModel):
     ):
         ret = system_prompt
         for message in chat_history:
-            role_name, content = message
-            ret += f"{self._sep}{role_name}: {content}"
+            role = message["role"]
+            content = message["content"]
+            ret += f"{self._sep}{role}: {content}"
         ret += f"{self._sep}{self._user_name}: {prompt}"
         ret += f"{self._sep}{self._assistant_name}:"
         return ret
@@ -278,10 +279,10 @@ class LlamaCppChatModel(LlamaCppModel):
             stream = generate_config["stream"]
 
         if stream:
-            return self._convert_chat_completion_chunks_to_chat(
-                self.generate(full_prompt, generate_config)
-            )
+            it = self.generate(full_prompt, generate_config)
+            assert isinstance(it, Iterator)
+            return self._convert_chat_completion_chunks_to_chat(it)
         else:
-            return self._convert_text_completion_to_chat(
-                self.generate(full_prompt, generate_config)
-            )
+            c = self.generate(full_prompt, generate_config)
+            assert not isinstance(c, Iterator)
+            return self._convert_text_completion_to_chat(c)
