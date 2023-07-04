@@ -101,8 +101,10 @@ class GradioApp:
                 chat_history=history,
                 generate_config=generate_config,
             )
+
             chunk: Optional["ChatCompletionChunk"] = None
             async for chunk in chat_generator:
+                assert chunk is not None
                 delta = chunk["choices"][0]["delta"]
                 if "content" not in delta:
                     continue
