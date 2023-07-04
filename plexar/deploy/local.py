@@ -14,7 +14,10 @@
 
 import asyncio
 
-from .controller import start_controller_components
+import xoscar as xo
+
+from ..core.gradio import GradioActor
+from ..core.service import SupervisorActor
 from .worker import start_worker_components
 
 
@@ -31,21 +34,30 @@ async def _start_local_cluster(
     from .utils import create_actor_pool
 
     pool = await create_actor_pool(address=address, n_process=0)
-    await start_controller_components(
-        address=address, share=share, host=host, port=port
-    )
-    await start_worker_components(address=address, controller_address=address)
+    await xo.create_actor(SupervisorActor, address=address, uid=SupervisorActor.uid())
+    await start_worker_components(address=address, supervisor_address=address)
 
     # TODO: async client
     from ..client import Client
 
-    client = Client(controller_address=address)
+    client = Client(supervisor_address=address)
     client.launch_model(
         model_name=model_name,
         model_size_in_billions=size_in_billions,
         model_format=model_format,
         quantization=quantization,
     )
+    gradio = await xo.create_actor(
+        GradioActor,
+        xoscar_endpoint=address,
+        share=share,
+        host=host,
+        port=port,
+        use_launched_model=True,
+        address=address,
+        uid=GradioActor.default_uid(),
+    )
+    await gradio.launch()
 
     await pool.join()
 

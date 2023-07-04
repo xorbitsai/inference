@@ -24,7 +24,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, create_model_from_typeddict
 from uvicorn import Config, Server
 
-from plexar.actor import ModelActor
+from plexar.core import ModelActor
 from plexar.model import ModelSpec
 
 import llama_cpp
@@ -233,7 +233,7 @@ def log(func: Callable):
     return wrapped
 
 
-class ControllerActor(xo.Actor):
+class SupervisorActor(xo.Actor):
     def __init__(self):
         super().__init__()
         self._worker_address_to_worker: Dict[str, xo.ActorRefType[WorkerActor]] = {}
@@ -241,7 +241,7 @@ class ControllerActor(xo.Actor):
 
     @classmethod
     def uid(cls) -> str:
-        return "plexar_controller"
+        return "plexar_supervisor"
 
     async def _choose_worker(self) -> xo.ActorRefType["WorkerActor"]:
         # TODO: better allocation strategy.
@@ -323,7 +323,7 @@ class ControllerActor(xo.Actor):
 class RESTAPIActor(xo.Actor):
     def __init__(self, host: str, port: int):
         super().__init__()
-        self._controller_ref: xo.ActorRefType["ControllerActor"]
+        self._supervisor_ref: xo.ActorRefType["SupervisorActor"]
         app = FastAPI()
         app.add_middleware(
             CORSMiddleware,
@@ -356,8 +356,8 @@ class RESTAPIActor(xo.Actor):
         loop.create_task(server.serve())
 
     async def __post_create__(self):
-        self._controller_ref = await xo.actor_ref(
-            address=self.address, uid=ControllerActor.uid()
+        self._supervisor_ref = await xo.actor_ref(
+            address=self.address, uid=SupervisorActor.uid()
         )
 
     def gen_model_uid(self) -> str:
@@ -365,7 +365,7 @@ class RESTAPIActor(xo.Actor):
         return str(uuid.uuid1())
 
     async def list_models(self) -> List[str]:
-        models = await self._controller_ref.list_models()
+        models = await self._supervisor_ref.list_models()
         return [model_uid for model_uid, _ in models]
 
     async def launch_model(self, request: Request) -> str:
@@ -378,7 +378,7 @@ class RESTAPIActor(xo.Actor):
 
         model_uid = self.gen_model_uid()
 
-        await self._controller_ref.launch_builtin_model(
+        await self._supervisor_ref.launch_builtin_model(
             model_uid=model_uid,
             model_name=model_name,
             model_size_in_billions=model_size_in_billions,
@@ -389,7 +389,7 @@ class RESTAPIActor(xo.Actor):
         return JSONResponse(content={"model_uid": model_uid})
 
     async def terminate_model(self, model_uid: str):
-        await self._controller_ref.terminate_model(model_uid)
+        await self._supervisor_ref.terminate_model(model_uid)
         return {"message": "Model terminated successfully."}
 
     async def create_completion(self, request: Request, body: CreateCompletionRequest):
@@ -407,7 +407,7 @@ class RESTAPIActor(xo.Actor):
         if body.logit_bias is not None:
             raise NotImplementedError
         model_uid = body.model
-        worker_ref = await self._controller_ref.get_worker(model_uid)
+        worker_ref = await self._supervisor_ref.get_worker(model_uid)
         model = await worker_ref.get_model(model_uid)
 
         if body.stream:  # TODO
@@ -440,7 +440,7 @@ class RESTAPIActor(xo.Actor):
             raise NotImplementedError
 
         model_uid = body.model
-        worker_ref = await self._controller_ref.get_worker(model_uid)
+        worker_ref = await self._supervisor_ref.get_worker(model_uid)
         model = await worker_ref.get_model(model_uid)
 
         if body.stream:
@@ -451,9 +451,9 @@ class RESTAPIActor(xo.Actor):
 
 
 class WorkerActor(xo.Actor):
-    def __init__(self, controller_address: str):
+    def __init__(self, supervisor_address: str):
         super().__init__()
-        self._controller_address = controller_address
+        self._supervisor_address = supervisor_address
         self._model_uid_to_model: Dict[str, xo.ActorRefType["ModelActor"]] = {}
         self._model_uid_to_model_spec: Dict[str, ModelSpec] = {}
 
@@ -462,10 +462,10 @@ class WorkerActor(xo.Actor):
         return "plexar_worker"
 
     async def __post_create__(self):
-        controller_ref: xo.ActorRefType["ControllerActor"] = await xo.actor_ref(
-            address=self._controller_address, uid=ControllerActor.uid()
+        supervisor_ref: xo.ActorRefType["SupervisorActor"] = await xo.actor_ref(
+            address=self._supervisor_address, uid=SupervisorActor.uid()
         )
-        await controller_ref.add_worker(self.address)
+        await supervisor_ref.add_worker(self.address)
 
     async def get_model_count(self) -> int:
         return len(self._model_uid_to_model)
