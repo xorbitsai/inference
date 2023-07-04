@@ -11,10 +11,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import asyncio
 import logging
 
 import click
+
+from plexar.client import Client
 
 from .. import __version__
 from ..constants import (
@@ -141,6 +143,36 @@ def model_launch(
         host=host,
         port=port,
     )
+
+
+@model.command("generate")
+@click.option(
+    "--supervisor-address",
+    default=f"{PLEXAR_DEFAULT_HOST}:{PLEXAR_DEFAULT_SUPERVISOR_PORT}",
+    type=str,
+)
+@click.option("--model_uid", type=str)
+@click.option("--prompt", type=str)
+def model_generate(supervisor_address: str, model_uid: str, prompt: str):
+    async def generate_internal():
+        # async tasks generating text.
+        client = Client(supervisor_address=supervisor_address)
+        model_ref = client.get_model(model_uid)
+        async for completion_chunk in await model_ref.generate(
+            prompt, {"stream": True}
+        ):
+            print(completion_chunk["choices"][0]["text"], end="", flush=True)
+
+    # event_loop to keep executing the async tasks.
+    loop = asyncio.get_event_loop()
+    task = loop.create_task(generate_internal())
+    try:
+        loop.run_until_complete(task)
+    except KeyboardInterrupt:
+        task.cancel()
+        loop.run_until_complete(task)
+        # avoid displaying exception-unhandled warnings
+        task.exception()
 
 
 if __name__ == "__main__":
