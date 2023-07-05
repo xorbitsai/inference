@@ -150,3 +150,53 @@ class RESTfulClient:
         response = requests.post(url, json=request_body)
         response_data = response.json()
         return response_data
+
+class AsyncClient:
+    def __init__(self, supervisor_address: str):
+        self._supervisor_address = supervisor_address
+        self._supervisor_ref = None
+
+    async def _get_supervisor_ref(self) -> xo.ActorRefType["SupervisorActor"]:
+        if self._supervisor_ref is None:
+            self._supervisor_ref = await xo.actor_ref(
+                address=self._supervisor_address, uid=SupervisorActor.uid()
+            )
+        return self._supervisor_ref
+
+    @classmethod
+    def gen_model_uid(cls) -> str:
+        # generate a time-based uuid.
+        return str(uuid.uuid1())
+
+    async def launch_model(
+        self,
+        model_name: str,
+        model_size_in_billions: Optional[int] = None,
+        model_format: Optional[str] = None,
+        quantization: Optional[str] = None,
+        **kwargs
+    ) -> str:
+        model_uid = self.gen_model_uid()
+
+        supervisor_ref = await self._get_supervisor_ref()
+        await supervisor_ref.launch_builtin_model(
+            model_uid=model_uid,
+            model_name=model_name,
+            model_size_in_billions=model_size_in_billions,
+            model_format=model_format,
+            quantization=quantization,
+            **kwargs
+        )
+        return model_uid
+
+    async def terminate_model(self, model_uid: str):
+        supervisor_ref = await self._get_supervisor_ref()
+        await supervisor_ref.terminate_model(model_uid)
+
+    async def list_models(self) -> List[Tuple[str, ModelSpec]]:
+        supervisor_ref = await self._get_supervisor_ref()
+        return await supervisor_ref.list_models()
+
+    async def get_model(self, model_uid: str) -> xo.ActorRefType["ModelActor"]:
+        supervisor_ref = await self._get_supervisor_ref()
+        return await supervisor_ref.get_model(model_uid)
