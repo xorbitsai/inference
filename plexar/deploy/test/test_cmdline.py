@@ -39,5 +39,5 @@ async def test_generate(setup):
         ],
     )
 
-    assert len(result.stdout) != 0
     assert result.exit_code == 0
+    assert len(result.stdout) != 0
