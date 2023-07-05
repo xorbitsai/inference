@@ -154,15 +154,9 @@ class LlamaCppModel(Model):
 
         generate_config = self._sanitize_generate_config(generate_config)
 
-        assert self._llm is not None
-
-        stream = True
-        if not generate_config or "stream" not in generate_config:
-            generate_config["stream"] = stream
-        else:
-            stream = generate_config["stream"]
-
+        stream = generate_config.get("stream", False)
         if not stream:
+            assert self._llm is not None
             completion = self._llm(prompt=prompt, **generate_config)
 
             return completion
@@ -194,8 +188,9 @@ class LlamaCppChatModel(LlamaCppModel):
     ):
         ret = system_prompt
         for message in chat_history:
-            role_name, content = message
-            ret += f"{self._sep}{role_name}: {content}"
+            role = message["role"]
+            content = message["content"]
+            ret += f"{self._sep}{role}: {content}"
         ret += f"{self._sep}{self._user_name}: {prompt}"
         ret += f"{self._sep}{self._assistant_name}:"
         return ret
@@ -268,20 +263,14 @@ class LlamaCppChatModel(LlamaCppModel):
         chat_history = chat_history or []
         full_prompt = self._to_prompt(prompt, system_prompt, chat_history=chat_history)
 
-        logger.debug("Full prompt:\n%s", full_prompt)
+        generate_config = self._sanitize_generate_config(generate_config)
 
-        stream = True
-        generate_config = generate_config or {}
-        if "stream" not in generate_config:
-            generate_config["stream"] = stream
-        else:
-            stream = generate_config["stream"]
-
+        stream = generate_config.get("stream", False)
         if stream:
-            return self._convert_chat_completion_chunks_to_chat(
-                self.generate(full_prompt, generate_config)
-            )
+            it = self.generate(full_prompt, generate_config)
+            assert isinstance(it, Iterator)
+            return self._convert_chat_completion_chunks_to_chat(it)
         else:
-            return self._convert_text_completion_to_chat(
-                self.generate(full_prompt, generate_config)
-            )
+            c = self.generate(full_prompt, generate_config)
+            assert not isinstance(c, Iterator)
+            return self._convert_text_completion_to_chat(c)

@@ -10,6 +10,9 @@ extend-exclude = '''
 ^/plexar/(_version.py)
 '''
 
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
 [tool.cibuildwheel]
 build = ["cp38-*", "cp39-*", "cp310-*", "cp311-*"]
 skip = "pp* *musllinux* *i686 cp36* cp310-win32 cp311-win32"
