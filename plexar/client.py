@@ -23,9 +23,8 @@ from .core.model import ModelActor
 from .core.service import SupervisorActor
 from .isolation import Isolation
 from .model import ModelSpec
-
-from .model.llm.core import LlamaCppGenerateConfig
 from .model.llm.types import ChatCompletionMessage
+
 
 class Client:
     def __init__(self, supervisor_address: str):
@@ -116,23 +115,21 @@ class RESTfulClient:
         response_data = response.json()
         return response_data
 
-    def generate(
-        self, model_uid: str, prompt: str, **kwargs
-    ):
+    def generate(self, model_uid: str, prompt: str, **kwargs):
         url = f"{self.base_url}/v1/completions"
 
         request_body = {"model": model_uid, "prompt": prompt, **kwargs}
         response = requests.post(url, json=request_body)
         response_data = response.json()
         return response_data
-    
+
     def chat(
-        self, 
-        model_uid: str, 
-        prompt: str, 
+        self,
+        model_uid: str,
+        prompt: str,
         system_prompt: Optional[str] = None,
-        chat_history: Optional[List[ChatCompletionMessage]] = None, 
-        **kwargs
+        chat_history: Optional[List[ChatCompletionMessage]] = None,
+        **kwargs,
     ):
         url = f"{self.base_url}/v1/chat/completions"
 
@@ -144,7 +141,9 @@ class RESTfulClient:
                 chat_history[0]["content"] = system_prompt
         else:
             if system_prompt is not None:
-                chat_history.insert(0, ChatCompletionMessage(role="system", content=system_prompt))
+                chat_history.insert(
+                    0, ChatCompletionMessage(role="system", content=system_prompt)
+                )
 
         chat_history.append(ChatCompletionMessage(role="user", content=prompt))
         request_body = {"model": model_uid, "messages": chat_history, **kwargs}
