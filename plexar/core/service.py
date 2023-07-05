@@ -151,6 +151,7 @@ class CreateCompletionRequest(BaseModel):
             }
         }
 
+#TODO: create embedding request and response
 class CreateEmbeddingRequest(BaseModel):
     model: str
     input: Union[str, List[str]] = Field(description="The input to embed.")
@@ -162,8 +163,6 @@ class CreateEmbeddingRequest(BaseModel):
                 "input": "The food was delicious and the waiter...",
             }
         }
-
-CreateEmbeddingResponse = create_model_from_typeddict(llama_cpp.Embedding)
 
 class ChatCompletionRequestMessage(BaseModel):
     role: Literal["system", "user", "assistant"] = Field(
@@ -341,7 +340,7 @@ class RESTfulAPIActor(xo.Actor):
             "/v1/completions", self.create_completion, methods=["POST"], response_model=Completion
         )
         self.router.add_api_route(
-            "/v1/embeddings", self.create_embedding, methods=["POST"], response_model=CreateEmbeddingResponse
+            "/v1/embeddings", self.create_embedding, methods=["POST"]
         )
         self.router.add_api_route(
             "/v1/chat/completions", self.create_chat_completion, methods=["POST"], response_model=ChatCompletion
