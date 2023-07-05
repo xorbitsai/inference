@@ -41,12 +41,15 @@ async def _start_local_cluster(
     from ..client import Client
 
     client = Client(supervisor_address=address)
-    client.launch_model(
+    model_uid = client.launch_model(
         model_name=model_name,
         model_size_in_billions=size_in_billions,
         model_format=model_format,
         quantization=quantization,
     )
+
+    print(f"Model uid: {model_uid}")
+
     gradio = await xo.create_actor(
         GradioActor,
         xoscar_endpoint=address,
