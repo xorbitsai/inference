@@ -56,6 +56,7 @@ def supervisor(
         logging.basicConfig(level=logging.getLevelName(log_level.upper()))
 
     main(address=address, share=share, host=host, port=port)
+    pass
 
 
 @cli.command()
@@ -165,14 +166,24 @@ def model_generate(supervisor_address: str, model_uid: str, prompt: str):
 
     # event_loop to keep executing the async tasks.
     loop = asyncio.get_event_loop()
-    task = loop.create_task(generate_internal())
-    try:
-        loop.run_until_complete(task)
-    except KeyboardInterrupt:
-        task.cancel()
-        loop.run_until_complete(task)
-        # avoid displaying exception-unhandled warnings
-        task.exception()
+    coro = generate_internal()
+
+    if loop.is_running():
+        # for testing.
+        from ..isolation import Isolation
+
+        isolation = Isolation(asyncio.new_event_loop(), threaded=True)
+        isolation.start()
+        isolation.call(coro)
+    else:
+        task = loop.create_task(coro)
+        try:
+            loop.run_until_complete(task)
+        except KeyboardInterrupt:
+            task.cancel()
+            loop.run_until_complete(task)
+            # avoid displaying exception-unhandled warnings
+            task.exception()
 
 
 if __name__ == "__main__":
