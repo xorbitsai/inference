@@ -15,7 +15,7 @@
 import asyncio
 import uuid
 from logging import getLogger
-from typing import Callable, Dict, List, Literal, Optional, Union
+from typing import Callable, Dict, List, Literal, Optional, Tuple, Union
 from typing_extensions import NotRequired, TypedDict
 import xoscar as xo
 from fastapi import APIRouter, FastAPI, Request
