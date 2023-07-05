@@ -115,7 +115,7 @@ class AsyncClient:
         supervisor_ref = await self._get_supervisor_ref()
         await supervisor_ref.terminate_model(model_uid)
 
-    async def list_models(self) -> List[tuple[str, ModelSpec]]:
+    async def list_models(self) -> List[Tuple[str, ModelSpec]]:
         supervisor_ref = await self._get_supervisor_ref()
         return await supervisor_ref.list_models()
 
