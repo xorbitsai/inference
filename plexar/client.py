@@ -151,6 +151,7 @@ class RESTfulClient:
         response_data = response.json()
         return response_data
 
+
 class AsyncClient:
     def __init__(self, supervisor_address: str):
         self._supervisor_address = supervisor_address
@@ -174,7 +175,7 @@ class AsyncClient:
         model_size_in_billions: Optional[int] = None,
         model_format: Optional[str] = None,
         quantization: Optional[str] = None,
-        **kwargs
+        **kwargs,
     ) -> str:
         model_uid = self.gen_model_uid()
 
@@ -185,7 +186,7 @@ class AsyncClient:
             model_size_in_billions=model_size_in_billions,
             model_format=model_format,
             quantization=quantization,
-            **kwargs
+            **kwargs,
         )
         return model_uid
 
