@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING
 import pytest
 import xoscar as xo
 
-from ..client import Client
+from ..client import AsyncClient, Client
 
 if TYPE_CHECKING:
     from ..core import ModelActor
@@ -42,5 +42,24 @@ async def test_sync_client(setup):
     assert len(client.list_models()) == 0
 
 
-def test_async_client():
-    pass
+@pytest.mark.asyncio
+async def test_async_client(setup):
+    async_client = AsyncClient(setup.external_address)
+
+    assert len(await async_client.list_models()) == 0
+
+    # TODO: use q2_K
+    model_uid = await async_client.launch_model(
+        model_name="wizardlm-v1.0", quantization="q4_0"
+    )
+    assert len(await async_client.list_models()) == 1
+
+    model_ref: xo.ActorRefType["ModelActor"] = await async_client.get_model(
+        model_uid=model_uid
+    )
+
+    completion = await model_ref.chat("write a poem.")
+    assert "content" in completion["choices"][0]["message"]
+
+    await async_client.terminate_model(model_uid=model_uid)
+    assert len(await async_client.list_models()) == 0

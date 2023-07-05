@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import asyncio
-import functools
 import uuid
 from typing import List, Optional, Tuple
 
@@ -77,12 +76,14 @@ class Client:
 class AsyncClient:
     def __init__(self, supervisor_address: str):
         self._supervisor_address = supervisor_address
+        self._supervisor_ref = None
 
-    @functools.lru_cache(maxsize=1)
     async def _get_supervisor_ref(self) -> xo.ActorRefType["SupervisorActor"]:
-        return await xo.actor_ref(
-            address=self._supervisor_address, uid=SupervisorActor.uid()
-        )
+        if self._supervisor_ref is None:
+            self._supervisor_ref = await xo.actor_ref(
+                address=self._supervisor_address, uid=SupervisorActor.uid()
+            )
+        return self._supervisor_ref
 
     @classmethod
     def gen_model_uid(cls) -> str:
