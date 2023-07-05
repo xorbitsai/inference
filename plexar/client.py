@@ -174,11 +174,11 @@ class RESTfulClient:
         **kwargs
     ):
         url = f"{self.base_url}/v1/chat/completions"
-        
+
         if chat_history is None:
             chat_history = []
 
-        if chat_history and chat_history[0].get("role") == "system":
+        if chat_history and chat_history[0]["role"] == "system":
             if system_prompt is not None:
                 chat_history[0]["content"] = system_prompt
         else:

@@ -16,7 +16,7 @@ import asyncio
 import uuid
 from logging import getLogger
 from typing import Callable, Dict, List, Literal, Optional, Union
-
+from typing_extensions import NotRequired, TypedDict
 import xoscar as xo
 from fastapi import APIRouter, FastAPI, Request
 from fastapi.responses import JSONResponse
@@ -164,12 +164,10 @@ class CreateEmbeddingRequest(BaseModel):
             }
         }
 
-class ChatCompletionRequestMessage(BaseModel):
-    role: Literal["system", "user", "assistant"] = Field(
-        default="user", description="The role of the message."
-    )
-    content: str = Field(default="", description="The content of the message.")
-
+class ChatCompletionRequestMessage(TypedDict):
+    role: Literal["assistant", "user", "system"]
+    content: str
+    user: NotRequired[str]
 
 class CreateChatCompletionRequest(BaseModel):
     messages: List[ChatCompletionRequestMessage] = Field(
@@ -438,14 +436,17 @@ class RESTfulAPIActor(xo.Actor):
         if body.logit_bias is not None:
             raise NotImplementedError
 
-        user_messages = [msg.content for msg in body.messages if msg.role == "user"]
+        user_messages = [msg["content"] for msg in body.messages if msg["role"] == "user"]
         if user_messages:
             prompt = user_messages[-1]
         else:
             raise Exception("no prompt given")
-        system_prompt = next((msg.content for msg in body.messages if msg.role == "system"), None)
+        system_prompt = next((msg["content"] for msg in body.messages if msg["role"] == "system"), None)
 
         chat_history = body.messages
+
+        print(chat_history)
+
 
         model_uid = body.model
         worker_ref = await self._supervisor_ref.get_worker(model_uid)
