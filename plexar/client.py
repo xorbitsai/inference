@@ -24,6 +24,8 @@ from .core.model import ModelActor
 from .core.service import SupervisorActor
 from .model import ModelSpec
 
+from .model.llm.core import LlamaCppGenerateConfig
+from .model.llm.types import ChatCompletionMessage
 
 class Isolation:
     # TODO: better move isolation to xoscar.
@@ -113,12 +115,13 @@ class Client:
         return self._isolation.call(coro)
 
 
-class RestfulClient:
+class RESTfulClient:
     def __init__(self, base_url):
         self.base_url = base_url
 
     def list_models(self):
         url = f"{self.base_url}/v1/models"
+
         response = requests.get(url)
         response_data = response.json()
         return response_data
@@ -132,6 +135,7 @@ class RestfulClient:
         **kwargs,
     ) -> str:
         url = f"{self.base_url}/v1/models"
+
         payload = {
             "model_name": model_name,
             "model_size_in_billions": model_size_in_billions,
@@ -146,14 +150,43 @@ class RestfulClient:
 
     def terminate_model(self, model_uid):
         url = f"{self.base_url}/v1/models/{model_uid}"
+
         response = requests.delete(url)
         response_data = response.json()
         return response_data
 
-    def create_completion(self, model_uid, prompt, **kwargs):
-        request_body = {"model": model_uid, "prompt": prompt, **kwargs}
-
+    def generate(
+        self, model_uid: str, prompt: str, **kwargs
+    ):
         url = f"{self.base_url}/v1/completions"
+
+        request_body = {"model": model_uid, "prompt": prompt, **kwargs}
+        response = requests.post(url, json=request_body)
+        response_data = response.json()
+        return response_data
+    
+    def chat(
+        self, 
+        model_uid: str, 
+        prompt: str, 
+        system_prompt: Optional[str] = None,
+        chat_history: Optional[List[ChatCompletionMessage]] = None, 
+        **kwargs
+    ):
+        url = f"{self.base_url}/v1/chat/completions"
+        
+        if chat_history is None:
+            chat_history = []
+
+        if chat_history and chat_history[0].get("role") == "system":
+            if system_prompt is not None:
+                chat_history[0]["content"] = system_prompt
+        else:
+            if system_prompt is not None:
+                chat_history.insert(0, ChatCompletionMessage(role="system", content=system_prompt))
+
+        chat_history.append(ChatCompletionMessage(role="user", content=prompt))
+        request_body = {"model": model_uid, "messages": chat_history, **kwargs}
         response = requests.post(url, json=request_body)
         response_data = response.json()
         return response_data

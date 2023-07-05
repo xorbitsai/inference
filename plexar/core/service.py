@@ -29,6 +29,8 @@ from plexar.model import ModelSpec
 
 import llama_cpp
 
+from plexar.model.llm.types import Completion, ChatCompletion
+
 max_tokens_field = Field(
     default=16, ge=1, le=2048, description="The maximum number of tokens to generate."
 )
@@ -149,8 +151,6 @@ class CreateCompletionRequest(BaseModel):
             }
         }
 
-CreateCompletionResponse = create_model_from_typeddict(llama_cpp.Completion)
-
 class CreateEmbeddingRequest(BaseModel):
     model: str
     input: Union[str, List[str]] = Field(description="The input to embed.")
@@ -162,6 +162,8 @@ class CreateEmbeddingRequest(BaseModel):
                 "input": "The food was delicious and the waiter...",
             }
         }
+
+CreateEmbeddingResponse = create_model_from_typeddict(llama_cpp.Embedding)
 
 class ChatCompletionRequestMessage(BaseModel):
     role: Literal["system", "user", "assistant"] = Field(
@@ -208,9 +210,6 @@ class CreateChatCompletionRequest(BaseModel):
                 ]
             }
         }
-
-
-CreateChatCompletionResponse = create_model_from_typeddict(llama_cpp.ChatCompletion)
 
 logger = getLogger(__name__)
 
@@ -320,7 +319,7 @@ class SupervisorActor(xo.Actor):
         self._worker_address_to_worker[worker_address] = worker_ref
 
 
-class RESTAPIActor(xo.Actor):
+class RESTfulAPIActor(xo.Actor):
     def __init__(self, host: str, port: int):
         super().__init__()
         self._supervisor_ref: xo.ActorRefType["SupervisorActor"]
@@ -339,13 +338,13 @@ class RESTAPIActor(xo.Actor):
             "/v1/models/{model_uid}", self.terminate_model, methods=["DELETE"]
         )
         self.router.add_api_route(
-            "/v1/completions", self.create_completion, methods=["POST"], response_model=CreateCompletionResponse
+            "/v1/completions", self.create_completion, methods=["POST"], response_model=Completion
         )
         self.router.add_api_route(
-            "/v1/embeddings", self.create_embedding, methods=["POST"]
+            "/v1/embeddings", self.create_embedding, methods=["POST"], response_model=CreateEmbeddingResponse
         )
         self.router.add_api_route(
-            "/v1/chat/completions", self.create_chat_completion, methods=["POST"]
+            "/v1/chat/completions", self.create_chat_completion, methods=["POST"], response_model=ChatCompletion
         )
         app.include_router(self.router)
 
@@ -354,6 +353,10 @@ class RESTAPIActor(xo.Actor):
         config = Config(app=app, loop=loop, host=host, port=port)
         server = Server(config)
         loop.create_task(server.serve())
+    
+    @classmethod
+    def uid(cls) -> str:
+        return "plexar_RESTfulAPI"
 
     async def __post_create__(self):
         self._supervisor_ref = await xo.actor_ref(
@@ -410,11 +413,8 @@ class RESTAPIActor(xo.Actor):
         worker_ref = await self._supervisor_ref.get_worker(model_uid)
         model = await worker_ref.get_model(model_uid)
 
-        if body.stream:  # TODO
-            import sys
-
-            async for c in await model.generate(body.prompt, kwargs):
-                sys.stdout.write(c["text"])
+        if body.stream: 
+            raise NotImplementedError
         else:
             return await model.generate(body.prompt, kwargs)
 
@@ -428,16 +428,25 @@ class RESTAPIActor(xo.Actor):
     ):
         exclude = {
             "n",
-            "prompt",
             "model",
+            "messages",
             "logit_bias",
             "logit_bias_type",
             "user",
         }
-
         kwargs = body.dict(exclude=exclude)
+
         if body.logit_bias is not None:
             raise NotImplementedError
+
+        user_messages = [msg.content for msg in body.messages if msg.role == "user"]
+        if user_messages:
+            prompt = user_messages[-1]
+        else:
+            raise Exception("no prompt given")
+        system_prompt = next((msg.content for msg in body.messages if msg.role == "system"), None)
+
+        chat_history = body.messages
 
         model_uid = body.model
         worker_ref = await self._supervisor_ref.get_worker(model_uid)
@@ -447,7 +456,7 @@ class RESTAPIActor(xo.Actor):
             raise NotImplementedError
 
         else:
-            return await model.chat(body.prompt, kwargs)
+            return await model.chat(prompt, system_prompt, chat_history, kwargs)
 
 
 class WorkerActor(xo.Actor):
