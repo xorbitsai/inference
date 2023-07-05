@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from logging import getLogger
-from typing import Callable, Dict, List, Optional
+from typing import Callable, Dict, List, Optional, Tuple
 
 import xoscar as xo
 
@@ -109,7 +109,7 @@ class SupervisorActor(xo.Actor):
         return await worker_ref.get_model(model_uid=model_uid)
 
     @log
-    async def list_models(self) -> List[tuple[str, ModelSpec]]:
+    async def list_models(self) -> List[Tuple[str, ModelSpec]]:
         ret = []
         for worker in self._worker_address_to_worker.values():
             ret.extend(await worker.list_models())
@@ -195,8 +195,11 @@ class WorkerActor(xo.Actor):
         del self._model_uid_to_model_spec[model_uid]
 
     @log
-    async def list_models(self) -> List[tuple[str, ModelSpec]]:
-        return list(self._model_uid_to_model_spec.items())
+    async def list_models(self) -> List[Tuple[str, ModelSpec]]:
+        ret = []
+        for k, v in self._model_uid_to_model_spec.items():
+            ret.append((k, v))
+        return ret
 
     @log
     async def get_model(self, model_uid: str) -> xo.ActorRefType["ModelActor"]:
