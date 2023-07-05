@@ -454,8 +454,6 @@ class RESTfulAPIActor(xo.Actor):
 
         chat_history = body.messages
 
-        print(chat_history)
-
         model_uid = body.model
         worker_ref = await self._supervisor_ref.get_worker(model_uid)
         model = await worker_ref.get_model(model_uid)
