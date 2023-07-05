@@ -18,9 +18,8 @@ import logging
 
 import click
 
-from plexar.client import Client
-
 from .. import __version__
+from ..client import Client
 from ..constants import (
     PLEXAR_DEFAULT_HOST,
     PLEXAR_DEFAULT_SUPERVISOR_PORT,
@@ -58,7 +57,6 @@ def supervisor(
         logging.basicConfig(level=logging.getLevelName(log_level.upper()))
 
     main(address=address, share=share, host=host, port=port)
-    pass
 
 
 @cli.command()
@@ -154,7 +152,7 @@ def model_launch(
     default=f"{PLEXAR_DEFAULT_HOST}:{PLEXAR_DEFAULT_SUPERVISOR_PORT}",
     type=str,
 )
-@click.option("--model_uid", type=str)
+@click.option("--model-uid", type=str)
 @click.option("--prompt", type=str)
 def model_generate(supervisor_address: str, model_uid: str, prompt: str):
     async def generate_internal():
@@ -166,7 +164,6 @@ def model_generate(supervisor_address: str, model_uid: str, prompt: str):
         ):
             print(completion_chunk["choices"][0]["text"], end="", flush=True)
 
-    # event_loop to keep executing the async tasks.
     loop = asyncio.get_event_loop()
     coro = generate_internal()
 

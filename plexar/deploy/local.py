@@ -48,7 +48,7 @@ async def _start_local_cluster(
         quantization=quantization,
     )
 
-    print(f"Model Uid: {model_uid}")
+    print(f"Model uid: {model_uid}")
 
     gradio = await xo.create_actor(
         GradioActor,

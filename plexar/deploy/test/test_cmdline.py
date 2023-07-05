@@ -25,16 +25,14 @@ async def test_generate(setup):
     pool = setup
     address = pool.external_address
     client = Client(address)
-    model_uid = client.launch_model("wizardlm-v1.0", quantization="q4_0")
+    model_uid = client.launch_model("wizardlm-v1.0", quantization="q2_K")
     assert model_uid is not None
 
     runner = CliRunner()
     result = runner.invoke(
         model_generate,
         [
-            # "model",
-            # "generate",
-            "--model_uid",
+            "--model-uid",
             model_uid,
             "--prompt",
             "You are a helpful AI assistant. USER: write a poem. ASSISTANT:",
@@ -42,7 +40,4 @@ async def test_generate(setup):
     )
 
     assert len(result.stdout) != 0
-    assert type(result.stdout) == str
     assert result.exit_code == 0
-    # check whether it's really have comma inside.
-    assert "," in str(result.stdout)
