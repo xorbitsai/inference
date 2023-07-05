@@ -16,20 +16,18 @@ import asyncio
 import uuid
 from logging import getLogger
 from typing import Callable, Dict, List, Literal, Optional, Tuple, Union
-from typing_extensions import NotRequired, TypedDict
+
 import xoscar as xo
 from fastapi import APIRouter, FastAPI, Request
-from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field, create_model_from_typeddict
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
+from typing_extensions import NotRequired, TypedDict
 from uvicorn import Config, Server
 
 from plexar.core import ModelActor
 from plexar.model import ModelSpec
-
-import llama_cpp
-
-from plexar.model.llm.types import Completion, ChatCompletion
+from plexar.model.llm.types import ChatCompletion, Completion
 
 max_tokens_field = Field(
     default=16, ge=1, le=2048, description="The maximum number of tokens to generate."
@@ -151,7 +149,8 @@ class CreateCompletionRequest(BaseModel):
             }
         }
 
-#TODO: create embedding request and response
+
+# TODO: create embedding request and response
 class CreateEmbeddingRequest(BaseModel):
     model: str
     input: Union[str, List[str]] = Field(description="The input to embed.")
@@ -164,10 +163,12 @@ class CreateEmbeddingRequest(BaseModel):
             }
         }
 
+
 class ChatCompletionRequestMessage(TypedDict):
     role: Literal["assistant", "user", "system"]
     content: str
     user: NotRequired[str]
+
 
 class CreateChatCompletionRequest(BaseModel):
     messages: List[ChatCompletionRequestMessage] = Field(
@@ -198,15 +199,13 @@ class CreateChatCompletionRequest(BaseModel):
         schema_extra = {
             "example": {
                 "messages": [
-                    ChatCompletionRequestMessage(
-                        role="system", content="You are a helpful assistant."
-                    ),
-                    ChatCompletionRequestMessage(
-                        role="user", content="What is the capital of France?"
-                    ),
+                    {"role": "system", "content": "you are a helpful AI assistant"},
+                    {"role": "user", "content": "Hello!"},
+                    {"role": "assistant", "content": "Hi what can I help you?"},
                 ]
             }
         }
+
 
 logger = getLogger(__name__)
 
@@ -335,13 +334,19 @@ class RESTfulAPIActor(xo.Actor):
             "/v1/models/{model_uid}", self.terminate_model, methods=["DELETE"]
         )
         self.router.add_api_route(
-            "/v1/completions", self.create_completion, methods=["POST"], response_model=Completion
+            "/v1/completions",
+            self.create_completion,
+            methods=["POST"],
+            response_model=Completion,
         )
         self.router.add_api_route(
             "/v1/embeddings", self.create_embedding, methods=["POST"]
         )
         self.router.add_api_route(
-            "/v1/chat/completions", self.create_chat_completion, methods=["POST"], response_model=ChatCompletion
+            "/v1/chat/completions",
+            self.create_chat_completion,
+            methods=["POST"],
+            response_model=ChatCompletion,
         )
         app.include_router(self.router)
 
@@ -350,7 +355,7 @@ class RESTfulAPIActor(xo.Actor):
         config = Config(app=app, loop=loop, host=host, port=port)
         server = Server(config)
         loop.create_task(server.serve())
-    
+
     @classmethod
     def uid(cls) -> str:
         return "plexar_RESTfulAPI"
@@ -410,7 +415,7 @@ class RESTfulAPIActor(xo.Actor):
         worker_ref = await self._supervisor_ref.get_worker(model_uid)
         model = await worker_ref.get_model(model_uid)
 
-        if body.stream: 
+        if body.stream:
             raise NotImplementedError
         else:
             return await model.generate(body.prompt, kwargs)
@@ -436,17 +441,20 @@ class RESTfulAPIActor(xo.Actor):
         if body.logit_bias is not None:
             raise NotImplementedError
 
-        user_messages = [msg["content"] for msg in body.messages if msg["role"] == "user"]
+        user_messages = [
+            msg["content"] for msg in body.messages if msg["role"] == "user"
+        ]
         if user_messages:
             prompt = user_messages[-1]
         else:
             raise Exception("no prompt given")
-        system_prompt = next((msg["content"] for msg in body.messages if msg["role"] == "system"), None)
+        system_prompt = next(
+            (msg["content"] for msg in body.messages if msg["role"] == "system"), None
+        )
 
         chat_history = body.messages
 
         print(chat_history)
-
 
         model_uid = body.model
         worker_ref = await self._supervisor_ref.get_worker(model_uid)
