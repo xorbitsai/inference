@@ -14,7 +14,7 @@
 
 import asyncio
 import uuid
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import xoscar as xo
 
@@ -64,7 +64,7 @@ class Client:
         coro = self._supervisor_ref.terminate_model(model_uid)
         return self._isolation.call(coro)
 
-    def list_models(self) -> List[tuple[str, ModelSpec]]:
+    def list_models(self) -> List[Tuple[str, ModelSpec]]:
         coro = self._supervisor_ref.list_models()
         return self._isolation.call(coro)
 
