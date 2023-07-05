@@ -88,6 +88,12 @@ class LlamaCppModelConfig(StrictTypedDict, total=False):
     verbose: bool
 
 
+class ChatglmCppGenerateConfig(StrictTypedDict, total=False):
+    max_tokens: int
+    top_p: float
+    temperature: float
+
+
 class Model(abc.ABC):
     name: str
 

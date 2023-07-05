@@ -14,9 +14,9 @@
 
 
 def install():
-    from plexar.model.llm.core import LlamaCppModel
-
     from .. import MODEL_FAMILIES, ModelFamily
+    from .chatglm import ChatglmCppChatModel
+    from .core import LlamaCppModel
     from .orca import OrcaMiniGgml
     from .vicuna import VicunaCensoredGgml
     from .wizardlm import WizardlmGgml
@@ -164,5 +164,20 @@ def install():
             ],
             url_generator=orca_url_generator,
             cls=OrcaMiniGgml,
+        )
+    )
+
+    chatglm_url_generator = lambda model_size, quantization: ("")
+    # TODO: Upload model to Huggingface and add link
+    MODEL_FAMILIES.append(
+        ModelFamily(
+            model_name="chatglm-v2.0",
+            model_sizes_in_billions=[7],
+            model_format="ggmlv3",
+            quantizations=[
+                "q4_0",
+            ],
+            url_generator=chatglm_url_generator,
+            cls=ChatglmCppChatModel,
         )
     )
