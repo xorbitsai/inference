@@ -154,15 +154,9 @@ class LlamaCppModel(Model):
 
         generate_config = self._sanitize_generate_config(generate_config)
 
-        assert self._llm is not None
-
-        stream = True
-        if not generate_config or "stream" not in generate_config:
-            generate_config["stream"] = stream
-        else:
-            stream = generate_config["stream"]
-
+        stream = generate_config.get("stream", False)
         if not stream:
+            assert self._llm is not None
             completion = self._llm(prompt=prompt, **generate_config)
 
             return completion
@@ -269,15 +263,9 @@ class LlamaCppChatModel(LlamaCppModel):
         chat_history = chat_history or []
         full_prompt = self._to_prompt(prompt, system_prompt, chat_history=chat_history)
 
-        logger.debug("Full prompt:\n%s", full_prompt)
+        generate_config = self._sanitize_generate_config(generate_config)
 
-        stream = True
-        generate_config = generate_config or {}
-        if "stream" not in generate_config:
-            generate_config["stream"] = stream
-        else:
-            stream = generate_config["stream"]
-
+        stream = generate_config.get("stream", False)
         if stream:
             it = self.generate(full_prompt, generate_config)
             assert isinstance(it, Iterator)

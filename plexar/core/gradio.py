@@ -94,6 +94,7 @@ class GradioApp:
                 max_tokens=max_token,
                 temperature=temperature,
                 top_p=top_p,
+                stream=True,
             )
             chat += [[message, ""]]
             chat_generator = await model_ref.chat(
