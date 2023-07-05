@@ -13,58 +13,19 @@
 # limitations under the License.
 
 import asyncio
-import threading
 import uuid
-from typing import Any, Coroutine, List, Optional
+from typing import List, Optional, Tuple
 
 import requests
 import xoscar as xo
 
 from .core.model import ModelActor
 from .core.service import SupervisorActor
+from .isolation import Isolation
 from .model import ModelSpec
 
 from .model.llm.core import LlamaCppGenerateConfig
 from .model.llm.types import ChatCompletionMessage
-
-class Isolation:
-    # TODO: better move isolation to xoscar.
-    def __init__(self, loop: asyncio.AbstractEventLoop, threaded: bool = True):
-        self._loop = loop
-        self._threaded = threaded
-
-        self._stopped = None
-        self._thread = None
-        self._thread_ident = None
-
-    def _run(self):
-        asyncio.set_event_loop(self._loop)
-        self._stopped = asyncio.Event()
-        self._loop.run_until_complete(self._stopped.wait())
-
-    def start(self):
-        if self._threaded:
-            self._thread = thread = threading.Thread(target=self._run)
-            thread.daemon = True
-            thread.start()
-            self._thread_ident = thread.ident
-
-    def call(self, coro: Coroutine) -> Any:
-        fut = asyncio.run_coroutine_threadsafe(coro, self._loop)
-        return fut.result()
-
-    @property
-    def thread_ident(self):
-        return self._thread_ident
-
-    async def _stop(self):
-        self._stopped.set()
-
-    def stop(self):
-        if self._threaded:
-            asyncio.run_coroutine_threadsafe(self._stop(), self._loop).result()
-            self._thread.join()
-
 
 class Client:
     def __init__(self, supervisor_address: str):
@@ -106,7 +67,7 @@ class Client:
         coro = self._supervisor_ref.terminate_model(model_uid)
         return self._isolation.call(coro)
 
-    def list_models(self) -> List[tuple[str, ModelSpec]]:
+    def list_models(self) -> List[Tuple[str, ModelSpec]]:
         coro = self._supervisor_ref.list_models()
         return self._isolation.call(coro)
 
