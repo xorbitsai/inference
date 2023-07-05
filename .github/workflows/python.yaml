@@ -47,3 +47,59 @@ jobs:
         run: pip install mypy && mypy --install-types --non-interactive plexar
       - name: codespell
         run: pip install codespell && codespell plexar
+
+  build_test_job:
+    runs-on: ${{ matrix.os }}
+    needs: lint
+    env:
+      CONDA_ENV: test
+    defaults:
+      run:
+        shell: bash -l {0}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ "ubuntu-latest", "macos-latest", "windows-latest" ]
+        python-version: [ "3.8", "3.9", "3.10", "3.11" ]
+        module: [ "plexar" ]
+        exclude:
+          - { os: macos-latest, python-version: 3.9 }
+          - { os: macos-latest, python-version: 3.10 }
+          - { os: windows-latest, python-version: 3.9 }
+          - { os: windows-latest, python-version: 3.10 }
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Set up conda ${{ matrix.python-version }}
+        uses: conda-incubator/setup-miniconda@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+          activate-environment: ${{ env.CONDA_ENV }}
+
+      - name: Install dependencies
+        env:
+          MODULE: ${{ matrix.module }}
+        run: |
+          pip install llama-cpp-python
+          pip install -e "."
+        working-directory: .
+
+      - name: Test with pytest
+        env:
+          MODULE: ${{ matrix.module }}
+        run: |
+          pytest --timeout=1500 \
+            -W ignore::PendingDeprecationWarning \
+            --cov-config=setup.cfg --cov-report=xml --cov=plexar plexar
+        working-directory: .
+
+      - name: Report coverage data
+        uses: codecov/codecov-action@v3
+        with:
+          working-directory: .
+          flags: unittests
