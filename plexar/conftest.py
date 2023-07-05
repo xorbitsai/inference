@@ -31,5 +31,7 @@ async def setup():
         address=address,
         uid=WorkerActor.uid(),
         supervisor_address=address,
-    )  # worker
-    yield pool
+    )
+
+    async with pool:
+        yield pool
