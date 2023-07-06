@@ -55,7 +55,7 @@ def install():
                 "q8_0",
             ],
             url_generator=baichuan_url_generator,
-            url_rp_generator=baichuan_url_raw_generator,
+            rp_url_generator=baichuan_url_raw_generator,
             cls=LlamaCppModel,
         )
     )
@@ -92,7 +92,7 @@ def install():
                 "q8_0",
             ],
             url_generator=baichuan_chat_url_generator,
-            url_rp_generator=baichuan_chat_url_raw_generator,
+            rp_url_generator=baichuan_chat_url_raw_generator,
             cls=VicunaCensoredGgml,
         )
     )
@@ -129,7 +129,7 @@ def install():
                 "q8_0",
             ],
             url_generator=wizardlm_v1_0_url_generator,
-            url_rp_generator=wizardlm_v1_0_url_raw_generator,
+            rp_url_generator=wizardlm_v1_0_url_raw_generator,
             cls=WizardlmGgml,
         ),
     )
@@ -208,7 +208,7 @@ def install():
                 "q8_0",
             ],
             url_generator=vicuna_v1_3_url_generator,
-            url_rp_generator=vicuna_v1_3__url_raw_generator,
+            rp_url_generator=vicuna_v1_3__url_raw_generator,
             cls=VicunaCensoredGgml,
         ),
     )
@@ -235,7 +235,7 @@ def install():
                 "q8_0",
             ],
             url_generator=orca_url_generator,
-            url_rp_generator=orca_url_raw_generator,
+            rp_url_generator=orca_url_raw_generator,
             cls=OrcaMiniGgml,
         )
     )
