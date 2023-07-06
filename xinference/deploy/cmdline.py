@@ -130,6 +130,8 @@ def model_launch(
 
     from .local import main
 
+    logging.basicConfig(level=logging.DEBUG)
+
     main(
         address=address,
         model_name=name,

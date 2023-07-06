@@ -27,19 +27,18 @@ async def _start_local_cluster(
     host: str,
     port: int,
 ):
-    from .utils import create_actor_pool
+    from .utils import create_worker_actor_pool
 
     pool = None
     try:
-        pool = await create_actor_pool(address=address, n_process=0)
-        await start_supervisor_components(address, host, port)
+        pool = await create_worker_actor_pool(address=address)
+        await start_supervisor_components(address=address, host=host, port=port)
         await start_worker_components(address=address, supervisor_address=address)
 
-        # TODO: async client
-        from ..client import Client
+        from ..client import AsyncClient
 
-        client = Client(supervisor_address=address)
-        model_uid = client.launch_model(
+        client = AsyncClient(supervisor_address=address)
+        model_uid = await client.launch_model(
             model_name=model_name,
             model_size_in_billions=size_in_billions,
             model_format=model_format,

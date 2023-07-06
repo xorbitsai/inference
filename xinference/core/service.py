@@ -16,7 +16,7 @@ import asyncio
 import time
 from dataclasses import dataclass
 from logging import getLogger
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Set, Tuple
 
 import xoscar as xo
 
@@ -87,7 +87,7 @@ class SupervisorActor(xo.Actor):
 
             return target_worker
 
-        raise RuntimeError("TODO")
+        raise RuntimeError("No available worker found")
 
     @log
     async def launch_builtin_model(
@@ -151,7 +151,6 @@ class SupervisorActor(xo.Actor):
         worker_ref = await xo.actor_ref(address=worker_address, uid=WorkerActor.uid())
         self._worker_address_to_worker[worker_address] = worker_ref
 
-    @log
     async def report_worker_status(
         self, worker_address: str, status: Dict[str, ResourceStatus]
     ):
@@ -161,12 +160,15 @@ class SupervisorActor(xo.Actor):
 
 
 class WorkerActor(xo.Actor):
-    def __init__(self, supervisor_address: str):
+    def __init__(self, supervisor_address: str, subpool_addresses: List[str]):
         super().__init__()
         self._supervisor_address = supervisor_address
         self._supervisor_ref = None
         self._model_uid_to_model: Dict[str, xo.ActorRefType["ModelActor"]] = {}
         self._model_uid_to_model_spec: Dict[str, ModelSpec] = {}
+        self._subpool_address_to_model_uids: Dict[str, Set[str]] = dict(
+            [(subpool_address, set()) for subpool_address in subpool_addresses]
+        )
 
     @classmethod
     def uid(cls) -> str:
@@ -184,6 +186,29 @@ class WorkerActor(xo.Actor):
 
     async def get_model_count(self) -> int:
         return len(self._model_uid_to_model)
+
+    def _choose_subprocess(self) -> str:
+        min_running_model_count = None
+        target_subpool_address = None
+        for subpool_address in self._subpool_address_to_model_uids:
+            running_model_count = len(
+                self._subpool_address_to_model_uids[subpool_address]
+            )
+            if (
+                min_running_model_count is None
+                or running_model_count < min_running_model_count
+            ):
+                min_running_model_count = running_model_count
+                target_subpool_address = subpool_address
+
+            logger.debug(
+                "Subpool selected: %s, running model count: %d",
+                target_subpool_address,
+                running_model_count,
+            )
+            return target_subpool_address
+
+        raise RuntimeError("No available slot found")
 
     @log
     async def launch_builtin_model(
@@ -215,11 +240,16 @@ class WorkerActor(xo.Actor):
                 model_spec.model_size_in_billions, model_spec.quantization
             )
             model = cls(model_uid, model_spec, save_path, kwargs)
+            subpool_address = self._choose_subprocess()
             model_ref = await xo.create_actor(
-                ModelActor, address=self.address, uid=model_uid, model=model
+                ModelActor, address=subpool_address, uid=model_uid, model=model
             )
+            # model_ref = await xo.create_actor(
+            #     ModelActor, address=self.address, uid=model_uid, model=model
+            # )
             self._model_uid_to_model[model_uid] = model_ref
             self._model_uid_to_model_spec[model_uid] = model_spec
+            self._subpool_address_to_model_uids[subpool_address].add(model_uid)
             return model_ref
 
         raise ValueError(
@@ -235,6 +265,9 @@ class WorkerActor(xo.Actor):
         await xo.destroy_actor(model_ref)
         del self._model_uid_to_model[model_uid]
         del self._model_uid_to_model_spec[model_uid]
+        for subpool_address in self._subpool_address_to_model_uids:
+            if model_uid in self._subpool_address_to_model_uids[subpool_address]:
+                self._subpool_address_to_model_uids[subpool_address].remove(model_uid)
 
     @log
     async def list_models(self) -> List[Tuple[str, ModelSpec]]:
