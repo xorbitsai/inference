@@ -92,6 +92,7 @@ class ChatglmCppGenerateConfig(StrictTypedDict, total=False):
     max_tokens: int
     top_p: float
     temperature: float
+    stream: bool
 
 
 class Model(abc.ABC):

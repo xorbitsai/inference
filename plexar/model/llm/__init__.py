@@ -173,7 +173,7 @@ def install():
     )
     MODEL_FAMILIES.append(
         ModelFamily(
-            model_name="chatglm-v2.0",
+            model_name="chatglm2",
             model_sizes_in_billions=[6],
             model_format="ggmlv3",
             quantizations=[
@@ -182,7 +182,6 @@ def install():
                 "q5_0",
                 "q5_1",
                 "q8_0",
-                "f16",
             ],
             url_generator=chatglm_url_generator,
             cls=ChatglmCppChatModel,
