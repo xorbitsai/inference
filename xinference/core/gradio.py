@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
+import urllib.request
 from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
 import gradio as gr
@@ -261,7 +263,26 @@ class GradioApp:
             _model_format: str,
             _model_size_in_billions: str,
             _quantization: str,
+            progress=gr.Progress(),
         ):
+            model_family = MODEL_TO_FAMILIES[_model_name]
+            cache_path = model_family.generate_cache_path(
+                int(_model_size_in_billions), _quantization
+            )
+            if not os.path.exists(cache_path):
+                url = model_family.url_generator(
+                    int(_model_size_in_billions), _quantization
+                )
+
+                urllib.request.urlretrieve(
+                    url,
+                    cache_path,
+                    reporthook=lambda block_num, block_size, total_size: progress(
+                        block_num * block_size / total_size,
+                        desc=self._locale("Downloading"),
+                    ),
+                )
+
             model_uid = self._create_model(
                 _model_name, int(_model_size_in_billions), _model_format, _quantization
             )
@@ -272,7 +293,27 @@ class GradioApp:
                 value=[],
             ), gr.Textbox.update(value=model_uid)
 
+        def clear_chat(
+            _model_name: str,
+            _model_format: str,
+            _model_size_in_billions: str,
+            _quantization: str,
+        ):
+            return _model_name, gr.Chatbot.update(
+                label="-".join(
+                    [_model_name, _model_size_in_billions, _model_format, _quantization]
+                ),
+                value=[],
+            )
+
+        invisible_text = gr.Textbox(visible=False)
         create_model.click(
+            clear_chat,
+            inputs=[model_name, model_format, model_size_in_billions, quantization],
+            outputs=[invisible_text, chat],
+        )
+
+        invisible_text.change(
             select_model,
             inputs=[model_name, model_format, model_size_in_billions, quantization],
             outputs=[chat, model_uid],
