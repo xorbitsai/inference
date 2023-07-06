@@ -16,10 +16,13 @@ import logging
 import time
 import uuid
 from pathlib import Path
-from typing import Iterator, List, Optional, TypedDict, Union
+from typing import TYPE_CHECKING, Iterator, List, Optional, TypedDict, Union
 
 from .core import Model
 from .types import ChatCompletion, ChatCompletionChunk, ChatCompletionMessage
+
+if TYPE_CHECKING:
+    from .. import ModelSpec
 
 logger = logging.getLogger(__name__)
 
@@ -38,15 +41,16 @@ class ChatglmCppGenerateConfig(TypedDict, total=False):
 class ChatglmCppChatModel(Model):
     def __init__(
         self,
+        model_uid: str,
+        model_spec: "ModelSpec",
         model_path: str,
         model_config: Optional[ChatglmCppModelConfig] = None,
     ):
-        super().__init__()
+        super().__init__(model_uid, model_spec)
         self._llm = None
         self._model_path = model_path
-        self._model_name = "-".join(self._model_path.split("/")[-2].split("-")[:-3])
 
-        # just a placeholder for now as the chatglm_cpp repo doesn't support model config
+        # just a placeholder for now as the chatglm_cpp repo doesn't support model config.
         self._model_config = model_config
 
     @classmethod
@@ -168,7 +172,7 @@ class ChatglmCppChatModel(Model):
                 top_p=generate_config["top_p"],
             )
             assert not isinstance(it, str)
-            return self._convert_raw_text_chunks_to_chat(it, self._model_name)
+            return self._convert_raw_text_chunks_to_chat(it, self.model_uid)
         else:
             c = self._llm.chat(
                 chat_history_list,
@@ -178,4 +182,4 @@ class ChatglmCppChatModel(Model):
                 top_p=generate_config["top_p"],
             )
             assert not isinstance(c, Iterator)
-            return self._convert_raw_text_completion_to_chat(c, self._model_name)
+            return self._convert_raw_text_completion_to_chat(c, self.model_uid)
