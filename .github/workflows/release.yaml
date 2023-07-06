@@ -40,14 +40,14 @@ jobs:
           .
       # if is xorbitsai repo, upload to pypi
       - uses: pypa/gh-action-pypi-publish@v1.5.0
-        if: github.repository == 'xorbitsai/plexar'
+        if: github.repository == 'xorbitsai/inference'
         with:
           user: __token__
           password: ${{ secrets.PYPI_PASSWORD }}
 
       # if is not xorbitsai repo, upload to test
       - uses: pypa/gh-action-pypi-publish@v1.5.0
-        if: github.repository != 'xorbitsai/plexar'
+        if: github.repository != 'xorbitsai/inference'
         with:
           user: __token__
           password: ${{ secrets.TEST_PYPI_PASSWORD }}
