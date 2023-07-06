@@ -24,6 +24,7 @@ from typing_extensions import NotRequired, TypedDict
 from uvicorn import Config, Server
 
 from plexar.core.service import SupervisorActor
+from plexar.isolation import Isolation
 from plexar.model.llm.types import ChatCompletion, Completion
 
 max_tokens_field = Field(
@@ -238,11 +239,12 @@ class RESTfulAPIActor(xo.Actor):
         )
         app.include_router(self.router)
 
-        # uvicorn
-        loop = asyncio.get_event_loop()
-        config = Config(app=app, loop=loop, host=host, port=port)
+        # run uvicorn in another daemon thread.
+        self._isolation = Isolation(asyncio.new_event_loop(), threaded=True)
+        self._isolation.start()
+        config = Config(app=app, loop=self._isolation.loop, host=host, port=port)
         server = Server(config)
-        loop.create_task(server.serve())
+        self._isolation.loop.create_task(server.serve())
 
     @classmethod
     def uid(cls) -> str:

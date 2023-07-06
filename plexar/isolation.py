@@ -47,6 +47,10 @@ class Isolation:
     def thread_ident(self):
         return self._thread_ident
 
+    @property
+    def loop(self):
+        return self._loop
+
     async def _stop(self):
         self._stopped.set()
 
