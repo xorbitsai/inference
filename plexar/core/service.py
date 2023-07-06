@@ -214,7 +214,7 @@ class WorkerActor(xo.Actor):
             save_path = model_family.cache(
                 model_spec.model_size_in_billions, model_spec.quantization
             )
-            model = cls(save_path, kwargs)
+            model = cls(model_uid, model_spec, save_path, kwargs)
             model_ref = await xo.create_actor(
                 ModelActor, address=self.address, uid=model_uid, model=model
             )
