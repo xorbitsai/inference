@@ -146,8 +146,9 @@ def test_model_cache_raise():
         # Set up the desired response
         mock_response = mock.Mock()
         mock_response.status_code = 200
-        response_data = "b'version https://git-lfs.github.com/spec/v1\\noid sha256:e48c7238fb7baeb4006cffb5b77416ddeb492cef0669eabbcc4aaf77d9abad0a\\nsize 23\\n'"
-        mock_response.content = response_data
+        response_data = "version https://git-lfs.github.com/spec/v1\\noid sha256:e48c7238fb7baeb4006cffb5b77416ddeb492cef0669eabbcc4aaf77d9abad0a\nsize 23\n"
+        res_data_encoded = response_data.encode("utf-8")
+        mock_response.content = res_data_encoded
         mock_get.return_value = mock_response
 
         test_model = ModelFamily(
