@@ -16,19 +16,19 @@ import logging
 import time
 import uuid
 from pathlib import Path
-from typing import Iterator, List, Optional, Union
+from typing import Iterator, List, Optional, TypedDict, Union
 
-from .core import Model, StrictTypedDict
+from .core import Model
 from .types import ChatCompletion, ChatCompletionChunk, ChatCompletionMessage
 
 logger = logging.getLogger(__name__)
 
 
-class ChatglmCppModelConfig(StrictTypedDict, total=False):
+class ChatglmCppModelConfig(TypedDict, total=False):
     pass
 
 
-class ChatglmCppGenerateConfig(StrictTypedDict, total=False):
+class ChatglmCppGenerateConfig(TypedDict, total=False):
     max_tokens: int
     top_p: float
     temperature: float
@@ -59,7 +59,7 @@ class ChatglmCppChatModel(Model):
         chatglmcpp_generate_config.setdefault("max_tokens", 8192)
         chatglmcpp_generate_config.setdefault("temperature", 0.95)
         chatglmcpp_generate_config.setdefault("top_p", 0.8)
-        chatglmcpp_generate_config.setdefault("stream", True)
+        chatglmcpp_generate_config.setdefault("stream", False)
         return chatglmcpp_generate_config
 
     def load(self):
@@ -155,16 +155,11 @@ class ChatglmCppChatModel(Model):
         chat_history_list.append(prompt)
         logger.debug("Full conversation history:\n%s", str(chat_history_list))
 
-        stream = False
         generate_config = self._sanitize_generate_config(generate_config)
-        if "stream" not in generate_config:
-            generate_config["stream"] = stream
-        else:
-            stream = generate_config["stream"]
 
         assert self._llm is not None
 
-        if stream:
+        if generate_config.get("stream", False):
             it = self._llm.stream_chat(
                 chat_history_list,
                 max_context_length=8192,
@@ -183,5 +178,4 @@ class ChatglmCppChatModel(Model):
                 top_p=generate_config["top_p"],
             )
             assert not isinstance(c, Iterator)
-            print(self._convert_raw_text_completion_to_chat(c, self._model_name))
             return self._convert_raw_text_completion_to_chat(c, self._model_name)
