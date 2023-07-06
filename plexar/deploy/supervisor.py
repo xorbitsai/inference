@@ -17,12 +17,20 @@ import asyncio
 import xoscar as xo
 
 from ..core.gradio import GradioActor
+from ..core.restful_api import RESTfulAPIActor
 from ..core.service import SupervisorActor
 
 
 async def start_supervisor_components(address: str, share: bool, host: str, port: int):
     await xo.create_actor(SupervisorActor, address=address, uid=SupervisorActor.uid())
-    # TODO: start RESTful actor
+    await xo.create_actor(
+        RESTfulAPIActor,
+        address=address,
+        uid=RESTfulAPIActor.uid(),
+        host="0.0.0.0",
+        port=8000,
+    )
+
     gradio = await xo.create_actor(
         GradioActor,
         xoscar_endpoint=address,
