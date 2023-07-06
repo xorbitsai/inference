@@ -16,8 +16,8 @@
 import pytest
 from click.testing import CliRunner
 
-from plexar.client import Client
-from plexar.deploy.cmdline import model_chat, model_generate
+from ...client import Client
+from ..cmdline import model_chat, model_generate
 
 
 @pytest.mark.asyncio

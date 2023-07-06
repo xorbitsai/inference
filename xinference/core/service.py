@@ -64,7 +64,7 @@ class SupervisorActor(xo.Actor):
 
     @classmethod
     def uid(cls) -> str:
-        return "plexar_supervisor"
+        return "supervisor"
 
     async def __post_create__(self):
         self._check_dead_nodes_task = asyncio.create_task(self._check_dead_nodes())
@@ -170,7 +170,7 @@ class WorkerActor(xo.Actor):
 
     @classmethod
     def uid(cls) -> str:
-        return "plexar_worker"
+        return "worker"
 
     async def __post_create__(self):
         self._supervisor_ref: xo.ActorRefType["SupervisorActor"] = await xo.actor_ref(
@@ -197,7 +197,7 @@ class WorkerActor(xo.Actor):
     ) -> xo.ActorRefType["ModelActor"]:
         assert model_uid not in self._model_uid_to_model
 
-        from plexar.model import MODEL_FAMILIES
+        from ..model import MODEL_FAMILIES
 
         for model_family in MODEL_FAMILIES:
             model_spec = model_family.match(

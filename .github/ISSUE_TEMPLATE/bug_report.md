@@ -14,7 +14,7 @@ A clear and concise description of what the bug is.
 To help us to reproduce this bug, please provide information below:
 
 1. Your Python version.
-2. The version of Plexar you use.
+2. The version of xinference you use.
 3. Versions of crucial packages.
 4. Full stack of the error.
 5. Minimized code to reproduce the error.
