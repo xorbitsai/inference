@@ -12,9 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from .core import LlamaCppChatModel, LlamaCppModelConfig
+
+if TYPE_CHECKING:
+    from .. import ModelSpec
 
 
 class VicunaUncensoredGgml(LlamaCppChatModel):
@@ -29,10 +32,14 @@ class VicunaUncensoredGgml(LlamaCppChatModel):
 
     def __init__(
         self,
+        model_uid: str,
+        model_spec: "ModelSpec",
         model_path: str,
         llamacpp_model_config: Optional[LlamaCppModelConfig] = None,
     ):
         super().__init__(
+            model_uid,
+            model_spec,
             model_path,
             system_prompt=self._system_prompt,
             sep=self._sep,
@@ -53,10 +60,14 @@ class VicunaCensoredGgml(LlamaCppChatModel):
 
     def __init__(
         self,
+        model_uid: str,
+        model_spec: "ModelSpec",
         model_path: str,
         llamacpp_model_config: Optional[LlamaCppModelConfig] = None,
     ):
         super().__init__(
+            model_uid,
+            model_spec,
             model_path,
             system_prompt=self._system_prompt,
             sep=self._sep,

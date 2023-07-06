@@ -28,6 +28,8 @@ from .types import (
 if TYPE_CHECKING:
     from llama_cpp import LogitsProcessorList, StoppingCriteriaList
 
+    from .. import ModelSpec
+
 logger = logging.getLogger(__name__)
 
 
@@ -89,10 +91,9 @@ class LlamaCppModelConfig(StrictTypedDict, total=False):
 
 
 class Model(abc.ABC):
-    name: str
-
-    def __init__(self, *args, **kwargs):
-        pass
+    def __init__(self, model_uid: str, model_spec: "ModelSpec", *args, **kwargs):
+        self.model_uid = model_uid
+        self.model_spec = model_spec
 
     @abstractmethod
     def load(self):
@@ -102,10 +103,12 @@ class Model(abc.ABC):
 class LlamaCppModel(Model):
     def __init__(
         self,
+        model_uid: str,
+        model_spec: "ModelSpec",
         model_path: str,
         llamacpp_model_config: Optional[LlamaCppModelConfig] = None,
     ):
-        super().__init__()
+        super().__init__(model_uid, model_spec)
         self._model_path = model_path
         self._llamacpp_model_config: LlamaCppModelConfig = self._sanitize_model_config(
             llamacpp_model_config
@@ -167,6 +170,8 @@ class LlamaCppModel(Model):
 class LlamaCppChatModel(LlamaCppModel):
     def __init__(
         self,
+        model_uid: str,
+        model_spec: "ModelSpec",
         model_path: str,
         system_prompt: str,
         sep: str,
@@ -174,7 +179,7 @@ class LlamaCppChatModel(LlamaCppModel):
         assistant_name: str,
         llamacpp_model_config: Optional[LlamaCppModelConfig] = None,
     ):
-        super().__init__(model_path, llamacpp_model_config)
+        super().__init__(model_uid, model_spec, model_path, llamacpp_model_config)
         self._system_prompt: str = system_prompt
         self._sep: str = sep
         self._user_name: str = user_name
