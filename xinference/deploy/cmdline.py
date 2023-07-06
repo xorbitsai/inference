@@ -45,10 +45,6 @@ def cli(
         address = f"{host}:{get_next_port()}"
         main(
             address=address,
-            model_name=None,
-            size_in_billions=None,
-            model_format=None,
-            quantization=None,
             host=host,
             port=port,
         )
