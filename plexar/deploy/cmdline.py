@@ -185,5 +185,60 @@ def model_generate(supervisor_address: str, model_uid: str, prompt: str):
             task.exception()
 
 
+@model.command("chat")
+@click.option(
+    "--address",
+    "-a",
+    default=f"{PLEXAR_DEFAULT_HOST}:{PLEXAR_DEFAULT_SUPERVISOR_PORT}",
+    type=str,
+)
+@click.option("--model-uid", required=True, type=str)
+def model_chat(address: str, model_uid: str):
+    async def chat_internal():
+        # async tasks generating text.
+        client = Client(supervisor_address=address)
+        model_ref = client.get_model(model_uid)
+        chat_history = []
+        while True:
+            prompt = input("\nUser: ")
+            response = []
+            if prompt == "exit" or prompt == "e":
+                break
+            chat_history.append({"role": "user", "content": prompt})
+            print("Assistant:", end="")
+            async for completion_chunk in await model_ref.chat(
+                prompt, chat_history=chat_history, generate_config={"stream": True}
+            ):
+                delta = completion_chunk["choices"][0]["delta"]
+                if "content" not in delta:
+                    continue
+                else:
+                    print(delta["content"], end="", flush=True)
+                    response.append(delta["content"])
+            chat_history.append({"role": "assistant", "content": response})
+
+    loop = asyncio.get_event_loop()
+    coro = chat_internal()
+
+    if loop.is_running():
+        # for testing.
+        from ..isolation import Isolation
+
+        isolation = Isolation(asyncio.new_event_loop(), threaded=True)
+        isolation.start()
+        isolation.call(coro)
+    else:
+        task = loop.create_task(coro)
+        try:
+            loop.run_until_complete(task)
+        except KeyboardInterrupt:
+            task.cancel()
+            loop.run_until_complete(task)
+            # avoid displaying exception-unhandled warnings
+            task.exception()
+
+    print("Thank You For Chatting With Me, Have a Nice Day!")
+
+
 if __name__ == "__main__":
     cli()
