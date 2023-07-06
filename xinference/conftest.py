@@ -28,9 +28,9 @@ async def setup():
     )
     await xo.create_actor(
         WorkerActor,
-        address=address,
+        address=pool.external_address,
         uid=WorkerActor.uid(),
-        supervisor_address=address,
+        supervisor_address=pool.external_address,
     )
 
     async with pool:
