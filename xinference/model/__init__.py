@@ -19,7 +19,7 @@ from typing import Callable, List, Optional, Type
 
 from tqdm import tqdm
 
-from ..constants import PLEXAR_CACHE_DIR
+from ..constants import XINFERENCE_CACHE_DIR
 
 logger = logging.getLogger(__name__)
 
@@ -130,7 +130,7 @@ class ModelFamily:
         url = self.url_generator(model_size_in_billions, quantization)
 
         full_name = f"{str(self)}-{model_size_in_billions}b-{quantization}"
-        save_dir = os.path.join(PLEXAR_CACHE_DIR, full_name)
+        save_dir = os.path.join(XINFERENCE_CACHE_DIR, full_name)
         if not os.path.exists(save_dir):
             os.makedirs(save_dir, exist_ok=True)
 

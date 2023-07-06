@@ -23,9 +23,9 @@ from pydantic import BaseModel, Field
 from typing_extensions import NotRequired, TypedDict
 from uvicorn import Config, Server
 
-from plexar.core.service import SupervisorActor
-from plexar.isolation import Isolation
-from plexar.model.llm.types import ChatCompletion, Completion
+from ..isolation import Isolation
+from .model.llm.types import ChatCompletion, Completion
+from .service import SupervisorActor
 
 max_tokens_field = Field(
     default=16, ge=1, le=2048, description="The maximum number of tokens to generate."
@@ -248,7 +248,7 @@ class RESTfulAPIActor(xo.Actor):
 
     @classmethod
     def uid(cls) -> str:
-        return "plexar_RESTfulAPI"
+        return "RESTfulAPI"
 
     async def __post_create__(self):
         self._supervisor_ref = await xo.actor_ref(

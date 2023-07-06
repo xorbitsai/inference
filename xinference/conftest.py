@@ -12,13 +12,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
-from pathlib import Path
 
-PLEXAR_HOME = str(Path.home() / ".plexar")
-PLEXAR_CACHE_DIR = os.path.join(PLEXAR_HOME, "cache")
-PLEXAR_LOG_DIR = os.path.join(PLEXAR_HOME, "logs")
+import pytest_asyncio
+import xoscar as xo
 
-PLEXAR_DEFAULT_HOST = "127.0.0.1"
-PLEXAR_DEFAULT_SUPERVISOR_PORT = 9998
-PLEXAR_DEFAULT_WORKER_PORT = 9999
+from .core.service import SupervisorActor, WorkerActor
+
+
+@pytest_asyncio.fixture
+async def setup():
+    address = "127.0.0.1:9998"
+    pool = await xo.create_actor_pool(address, n_process=0)
+    await xo.create_actor(
+        SupervisorActor, address=pool.external_address, uid=SupervisorActor.uid()
+    )
+    await xo.create_actor(
+        WorkerActor,
+        address=address,
+        uid=WorkerActor.uid(),
+        supervisor_address=address,
+    )
+
+    async with pool:
+        yield pool

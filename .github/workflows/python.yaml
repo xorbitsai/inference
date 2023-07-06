@@ -32,21 +32,21 @@ jobs:
       - name: flake8 Lint
         uses: py-actions/flake8@v2
         with:
-          path: "plexar"
+          path: "xinference"
           args: "--config setup.cfg"
       - name: black
         uses: psf/black@stable
         with:
-          src: "plexar"
+          src: "xinference"
           options: "--check"
       - uses: isort/isort-action@master
         with:
-          sortPaths: "plexar"
+          sortPaths: "xinference"
           configuration: "--check-only --diff --sp setup.cfg"
       - name: mypy
-        run: pip install mypy && mypy --install-types --non-interactive plexar
+        run: pip install mypy && mypy --install-types --non-interactive xinference
       - name: codespell
-        run: pip install codespell && codespell plexar
+        run: pip install codespell && codespell xinference
 
   build_test_job:
     runs-on: ${{ matrix.os }}
@@ -61,7 +61,7 @@ jobs:
       matrix:
         os: [ "ubuntu-latest", "macos-latest", "windows-latest" ]
         python-version: [ "3.8", "3.9", "3.10", "3.11" ]
-        module: [ "plexar" ]
+        module: [ "xinference" ]
         exclude:
           - { os: macos-latest, python-version: 3.9 }
           - { os: macos-latest, python-version: 3.10 }
@@ -95,7 +95,7 @@ jobs:
         run: |
           pytest --timeout=1500 \
             -W ignore::PendingDeprecationWarning \
-            --cov-config=setup.cfg --cov-report=xml --cov=plexar plexar
+            --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference
         working-directory: .
 
       - name: Report coverage data

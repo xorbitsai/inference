@@ -44,8 +44,8 @@ def get_config():
     cfg.VCS = "git"
     cfg.style = "pep440"
     cfg.tag_prefix = "v"
-    cfg.parentdir_prefix = "plexar-"
-    cfg.versionfile_source = "plexar/_version.py"
+    cfg.parentdir_prefix = "xinference-"
+    cfg.versionfile_source = "xinference/_version.py"
     cfg.verbose = False
     return cfg
 

@@ -21,13 +21,13 @@ import click
 from .. import __version__
 from ..client import Client
 from ..constants import (
-    PLEXAR_DEFAULT_HOST,
-    PLEXAR_DEFAULT_SUPERVISOR_PORT,
-    PLEXAR_DEFAULT_WORKER_PORT,
+    XINFERENCE_DEFAULT_HOST,
+    XINFERENCE_DEFAULT_SUPERVISOR_PORT,
+    XINFERENCE_DEFAULT_WORKER_PORT,
 )
 
 
-@click.group(name="plexar")
+@click.group(name="xinference")
 @click.version_option(__version__, "--version", "-v")
 def cli():
     pass
@@ -37,7 +37,7 @@ def cli():
 @click.option(
     "--address",
     "-a",
-    default=f"{PLEXAR_DEFAULT_HOST}:{PLEXAR_DEFAULT_SUPERVISOR_PORT}",
+    default=f"{XINFERENCE_DEFAULT_HOST}:{XINFERENCE_DEFAULT_SUPERVISOR_PORT}",
     type=str,
 )
 @click.option("--log-level", default="INFO", type=str)
@@ -63,12 +63,12 @@ def supervisor(
 @click.option(
     "--address",
     "-a",
-    default=f"{PLEXAR_DEFAULT_HOST}:{PLEXAR_DEFAULT_WORKER_PORT}",
+    default=f"{XINFERENCE_DEFAULT_HOST}:{XINFERENCE_DEFAULT_WORKER_PORT}",
     type=str,
 )
 @click.option(
     "--supervisor-address",
-    default=f"{PLEXAR_DEFAULT_HOST}:{PLEXAR_DEFAULT_SUPERVISOR_PORT}",
+    default=f"{XINFERENCE_DEFAULT_HOST}:{XINFERENCE_DEFAULT_SUPERVISOR_PORT}",
     type=str,
 )
 @click.option("--log-level", default="INFO", type=str)
@@ -130,7 +130,7 @@ def model_launch(
     host: str,
     port: str,
 ):
-    address = f"{PLEXAR_DEFAULT_HOST}:{PLEXAR_DEFAULT_SUPERVISOR_PORT}"
+    address = f"{XINFERENCE_DEFAULT_HOST}:{XINFERENCE_DEFAULT_SUPERVISOR_PORT}"
 
     from .local import main
 
@@ -149,7 +149,7 @@ def model_launch(
 @model.command("generate")
 @click.option(
     "--supervisor-address",
-    default=f"{PLEXAR_DEFAULT_HOST}:{PLEXAR_DEFAULT_SUPERVISOR_PORT}",
+    default=f"{XINFERENCE_DEFAULT_HOST}:{XINFERENCE_DEFAULT_SUPERVISOR_PORT}",
     type=str,
 )
 @click.option("--model-uid", type=str)
@@ -189,7 +189,7 @@ def model_generate(supervisor_address: str, model_uid: str, prompt: str):
 @click.option(
     "--address",
     "-a",
-    default=f"{PLEXAR_DEFAULT_HOST}:{PLEXAR_DEFAULT_SUPERVISOR_PORT}",
+    default=f"{XINFERENCE_DEFAULT_HOST}:{XINFERENCE_DEFAULT_SUPERVISOR_PORT}",
     type=str,
 )
 @click.option("--model-uid", required=True, type=str)
