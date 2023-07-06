@@ -18,22 +18,36 @@ import uuid
 from pathlib import Path
 from typing import Iterator, List, Optional, Union
 
-from .core import ChatglmCppGenerateConfig, Model
+from .core import Model, StrictTypedDict
 from .types import ChatCompletion, ChatCompletionChunk, ChatCompletionMessage
 
 logger = logging.getLogger(__name__)
+
+
+class ChatglmCppModelConfig(StrictTypedDict, total=False):
+    pass
+
+
+class ChatglmCppGenerateConfig(StrictTypedDict, total=False):
+    max_tokens: int
+    top_p: float
+    temperature: float
+    stream: bool
 
 
 class ChatglmCppChatModel(Model):
     def __init__(
         self,
         model_path: str,
-        model_config: Optional[ChatglmCppGenerateConfig] = None,
+        model_config: Optional[ChatglmCppModelConfig] = None,
     ):
         super().__init__()
         self._llm = None
         self._model_path = model_path
         self._model_name = "-".join(self._model_path.split("/")[-2].split("-")[:-3])
+
+        # just a placeholder for now as the chatglm_cpp repo doesn't support model config
+        self._model_config = model_config
 
     @classmethod
     def _sanitize_generate_config(
@@ -49,7 +63,19 @@ class ChatglmCppChatModel(Model):
         return chatglmcpp_generate_config
 
     def load(self):
-        import chatglm_cpp
+        try:
+            import chatglm_cpp
+        except ImportError:
+            error_message = "Failed to import module 'chatglm_cpp'"
+            installation_guide = [
+                "Please make sure 'chatglm_cpp' is installed. ",
+                "You can install it by running the following command in the terminal:\n",
+                "pip install git+https://github.com/li-plus/chatglm.cpp.git@main\n\n",
+                "Or visit the original git repo if the above command fails:\n",
+                "https://github.com/li-plus/chatglm.cpp",
+            ]
+
+            raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
         self._llm = chatglm_cpp.Pipeline(Path(self._model_path))
 

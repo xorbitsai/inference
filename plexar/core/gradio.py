@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
 from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
 import gradio as gr
@@ -28,9 +27,6 @@ if TYPE_CHECKING:
 MODEL_TO_FAMILIES = dict(
     (model_family.model_name, model_family) for model_family in MODEL_FAMILIES
 )
-
-
-logger = logging.getLogger(__name__)
 
 
 class GradioApp:
@@ -94,7 +90,7 @@ class GradioApp:
             if window_size != 0:
                 history = history[-(window_size // 2) :]
 
-            # chatglm only support even number of conversation history
+            # chatglm only support even number of conversation history.
             if len(history) % 2 != 0:
                 history = history[1:]
 
