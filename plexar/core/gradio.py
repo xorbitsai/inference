@@ -90,6 +90,10 @@ class GradioApp:
             if window_size != 0:
                 history = history[-(window_size // 2) :]
 
+            # chatglm only support even number of conversation history.
+            if len(history) % 2 != 0:
+                history = history[1:]
+
             generate_config = dict(
                 max_tokens=max_token,
                 temperature=temperature,
