@@ -15,8 +15,11 @@
 import logging
 import os
 import urllib.request
+import warnings
 from typing import Callable, List, Optional, Type
 
+import requests
+from requests import RequestException
 from tqdm import tqdm
 
 from ..constants import PLEXAR_CACHE_DIR
@@ -71,6 +74,7 @@ class ModelFamily:
         model_sizes_in_billions: List[int],
         quantizations: List[str],
         url_generator: Callable[[int, str], str],
+        url_rp_generator: Callable[[int, str], str],
         cls: Type,
     ):
         self.model_name = model_name
@@ -78,6 +82,7 @@ class ModelFamily:
         self.model_format = model_format
         self.quantizations = quantizations
         self.url_generator = url_generator
+        self.url_rp_generator = url_rp_generator
         self.cls = cls
 
     def __str__(self):
@@ -128,6 +133,17 @@ class ModelFamily:
         quantization = quantization or self.quantizations[0]
 
         url = self.url_generator(model_size_in_billions, quantization)
+        rp_url = self.url_rp_generator(model_size_in_billions, quantization)
+
+        try:
+            rp_fetch = requests.get(rp_url)
+        except RequestException as e:
+            raise RequestException(f"Request failed: {str(e)}")
+
+        res_content = rp_fetch.content
+        splitted_res_content = str(res_content).split()
+        digits = "".join([char for char in splitted_res_content[3] if char.isdigit()])
+        expected_size = int(digits)
 
         full_name = f"{str(self)}-{model_size_in_billions}b-{quantization}"
         save_dir = os.path.join(PLEXAR_CACHE_DIR, full_name)
@@ -137,7 +153,12 @@ class ModelFamily:
         save_path = os.path.join(save_dir, "model.bin")
         if os.path.exists(save_path):
             # TODO: verify the integrity.
-            return save_path
+            if os.path.getsize(save_path) == expected_size:
+                return save_path
+            else:
+                warnings.warn(
+                    "Model size doesn't match, try to update it...", RuntimeWarning
+                )
 
         try:
             with tqdm(
@@ -155,6 +176,9 @@ class ModelFamily:
                     ),
                 )
             # TODO: verify the integrity.
+            if os.path.getsize(save_path) != expected_size:
+                os.remove(save_path)
+                raise RuntimeError(f"Failed to download {full_name} from {url}")
         except:
             if os.path.exists(save_path):
                 os.remove(save_path)

@@ -25,6 +25,12 @@ def install():
         f"https://huggingface.co/TheBloke/baichuan-llama-{model_size}B-GGML/resolve/main/"
         f"baichuan-llama-{model_size}b.ggmlv3.{quantization}.bin"
     )
+
+    baichuan_url_raw_generator = lambda model_size, quantization: (
+        f"https://huggingface.co/TheBloke/baichuan-llama-{model_size}B-GGML/raw/main/"
+        f"baichuan-llama-{model_size}b.ggmlv3.{quantization}.bin"
+    )
+
     MODEL_FAMILIES.append(
         ModelFamily(
             model_name="baichuan",
@@ -47,6 +53,7 @@ def install():
                 "q8_0",
             ],
             url_generator=baichuan_url_generator,
+            url_rp_generator=baichuan_url_raw_generator,
             cls=LlamaCppModel,
         )
     )
@@ -55,6 +62,12 @@ def install():
         f"https://huggingface.co/TheBloke/baichuan-vicuna-{model_size}B-GGML/resolve/main/"
         f"baichuan-vicuna-{model_size}b.ggmlv3.{quantization}.bin"
     )
+
+    baichuan_chat_url_raw_generator = lambda model_size, quantization: (
+        f"https://huggingface.co/TheBloke/baichuan-vicuna-{model_size}B-GGML/raw/main/"
+        f"baichuan-vicuna-{model_size}b.ggmlv3.{quantization}.bin"
+    )
+
     MODEL_FAMILIES.append(
         ModelFamily(
             model_name="baichuan-chat",
@@ -77,6 +90,7 @@ def install():
                 "q8_0",
             ],
             url_generator=baichuan_chat_url_generator,
+            url_rp_generator=baichuan_chat_url_raw_generator,
             cls=VicunaCensoredGgml,
         )
     )
@@ -85,6 +99,12 @@ def install():
         f"https://huggingface.co/TheBloke/WizardLM-{model_size}B-V1.0-Uncensored-GGML/resolve/main/"
         f"wizardlm-{model_size}b-v1.0-uncensored.ggmlv3.{quantization}.bin"
     )
+
+    wizardlm_v1_0_url_raw_generator = lambda model_size, quantization: (
+        f"https://huggingface.co/TheBloke/WizardLM-{model_size}B-V1.0-Uncensored-GGML/raw/main/"
+        f"wizardlm-{model_size}b-v1.0-uncensored.ggmlv3.{quantization}.bin"
+    )
+
     MODEL_FAMILIES.append(
         ModelFamily(
             model_name="wizardlm-v1.0",
@@ -107,6 +127,7 @@ def install():
                 "q8_0",
             ],
             url_generator=wizardlm_v1_0_url_generator,
+            url_rp_generator=wizardlm_v1_0_url_raw_generator,
             cls=WizardlmGgml,
         ),
     )
@@ -120,6 +141,17 @@ def install():
             f"vicuna-13b-v1.3.0.ggmlv3.{quantization}.bin"
         )
     )
+
+    vicuna_v1_3__url_raw_generator = lambda model_size, quantization: (
+        "https://huggingface.co/TheBloke/vicuna-7B-v1.3-GGML/raw/main/"
+        f"vicuna-7b-v1.3.ggmlv3.{quantization}.bin"
+        if model_size == 7
+        else (
+            "https://huggingface.co/TheBloke/vicuna-13b-v1.3.0-GGML/raw/main/"
+            f"vicuna-13b-v1.3.0.ggmlv3.{quantization}.bin"
+        )
+    )
+
     MODEL_FAMILIES.append(
         ModelFamily(
             model_name="vicuna-v1.3",
@@ -142,6 +174,7 @@ def install():
                 "q8_0",
             ],
             url_generator=vicuna_v1_3_url_generator,
+            url_rp_generator=vicuna_v1_3__url_raw_generator,
             cls=VicunaCensoredGgml,
         ),
     )
@@ -150,6 +183,11 @@ def install():
         f"https://huggingface.co/TheBloke/orca_mini_{model_size}B-GGML/resolve/main/orca-mini-"
         f"{model_size}b.ggmlv3.{quantization}.bin"
     )
+    orca_url_raw_generator = lambda model_size, quantization: (
+        f"https://huggingface.co/TheBloke/orca_mini_{model_size}B-GGML/raw/main/orca-mini-"
+        f"{model_size}b.ggmlv3.{quantization}.bin"
+    )
+
     MODEL_FAMILIES.append(
         ModelFamily(
             model_name="orca",
@@ -163,6 +201,7 @@ def install():
                 "q8_0",
             ],
             url_generator=orca_url_generator,
+            url_rp_generator=orca_url_raw_generator,
             cls=OrcaMiniGgml,
         )
     )
