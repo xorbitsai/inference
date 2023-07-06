@@ -44,13 +44,16 @@ async def start_supervisor_components(address: str, share: bool, host: str, port
 
 
 async def _start_supervisor(address: str, host: str, port: int, share: bool):
-    from .utils import create_actor_pool
+    try:
+        from .utils import create_actor_pool
 
-    pool = await create_actor_pool(address=address, n_process=0)
-    await start_supervisor_components(
-        address=address, host=host, port=port, share=share
-    )
-    await pool.join()
+        pool = await create_actor_pool(address=address, n_process=0)
+        await start_supervisor_components(
+            address=address, host=host, port=port, share=share
+        )
+        await pool.join()
+    except asyncio.exceptions.CancelledError:
+        pass
 
 
 def main(*args, **kwargs):
