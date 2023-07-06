@@ -14,7 +14,7 @@
 
 import asyncio
 import uuid
-from typing import List, Optional, Tuple
+from typing import Iterator, List, Optional, Tuple, Union
 
 import requests
 import xoscar as xo
@@ -23,7 +23,13 @@ from .core.model import ModelActor
 from .core.service import SupervisorActor
 from .isolation import Isolation
 from .model import ModelSpec
-from .model.llm.types import ChatCompletionMessage
+from .model.llm.types import (
+    ChatCompletion,
+    ChatCompletionChunk,
+    ChatCompletionMessage,
+    Completion,
+    CompletionChunk,
+)
 
 
 class Client:
@@ -79,7 +85,12 @@ class RESTfulClient:
     def __init__(self, base_url):
         self.base_url = base_url
 
-    def list_models(self):
+    @classmethod
+    def gen_model_uid(cls) -> str:
+        # generate a time-based uuid.
+        return str(uuid.uuid1())
+
+    def list_models(self) -> List[str]:
         url = f"{self.base_url}/v1/models"
 
         response = requests.get(url)
@@ -96,7 +107,9 @@ class RESTfulClient:
     ) -> str:
         url = f"{self.base_url}/v1/models"
 
+        model_uid = self.gen_model_uid()
         payload = {
+            "model_uid": model_uid,
             "model_name": model_name,
             "model_size_in_billions": model_size_in_billions,
             "model_format": model_format,
@@ -108,14 +121,16 @@ class RESTfulClient:
         model_uid = response_data["model_uid"]
         return model_uid
 
-    def terminate_model(self, model_uid):
+    def terminate_model(self, model_uid: str):
         url = f"{self.base_url}/v1/models/{model_uid}"
 
         response = requests.delete(url)
-        response_data = response.json()
-        return response_data
+        if response.status_code != 200:
+            raise Exception(f"Error terminating the model.")
 
-    def generate(self, model_uid: str, prompt: str, **kwargs):
+    def generate(
+        self, model_uid: str, prompt: str, **kwargs
+    ) -> Union[Completion, Iterator[CompletionChunk]]:
         url = f"{self.base_url}/v1/completions"
 
         request_body = {"model": model_uid, "prompt": prompt, **kwargs}
@@ -130,7 +145,7 @@ class RESTfulClient:
         system_prompt: Optional[str] = None,
         chat_history: Optional[List[ChatCompletionMessage]] = None,
         **kwargs,
-    ):
+    ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
         url = f"{self.base_url}/v1/chat/completions"
 
         if chat_history is None:

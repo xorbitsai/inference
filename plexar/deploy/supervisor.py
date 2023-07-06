@@ -17,7 +17,8 @@ import asyncio
 import xoscar as xo
 
 from ..core.gradio import GradioActor
-from ..core.service import RESTfulAPIActor, SupervisorActor
+from ..core.restful_api import RESTfulAPIActor
+from ..core.service import SupervisorActor
 
 
 async def start_supervisor_components(address: str, share: bool, host: str, port: int):
