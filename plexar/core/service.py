@@ -12,15 +12,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
+import time
+from dataclasses import dataclass
 from logging import getLogger
 from typing import Callable, Dict, List, Optional, Tuple
 
 import xoscar as xo
 
-from plexar.core import ModelActor
-from plexar.model import ModelSpec
+from ..core import ModelActor
+from ..model import ModelSpec
+from .resource import ResourceStatus, gather_node_info
 
 logger = getLogger(__name__)
+
+
+DEFAULT_NODE_DEAD_TIMEOUT = 30
+DEFAULT_NODE_CHECK_INTERVAL = 1
 
 
 def log(func: Callable):
@@ -41,15 +49,28 @@ def log(func: Callable):
     return wrapped
 
 
+@dataclass
+class WorkerStatus:
+    update_time: float
+    status: Dict[str, ResourceStatus]
+
+
 class SupervisorActor(xo.Actor):
     def __init__(self):
         super().__init__()
         self._worker_address_to_worker: Dict[str, xo.ActorRefType[WorkerActor]] = {}
         self._model_uid_to_worker: Dict[str, xo.ActorRefType[WorkerActor]] = {}
+        self._worker_status: Dict[str, WorkerStatus] = {}
 
     @classmethod
     def uid(cls) -> str:
         return "plexar_supervisor"
+
+    async def __post_create__(self):
+        self._check_dead_nodes_task = asyncio.create_task(self._check_dead_nodes())
+
+    async def __pre_destroy__(self):
+        self._check_dead_nodes_task.cancel()
 
     async def _choose_worker(self) -> xo.ActorRefType["WorkerActor"]:
         # TODO: better allocation strategy.
@@ -93,6 +114,14 @@ class SupervisorActor(xo.Actor):
 
         return model_ref
 
+    async def _check_dead_nodes(self):
+        while True:
+            for address, status in self._worker_status.items():
+                if time.time() - status.update_time > DEFAULT_NODE_DEAD_TIMEOUT:
+                    self._worker_status.pop(address)
+                    self._worker_address_to_worker.pop(address)
+            await asyncio.sleep(5)
+
     @log
     async def terminate_model(self, model_uid: str):
         assert model_uid in self._model_uid_to_worker
@@ -122,11 +151,20 @@ class SupervisorActor(xo.Actor):
         worker_ref = await xo.actor_ref(address=worker_address, uid=WorkerActor.uid())
         self._worker_address_to_worker[worker_address] = worker_ref
 
+    @log
+    async def report_worker_status(
+        self, worker_address: str, status: Dict[str, ResourceStatus]
+    ):
+        self._worker_status[worker_address] = WorkerStatus(
+            update_time=time.time(), status=status
+        )
+
 
 class WorkerActor(xo.Actor):
     def __init__(self, supervisor_address: str):
         super().__init__()
         self._supervisor_address = supervisor_address
+        self._supervisor_ref = None
         self._model_uid_to_model: Dict[str, xo.ActorRefType["ModelActor"]] = {}
         self._model_uid_to_model_spec: Dict[str, ModelSpec] = {}
 
@@ -135,10 +173,14 @@ class WorkerActor(xo.Actor):
         return "plexar_worker"
 
     async def __post_create__(self):
-        supervisor_ref: xo.ActorRefType["SupervisorActor"] = await xo.actor_ref(
+        self._supervisor_ref: xo.ActorRefType["SupervisorActor"] = await xo.actor_ref(
             address=self._supervisor_address, uid=SupervisorActor.uid()
         )
-        await supervisor_ref.add_worker(self.address)
+        await self._supervisor_ref.add_worker(self.address)
+        self._upload_task = asyncio.create_task(self._periodical_report_status())
+
+    async def __pre_destroy__(self):
+        self._upload_task.cancel()
 
     async def get_model_count(self) -> int:
         return len(self._model_uid_to_model)
@@ -206,3 +248,27 @@ class WorkerActor(xo.Actor):
         assert model_uid in self._model_uid_to_model
 
         return self._model_uid_to_model[model_uid]
+
+    async def report_status(self):
+        status = await asyncio.to_thread(gather_node_info)
+        await self._supervisor_ref.report_worker_status(self.address, status)
+
+    async def _periodical_report_status(self):
+        while True:
+            try:
+                await self.report_status()
+            except asyncio.CancelledError:  # pragma: no cover
+                break
+            except RuntimeError as ex:  # pragma: no cover
+                if "cannot schedule new futures" not in str(ex):
+                    # when atexit is triggered, the default pool might be shutdown
+                    # and to_thread will fail
+                    break
+            except (
+                Exception
+            ) as ex:  # pragma: no cover  # noqa: E722  # nosec  # pylint: disable=bare-except
+                logger.error(f"Failed to upload node info: {ex}")
+            try:
+                await asyncio.sleep(DEFAULT_NODE_CHECK_INTERVAL)
+            except asyncio.CancelledError:  # pragma: no cover
+                break
