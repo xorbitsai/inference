@@ -14,7 +14,7 @@
 
 import asyncio
 import uuid
-from typing import Iterator, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import requests
 import xoscar as xo
@@ -23,13 +23,7 @@ from .core.model import ModelActor
 from .core.service import SupervisorActor
 from .isolation import Isolation
 from .model import ModelSpec
-from .model.llm.types import (
-    ChatCompletion,
-    ChatCompletionChunk,
-    ChatCompletionMessage,
-    Completion,
-    CompletionChunk,
-)
+from .model.llm.types import ChatCompletion, ChatCompletionMessage, Completion
 
 
 class Client:
@@ -90,7 +84,7 @@ class RESTfulClient:
         # generate a time-based uuid.
         return str(uuid.uuid1())
 
-    def list_models(self) -> List[str]:
+    def list_models(self) -> Dict[str, Dict[str, Any]]:
         url = f"{self.base_url}/v1/models"
 
         response = requests.get(url)
@@ -128,11 +122,8 @@ class RESTfulClient:
         if response.status_code != 200:
             raise Exception(f"Error terminating the model.")
 
-    def generate(
-        self, model_uid: str, prompt: str, **kwargs
-    ) -> Union[Completion, Iterator[CompletionChunk]]:
+    def generate(self, model_uid: str, prompt: str, **kwargs) -> Union[Completion]:
         url = f"{self.base_url}/v1/completions"
-
         request_body = {"model": model_uid, "prompt": prompt, **kwargs}
         response = requests.post(url, json=request_body)
         response_data = response.json()
@@ -143,9 +134,9 @@ class RESTfulClient:
         model_uid: str,
         prompt: str,
         system_prompt: Optional[str] = None,
-        chat_history: Optional[List[ChatCompletionMessage]] = None,
+        chat_history: Optional[Any] = None,
         **kwargs,
-    ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
+    ) -> Union[ChatCompletion]:
         url = f"{self.base_url}/v1/chat/completions"
 
         if chat_history is None:
@@ -163,6 +154,12 @@ class RESTfulClient:
         chat_history.append(ChatCompletionMessage(role="user", content=prompt))
         request_body = {"model": model_uid, "messages": chat_history, **kwargs}
         response = requests.post(url, json=request_body)
+        response_data = response.json()
+        return response_data
+
+    def _get_supervisor_internal_address(self):
+        url = f"{self.base_url}/v1/address"
+        response = requests.get(url)
         response_data = response.json()
         return response_data
 
