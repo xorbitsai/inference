@@ -21,6 +21,7 @@ from xoscar.utils import get_next_port
 from .. import __version__
 from ..client import RESTfulClient
 from ..constants import XINFERENCE_DEFAULT_ENDPOINT_PORT, XINFERENCE_DEFAULT_HOST
+from ..model.llm.types import ChatCompletionMessage
 
 
 @click.group(invoke_without_command=True, name="xinference")
@@ -228,7 +229,7 @@ def model_chat(endpoint: str, model_uid: str):
         prompt = input("\nUser: ")
         if prompt == "exit" or prompt == "e":
             break
-        chat_history.append({"role": "user", "content": prompt})
+        chat_history.append(ChatCompletionMessage(role="user", content=prompt))
         print("Assistant:", end="")
         print(
             client.chat(
