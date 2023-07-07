@@ -14,7 +14,7 @@
 
 import asyncio
 import uuid
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import requests
 import xoscar as xo
@@ -84,7 +84,7 @@ class RESTfulClient:
         # generate a time-based uuid.
         return str(uuid.uuid1())
 
-    def list_models(self) -> Dict[str, Dict[str, str]]:
+    def list_models(self) -> Dict[str, Dict[str, Any]]:
         url = f"{self.base_url}/v1/models"
 
         response = requests.get(url)

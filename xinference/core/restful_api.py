@@ -14,7 +14,7 @@
 
 import asyncio
 import sys
-from typing import Dict, List, Literal, Optional, Union
+from typing import Any, Dict, List, Literal, Optional, Union
 
 import gradio as gr
 import xoscar as xo
@@ -273,7 +273,7 @@ class RESTfulAPIActor(xo.Actor):
         server = Server(config)
         self._isolation.loop.create_task(server.serve())
 
-    async def list_models(self) -> Dict[str, Dict[str, str]]:
+    async def list_models(self) -> Dict[str, Dict[str, Any]]:
         models = await self._supervisor_ref.list_models()
         models_dict = {}
         for model_uid, model_spec in models:
