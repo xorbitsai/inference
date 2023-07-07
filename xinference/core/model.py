@@ -13,14 +13,45 @@
 # limitations under the License.
 
 import inspect
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Generic, Iterator, Optional, TypeVar, Union
 
 import xoscar as xo
 
-from .common import IteratorActor, IteratorWrapper
-
 if TYPE_CHECKING:
     from ..model.llm.core import Model
+    from ..model.llm.types import ChatCompletionChunk, CompletionChunk
+
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+T = TypeVar("T")
+
+
+class IteratorWrapper(Generic[T]):
+    def __init__(self, model_actor_addr: str, model_actor_uid: str):
+        self._model_actor_addr = model_actor_addr
+        self._model_actor_uid = model_actor_uid
+        self._model_actor_ref: Optional[xo.ActorRefType["ModelActor"]] = None
+
+    def __aiter__(self):
+        return self
+
+    async def __anext__(self) -> T:
+        if self._model_actor_ref is None:
+            self._model_actor_ref = await xo.actor_ref(
+                address=self._model_actor_addr, uid=self._model_actor_uid
+            )
+
+        try:
+            assert self._model_actor_ref is not None
+            return await self._model_actor_ref.next()
+        except Exception as e:
+            if "StopIteration" in str(e):
+                raise StopAsyncIteration
+            else:
+                raise
 
 
 class ModelActor(xo.Actor):
@@ -31,19 +62,24 @@ class ModelActor(xo.Actor):
     def __init__(self, model: "Model"):
         super().__init__()
         self._model = model
+        self._generator: Optional[Iterator] = None
+        # TODO: locl
 
     async def __post_create__(self):
         self._model.load()
 
     async def _wrap_generator(self, ret: Any):
         if inspect.isgenerator(ret):
-            uid = str(id(ret))
-            await xo.create_actor(IteratorActor, address=self.address, uid=uid, it=ret)
-            return IteratorWrapper(iter_actor_addr=self.address, iter_actor_uid=uid)
+            self._generator = ret
+            return IteratorWrapper(
+                model_actor_addr=self.address, model_actor_uid=self.uid
+            )
         else:
             return ret
 
     async def generate(self, prompt: str, *args, **kwargs):
+        logger.warning("Generate, self address: %s", self.address)
+
         if not hasattr(self._model, "generate"):
             raise AttributeError("generate")
 
@@ -58,3 +94,11 @@ class ModelActor(xo.Actor):
         return self._wrap_generator(
             getattr(self._model, "chat")(prompt, *args, **kwargs)
         )
+
+    async def next(self) -> Union["ChatCompletionChunk", "CompletionChunk"]:
+        try:
+            assert self._generator is not None
+            return next(self._generator)
+        except StopIteration:
+            self._generator = None
+            raise Exception("StopIteration")

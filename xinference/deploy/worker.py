@@ -20,19 +20,26 @@ from ..core.service import WorkerActor
 
 
 async def start_worker_components(address: str, supervisor_address: str):
+    actor_pool_config = await xo.get_pool_config(address)
+    subpool_addresses = []
+    for idx in actor_pool_config.get_process_indexes():
+        config = actor_pool_config.get_pool_config(idx)
+        if config["label"] != "main":
+            subpool_addresses.append(config["external_address"][0])
+
     await xo.create_actor(
         WorkerActor,
         address=address,
         uid=WorkerActor.uid(),
         supervisor_address=supervisor_address,
+        subpool_addresses=subpool_addresses,  # exclude the main actor pool.
     )
-    # TODO: start resource actor
 
 
 async def _start_worker(address: str, supervisor_address: str):
-    from .utils import create_actor_pool
+    from .utils import create_worker_actor_pool
 
-    pool = await create_actor_pool(address=address, n_process=0)
+    pool = await create_worker_actor_pool(address=address)
     await start_worker_components(
         address=address, supervisor_address=supervisor_address
     )

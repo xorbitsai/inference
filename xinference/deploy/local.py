@@ -24,15 +24,14 @@ async def _start_local_cluster(
     host: str,
     port: int,
 ):
-    from .utils import create_actor_pool
+    from .utils import create_worker_actor_pool
 
     pool = None
     try:
-        pool = await create_actor_pool(address=address, n_process=0)
-        url = await start_supervisor_components(address, host, port)
+        pool = await create_worker_actor_pool(address=address)
+        url = await start_supervisor_components(address=address, host=host, port=port)
         await start_worker_components(address=address, supervisor_address=address)
         webbrowser.open(url)
-
         await pool.join()
     except asyncio.CancelledError:
         if pool is not None:

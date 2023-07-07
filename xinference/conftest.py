@@ -12,25 +12,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 import pytest_asyncio
 import xoscar as xo
-
-from .core.service import SupervisorActor, WorkerActor
 
 
 @pytest_asyncio.fixture
 async def setup():
-    address = "127.0.0.1:9998"
-    pool = await xo.create_actor_pool(address, n_process=0)
-    await xo.create_actor(
-        SupervisorActor, address=pool.external_address, uid=SupervisorActor.uid()
+    from .deploy.supervisor import start_supervisor_components
+    from .deploy.utils import create_worker_actor_pool
+    from .deploy.worker import start_worker_components
+
+    pool = await create_worker_actor_pool(
+        f"test://127.0.0.1:{xo.utils.get_next_port()}"
     )
-    await xo.create_actor(
-        WorkerActor,
-        address=address,
-        uid=WorkerActor.uid(),
-        supervisor_address=address,
+    print(f"Pool running on localhost:{pool.external_address}")
+
+    await start_supervisor_components(
+        pool.external_address, "127.0.0.1", xo.utils.get_next_port()
+    )
+    await start_worker_components(
+        address=pool.external_address, supervisor_address=pool.external_address
     )
 
     async with pool:

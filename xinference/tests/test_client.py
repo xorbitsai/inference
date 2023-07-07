@@ -26,11 +26,9 @@ if TYPE_CHECKING:
 @pytest.mark.asyncio
 async def test_sync_client(setup):
     client = Client(setup.external_address)
-
     assert len(client.list_models()) == 0
 
-    # TODO: use q2_K
-    model_uid = client.launch_model(model_name="wizardlm-v1.0", quantization="q4_0")
+    model_uid = client.launch_model(model_name="wizardlm-v1.0", quantization="q2_K")
     assert len(client.list_models()) == 1
 
     model_ref: xo.ActorRefType["ModelActor"] = client.get_model(model_uid=model_uid)
@@ -45,12 +43,10 @@ async def test_sync_client(setup):
 @pytest.mark.asyncio
 async def test_async_client(setup):
     async_client = AsyncClient(setup.external_address)
-
     assert len(await async_client.list_models()) == 0
 
-    # TODO: use q2_K
     model_uid = await async_client.launch_model(
-        model_name="wizardlm-v1.0", quantization="q4_0"
+        model_name="wizardlm-v1.0", quantization="q2_K"
     )
     assert len(await async_client.list_models()) == 1
 
