@@ -12,13 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 import sys
 import threading
 from typing import Any, Dict, List, Literal, Optional, Union
 
 import gradio as gr
 import xoscar as xo
-from fastapi import APIRouter, FastAPI, Request
+from fastapi import APIRouter, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
@@ -28,6 +29,8 @@ from xoscar.utils import get_next_port
 
 from ..model.llm.types import ChatCompletion, Completion
 from .service import SupervisorActor
+
+logger = logging.getLogger(__name__)
 
 max_tokens_field = Field(
     default=16, ge=1, le=2048, description="The maximum number of tokens to generate."
@@ -267,7 +270,12 @@ class RESTfulAPIActor(xo.Actor):
         return f"http://{self._host}:{self._port}"
 
     async def list_models(self) -> Dict[str, Dict[str, Any]]:
-        models = await self._supervisor_ref.list_models()
+        try:
+            models = await self._supervisor_ref.list_models()
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
         models_dict = {}
         for model_uid, model_spec in models:
             models_dict[model_uid] = {
@@ -287,18 +295,26 @@ class RESTfulAPIActor(xo.Actor):
         quantization = payload.get("quantization")
         kwargs = payload.get("kwargs", {}) or {}
 
-        await self._supervisor_ref.launch_builtin_model(
-            model_uid=model_uid,
-            model_name=model_name,
-            model_size_in_billions=model_size_in_billions,
-            model_format=model_format,
-            quantization=quantization,
-            **kwargs,
-        )
+        try:
+            await self._supervisor_ref.launch_builtin_model(
+                model_uid=model_uid,
+                model_name=model_name,
+                model_size_in_billions=model_size_in_billions,
+                model_format=model_format,
+                quantization=quantization,
+                **kwargs,
+            )
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
         return JSONResponse(content={"model_uid": model_uid})
 
     async def terminate_model(self, model_uid: str):
-        await self._supervisor_ref.terminate_model(model_uid)
+        try:
+            await self._supervisor_ref.terminate_model(model_uid)
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
 
     async def get_address(self):
         return self.address
@@ -318,11 +334,21 @@ class RESTfulAPIActor(xo.Actor):
         if body.logit_bias is not None:
             raise NotImplementedError
         model_uid = body.model
-        model = await self._supervisor_ref.get_model(model_uid)
+
+        try:
+            model = await self._supervisor_ref.get_model(model_uid)
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
         if body.stream:
             raise NotImplementedError
         else:
-            return await model.generate(body.prompt, kwargs)
+            try:
+                return await model.generate(body.prompt, kwargs)
+            except Exception as e:
+                logger.error(e, exc_info=True)
+                raise HTTPException(status_code=500, detail=str(e))
 
     async def create_embedding(self, request: CreateEmbeddingRequest):
         raise NotImplementedError
@@ -351,7 +377,7 @@ class RESTfulAPIActor(xo.Actor):
         if user_messages:
             prompt = user_messages[-1]
         else:
-            raise Exception("no prompt given")
+            raise HTTPException(status_code=400, detail="No prompt given")
         system_prompt = next(
             (msg["content"] for msg in body.messages if msg["role"] == "system"), None
         )
@@ -359,10 +385,17 @@ class RESTfulAPIActor(xo.Actor):
         chat_history = body.messages
 
         model_uid = body.model
-        model = await self._supervisor_ref.get_model(model_uid)
+        try:
+            model = await self._supervisor_ref.get_model(model_uid)
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
 
         if body.stream:
             raise NotImplementedError
-
         else:
-            return await model.chat(prompt, system_prompt, chat_history, kwargs)
+            try:
+                return await model.chat(prompt, system_prompt, chat_history, kwargs)
+            except Exception as e:
+                logger.error(e, exc_info=True)
+                raise HTTPException(status_code=500, detail=str(e))
