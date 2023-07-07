@@ -61,7 +61,7 @@ MODEL_FAMILIES.append(
             "q5_1",
             "q8_0",
         ],
-        url_generator=lambda: "",
+        url_generator=lambda x, y: "",
         cls=MockChatglmCppChatModel,
     )
 )
