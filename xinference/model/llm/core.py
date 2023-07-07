@@ -32,6 +32,14 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+SIZE_TO_GPU_LAYERS = {
+    3: 26,
+    7: 32,
+    13: 40,
+    30: 60,
+    65: 80,
+}
+
 
 class StrictTypedDict(TypedDict):
     def __setitem__(self, key: str, value: Any):  # type: ignore
@@ -109,37 +117,34 @@ class LlamaCppModel(Model):
         llamacpp_model_config: Optional[LlamaCppModelConfig] = None,
     ):
         super().__init__(model_uid, model_spec)
+
+        closest_size = min(
+            SIZE_TO_GPU_LAYERS.keys(),
+            key=lambda x: abs(x - model_spec.model_size_in_billions),
+        )
+        self._gpu_layers = SIZE_TO_GPU_LAYERS[closest_size]
         self._model_path = model_path
         self._llamacpp_model_config: LlamaCppModelConfig = self._sanitize_model_config(
-            llamacpp_model_config
+            llamacpp_model_config, self._gpu_layers
         )
         self._llm = None
 
-        size_to_gpu_layers = {
-            3: 26,
-            7: 32,
-            13: 40,
-            30: 60,
-            65: 80,
-        }
-        closest_size = min(
-            size_to_gpu_layers.keys(),
-            key=lambda x: abs(x - model_spec.model_size_in_billions),
-        )
-        self._gpu_layers = size_to_gpu_layers[closest_size]
-
     @classmethod
     def _sanitize_model_config(
-        cls, llamacpp_model_config: Optional[LlamaCppModelConfig]
+        cls,
+        llamacpp_model_config: Optional[LlamaCppModelConfig],
+        gpu_layers: Optional[int],
     ) -> LlamaCppModelConfig:
         if llamacpp_model_config is None:
             llamacpp_model_config = LlamaCppModelConfig()
+        if gpu_layers is not None:
+            llamacpp_model_config["n_gpu_layers"] = gpu_layers
+        llamacpp_model_config["n_ctx"] = 2048
         return llamacpp_model_config
 
     @classmethod
     def _sanitize_generate_config(
-        cls,
-        generate_config: Optional[LlamaCppGenerateConfig],
+        cls, generate_config: Optional[LlamaCppGenerateConfig]
     ) -> LlamaCppGenerateConfig:
         if generate_config is None:
             generate_config = LlamaCppGenerateConfig()
@@ -152,19 +157,15 @@ class LlamaCppModel(Model):
             error_message = "Failed to import module 'llama_cpp'"
             installation_guide = [
                 "Please make sure 'llama_cpp' is installed. ",
-                "You can install it by running the following command in the terminal:\n",
-                "pip install llama-cpp-python\n\n",
-                "Or visit the original git repo if the above command fails:\n",
-                "https://github.com/abetlen/llama-cpp-python",
+                "You can install it by visiting the installation section of the git repo:\n",
+                "https://github.com/abetlen/llama-cpp-python#installation-with-openblas--cublas--clblast--metal",
             ]
 
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
         self._llm = Llama(
             model_path=self._model_path,
-            n_ctx=2014,
             verbose=False,
-            n_gpu_layers=self._gpu_layers,
             **self._llamacpp_model_config,
         )
 
