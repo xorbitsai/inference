@@ -18,7 +18,7 @@ from typing import Iterator, Optional
 
 import pytest
 
-from .. import MODEL_FAMILIES, ModelFamily, ModelSpec
+from .. import ModelFamily, ModelSpec
 from ..llm.chatglm import ChatglmCppChatModel
 
 
@@ -48,23 +48,6 @@ class MockChatglmCppChatModel(ChatglmCppChatModel):
     def load(self):
         self._llm = MockPipeline()
 
-
-MODEL_FAMILIES.append(
-    MockModelFamily(
-        model_name="mock_chatglm",
-        model_sizes_in_billions=[6],
-        model_format="ggmlv3",
-        quantizations=[
-            "q4_0",
-            "q4_1",
-            "q5_0",
-            "q5_1",
-            "q8_0",
-        ],
-        url_generator=lambda x, y: "",
-        cls=MockChatglmCppChatModel,
-    )
-)
 
 mock_model_spec1 = ModelSpec(
     model_name="chatglm",
