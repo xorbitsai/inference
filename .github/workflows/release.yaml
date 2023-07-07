@@ -1,0 +1,55 @@
+name: Build and upload to PyPI
+
+on:
+  schedule:
+    # trigger build every day at 4:30 UTC
+    - cron: '30 4 * * *'
+  push:
+    tags:
+      - '*'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+
+jobs:
+  build-publish:
+    name: Build and publish Python distribution to PyPI
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.x"
+      - uses: actions/checkout@v3
+      - name: Install pypa/build
+        run: >-
+          python3 -m
+          pip install
+          build
+          --user
+      - name: Build a binary wheel and a source tarball
+        run: >-
+          python3 -m
+          build
+          --sdist
+          --wheel
+          --outdir dist/
+          .
+      # if is xorbitsai repo, upload to pypi
+      - uses: pypa/gh-action-pypi-publish@v1.5.0
+        if: github.repository == 'xorbitsai/inference'
+        with:
+          user: __token__
+          password: ${{ secrets.PYPI_PASSWORD }}
+
+      # if is not xorbitsai repo, upload to test
+      - uses: pypa/gh-action-pypi-publish@v1.5.0
+        if: github.repository != 'xorbitsai/inference'
+        with:
+          user: __token__
+          password: ${{ secrets.TEST_PYPI_PASSWORD }}
+          verbose: true
+          repository_url: https://test.pypi.org/legacy/
