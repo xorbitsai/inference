@@ -90,7 +90,7 @@ class RESTfulClient:
         # generate a time-based uuid.
         return str(uuid.uuid1())
 
-    def list_models(self) -> List[str]:
+    def list_models(self) -> List[List[str]]:
         url = f"{self.base_url}/v1/models"
 
         response = requests.get(url)
@@ -132,7 +132,6 @@ class RESTfulClient:
         self, model_uid: str, prompt: str, **kwargs
     ) -> Union[Completion, Iterator[CompletionChunk]]:
         url = f"{self.base_url}/v1/completions"
-
         request_body = {"model": model_uid, "prompt": prompt, **kwargs}
         response = requests.post(url, json=request_body)
         response_data = response.json()
@@ -163,6 +162,12 @@ class RESTfulClient:
         chat_history.append(ChatCompletionMessage(role="user", content=prompt))
         request_body = {"model": model_uid, "messages": chat_history, **kwargs}
         response = requests.post(url, json=request_body)
+        response_data = response.json()
+        return response_data
+
+    def get_supervisor_internal_address(self):
+        url = f"{self.base_url}/v1/address"
+        response = requests.get(url)
         response_data = response.json()
         return response_data
 
