@@ -24,7 +24,7 @@ from typing_extensions import NotRequired, TypedDict
 from uvicorn import Config, Server
 
 from ..isolation import Isolation
-from .model.llm.types import ChatCompletion, Completion
+from ..model.llm.types import ChatCompletion, Completion
 from .service import SupervisorActor
 
 max_tokens_field = Field(
