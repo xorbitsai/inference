@@ -13,7 +13,6 @@
 # limitations under the License.
 
 
-import asyncio
 import logging
 
 import click
@@ -51,7 +50,6 @@ def cli(
             quantization=None,
             host=host,
             port=port,
-            use_launched_model=False,
         )
 
 
@@ -89,7 +87,7 @@ def worker(log_level: str, endpoint: str, host: str):
         logging.basicConfig(level=logging.getLevelName(log_level.upper()))
 
     client = RESTfulClient(base_url=endpoint)
-    supervisor_internal_addr = client.get_supervisor_internal_address()
+    supervisor_internal_addr = client._get_supervisor_internal_address()
 
     address = f"{host}:{get_next_port()}"
     main(address=address, supervisor_address=supervisor_internal_addr)
@@ -139,8 +137,8 @@ def model_list(endpoint: str, all: bool):
 
     from ..model import MODEL_FAMILIES
 
+    table = []
     if all:
-        table = []
         for model_family in MODEL_FAMILIES:
             table.append(
                 [
@@ -160,9 +158,19 @@ def model_list(endpoint: str, all: bool):
     else:
         client = RESTfulClient(base_url=endpoint)
         models = client.list_models()
+        for model_uid, model_spec in models.items():
+            table.append(
+                [
+                    model_uid,
+                    model_spec["model_name"],
+                    model_spec["model_format"],
+                    model_spec["model_size_in_billions"],
+                    model_spec["quantization"],
+                ]
+            )
         print(
             tabulate(
-                models,
+                table,
                 headers=[
                     "ModelUid",
                     "Name",
@@ -201,33 +209,8 @@ def model_terminate(
 @click.option("--model-uid", type=str)
 @click.option("--prompt", type=str)
 def model_generate(endpoint: str, model_uid: str, prompt: str):
-    async def generate_internal():
-        # async tasks generating text.
-        client = RESTfulClient(base_url=endpoint)
-        async for completion_chunk in await client.generate(
-            model_uid, prompt, stream=True
-        ):
-            print(completion_chunk["choices"][0]["text"], end="", flush=True)
-
-    loop = asyncio.get_event_loop()
-    coro = generate_internal()
-
-    if loop.is_running():
-        # for testing.
-        from ..isolation import Isolation
-
-        isolation = Isolation(asyncio.new_event_loop(), threaded=True)
-        isolation.start()
-        isolation.call(coro)
-    else:
-        task = loop.create_task(coro)
-        try:
-            loop.run_until_complete(task)
-        except KeyboardInterrupt:
-            task.cancel()
-            loop.run_until_complete(task)
-            # avoid displaying exception-unhandled warnings
-            task.exception()
+    client = RESTfulClient(base_url=endpoint)
+    print(client.generate(model_uid, prompt)["choices"][0]["text"])
 
 
 @cli.command("chat")
@@ -239,50 +222,22 @@ def model_generate(endpoint: str, model_uid: str, prompt: str):
 )
 @click.option("--model-uid", required=True, type=str)
 def model_chat(endpoint: str, model_uid: str):
-    async def chat_internal():
-        # async tasks generating text.
-        client = RESTfulClient(base_url=endpoint)
-        chat_history = []
-        while True:
-            prompt = input("\nUser: ")
-            response = []
-            if prompt == "exit" or prompt == "e":
-                break
-            chat_history.append({"role": "user", "content": prompt})
-            print("Assistant:", end="")
-            async for completion_chunk in await client.chat(
+    client = RESTfulClient(base_url=endpoint)
+    chat_history = []
+    while True:
+        prompt = input("\nUser: ")
+        if prompt == "exit" or prompt == "e":
+            break
+        chat_history.append({"role": "user", "content": prompt})
+        print("Assistant:", end="")
+        print(
+            client.chat(
                 model_uid,
                 prompt,
                 chat_history=chat_history,
-                generate_config={"stream": True},
-            ):
-                delta = completion_chunk["choices"][0]["delta"]
-                if "content" not in delta:
-                    continue
-                else:
-                    print(delta["content"], end="", flush=True)
-                    response.append(delta["content"])
-            chat_history.append({"role": "assistant", "content": response})
-
-    loop = asyncio.get_event_loop()
-    coro = chat_internal()
-
-    if loop.is_running():
-        # for testing.
-        from ..isolation import Isolation
-
-        isolation = Isolation(asyncio.new_event_loop(), threaded=True)
-        isolation.start()
-        isolation.call(coro)
-    else:
-        task = loop.create_task(coro)
-        try:
-            loop.run_until_complete(task)
-        except KeyboardInterrupt:
-            task.cancel()
-            loop.run_until_complete(task)
-            # avoid displaying exception-unhandled warnings
-            task.exception()
+                generate_config={"stream": False},
+            )["choices"][0]["message"]["content"]
+        )
 
     print("Thank You For Chatting With Me, Have a Nice Day!")
 

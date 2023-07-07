@@ -273,20 +273,17 @@ class RESTfulAPIActor(xo.Actor):
         server = Server(config)
         self._isolation.loop.create_task(server.serve())
 
-    async def list_models(self) -> List[List[str]]:
+    async def list_models(self) -> Dict[str, Dict[str, str]]:
         models = await self._supervisor_ref.list_models()
-        models_uid_spec = []
+        models_dict = {}
         for model_uid, model_spec in models:
-            models_uid_spec.append(
-                [
-                    model_uid,
-                    model_spec.model_name,
-                    model_spec.model_format,
-                    model_spec.model_size_in_billions,
-                    model_spec.quantization,
-                ]
-            )
-        return models_uid_spec
+            models_dict[model_uid] = {
+                "model_name": model_spec.model_name,
+                "model_format": model_spec.model_format,
+                "model_size_in_billions": model_spec.model_size_in_billions,
+                "quantization": model_spec.quantization,
+            }
+        return models_dict
 
     async def launch_model(self, request: Request) -> JSONResponse:
         payload = await request.json()
