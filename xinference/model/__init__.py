@@ -125,7 +125,8 @@ class ModelFamily:
         if not os.path.exists(save_dir):
             os.makedirs(save_dir, exist_ok=True)
         save_path = os.path.join(save_dir, "model.bin")
-        return save_path
+        meta_path = os.path.join(save_dir, "meta")
+        return save_path, meta_path
 
     def cache(
         self,
@@ -142,12 +143,16 @@ class ModelFamily:
         url = self.url_generator(model_size_in_billions, quantization)
 
         full_name = f"{str(self)}-{model_size_in_billions}b-{quantization}"
-        save_path = self.generate_cache_path(model_size_in_billions, quantization)
-        if os.path.exists(save_path):
+        save_path, meta_path = self.generate_cache_path(
+            model_size_in_billions, quantization
+        )
+        if os.path.exists(meta_path) and os.path.exists(save_path):
             # TODO: verify the integrity.
             return save_path
 
         try:
+            if os.path.exists(save_path):
+                os.remove(save_path)
             with tqdm(
                 unit="B",
                 unit_scale=True,
@@ -162,6 +167,9 @@ class ModelFamily:
                         blocksize
                     ),
                 )
+            # write a meta file to record if download finished
+            with open(meta_path, "w") as f:
+                f.write(full_name)
             # TODO: verify the integrity.
         except:
             if os.path.exists(save_path):

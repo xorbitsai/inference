@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import asyncio
+import webbrowser
 
 from .supervisor import start_supervisor_components
 from .worker import start_worker_components
@@ -20,10 +21,6 @@ from .worker import start_worker_components
 
 async def _start_local_cluster(
     address: str,
-    model_name: str,
-    size_in_billions: int,
-    model_format: str,
-    quantization: str,
     host: str,
     port: int,
 ):
@@ -32,8 +29,9 @@ async def _start_local_cluster(
     pool = None
     try:
         pool = await create_actor_pool(address=address, n_process=0)
-        await start_supervisor_components(address, host, port)
+        url = await start_supervisor_components(address, host, port)
         await start_worker_components(address=address, supervisor_address=address)
+        webbrowser.open(url)
 
         await pool.join()
     except asyncio.CancelledError:

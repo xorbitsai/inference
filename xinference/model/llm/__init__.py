@@ -52,36 +52,6 @@ def install():
         )
     )
 
-    baichuan_chat_url_generator = lambda model_size, quantization: (
-        f"https://huggingface.co/TheBloke/baichuan-vicuna-{model_size}B-GGML/resolve/main/"
-        f"baichuan-vicuna-{model_size}b.ggmlv3.{quantization}.bin"
-    )
-    MODEL_FAMILIES.append(
-        ModelFamily(
-            model_name="baichuan-chat",
-            model_format="ggmlv3",
-            model_sizes_in_billions=[7],
-            quantizations=[
-                "q2_K",
-                "q3_K_L",
-                "q3_K_M",
-                "q3_K_S",
-                "q4_0",
-                "q4_1",
-                "q4_K_M",
-                "q4_K_S",
-                "q5_0",
-                "q5_1",
-                "q5_K_M",
-                "q5_K_S",
-                "q6_K",
-                "q8_0",
-            ],
-            url_generator=baichuan_chat_url_generator,
-            cls=VicunaCensoredGgml,
-        )
-    )
-
     wizardlm_v1_0_url_generator = lambda model_size, quantization: (
         f"https://huggingface.co/TheBloke/WizardLM-{model_size}B-V1.0-Uncensored-GGML/resolve/main/"
         f"wizardlm-{model_size}b-v1.0-uncensored.ggmlv3.{quantization}.bin"
