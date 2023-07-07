@@ -26,6 +26,7 @@ async def _start_local_cluster(
     quantization: str,
     host: str,
     port: int,
+    use_launched_model: bool = True,
 ):
     from .utils import create_actor_pool
 
@@ -35,17 +36,18 @@ async def _start_local_cluster(
         await start_supervisor_components(address, host, port)
         await start_worker_components(address=address, supervisor_address=address)
 
-        # TODO: async client
-        from ..client import Client
+        if use_launched_model:
+            # TODO: async client
+            from ..client import Client
 
-        client = Client(supervisor_address=address)
-        model_uid = client.launch_model(
-            model_name=model_name,
-            model_size_in_billions=size_in_billions,
-            model_format=model_format,
-            quantization=quantization,
-        )
-        print(f"Model uid: {model_uid}")
+            client = Client(supervisor_address=address)
+            model_uid = client.launch_model(
+                model_name=model_name,
+                model_size_in_billions=size_in_billions,
+                model_format=model_format,
+                quantization=quantization,
+            )
+            print(f"Model uid: {model_uid}")
 
         await pool.join()
     except asyncio.CancelledError:

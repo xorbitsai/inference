@@ -17,34 +17,49 @@ import asyncio
 import logging
 
 import click
+from xoscar.utils import get_next_port
 
 from .. import __version__
-from ..client import Client
-from ..constants import (
-    XINFERENCE_DEFAULT_HOST,
-    XINFERENCE_DEFAULT_SUPERVISOR_PORT,
-    XINFERENCE_DEFAULT_WORKER_PORT,
-)
+from ..client import RESTfulClient
+from ..constants import XINFERENCE_DEFAULT_ENDPOINT_PORT, XINFERENCE_DEFAULT_HOST
 
 
-@click.group(name="xinference")
+@click.group(invoke_without_command=True, name="xinference")
+@click.pass_context
 @click.version_option(__version__, "--version", "-v")
-def cli():
-    pass
-
-
-@cli.command()
-@click.option(
-    "--address",
-    "-a",
-    default=f"{XINFERENCE_DEFAULT_HOST}:{XINFERENCE_DEFAULT_SUPERVISOR_PORT}",
-    type=str,
-)
 @click.option("--log-level", default="INFO", type=str)
-@click.option("--host", "-h", default=None, type=str)
-@click.option("--port", "-p", default=None, type=int)
+@click.option("--host", "-H", default=XINFERENCE_DEFAULT_HOST, type=str)
+@click.option("--port", "-p", default=XINFERENCE_DEFAULT_ENDPOINT_PORT, type=int)
+def cli(
+    ctx,
+    log_level: str,
+    host: str,
+    port: str,
+):
+    if ctx.invoked_subcommand is None:
+        from .local import main
+
+        if log_level:
+            logging.basicConfig(level=logging.getLevelName(log_level.upper()))
+
+        address = f"{host}:{get_next_port()}"
+        main(
+            address=address,
+            model_name=None,
+            size_in_billions=None,
+            model_format=None,
+            quantization=None,
+            host=host,
+            port=port,
+            use_launched_model=False,
+        )
+
+
+@click.command()
+@click.option("--log-level", default="INFO", type=str)
+@click.option("--host", "-H", default=XINFERENCE_DEFAULT_HOST, type=str)
+@click.option("--port", "-p", default=XINFERENCE_DEFAULT_ENDPOINT_PORT, type=int)
 def supervisor(
-    address: str,
     log_level: str,
     host: str,
     port: str,
@@ -54,108 +69,143 @@ def supervisor(
     if log_level:
         logging.basicConfig(level=logging.getLevelName(log_level.upper()))
 
+    address = f"{host}:{get_next_port()}"
     main(address=address, host=host, port=port)
 
 
-@cli.command()
-@click.option(
-    "--address",
-    "-a",
-    default=f"{XINFERENCE_DEFAULT_HOST}:{XINFERENCE_DEFAULT_WORKER_PORT}",
-    type=str,
-)
-@click.option(
-    "--supervisor-address",
-    default=f"{XINFERENCE_DEFAULT_HOST}:{XINFERENCE_DEFAULT_SUPERVISOR_PORT}",
-    type=str,
-)
+@click.command()
 @click.option("--log-level", default="INFO", type=str)
-def worker(address: str, supervisor_address: str, log_level: str):
+@click.option(
+    "--endpoint",
+    "-e",
+    default=f"{XINFERENCE_DEFAULT_HOST}:{XINFERENCE_DEFAULT_ENDPOINT_PORT}",
+    type=str,
+)
+@click.option("--host", "-H", default=XINFERENCE_DEFAULT_HOST, type=str)
+def worker(log_level: str, endpoint: str, host: str):
     from ..deploy.worker import main
 
     if log_level:
         logging.basicConfig(level=logging.getLevelName(log_level.upper()))
 
-    main(address=address, supervisor_address=supervisor_address)
+    client = RESTfulClient(base_url=f"http://{endpoint.split(':', 1)[0]}:8000")
+    supervisor_internal_addr = client.get_supervisor_internal_address()
+
+    address = f"{host}:{get_next_port()}"
+    main(address=address, supervisor_address=supervisor_internal_addr)
 
 
-@cli.group()
-def model():
-    pass
+@cli.command("launch")
+@click.option(
+    "--endpoint",
+    "-e",
+    default=f"{XINFERENCE_DEFAULT_HOST}:{XINFERENCE_DEFAULT_ENDPOINT_PORT}",
+    type=str,
+)
+@click.option("--model-name", "-n", type=str)
+@click.option("--size-in-billions", "-s", default=None, type=int)
+@click.option("--model-format", "-f", default=None, type=str)
+@click.option("--quantization", "-q", default=None, type=str)
+def model_launch(
+    endpoint: str,
+    model_name: str,
+    size_in_billions: int,
+    model_format: str,
+    quantization: str,
+):
+    client = RESTfulClient(base_url=f"http://{endpoint.split(':', 1)[0]}:8000")
+    model_uid = client.launch_model(
+        model_name=model_name,
+        model_size_in_billions=size_in_billions,
+        model_format=model_format,
+        quantization=quantization,
+    )
+
+    print(f"Model uid: {model_uid}")
 
 
-@model.command("list")
-def model_list():
+@cli.command("list")
+@click.option(
+    "--endpoint",
+    "-e",
+    default=f"{XINFERENCE_DEFAULT_HOST}:{XINFERENCE_DEFAULT_ENDPOINT_PORT}",
+    type=str,
+)
+@click.option("--all", is_flag=True)
+def model_list(endpoint: str, all: bool):
     import sys
 
     from tabulate import tabulate
 
     from ..model import MODEL_FAMILIES
 
-    table = []
-    for model_family in MODEL_FAMILIES:
-        table.append(
-            [
-                model_family.model_name,
-                model_family.model_format,
-                model_family.model_sizes_in_billions,
-                model_family.quantizations,
-            ]
+    if all:
+        table = []
+        for model_family in MODEL_FAMILIES:
+            table.append(
+                [
+                    model_family.model_name,
+                    model_family.model_format,
+                    model_family.model_sizes_in_billions,
+                    model_family.quantizations,
+                ]
+            )
+
+        print(
+            tabulate(
+                table, headers=["Name", "Format", "Size (in billions)", "Quantization"]
+            ),
+            file=sys.stderr,
+        )
+    else:
+        client = RESTfulClient(base_url=f"http://{endpoint.split(':', 1)[0]}:8000")
+        models = client.list_models()
+        print(
+            tabulate(
+                models,
+                headers=[
+                    "ModelUid",
+                    "Name",
+                    "Format",
+                    "Size (in billions)",
+                    "Quantization",
+                ],
+            ),
+            file=sys.stderr,
         )
 
-    print(
-        tabulate(
-            table, headers=["Name", "Format", "Size (in billions)", "Quantization"]
-        ),
-        file=sys.stderr,
-    )
 
-
-@model.command("launch")
-@click.option("--name", "-n", type=str)
-@click.option("--size-in-billions", "-s", default=None, type=int)
-@click.option("--model-format", "-f", default=None, type=str)
-@click.option("--quantization", "-q", default=None, type=str)
-@click.option("--host", "-h", default=None, type=str)
-@click.option("--port", "-p", default=None, type=int)
-def model_launch(
-    name: str,
-    size_in_billions: int,
-    model_format: str,
-    quantization: str,
-    host: str,
-    port: str,
-):
-    address = f"{XINFERENCE_DEFAULT_HOST}:{XINFERENCE_DEFAULT_SUPERVISOR_PORT}"
-
-    from .local import main
-
-    main(
-        address=address,
-        model_name=name,
-        size_in_billions=size_in_billions,
-        model_format=model_format,
-        quantization=quantization,
-        host=host,
-        port=port,
-    )
-
-
-@model.command("generate")
+@cli.command("terminate")
 @click.option(
-    "--supervisor-address",
-    default=f"{XINFERENCE_DEFAULT_HOST}:{XINFERENCE_DEFAULT_SUPERVISOR_PORT}",
+    "--endpoint",
+    "-e",
+    default=f"{XINFERENCE_DEFAULT_HOST}:{XINFERENCE_DEFAULT_ENDPOINT_PORT}",
+    type=str,
+)
+@click.option("--model-uid", type=str)
+def model_terminate(
+    endpoint: str,
+    model_uid: str,
+):
+    client = RESTfulClient(base_url=f"http://{endpoint.split(':', 1)[0]}:8000")
+    client.terminate_model(model_uid=model_uid)
+
+
+@cli.command("generate")
+@click.option(
+    "--endpoint",
+    "-e",
+    default=f"{XINFERENCE_DEFAULT_HOST}:{XINFERENCE_DEFAULT_ENDPOINT_PORT}",
     type=str,
 )
 @click.option("--model-uid", type=str)
 @click.option("--prompt", type=str)
-def model_generate(supervisor_address: str, model_uid: str, prompt: str):
+def model_generate(endpoint: str, model_uid: str, prompt: str):
     async def generate_internal():
         # async tasks generating text.
-        client = Client(supervisor_address=supervisor_address)
-        model_ref = client.get_model(model_uid)
-        async for completion_chunk in await model_ref.generate(
-            prompt, {"stream": True}
+        client = RESTfulClient(base_url=f"http://{endpoint.split(':', 1)[0]}:8000")
+        async for completion_chunk in await client.generate(
+            model_uid, prompt, stream=True
         ):
             print(completion_chunk["choices"][0]["text"], end="", flush=True)
 
@@ -180,19 +230,18 @@ def model_generate(supervisor_address: str, model_uid: str, prompt: str):
             task.exception()
 
 
-@model.command("chat")
+@cli.command("chat")
 @click.option(
-    "--address",
-    "-a",
-    default=f"{XINFERENCE_DEFAULT_HOST}:{XINFERENCE_DEFAULT_SUPERVISOR_PORT}",
+    "--endpoint",
+    "-e",
+    default=f"{XINFERENCE_DEFAULT_HOST}:{XINFERENCE_DEFAULT_ENDPOINT_PORT}",
     type=str,
 )
 @click.option("--model-uid", required=True, type=str)
-def model_chat(address: str, model_uid: str):
+def model_chat(endpoint: str, model_uid: str):
     async def chat_internal():
         # async tasks generating text.
-        client = Client(supervisor_address=address)
-        model_ref = client.get_model(model_uid)
+        client = RESTfulClient(base_url=f"http://{endpoint.split(':', 1)[0]}:8000")
         chat_history = []
         while True:
             prompt = input("\nUser: ")
@@ -201,8 +250,11 @@ def model_chat(address: str, model_uid: str):
                 break
             chat_history.append({"role": "user", "content": prompt})
             print("Assistant:", end="")
-            async for completion_chunk in await model_ref.chat(
-                prompt, chat_history=chat_history, generate_config={"stream": True}
+            async for completion_chunk in await client.chat(
+                model_uid,
+                prompt,
+                chat_history=chat_history,
+                generate_config={"stream": True},
             ):
                 delta = completion_chunk["choices"][0]["delta"]
                 if "content" not in delta:
