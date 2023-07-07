@@ -134,7 +134,7 @@ class RESTfulClient:
         model_uid: str,
         prompt: str,
         system_prompt: Optional[str] = None,
-        chat_history: Optional[List[ChatCompletionMessage]] = None,
+        chat_history: Optional[list[dict[str, str]]] = None,
         **kwargs,
     ) -> Union[ChatCompletion]:
         url = f"{self.base_url}/v1/chat/completions"
