@@ -15,7 +15,6 @@
 from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
 import gradio as gr
-import xoscar as xo
 
 from ..client import Client
 from ..locale.utils import Locale
@@ -390,32 +389,3 @@ class GradioApp:
                     self._build_arena()
         blocks.queue(concurrency_count=20)
         return blocks
-
-
-class GradioActor(xo.Actor):
-    def __init__(
-        self,
-        xoscar_endpoint: str,
-        host: str,
-        port: int,
-        share: bool,
-        use_launched_model: bool = False,
-        gladiator_num: int = 2,
-    ):
-        super().__init__()
-        self._gradio_cls = GradioApp(
-            xoscar_endpoint, gladiator_num, use_launched_model=use_launched_model
-        )
-        self._host = host
-        self._port = port
-        self._share = share
-
-    def launch(self):
-        demo = self._gradio_cls.build()
-        demo.queue(concurrency_count=20)
-        demo.launch(
-            share=self._share,
-            server_name=self._host,
-            server_port=self._port,
-            prevent_thread_lock=True,
-        )
