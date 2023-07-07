@@ -439,5 +439,5 @@ class GradioApp:
                     self._build_single()
                 with gr.Tab(self._locale("Arena")):
                     self._build_arena()
-        blocks.queue(concurrency_count=20)
+        blocks.queue(concurrency_count=40)
         return blocks
