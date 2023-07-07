@@ -273,15 +273,18 @@ class GradioApp:
                 url = model_family.url_generator(
                     int(_model_size_in_billions), _quantization
                 )
-
-                urllib.request.urlretrieve(
-                    url,
-                    cache_path,
-                    reporthook=lambda block_num, block_size, total_size: progress(
-                        block_num * block_size / total_size,
-                        desc=self._locale("Downloading"),
-                    ),
-                )
+                try:
+                    urllib.request.urlretrieve(
+                        url,
+                        cache_path,
+                        reporthook=lambda block_num, block_size, total_size: progress(
+                            block_num * block_size / total_size,
+                            desc=self._locale("Downloading"),
+                        ),
+                    )
+                except:
+                    if os.path.exists(cache_path):
+                        os.remove(cache_path)
 
             model_uid = self._create_model(
                 _model_name, int(_model_size_in_billions), _model_format, _quantization
