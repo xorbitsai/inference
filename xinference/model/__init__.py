@@ -115,6 +115,18 @@ class ModelFamily:
                 return model_spec
         return None
 
+    def generate_cache_path(
+        self,
+        model_size_in_billions: Optional[int] = None,
+        quantization: Optional[str] = None,
+    ):
+        full_name = f"{str(self)}-{model_size_in_billions}b-{quantization}"
+        save_dir = os.path.join(XINFERENCE_CACHE_DIR, full_name)
+        if not os.path.exists(save_dir):
+            os.makedirs(save_dir, exist_ok=True)
+        save_path = os.path.join(save_dir, "model.bin")
+        return save_path
+
     def cache(
         self,
         model_size_in_billions: Optional[int] = None,
@@ -130,11 +142,7 @@ class ModelFamily:
         url = self.url_generator(model_size_in_billions, quantization)
 
         full_name = f"{str(self)}-{model_size_in_billions}b-{quantization}"
-        save_dir = os.path.join(XINFERENCE_CACHE_DIR, full_name)
-        if not os.path.exists(save_dir):
-            os.makedirs(save_dir, exist_ok=True)
-
-        save_path = os.path.join(save_dir, "model.bin")
+        save_path = self.generate_cache_path(model_size_in_billions, quantization)
         if os.path.exists(save_path):
             # TODO: verify the integrity.
             return save_path
