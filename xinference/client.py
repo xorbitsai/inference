@@ -87,6 +87,11 @@ class RESTfulClient:
         url = f"{self.base_url}/v1/models"
 
         response = requests.get(url)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to launch model, detail: {response.json()['detail']}"
+            )
+
         response_data = response.json()
         return response_data
 
@@ -110,6 +115,11 @@ class RESTfulClient:
             "kwargs": kwargs,
         }
         response = requests.post(url, json=payload)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to launch model, detail: {response.json()['detail']}"
+            )
+
         response_data = response.json()
         model_uid = response_data["model_uid"]
         return model_uid
@@ -119,11 +129,15 @@ class RESTfulClient:
 
         response = requests.delete(url)
         if response.status_code != 200:
-            raise Exception(f"Error terminating the model.")
+            raise RuntimeError(
+                f"Failed to terminate model, detail: {response.json()['detail']}"
+            )
 
     def _get_supervisor_internal_address(self):
         url = f"{self.base_url}/v1/address"
         response = requests.get(url)
+        if response.status_code != 200:
+            raise RuntimeError(f"Failed to get supervisor internal address")
         response_data = response.json()
         return response_data
 
