@@ -169,6 +169,27 @@ def install():
     )
 
     chatglm_url_generator = lambda model_size, quantization: (
+        f"https://huggingface.co/Xorbits/chatglm-{model_size}B-GGML/blob/main/"
+        f"chatglm-ggml-{quantization}.bin"
+    )
+    MODEL_FAMILIES.append(
+        ModelFamily(
+            model_name="chatglm",
+            model_sizes_in_billions=[6],
+            model_format="ggmlv3",
+            quantizations=[
+                "q4_0",
+                "q4_1",
+                "q5_0",
+                "q5_1",
+                "q8_0",
+            ],
+            url_generator=chatglm_url_generator,
+            cls=ChatglmCppChatModel,
+        )
+    )
+
+    chatglm2_url_generator = lambda model_size, quantization: (
         f"https://huggingface.co/Xorbits/chatglm2-{model_size}B-GGML/blob/main/"
         f"chatglm2-ggml-{quantization}.bin"
     )
@@ -184,7 +205,7 @@ def install():
                 "q5_1",
                 "q8_0",
             ],
-            url_generator=chatglm_url_generator,
+            url_generator=chatglm2_url_generator,
             cls=ChatglmCppChatModel,
         )
     )
