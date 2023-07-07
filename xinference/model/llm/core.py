@@ -146,7 +146,19 @@ class LlamaCppModel(Model):
         return generate_config
 
     def load(self):
-        from llama_cpp import Llama
+        try:
+            from llama_cpp import Llama
+        except ImportError:
+            error_message = "Failed to import module 'llama_cpp'"
+            installation_guide = [
+                "Please make sure 'llama_cpp' is installed. ",
+                "You can install it by running the following command in the terminal:\n",
+                "pip install llama-cpp-python\n\n",
+                "Or visit the original git repo if the above command fails:\n",
+                "https://github.com/abetlen/llama-cpp-python",
+            ]
+
+            raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
         self._llm = Llama(
             model_path=self._model_path,
