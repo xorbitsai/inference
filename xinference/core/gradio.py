@@ -382,14 +382,14 @@ class GradioApp:
                 if len(models) > 2:
                     with gr.Tab(self._locale("Arena")):
                         self._build_arena_with_launched(models)
-            return blocks
         else:
             with gr.Blocks() as blocks:
                 with gr.Tab(self._locale("Chat")):
                     self._build_single()
                 with gr.Tab(self._locale("Arena")):
                     self._build_arena()
-            return blocks
+        blocks.queue(concurrency_count=20)
+        return blocks
 
 
 class GradioActor(xo.Actor):
