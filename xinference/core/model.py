@@ -63,9 +63,8 @@ class ModelActor(xo.Actor):
         super().__init__()
         self._model = model
         self._generator: Optional[Iterator] = None
-        # TODO: locl
 
-    async def __post_create__(self):
+    def load(self):
         self._model.load()
 
     async def _wrap_generator(self, ret: Any):

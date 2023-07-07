@@ -245,6 +245,7 @@ class WorkerActor(xo.Actor):
             model_ref = await xo.create_actor(
                 ModelActor, address=subpool_address, uid=model_uid, model=model
             )
+            await model_ref.load()
             self._model_uid_to_model[model_uid] = model_ref
             self._model_uid_to_model_spec[model_uid] = model_spec
             self._subpool_address_to_model_uids[subpool_address].add(model_uid)
