@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import asyncio
+import webbrowser
 
 from .supervisor import start_supervisor_components
 from .worker import start_worker_components
@@ -28,8 +29,9 @@ async def _start_local_cluster(
     pool = None
     try:
         pool = await create_worker_actor_pool(address=address)
-        await start_supervisor_components(address=address, host=host, port=port)
+        url = await start_supervisor_components(address=address, host=host, port=port)
         await start_worker_components(address=address, supervisor_address=address)
+        webbrowser.open(url)
         await pool.join()
     except asyncio.CancelledError:
         if pool is not None:

@@ -37,6 +37,7 @@ async def start_supervisor_components(address: str, host: str, port: int):
     )
     url = await restful_actor.serve()
     logger.info(f"Server address: {url}")
+    return url
 
 
 async def _start_supervisor(address: str, host: str, port: int):
