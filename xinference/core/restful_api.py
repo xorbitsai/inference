@@ -12,8 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import asyncio
 import sys
+import threading
 from typing import Dict, List, Literal, Optional, Union
 
 import gradio as gr
@@ -26,7 +26,6 @@ from typing_extensions import NotRequired, TypedDict
 from uvicorn import Config, Server
 from xoscar.utils import get_next_port
 
-from ..isolation import Isolation
 from ..model.llm.types import ChatCompletion, Completion
 from .service import SupervisorActor
 
@@ -216,7 +215,6 @@ class RESTfulAPIActor(xo.Actor):
         self._host = host or default_host
         self._gradio_block = gradio_block
         self._router = None
-        self._isolation = Isolation(asyncio.new_event_loop(), threaded=True)
 
     @classmethod
     def uid(cls) -> str:
@@ -226,10 +224,6 @@ class RESTfulAPIActor(xo.Actor):
         self._supervisor_ref = await xo.actor_ref(
             address=self.address, uid=SupervisorActor.uid()
         )
-
-    async def __pre_destroy__(self):
-        if self._isolation is not None:
-            self._isolation.stop()
 
     def serve(self):
         app = FastAPI()
@@ -265,12 +259,11 @@ class RESTfulAPIActor(xo.Actor):
         app = gr.mount_gradio_app(app, self._gradio_block, path="/")
 
         # run uvicorn in another daemon thread.
-        self._isolation.start()
-        config = Config(
-            app=app, loop=self._isolation.loop, host=self._host, port=self._port
-        )
+        config = Config(app=app, host=self._host, port=self._port, log_level="critical")
         server = Server(config)
-        self._isolation.loop.create_task(server.serve())
+        server_thread = threading.Thread(target=server.run, daemon=True)
+        server_thread.start()
+        return f"http://{self._host}:{self._port}"
 
     async def list_models(self) -> List[str]:
         models = await self._supervisor_ref.list_models()
