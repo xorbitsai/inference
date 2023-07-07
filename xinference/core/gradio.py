@@ -15,7 +15,6 @@
 from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
 import gradio as gr
-import xoscar as xo
 
 from ..client import Client
 from ..locale.utils import Locale
@@ -382,40 +381,11 @@ class GradioApp:
                 if len(models) > 2:
                     with gr.Tab(self._locale("Arena")):
                         self._build_arena_with_launched(models)
-            return blocks
         else:
             with gr.Blocks() as blocks:
                 with gr.Tab(self._locale("Chat")):
                     self._build_single()
                 with gr.Tab(self._locale("Arena")):
                     self._build_arena()
-            return blocks
-
-
-class GradioActor(xo.Actor):
-    def __init__(
-        self,
-        xoscar_endpoint: str,
-        host: str,
-        port: int,
-        share: bool,
-        use_launched_model: bool = False,
-        gladiator_num: int = 2,
-    ):
-        super().__init__()
-        self._gradio_cls = GradioApp(
-            xoscar_endpoint, gladiator_num, use_launched_model=use_launched_model
-        )
-        self._host = host
-        self._port = port
-        self._share = share
-
-    def launch(self):
-        demo = self._gradio_cls.build()
-        demo.queue(concurrency_count=20)
-        demo.launch(
-            share=self._share,
-            server_name=self._host,
-            server_port=self._port,
-            prevent_thread_lock=True,
-        )
+        blocks.queue(concurrency_count=20)
+        return blocks

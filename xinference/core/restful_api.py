@@ -13,8 +13,10 @@
 # limitations under the License.
 
 import asyncio
+import sys
 from typing import Dict, List, Literal, Optional, Union
 
+import gradio as gr
 import xoscar as xo
 from fastapi import APIRouter, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -22,6 +24,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from typing_extensions import NotRequired, TypedDict
 from uvicorn import Config, Server
+from xoscar.utils import get_next_port
 
 from ..isolation import Isolation
 from ..model.llm.types import ChatCompletion, Completion
@@ -205,46 +208,15 @@ class CreateChatCompletionRequest(BaseModel):
 
 
 class RESTfulAPIActor(xo.Actor):
-    def __init__(self, host: str, port: int):
+    def __init__(self, host: str, port: int, gradio_block: gr.Blocks):
         super().__init__()
         self._supervisor_ref: xo.ActorRefType["SupervisorActor"]
-        app = FastAPI()
-        app.add_middleware(
-            CORSMiddleware,
-            allow_origins=["*"],
-            allow_credentials=True,
-            allow_methods=["*"],
-            allow_headers=["*"],
-        )
-        self.router = APIRouter()
-        self.router.add_api_route("/v1/models", self.list_models, methods=["GET"])
-        self.router.add_api_route("/v1/models", self.launch_model, methods=["POST"])
-        self.router.add_api_route(
-            "/v1/models/{model_uid}", self.terminate_model, methods=["DELETE"]
-        )
-        self.router.add_api_route(
-            "/v1/completions",
-            self.create_completion,
-            methods=["POST"],
-            response_model=Completion,
-        )
-        self.router.add_api_route(
-            "/v1/embeddings", self.create_embedding, methods=["POST"]
-        )
-        self.router.add_api_route(
-            "/v1/chat/completions",
-            self.create_chat_completion,
-            methods=["POST"],
-            response_model=ChatCompletion,
-        )
-        app.include_router(self.router)
-
-        # run uvicorn in another daemon thread.
+        default_host = "0.0.0.0" if not sys.platform.startswith("win") else "127.0.0.1"
+        self._port = port if port else get_next_port()
+        self._host = host or default_host
+        self._gradio_block = gradio_block
+        self._router = None
         self._isolation = Isolation(asyncio.new_event_loop(), threaded=True)
-        self._isolation.start()
-        config = Config(app=app, loop=self._isolation.loop, host=host, port=port)
-        server = Server(config)
-        self._isolation.loop.create_task(server.serve())
 
     @classmethod
     def uid(cls) -> str:
@@ -255,11 +227,56 @@ class RESTfulAPIActor(xo.Actor):
             address=self.address, uid=SupervisorActor.uid()
         )
 
+    async def __pre_destroy__(self):
+        if self._isolation is not None:
+            self._isolation.stop()
+
+    def serve(self):
+        app = FastAPI()
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=["*"],
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
+        self._router = APIRouter()
+        self._router.add_api_route("/v1/models", self.list_models, methods=["GET"])
+        self._router.add_api_route("/v1/models", self.launch_model, methods=["POST"])
+        self._router.add_api_route(
+            "/v1/models/{model_uid}", self.terminate_model, methods=["DELETE"]
+        )
+        self._router.add_api_route(
+            "/v1/completions",
+            self.create_completion,
+            methods=["POST"],
+            response_model=Completion,
+        )
+        self._router.add_api_route(
+            "/v1/embeddings", self.create_embedding, methods=["POST"]
+        )
+        self._router.add_api_route(
+            "/v1/chat/completions",
+            self.create_chat_completion,
+            methods=["POST"],
+            response_model=ChatCompletion,
+        )
+        app.include_router(self._router)
+        app = gr.mount_gradio_app(app, self._gradio_block, path="/")
+
+        # run uvicorn in another daemon thread.
+        self._isolation.start()
+        config = Config(
+            app=app, loop=self._isolation.loop, host=self._host, port=self._port
+        )
+        server = Server(config)
+        self._isolation.loop.create_task(server.serve())
+
     async def list_models(self) -> List[str]:
         models = await self._supervisor_ref.list_models()
         return [model_uid for model_uid, _ in models]
 
-    async def launch_model(self, request: Request) -> str:
+    async def launch_model(self, request: Request) -> JSONResponse:
         payload = await request.json()
         model_uid = payload.get("model_uid")
         model_name = payload.get("model_name")
