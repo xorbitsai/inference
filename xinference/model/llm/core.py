@@ -139,7 +139,7 @@ class LlamaCppModel(Model):
             llamacpp_model_config = LlamaCppModelConfig()
         if gpu_layers is not None:
             llamacpp_model_config["n_gpu_layers"] = gpu_layers
-        llamacpp_model_config["n_ctx"] = 2048
+        # llamacpp_model_config["n_ctx"] = 2048
         return llamacpp_model_config
 
     @classmethod
