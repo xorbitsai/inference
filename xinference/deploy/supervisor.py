@@ -13,12 +13,15 @@
 # limitations under the License.
 
 import asyncio
+import logging
 
 import xoscar as xo
 
 from ..core.gradio import GradioApp
 from ..core.restful_api import RESTfulAPIActor
 from ..core.service import SupervisorActor
+
+logger = logging.getLogger("Xinference")
 
 
 async def start_supervisor_components(address: str, host: str, port: int):
@@ -32,7 +35,8 @@ async def start_supervisor_components(address: str, host: str, port: int):
         port=port,
         gradio_block=gradio_block,
     )
-    await restful_actor.serve()
+    url = await restful_actor.serve()
+    logger.info(f"Server address: {url}")
 
 
 async def _start_supervisor(address: str, host: str, port: int):
