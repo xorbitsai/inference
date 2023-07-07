@@ -14,7 +14,7 @@
 
 import sys
 import threading
-from typing import Dict, List, Literal, Optional, Union
+from typing import Any, Dict, List, Literal, Optional, Union
 
 import gradio as gr
 import xoscar as xo
@@ -240,6 +240,7 @@ class RESTfulAPIActor(xo.Actor):
         self._router.add_api_route(
             "/v1/models/{model_uid}", self.terminate_model, methods=["DELETE"]
         )
+        self._router.add_api_route("/v1/address", self.get_address, methods=["GET"])
         self._router.add_api_route(
             "/v1/completions",
             self.create_completion,
@@ -265,9 +266,17 @@ class RESTfulAPIActor(xo.Actor):
         server_thread.start()
         return f"http://{self._host}:{self._port}"
 
-    async def list_models(self) -> List[str]:
+    async def list_models(self) -> Dict[str, Dict[str, Any]]:
         models = await self._supervisor_ref.list_models()
-        return [model_uid for model_uid, _ in models]
+        models_dict = {}
+        for model_uid, model_spec in models:
+            models_dict[model_uid] = {
+                "model_name": model_spec.model_name,
+                "model_format": model_spec.model_format,
+                "model_size_in_billions": model_spec.model_size_in_billions,
+                "quantization": model_spec.quantization,
+            }
+        return models_dict
 
     async def launch_model(self, request: Request) -> JSONResponse:
         payload = await request.json()
@@ -291,6 +300,9 @@ class RESTfulAPIActor(xo.Actor):
     async def terminate_model(self, model_uid: str):
         await self._supervisor_ref.terminate_model(model_uid)
 
+    async def get_address(self):
+        return self.address
+
     async def create_completion(self, request: Request, body: CreateCompletionRequest):
         exclude = {
             "prompt",
@@ -307,7 +319,6 @@ class RESTfulAPIActor(xo.Actor):
             raise NotImplementedError
         model_uid = body.model
         model = await self._supervisor_ref.get_model(model_uid)
-
         if body.stream:
             raise NotImplementedError
         else:
