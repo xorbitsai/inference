@@ -14,6 +14,7 @@
 
 import abc
 import logging
+import platform
 from abc import abstractmethod
 from typing import TYPE_CHECKING, Any, Iterator, List, Optional, TypedDict, Union
 
@@ -139,7 +140,10 @@ class LlamaCppModel(Model):
             llamacpp_model_config = LlamaCppModelConfig()
         if gpu_layers is not None:
             llamacpp_model_config["n_gpu_layers"] = gpu_layers
-        llamacpp_model_config["n_ctx"] = 1024
+        if platform.system() == "Windows":
+            llamacpp_model_config["n_ctx"] = 512
+        else:
+            llamacpp_model_config["n_ctx"] = 2048
         return llamacpp_model_config
 
     @classmethod
