@@ -36,6 +36,7 @@ async def start_supervisor_components(address: str, host: str, port: int):
 
 
 async def _start_supervisor(address: str, host: str, port: int):
+    pool = None
     try:
         from .utils import create_actor_pool
 
@@ -43,7 +44,8 @@ async def _start_supervisor(address: str, host: str, port: int):
         await start_supervisor_components(address=address, host=host, port=port)
         await pool.join()
     except asyncio.exceptions.CancelledError:
-        await pool.stop
+        if pool is not None:
+            await pool.stop()
 
 
 def main(*args, **kwargs):
