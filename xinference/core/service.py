@@ -85,6 +85,7 @@ class SupervisorActor(xo.Actor):
                 min_running_model_count = running_model_count
                 target_worker = worker
 
+        if target_worker:
             return target_worker
 
         raise RuntimeError("No available worker found")
@@ -169,6 +170,7 @@ class WorkerActor(xo.Actor):
         self._subpool_address_to_model_uids: Dict[str, Set[str]] = dict(
             [(subpool_address, set()) for subpool_address in subpool_addresses]
         )
+        logger.debug(f"Worker actor initialized with subpools: {subpool_addresses}")
 
     @classmethod
     def uid(cls) -> str:
@@ -187,7 +189,7 @@ class WorkerActor(xo.Actor):
     async def get_model_count(self) -> int:
         return len(self._model_uid_to_model)
 
-    def _choose_subprocess(self) -> str:
+    def _choose_subpool(self) -> str:
         min_running_model_count = None
         target_subpool_address = None
         for subpool_address in self._subpool_address_to_model_uids:
@@ -201,10 +203,11 @@ class WorkerActor(xo.Actor):
                 min_running_model_count = running_model_count
                 target_subpool_address = subpool_address
 
+        if target_subpool_address:
             logger.debug(
                 "Subpool selected: %s, running model count: %d",
                 target_subpool_address,
-                running_model_count,
+                min_running_model_count,
             )
             return target_subpool_address
 
@@ -240,7 +243,7 @@ class WorkerActor(xo.Actor):
                 model_spec.model_size_in_billions, model_spec.quantization
             )
             model = cls(model_uid, model_spec, save_path, kwargs)
-            subpool_address = self._choose_subprocess()
+            subpool_address = self._choose_subpool()
             model_ref = await xo.create_actor(
                 ModelActor, address=subpool_address, uid=model_uid, model=model
             )
