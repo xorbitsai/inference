@@ -115,6 +115,19 @@ class LlamaCppModel(Model):
         )
         self._llm = None
 
+        size_to_gpu_layers = {
+            3: 26,
+            7: 32,
+            13: 40,
+            30: 60,
+            65: 80,
+        }
+        closest_size = min(
+            size_to_gpu_layers.keys(),
+            key=lambda x: abs(x - model_spec.model_size_in_billions),
+        )
+        self._gpu_layers = size_to_gpu_layers[closest_size]
+
     @classmethod
     def _sanitize_model_config(
         cls, llamacpp_model_config: Optional[LlamaCppModelConfig]
@@ -137,7 +150,9 @@ class LlamaCppModel(Model):
 
         self._llm = Llama(
             model_path=self._model_path,
+            n_ctx=2014,
             verbose=False,
+            n_gpu_layers=self._gpu_layers,
             **self._llamacpp_model_config,
         )
 
