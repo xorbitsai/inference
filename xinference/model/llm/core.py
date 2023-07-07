@@ -57,7 +57,7 @@ class StrictTypedDict(TypedDict):
         super().__setitem__(key, value)
 
 
-class LlamaCppGenerateConfig(StrictTypedDict, total=False):
+class LlamaCppGenerateConfig(TypedDict, total=False):
     suffix: Optional[str]
     max_tokens: int
     temperature: float
@@ -79,7 +79,7 @@ class LlamaCppGenerateConfig(StrictTypedDict, total=False):
     logits_processor: Optional["LogitsProcessorList"]
 
 
-class LlamaCppModelConfig(StrictTypedDict, total=False):
+class LlamaCppModelConfig(TypedDict, total=False):
     n_ctx: int
     n_parts: int
     n_gpu_layers: int
@@ -126,32 +126,31 @@ class LlamaCppModel(Model):
         self._gpu_layers = SIZE_TO_GPU_LAYERS[closest_size]
         self._model_path = model_path
         self._llamacpp_model_config: LlamaCppModelConfig = self._sanitize_model_config(
-            llamacpp_model_config, self._gpu_layers
+            llamacpp_model_config
         )
         self._llm = None
 
-    @classmethod
     def _sanitize_model_config(
-        cls,
-        llamacpp_model_config: Optional[LlamaCppModelConfig],
-        gpu_layers: Optional[int],
+        self, llamacpp_model_config: Optional[LlamaCppModelConfig]
     ) -> LlamaCppModelConfig:
         if llamacpp_model_config is None:
             llamacpp_model_config = LlamaCppModelConfig()
-        if gpu_layers is not None:
-            llamacpp_model_config["n_gpu_layers"] = gpu_layers
         if platform.system() == "Windows":
-            llamacpp_model_config["n_ctx"] = 512
+            context_length = 512
         else:
-            llamacpp_model_config["n_ctx"] = 2048
+            context_length = 2048
+
+        llamacpp_model_config.setdefault("n_gpu_layers", self._gpu_layers)
+        llamacpp_model_config.setdefault("n_ctx", context_length)
+
         return llamacpp_model_config
 
-    @classmethod
     def _sanitize_generate_config(
-        cls, generate_config: Optional[LlamaCppGenerateConfig]
+        self, generate_config: Optional[LlamaCppGenerateConfig]
     ) -> LlamaCppGenerateConfig:
         if generate_config is None:
             generate_config = LlamaCppGenerateConfig()
+        generate_config["model"] = self.model_uid
         return generate_config
 
     def load(self):
