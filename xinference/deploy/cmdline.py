@@ -21,7 +21,6 @@ from xoscar.utils import get_next_port
 from .. import __version__
 from ..client import RESTfulClient
 from ..constants import XINFERENCE_DEFAULT_ENDPOINT_PORT, XINFERENCE_DEFAULT_HOST
-from ..model.llm.types import ChatCompletionMessage
 
 
 @click.group(invoke_without_command=True, name="xinference")
@@ -194,49 +193,6 @@ def model_terminate(
 ):
     client = RESTfulClient(base_url=endpoint)
     client.terminate_model(model_uid=model_uid)
-
-
-@cli.command("generate")
-@click.option(
-    "--endpoint",
-    "-e",
-    default=f"http://{XINFERENCE_DEFAULT_HOST}:{XINFERENCE_DEFAULT_ENDPOINT_PORT}",
-    type=str,
-)
-@click.option("--model-uid", type=str)
-@click.option("--prompt", type=str)
-def model_generate(endpoint: str, model_uid: str, prompt: str):
-    client = RESTfulClient(base_url=endpoint)
-    print(client.generate(model_uid, prompt)["choices"][0]["text"])
-
-
-@cli.command("chat")
-@click.option(
-    "--endpoint",
-    "-e",
-    default=f"http://{XINFERENCE_DEFAULT_HOST}:{XINFERENCE_DEFAULT_ENDPOINT_PORT}",
-    type=str,
-)
-@click.option("--model-uid", required=True, type=str)
-def model_chat(endpoint: str, model_uid: str):
-    client = RESTfulClient(base_url=endpoint)
-    chat_history = []
-    while True:
-        prompt = input("\nUser: ")
-        if prompt == "exit" or prompt == "e":
-            break
-        chat_history.append(ChatCompletionMessage(role="user", content=prompt))
-        print("Assistant:", end="")
-        print(
-            client.chat(
-                model_uid,
-                prompt,
-                chat_history=chat_history,
-                generate_config={"stream": False},
-            )["choices"][0]["message"]["content"]
-        )
-
-    print("Thank You For Chatting With Me, Have a Nice Day!")
 
 
 if __name__ == "__main__":

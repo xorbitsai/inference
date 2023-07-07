@@ -14,7 +14,7 @@
 
 import asyncio
 import uuid
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple
 
 import requests
 import xoscar as xo
@@ -23,7 +23,6 @@ from .core.model import ModelActor
 from .core.service import SupervisorActor
 from .isolation import Isolation
 from .model import ModelSpec
-from .model.llm.types import ChatCompletion, ChatCompletionMessage, Completion
 
 
 class Client:
@@ -121,41 +120,6 @@ class RESTfulClient:
         response = requests.delete(url)
         if response.status_code != 200:
             raise Exception(f"Error terminating the model.")
-
-    def generate(self, model_uid: str, prompt: str, **kwargs) -> Union[Completion]:
-        url = f"{self.base_url}/v1/completions"
-        request_body = {"model": model_uid, "prompt": prompt, **kwargs}
-        response = requests.post(url, json=request_body)
-        response_data = response.json()
-        return response_data
-
-    def chat(
-        self,
-        model_uid: str,
-        prompt: str,
-        system_prompt: Optional[str] = None,
-        chat_history: Optional[List[ChatCompletionMessage]] = None,
-        **kwargs,
-    ) -> Union[ChatCompletion]:
-        url = f"{self.base_url}/v1/chat/completions"
-
-        if chat_history is None:
-            chat_history = []
-
-        if chat_history and chat_history[0]["role"] == "system":
-            if system_prompt is not None:
-                chat_history[0]["content"] = system_prompt
-        else:
-            if system_prompt is not None:
-                chat_history.insert(
-                    0, ChatCompletionMessage(role="system", content=system_prompt)
-                )
-
-        chat_history.append(ChatCompletionMessage(role="user", content=prompt))
-        request_body = {"model": model_uid, "messages": chat_history, **kwargs}
-        response = requests.post(url, json=request_body)
-        response_data = response.json()
-        return response_data
 
     def _get_supervisor_internal_address(self):
         url = f"{self.base_url}/v1/address"
