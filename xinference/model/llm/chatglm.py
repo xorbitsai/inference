@@ -49,6 +49,14 @@ class ChatglmCppChatModel(Model):
         super().__init__(model_uid, model_spec)
         self._llm = None
         self._model_path = model_path
+        if model_spec.model_name == "chatglm":
+            self.max_context_length = 2048
+        elif model_spec.model_name == "chatglm2":
+            self.max_context_length = 8192
+        else:
+            raise ValueError(
+                f"Invalid model name '{model_spec.model_name}'. Expected chatglm or chatglm2."
+            )
 
         # just a placeholder for now as the chatglm_cpp repo doesn't support model config.
         self._model_config = model_config
@@ -60,7 +68,7 @@ class ChatglmCppChatModel(Model):
     ) -> ChatglmCppGenerateConfig:
         if chatglmcpp_generate_config is None:
             chatglmcpp_generate_config = ChatglmCppGenerateConfig()
-        chatglmcpp_generate_config.setdefault("max_tokens", 8192)
+        chatglmcpp_generate_config.setdefault("max_tokens", 256)
         chatglmcpp_generate_config.setdefault("temperature", 0.95)
         chatglmcpp_generate_config.setdefault("top_p", 0.8)
         chatglmcpp_generate_config.setdefault("stream", False)
@@ -166,7 +174,7 @@ class ChatglmCppChatModel(Model):
         if generate_config.get("stream", False):
             it = self._llm.stream_chat(
                 chat_history_list,
-                max_context_length=8192,
+                max_context_length=self.max_context_length,
                 max_length=generate_config["max_tokens"],
                 temperature=generate_config["temperature"],
                 top_p=generate_config["top_p"],
@@ -176,7 +184,7 @@ class ChatglmCppChatModel(Model):
         else:
             c = self._llm.chat(
                 chat_history_list,
-                max_context_length=8192,
+                max_context_length=self.max_context_length,
                 max_length=generate_config["max_tokens"],
                 temperature=generate_config["temperature"],
                 top_p=generate_config["top_p"],
