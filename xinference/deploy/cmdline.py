@@ -19,7 +19,7 @@ import logging
 import click
 
 from .. import __version__
-from ..client import Client
+from ..client import AsyncClient
 from ..constants import (
     XINFERENCE_DEFAULT_HOST,
     XINFERENCE_DEFAULT_SUPERVISOR_PORT,
@@ -130,8 +130,6 @@ def model_launch(
 
     from .local import main
 
-    logging.basicConfig(level=logging.DEBUG)
-
     main(
         address=address,
         model_name=name,
@@ -145,17 +143,18 @@ def model_launch(
 
 @model.command("generate")
 @click.option(
-    "--supervisor-address",
+    "--address",
+    "-a",
     default=f"{XINFERENCE_DEFAULT_HOST}:{XINFERENCE_DEFAULT_SUPERVISOR_PORT}",
     type=str,
 )
 @click.option("--model-uid", type=str)
 @click.option("--prompt", type=str)
-def model_generate(supervisor_address: str, model_uid: str, prompt: str):
+def model_generate(address: str, model_uid: str, prompt: str):
     async def generate_internal():
         # async tasks generating text.
-        client = Client(supervisor_address=supervisor_address)
-        model_ref = client.get_model(model_uid)
+        async_client = AsyncClient(supervisor_address=address)
+        model_ref = await async_client.get_model(model_uid)
         async for completion_chunk in await model_ref.generate(
             prompt, {"stream": True}
         ):
@@ -193,8 +192,8 @@ def model_generate(supervisor_address: str, model_uid: str, prompt: str):
 def model_chat(address: str, model_uid: str):
     async def chat_internal():
         # async tasks generating text.
-        client = Client(supervisor_address=address)
-        model_ref = client.get_model(model_uid)
+        async_client = AsyncClient(supervisor_address=address)
+        model_ref = await async_client.get_model(model_uid)
         chat_history = []
         while True:
             prompt = input("\nUser: ")

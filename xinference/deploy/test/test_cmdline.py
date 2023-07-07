@@ -36,6 +36,8 @@ async def test_generate(setup):
             model_uid,
             "--prompt",
             "You are a helpful AI assistant. USER: write a poem. ASSISTANT:",
+            "--address",
+            address,
         ],
     )
 
@@ -47,16 +49,13 @@ async def test_chat(setup):
     pool = setup
     address = pool.external_address
     client = Client(address)
-    model_uid = client.launch_model("wizardlm-v1.0", quantization="q4_0")
+    model_uid = client.launch_model("wizardlm-v1.0", quantization="q2_K")
     assert model_uid is not None
 
     runner = CliRunner()
     result = runner.invoke(
         model_chat,
-        [
-            "--model-uid",
-            model_uid,
-        ],
+        ["--model-uid", model_uid, "--address", address],
         input="Write a poem.\nexit\n",
     )
 

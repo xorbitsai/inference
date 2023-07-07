@@ -66,11 +66,6 @@ class ModelActor(xo.Actor):
         # TODO: locl
 
     async def __post_create__(self):
-        logger.warning(
-            "Model is loading, uid: %s, spec: %s",
-            self._model.model_uid,
-            str(self._model.model_spec),
-        )
         self._model.load()
 
     async def _wrap_generator(self, ret: Any):
