@@ -39,6 +39,7 @@ async def test_generate(setup):
         ],
     )
 
+    assert len(result.stdout) != 0
     assert result.exit_code == 0
     assert len(result.stdout) != 0
 
@@ -60,5 +61,6 @@ async def test_chat(setup):
         input="Write a poem.\nexit\n",
     )
 
+    assert len(result.stdout) != 0
     assert result.exit_code == 0
     print(result)
