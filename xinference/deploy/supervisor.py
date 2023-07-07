@@ -14,7 +14,6 @@
 
 import asyncio
 import logging
-import webbrowser
 
 import xoscar as xo
 
@@ -38,7 +37,6 @@ async def start_supervisor_components(address: str, host: str, port: int):
     )
     url = await restful_actor.serve()
     logger.info(f"Server address: {url}")
-    webbrowser.open(url)
 
 
 async def _start_supervisor(address: str, host: str, port: int):
