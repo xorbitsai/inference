@@ -78,7 +78,7 @@ def supervisor(
 @click.option(
     "--endpoint",
     "-e",
-    default=f"{XINFERENCE_DEFAULT_HOST}:{XINFERENCE_DEFAULT_ENDPOINT_PORT}",
+    default=f"http://{XINFERENCE_DEFAULT_HOST}:{XINFERENCE_DEFAULT_ENDPOINT_PORT}",
     type=str,
 )
 @click.option("--host", "-H", default=XINFERENCE_DEFAULT_HOST, type=str)
@@ -88,7 +88,7 @@ def worker(log_level: str, endpoint: str, host: str):
     if log_level:
         logging.basicConfig(level=logging.getLevelName(log_level.upper()))
 
-    client = RESTfulClient(base_url=f"http://{endpoint.split(':', 1)[0]}:8000")
+    client = RESTfulClient(base_url=endpoint)
     supervisor_internal_addr = client.get_supervisor_internal_address()
 
     address = f"{host}:{get_next_port()}"
@@ -99,7 +99,7 @@ def worker(log_level: str, endpoint: str, host: str):
 @click.option(
     "--endpoint",
     "-e",
-    default=f"{XINFERENCE_DEFAULT_HOST}:{XINFERENCE_DEFAULT_ENDPOINT_PORT}",
+    default=f"http://{XINFERENCE_DEFAULT_HOST}:{XINFERENCE_DEFAULT_ENDPOINT_PORT}",
     type=str,
 )
 @click.option("--model-name", "-n", type=str)
@@ -113,7 +113,7 @@ def model_launch(
     model_format: str,
     quantization: str,
 ):
-    client = RESTfulClient(base_url=f"http://{endpoint.split(':', 1)[0]}:8000")
+    client = RESTfulClient(base_url=endpoint)
     model_uid = client.launch_model(
         model_name=model_name,
         model_size_in_billions=size_in_billions,
@@ -128,7 +128,7 @@ def model_launch(
 @click.option(
     "--endpoint",
     "-e",
-    default=f"{XINFERENCE_DEFAULT_HOST}:{XINFERENCE_DEFAULT_ENDPOINT_PORT}",
+    default=f"http://{XINFERENCE_DEFAULT_HOST}:{XINFERENCE_DEFAULT_ENDPOINT_PORT}",
     type=str,
 )
 @click.option("--all", is_flag=True)
@@ -158,7 +158,7 @@ def model_list(endpoint: str, all: bool):
             file=sys.stderr,
         )
     else:
-        client = RESTfulClient(base_url=f"http://{endpoint.split(':', 1)[0]}:8000")
+        client = RESTfulClient(base_url=endpoint)
         models = client.list_models()
         print(
             tabulate(
@@ -179,7 +179,7 @@ def model_list(endpoint: str, all: bool):
 @click.option(
     "--endpoint",
     "-e",
-    default=f"{XINFERENCE_DEFAULT_HOST}:{XINFERENCE_DEFAULT_ENDPOINT_PORT}",
+    default=f"http://{XINFERENCE_DEFAULT_HOST}:{XINFERENCE_DEFAULT_ENDPOINT_PORT}",
     type=str,
 )
 @click.option("--model-uid", type=str)
@@ -187,7 +187,7 @@ def model_terminate(
     endpoint: str,
     model_uid: str,
 ):
-    client = RESTfulClient(base_url=f"http://{endpoint.split(':', 1)[0]}:8000")
+    client = RESTfulClient(base_url=endpoint)
     client.terminate_model(model_uid=model_uid)
 
 
@@ -195,7 +195,7 @@ def model_terminate(
 @click.option(
     "--endpoint",
     "-e",
-    default=f"{XINFERENCE_DEFAULT_HOST}:{XINFERENCE_DEFAULT_ENDPOINT_PORT}",
+    default=f"http://{XINFERENCE_DEFAULT_HOST}:{XINFERENCE_DEFAULT_ENDPOINT_PORT}",
     type=str,
 )
 @click.option("--model-uid", type=str)
@@ -203,7 +203,7 @@ def model_terminate(
 def model_generate(endpoint: str, model_uid: str, prompt: str):
     async def generate_internal():
         # async tasks generating text.
-        client = RESTfulClient(base_url=f"http://{endpoint.split(':', 1)[0]}:8000")
+        client = RESTfulClient(base_url=endpoint)
         async for completion_chunk in await client.generate(
             model_uid, prompt, stream=True
         ):
@@ -234,14 +234,14 @@ def model_generate(endpoint: str, model_uid: str, prompt: str):
 @click.option(
     "--endpoint",
     "-e",
-    default=f"{XINFERENCE_DEFAULT_HOST}:{XINFERENCE_DEFAULT_ENDPOINT_PORT}",
+    default=f"http://{XINFERENCE_DEFAULT_HOST}:{XINFERENCE_DEFAULT_ENDPOINT_PORT}",
     type=str,
 )
 @click.option("--model-uid", required=True, type=str)
 def model_chat(endpoint: str, model_uid: str):
     async def chat_internal():
         # async tasks generating text.
-        client = RESTfulClient(base_url=f"http://{endpoint.split(':', 1)[0]}:8000")
+        client = RESTfulClient(base_url=endpoint)
         chat_history = []
         while True:
             prompt = input("\nUser: ")
