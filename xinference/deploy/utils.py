@@ -38,7 +38,7 @@ async def create_worker_actor_pool(address: str) -> "MainActorPoolType":
         envs = []
         labels = ["main"]
         for i in cuda_device_indices:
-            envs.append({"CUDA_VISIBLE_DEVICES": i})
+            envs.append({"CUDA_VISIBLE_DEVICES": str(i)})
             labels.append(f"gpu-{i}")
 
         n_process = len(cuda_device_indices)
