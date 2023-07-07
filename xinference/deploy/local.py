@@ -14,10 +14,7 @@
 
 import asyncio
 
-import xoscar as xo
-
-from ..core.gradio import GradioActor
-from ..core.service import SupervisorActor
+from .supervisor import start_supervisor_components
 from .worker import start_worker_components
 
 
@@ -27,42 +24,33 @@ async def _start_local_cluster(
     size_in_billions: int,
     model_format: str,
     quantization: str,
-    share: bool,
     host: str,
     port: int,
 ):
     from .utils import create_actor_pool
 
-    pool = await create_actor_pool(address=address, n_process=0)
-    await xo.create_actor(SupervisorActor, address=address, uid=SupervisorActor.uid())
-    await start_worker_components(address=address, supervisor_address=address)
+    pool = None
+    try:
+        pool = await create_actor_pool(address=address, n_process=0)
+        await start_supervisor_components(address, host, port)
+        await start_worker_components(address=address, supervisor_address=address)
 
-    # TODO: async client
-    from ..client import Client
+        # TODO: async client
+        from ..client import Client
 
-    client = Client(supervisor_address=address)
-    model_uid = client.launch_model(
-        model_name=model_name,
-        model_size_in_billions=size_in_billions,
-        model_format=model_format,
-        quantization=quantization,
-    )
+        client = Client(supervisor_address=address)
+        model_uid = client.launch_model(
+            model_name=model_name,
+            model_size_in_billions=size_in_billions,
+            model_format=model_format,
+            quantization=quantization,
+        )
+        print(f"Model uid: {model_uid}")
 
-    print(f"Model uid: {model_uid}")
-
-    gradio = await xo.create_actor(
-        GradioActor,
-        xoscar_endpoint=address,
-        share=share,
-        host=host,
-        port=port,
-        use_launched_model=True,
-        address=address,
-        uid=GradioActor.default_uid(),
-    )
-    await gradio.launch()
-
-    await pool.join()
+        await pool.join()
+    except asyncio.CancelledError:
+        if pool is not None:
+            await pool.stop()
 
 
 def main(*args, **kwargs):

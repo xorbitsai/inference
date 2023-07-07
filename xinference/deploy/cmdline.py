@@ -41,13 +41,11 @@ def cli():
     type=str,
 )
 @click.option("--log-level", default="INFO", type=str)
-@click.option("--share", is_flag=True)
 @click.option("--host", "-h", default=None, type=str)
 @click.option("--port", "-p", default=None, type=int)
 def supervisor(
     address: str,
     log_level: str,
-    share: bool,
     host: str,
     port: str,
 ):
@@ -56,7 +54,7 @@ def supervisor(
     if log_level:
         logging.basicConfig(level=logging.getLevelName(log_level.upper()))
 
-    main(address=address, share=share, host=host, port=port)
+    main(address=address, host=host, port=port)
 
 
 @cli.command()
@@ -118,7 +116,6 @@ def model_list():
 @click.option("--size-in-billions", "-s", default=None, type=int)
 @click.option("--model-format", "-f", default=None, type=str)
 @click.option("--quantization", "-q", default=None, type=str)
-@click.option("--share", is_flag=True)
 @click.option("--host", "-h", default=None, type=str)
 @click.option("--port", "-p", default=None, type=int)
 def model_launch(
@@ -126,7 +123,6 @@ def model_launch(
     size_in_billions: int,
     model_format: str,
     quantization: str,
-    share: bool,
     host: str,
     port: str,
 ):
@@ -140,7 +136,6 @@ def model_launch(
         size_in_billions=size_in_billions,
         model_format=model_format,
         quantization=quantization,
-        share=share,
         host=host,
         port=port,
     )
