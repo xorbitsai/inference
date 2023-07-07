@@ -133,8 +133,6 @@ class SupervisorActor(xo.Actor):
 
     @log
     async def get_model(self, model_uid: str):
-        assert model_uid in self._model_uid_to_worker
-
         worker_ref = self._model_uid_to_worker[model_uid]
         return await worker_ref.get_model(model_uid=model_uid)
 
@@ -278,8 +276,6 @@ class WorkerActor(xo.Actor):
 
     @log
     async def get_model(self, model_uid: str) -> xo.ActorRefType["ModelActor"]:
-        assert model_uid in self._model_uid_to_model
-
         return self._model_uid_to_model[model_uid]
 
     async def report_status(self):
