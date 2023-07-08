@@ -14,6 +14,7 @@
 
 import asyncio
 import webbrowser
+from typing import Dict, Optional
 
 from .supervisor import start_supervisor_components
 from .worker import start_worker_components
@@ -23,12 +24,15 @@ async def _start_local_cluster(
     address: str,
     host: str,
     port: int,
+    logging_conf: Optional[Dict] = None,
 ):
     from .utils import create_worker_actor_pool
 
     pool = None
     try:
-        pool = await create_worker_actor_pool(address=address)
+        pool = await create_worker_actor_pool(
+            address=address, logging_conf=logging_conf
+        )
         url = await start_supervisor_components(address=address, host=host, port=port)
         await start_worker_components(address=address, supervisor_address=address)
         webbrowser.open(url)
