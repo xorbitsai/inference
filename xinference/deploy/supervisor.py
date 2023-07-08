@@ -21,7 +21,7 @@ from ..core.gradio import GradioApp
 from ..core.restful_api import RESTfulAPIActor
 from ..core.service import SupervisorActor
 
-logger = logging.getLogger("Xinference")
+logger = logging.getLogger("xinference")
 
 
 async def start_supervisor_components(address: str, host: str, port: int):
