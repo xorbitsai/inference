@@ -14,6 +14,7 @@
 
 import asyncio
 import logging
+from typing import Dict
 
 import xoscar as xo
 
@@ -40,12 +41,12 @@ async def start_supervisor_components(address: str, host: str, port: int):
     return url
 
 
-async def _start_supervisor(address: str, host: str, port: int):
+async def _start_supervisor(address: str, host: str, port: int, logging_conf: Dict):
     pool = None
     try:
-        from .utils import create_actor_pool
-
-        pool = await create_actor_pool(address=address, n_process=0)
+        pool = await xo.create_actor_pool(
+            address=address, n_process=0, logging_conf=logging_conf
+        )
         await start_supervisor_components(address=address, host=host, port=port)
         await pool.join()
     except asyncio.exceptions.CancelledError:

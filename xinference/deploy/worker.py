@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import asyncio
+from typing import Dict
 
 import xoscar as xo
 
@@ -36,19 +37,19 @@ async def start_worker_components(address: str, supervisor_address: str):
     )
 
 
-async def _start_worker(address: str, supervisor_address: str):
+async def _start_worker(address: str, supervisor_address: str, logging_conf: Dict):
     from .utils import create_worker_actor_pool
 
-    pool = await create_worker_actor_pool(address=address)
+    pool = await create_worker_actor_pool(address=address, logging_conf=logging_conf)
     await start_worker_components(
         address=address, supervisor_address=supervisor_address
     )
     await pool.join()
 
 
-def main(address: str, supervisor_address: str):
+def main(address: str, supervisor_address: str, logging_conf: Dict):
     loop = asyncio.get_event_loop()
-    task = loop.create_task(_start_worker(address, supervisor_address))
+    task = loop.create_task(_start_worker(address, supervisor_address, logging_conf))
 
     try:
         loop.run_until_complete(task)

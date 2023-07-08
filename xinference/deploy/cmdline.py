@@ -40,12 +40,14 @@ def cli(
 
         if log_level:
             logging.basicConfig(level=logging.getLevelName(log_level.upper()))
+        logging_conf = dict(level=log_level.upper())
 
         address = f"{host}:{get_next_port()}"
         main(
             address=address,
             host=host,
             port=port,
+            logging_conf=logging_conf,
         )
 
 
@@ -62,9 +64,10 @@ def supervisor(
 
     if log_level:
         logging.basicConfig(level=logging.getLevelName(log_level.upper()))
+    logging_conf = dict(level=log_level.upper())
 
     address = f"{host}:{get_next_port()}"
-    main(address=address, host=host, port=port)
+    main(address=address, host=host, port=port, logging_conf=logging_conf)
 
 
 @click.command()
@@ -81,12 +84,17 @@ def worker(log_level: str, endpoint: str, host: str):
 
     if log_level:
         logging.basicConfig(level=logging.getLevelName(log_level.upper()))
+    logging_conf = dict(level=log_level.upper())
 
     client = RESTfulClient(base_url=endpoint)
     supervisor_internal_addr = client._get_supervisor_internal_address()
 
     address = f"{host}:{get_next_port()}"
-    main(address=address, supervisor_address=supervisor_internal_addr)
+    main(
+        address=address,
+        supervisor_address=supervisor_internal_addr,
+        logging_conf=logging_conf,
+    )
 
 
 @cli.command("launch")

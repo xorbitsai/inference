@@ -11,8 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import os
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Dict
 
 import xoscar as xo
 
@@ -20,11 +21,9 @@ if TYPE_CHECKING:
     from xoscar.backends.pool import MainActorPoolType
 
 
-async def create_actor_pool(address: str, n_process: int) -> "MainActorPoolType":
-    return await xo.create_actor_pool(address=address, n_process=n_process)
-
-
-async def create_worker_actor_pool(address: str) -> "MainActorPoolType":
+async def create_worker_actor_pool(
+    address: str, logging_conf: Dict
+) -> "MainActorPoolType":
     from xorbits._mars.resource import cuda_count
 
     cuda_device_indices = []
@@ -47,6 +46,7 @@ async def create_worker_actor_pool(address: str) -> "MainActorPoolType":
             n_process=n_process,
             labels=labels,
             envs=envs,
+            logging_conf=logging_conf,
         )
         return pool
     else:
@@ -64,5 +64,6 @@ async def create_worker_actor_pool(address: str) -> "MainActorPoolType":
             address=address,
             n_process=n_process,
             labels=labels,
+            logging_conf=logging_conf,
         )
         return pool
