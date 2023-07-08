@@ -132,9 +132,14 @@ class SupervisorActor(xo.Actor):
         del self._model_uid_to_worker[model_uid]
 
     @log
-    async def get_model(self, model_uid: str):
+    async def get_model(self, model_uid: str) -> xo.ActorRefType["ModelActor"]:
         worker_ref = self._model_uid_to_worker[model_uid]
         return await worker_ref.get_model(model_uid=model_uid)
+
+    @log
+    async def describe_model(self, model_uid: str):
+        worker_ref = self._model_uid_to_worker[model_uid]
+        return await worker_ref.describe_model(model_uid=model_uid)
 
     @log
     async def list_models(self) -> List[Tuple[str, ModelSpec]]:
@@ -278,6 +283,10 @@ class WorkerActor(xo.Actor):
     @log
     async def get_model(self, model_uid: str) -> xo.ActorRefType["ModelActor"]:
         return self._model_uid_to_model[model_uid]
+
+    @log
+    async def describe_model(self, model_uid: str) -> ModelSpec:
+        return self._model_uid_to_model_spec[model_uid]
 
     async def report_status(self):
         status = await asyncio.to_thread(gather_node_info)

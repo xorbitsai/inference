@@ -21,12 +21,12 @@ from ..core.gradio import GradioApp
 from ..core.restful_api import RESTfulAPIActor
 from ..core.service import SupervisorActor
 
-logger = logging.getLogger("Xinference")
+logger = logging.getLogger("xinference")
 
 
 async def start_supervisor_components(address: str, host: str, port: int):
     await xo.create_actor(SupervisorActor, address=address, uid=SupervisorActor.uid())
-    gradio_block = GradioApp(xoscar_endpoint=address).build()
+    gradio_block = await GradioApp(address).build()
     restful_actor = await xo.create_actor(
         RESTfulAPIActor,
         address=address,
