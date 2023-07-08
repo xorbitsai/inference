@@ -14,7 +14,7 @@
 
 import asyncio
 import uuid
-from typing import Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Tuple, Union
 
 import requests
 import xoscar as xo
@@ -22,12 +22,24 @@ import xoscar as xo
 from .core.model import ModelActor
 from .core.service import SupervisorActor
 from .isolation import Isolation
-from .model import ModelSpec
+
+if TYPE_CHECKING:
+    from .model import ModelSpec
+    from .model.llm.chatglm import ChatglmCppGenerateConfig
+    from .model.llm.core import LlamaCppGenerateConfig
+    from .model.llm.types import (
+        ChatCompletion,
+        ChatCompletionChunk,
+        ChatCompletionMessage,
+        Completion,
+        CompletionChunk,
+    )
 
 
 class Client:
-    def __init__(self, supervisor_address: str):
-        self._supervisor_address = supervisor_address
+    def __init__(self, endpoint: str):
+        restful_client = RESTfulClient(endpoint)
+        self._supervisor_address = restful_client._get_supervisor_internal_address()
         self._isolation = Isolation(asyncio.new_event_loop(), threaded=True)
         self._isolation.start()
         self._supervisor_ref: xo.ActorRefType["SupervisorActor"] = self._isolation.call(
@@ -65,12 +77,65 @@ class Client:
         coro = self._supervisor_ref.terminate_model(model_uid)
         return self._isolation.call(coro)
 
-    def list_models(self) -> List[Tuple[str, ModelSpec]]:
+    def list_models(self) -> List[Tuple[str, "ModelSpec"]]:
         coro = self._supervisor_ref.list_models()
         return self._isolation.call(coro)
 
-    def get_model(self, model_uid: str) -> xo.ActorRefType["ModelActor"]:
-        coro = self._supervisor_ref.get_model(model_uid)
+    def get_model(self, model_uid: str) -> "ModelHandle":
+        model_spec: "ModelSpec" = self._isolation.call(
+            self._supervisor_ref.describe_model(model_uid)
+        )
+        model_ref = self._isolation.call(self._supervisor_ref.get_model(model_uid))
+
+        if model_spec.model_name == "chatglm" or model_spec.model_name == "chatglm2":
+            return ChatglmCppChatModelHandle(model_ref, self._isolation)
+        elif model_spec.model_name == "baichuan":
+            return LlamaCppModelHandle(model_ref, self._isolation)
+        else:
+            return LlamaCppChatModelHandle(model_ref, self._isolation)
+
+
+class ModelHandle:
+    """
+    A sync model interface which provides type hints that makes it much easier to use xinference
+    programmatically.
+    """
+
+    def __init__(self, model_ref: xo.ActorRefType["ModelActor"], isolation: Isolation):
+        self._model_ref = model_ref
+        self._isolation = isolation
+
+
+class LlamaCppModelHandle(ModelHandle):
+    def generate(
+        self, prompt: str, generate_config: Optional["LlamaCppGenerateConfig"] = None
+    ) -> Union["Completion", Iterator["CompletionChunk"]]:
+        coro = self._model_ref.generate(prompt, generate_config)
+        return self._isolation.call(coro)
+
+
+class LlamaCppChatModelHandle(LlamaCppModelHandle):
+    def chat(
+        self,
+        prompt: str,
+        system_prompt: Optional[str] = None,
+        chat_history: Optional[List["ChatCompletionMessage"]] = None,
+        generate_config: Optional["LlamaCppGenerateConfig"] = None,
+    ) -> Union["ChatCompletion", Iterator["ChatCompletionChunk"]]:
+        coro = self._model_ref.chat(
+            prompt, system_prompt, chat_history, generate_config
+        )
+        return self._isolation.call(coro)
+
+
+class ChatglmCppChatModelHandle(ModelHandle):
+    def chat(
+        self,
+        prompt: str,
+        chat_history: Optional[List["ChatCompletionMessage"]] = None,
+        generate_config: Optional["ChatglmCppGenerateConfig"] = None,
+    ) -> Union["ChatCompletion", Iterator["ChatCompletionChunk"]]:
+        coro = self._model_ref.chat(prompt, chat_history, generate_config)
         return self._isolation.call(coro)
 
 
@@ -140,54 +205,3 @@ class RESTfulClient:
             raise RuntimeError(f"Failed to get supervisor internal address")
         response_data = response.json()
         return response_data
-
-
-class AsyncClient:
-    def __init__(self, supervisor_address: str):
-        self._supervisor_address = supervisor_address
-        self._supervisor_ref = None
-
-    async def _get_supervisor_ref(self) -> xo.ActorRefType["SupervisorActor"]:
-        if self._supervisor_ref is None:
-            self._supervisor_ref = await xo.actor_ref(
-                address=self._supervisor_address, uid=SupervisorActor.uid()
-            )
-        return self._supervisor_ref
-
-    @classmethod
-    def gen_model_uid(cls) -> str:
-        # generate a time-based uuid.
-        return str(uuid.uuid1())
-
-    async def launch_model(
-        self,
-        model_name: str,
-        model_size_in_billions: Optional[int] = None,
-        model_format: Optional[str] = None,
-        quantization: Optional[str] = None,
-        **kwargs,
-    ) -> str:
-        model_uid = self.gen_model_uid()
-
-        supervisor_ref = await self._get_supervisor_ref()
-        await supervisor_ref.launch_builtin_model(
-            model_uid=model_uid,
-            model_name=model_name,
-            model_size_in_billions=model_size_in_billions,
-            model_format=model_format,
-            quantization=quantization,
-            **kwargs,
-        )
-        return model_uid
-
-    async def terminate_model(self, model_uid: str):
-        supervisor_ref = await self._get_supervisor_ref()
-        await supervisor_ref.terminate_model(model_uid)
-
-    async def list_models(self) -> List[Tuple[str, ModelSpec]]:
-        supervisor_ref = await self._get_supervisor_ref()
-        return await supervisor_ref.list_models()
-
-    async def get_model(self, model_uid: str) -> xo.ActorRefType["ModelActor"]:
-        supervisor_ref = await self._get_supervisor_ref()
-        return await supervisor_ref.get_model(model_uid)

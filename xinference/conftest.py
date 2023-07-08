@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import time
+
 import pytest_asyncio
 import xoscar as xo
 
@@ -27,12 +29,14 @@ async def setup():
     )
     print(f"Pool running on localhost:{pool.external_address}")
 
-    await start_supervisor_components(
+    endpoint = await start_supervisor_components(
         pool.external_address, "127.0.0.1", xo.utils.get_next_port()
     )
     await start_worker_components(
         address=pool.external_address, supervisor_address=pool.external_address
     )
 
+    # wait for the api.
+    time.sleep(3)
     async with pool:
-        yield pool
+        yield endpoint, pool.external_address
