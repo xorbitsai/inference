@@ -14,7 +14,7 @@
 
 import asyncio
 import webbrowser
-from typing import Dict
+from typing import Dict, Optional
 
 from .supervisor import start_supervisor_components
 from .worker import start_worker_components
@@ -24,7 +24,7 @@ async def _start_local_cluster(
     address: str,
     host: str,
     port: int,
-    logging_conf: Dict,
+    logging_conf: Optional[Dict] = None,
 ):
     from .utils import create_worker_actor_pool
 

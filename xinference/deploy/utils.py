@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import os
-from typing import TYPE_CHECKING, Dict
+from typing import TYPE_CHECKING, Dict, Optional
 
 import xoscar as xo
 
@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 
 
 async def create_worker_actor_pool(
-    address: str, logging_conf: Dict
+    address: str, logging_conf: Optional[Dict] = None
 ) -> "MainActorPoolType":
     from xorbits._mars.resource import cuda_count
 

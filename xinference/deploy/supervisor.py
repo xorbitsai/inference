@@ -14,7 +14,7 @@
 
 import asyncio
 import logging
-from typing import Dict
+from typing import Dict, Optional
 
 import xoscar as xo
 
@@ -41,7 +41,9 @@ async def start_supervisor_components(address: str, host: str, port: int):
     return url
 
 
-async def _start_supervisor(address: str, host: str, port: int, logging_conf: Dict):
+async def _start_supervisor(
+    address: str, host: str, port: int, logging_conf: Optional[Dict] = None
+):
     pool = None
     try:
         pool = await xo.create_actor_pool(
