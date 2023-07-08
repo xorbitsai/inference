@@ -20,7 +20,7 @@ from ..client import Client
 @pytest.mark.asyncio
 async def test_sync_client(setup):
     endpoint, _ = setup
-    client = Client(setup)
+    client = Client(endpoint)
     assert len(client.list_models()) == 0
 
     model_uid = client.launch_model(
