@@ -24,7 +24,7 @@ from ..model import MODEL_FAMILIES, ModelSpec
 from .api import AsyncSupervisorAPI
 
 if TYPE_CHECKING:
-    from ..model.llm.types import ChatCompletionChunk, ChatCompletionMessage
+    from xinference.types import ChatCompletionChunk, ChatCompletionMessage
 
 MODEL_TO_FAMILIES = dict(
     (model_family.model_name, model_family) for model_family in MODEL_FAMILIES

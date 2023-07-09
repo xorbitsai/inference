@@ -19,7 +19,7 @@ import xoscar as xo
 
 if TYPE_CHECKING:
     from ..model.llm.core import Model
-    from ..model.llm.types import ChatCompletionChunk, CompletionChunk
+    from ..types import ChatCompletionChunk, CompletionChunk
 
 import logging
 
