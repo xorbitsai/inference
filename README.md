@@ -169,9 +169,14 @@ $ xinference list --all
 - [chatglm-cpp-python](https://github.com/li-plus/chatglm.cpp) is required to run `chatglm` and `chatglm2`.
 - Xinference will download models automatically for you and by default the models will be saved under `${USER}/.xinference/cache`.
 
-## Integrations
-TODO
-
 ## Roadmap
-TODO
+Xinference is currently under active development. Here's a roadmap outlining our planned 
+developments for the next few weeks:
 
+### PyTorch Support
+With PyTorch integration, users will be able to seamlessly utilize PyTorch models form huggingface
+within Xinference.
+
+### Langchain & LlamaIndex integration
+With Xinference, it will be much easier for users to use these libraries and build applications 
+with LLMs.
