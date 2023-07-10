@@ -68,8 +68,8 @@ $ xinference
 ```
 If you want to configure some options, you can refer to the following commands:
 ```bash
-$ xinference -H,--host "localhost" \
-             -p,--port 9997 \
+$ xinference -H "localhost" \
+             -p 9997 \
              --log-level INFO
 ```
 
@@ -80,16 +80,16 @@ Xinference workers on the other servers. Follow the steps below:
 
 **Starting the Supervisor**: On the server where you want to run the Xinference supervisor, run the following command:
 ```bash
-$ xinference-supervisor -H,--host "${supervisor_host}" \
-                        -p,--port 9997 \
+$ xinference-supervisor -H "${supervisor_host}" \
+                        -p 9997 \
                         --log-level INFO
 ```
 Replace `${supervisor_host}` with the actual host of your supervisor server.
 
 **Starting the Workers**: On each of the other servers where you want to run Xinference workers, run the following command:
 ```bash
-$ xinference-worker -e, --endpoint "http://${supervisor_host}:9997" \
-                    -H,--host "0.0.0.0" \
+$ xinference-worker -e "http://${supervisor_host}:9997" \
+                    -H "0.0.0.0" \
                     --log-level INFO
 ```
 
