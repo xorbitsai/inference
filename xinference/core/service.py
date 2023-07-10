@@ -101,12 +101,12 @@ class SupervisorActor(xo.Actor):
     ) -> xo.ActorRefType["ModelActor"]:
         logger.debug(
             (
-                f"Enter launch_builtin_model, model_uid: %s, model_name: %s, model_size: %d, "
+                f"Enter launch_builtin_model, model_uid: %s, model_name: %s, model_size: %s, "
                 f"model_format: %s, quantization: %s"
             ),
             model_uid,
             model_name,
-            model_size_in_billions,
+            str(model_size_in_billions) if model_size_in_billions else "",
             model_format,
             quantization,
         )
