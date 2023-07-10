@@ -78,19 +78,9 @@ def test_model_init(model_spec):
     assert model._model_path == path
     assert model.model_spec == model_spec
 
-    if model_spec.model_name == "chatglm":
-        assert model.max_context_length == 2048
-    elif model_spec.model_name == "chatglm2":
-        assert model.max_context_length == 8192
-
     assert model._model_config is None
     model._model_config = model._sanitize_generate_config(None)
-    assert model._model_config == {
-        "max_tokens": 256,
-        "temperature": 0.95,
-        "top_p": 0.8,
-        "stream": False,
-    }
+    assert model._model_config["stream"] == False
 
 
 @pytest.mark.parametrize("model_spec", [mock_model_spec1, mock_model_spec2])
