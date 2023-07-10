@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import logging
+import socket
 import threading
 from typing import Any, Dict, List, Literal, Optional, Union
 
@@ -208,7 +209,7 @@ class CreateChatCompletionRequest(BaseModel):
 
 
 class RESTfulAPIActor(xo.Actor):
-    def __init__(self, sockets, gradio_block: gr.Blocks):
+    def __init__(self, sockets: List[socket.socket], gradio_block: gr.Blocks):
         super().__init__()
         self._supervisor_ref: xo.ActorRefType["SupervisorActor"]
         self._sockets = sockets
