@@ -96,7 +96,7 @@ their performance**!
 Xinference provides a command line interface (CLI) for model management. Here are some useful 
 commands:
 
-- Launch a model: `xinference launch`
+- Launch a model (a model UID will be returned): `xinference launch`
 - List running models: `xinference list`
 - List all the builtin models: `xinference list --all`
 - Terminate a model: `xinference terminate --model-uid ${model_uid}`
