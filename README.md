@@ -52,25 +52,33 @@ environment to avoid conflicts.
 ```bash
 $ pip install xinference
 ```
+To serve models, you need to install the necessary dependencies. You can refer to the installation documentation of 
+the respective package to obtain acceleration on different hardware.
+- [llama-cpp-python](https://github.com/abetlen/llama-cpp-python#installation-from-pypi-recommended) is required to run `baichuan`, `wizardlm-v1.0`, `vicuna-v1.3` and `orca`.
+- [chatglm-cpp-python](https://github.com/li-plus/chatglm.cpp#getting-started) is required to run `chatglm` and `chatglm2`.
+
 
 ### Deployment
-To start a local instance of Xinference, run the following command:
+You can deploy Xinference locally with a single command or deploy it in a distributed cluster. 
 
-## Local
+#### Local
+To start a local instance of Xinference, run the following command:
+```bash
+$ xinference
+```
+If you want to configure some options, you can refer to the following commands:
 ```bash
 $ xinference -H,--host "localhost" \
              -p,--port 9997 \
              --log-level INFO
 ```
-XInference will launch a web UI, you can select to create a model and then have a conversation with it on the web page.
 
-## Distributed
+#### Distributed
 
 To deploy Xinference in a cluster, you need to start a Xinference supervisor on one server and 
 Xinference workers on the other servers. Follow the steps below:
 
-#### Starting the Supervisor
-On the server where you want to run the Xinference supervisor, run the following command:
+**Starting the Supervisor**: On the server where you want to run the Xinference supervisor, run the following command:
 ```bash
 $ xinference-supervisor -H,--host "${supervisor_host}" \
                         -p,--port 9997 \
@@ -78,8 +86,7 @@ $ xinference-supervisor -H,--host "${supervisor_host}" \
 ```
 Replace `${supervisor_host}` with the actual host of your supervisor server.
 
-#### Starting the Workers
-On each of the other servers where you want to run Xinference workers, run the following command:
+**Starting the Workers**: On each of the other servers where you want to run Xinference workers, run the following command:
 ```bash
 $ xinference-worker -e, --endpoint "http://${supervisor_host}:9997" \
                     -H,--host "0.0.0.0" \
@@ -171,8 +178,6 @@ $ xinference list --all
 | chatglm2             | ggmlv3  | [6]                | ['q4_0', 'q4_1', 'q5_0', 'q5_1', 'q8_0']                                                                                       |
 
 **NOTE**:
-- [llama-cpp-python](https://github.com/abetlen/llama-cpp-python) is required to run `baichuan`, `wizardlm-v1.0`, `vicuna-v1.3` and `orca`.
-- [chatglm-cpp-python](https://github.com/li-plus/chatglm.cpp) is required to run `chatglm` and `chatglm2`.
 - Xinference will download models automatically for you, and by default the models will be saved under `${USER}/.xinference/cache`.
 
 ## Roadmap
