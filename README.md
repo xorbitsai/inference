@@ -56,13 +56,17 @@ $ pip install xinference
 ### Deployment
 To start a local instance of Xinference, run the following command:
 
+## Local
 ```bash
 $ xinference -H,--host "localhost" \
              -p,--port 9997 \
              --log-level INFO
 ```
+XInference will launch a web UI, you can select to create a model and then have a conversation with it on the web page.
 
-To deploy Xinference in a cluster, you need to start an Xinference supervisor on one server and 
+## Distributed
+
+To deploy Xinference in a cluster, you need to start a Xinference supervisor on one server and 
 Xinference workers on the other servers. Follow the steps below:
 
 #### Starting the Supervisor
