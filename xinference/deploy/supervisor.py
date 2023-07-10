@@ -28,7 +28,7 @@ logger = logging.getLogger("xinference")
 
 async def start_supervisor_components(address: str, host: str, port: int):
     await xo.create_actor(SupervisorActor, address=address, uid=SupervisorActor.uid())
-    gradio_block = await GradioApp(address).build()
+    gradio_block = GradioApp(address).build()
     # create a socket for RESTful API
     sockets = []
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

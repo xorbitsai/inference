@@ -30,7 +30,13 @@ if __name__ == '__main__':
     print(f"Quantization: {quantization}")
 
     client = Client(endpoint)
-    model_uid = client.launch_model(model_name, n_ctx=2048)
+    model_uid = client.launch_model(
+        model_name=model_name,
+        model_size_in_billions=model_size_in_billions,
+        model_format=model_format,
+        quantization=quantization,
+        n_ctx=2048
+    )
     model = client.get_model(model_uid)
 
     chat_history: List["ChatCompletionMessage"] = []

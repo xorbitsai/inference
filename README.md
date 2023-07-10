@@ -160,12 +160,11 @@ $ xinference list --all
 | wizardlm-v1.0        | ggmlv3  | [7, 13, 33]        | ['q2_K', 'q3_K_L', 'q3_K_M', 'q3_K_S', 'q4_0', 'q4_1', 'q4_K_M', 'q4_K_S', 'q5_0', 'q5_1', 'q5_K_M', 'q5_K_S', 'q6_K', 'q8_0'] |
 | vicuna-v1.3          | ggmlv3  | [7, 13]            | ['q2_K', 'q3_K_L', 'q3_K_M', 'q3_K_S', 'q4_0', 'q4_1', 'q4_K_M', 'q4_K_S', 'q5_0', 'q5_1', 'q5_K_M', 'q5_K_S', 'q6_K', 'q8_0'] |
 | orca                 | ggmlv3  | [3, 7, 13]         | ['q4_0', 'q4_1', 'q5_0', 'q5_1', 'q8_0']                                                                                       |
-| chinese-alpaca-plus  | ggmlv3  | [7]                | ['q4_0']                                                                                                                       |
 | chatglm              | ggmlv3  | [6]                | ['q4_0', 'q4_1', 'q5_0', 'q5_1', 'q8_0']                                                                                       |
 | chatglm2             | ggmlv3  | [6]                | ['q4_0', 'q4_1', 'q5_0', 'q5_1', 'q8_0']                                                                                       |
 
 **NOTE**:
-- [llama-cpp-python](https://github.com/abetlen/llama-cpp-python) is required to run `baichuan`, `wizardlm-v1.0`, `vicuna-v1.3`, `orca` and `chinese-alpaca-plus`.
+- [llama-cpp-python](https://github.com/abetlen/llama-cpp-python) is required to run `baichuan`, `wizardlm-v1.0`, `vicuna-v1.3` and `orca`.
 - [chatglm-cpp-python](https://github.com/li-plus/chatglm.cpp) is required to run `chatglm` and `chatglm2`.
 - Xinference will download models automatically for you and by default the models will be saved under `${USER}/.xinference/cache`.
 
