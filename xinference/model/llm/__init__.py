@@ -15,7 +15,6 @@
 
 def install():
     from .. import MODEL_FAMILIES, ModelFamily
-    from .alpaca_chinese import AlpacaChinese
     from .chatglm import ChatglmCppChatModel
     from .core import LlamaCppModel
     from .orca import OrcaMiniGgml
@@ -177,22 +176,5 @@ def install():
             ],
             url_generator=chatglm2_url_generator,
             cls=ChatglmCppChatModel,
-        )
-    )
-
-    chatglm_url_generator = lambda model_size, quantization: (
-        f"https://huggingface.co/Xorbits/chinese-alpaca-plus-{model_size}b-GGML/resolve/main/"
-        f"chinese-alpaca-plus-ggml-{quantization}.bin"
-    )
-    MODEL_FAMILIES.append(
-        ModelFamily(
-            model_name="chinese-alpaca-plus",
-            model_sizes_in_billions=[7],
-            model_format="ggmlv3",
-            quantizations=[
-                "q4_0",
-            ],
-            url_generator=chatglm_url_generator,
-            cls=AlpacaChinese,
         )
     )
