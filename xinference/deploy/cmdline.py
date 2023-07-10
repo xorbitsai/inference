@@ -30,7 +30,7 @@ from ..constants import (
 @click.group(invoke_without_command=True, name="xinference")
 @click.pass_context
 @click.version_option(__version__, "--version", "-v")
-@click.option("--log-level", default="INFO", type=str)
+@click.option("--log-level", default="WARNING", type=str)
 @click.option("--host", "-H", default=XINFERENCE_DEFAULT_LOCAL_HOST, type=str)
 @click.option("--port", "-p", default=XINFERENCE_DEFAULT_ENDPOINT_PORT, type=int)
 def cli(
@@ -57,7 +57,7 @@ def cli(
 
 
 @click.command()
-@click.option("--log-level", default="INFO", type=str)
+@click.option("--log-level", default="WARNING", type=str)
 @click.option("--host", "-H", default=XINFERENCE_DEFAULT_DISTRIBUTED_HOST, type=str)
 @click.option("--port", "-p", default=XINFERENCE_DEFAULT_ENDPOINT_PORT, type=int)
 def supervisor(
@@ -77,7 +77,7 @@ def supervisor(
 
 
 @click.command()
-@click.option("--log-level", default="INFO", type=str)
+@click.option("--log-level", default="WARNING", type=str)
 @click.option(
     "--endpoint",
     "-e",
