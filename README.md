@@ -19,6 +19,9 @@ which is specifically designed to enable large models and high performance on co
 We are actively working on expanding Xorbits Inference's support to include additional runtimes, 
 including PyTorch and JAX, in the near future.
 
+![demo](assets/demo.gif)
+
+
 ## Key Features
 🌟 **Model Serving Made Easy**: Inference simplifies the process of serving large language, speech 
 recognition, and multimodal models. With a single command, you can set up and deploy your models 
