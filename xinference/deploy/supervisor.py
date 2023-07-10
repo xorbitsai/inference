@@ -49,7 +49,8 @@ async def start_supervisor_components(address: str, host: str, port: int):
         sockets=sockets,
         gradio_block=gradio_block,
     )
-    url = await restful_actor.serve()
+    await restful_actor.serve()
+    url = f"http://{host}:{port}"
     logger.info(f"Server address: {url}")
     return url
 
