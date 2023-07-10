@@ -37,8 +37,8 @@ if __name__ == '__main__':
     while True:
         prompt = input("you: ")
         completion = model.chat(
-            prompt,
-            chat_history,
+            prompt=prompt,
+            chat_history=chat_history,
             generate_config={"max_tokens": 1024}
         )
         content = completion["choices"][0]["message"]["content"]
