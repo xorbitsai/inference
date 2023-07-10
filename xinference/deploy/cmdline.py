@@ -57,7 +57,7 @@ def cli(
 
 @click.command()
 @click.option("--log-level", default="INFO", type=str)
-@click.option("--host", "-H", default=XINFERENCE_DEFAULT_LOCAL_HOST, type=str)
+@click.option("--host", "-H", default=XINFERENCE_DEFAULT_DISTRIBUTED_HOST, type=str)
 @click.option("--port", "-p", default=XINFERENCE_DEFAULT_ENDPOINT_PORT, type=int)
 def supervisor(
     log_level: str,
@@ -70,7 +70,7 @@ def supervisor(
         logging.basicConfig(level=logging.getLevelName(log_level.upper()))
     logging_conf = dict(level=log_level.upper())
 
-    address = f"{XINFERENCE_DEFAULT_DISTRIBUTED_HOST}:{get_next_port()}"
+    address = f"{host}:{get_next_port()}"
     main(address=address, host=host, port=port, logging_conf=logging_conf)
 
 
