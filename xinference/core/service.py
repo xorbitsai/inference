@@ -250,10 +250,13 @@ class WorkerActor(xo.Actor):
             if model_spec is None:
                 continue
 
-            cls = model_family.cls
-            save_path = model_family.cache(
-                model_spec.model_size_in_billions, model_spec.quantization
+            save_path = await asyncio.to_thread(
+                model_family.cache,
+                model_spec.model_size_in_billions,
+                model_spec.quantization,
             )
+
+            cls = model_family.cls
             model = cls(model_uid, model_spec, save_path, kwargs)
             subpool_address = self._choose_subpool()
             model_ref = await xo.create_actor(
