@@ -21,7 +21,7 @@ import gradio as gr
 
 from ..locale.utils import Locale
 from ..model import MODEL_FAMILIES, ModelSpec
-from .api import AsyncSupervisorAPI
+from .api import SyncSupervisorAPI
 
 if TYPE_CHECKING:
     from ..types import ChatCompletionChunk, ChatCompletionMessage
@@ -39,13 +39,13 @@ class GradioApp:
         max_model_num: int = 2,
         use_launched_model: bool = False,
     ):
-        self._api = AsyncSupervisorAPI(supervisor_address)
+        self._api = SyncSupervisorAPI(supervisor_address)
         self._gladiator_num = gladiator_num
         self._max_model_num = max_model_num
         self._use_launched_model = use_launched_model
         self._locale = Locale()
 
-    async def _create_model(
+    def _create_model(
         self,
         model_name: str,
         model_size_in_billions: Optional[int] = None,
@@ -53,10 +53,10 @@ class GradioApp:
         quantization: Optional[str] = None,
     ):
         model_uid = str(uuid.uuid1())
-        models = await self._api.list_models()
+        models = self._api.list_models()
         if len(models) >= self._max_model_num:
-            await self._api.terminate_model(models[0][0])
-        return await self._api.launch_model(
+            self._api.terminate_model(models[0][0])
+        return self._api.launch_model(
             model_uid, model_name, model_size_in_billions, model_format, quantization
         )
 
@@ -75,7 +75,7 @@ class GradioApp:
             yield message, chat
         else:
             try:
-                model_ref = await self._api.get_model(model)
+                model_ref = self._api.get_model(model)
             except KeyError:
                 raise gr.Error(self._locale(f"Please create model first"))
 
@@ -259,7 +259,7 @@ class GradioApp:
             model_text = components[0]
             chat, model_uid = components[1], components[-1]
 
-        async def select_model(
+        def select_model(
             _model_name: str,
             _model_format: str,
             _model_size_in_billions: str,
@@ -295,7 +295,7 @@ class GradioApp:
                     if os.path.exists(cache_path):
                         os.remove(cache_path)
 
-            model_uid = await self._create_model(
+            model_uid = self._create_model(
                 _model_name, int(_model_size_in_billions), _model_format, _quantization
             )
             return gr.Chatbot.update(
@@ -418,9 +418,9 @@ class GradioApp:
 
         gr.ClearButton(components=[msg] + chats + texts)
 
-    async def build(self):
+    def build(self):
         if self._use_launched_model:
-            models = await self._api.list_models()
+            models = self._api.list_models()
             with gr.Blocks() as blocks:
                 with gr.Tab(self._locale("Chat")):
                     chat, model_text = self._build_single_with_launched(models, 0)

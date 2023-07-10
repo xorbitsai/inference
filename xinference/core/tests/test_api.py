@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING
 import pytest
 import xoscar as xo
 
-from xinference.core.api import AsyncSupervisorAPI
+from xinference.core.api import AsyncSupervisorAPI, SyncSupervisorAPI
 
 if TYPE_CHECKING:
     from xinference.core import ModelActor
@@ -43,3 +43,23 @@ async def test_async_client(setup):
 
     await async_client.terminate_model(model_uid=model_uid)
     assert len(await async_client.list_models()) == 0
+
+
+@pytest.mark.asyncio
+async def test_sync_client(setup):
+    _, supervisor_address = setup
+    client = SyncSupervisorAPI(supervisor_address)
+    assert len(client.list_models()) == 0
+
+    model_uid = client.launch_model(
+        model_uid="test", model_name="orca", quantization="q4_1"
+    )
+    assert len(client.list_models()) == 1
+
+    model_ref: xo.ActorRefType["ModelActor"] = client.get_model(model_uid=model_uid)
+
+    completion = await model_ref.chat("write a poem.")
+    assert "content" in completion["choices"][0]["message"]
+
+    client.terminate_model(model_uid=model_uid)
+    assert len(client.list_models()) == 0

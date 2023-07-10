@@ -1,10 +1,10 @@
 [![PyPI Latest Release](https://img.shields.io/pypi/v/xinference.svg?style=for-the-badge)](https://pypi.org/project/xinference/)
-[![License](https://img.shields.io/pypi/l/inference.svg?style=for-the-badge)](https://github.com/xorbitsai/inference/blob/main/LICENSE)
+[![License](https://img.shields.io/pypi/l/xinference.svg?style=for-the-badge)](https://github.com/xorbitsai/inference/blob/main/LICENSE)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/xorbitsai/inference/python.yaml?branch=main&style=for-the-badge&label=GITHUB%20ACTIONS&logo=github)](https://actions-badge.atrox.dev/xorbitsai/inference/goto?ref=main)
 [![Slack](https://img.shields.io/badge/join_Slack-781FF5.svg?logo=slack&style=for-the-badge)](https://join.slack.com/t/xorbitsio/shared_invite/zt-1o3z9ucdh-RbfhbPVpx7prOVdM1CAuxg)
 [![Twitter](https://img.shields.io/twitter/follow/xorbitsio?logo=twitter&style=for-the-badge)](https://twitter.com/xorbitsio)
 
-# Xorbits inference: Model Serving Made Easy 🤖
+# Xorbits Inference: Model Serving Made Easy 🤖
 
 Welcome to the Xorbits Inference GitHub repository!
 
@@ -19,10 +19,13 @@ which is specifically designed to enable large models and high performance on co
 We are actively working on expanding Xorbits Inference's support to include additional runtimes, 
 including PyTorch and JAX, in the near future.
 
+![demo](assets/demo.gif)
+
+
 ## Key Features
 🌟 **Model Serving Made Easy**: Inference simplifies the process of serving large language, speech 
-recognition, and multimodal models. With a single command, you can set up and deploy your models 
-for experimentation and production.
+recognition, and multimodal models. You can set up and deploy your models
+for experimentation and production with a single command.
 
 ⚡️ **State-of-the-Art Models**: Experiment with cutting-edge built-in models using a single 
 command. Inference provides access to state-of-the-art open-source models!
@@ -40,8 +43,8 @@ for seamless management and monitoring.
 allowing the seamless distribution of model inference across multiple devices or machines. It
 leverages distributed computing techniques to parallelize and scale the inference process.
 
-🔌 **Built-in Integration with Third-Party Libraries**: Xorbits Inference provides seamless
-integration with popular third-party libraries like LangChain and LlamaIndex. (Coming soon)
+🔌 **Built-in Integration with Third-Party Libraries**: Xorbits Inference seamlessly integrates
+with popular third-party libraries like LangChain and LlamaIndex. (Coming soon)
 
 ## Getting Started
 Xinference can be installed via pip from PyPI. It is highly recommended to create a new virtual
@@ -86,7 +89,7 @@ Xinference  client.
 - For cluster deployment, the endpoint will be `http://${supervisor_host}:9997`, where
 `${supervisor_host}` is the hostname or IP address of the server where the supervisor is running.
 
-You can also view a web UI using the Xinference endpoint where you can chat with all the 
+You can also view a web UI using the Xinference endpoint to chat with all the 
 builtin models. You can even **chat with two cutting-edge AI models side-by-side to compare
 their performance**!
 
@@ -160,18 +163,22 @@ $ xinference list --all
 | wizardlm-v1.0        | ggmlv3  | [7, 13, 33]        | ['q2_K', 'q3_K_L', 'q3_K_M', 'q3_K_S', 'q4_0', 'q4_1', 'q4_K_M', 'q4_K_S', 'q5_0', 'q5_1', 'q5_K_M', 'q5_K_S', 'q6_K', 'q8_0'] |
 | vicuna-v1.3          | ggmlv3  | [7, 13]            | ['q2_K', 'q3_K_L', 'q3_K_M', 'q3_K_S', 'q4_0', 'q4_1', 'q4_K_M', 'q4_K_S', 'q5_0', 'q5_1', 'q5_K_M', 'q5_K_S', 'q6_K', 'q8_0'] |
 | orca                 | ggmlv3  | [3, 7, 13]         | ['q4_0', 'q4_1', 'q5_0', 'q5_1', 'q8_0']                                                                                       |
-| chinese-alpaca-plus  | ggmlv3  | [7]                | ['q4_0']                                                                                                                       |
 | chatglm              | ggmlv3  | [6]                | ['q4_0', 'q4_1', 'q5_0', 'q5_1', 'q8_0']                                                                                       |
 | chatglm2             | ggmlv3  | [6]                | ['q4_0', 'q4_1', 'q5_0', 'q5_1', 'q8_0']                                                                                       |
 
 **NOTE**:
-- [llama-cpp-python](https://github.com/abetlen/llama-cpp-python) is required to run `baichuan`, `wizardlm-v1.0`, `vicuna-v1.3`, `orca` and `chinese-alpaca-plus`.
+- [llama-cpp-python](https://github.com/abetlen/llama-cpp-python) is required to run `baichuan`, `wizardlm-v1.0`, `vicuna-v1.3` and `orca`.
 - [chatglm-cpp-python](https://github.com/li-plus/chatglm.cpp) is required to run `chatglm` and `chatglm2`.
-- Xinference will download models automatically for you and by default the models will be saved under `${USER}/.xinference/cache`.
-
-## Integrations
-TODO
+- Xinference will download models automatically for you, and by default the models will be saved under `${USER}/.xinference/cache`.
 
 ## Roadmap
-TODO
+Xinference is currently under active development. Here's a roadmap outlining our planned 
+developments for the next few weeks:
 
+### PyTorch Support
+With PyTorch integration, users will be able to seamlessly utilize PyTorch models from Hugging Face
+within Xinference.
+
+### Langchain & LlamaIndex integration
+With Xinference, it will be much easier for users to use these libraries and build applications 
+with LLMs.

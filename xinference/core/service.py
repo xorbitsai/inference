@@ -90,7 +90,6 @@ class SupervisorActor(xo.Actor):
 
         raise RuntimeError("No available worker found")
 
-    @log
     async def launch_builtin_model(
         self,
         model_uid: str,
@@ -100,10 +99,22 @@ class SupervisorActor(xo.Actor):
         quantization: Optional[str],
         **kwargs,
     ) -> xo.ActorRefType["ModelActor"]:
+        logger.debug(
+            (
+                f"Enter launch_builtin_model, model_uid: %s, model_name: %s, model_size: %s, "
+                f"model_format: %s, quantization: %s"
+            ),
+            model_uid,
+            model_name,
+            str(model_size_in_billions) if model_size_in_billions else "",
+            model_format,
+            quantization,
+        )
+
         assert model_uid not in self._model_uid_to_worker
 
         worker_ref = await self._choose_worker()
-        model_ref = await worker_ref.launch_builtin_model(
+        model_ref = yield worker_ref.launch_builtin_model(
             model_uid=model_uid,
             model_name=model_name,
             model_size_in_billions=model_size_in_billions,
@@ -111,9 +122,10 @@ class SupervisorActor(xo.Actor):
             quantization=quantization,
             **kwargs,
         )
+        # TODO: not protected.
         self._model_uid_to_worker[model_uid] = worker_ref
 
-        return model_ref
+        raise xo.Return(model_ref)
 
     async def _check_dead_nodes(self):
         while True:
@@ -250,10 +262,13 @@ class WorkerActor(xo.Actor):
             if model_spec is None:
                 continue
 
-            cls = model_family.cls
-            save_path = model_family.cache(
-                model_spec.model_size_in_billions, model_spec.quantization
+            save_path = await asyncio.to_thread(
+                model_family.cache,
+                model_spec.model_size_in_billions,
+                model_spec.quantization,
             )
+
+            cls = model_family.cls
             model = cls(model_uid, model_spec, save_path, kwargs)
             subpool_address = self._choose_subpool()
             model_ref = await xo.create_actor(
