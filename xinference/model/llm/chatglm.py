@@ -18,8 +18,8 @@ import uuid
 from pathlib import Path
 from typing import TYPE_CHECKING, Iterator, List, Optional, TypedDict, Union
 
+from ...types import ChatCompletion, ChatCompletionChunk, ChatCompletionMessage
 from .core import Model
-from .types import ChatCompletion, ChatCompletionChunk, ChatCompletionMessage
 
 if TYPE_CHECKING:
     from chatglm_cpp import Pipeline
