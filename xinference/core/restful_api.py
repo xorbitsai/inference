@@ -260,7 +260,7 @@ class RESTfulAPIActor(xo.Actor):
         app = gr.mount_gradio_app(app, self._gradio_block, path="/")
 
         # run uvicorn in another daemon thread.
-        config = Config(app=app, log_level="critical")
+        config = Config(app=app, log_level="warning")
         server = Server(config)
         server_thread = threading.Thread(
             target=server.run, args=[self._sockets], daemon=True
