@@ -43,6 +43,7 @@ def cli(
         logging_conf = dict(level=log_level.upper())
 
         address = f"{host}:{get_next_port()}"
+
         main(
             address=address,
             host=host,
@@ -67,6 +68,7 @@ def supervisor(
     logging_conf = dict(level=log_level.upper())
 
     address = f"{host}:{get_next_port()}"
+
     main(address=address, host=host, port=port, logging_conf=logging_conf)
 
 
