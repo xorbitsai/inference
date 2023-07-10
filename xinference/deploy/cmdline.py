@@ -20,14 +20,18 @@ from xoscar.utils import get_next_port
 
 from .. import __version__
 from ..client import RESTfulClient
-from ..constants import XINFERENCE_DEFAULT_ENDPOINT_PORT, XINFERENCE_DEFAULT_HOST
+from ..constants import (
+    XINFERENCE_DEFAULT_DISTRIBUTED_HOST,
+    XINFERENCE_DEFAULT_ENDPOINT_PORT,
+    XINFERENCE_DEFAULT_LOCAL_HOST,
+)
 
 
 @click.group(invoke_without_command=True, name="xinference")
 @click.pass_context
 @click.version_option(__version__, "--version", "-v")
 @click.option("--log-level", default="INFO", type=str)
-@click.option("--host", "-H", default=XINFERENCE_DEFAULT_HOST, type=str)
+@click.option("--host", "-H", default=XINFERENCE_DEFAULT_LOCAL_HOST, type=str)
 @click.option("--port", "-p", default=XINFERENCE_DEFAULT_ENDPOINT_PORT, type=int)
 def cli(
     ctx,
@@ -53,7 +57,7 @@ def cli(
 
 @click.command()
 @click.option("--log-level", default="INFO", type=str)
-@click.option("--host", "-H", default=XINFERENCE_DEFAULT_HOST, type=str)
+@click.option("--host", "-H", default=XINFERENCE_DEFAULT_LOCAL_HOST, type=str)
 @click.option("--port", "-p", default=XINFERENCE_DEFAULT_ENDPOINT_PORT, type=int)
 def supervisor(
     log_level: str,
@@ -66,7 +70,7 @@ def supervisor(
         logging.basicConfig(level=logging.getLevelName(log_level.upper()))
     logging_conf = dict(level=log_level.upper())
 
-    address = f"{host}:{get_next_port()}"
+    address = f"{XINFERENCE_DEFAULT_DISTRIBUTED_HOST}:{get_next_port()}"
     main(address=address, host=host, port=port, logging_conf=logging_conf)
 
 
@@ -75,10 +79,10 @@ def supervisor(
 @click.option(
     "--endpoint",
     "-e",
-    default=f"http://{XINFERENCE_DEFAULT_HOST}:{XINFERENCE_DEFAULT_ENDPOINT_PORT}",
+    default=f"http://{XINFERENCE_DEFAULT_LOCAL_HOST}:{XINFERENCE_DEFAULT_ENDPOINT_PORT}",
     type=str,
 )
-@click.option("--host", "-H", default=XINFERENCE_DEFAULT_HOST, type=str)
+@click.option("--host", "-H", default=XINFERENCE_DEFAULT_DISTRIBUTED_HOST, type=str)
 def worker(log_level: str, endpoint: str, host: str):
     from ..deploy.worker import main
 
@@ -101,7 +105,7 @@ def worker(log_level: str, endpoint: str, host: str):
 @click.option(
     "--endpoint",
     "-e",
-    default=f"http://{XINFERENCE_DEFAULT_HOST}:{XINFERENCE_DEFAULT_ENDPOINT_PORT}",
+    default=f"http://{XINFERENCE_DEFAULT_LOCAL_HOST}:{XINFERENCE_DEFAULT_ENDPOINT_PORT}",
     type=str,
 )
 @click.option("--model-name", "-n", type=str)
@@ -130,7 +134,7 @@ def model_launch(
 @click.option(
     "--endpoint",
     "-e",
-    default=f"http://{XINFERENCE_DEFAULT_HOST}:{XINFERENCE_DEFAULT_ENDPOINT_PORT}",
+    default=f"http://{XINFERENCE_DEFAULT_LOCAL_HOST}:{XINFERENCE_DEFAULT_ENDPOINT_PORT}",
     type=str,
 )
 @click.option("--all", is_flag=True)
@@ -191,7 +195,7 @@ def model_list(endpoint: str, all: bool):
 @click.option(
     "--endpoint",
     "-e",
-    default=f"http://{XINFERENCE_DEFAULT_HOST}:{XINFERENCE_DEFAULT_ENDPOINT_PORT}",
+    default=f"http://{XINFERENCE_DEFAULT_LOCAL_HOST}:{XINFERENCE_DEFAULT_ENDPOINT_PORT}",
     type=str,
 )
 @click.option("--model-uid", type=str)
