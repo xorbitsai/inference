@@ -14,9 +14,12 @@
 
 import asyncio
 import logging
+import socket
+import sys
 from typing import Dict, Optional
 
 import xoscar as xo
+from xoscar.utils import get_next_port
 
 from ..core.gradio import GradioApp
 from ..core.restful_api import RESTfulAPIActor
@@ -28,12 +31,22 @@ logger = logging.getLogger("xinference")
 async def start_supervisor_components(address: str, host: str, port: int):
     await xo.create_actor(SupervisorActor, address=address, uid=SupervisorActor.uid())
     gradio_block = await GradioApp(address).build()
+    # create a socket for RESTful API
+    try:
+        default_host = "0.0.0.0" if not sys.platform.startswith("win") else "127.0.0.1"
+        port = port if port else get_next_port()
+        host = host or default_host
+        socks = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        socks.bind((host, port))
+        sockets = []
+        sockets.append(socks)
+    except OSError:
+        raise OSError
     restful_actor = await xo.create_actor(
         RESTfulAPIActor,
         address=address,
         uid=RESTfulAPIActor.uid(),
-        host=host,
-        port=port,
+        sockets=sockets,
         gradio_block=gradio_block,
     )
     url = await restful_actor.serve()

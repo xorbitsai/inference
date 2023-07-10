@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import logging
-import sys
 import threading
 from typing import Any, Dict, List, Literal, Optional, Union
 
@@ -25,7 +24,6 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from typing_extensions import NotRequired, TypedDict
 from uvicorn import Config, Server
-from xoscar.utils import get_next_port
 
 from ..types import ChatCompletion, Completion
 from .service import SupervisorActor
@@ -210,12 +208,10 @@ class CreateChatCompletionRequest(BaseModel):
 
 
 class RESTfulAPIActor(xo.Actor):
-    def __init__(self, host: str, port: int, gradio_block: gr.Blocks):
+    def __init__(self, sockets, gradio_block: gr.Blocks):
         super().__init__()
         self._supervisor_ref: xo.ActorRefType["SupervisorActor"]
-        default_host = "0.0.0.0" if not sys.platform.startswith("win") else "127.0.0.1"
-        self._port = port if port else get_next_port()
-        self._host = host or default_host
+        self._sockets = sockets
         self._gradio_block = gradio_block
         self._router = None
 
@@ -263,11 +259,12 @@ class RESTfulAPIActor(xo.Actor):
         app = gr.mount_gradio_app(app, self._gradio_block, path="/")
 
         # run uvicorn in another daemon thread.
-        config = Config(app=app, host=self._host, port=self._port, log_level="critical")
+        config = Config(app=app, log_level="critical")
         server = Server(config)
-        server_thread = threading.Thread(target=server.run, daemon=True)
+        server_thread = threading.Thread(
+            target=server.run, args=[self._sockets], daemon=True
+        )
         server_thread.start()
-        return f"http://{self._host}:{self._port}"
 
     async def list_models(self) -> Dict[str, Dict[str, Any]]:
         try:

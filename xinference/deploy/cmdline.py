@@ -14,7 +14,6 @@
 
 
 import logging
-import socket
 
 import click
 from xoscar.utils import get_next_port
@@ -45,13 +44,6 @@ def cli(
 
         address = f"{host}:{get_next_port()}"
 
-        try:
-            skt = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            skt.bind((host, port))
-            skt.close()
-        except OSError:
-            raise click.ClickException(f"Port {port} is already in use.")
-
         main(
             address=address,
             host=host,
@@ -76,13 +68,6 @@ def supervisor(
     logging_conf = dict(level=log_level.upper())
 
     address = f"{host}:{get_next_port()}"
-
-    try:
-        skt = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        skt.bind((host, port))
-        skt.close()
-    except OSError:
-        raise click.ClickException(f"Port {port} is already in use.")
 
     main(address=address, host=host, port=port, logging_conf=logging_conf)
 
