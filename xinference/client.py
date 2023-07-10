@@ -27,7 +27,7 @@ if TYPE_CHECKING:
     from .model import ModelSpec
     from .model.llm.chatglm import ChatglmCppGenerateConfig
     from .model.llm.core import LlamaCppGenerateConfig
-    from .model.llm.types import (
+    from .types import (
         ChatCompletion,
         ChatCompletionChunk,
         ChatCompletionMessage,
