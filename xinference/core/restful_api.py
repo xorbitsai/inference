@@ -27,7 +27,7 @@ from typing_extensions import NotRequired, TypedDict
 from uvicorn import Config, Server
 from xoscar.utils import get_next_port
 
-from ..model.llm.types import ChatCompletion, Completion
+from ..types import ChatCompletion, Completion
 from .service import SupervisorActor
 
 logger = logging.getLogger(__name__)
