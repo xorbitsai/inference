@@ -119,6 +119,15 @@ class SupervisorActor(xo.Actor):
         while True:
             for address, status in self._worker_status.items():
                 if time.time() - status.update_time > DEFAULT_NODE_DEAD_TIMEOUT:
+                    dead_models = []
+                    for model_uid in self._model_uid_to_worker:
+                        if self._model_uid_to_worker[model_uid].address == address:
+                            dead_models.append(model_uid)
+                    logger.error(
+                        "Worker timeout. address: %s, influenced models: %s",
+                        address,
+                        dead_models,
+                    )
                     self._worker_status.pop(address)
                     self._worker_address_to_worker.pop(address)
             await asyncio.sleep(5)
