@@ -4,7 +4,7 @@
 [![Slack](https://img.shields.io/badge/join_Slack-781FF5.svg?logo=slack&style=for-the-badge)](https://join.slack.com/t/xorbitsio/shared_invite/zt-1o3z9ucdh-RbfhbPVpx7prOVdM1CAuxg)
 [![Twitter](https://img.shields.io/twitter/follow/xorbitsio?logo=twitter&style=for-the-badge)](https://twitter.com/xorbitsio)
 
-# Xorbits inference: Model Serving Made Easy 🤖
+# Xorbits Inference: Model Serving Made Easy 🤖
 
 Welcome to the Xorbits Inference GitHub repository!
 
@@ -24,8 +24,8 @@ including PyTorch and JAX, in the near future.
 
 ## Key Features
 🌟 **Model Serving Made Easy**: Inference simplifies the process of serving large language, speech 
-recognition, and multimodal models. With a single command, you can set up and deploy your models 
-for experimentation and production.
+recognition, and multimodal models. You can set up and deploy your models
+for experimentation and production with a single command.
 
 ⚡️ **State-of-the-Art Models**: Experiment with cutting-edge built-in models using a single 
 command. Inference provides access to state-of-the-art open-source models!
@@ -43,8 +43,8 @@ for seamless management and monitoring.
 allowing the seamless distribution of model inference across multiple devices or machines. It
 leverages distributed computing techniques to parallelize and scale the inference process.
 
-🔌 **Built-in Integration with Third-Party Libraries**: Xorbits Inference provides seamless
-integration with popular third-party libraries like LangChain and LlamaIndex. (Coming soon)
+🔌 **Built-in Integration with Third-Party Libraries**: Xorbits Inference seamlessly integrates
+with popular third-party libraries like LangChain and LlamaIndex. (Coming soon)
 
 ## Getting Started
 Xinference can be installed via pip from PyPI. It is highly recommended to create a new virtual
@@ -62,7 +62,7 @@ $ xinference -H,--host "localhost" \
              --log-level INFO
 ```
 
-To deploy Xinference in a cluster, you need to start an Xinference supervisor on one server and 
+To deploy Xinference in a cluster, you need to start a Xinference supervisor on one server and 
 Xinference workers on the other servers. Follow the steps below:
 
 #### Starting the Supervisor
@@ -89,7 +89,7 @@ Xinference  client.
 - For cluster deployment, the endpoint will be `http://${supervisor_host}:9997`, where
 `${supervisor_host}` is the hostname or IP address of the server where the supervisor is running.
 
-You can also view a web UI using the Xinference endpoint where you can chat with all the 
+You can also view a web UI using the Xinference endpoint to chat with all the 
 builtin models. You can even **chat with two cutting-edge AI models side-by-side to compare
 their performance**!
 
@@ -169,14 +169,14 @@ $ xinference list --all
 **NOTE**:
 - [llama-cpp-python](https://github.com/abetlen/llama-cpp-python) is required to run `baichuan`, `wizardlm-v1.0`, `vicuna-v1.3` and `orca`.
 - [chatglm-cpp-python](https://github.com/li-plus/chatglm.cpp) is required to run `chatglm` and `chatglm2`.
-- Xinference will download models automatically for you and by default the models will be saved under `${USER}/.xinference/cache`.
+- Xinference will download models automatically for you, and by default the models will be saved under `${USER}/.xinference/cache`.
 
 ## Roadmap
 Xinference is currently under active development. Here's a roadmap outlining our planned 
 developments for the next few weeks:
 
 ### PyTorch Support
-With PyTorch integration, users will be able to seamlessly utilize PyTorch models form huggingface
+With PyTorch integration, users will be able to seamlessly utilize PyTorch models form Hugging Face
 within Xinference.
 
 ### Langchain & LlamaIndex integration
