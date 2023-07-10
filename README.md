@@ -176,7 +176,7 @@ Xinference is currently under active development. Here's a roadmap outlining our
 developments for the next few weeks:
 
 ### PyTorch Support
-With PyTorch integration, users will be able to seamlessly utilize PyTorch models form Hugging Face
+With PyTorch integration, users will be able to seamlessly utilize PyTorch models from Hugging Face
 within Xinference.
 
 ### Langchain & LlamaIndex integration
