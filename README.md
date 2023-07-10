@@ -50,10 +50,10 @@ with popular third-party libraries like LangChain and LlamaIndex. (Coming soon)
 Xinference can be installed via pip from PyPI. It is highly recommended to create a new virtual
 environment to avoid conflicts.
 ```bash
-$ pip install xinference
+$ pip install "xinference[all]"
 ```
-To serve models, you need to install the necessary dependencies. You can refer to the installation documentation of 
-the respective package to obtain acceleration on different hardware.
+"xinference[all]" installs all the necessary packages for serving models. If you want to achieve acceleration on 
+different hardware, refer to the installation documentation of the corresponding package.
 - [llama-cpp-python](https://github.com/abetlen/llama-cpp-python#installation-from-pypi-recommended) is required to run `baichuan`, `wizardlm-v1.0`, `vicuna-v1.3` and `orca`.
 - [chatglm-cpp-python](https://github.com/li-plus/chatglm.cpp#getting-started) is required to run `chatglm` and `chatglm2`.
 
@@ -66,12 +66,6 @@ To start a local instance of Xinference, run the following command:
 ```bash
 $ xinference
 ```
-If you want to configure some options, you can refer to the following commands:
-```bash
-$ xinference -H "localhost" \
-             -p 9997 \
-             --log-level INFO
-```
 
 #### Distributed
 
@@ -80,17 +74,13 @@ Xinference workers on the other servers. Follow the steps below:
 
 **Starting the Supervisor**: On the server where you want to run the Xinference supervisor, run the following command:
 ```bash
-$ xinference-supervisor -H "${supervisor_host}" \
-                        -p 9997 \
-                        --log-level INFO
+$ xinference-supervisor -H "${supervisor_host}"
 ```
 Replace `${supervisor_host}` with the actual host of your supervisor server.
 
 **Starting the Workers**: On each of the other servers where you want to run Xinference workers, run the following command:
 ```bash
-$ xinference-worker -e "http://${supervisor_host}:9997" \
-                    -H "0.0.0.0" \
-                    --log-level INFO
+$ xinference-worker -e "http://${supervisor_host}:9997"
 ```
 
 Once Xinference is running, an endpoint will be accessible for model management via CLI or
