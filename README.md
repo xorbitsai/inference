@@ -62,7 +62,7 @@ $ xinference -H,--host "localhost" \
              --log-level INFO
 ```
 
-To deploy Xinference in a cluster, you need to start a Xinference supervisor on one server and 
+To deploy Xinference in a cluster, you need to start an Xinference supervisor on one server and 
 Xinference workers on the other servers. Follow the steps below:
 
 #### Starting the Supervisor
