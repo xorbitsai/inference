@@ -36,9 +36,9 @@ async def start_supervisor_components(address: str, host: str, port: int):
         default_host = "0.0.0.0" if not sys.platform.startswith("win") else "127.0.0.1"
         port = port if port else get_next_port()
         host = host or default_host
+        sockets = []
         socks = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         socks.bind((host, port))
-        sockets = []
         sockets.append(socks)
     except OSError:
         raise OSError
