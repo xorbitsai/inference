@@ -165,18 +165,12 @@ class ChatglmCppChatModel(Model):
         if generate_config.get("stream", False):
             it = self._llm.stream_chat(
                 chat_history_list,
-                # max_length=generate_config["max_tokens"],
-                # temperature=generate_config["temperature"],
-                # top_p=generate_config["top_p"],
             )
             assert not isinstance(it, str)
             return self._convert_raw_text_chunks_to_chat(it, self.model_uid)
         else:
             c = self._llm.chat(
                 chat_history_list,
-                # max_length=generate_config["max_tokens"],
-                # temperature=generate_config["temperature"],
-                # top_p=generate_config["top_p"],
             )
             assert not isinstance(c, Iterator)
             return self._convert_raw_text_completion_to_chat(c, self.model_uid)
