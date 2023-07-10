@@ -8,3 +8,4 @@ global-exclude .DS_Store
 include versioneer.py
 include xinference/_version.py
 global-exclude conftest.py
+include xinference/locale/*.json
