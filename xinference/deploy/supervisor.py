@@ -38,7 +38,9 @@ async def start_supervisor_components(address: str, host: str, port: int):
         sock.bind((host, port))
         sockets.append(sock)
     except OSError:
-        if port == XINFERENCE_DEFAULT_ENDPOINT_PORT:
+        # compare the reference to differentiate between the cases where the user specify the
+        # default port and the user does not specify the port.
+        if port is XINFERENCE_DEFAULT_ENDPOINT_PORT:
             while True:
                 try:
                     sockets = []
