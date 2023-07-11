@@ -18,7 +18,9 @@ import socket
 from typing import Dict, Optional
 
 import xoscar as xo
+from xoscar.utils import get_next_port
 
+from ..constants import XINFERENCE_DEFAULT_ENDPOINT_PORT
 from ..core.gradio import GradioApp
 from ..core.restful_api import RESTfulAPIActor
 from ..core.service import SupervisorActor
@@ -30,10 +32,21 @@ async def start_supervisor_components(address: str, host: str, port: int):
     await xo.create_actor(SupervisorActor, address=address, uid=SupervisorActor.uid())
     gradio_block = GradioApp(address).build()
     # create a socket for RESTful API
-    sockets = []
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.bind((host, port))
-    sockets.append(sock)
+    try:
+        sockets = []
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.bind((host, port))
+        sockets.append(sock)
+    except OSError:
+        if port is XINFERENCE_DEFAULT_ENDPOINT_PORT:
+            sockets = []
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            port = get_next_port()
+            sock.bind((host, port))
+            sockets.append(sock)
+        else:
+            raise OSError
+
     restful_actor = await xo.create_actor(
         RESTfulAPIActor,
         address=address,
