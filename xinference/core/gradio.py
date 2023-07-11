@@ -27,7 +27,9 @@ if TYPE_CHECKING:
     from ..types import ChatCompletionChunk, ChatCompletionMessage
 
 MODEL_TO_FAMILIES = dict(
-    (model_family.model_name, model_family) for model_family in MODEL_FAMILIES
+    (model_family.model_name, model_family)
+    for model_family in MODEL_FAMILIES
+    if model_family.model_name != "baichuan"
 )
 
 
@@ -193,7 +195,7 @@ class GradioApp:
         with gr.Column():
             with gr.Row():
                 model_name = gr.Dropdown(
-                    choices=[m.model_name for m in MODEL_FAMILIES],
+                    choices=list(MODEL_TO_FAMILIES.keys()),
                     label=self._locale("model name"),
                     scale=2,
                 )
