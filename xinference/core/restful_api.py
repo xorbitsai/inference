@@ -262,9 +262,13 @@ class RESTfulAPIActor(xo.Actor):
         # run uvicorn in another daemon thread.
         config = Config(app=app, log_level="critical")
         server = Server(config)
-        server_thread = threading.Thread(
-            target=server.run, args=[self._sockets], daemon=True
-        )
+
+        def _serve():
+            httpx_logger = logging.getLogger("httpx")
+            httpx_logger.setLevel(logging.CRITICAL)
+            server.run(self._sockets)
+
+        server_thread = threading.Thread(target=_serve, daemon=True)
         server_thread.start()
 
     async def list_models(self) -> Dict[str, Dict[str, Any]]:
