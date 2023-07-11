@@ -158,14 +158,15 @@ To view the builtin models, run the following command:
 $ xinference list --all
 ```
 
-| Name                 | Type             | Format | Size (in billions) | Quantization                           |
-| -------------------- |------------------|--------|--------------------|----------------------------------------|
-| baichuan             | Foundation Model | ggmlv3 | 7                  | 'q2_K', 'q3_K_L', ... , 'q6_K', 'q8_0' |
-| wizardlm-v1.0        | SFT Model        | ggmlv3 | 7, 13, 33          | 'q2_K', 'q3_K_L', ... , 'q6_K', 'q8_0' |
-| vicuna-v1.3          | SFT Model        | ggmlv3 | 7, 13              | 'q2_K', 'q3_K_L', ... , 'q6_K', 'q8_0' |
-| orca                 | SFT Model        | ggmlv3 | 3, 7, 13           | 'q4_0', 'q4_1', 'q5_0', 'q5_1', 'q8_0' |
-| chatglm              | SFT Model        | ggmlv3 | 6                  | 'q4_0', 'q4_1', 'q5_0', 'q5_1', 'q8_0' |
-| chatglm2             | SFT Model        | ggmlv3 | 6                  | 'q4_0', 'q4_1', 'q5_0', 'q5_1', 'q8_0' |
+| Name                 | Type             | Language | Format | Size (in billions) | Quantization                           |
+| -------------------- |------------------|----------|--------|--------------------|----------------------------------------|
+| baichuan             | Foundation Model | en, zh   | ggmlv3 | 7                  | 'q2_K', 'q3_K_L', ... , 'q6_K', 'q8_0' |
+| chatglm              | SFT Model        | en, zh   | ggmlv3 | 6                  | 'q4_0', 'q4_1', 'q5_0', 'q5_1', 'q8_0' |
+| chatglm2             | SFT Model        | en, zh   | ggmlv3 | 6                  | 'q4_0', 'q4_1', 'q5_0', 'q5_1', 'q8_0' |
+| wizardlm-v1.0        | SFT Model        | en       | ggmlv3 | 7, 13, 33          | 'q2_K', 'q3_K_L', ... , 'q6_K', 'q8_0' |
+| vicuna-v1.3          | SFT Model        | en       | ggmlv3 | 7, 13              | 'q2_K', 'q3_K_L', ... , 'q6_K', 'q8_0' |
+| orca                 | SFT Model        | en       | ggmlv3 | 3, 7, 13           | 'q4_0', 'q4_1', 'q5_0', 'q5_1', 'q8_0' |
+
 
 **NOTE**:
 - Xinference will download models automatically for you, and by default the models will be saved under `${USER}/.xinference/cache`.
