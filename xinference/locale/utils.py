@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import codecs
 import json
 import locale
 import os
@@ -27,7 +28,7 @@ class Locale:
             os.path.dirname(os.path.abspath(__file__)), f"{self._language}.json"
         )
         if os.path.exists(json_path):
-            self._mapping = json.load(open(json_path))
+            self._mapping = json.load(codecs.open(json_path, "r", encoding="utf-8"))
         else:
             self._mapping = None
 
