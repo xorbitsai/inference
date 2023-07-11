@@ -39,11 +39,16 @@ async def start_supervisor_components(address: str, host: str, port: int):
         sockets.append(sock)
     except OSError:
         if port is XINFERENCE_DEFAULT_ENDPOINT_PORT:
-            sockets = []
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            port = get_next_port()
-            sock.bind((host, port))
-            sockets.append(sock)
+            while True:
+                try:
+                    sockets = []
+                    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    port = get_next_port()
+                    sock.bind((host, port))
+                    sockets.append(sock)
+                    break
+                except OSError:
+                    pass
         else:
             raise OSError
 
