@@ -21,7 +21,7 @@ including PyTorch and JAX, in the near future.
 
 ![demo](assets/demo.gif)
 
-<div>
+<div align="center">
 <i><a href="https://join.slack.com/t/xorbitsio/shared_invite/zt-1z3zsm9ep-87yI9YZ_B79HLB2ccTq4WA">👉 Join our Slack community!</a></i>
 </div>
 
