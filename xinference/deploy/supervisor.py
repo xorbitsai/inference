@@ -38,7 +38,7 @@ async def start_supervisor_components(address: str, host: str, port: int):
         sock.bind((host, port))
         sockets.append(sock)
     except OSError:
-        if port is XINFERENCE_DEFAULT_ENDPOINT_PORT:
+        if port == XINFERENCE_DEFAULT_ENDPOINT_PORT:
             while True:
                 try:
                     sockets = []
@@ -48,9 +48,9 @@ async def start_supervisor_components(address: str, host: str, port: int):
                     sockets.append(sock)
                     break
                 except OSError:
-                    pass
+                    logger.warning("Failed to create socket with port %d", port)
         else:
-            raise OSError
+            raise
 
     restful_actor = await xo.create_actor(
         RESTfulAPIActor,
