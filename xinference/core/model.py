@@ -77,10 +77,8 @@ class ModelActor(xo.Actor):
             return ret
 
     async def generate(self, prompt: str, *args, **kwargs):
-        logger.warning("Generate, self address: %s", self.address)
-
         if not hasattr(self._model, "generate"):
-            raise AttributeError("generate")
+            raise AttributeError(f"Model {self._model.model_spec} is not for generate.")
 
         return self._wrap_generator(
             getattr(self._model, "generate")(prompt, *args, **kwargs)
@@ -88,7 +86,7 @@ class ModelActor(xo.Actor):
 
     async def chat(self, prompt: str, *args, **kwargs):
         if not hasattr(self._model, "chat"):
-            raise AttributeError("chat")
+            raise AttributeError(f"Model {self._model.model_spec} is not for chat.")
 
         return self._wrap_generator(
             getattr(self._model, "chat")(prompt, *args, **kwargs)
