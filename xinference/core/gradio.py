@@ -38,7 +38,7 @@ class GradioApp:
         self,
         supervisor_address: str,
         gladiator_num: int = 2,
-        max_model_num: int = 2,
+        max_model_num: int = 3,
         use_launched_model: bool = False,
     ):
         self._api = SyncSupervisorAPI(supervisor_address)
@@ -313,10 +313,11 @@ class GradioApp:
             _model_size_in_billions: str,
             _quantization: str,
         ):
-            return _model_name, gr.Chatbot.update(
-                label="-".join(
-                    [_model_name, _model_size_in_billions, _model_format, _quantization]
-                ),
+            full_name = "-".join(
+                [_model_name, _model_size_in_billions, _model_format, _quantization]
+            )
+            return str(uuid.uuid4()), gr.Chatbot.update(
+                label=full_name,
                 value=[],
             )
 
