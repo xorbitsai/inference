@@ -15,6 +15,7 @@ import logging
 import os
 import queue
 import re
+import subprocess
 import sys
 import tempfile
 import time
@@ -23,11 +24,34 @@ from typing import List
 
 warnings.filterwarnings('ignore')
 
+
+try:
+    import ffmpeg
+except ImportError:
+    raise ImportError(
+        "Failed to import ffmpeg, please install ffmpeg with `brew install ffmpeg & pip install"
+        " ffmpeg`"
+    )
+
+try:
+    import sounddevice as sd
+except ImportError:
+    raise ImportError(
+        "Failed to import sounddevice, please install sounddevice with `pip install sounddevice`"
+    )
+
+try:
+    import soundfile as sf
+except:
+    raise ImportError(
+        "Failed to import soundfile, please install soundfile with `pip install soundfile`"
+    )
+
 try:
     import emoji
 except ImportError:
     raise ImportError(
-        "Falied to import emoji, please check the "
+        "Failed to import emoji, please check the "
         "correct package at https://pypi.org/project/emoji/"
     )
 
@@ -35,7 +59,7 @@ try:
     import numpy
 except ImportError:
     raise ImportError(
-        "Failed to import whisper, please check the "
+        "Failed to import numpy, please check the "
         "correct package at https://pypi.org/project/numpy/1.24.1/"
     )
 
@@ -74,8 +98,6 @@ emoji_microphone = emoji.emojize(":studio_microphone:")
 
 # --------------------------------- supplemented util to get the record --------------------------------------------- #
 def get_audio_devices() -> str:
-    import sounddevice as sd
-
     global audio_devices
 
     if audio_devices != "-1":
@@ -103,12 +125,6 @@ def callback(indata, frames, time, status):
 
 # function to take audio input and transcript it into text-file.
 def record_unlimited() -> numpy.ndarray:
-    import os
-
-    import ffmpeg
-    import sounddevice as sd
-    import soundfile as sf
-
     user_device = int(get_audio_devices())
     print("")
     terminal_size = os.get_terminal_size()
@@ -150,7 +166,6 @@ def format_prompt(model, audio_input) -> str:
 def text_to_audio(response, voice_id):
     # for audio output, we apply the mac initiated "say" command to provide. For Windows users, if you want
     # audio output, you can try on pyttsx3 or gtts package to see their functionality!
-    import subprocess
 
     # Text to convert to speech
     text = response
