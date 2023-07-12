@@ -1,12 +1,16 @@
+<div align="center">
+<img src="./assets/xorbits-logo.png" width="180px" alt="xorbits" />
+
+# Xorbits Inference: Model Serving Made Easy 🤖
+
 [![PyPI Latest Release](https://img.shields.io/pypi/v/xinference.svg?style=for-the-badge)](https://pypi.org/project/xinference/)
 [![License](https://img.shields.io/pypi/l/xinference.svg?style=for-the-badge)](https://github.com/xorbitsai/inference/blob/main/LICENSE)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/xorbitsai/inference/python.yaml?branch=main&style=for-the-badge&label=GITHUB%20ACTIONS&logo=github)](https://actions-badge.atrox.dev/xorbitsai/inference/goto?ref=main)
 [![Slack](https://img.shields.io/badge/join_Slack-781FF5.svg?logo=slack&style=for-the-badge)](https://join.slack.com/t/xorbitsio/shared_invite/zt-1o3z9ucdh-RbfhbPVpx7prOVdM1CAuxg)
 [![Twitter](https://img.shields.io/twitter/follow/xorbitsio?logo=twitter&style=for-the-badge)](https://twitter.com/xorbitsio)
+</div>
+<br />
 
-# Xorbits Inference: Model Serving Made Easy 🤖
-
-Welcome to the Xorbits Inference GitHub repository!
 
 Xorbits Inference(Xinference) is a powerful and versatile library designed to serve language, 
 speech recognition, and multimodal models. With Xorbits Inference, you can effortlessly deploy 
@@ -14,37 +18,30 @@ and serve your or state-of-the-art built-in models using just a single command. 
 researcher, developer, or data scientist, Xorbits Inference empowers you to unleash the full 
 potential of cutting-edge AI models.
 
-Currently, Xorbits Inference relies on [ggml](https://github.com/ggerganov/ggml) for model serving,
-which is specifically designed to enable large models and high performance on commodity hardware. 
-We are actively working on expanding Xorbits Inference's support to include additional runtimes, 
-including PyTorch and JAX, in the near future.
-
 ![demo](assets/demo.gif)
 
 <div align="center">
 <i><a href="https://join.slack.com/t/xorbitsio/shared_invite/zt-1z3zsm9ep-87yI9YZ_B79HLB2ccTq4WA">👉 Join our Slack community!</a></i>
 </div>
 
+
 ## Key Features
-🌟 **Model Serving Made Easy**: Inference simplifies the process of serving large language, speech 
+🌟 **Model Serving Made Easy**: Simplifiy the process of serving large language, speech 
 recognition, and multimodal models. You can set up and deploy your models
 for experimentation and production with a single command.
 
 ⚡️ **State-of-the-Art Models**: Experiment with cutting-edge built-in models using a single 
 command. Inference provides access to state-of-the-art open-source models!
 
-🖥 **Heterogeneous Hardware Utilization**: Make the most of your hardware resources. Xorbits 
-Inference intelligently utilizes heterogeneous hardware, including GPUs and CPUs, to maximize
-performance and accelerate your model inference tasks.
+🖥 **Heterogeneous Hardware Utilization**: Make the most of your hardware resources with [ggml](https://github.com/ggerganov/ggml). Xorbits 
+Inference intelligently utilizes heterogeneous hardware, including GPUs and CPUs, to accelerate your model inference tasks.
 
-⚙️ **Flexible API and Interfaces**: Xorbits Inference offers multiple interfaces for interacting
-with your models. You can utilize the RPC and RESTful API(compatible with OpenAI API) to integrate
-your models with existing systems or use the command-line interface (CLI) and the intuitive WebUI
+⚙️ **Flexible API and Interfaces**: Offer multiple interfaces for interacting
+with your models, supporting RPC and RESTful API(compatible with OpenAI API), CLI and WebUI
 for seamless management and monitoring.
 
-🌐 **Distributed Deployment**: Xorbits Inference excels in distributed deployment scenarios, 
-allowing the seamless distribution of model inference across multiple devices or machines. It
-leverages distributed computing techniques to parallelize and scale the inference process.
+🌐 **Distributed Deployment**: Excel in distributed deployment scenarios, 
+allowing the seamless distribution of model inference across multiple devices or machines.
 
 🔌 **Built-in Integration with Third-Party Libraries**: Xorbits Inference seamlessly integrates
 with popular third-party libraries like LangChain and LlamaIndex. (Coming soon)
