@@ -11,6 +11,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+import argparse
 import logging
 import os
 import queue
@@ -22,7 +24,7 @@ import time
 import warnings
 from typing import List
 
-warnings.filterwarnings('ignore')
+warnings.filterwarnings("ignore")
 
 
 try:
@@ -94,6 +96,7 @@ emoji_speaking = emoji.emojize(":speaking_head:")
 emoji_sparkiles = emoji.emojize(":sparkles:")
 emoji_jack_o_lantern = emoji.emojize(":jack-o-lantern:")
 emoji_microphone = emoji.emojize(":studio_microphone:")
+emoji_rocket = emoji.emojize(":rocket:")
 
 
 # --------------------------------- supplemented util to get the record --------------------------------------------- #
@@ -117,7 +120,6 @@ q: queue.Queue = queue.Queue()
 
 
 def callback(indata, frames, time, status):
-    """This is called (from a separate thread) for each audio block."""
     if status:
         print(status, file=sys.stderr)
     q.put(indata.copy())
@@ -136,7 +138,7 @@ def record_unlimited() -> numpy.ndarray:
         # Make sure the file is opened before recording anything:
         with sf.SoundFile(filename, mode="x", samplerate=48000, channels=1) as file:
             with sd.InputStream(
-                    samplerate=48000, device=user_device, channels=1, callback=callback
+                samplerate=48000, device=user_device, channels=1, callback=callback
             ):
                 while True:
                     file.write(q.get())
@@ -164,10 +166,9 @@ def format_prompt(model, audio_input) -> str:
 
 # transcript the generated chatbot word to audio output so the user will hear the result.
 def text_to_audio(response, voice_id):
-    # for audio output, we apply the mac initiated "say" command to provide. For Windows users, if you want
-    # audio output, you can try on pyttsx3 or gtts package to see their functionality!
+    # for audio output, we apply the mac initiated "say" command to provide. For Windows users, if
+    # you want audio output, you can try on pyttsx3 or gtts package to see their functionality!
 
-    # Text to convert to speech
     text = response
     if voice_id == "Bob":
         voice = "Daniel"
@@ -181,9 +182,8 @@ def text_to_audio(response, voice_id):
     process.wait()
 
 
-# async function to chat with the bot.
 def chat_with_bot(
-        format_input, chat_history, alice_or_bob_state, system_prompt, model_ref
+    format_input, chat_history, alice_or_bob_state, system_prompt, model_ref
 ):
     completion = model_ref.chat(
         prompt=format_input,
@@ -211,17 +211,22 @@ def chat_with_bot(
 
 # ---------------------------------------- The program will run from below: ------------------------------------------#
 if __name__ == "__main__":
-    # ---------- program environment setup on Xoscar ------------ #
-    # define the starting address to launch the xoscar model,
-    # asynchronously start the program
-    supervisor_addr = "http://127.0.0.1:9997"
-    # Wizardlm model1 will have alias Alice.
-    # Wizardlm model2 will have alias Bob.
-    model_a = "vicuna-v1.3"
-    model_b = "wizardlm-v1.0"
+    parser = argparse.ArgumentParser()
 
-    # Specify the model we need
-    client = Client(supervisor_addr)
+    parser.add_argument(
+        "-e", "--endpoint", type=str, help="Xinference endpoint, required", required=True
+    )
+    args = parser.parse_args()
+
+    endpoint = args.endpoint
+
+    client = Client(endpoint)
+
+    model_a = "vicuna-v1.3"
+    print(
+        f"{emoji_rocket} Launching model {model_a}. The initial download of the model may require a certain"
+        f" amount of time."
+    )
     model_a_uid = client.launch_model(
         model_name=model_a,
         model_format="ggmlv3",
@@ -230,6 +235,12 @@ if __name__ == "__main__":
         n_ctx=2048,
     )
     model_a_ref = client.get_model(model_a_uid)
+
+    model_b = "wizardlm-v1.0"
+    print(
+        f"{emoji_rocket} Launching model {model_b}. The initial download of the model may require a certain"
+        f" amount of time."
+    )
     model_b_uid = client.launch_model(
         model_name=model_b,
         model_format="ggmlv3",
@@ -238,22 +249,22 @@ if __name__ == "__main__":
         n_ctx=2048,
     )
     model_b_ref = client.get_model(model_b_uid)
+
     # ---------- program finally start! ------------ #
-    # chat history to store every words each member is saying.
     chat_history = []
     alice_or_bob_state = "0"
     print("")
     print(emoji_jack_o_lantern, end="")
-    print(" Welcome to the Xprobe inference chatroom ", end="")
+    print(" Welcome to the Xorbits inference chatroom ", end="")
     print(emoji_jack_o_lantern)
     print(emoji_sparkiles, end="")
     print(
         " Say something with 'exit', 'quit', 'bye', or 'see you' to leave the chatroom ",
-        end=""
+        end="",
     )
     print(emoji_sparkiles)
 
-    # Receive the username.
+    # receive the username.
     print("")
     print(emoji_system, end="")
     welcome_prompt = ": Please tell us who is attending the conversation today: "
@@ -268,13 +279,12 @@ if __name__ == "__main__":
     )
     system_prompt_bob = system_prompt_alice
 
-    # We can change the scale of the model here, the bigger the model, the higher the accuracy
-    # Due to the machine restrictions, I can only launch smaller model.
+    # we can change the scale of the model here, the bigger the model, the higher the accuracy.
     model = whisper.load_model("medium")
 
     welcome_prompt2 = (
         f": Nice to meet you, {username}. Hope you will enjoy the conversation with our AI agents"
-        f" at Xprobe inference chatroom. Later, our system will guide you on when to speak "
+        f" at Xorbits inference chatroom. Later, our system will guide you on when to speak "
         f"with your microphone, please follow the steps correctly. "
         f"We hope you have a pleasant journey with our AI agents. "
     )
@@ -295,7 +305,6 @@ if __name__ == "__main__":
         print("")
         print(emoji_user, end="")
         print(f" {username}:", end="")
-        # format_input = input("type your prompt: ")
         print(format_input)
 
         # for un-natural exit audio inputs.
@@ -321,14 +330,13 @@ if __name__ == "__main__":
         chat_history.append(ChatCompletionMessage(role="user", content=format_input))
 
         system_prompt = system_prompt_alice
-        # We choose to set Alice to default
+        # we choose to set Alice to default.
         model_ref = model_a_ref
 
-        # check whether alice and bob are both in the prompt and their position:
+        # check whether alice and bob are both in the prompt and their position.
         def check_word_order(string, first_word, second_word) -> int:
-            words = re.findall(
-                r"\b\w+\b", string
-            )  # Split the string into words, excluding punctuation
+            # split the string into words, and exclude punctuation.
+            words = re.findall(r"\b\w+\b", string)
 
             if first_word in words and second_word in words:
                 first_position = words.index(first_word)
@@ -339,8 +347,8 @@ if __name__ == "__main__":
                 if first_position > second_position:
                     return 2
 
-            return -1  # Either of the words is not present in the string
-
+            # neither of the words is present in the string
+            return -1
 
         # if the user says alice first, we assume that the user want alice.
         if check_word_order(format_input.lower(), "alice", "bob") == 1:
@@ -352,7 +360,8 @@ if __name__ == "__main__":
             alice_or_bob_state = "Bob"
             system_prompt = system_prompt_bob
             model_ref = model_b_ref
-        # if not both of them presents, user says he wants to talk with Alice, we assign Alice, otherwise we assign Bob
+        # if not both of them presents, user says he wants to talk with Alice, we assign Alice,
+        # otherwise we assign Bob.
         else:
             if "alice" in format_input.lower():
                 alice_or_bob_state = "Alice"
@@ -363,7 +372,7 @@ if __name__ == "__main__":
                 system_prompt = system_prompt_bob
                 model_ref = model_b_ref
             # if both of them are not presents, if we don't have any assignment to agents,
-            # we shall tell the user to do so
+            # we shall tell the user to do so.
             else:
                 if alice_or_bob_state == "0":
                     tips = "Please feel free to call our agents' names and they are ready to chat with you!"
@@ -371,7 +380,6 @@ if __name__ == "__main__":
                     print(tips)
                     text_to_audio(tips, "0")
                     continue
-        # call the chat function to chat with the bott=.
         content = chat_with_bot(
             format_input, chat_history, alice_or_bob_state, system_prompt, model_ref
         )
