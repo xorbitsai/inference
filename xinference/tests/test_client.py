@@ -63,3 +63,6 @@ async def test_RESTful_client(setup):
 
     client.terminate_model(model_uid=model_uid)
     assert len(client.list_models()) == 0
+
+    with pytest.raises(RuntimeError):
+        client.terminate_model(model_uid=model_uid)
