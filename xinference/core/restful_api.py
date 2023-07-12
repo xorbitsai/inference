@@ -32,7 +32,7 @@ from .service import SupervisorActor
 logger = logging.getLogger(__name__)
 
 max_tokens_field = Field(
-    default=16, ge=1, le=2048, description="The maximum number of tokens to generate."
+    default=512, ge=1, le=2048, description="The maximum number of tokens to generate."
 )
 
 temperature_field = Field(
@@ -236,6 +236,9 @@ class RESTfulAPIActor(xo.Actor):
         )
         self._router = APIRouter()
         self._router.add_api_route("/v1/models", self.list_models, methods=["GET"])
+        self._router.add_api_route(
+            "/v1/models/{model_uid}", self.describe_model, methods=["GET"]
+        )
         self._router.add_api_route("/v1/models", self.launch_model, methods=["POST"])
         self._router.add_api_route(
             "/v1/models/{model_uid}", self.terminate_model, methods=["DELETE"]
@@ -287,6 +290,13 @@ class RESTfulAPIActor(xo.Actor):
                 "quantization": model_spec.quantization,
             }
         return models_dict
+
+    async def describe_model(self, model_uid: str):
+        try:
+            return await self._supervisor_ref.describe_model(model_uid)
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
 
     async def launch_model(self, request: Request) -> JSONResponse:
         payload = await request.json()

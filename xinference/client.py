@@ -36,6 +36,155 @@ if TYPE_CHECKING:
     )
 
 
+class ModelHandle:
+    """
+    A sync model interface (for rpc client) which provides type hints that makes it much easier to use xinference
+    programmatically.
+    """
+
+    def __init__(self, model_ref: xo.ActorRefType["ModelActor"], isolation: Isolation):
+        self._model_ref = model_ref
+        self._isolation = isolation
+
+
+class LlamaCppModelHandle(ModelHandle):
+    def generate(
+        self, prompt: str, generate_config: Optional["LlamaCppGenerateConfig"] = None
+    ) -> Union["Completion", Iterator["CompletionChunk"]]:
+        coro = self._model_ref.generate(prompt, generate_config)
+        return self._isolation.call(coro)
+
+
+class LlamaCppChatModelHandle(LlamaCppModelHandle):
+    def chat(
+        self,
+        prompt: str,
+        system_prompt: Optional[str] = None,
+        chat_history: Optional[List["ChatCompletionMessage"]] = None,
+        generate_config: Optional["LlamaCppGenerateConfig"] = None,
+    ) -> Union["ChatCompletion", Iterator["ChatCompletionChunk"]]:
+        coro = self._model_ref.chat(
+            prompt, system_prompt, chat_history, generate_config
+        )
+        return self._isolation.call(coro)
+
+
+class ChatglmCppChatModelHandle(ModelHandle):
+    def chat(
+        self,
+        prompt: str,
+        chat_history: Optional[List["ChatCompletionMessage"]] = None,
+        generate_config: Optional["ChatglmCppGenerateConfig"] = None,
+    ) -> Union["ChatCompletion", Iterator["ChatCompletionChunk"]]:
+        coro = self._model_ref.chat(prompt, chat_history, generate_config)
+        return self._isolation.call(coro)
+
+
+class RESTfulModelHandle:
+    """
+    A sync model interface (for RESTful client) which provides type hints that makes it much easier to use xinference
+    programmatically.
+    """
+
+    def __init__(self, model_uid: str, base_url: str):
+        self._model_uid = model_uid
+        self._base_url = base_url
+
+
+class RESTfulLlamaCppModelHandle(RESTfulModelHandle):
+    def generate(
+        self, prompt: str, generate_config: Optional["LlamaCppGenerateConfig"] = None
+    ) -> Union["Completion", Iterator["CompletionChunk"]]:
+        url = f"{self._base_url}/v1/completions"
+        if generate_config is None:
+            request_body = {"model": self._model_uid, "prompt": prompt}
+        else:
+            request_body = {
+                "model": self._model_uid,
+                "prompt": prompt,
+                **generate_config,
+            }
+        response = requests.post(url, json=request_body)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to generate completion, detail: {response.json()['detail']}"
+            )
+        response_data = response.json()
+        return response_data
+
+
+class RESTfulLlamaCppChatModelHandle(RESTfulLlamaCppModelHandle):
+    def chat(
+        self,
+        prompt: str,
+        system_prompt: Optional[str] = None,
+        chat_history: Optional[List["ChatCompletionMessage"]] = None,
+        generate_config: Optional["LlamaCppGenerateConfig"] = None,
+    ) -> Union["ChatCompletion", Iterator["ChatCompletionChunk"]]:
+        url = f"{self._base_url}/v1/chat/completions"
+
+        if chat_history is None:
+            chat_history = []
+
+        if chat_history and chat_history[0]["role"] == "system":
+            if system_prompt is not None:
+                chat_history[0]["content"] = system_prompt
+
+        else:
+            if system_prompt is not None:
+                chat_history.insert(0, {"role": "system", "content": system_prompt})
+
+        chat_history.append({"role": "user", "content": prompt})
+
+        if generate_config is None:
+            request_body = {"model": self._model_uid, "messages": chat_history}
+        else:
+            request_body = {
+                "model": self._model_uid,
+                "messages": chat_history,
+                **generate_config,
+            }
+        response = requests.post(url, json=request_body)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to generate chat completion, detail: {response.json()['detail']}"
+            )
+        response_data = response.json()
+        return response_data
+
+
+class RESTfulChatglmCppChatModelHandle(RESTfulModelHandle):
+    def chat(
+        self,
+        prompt: str,
+        chat_history: Optional[List["ChatCompletionMessage"]] = None,
+        generate_config: Optional["LlamaCppGenerateConfig"] = None,
+    ) -> Union["ChatCompletion", Iterator["ChatCompletionChunk"]]:
+        url = f"{self._base_url}/v1/chat/completions"
+
+        if chat_history is None:
+            chat_history = []
+
+        chat_history.append({"role": "user", "content": prompt})
+
+        if generate_config is None:
+            request_body = {"model": self._model_uid, "messages": chat_history}
+        else:
+            request_body = {
+                "model": self._model_uid,
+                "messages": chat_history,
+                **generate_config,
+            }
+
+        response = requests.post(url, json=request_body)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to generate chat completion, detail: {response.json()['detail']}"
+            )
+        response_data = response.json()
+        return response_data
+
+
 class Client:
     def __init__(self, endpoint: str):
         restful_client = RESTfulClient(endpoint)
@@ -93,50 +242,6 @@ class Client:
             return LlamaCppModelHandle(model_ref, self._isolation)
         else:
             return LlamaCppChatModelHandle(model_ref, self._isolation)
-
-
-class ModelHandle:
-    """
-    A sync model interface which provides type hints that makes it much easier to use xinference
-    programmatically.
-    """
-
-    def __init__(self, model_ref: xo.ActorRefType["ModelActor"], isolation: Isolation):
-        self._model_ref = model_ref
-        self._isolation = isolation
-
-
-class LlamaCppModelHandle(ModelHandle):
-    def generate(
-        self, prompt: str, generate_config: Optional["LlamaCppGenerateConfig"] = None
-    ) -> Union["Completion", Iterator["CompletionChunk"]]:
-        coro = self._model_ref.generate(prompt, generate_config)
-        return self._isolation.call(coro)
-
-
-class LlamaCppChatModelHandle(LlamaCppModelHandle):
-    def chat(
-        self,
-        prompt: str,
-        system_prompt: Optional[str] = None,
-        chat_history: Optional[List["ChatCompletionMessage"]] = None,
-        generate_config: Optional["LlamaCppGenerateConfig"] = None,
-    ) -> Union["ChatCompletion", Iterator["ChatCompletionChunk"]]:
-        coro = self._model_ref.chat(
-            prompt, system_prompt, chat_history, generate_config
-        )
-        return self._isolation.call(coro)
-
-
-class ChatglmCppChatModelHandle(ModelHandle):
-    def chat(
-        self,
-        prompt: str,
-        chat_history: Optional[List["ChatCompletionMessage"]] = None,
-        generate_config: Optional["ChatglmCppGenerateConfig"] = None,
-    ) -> Union["ChatCompletion", Iterator["ChatCompletionChunk"]]:
-        coro = self._model_ref.chat(prompt, chat_history, generate_config)
-        return self._isolation.call(coro)
 
 
 class RESTfulClient:
@@ -205,3 +310,22 @@ class RESTfulClient:
             raise RuntimeError(f"Failed to get supervisor internal address")
         response_data = response.json()
         return response_data
+
+    def get_model(self, model_uid: str) -> RESTfulModelHandle:
+        url = f"{self.base_url}/v1/models"
+        response = requests.get(url)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to get the model description, detail: {response.json()['detail']}"
+            )
+        model_spec = response.json()
+
+        if (
+            model_spec[model_uid]["model_name"] == "chatglm"
+            or model_spec[model_uid]["model_name"] == "chatglm2"
+        ):
+            return RESTfulChatglmCppChatModelHandle(model_uid, self.base_url)
+        elif model_spec[model_uid]["model_name"] == "baichuan":
+            return RESTfulLlamaCppModelHandle(model_uid, self.base_url)
+        else:
+            return RESTfulLlamaCppChatModelHandle(model_uid, self.base_url)
