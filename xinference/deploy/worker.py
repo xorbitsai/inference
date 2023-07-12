@@ -13,11 +13,14 @@
 # limitations under the License.
 
 import asyncio
+import logging
 from typing import Dict, Optional
 
 import xoscar as xo
 
 from ..core.service import WorkerActor
+
+logger = logging.getLogger(__name__)
 
 
 async def start_worker_components(address: str, supervisor_address: str):
@@ -35,6 +38,7 @@ async def start_worker_components(address: str, supervisor_address: str):
         supervisor_address=supervisor_address,
         subpool_addresses=subpool_addresses,  # exclude the main actor pool.
     )
+    logger.info(f"Xinference worker successfully started.")
 
 
 async def _start_worker(

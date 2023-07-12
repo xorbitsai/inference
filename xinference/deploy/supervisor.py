@@ -63,7 +63,7 @@ async def start_supervisor_components(address: str, host: str, port: int):
     )
     await restful_actor.serve()
     url = f"http://{host}:{port}"
-    logger.info(f"Server address: {url}")
+    logger.info(f"Xinference successfully started. Endpoint: {url}")
     return url
 
 

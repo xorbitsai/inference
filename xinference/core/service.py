@@ -175,6 +175,7 @@ class SupervisorActor(xo.Actor):
 
         worker_ref = await xo.actor_ref(address=worker_address, uid=WorkerActor.uid())
         self._worker_address_to_worker[worker_address] = worker_ref
+        logger.info("Worker %s has been added successfully", worker_address)
 
     async def report_worker_status(
         self, worker_address: str, status: Dict[str, ResourceStatus]
