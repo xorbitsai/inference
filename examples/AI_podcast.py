@@ -21,6 +21,8 @@ import time
 import warnings
 from typing import List
 
+warnings.filterwarnings('ignore')
+
 try:
     import emoji
 except ImportError:
@@ -55,7 +57,6 @@ except ImportError:
     )
 
 # ------------------------------------- global variable initialization ---------------------------------------------- #
-warnings.filterwarnings('ignore')
 logger = logging.getLogger(__name__)
 # global variable to store the audio device choices.
 audio_devices = "-1"
