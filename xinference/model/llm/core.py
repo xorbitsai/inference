@@ -61,6 +61,81 @@ class StrictTypedDict(TypedDict):
         super().__setitem__(key, value)
 
 
+def _to_prompt(
+    sep: str,
+    user_name: str,
+    assistant_name: str,
+    prompt: str,
+    system_prompt: str,
+    chat_history: List[ChatCompletionMessage],
+):
+    ret = system_prompt
+    for message in chat_history:
+        role = message["role"]
+        content = message["content"]
+        ret += f"{sep}{role}: {content}"
+    ret += f"{sep}{user_name}: {prompt}"
+    ret += f"{sep}{assistant_name}:"
+    return ret
+
+
+def _convert_chat_completion_chunks_to_chat(
+    chunks: Iterator[CompletionChunk],
+) -> Iterator[ChatCompletionChunk]:
+    for i, chunk in enumerate(chunks):
+        if i == 0:
+            yield {
+                "id": "chat" + chunk["id"],
+                "model": chunk["model"],
+                "created": chunk["created"],
+                "object": "chat.completion.chunk",
+                "choices": [
+                    {
+                        "index": 0,
+                        "delta": {
+                            "role": "assistant",
+                        },
+                        "finish_reason": None,
+                    }
+                ],
+            }
+        yield {
+            "id": "chat" + chunk["id"],
+            "model": chunk["model"],
+            "created": chunk["created"],
+            "object": "chat.completion.chunk",
+            "choices": [
+                {
+                    "index": 0,
+                    "delta": {
+                        "content": chunk["choices"][0]["text"],
+                    },
+                    "finish_reason": chunk["choices"][0]["finish_reason"],
+                }
+            ],
+        }
+
+
+def _convert_text_completion_to_chat(completion: Completion) -> ChatCompletion:
+    return {
+        "id": "chat" + completion["id"],
+        "object": "chat.completion",
+        "created": completion["created"],
+        "model": completion["model"],
+        "choices": [
+            {
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "content": completion["choices"][0]["text"],
+                },
+                "finish_reason": completion["choices"][0]["finish_reason"],
+            }
+        ],
+        "usage": completion["usage"],
+    }
+
+
 class LlamaCppGenerateConfig(TypedDict, total=False):
     suffix: Optional[str]
     max_tokens: int
@@ -240,78 +315,6 @@ class LlamaCppChatModel(LlamaCppModel):
         self._user_name: str = user_name
         self._assistant_name: str = assistant_name
 
-    def _to_prompt(
-        self,
-        prompt: str,
-        system_prompt: str,
-        chat_history: List[ChatCompletionMessage],
-    ):
-        ret = system_prompt
-        for message in chat_history:
-            role = message["role"]
-            content = message["content"]
-            ret += f"{self._sep}{role}: {content}"
-        ret += f"{self._sep}{self._user_name}: {prompt}"
-        ret += f"{self._sep}{self._assistant_name}:"
-        return ret
-
-    @staticmethod
-    def _convert_chat_completion_chunks_to_chat(
-        chunks: Iterator[CompletionChunk],
-    ) -> Iterator[ChatCompletionChunk]:
-        for i, chunk in enumerate(chunks):
-            if i == 0:
-                yield {
-                    "id": "chat" + chunk["id"],
-                    "model": chunk["model"],
-                    "created": chunk["created"],
-                    "object": "chat.completion.chunk",
-                    "choices": [
-                        {
-                            "index": 0,
-                            "delta": {
-                                "role": "assistant",
-                            },
-                            "finish_reason": None,
-                        }
-                    ],
-                }
-            yield {
-                "id": "chat" + chunk["id"],
-                "model": chunk["model"],
-                "created": chunk["created"],
-                "object": "chat.completion.chunk",
-                "choices": [
-                    {
-                        "index": 0,
-                        "delta": {
-                            "content": chunk["choices"][0]["text"],
-                        },
-                        "finish_reason": chunk["choices"][0]["finish_reason"],
-                    }
-                ],
-            }
-
-    @staticmethod
-    def _convert_text_completion_to_chat(completion: Completion) -> ChatCompletion:
-        return {
-            "id": "chat" + completion["id"],
-            "object": "chat.completion",
-            "created": completion["created"],
-            "model": completion["model"],
-            "choices": [
-                {
-                    "index": 0,
-                    "message": {
-                        "role": "assistant",
-                        "content": completion["choices"][0]["text"],
-                    },
-                    "finish_reason": completion["choices"][0]["finish_reason"],
-                }
-            ],
-            "usage": completion["usage"],
-        }
-
     def chat(
         self,
         prompt: str,
@@ -321,7 +324,14 @@ class LlamaCppChatModel(LlamaCppModel):
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
         system_prompt = system_prompt or self._system_prompt
         chat_history = chat_history or []
-        full_prompt = self._to_prompt(prompt, system_prompt, chat_history=chat_history)
+        full_prompt = _to_prompt(
+            self._sep,
+            self._user_name,
+            self._assistant_name,
+            prompt,
+            system_prompt,
+            chat_history=chat_history,
+        )
 
         generate_config = self._sanitize_generate_config(generate_config)
 
@@ -329,11 +339,11 @@ class LlamaCppChatModel(LlamaCppModel):
         if stream:
             it = self.generate(full_prompt, generate_config)
             assert isinstance(it, Iterator)
-            return self._convert_chat_completion_chunks_to_chat(it)
+            return _convert_chat_completion_chunks_to_chat(it)
         else:
             c = self.generate(full_prompt, generate_config)
             assert not isinstance(c, Iterator)
-            return self._convert_text_completion_to_chat(c)
+            return _convert_text_completion_to_chat(c)
 
 
 class PytorchGenerateConfig(StrictTypedDict, total=False):
@@ -457,10 +467,11 @@ class PytorchModel(Model):
 
     def generate(
         self, prompt: str, generate_config: Optional[PytorchGenerateConfig] = None
-    ) -> Union[Completion, Iterator[Completion]]:
-        def generator_wrapper(prompt, generate_config):
-            device = self._pytorch_model_config.get("device", "cuda")
-            for completion_chunk in generate_stream(
+    ) -> Union[Completion, Iterator[CompletionChunk]]:
+        def generator_wrapper(
+            prompt: str, device: str, generate_config: PytorchGenerateConfig
+        ) -> Iterator[CompletionChunk]:
+            for completion_chunk, _ in generate_stream(
                 self._model, self._tokenizer, prompt, device, generate_config
             ):
                 yield completion_chunk
@@ -475,13 +486,23 @@ class PytorchModel(Model):
         assert self._tokenizer is not None
 
         stream = generate_config.get("stream", False)
-
+        device = self._pytorch_model_config.get("device", "cuda")
         if not stream:
-            for completion in generator_wrapper(prompt, generate_config):
+            for completion_chunk, completion_usage in generate_stream(
+                self._model, self._tokenizer, prompt, device, generate_config
+            ):
                 pass
+            completion = Completion(
+                id=completion_chunk["id"],
+                object=completion_chunk["object"],
+                created=completion_chunk["created"],
+                model=completion_chunk["model"],
+                choices=completion_chunk["choices"],
+                usage=completion_usage,
+            )
             return completion
         else:
-            return generator_wrapper(prompt, generate_config)
+            return generator_wrapper(prompt, device, generate_config)
 
 
 class PytorchChatModel(PytorchModel):
@@ -502,90 +523,23 @@ class PytorchChatModel(PytorchModel):
         self._user_name: str = user_name
         self._assistant_name: str = assistant_name
 
-    def _to_prompt(
-        self,
-        prompt: str,
-        system_prompt: str,
-        chat_history: List[ChatCompletionMessage],
-    ):
-        ret = system_prompt
-        for message in chat_history:
-            role = message["role"]
-            content = message["content"]
-            ret += f"{self._sep}{role}: {content}"
-        ret += f"{self._sep}{self._user_name}: {prompt}"
-        ret += f"{self._sep}{self._assistant_name}:"
-        return ret
-
-    @staticmethod
-    def _convert_chat_completion_chunks_to_chat(
-        chunks: Iterator[Completion],
-    ) -> Iterator[ChatCompletion]:
-        for i, chunk in enumerate(chunks):
-            if i == 0:
-                yield {
-                    "id": "chat" + chunk["id"],
-                    "model": chunk["model"],
-                    "created": chunk["created"],
-                    "object": "chat.completion.chunk",
-                    "choices": [
-                        {
-                            "index": 0,
-                            "delta": {
-                                "role": "assistant",
-                            },
-                            "finish_reason": None,
-                        }
-                    ],
-                    "usage": chunk["usage"],
-                }
-            yield {
-                "id": "chat" + chunk["id"],
-                "model": chunk["model"],
-                "created": chunk["created"],
-                "object": "chat.completion.chunk",
-                "choices": [
-                    {
-                        "index": 0,
-                        "delta": {
-                            "content": chunk["choices"][0]["text"],
-                        },
-                        "finish_reason": chunk["choices"][0]["finish_reason"],
-                    }
-                ],
-                "usage": chunk["usage"],
-            }
-
-    @staticmethod
-    def _convert_text_completion_to_chat(completion: Completion) -> ChatCompletion:
-        return {
-            "id": "chat" + completion["id"],
-            "object": "chat.completion",
-            "created": completion["created"],
-            "model": completion["model"],
-            "choices": [
-                {
-                    "index": 0,
-                    "message": {
-                        "role": "assistant",
-                        "content": completion["choices"][0]["text"],
-                    },
-                    "finish_reason": completion["choices"][0]["finish_reason"],
-                }
-            ],
-            "usage": completion["usage"],
-        }
-
     def chat(
         self,
         prompt: str,
         system_prompt: Optional[str] = None,
         chat_history: Optional[List[ChatCompletionMessage]] = None,
         generate_config: Optional[PytorchGenerateConfig] = None,
-    ) -> Union[ChatCompletion, Iterator[ChatCompletion]]:
+    ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
         system_prompt = system_prompt or self._system_prompt
         chat_history = chat_history or []
-        full_prompt = self._to_prompt(prompt, system_prompt, chat_history=chat_history)
+        full_prompt = _to_prompt(
+            self._sep,
+            self._user_name,
+            self._assistant_name,
+            prompt,
+            system_prompt,
+            chat_history=chat_history,
+        )
 
         generate_config = self._sanitize_generate_config(generate_config)
 
@@ -593,8 +547,8 @@ class PytorchChatModel(PytorchModel):
         if stream:
             it = self.generate(full_prompt, generate_config)
             assert isinstance(it, Iterator)
-            return self._convert_chat_completion_chunks_to_chat(it)
+            return _convert_chat_completion_chunks_to_chat(it)
         else:
             c = self.generate(full_prompt, generate_config)
             assert not isinstance(c, Iterator)
-            return self._convert_text_completion_to_chat(c)
+            return _convert_text_completion_to_chat(c)

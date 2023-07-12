@@ -15,7 +15,7 @@
 import gc
 import time
 import uuid
-from typing import Iterable
+from typing import Iterable, Iterator, Tuple
 
 import torch
 from transformers.generation.logits_process import (
@@ -26,7 +26,7 @@ from transformers.generation.logits_process import (
     TopPLogitsWarper,
 )
 
-from ....types import Completion, CompletionChoice, CompletionUsage
+from ....types import CompletionChoice, CompletionChunk, CompletionUsage
 
 
 def is_sentence_complete(output: str):
@@ -79,7 +79,7 @@ def generate_stream(
     device,
     generate_config,
     judge_sent_end=False,
-):
+) -> Iterator[Tuple[CompletionChunk, CompletionUsage]]:
     context_len = get_context_length(model.config)
     stream_interval = generate_config.get("stream_interval", 2)
 
@@ -239,23 +239,22 @@ def generate_stream(
             # prevent yielding partial stop sequence
             if not partially_stopped:
                 completion_choice = CompletionChoice(
-                    text=output, index=0, finish_reason=None
+                    text=output, index=0, logprobs=None, finish_reason=None
+                )
+                completion_chunk = CompletionChunk(
+                    id=str(uuid.uuid1()),
+                    object="text_completion",
+                    created=int(time.time()),
+                    model=generate_config["model"],
+                    choices=[completion_choice],
                 )
                 completion_usage = CompletionUsage(
                     prompt_tokens=input_echo_len,
                     completion_tokens=i,
                     total_tokens=(input_echo_len + i),
                 )
-                completion = Completion(
-                    id=str(uuid.uuid1()),
-                    object="text_completion",
-                    created=int(time.time()),
-                    model=generate_config["model"],
-                    choices=[completion_choice],
-                    usage=completion_usage,
-                )
 
-                yield completion
+                yield completion_chunk, completion_usage
 
         if stopped:
             break
@@ -269,23 +268,22 @@ def generate_stream(
         finish_reason = None
 
     completion_choice = CompletionChoice(
-        text=output, index=0, finish_reason=finish_reason
+        text=output, index=0, logprobs=None, finish_reason=finish_reason
+    )
+    completion_chunk = CompletionChunk(
+        id=str(uuid.uuid1()),
+        object="text_completion",
+        created=int(time.time()),
+        model=generate_config["model"],
+        choices=[completion_choice],
     )
     completion_usage = CompletionUsage(
         prompt_tokens=input_echo_len,
         completion_tokens=i,
         total_tokens=(input_echo_len + i),
     )
-    completion = Completion(
-        id=str(uuid.uuid1()),
-        object="text_completion",
-        created=int(time.time()),
-        model=generate_config["model"],
-        choices=[completion_choice],
-        usage=completion_usage,
-    )
 
-    yield completion
+    yield completion_chunk, completion_usage
 
     # clean
     del past_key_values, out

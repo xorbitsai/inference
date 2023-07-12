@@ -221,17 +221,6 @@ def install():
         ),
     )
 
-    # MODEL_FAMILIES.append(
-    #     ModelFamily(
-    #         model_name="psmathur/orca_mini_3b",
-    #         model_sizes_in_billions=[3, 7, 13],
-    #         model_format="pytorch",
-    #         quantizations=None,
-    #         url_generator=None,
-    #         cls=VicunaCensoredPytorch,
-    #     ),
-    # )
-
     MODEL_FAMILIES.append(
         ModelFamily(
             model_name="lmsys/vicuna-7b-v1.3",
