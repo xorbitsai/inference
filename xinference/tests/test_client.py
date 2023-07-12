@@ -53,6 +53,11 @@ async def test_RESTful_client(setup):
     completion = model.generate("Once upon a time, there was a very old computer")
     assert "text" in completion["choices"][0]
 
+    completion = model.generate(
+        "Once upon a time, there was a very old computer", {"max_tokens": 256}
+    )
+    assert "text" in completion["choices"][0]
+
     completion = model.chat("write a poem.")
     assert "content" in completion["choices"][0]["message"]
 

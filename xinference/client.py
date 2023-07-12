@@ -99,10 +99,11 @@ class RESTfulLlamaCppModelHandle(RESTfulModelHandle):
         if generate_config is None:
             request_body = {"model": self._model_uid, "prompt": prompt}
         else:
+            dict = generate_config.copy()
             request_body = {
                 "model": self._model_uid,
                 "prompt": prompt,
-                **generate_config,
+                **dict,
             }
         response = requests.post(url, json=request_body)
         if response.status_code != 200:
@@ -139,10 +140,11 @@ class RESTfulLlamaCppChatModelHandle(RESTfulLlamaCppModelHandle):
         if generate_config is None:
             request_body = {"model": self._model_uid, "messages": chat_history}
         else:
+            dict = generate_config.copy()
             request_body = {
                 "model": self._model_uid,
                 "messages": chat_history,
-                **generate_config,
+                **dict,
             }
         response = requests.post(url, json=request_body)
         if response.status_code != 200:
@@ -170,10 +172,11 @@ class RESTfulChatglmCppChatModelHandle(RESTfulModelHandle):
         if generate_config is None:
             request_body = {"model": self._model_uid, "messages": chat_history}
         else:
+            dict = generate_config.copy()
             request_body = {
                 "model": self._model_uid,
                 "messages": chat_history,
-                **generate_config,
+                **dict,
             }
 
         response = requests.post(url, json=request_body)
