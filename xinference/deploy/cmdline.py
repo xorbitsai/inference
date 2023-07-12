@@ -114,12 +114,14 @@ def worker(log_level: str, endpoint: str, host: str):
 @click.option("--size-in-billions", "-s", default=None, type=int)
 @click.option("--model-format", "-f", default=None, type=str)
 @click.option("--quantization", "-q", default=None, type=str)
+@click.option("--device", "-d", default="cuda", type=str)
 def model_launch(
     endpoint: str,
     model_name: str,
     size_in_billions: int,
     model_format: str,
     quantization: str,
+    device: str,
 ):
     client = RESTfulClient(base_url=endpoint)
     model_uid = client.launch_model(
@@ -127,6 +129,7 @@ def model_launch(
         model_size_in_billions=size_in_billions,
         model_format=model_format,
         quantization=quantization,
+        device=device,
     )
 
     print(f"Model uid: {model_uid}")

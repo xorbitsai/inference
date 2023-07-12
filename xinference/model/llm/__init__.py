@@ -16,8 +16,9 @@
 def install():
     from .. import MODEL_FAMILIES, ModelFamily
     from .chatglm import ChatglmCppChatModel
-    from .core import LlamaCppModel
+    from .core import LlamaCppModel, PytorchModel
     from .orca import OrcaMiniGgml
+    from .pytorch.vicuna import VicunaCensoredPytorch
     from .vicuna import VicunaCensoredGgml
     from .wizardlm import WizardlmGgml
 
@@ -207,4 +208,37 @@ def install():
             url_generator=chatglm2_url_generator,
             cls=ChatglmCppChatModel,
         )
+    )
+
+    MODEL_FAMILIES.append(
+        ModelFamily(
+            model_name="facebook/opt-125m",
+            model_sizes_in_billions=[1],
+            model_format="pytorch",
+            quantizations=None,
+            url_generator=None,
+            cls=PytorchModel,
+        ),
+    )
+
+    # MODEL_FAMILIES.append(
+    #     ModelFamily(
+    #         model_name="psmathur/orca_mini_3b",
+    #         model_sizes_in_billions=[3, 7, 13],
+    #         model_format="pytorch",
+    #         quantizations=None,
+    #         url_generator=None,
+    #         cls=VicunaCensoredPytorch,
+    #     ),
+    # )
+
+    MODEL_FAMILIES.append(
+        ModelFamily(
+            model_name="lmsys/vicuna-7b-v1.3",
+            model_sizes_in_billions=[7, 13],
+            model_format="pytorch",
+            quantizations=None,
+            url_generator=None,
+            cls=VicunaCensoredPytorch,
+        ),
     )

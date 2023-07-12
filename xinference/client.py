@@ -26,7 +26,7 @@ from .isolation import Isolation
 if TYPE_CHECKING:
     from .model import ModelSpec
     from .model.llm.chatglm import ChatglmCppGenerateConfig
-    from .model.llm.core import LlamaCppGenerateConfig
+    from .model.llm.core import LlamaCppGenerateConfig, PytorchGenerateConfig
     from .types import (
         ChatCompletion,
         ChatCompletionChunk,
@@ -247,12 +247,84 @@ class Client:
         )
         model_ref = self._isolation.call(self._supervisor_ref.get_model(model_uid))
 
+        if model_spec.model_format == "pytorch":
+            if model_spec.model_name == "facebook/opt-125m":
+                return PytorchModelHandle(model_ref, self._isolation)
+            else:
+                return PytorchChatModelHandle(model_ref, self._isolation)
+
         if model_spec.model_name == "chatglm" or model_spec.model_name == "chatglm2":
             return ChatglmCppChatModelHandle(model_ref, self._isolation)
         elif model_spec.model_name == "baichuan":
             return LlamaCppModelHandle(model_ref, self._isolation)
         else:
             return LlamaCppChatModelHandle(model_ref, self._isolation)
+
+
+class ModelHandle:
+    """
+    A sync model interface which provides type hints that makes it much easier to use xinference
+    programmatically.
+    """
+
+    def __init__(self, model_ref: xo.ActorRefType["ModelActor"], isolation: Isolation):
+        self._model_ref = model_ref
+        self._isolation = isolation
+
+
+class PytorchModelHandle(ModelHandle):
+    def generate(
+        self, prompt: str, generate_config: Optional["PytorchGenerateConfig"] = None
+    ) -> Union["Completion", Iterator["Completion"]]:
+        coro = self._model_ref.generate(prompt, generate_config)
+        return self._isolation.call(coro)
+
+
+class PytorchChatModelHandle(PytorchModelHandle):
+    def chat(
+        self,
+        prompt: str,
+        system_prompt: Optional[str] = None,
+        chat_history: Optional[List["ChatCompletionMessage"]] = None,
+        generate_config: Optional["PytorchGenerateConfig"] = None,
+    ) -> Union["ChatCompletion", Iterator["ChatCompletion"]]:
+        coro = self._model_ref.chat(
+            prompt, system_prompt, chat_history, generate_config
+        )
+        return self._isolation.call(coro)
+
+
+class LlamaCppModelHandle(ModelHandle):
+    def generate(
+        self, prompt: str, generate_config: Optional["LlamaCppGenerateConfig"] = None
+    ) -> Union["Completion", Iterator["CompletionChunk"]]:
+        coro = self._model_ref.generate(prompt, generate_config)
+        return self._isolation.call(coro)
+
+
+class LlamaCppChatModelHandle(LlamaCppModelHandle):
+    def chat(
+        self,
+        prompt: str,
+        system_prompt: Optional[str] = None,
+        chat_history: Optional[List["ChatCompletionMessage"]] = None,
+        generate_config: Optional["LlamaCppGenerateConfig"] = None,
+    ) -> Union["ChatCompletion", Iterator["ChatCompletionChunk"]]:
+        coro = self._model_ref.chat(
+            prompt, system_prompt, chat_history, generate_config
+        )
+        return self._isolation.call(coro)
+
+
+class ChatglmCppChatModelHandle(ModelHandle):
+    def chat(
+        self,
+        prompt: str,
+        chat_history: Optional[List["ChatCompletionMessage"]] = None,
+        generate_config: Optional["ChatglmCppGenerateConfig"] = None,
+    ) -> Union["ChatCompletion", Iterator["ChatCompletionChunk"]]:
+        coro = self._model_ref.chat(prompt, chat_history, generate_config)
+        return self._isolation.call(coro)
 
 
 class RESTfulClient:
