@@ -85,8 +85,7 @@ jobs:
         env:
           MODULE: ${{ matrix.module }}
         run: |
-          pip install llama-cpp-python
-          pip install -e ".[dev]"
+          pip install -e ".[dev, all]"
         working-directory: .
 
       - name: Test with pytest

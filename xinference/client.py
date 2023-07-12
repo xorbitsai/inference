@@ -275,7 +275,7 @@ class ModelHandle:
 class PytorchModelHandle(ModelHandle):
     def generate(
         self, prompt: str, generate_config: Optional["PytorchGenerateConfig"] = None
-    ) -> Union["Completion", Iterator["Completion"]]:
+    ) -> Union["Completion", Iterator["CompletionChunk"]]:
         coro = self._model_ref.generate(prompt, generate_config)
         return self._isolation.call(coro)
 
@@ -287,7 +287,7 @@ class PytorchChatModelHandle(PytorchModelHandle):
         system_prompt: Optional[str] = None,
         chat_history: Optional[List["ChatCompletionMessage"]] = None,
         generate_config: Optional["PytorchGenerateConfig"] = None,
-    ) -> Union["ChatCompletion", Iterator["ChatCompletion"]]:
+    ) -> Union["ChatCompletion", Iterator["ChatCompletionChunk"]]:
         coro = self._model_ref.chat(
             prompt, system_prompt, chat_history, generate_config
         )
