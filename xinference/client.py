@@ -59,8 +59,8 @@ class LlamaCppChatModelHandle(LlamaCppModelHandle):
     def chat(
         self,
         prompt: str,
-        user_name=None,
-        assistant_name=None,
+        user_name: Optional[str] = None,
+        assistant_name: Optional[str] = None,
         system_prompt: Optional[str] = None,
         chat_history: Optional[List["ChatCompletionMessage"]] = None,
         generate_config: Optional["LlamaCppGenerateConfig"] = None,
