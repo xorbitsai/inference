@@ -323,7 +323,7 @@ class RESTfulClient:
         return response_data
 
     def get_model(self, model_uid: str) -> RESTfulModelHandle:
-        url = f"{self.base_url}/v1/models"
+        url = f"{self.base_url}/v1/models/{model_uid}"
         response = requests.get(url)
         if response.status_code != 200:
             raise RuntimeError(
@@ -332,11 +332,11 @@ class RESTfulClient:
         model_spec = response.json()
 
         if (
-            model_spec[model_uid]["model_name"] == "chatglm"
-            or model_spec[model_uid]["model_name"] == "chatglm2"
+            model_spec["model_name"] == "chatglm"
+            or model_spec["model_name"] == "chatglm2"
         ):
             return RESTfulChatglmCppChatModelHandle(model_uid, self.base_url)
-        elif model_spec[model_uid]["model_name"] == "baichuan":
+        elif model_spec["model_name"] == "baichuan":
             return RESTfulLlamaCppModelHandle(model_uid, self.base_url)
         else:
             return RESTfulLlamaCppChatModelHandle(model_uid, self.base_url)
