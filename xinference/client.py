@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import asyncio
+import json
 import uuid
 from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Tuple, Union
 
@@ -80,6 +81,34 @@ class ChatglmCppChatModelHandle(ModelHandle):
         return self._isolation.call(coro)
 
 
+def streaming_response_iterator(response_lines):
+    for line in response_lines:
+        line = line.strip()
+        if line:
+            if line == b"data: [DONE]":
+                yield {"data": "End of Response"}
+                break
+            try:
+                data = json.loads(line.decode("utf-8").replace("data: ", "", 1))
+                yield {"data": data}
+            except json.JSONDecodeError:
+                print("Error decoding JSON for line:", line)
+
+
+def chat_streaming_response_iterator(response_lines):
+    for line in response_lines:
+        line = line.strip()
+        if line:
+            if line == b"data: [DONE]":
+                yield {"data": "End of Response"}
+                break
+            try:
+                data = json.loads(line.decode("utf-8").replace("data: ", "", 1))
+                yield {"data": data}
+            except json.JSONDecodeError:
+                print("Error decoding JSON for line:", line)
+
+
 class RESTfulModelHandle:
     """
     A sync model interface (for RESTful client) which provides type hints that makes it much easier to use xinference
@@ -113,6 +142,10 @@ class RESTfulLlamaCppModelHandle(RESTfulModelHandle):
             raise RuntimeError(
                 f"Failed to generate completion, detail: {response.json()['detail']}"
             )
+
+        if generate_config and generate_config.get("stream"):
+            return streaming_response_iterator(response.iter_lines())
+
         response_data = response.json()
         return response_data
 
@@ -157,6 +190,10 @@ class RESTfulLlamaCppChatModelHandle(RESTfulLlamaCppModelHandle):
             raise RuntimeError(
                 f"Failed to generate chat completion, detail: {response.json()['detail']}"
             )
+
+        if generate_config and generate_config.get("stream"):
+            return chat_streaming_response_iterator(response.iter_lines())
+
         response_data = response.json()
         return response_data
 
@@ -192,6 +229,10 @@ class RESTfulChatglmCppChatModelHandle(RESTfulModelHandle):
             raise RuntimeError(
                 f"Failed to generate chat completion, detail: {response.json()['detail']}"
             )
+
+        if generate_config and generate_config.get("stream"):
+            return chat_streaming_response_iterator(response.iter_lines())
+
         response_data = response.json()
         return response_data
 
