@@ -99,13 +99,13 @@ class RESTfulLlamaCppModelHandle(RESTfulModelHandle):
         if generate_config is None:
             request_body = {"model": self._model_uid, "prompt": prompt}
         else:
-            dict = {}
+            generate_config_dict = {}
             for key, value in generate_config.items():
-                dict[str(key)] = str(value)
+                generate_config_dict[str(key)] = str(value)
             request_body = {
                 "model": self._model_uid,
                 "prompt": prompt,
-                **dict,
+                **generate_config_dict,
             }
 
         response = requests.post(url, json=request_body)
@@ -143,13 +143,13 @@ class RESTfulLlamaCppChatModelHandle(RESTfulLlamaCppModelHandle):
         if generate_config is None:
             request_body = {"model": self._model_uid, "messages": chat_history}
         else:
-            dict = {}
+            generate_config_dict = {}
             for key, value in generate_config.items():
-                dict[str(key)] = str(value)
+                generate_config_dict[str(key)] = str(value)
             request_body = {
                 "model": self._model_uid,
                 "messages": chat_history,
-                **dict,
+                **generate_config_dict,
             }
 
         response = requests.post(url, json=request_body)
@@ -166,7 +166,7 @@ class RESTfulChatglmCppChatModelHandle(RESTfulModelHandle):
         self,
         prompt: str,
         chat_history: Optional[List["ChatCompletionMessage"]] = None,
-        generate_config: Optional["LlamaCppGenerateConfig"] = None,
+        generate_config: Optional["ChatglmCppGenerateConfig"] = None,
     ) -> Union["ChatCompletion", Iterator["ChatCompletionChunk"]]:
         url = f"{self._base_url}/v1/chat/completions"
 
@@ -178,13 +178,13 @@ class RESTfulChatglmCppChatModelHandle(RESTfulModelHandle):
         if generate_config is None:
             request_body = {"model": self._model_uid, "messages": chat_history}
         else:
-            dict = {}
+            generate_config_dict = {}
             for key, value in generate_config.items():
-                dict[str(key)] = str(value)
+                generate_config_dict[str(key)] = str(value)
             request_body = {
                 "model": self._model_uid,
                 "messages": chat_history,
-                **dict,
+                **generate_config_dict,
             }
 
         response = requests.post(url, json=request_body)
