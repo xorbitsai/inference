@@ -246,16 +246,8 @@ class LlamaCppChatModel(LlamaCppModel, ChatModelDataProcessorMixin):
             role = message["role"]
             content = message["content"]
             ret += f"{self._sep}{role}: {content}"
-            logger.error("message: " + message)
         ret += f"{self._sep}{username or self._user_name}: {prompt}"
-        logger.error(
-            "user_message: " + f"{self._sep}{username or self._user_name}: {prompt}"
-        )
         ret += f"{self._sep}{assistant_name or self._assistant_name}:"
-        logger.error(
-            "assistant_message: "
-            + f"{self._sep}{assistant_name or self._assistant_name}:"
-        )
         return ret
 
     @staticmethod
@@ -330,7 +322,6 @@ class LlamaCppChatModel(LlamaCppModel, ChatModelDataProcessorMixin):
             prompt, system_prompt, user_name, assistant_name, chat_history=chat_history
         )
 
-        logger.error("full prompt:" + full_prompt)
         generate_config = self._sanitize_generate_config(generate_config)
 
         stream = generate_config.get("stream", False)
