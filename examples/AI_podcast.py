@@ -216,7 +216,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
-        "-e", "--endpoint", type=str, help="Xinference endpoint, required", required=True
+        "-e",
+        "--endpoint",
+        type=str,
+        help="Xinference endpoint, required",
+        required=True,
     )
     args = parser.parse_args()
 
@@ -383,7 +387,12 @@ if __name__ == "__main__":
                     text_to_audio(tips, "0")
                     continue
         content = chat_with_bot(
-            format_input, chat_history, alice_or_bob_state, system_prompt, model_ref, username
+            format_input,
+            chat_history,
+            alice_or_bob_state,
+            system_prompt,
+            model_ref,
+            username,
         )
 
         text_to_audio(content, alice_or_bob_state)
