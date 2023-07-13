@@ -192,7 +192,7 @@ class LlamaCppModel(Model):
             ):
                 yield _completion_chunk
 
-        logger.error(
+        logger.debug(
             "Enter generate, prompt: %s, generate config: %s", prompt, generate_config
         )
 
@@ -322,8 +322,8 @@ class LlamaCppChatModel(LlamaCppModel, ChatModelDataProcessorMixin):
         self,
         prompt: str,
         system_prompt: Optional[str] = None,
-        user_name=None,
-        assistant_name=None,
+        user_name: Optional[str] = None,
+        assistant_name: Optional[str] = None,
         chat_history: Optional[List[ChatCompletionMessage]] = None,
         generate_config: Optional[LlamaCppGenerateConfig] = None,
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
