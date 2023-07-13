@@ -192,7 +192,7 @@ class LlamaCppModel(Model):
             ):
                 yield _completion_chunk
 
-        logger.debug(
+        logger.error(
             "Enter generate, prompt: %s, generate config: %s", prompt, generate_config
         )
 
@@ -233,17 +233,104 @@ class LlamaCppChatModel(LlamaCppModel, ChatModelDataProcessorMixin):
         self._user_name: str = user_name
         self._assistant_name: str = assistant_name
 
+    def _to_prompt(
+        self,
+        prompt: str,
+        system_prompt: str,
+        username,
+        assistant_name,
+        chat_history: List[ChatCompletionMessage],
+    ):
+        ret = system_prompt
+        for message in chat_history:
+            role = message["role"]
+            content = message["content"]
+            ret += f"{self._sep}{role}: {content}"
+            logger.error("message: " + message)
+        ret += f"{self._sep}{username or self._user_name}: {prompt}"
+        logger.error(
+            "user_message: " + f"{self._sep}{username or self._user_name}: {prompt}"
+        )
+        ret += f"{self._sep}{assistant_name or self._assistant_name}:"
+        logger.error(
+            "assistant_message: "
+            + f"{self._sep}{assistant_name or self._assistant_name}:"
+        )
+        return ret
+
+    @staticmethod
+    def _convert_chat_completion_chunks_to_chat(
+        chunks: Iterator[CompletionChunk],
+    ) -> Iterator[ChatCompletionChunk]:
+        for i, chunk in enumerate(chunks):
+            if i == 0:
+                yield {
+                    "id": "chat" + chunk["id"],
+                    "model": chunk["model"],
+                    "created": chunk["created"],
+                    "object": "chat.completion.chunk",
+                    "choices": [
+                        {
+                            "index": 0,
+                            "delta": {
+                                "role": "assistant",
+                            },
+                            "finish_reason": None,
+                        }
+                    ],
+                }
+            yield {
+                "id": "chat" + chunk["id"],
+                "model": chunk["model"],
+                "created": chunk["created"],
+                "object": "chat.completion.chunk",
+                "choices": [
+                    {
+                        "index": 0,
+                        "delta": {
+                            "content": chunk["choices"][0]["text"],
+                        },
+                        "finish_reason": chunk["choices"][0]["finish_reason"],
+                    }
+                ],
+            }
+
+    @staticmethod
+    def _convert_text_completion_to_chat(completion: Completion) -> ChatCompletion:
+        return {
+            "id": "chat" + completion["id"],
+            "object": "chat.completion",
+            "created": completion["created"],
+            "model": completion["model"],
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {
+                        "role": "assistant",
+                        "content": completion["choices"][0]["text"],
+                    },
+                    "finish_reason": completion["choices"][0]["finish_reason"],
+                }
+            ],
+            "usage": completion["usage"],
+        }
+
     def chat(
         self,
         prompt: str,
         system_prompt: Optional[str] = None,
+        user_name=None,
+        assistant_name=None,
         chat_history: Optional[List[ChatCompletionMessage]] = None,
         generate_config: Optional[LlamaCppGenerateConfig] = None,
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
         system_prompt = system_prompt or self._system_prompt
         chat_history = chat_history or []
-        full_prompt = self._to_prompt(prompt, system_prompt, chat_history=chat_history)
+        full_prompt = self._to_prompt(
+            prompt, system_prompt, user_name, assistant_name, chat_history=chat_history
+        )
 
+        logger.error("full prompt:" + full_prompt)
         generate_config = self._sanitize_generate_config(generate_config)
 
         stream = generate_config.get("stream", False)
