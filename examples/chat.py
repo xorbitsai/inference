@@ -3,16 +3,29 @@ from typing import List
 from xinference.client import Client
 from xinference.types import ChatCompletionMessage
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("--endpoint", type=str, help="Xinference endpoint, required")
-    parser.add_argument("--model_name", type=str, help="Name of the model, required")
     parser.add_argument(
-        "--model_size_in_billions", type=int, required=False, help="Size of the model in billions", )
-    parser.add_argument("--model_format", type=str, required=False, help="Format of the model", )
+        "--endpoint", type=str, required=True, help="Xinference endpoint, required"
+    )
+    parser.add_argument(
+        "--model_name", type=str, required=True, help="Name of the model, required"
+    )
+    parser.add_argument(
+        "--model_size_in_billions",
+        type=int,
+        required=False,
+        help="Size of the model in billions",
+    )
+    parser.add_argument(
+        "--model_format",
+        type=str,
+        required=False,
+        help="Format of the model",
+    )
     parser.add_argument("--quantization", type=str, required=False, help="Quantization")
 
     args = parser.parse_args()
@@ -30,7 +43,13 @@ if __name__ == '__main__':
     print(f"Quantization: {quantization}")
 
     client = Client(endpoint)
-    model_uid = client.launch_model(model_name, n_ctx=2048)
+    model_uid = client.launch_model(
+        model_name,
+        model_size_in_billions=model_size_in_billions,
+        model_format=model_format,
+        quantization=quantization,
+        n_ctx=2048,
+    )
     model = client.get_model(model_uid)
 
     chat_history: List["ChatCompletionMessage"] = []
@@ -39,13 +58,9 @@ if __name__ == '__main__':
         completion = model.chat(
             prompt=prompt,
             chat_history=chat_history,
-            generate_config={"max_tokens": 1024}
+            generate_config={"max_tokens": 1024},
         )
         content = completion["choices"][0]["message"]["content"]
         print(f"{model_name}: {content}")
-        chat_history.append(
-            ChatCompletionMessage(role="user", content=prompt)
-        )
-        chat_history.append(
-            ChatCompletionMessage(role="assistant", content=content)
-        )
+        chat_history.append(ChatCompletionMessage(role="user", content=prompt))
+        chat_history.append(ChatCompletionMessage(role="assistant", content=content))
