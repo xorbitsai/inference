@@ -183,11 +183,13 @@ def text_to_audio(response, voice_id):
 
 
 def chat_with_bot(
-    format_input, chat_history, alice_or_bob_state, system_prompt, model_ref
+    format_input, chat_history, alice_or_bob_state, system_prompt, model_ref, usname
 ):
     completion = model_ref.chat(
         prompt=format_input,
         system_prompt=system_prompt,
+        user_name=usname,
+        assistant_name=alice_or_bob_state,
         chat_history=chat_history,
         generate_config={"max_tokens": 1024},
     )
@@ -381,7 +383,7 @@ if __name__ == "__main__":
                     text_to_audio(tips, "0")
                     continue
         content = chat_with_bot(
-            format_input, chat_history, alice_or_bob_state, system_prompt, model_ref
+            format_input, chat_history, alice_or_bob_state, system_prompt, model_ref, username
         )
 
         text_to_audio(content, alice_or_bob_state)
