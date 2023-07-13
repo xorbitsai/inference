@@ -140,7 +140,6 @@ class LlamaCppModel(Model):
         else:
             context_length = 2048
 
-        # llamacpp_model_config.setdefault("n_gpu_layers", self._gpu_layers)
         llamacpp_model_config.setdefault("n_ctx", context_length)
 
         return llamacpp_model_config
@@ -182,7 +181,7 @@ class LlamaCppModel(Model):
             for _completion_chunk in self._llm(prompt=_prompt, **_generate_config):
                 yield _completion_chunk
 
-        logger.error(
+        logger.debug(
             "Enter generate, prompt: %s, generate config: %s", prompt, generate_config
         )
 
@@ -294,8 +293,8 @@ class LlamaCppChatModel(LlamaCppModel):
         self,
         prompt: str,
         system_prompt: Optional[str] = None,
-        user_name=None,
-        assistant_name=None,
+        user_name: Optional[str] = None,
+        assistant_name: Optional[str] = None,
         chat_history: Optional[List[ChatCompletionMessage]] = None,
         generate_config: Optional[LlamaCppGenerateConfig] = None,
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
