@@ -59,12 +59,19 @@ class LlamaCppChatModelHandle(LlamaCppModelHandle):
     def chat(
         self,
         prompt: str,
+        user_name=None,
+        assistant_name=None,
         system_prompt: Optional[str] = None,
         chat_history: Optional[List["ChatCompletionMessage"]] = None,
         generate_config: Optional["LlamaCppGenerateConfig"] = None,
     ) -> Union["ChatCompletion", Iterator["ChatCompletionChunk"]]:
         coro = self._model_ref.chat(
-            prompt, system_prompt, chat_history, generate_config
+            prompt,
+            system_prompt,
+            user_name,
+            assistant_name,
+            chat_history,
+            generate_config,
         )
         return self._isolation.call(coro)
 
