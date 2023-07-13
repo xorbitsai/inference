@@ -40,6 +40,12 @@ async def test_restful_api(setup):
     response_data = response.json()
     assert len(response_data) == 1
 
+    # describe
+    response = requests.get(f"{endpoint}/v1/models/test")
+    response_data = response.json()
+    print(response_data)
+    assert response_data["model_name"] == "orca"
+
     # generate
     url = f"{endpoint}/v1/completions"
     payload = {

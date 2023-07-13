@@ -14,7 +14,7 @@
 
 import pytest
 
-from ..client import Client
+from ..client import Client, RESTfulClient
 
 
 @pytest.mark.asyncio
@@ -35,3 +35,34 @@ async def test_sync_client(setup):
 
     client.terminate_model(model_uid=model_uid)
     assert len(client.list_models()) == 0
+
+
+@pytest.mark.asyncio
+async def test_RESTful_client(setup):
+    endpoint, _ = setup
+    client = RESTfulClient(endpoint)
+    assert len(client.list_models()) == 0
+
+    model_uid = client.launch_model(
+        model_name="orca", model_size_in_billions=3, quantization="q4_0"
+    )
+    assert len(client.list_models()) == 1
+
+    model = client.get_model(model_uid=model_uid)
+
+    completion = model.generate("Once upon a time, there was a very old computer")
+    assert "text" in completion["choices"][0]
+
+    completion = model.generate(
+        "Once upon a time, there was a very old computer", {"max_tokens": 256}
+    )
+    assert "text" in completion["choices"][0]
+
+    completion = model.chat("write a poem.")
+    assert "content" in completion["choices"][0]["message"]
+
+    client.terminate_model(model_uid=model_uid)
+    assert len(client.list_models()) == 0
+
+    with pytest.raises(RuntimeError):
+        client.terminate_model(model_uid=model_uid)
