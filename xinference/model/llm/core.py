@@ -146,7 +146,7 @@ class LlamaCppGenerateConfig(TypedDict, total=False):
     stop: Optional[Union[str, List[str]]]
     frequency_penalty: float
     presence_penalty: float
-    repeat_penalty: float
+    repetition_penalty: float
     top_k: int
     stream: bool
     tfs_z: float
@@ -275,10 +275,14 @@ class LlamaCppModel(Model):
         self, prompt: str, generate_config: Optional[LlamaCppGenerateConfig] = None
     ) -> Union[Completion, Iterator[CompletionChunk]]:
         def generator_wrapper(
-            _prompt: str, _generate_config: LlamaCppGenerateConfig
+            _prompt: str,
+            repeat_penalty: float,
+            _generate_config: LlamaCppGenerateConfig,
         ) -> Iterator[CompletionChunk]:
             assert self._llm is not None
-            for _completion_chunk in self._llm(prompt=_prompt, **_generate_config):
+            for _completion_chunk in self._llm(
+                prompt=_prompt, repeat_penalty=repeat_penalty, **_generate_config
+            ):
                 yield _completion_chunk
 
         logger.debug(
@@ -287,14 +291,21 @@ class LlamaCppModel(Model):
 
         generate_config = self._sanitize_generate_config(generate_config)
 
+        repeat_penalty = 1.1
+        if "repetition_penalty" in generate_config:
+            repeat_penalty = generate_config["repetition_penalty"]
+            generate_config.pop("repetition_penalty")
+
         stream = generate_config.get("stream", False)
         if not stream:
             assert self._llm is not None
-            completion = self._llm(prompt=prompt, **generate_config)
+            completion = self._llm(
+                prompt=prompt, repeat_penalty=repeat_penalty, **generate_config
+            )
 
             return completion
         else:
-            return generator_wrapper(prompt, generate_config)
+            return generator_wrapper(prompt, repeat_penalty, generate_config)
 
 
 class LlamaCppChatModel(LlamaCppModel):

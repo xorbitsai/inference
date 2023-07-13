@@ -89,6 +89,7 @@ jobs:
           pip install transformers
           pip install torch
           pip install accelerate
+          pip install sentencepiece
           pip install -e ".[dev]"
         working-directory: .
 
