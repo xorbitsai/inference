@@ -32,7 +32,7 @@ from .service import SupervisorActor
 logger = logging.getLogger(__name__)
 
 max_tokens_field = Field(
-    default=512, ge=1, le=2048, description="The maximum number of tokens to generate."
+    default=128, ge=1, le=2048, description="The maximum number of tokens to generate."
 )
 
 temperature_field = Field(
