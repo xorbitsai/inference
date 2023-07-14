@@ -120,10 +120,12 @@ def test_model_integrity():
 
     with pytest.warns(Warning) as w:
         test_model.cache()
-        assert len(w) == 1
+        assert len(w) == 2
 
+        warning2 = w[1]
         warning = w[0]
         assert str(warning.message) == "Model size doesn't match, try to update it..."
+        assert str(warning2.message) == "Model size doesn't match, try to update it..."
 
 
 @pytest.mark.skipif(
