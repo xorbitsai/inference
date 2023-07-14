@@ -20,7 +20,6 @@ import sys
 import tempfile
 import time
 import warnings
-# from typing import List
 
 warnings.filterwarnings("ignore")
 
@@ -72,7 +71,6 @@ except ImportError:
 
 try:
     from xinference.client import Client
-    # from xinference.client import RESTfulClient
     from xinference.types import ChatCompletionMessage
 except ImportError:
     raise ImportError(
@@ -222,28 +220,9 @@ def chat_with_bot(
 
     return content
 
-# Shall be used when Torch is available.
-# def _to_prompt(
-#     sep,
-#     prompt: str,
-#     system_prompt: str,
-#     username: str,
-#     assistant_name: str,
-#     chat_history: List[ChatCompletionMessage],
-# ):
-#     ret = system_prompt
-#     for message in chat_history:
-#         role = message["role"]
-#         content = message["content"]
-#         ret += f"{sep}{role}: {content}"
-#     ret += f"{sep}{username}: {prompt}"
-#     ret += f"{sep}{assistant_name}:"
-#     return ret
-
 
 # ---------------------------------------- The program will run from below: ------------------------------------------#
 if __name__ == "__main__":
-    # ---------- program environment setup on Xoscar ------------ #
     # define the starting address to launch the xoscar model,
     # for Using Http: supervisor_addr = "http://10.144.0.1:44935"
     # for Using local:supervisor_addr = "http://127.0.0.1:9997"
@@ -273,8 +252,7 @@ if __name__ == "__main__":
     )
     model_a_ref = client.get_model(model_a_uid)
     print(
-        f"{emoji_rocket} Launching model {model_a}-2. The initial download of the model may require a certain"
-        f" amount of time."
+        f"{emoji_rocket} 启动模型 {model_a}-1。初次下载需要的时间可能会比较长。"
     )
     model_b_uid = client.launch_model(
         model_name=model_a,
