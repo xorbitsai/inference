@@ -130,18 +130,38 @@ class LlamaCppModel(Model):
         )
         self._llm = None
 
+    @staticmethod
+    def _is_darwin_and_apple_silicon():
+        return platform.system() == "Darwin" and platform.processor() == "arm"
+
+    @staticmethod
+    def _is_linux():
+        return platform.system() == "Linux"
+
+    def _can_apply_metal(self):
+        return (
+            self.model_spec.quantization == "q4_0"
+            or self.model_spec.quantization == "q4_1"
+        )
+
+    def _can_apply_cublas(self):
+        # TODO: figure out the quantizations supported.
+        return True
+
     def _sanitize_model_config(
         self, llamacpp_model_config: Optional[LlamaCppModelConfig]
     ) -> LlamaCppModelConfig:
         if llamacpp_model_config is None:
             llamacpp_model_config = LlamaCppModelConfig()
         if platform.system() == "Windows":
-            context_length = 512
+            llamacpp_model_config.setdefault("n_ctx", 512)
         else:
-            context_length = 2048
+            llamacpp_model_config.setdefault("n_ctx", 2048)
 
-        llamacpp_model_config.setdefault("n_gpu_layers", self._gpu_layers)
-        llamacpp_model_config.setdefault("n_ctx", context_length)
+        if self._is_darwin_and_apple_silicon() and self._can_apply_metal():
+            llamacpp_model_config.setdefault("n_gpu_layers", 1)
+        elif self._is_linux() and self._can_apply_cublas():
+            llamacpp_model_config.setdefault("n_gpu_layers", self._gpu_layers)
 
         return llamacpp_model_config
 
