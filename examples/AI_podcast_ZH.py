@@ -269,11 +269,11 @@ if __name__ == "__main__":
     alice_or_bob_state = "0"
     print("")
     print(emoji_jack_o_lantern, end="")
-    print(" 欢迎来到 Xprobe inference 聊天室 ", end="")
+    print(" 欢迎来到 Xorbits inference 聊天室 ", end="")
     print(emoji_jack_o_lantern)
     print(emoji_sparkiles, end="")
     print(
-        " 如果要退出聊天室，请说 '退出'，'离开', '再见', or '拜拜' to leave the chatroom ",
+        " 如果要退出聊天室，请说 '退出'，'离开', '再见', or '拜拜'",
         end=""
     )
     print(emoji_sparkiles)
@@ -401,7 +401,7 @@ if __name__ == "__main__":
 
     del chat_history
     bye_msg1 = (
-        ": 感谢你关注我们未来速度公司的 Inference 项目，并选择两位诞生于该项目的杰出人工智能工作人员"
+        ": 感谢你关注我们未来速度公司的 Xinference 项目，并选择两位诞生于该项目的杰出人工智能工作人员"
     )
     bye_msg2 = (
         ": 我们会继续努力强化我们的已有的产品，并持续推出新产品，未来速度的目标始终是为大数据用户提供更好的产品与更广阔的平台"
