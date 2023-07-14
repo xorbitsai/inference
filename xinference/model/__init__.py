@@ -133,8 +133,7 @@ class ModelFamily:
         if not os.path.exists(save_dir):
             os.makedirs(save_dir, exist_ok=True)
         save_path = os.path.join(save_dir, "model.bin")
-        meta_path = os.path.join(save_dir, "meta")
-        return save_path, meta_path
+        return save_path
 
     def cache(
         self,
@@ -172,6 +171,20 @@ class ModelFamily:
             return url
 
         full_name = f"{str(self)}-{model_size_in_billions}b-{quantization}"
+        save_path = self.generate_cache_path(model_size_in_billions, quantization)
+
+        if os.path.exists(save_path):
+            if os.path.getsize(save_path) == expected_size:
+                return save_path
+            else:
+                warnings.warn(
+                    "Model size doesn't match, try to update it...", RuntimeWarning
+                )
+
+        save_dir = os.path.join(XINFERENCE_CACHE_DIR, full_name)
+        if not os.path.exists(save_dir):
+            os.makedirs(save_dir, exist_ok=True)
+
         save_path = os.path.join(save_dir, "model.bin")
         if os.path.exists(save_path):
             # verify the integrity.
@@ -199,6 +212,7 @@ class ModelFamily:
                         blocksize
                     ),
                 )
+
             # verify the integrity.
             if os.path.getsize(save_path) != expected_size:
                 os.remove(save_path)
