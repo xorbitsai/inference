@@ -20,7 +20,7 @@ import sys
 import tempfile
 import time
 import warnings
-from typing import List
+# from typing import List
 
 warnings.filterwarnings("ignore")
 
@@ -71,7 +71,8 @@ except ImportError:
     )
 
 try:
-    from xinference.client import Client, RESTfulClient
+    from xinference.client import Client
+    # from xinference.client import RESTfulClient
     from xinference.types import ChatCompletionMessage
 except ImportError:
     raise ImportError(
@@ -128,12 +129,6 @@ def callback(indata, frames, time, status):
 
 # function to take audio input and transcript it into text-file.
 def record_unlimited() -> numpy.ndarray:
-    import os
-
-    import ffmpeg
-    import sounddevice as sd
-    import soundfile as sf
-
     user_device = int(get_audio_devices())
     print("")
     terminal_size = os.get_terminal_size()
@@ -227,7 +222,7 @@ def chat_with_bot(
 
     return content
 
-
+# Shall be used when Torch is available.
 # def _to_prompt(
 #     sep,
 #     prompt: str,
@@ -336,17 +331,17 @@ if __name__ == "__main__":
     text_to_audio(welcome_prompt2, "0")
 
     while True:
-        # audio_input = record_unlimited()
-        #
-        # start = time.time()
-        # format_input = format_prompt(model, audio_input)
-        # logger.info(f"Time spent on transcribing: {time.time() - start}")
+        audio_input = record_unlimited()
+
+        start = time.time()
+        format_input = format_prompt(model, audio_input)
+        logger.info(f"Time spent on transcribing: {time.time() - start}")
 
         # set up the separation between each chat block.
         print("")
         print(emoji_user, end="")
         print(f" {username}:", end="")
-        format_input = input("type your prompt: ")
+        # format_input = input("type your prompt: ")
         print(format_input)
 
         # for un-natural exit audio inputs.
@@ -389,7 +384,6 @@ if __name__ == "__main__":
                     return 2
 
             return -1  # Either of the words is not present in the string
-
 
         # if the user says alice first, we assume that the user want alice.
         if check_word_order(format_input.lower(), "小红", "小花") == 1:
