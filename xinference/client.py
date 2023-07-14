@@ -311,7 +311,7 @@ class RESTfulClient:
         response = requests.get(url)
         if response.status_code != 200:
             raise RuntimeError(
-                f"Failed to launch model, detail: {response.json()['detail']}"
+                f"Failed to list model, detail: {response.json()['detail']}"
             )
 
         response_data = response.json()

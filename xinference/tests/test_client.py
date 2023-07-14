@@ -50,6 +50,12 @@ async def test_RESTful_client(setup):
 
     model = client.get_model(model_uid=model_uid)
 
+    with pytest.raises(RuntimeError):
+        model = client.get_model(model_uid="test")
+
+    with pytest.raises(RuntimeError):
+        completion = model.generate({"max_tokens": 64})
+
     completion = model.generate("Once upon a time, there was a very old computer")
     assert "text" in completion["choices"][0]
 
@@ -67,6 +73,9 @@ async def test_RESTful_client(setup):
         assert (
             chunk["data"] == "End of Response" or "text" in chunk["data"]["choices"][0]
         )
+
+    with pytest.raises(RuntimeError):
+        completion = model.chat({"max_tokens": 64})
 
     completion = model.chat("What is the capital of France?")
     assert "content" in completion["choices"][0]["message"]
