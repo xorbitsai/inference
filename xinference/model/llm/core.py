@@ -237,8 +237,6 @@ class LlamaCppChatModel(LlamaCppModel, ChatModelDataProcessorMixin):
         self,
         prompt: str,
         system_prompt: str,
-        username: str,
-        assistant_name: str,
         chat_history: List[ChatCompletionMessage],
     ):
         ret = system_prompt
@@ -246,8 +244,8 @@ class LlamaCppChatModel(LlamaCppModel, ChatModelDataProcessorMixin):
             role = message["role"]
             content = message["content"]
             ret += f"{self._sep}{role}: {content}"
-        ret += f"{self._sep}{username}: {prompt}"
-        ret += f"{self._sep}{assistant_name}:"
+        ret += f"{self._sep}{self._user_name}: {prompt}"
+        ret += f"{self._sep}{self._assistant_name}:"
         return ret
 
     @staticmethod
@@ -311,18 +309,12 @@ class LlamaCppChatModel(LlamaCppModel, ChatModelDataProcessorMixin):
         self,
         prompt: str,
         system_prompt: Optional[str] = None,
-        user_name: Optional[str] = None,
-        assistant_name: Optional[str] = None,
         chat_history: Optional[List[ChatCompletionMessage]] = None,
         generate_config: Optional[LlamaCppGenerateConfig] = None,
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
         system_prompt = system_prompt or self._system_prompt
-        user_name = user_name or self._user_name
-        assistant_name = assistant_name or self._assistant_name
         chat_history = chat_history or []
-        full_prompt = self._to_prompt(
-            prompt, system_prompt, user_name, assistant_name, chat_history=chat_history
-        )
+        full_prompt = self._to_prompt(prompt, system_prompt, chat_history=chat_history)
 
         generate_config = self._sanitize_generate_config(generate_config)
 

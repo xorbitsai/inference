@@ -65,8 +65,6 @@ class ChatModelHandle(GenerateModelHandle):
     def chat(
         self,
         prompt: str,
-        user_name: Optional[str] = None,
-        assistant_name: Optional[str] = None,
         system_prompt: Optional[str] = None,
         chat_history: Optional[List["ChatCompletionMessage"]] = None,
         generate_config: Optional[
@@ -76,8 +74,6 @@ class ChatModelHandle(GenerateModelHandle):
         coro = self._model_ref.chat(
             prompt,
             system_prompt,
-            user_name,
-            assistant_name,
             chat_history,
             generate_config,
         )
@@ -166,6 +162,8 @@ class RESTfulChatModelHandle(RESTfulGenerateModelHandle):
         self,
         prompt: str,
         system_prompt: Optional[str] = None,
+        user_name: Optional[str] = None,
+        assistant_name: Optional[str] = None,
         chat_history: Optional[List["ChatCompletionMessage"]] = None,
         generate_config: Optional[
             Union["LlamaCppGenerateConfig", "PytorchGenerateConfig"]
@@ -179,7 +177,6 @@ class RESTfulChatModelHandle(RESTfulGenerateModelHandle):
         if chat_history and chat_history[0]["role"] == "system":
             if system_prompt is not None:
                 chat_history[0]["content"] = system_prompt
-
         else:
             if system_prompt is not None:
                 chat_history.insert(0, {"role": "system", "content": system_prompt})
