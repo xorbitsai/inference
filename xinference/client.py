@@ -162,8 +162,6 @@ class RESTfulChatModelHandle(RESTfulGenerateModelHandle):
         self,
         prompt: str,
         system_prompt: Optional[str] = None,
-        user_name: Optional[str] = None,
-        assistant_name: Optional[str] = None,
         chat_history: Optional[List["ChatCompletionMessage"]] = None,
         generate_config: Optional[
             Union["LlamaCppGenerateConfig", "PytorchGenerateConfig"]
