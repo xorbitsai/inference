@@ -88,12 +88,14 @@ def install():
         else (
             "https://huggingface.co/TheBloke/vicuna-13b-v1.3.0-GGML/resolve/main/"
             f"vicuna-13b-v1.3.0.ggmlv3.{quantization}.bin"
+            if model_size == 13
+            else f"https://huggingface.co/TheBloke/vicuna-33B-GGML/resolve/main/vicuna-33b.ggmlv3.{quantization}.bin"
         )
     )
     MODEL_FAMILIES.append(
         ModelFamily(
             model_name="vicuna-v1.3",
-            model_sizes_in_billions=[7, 13],
+            model_sizes_in_billions=[7, 13, 33],
             model_format="ggmlv3",
             quantizations=[
                 "q2_K",
