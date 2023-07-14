@@ -165,6 +165,7 @@ $ xinference list --all
 | chatglm              | SFT Model        | en, zh   | ggmlv3 | 6                  | 'q4_0', 'q4_1', 'q5_0', 'q5_1', 'q8_0' |
 | chatglm2             | SFT Model        | en, zh   | ggmlv3 | 6                  | 'q4_0', 'q4_1', 'q5_0', 'q5_1', 'q8_0' |
 | wizardlm-v1.0        | SFT Model        | en       | ggmlv3 | 7, 13, 33          | 'q2_K', 'q3_K_L', ... , 'q6_K', 'q8_0' |
+| wizardlm-v1.1        | SFT Model        | en       | ggmlv3 | 13                 | 'q2_K', 'q3_K_L', ... , 'q6_K', 'q8_0' |
 | vicuna-v1.3          | SFT Model        | en       | ggmlv3 | 7, 13              | 'q2_K', 'q3_K_L', ... , 'q6_K', 'q8_0' |
 | orca                 | SFT Model        | en       | ggmlv3 | 3, 7, 13           | 'q4_0', 'q4_1', 'q5_0', 'q5_1', 'q8_0' |
 
