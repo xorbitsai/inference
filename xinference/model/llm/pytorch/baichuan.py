@@ -15,7 +15,11 @@
 from typing import TYPE_CHECKING, Optional
 
 from ....constants import XINFERENCE_CACHE_DIR
+<<<<<<< HEAD
 from .core import PytorchChatModel, PytorchModel, PytorchModelConfig
+=======
+from .core import PytorchModel, PytorchModelConfig
+>>>>>>> f799b67 (FEAT: support pytorch models (#157))
 
 if TYPE_CHECKING:
     from ... import ModelSpec
@@ -62,6 +66,7 @@ class BaichuanPytorch(PytorchModel):
             **kwargs,
         )
         return model, tokenizer
+<<<<<<< HEAD
 
 
 class BaichuanPytorchChat(PytorchChatModel):
@@ -122,3 +127,5 @@ class BaichuanPytorchChat(PytorchChatModel):
         )
         model.generation_config = GenerationConfig.from_pretrained(self._model_path)
         return model, tokenizer
+=======
+>>>>>>> f799b67 (FEAT: support pytorch models (#157))

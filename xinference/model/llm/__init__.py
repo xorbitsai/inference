@@ -18,7 +18,11 @@ def install():
     from .chatglm import ChatglmCppChatModel
     from .core import LlamaCppModel
     from .orca import OrcaMiniGgml
+<<<<<<< HEAD
     from .pytorch.baichuan import BaichuanPytorch, BaichuanPytorchChat
+=======
+    from .pytorch.baichuan import BaichuanPytorch
+>>>>>>> f799b67 (FEAT: support pytorch models (#157))
     from .pytorch.vicuna import VicunaCensoredPytorch
     from .vicuna import VicunaCensoredGgml
     from .wizardlm import WizardlmGgml
@@ -213,6 +217,7 @@ def install():
         )
     )
 
+<<<<<<< HEAD
     pytorch_baichuan_name_generator = lambda model_size, quantization: (
         f"baichuan-inc/Baichuan-{model_size}B"
     )
@@ -223,10 +228,20 @@ def install():
             model_format="pytorch",
             quantizations=["none"],
             url_generator=pytorch_baichuan_name_generator,
+=======
+    MODEL_FAMILIES.append(
+        ModelFamily(
+            model_name="baichuan-inc/Baichuan-7B",
+            model_sizes_in_billions=[7],
+            model_format="pytorch",
+            quantizations=None,
+            url_generator=None,
+>>>>>>> f799b67 (FEAT: support pytorch models (#157))
             cls=BaichuanPytorch,
         ),
     )
 
+<<<<<<< HEAD
     pytorch_baichuan_base_name_generator = lambda model_size, quantization: (
         f"baichuan-inc/Baichuan-{model_size}B-Base"
     )
@@ -265,6 +280,15 @@ def install():
             model_format="pytorch",
             quantizations=["none"],
             url_generator=pytorch_vicuna_v1_3_name_generator,
+=======
+    MODEL_FAMILIES.append(
+        ModelFamily(
+            model_name="lmsys/vicuna-7b-v1.3",
+            model_sizes_in_billions=[7, 13],
+            model_format="pytorch",
+            quantizations=None,
+            url_generator=None,
+>>>>>>> f799b67 (FEAT: support pytorch models (#157))
             cls=VicunaCensoredPytorch,
         ),
     )

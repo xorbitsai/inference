@@ -85,18 +85,31 @@ class ModelFamily:
 
     def __iter__(self):
         model_specs = []
-        for model_size in self.model_sizes_in_billions:
-            for quantization in self.quantizations:
+        if self.model_format == "pytorch":
+            for model_size in self.model_sizes_in_billions:
                 model_specs.append(
                     ModelSpec(
                         model_name=self.model_name,
                         model_size_in_billions=model_size,
                         model_format=self.model_format,
-                        quantization=quantization,
-                        url=self.url_generator(model_size, quantization),
+                        quantization=None,
+                        url=None,
                     )
                 )
-        return iter(model_specs)
+            return iter(model_specs)
+        else:
+            for model_size in self.model_sizes_in_billions:
+                for quantization in self.quantizations:
+                    model_specs.append(
+                        ModelSpec(
+                            model_name=self.model_name,
+                            model_size_in_billions=model_size,
+                            model_format=self.model_format,
+                            quantization=quantization,
+                            url=self.url_generator(model_size, quantization),
+                        )
+                    )
+            return iter(model_specs)
 
     def match(
         self,
@@ -133,6 +146,9 @@ class ModelFamily:
         model_size_in_billions: Optional[int] = None,
         quantization: Optional[str] = None,
     ) -> str:
+        if self.model_format == "pytorch":
+            return self.model_name
+
         # by default, choose the smallest size.
         model_size_in_billions = (
             model_size_in_billions or self.model_sizes_in_billions[0]

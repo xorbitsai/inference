@@ -300,7 +300,11 @@ class Client:
             return ChatglmCppChatModelHandle(model_ref, self._isolation)
         elif (
             model_spec.model_name == "baichuan"
+<<<<<<< HEAD
             or model_spec.model_name == "baichuan-base"
+=======
+            or model_spec.model_name == "baichuan-inc/Baichuan-7B"
+>>>>>>> f799b67 (FEAT: support pytorch models (#157))
         ):
             return GenerateModelHandle(model_ref, self._isolation)
         else:
@@ -390,7 +394,11 @@ class RESTfulClient:
             return RESTfulChatglmCppChatModelHandle(model_uid, self.base_url)
         elif (
             model_spec["model_name"] == "baichuan"
+<<<<<<< HEAD
             or model_spec["model_name"] == "baichuan-base"
+=======
+            or model_spec["model_name"] == "baichuan-inc/Baichuan-7B"
+>>>>>>> f799b67 (FEAT: support pytorch models (#157))
         ):
             return RESTfulGenerateModelHandle(model_uid, self.base_url)
         else:
