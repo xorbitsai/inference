@@ -83,7 +83,17 @@ class ChatglmCppChatModelHandle(ModelHandle):
 
 def streaming_response_iterator(
     response_lines: Iterator[bytes],
-) -> Union[Iterator["CompletionChunk"], Iterator["ChatCompletionChunk"]]:
+) -> Iterator["CompletionChunk"]:
+    for line in response_lines:
+        line = line.strip()
+        if line:
+            data = json.loads(line.decode("utf-8").replace("data: ", "", 1))
+            yield data
+
+
+def chat_streaming_response_iterator(
+    response_lines: Iterator[bytes],
+) -> Iterator["ChatCompletionChunk"]:
     for line in response_lines:
         line = line.strip()
         if line:
@@ -174,7 +184,7 @@ class RESTfulLlamaCppChatModelHandle(RESTfulLlamaCppModelHandle):
             )
 
         if generate_config and generate_config.get("stream"):
-            return streaming_response_iterator(response.iter_lines())
+            return chat_streaming_response_iterator(response.iter_lines())
 
         response_data = response.json()
         return response_data
@@ -213,7 +223,7 @@ class RESTfulChatglmCppChatModelHandle(RESTfulModelHandle):
             )
 
         if generate_config and generate_config.get("stream"):
-            return streaming_response_iterator(response.iter_lines())
+            return chat_streaming_response_iterator(response.iter_lines())
 
         response_data = response.json()
         return response_data
