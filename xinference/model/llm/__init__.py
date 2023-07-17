@@ -16,8 +16,9 @@
 def install():
     from .. import MODEL_FAMILIES, ModelFamily
     from .chatglm import ChatglmCppChatModel
-    from .core import LlamaCppModel, PytorchModel
+    from .core import LlamaCppModel
     from .orca import OrcaMiniGgml
+    from .pytorch.baichuan import BaichuanPytorch
     from .pytorch.vicuna import VicunaCensoredPytorch
     from .vicuna import VicunaCensoredGgml
     from .wizardlm import WizardlmGgml
@@ -212,12 +213,12 @@ def install():
 
     MODEL_FAMILIES.append(
         ModelFamily(
-            model_name="facebook/opt-125m",
-            model_sizes_in_billions=[1],
+            model_name="baichuan-inc/Baichuan-7B",
+            model_sizes_in_billions=[7],
             model_format="pytorch",
             quantizations=None,
             url_generator=None,
-            cls=PytorchModel,
+            cls=BaichuanPytorch,
         ),
     )
 

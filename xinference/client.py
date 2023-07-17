@@ -26,7 +26,8 @@ from .isolation import Isolation
 if TYPE_CHECKING:
     from .model import ModelSpec
     from .model.llm.chatglm import ChatglmCppGenerateConfig
-    from .model.llm.core import LlamaCppGenerateConfig, PytorchGenerateConfig
+    from .model.llm.core import LlamaCppGenerateConfig
+    from .model.llm.pytorch.core import PytorchGenerateConfig
     from .types import (
         ChatCompletion,
         ChatCompletionChunk,
@@ -263,7 +264,7 @@ class Client:
             return ChatglmCppChatModelHandle(model_ref, self._isolation)
         elif (
             model_spec.model_name == "baichuan"
-            or model_spec.model_name == "facebook/opt-125m"
+            or model_spec.model_name == "baichuan-inc/Baichuan-7B"
         ):
             return GenerateModelHandle(model_ref, self._isolation)
         else:
@@ -353,7 +354,7 @@ class RESTfulClient:
             return RESTfulChatglmCppChatModelHandle(model_uid, self.base_url)
         elif (
             model_spec["model_name"] == "baichuan"
-            or model_spec["model_name"] == "facebook/opt-125m"
+            or model_spec["model_name"] == "baichuan-inc/Baichuan-7B"
         ):
             return RESTfulGenerateModelHandle(model_uid, self.base_url)
         else:

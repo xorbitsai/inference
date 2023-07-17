@@ -14,7 +14,7 @@
 
 from typing import TYPE_CHECKING, Optional
 
-from ..core import PytorchChatModel, PytorchModelConfig
+from .core import PytorchChatModel, PytorchModelConfig
 
 if TYPE_CHECKING:
     from ... import ModelSpec
