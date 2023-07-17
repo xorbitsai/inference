@@ -81,32 +81,14 @@ class ChatglmCppChatModelHandle(ModelHandle):
         return self._isolation.call(coro)
 
 
-def streaming_response_iterator(response_lines):
+def streaming_response_iterator(
+    response_lines: Iterator[bytes],
+) -> Union[Iterator["CompletionChunk"], Iterator["ChatCompletionChunk"]]:
     for line in response_lines:
         line = line.strip()
         if line:
-            if line == b"data: [DONE]":
-                yield {"data": "End of Response"}
-                break
-            try:
-                data = json.loads(line.decode("utf-8").replace("data: ", "", 1))
-                yield {"data": data}
-            except json.JSONDecodeError:
-                print("Error decoding JSON for line:", line)
-
-
-def chat_streaming_response_iterator(response_lines):
-    for line in response_lines:
-        line = line.strip()
-        if line:
-            if line == b"data: [DONE]":
-                yield {"data": "End of Response"}
-                break
-            try:
-                data = json.loads(line.decode("utf-8").replace("data: ", "", 1))
-                yield {"data": data}
-            except json.JSONDecodeError:
-                print("Error decoding JSON for line:", line)
+            data = json.loads(line.decode("utf-8").replace("data: ", "", 1))
+            yield data
 
 
 class RESTfulModelHandle:
@@ -192,7 +174,7 @@ class RESTfulLlamaCppChatModelHandle(RESTfulLlamaCppModelHandle):
             )
 
         if generate_config and generate_config.get("stream"):
-            return chat_streaming_response_iterator(response.iter_lines())
+            return streaming_response_iterator(response.iter_lines())
 
         response_data = response.json()
         return response_data
@@ -231,7 +213,7 @@ class RESTfulChatglmCppChatModelHandle(RESTfulModelHandle):
             )
 
         if generate_config and generate_config.get("stream"):
-            return chat_streaming_response_iterator(response.iter_lines())
+            return streaming_response_iterator(response.iter_lines())
 
         response_data = response.json()
         return response_data

@@ -336,11 +336,9 @@ class RESTfulAPIActor(xo.Actor):
         except ValueError as ve:
             logger.error(str(ve), exc_info=True)
             raise HTTPException(status_code=400, detail=str(ve))
-
         except RuntimeError as re:
             logger.error(str(re), exc_info=True)
             raise HTTPException(status_code=503, detail=str(re))
-
         except Exception as e:
             logger.error(str(e), exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
@@ -350,7 +348,6 @@ class RESTfulAPIActor(xo.Actor):
     async def terminate_model(self, model_uid: str):
         try:
             await self._supervisor_ref.terminate_model(model_uid)
-
         except ValueError as ve:
             logger.error(str(ve), exc_info=True)
             raise HTTPException(status_code=400, detail=str(ve))
@@ -381,7 +378,6 @@ class RESTfulAPIActor(xo.Actor):
 
         try:
             model = await self._supervisor_ref.get_model(model_uid)
-
         except ValueError as ve:
             logger.error(str(ve), exc_info=True)
             raise HTTPException(status_code=400, detail=str(ve))
@@ -402,7 +398,6 @@ class RESTfulAPIActor(xo.Actor):
                             await inner_send_chan.send(dict(data=json.dumps(chunk)))
                             if await request.is_disconnected():
                                 raise anyio.get_cancelled_exc_class()()
-                        await inner_send_chan.send(dict(data="[DONE]"))
                     except anyio.get_cancelled_exc_class() as e:
                         print("disconnected")
                         with anyio.move_on_after(1, shield=True):
@@ -489,7 +484,6 @@ class RESTfulAPIActor(xo.Actor):
                             await inner_send_chan.send(dict(data=json.dumps(chunk)))
                             if await request.is_disconnected():
                                 raise anyio.get_cancelled_exc_class()()
-                        await inner_send_chan.send(dict(data="[DONE]"))
                     except anyio.get_cancelled_exc_class() as e:
                         print("disconnected")
                         with anyio.move_on_after(1, shield=True):

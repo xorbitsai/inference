@@ -70,9 +70,7 @@ async def test_RESTful_client(setup):
     )
 
     for chunk in streaming_response:
-        assert (
-            chunk["data"] == "End of Response" or "text" in chunk["data"]["choices"][0]
-        )
+        assert "text" in chunk["choices"][0]
 
     with pytest.raises(RuntimeError):
         completion = model.chat({"max_tokens": 64})
@@ -85,9 +83,7 @@ async def test_RESTful_client(setup):
     )
 
     for chunk in streaming_response:
-        assert chunk["data"] == "End of Response" or (
-            "content" or "role" in chunk["data"]["choices"][0]["delta"]
-        )
+        assert "content" or "role" in chunk["choices"][0]["delta"]
 
     client.terminate_model(model_uid=model_uid)
     assert len(client.list_models()) == 0
