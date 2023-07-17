@@ -157,19 +157,15 @@ class Xinference(LLM):
         if stop:
             generate_config["stop"] = stop
 
-        print(generate_config)
-
         if generate_config and generate_config.get("stream") == True:
-            # return "not implemented"
             combined_text_output = ""
             for token in self.stream(
                 model=model,
                 prompt=prompt,
-                stop=stop,
                 run_manager=run_manager,
-                kwargs=generate_config,
+                **generate_config,
             ):
-                combined_text_output += token["choices"][0]["text"]
+                combined_text_output += token
             return combined_text_output
 
         else:
@@ -185,13 +181,15 @@ class Xinference(LLM):
     ):
         streaming_response = model.generate(prompt=prompt, generate_config=kwargs)
         for chunk in streaming_response:
-            token = chunk["choices"][0]["text"]
-            log_probs = chunk["choices"][0].get("logprobs", None)
+            if chunk == {"data": "End of Response"}:
+                break
+            token = chunk["data"]["choices"][0]["text"]
+            log_probs = chunk["data"]["choices"][0].get("logprobs", None)
             if run_manager:
                 run_manager.on_llm_new_token(
                     token=token, verbose=self.verbose, log_probs=log_probs
                 )
-            yield chunk
+            yield token
 
 
 if __name__ == "__main__":
@@ -203,7 +201,7 @@ if __name__ == "__main__":
         n_ctx=100,
     )
     answer = llm(
-        prompt="Q: what is the capital of France? A:",
+        prompt="Q: where we can visit in the capital of France? A:",
         generate_config={"max_tokens": 1024, "stream": True},
     )
     print(answer)
