@@ -138,6 +138,10 @@ def install():
         f"https://huggingface.co/TheBloke/WizardLM-{model_size}B-V1.1-GGML/resolve/main/"
         f"wizardlm-{model_size}b-v1.1.ggmlv3.{quantization}.bin"
     )
+    wizardlm_v1_1_url_raw_generator = lambda model_size, quantization: (
+        f"https://huggingface.co/TheBloke/WizardLM-{model_size}B-V1.1-GGML/raw/main/"
+        f"wizardlm-{model_size}b-v1.1.ggmlv3.{quantization}.bin"
+    )
     MODEL_FAMILIES.append(
         ModelFamily(
             model_name="wizardlm-v1.1",
@@ -160,6 +164,7 @@ def install():
                 "q8_0",
             ],
             url_generator=wizardlm_v1_1_url_generator,
+            rp_url_generator=wizardlm_v1_1_url_raw_generator,
             cls=VicunaCensoredGgml,  # according to https://huggingface.co/TheBloke/WizardLM-13B-V1.1-GGML
         ),
     )
