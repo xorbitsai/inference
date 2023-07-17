@@ -12,64 +12,186 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, List, Optional
+from typing import Any, List, Mapping, Optional
 
+from langchain.callbacks.manager import CallbackManagerForLLMRun
 from langchain.llms.base import LLM
 
-from xinference.client import RESTfulClient
+from xinference.client import RESTfulClient, RESTfulModelHandle
+
+# if TYPE_CHECKING:
+#     import xinference
 
 
 class Xinference(LLM):
+    """Wrapper for accessing Xinference's large-scale model inference service.
+
+    To use, you should have the xinference library installed:
+
+    .. code-block:: bash
+
+        pip install xinference
+
+    Check out: https://github.com/xorbitsai/inference
+
+    To run, you need to start a Xinference supervisor on one server and Xinference workers on the other servers
+
+    Example:
+        Starting the supervisor:
+        .. code-block:: bash
+
+            $ xinference-supervisor
+
+        Starting the worker:
+        .. code-block:: bash
+            $ xinference-worker
+
+    Then, you can accessing Xinference's model inference service.
+
+    Example:
+        .. code-block:: python
+        llm = Xinference(
+            server_url="http://0.0.0.0:9997",
+            model_name="orca",
+            model_size_in_billions=3,
+            quantization="q4_0",
+        )
+
+        llm("Q: what is the capital of France? A:")
+
+    To view all the supported builtin models, run:
+
+    .. code-block:: bash
+
+        $ xinference list --all
+
+    """
+
     client: Any
+    server_url: str
+    """Server URL to run the xinference server on"""
     model_name: str
-    model_size_in_billions: Optional[int]
-    model_format: Optional[str]
-    quantization: Optional[str]
+    """Model name to use. See 'xinference list --all' for all builtin models."""
+    model_size_in_billions: Optional[int] = None
+    """model size in billions"""
+    model_format: Optional[str] = None
+    """format of the model"""
+    quantization: Optional[str] = None
+    """quantization of the model"""
+    model_kwargs: Optional[dict] = None
 
     def __init__(
         self,
-        server_url: str,
-        model_name: str,
-        model_size_in_billions: Optional[int],
+        server_url: Optional[str] = None,
+        model_name: Optional[str] = None,
+        model_size_in_billions: Optional[int] = None,
         model_format: Optional[str] = None,
         quantization: Optional[str] = None,
         **kwargs: Any,
     ):
+        # try:
+        #     import xinference
+        # except ImportError as e:
+        #     raise ImportError(
+        #         "Could not import xinference. Make sure to install it with "
+        #         "'pip install xinference'"
+        # ) from e
+
         super().__init__(
             **{
                 "model_name": model_name,
                 "server_url": server_url,
-                "llm_kwargs": kwargs,
+                "model_kwargs": kwargs,
             }
         )
+
+        if self.model_name is None:
+            raise ValueError(ValueError(f"Please provide the model name"))
+
+        if self.server_url is None:
+            raise ValueError(ValueError(f"Please provide server URL"))
+
         self.client = RESTfulClient(server_url)
-        self.model_name = model_name
-        self.model_size_in_billions = model_size_in_billions or None
-        self.model_format = model_format or None
-        self.quantization = quantization or None
 
     @property
     def _llm_type(self) -> str:
         """Return type of llm."""
         return "xinference"
 
+    @property
+    def _identifying_params(self) -> Mapping[str, Any]:
+        """Get the identifying parameters."""
+        _model_kwargs = self.model_kwargs or {}
+        return {
+            **{"server_url": self.server_url},
+            **{"model_kwargs": _model_kwargs},
+        }
+
     def _call(
         self,
         prompt: str,
         stop: Optional[List[str]] = None,
+        run_manager: Optional[CallbackManagerForLLMRun] = None,
         **kwargs: Any,
     ) -> str:
+        # try:
+        #     import xinference
+        # except ImportError as e:
+        #     raise ImportError(
+        #         "Could not import xinference. Make sure to install it with "
+        #         "'pip install xinference'"
+        # ) from e
+
         model_uid = self.client.launch_model(
             self.model_name,
             self.model_size_in_billions,
             self.model_format,
             self.quantization,
-            **kwargs,
+            **(self.model_kwargs),
         )
-        completion = self.client.generate(
-            model_uid=model_uid, prompt=prompt, kwargs=kwargs
-        )
-        return completion["choices"][0]["text"]
+
+        model = self.client.get_model(model_uid)
+
+        generate_config = kwargs.get("generate_config", {})
+
+        if stop:
+            generate_config["stop"] = stop
+
+        print(generate_config)
+
+        if generate_config and generate_config.get("stream") == True:
+            # return "not implemented"
+            combined_text_output = ""
+            for token in self.stream(
+                model=model,
+                prompt=prompt,
+                stop=stop,
+                run_manager=run_manager,
+                kwargs=generate_config,
+            ):
+                combined_text_output += token["choices"][0]["text"]
+            return combined_text_output
+
+        else:
+            completion = model.generate(prompt=prompt, generate_config=generate_config)
+            return completion["choices"][0]["text"]
+
+    def stream(
+        self,
+        model: RESTfulModelHandle,
+        prompt: str,
+        run_manager: Optional[CallbackManagerForLLMRun] = None,
+        **kwargs: Any,
+    ):
+        streaming_response = model.generate(prompt=prompt, generate_config=kwargs)
+        for chunk in streaming_response:
+            token = chunk["choices"][0]["text"]
+            log_probs = chunk["choices"][0].get("logprobs", None)
+            if run_manager:
+                run_manager.on_llm_new_token(
+                    token=token, verbose=self.verbose, log_probs=log_probs
+                )
+            yield chunk
 
 
 if __name__ == "__main__":
@@ -78,6 +200,10 @@ if __name__ == "__main__":
         model_name="orca",
         model_size_in_billions=3,
         quantization="q4_0",
+        n_ctx=100,
     )
-    answer = llm("Q: what is the capital of France? A:")
+    answer = llm(
+        prompt="Q: what is the capital of France? A:",
+        generate_config={"max_tokens": 1024, "stream": True},
+    )
     print(answer)
