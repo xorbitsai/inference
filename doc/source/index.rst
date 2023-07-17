@@ -34,6 +34,22 @@ allowing the seamless distribution of model inference across multiple devices or
 🔌 **Built-in Integration with Third-Party Libraries**: Xorbits Inference seamlessly integrates
 with popular third-party libraries like LangChain and LlamaIndex. (Coming soon)
 
+
+Installation
+------------
+Xinference can be installed via pip from PyPI. It is highly recommended to create a new virtual
+environment to avoid conflicts::
+
+  pip install "xinference[all]"
+
+
+``xinference[all]`` installs all the necessary packages for serving models. If you want to achieve acceleration on
+different hardware, refer to the installation documentation of the corresponding package.
+
+* `llama-cpp-python <https://github.com/abetlen/llama-cpp-python#installation-from-pypi-recommended>`_ is required to run ``baichuan``, ``wizardlm-v1.0``, ``vicuna-v1.3`` and ``orca``.
+* `chatglm-cpp-python <https://github.com/li-plus/chatglm.cpp#getting-started>`_ is required to run ``chatglm`` and ``chatglm2``.
+
+
 Builtin models
 --------------
 
