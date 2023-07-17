@@ -18,6 +18,8 @@ def install():
     from .chatglm import ChatglmCppChatModel
     from .core import LlamaCppModel
     from .orca import OrcaMiniGgml
+    from .pytorch.baichuan import BaichuanPytorch
+    from .pytorch.vicuna import VicunaCensoredPytorch
     from .vicuna import VicunaCensoredGgml
     from .wizardlm import WizardlmGgml
 
@@ -207,4 +209,26 @@ def install():
             url_generator=chatglm2_url_generator,
             cls=ChatglmCppChatModel,
         )
+    )
+
+    MODEL_FAMILIES.append(
+        ModelFamily(
+            model_name="baichuan-inc/Baichuan-7B",
+            model_sizes_in_billions=[7],
+            model_format="pytorch",
+            quantizations=None,
+            url_generator=None,
+            cls=BaichuanPytorch,
+        ),
+    )
+
+    MODEL_FAMILIES.append(
+        ModelFamily(
+            model_name="lmsys/vicuna-7b-v1.3",
+            model_sizes_in_billions=[7, 13],
+            model_format="pytorch",
+            quantizations=None,
+            url_generator=None,
+            cls=VicunaCensoredPytorch,
+        ),
     )

@@ -24,13 +24,14 @@ from .. import MODEL_FAMILIES
 def test_model_availability(model_spec):
     attempt = 0
     max_attempt = 3
-    while attempt < max_attempt:
-        attempt += 1
-        try:
-            assert requests.head(model_spec.url).status_code != 404
-            break
-        except Exception:
-            continue
+    if model_spec.model_format != "pytorch":
+        while attempt < max_attempt:
+            attempt += 1
+            try:
+                assert requests.head(model_spec.url).status_code != 404
+                break
+            except Exception:
+                continue
 
-    if attempt == max_attempt:
-        pytest.fail(f"{str(model_spec)} is not available")
+        if attempt == max_attempt:
+            pytest.fail(f"{str(model_spec)} is not available")
