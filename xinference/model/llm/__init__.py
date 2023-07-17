@@ -307,6 +307,7 @@ def install():
             model_format="pytorch",
             quantizations=["none"],
             url_generator=pytorch_baichuan_name_generator,
+            rp_url_generator=None,
             cls=BaichuanPytorch,
         ),
     )
@@ -349,6 +350,7 @@ def install():
             model_format="pytorch",
             quantizations=["none"],
             url_generator=pytorch_vicuna_v1_3_name_generator,
+            rp_url_generator=None,
             cls=VicunaCensoredPytorch,
         ),
     )
