@@ -307,7 +307,7 @@ def install():
             model_format="pytorch",
             quantizations=["none"],
             url_generator=pytorch_baichuan_name_generator,
-            rp_url_generator=None,
+            rp_url_generator=lambda model_size, quantization: "",
             cls=BaichuanPytorch,
         ),
     )
@@ -322,6 +322,7 @@ def install():
             model_format="pytorch",
             quantizations=["int4", "int8", "none"],
             url_generator=pytorch_baichuan_base_name_generator,
+            rp_url_generator=lambda model_size, quantization: "",
             cls=BaichuanPytorch,
         ),
     )
@@ -336,6 +337,7 @@ def install():
             model_format="pytorch",
             quantizations=["int4", "int8", "none"],
             url_generator=pytorch_baichuan_chat_name_generator,
+            rp_url_generator=lambda model_size, quantization: "",
             cls=BaichuanPytorchChat,
         ),
     )
@@ -350,7 +352,7 @@ def install():
             model_format="pytorch",
             quantizations=["none"],
             url_generator=pytorch_vicuna_v1_3_name_generator,
-            rp_url_generator=None,
+            rp_url_generator=lambda model_size, quantization: "",
             cls=VicunaCensoredPytorch,
         ),
     )

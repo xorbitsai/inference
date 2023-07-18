@@ -35,7 +35,7 @@ class ModelSpec:
         model_size_in_billions: int,
         quantization: str,
         url: str,
-        rp_url: str,
+        rp_url: Optional[str] = None,
     ):
         self.model_name = model_name
         self.model_format = model_format
