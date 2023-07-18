@@ -399,9 +399,9 @@ class RESTfulAPIActor(xo.Actor):
                             if await request.is_disconnected():
                                 raise anyio.get_cancelled_exc_class()()
                     except anyio.get_cancelled_exc_class() as e:
-                        print("disconnected")
+                        logger.warning("disconnected")
                         with anyio.move_on_after(1, shield=True):
-                            print(
+                            logger.warning(
                                 f"Disconnected from client (via refresh/close) {request.client}"
                             )
                             await inner_send_chan.send(dict(closing=True))
@@ -447,7 +447,7 @@ class RESTfulAPIActor(xo.Actor):
             or not body.messages[-1].get("content")
         ):
             raise HTTPException(
-                status_code=400, detail="Invalid input. Please specify the prompt"
+                status_code=400, detail="Invalid input. Please specify the prompt."
             )
 
         prompt = body.messages[-1]["content"]
@@ -485,9 +485,9 @@ class RESTfulAPIActor(xo.Actor):
                             if await request.is_disconnected():
                                 raise anyio.get_cancelled_exc_class()()
                     except anyio.get_cancelled_exc_class() as e:
-                        print("disconnected")
+                        logger.warning("disconnected")
                         with anyio.move_on_after(1, shield=True):
-                            print(
+                            logger.warning(
                                 f"Disconnected from client (via refresh/close) {request.client}"
                             )
                             await inner_send_chan.send(dict(closing=True))

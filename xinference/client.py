@@ -98,6 +98,7 @@ def streaming_response_iterator(
             yield data
 
 
+# Duplicate code due to type hint issues
 def chat_streaming_response_iterator(
     response_lines: Iterator[bytes],
 ) -> Iterator["ChatCompletionChunk"]:
