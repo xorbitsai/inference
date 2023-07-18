@@ -93,7 +93,7 @@ def streaming_response_iterator(
 ) -> Iterator["CompletionChunk"]:
     for line in response_lines:
         line = line.strip()
-        if line:
+        if line.startswith(b"data:"):
             data = json.loads(line.decode("utf-8").replace("data: ", "", 1))
             yield data
 
@@ -103,7 +103,7 @@ def chat_streaming_response_iterator(
 ) -> Iterator["ChatCompletionChunk"]:
     for line in response_lines:
         line = line.strip()
-        if line:
+        if line.startswith(b"data:"):
             data = json.loads(line.decode("utf-8").replace("data: ", "", 1))
             yield data
 
