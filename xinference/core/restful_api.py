@@ -156,7 +156,6 @@ class CreateCompletionRequest(BaseModel):
         }
 
 
-# TODO: create embedding request and response
 class CreateEmbeddingRequest(BaseModel):
     model: str
     input: Union[str, List[str]] = Field(description="The input to embed.")
@@ -315,7 +314,18 @@ class RESTfulAPIActor(xo.Actor):
         model_size_in_billions = payload.get("model_size_in_billions")
         model_format = payload.get("model_format")
         quantization = payload.get("quantization")
-        kwargs = payload.get("kwargs", {}) or {}
+
+        exclude_keys = {
+            "model_uid",
+            "model_name",
+            "model_size_in_billions",
+            "model_format",
+            "quantization",
+        }
+
+        kwargs = {
+            key: value for key, value in payload.items() if key not in exclude_keys
+        }
 
         if model_uid is None or model_uid is None:
             raise HTTPException(
@@ -421,7 +431,25 @@ class RESTfulAPIActor(xo.Actor):
                 raise HTTPException(status_code=500, detail=str(e))
 
     async def create_embedding(self, request: CreateEmbeddingRequest):
-        raise HTTPException(status_code=501, detail="Not implemented")
+        model_uid = request.model
+
+        try:
+            model = await self._supervisor_ref.get_model(model_uid)
+        except ValueError as ve:
+            logger.error(str(ve), exc_info=True)
+            raise HTTPException(status_code=400, detail=str(ve))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
+        if not hasattr(model, "embedding") or not model.embedding:
+            raise HTTPException(
+                status_code=400, detail="Model does not support embedding"
+            )
+
+        input = request.input
+
+        return await model.create_embedding(input)
 
     async def create_chat_completion(
         self,
