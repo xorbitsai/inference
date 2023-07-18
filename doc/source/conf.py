@@ -47,6 +47,10 @@ templates_path = ['_templates']
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = []
 
+# i18n
+locale_dirs = ["locale/"]  # path is example but recommended.
+gettext_compact = False  # optional
+
 
 # -- Options for HTML output -------------------------------------------------
 
