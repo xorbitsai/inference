@@ -100,10 +100,6 @@ class ModelActor(xo.Actor):
 
         return getattr(self._model, "create_embedding")(input, *args, **kwargs)
 
-        # return self._wrap_generator(
-        #     getattr(self._model, "create_embedding")(input, *args, **kwargs)
-        # )
-
     async def next(self) -> Union["ChatCompletionChunk", "CompletionChunk"]:
         try:
             assert self._generator is not None

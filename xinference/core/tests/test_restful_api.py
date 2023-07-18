@@ -19,7 +19,6 @@ import requests
 @pytest.mark.asyncio
 async def test_restful_api(setup):
     endpoint, _ = setup
-    print(endpoint)
     url = f"{endpoint}/v1/models"
 
     # list
@@ -35,11 +34,29 @@ async def test_restful_api(setup):
     model_uid_res = response_data["model_uid"]
     assert model_uid_res == "test"
 
+    # # embedding
+    # url = f"{endpoint}/v1/embeddings"
+    # payload = {
+    #     "model": "test",
+    #     "input": "The food was delicious and the waiter...",
+    # }
+    # response = requests.post(url, json=payload)
+    # assert response.status_code == 500
+
     payload = {"model_uid": "test", "model_name": "orca", "quantization": "q4_0"}
     response = requests.post(url, json=payload)
     assert response.status_code == 400
 
     payload = {"model_name": "orca", "quantization": "q4_0"}
+    response = requests.post(url, json=payload)
+    assert response.status_code == 400
+
+    # embedding
+    url = f"{endpoint}/v1/embeddings"
+    payload = {
+        "model": "test",
+        "input": "The food was delicious and the waiter...",
+    }
     response = requests.post(url, json=payload)
     assert response.status_code == 400
 
@@ -141,3 +158,31 @@ async def test_restful_api(setup):
     url = f"{endpoint}/v1/models/test"
     response = requests.delete(url)
     assert response.status_code == 400
+
+    # test for model that supports embedding
+    url = f"{endpoint}/v1/models"
+
+    payload = {
+        "model_uid": "test2",
+        "model_name": "orca",
+        "quantization": "q4_0",
+        "embedding": "True",
+    }
+
+    response = requests.post(url, json=payload)
+    response_data = response.json()
+    model_uid_res = response_data["model_uid"]
+    assert model_uid_res == "test2"
+
+    url = f"{endpoint}/v1/embeddings"
+    payload = {
+        "model": "test2",
+        "input": "The food was delicious and the waiter...",
+    }
+    response = requests.post(url, json=payload)
+    embedding_res = response.json()
+
+    assert "embedding" in embedding_res["data"][0]
+
+    url = f"{endpoint}/v1/models/test2"
+    response = requests.delete(url)

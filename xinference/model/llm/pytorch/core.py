@@ -24,6 +24,7 @@ from ....types import (
     ChatCompletionMessage,
     Completion,
     CompletionChunk,
+    Embedding,
 )
 from ..core import Model
 from ..utils import ChatModelDataProcessorMixin
@@ -192,6 +193,9 @@ class PytorchModel(Model):
             return completion
         else:
             return generator_wrapper(prompt, device, generate_config)
+
+    def create_embedding(self, input: Union[str, List[str]]) -> Embedding:
+        raise NotImplementedError
 
 
 class PytorchChatModel(PytorchModel, ChatModelDataProcessorMixin):

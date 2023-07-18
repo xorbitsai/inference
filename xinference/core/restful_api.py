@@ -31,7 +31,7 @@ from sse_starlette.sse import EventSourceResponse
 from typing_extensions import NotRequired, TypedDict
 from uvicorn import Config, Server
 
-from ..types import ChatCompletion, Completion
+from ..types import ChatCompletion, Completion, Embedding
 from .service import SupervisorActor
 
 logger = logging.getLogger(__name__)
@@ -255,7 +255,10 @@ class RESTfulAPIActor(xo.Actor):
             response_model=Completion,
         )
         self._router.add_api_route(
-            "/v1/embeddings", self.create_embedding, methods=["POST"]
+            "/v1/embeddings",
+            self.create_embedding,
+            methods=["POST"],
+            response_model=Embedding,
         )
         self._router.add_api_route(
             "/v1/chat/completions",
@@ -442,14 +445,17 @@ class RESTfulAPIActor(xo.Actor):
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
 
-        if not hasattr(model, "embedding") or not model.embedding:
-            raise HTTPException(
-                status_code=400, detail="Model does not support embedding"
-            )
-
         input = request.input
 
-        return await model.create_embedding(input)
+        try:
+            embedding = await model.create_embedding(input)
+            return embedding
+        except RuntimeError as re:
+            logger.error(re, exc_info=True)
+            raise HTTPException(status_code=400, detail=str(re))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
 
     async def create_chat_completion(
         self,
