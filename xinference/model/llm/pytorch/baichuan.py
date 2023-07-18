@@ -15,7 +15,7 @@
 from typing import TYPE_CHECKING, Optional
 
 from ....constants import XINFERENCE_CACHE_DIR
-from .core import PytorchModel, PytorchModelConfig
+from .core import PytorchChatModel, PytorchModel, PytorchModelConfig
 
 if TYPE_CHECKING:
     from ... import ModelSpec
@@ -61,4 +61,63 @@ class BaichuanPytorch(PytorchModel):
             cache_dir=XINFERENCE_CACHE_DIR,
             **kwargs,
         )
+        return model, tokenizer
+
+
+class BaichuanPytorchChat(PytorchChatModel):
+    _system_prompt = (
+        "A chat between a curious user and an artificial intelligence assistant. "
+        "The assistant gives helpful, detailed, and polite answers to the user's questions."
+    )
+    _sep = "\n###"
+    _user_name = "User"
+    _assistant_name = "Assistant"
+    _stop = "###"
+
+    def __init__(
+        self,
+        model_uid: str,
+        model_spec: "ModelSpec",
+        model_path: str,
+        pytorch_model_config: Optional[PytorchModelConfig] = None,
+    ):
+        super().__init__(
+            model_uid,
+            model_spec,
+            model_path,
+            system_prompt=self._system_prompt,
+            sep=self._sep,
+            user_name=self._user_name,
+            assistant_name=self._assistant_name,
+            stop=self._stop,
+            pytorch_model_config=pytorch_model_config,
+        )
+
+    def _load_model(self, kwargs: dict):
+        try:
+            from transformers import AutoModelForCausalLM, AutoTokenizer
+            from transformers.generation.utils import GenerationConfig
+        except ImportError:
+            error_message = "Failed to import module 'transformers'"
+            installation_guide = [
+                "Please make sure 'transformers' is installed. ",
+                "You can install it by `pip install transformers`\n",
+            ]
+
+            raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
+
+        tokenizer = AutoTokenizer.from_pretrained(
+            self._model_path,
+            use_fast=False,
+            trust_remote_code=True,
+            revision=kwargs["revision"],
+            cache_dir=XINFERENCE_CACHE_DIR,
+        )
+        model = AutoModelForCausalLM.from_pretrained(
+            self._model_path,
+            trust_remote_code=True,
+            cache_dir=XINFERENCE_CACHE_DIR,
+            **kwargs,
+        )
+        model.generation_config = GenerationConfig.from_pretrained(self._model_path)
         return model, tokenizer

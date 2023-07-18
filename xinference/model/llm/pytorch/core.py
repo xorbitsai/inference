@@ -148,6 +148,12 @@ class PytorchModel(Model):
 
         self._model, self._tokenizer = self._load_model(kwargs)
 
+        quantization = self.model_spec.quantization
+        if quantization == "int4":
+            self._model = self._model.quantize(4)
+        elif quantization == "int8":
+            self._model == self._model.quantize(8)
+
         if (
             device == "cuda" and num_gpus == 1 and not cpu_offloading
         ) or device == "mps":
@@ -204,6 +210,7 @@ class PytorchChatModel(PytorchModel, ChatModelDataProcessorMixin):
         sep: str,
         user_name: str,
         assistant_name: str,
+        stop: Optional[str] = None,
         pytorch_model_config: Optional[PytorchModelConfig] = None,
     ):
         super().__init__(model_uid, model_spec, model_path, pytorch_model_config)
@@ -211,6 +218,7 @@ class PytorchChatModel(PytorchModel, ChatModelDataProcessorMixin):
         self._sep: str = sep
         self._user_name: str = user_name
         self._assistant_name: str = assistant_name
+        self._stop: Optional[str] = stop
 
     def chat(
         self,
@@ -224,6 +232,8 @@ class PytorchChatModel(PytorchModel, ChatModelDataProcessorMixin):
         full_prompt = self._to_prompt(prompt, system_prompt, chat_history=chat_history)
 
         generate_config = self._sanitize_generate_config(generate_config)
+        if "stop" not in generate_config and self._stop is not None:
+            generate_config["stop"] = self._stop
 
         stream = generate_config.get("stream", False)
         if stream:
