@@ -212,7 +212,7 @@ class PytorchChatModel(PytorchModel, ChatModelDataProcessorMixin):
         sep: str,
         user_name: str,
         assistant_name: str,
-        stop: Optional[str] = None,
+        stop: Optional[Union[str, List[str]]] = None,
         pytorch_model_config: Optional[PytorchModelConfig] = None,
     ):
         super().__init__(model_uid, model_spec, model_path, pytorch_model_config)
@@ -220,7 +220,7 @@ class PytorchChatModel(PytorchModel, ChatModelDataProcessorMixin):
         self._sep: str = sep
         self._user_name: str = user_name
         self._assistant_name: str = assistant_name
-        self._stop: Optional[str] = stop
+        self._stop: Optional[Union[str, List[str]]] = stop
 
     def _sanitize_generate_config(
         self,
