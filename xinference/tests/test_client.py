@@ -112,17 +112,17 @@ async def test_RESTful_client(setup):
     with pytest.raises(RuntimeError):
         client.terminate_model(model_uid=model_uid)
 
-    model_uid = client.launch_model(
+    model_uid2 = client.launch_model(
         model_name="orca",
         model_size_in_billions=3,
         quantization="q4_0",
         embedding="True",
     )
 
-    model = client.get_model(model_uid=model_uid)
+    model2 = client.get_model(model_uid=model_uid2)
 
-    embedding_res = model.create_embedding("The food was delicious and the waiter...")
+    embedding_res = model2.create_embedding("The food was delicious and the waiter...")
     assert "embedding" in embedding_res["data"][0]
 
-    client.terminate_model(model_uid=model_uid)
+    client.terminate_model(model_uid=model_uid2)
     assert len(client.list_models()) == 0
