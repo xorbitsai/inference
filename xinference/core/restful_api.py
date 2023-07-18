@@ -12,17 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import logging
 import socket
 import threading
+from functools import partial
 from typing import Any, Dict, List, Literal, Optional, Union
 
+import anyio
 import gradio as gr
 import xoscar as xo
+from anyio.streams.memory import MemoryObjectSendStream
 from fastapi import APIRouter, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
+from sse_starlette.sse import EventSourceResponse
 from typing_extensions import NotRequired, TypedDict
 from uvicorn import Config, Server
 
@@ -294,6 +299,11 @@ class RESTfulAPIActor(xo.Actor):
     async def describe_model(self, model_uid: str):
         try:
             return await self._supervisor_ref.describe_model(model_uid)
+
+        except ValueError as ve:
+            logger.error(str(ve), exc_info=True)
+            raise HTTPException(status_code=400, detail=str(ve))
+
         except Exception as e:
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
@@ -307,6 +317,12 @@ class RESTfulAPIActor(xo.Actor):
         quantization = payload.get("quantization")
         kwargs = payload.get("kwargs", {}) or {}
 
+        if model_uid is None or model_uid is None:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid input. Please specify the model UID and the model name",
+            )
+
         try:
             await self._supervisor_ref.launch_builtin_model(
                 model_uid=model_uid,
@@ -316,14 +332,26 @@ class RESTfulAPIActor(xo.Actor):
                 quantization=quantization,
                 **kwargs,
             )
+
+        except ValueError as ve:
+            logger.error(str(ve), exc_info=True)
+            raise HTTPException(status_code=400, detail=str(ve))
+        except RuntimeError as re:
+            logger.error(str(re), exc_info=True)
+            raise HTTPException(status_code=503, detail=str(re))
         except Exception as e:
-            logger.error(e, exc_info=True)
+            logger.error(str(e), exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
+
         return JSONResponse(content={"model_uid": model_uid})
 
     async def terminate_model(self, model_uid: str):
         try:
             await self._supervisor_ref.terminate_model(model_uid)
+        except ValueError as ve:
+            logger.error(str(ve), exc_info=True)
+            raise HTTPException(status_code=400, detail=str(ve))
+
         except Exception as e:
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
@@ -344,17 +372,47 @@ class RESTfulAPIActor(xo.Actor):
         kwargs = body.dict(exclude=exclude)
 
         if body.logit_bias is not None:
-            raise NotImplementedError
+            raise HTTPException(status_code=501, detail="Not implemented")
+
         model_uid = body.model
 
         try:
             model = await self._supervisor_ref.get_model(model_uid)
+        except ValueError as ve:
+            logger.error(str(ve), exc_info=True)
+            raise HTTPException(status_code=400, detail=str(ve))
+
         except Exception as e:
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
 
         if body.stream:
-            raise NotImplementedError
+            # create a pair of memory object streams
+            send_chan, recv_chan = anyio.create_memory_object_stream(10)
+
+            async def event_publisher(inner_send_chan: MemoryObjectSendStream):
+                async with inner_send_chan:
+                    try:
+                        iterator = await model.generate(body.prompt, kwargs)
+                        async for chunk in iterator:
+                            await inner_send_chan.send(dict(data=json.dumps(chunk)))
+                            if await request.is_disconnected():
+                                raise anyio.get_cancelled_exc_class()()
+                    except anyio.get_cancelled_exc_class() as e:
+                        logger.warning("disconnected")
+                        with anyio.move_on_after(1, shield=True):
+                            logger.warning(
+                                f"Disconnected from client (via refresh/close) {request.client}"
+                            )
+                            await inner_send_chan.send(dict(closing=True))
+                            raise e
+                    except Exception as e:
+                        raise HTTPException(status_code=500, detail=str(e))
+
+            return EventSourceResponse(
+                recv_chan, data_sender_callable=partial(event_publisher, send_chan)
+            )
+
         else:
             try:
                 return await model.generate(body.prompt, kwargs)
@@ -363,7 +421,7 @@ class RESTfulAPIActor(xo.Actor):
                 raise HTTPException(status_code=500, detail=str(e))
 
     async def create_embedding(self, request: CreateEmbeddingRequest):
-        raise NotImplementedError
+        raise HTTPException(status_code=501, detail="Not implemented")
 
     async def create_chat_completion(
         self,
@@ -381,15 +439,19 @@ class RESTfulAPIActor(xo.Actor):
         kwargs = body.dict(exclude=exclude)
 
         if body.logit_bias is not None:
-            raise NotImplementedError
+            raise HTTPException(status_code=501, detail="Not implemented")
 
-        user_messages = [
-            msg["content"] for msg in body.messages if msg["role"] == "user"
-        ]
-        if user_messages:
-            prompt = user_messages[-1]
-        else:
-            raise HTTPException(status_code=400, detail="No prompt given")
+        if (
+            not body.messages
+            or body.messages[-1].get("role") != "user"
+            or not body.messages[-1].get("content")
+        ):
+            raise HTTPException(
+                status_code=400, detail="Invalid input. Please specify the prompt."
+            )
+
+        prompt = body.messages[-1]["content"]
+
         system_prompt = next(
             (msg["content"] for msg in body.messages if msg["role"] == "system"), None
         )
@@ -397,14 +459,46 @@ class RESTfulAPIActor(xo.Actor):
         chat_history = body.messages
 
         model_uid = body.model
+
         try:
             model = await self._supervisor_ref.get_model(model_uid)
+
+        except ValueError as ve:
+            logger.error(str(ve), exc_info=True)
+            raise HTTPException(status_code=400, detail=str(ve))
         except Exception as e:
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
 
         if body.stream:
-            raise NotImplementedError
+            # create a pair of memory object streams
+            send_chan, recv_chan = anyio.create_memory_object_stream(10)
+
+            async def event_publisher(inner_send_chan: MemoryObjectSendStream):
+                async with inner_send_chan:
+                    try:
+                        iterator = await model.chat(
+                            prompt, system_prompt, chat_history, kwargs
+                        )
+                        async for chunk in iterator:
+                            await inner_send_chan.send(dict(data=json.dumps(chunk)))
+                            if await request.is_disconnected():
+                                raise anyio.get_cancelled_exc_class()()
+                    except anyio.get_cancelled_exc_class() as e:
+                        logger.warning("disconnected")
+                        with anyio.move_on_after(1, shield=True):
+                            logger.warning(
+                                f"Disconnected from client (via refresh/close) {request.client}"
+                            )
+                            await inner_send_chan.send(dict(closing=True))
+                            raise e
+                    except Exception as e:
+                        raise HTTPException(status_code=500, detail=str(e))
+
+            return EventSourceResponse(
+                recv_chan, data_sender_callable=partial(event_publisher, send_chan)
+            )
+
         else:
             try:
                 return await model.chat(prompt, system_prompt, chat_history, kwargs)

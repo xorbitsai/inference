@@ -35,6 +35,14 @@ async def test_restful_api(setup):
     model_uid_res = response_data["model_uid"]
     assert model_uid_res == "test"
 
+    payload = {"model_uid": "test", "model_name": "orca", "quantization": "q4_0"}
+    response = requests.post(url, json=payload)
+    assert response.status_code == 400
+
+    payload = {"model_name": "orca", "quantization": "q4_0"}
+    response = requests.post(url, json=payload)
+    assert response.status_code == 400
+
     # list
     response = requests.get(url)
     response_data = response.json()
@@ -43,8 +51,10 @@ async def test_restful_api(setup):
     # describe
     response = requests.get(f"{endpoint}/v1/models/test")
     response_data = response.json()
-    print(response_data)
     assert response_data["model_name"] == "orca"
+
+    response = requests.delete(f"{endpoint}/v1/models/bogus")
+    assert response.status_code == 400
 
     # generate
     url = f"{endpoint}/v1/completions"
@@ -55,6 +65,19 @@ async def test_restful_api(setup):
     response = requests.post(url, json=payload)
     completion = response.json()
     assert "text" in completion["choices"][0]
+
+    payload = {
+        "model": "bogus",
+        "prompt": "Once upon a time, there was a very old computer.",
+    }
+    response = requests.post(url, json=payload)
+    assert response.status_code == 400
+
+    payload = {
+        "prompt": "Once upon a time, there was a very old computer.",
+    }
+    response = requests.post(url, json=payload)
+    assert response.status_code == 422
 
     # chat
     url = f"{endpoint}/v1/chat/completions"
@@ -71,6 +94,40 @@ async def test_restful_api(setup):
     completion = response.json()
     assert "content" in completion["choices"][0]["message"]
 
+    payload = {
+        "messages": [
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": "Hello!"},
+            {"role": "assistant", "content": "Hi what can I help you?"},
+            {"role": "user", "content": "What is the capital of France?"},
+        ],
+    }
+    response = requests.post(url, json=payload)
+    assert response.status_code == 422
+
+    payload = {
+        "model": "bogus",
+        "messages": [
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": "Hello!"},
+            {"role": "assistant", "content": "Hi what can I help you?"},
+            {"role": "user", "content": "What is the capital of France?"},
+        ],
+    }
+    response = requests.post(url, json=payload)
+    assert response.status_code == 400
+
+    payload = {
+        "model": model_uid_res,
+        "messages": [
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": "Hello!"},
+            {"role": "assistant", "content": "Hi what can I help you?"},
+        ],
+    }
+    response = requests.post(url, json=payload)
+    assert response.status_code == 400
+
     # delete
     url = f"{endpoint}/v1/models/test"
     response = requests.delete(url)
@@ -83,4 +140,4 @@ async def test_restful_api(setup):
     # delete again
     url = f"{endpoint}/v1/models/test"
     response = requests.delete(url)
-    assert response.status_code != 200
+    assert response.status_code == 400
