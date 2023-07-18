@@ -159,7 +159,7 @@ class Xinference(LLM):
 
         if generate_config and generate_config.get("stream") == True:
             combined_text_output = ""
-            for token in self.stream(
+            for token in self._stream(
                 model=model,
                 prompt=prompt,
                 run_manager=run_manager,
@@ -172,7 +172,7 @@ class Xinference(LLM):
             completion = model.generate(prompt=prompt, generate_config=generate_config)
             return completion["choices"][0]["text"]
 
-    def stream(
+    def _stream(
         self,
         model: RESTfulModelHandle,
         prompt: str,
