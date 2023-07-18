@@ -144,6 +144,8 @@ class PytorchModel(Model):
             kwargs = {"torch_dtype": torch.float16}
             if cpu_offloading:
                 kwargs["device_map"] = "auto"
+        elif device == "mps":
+            kwargs = {"torch_dtype": torch.float16}
         else:
             raise ValueError(f"Device {device} is not supported in temporary")
         kwargs["revision"] = self._pytorch_model_config.get("revision", "main")
