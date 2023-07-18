@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import asyncio
+import json
 import uuid
 from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Tuple, Union
 
@@ -87,6 +88,27 @@ class ChatglmCppChatModelHandle(ModelHandle):
         return self._isolation.call(coro)
 
 
+def streaming_response_iterator(
+    response_lines: Iterator[bytes],
+) -> Iterator["CompletionChunk"]:
+    for line in response_lines:
+        line = line.strip()
+        if line.startswith(b"data:"):
+            data = json.loads(line.decode("utf-8").replace("data: ", "", 1))
+            yield data
+
+
+# Duplicate code due to type hint issues
+def chat_streaming_response_iterator(
+    response_lines: Iterator[bytes],
+) -> Iterator["ChatCompletionChunk"]:
+    for line in response_lines:
+        line = line.strip()
+        if line.startswith(b"data:"):
+            data = json.loads(line.decode("utf-8").replace("data: ", "", 1))
+            yield data
+
+
 class RESTfulModelHandle:
     """
     A sync model interface (for RESTful client) which provides type hints that makes it much easier to use xinference
@@ -124,6 +146,10 @@ class RESTfulGenerateModelHandle(RESTfulModelHandle):
             raise RuntimeError(
                 f"Failed to generate completion, detail: {response.json()['detail']}"
             )
+
+        if generate_config and generate_config.get("stream"):
+            return streaming_response_iterator(response.iter_lines())
+
         response_data = response.json()
         return response_data
 
@@ -170,6 +196,10 @@ class RESTfulChatModelHandle(RESTfulGenerateModelHandle):
             raise RuntimeError(
                 f"Failed to generate chat completion, detail: {response.json()['detail']}"
             )
+
+        if generate_config and generate_config.get("stream"):
+            return chat_streaming_response_iterator(response.iter_lines())
+
         response_data = response.json()
         return response_data
 
@@ -205,6 +235,10 @@ class RESTfulChatglmCppChatModelHandle(RESTfulModelHandle):
             raise RuntimeError(
                 f"Failed to generate chat completion, detail: {response.json()['detail']}"
             )
+
+        if generate_config and generate_config.get("stream"):
+            return chat_streaming_response_iterator(response.iter_lines())
+
         response_data = response.json()
         return response_data
 
@@ -286,7 +320,7 @@ class RESTfulClient:
         response = requests.get(url)
         if response.status_code != 200:
             raise RuntimeError(
-                f"Failed to launch model, detail: {response.json()['detail']}"
+                f"Failed to list model, detail: {response.json()['detail']}"
             )
 
         response_data = response.json()

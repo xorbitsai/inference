@@ -111,7 +111,8 @@ class SupervisorActor(xo.Actor):
             quantization,
         )
 
-        assert model_uid not in self._model_uid_to_worker
+        if model_uid in self._model_uid_to_worker:
+            raise ValueError(f"Model is already in the model list, uid: {model_uid}")
 
         worker_ref = await self._choose_worker()
         model_ref = yield worker_ref.launch_builtin_model(
@@ -146,7 +147,8 @@ class SupervisorActor(xo.Actor):
 
     @log
     async def terminate_model(self, model_uid: str):
-        assert model_uid in self._model_uid_to_worker
+        if model_uid not in self._model_uid_to_worker:
+            raise ValueError(f"Model not found in the model list, uid: {model_uid}")
 
         worker_ref = self._model_uid_to_worker[model_uid]
         await worker_ref.terminate_model(model_uid=model_uid)
@@ -154,11 +156,17 @@ class SupervisorActor(xo.Actor):
 
     @log
     async def get_model(self, model_uid: str) -> xo.ActorRefType["ModelActor"]:
+        if model_uid not in self._model_uid_to_worker:
+            raise ValueError(f"Model not found in the model list, uid: {model_uid}")
+
         worker_ref = self._model_uid_to_worker[model_uid]
         return await worker_ref.get_model(model_uid=model_uid)
 
     @log
     async def describe_model(self, model_uid: str):
+        if model_uid not in self._model_uid_to_worker:
+            raise ValueError(f"Model not found in the model list, uid: {model_uid}")
+
         worker_ref = self._model_uid_to_worker[model_uid]
         return await worker_ref.describe_model(model_uid=model_uid)
 
@@ -288,9 +296,11 @@ class WorkerActor(xo.Actor):
 
     @log
     async def terminate_model(self, model_uid: str):
-        assert model_uid in self._model_uid_to_model
+        if model_uid not in self._model_uid_to_model:
+            raise ValueError(f"Model not found in the model list, uid: {model_uid}")
 
         model_ref = self._model_uid_to_model[model_uid]
+
         await xo.destroy_actor(model_ref)
         del self._model_uid_to_model[model_uid]
         del self._model_uid_to_model_spec[model_uid]
@@ -307,10 +317,16 @@ class WorkerActor(xo.Actor):
 
     @log
     async def get_model(self, model_uid: str) -> xo.ActorRefType["ModelActor"]:
+        if model_uid not in self._model_uid_to_model:
+            raise ValueError(f"Model not found in the model list, uid: {model_uid}")
+
         return self._model_uid_to_model[model_uid]
 
     @log
     async def describe_model(self, model_uid: str) -> ModelSpec:
+        if model_uid not in self._model_uid_to_model:
+            raise ValueError(f"Model not found in the model list, uid: {model_uid}")
+
         return self._model_uid_to_model_spec[model_uid]
 
     async def report_status(self):

@@ -50,16 +50,40 @@ async def test_RESTful_client(setup):
 
     model = client.get_model(model_uid=model_uid)
 
+    with pytest.raises(RuntimeError):
+        model = client.get_model(model_uid="test")
+
+    with pytest.raises(RuntimeError):
+        completion = model.generate({"max_tokens": 64})
+
     completion = model.generate("Once upon a time, there was a very old computer")
     assert "text" in completion["choices"][0]
 
     completion = model.generate(
-        "Once upon a time, there was a very old computer", {"max_tokens": 256}
+        "Once upon a time, there was a very old computer", {"max_tokens": 64}
     )
     assert "text" in completion["choices"][0]
 
-    completion = model.chat("write a poem.")
+    streaming_response = model.generate(
+        "Once upon a time, there was a very old computer",
+        {"max_tokens": 64, "stream": True},
+    )
+
+    for chunk in streaming_response:
+        assert "text" in chunk["choices"][0]
+
+    with pytest.raises(RuntimeError):
+        completion = model.chat({"max_tokens": 64})
+
+    completion = model.chat("What is the capital of France?")
     assert "content" in completion["choices"][0]["message"]
+
+    streaming_response = model.chat(
+        prompt="What is the capital of France?", generate_config={"stream": True}
+    )
+
+    for chunk in streaming_response:
+        assert "content" or "role" in chunk["choices"][0]["delta"]
 
     client.terminate_model(model_uid=model_uid)
     assert len(client.list_models()) == 0
