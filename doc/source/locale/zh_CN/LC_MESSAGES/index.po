@@ -1,0 +1,242 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2023-07-18 10:54+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: zh_CN\n"
+"Language-Team: zh_CN <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.12.1\n"
+
+#: ../../source/index.rst:4
+msgid "Xorbits Inference: Model Serving Made Easy🤖"
+msgstr ""
+
+#: ../../source/index.rst:6
+msgid ""
+"Xorbits Inference(Xinference) is a powerful and versatile library "
+"designed to serve language, speech recognition, and multimodal models. "
+"With Xorbits Inference, you can effortlessly deploy and serve your or "
+"state-of-the-art built-in models using just a single command. Whether you"
+" are a researcher, developer, or data scientist, Xorbits Inference "
+"empowers you to unleash the full potential of cutting-edge AI models."
+msgstr ""
+
+#: ../../source/index.rst:14
+msgid "Key Features"
+msgstr ""
+
+#: ../../source/index.rst:16
+msgid ""
+"🌟 **Model Serving Made Easy**: Simplify the process of serving large "
+"language, speech recognition, and multimodal models. You can set up and "
+"deploy your models for experimentation and production with a single "
+"command."
+msgstr ""
+
+#: ../../source/index.rst:20
+msgid ""
+"⚡️ **State-of-the-Art Models**: Experiment with cutting-edge built-in "
+"models using a single command. Inference provides access to state-of-the-"
+"art open-source models!"
+msgstr ""
+
+#: ../../source/index.rst:23
+msgid ""
+"🖥 **Heterogeneous Hardware Utilization**: Make the most of your hardware "
+"resources with `ggml <https://github.com/ggerganov/ggml>`_. Xorbits "
+"Inference intelligently utilizes heterogeneous hardware, including GPUs "
+"and CPUs, to accelerate your model inference tasks."
+msgstr ""
+
+#: ../../source/index.rst:27
+msgid ""
+"⚙️ **Flexible API and Interfaces**: Offer multiple interfaces for "
+"interacting with your models, supporting RPC, RESTful API(compatible with"
+" OpenAI API), CLI and WebUI for seamless management and monitoring."
+msgstr ""
+
+#: ../../source/index.rst:31
+msgid ""
+"🌐 **Distributed Deployment**: Excel in distributed deployment scenarios, "
+"allowing the seamless distribution of model inference across multiple "
+"devices or machines."
+msgstr ""
+
+#: ../../source/index.rst:34
+msgid ""
+"🔌 **Built-in Integration with Third-Party Libraries**: Xorbits Inference "
+"seamlessly integrates with popular third-party libraries like LangChain "
+"and LlamaIndex. (Coming soon)"
+msgstr ""
+
+#: ../../source/index.rst:39
+msgid "Installation"
+msgstr ""
+
+#: ../../source/index.rst:40
+msgid ""
+"Xinference can be installed via pip from PyPI. It is highly recommended "
+"to create a new virtual environment to avoid conflicts::"
+msgstr ""
+
+#: ../../source/index.rst:46
+msgid ""
+"``xinference[all]`` installs all the necessary packages for serving "
+"models. If you want to achieve acceleration on different hardware, refer "
+"to the installation documentation of the corresponding package."
+msgstr ""
+
+#: ../../source/index.rst:49
+msgid ""
+"`llama-cpp-python <https://github.com/abetlen/llama-cpp-python"
+"#installation-from-pypi-recommended>`_ is required to run ``baichuan``, "
+"``wizardlm-v1.0``, ``vicuna-v1.3`` and ``orca``."
+msgstr ""
+
+#: ../../source/index.rst:50
+msgid ""
+"`chatglm-cpp-python <https://github.com/li-plus/chatglm.cpp#getting-"
+"started>`_ is required to run ``chatglm`` and ``chatglm2``."
+msgstr ""
+
+#: ../../source/index.rst:54
+msgid "Builtin models"
+msgstr ""
+
+#: ../../source/index.rst:56
+msgid "To view the builtin models, run the following command::"
+msgstr ""
+
+#: ../../source/index.rst:62
+msgid "Name"
+msgstr ""
+
+#: ../../source/index.rst:62
+msgid "Type"
+msgstr ""
+
+#: ../../source/index.rst:62
+msgid "Language"
+msgstr ""
+
+#: ../../source/index.rst:62
+msgid "Format"
+msgstr ""
+
+#: ../../source/index.rst:62
+msgid "Size (in billions)"
+msgstr ""
+
+#: ../../source/index.rst:62
+msgid "Quantization"
+msgstr ""
+
+#: ../../source/index.rst:64
+msgid "baichuan"
+msgstr ""
+
+#: ../../source/index.rst:64
+msgid "Foundation Model"
+msgstr ""
+
+#: ../../source/index.rst:64 ../../source/index.rst:66
+#: ../../source/index.rst:68
+msgid "en, zh"
+msgstr ""
+
+#: ../../source/index.rst:64 ../../source/index.rst:66
+#: ../../source/index.rst:68 ../../source/index.rst:70
+#: ../../source/index.rst:72 ../../source/index.rst:74
+#: ../../source/index.rst:76
+msgid "ggmlv3"
+msgstr ""
+
+#: ../../source/index.rst:64
+msgid "7"
+msgstr ""
+
+#: ../../source/index.rst:64 ../../source/index.rst:70
+#: ../../source/index.rst:72 ../../source/index.rst:74
+msgid "'q2_K', 'q3_K_L', ... , 'q6_K', 'q8_0'"
+msgstr ""
+
+#: ../../source/index.rst:66
+msgid "chatglm"
+msgstr ""
+
+#: ../../source/index.rst:66 ../../source/index.rst:68
+#: ../../source/index.rst:70 ../../source/index.rst:72
+#: ../../source/index.rst:74 ../../source/index.rst:76
+msgid "SFT Model"
+msgstr ""
+
+#: ../../source/index.rst:66 ../../source/index.rst:68
+msgid "6"
+msgstr ""
+
+#: ../../source/index.rst:66 ../../source/index.rst:68
+#: ../../source/index.rst:76
+msgid "'q4_0', 'q4_1', 'q5_0', 'q5_1', 'q8_0'"
+msgstr ""
+
+#: ../../source/index.rst:68
+msgid "chatglm2"
+msgstr ""
+
+#: ../../source/index.rst:70
+msgid "wizardlm-v1.0"
+msgstr ""
+
+#: ../../source/index.rst:70 ../../source/index.rst:72
+#: ../../source/index.rst:74 ../../source/index.rst:76
+msgid "en"
+msgstr ""
+
+#: ../../source/index.rst:70
+msgid "7, 13, 33"
+msgstr ""
+
+#: ../../source/index.rst:72
+msgid "wizardlm-v1.1"
+msgstr ""
+
+#: ../../source/index.rst:72
+msgid "13"
+msgstr ""
+
+#: ../../source/index.rst:74
+msgid "vicuna-v1.3"
+msgstr ""
+
+#: ../../source/index.rst:74
+msgid "7, 13"
+msgstr ""
+
+#: ../../source/index.rst:76
+msgid "orca"
+msgstr ""
+
+#: ../../source/index.rst:76
+msgid "3, 7, 13"
+msgstr ""
+
+#: ../../source/index.rst:80
+msgid "License"
+msgstr ""
+
+#: ../../source/index.rst:81
+msgid "`Apache 2 <https://github.com/xorbitsai/inference/blob/main/LICENSE>`_"
+msgstr ""
+
