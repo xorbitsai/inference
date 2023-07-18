@@ -79,3 +79,12 @@ To view the builtin models, run the following command::
 License
 -------
 `Apache 2 <https://github.com/xorbitsai/inference/blob/main/LICENSE>`_
+
+
+.. toctree::
+   :maxdepth: 2
+   :hidden:
+
+   getting_started/index
+   user_guide/index
+   reference/index
