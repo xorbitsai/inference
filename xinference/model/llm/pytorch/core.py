@@ -142,11 +142,19 @@ class PytorchModel(Model):
             kwargs = {"torch_dtype": torch.float32}
         elif device == "cuda":
             kwargs = {"torch_dtype": torch.float16}
+            if cpu_offloading:
+                kwargs["device_map"] = "auto"
         else:
             raise ValueError(f"Device {device} is not supported in temporary")
         kwargs["revision"] = self._pytorch_model_config.get("revision", "main")
 
         self._model, self._tokenizer = self._load_model(kwargs)
+
+        quantization = self.model_spec.quantization
+        if quantization == "int4":
+            self._model = self._model.quantize(4)
+        elif quantization == "int8":
+            self._model == self._model.quantize(8)
 
         if (
             device == "cuda" and num_gpus == 1 and not cpu_offloading
@@ -204,6 +212,7 @@ class PytorchChatModel(PytorchModel, ChatModelDataProcessorMixin):
         sep: str,
         user_name: str,
         assistant_name: str,
+        stop: Optional[Union[str, List[str]]] = None,
         pytorch_model_config: Optional[PytorchModelConfig] = None,
     ):
         super().__init__(model_uid, model_spec, model_path, pytorch_model_config)
@@ -211,6 +220,19 @@ class PytorchChatModel(PytorchModel, ChatModelDataProcessorMixin):
         self._sep: str = sep
         self._user_name: str = user_name
         self._assistant_name: str = assistant_name
+        self._stop: Optional[Union[str, List[str]]] = stop
+
+    def _sanitize_generate_config(
+        self,
+        pytorch_generate_config: Optional[PytorchGenerateConfig],
+    ) -> PytorchGenerateConfig:
+        pytorch_generate_config = super()._sanitize_generate_config(
+            pytorch_generate_config
+        )
+        if "stop" not in pytorch_generate_config and self._stop is not None:
+            pytorch_generate_config["stop"] = self._stop
+
+        return pytorch_generate_config
 
     def chat(
         self,

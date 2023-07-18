@@ -18,7 +18,7 @@ def install():
     from .chatglm import ChatglmCppChatModel
     from .core import LlamaCppModel
     from .orca import OrcaMiniGgml
-    from .pytorch.baichuan import BaichuanPytorch
+    from .pytorch.baichuan import BaichuanPytorch, BaichuanPytorchChat
     from .pytorch.vicuna import VicunaCensoredPytorch
     from .vicuna import VicunaCensoredGgml
     from .wizardlm import WizardlmGgml
@@ -213,24 +213,58 @@ def install():
         )
     )
 
+    pytorch_baichuan_name_generator = lambda model_size, quantization: (
+        f"baichuan-inc/Baichuan-{model_size}B"
+    )
     MODEL_FAMILIES.append(
         ModelFamily(
-            model_name="baichuan-inc/Baichuan-7B",
+            model_name="baichuan",
             model_sizes_in_billions=[7],
             model_format="pytorch",
-            quantizations=None,
-            url_generator=None,
+            quantizations=["none"],
+            url_generator=pytorch_baichuan_name_generator,
             cls=BaichuanPytorch,
         ),
     )
 
+    pytorch_baichuan_base_name_generator = lambda model_size, quantization: (
+        f"baichuan-inc/Baichuan-{model_size}B-Base"
+    )
     MODEL_FAMILIES.append(
         ModelFamily(
-            model_name="lmsys/vicuna-7b-v1.3",
+            model_name="baichuan-base",
+            model_sizes_in_billions=[13],
+            model_format="pytorch",
+            quantizations=["int4", "int8", "none"],
+            url_generator=pytorch_baichuan_base_name_generator,
+            cls=BaichuanPytorch,
+        ),
+    )
+
+    pytorch_baichuan_chat_name_generator = lambda model_size, quantization: (
+        f"baichuan-inc/Baichuan-{model_size}B-Chat"
+    )
+    MODEL_FAMILIES.append(
+        ModelFamily(
+            model_name="baichuan-chat",
+            model_sizes_in_billions=[13],
+            model_format="pytorch",
+            quantizations=["int4", "int8", "none"],
+            url_generator=pytorch_baichuan_chat_name_generator,
+            cls=BaichuanPytorchChat,
+        ),
+    )
+
+    pytorch_vicuna_v1_3_name_generator = lambda model_size, quantization: (
+        f"lmsys/vicuna-{model_size}b-v1.3"
+    )
+    MODEL_FAMILIES.append(
+        ModelFamily(
+            model_name="vicuna-v1.3",
             model_sizes_in_billions=[7, 13],
             model_format="pytorch",
-            quantizations=None,
-            url_generator=None,
+            quantizations=["none"],
+            url_generator=pytorch_vicuna_v1_3_name_generator,
             cls=VicunaCensoredPytorch,
         ),
     )

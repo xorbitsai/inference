@@ -298,7 +298,7 @@ class Client:
             return ChatglmCppChatModelHandle(model_ref, self._isolation)
         elif (
             model_spec.model_name == "baichuan"
-            or model_spec.model_name == "baichuan-inc/Baichuan-7B"
+            or model_spec.model_name == "baichuan-base"
         ):
             return GenerateModelHandle(model_ref, self._isolation)
         else:
@@ -388,7 +388,7 @@ class RESTfulClient:
             return RESTfulChatglmCppChatModelHandle(model_uid, self.base_url)
         elif (
             model_spec["model_name"] == "baichuan"
-            or model_spec["model_name"] == "baichuan-inc/Baichuan-7B"
+            or model_spec["model_name"] == "baichuan-base"
         ):
             return RESTfulGenerateModelHandle(model_uid, self.base_url)
         else:
