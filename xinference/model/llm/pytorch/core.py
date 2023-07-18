@@ -154,7 +154,7 @@ class PytorchModel(Model):
         if quantization == "int4":
             self._model = self._model.quantize(4)
         elif quantization == "int8":
-            self._model == self._model.quantize(8)
+            self._model = self._model.quantize(8)
 
         if (
             device == "cuda" and num_gpus == 1 and not cpu_offloading
