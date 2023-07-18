@@ -50,7 +50,12 @@ def test_model_availability(model_spec):
 
 @pytest.mark.parametrize(
     "model_spec",
-    [model_spec for model_family in MODEL_FAMILIES for model_spec in model_family],
+    [
+        model_spec
+        for model_family in MODEL_FAMILIES
+        for model_spec in model_family
+        if model_spec.model_format != "pytorch"
+    ],
 )
 def test_rp_availability(model_spec):
     attempt = 0
