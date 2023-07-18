@@ -8,6 +8,8 @@
 [![Build Status](https://img.shields.io/github/actions/workflow/status/xorbitsai/inference/python.yaml?branch=main&style=for-the-badge&label=GITHUB%20ACTIONS&logo=github)](https://actions-badge.atrox.dev/xorbitsai/inference/goto?ref=main)
 [![Slack](https://img.shields.io/badge/join_Slack-781FF5.svg?logo=slack&style=for-the-badge)](https://join.slack.com/t/xorbitsio/shared_invite/zt-1o3z9ucdh-RbfhbPVpx7prOVdM1CAuxg)
 [![Twitter](https://img.shields.io/twitter/follow/xorbitsio?logo=twitter&style=for-the-badge)](https://twitter.com/xorbitsio)
+
+English | [中文介绍](README_zh_CN.md)
 </div>
 <br />
 
@@ -53,7 +55,7 @@ environment to avoid conflicts.
 ```bash
 $ pip install "xinference[all]"
 ```
-"xinference[all]" installs all the necessary packages for serving models. If you want to achieve acceleration on 
+`xinference[all]` installs all the necessary packages for serving models. If you want to achieve acceleration on 
 different hardware, refer to the installation documentation of the corresponding package.
 - [llama-cpp-python](https://github.com/abetlen/llama-cpp-python#installation-from-pypi-recommended) is required to run `baichuan`, `wizardlm-v1.0`, `vicuna-v1.3` and `orca`.
 - [chatglm-cpp-python](https://github.com/li-plus/chatglm.cpp#getting-started) is required to run `chatglm` and `chatglm2`.
