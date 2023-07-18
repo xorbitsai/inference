@@ -220,6 +220,18 @@ class PytorchChatModel(PytorchModel, ChatModelDataProcessorMixin):
         self._assistant_name: str = assistant_name
         self._stop: Optional[str] = stop
 
+    def _sanitize_generate_config(
+        self,
+        pytorch_generate_config: Optional[PytorchGenerateConfig],
+    ) -> PytorchGenerateConfig:
+        pytorch_generate_config = super()._sanitize_generate_config(
+            pytorch_generate_config
+        )
+        if "stop" not in pytorch_generate_config and self._stop is not None:
+            pytorch_generate_config["stop"] = self._stop
+
+        return pytorch_generate_config
+
     def chat(
         self,
         prompt: str,
@@ -232,8 +244,6 @@ class PytorchChatModel(PytorchModel, ChatModelDataProcessorMixin):
         full_prompt = self._to_prompt(prompt, system_prompt, chat_history=chat_history)
 
         generate_config = self._sanitize_generate_config(generate_config)
-        if "stop" not in generate_config and self._stop is not None:
-            generate_config["stop"] = self._stop
 
         stream = generate_config.get("stream", False)
         if stream:

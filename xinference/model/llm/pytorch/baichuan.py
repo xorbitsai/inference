@@ -92,6 +92,7 @@ class BaichuanPytorchChat(PytorchChatModel):
             stop=self._stop,
             pytorch_model_config=pytorch_model_config,
         )
+        self._use_fast_tokenizer = False
 
     def _load_model(self, kwargs: dict):
         try:
@@ -108,7 +109,7 @@ class BaichuanPytorchChat(PytorchChatModel):
 
         tokenizer = AutoTokenizer.from_pretrained(
             self._model_path,
-            use_fast=False,
+            use_fast=self._use_fast_tokenizer,
             trust_remote_code=True,
             revision=kwargs["revision"],
             cache_dir=XINFERENCE_CACHE_DIR,

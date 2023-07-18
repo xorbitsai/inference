@@ -225,6 +225,20 @@ def install():
         ),
     )
 
+    pytorch_baichuan_base_name_generator = lambda model_size, quantization: (
+        f"baichuan-inc/Baichuan-{model_size}B-Base"
+    )
+    MODEL_FAMILIES.append(
+        ModelFamily(
+            model_name="baichuan-base",
+            model_sizes_in_billions=[13],
+            model_format="pytorch",
+            quantizations=["int4", "int8"],
+            url_generator=pytorch_baichuan_base_name_generator,
+            cls=BaichuanPytorch,
+        ),
+    )
+
     pytorch_baichuan_chat_name_generator = lambda model_size, quantization: (
         f"baichuan-inc/Baichuan-{model_size}B-Chat"
     )
