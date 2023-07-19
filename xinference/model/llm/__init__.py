@@ -17,6 +17,7 @@ def install():
     from .. import MODEL_FAMILIES, ModelFamily
     from .chatglm import ChatglmCppChatModel
     from .core import LlamaCppModel
+    from .llama2 import Llama2ChatGgml
     from .orca import OrcaMiniGgml
     from .pytorch.baichuan import BaichuanPytorch, BaichuanPytorchChat
     from .pytorch.vicuna import VicunaCensoredPytorch
@@ -210,6 +211,66 @@ def install():
             ],
             url_generator=chatglm2_url_generator,
             cls=ChatglmCppChatModel,
+        )
+    )
+
+    llama2_chat_url_generator = lambda model_size, quantization: (
+        f"https://huggingface.co/TheBloke/Llama-2-{model_size}B-chat-GGML/resolve/main/llama-2-"
+        f"{model_size}b-chat.ggmlv3.{quantization}.bin"
+    )
+    MODEL_FAMILIES.append(
+        ModelFamily(
+            model_name="llama-2-chat",
+            model_sizes_in_billions=[7, 13],
+            model_format="ggmlv3",
+            quantizations=[
+                "q2_K",
+                "q3_K_L",
+                "q3_K_M",
+                "q3_K_S",
+                "q4_0",
+                "q4_1",
+                "q4_K_M",
+                "q4_K_S",
+                "q5_0",
+                "q5_1",
+                "q5_K_M",
+                "q5_K_S",
+                "q6_K",
+                "q8_0",
+            ],
+            url_generator=llama2_chat_url_generator,
+            cls=Llama2ChatGgml,
+        )
+    )
+
+    llama2_url_generator = lambda model_size, quantization: (
+        f"https://huggingface.co/TheBloke/Llama-2-{model_size}B-GGML/resolve/main/llama-2-"
+        f"{model_size}b.ggmlv3.{quantization}.bin"
+    )
+    MODEL_FAMILIES.append(
+        ModelFamily(
+            model_name="llama-2",
+            model_sizes_in_billions=[7, 13],
+            model_format="ggmlv3",
+            quantizations=[
+                "q2_K",
+                "q3_K_L",
+                "q3_K_M",
+                "q3_K_S",
+                "q4_0",
+                "q4_1",
+                "q4_K_M",
+                "q4_K_S",
+                "q5_0",
+                "q5_1",
+                "q5_K_M",
+                "q5_K_S",
+                "q6_K",
+                "q8_0",
+            ],
+            url_generator=llama2_url_generator,
+            cls=LlamaCppModel,
         )
     )
 

@@ -313,10 +313,7 @@ class Client:
 
         if model_spec.model_name == "chatglm" or model_spec.model_name == "chatglm2":
             return ChatglmCppChatModelHandle(model_ref, self._isolation)
-        elif (
-            model_spec.model_name == "baichuan"
-            or model_spec.model_name == "baichuan-base"
-        ):
+        elif model_spec.model_name in ["baichuan", "baichuan-base", "llama-2"]:
             return GenerateModelHandle(model_ref, self._isolation)
         else:
             return ChatModelHandle(model_ref, self._isolation)
@@ -364,7 +361,7 @@ class RESTfulClient:
         }
 
         for key, value in kwargs.items():
-            payload[str(key)] = str(value)
+            payload[str(key)] = value
 
         response = requests.post(url, json=payload)
         if response.status_code != 200:
@@ -407,10 +404,7 @@ class RESTfulClient:
             or model_spec["model_name"] == "chatglm2"
         ):
             return RESTfulChatglmCppChatModelHandle(model_uid, self.base_url)
-        elif (
-            model_spec["model_name"] == "baichuan"
-            or model_spec["model_name"] == "baichuan-base"
-        ):
+        elif model_spec["model_name"] in ["baichuan", "baichuan-base", "llama-2"]:
             return RESTfulGenerateModelHandle(model_uid, self.base_url)
         else:
             return RESTfulChatModelHandle(model_uid, self.base_url)
