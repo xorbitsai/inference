@@ -433,8 +433,8 @@ class RESTfulAPIActor(xo.Actor):
                 logger.error(e, exc_info=True)
                 raise HTTPException(status_code=500, detail=str(e))
 
-    async def create_embedding(self, request: CreateEmbeddingRequest):
-        model_uid = request.model
+    async def create_embedding(self, request: Request, body: CreateEmbeddingRequest):
+        model_uid = body.model
 
         try:
             model = await self._supervisor_ref.get_model(model_uid)
@@ -445,7 +445,7 @@ class RESTfulAPIActor(xo.Actor):
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
 
-        input = request.input
+        input = body.input
 
         try:
             embedding = await model.create_embedding(input)
