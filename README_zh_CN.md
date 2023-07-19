@@ -169,6 +169,7 @@ $ xinference list --all
 - Xinference 会自动为你下载模型，默认的模型存放路径为 `${USER}/.xinference/cache`。
 - 基础模型仅提供 `generate` 接口.
 - RLHF 与 SFT 模型 提供 `generate` 与 `chat` 接口。
+- 如果想使用 Apple metal GPU 加速，请选择 q4_0 或者 q4_1 这两种量化方式。
 
 ## 近期开发计划
 Xinference 目前正在快速迭代。我们近期的开发计划包括：
