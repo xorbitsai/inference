@@ -178,7 +178,7 @@ $ xinference list --all
 - Xinference will download models automatically for you, and by default the models will be saved under `${USER}/.xinference/cache`.
 - Foundation models only provide interface `generate`.
 - RLHF and SFT models provide both `generate` and `chat`.
-- If you want to use MacOS Metal GPU for inference, please choose the q4_0 and q4_1 quantization methods.
+- If you want to use Apple Metal GPU for acceleration, please choose the q4_0 and q4_1 quantization methods.
 
 ## Roadmap
 Xinference is currently under active development. Here's a roadmap outlining our planned 
