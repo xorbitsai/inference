@@ -82,6 +82,7 @@ def generate_stream(
 ) -> Iterator[Tuple[CompletionChunk, CompletionUsage]]:
     context_len = get_context_length(model.config)
     stream_interval = generate_config.get("stream_interval", 2)
+    stream = generate_config.get("stream", False)
 
     len_prompt = len(prompt)
 
@@ -90,7 +91,7 @@ def generate_stream(
     top_p = float(generate_config.get("top_p", 1.0))
     top_k = int(generate_config.get("top_k", -1))  # -1 means disable
     max_new_tokens = int(generate_config.get("max_new_tokens", 256))
-    echo = bool(generate_config.get("echo", True))
+    echo = bool(generate_config.get("echo", False))
     stop_str = generate_config.get("stop", None)
     stop_token_ids = generate_config.get("stop_token_ids", None) or []
     stop_token_ids.append(tokenizer.eos_token_id)
@@ -123,6 +124,8 @@ def generate_stream(
     past_key_values = out = None
     sent_interrupt = False
     token = None
+    output_length = 0
+    output_text = ""
     for i in range(max_new_tokens):
         if i == 0:
             if model.config.is_encoder_decoder:
@@ -203,6 +206,12 @@ def generate_stream(
                 spaces_between_special_tokens=False,
                 clean_up_tokenization_spaces=True,
             )
+            if stream:
+                output_text = output[output_length:]
+                output_length = len(output)
+            else:
+                output_text = output
+
             # TODO: For the issue of incomplete sentences interrupting output, apply a patch and others can also modify it to a more elegant way
             if judge_sent_end and stopped and not is_sentence_complete(output):
                 if len(tokens) > 1:
@@ -239,7 +248,7 @@ def generate_stream(
             # prevent yielding partial stop sequence
             if not partially_stopped:
                 completion_choice = CompletionChoice(
-                    text=output, index=0, logprobs=None, finish_reason=None
+                    text=output_text, index=0, logprobs=None, finish_reason=None
                 )
                 completion_chunk = CompletionChunk(
                     id=str(uuid.uuid1()),
@@ -268,7 +277,7 @@ def generate_stream(
         finish_reason = None
 
     completion_choice = CompletionChoice(
-        text=output, index=0, logprobs=None, finish_reason=finish_reason
+        text=output_text, index=0, logprobs=None, finish_reason=finish_reason
     )
     completion_chunk = CompletionChunk(
         id=str(uuid.uuid1()),
