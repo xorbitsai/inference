@@ -99,7 +99,6 @@ if __name__ == "__main__":
                     "content": lst[i],
                 }
             )
-        print(res)
         return res
 
 
