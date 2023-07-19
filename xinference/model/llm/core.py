@@ -24,6 +24,7 @@ from ...types import (
     ChatCompletionMessage,
     Completion,
     CompletionChunk,
+    Embedding,
 )
 from .utils import ChatModelDataProcessorMixin
 
@@ -90,6 +91,14 @@ class Model(abc.ABC):
         self.model_uid = model_uid
         self.model_spec = model_spec
 
+    @staticmethod
+    def _is_darwin_and_apple_silicon():
+        return platform.system() == "Darwin" and platform.processor() == "arm"
+
+    @staticmethod
+    def _is_linux():
+        return platform.system() == "Linux"
+
     @abstractmethod
     def load(self):
         pass
@@ -116,14 +125,6 @@ class LlamaCppModel(Model):
         )
         self._llm = None
 
-    @staticmethod
-    def _is_darwin_and_apple_silicon():
-        return platform.system() == "Darwin" and platform.processor() == "arm"
-
-    @staticmethod
-    def _is_linux():
-        return platform.system() == "Linux"
-
     def _can_apply_metal(self):
         return (
             self.model_spec.quantization == "q4_0"
@@ -143,6 +144,9 @@ class LlamaCppModel(Model):
             llamacpp_model_config.setdefault("n_ctx", 512)
         else:
             llamacpp_model_config.setdefault("n_ctx", 2048)
+
+        llamacpp_model_config.setdefault("use_mmap", False)
+        llamacpp_model_config.setdefault("use_mlock", True)
 
         if self._is_darwin_and_apple_silicon() and self._can_apply_metal():
             llamacpp_model_config.setdefault("n_gpu_layers", 1)
@@ -214,6 +218,11 @@ class LlamaCppModel(Model):
         else:
             return generator_wrapper(prompt, repeat_penalty, generate_config)
 
+    def create_embedding(self, input: Union[str, List[str]]) -> Embedding:
+        assert self._llm is not None
+        embedding = self._llm.create_embedding(input)
+        return embedding
+
 
 class LlamaCppChatModel(LlamaCppModel, ChatModelDataProcessorMixin):
     def __init__(
@@ -225,6 +234,7 @@ class LlamaCppChatModel(LlamaCppModel, ChatModelDataProcessorMixin):
         sep: str,
         user_name: str,
         assistant_name: str,
+        stop: Optional[Union[str, List[str]]] = None,
         llamacpp_model_config: Optional[LlamaCppModelConfig] = None,
     ):
         super().__init__(model_uid, model_spec, model_path, llamacpp_model_config)
@@ -232,6 +242,15 @@ class LlamaCppChatModel(LlamaCppModel, ChatModelDataProcessorMixin):
         self._sep: str = sep
         self._user_name: str = user_name
         self._assistant_name: str = assistant_name
+        self._stop = stop
+
+    def _sanitize_generate_config(
+        self, generate_config: Optional[LlamaCppGenerateConfig]
+    ) -> LlamaCppGenerateConfig:
+        generate_config = super()._sanitize_generate_config(generate_config)
+        if self._stop:
+            generate_config["stop"] = self._stop
+        return generate_config
 
     def chat(
         self,

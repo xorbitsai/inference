@@ -35,6 +35,7 @@ if TYPE_CHECKING:
         ChatCompletionMessage,
         Completion,
         CompletionChunk,
+        Embedding,
     )
 
 
@@ -58,6 +59,10 @@ class GenerateModelHandle(ModelHandle):
         ] = None,
     ) -> Union["Completion", Iterator["CompletionChunk"]]:
         coro = self._model_ref.generate(prompt, generate_config)
+        return self._isolation.call(coro)
+
+    def create_embedding(self, input: Union[str, List[str]]) -> "Embedding":
+        coro = self._model_ref.create_embedding(input)
         return self._isolation.call(coro)
 
 
@@ -149,6 +154,18 @@ class RESTfulGenerateModelHandle(RESTfulModelHandle):
 
         if generate_config and generate_config.get("stream"):
             return streaming_response_iterator(response.iter_lines())
+
+        response_data = response.json()
+        return response_data
+
+    def create_embedding(self, input: Union[str, List[str]]) -> "Embedding":
+        url = f"{self._base_url}/v1/embeddings"
+        request_body = {"model": self._model_uid, "input": input}
+        response = requests.post(url, json=request_body)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to create the embeddings, detail: {response.json()['detail']}"
+            )
 
         response_data = response.json()
         return response_data
@@ -296,10 +313,7 @@ class Client:
 
         if model_spec.model_name == "chatglm" or model_spec.model_name == "chatglm2":
             return ChatglmCppChatModelHandle(model_ref, self._isolation)
-        elif (
-            model_spec.model_name == "baichuan"
-            or model_spec.model_name == "baichuan-base"
-        ):
+        elif model_spec.model_name in ["baichuan", "baichuan-base", "llama-2"]:
             return GenerateModelHandle(model_ref, self._isolation)
         else:
             return ChatModelHandle(model_ref, self._isolation)
@@ -337,14 +351,18 @@ class RESTfulClient:
         url = f"{self.base_url}/v1/models"
 
         model_uid = self.gen_model_uid()
+
         payload = {
             "model_uid": model_uid,
             "model_name": model_name,
             "model_size_in_billions": model_size_in_billions,
             "model_format": model_format,
             "quantization": quantization,
-            "kwargs": kwargs,
         }
+
+        for key, value in kwargs.items():
+            payload[str(key)] = value
+
         response = requests.post(url, json=payload)
         if response.status_code != 200:
             raise RuntimeError(
@@ -386,10 +404,7 @@ class RESTfulClient:
             or model_spec["model_name"] == "chatglm2"
         ):
             return RESTfulChatglmCppChatModelHandle(model_uid, self.base_url)
-        elif (
-            model_spec["model_name"] == "baichuan"
-            or model_spec["model_name"] == "baichuan-base"
-        ):
+        elif model_spec["model_name"] in ["baichuan", "baichuan-base", "llama-2"]:
             return RESTfulGenerateModelHandle(model_uid, self.base_url)
         else:
             return RESTfulChatModelHandle(model_uid, self.base_url)

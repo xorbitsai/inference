@@ -24,6 +24,7 @@ from ....types import (
     ChatCompletionMessage,
     Completion,
     CompletionChunk,
+    Embedding,
 )
 from ..core import Model
 from ..utils import ChatModelDataProcessorMixin
@@ -84,7 +85,6 @@ class PytorchModel(Model):
         if pytorch_model_config is None:
             pytorch_model_config = PytorchModelConfig()
         pytorch_model_config.setdefault("revision", "main")
-        pytorch_model_config.setdefault("device", "cuda")
         pytorch_model_config.setdefault("gpus", None)
         pytorch_model_config.setdefault("num_gpus", 1)
         pytorch_model_config.setdefault("load_8bit", False)
@@ -93,6 +93,10 @@ class PytorchModel(Model):
         pytorch_model_config.setdefault("gptq_wbits", 16)
         pytorch_model_config.setdefault("gptq_groupsize", -1)
         pytorch_model_config.setdefault("gptq_act_order", False)
+        if self._is_darwin_and_apple_silicon():
+            pytorch_model_config.setdefault("device", "mps")
+        else:
+            pytorch_model_config.setdefault("device", "cuda")
         return pytorch_model_config
 
     def _sanitize_generate_config(
@@ -135,15 +139,21 @@ class PytorchModel(Model):
         return model, tokenizer
 
     def load(self):
-        device = self._pytorch_model_config.get("device", "cuda")
         num_gpus = self._pytorch_model_config.get("num_gpus", 1)
         cpu_offloading = self._pytorch_model_config.get("cpu_offloading", False)
+        if self._is_darwin_and_apple_silicon():
+            device = self._pytorch_model_config.get("device", "mps")
+        else:
+            device = self._pytorch_model_config.get("device", "cuda")
+
         if device == "cpu":
             kwargs = {"torch_dtype": torch.float32}
         elif device == "cuda":
             kwargs = {"torch_dtype": torch.float16}
             if cpu_offloading:
                 kwargs["device_map"] = "auto"
+        elif device == "mps":
+            kwargs = {"torch_dtype": torch.float16}
         else:
             raise ValueError(f"Device {device} is not supported in temporary")
         kwargs["revision"] = self._pytorch_model_config.get("revision", "main")
@@ -154,7 +164,7 @@ class PytorchModel(Model):
         if quantization == "int4":
             self._model = self._model.quantize(4)
         elif quantization == "int8":
-            self._model == self._model.quantize(8)
+            self._model = self._model.quantize(8)
 
         if (
             device == "cuda" and num_gpus == 1 and not cpu_offloading
@@ -183,7 +193,10 @@ class PytorchModel(Model):
         assert self._tokenizer is not None
 
         stream = generate_config.get("stream", False)
-        device = self._pytorch_model_config.get("device", "cuda")
+        if self._is_darwin_and_apple_silicon():
+            device = self._pytorch_model_config.get("device", "mps")
+        else:
+            device = self._pytorch_model_config.get("device", "cuda")
         if not stream:
             for completion_chunk, completion_usage in generate_stream(
                 self._model, self._tokenizer, prompt, device, generate_config
@@ -200,6 +213,9 @@ class PytorchModel(Model):
             return completion
         else:
             return generator_wrapper(prompt, device, generate_config)
+
+    def create_embedding(self, input: Union[str, List[str]]) -> Embedding:
+        raise NotImplementedError
 
 
 class PytorchChatModel(PytorchModel, ChatModelDataProcessorMixin):
