@@ -159,7 +159,7 @@ class CreateCompletionRequest(BaseModel):
 class CreateEmbeddingRequest(BaseModel):
     model: str
     input: Union[str, List[str]] = Field(description="The input to embed.")
-    user: Optional[str]
+    user: Optional[str] = None
 
     class Config:
         schema_extra = {
