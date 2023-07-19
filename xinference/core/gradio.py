@@ -29,7 +29,7 @@ if TYPE_CHECKING:
 MODEL_TO_FAMILIES = dict(
     (model_family.model_name, model_family)
     for model_family in MODEL_FAMILIES
-    if model_family.model_name != "baichuan"
+    if model_family.model_name not in ["baichuan", "baichuan-base"]
 )
 
 
@@ -403,21 +403,21 @@ class GradioApp:
         return chat, model_text
 
     def _build_arena_with_launched(self, models: List[Tuple[str, ModelSpec]]):
-        with gr.Box():
-            with gr.Row():
-                chat_and_text = [
-                    self._build_single_with_launched(models, i)
-                    for i in range(self._gladiator_num)
-                ]
-                chats = [c[0] for c in chat_and_text]
-                texts = [c[1] for c in chat_and_text]
+        chat_and_text = []
+        with gr.Row():
+            for i in range(self._gladiator_num):
+                with gr.Column():
+                    chat_and_text.append(self._build_single_with_launched(models, i))
 
-            msg = gr.Textbox(label=self._locale("Input"))
+        chats = [c[0] for c in chat_and_text]
+        texts = [c[1] for c in chat_and_text]
 
-            def update_message(text_in: str):
-                return "", text_in, text_in
+        msg = gr.Textbox(label=self._locale("Input"))
 
-            msg.submit(update_message, inputs=[msg], outputs=[msg] + texts)
+        def update_message(text_in: str):
+            return "", text_in, text_in
+
+        msg.submit(update_message, inputs=[msg], outputs=[msg] + texts)
 
         gr.ClearButton(components=[msg] + chats + texts)
 
@@ -434,7 +434,7 @@ class GradioApp:
 
                     msg.submit(update_message, inputs=[msg], outputs=[msg, model_text])
                     gr.ClearButton(components=[chat, msg, model_text])
-                if len(models) > 2:
+                if len(models) >= 2:
                     with gr.Tab(self._locale("Arena")):
                         self._build_arena_with_launched(models)
         else:
