@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import inspect
-from typing import TYPE_CHECKING, Any, Generic, Iterator, Optional, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Generic, Iterator, List, Optional, TypeVar, Union
 
 import xoscar as xo
 
@@ -91,6 +91,14 @@ class ModelActor(xo.Actor):
         return self._wrap_generator(
             getattr(self._model, "chat")(prompt, *args, **kwargs)
         )
+
+    async def create_embedding(self, input: Union[str, List[str]], *args, **kwargs):
+        if not hasattr(self._model, "create_embedding"):
+            raise AttributeError(
+                f"Model {self._model.model_spec} is not for creating embedding."
+            )
+
+        return getattr(self._model, "create_embedding")(input, *args, **kwargs)
 
     async def next(self) -> Union["ChatCompletionChunk", "CompletionChunk"]:
         try:
