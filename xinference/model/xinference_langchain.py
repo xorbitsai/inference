@@ -71,9 +71,9 @@ class Xinference(LLM):
     """
 
     client: Any
-    server_url: str
+    server_url: Optional[str]
     """Server URL to run the xinference server on"""
-    model_name: str
+    model_name: Optional[str]
     """Model name to use. See 'xinference list --all' for all builtin models."""
     model_size_in_billions: Optional[int] = None
     """model size in billions"""
@@ -104,6 +104,9 @@ class Xinference(LLM):
             **{
                 "model_name": model_name,
                 "server_url": server_url,
+                "model_size_in_billions": model_size_in_billions,
+                "model_format": model_format,
+                "quantization": quantization,
                 "model_kwargs": kwargs,
             }
         )
