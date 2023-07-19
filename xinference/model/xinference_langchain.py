@@ -18,7 +18,12 @@ from langchain.callbacks.manager import CallbackManagerForLLMRun
 from langchain.llms.base import LLM
 
 if TYPE_CHECKING:
-    import xinference
+    from xinference.client import RESTfulChatModelHandle, RESTfulGenerateModelHandle
+    from xinference.model.llm.core import LlamaCppGenerateConfig
+else:
+    RESTfulGenerateModelHandle = Any
+    RESTfulChatModelHandle = Any
+    LlamaCppGenerateConfig = Any
 
 
 class Xinference(LLM):
@@ -88,7 +93,7 @@ class Xinference(LLM):
         **kwargs: Any,
     ):
         try:
-            import xinference
+            from xinference.client import RESTfulClient
         except ImportError as e:
             raise ImportError(
                 "Could not import xinference. Make sure to install it with "
@@ -109,8 +114,7 @@ class Xinference(LLM):
         if self.server_url is None:
             raise ValueError(ValueError(f"Please provide server URL"))
 
-        restful_client = xinference.client.RESTfulClient
-        self.client = restful_client(server_url)
+        self.client = RESTfulClient(server_url)
 
     @property
     def _llm_type(self) -> str:
@@ -165,15 +169,10 @@ class Xinference(LLM):
 
     def _stream(
         self,
-        model: Union[
-            xinference.client.RESTfulGenerateModelHandle,
-            xinference.client.RESTfulChatModelHandle,
-        ],
+        model: Union[RESTfulGenerateModelHandle, RESTfulChatModelHandle],
         prompt: str,
         run_manager: Optional[CallbackManagerForLLMRun] = None,
-        generate_config: Optional[
-            xinference.model.llm.core.LlamaCppGenerateConfig
-        ] = None,
+        generate_config: Optional[LlamaCppGenerateConfig] = None,
     ):
         streaming_response = model.generate(
             prompt=prompt, generate_config=generate_config
