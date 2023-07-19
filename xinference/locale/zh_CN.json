@@ -12,6 +12,7 @@
   "Window size of chat history.": "用于生成回复的聊天历史窗口大小",
   "show stop reason": "展示停止原因",
   "Downloading": "下载中",
+  "Download failed, please retry.": "下载失败，请重新下载",
   "model name": "模型名",
   "model format": "模型格式",
   "model size in billions": "模型大小(B)",
