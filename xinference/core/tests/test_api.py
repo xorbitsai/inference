@@ -52,7 +52,7 @@ async def test_sync_client(setup):
     assert len(client.list_models()) == 0
 
     model_uid = client.launch_model(
-        model_uid="test_sync_client", model_name="orca", quantization="q4_1"
+        model_uid="test_sync_client", model_name="orca", quantization="q4_0"
     )
     assert len(client.list_models()) == 1
 
