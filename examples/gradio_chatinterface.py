@@ -1,6 +1,6 @@
 import gradio as gr
 from xinference.client import Client
-from typing import Any, List, Dict
+from typing import List, Dict
 
 if __name__ == "__main__":
     import argparse
@@ -107,7 +107,7 @@ if __name__ == "__main__":
         output = model.chat(
             prompt=message,
             chat_history=to_chat(flatten(history)),
-            generate_config={'stream': False}
+            generate_config={'max_tokens': 512, 'stream': False}
         )
         return output["choices"][0]["message"]["content"]
 
