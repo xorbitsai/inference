@@ -364,7 +364,7 @@ class RESTfulClient:
         }
 
         for key, value in kwargs.items():
-            payload[str(key)] = str(value)
+            payload[str(key)] = value
 
         response = requests.post(url, json=payload)
         if response.status_code != 200:

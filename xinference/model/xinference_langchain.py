@@ -12,12 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, List, Mapping, Optional
+from typing import Any, List, Mapping, Optional, Union
 
 from langchain.callbacks.manager import CallbackManagerForLLMRun
 from langchain.llms.base import LLM
 
-from xinference.client import RESTfulClient, RESTfulModelHandle
+from xinference.client import (
+    RESTfulChatModelHandle,
+    RESTfulClient,
+    RESTfulGenerateModelHandle,
+)
 
 # if TYPE_CHECKING:
 #     import xinference
@@ -174,17 +178,18 @@ class Xinference(LLM):
 
     def _stream(
         self,
-        model: RESTfulModelHandle,
+        model: Union[
+            RESTfulGenerateModelHandle,
+            RESTfulChatModelHandle,
+        ],
         prompt: str,
         run_manager: Optional[CallbackManagerForLLMRun] = None,
         **kwargs: Any,
     ):
         streaming_response = model.generate(prompt=prompt, generate_config=kwargs)
         for chunk in streaming_response:
-            if chunk == {"data": "End of Response"}:
-                break
-            token = chunk["data"]["choices"][0]["text"]
-            log_probs = chunk["data"]["choices"][0].get("logprobs", None)
+            token = chunk["choices"][0]["text"]
+            log_probs = chunk["choices"][0].get("logprobs", None)
             if run_manager:
                 run_manager.on_llm_new_token(
                     token=token, verbose=self.verbose, log_probs=log_probs
