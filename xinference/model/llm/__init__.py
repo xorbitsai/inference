@@ -302,6 +302,10 @@ def install():
         f"https://huggingface.co/TheBloke/Llama-2-{model_size}B-chat-GGML/resolve/main/llama-2-"
         f"{model_size}b-chat.ggmlv3.{quantization}.bin"
     )
+    llama2_chat_url_raw_generator = lambda model_size, quantization: (
+        f"https://huggingface.co/TheBloke/Llama-2-{model_size}B-chat-GGML/raw/main/llama-2-"
+        f"{model_size}b-chat.ggmlv3.{quantization}.bin"
+    )
     MODEL_FAMILIES.append(
         ModelFamily(
             model_name="llama-2-chat",
@@ -324,12 +328,17 @@ def install():
                 "q8_0",
             ],
             url_generator=llama2_chat_url_generator,
+            rp_url_generator=llama2_chat_url_raw_generator,
             cls=Llama2ChatGgml,
         )
     )
 
     llama2_url_generator = lambda model_size, quantization: (
         f"https://huggingface.co/TheBloke/Llama-2-{model_size}B-GGML/resolve/main/llama-2-"
+        f"{model_size}b.ggmlv3.{quantization}.bin"
+    )
+    llama2_url_raw_generator = lambda model_size, quantization: (
+        f"https://huggingface.co/TheBloke/Llama-2-{model_size}B-GGML/raw/main/llama-2-"
         f"{model_size}b.ggmlv3.{quantization}.bin"
     )
     MODEL_FAMILIES.append(
@@ -354,6 +363,7 @@ def install():
                 "q8_0",
             ],
             url_generator=llama2_url_generator,
+            rp_url_generator=llama2_chat_url_raw_generator,
             cls=LlamaCppModel,
         )
     )

@@ -186,14 +186,6 @@ class ModelFamily:
             os.makedirs(save_dir, exist_ok=True)
 
         save_path = os.path.join(save_dir, "model.bin")
-        if os.path.exists(save_path):
-            # verify the integrity.
-            if os.path.getsize(save_path) == expected_size:
-                return save_path
-            else:
-                warnings.warn(
-                    "Model size doesn't match, try to update it...", RuntimeWarning
-                )
 
         try:
             if os.path.exists(save_path):
