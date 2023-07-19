@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import asyncio
+import platform
 import time
 from dataclasses import dataclass
 from logging import getLogger
@@ -246,6 +247,13 @@ class WorkerActor(xo.Actor):
 
         raise RuntimeError("No available slot found")
 
+    def _check_model_is_valid(self, model_name):
+        # baichuan-base and baichuan-chat depend on `cpm_kernels` module,
+        # but `cpm_kernels` cannot run on Darwin system.
+        if platform.system() == "Darwin":
+            if model_name in ["baichuan-base", "baichuan-chat"]:
+                raise RuntimeError(f"{model_name} model can't run on Darwin system.")
+
     @log
     async def launch_builtin_model(
         self,
@@ -257,6 +265,7 @@ class WorkerActor(xo.Actor):
         **kwargs,
     ) -> xo.ActorRefType["ModelActor"]:
         assert model_uid not in self._model_uid_to_model
+        self._check_model_is_valid(model_name)
 
         from ..model import MODEL_FAMILIES
 
