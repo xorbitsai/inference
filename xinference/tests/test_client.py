@@ -14,7 +14,7 @@
 
 import pytest
 
-from ..client import Client, RESTfulClient
+from ..client import ChatModelHandle, Client, RESTfulChatModelHandle, RESTfulClient
 
 
 @pytest.mark.asyncio
@@ -29,6 +29,7 @@ async def test_sync_client(setup):
     assert len(client.list_models()) == 1
 
     model = client.get_model(model_uid=model_uid)
+    assert isinstance(model, ChatModelHandle)
 
     with pytest.raises(RuntimeError):
         model.create_embedding("The food was delicious and the waiter...")
@@ -67,9 +68,11 @@ async def test_RESTful_client(setup):
     assert len(client.list_models()) == 1
 
     model = client.get_model(model_uid=model_uid)
+    assert isinstance(model, RESTfulChatModelHandle)
 
     with pytest.raises(RuntimeError):
         model = client.get_model(model_uid="test")
+        assert isinstance(model, RESTfulChatModelHandle)
 
     with pytest.raises(RuntimeError):
         completion = model.generate({"max_tokens": 64})
