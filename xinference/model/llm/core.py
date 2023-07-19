@@ -234,6 +234,7 @@ class LlamaCppChatModel(LlamaCppModel, ChatModelDataProcessorMixin):
         sep: str,
         user_name: str,
         assistant_name: str,
+        stop: Optional[Union[str, List[str]]] = None,
         llamacpp_model_config: Optional[LlamaCppModelConfig] = None,
     ):
         super().__init__(model_uid, model_spec, model_path, llamacpp_model_config)
@@ -241,6 +242,15 @@ class LlamaCppChatModel(LlamaCppModel, ChatModelDataProcessorMixin):
         self._sep: str = sep
         self._user_name: str = user_name
         self._assistant_name: str = assistant_name
+        self._stop = stop
+
+    def _sanitize_generate_config(
+        self, generate_config: Optional[LlamaCppGenerateConfig]
+    ) -> LlamaCppGenerateConfig:
+        generate_config = super()._sanitize_generate_config(generate_config)
+        if self._stop:
+            generate_config["stop"] = self._stop
+        return generate_config
 
     def chat(
         self,

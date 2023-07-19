@@ -30,6 +30,7 @@ class Llama2ChatGgml(LlamaCppChatModel):
     _sep = "\n"
     _user_name = "User"
     _assistant_name = "Assistant"
+    _stop = "\n"
 
     def __init__(
         self,
