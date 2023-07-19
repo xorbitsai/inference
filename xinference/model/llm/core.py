@@ -24,6 +24,7 @@ from ...types import (
     ChatCompletionMessage,
     Completion,
     CompletionChunk,
+    Embedding,
 )
 from .utils import ChatModelDataProcessorMixin
 
@@ -213,6 +214,11 @@ class LlamaCppModel(Model):
             return completion
         else:
             return generator_wrapper(prompt, repeat_penalty, generate_config)
+
+    def create_embedding(self, input: Union[str, List[str]]) -> Embedding:
+        assert self._llm is not None
+        embedding = self._llm.create_embedding(input)
+        return embedding
 
 
 class LlamaCppChatModel(LlamaCppModel, ChatModelDataProcessorMixin):

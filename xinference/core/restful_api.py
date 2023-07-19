@@ -31,7 +31,7 @@ from sse_starlette.sse import EventSourceResponse
 from typing_extensions import NotRequired, TypedDict
 from uvicorn import Config, Server
 
-from ..types import ChatCompletion, Completion
+from ..types import ChatCompletion, Completion, Embedding
 from .service import SupervisorActor
 
 logger = logging.getLogger(__name__)
@@ -156,11 +156,10 @@ class CreateCompletionRequest(BaseModel):
         }
 
 
-# TODO: create embedding request and response
 class CreateEmbeddingRequest(BaseModel):
     model: str
     input: Union[str, List[str]] = Field(description="The input to embed.")
-    user: Optional[str]
+    user: Optional[str] = None
 
     class Config:
         schema_extra = {
@@ -256,7 +255,10 @@ class RESTfulAPIActor(xo.Actor):
             response_model=Completion,
         )
         self._router.add_api_route(
-            "/v1/embeddings", self.create_embedding, methods=["POST"]
+            "/v1/embeddings",
+            self.create_embedding,
+            methods=["POST"],
+            response_model=Embedding,
         )
         self._router.add_api_route(
             "/v1/chat/completions",
@@ -315,7 +317,18 @@ class RESTfulAPIActor(xo.Actor):
         model_size_in_billions = payload.get("model_size_in_billions")
         model_format = payload.get("model_format")
         quantization = payload.get("quantization")
-        kwargs = payload.get("kwargs", {}) or {}
+
+        exclude_keys = {
+            "model_uid",
+            "model_name",
+            "model_size_in_billions",
+            "model_format",
+            "quantization",
+        }
+
+        kwargs = {
+            key: value for key, value in payload.items() if key not in exclude_keys
+        }
 
         if model_uid is None or model_uid is None:
             raise HTTPException(
@@ -421,7 +434,28 @@ class RESTfulAPIActor(xo.Actor):
                 raise HTTPException(status_code=500, detail=str(e))
 
     async def create_embedding(self, request: CreateEmbeddingRequest):
-        raise HTTPException(status_code=501, detail="Not implemented")
+        model_uid = request.model
+
+        try:
+            model = await self._supervisor_ref.get_model(model_uid)
+        except ValueError as ve:
+            logger.error(str(ve), exc_info=True)
+            raise HTTPException(status_code=400, detail=str(ve))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
+        input = request.input
+
+        try:
+            embedding = await model.create_embedding(input)
+            return embedding
+        except RuntimeError as re:
+            logger.error(re, exc_info=True)
+            raise HTTPException(status_code=400, detail=str(re))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
 
     async def create_chat_completion(
         self,
