@@ -252,7 +252,7 @@ class WorkerActor(xo.Actor):
         # but `cpm_kernels` cannot run on Darwin system.
         if platform.system() == "Darwin":
             if model_name in ["baichuan-base", "baichuan-chat"]:
-                raise RuntimeError(f"{model_name} model can't run on Darwin system.")
+                raise ValueError(f"{model_name} model can't run on Darwin system.")
 
     @log
     async def launch_builtin_model(
