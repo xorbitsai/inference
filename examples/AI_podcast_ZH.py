@@ -159,9 +159,50 @@ def record_unlimited() -> numpy.ndarray:
     return numpy.frombuffer(y, numpy.int16).flatten().astype(numpy.float32) / 32768.0
 
 
+def lanuch_model(alice_or_bob, model_a, system_prompt, chat_history, username):
+    if alice_or_bob == "小红":
+        emoji_assistant = emoji_women
+    else:
+        emoji_assistant = emoji_man
+
+    print("")
+    print(emoji_assistant, end="")
+    print(":", end="")
+    print(f" 请耐心等待我们的人工智能助手{alice_or_bob}上线...")
+
+    terminal_size = os.get_terminal_size()
+    print("-" * terminal_size.columns)
+    print(
+        f"{emoji_rocket} 启动模型 {model_a}。初次下载需要的时间可能会比较长。"
+    )
+    print("-" * terminal_size.columns)
+
+    model_uid = client.launch_model(
+        model_name=model_a,
+        model_format="pytorch",
+        model_size_in_billions=13,
+        quantization="int8",
+    )
+    model = client.get_model(model_uid)
+
+    completion = model.chat(
+        prompt=f"你好，{alice_or_bob}，能给{username}打个招呼吗",
+        system_prompt=system_prompt,
+        chat_history=chat_history,
+        generate_config={"max_tokens": 1024},
+    )
+    model_greeting = completion["choices"][0]["message"]["content"]
+    print(emoji_assistant, end="")
+    print(f" {alice_or_bob}:", end="")
+    print(model_greeting)
+    text_to_audio(model_greeting, alice_or_bob)
+
+    return model
+
+
 def format_prompt(model, audio_input) -> str:
     # the second parameters of transcribe enable us to define the language we are speaking.
-    return model.transcribe(audio_input)["text"]
+    return model.transcribe(audio_input, language="ZH")["text"]
 
 
 # transcript the generated chatbot word to audio output so the user will hear the result.
@@ -186,7 +227,7 @@ def text_to_audio(response, voice_id):
 
 # async function to chat with the bot.
 def chat_with_bot(
-        format_input, chat_history, alice_or_bob_state, system_prompt, model_ref, usname,
+        format_input, chat_history, alice_or_bob_state, system_prompt, model_ref,
 ):
     # gen full prompt locally
     # full_prompt = _to_prompt(
@@ -212,7 +253,6 @@ def chat_with_bot(
     content = completion["choices"][0]["message"]["content"]
     print(content)
 
-    chat_history.append(ChatCompletionMessage(role="user", content=format_input))
     if alice_or_bob_state == "小红":
         chat_history.append(ChatCompletionMessage(role="assistant", content=content))
     else:
@@ -237,29 +277,9 @@ if __name__ == "__main__":
     endpoint = args.endpoint
     model_a = "baichuan-chat"
 
-    # Specify the model we need
+    # Specify the first model we need
     client = RESTfulClient(endpoint)
-    print(
-        f"{emoji_rocket} 启动模型 {model_a}-1。初次下载需要的时间可能会比较长。"
-    )
-    model_a_uid = client.launch_model(
-        model_name=model_a,
-        model_format="pytorch",
-        model_size_in_billions=13,
-        quantization="int8",
-    )
-    model_a_ref = client.get_model(model_a_uid)
-    print(
-        f"{emoji_rocket} 启动模型 {model_a}-1。初次下载需要的时间可能会比较长。"
-    )
-    model_b_uid = client.launch_model(
-        model_name=model_a,
-        model_format="pytorch",
-        model_size_in_billions=13,
-        quantization="int8",
-    )
-    model_b_ref = client.get_model(model_b_uid)
-    # ---------- program finally start! ------------ #
+
     # chat history to store every words each member is saying.
     chat_history = []
     alice_or_bob_state = "0"
@@ -274,12 +294,22 @@ if __name__ == "__main__":
     )
     print(emoji_sparkiles)
 
-    # Receive the username.
+    # Receive the username and the opening greeting message from system, start the whole program.
     print("")
     print(emoji_system, end="")
     welcome_prompt = ": 这位来宾，请告诉我你的名字: "
     text_to_audio(welcome_prompt, "0")
     username = input(welcome_prompt)
+
+    welcome_prompt2 = (
+        f": 很高兴见到你, {username}。我们希望你能在未来速度推理聊天室与我们的两位"
+        f"人工智能朋友度过一段难忘的聊天时光。随后，我们的系统将指引你选择和配置你的语音输入设备，请认真仔细阅读并完成。"
+    )
+
+    print("")
+    print(emoji_system, end="")
+    print(welcome_prompt2)
+    text_to_audio(welcome_prompt2, "0")
 
     # define names for the chatbots and create welcome message for chat-room.
     system_prompt_alice = (
@@ -289,33 +319,35 @@ if __name__ == "__main__":
     )
     system_prompt_bob = system_prompt_alice
 
+    # launch the two model one by one and let them greet with the user.
+    model_a_ref = lanuch_model(alice_or_bob="小红",
+                               model_a=model_a,
+                               system_prompt=system_prompt_alice,
+                               chat_history=chat_history,
+                               username=username)
+    model_b_ref = lanuch_model(alice_or_bob="小花",
+                               model_a=model_a,
+                               system_prompt=system_prompt_bob,
+                               chat_history=chat_history,
+                               username=username)
+
     # We can change the scale of the model here, the bigger the model, the higher the accuracy
     # Due to the machine restrictions, I can only launch smaller model.
-    model = whisper.load_model("medium")
-
-    welcome_prompt2 = (
-        f": 很高兴见到你, {username}。我们希望你能在未来速度推理聊天室与我们的两位"
-        f"人工智能朋友度过一段难忘的聊天时光。随后，我们的系统将指引你选择和配置你的语音输入设备，请认真仔细阅读并完成。"
-        f"我们希望你能享受这段不一样的快乐旅程。"
-    )
-
-    print("")
-    print(emoji_system, end="")
-    print(welcome_prompt2)
-    text_to_audio(welcome_prompt2, "0")
+    # whisper.DecodingOptions(language="en")
+    # model = whisper.load_model("medium")
 
     while True:
         audio_input = record_unlimited()
 
         start = time.time()
-        format_input = format_prompt(model, audio_input)
-        logger.info(f"Time spent on transcribing: {time.time() - start}")
+        # format_input = format_prompt(model, audio_input)
+        # logger.info(f"Time spent on transcribing: {time.time() - start}")
 
         # set up the separation between each chat block.
         print("")
         print(emoji_user, end="")
         print(f" {username}:", end="")
-        # format_input = input("type your prompt: ")
+        format_input = input("type your prompt: ")
         print(format_input)
 
         # for un-natural exit audio inputs.
@@ -342,6 +374,7 @@ if __name__ == "__main__":
         # We choose to set Alice to default
         model_ref = model_a_ref
 
+
         # check whether alice and bob are both in the prompt and their position:
         def check_word_order(string, first_word, second_word) -> int:
             words = re.findall(
@@ -359,17 +392,15 @@ if __name__ == "__main__":
 
             return -1  # Either of the words is not present in the string
 
-        # if the user says alice first, we assume that the user want alice.
+
         if check_word_order(format_input.lower(), "小红", "小花") == 1:
             alice_or_bob_state = "小红"
             system_prompt = system_prompt_alice
             model_ref = model_a_ref
-        # if bob is first, then we assume the user want bob.
         elif check_word_order(format_input.lower(), "小红", "小花") == 2:
             alice_or_bob_state = "小花"
             system_prompt = system_prompt_bob
             model_ref = model_b_ref
-        # if not both of them presents, user says he wants to talk with Alice, we assign Alice, otherwise we assign Bob
         else:
             if "小红" in format_input.lower():
                 alice_or_bob_state = "小红"
@@ -388,9 +419,9 @@ if __name__ == "__main__":
                     print(tips)
                     text_to_audio(tips, "0")
                     continue
-        # call the chat function to chat with the bott=.
+        # call the chat function to chat with the bot.
         content = chat_with_bot(
-            format_input, chat_history, alice_or_bob_state, system_prompt, model_ref, username
+            format_input, chat_history, alice_or_bob_state, system_prompt, model_ref
         )
 
         text_to_audio(content, alice_or_bob_state)
