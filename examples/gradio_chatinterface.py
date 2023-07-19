@@ -117,7 +117,8 @@ if __name__ == "__main__":
         examples=[
             "Show me a two sentence horror story with a plot twist",
             "Generate a Haiku poem using trignometry as the central theme",
-            "Write a short story starting with 'Once upon a time'"
+            "Write three sentences of scholarly description regarding a supernatural beast",
+            "Prove there does not exist a largest integer"
         ],
         title="Xinference Chat Bot"
     )
