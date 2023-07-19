@@ -124,8 +124,7 @@ def generate_stream(
     past_key_values = out = None
     sent_interrupt = False
     token = None
-    output_length = 0
-    output_text = ""
+    last_output_length = 0
     for i in range(max_new_tokens):
         if i == 0:
             if model.config.is_encoder_decoder:
@@ -206,11 +205,6 @@ def generate_stream(
                 spaces_between_special_tokens=False,
                 clean_up_tokenization_spaces=True,
             )
-            if stream:
-                output_text = output[output_length:]
-                output_length = len(output)
-            else:
-                output_text = output
 
             # TODO: For the issue of incomplete sentences interrupting output, apply a patch and others can also modify it to a more elegant way
             if judge_sent_end and stopped and not is_sentence_complete(output):
@@ -245,10 +239,15 @@ def generate_stream(
                 else:
                     raise ValueError("Invalid stop field type.")
 
+            if stream:
+                tmp_output_length = len(output)
+                output = output[last_output_length:]
+                last_output_length = tmp_output_length
+
             # prevent yielding partial stop sequence
             if not partially_stopped:
                 completion_choice = CompletionChoice(
-                    text=output_text, index=0, logprobs=None, finish_reason=None
+                    text=output, index=0, logprobs=None, finish_reason=None
                 )
                 completion_chunk = CompletionChunk(
                     id=str(uuid.uuid1()),
@@ -277,7 +276,7 @@ def generate_stream(
         finish_reason = None
 
     completion_choice = CompletionChoice(
-        text=output_text, index=0, logprobs=None, finish_reason=finish_reason
+        text=output, index=0, logprobs=None, finish_reason=finish_reason
     )
     completion_chunk = CompletionChunk(
         id=str(uuid.uuid1()),
