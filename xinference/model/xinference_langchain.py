@@ -12,19 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, List, Mapping, Optional, Union
+from typing import TYPE_CHECKING, Any, List, Mapping, Optional, Union
 
 from langchain.callbacks.manager import CallbackManagerForLLMRun
 from langchain.llms.base import LLM
 
-from xinference.client import (
-    RESTfulChatModelHandle,
-    RESTfulClient,
-    RESTfulGenerateModelHandle,
-)
-
-# if TYPE_CHECKING:
-#     import xinference
+if TYPE_CHECKING:
+    import xinference
 
 
 class Xinference(LLM):
@@ -93,13 +87,13 @@ class Xinference(LLM):
         quantization: Optional[str] = None,
         **kwargs: Any,
     ):
-        # try:
-        #     import xinference
-        # except ImportError as e:
-        #     raise ImportError(
-        #         "Could not import xinference. Make sure to install it with "
-        #         "'pip install xinference'"
-        # ) from e
+        try:
+            import xinference
+        except ImportError as e:
+            raise ImportError(
+                "Could not import xinference. Make sure to install it with "
+                "'pip install xinference'"
+            ) from e
 
         super().__init__(
             **{
@@ -115,7 +109,8 @@ class Xinference(LLM):
         if self.server_url is None:
             raise ValueError(ValueError(f"Please provide server URL"))
 
-        self.client = RESTfulClient(server_url)
+        restful_client = xinference.client.RESTfulClient
+        self.client = restful_client(server_url)
 
     @property
     def _llm_type(self) -> str:
@@ -138,14 +133,6 @@ class Xinference(LLM):
         run_manager: Optional[CallbackManagerForLLMRun] = None,
         **kwargs: Any,
     ) -> str:
-        # try:
-        #     import xinference
-        # except ImportError as e:
-        #     raise ImportError(
-        #         "Could not import xinference. Make sure to install it with "
-        #         "'pip install xinference'"
-        # ) from e
-
         model_uid = self.client.launch_model(
             self.model_name,
             self.model_size_in_billions,
@@ -167,7 +154,7 @@ class Xinference(LLM):
                 model=model,
                 prompt=prompt,
                 run_manager=run_manager,
-                **generate_config,
+                generate_config=generate_config,
             ):
                 combined_text_output += token
             return combined_text_output
@@ -179,22 +166,31 @@ class Xinference(LLM):
     def _stream(
         self,
         model: Union[
-            RESTfulGenerateModelHandle,
-            RESTfulChatModelHandle,
+            xinference.client.RESTfulGenerateModelHandle,
+            xinference.client.RESTfulChatModelHandle,
         ],
         prompt: str,
         run_manager: Optional[CallbackManagerForLLMRun] = None,
-        **kwargs: Any,
+        generate_config: Optional[
+            xinference.model.llm.core.LlamaCppGenerateConfig
+        ] = None,
     ):
-        streaming_response = model.generate(prompt=prompt, generate_config=kwargs)
+        streaming_response = model.generate(
+            prompt=prompt, generate_config=generate_config
+        )
         for chunk in streaming_response:
-            token = chunk["choices"][0]["text"]
-            log_probs = chunk["choices"][0].get("logprobs", None)
-            if run_manager:
-                run_manager.on_llm_new_token(
-                    token=token, verbose=self.verbose, log_probs=log_probs
-                )
-            yield token
+            if isinstance(chunk, dict):
+                choices = chunk.get("choices", [])
+                if choices:
+                    choice = choices[0]
+                    if isinstance(choice, dict):
+                        token = choice.get("text")
+                        log_probs = choice.get("logprobs")
+                        if run_manager:
+                            run_manager.on_llm_new_token(
+                                token=token, verbose=self.verbose, log_probs=log_probs
+                            )
+                        yield token
 
 
 if __name__ == "__main__":
