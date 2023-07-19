@@ -91,6 +91,14 @@ class Model(abc.ABC):
         self.model_uid = model_uid
         self.model_spec = model_spec
 
+    @staticmethod
+    def _is_darwin_and_apple_silicon():
+        return platform.system() == "Darwin" and platform.processor() == "arm"
+
+    @staticmethod
+    def _is_linux():
+        return platform.system() == "Linux"
+
     @abstractmethod
     def load(self):
         pass
@@ -116,14 +124,6 @@ class LlamaCppModel(Model):
             llamacpp_model_config
         )
         self._llm = None
-
-    @staticmethod
-    def _is_darwin_and_apple_silicon():
-        return platform.system() == "Darwin" and platform.processor() == "arm"
-
-    @staticmethod
-    def _is_linux():
-        return platform.system() == "Linux"
 
     def _can_apply_metal(self):
         return (
