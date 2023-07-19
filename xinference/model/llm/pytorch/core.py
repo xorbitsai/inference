@@ -92,7 +92,7 @@ class PytorchModel(Model):
         pytorch_model_config.setdefault("gptq_wbits", 16)
         pytorch_model_config.setdefault("gptq_groupsize", -1)
         pytorch_model_config.setdefault("gptq_act_order", False)
-        if self._is_darwin():
+        if self._is_darwin_and_apple_silicon():
             pytorch_model_config.setdefault("device", "mps")
         else:
             pytorch_model_config.setdefault("device", "cuda")
@@ -140,7 +140,7 @@ class PytorchModel(Model):
     def load(self):
         num_gpus = self._pytorch_model_config.get("num_gpus", 1)
         cpu_offloading = self._pytorch_model_config.get("cpu_offloading", False)
-        if self._is_darwin():
+        if self._is_darwin_and_apple_silicon():
             device = self._pytorch_model_config.get("device", "mps")
         else:
             device = self._pytorch_model_config.get("device", "cuda")
@@ -192,7 +192,7 @@ class PytorchModel(Model):
         assert self._tokenizer is not None
 
         stream = generate_config.get("stream", False)
-        if self._is_darwin():
+        if self._is_darwin_and_apple_silicon():
             device = self._pytorch_model_config.get("device", "mps")
         else:
             device = self._pytorch_model_config.get("device", "cuda")
