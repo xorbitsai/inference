@@ -24,7 +24,7 @@ async def test_sync_client(setup):
     assert len(client.list_models()) == 0
 
     model_uid = client.launch_model(
-        model_name="orca", model_size_in_billions=3, quantization="q2_K"
+        model_name="orca", model_size_in_billions=3, quantization="q4_0"
     )
     assert len(client.list_models()) == 1
 
@@ -63,7 +63,7 @@ async def test_RESTful_client(setup):
     assert len(client.list_models()) == 0
 
     model_uid = client.launch_model(
-        model_name="orca", model_size_in_billions=3, quantization="q2_K"
+        model_name="orca", model_size_in_billions=3, quantization="q4_0"
     )
     assert len(client.list_models()) == 1
 
