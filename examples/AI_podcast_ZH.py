@@ -244,11 +244,9 @@ if __name__ == "__main__":
     )
     model_a_uid = client.launch_model(
         model_name=model_a,
-        model_format="ggmlv3",
-        model_size_in_billions=7,
-        quantization="q5_1",
-        n_ctx=2048,
-        use_mmap=False
+        model_format="pytorch",
+        model_size_in_billions=13,
+        quantization="int8",
     )
     model_a_ref = client.get_model(model_a_uid)
     print(
@@ -256,11 +254,9 @@ if __name__ == "__main__":
     )
     model_b_uid = client.launch_model(
         model_name=model_a,
-        model_format="ggmlv3",
-        model_size_in_billions=7,
-        quantization="q5_1",
-        n_ctx=2048,
-        use_mmap=False
+        model_format="pytorch",
+        model_size_in_billions=13,
+        quantization="int8",
     )
     model_b_ref = client.get_model(model_b_uid)
     # ---------- program finally start! ------------ #
