@@ -29,7 +29,7 @@ if TYPE_CHECKING:
 MODEL_TO_FAMILIES = dict(
     (model_family.model_name, model_family)
     for model_family in MODEL_FAMILIES
-    if model_family.model_name != "baichuan"
+    if model_family.model_name not in ["baichuan", "baichuan-base"]
 )
 
 
