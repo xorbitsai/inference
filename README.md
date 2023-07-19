@@ -177,7 +177,7 @@ $ xinference list --all
 **NOTE**:
 - Xinference will download models automatically for you, and by default the models will be saved under `${USER}/.xinference/cache`.
 - Foundation models only provide interface `generate`.
-- SFT models provide both `generate` and `chat`.
+- RLHF and SFT models provide both `generate` and `chat`.
 
 ## Roadmap
 Xinference is currently under active development. Here's a roadmap outlining our planned 
