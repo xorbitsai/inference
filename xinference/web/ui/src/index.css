@@ -1,35 +1,30 @@
-@import url("https://fonts.googleapis.com/css2?family=Source+Sans+Pro:wght@400;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap");
 
 html,
 body,
 #root,
-.app,
-.content {
+.app {
   height: 100%;
   width: 100%;
-  font-family: "Source Sans Pro", sans-serif;
-}
-
-.app {
-  display: flex;
-  position: relative;
+  font-family: "Inter", sans-serif;
 }
 
 ::-webkit-scrollbar {
-  width: 10px;
+  width: 8px;
 }
 
 /* Track */
 ::-webkit-scrollbar-track {
-  background: #e0e0e0;
+  background: #00000000;
 }
 
 /* Handle */
 ::-webkit-scrollbar-thumb {
-  background: #888;
+  background: #7c767640;
+  border-radius: 120px;
 }
 
-/* Handle on hover */
-::-webkit-scrollbar-thumb:hover {
-  background: #555;
+/* Handle on Hover */
+::-webkit-scrollbar-track:hover {
+  background: #b3b4ba10;
 }
