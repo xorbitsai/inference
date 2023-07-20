@@ -59,6 +59,20 @@ class ModelActor(xo.Actor):
     def gen_uid(cls, model: "Model"):
         return f"{model.__class__}-model-actor"
 
+    async def __pre_destroy__(self):
+        try:
+            import torch
+        except ImportError:
+            error_message = "Failed to import module 'torch'"
+            installation_guide = [
+                "Please make sure 'torch' is installed.\n",
+            ]
+
+            raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
+
+        del self._model
+        torch.cuda.empty_cache()
+
     def __init__(self, model: "Model"):
         super().__init__()
         self._model = model
