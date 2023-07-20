@@ -229,6 +229,7 @@ class PytorchChatModel(PytorchModel, ChatModelDataProcessorMixin):
         user_name: str,
         assistant_name: str,
         stop: Optional[Union[str, List[str]]] = None,
+        stop_token_ids: Optional[Union[int, List[int]]] = None,
         pytorch_model_config: Optional[PytorchModelConfig] = None,
     ):
         super().__init__(model_uid, model_spec, model_path, pytorch_model_config)
@@ -237,6 +238,7 @@ class PytorchChatModel(PytorchModel, ChatModelDataProcessorMixin):
         self._user_name: str = user_name
         self._assistant_name: str = assistant_name
         self._stop: Optional[Union[str, List[str]]] = stop
+        self._stop_token_ids: Optional[Union[int, List[int]]] = stop_token_ids
 
     def _sanitize_generate_config(
         self,
@@ -247,6 +249,11 @@ class PytorchChatModel(PytorchModel, ChatModelDataProcessorMixin):
         )
         if "stop" not in pytorch_generate_config and self._stop is not None:
             pytorch_generate_config["stop"] = self._stop
+        if (
+            "stop_token_ids" not in pytorch_generate_config
+            and self._stop_token_ids is not None
+        ):
+            pytorch_generate_config["stop_token_ids"] = self._stop_token_ids
 
         return pytorch_generate_config
 
