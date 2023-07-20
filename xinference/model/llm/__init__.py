@@ -331,7 +331,9 @@ def install():
         ),
     )
 
-    pytorch_starchat_alpha_name_generator = "HuggingFaceH4/starchat-alpha"
+    pytorch_starchat_alpha_name_generator = lambda model_size, quantization: (
+        "HuggingFaceH4/starchat-alpha"
+    )
     MODEL_FAMILIES.append(
         ModelFamily(
             model_name="starchat-alpha",
@@ -343,13 +345,16 @@ def install():
         )
     )
 
-    pytorch_starchat_beta_name_generator = "HuggingFaceH4/starchat-beta"
+    pytorch_starchat_beta_name_generator = lambda model_size, quantization: (
+        "HuggingFaceH4/starchat-alpha"
+    )
     MODEL_FAMILIES.append(
         ModelFamily(
             model_name="starchat-beta",
             model_sizes_in_billions=[16],
             model_format="pytorch",
             url_generator=pytorch_starchat_beta_name_generator,
+            quantizations=["none"],
             cls=StarchatBetaPytorchChat,
         )
     )
