@@ -181,12 +181,17 @@ def lanuch_model(alice_or_bob, model_a, system_prompt, chat_history, username):
         model_name=model_a,
         model_format="pytorch",
         model_size_in_billions=13,
-        quantization="int8",
+        quantization="int4",
     )
     model = client.get_model(model_uid)
 
+    if alice_or_bob == "小红":
+        prompt = f"你好，{alice_or_bob}，能给{username}打个招呼吗？"
+    else:
+        prompt = f"你好，{alice_or_bob}，能和我们的朋友{username}问个好吗？"
+
     completion = model.chat(
-        prompt=f"你好，{alice_or_bob}，能给{username}打个招呼吗",
+        prompt=prompt,
         system_prompt=system_prompt,
         chat_history=chat_history,
         generate_config={"max_tokens": 1024},
