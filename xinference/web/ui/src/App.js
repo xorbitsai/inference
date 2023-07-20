@@ -1,3 +1,5 @@
+import MenuTop from "./shared/MenuTop";
+import MenuSide from "./shared/MenuSide";
 import { ColorModeContext, useMode } from "./theme";
 import { CssBaseline, ThemeProvider } from "@mui/material";
 function App() {
@@ -7,7 +9,9 @@ function App() {
       <ThemeProvider theme={theme}>
         <CssBaseline />
         <div className="App">
+          <MenuTop />
           <main className="content">
+            <MenuSide />
           </main>
         </div>
       </ThemeProvider>
