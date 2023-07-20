@@ -20,6 +20,7 @@ def install():
     from .llama2 import Llama2ChatGgml
     from .orca import OrcaMiniGgml
     from .pytorch.baichuan import BaichuanPytorch, BaichuanPytorchChat
+    from .pytorch.starchat import StarchatAlphaPytorchChat, StarchatBetaPytorchChat
     from .pytorch.vicuna import VicunaCensoredPytorch
     from .vicuna import VicunaCensoredGgml
     from .wizardlm import WizardlmGgml
@@ -328,4 +329,27 @@ def install():
             url_generator=pytorch_vicuna_v1_3_name_generator,
             cls=VicunaCensoredPytorch,
         ),
+    )
+
+    pytorch_starchat_alpha_name_generator = "HuggingFaceH4/starchat-alpha"
+    MODEL_FAMILIES.append(
+        ModelFamily(
+            model_name="starchat-alpha",
+            model_sizes_in_billions=[16],
+            model_format="pytorch",
+            quantizations=["none"],
+            url_generator=pytorch_starchat_alpha_name_generator,
+            cls=StarchatAlphaPytorchChat,
+        )
+    )
+
+    pytorch_starchat_beta_name_generator = "HuggingFaceH4/starchat-beta"
+    MODEL_FAMILIES.append(
+        ModelFamily(
+            model_name="starchat-beta",
+            model_sizes_in_billions=[16],
+            model_format="pytorch",
+            url_generator=pytorch_starchat_beta_name_generator,
+            cls=StarchatBetaPytorchChat,
+        )
     )
