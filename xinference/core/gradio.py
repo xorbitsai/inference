@@ -281,22 +281,23 @@ class GradioApp:
                 full_name = (
                     f"{str(model_family)}-{_model_size_in_billions}b-{_quantization}"
                 )
-                try:
-                    urllib.request.urlretrieve(
-                        url,
-                        cache_path,
-                        reporthook=lambda block_num, block_size, total_size: progress(
-                            block_num * block_size / total_size,
-                            desc=self._locale("Downloading"),
-                        ),
-                    )
-                    # write a meta file to record if download finished
-                    with open(meta_path, "w") as f:
-                        f.write(full_name)
-                except:
-                    if os.path.exists(cache_path):
-                        os.remove(cache_path)
-                    raise gr.Error(self._locale(f"Download failed, please retry."))
+                if model_family.model_format != "pytorch":
+                    try:
+                        urllib.request.urlretrieve(
+                            url,
+                            cache_path,
+                            reporthook=lambda block_num, block_size, total_size: progress(
+                                block_num * block_size / total_size,
+                                desc=self._locale("Downloading"),
+                            ),
+                        )
+                        # write a meta file to record if download finished
+                        with open(meta_path, "w") as f:
+                            f.write(full_name)
+                    except:
+                        if os.path.exists(cache_path):
+                            os.remove(cache_path)
+                        raise gr.Error(self._locale(f"Download failed, please retry."))
 
             model_uid = self._create_model(
                 _model_name, int(_model_size_in_billions), _model_format, _quantization
