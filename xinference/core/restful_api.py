@@ -185,7 +185,7 @@ class CreateChatCompletionRequest(BaseModel):
     mirostat_mode: int = mirostat_mode_field
     mirostat_tau: float = mirostat_tau_field
     mirostat_eta: float = mirostat_eta_field
-    stop: Optional[List[str]] = stop_field
+    stop: Optional[Union[str, List[str]]] = stop_field
     stream: bool = stream_field
     presence_penalty: Optional[float] = presence_penalty_field
     frequency_penalty: Optional[float] = frequency_penalty_field
