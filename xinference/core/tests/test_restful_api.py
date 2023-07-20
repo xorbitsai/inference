@@ -96,6 +96,7 @@ async def test_restful_api(setup):
             {"role": "assistant", "content": "Hi what can I help you?"},
             {"role": "user", "content": "What is the capital of France?"},
         ],
+        "stop": ["\n"],
     }
     response = requests.post(url, json=payload)
     completion = response.json()
