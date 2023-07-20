@@ -15,8 +15,11 @@
 import logging
 import os
 import urllib.request
+import warnings
 from typing import Callable, List, Optional, Type
 
+import requests
+from requests import RequestException
 from tqdm import tqdm
 
 from ..constants import XINFERENCE_CACHE_DIR
@@ -32,12 +35,14 @@ class ModelSpec:
         model_size_in_billions: int,
         quantization: str,
         url: str,
+        rp_url: Optional[str] = None,
     ):
         self.model_name = model_name
         self.model_format = model_format
         self.model_size_in_billions = model_size_in_billions
         self.quantization = quantization
         self.url = url
+        self.rp_url = rp_url
 
     def __str__(self):
         return (
@@ -71,6 +76,7 @@ class ModelFamily:
         model_sizes_in_billions: List[int],
         quantizations: List[str],
         url_generator: Callable[[int, str], str],
+        rp_url_generator: Callable[[int, str], str],
         cls: Type,
     ):
         self.model_name = model_name
@@ -78,6 +84,7 @@ class ModelFamily:
         self.model_format = model_format
         self.quantizations = quantizations
         self.url_generator = url_generator
+        self.rp_url_generator = rp_url_generator
         self.cls = cls
 
     def __str__(self):
@@ -94,6 +101,7 @@ class ModelFamily:
                         model_format=self.model_format,
                         quantization=quantization,
                         url=self.url_generator(model_size, quantization),
+                        rp_url=self.rp_url_generator(model_size, quantization),
                     )
                 )
         return iter(model_specs)
@@ -125,8 +133,7 @@ class ModelFamily:
         if not os.path.exists(save_dir):
             os.makedirs(save_dir, exist_ok=True)
         save_path = os.path.join(save_dir, "model.bin")
-        meta_path = os.path.join(save_dir, "meta")
-        return save_path, meta_path
+        return save_path
 
     def cache(
         self,
@@ -141,17 +148,44 @@ class ModelFamily:
         quantization = quantization or self.quantizations[0]
 
         url = self.url_generator(model_size_in_billions, quantization)
+        rp_url = self.rp_url_generator(model_size_in_billions, quantization)
+
+        try:
+            rp_fetch = requests.get(rp_url)
+        except RequestException:
+            raise RuntimeError(
+                f"Failed to download raw pointer file for integrity verification from {rp_url}"
+            )
+
+        res_content = rp_fetch.content
+        expected_size = -1
+        splitted_res_content = res_content.split()
+        for index in range(len(splitted_res_content)):
+            item = str(splitted_res_content[index], encoding="utf-8")
+            if item == "size":
+                expected_size = int(
+                    str(splitted_res_content[index + 1], encoding="utf-8")
+                )
 
         if self.model_format == "pytorch":
             return url
 
         full_name = f"{str(self)}-{model_size_in_billions}b-{quantization}"
-        save_path, meta_path = self.generate_cache_path(
-            model_size_in_billions, quantization
-        )
-        if os.path.exists(meta_path) and os.path.exists(save_path):
-            # TODO: verify the integrity.
-            return save_path
+        save_path = self.generate_cache_path(model_size_in_billions, quantization)
+
+        if os.path.exists(save_path):
+            if os.path.getsize(save_path) == expected_size:
+                return save_path
+            else:
+                warnings.warn(
+                    "Model size doesn't match, try to update it...", RuntimeWarning
+                )
+
+        save_dir = os.path.join(XINFERENCE_CACHE_DIR, full_name)
+        if not os.path.exists(save_dir):
+            os.makedirs(save_dir, exist_ok=True)
+
+        save_path = os.path.join(save_dir, "model.bin")
 
         try:
             if os.path.exists(save_path):
@@ -170,10 +204,11 @@ class ModelFamily:
                         blocksize
                     ),
                 )
-            # write a meta file to record if download finished
-            with open(meta_path, "w") as f:
-                f.write(full_name)
-            # TODO: verify the integrity.
+
+            # verify the integrity.
+            if os.path.getsize(save_path) != expected_size:
+                os.remove(save_path)
+                raise RuntimeError(f"Failed to download {full_name} from {url}")
         except:
             if os.path.exists(save_path):
                 os.remove(save_path)
