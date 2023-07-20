@@ -91,7 +91,6 @@ jobs:
           pip install accelerate
           pip install sentencepiece
           pip install transformers_stream_generator
-          pip install cpm_kernels
           pip install -e ".[dev]"
         working-directory: .
 
