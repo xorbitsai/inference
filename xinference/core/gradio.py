@@ -296,6 +296,7 @@ class GradioApp:
                 except:
                     if os.path.exists(cache_path):
                         os.remove(cache_path)
+                    raise gr.Error(self._locale(f"Download failed, please retry."))
 
             model_uid = self._create_model(
                 _model_name, int(_model_size_in_billions), _model_format, _quantization
