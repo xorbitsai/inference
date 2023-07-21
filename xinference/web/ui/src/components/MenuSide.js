@@ -12,84 +12,81 @@ import {
 } from "@mui/material";
 import {
   ChevronRightOutlined,
+  CallOutlined,
+  RocketLaunchOutlined,
+  EngineeringOutlined,
   HomeOutlined,
-  StorageOutlined,
   DnsOutlined,
-  KeyboardVoiceOutlined,
   SmartToyOutlined,
-  ChatOutlined,
+  SettingsApplications,
 } from "@mui/icons-material";
 import icon from "../media/icon.png";
+import { useLocation, useNavigate } from "react-router-dom";
 
 const navItems = [
   {
-    text: "Dashboard",
+    text: "Home",
     icon: <HomeOutlined />,
   },
   {
-    text: "My Models",
+    text: "Software",
     icon: null,
   },
   {
-    text: "Vicuna-v1.3",
-    icon: <ChatOutlined />,
+    text: "Launch Model",
+    icon: <RocketLaunchOutlined />,
   },
   {
-    text: "Vicuna-v1.3 (1)",
-    icon: <ChatOutlined />,
-  },
-  {
-    text: "ChatGLM",
-    icon: <ChatOutlined />,
-  },
-  {
-    text: "Whisper",
-    icon: <KeyboardVoiceOutlined />,
-  },
-  {
-    text: "My Workers",
-    icon: null,
-  },
-  {
-    text: "Worker1",
+    text: "Model Dashboard",
     icon: <SmartToyOutlined />,
   },
   {
-    text: "Worker2",
-    icon: <SmartToyOutlined />,
+    text: "Worker Dashboard",
+    icon: <EngineeringOutlined />,
   },
   {
     text: "Hardware",
     icon: null,
   },
   {
-    text: "CPU1",
+    text: "Resource Dashboard",
     icon: <DnsOutlined />,
   },
   {
-    text: "CPU2",
-    icon: <DnsOutlined />,
+    text: "Machine Settings",
+    icon: <SettingsApplications />,
   },
   {
-    text: "GPU1",
-    icon: <StorageOutlined />,
+    text: "Other",
+    icon: null,
+  },
+  {
+    text: "Contact Us",
+    icon: <CallOutlined />,
   },
 ];
 
 const MenuSide = () => {
   const theme = useTheme();
+  const { pathname } = useLocation();
+  const [active, setActive] = useState("");
+  const navigate = useNavigate();
   const [drawerWidth, setDrawerWidth] = useState("0px");
 
   useEffect(() => {
+    setActive(pathname.substring(1));
+  }, [pathname]);
+
+  useEffect(() => {
     const screenWidth = window.innerWidth;
-    const maxDrawerWidth = Math.min(Math.max(screenWidth * 0.25, 250), 320);
+    const maxDrawerWidth = Math.min(Math.max(screenWidth * 0.2, 287), 320);
     setDrawerWidth(`${maxDrawerWidth}px`);
 
     // Update the drawer width on window resize
     const handleResize = () => {
       const newScreenWidth = window.innerWidth;
       const newMaxDrawerWidth = Math.min(
-        Math.max(newScreenWidth * 0.25, 250),
+        Math.max(newScreenWidth * 0.2, 287),
         320
       );
       setDrawerWidth(`${newMaxDrawerWidth}px`);
@@ -139,11 +136,7 @@ const MenuSide = () => {
               sx={{ objectFit: "cover", mr: 1.5 }}
             />
             <Box textAlign="left">
-              <Typography
-                fontWeight="bold"
-                fontSize="1.7rem"
-                sx={{ color: theme.palette.secondary[100] }}
-              >
+              <Typography fontWeight="bold" fontSize="1.7rem">
                 {"Xinference"}
               </Typography>
             </Box>
@@ -164,19 +157,20 @@ const MenuSide = () => {
                 );
               }
 
+              const link = text.toLowerCase().replace(" ", "_");
+
               return (
                 <ListItem key={text} disablePadding>
                   <ListItemButton
-                    onClick={() => {}}
-                    sx={{
-                      backgroundColor: theme.palette.secondary[300],
-                      color: theme.palette.primary[600],
+                    onClick={() => {
+                      navigate(`/${link}`);
+                      setActive(link);
+                      console.log(active);
                     }}
                   >
                     <ListItemIcon
                       sx={{
                         ml: "2rem",
-                        color: theme.palette.primary[600],
                       }}
                     >
                       {icon}
