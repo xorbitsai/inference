@@ -12,7 +12,7 @@ import {
 } from "@mui/material";
 import {
   ChevronRightOutlined,
-  CallOutlined,
+  GitHub,
   RocketLaunchOutlined,
   EngineeringOutlined,
   HomeOutlined,
@@ -62,7 +62,7 @@ const navItems = [
   },
   {
     text: "Contact Us",
-    icon: <CallOutlined />,
+    icon: <GitHub />,
   },
 ];
 
@@ -164,9 +164,17 @@ const MenuSide = () => {
                 <ListItem key={text} disablePadding>
                   <ListItemButton
                     onClick={() => {
-                      navigate(`/${link}`);
-                      setActive(link);
-                      console.log(active);
+                      if (link !== "contact_us") {
+                        navigate(`/${link}`);
+                        setActive(link);
+                        console.log(active);
+                      } else {
+                        window.open(
+                          "https://github.com/xorbitsai/inference",
+                          "_blank",
+                          "noreferrer"
+                        );
+                      }
                     }}
                   >
                     <ListItemIcon
