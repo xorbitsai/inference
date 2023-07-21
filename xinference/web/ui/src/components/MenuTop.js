@@ -3,7 +3,7 @@ import { useContext } from "react";
 import { ColorModeContext } from "../theme";
 import LightModeOutlinedIcon from "@mui/icons-material/LightModeOutlined";
 import DarkModeOutlinedIcon from "@mui/icons-material/DarkModeOutlined";
-import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
+import NotificationsOutlinedIcon from "@mui/icons-material/NotificationsOutlined";
 
 const MenuTop = () => {
   const theme = useTheme();
@@ -21,7 +21,7 @@ const MenuTop = () => {
           )}
         </IconButton>
         <IconButton>
-          <SettingsOutlinedIcon />
+          <NotificationsOutlinedIcon />
         </IconButton>
       </Box>
     </Box>
