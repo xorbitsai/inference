@@ -10,7 +10,8 @@ const LaunchModel = () => {
   const style = {
     display: "grid",
     gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
-    gridGap: "1rem",
+    paddingLeft: "2rem",
+    gridGap: "2rem 0rem",
   };
 
   return (
@@ -19,15 +20,21 @@ const LaunchModel = () => {
         imgURL="https://t4.ftcdn.net/jpg/04/24/72/21/360_F_424722112_grNCAEGRwk5bYm2SDYVbBnW6VzU8qmKN.jpg"
         serviceName="WizardLM-1.3b"
         description="WizardLM is an open-source chatbot trained by fine-tuning LLaMA using the innovative Evol-Instruct method."
-        postURL="https://example.com/api/launch"
-        jsonData={jsonData}
+        postURL="http://localhost:9997/v1/models"
+        jsonData={{
+          model_name: "wizardlm-v1.0",
+          model_size_in_billions: 7,
+        }}
       />
       <ModelCard
         imgURL="https://lmsys.org/images/blog/vicuna/vicuna.jpeg"
         serviceName="Vicuna-7b"
-        description="Vicuna is an open-source chatbot trained by fine-tuning LLaMA on user-shared conversations collected from ShareGPT. "
-        postURL="https://example.com/api/launch"
-        jsonData={jsonData}
+        description="Vicuna is an open-source chatbot trained by fine-tuning LLaMA on data collected from ShareGPT. "
+        postURL="http://localhost:9997/v1/models"
+        jsonData={{
+          model_name: "vicuna-v1.3",
+          model_size_in_billions: 7,
+        }}
       />
       {[...Array(20)].map((_, index) => (
         <ModelCard
