@@ -28,6 +28,7 @@ from ....types import (
 )
 from ..core import Model
 from ..utils import ChatModelDataProcessorMixin
+from .compression import load_compress_model
 from .utils import generate_stream
 
 if TYPE_CHECKING:
@@ -140,6 +141,7 @@ class PytorchModel(Model):
 
     def load(self):
         num_gpus = self._pytorch_model_config.get("num_gpus", 1)
+        load_8bit = self._pytorch_model_config.get("load_8bit", False)
         cpu_offloading = self._pytorch_model_config.get("cpu_offloading", False)
         if self._is_darwin_and_apple_silicon():
             device = self._pytorch_model_config.get("device", "mps")
@@ -157,6 +159,25 @@ class PytorchModel(Model):
         else:
             raise ValueError(f"Device {device} is not supported in temporary")
         kwargs["revision"] = self._pytorch_model_config.get("revision", "main")
+
+        quantization = self.model_spec.quantization
+        if quantization != "none":
+            load_8bit = True
+        if load_8bit:
+            if num_gpus != 1:
+                logger.warning(
+                    "8-bit quantization is not supported for multi-gpu inference."
+                )
+            else:
+                self._model, self._tokenizer = load_compress_model(
+                    model_path=self._model_path,
+                    device=device,
+                    torch_dtype=kwargs["torch_dtype"],
+                    use_fast=self._use_fast_tokenizer,
+                    revision=kwargs["revision"],
+                )
+                print(self._model)
+                return
 
         self._model, self._tokenizer = self._load_model(kwargs)
 
