@@ -9,7 +9,7 @@
 [![Slack](https://img.shields.io/badge/join_Slack-781FF5.svg?logo=slack&style=for-the-badge)](https://join.slack.com/t/xorbitsio/shared_invite/zt-1o3z9ucdh-RbfhbPVpx7prOVdM1CAuxg)
 [![Twitter](https://img.shields.io/twitter/follow/xorbitsio?logo=twitter&style=for-the-badge)](https://twitter.com/xorbitsio)
 
-English | [中文介绍](README_zh_CN.md)
+English | [中文介绍](README_zh_CN.md) | [日本語](README_ja_JP.md)
 </div>
 <br />
 
