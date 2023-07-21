@@ -20,7 +20,7 @@ import {
   SmartToyOutlined,
   SettingsApplications,
 } from "@mui/icons-material";
-import icon from "../media/icon.png";
+import icon from "../media/icon.webp";
 import { useLocation, useNavigate } from "react-router-dom";
 
 const navItems = [
@@ -71,7 +71,9 @@ const MenuSide = () => {
   const { pathname } = useLocation();
   const [active, setActive] = useState("");
   const navigate = useNavigate();
-  const [drawerWidth, setDrawerWidth] = useState("0px");
+  const [drawerWidth, setDrawerWidth] = useState(
+    `${Math.min(Math.max(window.innerWidth * 0.2, 287), 320)}px`
+  );
 
   useEffect(() => {
     setActive(pathname.substring(1));
