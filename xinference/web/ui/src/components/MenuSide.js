@@ -104,7 +104,6 @@ const MenuSide = () => {
     <Drawer
       variant="permanent"
       sx={{
-        zIndex: -1,
         width: drawerWidth,
         ...theme.mixins.toolbar,
         flexShrink: 0,
