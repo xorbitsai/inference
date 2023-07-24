@@ -142,7 +142,7 @@ class PytorchModel(Model):
     def load(self):
         num_gpus = self._pytorch_model_config.get("num_gpus", 1)
         load_8bit = self._pytorch_model_config.get("load_8bit", False)
-        cpu_offloading = self._pytorch_model_config.get("cpu_offloading", False)
+        cpu_offloading = self._pytorch_model_config.get("cpu_offloading", True)
         if self._is_darwin_and_apple_silicon():
             device = self._pytorch_model_config.get("device", "mps")
         else:
@@ -161,18 +161,24 @@ class PytorchModel(Model):
         kwargs["revision"] = self._pytorch_model_config.get("revision", "main")
 
         quantization = self.model_spec.quantization
-        num_bits = 8
         if quantization != "none":
             load_8bit = True
-            if quantization == "int8":
-                num_bits = 8
-            elif quantization == "int4":
-                num_bits = 4
-            else:
-                raise ValueError(
-                    f"quantization {quantization} is not supported in temporary"
+
+        if cpu_offloading:
+            import math
+
+            import psutil
+            from transformers import BitsAndBytesConfig
+
+            if "max_memory" in kwargs:
+                kwargs["max_memory"]["cpu"] = (
+                    str(math.floor(psutil.virtual_memory().available / 2**20)) + "Mib"
                 )
-        if load_8bit:
+            kwargs["quantization_config"] = BitsAndBytesConfig(
+                load_in_8bit_fp32_cpu_offload=cpu_offloading
+            )
+            kwargs["load_in_8bit"] = load_8bit
+        elif load_8bit:
             if num_gpus != 1:
                 logger.warning(
                     "8-bit quantization is not supported for multi-gpu inference."
@@ -183,7 +189,6 @@ class PytorchModel(Model):
                     device=device,
                     torch_dtype=kwargs["torch_dtype"],
                     use_fast=self._use_fast_tokenizer,
-                    num_bits=num_bits,
                     revision=kwargs["revision"],
                 )
                 print(self._model)
@@ -191,11 +196,11 @@ class PytorchModel(Model):
 
         self._model, self._tokenizer = self._load_model(kwargs)
 
-        quantization = self.model_spec.quantization
-        if quantization == "int4":
-            self._model = self._model.quantize(4)
-        elif quantization == "int8":
-            self._model = self._model.quantize(8)
+        # quantization = self.model_spec.quantization
+        # if quantization == "int4":
+        #     self._model = self._model.quantize(4)
+        # elif quantization == "int8":
+        #     self._model = self._model.quantize(8)
 
         if (
             device == "cuda" and num_gpus == 1 and not cpu_offloading
