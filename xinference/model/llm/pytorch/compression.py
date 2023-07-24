@@ -212,7 +212,10 @@ def compress(tensor, config):
         B = 2 ** (num_bits - 1) - 1
         scale = B / torch.max(data.abs(), dim=group_dim + 1, keepdim=True)[0]
         data = data * scale
-        data = data.clamp_(-B, B).round_().to(torch.int8)
+        if num_bits == 8:
+            data = data.clamp_(-B, B).round_().to(torch.int8)
+        elif num_bits == 4:
+            data = data.clamp_(-B, B).round_().to(torch.int4)
         return data, scale, original_shape
     else:
         B = 2**num_bits - 1
@@ -223,7 +226,10 @@ def compress(tensor, config):
         data = data - mn
         data.mul_(scale)
 
-        data = data.clamp_(0, B).round_().to(torch.uint8)
+        if num_bits == 8:
+            data = data.clamp_(0, B).round_().to(torch.uint8)
+        elif num_bits == 4:
+            data = data.clamp_(0, B).round_().to(torch.uint4)
         return data, mn, scale, original_shape
 
 
