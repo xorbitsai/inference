@@ -47,18 +47,21 @@ default_compression_config = CompressionConfig(
 class CLinear(nn.Module):
     """Compressed Linear Layer."""
 
-    def __init__(self, weight=None, bias=None, device=None):
+    def __init__(
+        self, weight=None, bias=None, device=None, config=default_compression_config
+    ):
         super().__init__()
         if weight is None:
             self.weight = None
         elif isinstance(weight, Tensor):
-            self.weight = compress(weight.data.to(device), default_compression_config)
+            self.weight = compress(weight.data.to(device), config)
         else:
             self.weight = weight
         self.bias = bias
+        self.config = config
 
     def forward(self, input: Tensor) -> Tensor:
-        weight = decompress(self.weight, default_compression_config)
+        weight = decompress(self.weight, self.config)
         if self.bias is None:
             return F.linear(input.to(weight.dtype), weight)
         return F.linear(input.to(weight.dtype), weight, self.bias.to(weight.dtype))
@@ -80,7 +83,13 @@ def get_compressed_list(module, prefix=""):
     return compressed_list
 
 
-def apply_compressed_weight(module, compressed_state_dict, target_device, prefix=""):
+def apply_compressed_weight(
+    module,
+    compressed_state_dict,
+    target_device,
+    prefix="",
+    config=default_compression_config,
+):
     for attr_str in dir(module):
         target_attr = getattr(module, attr_str)
         if type(target_attr) == torch.nn.Linear:
@@ -91,17 +100,22 @@ def apply_compressed_weight(module, compressed_state_dict, target_device, prefix
                 module,
                 attr_str,
                 CLinear(
-                    compressed_state_dict[full_name], target_attr.bias, target_device
+                    compressed_state_dict[full_name],
+                    target_attr.bias,
+                    target_device,
+                    config,
                 ),
             )
     for name, child in module.named_children():
         child_prefix = f"{prefix}.{name}" if prefix else name
         apply_compressed_weight(
-            child, compressed_state_dict, target_device, child_prefix
+            child, compressed_state_dict, target_device, child_prefix, config
         )
 
 
-def load_compress_model(model_path, device, torch_dtype, use_fast, revision="main"):
+def load_compress_model(
+    model_path, device, torch_dtype, use_fast, num_bits=8, revision="main"
+):
     # partially load model
     tokenizer = AutoTokenizer.from_pretrained(
         model_path, use_fast=use_fast, trust_remote_code=True, revision=revision
@@ -129,15 +143,16 @@ def load_compress_model(model_path, device, torch_dtype, use_fast, revision="mai
     files = glob.glob(base_pattern)
 
     compressed_state_dict = {}
+    compression_config = CompressionConfig(
+        num_bits=num_bits, group_size=256, group_dim=1, symmetric=True, enabled=True
+    )
 
     for filename in tqdm(files):
         tmp_state_dict = torch.load(filename)
         for name in tmp_state_dict:
             if name in linear_weights:
                 tensor = tmp_state_dict[name].to(device).data.to(torch_dtype)
-                compressed_state_dict[name] = compress(
-                    tensor, default_compression_config
-                )
+                compressed_state_dict[name] = compress(tensor, compression_config)
             else:
                 compressed_state_dict[name] = tmp_state_dict[name].to(device)
             tmp_state_dict[name] = None
@@ -150,7 +165,9 @@ def load_compress_model(model_path, device, torch_dtype, use_fast, revision="mai
             set_module_tensor_to_device(
                 model, name, device, value=compressed_state_dict[name]
             )
-    apply_compressed_weight(model, compressed_state_dict, device)
+    apply_compressed_weight(
+        model, compressed_state_dict, device, config=compression_config
+    )
 
     model.to(device)
 

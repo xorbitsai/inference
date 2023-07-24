@@ -161,8 +161,17 @@ class PytorchModel(Model):
         kwargs["revision"] = self._pytorch_model_config.get("revision", "main")
 
         quantization = self.model_spec.quantization
+        num_bits = 8
         if quantization != "none":
             load_8bit = True
+            if quantization == "int8":
+                num_bits = 8
+            elif quantization == "int4":
+                num_bits = 4
+            else:
+                raise ValueError(
+                    f"quantization {quantization} is not supported in temporary"
+                )
         if load_8bit:
             if num_gpus != 1:
                 logger.warning(
@@ -174,6 +183,7 @@ class PytorchModel(Model):
                     device=device,
                     torch_dtype=kwargs["torch_dtype"],
                     use_fast=self._use_fast_tokenizer,
+                    num_bits=num_bits,
                     revision=kwargs["revision"],
                 )
                 print(self._model)
