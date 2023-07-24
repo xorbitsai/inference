@@ -88,8 +88,8 @@ class PytorchModel(Model):
         pytorch_model_config.setdefault("revision", "main")
         pytorch_model_config.setdefault("gpus", None)
         pytorch_model_config.setdefault("num_gpus", 1)
-        pytorch_model_config.setdefault("load_8bit", False)
-        pytorch_model_config.setdefault("cpu_offloading", False)
+        pytorch_model_config.setdefault("load_8bit", True)
+        pytorch_model_config.setdefault("cpu_offloading", True)
         pytorch_model_config.setdefault("gptq_ckpt", None)
         pytorch_model_config.setdefault("gptq_wbits", 16)
         pytorch_model_config.setdefault("gptq_groupsize", -1)
@@ -141,7 +141,7 @@ class PytorchModel(Model):
 
     def load(self):
         num_gpus = self._pytorch_model_config.get("num_gpus", 1)
-        load_8bit = self._pytorch_model_config.get("load_8bit", False)
+        load_8bit = self._pytorch_model_config.get("load_8bit", True)
         cpu_offloading = self._pytorch_model_config.get("cpu_offloading", True)
         if self._is_darwin_and_apple_silicon():
             device = self._pytorch_model_config.get("device", "mps")
@@ -165,19 +165,23 @@ class PytorchModel(Model):
             load_8bit = True
 
         if cpu_offloading:
-            import math
+            print("yoki1")
+            # import math
 
-            import psutil
-            from transformers import BitsAndBytesConfig
+            # import psutil
+            # from transformers import BitsAndBytesConfig
 
-            if "max_memory" in kwargs:
-                kwargs["max_memory"]["cpu"] = (
-                    str(math.floor(psutil.virtual_memory().available / 2**20)) + "Mib"
-                )
-            kwargs["quantization_config"] = BitsAndBytesConfig(
-                load_in_8bit_fp32_cpu_offload=cpu_offloading
-            )
-            kwargs["load_in_8bit"] = load_8bit
+            # if "max_memory" in kwargs:
+            #     kwargs["max_memory"]["cpu"] = (
+            #         str(math.floor(psutil.virtual_memory().available / 2**20)) + "Mib"
+            #     )
+            # kwargs["quantization_config"] = BitsAndBytesConfig(
+            #     load_in_8bit_fp32_cpu_offload=cpu_offloading
+            # )
+            if quantization == "int8":
+                kwargs["load_in_8bit"] = True
+            elif quantization == "int4":
+                kwargs["load_in_4bit"] = load_8bit
         elif load_8bit:
             if num_gpus != 1:
                 logger.warning(
@@ -206,6 +210,7 @@ class PytorchModel(Model):
             device == "cuda" and num_gpus == 1 and not cpu_offloading
         ) or device == "mps":
             self._model.to(device)
+        print("yoki model.get_memory_footprint: ", self._model.get_memory_footprint())
         print(self._model)
 
     def generate(
