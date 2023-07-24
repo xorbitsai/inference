@@ -56,7 +56,6 @@ class PytorchModelConfig(TypedDict, total=False):
     gpus: Optional[str]
     num_gpus: int
     max_gpu_memory: str
-    load_8bit: bool
     cpu_offloading: bool
     gptq_ckpt: Optional[str]
     gptq_wbits: int
@@ -87,7 +86,6 @@ class PytorchModel(Model):
         pytorch_model_config.setdefault("revision", "main")
         pytorch_model_config.setdefault("gpus", None)
         pytorch_model_config.setdefault("num_gpus", 1)
-        pytorch_model_config.setdefault("load_8bit", False)
         pytorch_model_config.setdefault("cpu_offloading", False)
         pytorch_model_config.setdefault("gptq_ckpt", None)
         pytorch_model_config.setdefault("gptq_wbits", 16)
@@ -139,8 +137,8 @@ class PytorchModel(Model):
         return model, tokenizer
 
     def load(self):
+        quantization = self.model_spec.quantization
         num_gpus = self._pytorch_model_config.get("num_gpus", 1)
-        cpu_offloading = self._pytorch_model_config.get("cpu_offloading", False)
         if self._is_darwin_and_apple_silicon():
             device = self._pytorch_model_config.get("device", "mps")
         else:
@@ -150,24 +148,29 @@ class PytorchModel(Model):
             kwargs = {"torch_dtype": torch.float32}
         elif device == "cuda":
             kwargs = {"torch_dtype": torch.float16}
-            if cpu_offloading:
-                kwargs["device_map"] = "auto"
         elif device == "mps":
             kwargs = {"torch_dtype": torch.float16}
         else:
             raise ValueError(f"Device {device} is not supported in temporary")
         kwargs["revision"] = self._pytorch_model_config.get("revision", "main")
 
+        if quantization == "fp4":
+            kwargs["load_in_4bit"] = True
+            kwargs["device_map"] = "auto"
+        elif quantization == "int8":
+            kwargs["load_in_8bit"] = True
+            kwargs["device_map"] = "auto"
+        elif quantization == "none":
+            pass
+        else:
+            raise ValueError(
+                f"quantization {quantization} is not supported in temporary"
+            )
+
         self._model, self._tokenizer = self._load_model(kwargs)
 
-        quantization = self.model_spec.quantization
-        if quantization == "int4":
-            self._model = self._model.quantize(4)
-        elif quantization == "int8":
-            self._model = self._model.quantize(8)
-
         if (
-            device == "cuda" and num_gpus == 1 and not cpu_offloading
+            device == "cuda" and num_gpus == 1 and quantization == "none"
         ) or device == "mps":
             self._model.to(device)
         print(self._model)
