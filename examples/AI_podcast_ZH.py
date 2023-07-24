@@ -27,6 +27,13 @@ from xinference.model.llm.pytorch.core import PytorchGenerateConfig
 warnings.filterwarnings("ignore")
 
 try:
+    import opencc
+except ImportError:
+    raise ImportError(
+        "Failed to import opencc, please install opencc with `pip install opencc-python-reimplemented"
+    )
+
+try:
     import ffmpeg
 except ImportError:
     raise ImportError(
@@ -168,7 +175,7 @@ def record_unlimited() -> numpy.ndarray:
     return numpy.frombuffer(y, numpy.int16).flatten().astype(numpy.float32) / 32768.0
 
 
-def lanuch_model(alice_or_bob, model_a, username, model_uid):
+def lanuch_model(alice_or_bob, model_a, username, model_uid, system_prompt):
     if alice_or_bob == "小红":
         emoji_assistant = emoji_women
     else:
@@ -189,9 +196,18 @@ def lanuch_model(alice_or_bob, model_a, username, model_uid):
     model = client.get_model(model_uid)
 
     if alice_or_bob == "小红":
-        model_greeting = f"你好，{username}，很高兴见到你！"
+        prompt = f"你好，{alice_or_bob}！"
     else:
-        model_greeting = f"{username}，你好，最近别来无恙！"
+        prompt = f"{alice_or_bob}，你好！"
+
+    model_greeting = chat_with_bot(
+        format_input=prompt,
+        system_prompt=system_prompt,
+        usname=username,
+        model_ref=model,
+        chat_history=[],
+        alice_or_bob_state=alice_or_bob
+    )
 
     text_to_audio(model_greeting, alice_or_bob)
 
@@ -243,7 +259,6 @@ def construct_Baichuan_prompt(
             ret += f" {role} {content}{sep2}"
     ret += f" {username} {prompt}{sep}"
     ret += f" {assistant_name} "
-    print(ret)
     return ret
 
 
@@ -309,7 +324,6 @@ def chat_with_bot(
         system_prompt,
         model_ref,
         usname,
-        model_uid
 ):
     full_prompt = construct_Baichuan_prompt(
         prompt=format_input,
@@ -320,7 +334,7 @@ def chat_with_bot(
     )
 
     # generate_config = Baichuan_sanitize_generate_config(model_uid)
-    generate_config = {"max_tokens": 1024, "stop": ['\n', '\n\n', "", " ", "  ", "   ", "     "]}
+    generate_config = {"max_tokens": 1024, "stop": " "}
 
     resulting_chunks = model_ref.generate(full_prompt, generate_config)
     assert not isinstance(resulting_chunks, Iterator)
@@ -357,9 +371,18 @@ if __name__ == "__main__":
     parser.add_argument(
         "-e", "--endpoint", type=str, help="Xinference endpoint, required", required=True
     )
+    parser.add_argument(
+        "-m1", "--model-1", type=str, help="Xinference model 1's model uid", required=True
+    )
+    parser.add_argument(
+        "-m2", "--model-2", type=str, help="Xinference model 2's model uid", required=True
+    )
     args = parser.parse_args()
 
     endpoint = args.endpoint
+    model_1_uid = args.model_1
+    model_2_uid = args.model_2
+
     model_a = "baichuan-chat"
 
     # Specify the first model we need
@@ -411,29 +434,38 @@ if __name__ == "__main__":
     model_a_ref, model_a_uid = lanuch_model(alice_or_bob="小红",
                                             model_a=model_a,
                                             username=username,
-                                            model_uid="285067f6-27ad-11ee-92f4-6f9781fc77a1")
+                                            model_uid=model_1_uid,
+                                            system_prompt=system_prompt_alice)
     model_b_ref, model_b_uid = lanuch_model(alice_or_bob="小花",
                                             model_a=model_a,
                                             username=username,
-                                            model_uid="e21d88b2-27ad-11ee-92f4-6f9781fc77a1")
+                                            model_uid=model_2_uid,
+                                            system_prompt=system_prompt_bob)
 
     # We can change the scale of the model here, the bigger the model, the higher the accuracy
     # Due to the machine restrictions, I can only launch smaller model.
     # whisper.DecodingOptions(language="en")
-    # model = whisper.load_model("medium")
+    model = whisper.load_model("medium")
 
     while True:
         audio_input = record_unlimited()
 
         start = time.time()
-        # format_input = format_prompt(model, audio_input)
-        # logger.info(f"Time spent on transcribing: {time.time() - start}")
+        raw_format_input = format_prompt(model, audio_input)
+        logger.info(f"Time spent on transcribing: {time.time() - start}")
+
+        # turn traditional chinese to simplified chinese.
+        converter = opencc.OpenCC('t2s')  # 't2s.json' represents the conversion configuration file
+        format_input = converter.convert(raw_format_input)
+
+        if "小宏" in format_input.lower():
+            format_input = format_input.replace("小宏", "小红")
 
         # set up the separation between each chat block.
         print("")
         print(emoji_user, end="")
         print(f" {username}:", end="")
-        format_input = input("type your prompt: ")
+        # format_input = input("type your prompt: ")
         print(format_input)
 
         # for un-natural exit audio inputs.
@@ -477,7 +509,6 @@ if __name__ == "__main__":
 
             return -1  # Either of the words is not present in the string
 
-
         if check_word_order(format_input.lower(), "小红", "小花") == 1:
             alice_or_bob_state = "小红"
             system_prompt = system_prompt_alice
@@ -513,7 +544,6 @@ if __name__ == "__main__":
                 system_prompt=system_prompt,
                 model_ref=model_ref,
                 usname=username,
-                model_uid=model_a_uid
             )
         else:
             content = chat_with_bot(
@@ -523,7 +553,6 @@ if __name__ == "__main__":
                 system_prompt=system_prompt,
                 model_ref=model_ref,
                 usname=username,
-                model_uid=model_b_uid
             )
 
         text_to_audio(content, alice_or_bob_state)
