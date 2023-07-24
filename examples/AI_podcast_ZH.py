@@ -174,7 +174,9 @@ def record_unlimited() -> numpy.ndarray:
     os.remove(filename)
     return numpy.frombuffer(y, numpy.int16).flatten().astype(numpy.float32) / 32768.0
 
+# ======================== for all the content below, alice refers to 小红，bob refers to 小花 ======================== #
 
+# Launch model while sent the greeting message to the user.
 def lanuch_model(alice_or_bob, model_a, username, model_uid, system_prompt):
     if alice_or_bob == "小红":
         emoji_assistant = emoji_women
@@ -316,7 +318,6 @@ def _convert_completion_to_chat(completion: Completion) -> ChatCompletion:
     }
 
 
-# async function to chat with the bot.
 def chat_with_bot(
         format_input,
         chat_history,
@@ -333,7 +334,6 @@ def chat_with_bot(
         chat_history=chat_history
     )
 
-    # generate_config = Baichuan_sanitize_generate_config(model_uid)
     generate_config = {"max_tokens": 1024, "stop": " "}
 
     resulting_chunks = model_ref.generate(full_prompt, generate_config)
@@ -362,10 +362,6 @@ def chat_with_bot(
 
 # ---------------------------------------- The program will run from below: ------------------------------------------#
 if __name__ == "__main__":
-    # define the starting address to launch the xoscar model,
-    # for Using Http: supervisor_addr = "http://10.144.0.1:44935"
-    # for Using local:supervisor_addr = "http://127.0.0.1:9997"
-
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
@@ -383,13 +379,14 @@ if __name__ == "__main__":
     model_1_uid = args.model_1
     model_2_uid = args.model_2
 
-    model_a = "baichuan-chat"
-
+    # model_a used in these demo are both baichuan-chat-13b
+    model_a = "baichuan-chat-13B"
     # Specify the first model we need
     client = RESTfulClient(endpoint)
 
     # chat history to store every words each member is saying.
     chat_history = []
+
     alice_or_bob_state = "0"
     print("")
     print(emoji_jack_o_lantern, end="")
@@ -428,8 +425,7 @@ if __name__ == "__main__":
     system_prompt_bob = system_prompt_alice
 
     # launch the two model one by one and let them greet with the user.
-
-    # shall first set up two model ready for serve on the server, and then
+    # first set up two model ready for serve on the server, and then
     # retrieve them by model_uid on client side.
     model_a_ref, model_a_uid = lanuch_model(alice_or_bob="小红",
                                             model_a=model_a,
@@ -444,7 +440,6 @@ if __name__ == "__main__":
 
     # We can change the scale of the model here, the bigger the model, the higher the accuracy
     # Due to the machine restrictions, I can only launch smaller model.
-    # whisper.DecodingOptions(language="en")
     model = whisper.load_model("medium")
 
     while True:
@@ -489,10 +484,10 @@ if __name__ == "__main__":
             break
 
         system_prompt = system_prompt_alice
-        # We choose to set Alice to default
+        # We choose to set 小红 to default
         model_ref = model_a_ref
 
-        # check whether alice and bob are both in the prompt and their position:
+        # check whether 小红 and 小花 are both in the prompt and their position:
         def check_word_order(string, first_word, second_word) -> int:
             words = re.findall(
                 r"\b\w+\b", string
@@ -557,6 +552,7 @@ if __name__ == "__main__":
 
         text_to_audio(content, alice_or_bob_state)
 
+    # finally, to wrap up and clean up the workspace.
     del chat_history
     bye_msg1 = (
         ": 感谢你关注我们未来速度公司的 Xinference 项目，并选择两位诞生于该项目的杰出人工智能工作人员"
