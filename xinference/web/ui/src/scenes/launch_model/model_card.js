@@ -1,4 +1,5 @@
 import React from "react";
+import { v1 as uuidv1 } from "uuid";
 
 class ModelCard extends React.Component {
   constructor(props) {
@@ -7,20 +8,38 @@ class ModelCard extends React.Component {
   }
 
   launchModel() {
-    fetch(this.props.postURL, {
+    const uuid = uuidv1();
+    const jsonDataWithID = {
+      ...this.props.jsonData,
+      model_uid: uuid,
+      endpoint: this.props.url,
+    };
+
+    console.log("Sending request to: " + jsonDataWithID.endpoint);
+
+    // First fetch request to initiate the model
+    fetch(this.props.url + "/v1/models", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(this.props.jsonData),
+      body: JSON.stringify(jsonDataWithID),
     })
       .then((response) => {
         console.log(response);
-        window.open(
-          this.props.postURL.split("/v1/models")[0],
-          "_blank",
-          "noreferrer"
-        );
+
+        // Second fetch request to build the gradio page
+        return fetch(this.props.url + "/v1/gradio/" + uuid, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(jsonDataWithID),
+        });
+      })
+      .then((response) => {
+        console.log(response);
+        window.open(this.props.url + "/" + uuid, "_blank", "noreferrer");
       })
       .catch((error) => console.error("Error:", error));
   }

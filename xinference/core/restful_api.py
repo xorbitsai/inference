@@ -28,6 +28,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
+from starlette.responses import RedirectResponse
 from typing_extensions import NotRequired, TypedDict
 from uvicorn import Config, Server
 
@@ -224,6 +225,8 @@ class RESTfulAPIActor(xo.Actor):
         self._sockets = sockets
         self._gradio_block = gradio_block
         self._router = None
+        self._endpoint = None
+        self._app = None
 
     @classmethod
     def uid(cls) -> str:
@@ -235,8 +238,8 @@ class RESTfulAPIActor(xo.Actor):
         )
 
     def serve(self):
-        app = FastAPI()
-        app.add_middleware(
+        self._app = FastAPI()
+        self._app.add_middleware(
             CORSMiddleware,
             allow_origins=["*"],
             allow_credentials=True,
@@ -294,11 +297,23 @@ class RESTfulAPIActor(xo.Actor):
             methods=["GET"],
         )
 
-        app.include_router(self._router)
-        app = gr.mount_gradio_app(app, self._gradio_block, path="/")
+        self._router.add_api_route(
+            "/v1/gradio/{model_uid}", self.build_interface, methods=["POST"]
+        )
+
+        self._app.include_router(self._router)
+
+        @self._app.get("/")
+        def read_main():
+            response = RedirectResponse(url="/gradio")
+            return response
+
+        gradio_app = gr.routes.App.create_app(self._gradio_block)
+
+        self._app.mount("/gradio", gradio_app)
 
         # run uvicorn in another daemon thread.
-        config = Config(app=app, log_level="critical")
+        config = Config(app=self._app, log_level="critical")
         server = Server(config)
 
         def _serve():
@@ -330,6 +345,7 @@ class RESTfulAPIActor(xo.Actor):
 
     async def launch_model(self, request: Request) -> JSONResponse:
         payload = await request.json()
+        self._endpoint = payload.get("endpoint")
         model_uid = payload.get("model_uid")
         model_name = payload.get("model_name")
         model_size_in_billions = payload.get("model_size_in_billions")
@@ -337,6 +353,7 @@ class RESTfulAPIActor(xo.Actor):
         quantization = payload.get("quantization")
 
         exclude_keys = {
+            "endpoint",
             "model_uid",
             "model_name",
             "model_size_in_billions",
@@ -373,6 +390,17 @@ class RESTfulAPIActor(xo.Actor):
         except Exception as e:
             logger.error(str(e), exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
+
+        return JSONResponse(content={"model_uid": model_uid})
+
+    def build_interface(self, model_uid: str):
+        assert self._endpoint is not None
+
+        from .chat_interface import ChatInterface
+
+        chatbot = ChatInterface(self._endpoint, model_uid)
+        chatbot_app = gr.routes.App.create_app(chatbot.build_interface())
+        self._app.mount(f"/{model_uid}", chatbot_app)
 
         return JSONResponse(content={"model_uid": model_uid})
 
