@@ -28,6 +28,7 @@ from ....types import (
 )
 from ..core import Model
 from ..utils import ChatModelDataProcessorMixin
+from .compression import load_compress_model
 from .utils import generate_stream
 
 if TYPE_CHECKING:
@@ -86,7 +87,7 @@ class PytorchModel(Model):
         pytorch_model_config.setdefault("revision", "main")
         pytorch_model_config.setdefault("gpus", None)
         pytorch_model_config.setdefault("num_gpus", 1)
-        pytorch_model_config.setdefault("cpu_offloading", False)
+        pytorch_model_config.setdefault("cpu_offloading", True)
         pytorch_model_config.setdefault("gptq_ckpt", None)
         pytorch_model_config.setdefault("gptq_wbits", 16)
         pytorch_model_config.setdefault("gptq_groupsize", -1)
@@ -136,6 +137,30 @@ class PytorchModel(Model):
         )
         return model, tokenizer
 
+    def _raise_warning_for_incompatible_cpu_offloading_configuration(
+        self, device: str, quantization: str, cpu_offloading: bool
+    ):
+        if cpu_offloading:
+            if quantization == "none":
+                logger.warning(
+                    "The cpu-offloading feature can only be used while also using 8-bit or 4-bit quantization. "
+                    "Continuing without cpu-offloading enabled"
+                )
+                return False
+            if not self._is_linux():
+                logger.warning(
+                    "CPU-offloading is only supported on linux-systems due to the limited compatibility with the bitsandbytes-package. "
+                    "Continuing without cpu-offloading enabled"
+                )
+                return False
+            if device != "cuda":
+                logger.warning(
+                    "CPU-offloading is only enabled when using CUDA-devices. "
+                    "Continuing without cpu-offloading enabled"
+                )
+                return False
+        return cpu_offloading
+
     def load(self):
         quantization = self.model_spec.quantization
         num_gpus = self._pytorch_model_config.get("num_gpus", 1)
@@ -143,6 +168,12 @@ class PytorchModel(Model):
             device = self._pytorch_model_config.get("device", "mps")
         else:
             device = self._pytorch_model_config.get("device", "cuda")
+        cpu_offloading = self._pytorch_model_config.get("cpu_offloading", True)
+        cpu_offloading = (
+            self._raise_warning_for_incompatible_cpu_offloading_configuration(
+                device, quantization, cpu_offloading
+            )
+        )
 
         if device == "cpu":
             kwargs = {"torch_dtype": torch.float32}
@@ -154,26 +185,47 @@ class PytorchModel(Model):
             raise ValueError(f"Device {device} is not supported in temporary")
         kwargs["revision"] = self._pytorch_model_config.get("revision", "main")
 
-        if quantization == "fp4":
-            kwargs["load_in_4bit"] = True
-            kwargs["device_map"] = "auto"
-        elif quantization == "int8":
-            kwargs["load_in_8bit"] = True
-            kwargs["device_map"] = "auto"
-        elif quantization == "none":
-            pass
-        else:
-            raise ValueError(
-                f"quantization {quantization} is not supported in temporary"
-            )
+        if quantization != "none":
+            if cpu_offloading:
+                kwargs["device_map"] = "auto"
+                if quantization == "4-bit":
+                    kwargs["load_in_4bit"] = True
+                elif quantization == "8-bit":
+                    kwargs["load_in_8bit"] = True
+                else:
+                    logger.warning(
+                        f"Quantization {quantization} is not supported in temporary. "
+                        "Continuing with full precision inference"
+                    )
+            else:
+                if num_gpus != 1:
+                    logger.warning(
+                        "Quantization is not supported for multi-gpu. "
+                        "Continuing with full precision inference"
+                    )
+                elif quantization != "8-bit":
+                    logger.warning(
+                        "Only 8-bit quantization is supported on linux system and cuda device. "
+                        "Continuing with full precision inference"
+                    )
+                else:
+                    self._model, self._tokenizer = load_compress_model(
+                        model_path=self._model_path,
+                        device=device,
+                        torch_dtype=kwargs["torch_dtype"],
+                        use_fast=self._use_fast_tokenizer,
+                        revision=kwargs["revision"],
+                    )
+                    print("Model Memory: ", self._model.get_memory_footprint())
+                    return
 
         self._model, self._tokenizer = self._load_model(kwargs)
 
         if (
-            device == "cuda" and num_gpus == 1 and quantization == "none"
+            device == "cuda" and num_gpus == 1 and not cpu_offloading
         ) or device == "mps":
             self._model.to(device)
-        print(self._model)
+        print("Model Memory: ", self._model.get_memory_footprint())
 
     def generate(
         self, prompt: str, generate_config: Optional[PytorchGenerateConfig] = None
