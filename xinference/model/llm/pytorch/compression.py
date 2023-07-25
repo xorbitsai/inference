@@ -27,6 +27,8 @@ from torch.nn import functional as F
 from tqdm import tqdm
 from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
 
+from ....constants import XINFERENCE_CACHE_DIR
+
 
 @dataclasses.dataclass
 class CompressionConfig:
@@ -101,10 +103,20 @@ def apply_compressed_weight(module, compressed_state_dict, target_device, prefix
         )
 
 
-def load_compress_model(model_path, device, torch_dtype, use_fast, revision="main"):
+def load_compress_model(
+    model_path: str,
+    device: str,
+    torch_dtype: torch.dtype,
+    use_fast: bool,
+    revision: str = "main",
+):
     # partially load model
     tokenizer = AutoTokenizer.from_pretrained(
-        model_path, use_fast=use_fast, trust_remote_code=True, revision=revision
+        model_path,
+        use_fast=use_fast,
+        trust_remote_code=True,
+        revision=revision,
+        cache_dir=XINFERENCE_CACHE_DIR,
     )
 
     with init_empty_weights():
@@ -114,6 +126,7 @@ def load_compress_model(model_path, device, torch_dtype, use_fast, revision="mai
             torch_dtype=torch_dtype,
             trust_remote_code=True,
             revision=revision,
+            cache_dir=XINFERENCE_CACHE_DIR,
         )
         model = AutoModelForCausalLM.from_config(config, trust_remote_code=True)
         linear_weights = get_compressed_list(model)
@@ -123,7 +136,9 @@ def load_compress_model(model_path, device, torch_dtype, use_fast, revision="mai
         base_pattern = os.path.join(model_path, "pytorch_model*.bin")
     else:
         # `model_path` is a cached Hugging Face repo
-        model_path = snapshot_download(model_path, revision=revision)
+        model_path = snapshot_download(
+            model_path, revision=revision, cache_dir=XINFERENCE_CACHE_DIR
+        )
         base_pattern = os.path.join(model_path, "pytorch_model*.bin")
 
     files = glob.glob(base_pattern)
