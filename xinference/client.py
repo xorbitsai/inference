@@ -134,10 +134,9 @@ class RESTfulGenerateModelHandle(RESTfulModelHandle):
         ] = None,
     ) -> Union["Completion", Iterator["CompletionChunk"]]:
         url = f"{self._base_url}/v1/completions"
-        if generate_config is None:
-            request_body = {"model": self._model_uid, "prompt": prompt}
-        else:
-            request_body = {"model": self._model_uid, "prompt": prompt}
+
+        request_body: Dict[str, Any] = {"model": self._model_uid, "prompt": prompt}
+        if generate_config is not None:
             for key, value in generate_config.items():
                 request_body[key] = value
 
@@ -191,10 +190,11 @@ class RESTfulChatModelHandle(RESTfulGenerateModelHandle):
 
         chat_history.append({"role": "user", "content": prompt})
 
-        if generate_config is None:
-            request_body = {"model": self._model_uid, "messages": chat_history}
-        else:
-            request_body = {"model": self._model_uid, "prompt": prompt}
+        request_body: Dict[str, Any] = {
+            "model": self._model_uid,
+            "messages": chat_history,
+        }
+        if generate_config is not None:
             for key, value in generate_config.items():
                 request_body[key] = value
 
@@ -225,10 +225,12 @@ class RESTfulChatglmCppChatModelHandle(RESTfulModelHandle):
 
         chat_history.append({"role": "user", "content": prompt})
 
-        if generate_config is None:
-            request_body = {"model": self._model_uid, "messages": chat_history}
-        else:
-            request_body = {"model": self._model_uid, "prompt": prompt}
+        request_body: Dict[str, Any] = {
+            "model": self._model_uid,
+            "messages": chat_history,
+        }
+
+        if generate_config is not None:
             for key, value in generate_config.items():
                 request_body[key] = value
 
