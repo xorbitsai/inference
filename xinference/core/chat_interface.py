@@ -31,6 +31,11 @@ class ChatInterface:
 
     def build_interface(self):
         model = self.client.get_model(self.model_uid)
+        model_info = self.client.get_model_info(self.model_uid)
+        model_name = model_info["model_name"]
+        model_format = model_info["model_format"]
+        model_size_in_billions = model_info["model_size_in_billions"]
+        quantization = model_info["quantization"]
 
         def flatten(matrix: List[List[str]]) -> List[str]:
             flat_list = []
@@ -66,5 +71,28 @@ class ChatInterface:
                 "Write three sentences of scholarly description regarding a supernatural beast",
                 "Prove there does not exist a largest integer",
             ],
-            title="Xinference Chat Bot",
+            title=f"🚀 Xinference Chat Bot : {model_name} 🚀",
+            css="""
+            .center{
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                padding: 0px;
+                color: #9ea4b0 !important;
+            }
+            """,
+            description=f"""
+            <div class="center">
+            Model ID: {self.model_uid}
+            </div>
+            <div class="center">
+            Model Size: {model_size_in_billions} Billion Parameters
+            </div>
+            <div class="center">
+            Model Format: {model_format}
+            </div>
+            <div class="center">
+            Model Quantization: {quantization}
+            </div>
+            """,
         )

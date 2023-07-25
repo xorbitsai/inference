@@ -15,7 +15,7 @@
 import asyncio
 import json
 import uuid
-from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Tuple, Union
 
 import requests
 import xoscar as xo
