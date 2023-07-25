@@ -137,9 +137,13 @@ class RESTfulGenerateModelHandle(RESTfulModelHandle):
         if generate_config is None:
             request_body = {"model": self._model_uid, "prompt": prompt}
         else:
-            generate_config_dict = {}
-            for key, value in generate_config.items():
-                generate_config_dict[str(key)] = str(value)
+            generate_config_dict: Dict[str, Any] = {}
+            for key, value in generate_config:
+                if isinstance(value, list):
+                    generate_config_dict[str(key)] = value
+                else:
+                    generate_config_dict[str(key)] = str(value)
+
             request_body = {
                 "model": self._model_uid,
                 "prompt": prompt,
@@ -201,7 +205,8 @@ class RESTfulChatModelHandle(RESTfulGenerateModelHandle):
         else:
             generate_config_dict = {}
             for key, value in generate_config.items():
-                generate_config_dict[str(key)] = str(value)
+                generate_config_dict[key] = value
+
             request_body = {
                 "model": self._model_uid,
                 "messages": chat_history,
@@ -240,7 +245,8 @@ class RESTfulChatglmCppChatModelHandle(RESTfulModelHandle):
         else:
             generate_config_dict = {}
             for key, value in generate_config.items():
-                generate_config_dict[str(key)] = str(value)
+                generate_config_dict[key] = value
+
             request_body = {
                 "model": self._model_uid,
                 "messages": chat_history,
