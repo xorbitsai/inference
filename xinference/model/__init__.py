@@ -150,6 +150,9 @@ class ModelFamily:
         url = self.url_generator(model_size_in_billions, quantization)
         rp_url = self.rp_url_generator(model_size_in_billions, quantization)
 
+        if self.model_format == "pytorch":
+            return url
+
         try:
             rp_fetch = requests.get(rp_url)
         except RequestException:
@@ -166,9 +169,6 @@ class ModelFamily:
                 expected_size = int(
                     str(splitted_res_content[index + 1], encoding="utf-8")
                 )
-
-        if self.model_format == "pytorch":
-            return url
 
         full_name = f"{str(self)}-{model_size_in_billions}b-{quantization}"
         save_path = self.generate_cache_path(model_size_in_billions, quantization)
