@@ -137,15 +137,9 @@ class RESTfulGenerateModelHandle(RESTfulModelHandle):
         if generate_config is None:
             request_body = {"model": self._model_uid, "prompt": prompt}
         else:
-            generate_config_dict = {}
+            request_body = {"model": self._model_uid, "prompt": prompt}
             for key, value in generate_config.items():
-                generate_config_dict[key] = value
-
-            request_body = {
-                "model": self._model_uid,
-                "prompt": prompt,
-                **generate_config_dict,
-            }
+                request_body[key] = value
 
         response = requests.post(url, json=request_body)
         if response.status_code != 200:
@@ -200,15 +194,9 @@ class RESTfulChatModelHandle(RESTfulGenerateModelHandle):
         if generate_config is None:
             request_body = {"model": self._model_uid, "messages": chat_history}
         else:
-            generate_config_dict = {}
+            request_body = {"model": self._model_uid, "prompt": prompt}
             for key, value in generate_config.items():
-                generate_config_dict[key] = value
-
-            request_body = {
-                "model": self._model_uid,
-                "messages": chat_history,
-                **generate_config_dict,
-            }
+                request_body[key] = value
 
         response = requests.post(url, json=request_body)
         if response.status_code != 200:
@@ -240,15 +228,9 @@ class RESTfulChatglmCppChatModelHandle(RESTfulModelHandle):
         if generate_config is None:
             request_body = {"model": self._model_uid, "messages": chat_history}
         else:
-            generate_config_dict = {}
+            request_body = {"model": self._model_uid, "prompt": prompt}
             for key, value in generate_config.items():
-                generate_config_dict[key] = value
-
-            request_body = {
-                "model": self._model_uid,
-                "messages": chat_history,
-                **generate_config_dict,
-            }
+                request_body[key] = value
 
         response = requests.post(url, json=request_body)
         if response.status_code != 200:
