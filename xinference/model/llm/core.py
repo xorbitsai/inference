@@ -145,6 +145,7 @@ class LlamaCppModel(Model):
         else:
             llamacpp_model_config.setdefault("n_ctx", 2048)
 
+        llamacpp_model_config.setdefault("embedding", True)
         llamacpp_model_config.setdefault("use_mmap", False)
         llamacpp_model_config.setdefault("use_mlock", True)
 
