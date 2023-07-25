@@ -15,7 +15,7 @@
 import asyncio
 import json
 import uuid
-from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Tuple, Union
 
 import requests
 import xoscar as xo
@@ -763,3 +763,12 @@ class RESTfulClient:
             return RESTfulChatModelHandle(model_uid, self.base_url)
         else:
             raise ValueError(f"Unrecognized model ability: {desc['model_ability']}")
+
+    def get_model_info(self, model_uid: str):
+        url = f"{self.base_url}/v1/models/{model_uid}"
+        response = requests.get(url)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to get the model description, detail: {response.json()['detail']}"
+            )
+        return response.json()
