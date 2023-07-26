@@ -26,6 +26,12 @@ potential of cutting-edge AI models.
 <i><a href="https://join.slack.com/t/xorbitsio/shared_invite/zt-1z3zsm9ep-87yI9YZ_B79HLB2ccTq4WA">👉 Join our Slack community!</a></i>
 </div>
 
+## Updates
+- Support fp4 and int8 quantization for pytorch model: https://github.com/xorbitsai/inference/pull/238
+- Add embedding APIs: https://github.com/xorbitsai/inference/pull/194
+- Support baichuan-chat: https://github.com/xorbitsai/inference/pull/190
+- Support PyTorch models: https://github.com/xorbitsai/inference/pull/157
+
 
 ## Key Features
 🌟 **Model Serving Made Easy**: Simplify the process of serving large language, speech 

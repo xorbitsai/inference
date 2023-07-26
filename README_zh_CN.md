@@ -25,6 +25,12 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 <i><a href="https://join.slack.com/t/xorbitsio/shared_invite/zt-1z3zsm9ep-87yI9YZ_B79HLB2ccTq4WA">👉 立刻加入我们的 Slack 社区!</a></i>
 </div>
 
+## 更新
+- 支持 fp4 和 int8 量化的 PyTorch 模型: https://github.com/xorbitsai/inference/pull/238
+- 增加 embedding 接口: https://github.com/xorbitsai/inference/pull/194
+- 支持百川对话模型: https://github.com/xorbitsai/inference/pull/190
+- 支持 PyTorch 模型: https://github.com/xorbitsai/inference/pull/157
+
 
 ## 主要功能
 🌟 **模型推理，轻而易举**：大语言模型，语音识别模型，多模态模型的部署流程被大大简化。一个命令即可完成模型
