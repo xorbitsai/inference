@@ -511,7 +511,12 @@ class Client:
         model_uid : str
             The unique id that identify the model we want.
 
+        Returns
+        -------
+        The model will be terminated if stated successfully.
+
         """
+
         coro = self._supervisor_ref.terminate_model(model_uid)
         return self._isolation.call(coro)
 
@@ -523,6 +528,7 @@ class Client:
         -------
         response_data : Dict[str, Dict[str, Any]]
             The collection of model spec with their names on the server.
+
         """
 
         coro = self._supervisor_ref.list_models()
@@ -574,6 +580,7 @@ class RESTfulClient:
         -------
         response_data : Dict[str, Dict[str, Any]]
             The collection of model spec with their names on the server.
+
         """
 
         url = f"{self.base_url}/v1/models"
@@ -615,6 +622,7 @@ class RESTfulClient:
         -------
         model_uid : str
             The unique model_uid for the launched model.
+
         """
 
         url = f"{self.base_url}/v1/models"
@@ -655,7 +663,9 @@ class RESTfulClient:
         ------
         RuntimeError
             Indicate that the model is fail to terminate with detail error message.
+
         """
+
         url = f"{self.base_url}/v1/models/{model_uid}"
 
         response = requests.delete(url)
@@ -690,6 +700,7 @@ class RESTfulClient:
         ------
         RuntimeError
             Fail to get the model with the provided uid with detail error message.
+
         """
 
         url = f"{self.base_url}/v1/models/{model_uid}"
