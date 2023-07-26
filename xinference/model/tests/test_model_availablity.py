@@ -186,7 +186,7 @@ def test_model_cache_raise():
             test_model.cache()
 
 
-def test_model_cache_pytorch():
+def test_model_cache_pytorch(recwarn):
     pytorch_baichuan_name_generator = lambda model_size, quantization: (
         f"baichuan-inc/Baichuan-{model_size}B"
     )
@@ -204,7 +204,9 @@ def test_model_cache_pytorch():
     )
 
     with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("error")
         url = test_model.cache()
-        assert url is not None
-        assert len(w) == 0
-        assert url == f"baichuan-inc/Baichuan-{model_size}B"
+
+    assert url is not None
+    assert url == f"baichuan-inc/Baichuan-{model_size}B"
+    assert len(w) == 0
