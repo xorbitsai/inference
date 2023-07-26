@@ -18,7 +18,9 @@ import uuid
 from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
 import gradio as gr
+from huggingface_hub import snapshot_download
 
+from ..constants import XINFERENCE_CACHE_DIR
 from ..locale.utils import Locale
 from ..model import MODEL_FAMILIES, ModelSpec
 from .api import SyncSupervisorAPI
@@ -278,19 +280,29 @@ class GradioApp:
                 url = model_family.url_generator(
                     int(_model_size_in_billions), _quantization
                 )
-                try:
-                    urllib.request.urlretrieve(
-                        url,
-                        cache_path,
-                        reporthook=lambda block_num, block_size, total_size: progress(
-                            block_num * block_size / total_size,
-                            desc=self._locale("Downloading"),
-                        ),
-                    )
-                except:
-                    if os.path.exists(cache_path):
-                        os.remove(cache_path)
-                    raise gr.Error(self._locale(f"Download failed, please retry."))
+                if _model_format == "pytorch":
+                    try:
+                        snapshot_download(
+                            url,
+                            revision="main",
+                            local_dir=XINFERENCE_CACHE_DIR,
+                        )
+                    except:
+                        raise gr.Error(self._locale(f"Download failed, please retry."))
+                else:
+                    try:
+                        urllib.request.urlretrieve(
+                            url,
+                            cache_path,
+                            reporthook=lambda block_num, block_size, total_size: progress(
+                                block_num * block_size / total_size,
+                                desc=self._locale("Downloading"),
+                            ),
+                        )
+                    except:
+                        if os.path.exists(cache_path):
+                            os.remove(cache_path)
+                        raise gr.Error(self._locale(f"Download failed, please retry."))
 
             model_uid = self._create_model(
                 _model_name, int(_model_size_in_billions), _model_format, _quantization

@@ -413,7 +413,6 @@ def install():
         ),
     )
 
-    """
     # ggmlv3 model has the same model_name as pytorch model, comment it out in temporary
     pytorch_vicuna_v1_3_name_generator = lambda model_size, quantization: (
         f"lmsys/vicuna-{model_size}b-v1.3"
@@ -429,4 +428,3 @@ def install():
             cls=VicunaCensoredPytorch,
         ),
     )
-    """

@@ -19,8 +19,9 @@ import warnings
 from typing import Callable, List, Optional, Type
 
 import requests
+from huggingface_hub import snapshot_download
 from requests import RequestException
-from tqdm import tqdm
+from tqdm.auto import tqdm
 
 from ..constants import XINFERENCE_CACHE_DIR
 
@@ -150,6 +151,17 @@ class ModelFamily:
         url = self.url_generator(model_size_in_billions, quantization)
         rp_url = self.rp_url_generator(model_size_in_billions, quantization)
 
+        if self.model_format == "pytorch":
+            try:
+                snapshot_download(
+                    url,
+                    revision="main",
+                    local_dir=XINFERENCE_CACHE_DIR,
+                )
+            except:
+                raise RuntimeError(f"Failed to download {url}")
+            return url
+
         try:
             rp_fetch = requests.get(rp_url)
         except RequestException:
@@ -166,9 +178,6 @@ class ModelFamily:
                 expected_size = int(
                     str(splitted_res_content[index + 1], encoding="utf-8")
                 )
-
-        if self.model_format == "pytorch":
-            return url
 
         full_name = f"{str(self)}-{model_size_in_billions}b-{quantization}"
         save_path = self.generate_cache_path(model_size_in_billions, quantization)
