@@ -363,7 +363,7 @@ def install():
                 "q8_0",
             ],
             url_generator=llama2_url_generator,
-            rp_url_generator=llama2_chat_url_raw_generator,
+            rp_url_generator=llama2_url_raw_generator,
             cls=LlamaCppModel,
         )
     )
@@ -376,7 +376,7 @@ def install():
             model_name="baichuan",
             model_sizes_in_billions=[7],
             model_format="pytorch",
-            quantizations=["none"],
+            quantizations=["8-bit", "4-bit", "none"],
             url_generator=pytorch_baichuan_name_generator,
             rp_url_generator=lambda model_size, quantization: "",
             cls=BaichuanPytorch,
@@ -391,7 +391,7 @@ def install():
             model_name="baichuan-base",
             model_sizes_in_billions=[13],
             model_format="pytorch",
-            quantizations=["int4", "int8", "none"],
+            quantizations=["8-bit", "4-bit", "none"],
             url_generator=pytorch_baichuan_base_name_generator,
             rp_url_generator=lambda model_size, quantization: "",
             cls=BaichuanPytorch,
@@ -406,7 +406,7 @@ def install():
             model_name="baichuan-chat",
             model_sizes_in_billions=[13],
             model_format="pytorch",
-            quantizations=["int4", "int8", "none"],
+            quantizations=["8-bit", "4-bit", "none"],
             url_generator=pytorch_baichuan_chat_name_generator,
             rp_url_generator=lambda model_size, quantization: "",
             cls=BaichuanPytorchChat,
@@ -420,9 +420,9 @@ def install():
     MODEL_FAMILIES.append(
         ModelFamily(
             model_name="vicuna-v1.3",
-            model_sizes_in_billions=[7, 13],
+            model_sizes_in_billions=[7, 13, 33],
             model_format="pytorch",
-            quantizations=["none"],
+            quantizations=["8-bit", "4-bit", "none"],
             url_generator=pytorch_vicuna_v1_3_name_generator,
             rp_url_generator=lambda model_size, quantization: "",
             cls=VicunaCensoredPytorch,
