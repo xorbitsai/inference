@@ -96,6 +96,7 @@ async def test_restful_api(setup):
             {"role": "assistant", "content": "Hi what can I help you?"},
             {"role": "user", "content": "What is the capital of France?"},
         ],
+        "stop": ["\n"],
     }
     response = requests.post(url, json=payload)
     completion = response.json()
@@ -156,7 +157,6 @@ async def test_restful_api(setup):
         "model_uid": "test_restful_api2",
         "model_name": "orca",
         "quantization": "q4_0",
-        "embedding": "True",
     }
 
     response = requests.post(url, json=payload)
@@ -175,29 +175,4 @@ async def test_restful_api(setup):
     assert "embedding" in embedding_res["data"][0]
 
     url = f"{endpoint}/v1/models/test_restful_api2"
-    response = requests.delete(url)
-
-    # test for model that does not specify embedding
-    url = f"{endpoint}/v1/models"
-
-    payload = {
-        "model_uid": "test_restful_api3",
-        "model_name": "orca",
-        "quantization": "q4_0",
-    }
-
-    response = requests.post(url, json=payload)
-    response_data = response.json()
-    model_uid_res = response_data["model_uid"]
-    assert model_uid_res == "test_restful_api3"
-
-    url = f"{endpoint}/v1/embeddings"
-    payload = {
-        "model": "test_restful_api3",
-        "input": "The food was delicious and the waiter...",
-    }
-    response = requests.post(url, json=payload)
-    assert response.status_code == 400
-
-    url = f"{endpoint}/v1/models/test_restful_api3"
     response = requests.delete(url)

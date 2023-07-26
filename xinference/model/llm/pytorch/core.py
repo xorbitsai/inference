@@ -28,6 +28,7 @@ from ....types import (
 )
 from ..core import Model
 from ..utils import ChatModelDataProcessorMixin
+from .compression import load_compress_model
 from .utils import generate_stream
 
 if TYPE_CHECKING:
@@ -56,8 +57,6 @@ class PytorchModelConfig(TypedDict, total=False):
     gpus: Optional[str]
     num_gpus: int
     max_gpu_memory: str
-    load_8bit: bool
-    cpu_offloading: bool
     gptq_ckpt: Optional[str]
     gptq_wbits: int
     gptq_groupsize: int
@@ -85,15 +84,27 @@ class PytorchModel(Model):
         if pytorch_model_config is None:
             pytorch_model_config = PytorchModelConfig()
         pytorch_model_config.setdefault("revision", "main")
-        pytorch_model_config.setdefault("device", "cuda")
         pytorch_model_config.setdefault("gpus", None)
         pytorch_model_config.setdefault("num_gpus", 1)
-        pytorch_model_config.setdefault("load_8bit", False)
-        pytorch_model_config.setdefault("cpu_offloading", False)
         pytorch_model_config.setdefault("gptq_ckpt", None)
         pytorch_model_config.setdefault("gptq_wbits", 16)
         pytorch_model_config.setdefault("gptq_groupsize", -1)
         pytorch_model_config.setdefault("gptq_act_order", False)
+        if self._is_darwin_and_apple_silicon():
+            pytorch_model_config.setdefault("device", "mps")
+            if (
+                self.model_spec.model_name in ["baichuan-chat", "baichuan-base"]
+                and self.model_spec.quantization != "none"
+            ):
+                # dtype of parameters in `baichuan-chat` and `baichuan-base` model
+                # is `torch.bfloat16` which is not supported on MPS.
+                logger.warning(
+                    f"Model {self.model_spec.model_name} can't use quantization method on MPS device. "
+                    "Continuing with CPU device"
+                )
+                pytorch_model_config["device"] = "cpu"
+        else:
+            pytorch_model_config.setdefault("device", "cuda")
         return pytorch_model_config
 
     def _sanitize_generate_config(
@@ -136,34 +147,59 @@ class PytorchModel(Model):
         return model, tokenizer
 
     def load(self):
-        device = self._pytorch_model_config.get("device", "cuda")
+        quantization = self.model_spec.quantization
         num_gpus = self._pytorch_model_config.get("num_gpus", 1)
-        cpu_offloading = self._pytorch_model_config.get("cpu_offloading", False)
+        if self._is_darwin_and_apple_silicon():
+            device = self._pytorch_model_config.get("device", "mps")
+        else:
+            device = self._pytorch_model_config.get("device", "cuda")
+
         if device == "cpu":
             kwargs = {"torch_dtype": torch.float32}
         elif device == "cuda":
             kwargs = {"torch_dtype": torch.float16}
-            if cpu_offloading:
-                kwargs["device_map"] = "auto"
         elif device == "mps":
             kwargs = {"torch_dtype": torch.float16}
         else:
             raise ValueError(f"Device {device} is not supported in temporary")
         kwargs["revision"] = self._pytorch_model_config.get("revision", "main")
 
+        if quantization != "none":
+            if device == "cuda" and self._is_linux():
+                kwargs["device_map"] = "auto"
+                if quantization == "4-bit":
+                    kwargs["load_in_4bit"] = True
+                elif quantization == "8-bit":
+                    kwargs["load_in_8bit"] = True
+                else:
+                    raise ValueError(
+                        f"Quantization {quantization} is not supported in temporary"
+                    )
+            else:
+                if num_gpus != 1:
+                    raise ValueError(f"Quantization is not supported for multi-gpu")
+                elif quantization != "8-bit":
+                    raise ValueError(
+                        f"Only 8-bit quantization is supported if it is not linux system or cuda device"
+                    )
+                else:
+                    self._model, self._tokenizer = load_compress_model(
+                        model_path=self._model_path,
+                        device=device,
+                        torch_dtype=kwargs["torch_dtype"],
+                        use_fast=self._use_fast_tokenizer,
+                        revision=kwargs["revision"],
+                    )
+                    logger.debug(f"Model Memory: {self._model.get_memory_footprint()}")
+                    return
+
         self._model, self._tokenizer = self._load_model(kwargs)
 
-        quantization = self.model_spec.quantization
-        if quantization == "int4":
-            self._model = self._model.quantize(4)
-        elif quantization == "int8":
-            self._model = self._model.quantize(8)
-
         if (
-            device == "cuda" and num_gpus == 1 and not cpu_offloading
+            device == "cuda" and num_gpus == 1 and quantization == "none"
         ) or device == "mps":
             self._model.to(device)
-        print(self._model)
+        logger.debug(f"Model Memory: {self._model.get_memory_footprint()}")
 
     def generate(
         self, prompt: str, generate_config: Optional[PytorchGenerateConfig] = None
@@ -186,7 +222,10 @@ class PytorchModel(Model):
         assert self._tokenizer is not None
 
         stream = generate_config.get("stream", False)
-        device = self._pytorch_model_config.get("device", "cuda")
+        if self._is_darwin_and_apple_silicon():
+            device = self._pytorch_model_config.get("device", "mps")
+        else:
+            device = self._pytorch_model_config.get("device", "cuda")
         if not stream:
             for completion_chunk, completion_usage in generate_stream(
                 self._model, self._tokenizer, prompt, device, generate_config
@@ -219,6 +258,7 @@ class PytorchChatModel(PytorchModel, ChatModelDataProcessorMixin):
         user_name: str,
         assistant_name: str,
         stop: Optional[Union[str, List[str]]] = None,
+        stop_token_ids: Optional[Union[int, List[int]]] = None,
         pytorch_model_config: Optional[PytorchModelConfig] = None,
     ):
         super().__init__(model_uid, model_spec, model_path, pytorch_model_config)
@@ -227,6 +267,7 @@ class PytorchChatModel(PytorchModel, ChatModelDataProcessorMixin):
         self._user_name: str = user_name
         self._assistant_name: str = assistant_name
         self._stop: Optional[Union[str, List[str]]] = stop
+        self._stop_token_ids: Optional[Union[int, List[int]]] = stop_token_ids
 
     def _sanitize_generate_config(
         self,
@@ -237,6 +278,11 @@ class PytorchChatModel(PytorchModel, ChatModelDataProcessorMixin):
         )
         if "stop" not in pytorch_generate_config and self._stop is not None:
             pytorch_generate_config["stop"] = self._stop
+        if (
+            "stop_token_ids" not in pytorch_generate_config
+            and self._stop_token_ids is not None
+        ):
+            pytorch_generate_config["stop_token_ids"] = self._stop_token_ids
 
         return pytorch_generate_config
 

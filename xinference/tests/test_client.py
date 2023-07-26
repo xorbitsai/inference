@@ -14,7 +14,7 @@
 
 import pytest
 
-from ..client import Client, RESTfulClient
+from ..client import ChatModelHandle, Client, RESTfulChatModelHandle, RESTfulClient
 
 
 @pytest.mark.asyncio
@@ -29,9 +29,7 @@ async def test_sync_client(setup):
     assert len(client.list_models()) == 1
 
     model = client.get_model(model_uid=model_uid)
-
-    with pytest.raises(RuntimeError):
-        model.create_embedding("The food was delicious and the waiter...")
+    assert isinstance(model, ChatModelHandle)
 
     completion = model.chat("write a poem.")
     assert "content" in completion["choices"][0]["message"]
@@ -43,7 +41,6 @@ async def test_sync_client(setup):
         model_name="orca",
         model_size_in_billions=3,
         quantization="q4_0",
-        embedding="True",
     )
 
     model = client.get_model(model_uid=model_uid)
@@ -67,9 +64,11 @@ async def test_RESTful_client(setup):
     assert len(client.list_models()) == 1
 
     model = client.get_model(model_uid=model_uid)
+    assert isinstance(model, RESTfulChatModelHandle)
 
     with pytest.raises(RuntimeError):
         model = client.get_model(model_uid="test")
+        assert isinstance(model, RESTfulChatModelHandle)
 
     with pytest.raises(RuntimeError):
         completion = model.generate({"max_tokens": 64})
@@ -103,9 +102,6 @@ async def test_RESTful_client(setup):
     for chunk in streaming_response:
         assert "content" or "role" in chunk["choices"][0]["delta"]
 
-    with pytest.raises(RuntimeError):
-        model.create_embedding("The food was delicious and the waiter...")
-
     client.terminate_model(model_uid=model_uid)
     assert len(client.list_models()) == 0
 
@@ -116,7 +112,6 @@ async def test_RESTful_client(setup):
         model_name="orca",
         model_size_in_billions=3,
         quantization="q4_0",
-        embedding="True",
     )
 
     model2 = client.get_model(model_uid=model_uid2)

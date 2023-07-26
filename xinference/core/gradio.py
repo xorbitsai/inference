@@ -29,7 +29,7 @@ if TYPE_CHECKING:
 MODEL_TO_FAMILIES = dict(
     (model_family.model_name, model_family)
     for model_family in MODEL_FAMILIES
-    if model_family.model_name != "baichuan"
+    if model_family.model_name not in ["baichuan", "baichuan-base", "llama-2"]
 )
 
 
@@ -269,17 +269,12 @@ class GradioApp:
             progress=gr.Progress(),
         ):
             model_family = MODEL_TO_FAMILIES[_model_name]
-            cache_path, meta_path = model_family.generate_cache_path(
+            cache_path = model_family.generate_cache_path(
                 int(_model_size_in_billions), _quantization
             )
-            if not (os.path.exists(cache_path) and os.path.exists(meta_path)):
-                if os.path.exists(cache_path):
-                    os.remove(cache_path)
+            if _model_format != "pytorch" and not (os.path.exists(cache_path)):
                 url = model_family.url_generator(
                     int(_model_size_in_billions), _quantization
-                )
-                full_name = (
-                    f"{str(model_family)}-{_model_size_in_billions}b-{_quantization}"
                 )
                 try:
                     urllib.request.urlretrieve(
@@ -290,12 +285,10 @@ class GradioApp:
                             desc=self._locale("Downloading"),
                         ),
                     )
-                    # write a meta file to record if download finished
-                    with open(meta_path, "w") as f:
-                        f.write(full_name)
                 except:
                     if os.path.exists(cache_path):
                         os.remove(cache_path)
+                    raise gr.Error(self._locale(f"Download failed, please retry."))
 
             model_uid = self._create_model(
                 _model_name, int(_model_size_in_billions), _model_format, _quantization
@@ -403,21 +396,21 @@ class GradioApp:
         return chat, model_text
 
     def _build_arena_with_launched(self, models: List[Tuple[str, ModelSpec]]):
-        with gr.Box():
-            with gr.Row():
-                chat_and_text = [
-                    self._build_single_with_launched(models, i)
-                    for i in range(self._gladiator_num)
-                ]
-                chats = [c[0] for c in chat_and_text]
-                texts = [c[1] for c in chat_and_text]
+        chat_and_text = []
+        with gr.Row():
+            for i in range(self._gladiator_num):
+                with gr.Column():
+                    chat_and_text.append(self._build_single_with_launched(models, i))
 
-            msg = gr.Textbox(label=self._locale("Input"))
+        chats = [c[0] for c in chat_and_text]
+        texts = [c[1] for c in chat_and_text]
 
-            def update_message(text_in: str):
-                return "", text_in, text_in
+        msg = gr.Textbox(label=self._locale("Input"))
 
-            msg.submit(update_message, inputs=[msg], outputs=[msg] + texts)
+        def update_message(text_in: str):
+            return "", text_in, text_in
+
+        msg.submit(update_message, inputs=[msg], outputs=[msg] + texts)
 
         gr.ClearButton(components=[msg] + chats + texts)
 
@@ -434,7 +427,7 @@ class GradioApp:
 
                     msg.submit(update_message, inputs=[msg], outputs=[msg, model_text])
                     gr.ClearButton(components=[chat, msg, model_text])
-                if len(models) > 2:
+                if len(models) >= 2:
                     with gr.Tab(self._locale("Arena")):
                         self._build_arena_with_launched(models)
         else:

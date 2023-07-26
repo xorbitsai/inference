@@ -134,17 +134,11 @@ class RESTfulGenerateModelHandle(RESTfulModelHandle):
         ] = None,
     ) -> Union["Completion", Iterator["CompletionChunk"]]:
         url = f"{self._base_url}/v1/completions"
-        if generate_config is None:
-            request_body = {"model": self._model_uid, "prompt": prompt}
-        else:
-            generate_config_dict = {}
+
+        request_body: Dict[str, Any] = {"model": self._model_uid, "prompt": prompt}
+        if generate_config is not None:
             for key, value in generate_config.items():
-                generate_config_dict[str(key)] = str(value)
-            request_body = {
-                "model": self._model_uid,
-                "prompt": prompt,
-                **generate_config_dict,
-            }
+                request_body[key] = value
 
         response = requests.post(url, json=request_body)
         if response.status_code != 200:
@@ -196,17 +190,13 @@ class RESTfulChatModelHandle(RESTfulGenerateModelHandle):
 
         chat_history.append({"role": "user", "content": prompt})
 
-        if generate_config is None:
-            request_body = {"model": self._model_uid, "messages": chat_history}
-        else:
-            generate_config_dict = {}
+        request_body: Dict[str, Any] = {
+            "model": self._model_uid,
+            "messages": chat_history,
+        }
+        if generate_config is not None:
             for key, value in generate_config.items():
-                generate_config_dict[str(key)] = str(value)
-            request_body = {
-                "model": self._model_uid,
-                "messages": chat_history,
-                **generate_config_dict,
-            }
+                request_body[key] = value
 
         response = requests.post(url, json=request_body)
         if response.status_code != 200:
@@ -235,17 +225,14 @@ class RESTfulChatglmCppChatModelHandle(RESTfulModelHandle):
 
         chat_history.append({"role": "user", "content": prompt})
 
-        if generate_config is None:
-            request_body = {"model": self._model_uid, "messages": chat_history}
-        else:
-            generate_config_dict = {}
+        request_body: Dict[str, Any] = {
+            "model": self._model_uid,
+            "messages": chat_history,
+        }
+
+        if generate_config is not None:
             for key, value in generate_config.items():
-                generate_config_dict[str(key)] = str(value)
-            request_body = {
-                "model": self._model_uid,
-                "messages": chat_history,
-                **generate_config_dict,
-            }
+                request_body[key] = value
 
         response = requests.post(url, json=request_body)
         if response.status_code != 200:
@@ -313,10 +300,7 @@ class Client:
 
         if model_spec.model_name == "chatglm" or model_spec.model_name == "chatglm2":
             return ChatglmCppChatModelHandle(model_ref, self._isolation)
-        elif (
-            model_spec.model_name == "baichuan"
-            or model_spec.model_name == "baichuan-base"
-        ):
+        elif model_spec.model_name in ["baichuan", "baichuan-base", "llama-2"]:
             return GenerateModelHandle(model_ref, self._isolation)
         else:
             return ChatModelHandle(model_ref, self._isolation)
@@ -364,7 +348,7 @@ class RESTfulClient:
         }
 
         for key, value in kwargs.items():
-            payload[str(key)] = str(value)
+            payload[str(key)] = value
 
         response = requests.post(url, json=payload)
         if response.status_code != 200:
@@ -407,10 +391,7 @@ class RESTfulClient:
             or model_spec["model_name"] == "chatglm2"
         ):
             return RESTfulChatglmCppChatModelHandle(model_uid, self.base_url)
-        elif (
-            model_spec["model_name"] == "baichuan"
-            or model_spec["model_name"] == "baichuan-base"
-        ):
+        elif model_spec["model_name"] in ["baichuan", "baichuan-base", "llama-2"]:
             return RESTfulGenerateModelHandle(model_uid, self.base_url)
         else:
             return RESTfulChatModelHandle(model_uid, self.base_url)

@@ -9,7 +9,7 @@
 [![Slack](https://img.shields.io/badge/join_Slack-781FF5.svg?logo=slack&style=for-the-badge)](https://join.slack.com/t/xorbitsio/shared_invite/zt-1o3z9ucdh-RbfhbPVpx7prOVdM1CAuxg)
 [![Twitter](https://img.shields.io/twitter/follow/xorbitsio?logo=twitter&style=for-the-badge)](https://twitter.com/xorbitsio)
 
-English | [中文介绍](README_zh_CN.md)
+English | [中文介绍](README_zh_CN.md) | [日本語](README_ja_JP.md)
 </div>
 <br />
 
@@ -161,25 +161,27 @@ To view the builtin models, run the following command:
 $ xinference list --all
 ```
 
-| Name            | Type             | Language | Format  | Size (in billions) | Quantization                           |
-|-----------------|------------------|----------|---------|--------------------|----------------------------------------|
-| baichuan        | Foundation Model | en, zh   | ggmlv3  | 7                  | 'q2_K', 'q3_K_L', ... , 'q6_K', 'q8_0' |
-| baichuan        | Foundation Model | en, zh   | pytorch | 7                  | 'none'                                 |
-| baichuan-base   | Foundation Model | en, zh   | pytorch | 13                 | 'int4', 'int8', 'none'                 |
-| baichuan-chat   | SFT Model        | en, zh   | pytorch | 13                 | 'int4', 'int8', 'none'                 |
-| chatglm         | SFT Model        | en, zh   | ggmlv3  | 6                  | 'q4_0', 'q4_1', 'q5_0', 'q5_1', 'q8_0' |
-| chatglm2        | SFT Model        | en, zh   | ggmlv3  | 6                  | 'q4_0', 'q4_1', 'q5_0', 'q5_1', 'q8_0' |
-| wizardlm-v1.0   | SFT Model        | en       | ggmlv3  | 7, 13, 33          | 'q2_K', 'q3_K_L', ... , 'q6_K', 'q8_0' |
-| wizardlm-v1.1   | SFT Model        | en       | ggmlv3  | 13                 | 'q2_K', 'q3_K_L', ... , 'q6_K', 'q8_0' |
-| vicuna-v1.3     | SFT Model        | en       | ggmlv3  | 7, 13              | 'q2_K', 'q3_K_L', ... , 'q6_K', 'q8_0' |
-| vicuna-v1.3     | SFT Model        | en       | pytorch | 7, 13              | 'none'                                 |
-| orca            | SFT Model        | en       | ggmlv3  | 3, 7, 13           | 'q4_0', 'q4_1', 'q5_0', 'q5_1', 'q8_0' |
+| Name          | Type             | Language | Format  | Size (in billions) | Quantization                            |
+|---------------|------------------|----------|---------|--------------------|-----------------------------------------|
+| llama-2       | Foundation Model | en       | ggmlv3  | 7, 13              | 'q2_K', 'q3_K_L', ... , 'q6_K', 'q8_0'  |
+| baichuan      | Foundation Model | en, zh   | ggmlv3  | 7                  | 'q2_K', 'q3_K_L', ... , 'q6_K', 'q8_0'  |
+| baichuan      | Foundation Model | en, zh   | pytorch | 7                  | '8-bit', '4-bit', 'none'                |
+| baichuan-base | Foundation Model | en, zh   | pytorch | 13                 | '8-bit', '4-bit', 'none'                |
+| baichuan-chat | SFT Model        | en, zh   | pytorch | 13                 | '8-bit', '4-bit', 'none'                |
+| llama-2-chat  | RLHF Model       | en       | ggmlv3  | 7, 13              | 'q2_K', 'q3_K_L', ... , 'q6_K', 'q8_0'  |
+| chatglm       | SFT Model        | en, zh   | ggmlv3  | 6                  | 'q4_0', 'q4_1', 'q5_0', 'q5_1', 'q8_0'  |
+| chatglm2      | SFT Model        | en, zh   | ggmlv3  | 6                  | 'q4_0', 'q4_1', 'q5_0', 'q5_1', 'q8_0'  |
+| wizardlm-v1.0 | SFT Model        | en       | ggmlv3  | 7, 13, 33          | 'q2_K', 'q3_K_L', ... , 'q6_K', 'q8_0'  |
+| wizardlm-v1.1 | SFT Model        | en       | ggmlv3  | 13                 | 'q2_K', 'q3_K_L', ... , 'q6_K', 'q8_0'  |
+| vicuna-v1.3   | SFT Model        | en       | ggmlv3  | 7, 13              | 'q2_K', 'q3_K_L', ... , 'q6_K', 'q8_0'  |
+| orca          | SFT Model        | en       | ggmlv3  | 3, 7, 13           | 'q4_0', 'q4_1', 'q5_0', 'q5_1', 'q8_0'  |
 
 
 **NOTE**:
 - Xinference will download models automatically for you, and by default the models will be saved under `${USER}/.xinference/cache`.
 - Foundation models only provide interface `generate`.
-- SFT models provide both `generate` and `chat`.
+- RLHF and SFT models provide both `generate` and `chat`.
+- If you want to use Apple Metal GPU for acceleration, please choose the q4_0 and q4_1 quantization methods.
 
 ## Roadmap
 Xinference is currently under active development. Here's a roadmap outlining our planned 

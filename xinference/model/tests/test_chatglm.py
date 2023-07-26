@@ -55,6 +55,7 @@ mock_model_spec1 = ModelSpec(
     model_size_in_billions=6,
     quantization="q4_0",
     url="http://chatglm_test.url",
+    rp_url="",
 )
 
 mock_model_spec2 = ModelSpec(
@@ -63,6 +64,7 @@ mock_model_spec2 = ModelSpec(
     model_size_in_billions=6,
     quantization="q4_0",
     url="http://chatglm2_test.url",
+    rp_url="",
 )
 
 

@@ -65,14 +65,11 @@ class BaichuanPytorch(PytorchModel):
 
 
 class BaichuanPytorchChat(PytorchChatModel):
-    _system_prompt = (
-        "A chat between a curious user and an artificial intelligence assistant. "
-        "The assistant gives helpful, detailed, and polite answers to the user's questions."
-    )
-    _sep = "\n###"
-    _user_name = "User"
-    _assistant_name = "Assistant"
-    _stop = "###"
+    _system_prompt = ""
+    _sep = "\n"
+    _user_name = " <reserved_102> "
+    _assistant_name = " <reserved_103> "
+    _stop_token_ids = [2, 195]
 
     def __init__(
         self,
@@ -89,7 +86,7 @@ class BaichuanPytorchChat(PytorchChatModel):
             sep=self._sep,
             user_name=self._user_name,
             assistant_name=self._assistant_name,
-            stop=self._stop,
+            stop_token_ids=self._stop_token_ids,
             pytorch_model_config=pytorch_model_config,
         )
         self._use_fast_tokenizer = False
