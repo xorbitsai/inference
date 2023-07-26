@@ -278,7 +278,7 @@ class RESTfulAPIActor(xo.Actor):
 
         @self._app.get("/")
         def read_main():
-            response = RedirectResponse(url="/gradio")
+            response = RedirectResponse(url="http://localhost:3000/launch_model")
             return response
 
         gradio_app = gr.routes.App.create_app(self._gradio_block)
@@ -379,7 +379,17 @@ class RESTfulAPIActor(xo.Actor):
 
     async def terminate_model(self, model_uid: str):
         try:
+            assert self._app is not None
             await self._supervisor_ref.terminate_model(model_uid)
+            self._app.router.routes = [
+                route
+                for route in self._app.router.routes
+                if not (
+                    hasattr(route, "path")
+                    and isinstance(route.path, str)
+                    and route.path == "/" + model_uid
+                )
+            ]
         except ValueError as ve:
             logger.error(str(ve), exc_info=True)
             raise HTTPException(status_code=400, detail=str(ve))
