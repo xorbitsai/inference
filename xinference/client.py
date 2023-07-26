@@ -513,7 +513,7 @@ class Client:
 
         Returns
         -------
-        The model will be terminated if stated successfully.
+            The model will be terminated if stated successfully.
 
         """
 
