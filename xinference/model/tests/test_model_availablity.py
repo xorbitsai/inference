@@ -13,6 +13,7 @@
 # limitations under the License.
 import os
 import platform
+import warnings
 from unittest import mock
 
 import pytest
@@ -20,6 +21,7 @@ import requests
 
 from ...constants import XINFERENCE_CACHE_DIR
 from .. import MODEL_FAMILIES, ModelFamily
+from ..llm.pytorch.baichuan import BaichuanPytorch
 from ..llm.wizardlm import WizardlmGgml
 
 
@@ -182,3 +184,27 @@ def test_model_cache_raise():
 
         with pytest.raises(RuntimeError):
             test_model.cache()
+
+
+def test_model_cache_pytorch():
+    pytorch_baichuan_name_generator = lambda model_size, quantization: (
+        f"baichuan-inc/Baichuan-{model_size}B"
+    )
+
+    model_size = 7
+
+    test_model = ModelFamily(
+        model_name="baichuan",
+        model_sizes_in_billions=[model_size],
+        model_format="pytorch",
+        quantizations=["none"],
+        url_generator=pytorch_baichuan_name_generator,
+        rp_url_generator=lambda model_size, quantization: "",
+        cls=BaichuanPytorch,
+    )
+
+    with warnings.catch_warnings(record=True) as w:
+        url = test_model.cache()
+        assert url is not None
+        assert len(w) == 0
+        assert url == f"baichuan-inc/Baichuan-{model_size}B"

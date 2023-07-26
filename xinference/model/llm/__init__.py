@@ -363,7 +363,7 @@ def install():
                 "q8_0",
             ],
             url_generator=llama2_url_generator,
-            rp_url_generator=llama2_chat_url_raw_generator,
+            rp_url_generator=llama2_url_raw_generator,
             cls=LlamaCppModel,
         )
     )
