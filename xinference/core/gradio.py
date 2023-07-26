@@ -279,10 +279,17 @@ class GradioApp:
             )
             if _model_format == "pytorch":
                 try:
+                    full_name = (
+                        f"{_model_name}-{_model_format}-{_model_size_in_billions}b-any"
+                    )
+                    save_dir = os.path.join(XINFERENCE_CACHE_DIR, full_name)
+                    if not os.path.exists(save_dir):
+                        os.makedirs(save_dir, exist_ok=True)
                     snapshot_download(
-                        url,
+                        repo_id=url,
                         revision="main",
-                        cache_dir=f"{XINFERENCE_CACHE_DIR}",
+                        local_dir=save_dir,
+                        local_files_only=True,
                     )
                 except:
                     raise gr.Error(self._locale(f"Download failed, please retry."))

@@ -133,8 +133,8 @@ class ModelFamily:
         save_dir = os.path.join(XINFERENCE_CACHE_DIR, full_name)
         if not os.path.exists(save_dir):
             os.makedirs(save_dir, exist_ok=True)
-        save_path = os.path.join(save_dir, "model.bin")
-        return save_path
+        # save_path = os.path.join(save_dir, "model.bin")
+        return save_dir
 
     def cache(
         self,
@@ -152,15 +152,17 @@ class ModelFamily:
         rp_url = self.rp_url_generator(model_size_in_billions, quantization)
 
         if self.model_format == "pytorch":
+            save_path = self.generate_cache_path(model_size_in_billions, "any")
             try:
                 snapshot_download(
-                    url,
+                    repo_id=url,
                     revision="main",
-                    cache_dir=f"{XINFERENCE_CACHE_DIR}",
+                    local_dir=save_path,
+                    local_files_only=True,
                 )
             except:
                 raise RuntimeError(f"Failed to download {url}")
-            return url
+            return save_path
 
         try:
             rp_fetch = requests.get(rp_url)

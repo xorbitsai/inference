@@ -14,7 +14,6 @@
 
 from typing import TYPE_CHECKING, Optional
 
-from ....constants import XINFERENCE_CACHE_DIR
 from .core import PytorchChatModel, PytorchModel, PytorchModelConfig
 
 if TYPE_CHECKING:
@@ -52,13 +51,11 @@ class BaichuanPytorch(PytorchModel):
             self._model_path,
             trust_remote_code=True,
             revision=kwargs["revision"],
-            cache_dir=XINFERENCE_CACHE_DIR,
         )
         model = AutoModelForCausalLM.from_pretrained(
             self._model_path,
             trust_remote_code=True,
             low_cpu_mem_usage=True,
-            cache_dir=XINFERENCE_CACHE_DIR,
             **kwargs,
         )
         return model, tokenizer
@@ -109,12 +106,10 @@ class BaichuanPytorchChat(PytorchChatModel):
             use_fast=self._use_fast_tokenizer,
             trust_remote_code=True,
             revision=kwargs["revision"],
-            cache_dir=XINFERENCE_CACHE_DIR,
         )
         model = AutoModelForCausalLM.from_pretrained(
             self._model_path,
             trust_remote_code=True,
-            cache_dir=XINFERENCE_CACHE_DIR,
             **kwargs,
         )
         model.generation_config = GenerationConfig.from_pretrained(self._model_path)

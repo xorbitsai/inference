@@ -27,8 +27,6 @@ from torch.nn import functional as F
 from tqdm import tqdm
 from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
 
-from ....constants import XINFERENCE_CACHE_DIR
-
 
 @dataclasses.dataclass
 class CompressionConfig:
@@ -116,7 +114,6 @@ def load_compress_model(
         use_fast=use_fast,
         trust_remote_code=True,
         revision=revision,
-        cache_dir=XINFERENCE_CACHE_DIR,
     )
 
     with init_empty_weights():
@@ -126,7 +123,6 @@ def load_compress_model(
             torch_dtype=torch_dtype,
             trust_remote_code=True,
             revision=revision,
-            cache_dir=XINFERENCE_CACHE_DIR,
         )
         model = AutoModelForCausalLM.from_config(config, trust_remote_code=True)
         linear_weights = get_compressed_list(model)
@@ -137,7 +133,8 @@ def load_compress_model(
     else:
         # `model_path` is a cached Hugging Face repo
         model_path = snapshot_download(
-            model_path, revision=revision, cache_dir=XINFERENCE_CACHE_DIR
+            model_path,
+            revision=revision,
         )
         base_pattern = os.path.join(model_path, "pytorch_model*.bin")
 
