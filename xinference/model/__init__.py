@@ -21,7 +21,7 @@ from typing import Callable, List, Optional, Type
 import requests
 from huggingface_hub import snapshot_download
 from requests import RequestException
-from tqdm.auto import tqdm
+from tqdm import tqdm
 
 from ..constants import XINFERENCE_CACHE_DIR
 
@@ -156,7 +156,7 @@ class ModelFamily:
                 snapshot_download(
                     url,
                     revision="main",
-                    local_dir=XINFERENCE_CACHE_DIR,
+                    cache_dir=f"{XINFERENCE_CACHE_DIR}",
                 )
             except:
                 raise RuntimeError(f"Failed to download {url}")
