@@ -20,7 +20,7 @@ import sys
 import tempfile
 import time
 import warnings
-from typing import Iterator, List, Optional
+from typing import Iterator
 
 from xinference.model.llm.pytorch.core import PytorchGenerateConfig
 
@@ -81,13 +81,7 @@ except ImportError:
 
 try:
     from xinference.client import RESTfulClient
-    from xinference.types import (
-        ChatCompletion,
-        ChatCompletionChunk,
-        ChatCompletionMessage,
-        Completion,
-        CompletionChunk,
-    )
+    from xinference.types import ChatCompletion, ChatCompletionMessage, Completion
 except ImportError:
     raise ImportError(
         "Falied to import xinference, please check the "
@@ -95,7 +89,7 @@ except ImportError:
     )
 
 # ------------------------------------- global variable initialization ---------------------------------------------- #
-warnings.filterwarnings('ignore')
+warnings.filterwarnings("ignore")
 logger = logging.getLogger(__name__)
 # global variable to store the audio device choices.
 audio_devices = "-1"
@@ -154,7 +148,7 @@ def record_unlimited() -> numpy.ndarray:
         # Make sure the file is opened before recording anything:
         with sf.SoundFile(filename, mode="x", samplerate=48000, channels=1) as file:
             with sd.InputStream(
-                    samplerate=48000, device=user_device, channels=1, callback=callback
+                samplerate=48000, device=user_device, channels=1, callback=callback
             ):
                 while True:
                     file.write(q.get())
@@ -174,7 +168,9 @@ def record_unlimited() -> numpy.ndarray:
     os.remove(filename)
     return numpy.frombuffer(y, numpy.int16).flatten().astype(numpy.float32) / 32768.0
 
+
 # ======================== for all the content below, alice refers to 小红，bob refers to 小花 ======================== #
+
 
 # Launch model while sent the greeting message to the user.
 def lanuch_model(alice_or_bob, model_a, username, model_uid, system_prompt):
@@ -190,9 +186,7 @@ def lanuch_model(alice_or_bob, model_a, username, model_uid, system_prompt):
 
     terminal_size = os.get_terminal_size()
     print("-" * terminal_size.columns)
-    print(
-        f"{emoji_rocket} 启动模型 {model_a}。初次下载需要的时间可能会比较长。"
-    )
+    print(f"{emoji_rocket} 启动模型 {model_a}。初次下载需要的时间可能会比较长。")
     print("-" * terminal_size.columns)
 
     model = client.get_model(model_uid)
@@ -208,7 +202,7 @@ def lanuch_model(alice_or_bob, model_a, username, model_uid, system_prompt):
         usname=username,
         model_ref=model,
         chat_history=[],
-        alice_or_bob_state=alice_or_bob
+        alice_or_bob_state=alice_or_bob,
     )
 
     text_to_audio(model_greeting, alice_or_bob)
@@ -230,12 +224,12 @@ def text_to_audio(response, voice_id):
     # Text to convert to speech
     text = response
     if voice_id == "小红":
-        voice = "Meijia"
+        voice = "Mei-Jia"
     elif voice_id == "小花":
-        voice = "Sinji"
+        voice = "Sin-ji"
     # anything not belongs to alice or bob are said by system voice.
     else:
-        voice = "Tingting"
+        voice = "Ting-ting"
     # Execute the "say" command and wait the command to be completed.
     process = subprocess.Popen(["say", "-v", voice, text])
     process.wait()
@@ -243,11 +237,11 @@ def text_to_audio(response, voice_id):
 
 # Construct Baichuan Compatible Chat prompt.
 def construct_Baichuan_prompt(
-        prompt: str,
-        system_prompt: str,
-        username: str,
-        assistant_name: str,
-        chat_history,
+    prompt: str,
+    system_prompt: str,
+    username: str,
+    assistant_name: str,
+    chat_history,
 ):
     sep = ""
     sep2 = "</s>"
@@ -265,34 +259,24 @@ def construct_Baichuan_prompt(
 
 
 # Base class for the generate config.
-def _base_sanitize_generate_config(
-        model_uid,
-) -> PytorchGenerateConfig:
+def _base_sanitize_generate_config() -> PytorchGenerateConfig:
     pytorch_generate_config = PytorchGenerateConfig()
     pytorch_generate_config.setdefault("temperature", 0.7)
     pytorch_generate_config.setdefault("repetition_penalty", 1.0)
     pytorch_generate_config.setdefault("max_new_tokens", 512)
     pytorch_generate_config.setdefault("stream_interval", 2)
-    pytorch_generate_config["model"] = model_uid
-    pytorch_generate_config["stop"] = ["\n", "\n\n", ""]
+    pytorch_generate_config["stop"] = [f" {username} "]
     return pytorch_generate_config
 
 
 # The actual sanitizer for the generate config.
-def Baichuan_sanitize_generate_config(
-        model_uid,
-) -> PytorchGenerateConfig:
+def baichuan_sanitize_generate_config() -> PytorchGenerateConfig:
     _stop_token_ids = [2, 195]
 
-    pytorch_generate_config = _base_sanitize_generate_config(
-        model_uid=model_uid,
-    )
+    pytorch_generate_config = _base_sanitize_generate_config()
 
-    # we don't need to specify the stop parameters as we always gonna pass in stop parameters.
-    if (
-            "stop_token_ids" not in pytorch_generate_config
-            and _stop_token_ids is not None
-    ):
+    # we don't need to specify the stop parameters as we are always going to pass in stop parameters.
+    if "stop_token_ids" not in pytorch_generate_config and _stop_token_ids is not None:
         pytorch_generate_config["stop_token_ids"] = _stop_token_ids
 
     return pytorch_generate_config
@@ -319,24 +303,24 @@ def _convert_completion_to_chat(completion: Completion) -> ChatCompletion:
 
 
 def chat_with_bot(
-        format_input,
-        chat_history,
-        alice_or_bob_state,
-        system_prompt,
-        model_ref,
-        usname,
+    format_input,
+    chat_history,
+    alice_or_bob_state,
+    system_prompt,
+    model_ref,
+    usname,
 ):
     full_prompt = construct_Baichuan_prompt(
         prompt=format_input,
         system_prompt=system_prompt,
         username=usname,
         assistant_name=alice_or_bob_state,
-        chat_history=chat_history
+        chat_history=chat_history,
     )
 
-    generate_config = {"max_tokens": 1024, "stop": " "}
+    pytorch_generate_config = baichuan_sanitize_generate_config()
 
-    resulting_chunks = model_ref.generate(full_prompt, generate_config)
+    resulting_chunks = model_ref.generate(full_prompt, pytorch_generate_config)
     assert not isinstance(resulting_chunks, Iterator)
     completion = _convert_completion_to_chat(resulting_chunks)
 
@@ -365,13 +349,25 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
-        "-e", "--endpoint", type=str, help="Xinference endpoint, required", required=True
+        "-e",
+        "--endpoint",
+        type=str,
+        help="Xinference endpoint, required",
+        required=True,
     )
     parser.add_argument(
-        "-m1", "--model-1", type=str, help="Xinference model 1's model uid", required=True
+        "-m1",
+        "--model-1",
+        type=str,
+        help="Xinference model 1's model uid",
+        required=True,
     )
     parser.add_argument(
-        "-m2", "--model-2", type=str, help="Xinference model 2's model uid", required=True
+        "-m2",
+        "--model-2",
+        type=str,
+        help="Xinference model 2's model uid",
+        required=True,
     )
     args = parser.parse_args()
 
@@ -393,10 +389,7 @@ if __name__ == "__main__":
     print(" 欢迎来到 Xorbits inference 聊天室 ", end="")
     print(emoji_jack_o_lantern)
     print(emoji_sparkiles, end="")
-    print(
-        " 如果要退出聊天室，请说 '退出'，'离开', '再见', or '拜拜'",
-        end=""
-    )
+    print(" 如果要退出聊天室，请说 '退出'，'离开', '再见', or '拜拜'", end="")
     print(emoji_sparkiles)
 
     # Receive the username and the opening greeting message from system, start the whole program.
@@ -427,16 +420,20 @@ if __name__ == "__main__":
     # launch the two model one by one and let them greet with the user.
     # first set up two model ready for serve on the server, and then
     # retrieve them by model_uid on client side.
-    model_a_ref, model_a_uid = lanuch_model(alice_or_bob="小红",
-                                            model_a=model_a,
-                                            username=username,
-                                            model_uid=model_1_uid,
-                                            system_prompt=system_prompt_alice)
-    model_b_ref, model_b_uid = lanuch_model(alice_or_bob="小花",
-                                            model_a=model_a,
-                                            username=username,
-                                            model_uid=model_2_uid,
-                                            system_prompt=system_prompt_bob)
+    model_a_ref, model_a_uid = lanuch_model(
+        alice_or_bob="小红",
+        model_a=model_a,
+        username=username,
+        model_uid=model_1_uid,
+        system_prompt=system_prompt_alice,
+    )
+    model_b_ref, model_b_uid = lanuch_model(
+        alice_or_bob="小花",
+        model_a=model_a,
+        username=username,
+        model_uid=model_2_uid,
+        system_prompt=system_prompt_bob,
+    )
 
     # We can change the scale of the model here, the bigger the model, the higher the accuracy
     # Due to the machine restrictions, I can only launch smaller model.
@@ -450,11 +447,15 @@ if __name__ == "__main__":
         logger.info(f"Time spent on transcribing: {time.time() - start}")
 
         # turn traditional chinese to simplified chinese.
-        converter = opencc.OpenCC('t2s')  # 't2s.json' represents the conversion configuration file
+        converter = opencc.OpenCC(
+            "t2s"
+        )  # 't2s.json' represents the conversion configuration file
         format_input = converter.convert(raw_format_input)
 
         if "小宏" in format_input.lower():
             format_input = format_input.replace("小宏", "小红")
+        elif "小洪" in format_input.lower():
+            format_input = format_input.replace("小洪", "小红")
 
         # set up the separation between each chat block.
         print("")
@@ -475,9 +476,7 @@ if __name__ == "__main__":
             print(content_alice)
             text_to_audio(content_alice, alice_or_bob_state)
             alice_or_bob_state = "小花"
-            content_bob = (
-                f": 能与你交谈是我的荣幸, {username}. 希望能再次见到你！"
-            )
+            content_bob = f": 能与你交谈是我的荣幸, {username}. 希望能再次见到你！"
             print(emoji_man, end="")
             print(content_bob)
             text_to_audio(content_bob, alice_or_bob_state)
@@ -554,12 +553,8 @@ if __name__ == "__main__":
 
     # finally, to wrap up and clean up the workspace.
     del chat_history
-    bye_msg1 = (
-        ": 感谢你关注我们未来速度公司的 Xinference 项目，并选择两位诞生于该项目的杰出人工智能工作人员"
-    )
-    bye_msg2 = (
-        ": 我们会继续努力强化我们的已有的产品，并持续推出新产品，未来速度的目标始终是为大数据用户提供更好的产品与更广阔的平台"
-    )
+    bye_msg1 = ": 感谢你关注我们未来速度公司的 Xinference 项目，并选择两位诞生于该项目的杰出人工智能工作人员"
+    bye_msg2 = ": 我们会继续努力强化我们的已有的产品，并持续推出新产品，未来速度的目标始终是为大数据用户提供更好的产品与更广阔的平台"
     print("\n")
     print(emoji_system, end="")
     print(bye_msg1)
