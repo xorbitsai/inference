@@ -272,9 +272,7 @@ class GradioApp:
             cache_path = model_family.generate_cache_path(
                 int(_model_size_in_billions), _quantization
             )
-            if not (os.path.exists(cache_path)):
-                if os.path.exists(cache_path):
-                    os.remove(cache_path)
+            if _model_format != "pytorch" and not (os.path.exists(cache_path)):
                 url = model_family.url_generator(
                     int(_model_size_in_billions), _quantization
                 )
