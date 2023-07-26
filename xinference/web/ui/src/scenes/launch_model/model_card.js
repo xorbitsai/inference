@@ -56,7 +56,7 @@ const ModelCard = ({ imgURL, serviceName, description, url, jsonData }) => {
       border: "1px solid #ddd",
       borderRadius: "20px",
       padding: "15px",
-      boxShadow: "0 4px 8px 0",
+      //   boxShadow: "0 4px 8px 0",
     },
     img: {
       display: "block",

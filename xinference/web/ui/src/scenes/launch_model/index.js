@@ -39,6 +39,26 @@ const LaunchModel = () => {
             model_size_in_billions: 7,
           }}
         />
+        {/* <ModelCard
+          imgURL="https://www.zhipuai.cn/assets/images/home/chatglm/chatglm_logo1.png"
+          serviceName="ChatGLM"
+          description="ChatGLM is an open bilingual language model based on General Language Model (GLM) framework."
+          url="http://localhost:9997"
+          jsonData={{
+            model_name: "chatglm",
+            model_size_in_billions: 6,
+          }}
+        />
+        <ModelCard
+          imgURL="https://www.zhipuai.cn/assets/images/home/chatglm/chatglm_logo1.png"
+          serviceName="ChatGLM2"
+          description="ChatGLM2 is the second-generation version of the open-source bilingual (Chinese-English) chat model ChatGLM-6B."
+          url="http://localhost:9997"
+          jsonData={{
+            model_name: "chatglm2",
+            model_size_in_billions: 6,
+          }}
+        /> */}
         {[...Array(20)].map((_, index) => (
           <ModelCard
             imgURL="https://api.time.com/wp-content/uploads/2022/11/GettyImages-1358149692.jpg"
