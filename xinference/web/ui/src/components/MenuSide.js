@@ -14,24 +14,12 @@ import {
   ChevronRightOutlined,
   GitHub,
   RocketLaunchOutlined,
-  EngineeringOutlined,
-  HomeOutlined,
-  DnsOutlined,
   SmartToyOutlined,
-  SettingsApplications,
 } from "@mui/icons-material";
 import icon from "../media/icon.webp";
 import { useLocation, useNavigate } from "react-router-dom";
 
 const navItems = [
-  {
-    text: "Home",
-    icon: <HomeOutlined />,
-  },
-  {
-    text: "Software",
-    icon: null,
-  },
   {
     text: "Launch Model",
     icon: <RocketLaunchOutlined />,
@@ -39,26 +27,6 @@ const navItems = [
   {
     text: "Model Dashboard",
     icon: <SmartToyOutlined />,
-  },
-  {
-    text: "Worker Dashboard",
-    icon: <EngineeringOutlined />,
-  },
-  {
-    text: "Hardware",
-    icon: null,
-  },
-  {
-    text: "Resource Dashboard",
-    icon: <DnsOutlined />,
-  },
-  {
-    text: "Machine Settings",
-    icon: <SettingsApplications />,
-  },
-  {
-    text: "Other",
-    icon: null,
   },
   {
     text: "Contact Us",
@@ -161,19 +129,23 @@ const MenuSide = () => {
               const link = text.toLowerCase().replace(" ", "_");
 
               return (
-                <ListItem key={text} disablePadding>
+                <ListItem key={text}>
                   <ListItemButton
                     onClick={() => {
-                      if (link !== "contact_us") {
-                        navigate(`/${link}`);
-                        setActive(link);
-                        console.log(active);
-                      } else {
+                      if (link === "contact_us") {
                         window.open(
                           "https://github.com/xorbitsai/inference",
                           "_blank",
                           "noreferrer"
                         );
+                      } else if (link === "launch_model") {
+                        navigate(`/`);
+                        setActive(link);
+                        console.log(active);
+                      } else {
+                        navigate(`/${link}`);
+                        setActive(link);
+                        console.log(active);
                       }
                     }}
                   >

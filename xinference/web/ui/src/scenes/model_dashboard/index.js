@@ -11,8 +11,16 @@ const ModelDashboard = () => {
   const [modelData, setModelData] = useState([]);
   const [isCalling, setIsCalling] = useState(false);
 
+  const fullUrl = window.location.href;
+  let endPoint = "";
+  if ("XINFERENCE_ENDPOINT" in process.env) {
+    endPoint = process.env.XINFERENCE_ENDPOINT;
+  } else {
+    endPoint = fullUrl.split("/ui")[0];
+  }
+
   const update = () => {
-    fetch("http://localhost:9997/v1/models", {
+    fetch(`${endPoint}/v1/models`, {
       method: "GET",
     })
       .then((response) => response.json())
@@ -35,6 +43,7 @@ const ModelDashboard = () => {
 
   useEffect(() => {
     update();
+    // eslint-disable-next-line
   }, []);
 
   const columns = [
@@ -65,8 +74,8 @@ const ModelDashboard = () => {
       flex: 1,
       minWidth: 200,
       renderCell: ({ row: { url } }) => {
-        const openUrl = "http://localhost:9997/" + url;
-        const closeUrl = "http://localhost:9997/v1/models/" + url;
+        const openUrl = `${endPoint}/` + url;
+        const closeUrl = `${endPoint}/v1/models/` + url;
         return (
           <Box
             style={{

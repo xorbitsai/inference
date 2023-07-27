@@ -28,8 +28,12 @@ const ModelCard = ({ imgURL, serviceName, description, url, jsonData }) => {
       body: JSON.stringify(jsonDataWithID),
     })
       .then((response) => {
-        console.log(response);
-
+        response.json();
+        console.log("First");
+      })
+      .then((data) => {
+        console.log("Firstdata");
+        console.log(data);
         // Second fetch request to build the gradio page
         return fetch(url + "/v1/gradio/" + uuid, {
           method: "POST",
@@ -40,7 +44,12 @@ const ModelCard = ({ imgURL, serviceName, description, url, jsonData }) => {
         });
       })
       .then((response) => {
-        console.log(response);
+        response.json();
+        console.log("Second");
+      })
+      .then((data) => {
+        console.log("Seconddata");
+        console.log(data);
         window.open(url + "/" + uuid, "_blank", "noreferrer");
         setIsLaunchingModel(false);
       })
@@ -95,7 +104,9 @@ const ModelCard = ({ imgURL, serviceName, description, url, jsonData }) => {
           ...styles.button,
           backgroundColor: isLaunchingModel ? "gray" : "#4CAF50",
         }}
-        onClick={() => launchModel(url, jsonData)}
+        onClick={() => {
+          launchModel(url, jsonData);
+        }}
         disabled={isLaunchingModel}
       >
         {isLaunchingModel ? "Loading..." : "Launch"}
