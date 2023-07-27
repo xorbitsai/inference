@@ -295,6 +295,7 @@ class WorkerActor(xo.Actor):
                 f" size: {model_size_in_billions}, quantization: {quantization}"
             )
         llm_family, llm_spec, quantization = match_result
+        assert quantization is not None
 
         from ..model.llm.llm_family import cache_from_huggingface
 
@@ -318,7 +319,6 @@ class WorkerActor(xo.Actor):
         )
         await model_ref.load()
         self._model_uid_to_model[model_uid] = model_ref
-        assert quantization is not None
         self._model_uid_to_model_spec[model_uid] = (llm_family, llm_spec, quantization)
         self._subpool_address_to_model_uids[subpool_address].add(model_uid)
         return model_ref
