@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class CtransformerModelConfig(TypedDict, total=False):
+class AutoConfig(TypedDict, total=False):
     top_k: int
     top_p: float
     temperature: float
@@ -49,6 +49,8 @@ class CtransformerGenerateConfig(TypedDict, total=False):
     seed: Optional[int]
     batch_size: Optional[int]
     threads: Optional[int]
+    stop: Optional[Sequence[str]]
+    stream: Optional[bool]
     reset: Optional[bool]
 
 
@@ -58,7 +60,7 @@ class CtransformerModel(Model):
         model_uid: str,
         model_spec: "ModelSpec",
         model_path: str,
-        ctransformerModelConfig: Optional[CtransformerModelConfig] = None,
+        ctransformerModelConfig: Optional[AutoConfig] = None,
     ):
         super().__init__(model_uid, model_spec)
 
@@ -68,16 +70,16 @@ class CtransformerModel(Model):
         # )
         # self._gpu_layers = SIZE_TO_GPU_LAYERS[closest_size]
         self._model_path = model_path
-        self._ctransformer_model_config: CtransformerModelConfig = (
-            self._sanitize_model_config(ctransformerModelConfig)
+        self._ctransformer_model_config: AutoConfig = self._sanitize_model_config(
+            ctransformerModelConfig
         )
         self._llm = None
 
     def _sanitize_model_config(
-        self, ctransformerModelConfig: Optional[CtransformerModelConfig]
-    ) -> CtransformerModelConfig:
+        self, ctransformerModelConfig: Optional[AutoConfig]
+    ) -> AutoConfig:
         if ctransformerModelConfig is None:
-            ctransformerModelConfig = CtransformerModelConfig()
+            ctransformerModelConfig = AutoConfig()
         ctransformerModelConfig.setdefault("top_k", 40)
         ctransformerModelConfig.setdefault("top_p", 0.95)
         ctransformerModelConfig.setdefault("temperature", 0.8)
@@ -112,3 +114,26 @@ class CtransformerModel(Model):
         ctransformerGenerateConfig.setdefault("reset", True)
 
         return ctransformerGenerateConfig
+
+    def load(self):
+        try:
+            from ctransformers import AutoModelForCausalLM
+        except ImportError:
+            error_message = "Failed to import module 'ctransformers'"
+            installation_guide = [
+                "Please make sure 'ctransformers' is installed. ",
+                "You can install it by typing pip install ctransformers",
+            ]
+
+            raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
+
+        self._llm = AutoModelForCausalLM.from_pretrained(
+            model_path_or_repo_id=self._model_path,
+            config=Optional[self._ctransformer_model_config],
+        )
+
+    # def generate(
+    #     self,
+    #     prompt: str,
+    #     generate_config: Optional[CtransformerGenerateConfig] = None
+    # ):
