@@ -14,9 +14,10 @@
 
 
 import logging
+import os
 
 import click
-from xoscar.utils import get_next_port
+from xoscar.utils import get_next_port, logger
 
 from .. import __version__
 from ..client import RESTfulClient
@@ -25,6 +26,14 @@ from ..constants import (
     XINFERENCE_DEFAULT_ENDPOINT_PORT,
     XINFERENCE_DEFAULT_LOCAL_HOST,
 )
+
+
+def getExistingEndpoint():
+    logger.error("XINFERENCE_ENDPOINT" in os.environ)
+    if "XINFERENCE_ENDPOINT" in os.environ:
+        return os.environ["XINFERENCE_ENDPOINT"]
+    else:
+        return XINFERENCE_DEFAULT_ENDPOINT_PORT
 
 
 @click.group(invoke_without_command=True, name="xinference")
@@ -73,6 +82,8 @@ def supervisor(
 
     address = f"{host}:{get_next_port()}"
 
+    port = getExistingEndpoint()
+
     main(address=address, host=host, port=port, logging_conf=logging_conf)
 
 
@@ -91,6 +102,8 @@ def worker(log_level: str, endpoint: str, host: str):
     if log_level:
         logging.basicConfig(level=logging.getLevelName(log_level.upper()))
     logging_conf = dict(level=log_level.upper())
+
+    endpoint = getExistingEndpoint()
 
     client = RESTfulClient(base_url=endpoint)
     supervisor_internal_addr = client._get_supervisor_internal_address()
@@ -121,6 +134,8 @@ def model_launch(
     model_format: str,
     quantization: str,
 ):
+    endpoint = getExistingEndpoint()
+
     client = RESTfulClient(base_url=endpoint)
     model_uid = client.launch_model(
         model_name=model_name,
@@ -146,6 +161,8 @@ def model_list(endpoint: str, all: bool):
     from tabulate import tabulate
 
     from ..model import MODEL_FAMILIES
+
+    endpoint = getExistingEndpoint()
 
     table = []
     if all:
@@ -205,6 +222,7 @@ def model_terminate(
     endpoint: str,
     model_uid: str,
 ):
+    endpoint = getExistingEndpoint()
     client = RESTfulClient(base_url=endpoint)
     client.terminate_model(model_uid=model_uid)
 
