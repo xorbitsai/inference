@@ -12,7 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import logging
-from typing import TYPE_CHECKING, List, Optional, Sequence, TypedDict
+from typing import TYPE_CHECKING, Optional, Sequence, TypedDict
+
+from ctransformers import AutoConfig
 
 from xinference.model.llm.core import Model
 
@@ -22,21 +24,21 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class AutoConfig(TypedDict, total=False):
-    top_k: int
-    top_p: float
-    temperature: float
-    repetition_penalty: float
-    last_n_tokens: float
-    seed: int
-    max_new_tokens: int
-    stop: List[str]
-    stream: bool
-    reset: bool
-    batch_size: int
-    threads: int
-    context_length: int
-    gpu_layers: int
+# class AutoConfig(TypedDict, total=False):
+#     top_k: int
+#     top_p: float
+#     temperature: float
+#     repetition_penalty: float
+#     last_n_tokens: float
+#     seed: int
+#     max_new_tokens: int
+#     stop: List[str]
+#     stream: bool
+#     reset: bool
+#     batch_size: int
+#     threads: int
+#     context_length: int
+#     gpu_layers: int
 
 
 class CtransformerGenerateConfig(TypedDict, total=False):
@@ -60,6 +62,8 @@ class CtransformerModel(Model):
         model_uid: str,
         model_spec: "ModelSpec",
         model_path: str,
+        model_type: str,
+        model_file: Optional[str],
         ctransformerModelConfig: Optional[AutoConfig] = None,
     ):
         super().__init__(model_uid, model_spec)
@@ -71,29 +75,20 @@ class CtransformerModel(Model):
         # self._gpu_layers = SIZE_TO_GPU_LAYERS[closest_size]
         self._model_path = model_path
         self._ctransformer_model_config: AutoConfig = self._sanitize_model_config(
-            ctransformerModelConfig
+            model_path, ctransformerModelConfig
         )
+        self._model_type = model_type
+        self._model_file = model_file
         self._llm = None
 
     def _sanitize_model_config(
-        self, ctransformerModelConfig: Optional[AutoConfig]
+        self, model_path, ctransformerModelConfig: Optional[AutoConfig]
     ) -> AutoConfig:
         if ctransformerModelConfig is None:
-            ctransformerModelConfig = AutoConfig()
-        ctransformerModelConfig.setdefault("top_k", 40)
-        ctransformerModelConfig.setdefault("top_p", 0.95)
-        ctransformerModelConfig.setdefault("temperature", 0.8)
-        ctransformerModelConfig.setdefault("repetition_penalty", 1.1)
-        ctransformerModelConfig.setdefault("last_n_tokens", 64)
-        ctransformerModelConfig.setdefault("seed", -1)
-        ctransformerModelConfig.setdefault("max_new_tokens", 256)
-        # ctransformerModelConfig.setdefault("stop", None)
-        ctransformerModelConfig.setdefault("stream", False)
-        ctransformerModelConfig.setdefault("reset", True)
-        ctransformerModelConfig.setdefault("batch_size", 8)
-        ctransformerModelConfig.setdefault("threads", -1)
-        ctransformerModelConfig.setdefault("context_length", -1)
-        ctransformerModelConfig.setdefault("gpu_layers", 0)
+            ctransformerModelConfig = AutoConfig.from_pretrained(
+                model_path,
+                local_files_only=False,
+            )
 
         return ctransformerModelConfig
 
@@ -111,6 +106,8 @@ class CtransformerModel(Model):
         ctransformerGenerateConfig.setdefault("seed", -1)
         ctransformerGenerateConfig.setdefault("batch_size", 8)
         ctransformerGenerateConfig.setdefault("threads", -1)
+        ctransformerGenerateConfig.setdefault("stop", None)
+        ctransformerGenerateConfig.setdefault("stream", None)
         ctransformerGenerateConfig.setdefault("reset", True)
 
         return ctransformerGenerateConfig
@@ -120,16 +117,24 @@ class CtransformerModel(Model):
             from ctransformers import AutoModelForCausalLM
         except ImportError:
             error_message = "Failed to import module 'ctransformers'"
+            if self._is_darwin_and_apple_silicon():
+                system = "Metal"
+            else:
+                system = "CUDA"
+
             installation_guide = [
-                "Please make sure 'ctransformers' is installed. ",
-                "You can install it by typing pip install ctransformers",
+                f"Please make sure 'ctransformers' is installed and {system} accelerator is provided.",
+                f"You can install it by checking out the repository for command for {system} platform:"
+                f"https://github.com/marella/ctransformers",
             ]
 
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
         self._llm = AutoModelForCausalLM.from_pretrained(
             model_path_or_repo_id=self._model_path,
-            config=Optional[self._ctransformer_model_config],
+            model_type=self._model_type,
+            model_file=self._model_file,
+            config=self._ctransformer_model_config,
         )
 
     # def generate(
