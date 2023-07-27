@@ -17,6 +17,7 @@ import logging
 import os
 import socket
 import threading
+import warnings
 from functools import partial
 from typing import Any, Dict, List, Literal, Optional, Union
 
@@ -305,11 +306,6 @@ class RESTfulAPIActor(xo.Actor):
 
         self._app.include_router(self._router)
 
-        @self._app.get("/")
-        def read_main():
-            response = RedirectResponse(url="/ui/")
-            return response
-
         class SPAStaticFiles(StaticFiles):
             async def get_response(self, path: str, scope):
                 response = await super().get_response(path, scope)
@@ -317,17 +313,33 @@ class RESTfulAPIActor(xo.Actor):
                     response = await super().get_response(".", scope)
                 return response
 
-        if os.path.exists("xinference/web/ui/build/"):
+        try:
+            lib_location = os.path.abspath(
+                os.path.dirname(__import__("xinference").__file__)
+            )
+            ui_location = os.path.join(lib_location, "web/ui/build/")
+        except ImportError as e:
+            raise ImportError(f"Xinference is imported incorrectly: {e}")
+
+        if os.path.exists(ui_location):
+
+            @self._app.get("/")
+            def read_main():
+                response = RedirectResponse(url="/ui/")
+                return response
+
             self._app.mount(
                 "/ui/",
-                SPAStaticFiles(directory="xinference/web/ui/build/", html=True),
+                SPAStaticFiles(directory=ui_location, html=True),
                 name="Xinference",
             )
         else:
-            gradio_app = gr.routes.App.create_app(self._gradio_block)
-            self._app.mount(
-                "/ui/",
-                gradio_app,
+            warnings.warn(
+                f"""
+            Xinference ui is not built at expected directory: {ui_location}
+            To resolve this warning, navigate to {os.path.join(lib_location, "web/ui/")}
+            And build the Xinference ui by running "npm run build"
+            """
             )
 
         # run uvicorn in another daemon thread.

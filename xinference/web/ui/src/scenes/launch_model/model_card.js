@@ -1,14 +1,13 @@
 import React, { useContext } from "react";
 import { v1 as uuidv1 } from "uuid";
-import { LaunchingModelContext } from "./launching_context";
+import { ApiContext } from "../../components/apiContext";
 
 const ModelCard = ({ imgURL, serviceName, description, url, jsonData }) => {
-  const { isLaunchingModel, setIsLaunchingModel } = useContext(
-    LaunchingModelContext
-  );
+  const { isCallingApi, setIsCallingApi } = useContext(ApiContext);
+  const { isUpdatingModel, setIsUpdatingModel } = useContext(ApiContext);
 
   const launchModel = (url, jsonData) => {
-    setIsLaunchingModel(true);
+    setIsCallingApi(true);
 
     const uuid = uuidv1();
     const jsonDataWithID = {
@@ -51,11 +50,11 @@ const ModelCard = ({ imgURL, serviceName, description, url, jsonData }) => {
         console.log("Seconddata");
         console.log(data);
         window.open(url + "/" + uuid, "_blank", "noreferrer");
-        setIsLaunchingModel(false);
+        setIsCallingApi(false);
       })
       .catch((error) => {
         console.error("Error:", error);
-        setIsLaunchingModel(false);
+        setIsCallingApi(false);
       });
   };
 
@@ -102,14 +101,14 @@ const ModelCard = ({ imgURL, serviceName, description, url, jsonData }) => {
       <button
         style={{
           ...styles.button,
-          backgroundColor: isLaunchingModel ? "gray" : "#4CAF50",
+          backgroundColor: isCallingApi | isUpdatingModel ? "gray" : "#4CAF50",
         }}
         onClick={() => {
           launchModel(url, jsonData);
         }}
-        disabled={isLaunchingModel}
+        disabled={isCallingApi | isUpdatingModel}
       >
-        {isLaunchingModel ? "Loading..." : "Launch"}
+        {isCallingApi | isUpdatingModel ? "Loading..." : "Launch"}
       </button>
     </div>
   );

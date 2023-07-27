@@ -1,6 +1,5 @@
 import React from "react";
 import ModelCard from "./model_card";
-import { LaunchingModelProvider } from "./launching_context";
 
 const LaunchModel = () => {
   const fullUrl = window.location.href;
@@ -19,30 +18,28 @@ const LaunchModel = () => {
   };
 
   return (
-    <LaunchingModelProvider>
-      <div style={style}>
-        <ModelCard
-          imgURL="https://t4.ftcdn.net/jpg/04/24/72/21/360_F_424722112_grNCAEGRwk5bYm2SDYVbBnW6VzU8qmKN.jpg"
-          serviceName="WizardLM-v1.0"
-          description="WizardLM is an open-source chatbot trained by fine-tuning LLaMA using the innovative Evol-Instruct method."
-          url={endPoint}
-          jsonData={{
-            model_name: "wizardlm-v1.0",
-            model_size_in_billions: 7,
-          }}
-        />
-        <ModelCard
-          imgURL="https://lmsys.org/images/blog/vicuna/vicuna.jpeg"
-          serviceName="Vicuna-v1.3"
-          description="Vicuna is an open-source chatbot trained by fine-tuning LLaMA on data collected from ShareGPT. "
-          url={endPoint}
-          jsonData={{
-            model_name: "vicuna-v1.3",
-            model_size_in_billions: 7,
-          }}
-        />
-      </div>
-    </LaunchingModelProvider>
+    <div style={style}>
+      <ModelCard
+        imgURL="https://t4.ftcdn.net/jpg/04/24/72/21/360_F_424722112_grNCAEGRwk5bYm2SDYVbBnW6VzU8qmKN.jpg"
+        serviceName="WizardLM-v1.0"
+        description="WizardLM is an open-source chatbot trained by fine-tuning LLaMA using the innovative Evol-Instruct method."
+        url={endPoint}
+        jsonData={{
+          model_name: "wizardlm-v1.0",
+          model_size_in_billions: 7,
+        }}
+      />
+      <ModelCard
+        imgURL="https://lmsys.org/images/blog/vicuna/vicuna.jpeg"
+        serviceName="Vicuna-v1.3"
+        description="Vicuna is an open-source chatbot trained by fine-tuning LLaMA on data collected from ShareGPT. "
+        url={endPoint}
+        jsonData={{
+          model_name: "vicuna-v1.3",
+          model_size_in_billions: 7,
+        }}
+      />
+    </div>
   );
 };
 
