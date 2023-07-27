@@ -224,10 +224,10 @@ class GradioApp:
                     formats = list(
                         {spec.model_format for spec in model_family.model_specs}
                     )
+                    formats.sort()
                     return gr.Dropdown.update(
                         choices=formats,
                         interactive=True,
-                        value=formats[0],
                     )
                 else:
                     return gr.Dropdown.update()
@@ -237,36 +237,38 @@ class GradioApp:
                     model_family = MODEL_TO_FAMILIES[model_name]
                     sizes = list(
                         {
-                            spec.model_size_in_billions
+                            str(spec.model_size_in_billions)
                             for spec in model_family.model_specs
                             if spec.model_format == model_format
                         }
                     )
+                    sizes.sort()
                     return gr.Dropdown.update(
                         choices=sizes,
                         interactive=True,
-                        value=sizes[0],
                     )
                 else:
                     return gr.Dropdown.update()
 
             def select_model_size(
-                model_name: str, model_format: str, model_size_in_billions: int
+                model_name: str, model_format: str, model_size_in_billions: str
             ):
                 if model_name:
                     model_family = MODEL_TO_FAMILIES[model_name]
                     quantizations = list(
                         {
-                            spec.quantizations
+                            quantization
                             for spec in model_family.model_specs
                             if spec.model_format == model_format
-                            and spec.model_size_in_billions == model_size_in_billions
+                            and str(spec.model_size_in_billions)
+                            == model_size_in_billions
+                            for quantization in spec.quantizations
                         }
                     )
+                    quantizations.sort()
                     return gr.Dropdown.update(
                         choices=quantizations,
                         interactive=True,
-                        value=quantizations[0],
                     )
                 else:
                     return gr.Dropdown.update()
