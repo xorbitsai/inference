@@ -503,13 +503,13 @@ class Client:
         Parameters
         ----------
         model_name : str
-            The name of model we want to use. e.g. Vicuna.
+            The name of model we want. e.g. Vicuna.
         model_size_in_billions : Optional[int]
-            The size (in billions) of the model we want.
+            The size (in billions) of the model.
         model_format: Optional[str]
             The format of the model. e.g. GGML.
         quantization: Optional[str]
-            The quantization of model we want. e.g. q4_0.
+            The quantization of model. e.g. q4_0.
         **kwargs:
             Any other parameters been specified.
 
@@ -578,10 +578,10 @@ class Client:
         Returns
         -------
         ModelHandler:
+            The corresponding Model Handler based on the Model specified in the uid:
             "ChatglmCppChatModelHandle" -> handler for ChatGLM chat model
             "GenerateModelHandle" -> handle for generate model. e.g. Baichuan.
             "ChatModelHandle" -> handle for chat model. e.g. Baichuan-chat.
-            The corresponding Model Handler based on the Model specified in the uid.
 
         """
 
@@ -643,13 +643,13 @@ class RESTfulClient:
         Parameters
         ----------
         model_name : str
-            The name of model we want to use. e.g. Vicuna.
+            The name of model. e.g. Vicuna.
         model_size_in_billions : Optional[int]
-            The size (in billions) of the model we want.
+            The size (in billions) of the model.
         model_format: Optional[str]
             The format of the model. e.g. GGML.
         quantization: Optional[str]
-            The quantization of model we want. e.g. q4_0.
+            The quantization of model. e.g. q4_0.
         **kwargs:
             Any other parameters been specified.
 
@@ -729,10 +729,10 @@ class RESTfulClient:
         Returns
         -------
         ModelHandler:
+            The corresponding Model Handler based on the Model specified in the uid:
             "RESTfulChatglmCppChatModelHandle" -> provide handle to ChatGLM Model
             "RESTfulGenerateModelHandle" -> provide handle to basic generate Model. e.g. Baichuan.
             "RESTfulChatModelHandle" -> provide handle to chat Model. e.g. Baichuan-chat.
-            The corresponding Model Handler based on the Model specified in the uid.
 
         Raises
         ------
