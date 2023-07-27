@@ -18,13 +18,13 @@ import uuid
 from pathlib import Path
 from typing import TYPE_CHECKING, Iterator, List, Optional, TypedDict, Union
 
-from ...types import ChatCompletion, ChatCompletionChunk, ChatCompletionMessage
-from .core import Model
+from ....types import ChatCompletion, ChatCompletionChunk, ChatCompletionMessage
+from .. import LLMFamilyV1, LLMSpecV1
+from ..core import LLM
 
 if TYPE_CHECKING:
     from chatglm_cpp import Pipeline
 
-    from .. import ModelSpec
 
 logger = logging.getLogger(__name__)
 
@@ -40,17 +40,17 @@ class ChatglmCppGenerateConfig(TypedDict, total=False):
     stream: bool
 
 
-class ChatglmCppChatModel(Model):
+class ChatglmCppChatModel(LLM):
     def __init__(
         self,
         model_uid: str,
-        model_spec: "ModelSpec",
+        model_family: "LLMFamilyV1",
+        model_spec: "LLMSpecV1",
         model_path: str,
         model_config: Optional[ChatglmCppModelConfig] = None,
     ):
-        super().__init__(model_uid, model_spec)
+        super().__init__(model_uid, model_family, model_spec, model_path)
         self._llm: Optional["Pipeline"] = None
-        self._model_path = model_path
 
         # just a placeholder for now as the chatglm_cpp repo doesn't support model config.
         self._model_config = model_config
@@ -80,7 +80,7 @@ class ChatglmCppChatModel(Model):
 
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
-        self._llm = chatglm_cpp.Pipeline(Path(self._model_path))
+        self._llm = chatglm_cpp.Pipeline(Path(self.model_path))
 
     @staticmethod
     def _convert_raw_text_chunks_to_chat(

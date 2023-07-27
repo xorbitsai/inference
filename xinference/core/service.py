@@ -17,12 +17,12 @@ import platform
 import time
 from dataclasses import dataclass
 from logging import getLogger
-from typing import Callable, Dict, List, Optional, Set, Tuple
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 import xoscar as xo
 
 from ..core import ModelActor
-from ..model import ModelSpec
+from ..model.llm import LLMFamilyV1, LLMSpecV1
 from .resource import ResourceStatus, gather_node_info
 
 logger = getLogger(__name__)
@@ -164,7 +164,7 @@ class SupervisorActor(xo.Actor):
         return await worker_ref.get_model(model_uid=model_uid)
 
     @log
-    async def describe_model(self, model_uid: str):
+    async def describe_model(self, model_uid: str) -> Dict[str, Any]:
         if model_uid not in self._model_uid_to_worker:
             raise ValueError(f"Model not found in the model list, uid: {model_uid}")
 
@@ -172,10 +172,10 @@ class SupervisorActor(xo.Actor):
         return await worker_ref.describe_model(model_uid=model_uid)
 
     @log
-    async def list_models(self) -> List[Tuple[str, ModelSpec]]:
-        ret = []
+    async def list_models(self) -> Dict[str, Dict[str, Any]]:
+        ret = {}
         for worker in self._worker_address_to_worker.values():
-            ret.extend(await worker.list_models())
+            ret.update(await worker.list_models())
         return ret
 
     @log
@@ -200,7 +200,9 @@ class WorkerActor(xo.Actor):
         self._supervisor_address = supervisor_address
         self._supervisor_ref = None
         self._model_uid_to_model: Dict[str, xo.ActorRefType["ModelActor"]] = {}
-        self._model_uid_to_model_spec: Dict[str, ModelSpec] = {}
+        self._model_uid_to_model_spec: Dict[
+            str, Tuple[LLMFamilyV1, LLMSpecV1, str]
+        ] = {}
         self._subpool_address_to_model_uids: Dict[str, Set[str]] = dict(
             [(subpool_address, set()) for subpool_address in subpool_addresses]
         )
@@ -254,6 +256,21 @@ class WorkerActor(xo.Actor):
             if model_name in ["baichuan-base", "baichuan-chat"]:
                 raise ValueError(f"{model_name} model can't run on Darwin system.")
 
+    @staticmethod
+    def _to_llm_description(
+        llm_family: LLMFamilyV1, llm_spec: LLMSpecV1, quantization: str
+    ) -> Dict[str, Any]:
+        return {
+            "model_type": "LLM",
+            "model_name": llm_family.model_name,
+            "model_lang": llm_family.model_lang,
+            "model_ability": llm_family.model_ability,
+            "model_description": llm_family.model_description,
+            "model_format": llm_spec.model_format,
+            "model_size_in_billions": llm_spec.model_size_in_billions,
+            "quantization": quantization,
+        }
+
     @log
     async def launch_builtin_model(
         self,
@@ -267,41 +284,41 @@ class WorkerActor(xo.Actor):
         assert model_uid not in self._model_uid_to_model
         self._check_model_is_valid(model_name)
 
-        from ..model import MODEL_FAMILIES
+        from ..model.llm import match_llm, match_llm_cls
 
-        for model_family in MODEL_FAMILIES:
-            model_spec = model_family.match(
-                model_name=model_name,
-                model_format=model_format,
-                model_size_in_billions=model_size_in_billions,
-                quantization=quantization,
-            )
-
-            if model_spec is None:
-                continue
-
-            save_path = await asyncio.to_thread(
-                model_family.cache,
-                model_spec.model_size_in_billions,
-                model_spec.quantization,
-            )
-
-            cls = model_family.cls
-            model = cls(model_uid, model_spec, save_path, kwargs)
-            subpool_address = self._choose_subpool()
-            model_ref = await xo.create_actor(
-                ModelActor, address=subpool_address, uid=model_uid, model=model
-            )
-            await model_ref.load()
-            self._model_uid_to_model[model_uid] = model_ref
-            self._model_uid_to_model_spec[model_uid] = model_spec
-            self._subpool_address_to_model_uids[subpool_address].add(model_uid)
-            return model_ref
-
-        raise ValueError(
-            f"Model not found, name: {model_name}, format: {model_format},"
-            f" size: {model_size_in_billions}, quantization: {quantization}"
+        match_result = match_llm(
+            model_name, model_format, model_size_in_billions, quantization
         )
+        if not match_result:
+            raise ValueError(
+                f"Model not found, name: {model_name}, format: {model_format},"
+                f" size: {model_size_in_billions}, quantization: {quantization}"
+            )
+        llm_family, llm_spec, quantization = match_result
+
+        from ..model.llm.llm_family import cache_from_huggingface
+
+        save_path = await asyncio.to_thread(
+            cache_from_huggingface, llm_family, llm_spec, quantization, None
+        )
+
+        llm_cls = match_llm_cls(llm_family, llm_spec)
+        if not llm_cls:
+            raise ValueError(
+                f"Model not supported, name: {model_name}, format: {model_format},"
+                f" size: {model_size_in_billions}, quantization: {quantization}"
+            )
+
+        model = llm_cls(model_uid, llm_family, llm_spec, save_path, kwargs)
+        subpool_address = self._choose_subpool()
+        model_ref = await xo.create_actor(
+            ModelActor, address=subpool_address, uid=model_uid, model=model
+        )
+        await model_ref.load()
+        self._model_uid_to_model[model_uid] = model_ref
+        self._model_uid_to_model_spec[model_uid] = (llm_family, llm_spec, quantization)
+        self._subpool_address_to_model_uids[subpool_address].add(model_uid)
+        return model_ref
 
     @log
     async def terminate_model(self, model_uid: str):
@@ -318,10 +335,10 @@ class WorkerActor(xo.Actor):
                 self._subpool_address_to_model_uids[subpool_address].remove(model_uid)
 
     @log
-    async def list_models(self) -> List[Tuple[str, ModelSpec]]:
-        ret = []
+    async def list_models(self) -> Dict[str, Dict[str, Any]]:
+        ret = {}
         for k, v in self._model_uid_to_model_spec.items():
-            ret.append((k, v))
+            ret[k] = self._to_llm_description(v[0], v[1], v[2])
         return ret
 
     @log
@@ -332,11 +349,12 @@ class WorkerActor(xo.Actor):
         return self._model_uid_to_model[model_uid]
 
     @log
-    async def describe_model(self, model_uid: str) -> ModelSpec:
+    async def describe_model(self, model_uid: str) -> Dict[str, Any]:
         if model_uid not in self._model_uid_to_model:
             raise ValueError(f"Model not found in the model list, uid: {model_uid}")
 
-        return self._model_uid_to_model_spec[model_uid]
+        llm_family, llm_spec, quantization = self._model_uid_to_model_spec[model_uid]
+        return self._to_llm_description(llm_family, llm_spec, quantization)
 
     async def report_status(self):
         status = await asyncio.to_thread(gather_node_info)

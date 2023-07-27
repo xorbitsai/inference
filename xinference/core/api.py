@@ -13,16 +13,13 @@
 # limitations under the License.
 
 import asyncio
-from typing import TYPE_CHECKING, List, Optional, Tuple
+from typing import Any, Dict, Optional
 
 import xoscar as xo
 
 from ..isolation import Isolation
 from . import ModelActor
 from .service import SupervisorActor
-
-if TYPE_CHECKING:
-    from ..model import ModelSpec
 
 
 class AsyncSupervisorAPI:
@@ -61,7 +58,7 @@ class AsyncSupervisorAPI:
         supervisor_ref = await self._get_supervisor_ref()
         await supervisor_ref.terminate_model(model_uid)
 
-    async def list_models(self) -> List[Tuple[str, "ModelSpec"]]:
+    async def list_models(self) -> Dict[str, Dict[str, Any]]:
         supervisor_ref = await self._get_supervisor_ref()
         return await supervisor_ref.list_models()
 
@@ -114,7 +111,7 @@ class SyncSupervisorAPI:
 
         return self._isolation.call(_terminate_model())
 
-    def list_models(self) -> List[Tuple[str, "ModelSpec"]]:
+    def list_models(self) -> Dict[str, Dict[str, Any]]:
         async def _list_models():
             supervisor_ref = await self._get_supervisor_ref()
             return await supervisor_ref.list_models()

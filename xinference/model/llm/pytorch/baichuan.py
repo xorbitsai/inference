@@ -12,25 +12,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
 
 from ....constants import XINFERENCE_CACHE_DIR
+from ..llm_family import LLMFamilyV1, LLMSpecV1, PytorchLLMSpecV1
 from .core import PytorchChatModel, PytorchModel, PytorchModelConfig
 
-if TYPE_CHECKING:
-    from ... import ModelSpec
 
-
-class BaichuanPytorch(PytorchModel):
+class BaichuanPytorchModel(PytorchModel):
     def __init__(
         self,
         model_uid: str,
-        model_spec: "ModelSpec",
+        model_family: "LLMFamilyV1",
+        model_spec: "LLMSpecV1",
         model_path: str,
         pytorch_model_config: Optional[PytorchModelConfig] = None,
     ):
         super().__init__(
             model_uid,
+            model_family,
             model_spec,
             model_path,
             pytorch_model_config=pytorch_model_config,
@@ -63,30 +63,31 @@ class BaichuanPytorch(PytorchModel):
         )
         return model, tokenizer
 
+    @classmethod
+    def match(cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1") -> bool:
+        if not isinstance(llm_spec, PytorchLLMSpecV1):
+            return False
+        if "baichuan" not in llm_family.model_name:
+            return False
+        if "generate" not in llm_family.model_ability:
+            return False
+        return True
 
-class BaichuanPytorchChat(PytorchChatModel):
-    _system_prompt = ""
-    _sep = "\n"
-    _user_name = " <reserved_102> "
-    _assistant_name = " <reserved_103> "
-    _stop_token_ids = [2, 195]
 
+class BaichuanPytorchChatModel(PytorchChatModel):
     def __init__(
         self,
         model_uid: str,
-        model_spec: "ModelSpec",
+        model_family: "LLMFamilyV1",
+        model_spec: "LLMSpecV1",
         model_path: str,
         pytorch_model_config: Optional[PytorchModelConfig] = None,
     ):
         super().__init__(
             model_uid,
+            model_family,
             model_spec,
             model_path,
-            system_prompt=self._system_prompt,
-            sep=self._sep,
-            user_name=self._user_name,
-            assistant_name=self._assistant_name,
-            stop_token_ids=self._stop_token_ids,
             pytorch_model_config=pytorch_model_config,
         )
         self._use_fast_tokenizer = False
@@ -119,3 +120,13 @@ class BaichuanPytorchChat(PytorchChatModel):
         )
         model.generation_config = GenerationConfig.from_pretrained(self._model_path)
         return model, tokenizer
+
+    @classmethod
+    def match(cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1") -> bool:
+        if not isinstance(llm_spec, PytorchLLMSpecV1):
+            return False
+        if "baichuan" not in llm_family.model_name:
+            return False
+        if "chat" not in llm_family.model_ability:
+            return False
+        return True

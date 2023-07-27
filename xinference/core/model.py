@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING, Any, Generic, Iterator, List, Optional, TypeVa
 import xoscar as xo
 
 if TYPE_CHECKING:
-    from ..model.llm.core import Model
+    from ..model.llm.core import LLM
     from ..types import ChatCompletionChunk, CompletionChunk
 
 import logging
@@ -56,7 +56,7 @@ class IteratorWrapper(Generic[T]):
 
 class ModelActor(xo.Actor):
     @classmethod
-    def gen_uid(cls, model: "Model"):
+    def gen_uid(cls, model: "LLM"):
         return f"{model.__class__}-model-actor"
 
     async def __pre_destroy__(self):
@@ -77,7 +77,7 @@ class ModelActor(xo.Actor):
             gc.collect()
             torch.cuda.empty_cache()
 
-    def __init__(self, model: "Model"):
+    def __init__(self, model: "LLM"):
         super().__init__()
         self._model = model
         self._generator: Optional[Iterator] = None

@@ -73,7 +73,7 @@ class Completion(TypedDict):
 
 
 class ChatCompletionMessage(TypedDict):
-    role: Literal["assistant", "user", "system"]
+    role: str
     content: str
     user: NotRequired[str]
 
@@ -94,7 +94,7 @@ class ChatCompletion(TypedDict):
 
 
 class ChatCompletionChunkDelta(TypedDict):
-    role: NotRequired[Literal["assistant"]]
+    role: NotRequired[str]
     content: NotRequired[str]
 
 
