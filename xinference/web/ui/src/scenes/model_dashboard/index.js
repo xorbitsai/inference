@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useContext } from "react";
 import { Box, Typography, useTheme } from "@mui/material";
+import { ApiContext } from "../../components/apiContext";
 import { DataGrid } from "@mui/x-data-grid";
 import { tokens } from "../../theme";
 import OpenInBrowserOutlinedIcon from "@mui/icons-material/OpenInBrowserOutlined";
@@ -9,7 +10,8 @@ const ModelDashboard = () => {
   const theme = useTheme();
   const colors = tokens(theme.palette.mode);
   const [modelData, setModelData] = useState([]);
-  const [isCalling, setIsCalling] = useState(false);
+  const { isCallingApi, setIsCallingApi } = useContext(ApiContext);
+  const { isUpdatingModel, setIsUpdatingModel } = useContext(ApiContext);
 
   const fullUrl = window.location.href;
   let endPoint = "";
@@ -20,31 +22,38 @@ const ModelDashboard = () => {
   }
 
   const update = () => {
-    fetch(`${endPoint}/v1/models`, {
-      method: "GET",
-    })
-      .then((response) => response.json())
-      .then((data) => {
-        const newModelData = [];
-        Object.entries(data).forEach(([key, value]) => {
-          let newValue = {
-            ...value,
-            id: key,
-            url: key,
-          };
-          newModelData.push(newValue);
-        });
-        setModelData(newModelData);
+    if (isCallingApi) {
+      console.log(isCallingApi);
+      setModelData([{ id: "loading...", url: "IS_LOADING" }]);
+    } else {
+      setIsUpdatingModel(true);
+      fetch(`${endPoint}/v1/models`, {
+        method: "GET",
       })
-      .catch((error) => {
-        console.error("Error:", error);
-      });
+        .then((response) => response.json())
+        .then((data) => {
+          const newModelData = [];
+          Object.entries(data).forEach(([key, value]) => {
+            let newValue = {
+              ...value,
+              id: key,
+              url: key,
+            };
+            newModelData.push(newValue);
+          });
+          setModelData(newModelData);
+          setIsUpdatingModel(false);
+        })
+        .catch((error) => {
+          console.error("Error:", error);
+          setIsUpdatingModel(false);
+        });
+    }
   };
 
   useEffect(() => {
     update();
-    // eslint-disable-next-line
-  }, []);
+  }, [isCallingApi]);
 
   const columns = [
     {
@@ -74,6 +83,9 @@ const ModelDashboard = () => {
       flex: 1,
       minWidth: 200,
       renderCell: ({ row: { url } }) => {
+        if (url === "IS_LOADING") {
+          return <div></div>;
+        }
         const openUrl = `${endPoint}/` + url;
         const closeUrl = `${endPoint}/v1/models/` + url;
         return (
@@ -105,10 +117,10 @@ const ModelDashboard = () => {
             <button
               style={{ borderWidth: "0px", backgroundColor: "transparent" }}
               onClick={() => {
-                if (isCalling) {
+                if (isCallingApi | isUpdatingModel) {
                   return;
                 }
-                setIsCalling(true);
+                setIsCallingApi(true);
                 fetch(closeUrl, {
                   method: "DELETE",
                 })
@@ -117,13 +129,11 @@ const ModelDashboard = () => {
                   })
                   .then((data) => {
                     console.log(data);
-                    setIsCalling(false);
-                    update();
+                    setIsCallingApi(false);
                   })
                   .catch((error) => {
                     console.error("Error:", error);
-                    setIsCalling(false);
-                    update();
+                    setIsCallingApi(false);
                   });
               }}
             >
