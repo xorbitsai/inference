@@ -92,17 +92,6 @@ class PytorchModel(Model):
         pytorch_model_config.setdefault("gptq_act_order", False)
         if self._is_darwin_and_apple_silicon():
             pytorch_model_config.setdefault("device", "mps")
-            if (
-                self.model_spec.model_name in ["baichuan-chat", "baichuan-base"]
-                and self.model_spec.quantization != "none"
-            ):
-                # dtype of parameters in `baichuan-chat` and `baichuan-base` model
-                # is `torch.bfloat16` which is not supported on MPS.
-                logger.warning(
-                    f"Model {self.model_spec.model_name} can't use quantization method on MPS device. "
-                    "Continuing with CPU device"
-                )
-                pytorch_model_config["device"] = "cpu"
         else:
             pytorch_model_config.setdefault("device", "cuda")
         return pytorch_model_config
