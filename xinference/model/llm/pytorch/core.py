@@ -16,7 +16,6 @@ import logging
 from typing import TYPE_CHECKING, Iterator, List, Optional, TypedDict, Union
 
 import torch
-from .compression import load_compress_model
 
 from ....constants import XINFERENCE_CACHE_DIR
 from ....types import (
@@ -27,9 +26,9 @@ from ....types import (
     CompletionChunk,
     Embedding,
 )
-
 from ..core import LLM
 from ..utils import ChatModelMixin
+from .compression import load_compress_model
 from .utils import generate_stream
 
 if TYPE_CHECKING:
