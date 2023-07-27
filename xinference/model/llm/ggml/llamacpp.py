@@ -223,21 +223,11 @@ class LlamaCppChatModel(LlamaCppModel, ChatModelMixin):
         model_family: "LLMFamilyV1",
         model_spec: "LLMSpecV1",
         model_path: str,
-        system_prompt: str,
-        sep: str,
-        user_name: str,
-        assistant_name: str,
-        stop: Optional[Union[str, List[str]]] = None,
         llamacpp_model_config: Optional[LlamaCppModelConfig] = None,
     ):
         super().__init__(
             model_uid, model_family, model_spec, model_path, llamacpp_model_config
         )
-        self._system_prompt: str = system_prompt
-        self._sep: str = sep
-        self._user_name: str = user_name
-        self._assistant_name: str = assistant_name
-        self._stop = stop
 
     @classmethod
     def match(cls, llm_family: LLMFamilyV1, llm_spec: LLMSpecV1) -> bool:
@@ -253,8 +243,8 @@ class LlamaCppChatModel(LlamaCppModel, ChatModelMixin):
         self, generate_config: Optional[LlamaCppGenerateConfig]
     ) -> LlamaCppGenerateConfig:
         generate_config = super()._sanitize_generate_config(generate_config)
-        if self._stop:
-            generate_config["stop"] = self._stop
+        if self.model_family.prompt_style and self.model_family.prompt_style.stop:
+            generate_config["stop"] = self.model_family.prompt_style.stop
         return generate_config
 
     def chat(

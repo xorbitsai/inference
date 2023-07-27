@@ -35,14 +35,14 @@ def test_deserialize_llm_family_v1():
       {
          "model_format":"ggmlv3",
          "model_size_in_billions":2,
-         "quantizations":["q4_0", "q4_1"],
-         "model_url":"http://example.com/model",
-         "raw_pointer_file_url":"http://example.com/raw_pointer"
+         "quantizations": ["q4_0", "q4_1"],
+         "model_id":"example/TestModel",
+         "model_file_name_template":"TestModel.{quantization}.ggmlv3.bin"
       },
       {
          "model_format":"pytorch",
          "model_size_in_billions":3,
-         "quantizations": ["int8", "int4"],
+         "quantizations": ["int8", "int4", "none"],
          "model_id":"example/TestModel"
       }
    ],
@@ -67,8 +67,8 @@ def test_deserialize_llm_family_v1():
     ggml_spec = model_family.model_specs[0]
     assert ggml_spec.model_format == "ggmlv3"
     assert ggml_spec.model_size_in_billions == 2
-    assert ggml_spec.model_url == "http://example.com/model"
-    assert ggml_spec.raw_pointer_file_url == "http://example.com/raw_pointer"
+    assert ggml_spec.model_id == "example/TestModel"
+    assert ggml_spec.model_file_name_template == "TestModel.{quantization}.ggmlv3.bin"
 
     pytorch_spec = model_family.model_specs[1]
     assert pytorch_spec.model_format == "pytorch"
@@ -92,11 +92,15 @@ def test_serialize_llm_family_v1():
     ggml_spec = GgmlLLMSpecV1(
         model_format="ggmlv3",
         model_size_in_billions=2,
-        model_url="http://example.com/model",
-        raw_pointer_file_url="http://example.com/raw_pointer",
+        quantizations=["q4_0", "q4_1"],
+        model_id="example/TestModel",
+        model_file_name_template="TestModel.{quantization}.ggmlv3.bin",
     )
     pytorch_spec = PytorchLLMSpecV1(
-        model_format="pytorch", model_size_in_billions=3, model_id="example/TestModel"
+        model_format="pytorch",
+        model_size_in_billions=3,
+        quantizations=["int8", "int4", "none"],
+        model_id="example/TestModel",
     )
     prompt_style = PromptStyleV1(
         style_name="ADD_COLON_SINGLE",
@@ -118,40 +122,8 @@ def test_serialize_llm_family_v1():
         prompt_style=prompt_style,
     )
 
-    serialized = """{
-   "version":1,
-   "model_name":"TestModel",
-   "model_lang":[
-      "en"
-   ],
-   "model_ability":[
-      "embed", "generate"
-   ],
-   "model_specs":[
-      {
-         "model_format":"ggmlv3",
-         "model_size_in_billions":2,
-         "quantizations": ["q4_0", "q4_1"],
-         "model_url_template":"http://example.com/model",
-         "raw_pointer_file_url_template":"http://example.com/raw_pointer"
-      },
-      {
-         "model_format":"pytorch",
-         "model_size_in_billions":3,
-         "model_id":"example/TestModel"
-      }
-   ],
-   "prompt_style": {
-       "style_name": "ADD_COLON_SINGLE",
-       "system_prompt": "A chat between a curious human and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the human's questions.",
-       "roles": ["user", "assistant"],
-       "intra_message_sep": "\\n### ",
-       "inter_message_sep": "\\n### ",
-       "stop": null,
-       "stop_token_ids": null
-   }
-}"""
-    assert json.loads(model_family.json()) == json.loads(serialized)
+    serialized = """{"version": 1, "model_name": "TestModel", "model_lang": ["en"], "model_ability": ["embed", "generate"], "model_description": null, "model_specs": [{"model_format": "ggmlv3", "model_size_in_billions": 2, "quantizations": ["q4_0", "q4_1"], "model_id": "example/TestModel", "model_file_name_template": "TestModel.{quantization}.ggmlv3.bin", "model_local_path": null}, {"model_format": "pytorch", "model_size_in_billions": 3, "quantizations": ["int8", "int4", "none"], "model_id": "example/TestModel", "model_local_path": null}], "prompt_style": {"style_name": "ADD_COLON_SINGLE", "system_prompt": "A chat between a curious human and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the human's questions.", "roles": ["user", "assistant"], "intra_message_sep": "\n### ", "inter_message_sep": "\n### ", "stop": null, "stop_token_ids": null}}"""
+    assert model_family.json() == serialized
 
 
 def test_builtin_llm_families():
