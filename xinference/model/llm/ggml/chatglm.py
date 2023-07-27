@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Iterator, List, Optional, TypedDict, Union
 
 from ....types import ChatCompletion, ChatCompletionChunk, ChatCompletionMessage
-from .. import LLMFamilyV1, LLMSpecV1
+from .. import GgmlLLMSpecV1, LLMFamilyV1, LLMSpecV1
 from ..core import LLM
 
 if TYPE_CHECKING:
@@ -81,6 +81,16 @@ class ChatglmCppChatModel(LLM):
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
         self._llm = chatglm_cpp.Pipeline(Path(self.model_path))
+
+    @classmethod
+    def match(cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1") -> bool:
+        if not isinstance(llm_spec, GgmlLLMSpecV1):
+            return False
+        if "chatglm" not in llm_family.model_name:
+            return False
+        if "chat" not in llm_family.model_ability:
+            return False
+        return True
 
     @staticmethod
     def _convert_raw_text_chunks_to_chat(
