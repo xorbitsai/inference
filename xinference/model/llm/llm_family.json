@@ -38,7 +38,8 @@
         "model_size_in_billions": 7,
         "quantizations": [
           "4-bit",
-          "8-bit"
+          "8-bit",
+          "none"
         ],
         "model_id": "baichuan-inc/Baichuan-7B"
       },
@@ -47,7 +48,8 @@
         "model_size_in_billions": 13,
         "quantizations": [
           "4-bit",
-          "8-bit"
+          "8-bit",
+          "none"
         ],
         "model_id": "baichuan-inc/Baichuan-13B-Base"
       }
@@ -93,7 +95,8 @@
         "model_size_in_billions": 13,
         "quantizations": [
           "4-bit",
-          "8-bit"
+          "8-bit",
+          "none"
         ],
         "model_id": "baichuan-inc/Baichuan-13B-Chat"
       }
@@ -261,7 +264,8 @@
         "model_size_in_billions": 33,
         "quantizations": [
           "4-bit",
-          "8-bit"
+          "8-bit",
+          "none"
         ],
         "model_id": "lmsys/vicuna-33b-v1.3"
       },
@@ -270,7 +274,8 @@
         "model_size_in_billions": 13,
         "quantizations": [
           "4-bit",
-          "8-bit"
+          "8-bit",
+          "none"
         ],
         "model_id": "lmsys/vicuna-13b-v1.3"
       },
@@ -279,7 +284,8 @@
         "model_size_in_billions": 7,
         "quantizations": [
           "4-bit",
-          "8-bit"
+          "8-bit",
+          "none"
         ],
         "model_id": "lmsys/vicuna-7b-v1.3"
       }
