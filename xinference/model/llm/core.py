@@ -30,6 +30,7 @@ class LLM(abc.ABC):
         model_uid: str,
         model_family: "LLMFamilyV1",
         model_spec: "LLMSpecV1",
+        quantization: str,
         model_path: str,
         *args,
         **kwargs,
@@ -37,6 +38,7 @@ class LLM(abc.ABC):
         self.model_uid = model_uid
         self.model_family = model_family
         self.model_spec = model_spec
+        self.quantization = quantization
         self.model_path = model_path
         if args:
             raise ValueError(f"Unrecognized positional arguments: {args}")

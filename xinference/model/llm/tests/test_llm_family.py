@@ -140,7 +140,10 @@ def test_cache_from_huggingface_pytorch():
     from ..llm_family import cache_from_huggingface
 
     spec = PytorchLLMSpecV1(
-        model_format="pytorch", model_size_in_billions=1, model_id="facebook/opt-125m"
+        model_format="pytorch",
+        model_size_in_billions=1,
+        quantizations=["4-bit", "8-bit", "none"],
+        model_id="facebook/opt-125m",
     )
     family = LLMFamilyV1(
         version=1,

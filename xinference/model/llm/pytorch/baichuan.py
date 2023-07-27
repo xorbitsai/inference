@@ -25,6 +25,7 @@ class BaichuanPytorchModel(PytorchModel):
         model_uid: str,
         model_family: "LLMFamilyV1",
         model_spec: "LLMSpecV1",
+        quantization: str,
         model_path: str,
         pytorch_model_config: Optional[PytorchModelConfig] = None,
     ):
@@ -33,6 +34,7 @@ class BaichuanPytorchModel(PytorchModel):
             model_family,
             model_spec,
             model_path,
+            quantization,
             pytorch_model_config=pytorch_model_config,
         )
 
@@ -80,6 +82,7 @@ class BaichuanPytorchChatModel(PytorchChatModel):
         model_uid: str,
         model_family: "LLMFamilyV1",
         model_spec: "LLMSpecV1",
+        quantization: str,
         model_path: str,
         pytorch_model_config: Optional[PytorchModelConfig] = None,
     ):
@@ -88,6 +91,7 @@ class BaichuanPytorchChatModel(PytorchChatModel):
             model_family,
             model_spec,
             model_path,
+            quantization,
             pytorch_model_config=pytorch_model_config,
         )
         self._use_fast_tokenizer = False

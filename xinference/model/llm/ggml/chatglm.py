@@ -46,10 +46,11 @@ class ChatglmCppChatModel(LLM):
         model_uid: str,
         model_family: "LLMFamilyV1",
         model_spec: "LLMSpecV1",
+        quantization: str,
         model_path: str,
         model_config: Optional[ChatglmCppModelConfig] = None,
     ):
-        super().__init__(model_uid, model_family, model_spec, model_path)
+        super().__init__(model_uid, model_family, model_spec, quantization, model_path)
         self._llm: Optional["Pipeline"] = None
 
         # just a placeholder for now as the chatglm_cpp repo doesn't support model config.

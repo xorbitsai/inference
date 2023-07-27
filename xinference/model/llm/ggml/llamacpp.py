@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import logging
+import os
 import platform
 from typing import TYPE_CHECKING, Iterator, List, Optional, TypedDict, Union
 
@@ -91,10 +92,11 @@ class LlamaCppModel(LLM):
         model_uid: str,
         model_family: "LLMFamilyV1",
         model_spec: "LLMSpecV1",
+        quantization: str,
         model_path: str,
         llamacpp_model_config: Optional[LlamaCppModelConfig] = None,
     ):
-        super().__init__(model_uid, model_family, model_spec, model_path)
+        super().__init__(model_uid, model_family, model_spec, quantization, model_path)
 
         closest_size = min(
             SIZE_TO_GPU_LAYERS.keys(),
@@ -107,10 +109,7 @@ class LlamaCppModel(LLM):
         self._llm = None
 
     def _can_apply_metal(self):
-        return (
-            self.model_spec.quantization == "q4_0"
-            or self.model_spec.quantization == "q4_1"
-        )
+        return self.quantization in ["q4_0", "q4_1"]
 
     def _can_apply_cublas(self):
         # TODO: figure out the quantizations supported.
@@ -159,7 +158,12 @@ class LlamaCppModel(LLM):
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
         self._llm = Llama(
-            model_path=self.model_path,
+            model_path=os.path.join(
+                self.model_path,
+                self.model_spec.model_file_name_template.format(
+                    quantization=self.quantization
+                ),
+            ),
             verbose=False,
             **self._llamacpp_model_config,
         )
@@ -222,11 +226,17 @@ class LlamaCppChatModel(LlamaCppModel, ChatModelMixin):
         model_uid: str,
         model_family: "LLMFamilyV1",
         model_spec: "LLMSpecV1",
+        quantization: str,
         model_path: str,
         llamacpp_model_config: Optional[LlamaCppModelConfig] = None,
     ):
         super().__init__(
-            model_uid, model_family, model_spec, model_path, llamacpp_model_config
+            model_uid,
+            model_family,
+            model_spec,
+            model_path,
+            quantization,
+            llamacpp_model_config,
         )
 
     @classmethod

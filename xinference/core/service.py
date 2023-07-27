@@ -309,13 +309,16 @@ class WorkerActor(xo.Actor):
                 f" size: {model_size_in_billions}, quantization: {quantization}"
             )
 
-        model = llm_cls(model_uid, llm_family, llm_spec, save_path, kwargs)
+        model = llm_cls(
+            model_uid, llm_family, llm_spec, save_path, quantization, kwargs
+        )
         subpool_address = self._choose_subpool()
         model_ref = await xo.create_actor(
             ModelActor, address=subpool_address, uid=model_uid, model=model
         )
         await model_ref.load()
         self._model_uid_to_model[model_uid] = model_ref
+        assert quantization is not None
         self._model_uid_to_model_spec[model_uid] = (llm_family, llm_spec, quantization)
         self._subpool_address_to_model_uids[subpool_address].add(model_uid)
         return model_ref
