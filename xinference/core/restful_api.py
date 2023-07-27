@@ -14,6 +14,7 @@
 
 import json
 import logging
+import os
 import socket
 import threading
 from functools import partial
@@ -26,6 +27,7 @@ from anyio.streams.memory import MemoryObjectSendStream
 from fastapi import APIRouter, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
 from starlette.responses import RedirectResponse
@@ -305,12 +307,28 @@ class RESTfulAPIActor(xo.Actor):
 
         @self._app.get("/")
         def read_main():
-            response = RedirectResponse(url="http://localhost:3000/launch_model")
+            response = RedirectResponse(url="/ui/")
             return response
 
-        gradio_app = gr.routes.App.create_app(self._gradio_block)
+        class SPAStaticFiles(StaticFiles):
+            async def get_response(self, path: str, scope):
+                response = await super().get_response(path, scope)
+                if response.status_code == 404:
+                    response = await super().get_response(".", scope)
+                return response
 
-        self._app.mount("/gradio", gradio_app)
+        if os.path.exists("xinference/web/ui/build/"):
+            self._app.mount(
+                "/ui/",
+                SPAStaticFiles(directory="xinference/web/ui/build/", html=True),
+                name="Xinference",
+            )
+        else:
+            gradio_app = gr.routes.App.create_app(self._gradio_block)
+            self._app.mount(
+                "/ui/",
+                gradio_app,
+            )
 
         # run uvicorn in another daemon thread.
         config = Config(app=self._app, log_level="critical")
