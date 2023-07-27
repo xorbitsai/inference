@@ -20,8 +20,6 @@ and serve your or state-of-the-art built-in models using just a single command. 
 researcher, developer, or data scientist, Xorbits Inference empowers you to unleash the full 
 potential of cutting-edge AI models.
 
-![demo](assets/demo.gif)
-
 <div align="center">
 <i><a href="https://join.slack.com/t/xorbitsio/shared_invite/zt-1z3zsm9ep-87yI9YZ_B79HLB2ccTq4WA">👉 Join our Slack community!</a></i>
 </div>
@@ -118,7 +116,7 @@ You can also view a web UI using the Xinference endpoint to chat with all the
 builtin models. You can even **chat with two cutting-edge AI models side-by-side to compare
 their performance**!
 
-![web UI](assets/xinference-downloading.png)
+![web UI](assets/demo.gif)
 
 ### Xinference CLI
 Xinference provides a command line interface (CLI) for model management. Here are some useful 

@@ -19,8 +19,6 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 无论你是研究者，开发者，或是数据科学家，都可以通过 Xorbits Inference 与最前沿的 AI 模型，发掘更多可能。
 
 
-![demo](assets/demo.gif)
-
 <div align="center">
 <i><a href="https://join.slack.com/t/xorbitsio/shared_invite/zt-1z3zsm9ep-87yI9YZ_B79HLB2ccTq4WA">👉 立刻加入我们的 Slack 社区!</a></i>
 </div>
@@ -110,7 +108,7 @@ supervisor 所在服务器的主机名或 IP 地址。
 你还可以通过 web UI 与任意内置模型聊天。Xinference 甚至**支持同时与两个最前沿的 AI 模型聊天并比较它们的回复质
 量**！
 
-![web UI](assets/xinference-downloading.png)
+![web UI](assets/demo.gif)
 
 ### Xinference 命令行
 Xinference 提供了命令行工具用于模型管理。支持的命令包括：
