@@ -131,6 +131,7 @@ class SupervisorActor(xo.Actor):
 
     async def _check_dead_nodes(self):
         while True:
+            dead_nodes = []
             for address, status in self._worker_status.items():
                 if time.time() - status.update_time > DEFAULT_NODE_DEAD_TIMEOUT:
                     dead_models = []
@@ -142,8 +143,11 @@ class SupervisorActor(xo.Actor):
                         address,
                         dead_models,
                     )
-                    self._worker_status.pop(address)
-                    self._worker_address_to_worker.pop(address)
+                    dead_nodes.append(address)
+
+            for address in dead_nodes:
+                self._worker_status.pop(address)
+                self._worker_address_to_worker.pop(address)
             await asyncio.sleep(5)
 
     @log
