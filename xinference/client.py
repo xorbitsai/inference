@@ -429,7 +429,7 @@ class RESTfulChatglmCppChatModelHandle(RESTfulModelHandle):
         chat_history : Optional[List["ChatCompletionMessage"]]
             A list of messages comprising the conversation so far.
         generate_config: Optional["ChatglmCppGenerateConfig"]
-            Additional configuration for the chat generation.
+            Additional configuration for ChatGLM chat generation.
 
         Returns
         -------
