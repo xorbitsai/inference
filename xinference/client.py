@@ -255,7 +255,7 @@ class RESTfulGenerateModelHandle(RESTfulModelHandle):
         ] = None,
     ) -> Union["Completion", Iterator["CompletionChunk"]]:
         """
-        Creates a completion for the provided prompt and parameters via RESTful apis.
+        Creates a completion for the provided prompt and parameters via RESTful APIs.
 
         Parameters
         ----------
@@ -303,7 +303,7 @@ class RESTfulGenerateModelHandle(RESTfulModelHandle):
 
     def create_embedding(self, input: Union[str, List[str]]) -> "Embedding":
         """
-        Create an Embedding from user input via RESTful api.
+        Create an Embedding from user input via RESTful APIs.
 
         Parameters
         ----------
@@ -345,7 +345,7 @@ class RESTfulChatModelHandle(RESTfulGenerateModelHandle):
         ] = None,
     ) -> Union["ChatCompletion", Iterator["ChatCompletionChunk"]]:
         """
-        Given a list of messages comprising a conversation, the model will return a response via RESTful apis.
+        Given a list of messages comprising a conversation, the model will return a response via RESTful APIs.
 
         Parameters
         ----------
@@ -420,7 +420,7 @@ class RESTfulChatglmCppChatModelHandle(RESTfulModelHandle):
         generate_config: Optional["ChatglmCppGenerateConfig"] = None,
     ) -> Union["ChatCompletion", Iterator["ChatCompletionChunk"]]:
         """
-        Given a list of messages comprising a conversation, the ChatGLM model will return a response via RESTful apis.
+        Given a list of messages comprising a conversation, the ChatGLM model will return a response via RESTful APIs.
 
         Parameters
         ----------
@@ -498,18 +498,18 @@ class Client:
         **kwargs,
     ) -> str:
         """
-        Launch the Model based on the parameters we demanded on the server.
+        Launch the Model based on the parameters on the server.
 
         Parameters
         ----------
         model_name : str
-            The name of model we want. e.g. Vicuna.
+            The name of model.
         model_size_in_billions : Optional[int]
             The size (in billions) of the model.
         model_format: Optional[str]
-            The format of the model. e.g. GGML.
+            The format of the model.
         quantization: Optional[str]
-            The quantization of model. e.g. q4_0.
+            The quantization of model.
         **kwargs:
             Any other parameters been specified.
 
@@ -554,12 +554,12 @@ class Client:
 
     def list_models(self) -> List[Tuple[str, "ModelSpec"]]:
         """
-        Retrieve the Model Spec from the Server.
+        Retrieve the model specifications from the Server.
 
         Returns
         -------
         response_data : Dict[str, Dict[str, Any]]
-            The collection of model spec with their names on the server.
+            The collection of model specifications with their names on the server.
 
         """
 
@@ -609,12 +609,12 @@ class RESTfulClient:
 
     def list_models(self) -> Dict[str, Dict[str, Any]]:
         """
-        Retrieve the Model Spec from the Server.
+        Retrieve the model specifications from the Server.
 
         Returns
         -------
         response_data : Dict[str, Dict[str, Any]]
-            The collection of model spec with their names on the server.
+            The collection of model specifications with their names on the server.
 
         """
 
@@ -638,18 +638,18 @@ class RESTfulClient:
         **kwargs,
     ) -> str:
         """
-        Launch the Model based on the demanding parameters on the server via RESTful api.
+        Launch the model based on the parameters on the server via RESTful APIs.
 
         Parameters
         ----------
         model_name : str
-            The name of model. e.g. Vicuna.
+            The name of model.
         model_size_in_billions : Optional[int]
             The size (in billions) of the model.
         model_format: Optional[str]
-            The format of the model. e.g. GGML.
+            The format of the model.
         quantization: Optional[str]
-            The quantization of model. e.g. q4_0.
+            The quantization of model.
         **kwargs:
             Any other parameters been specified.
 
@@ -719,7 +719,7 @@ class RESTfulClient:
 
     def get_model(self, model_uid: str) -> RESTfulModelHandle:
         """
-        Launch the Model based on the parameters on the server via RESTful api.
+        Launch the model based on the parameters on the server via RESTful APIs.
 
         Parameters
         ----------
