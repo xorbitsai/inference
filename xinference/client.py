@@ -568,7 +568,7 @@ class Client:
 
     def get_model(self, model_uid: str) -> "ModelHandle":
         """
-        Launch the Model based on the parameters we demanded on the server.
+        Launch the Model based on the parameters on the server.
 
         Parameters
         ----------
