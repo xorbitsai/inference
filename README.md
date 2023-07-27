@@ -52,13 +52,34 @@ with popular third-party libraries like LangChain and LlamaIndex. (Coming soon)
 ## Getting Started
 Xinference can be installed via pip from PyPI. It is highly recommended to create a new virtual
 environment to avoid conflicts.
+
+### Installation
 ```bash
-$ pip install "xinference[all]"
+$ pip install "xinference"
 ```
-`xinference[all]` installs all the necessary packages for serving models. If you want to achieve acceleration on 
+`xinference` installs basic packages for serving models. 
+
+#### Installation with GGML
+Serving models with ggml format, you need to install some extra dependencies as following:
+```bash
+$ pip install "xinference[ggml]"
+```
+If you want to achieve acceleration on 
 different hardware, refer to the installation documentation of the corresponding package.
 - [llama-cpp-python](https://github.com/abetlen/llama-cpp-python#installation-from-pypi-recommended) is required to run `baichuan`, `wizardlm-v1.0`, `vicuna-v1.3` and `orca`.
 - [chatglm-cpp-python](https://github.com/li-plus/chatglm.cpp#getting-started) is required to run `chatglm` and `chatglm2`.
+
+#### Installation with PyTorch
+Serving models with PyTorch, you need to install some extra dependencies as following:
+```bash
+$ pip install "xinference[pytorch]"
+```
+
+#### Installation with all dependencies
+If you want to serve all supported models, install all dependencies:
+```bash
+$ pip install "xinference[all]"
+```
 
 
 ### Deployment
