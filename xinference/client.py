@@ -585,7 +585,7 @@ class Client:
         Parameters
         ----------
         model_uid : str
-            The unique id that identify the model we want.
+            The unique id that identify the model.
 
         Returns
         -------
