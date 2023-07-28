@@ -155,7 +155,7 @@ def test_cache_from_huggingface_pytorch():
         prompt_style=None,
     )
 
-    cache_dir = cache_from_huggingface(family, spec, quantization=None, tqdm_class=None)
+    cache_dir = cache_from_huggingface(family, spec, quantization=None)
 
     import os
 
@@ -184,7 +184,7 @@ def test_cache_from_huggingface_ggml():
         prompt_style=None,
     )
 
-    cache_dir = cache_from_huggingface(family, spec, quantization=None, tqdm_class=None)
+    cache_dir = cache_from_huggingface(family, spec, quantization=None)
 
     import os
 
