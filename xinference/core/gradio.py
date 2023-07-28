@@ -312,6 +312,7 @@ class GradioApp:
             _model_format: str,
             _model_size_in_billions: str,
             _quantization: str,
+            progress=gr.Progress(track_tqdm=True),
         ):
             match_result = match_llm(
                 _model_name,
