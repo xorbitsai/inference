@@ -21,11 +21,14 @@ const ModelDashboard = () => {
     endPoint = fullUrl.split("/ui")[0];
   }
 
-  const update = () => {
+  const update = (isCallingApi) => {
     if (isCallingApi) {
       console.log(isCallingApi);
-      setModelData([{ id: "loading...", url: "IS_LOADING" }]);
+      setModelData([
+        { id: "Loading, do not refresh page...", url: "IS_LOADING" },
+      ]);
     } else {
+      console.log(isCallingApi);
       setIsUpdatingModel(true);
       fetch(`${endPoint}/v1/models`, {
         method: "GET",
@@ -52,7 +55,7 @@ const ModelDashboard = () => {
   };
 
   useEffect(() => {
-    update();
+    update(isCallingApi);
   }, [isCallingApi]);
 
   const columns = [
