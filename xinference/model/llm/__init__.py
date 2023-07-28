@@ -13,7 +13,9 @@
 # limitations under the License.
 
 import json
+import logging
 import os
+import platform
 from typing import List, Optional, Tuple, Type
 
 from .core import LLM
@@ -29,12 +31,29 @@ _LLM_CLASSES: List[Type[LLM]] = []
 
 LLM_FAMILIES: List["LLMFamilyV1"] = []
 
+logger = logging.getLogger(__name__)
+
+
+def _is_linux():
+    return platform.system() == "Linux"
+
+
+def _has_cuda_device():
+    cuda_visible_devices = os.environ.get("CUDA_VISIBLE_DEVICES")
+    if cuda_visible_devices:
+        return True
+    else:
+        from xorbits._mars.resource import cuda_count
+
+        return cuda_count() > 0
+
 
 def match_llm(
     model_name: str,
     model_format: Optional[str] = None,
     model_size_in_billions: Optional[int] = None,
     quantization: Optional[str] = None,
+    is_local_deployment: bool = False,
 ) -> Optional[Tuple[LLMFamilyV1, LLMSpecV1, str]]:
     """
     Find an LLM family, spec, and quantization that satisfy given criteria.
@@ -52,8 +71,25 @@ def match_llm(
                 and quantization not in spec.quantizations
             ):
                 continue
-            # by default, choose the most coarse-grained quantization.
-            return family, spec, quantization or spec.quantizations[0]
+            if quantization:
+                return family, spec, quantization
+            else:
+                # by default, choose the most coarse-grained quantization.
+                # TODO: too hacky.
+                quantizations = spec.quantizations
+                quantizations.sort()
+                for q in quantizations:
+                    if (
+                        is_local_deployment
+                        and not (_is_linux() and _has_cuda_device())
+                        and q == "4-bit"
+                    ):
+                        logger.warning(
+                            "Skipping %s for non-linux or non-cuda local deployment .",
+                            q,
+                        )
+                        continue
+                    return family, spec, q
     return None
 
 
