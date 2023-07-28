@@ -234,8 +234,8 @@ class LlamaCppChatModel(LlamaCppModel, ChatModelMixin):
             model_uid,
             model_family,
             model_spec,
-            model_path,
             quantization,
+            model_path,
             llamacpp_model_config,
         )
 
