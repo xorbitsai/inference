@@ -52,3 +52,13 @@ class VicunaCensoredPytorch(PytorchChatModel):
             pytorch_model_config=pytorch_model_config,
         )
         self._use_fast_tokenizer = False
+
+    @classmethod
+    def match(cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1") -> bool:
+        if llm_spec.model_format != "pytorch":
+            return False
+        if "vicuna" not in llm_family.model_name:
+            return False
+        if "chat" not in llm_family.model_ability:
+            return False
+        return True

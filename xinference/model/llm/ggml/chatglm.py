@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Iterator, List, Optional, TypedDict, Union
 
 from ....types import ChatCompletion, ChatCompletionChunk, ChatCompletionMessage
-from .. import GgmlLLMSpecV1, LLMFamilyV1, LLMSpecV1
+from .. import LLMFamilyV1, LLMSpecV1
 from ..core import LLM
 
 if TYPE_CHECKING:
@@ -85,7 +85,7 @@ class ChatglmCppChatModel(LLM):
 
     @classmethod
     def match(cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1") -> bool:
-        if not isinstance(llm_spec, GgmlLLMSpecV1):
+        if llm_spec.model_format != "ggmlv3":
             return False
         if "chatglm" not in llm_family.model_name:
             return False

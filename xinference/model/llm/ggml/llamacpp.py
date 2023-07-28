@@ -26,7 +26,7 @@ from ....types import (
     Embedding,
 )
 from ..core import LLM
-from ..llm_family import GgmlLLMSpecV1, LLMFamilyV1, LLMSpecV1
+from ..llm_family import LLMFamilyV1, LLMSpecV1
 from ..utils import ChatModelMixin
 
 if TYPE_CHECKING:
@@ -170,7 +170,7 @@ class LlamaCppModel(LLM):
 
     @classmethod
     def match(cls, llm_family: LLMFamilyV1, llm_spec: LLMSpecV1) -> bool:
-        if not isinstance(llm_spec, GgmlLLMSpecV1):
+        if llm_spec.model_format != "ggmlv3":
             return False
         if "chatglm" in llm_family.model_name:
             return False
@@ -241,7 +241,7 @@ class LlamaCppChatModel(LlamaCppModel, ChatModelMixin):
 
     @classmethod
     def match(cls, llm_family: LLMFamilyV1, llm_spec: LLMSpecV1) -> bool:
-        if not isinstance(llm_spec, GgmlLLMSpecV1):
+        if llm_spec.model_format != "ggmlv3":
             return False
         if "chatglm" in llm_family.model_name:
             return False

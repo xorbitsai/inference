@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import logging
-from typing import TYPE_CHECKING, Iterator, List, Optional, TypedDict, Union
+from typing import Iterator, List, Optional, TypedDict, Union
 
 import torch
 
@@ -27,12 +27,10 @@ from ....types import (
     Embedding,
 )
 from ..core import LLM
+from ..llm_family import LLMFamilyV1, LLMSpecV1
 from ..utils import ChatModelMixin
 from .compression import load_compress_model
 from .utils import generate_stream
-
-if TYPE_CHECKING:
-    from ..llm_family import LLMFamilyV1, LLMSpecV1, PytorchLLMSpecV1
 
 logger = logging.getLogger(__name__)
 
@@ -194,7 +192,7 @@ class PytorchModel(LLM):
 
     @classmethod
     def match(cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1") -> bool:
-        if not isinstance(llm_spec, PytorchLLMSpecV1):
+        if llm_spec.model_format != "pytorch":
             return False
         if "baichuan" in llm_family.model_name:
             return False
@@ -293,7 +291,7 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
 
     @classmethod
     def match(cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1") -> bool:
-        if not isinstance(llm_spec, PytorchLLMSpecV1):
+        if llm_spec.model_format != "pytorch":
             return False
         if "baichuan" in llm_family.model_name:
             return False

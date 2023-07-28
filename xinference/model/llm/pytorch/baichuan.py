@@ -15,7 +15,7 @@
 from typing import Optional
 
 from ....constants import XINFERENCE_CACHE_DIR
-from ..llm_family import LLMFamilyV1, LLMSpecV1, PytorchLLMSpecV1
+from ..llm_family import LLMFamilyV1, LLMSpecV1
 from .core import PytorchChatModel, PytorchModel, PytorchModelConfig
 
 
@@ -67,7 +67,7 @@ class BaichuanPytorchModel(PytorchModel):
 
     @classmethod
     def match(cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1") -> bool:
-        if not isinstance(llm_spec, PytorchLLMSpecV1):
+        if llm_spec.model_format != "pytorch":
             return False
         if "baichuan" not in llm_family.model_name:
             return False
@@ -127,7 +127,7 @@ class BaichuanPytorchChatModel(PytorchChatModel):
 
     @classmethod
     def match(cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1") -> bool:
-        if not isinstance(llm_spec, PytorchLLMSpecV1):
+        if llm_spec.model_format != "pytorch":
             return False
         if "baichuan" not in llm_family.model_name:
             return False
