@@ -122,7 +122,6 @@ def cache_from_huggingface(
             llm_spec.model_id,
             local_dir=cache_dir,
             local_dir_use_symlinks=True,
-            tqdm_class=tqdm_class,
         )
     elif llm_spec.model_format == "ggmlv3":
         assert isinstance(llm_spec, GgmlLLMSpecV1)
