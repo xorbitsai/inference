@@ -304,7 +304,7 @@ class WorkerActor(xo.Actor):
         from ..model.llm.llm_family import cache_from_huggingface
 
         save_path = await asyncio.to_thread(
-            cache_from_huggingface, llm_family, llm_spec, quantization, None
+            cache_from_huggingface, llm_family, llm_spec, quantization
         )
 
         llm_cls = match_llm_cls(llm_family, llm_spec)
@@ -315,7 +315,7 @@ class WorkerActor(xo.Actor):
             )
 
         model = llm_cls(
-            model_uid, llm_family, llm_spec, save_path, quantization, kwargs
+            model_uid, llm_family, llm_spec, quantization, save_path, kwargs
         )
         subpool_address = self._choose_subpool()
         model_ref = await xo.create_actor(
