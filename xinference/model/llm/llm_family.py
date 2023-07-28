@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import os
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, List, Optional, Union
 
 from pydantic import BaseModel, Field
 from typing_extensions import Annotated, Literal
@@ -79,16 +79,6 @@ def _generate_cache_path_ggml(
         os.makedirs(save_dir, exist_ok=True)
     save_path = os.path.join(save_dir, "model.bin")
     return save_path
-
-
-def _parse_raw_pointer_file(content: str) -> Dict[str, str]:
-    ret = {}
-    lines = content.splitlines()
-    for line in lines:
-        splits = line.split()
-        assert len(splits) == 2
-        ret[splits[0]] = splits[1]
-    return ret
 
 
 def cache(
