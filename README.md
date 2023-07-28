@@ -161,14 +161,13 @@ To view the builtin models, run the following command:
 $ xinference list --all
 ```
 
+### ggmlv3 models
+
 | Name          | Type             | Language | Format  | Size (in billions) | Quantization                            |
 |---------------|------------------|----------|---------|--------------------|-----------------------------------------|
 | llama-2       | Foundation Model | en       | ggmlv3  | 7, 13              | 'q2_K', 'q3_K_L', ... , 'q6_K', 'q8_0'  |
 | baichuan      | Foundation Model | en, zh   | ggmlv3  | 7                  | 'q2_K', 'q3_K_L', ... , 'q6_K', 'q8_0'  |
-| baichuan      | Foundation Model | en, zh   | pytorch | 7                  | '8-bit', '4-bit', 'none'                |
-| baichuan-base | Foundation Model | en, zh   | pytorch | 13                 | '8-bit', '4-bit', 'none'                |
-| baichuan-chat | SFT Model        | en, zh   | pytorch | 13                 | '8-bit', '4-bit', 'none'                |
-| llama-2-chat  | RLHF Model       | en       | ggmlv3  | 7, 13              | 'q2_K', 'q3_K_L', ... , 'q6_K', 'q8_0'  |
+| llama-2-chat  | RLHF Model       | en       | ggmlv3  | 7, 13, 70          | 'q2_K', 'q3_K_L', ... , 'q6_K', 'q8_0'  |
 | chatglm       | SFT Model        | en, zh   | ggmlv3  | 6                  | 'q4_0', 'q4_1', 'q5_0', 'q5_1', 'q8_0'  |
 | chatglm2      | SFT Model        | en, zh   | ggmlv3  | 6                  | 'q4_0', 'q4_1', 'q5_0', 'q5_1', 'q8_0'  |
 | wizardlm-v1.0 | SFT Model        | en       | ggmlv3  | 7, 13, 33          | 'q2_K', 'q3_K_L', ... , 'q6_K', 'q8_0'  |
@@ -176,20 +175,63 @@ $ xinference list --all
 | vicuna-v1.3   | SFT Model        | en       | ggmlv3  | 7, 13              | 'q2_K', 'q3_K_L', ... , 'q6_K', 'q8_0'  |
 | orca          | SFT Model        | en       | ggmlv3  | 3, 7, 13           | 'q4_0', 'q4_1', 'q5_0', 'q5_1', 'q8_0'  |
 
+### pytorch models
+
+| Name          | Type             | Language | Format  | Size (in billions) | Quantization             |
+|---------------|------------------|----------|---------|--------------------|--------------------------|
+| opt           | Foundation Model | en       | pytorch | 1                  | '4-bit', '8-bit', 'none' |
+| baichuan      | Foundation Model | en, zh   | pytorch | 7, 13              | '4-bit', '8-bit', 'none' |
+| baichuan-chat | SFT Model        | en, zh   | pytorch | 13                 | '4-bit', '8-bit', 'none' |
+| vicuna-v1.3   | SFT Model        | en       | pytorch | 7, 13, 33          | '4-bit', '8-bit', 'none' |
+
 
 **NOTE**:
 - Xinference will download models automatically for you, and by default the models will be saved under `${USER}/.xinference/cache`.
 - Foundation models only provide interface `generate`.
 - RLHF and SFT models provide both `generate` and `chat`.
 - If you want to use Apple Metal GPU for acceleration, please choose the q4_0 and q4_1 quantization methods.
+- `llama-2-chat` 70B ggmlv3 model only supports q4_0 quantization currently.
+
+
+## Pytorch Model Best Practices
+
+Pytorch has been integrated recently, and the usage scenarios are described below:
+
+### supported models
+- Foundation Model：baichuan（7B、13B）、opt（1B）。
+- SFT Model：baichuan-chat（13B）、vicuna-v1.3（7B、13B、33B）。
+
+### supported devices
+- CUDA: On Linux and Windows systems, `cuda` device is used by default.
+- MPS: On Mac M1/M2 devices, `mps` device is used by default.
+- CPU: It is not recommended to use a `cpu` device, as it takes up a lot of memory and the inference speed is very slow.
+
+### quantization methods
+- `none`: indicates that no quantization is used.
+- `8-bit`: use 8-bit quantization.
+- `4-bit`: use 4-bit quantization. Note: 4-bit quantization is only supported on Linux systems and CUDA devices.
+
+### other instructions
+- On MacOS system, baichuan-chat model is not supported, and baichuan model cannot use 8-bit quantization.
+
+### use cases
+
+The table below shows memory usage and supported devices of some models.
+
+| Name          | Size (B) | OS    | No quantization (MB) | Quantization 8-bit (MB) | Quantization 4-bit (MB) |
+|---------------|----------|-------|----------------------|-------------------------|-------------------------|
+| baichuan-chat | 13       | linux | not currently tested | 13275                   | 7263                    |
+| baichuan-chat | 13       | macos | not supported        | not supported           | not supported           |
+| vicuna-v1.3   | 7        | linux | 12884                | 6708                    | 3620                    |
+| vicuna-v1.3   | 7        | macos | 12916                | 565                     | not supported           |
+| baichuan      | 7        | linux | 13480                | 7304                    | 4216                    |
+| baichuan      | 7        | macos | 13480                | not supported           | not supported           |
+
+
 
 ## Roadmap
 Xinference is currently under active development. Here's a roadmap outlining our planned 
 developments for the next few weeks:
-
-### PyTorch Support
-With PyTorch integration, users will be able to seamlessly utilize PyTorch models from Hugging Face
-within Xinference.
 
 ### Langchain & LlamaIndex integration
 With Xinference, it will be much easier for users to use these libraries and build applications 
