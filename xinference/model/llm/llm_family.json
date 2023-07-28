@@ -487,6 +487,15 @@
         ],
         "model_id": "TheBloke/Llama-2-13B-chat-GGML",
         "model_file_name_template": "llama-2-13b-chat.ggmlv3.{quantization}.bin"
+      },
+      {
+        "model_format": "ggmlv3",
+        "model_size_in_billions": 70,
+        "quantizations": [
+          "q4_0"
+        ],
+        "model_id": "TheBloke/Llama-2-70B-Chat-GGML",
+        "model_file_name_template": "llama-2-70b-chat.ggmlv3.{quantization}.bin"
       }
     ],
     "prompt_style": {
