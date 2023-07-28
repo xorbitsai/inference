@@ -58,7 +58,7 @@ $ pip install "xinference"
 `xinference` installs basic packages for serving models. 
 
 #### Installation with GGML
-Serving models with ggml format, you need to install some extra dependencies as following:
+To serve ggml models, you need to install the following extra dependencies:
 ```bash
 $ pip install "xinference[ggml]"
 ```
@@ -68,13 +68,13 @@ different hardware, refer to the installation documentation of the corresponding
 - [chatglm-cpp-python](https://github.com/li-plus/chatglm.cpp#getting-started) is required to run `chatglm` and `chatglm2`.
 
 #### Installation with PyTorch
-Serving models with PyTorch, you need to install some extra dependencies as following:
+To serve PyTorch models, you need to install the following extra dependencies:
 ```bash
 $ pip install "xinference[pytorch]"
 ```
 
 #### Installation with all dependencies
-If you want to serve all supported models, install all dependencies:
+If you want to serve all the supported models, install all the dependencies:
 ```bash
 $ pip install "xinference[all]"
 ```
