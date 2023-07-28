@@ -171,15 +171,15 @@ def test_cache_from_huggingface_ggml():
         model_format="ggmlv3",
         model_size_in_billions=3,
         model_id="TheBloke/orca_mini_3B-GGML",
-        quantizations=[""],
+        quantizations=["q4_0"],
         model_file_name_template="README.md",
     )
     family = LLMFamilyV1(
         version=1,
         model_type="LLM",
-        model_name="opt",
+        model_name="orca",
         model_lang=["en"],
-        model_ability=["embed", "generate"],
+        model_ability=["embed", "chat"],
         model_specs=[spec],
         prompt_style=None,
     )
@@ -191,3 +191,45 @@ def test_cache_from_huggingface_ggml():
     assert os.path.exists(cache_dir)
     assert os.path.exists(os.path.join(cache_dir, "README.md"))
     assert os.path.islink(os.path.join(cache_dir, "README.md"))
+
+
+def test_legacy_cache():
+    import os
+
+    from ..llm_family import cache, get_legacy_cache_path
+
+    spec = GgmlLLMSpecV1(
+        model_format="ggmlv3",
+        model_size_in_billions=3,
+        model_id="TheBloke/orca_mini_3B-GGML",
+        quantizations=["q8_0"],
+        model_file_name_template="README.md",
+    )
+    family = LLMFamilyV1(
+        version=1,
+        model_type="LLM",
+        model_name="orca",
+        model_lang=["en"],
+        model_ability=["embed", "chat"],
+        model_specs=[spec],
+        prompt_style=None,
+    )
+
+    cache_path = get_legacy_cache_path(
+        family.model_name,
+        spec.model_format,
+        spec.model_size_in_billions,
+        quantization="q8_0",
+    )
+
+    assert cache(
+        llm_family=family, llm_spec=spec, quantization="q8_0"
+    ) != os.path.dirname(cache_path)
+
+    os.makedirs(os.path.dirname(cache_path), exist_ok=True)
+    with open(cache_path, "w") as fd:
+        fd.write("foo")
+
+    assert cache(
+        llm_family=family, llm_spec=spec, quantization="q8_0"
+    ) == os.path.dirname(cache_path)

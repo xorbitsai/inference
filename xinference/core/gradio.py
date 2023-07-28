@@ -19,7 +19,7 @@ import gradio as gr
 
 from ..locale.utils import Locale
 from ..model.llm import LLM_FAMILIES, LLMFamilyV1, match_llm
-from ..model.llm.llm_family import cache_from_huggingface
+from ..model.llm.llm_family import cache
 from .api import SyncSupervisorAPI
 
 if TYPE_CHECKING:
@@ -312,7 +312,6 @@ class GradioApp:
             _model_format: str,
             _model_size_in_billions: str,
             _quantization: str,
-            progress=gr.Progress(),
         ):
             match_result = match_llm(
                 _model_name,
@@ -328,7 +327,7 @@ class GradioApp:
                 )
 
             llm_family, llm_spec, _quantization = match_result
-            cache_from_huggingface(llm_family, llm_spec, _quantization)
+            cache(llm_family, llm_spec, _quantization)
 
             model_uid = self._create_model(
                 _model_name, int(_model_size_in_billions), _model_format, _quantization
