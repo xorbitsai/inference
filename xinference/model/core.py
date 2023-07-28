@@ -12,8 +12,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
-def _install():
-    from .llm import _install as llm_install
-
-    llm_install()
+# TODO: define a data structure for LLMs, Speech recognition models, and etc.
