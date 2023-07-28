@@ -34,8 +34,18 @@ LLM_FAMILIES: List["LLMFamilyV1"] = []
 logger = logging.getLogger(__name__)
 
 
-def _is_darwin():
-    return platform.system() == "Darwin"
+def _is_linux():
+    return platform.system() == "Linux"
+
+
+def _has_cuda_device():
+    cuda_visible_devices = os.environ.get("CUDA_VISIBLE_DEVICES")
+    if cuda_visible_devices:
+        return True
+    else:
+        from xorbits._mars.resource import cuda_count
+
+        return cuda_count() > 0
 
 
 def match_llm(
@@ -69,8 +79,15 @@ def match_llm(
                 quantizations = spec.quantizations
                 quantizations.sort()
                 for q in quantizations:
-                    if is_local_deployment and _is_darwin() and q == "4-bit":
-                        logger.warning("Skipping %s for darwin local deployment.", q)
+                    if (
+                        is_local_deployment
+                        and not (_is_linux() and _has_cuda_device())
+                        and q == "4-bit"
+                    ):
+                        logger.warning(
+                            "Skipping %s for non-linux or non-cuda local deployment .",
+                            q,
+                        )
                         continue
                     return family, spec, q
     return None
