@@ -11,12 +11,5 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from typing import Literal
 
-from pydantic import BaseModel
-
-# TODO: define a model spec for LLMs, Speech recognition models, and etc.
-
-
-class ModelSpec(BaseModel):
-    model_type: Literal["LLM"]
+# TODO: define a data structure for LLMs, Speech recognition models, and etc.
