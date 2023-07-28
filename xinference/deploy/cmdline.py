@@ -145,24 +145,22 @@ def model_list(endpoint: str, all: bool):
 
     from tabulate import tabulate
 
-    from ..model import MODEL_FAMILIES
+    # TODO: get from the supervisor
+    from ..model.llm import LLM_FAMILIES
 
     table = []
     if all:
-        for model_family in MODEL_FAMILIES:
+        for model_family in LLM_FAMILIES:
             table.append(
                 [
                     model_family.model_name,
-                    model_family.model_format,
-                    model_family.model_sizes_in_billions,
-                    model_family.quantizations,
+                    model_family.model_lang,
+                    model_family.model_ability,
                 ]
             )
 
         print(
-            tabulate(
-                table, headers=["Name", "Format", "Size (in billions)", "Quantization"]
-            ),
+            tabulate(table, headers=["Name", "Language", "Ability"]),
             file=sys.stderr,
         )
     else:
