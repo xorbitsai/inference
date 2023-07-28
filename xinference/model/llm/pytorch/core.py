@@ -259,8 +259,8 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
             model_uid,
             model_family,
             model_spec,
-            model_path,
             quantization,
+            model_path,
             pytorch_model_config,
         )
 
