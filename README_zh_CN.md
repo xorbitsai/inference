@@ -171,11 +171,13 @@ model.chat(
 $ xinference list --all
 ```
 
+### ggmlv3 模型
+
 | Name          | Type             | Language | Format  | Size (in billions) | Quantization                            |
 |---------------|------------------|----------|---------|--------------------|-----------------------------------------|
 | llama-2       | Foundation Model | en       | ggmlv3  | 7, 13              | 'q2_K', 'q3_K_L', ... , 'q6_K', 'q8_0'  |
 | baichuan      | Foundation Model | en, zh   | ggmlv3  | 7                  | 'q2_K', 'q3_K_L', ... , 'q6_K', 'q8_0'  |
-| llama-2-chat  | RLHF Model       | en       | ggmlv3  | 7, 13              | 'q2_K', 'q3_K_L', ... , 'q6_K', 'q8_0'  |
+| llama-2-chat  | RLHF Model       | en       | ggmlv3  | 7, 13, 70          | 'q2_K', 'q3_K_L', ... , 'q6_K', 'q8_0'  |
 | chatglm       | SFT Model        | en, zh   | ggmlv3  | 6                  | 'q4_0', 'q4_1', 'q5_0', 'q5_1', 'q8_0'  |
 | chatglm2      | SFT Model        | en, zh   | ggmlv3  | 6                  | 'q4_0', 'q4_1', 'q5_0', 'q5_1', 'q8_0'  |
 | wizardlm-v1.0 | SFT Model        | en       | ggmlv3  | 7, 13, 33          | 'q2_K', 'q3_K_L', ... , 'q6_K', 'q8_0'  |
@@ -183,18 +185,59 @@ $ xinference list --all
 | vicuna-v1.3   | SFT Model        | en       | ggmlv3  | 7, 13              | 'q2_K', 'q3_K_L', ... , 'q6_K', 'q8_0'  |
 | orca          | SFT Model        | en       | ggmlv3  | 3, 7, 13           | 'q4_0', 'q4_1', 'q5_0', 'q5_1', 'q8_0'  |
 
+### pytorch 模型
+
+| Name          | Type             | Language | Format  | Size (in billions) | Quantization             |
+|---------------|------------------|----------|---------|--------------------|--------------------------|
+| baichuan      | Foundation Model | en, zh   | pytorch | 7, 13              | '4-bit', '8-bit', 'none' |
+| baichuan-chat | SFT Model        | en, zh   | pytorch | 13                 | '4-bit', '8-bit', 'none' |
+| vicuna-v1.3   | SFT Model        | en       | pytorch | 7, 13, 33          | '4-bit', '8-bit', 'none' |
+
 
 **注意**:
 - Xinference 会自动为你下载模型，默认的模型存放路径为 `${USER}/.xinference/cache`。
 - 基础模型仅提供 `generate` 接口.
 - RLHF 与 SFT 模型 提供 `generate` 与 `chat` 接口。
 - 如果想使用 Apple metal GPU 加速，请选择 q4_0 或者 q4_1 这两种量化方式。
+- `llama-2-chat` 70B ggmlv3 模型目前仅支持 q4_0 量化方式。
+
+
+## Pytorch 模型最佳实践
+
+近期集成了 Pytorch ，下面对 Pytorch 模型的使用场景进行说明：
+
+### 模型支持
+- Foundation Model：baichuan（7B、13B）。
+- SFT Model：baichuan-chat（13B）、vicuna-v1.3（7B、13B、33B）。
+
+### 设备支持
+- CUDA：在 Linux、Windows 系统下，默认使用 `cuda` 设备。
+- MPS：在 Mac M1/M2 设备上，默认使用 `mps` 设备。
+- CPU：不建议使用 `cpu` 设备，显存占用较大，且推理速度非常慢。
+
+### 量化方式
+- `none`：表示不使用量化。
+- `8-bit`：使用 8-bit 量化。
+- `4-bit`：使用 4-bit 量化。注意：4-bit 量化仅在 Linux 系统、CUDA 设备上支持。
+
+### 其他说明
+- 在 MacOS 系统上，不支持 baichuan-chat 模型，baichuan 模型无法使用 8-bit 量化。
+
+### 使用案例
+
+下表展示部分模型显存占用情况与设备支持情况。
+
+| Name          | Size (B) | OS    | No quantization (MB) | Quantization 8-bit (MB) | Quantization 4-bit (MB) |
+|---------------|----------|-------|----------------------|-------------------------|-------------------------|
+| baichuan-chat | 13       | linux | 暂未测试                 | 13275                   | 7263                    |
+| baichuan-chat | 13       | macos | 不支持                  | 不支持                     | 不支持                     |
+| vicuna-v1.3   | 7        | linux | 12884                | 6708                    | 3620                    |
+| vicuna-v1.3   | 7        | macos | 12916                | 565                     | 不支持                     |
+| baichuan      | 7        | linux | 13480                | 7304                    | 4216                    |
+| baichuan      | 7        | macos | 13480                | 不支持                     | 不支持                     |
 
 ## 近期开发计划
 Xinference 目前正在快速迭代。我们近期的开发计划包括：
-
-### PyTorch 支持
-通过 PyTorch 集成, 用户将可以在 Xinference 中无缝使用来自 Hugging Face 的大量开源模型。
 
 ### Langchain & LlamaIndex integration
 通过与 Langchain 及 LlamaIndex 集成，用户将能够通过 Xinference，基于开源模型快速构建 AI 应用。 
