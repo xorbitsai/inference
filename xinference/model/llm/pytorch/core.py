@@ -73,7 +73,6 @@ class PytorchModel(LLM):
     ):
         super().__init__(model_uid, model_family, model_spec, model_path, quantization)
         self._use_fast_tokenizer = True
-        self._model_path = model_path
         self._pytorch_model_config: PytorchModelConfig = self._sanitize_model_config(
             pytorch_model_config
         )
@@ -136,7 +135,7 @@ class PytorchModel(LLM):
         return model, tokenizer
 
     def load(self):
-        quantization = self.model_spec.quantization
+        quantization = self.quantization
         num_gpus = self._pytorch_model_config.get("num_gpus", 1)
         if self._is_darwin_and_apple_silicon():
             device = self._pytorch_model_config.get("device", "mps")
@@ -173,7 +172,7 @@ class PytorchModel(LLM):
                     )
                 else:
                     self._model, self._tokenizer = load_compress_model(
-                        model_path=self._model_path,
+                        model_path=self.model_path,
                         device=device,
                         torch_dtype=kwargs["torch_dtype"],
                         use_fast=self._use_fast_tokenizer,
