@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import os
-from typing import Any, List, Optional, Union
+from typing import List, Optional, Union
 
 from pydantic import BaseModel, Field
 from typing_extensions import Annotated, Literal
@@ -85,16 +85,14 @@ def cache(
     llm_family: LLMFamilyV1,
     llm_spec: "LLMSpecV1",
     quantization: Optional[str] = None,
-    tqdm_class: Any = None,
 ) -> str:
-    return cache_from_huggingface(llm_family, llm_spec, quantization, tqdm_class)
+    return cache_from_huggingface(llm_family, llm_spec, quantization)
 
 
 def cache_legacy(
     llm_family: LLMFamilyV1,
     llm_spec: "LLMSpecV1",
     quantization: Optional[str] = None,
-    tqdm_class: Any = None,
 ) -> str:
     # TODO: handle legacy
     return ""
@@ -104,7 +102,6 @@ def cache_from_huggingface(
     llm_family: LLMFamilyV1,
     llm_spec: "LLMSpecV1",
     quantization: Optional[str] = None,
-    tqdm_class: Any = None,
 ) -> str:
     """
     Cache model from Hugging Face. Return the cache directory.
@@ -122,7 +119,6 @@ def cache_from_huggingface(
             llm_spec.model_id,
             local_dir=cache_dir,
             local_dir_use_symlinks=True,
-            tqdm_class=tqdm_class,
         )
     elif llm_spec.model_format == "ggmlv3":
         assert isinstance(llm_spec, GgmlLLMSpecV1)
