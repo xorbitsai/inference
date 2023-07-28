@@ -250,9 +250,12 @@ class GradioApp:
                         }
                     )
                     sizes.sort()
-                    sizes = list(map(lambda size: str(size), sizes))
                     return (
-                        gr.Dropdown.update(choices=sizes, interactive=True, value=None),
+                        gr.Dropdown.update(
+                            choices=list(map(lambda s: str(s), sizes)),
+                            interactive=True,
+                            value=None,
+                        ),
                         gr.Dropdown.update(choices=[], interactive=False, value=None),
                     )
                 else:
