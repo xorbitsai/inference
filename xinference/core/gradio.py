@@ -225,30 +225,41 @@ class GradioApp:
                         {spec.model_format for spec in model_family.model_specs}
                     )
                     formats.sort()
-                    return gr.Dropdown.update(
-                        choices=formats,
-                        interactive=True,
+                    return (
+                        gr.Dropdown.update(
+                            choices=formats, interactive=True, value=None
+                        ),
+                        gr.Dropdown.update(choices=[], interactive=False, value=None),
+                        gr.Dropdown.update(choices=[], interactive=False, value=None),
                     )
                 else:
-                    return gr.Dropdown.update()
+                    return (
+                        gr.Dropdown.update(),
+                        gr.Dropdown.update(),
+                        gr.Dropdown.update(),
+                    )
 
             def select_model_format(model_name: str, model_format: str):
                 if model_name:
                     model_family = MODEL_TO_FAMILIES[model_name]
                     sizes = list(
                         {
-                            str(spec.model_size_in_billions)
+                            spec.model_size_in_billions
                             for spec in model_family.model_specs
                             if spec.model_format == model_format
                         }
                     )
                     sizes.sort()
-                    return gr.Dropdown.update(
-                        choices=sizes,
-                        interactive=True,
+                    sizes = list(map(lambda size: str(size), sizes))
+                    return (
+                        gr.Dropdown.update(choices=sizes, interactive=True, value=None),
+                        gr.Dropdown.update(choices=[], interactive=False, value=None),
                     )
                 else:
-                    return gr.Dropdown.update()
+                    return (
+                        gr.Dropdown.update(),
+                        gr.Dropdown.update(),
+                    )
 
             def select_model_size(
                 model_name: str, model_format: str, model_size_in_billions: str
@@ -276,12 +287,12 @@ class GradioApp:
             model_name.change(
                 select_model_name,
                 inputs=[model_name],
-                outputs=[model_format],
+                outputs=[model_format, model_size_in_billions, quantization],
             )
             model_format.change(
                 select_model_format,
                 inputs=[model_name, model_format],
-                outputs=[model_size_in_billions],
+                outputs=[model_size_in_billions, quantization],
             )
             model_size_in_billions.change(
                 select_model_size,
