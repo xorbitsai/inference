@@ -66,6 +66,11 @@ class AsyncSupervisorAPI:
         supervisor_ref = await self._get_supervisor_ref()
         return await supervisor_ref.get_model(model_uid)
 
+    async def is_local_deployment(self) -> bool:
+        # TODO: temporary.
+        supervisor_ref = await self._get_supervisor_ref()
+        return await supervisor_ref.is_local_deployment()
+
 
 class SyncSupervisorAPI:
     def __init__(self, supervisor_address: str):
@@ -124,3 +129,11 @@ class SyncSupervisorAPI:
             return await supervisor_ref.get_model(model_uid)
 
         return self._isolation.call(_get_model())
+
+    def is_local_deployment(self) -> bool:
+        # TODO: temporary.
+        async def _is_local_deployment():
+            supervisor_ref = await self._get_supervisor_ref()
+            return await supervisor_ref.is_local_deployment()
+
+        return self._isolation.call(_is_local_deployment())

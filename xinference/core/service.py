@@ -182,6 +182,13 @@ class SupervisorActor(xo.Actor):
             ret.update(await worker.list_models())
         return ret
 
+    def is_local_deployment(self) -> bool:
+        # TODO: temporary.
+        return (
+            len(self._worker_address_to_worker) == 1
+            and list(self._worker_address_to_worker)[0] == self.address
+        )
+
     @log
     async def add_worker(self, worker_address: str):
         assert worker_address not in self._worker_address_to_worker
@@ -290,8 +297,13 @@ class WorkerActor(xo.Actor):
 
         from ..model.llm import match_llm, match_llm_cls
 
+        assert self._supervisor_ref is not None
         match_result = match_llm(
-            model_name, model_format, model_size_in_billions, quantization
+            model_name,
+            model_format,
+            model_size_in_billions,
+            quantization,
+            await self._supervisor_ref.is_local_deployment(),
         )
         if not match_result:
             raise ValueError(
