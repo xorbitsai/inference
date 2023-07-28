@@ -27,7 +27,7 @@ from ...types import (
 
 class ChatModelMixin:
     @staticmethod
-    def get_prompt_v1(
+    def get_prompt(
         prompt: str,
         chat_history: List[ChatCompletionMessage],
         prompt_style: PromptStyleV1,

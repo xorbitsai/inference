@@ -313,7 +313,7 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
         if system_prompt:
             prompt_style.system_prompt = system_prompt
         chat_history = chat_history or []
-        full_prompt = self.get_prompt_v1(prompt, chat_history, prompt_style)
+        full_prompt = self.get_prompt(prompt, chat_history, prompt_style)
 
         generate_config = self._sanitize_generate_config(generate_config)
 

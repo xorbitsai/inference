@@ -271,7 +271,7 @@ class LlamaCppChatModel(LlamaCppModel, ChatModelMixin):
 
         chat_history = chat_history or []
         assert prompt_style is not None
-        full_prompt = self.get_prompt_v1(prompt, chat_history, prompt_style)
+        full_prompt = self.get_prompt(prompt, chat_history, prompt_style)
 
         generate_config = self._sanitize_generate_config(generate_config)
 

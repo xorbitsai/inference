@@ -42,7 +42,7 @@ def test_prompt_style_add_colon_single():
         "\n### user: Write a poem."
         "\n### assistant:"
     )
-    assert expected == ChatModelMixin.get_prompt_v1(
+    assert expected == ChatModelMixin.get_prompt(
         "Write a poem.", chat_history, prompt_style
     )
 
@@ -72,7 +72,7 @@ def test_prompt_style_add_colon_two():
         "USER: Write a poem. "
         "ASSISTANT:"
     )
-    assert expected == ChatModelMixin.get_prompt_v1(
+    assert expected == ChatModelMixin.get_prompt(
         "Write a poem.", chat_history, prompt_style
     )
 
@@ -98,7 +98,7 @@ def test_prompt_style_no_colon_two():
         " <reserved_102> Write a poem."
         " <reserved_103> "
     )
-    assert expected == ChatModelMixin.get_prompt_v1(
+    assert expected == ChatModelMixin.get_prompt(
         "Write a poem.", chat_history, prompt_style
     )
 
@@ -136,6 +136,6 @@ def test_prompt_style_llama2():
         " please don't share false information.\n<</SYS>>\n\nHi there.[/INST] Hello, how may I help"
         " you? </s><s>[INST] Write a poem. [/INST]"
     )
-    assert expected == ChatModelMixin.get_prompt_v1(
+    assert expected == ChatModelMixin.get_prompt(
         "Write a poem.", chat_history, prompt_style
     )
