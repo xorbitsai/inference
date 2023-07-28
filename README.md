@@ -20,8 +20,6 @@ and serve your or state-of-the-art built-in models using just a single command. 
 researcher, developer, or data scientist, Xorbits Inference empowers you to unleash the full 
 potential of cutting-edge AI models.
 
-![demo](assets/demo.gif)
-
 <div align="center">
 <i><a href="https://join.slack.com/t/xorbitsio/shared_invite/zt-1z3zsm9ep-87yI9YZ_B79HLB2ccTq4WA">👉 Join our Slack community!</a></i>
 </div>
@@ -52,13 +50,34 @@ with popular third-party libraries like LangChain and LlamaIndex. (Coming soon)
 ## Getting Started
 Xinference can be installed via pip from PyPI. It is highly recommended to create a new virtual
 environment to avoid conflicts.
+
+### Installation
 ```bash
-$ pip install "xinference[all]"
+$ pip install "xinference"
 ```
-`xinference[all]` installs all the necessary packages for serving models. If you want to achieve acceleration on 
+`xinference` installs basic packages for serving models. 
+
+#### Installation with GGML
+To serve ggml models, you need to install the following extra dependencies:
+```bash
+$ pip install "xinference[ggml]"
+```
+If you want to achieve acceleration on 
 different hardware, refer to the installation documentation of the corresponding package.
 - [llama-cpp-python](https://github.com/abetlen/llama-cpp-python#installation-from-pypi-recommended) is required to run `baichuan`, `wizardlm-v1.0`, `vicuna-v1.3` and `orca`.
 - [chatglm-cpp-python](https://github.com/li-plus/chatglm.cpp#getting-started) is required to run `chatglm` and `chatglm2`.
+
+#### Installation with PyTorch
+To serve PyTorch models, you need to install the following extra dependencies:
+```bash
+$ pip install "xinference[pytorch]"
+```
+
+#### Installation with all dependencies
+If you want to serve all the supported models, install all the dependencies:
+```bash
+$ pip install "xinference[all]"
+```
 
 
 ### Deployment
@@ -97,7 +116,7 @@ You can also view a web UI using the Xinference endpoint to chat with all the
 builtin models. You can even **chat with two cutting-edge AI models side-by-side to compare
 their performance**!
 
-![web UI](assets/xinference-downloading.png)
+![web UI](assets/demo.gif)
 
 ### Xinference CLI
 Xinference provides a command line interface (CLI) for model management. Here are some useful 

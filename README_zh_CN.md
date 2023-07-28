@@ -19,8 +19,6 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 无论你是研究者，开发者，或是数据科学家，都可以通过 Xorbits Inference 与最前沿的 AI 模型，发掘更多可能。
 
 
-![demo](assets/demo.gif)
-
 <div align="center">
 <i><a href="https://join.slack.com/t/xorbitsio/shared_invite/zt-1z3zsm9ep-87yI9YZ_B79HLB2ccTq4WA">👉 立刻加入我们的 Slack 社区!</a></i>
 </div>
@@ -48,12 +46,33 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 
 ## 快速入门
 Xinference 可以通过 pip 从 PyPI 安装。我们非常推荐在安装前创建一个新的虚拟环境以避免依赖冲突。
+
+### 安装
+```bash
+$ pip install "xinference"
+```
+`xinference` 将会安装所有用于推理的基础依赖。
+
+#### 支持 ggml 推理
+想要利用 ggml 推理，可以用以下命令：
+```bash
+$ pip install "xinference[ggml]"
+```
+如果你想要获得更高效的加速，请查看下列依赖的安装文档：
+- [llama-cpp-python](https://github.com/abetlen/llama-cpp-python#installation-from-pypi-recommended) 用于 `baichuan`, `wizardlm-v1.0`, `vicuna-v1.3` 及 `orca`.
+- [chatglm-cpp-python](https://github.com/li-plus/chatglm.cpp#getting-started) 用于 `chatglm` 及 `chatglm2`.
+
+#### 支持 PyTorch 推理
+想要利用 PyTorch 推理，可以使用以下命令：
+```bash
+$ pip install "xinference[pytorch]"
+```
+
+#### 支持所有类型
+如果想要支持推理所有支持的模型，可以安装所有的依赖：
 ```bash
 $ pip install "xinference[all]"
 ```
-`xinference[all]` 将会安装所有用于推理的必要依赖。如果你想要获得更高效的加速，请查看下列依赖的安装文档：
-- [llama-cpp-python](https://github.com/abetlen/llama-cpp-python#installation-from-pypi-recommended) 用于 `baichuan`, `wizardlm-v1.0`, `vicuna-v1.3` 及 `orca`.
-- [chatglm-cpp-python](https://github.com/li-plus/chatglm.cpp#getting-started) 用于 `chatglm` 及 `chatglm2`.
 
 
 ### 部署
@@ -89,7 +108,7 @@ supervisor 所在服务器的主机名或 IP 地址。
 你还可以通过 web UI 与任意内置模型聊天。Xinference 甚至**支持同时与两个最前沿的 AI 模型聊天并比较它们的回复质
 量**！
 
-![web UI](assets/xinference-downloading.png)
+![web UI](assets/demo.gif)
 
 ### Xinference 命令行
 Xinference 提供了命令行工具用于模型管理。支持的命令包括：
