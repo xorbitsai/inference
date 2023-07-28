@@ -315,7 +315,7 @@ class WorkerActor(xo.Actor):
             )
 
         model = llm_cls(
-            model_uid, llm_family, llm_spec, save_path, quantization, kwargs
+            model_uid, llm_family, llm_spec, quantization, save_path, kwargs
         )
         subpool_address = self._choose_subpool()
         model_ref = await xo.create_actor(
