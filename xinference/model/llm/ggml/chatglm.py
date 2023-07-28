@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import logging
+import os
 import time
 import uuid
 from pathlib import Path
@@ -81,7 +82,14 @@ class ChatglmCppChatModel(LLM):
 
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
-        self._llm = chatglm_cpp.Pipeline(Path(self.model_path))
+        model_file_path = os.path.join(
+            self.model_path,
+            self.model_spec.model_file_name_template.format(
+                quantization=self.quantization
+            ),
+        )
+
+        self._llm = chatglm_cpp.Pipeline(Path(model_file_path))
 
     @classmethod
     def match(cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1") -> bool:
