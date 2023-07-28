@@ -33,6 +33,7 @@ async def test_sync_client(setup, quantization):
                 model_size_in_billions=1,
                 model_format="pytorch",
                 quantization=quantization,
+                device="cpu",
             )
     else:
         model_uid = client.launch_model(
@@ -40,6 +41,7 @@ async def test_sync_client(setup, quantization):
             model_size_in_billions=1,
             model_format="pytorch",
             quantization=quantization,
+            device="cpu",
         )
         assert len(client.list_models()) == 1
 

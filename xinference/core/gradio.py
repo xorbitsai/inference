@@ -28,7 +28,7 @@ if TYPE_CHECKING:
 MODEL_TO_FAMILIES: Dict[str, LLMFamilyV1] = dict(
     (model_family.model_name, model_family)
     for model_family in LLM_FAMILIES
-    if "chat" not in model_family.model_ability
+    if "chat" in model_family.model_ability
 )
 
 
