@@ -71,7 +71,7 @@ class PytorchModel(LLM):
         model_path: str,
         pytorch_model_config: Optional[PytorchModelConfig] = None,
     ):
-        super().__init__(model_uid, model_family, model_spec, model_path, quantization)
+        super().__init__(model_uid, model_family, model_spec, quantization, model_path)
         self._use_fast_tokenizer = True
         self._pytorch_model_config: PytorchModelConfig = self._sanitize_model_config(
             pytorch_model_config
