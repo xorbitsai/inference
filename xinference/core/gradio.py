@@ -301,7 +301,11 @@ class GradioApp:
             progress=gr.Progress(),
         ):
             match_result = match_llm(
-                _model_name, _model_format, int(_model_size_in_billions), _quantization
+                _model_name,
+                _model_format,
+                int(_model_size_in_billions),
+                _quantization,
+                self._api.is_local_deployment(),
             )
             if not match_result:
                 raise ValueError(
