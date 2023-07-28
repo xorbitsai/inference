@@ -51,13 +51,13 @@ class BaichuanPytorchModel(PytorchModel):
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
         tokenizer = AutoTokenizer.from_pretrained(
-            self._model_path,
+            self.model_path,
             trust_remote_code=True,
             revision=kwargs["revision"],
             cache_dir=XINFERENCE_CACHE_DIR,
         )
         model = AutoModelForCausalLM.from_pretrained(
-            self._model_path,
+            self.model_path,
             trust_remote_code=True,
             low_cpu_mem_usage=True,
             cache_dir=XINFERENCE_CACHE_DIR,
@@ -110,19 +110,19 @@ class BaichuanPytorchChatModel(PytorchChatModel):
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
         tokenizer = AutoTokenizer.from_pretrained(
-            self._model_path,
+            self.model_path,
             use_fast=self._use_fast_tokenizer,
             trust_remote_code=True,
             revision=kwargs["revision"],
             cache_dir=XINFERENCE_CACHE_DIR,
         )
         model = AutoModelForCausalLM.from_pretrained(
-            self._model_path,
+            self.model_path,
             trust_remote_code=True,
             cache_dir=XINFERENCE_CACHE_DIR,
             **kwargs,
         )
-        model.generation_config = GenerationConfig.from_pretrained(self._model_path)
+        model.generation_config = GenerationConfig.from_pretrained(self.model_path)
         return model, tokenizer
 
     @classmethod
