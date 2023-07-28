@@ -19,8 +19,6 @@ Xorbits Inference(Xinference) は、言語、音声認識、マルチモーダ�
 あなたや最先端のビルトインモデルを簡単にデプロイし、提供することができます。 Xorbits Inference は、
 研究者、開発者、データサイエンティストを問わず、最先端の AI モデルの可能性を最大限に引き出すことができます。
 
-![demo](assets/demo.gif)
-
 <div align="center">
 <i><a href="https://join.slack.com/t/xorbitsio/shared_invite/zt-1z3zsm9ep-87yI9YZ_B79HLB2ccTq4WA">👉 Slack コミュニティにご参加ください！</a></i>
 </div>
@@ -89,7 +87,7 @@ Xinference が起動すると、CLI または Xinference クライアントか�
 また、Xinference エンドポイントを使用してウェブ UI を表示し、すべての内蔵モデルとチャットすることもできます。
 **2 つの最先端 AI モデルを並べてチャットし、パフォーマンスを比較することもできます**！
 
-![web UI](assets/xinference-downloading.png)
+![web UI](assets/demo.gif)
 
 ### Xinference CLI
 Xinference には、モデル管理のためのコマンドラインインターフェース（CLI）が用意されています。便利なコマンドをいくつか紹介します:
