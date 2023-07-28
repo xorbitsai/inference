@@ -170,7 +170,6 @@ $ xinference list --all
 
 | Name          | Type             | Language | Format  | Size (in billions) | Quantization             |
 |---------------|------------------|----------|---------|--------------------|--------------------------|
-| opt           | Foundation Model | en       | pytorch | 1                  | '4-bit', '8-bit', 'none' |
 | baichuan      | Foundation Model | en, zh   | pytorch | 7, 13              | '4-bit', '8-bit', 'none' |
 | baichuan-chat | SFT Model        | en, zh   | pytorch | 13                 | '4-bit', '8-bit', 'none' |
 | vicuna-v1.3   | SFT Model        | en       | pytorch | 7, 13, 33          | '4-bit', '8-bit', 'none' |
@@ -189,7 +188,7 @@ $ xinference list --all
 近期集成了 Pytorch ，下面对 Pytorch 模型的使用场景进行说明：
 
 ### 模型支持
-- Foundation Model：baichuan（7B、13B）、opt（1B）。
+- Foundation Model：baichuan（7B、13B）。
 - SFT Model：baichuan-chat（13B）、vicuna-v1.3（7B、13B、33B）。
 
 ### 设备支持

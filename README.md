@@ -179,7 +179,6 @@ $ xinference list --all
 
 | Name          | Type             | Language | Format  | Size (in billions) | Quantization             |
 |---------------|------------------|----------|---------|--------------------|--------------------------|
-| opt           | Foundation Model | en       | pytorch | 1                  | '4-bit', '8-bit', 'none' |
 | baichuan      | Foundation Model | en, zh   | pytorch | 7, 13              | '4-bit', '8-bit', 'none' |
 | baichuan-chat | SFT Model        | en, zh   | pytorch | 13                 | '4-bit', '8-bit', 'none' |
 | vicuna-v1.3   | SFT Model        | en       | pytorch | 7, 13, 33          | '4-bit', '8-bit', 'none' |
@@ -198,7 +197,7 @@ $ xinference list --all
 Pytorch has been integrated recently, and the usage scenarios are described below:
 
 ### supported models
-- Foundation Model：baichuan（7B、13B）、opt（1B）。
+- Foundation Model：baichuan（7B、13B）。
 - SFT Model：baichuan-chat（13B）、vicuna-v1.3（7B、13B、33B）。
 
 ### supported devices
