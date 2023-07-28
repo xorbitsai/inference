@@ -15,7 +15,7 @@
 import asyncio
 import json
 import uuid
-from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Union
 
 import requests
 import xoscar as xo
@@ -25,9 +25,8 @@ from .core.service import SupervisorActor
 from .isolation import Isolation
 
 if TYPE_CHECKING:
-    from .model import ModelSpec
-    from .model.llm.chatglm import ChatglmCppGenerateConfig
-    from .model.llm.core import LlamaCppGenerateConfig
+    from .model.llm.ggml.chatglm import ChatglmCppGenerateConfig
+    from .model.llm.ggml.llamacpp import LlamaCppGenerateConfig
     from .model.llm.pytorch.core import PytorchGenerateConfig
     from .types import (
         ChatCompletion,
@@ -288,22 +287,24 @@ class Client:
         coro = self._supervisor_ref.terminate_model(model_uid)
         return self._isolation.call(coro)
 
-    def list_models(self) -> List[Tuple[str, "ModelSpec"]]:
+    def list_models(self) -> Dict[str, Dict[str, Any]]:
         coro = self._supervisor_ref.list_models()
         return self._isolation.call(coro)
 
     def get_model(self, model_uid: str) -> "ModelHandle":
-        model_spec: "ModelSpec" = self._isolation.call(
+        desc: Dict[str, Any] = self._isolation.call(
             self._supervisor_ref.describe_model(model_uid)
         )
         model_ref = self._isolation.call(self._supervisor_ref.get_model(model_uid))
 
-        if model_spec.model_name == "chatglm" or model_spec.model_name == "chatglm2":
+        if desc["model_name"] == "chatglm" or desc["model_name"] == "chatglm2":
             return ChatglmCppChatModelHandle(model_ref, self._isolation)
-        elif model_spec.model_name in ["baichuan", "baichuan-base", "llama-2"]:
+        elif "generate" in desc["model_ability"]:
             return GenerateModelHandle(model_ref, self._isolation)
-        else:
+        elif "chat" in desc["model_ability"]:
             return ChatModelHandle(model_ref, self._isolation)
+        else:
+            raise ValueError(f"Unrecognized model ability: {desc['model_ability']}")
 
 
 class RESTfulClient:
@@ -384,14 +385,13 @@ class RESTfulClient:
             raise RuntimeError(
                 f"Failed to get the model description, detail: {response.json()['detail']}"
             )
-        model_spec = response.json()
+        desc = response.json()
 
-        if (
-            model_spec["model_name"] == "chatglm"
-            or model_spec["model_name"] == "chatglm2"
-        ):
+        if desc["model_name"] == "chatglm" or desc["model_name"] == "chatglm2":
             return RESTfulChatglmCppChatModelHandle(model_uid, self.base_url)
-        elif model_spec["model_name"] in ["baichuan", "baichuan-base", "llama-2"]:
+        elif "generate" in desc["model_ability"]:
             return RESTfulGenerateModelHandle(model_uid, self.base_url)
-        else:
+        elif "chat" in desc["model_ability"]:
             return RESTfulChatModelHandle(model_uid, self.base_url)
+        else:
+            raise ValueError(f"Unrecognized model ability: {desc['model_ability']}")
