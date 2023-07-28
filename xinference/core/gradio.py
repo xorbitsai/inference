@@ -310,7 +310,7 @@ class GradioApp:
                 )
 
             llm_family, llm_spec, _quantization = match_result
-            cache_from_huggingface(llm_family, llm_spec, _quantization, progress)
+            cache_from_huggingface(llm_family, llm_spec, _quantization)
 
             model_uid = self._create_model(
                 _model_name, int(_model_size_in_billions), _model_format, _quantization

@@ -74,6 +74,8 @@ class LlamaCppModelConfig(TypedDict, total=False):
     lora_base: Optional[str]
     lora_path: Optional[str]
     low_vram: bool
+    n_gqa: Optional[int]  # (TEMPORARY) must be 8 for llama2 70b
+    rms_norm_eps: Optional[float]  # (TEMPORARY)
     verbose: bool
 
 
@@ -128,6 +130,13 @@ class LlamaCppModel(LLM):
         llamacpp_model_config.setdefault("embedding", True)
         llamacpp_model_config.setdefault("use_mmap", False)
         llamacpp_model_config.setdefault("use_mlock", True)
+
+        if (
+            "llama-2" in self.model_family.model_name
+            and self.model_spec.model_size_in_billions == 70
+        ):
+            llamacpp_model_config["use_mlock"] = False
+            llamacpp_model_config["n_gqa"] = 8
 
         if self._is_darwin_and_apple_silicon() and self._can_apply_metal():
             llamacpp_model_config.setdefault("n_gpu_layers", 1)
@@ -234,8 +243,8 @@ class LlamaCppChatModel(LlamaCppModel, ChatModelMixin):
             model_uid,
             model_family,
             model_spec,
-            model_path,
             quantization,
+            model_path,
             llamacpp_model_config,
         )
 
