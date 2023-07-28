@@ -12,8 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import platform
-
 import pytest
 
 from .....client import Client, GenerateModelHandle
@@ -26,7 +24,7 @@ async def test_sync_client(setup, quantization):
     client = Client(endpoint)
     assert len(client.list_models()) == 0
 
-    if quantization == "4-bit" and platform.system() != "Linux":
+    if quantization == "4-bit":
         with pytest.raises(RuntimeError):
             client.launch_model(
                 model_name="opt",
