@@ -313,11 +313,9 @@ class WorkerActor(xo.Actor):
         llm_family, llm_spec, quantization = match_result
         assert quantization is not None
 
-        from ..model.llm.llm_family import cache_from_huggingface
+        from ..model.llm.llm_family import cache
 
-        save_path = await asyncio.to_thread(
-            cache_from_huggingface, llm_family, llm_spec, quantization
-        )
+        save_path = await asyncio.to_thread(cache, llm_family, llm_spec, quantization)
 
         llm_cls = match_llm_cls(llm_family, llm_spec)
         if not llm_cls:

@@ -89,6 +89,11 @@ class ChatglmCppChatModel(LLM):
             ),
         )
 
+        # handle legacy cache.
+        legacy_model_file_path = os.path.join(self.model_path, "model.bin")
+        if os.path.exists(legacy_model_file_path):
+            model_file_path = legacy_model_file_path
+
         self._llm = chatglm_cpp.Pipeline(Path(model_file_path))
 
     @classmethod
