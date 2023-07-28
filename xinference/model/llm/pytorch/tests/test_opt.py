@@ -25,7 +25,7 @@ async def test_sync_client(setup, quantization):
     assert len(client.list_models()) == 0
 
     if quantization == "4-bit":
-        with pytest.raises(RuntimeError):
+        with pytest.raises(ValueError):
             client.launch_model(
                 model_name="opt",
                 model_size_in_billions=1,
