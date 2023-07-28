@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 import os
 from typing import List, Optional, Union
 
@@ -19,6 +20,8 @@ from pydantic import BaseModel, Field
 from typing_extensions import Annotated, Literal
 
 from xinference.constants import XINFERENCE_CACHE_DIR
+
+logger = logging.getLogger(__name__)
 
 
 class GgmlLLMSpecV1(BaseModel):
@@ -68,12 +71,13 @@ LLMFamilyV1.update_forward_refs()
 LLM_FAMILIES: List[LLMFamilyV1] = []
 
 
-def _generate_cache_path_ggml(
-    self,
+def get_legacy_cache_path(
+    model_name: str,
+    model_format: str,
     model_size_in_billions: Optional[int] = None,
     quantization: Optional[str] = None,
-):
-    full_name = f"{str(self)}-{model_size_in_billions}b-{quantization}"
+) -> str:
+    full_name = f"{model_name}-{model_format}-{model_size_in_billions}b-{quantization}"
     save_dir = os.path.join(XINFERENCE_CACHE_DIR, full_name)
     if not os.path.exists(save_dir):
         os.makedirs(save_dir, exist_ok=True)
@@ -86,16 +90,17 @@ def cache(
     llm_spec: "LLMSpecV1",
     quantization: Optional[str] = None,
 ) -> str:
-    return cache_from_huggingface(llm_family, llm_spec, quantization)
-
-
-def cache_legacy(
-    llm_family: LLMFamilyV1,
-    llm_spec: "LLMSpecV1",
-    quantization: Optional[str] = None,
-) -> str:
-    # TODO: handle legacy
-    return ""
+    legacy_cache_path = get_legacy_cache_path(
+        llm_family.model_name,
+        llm_spec.model_format,
+        llm_spec.model_size_in_billions,
+        quantization,
+    )
+    if os.path.exists(legacy_cache_path):
+        logger.debug("Legacy cache path exists: %s", legacy_cache_path)
+        return os.path.dirname(legacy_cache_path)
+    else:
+        return cache_from_huggingface(llm_family, llm_spec, quantization)
 
 
 def cache_from_huggingface(
