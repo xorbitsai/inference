@@ -33,8 +33,8 @@ class BaichuanPytorchModel(PytorchModel):
             model_uid,
             model_family,
             model_spec,
-            model_path,
             quantization,
+            model_path,
             pytorch_model_config=pytorch_model_config,
         )
 
@@ -90,8 +90,8 @@ class BaichuanPytorchChatModel(PytorchChatModel):
             model_uid,
             model_family,
             model_spec,
-            model_path,
             quantization,
+            model_path,
             pytorch_model_config=pytorch_model_config,
         )
         self._use_fast_tokenizer = False
