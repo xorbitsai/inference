@@ -174,6 +174,41 @@ $ xinference list --all
 - RLHF 与 SFT 模型 提供 `generate` 与 `chat` 接口。
 - 如果想使用 Apple metal GPU 加速，请选择 q4_0 或者 q4_1 这两种量化方式。
 
+
+## Pytorch 模型最佳实践
+
+近期集成了 Pytorch ，下面对 Pytorch 模型的使用场景进行说明：
+
+### 模型支持
+- Foundation Model：baichuan（7B、13B）、opt（1B）。
+- SFT Model：baichuan-chat（13B）、vicuna-v1.3（7B、13B、33B）。
+
+### 设备支持
+- CUDA：在 linux、windows 系统下，默认使用 cuda 设备。
+- MPS：在 Mac M1/M2 设备上，默认使用 mps 设备。
+- CPU：不建议使用cpu设备，显存占用很大，且推理速度非常慢。
+
+### 量化方式
+- `none`：表示不使用量化。
+- `8-bit`：使用8-bit量化。
+- `4-bit`：使用4-bit量化。注意：4-bit量化仅在linux系统、cuda设备上支持。
+
+### 其他说明
+- 在 MacOS 系统上，不支持 baichuan-chat 与 baichuan-base 模型，baichuan 模型无法使用 8-bit 量化。
+
+### 使用案例
+
+下表展示部分模型显存占用情况与设备支持情况。
+
+| Name          | Size (B) | OS    | No quantization (MB) | Quantization 8-bit (MB) | Quantization 4-bit (MB) |
+|---------------|----------|-------|----------------------|-------------------------|-------------------------|
+| baichuan-chat | 13       | linux | 暂未测试                 | 13275                   | 7263                    |
+| baichuan-chat | 13       | macos | 不支持                  | 不支持                     | 不支持                     |
+| vicuna-v1.3   | 7        | linux | 12884                | 6708                    | 3620                    |
+| vicuna-v1.3   | 7        | macos | 12916                | 565                     | 不支持                     |
+| baichuan      | 7        | linux | 13480                | 7304                    | 4216                    |
+| baichuan      | 7        | macos | 13480                | 不支持                     | 不支持                     |
+
 ## 近期开发计划
 Xinference 目前正在快速迭代。我们近期的开发计划包括：
 
