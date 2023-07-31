@@ -211,15 +211,21 @@ class PytorchModel(LLM):
     def generate(
         self, prompt: str, generate_config: Optional[PytorchGenerateConfig] = None
     ) -> Union[Completion, Iterator[CompletionChunk]]:
-        from .utils import generate_stream
+        from .utils import generate_stream, generate_stream_falcon
 
         def generator_wrapper(
             prompt: str, device: str, generate_config: PytorchGenerateConfig
         ) -> Iterator[CompletionChunk]:
-            for completion_chunk, _ in generate_stream(
-                self._model, self._tokenizer, prompt, device, generate_config
-            ):
-                yield completion_chunk
+            if "falcon" in self.model_family.model_name:
+                for completion_chunk, _ in generate_stream_falcon(
+                    self._model, self._tokenizer, prompt, device, generate_config
+                ):
+                    yield completion_chunk
+            else:
+                for completion_chunk, _ in generate_stream(
+                    self._model, self._tokenizer, prompt, device, generate_config
+                ):
+                    yield completion_chunk
 
         logger.debug(
             "Enter generate, prompt: %s, generate config: %s", prompt, generate_config
@@ -236,10 +242,16 @@ class PytorchModel(LLM):
         else:
             device = self._pytorch_model_config.get("device", "cuda")
         if not stream:
-            for completion_chunk, completion_usage in generate_stream(
-                self._model, self._tokenizer, prompt, device, generate_config
-            ):
-                pass
+            if "falcon" in self.model_family.model_name:
+                for completion_chunk, completion_usage in generate_stream_falcon(
+                    self._model, self._tokenizer, prompt, device, generate_config
+                ):
+                    pass
+            else:
+                for completion_chunk, completion_usage in generate_stream(
+                    self._model, self._tokenizer, prompt, device, generate_config
+                ):
+                    pass
             completion = Completion(
                 id=completion_chunk["id"],
                 object=completion_chunk["object"],
