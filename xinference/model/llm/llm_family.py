@@ -78,10 +78,7 @@ def get_legacy_cache_path(
     quantization: Optional[str] = None,
 ) -> str:
     full_name = f"{model_name}-{model_format}-{model_size_in_billions}b-{quantization}"
-    save_dir = os.path.join(XINFERENCE_CACHE_DIR, full_name)
-    if not os.path.exists(save_dir):
-        os.makedirs(save_dir, exist_ok=True)
-    save_path = os.path.join(save_dir, "model.bin")
+    save_path = os.path.join(XINFERENCE_CACHE_DIR, full_name, "model.bin")
     return save_path
 
 
