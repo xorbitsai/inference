@@ -197,7 +197,12 @@ class PytorchModel(LLM):
     def match(cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1") -> bool:
         if llm_spec.model_format != "pytorch":
             return False
-        if "baichuan" in llm_family.model_name:
+        if llm_family.model_name in [
+            "baichuan",
+            "baichuan-chat",
+            "vicuna-v1.3",
+            "falcon",
+        ]:
             return False
         if "generate" not in llm_family.model_ability:
             return False

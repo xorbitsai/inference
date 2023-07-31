@@ -90,6 +90,21 @@ class ChatModelMixin:
                 else:
                     ret += role
             return ret
+        elif prompt_style.style_name == "FALCON":
+            ret = prompt_style.system_prompt
+            for message in chat_history:
+                role = message["role"]
+                content = message["content"]
+                if content:
+                    ret += (
+                        role
+                        + ": "
+                        + content.replace("\r\n", "\n").replace("\n\n", "\n")
+                    )
+                    ret += "\n\n"
+                else:
+                    ret += role + ":"
+            return ret
         else:
             raise ValueError(f"Invalid prompt style: {prompt_style.style_name}")
 
