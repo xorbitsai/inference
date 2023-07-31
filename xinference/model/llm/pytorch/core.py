@@ -15,8 +15,6 @@
 import logging
 from typing import Iterator, List, Optional, TypedDict, Union
 
-import torch
-
 from ....constants import XINFERENCE_CACHE_DIR
 from ....types import (
     ChatCompletion,
@@ -29,8 +27,6 @@ from ....types import (
 from ..core import LLM
 from ..llm_family import LLMFamilyV1, LLMSpecV1
 from ..utils import ChatModelMixin
-from .compression import load_compress_model
-from .utils import generate_stream
 
 logger = logging.getLogger(__name__)
 
@@ -135,6 +131,14 @@ class PytorchModel(LLM):
         return model, tokenizer
 
     def load(self):
+        try:
+            import torch
+        except ImportError:
+            raise ImportError(
+                f"Failed to import module 'torch'. Please make sure 'torch' is installed.\n\n"
+            )
+        from .compression import load_compress_model
+
         quantization = self.quantization
         num_gpus = self._pytorch_model_config.get("num_gpus", 1)
         if self._is_darwin_and_apple_silicon():
@@ -202,6 +206,8 @@ class PytorchModel(LLM):
     def generate(
         self, prompt: str, generate_config: Optional[PytorchGenerateConfig] = None
     ) -> Union[Completion, Iterator[CompletionChunk]]:
+        from .utils import generate_stream
+
         def generator_wrapper(
             prompt: str, device: str, generate_config: PytorchGenerateConfig
         ) -> Iterator[CompletionChunk]:
