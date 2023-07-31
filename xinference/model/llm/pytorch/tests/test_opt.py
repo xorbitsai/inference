@@ -19,7 +19,7 @@ from .....client import Client, GenerateModelHandle
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("quantization", ["8-bit", "4-bit", "none"])
-async def test_sync_client(setup, quantization):
+async def test_opt_pytorch_model(setup, quantization):
     endpoint, _ = setup
     client = Client(endpoint)
     assert len(client.list_models()) == 0
