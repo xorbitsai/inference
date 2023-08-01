@@ -90,6 +90,22 @@ class ChatModelMixin:
                 else:
                     ret += role
             return ret
+        elif prompt_style.style_name == "CHATGLM2":
+            round_add_n = 1
+            if prompt_style.system_prompt:
+                ret = prompt_style.system_prompt + prompt_style.intra_message_sep
+            else:
+                ret = ""
+            for i, message in enumerate(chat_history):
+                role = message["role"]
+                content = message["content"]
+                if i % 2 == 0:
+                    ret += f"[Round {i // 2 + round_add_n}]{prompt_style.intra_message_sep}"
+                if content:
+                    ret += role + "：" + content + prompt_style.intra_message_sep
+                else:
+                    ret += role + "："
+            return ret
         else:
             raise ValueError(f"Invalid prompt style: {prompt_style.style_name}")
 
