@@ -15,7 +15,6 @@
 import logging
 from typing import Iterator, List, Optional, TypedDict, Union
 
-from ....constants import XINFERENCE_CACHE_DIR
 from ....types import (
     ChatCompletion,
     ChatCompletionChunk,
@@ -120,12 +119,10 @@ class PytorchModel(LLM):
             self.model_path,
             use_fast=self._use_fast_tokenizer,
             revision=kwargs["revision"],
-            cache_dir=XINFERENCE_CACHE_DIR,
         )
         model = AutoModelForCausalLM.from_pretrained(
             self.model_path,
             low_cpu_mem_usage=True,
-            cache_dir=XINFERENCE_CACHE_DIR,
             **kwargs,
         )
         return model, tokenizer

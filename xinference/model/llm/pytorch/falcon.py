@@ -14,7 +14,6 @@
 
 from typing import Optional
 
-from ....constants import XINFERENCE_CACHE_DIR
 from ..llm_family import LLMFamilyV1, LLMSpecV1
 from .core import PytorchChatModel, PytorchModelConfig
 
@@ -53,13 +52,11 @@ class FalconPytorchModel(PytorchChatModel):
         tokenizer = AutoTokenizer.from_pretrained(
             self.model_path,
             revision=kwargs["revision"],
-            cache_dir=XINFERENCE_CACHE_DIR,
         )
         model = AutoModelForCausalLM.from_pretrained(
             self.model_path,
             low_cpu_mem_usage=True,
             trust_remote_code=True,
-            cache_dir=XINFERENCE_CACHE_DIR,
             **kwargs,
         )
         tokenizer.pad_token_id = 9
@@ -71,6 +68,6 @@ class FalconPytorchModel(PytorchChatModel):
             return False
         if "falcon" not in llm_family.model_name:
             return False
-        if "chat" not in llm_family.model_ability:
+        if "generate" not in llm_family.model_ability:
             return False
         return True
