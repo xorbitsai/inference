@@ -15,6 +15,9 @@
 import logging
 from typing import Iterator, List, Optional, TypedDict, Union
 
+import torch
+import torch.nn.functional as F
+
 from ....constants import XINFERENCE_CACHE_DIR
 from ....types import (
     ChatCompletion,
@@ -23,6 +26,8 @@ from ....types import (
     Completion,
     CompletionChunk,
     Embedding,
+    EmbeddingData,
+    EmbeddingUsage,
 )
 from ..core import LLM
 from ..llm_family import LLMFamilyV1, LLMSpecV1
@@ -247,8 +252,87 @@ class PytorchModel(LLM):
         else:
             return generator_wrapper(prompt, device, generate_config)
 
-    def create_embedding(self, input: Union[str, List[str]]) -> Embedding:
-        raise NotImplementedError
+    def create_embedding(self, input: Union[str, List[str]]) -> "Embedding":
+        if self._is_darwin_and_apple_silicon():
+            device = self._pytorch_model_config.get("device", "mps")
+        else:
+            device = self._pytorch_model_config.get("device", "cuda")
+
+        if isinstance(input, str):
+            inputs = [input]
+        else:
+            inputs = input
+
+        try:
+            tokenizer = self._tokenizer
+            is_llama = "llama" in str(
+                type(self._model)
+            )  # llama supports batch inference
+            is_chatglm = "chatglm" in str(type(self._model))
+            if is_llama:
+                encoding = tokenizer.batch_encode_plus(
+                    inputs, padding=True, return_tensors="pt"
+                )
+                input_ids = encoding["input_ids"].to(device)
+                attention_mask = encoding["attention_mask"].to(device)
+                model_output = self._model(
+                    input_ids, attention_mask, output_hidden_states=True
+                )
+                data = model_output.hidden_states[-1]
+                mask = attention_mask.unsqueeze(-1).expand(data.size()).float()
+                masked_embeddings = data * mask
+                sum_embeddings = torch.sum(masked_embeddings, dim=1)
+                seq_length = torch.sum(mask, dim=1)
+                embedding = sum_embeddings / seq_length
+                normalized_embeddings = F.normalize(embedding, p=2, dim=1)
+                normalized_embeddings = normalized_embeddings.tolist()
+                token_num = torch.sum(attention_mask).item()
+
+                embedding_list = []
+                for index, data in enumerate(normalized_embeddings):
+                    embedding_list.append(
+                        EmbeddingData(index=index, object="embedding", embedding=data)
+                    )
+
+                usage = EmbeddingUsage(prompt_tokens=token_num, total_tokens=token_num)
+
+                ret = Embedding(
+                    object="list",
+                    model=self.model_uid,
+                    data=embedding_list,
+                    usage=usage,
+                )
+
+            else:
+                embedding = []
+                token_num = 0
+                for index, text in enumerate(inputs):
+                    input_ids = tokenizer.encode(text, return_tensors="pt").to(device)
+                    model_output = self._model(input_ids, output_hidden_states=True)
+                    if is_chatglm:
+                        data = (model_output.hidden_states[-1].transpose(0, 1))[0]
+                    else:
+                        data = model_output.hidden_states[-1][0]
+                    data = F.normalize(torch.mean(data, dim=0), p=2, dim=0)
+                    data = data.tolist()
+
+                    embedding.append(
+                        EmbeddingData(index=index, object="embedding", embedding=data)
+                    )
+                    token_num += len(input_ids[0])
+
+                usage = EmbeddingUsage(prompt_tokens=token_num, total_tokens=token_num)
+                ret = Embedding(
+                    object="list", model=self.model_uid, data=embedding, usage=usage
+                )
+
+        except torch.cuda.OutOfMemoryError:
+            raise
+
+        except (ValueError, RuntimeError):
+            raise
+
+        return ret
 
 
 class PytorchChatModel(PytorchModel, ChatModelMixin):
