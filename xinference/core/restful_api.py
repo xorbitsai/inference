@@ -32,7 +32,7 @@ from typing_extensions import NotRequired, TypedDict
 from uvicorn import Config, Server
 
 from ..types import ChatCompletion, Completion, Embedding
-from .service import SupervisorActor
+from .supervisor import SupervisorActor
 
 logger = logging.getLogger(__name__)
 
