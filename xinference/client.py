@@ -21,7 +21,7 @@ import requests
 import xoscar as xo
 
 from .core.model import ModelActor
-from .core.service import SupervisorActor
+from .core.supervisor import SupervisorActor
 from .isolation import Isolation
 
 if TYPE_CHECKING:

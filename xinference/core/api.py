@@ -19,7 +19,7 @@ import xoscar as xo
 
 from ..isolation import Isolation
 from . import ModelActor
-from .service import SupervisorActor
+from .supervisor import SupervisorActor
 
 
 class AsyncSupervisorAPI:

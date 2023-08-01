@@ -18,7 +18,7 @@ from typing import Dict, Optional
 
 import xoscar as xo
 
-from ..core.service import WorkerActor
+from ..core.worker import WorkerActor
 
 logger = logging.getLogger(__name__)
 
