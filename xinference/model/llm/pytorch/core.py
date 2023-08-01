@@ -15,9 +15,6 @@
 import logging
 from typing import Iterator, List, Optional, TypedDict, Union
 
-import torch
-import torch.nn.functional as F
-
 from ....constants import XINFERENCE_CACHE_DIR
 from ....types import (
     ChatCompletion,
@@ -252,7 +249,15 @@ class PytorchModel(LLM):
         else:
             return generator_wrapper(prompt, device, generate_config)
 
-    def create_embedding(self, input: Union[str, List[str]]) -> "Embedding":
+    def create_embedding(self, input: Union[str, List[str]]) -> Embedding:
+        try:
+            import torch
+            import torch.nn.functional as F
+        except ImportError as e:
+            raise ImportError(
+                "Could not import torch. Please install it with `pip install torch`."
+            ) from e
+
         if self._is_darwin_and_apple_silicon():
             device = self._pytorch_model_config.get("device", "mps")
         else:
