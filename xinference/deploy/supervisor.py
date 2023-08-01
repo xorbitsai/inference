@@ -23,7 +23,7 @@ from xoscar.utils import get_next_port
 from ..constants import XINFERENCE_DEFAULT_ENDPOINT_PORT
 from ..core.gradio import GradioApp
 from ..core.restful_api import RESTfulAPIActor
-from ..core.service import SupervisorActor
+from ..core.supervisor import SupervisorActor
 
 logger = logging.getLogger("xinference")
 
