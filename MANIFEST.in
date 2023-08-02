@@ -9,3 +9,4 @@ include versioneer.py
 include xinference/_version.py
 global-exclude conftest.py
 include xinference/locale/*.json
+include xinference/model/llm/*.json

@@ -12,24 +12,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
-import urllib.request
 import uuid
-from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Dict, List, Optional
 
 import gradio as gr
 
 from ..locale.utils import Locale
-from ..model import MODEL_FAMILIES, ModelSpec
+from ..model.llm import LLM_FAMILIES, LLMFamilyV1, match_llm
+from ..model.llm.llm_family import cache
 from .api import SyncSupervisorAPI
 
 if TYPE_CHECKING:
     from ..types import ChatCompletionChunk, ChatCompletionMessage
 
-MODEL_TO_FAMILIES = dict(
+MODEL_TO_FAMILIES: Dict[str, LLMFamilyV1] = dict(
     (model_family.model_name, model_family)
-    for model_family in MODEL_FAMILIES
-    if model_family.model_name not in ["baichuan", "baichuan-base", "llama-2"]
+    for model_family in LLM_FAMILIES
+    if "chat" in model_family.model_ability
 )
 
 
@@ -57,7 +56,7 @@ class GradioApp:
         model_uid = str(uuid.uuid1())
         models = self._api.list_models()
         if len(models) >= self._max_model_num:
-            self._api.terminate_model(models[0][0])
+            self._api.terminate_model(list(models.keys())[0])
         return self._api.launch_model(
             model_uid, model_name, model_size_in_billions, model_format, quantization
         )
@@ -222,27 +221,16 @@ class GradioApp:
             def select_model_name(model_name: str):
                 if model_name:
                     model_family = MODEL_TO_FAMILIES[model_name]
-                    formats = [model_family.model_format]
-                    model_sizes_in_billions = [
-                        str(b) for b in model_family.model_sizes_in_billions
-                    ]
-                    quantizations = model_family.quantizations
+                    formats = list(
+                        {spec.model_format for spec in model_family.model_specs}
+                    )
+                    formats.sort()
                     return (
                         gr.Dropdown.update(
-                            choices=formats,
-                            interactive=True,
-                            value=model_family.model_format,
+                            choices=formats, interactive=True, value=None
                         ),
-                        gr.Dropdown.update(
-                            choices=model_sizes_in_billions,
-                            interactive=True,
-                            value=model_sizes_in_billions[0],
-                        ),
-                        gr.Dropdown.update(
-                            choices=quantizations,
-                            interactive=True,
-                            value=quantizations[0],
-                        ),
+                        gr.Dropdown.update(choices=[], interactive=False, value=None),
+                        gr.Dropdown.update(choices=[], interactive=False, value=None),
                     )
                 else:
                     return (
@@ -251,10 +239,68 @@ class GradioApp:
                         gr.Dropdown.update(),
                     )
 
+            def select_model_format(model_name: str, model_format: str):
+                if model_name:
+                    model_family = MODEL_TO_FAMILIES[model_name]
+                    sizes = list(
+                        {
+                            spec.model_size_in_billions
+                            for spec in model_family.model_specs
+                            if spec.model_format == model_format
+                        }
+                    )
+                    sizes.sort()
+                    return (
+                        gr.Dropdown.update(
+                            choices=list(map(lambda s: str(s), sizes)),
+                            interactive=True,
+                            value=None,
+                        ),
+                        gr.Dropdown.update(choices=[], interactive=False, value=None),
+                    )
+                else:
+                    return (
+                        gr.Dropdown.update(),
+                        gr.Dropdown.update(),
+                    )
+
+            def select_model_size(
+                model_name: str, model_format: str, model_size_in_billions: str
+            ):
+                if model_name:
+                    model_family = MODEL_TO_FAMILIES[model_name]
+                    quantizations = list(
+                        {
+                            quantization
+                            for spec in model_family.model_specs
+                            if spec.model_format == model_format
+                            and str(spec.model_size_in_billions)
+                            == model_size_in_billions
+                            for quantization in spec.quantizations
+                        }
+                    )
+                    quantizations.sort()
+                    return gr.Dropdown.update(
+                        choices=quantizations,
+                        interactive=True,
+                    )
+                else:
+                    return gr.Dropdown.update()
+
             model_name.change(
                 select_model_name,
                 inputs=[model_name],
                 outputs=[model_format, model_size_in_billions, quantization],
+            )
+            model_format.change(
+                select_model_format,
+                inputs=[model_name, model_format],
+                outputs=[model_size_in_billions, quantization],
+            )
+            model_size_in_billions.change(
+                select_model_size,
+                inputs=[model_name, model_format, model_size_in_billions],
+                outputs=[quantization],
             )
 
             components = self._build_chatbot("", "")
@@ -266,29 +312,23 @@ class GradioApp:
             _model_format: str,
             _model_size_in_billions: str,
             _quantization: str,
-            progress=gr.Progress(),
+            progress=gr.Progress(track_tqdm=True),
         ):
-            model_family = MODEL_TO_FAMILIES[_model_name]
-            cache_path = model_family.generate_cache_path(
-                int(_model_size_in_billions), _quantization
+            match_result = match_llm(
+                _model_name,
+                _model_format,
+                int(_model_size_in_billions),
+                _quantization,
+                self._api.is_local_deployment(),
             )
-            if _model_format != "pytorch" and not (os.path.exists(cache_path)):
-                url = model_family.url_generator(
-                    int(_model_size_in_billions), _quantization
+            if not match_result:
+                raise ValueError(
+                    f"Model not found, name: {_model_name}, format: {_model_format},"
+                    f" size: {_model_size_in_billions}, quantization: {_quantization}"
                 )
-                try:
-                    urllib.request.urlretrieve(
-                        url,
-                        cache_path,
-                        reporthook=lambda block_num, block_size, total_size: progress(
-                            block_num * block_size / total_size,
-                            desc=self._locale("Downloading"),
-                        ),
-                    )
-                except:
-                    if os.path.exists(cache_path):
-                        os.remove(cache_path)
-                    raise gr.Error(self._locale(f"Download failed, please retry."))
+
+            llm_family, llm_spec, _quantization = match_result
+            cache(llm_family, llm_spec, _quantization)
 
             model_uid = self._create_model(
                 _model_name, int(_model_size_in_billions), _model_format, _quantization
@@ -358,83 +398,11 @@ class GradioApp:
         msg.submit(update_message, inputs=[msg], outputs=[msg, model_text])
         gr.ClearButton(components=[chat, msg, model_text])
 
-    def _build_single_with_launched(
-        self, models: List[Tuple[str, ModelSpec]], default_index: int
-    ):
-        uid_to_model_spec: Dict[str, ModelSpec] = dict((m[0], m[1]) for m in models)
-        choices = [
-            "-".join(
-                [
-                    s.model_name,
-                    str(s.model_size_in_billions),
-                    s.model_format,
-                    s.quantization,
-                ]
-            )
-            for s in uid_to_model_spec.values()
-        ]
-        choice_to_uid = dict(zip(choices, uid_to_model_spec.keys()))
-        model_selection = gr.Dropdown(
-            label=self._locale("select model"),
-            choices=choices,
-            value=choices[default_index],
-        )
-        components = self._build_chatbot(
-            models[default_index][0], choices[default_index]
-        )
-        model_text = components[0]
-        model_uid = components[-1]
-        chat = components[1]
-
-        def select_model(model_name):
-            uid = choice_to_uid[model_name]
-            return gr.Chatbot.update(label=model_name), uid
-
-        model_selection.change(
-            select_model, inputs=[model_selection], outputs=[chat, model_uid]
-        )
-        return chat, model_text
-
-    def _build_arena_with_launched(self, models: List[Tuple[str, ModelSpec]]):
-        chat_and_text = []
-        with gr.Row():
-            for i in range(self._gladiator_num):
-                with gr.Column():
-                    chat_and_text.append(self._build_single_with_launched(models, i))
-
-        chats = [c[0] for c in chat_and_text]
-        texts = [c[1] for c in chat_and_text]
-
-        msg = gr.Textbox(label=self._locale("Input"))
-
-        def update_message(text_in: str):
-            return "", text_in, text_in
-
-        msg.submit(update_message, inputs=[msg], outputs=[msg] + texts)
-
-        gr.ClearButton(components=[msg] + chats + texts)
-
     def build(self):
-        if self._use_launched_model:
-            models = self._api.list_models()
-            with gr.Blocks() as blocks:
-                with gr.Tab(self._locale("Chat")):
-                    chat, model_text = self._build_single_with_launched(models, 0)
-                    msg = gr.Textbox(label=self._locale("Input"))
-
-                    def update_message(text_in: str):
-                        return "", text_in
-
-                    msg.submit(update_message, inputs=[msg], outputs=[msg, model_text])
-                    gr.ClearButton(components=[chat, msg, model_text])
-                if len(models) >= 2:
-                    with gr.Tab(self._locale("Arena")):
-                        self._build_arena_with_launched(models)
-        else:
-            with gr.Blocks() as blocks:
-                with gr.Tab(self._locale("Chat")):
-                    self._build_single()
-                with gr.Tab(self._locale("Arena")):
-                    self._build_arena()
+        with gr.Blocks() as blocks:
+            with gr.Tab(self._locale("Chat")):
+                self._build_single()
+            with gr.Tab(self._locale("Arena")):
+                self._build_arena()
         blocks.queue(concurrency_count=40)
         return blocks

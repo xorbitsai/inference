@@ -18,15 +18,16 @@ from . import _version
 __version__ = _version.get_versions()["version"]
 
 
-def install():
+def _install():
     from xoscar.backends.router import Router
 
-    from .model import install as install_model
+    from .model import _install as install_model
 
     default_router = Router.get_instance_or_empty()
     Router.set_instance(default_router)
+
     install_model()
 
 
-install()
-del install
+_install()
+del _install

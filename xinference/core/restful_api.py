@@ -32,7 +32,7 @@ from typing_extensions import NotRequired, TypedDict
 from uvicorn import Config, Server
 
 from ..types import ChatCompletion, Completion, Embedding
-from .service import SupervisorActor
+from .supervisor import SupervisorActor
 
 logger = logging.getLogger(__name__)
 
@@ -283,22 +283,12 @@ class RESTfulAPIActor(xo.Actor):
 
     async def list_models(self) -> Dict[str, Dict[str, Any]]:
         try:
-            models = await self._supervisor_ref.list_models()
+            return await self._supervisor_ref.list_models()
         except Exception as e:
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
 
-        models_dict = {}
-        for model_uid, model_spec in models:
-            models_dict[model_uid] = {
-                "model_name": model_spec.model_name,
-                "model_format": model_spec.model_format,
-                "model_size_in_billions": model_spec.model_size_in_billions,
-                "quantization": model_spec.quantization,
-            }
-        return models_dict
-
-    async def describe_model(self, model_uid: str):
+    async def describe_model(self, model_uid: str) -> Dict[str, Any]:
         try:
             return await self._supervisor_ref.describe_model(model_uid)
 

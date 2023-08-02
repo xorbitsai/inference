@@ -13,18 +13,19 @@
 # limitations under the License.
 
 import logging
+import os
 import time
 import uuid
 from pathlib import Path
 from typing import TYPE_CHECKING, Iterator, List, Optional, TypedDict, Union
 
-from ...types import ChatCompletion, ChatCompletionChunk, ChatCompletionMessage
-from .core import Model
+from ....types import ChatCompletion, ChatCompletionChunk, ChatCompletionMessage
+from .. import LLMFamilyV1, LLMSpecV1
+from ..core import LLM
 
 if TYPE_CHECKING:
     from chatglm_cpp import Pipeline
 
-    from .. import ModelSpec
 
 logger = logging.getLogger(__name__)
 
@@ -40,17 +41,18 @@ class ChatglmCppGenerateConfig(TypedDict, total=False):
     stream: bool
 
 
-class ChatglmCppChatModel(Model):
+class ChatglmCppChatModel(LLM):
     def __init__(
         self,
         model_uid: str,
-        model_spec: "ModelSpec",
+        model_family: "LLMFamilyV1",
+        model_spec: "LLMSpecV1",
+        quantization: str,
         model_path: str,
         model_config: Optional[ChatglmCppModelConfig] = None,
     ):
-        super().__init__(model_uid, model_spec)
+        super().__init__(model_uid, model_family, model_spec, quantization, model_path)
         self._llm: Optional["Pipeline"] = None
-        self._model_path = model_path
 
         # just a placeholder for now as the chatglm_cpp repo doesn't support model config.
         self._model_config = model_config
@@ -80,7 +82,29 @@ class ChatglmCppChatModel(Model):
 
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
-        self._llm = chatglm_cpp.Pipeline(Path(self._model_path))
+        model_file_path = os.path.join(
+            self.model_path,
+            self.model_spec.model_file_name_template.format(
+                quantization=self.quantization
+            ),
+        )
+
+        # handle legacy cache.
+        legacy_model_file_path = os.path.join(self.model_path, "model.bin")
+        if os.path.exists(legacy_model_file_path):
+            model_file_path = legacy_model_file_path
+
+        self._llm = chatglm_cpp.Pipeline(Path(model_file_path))
+
+    @classmethod
+    def match(cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1") -> bool:
+        if llm_spec.model_format != "ggmlv3":
+            return False
+        if "chatglm" not in llm_family.model_name:
+            return False
+        if "chat" not in llm_family.model_ability:
+            return False
+        return True
 
     @staticmethod
     def _convert_raw_text_chunks_to_chat(

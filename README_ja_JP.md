@@ -19,8 +19,6 @@ Xorbits Inference(Xinference) は、言語、音声認識、マルチモーダ�
 あなたや最先端のビルトインモデルを簡単にデプロイし、提供することができます。 Xorbits Inference は、
 研究者、開発者、データサイエンティストを問わず、最先端の AI モデルの可能性を最大限に引き出すことができます。
 
-![demo](assets/demo.gif)
-
 <div align="center">
 <i><a href="https://join.slack.com/t/xorbitsio/shared_invite/zt-1z3zsm9ep-87yI9YZ_B79HLB2ccTq4WA">👉 Slack コミュニティにご参加ください！</a></i>
 </div>
@@ -46,13 +44,34 @@ RESTful API（OpenAI API と互換性あり）、CLI、WebUI をサポートし�
 
 ## はじめに
 Xinference は PyPI から pip 経由でインストールできます。コンフリクトを避けるため、新しい仮想環境を作成することを強く推奨します。
+
+### インストール
+```bash
+$ pip install "xinference"
+```
+`xinference` はモデルを提供するための基本的なパッケージをインストールします。
+
+#### GGML でのインストール
+ggml モデルを提供するためには、以下の追加依存関係をインストールする必要があります:
+```bash
+$ pip install "xinference[ggml]"
+```
+異なるハードウェアでアクセラレーションを実現したい場合は、
+対応するパッケージのインストールマニュアルを参照してください。
+- `baichuan`、`wizardlm-v1.0`、`vicuna-v1.3`、`orca` を実行するには、[llama-cpp-python](https://github.com/abetlen/llama-cpp-python#installation-from-pypi-recommended) が必要である。
+- `chatglm` と `chatglm2` を実行するには、[chatglm-cpp-python](https://github.com/li-plus/chatglm.cpp#getting-started) が必要である。
+
+#### PyTorch でのインストール
+PyTorch のモデルを提供するには、以下の依存関係をインストールする必要があります:
+```bash
+$ pip install "xinference[pytorch]"
+```
+
+#### すべての依存関係を含むインストール
+サポートされているすべてのモデルにサービスを提供したい場合は、すべての依存関係をインストールします:
 ```bash
 $ pip install "xinference[all]"
 ```
-`xinference[all]` はモデルを提供するために必要なすべてのパッケージをインストールします。異なるハードウェアで高速化を行いたい場合は、
-対応するパッケージのインストールドキュメントを参照してください。
-- `baichuan`、`wizardlm-v1.0`、`vicuna-v1.3`、`orca` を実行するには、[llama-cpp-python](https://github.com/abetlen/llama-cpp-python#installation-from-pypi-recommended) が必要である。
-- `chatglm` と `chatglm2` を実行するには、[chatglm-cpp-python](https://github.com/li-plus/chatglm.cpp#getting-started) が必要である。
 
 
 ### デプロイ
@@ -89,7 +108,7 @@ Xinference が起動すると、CLI または Xinference クライアントか�
 また、Xinference エンドポイントを使用してウェブ UI を表示し、すべての内蔵モデルとチャットすることもできます。
 **2 つの最先端 AI モデルを並べてチャットし、パフォーマンスを比較することもできます**！
 
-![web UI](assets/xinference-downloading.png)
+![web UI](assets/demo.gif)
 
 ### Xinference CLI
 Xinference には、モデル管理のためのコマンドラインインターフェース（CLI）が用意されています。便利なコマンドをいくつか紹介します:
@@ -152,11 +171,13 @@ model.chat(
 $ xinference list --all
 ```
 
+### ggmlv3 モデル
+
 | Name          | Type             | Language | Format  | Size (in billions) | Quantization                            |
 |---------------|------------------|----------|---------|--------------------|-----------------------------------------|
 | llama-2       | Foundation Model | en       | ggmlv3  | 7, 13              | 'q2_K', 'q3_K_L', ... , 'q6_K', 'q8_0'  |
 | baichuan      | Foundation Model | en, zh   | ggmlv3  | 7                  | 'q2_K', 'q3_K_L', ... , 'q6_K', 'q8_0'  |
-| llama-2-chat  | RLHF Model       | en       | ggmlv3  | 7, 13              | 'q2_K', 'q3_K_L', ... , 'q6_K', 'q8_0'  |
+| llama-2-chat  | RLHF Model       | en       | ggmlv3  | 7, 13, 70          | 'q2_K', 'q3_K_L', ... , 'q6_K', 'q8_0'  |
 | chatglm       | SFT Model        | en, zh   | ggmlv3  | 6                  | 'q4_0', 'q4_1', 'q5_0', 'q5_1', 'q8_0'  |
 | chatglm2      | SFT Model        | en, zh   | ggmlv3  | 6                  | 'q4_0', 'q4_1', 'q5_0', 'q5_1', 'q8_0'  |
 | wizardlm-v1.0 | SFT Model        | en       | ggmlv3  | 7, 13, 33          | 'q2_K', 'q3_K_L', ... , 'q6_K', 'q8_0'  |
@@ -164,18 +185,61 @@ $ xinference list --all
 | vicuna-v1.3   | SFT Model        | en       | ggmlv3  | 7, 13              | 'q2_K', 'q3_K_L', ... , 'q6_K', 'q8_0'  |
 | orca          | SFT Model        | en       | ggmlv3  | 3, 7, 13           | 'q4_0', 'q4_1', 'q5_0', 'q5_1', 'q8_0'  |
 
+### pytorch モデル
+
+| Name          | Type             | Language | Format  | Size (in billions) | Quantization             |
+|---------------|------------------|----------|---------|--------------------|--------------------------|
+| baichuan      | Foundation Model | en, zh   | pytorch | 7, 13              | '4-bit', '8-bit', 'none' |
+| baichuan-chat | SFT Model        | en, zh   | pytorch | 13                 | '4-bit', '8-bit', 'none' |
+| vicuna-v1.3   | SFT Model        | en       | pytorch | 7, 13, 33          | '4-bit', '8-bit', 'none' |
+
 
 **注**:
 - Xinference は自動的にモデルをダウンロードし、デフォルトでは `${USER}/.xinference/cache` の下に保存されます。
 - Foundation モデルは `generate` インターフェースのみを提供する。
 - RLHF と SFT のモデルは `generate` と `chat` の両方を提供する。
 - Apple Metal GPU をアクセラレーションに使用する場合は、q4_0 と q4_1 の量子化方法を選択してください。
+- `llama-2-chat` 70B ggmlv3 モデルは現在 q4_0 量子化しかサポートしていない。
+
+
+## Pytorch モデルのベストプラクティス
+
+最近 Pytorch が統合されました。使用シナリオを以下に説明します:
+
+### サポートモデル
+- 基礎モデル: baichuan（7B、13B）。
+- SFT モデル: baichuan-chat（13B）、vicuna-v1.3（7B、13B、33B）。
+
+### サポートデバイス
+- CUDA： Linux と Windows システムでは、デフォルトで `cuda` デバイスが使用される。
+- MPS： Mac M1/M2 デバイスでは、デフォルトで `mps` デバイスが使用される。
+- CPU： `cpu` デバイスを使用することは推奨されない。多くのメモリを消費し、推論速度が非常に遅くなるからです。
+
+### 量子化メソッド
+- `none`: 量子化を行わないことを示す。
+- `8-bit`: 8 ビット量子化を使用する。
+- `4-bit`: 4 ビット量子化を使用する。注意：4ビット量子化は Linux システムと CUDA デバイスでのみサポートされています。
+
+### その他の命令
+- MacOSシステムでは、baichuan-chat モデルはサポートされておらず、baichuan モデルは 8 ビット量子化を使用できない
+
+### ユースケース
+
+以下の表は、一部のモデルのメモリ使用量と対応デバイスを示しています。
+
+| Name          | Size (B) | OS    | No quantization (MB) | Quantization 8-bit (MB) | Quantization 4-bit (MB) |
+|---------------|----------|-------|----------------------|-------------------------|-------------------------|
+| baichuan-chat | 13       | linux | not currently tested | 13275                   | 7263                    |
+| baichuan-chat | 13       | macos | not supported        | not supported           | not supported           |
+| vicuna-v1.3   | 7        | linux | 12884                | 6708                    | 3620                    |
+| vicuna-v1.3   | 7        | macos | 12916                | 565                     | not supported           |
+| baichuan      | 7        | linux | 13480                | 7304                    | 4216                    |
+| baichuan      | 7        | macos | 13480                | not supported           | not supported           |
+
+
 
 ## ロードマップ
-Xinferenceは現在活発に開発中です。今後数週間の開発予定ロードマップは以下の通りです:
-
-### PyTorch サポート
-PyTorch との統合により、ユーザーは Xinference 内で Hugging Face の PyTorch モデルをシームレスに利用できるようになります。
+Xinference は現在活発に開発中です。今後数週間の開発予定ロードマップは以下の通りです:
 
 ### Langchain と LlamaIndex 統合
 Xinference があれば、ユーザーはこれらのライブラリを使用し、LLM でアプリケーションを構築することがより簡単になります。

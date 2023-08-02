@@ -13,9 +13,7 @@
 # limitations under the License.
 
 import logging
-from typing import TYPE_CHECKING, Iterator, List, Optional, TypedDict, Union
-
-import torch
+from typing import Iterator, List, Optional, TypedDict, Union
 
 from ....constants import XINFERENCE_CACHE_DIR
 from ....types import (
@@ -26,13 +24,9 @@ from ....types import (
     CompletionChunk,
     Embedding,
 )
-from ..core import Model
-from ..utils import ChatModelDataProcessorMixin
-from .compression import load_compress_model
-from .utils import generate_stream
-
-if TYPE_CHECKING:
-    from ... import ModelSpec
+from ..core import LLM
+from ..llm_family import LLMFamilyV1, LLMSpecV1
+from ..utils import ChatModelMixin
 
 logger = logging.getLogger(__name__)
 
@@ -63,17 +57,18 @@ class PytorchModelConfig(TypedDict, total=False):
     gptq_act_order: bool
 
 
-class PytorchModel(Model):
+class PytorchModel(LLM):
     def __init__(
         self,
         model_uid: str,
-        model_spec: "ModelSpec",
+        model_family: "LLMFamilyV1",
+        model_spec: "LLMSpecV1",
+        quantization: str,
         model_path: str,
         pytorch_model_config: Optional[PytorchModelConfig] = None,
     ):
-        super().__init__(model_uid, model_spec)
+        super().__init__(model_uid, model_family, model_spec, quantization, model_path)
         self._use_fast_tokenizer = True
-        self._model_path = model_path
         self._pytorch_model_config: PytorchModelConfig = self._sanitize_model_config(
             pytorch_model_config
         )
@@ -92,17 +87,6 @@ class PytorchModel(Model):
         pytorch_model_config.setdefault("gptq_act_order", False)
         if self._is_darwin_and_apple_silicon():
             pytorch_model_config.setdefault("device", "mps")
-            if (
-                self.model_spec.model_name in ["baichuan-chat", "baichuan-base"]
-                and self.model_spec.quantization != "none"
-            ):
-                # dtype of parameters in `baichuan-chat` and `baichuan-base` model
-                # is `torch.bfloat16` which is not supported on MPS.
-                logger.warning(
-                    f"Model {self.model_spec.model_name} can't use quantization method on MPS device. "
-                    "Continuing with CPU device"
-                )
-                pytorch_model_config["device"] = "cpu"
         else:
             pytorch_model_config.setdefault("device", "cuda")
         return pytorch_model_config
@@ -133,13 +117,13 @@ class PytorchModel(Model):
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
         tokenizer = AutoTokenizer.from_pretrained(
-            self._model_path,
+            self.model_path,
             use_fast=self._use_fast_tokenizer,
             revision=kwargs["revision"],
             cache_dir=XINFERENCE_CACHE_DIR,
         )
         model = AutoModelForCausalLM.from_pretrained(
-            self._model_path,
+            self.model_path,
             low_cpu_mem_usage=True,
             cache_dir=XINFERENCE_CACHE_DIR,
             **kwargs,
@@ -147,7 +131,15 @@ class PytorchModel(Model):
         return model, tokenizer
 
     def load(self):
-        quantization = self.model_spec.quantization
+        try:
+            import torch
+        except ImportError:
+            raise ImportError(
+                f"Failed to import module 'torch'. Please make sure 'torch' is installed.\n\n"
+            )
+        from .compression import load_compress_model
+
+        quantization = self.quantization
         num_gpus = self._pytorch_model_config.get("num_gpus", 1)
         if self._is_darwin_and_apple_silicon():
             device = self._pytorch_model_config.get("device", "mps")
@@ -184,7 +176,7 @@ class PytorchModel(Model):
                     )
                 else:
                     self._model, self._tokenizer = load_compress_model(
-                        model_path=self._model_path,
+                        model_path=self.model_path,
                         device=device,
                         torch_dtype=kwargs["torch_dtype"],
                         use_fast=self._use_fast_tokenizer,
@@ -201,9 +193,21 @@ class PytorchModel(Model):
             self._model.to(device)
         logger.debug(f"Model Memory: {self._model.get_memory_footprint()}")
 
+    @classmethod
+    def match(cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1") -> bool:
+        if llm_spec.model_format != "pytorch":
+            return False
+        if "baichuan" in llm_family.model_name:
+            return False
+        if "generate" not in llm_family.model_ability:
+            return False
+        return True
+
     def generate(
         self, prompt: str, generate_config: Optional[PytorchGenerateConfig] = None
     ) -> Union[Completion, Iterator[CompletionChunk]]:
+        from .utils import generate_stream
+
         def generator_wrapper(
             prompt: str, device: str, generate_config: PytorchGenerateConfig
         ) -> Iterator[CompletionChunk]:
@@ -247,27 +251,24 @@ class PytorchModel(Model):
         raise NotImplementedError
 
 
-class PytorchChatModel(PytorchModel, ChatModelDataProcessorMixin):
+class PytorchChatModel(PytorchModel, ChatModelMixin):
     def __init__(
         self,
         model_uid: str,
-        model_spec: "ModelSpec",
+        model_family: "LLMFamilyV1",
+        model_spec: "LLMSpecV1",
+        quantization: str,
         model_path: str,
-        system_prompt: str,
-        sep: str,
-        user_name: str,
-        assistant_name: str,
-        stop: Optional[Union[str, List[str]]] = None,
-        stop_token_ids: Optional[Union[int, List[int]]] = None,
         pytorch_model_config: Optional[PytorchModelConfig] = None,
     ):
-        super().__init__(model_uid, model_spec, model_path, pytorch_model_config)
-        self._system_prompt: str = system_prompt
-        self._sep: str = sep
-        self._user_name: str = user_name
-        self._assistant_name: str = assistant_name
-        self._stop: Optional[Union[str, List[str]]] = stop
-        self._stop_token_ids: Optional[Union[int, List[int]]] = stop_token_ids
+        super().__init__(
+            model_uid,
+            model_family,
+            model_spec,
+            quantization,
+            model_path,
+            pytorch_model_config,
+        )
 
     def _sanitize_generate_config(
         self,
@@ -276,15 +277,32 @@ class PytorchChatModel(PytorchModel, ChatModelDataProcessorMixin):
         pytorch_generate_config = super()._sanitize_generate_config(
             pytorch_generate_config
         )
-        if "stop" not in pytorch_generate_config and self._stop is not None:
-            pytorch_generate_config["stop"] = self._stop
+        if (
+            "stop" not in pytorch_generate_config
+            and self.model_family.prompt_style
+            and self.model_family.prompt_style.stop
+        ):
+            pytorch_generate_config["stop"] = self.model_family.prompt_style.stop
         if (
             "stop_token_ids" not in pytorch_generate_config
-            and self._stop_token_ids is not None
+            and self.model_family.prompt_style
+            and self.model_family.prompt_style.stop_token_ids
         ):
-            pytorch_generate_config["stop_token_ids"] = self._stop_token_ids
+            pytorch_generate_config[
+                "stop_token_ids"
+            ] = self.model_family.prompt_style.stop_token_ids
 
         return pytorch_generate_config
+
+    @classmethod
+    def match(cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1") -> bool:
+        if llm_spec.model_format != "pytorch":
+            return False
+        if "baichuan" in llm_family.model_name:
+            return False
+        if "chat" not in llm_family.model_ability:
+            return False
+        return True
 
     def chat(
         self,
@@ -293,9 +311,12 @@ class PytorchChatModel(PytorchModel, ChatModelDataProcessorMixin):
         chat_history: Optional[List[ChatCompletionMessage]] = None,
         generate_config: Optional[PytorchGenerateConfig] = None,
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
-        system_prompt = system_prompt or self._system_prompt
+        assert self.model_family.prompt_style is not None
+        prompt_style = self.model_family.prompt_style.copy()
+        if system_prompt:
+            prompt_style.system_prompt = system_prompt
         chat_history = chat_history or []
-        full_prompt = self._to_prompt(prompt, system_prompt, chat_history=chat_history)
+        full_prompt = self.get_prompt(prompt, chat_history, prompt_style)
 
         generate_config = self._sanitize_generate_config(generate_config)
 

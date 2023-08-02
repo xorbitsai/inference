@@ -13,16 +13,13 @@
 # limitations under the License.
 
 import asyncio
-from typing import TYPE_CHECKING, List, Optional, Tuple
+from typing import Any, Dict, Optional
 
 import xoscar as xo
 
 from ..isolation import Isolation
 from . import ModelActor
-from .service import SupervisorActor
-
-if TYPE_CHECKING:
-    from ..model import ModelSpec
+from .supervisor import SupervisorActor
 
 
 class AsyncSupervisorAPI:
@@ -61,13 +58,18 @@ class AsyncSupervisorAPI:
         supervisor_ref = await self._get_supervisor_ref()
         await supervisor_ref.terminate_model(model_uid)
 
-    async def list_models(self) -> List[Tuple[str, "ModelSpec"]]:
+    async def list_models(self) -> Dict[str, Dict[str, Any]]:
         supervisor_ref = await self._get_supervisor_ref()
         return await supervisor_ref.list_models()
 
     async def get_model(self, model_uid: str) -> xo.ActorRefType["ModelActor"]:
         supervisor_ref = await self._get_supervisor_ref()
         return await supervisor_ref.get_model(model_uid)
+
+    async def is_local_deployment(self) -> bool:
+        # TODO: temporary.
+        supervisor_ref = await self._get_supervisor_ref()
+        return await supervisor_ref.is_local_deployment()
 
 
 class SyncSupervisorAPI:
@@ -114,7 +116,7 @@ class SyncSupervisorAPI:
 
         return self._isolation.call(_terminate_model())
 
-    def list_models(self) -> List[Tuple[str, "ModelSpec"]]:
+    def list_models(self) -> Dict[str, Dict[str, Any]]:
         async def _list_models():
             supervisor_ref = await self._get_supervisor_ref()
             return await supervisor_ref.list_models()
@@ -127,3 +129,11 @@ class SyncSupervisorAPI:
             return await supervisor_ref.get_model(model_uid)
 
         return self._isolation.call(_get_model())
+
+    def is_local_deployment(self) -> bool:
+        # TODO: temporary.
+        async def _is_local_deployment():
+            supervisor_ref = await self._get_supervisor_ref()
+            return await supervisor_ref.is_local_deployment()
+
+        return self._isolation.call(_is_local_deployment())
