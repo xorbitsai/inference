@@ -551,7 +551,7 @@ class Client:
         coro = self._supervisor_ref.terminate_model(model_uid)
         return self._isolation.call(coro)
 
-    def list_models(self) -> List[Tuple[str, "ModelSpec"]]:
+    def list_models(self) -> Dict[str, Dict[str, Any]]:
         """
         Retrieve the model specifications from the Server.
 
@@ -561,7 +561,7 @@ class Client:
             The collection of model specifications with their names on the server.
 
         """
-      
+
         coro = self._supervisor_ref.list_models()
         return self._isolation.call(coro)
 
@@ -584,7 +584,7 @@ class Client:
 
         """
 
-        model_spec: "ModelSpec" = self._isolation.call(
+        desc: Dict[str, Any] = self._isolation.call(
             self._supervisor_ref.describe_model(model_uid)
         )
         model_ref = self._isolation.call(self._supervisor_ref.get_model(model_uid))
