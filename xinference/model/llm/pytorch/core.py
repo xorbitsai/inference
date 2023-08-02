@@ -203,6 +203,7 @@ class PytorchModel(LLM):
             "falcon",
             "chatglm",
             "chatglm2",
+            "chatglm2-32k",
         ]:
             return False
         if "generate" not in llm_family.model_ability:
@@ -415,6 +416,7 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
             "falcon",
             "chatglm",
             "chatglm2",
+            "chatglm2-32k",
         ]:
             return False
         if "chat" not in llm_family.model_ability:
