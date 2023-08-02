@@ -15,7 +15,6 @@
 import logging
 from typing import Iterator, List, Optional, TypedDict, Union
 
-from ....constants import XINFERENCE_CACHE_DIR
 from ....types import (
     ChatCompletion,
     ChatCompletionChunk,
@@ -120,12 +119,10 @@ class PytorchModel(LLM):
             self.model_path,
             use_fast=self._use_fast_tokenizer,
             revision=kwargs["revision"],
-            cache_dir=XINFERENCE_CACHE_DIR,
         )
         model = AutoModelForCausalLM.from_pretrained(
             self.model_path,
             low_cpu_mem_usage=True,
-            cache_dir=XINFERENCE_CACHE_DIR,
             **kwargs,
         )
         return model, tokenizer
@@ -197,7 +194,12 @@ class PytorchModel(LLM):
     def match(cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1") -> bool:
         if llm_spec.model_format != "pytorch":
             return False
-        if "baichuan" in llm_family.model_name:
+        if llm_family.model_name in [
+            "baichuan",
+            "baichuan-chat",
+            "vicuna-v1.3",
+            "falcon",
+        ]:
             return False
         if "generate" not in llm_family.model_ability:
             return False
@@ -206,15 +208,21 @@ class PytorchModel(LLM):
     def generate(
         self, prompt: str, generate_config: Optional[PytorchGenerateConfig] = None
     ) -> Union[Completion, Iterator[CompletionChunk]]:
-        from .utils import generate_stream
+        from .utils import generate_stream, generate_stream_falcon
 
         def generator_wrapper(
             prompt: str, device: str, generate_config: PytorchGenerateConfig
         ) -> Iterator[CompletionChunk]:
-            for completion_chunk, _ in generate_stream(
-                self._model, self._tokenizer, prompt, device, generate_config
-            ):
-                yield completion_chunk
+            if "falcon" in self.model_family.model_name:
+                for completion_chunk, _ in generate_stream_falcon(
+                    self._model, self._tokenizer, prompt, device, generate_config
+                ):
+                    yield completion_chunk
+            else:
+                for completion_chunk, _ in generate_stream(
+                    self._model, self._tokenizer, prompt, device, generate_config
+                ):
+                    yield completion_chunk
 
         logger.debug(
             "Enter generate, prompt: %s, generate config: %s", prompt, generate_config
@@ -231,10 +239,16 @@ class PytorchModel(LLM):
         else:
             device = self._pytorch_model_config.get("device", "cuda")
         if not stream:
-            for completion_chunk, completion_usage in generate_stream(
-                self._model, self._tokenizer, prompt, device, generate_config
-            ):
-                pass
+            if "falcon" in self.model_family.model_name:
+                for completion_chunk, completion_usage in generate_stream_falcon(
+                    self._model, self._tokenizer, prompt, device, generate_config
+                ):
+                    pass
+            else:
+                for completion_chunk, completion_usage in generate_stream(
+                    self._model, self._tokenizer, prompt, device, generate_config
+                ):
+                    pass
             completion = Completion(
                 id=completion_chunk["id"],
                 object=completion_chunk["object"],
@@ -298,7 +312,12 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
     def match(cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1") -> bool:
         if llm_spec.model_format != "pytorch":
             return False
-        if "baichuan" in llm_family.model_name:
+        if llm_family.model_name in [
+            "baichuan",
+            "baichuan-chat",
+            "vicuna-v1.3",
+            "falcon",
+        ]:
             return False
         if "chat" not in llm_family.model_ability:
             return False
