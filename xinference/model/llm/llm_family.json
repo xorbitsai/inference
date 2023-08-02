@@ -614,5 +614,29 @@
       }
     ],
     "prompt_style": null
+  },
+  {
+    "version": 1,
+    "model_name": "falcon",
+    "model_lang": [
+      "en"
+    ],
+    "model_ability": [
+      "embed",
+      "generate"
+    ],
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 40,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "tiiuae/falcon-40b"
+      }
+    ],
+    "prompt_style": null
   }
 ]

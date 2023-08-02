@@ -15,7 +15,6 @@
 import logging
 from typing import Iterator, List, Optional, TypedDict, Union
 
-from ....constants import XINFERENCE_CACHE_DIR
 from ....types import (
     ChatCompletion,
     ChatCompletionChunk,
@@ -23,6 +22,8 @@ from ....types import (
     Completion,
     CompletionChunk,
     Embedding,
+    EmbeddingData,
+    EmbeddingUsage,
 )
 from ..core import LLM
 from ..llm_family import LLMFamilyV1, LLMSpecV1
@@ -120,12 +121,10 @@ class PytorchModel(LLM):
             self.model_path,
             use_fast=self._use_fast_tokenizer,
             revision=kwargs["revision"],
-            cache_dir=XINFERENCE_CACHE_DIR,
         )
         model = AutoModelForCausalLM.from_pretrained(
             self.model_path,
             low_cpu_mem_usage=True,
-            cache_dir=XINFERENCE_CACHE_DIR,
             **kwargs,
         )
         return model, tokenizer
@@ -201,6 +200,7 @@ class PytorchModel(LLM):
             "baichuan",
             "baichuan-chat",
             "vicuna-v1.3",
+            "falcon",
             "chatglm",
             "chatglm2",
         ]:
@@ -212,12 +212,21 @@ class PytorchModel(LLM):
     def generate(
         self, prompt: str, generate_config: Optional[PytorchGenerateConfig] = None
     ) -> Union[Completion, Iterator[CompletionChunk]]:
-        from .utils import generate_stream, generate_stream_chatglm
+        from .utils import (
+            generate_stream,
+            generate_stream_chatglm,
+            generate_stream_falcon,
+        )
 
         def generator_wrapper(
             prompt: str, device: str, generate_config: PytorchGenerateConfig
         ) -> Iterator[CompletionChunk]:
-            if self.model_family.model_name in ["chatglm", "chatglm2"]:
+            if "falcon" in self.model_family.model_name:
+                for completion_chunk, _ in generate_stream_falcon(
+                    self._model, self._tokenizer, prompt, device, generate_config
+                ):
+                    yield completion_chunk
+            elif "chatglm" in self.model_family.model_name:
                 for completion_chunk, _ in generate_stream_chatglm(
                     self._model, self._tokenizer, prompt, device, generate_config
                 ):
@@ -243,7 +252,12 @@ class PytorchModel(LLM):
         else:
             device = self._pytorch_model_config.get("device", "cuda")
         if not stream:
-            if self.model_family.model_name in ["chatglm", "chatglm2"]:
+            if "falcon" in self.model_family.model_name:
+                for completion_chunk, completion_usage in generate_stream_falcon(
+                    self._model, self._tokenizer, prompt, device, generate_config
+                ):
+                    pass
+            elif "chatglm" in self.model_family.model_name:
                 for completion_chunk, completion_usage in generate_stream_chatglm(
                     self._model, self._tokenizer, prompt, device, generate_config
                 ):
@@ -266,7 +280,85 @@ class PytorchModel(LLM):
             return generator_wrapper(prompt, device, generate_config)
 
     def create_embedding(self, input: Union[str, List[str]]) -> Embedding:
-        raise NotImplementedError
+        try:
+            import torch
+            import torch.nn.functional as F
+        except ImportError as e:
+            raise ImportError(
+                "Could not import torch. Please install it with `pip install torch`."
+            ) from e
+
+        if self._is_darwin_and_apple_silicon():
+            device = self._pytorch_model_config.get("device", "mps")
+        else:
+            device = self._pytorch_model_config.get("device", "cuda")
+
+        if isinstance(input, str):
+            inputs = [input]
+        else:
+            inputs = input
+
+        tokenizer = self._tokenizer
+        is_llama = "llama" in str(type(self._model))  # llama supports batch inference
+        is_chatglm = "chatglm" in str(type(self._model))
+        if is_llama:
+            encoding = tokenizer.batch_encode_plus(
+                inputs, padding=True, return_tensors="pt"
+            )
+            input_ids = encoding["input_ids"].to(device)
+            attention_mask = encoding["attention_mask"].to(device)
+            model_output = self._model(
+                input_ids, attention_mask, output_hidden_states=True
+            )
+            data = model_output.hidden_states[-1]
+            mask = attention_mask.unsqueeze(-1).expand(data.size()).float()
+            masked_embeddings = data * mask
+            sum_embeddings = torch.sum(masked_embeddings, dim=1)
+            seq_length = torch.sum(mask, dim=1)
+            embedding = sum_embeddings / seq_length
+            normalized_embeddings = F.normalize(embedding, p=2, dim=1)
+            normalized_embeddings = normalized_embeddings.tolist()
+            token_num = torch.sum(attention_mask).item()
+
+            embedding_list = []
+            for index, data in enumerate(normalized_embeddings):
+                embedding_list.append(
+                    EmbeddingData(index=index, object="embedding", embedding=data)
+                )
+
+            usage = EmbeddingUsage(prompt_tokens=token_num, total_tokens=token_num)
+
+            ret = Embedding(
+                object="list",
+                model=self.model_uid,
+                data=embedding_list,
+                usage=usage,
+            )
+
+        else:
+            embedding = []
+            token_num = 0
+            for index, text in enumerate(inputs):
+                input_ids = tokenizer.encode(text, return_tensors="pt").to(device)
+                model_output = self._model(input_ids, output_hidden_states=True)
+                if is_chatglm:
+                    data = (model_output.hidden_states[-1].transpose(0, 1))[0]
+                else:
+                    data = model_output.hidden_states[-1][0]
+                data = F.normalize(torch.mean(data, dim=0), p=2, dim=0)
+                data = data.tolist()
+
+                embedding.append(
+                    EmbeddingData(index=index, object="embedding", embedding=data)
+                )
+                token_num += len(input_ids[0])
+
+            usage = EmbeddingUsage(prompt_tokens=token_num, total_tokens=token_num)
+            ret = Embedding(
+                object="list", model=self.model_uid, data=embedding, usage=usage
+            )
+
+        return ret
 
 
 class PytorchChatModel(PytorchModel, ChatModelMixin):
@@ -320,6 +412,7 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
             "baichuan",
             "baichuan-chat",
             "vicuna-v1.3",
+            "falcon",
             "chatglm",
             "chatglm2",
         ]:

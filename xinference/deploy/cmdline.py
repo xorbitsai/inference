@@ -14,6 +14,8 @@
 
 
 import logging
+import os
+from typing import Optional
 
 import click
 from xoscar.utils import get_next_port
@@ -24,7 +26,20 @@ from ..constants import (
     XINFERENCE_DEFAULT_DISTRIBUTED_HOST,
     XINFERENCE_DEFAULT_ENDPOINT_PORT,
     XINFERENCE_DEFAULT_LOCAL_HOST,
+    XINFERENCE_ENV_ENDPOINT,
 )
+
+
+def get_endpoint(endpoint: Optional[str]) -> str:
+    # user didn't specify the endpoint.
+    if endpoint is None:
+        if XINFERENCE_ENV_ENDPOINT in os.environ:
+            return os.environ[XINFERENCE_ENV_ENDPOINT]
+        else:
+            default_endpoint = f"http://{XINFERENCE_DEFAULT_LOCAL_HOST}:{XINFERENCE_DEFAULT_ENDPOINT_PORT}"
+            return default_endpoint
+    else:
+        return endpoint
 
 
 @click.group(invoke_without_command=True, name="xinference")
@@ -81,16 +96,17 @@ def supervisor(
 @click.option(
     "--endpoint",
     "-e",
-    default=f"http://{XINFERENCE_DEFAULT_LOCAL_HOST}:{XINFERENCE_DEFAULT_ENDPOINT_PORT}",
     type=str,
 )
 @click.option("--host", "-H", default=XINFERENCE_DEFAULT_DISTRIBUTED_HOST, type=str)
-def worker(log_level: str, endpoint: str, host: str):
+def worker(log_level: str, endpoint: Optional[str], host: str):
     from ..deploy.worker import main
 
     if log_level:
         logging.basicConfig(level=logging.getLevelName(log_level.upper()))
     logging_conf = dict(level=log_level.upper())
+
+    endpoint = get_endpoint(endpoint)
 
     client = RESTfulClient(base_url=endpoint)
     supervisor_internal_addr = client._get_supervisor_internal_address()
@@ -107,7 +123,6 @@ def worker(log_level: str, endpoint: str, host: str):
 @click.option(
     "--endpoint",
     "-e",
-    default=f"http://{XINFERENCE_DEFAULT_LOCAL_HOST}:{XINFERENCE_DEFAULT_ENDPOINT_PORT}",
     type=str,
 )
 @click.option("--model-name", "-n", type=str)
@@ -115,12 +130,14 @@ def worker(log_level: str, endpoint: str, host: str):
 @click.option("--model-format", "-f", default=None, type=str)
 @click.option("--quantization", "-q", default=None, type=str)
 def model_launch(
-    endpoint: str,
+    endpoint: Optional[str],
     model_name: str,
     size_in_billions: int,
     model_format: str,
     quantization: str,
 ):
+    endpoint = get_endpoint(endpoint)
+
     client = RESTfulClient(base_url=endpoint)
     model_uid = client.launch_model(
         model_name=model_name,
@@ -136,17 +153,18 @@ def model_launch(
 @click.option(
     "--endpoint",
     "-e",
-    default=f"http://{XINFERENCE_DEFAULT_LOCAL_HOST}:{XINFERENCE_DEFAULT_ENDPOINT_PORT}",
     type=str,
 )
 @click.option("--all", is_flag=True)
-def model_list(endpoint: str, all: bool):
+def model_list(endpoint: Optional[str], all: bool):
     import sys
 
     from tabulate import tabulate
 
     # TODO: get from the supervisor
     from ..model.llm import LLM_FAMILIES
+
+    endpoint = get_endpoint(endpoint)
 
     table = []
     if all:
@@ -195,14 +213,15 @@ def model_list(endpoint: str, all: bool):
 @click.option(
     "--endpoint",
     "-e",
-    default=f"http://{XINFERENCE_DEFAULT_LOCAL_HOST}:{XINFERENCE_DEFAULT_ENDPOINT_PORT}",
     type=str,
 )
 @click.option("--model-uid", type=str)
 def model_terminate(
-    endpoint: str,
+    endpoint: Optional[str],
     model_uid: str,
 ):
+    endpoint = get_endpoint(endpoint)
+
     client = RESTfulClient(base_url=endpoint)
     client.terminate_model(model_uid=model_uid)
 
