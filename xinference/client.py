@@ -297,7 +297,10 @@ class Client:
         )
         model_ref = self._isolation.call(self._supervisor_ref.get_model(model_uid))
 
-        if desc["model_name"] == "chatglm" or desc["model_name"] == "chatglm2":
+        if desc["model_format"] == "ggmlv3" and desc["model_name"] in [
+            "chatglm",
+            "chatglm2",
+        ]:
             return ChatglmCppChatModelHandle(model_ref, self._isolation)
         elif "generate" in desc["model_ability"]:
             return GenerateModelHandle(model_ref, self._isolation)
@@ -387,7 +390,10 @@ class RESTfulClient:
             )
         desc = response.json()
 
-        if desc["model_name"] == "chatglm" or desc["model_name"] == "chatglm2":
+        if desc["model_format"] == "ggmlv3" and desc["model_name"] in [
+            "chatglm",
+            "chatglm2",
+        ]:
             return RESTfulChatglmCppChatModelHandle(model_uid, self.base_url)
         elif "generate" in desc["model_ability"]:
             return RESTfulGenerateModelHandle(model_uid, self.base_url)
