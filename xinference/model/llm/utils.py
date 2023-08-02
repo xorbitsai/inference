@@ -90,8 +90,8 @@ class ChatModelMixin:
                 else:
                     ret += role
             return ret
-        elif prompt_style.style_name == "CHATGLM2":
-            round_add_n = 1
+        elif prompt_style.style_name == "CHATGLM":
+            round_add_n = 1 if prompt_style.intra_message_sep == "\n\n" else 0
             if prompt_style.system_prompt:
                 ret = prompt_style.system_prompt + prompt_style.intra_message_sep
             else:

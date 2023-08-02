@@ -109,7 +109,7 @@ def _install():
     from .ggml.chatglm import ChatglmCppChatModel
     from .ggml.llamacpp import LlamaCppChatModel, LlamaCppModel
     from .pytorch.baichuan import BaichuanPytorchChatModel, BaichuanPytorchModel
-    from .pytorch.chatglm import Chatglm2PytorchModel
+    from .pytorch.chatglm import ChatglmPytorchModel
     from .pytorch.core import PytorchChatModel, PytorchModel
 
     _LLM_CLASSES.extend(
@@ -121,7 +121,7 @@ def _install():
             PytorchChatModel,
             BaichuanPytorchModel,
             BaichuanPytorchChatModel,
-            Chatglm2PytorchModel,
+            ChatglmPytorchModel,
         ]
     )
 

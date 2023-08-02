@@ -18,7 +18,7 @@ from ..llm_family import LLMFamilyV1, LLMSpecV1
 from .core import PytorchChatModel, PytorchModelConfig
 
 
-class Chatglm2PytorchModel(PytorchChatModel):
+class ChatglmPytorchModel(PytorchChatModel):
     def __init__(
         self,
         model_uid: str,
@@ -65,7 +65,7 @@ class Chatglm2PytorchModel(PytorchChatModel):
     def match(cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1") -> bool:
         if llm_spec.model_format != "pytorch":
             return False
-        if "chatglm2" not in llm_family.model_name:
+        if llm_family.model_name not in ["chatglm", "chatglm2"]:
             return False
         if "chat" not in llm_family.model_ability:
             return False
