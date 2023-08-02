@@ -290,7 +290,17 @@ class GradioApp:
             model_name.change(
                 select_model_name,
                 inputs=[model_name],
-                outputs=[model_format, model_size_in_billions, quantization],
+                outputs=[model_format],
+            )
+            model_format.change(
+                select_model_format,
+                inputs=[model_name, model_format],
+                outputs=[model_size_in_billions],
+            )
+            model_size_in_billions.change(
+                select_model_size,
+                inputs=[model_name, model_format, model_size_in_billions],
+                outputs=[quantization],
             )
             model_format.change(
                 select_model_format,

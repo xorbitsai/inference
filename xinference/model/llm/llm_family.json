@@ -487,6 +487,7 @@
         ],
         "model_id": "TheBloke/Llama-2-13B-chat-GGML",
         "model_file_name_template": "llama-2-13b-chat.ggmlv3.{quantization}.bin"
+<<<<<<< HEAD
       },
       {
         "model_format": "ggmlv3",
@@ -496,6 +497,8 @@
         ],
         "model_id": "TheBloke/Llama-2-70B-Chat-GGML",
         "model_file_name_template": "llama-2-70b-chat.ggmlv3.{quantization}.bin"
+=======
+>>>>>>> 91cda49 (REF: model family (#251))
       }
     ],
     "prompt_style": {
@@ -569,6 +572,7 @@
       }
     ],
     "prompt_style": null
+<<<<<<< HEAD
   },
   {
     "version": 1,
@@ -593,5 +597,7 @@
       }
     ],
     "prompt_style": null
+=======
+>>>>>>> 91cda49 (REF: model family (#251))
   }
 ]
