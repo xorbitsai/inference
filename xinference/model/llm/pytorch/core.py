@@ -120,10 +120,12 @@ class PytorchModel(LLM):
         tokenizer = AutoTokenizer.from_pretrained(
             self.model_path,
             use_fast=self._use_fast_tokenizer,
+            trust_remote_code=True,
             revision=kwargs["revision"],
         )
         model = AutoModelForCausalLM.from_pretrained(
             self.model_path,
+            trust_remote_code=True,
             low_cpu_mem_usage=True,
             **kwargs,
         )
@@ -197,11 +199,13 @@ class PytorchModel(LLM):
         if llm_spec.model_format != "pytorch":
             return False
         if llm_family.model_name in [
-            "baichuan",
             "baichuan-chat",
             "vicuna-v1.3",
             "falcon",
             "falcon-instruct",
+            "chatglm",
+            "chatglm2",
+            "chatglm2-32k",
         ]:
             return False
         if "generate" not in llm_family.model_ability:
@@ -211,13 +215,22 @@ class PytorchModel(LLM):
     def generate(
         self, prompt: str, generate_config: Optional[PytorchGenerateConfig] = None
     ) -> Union[Completion, Iterator[CompletionChunk]]:
-        from .utils import generate_stream, generate_stream_falcon
+        from .utils import (
+            generate_stream,
+            generate_stream_chatglm,
+            generate_stream_falcon,
+        )
 
         def generator_wrapper(
             prompt: str, device: str, generate_config: PytorchGenerateConfig
         ) -> Iterator[CompletionChunk]:
             if "falcon" in self.model_family.model_name:
                 for completion_chunk, _ in generate_stream_falcon(
+                    self._model, self._tokenizer, prompt, device, generate_config
+                ):
+                    yield completion_chunk
+            elif "chatglm" in self.model_family.model_name:
+                for completion_chunk, _ in generate_stream_chatglm(
                     self._model, self._tokenizer, prompt, device, generate_config
                 ):
                     yield completion_chunk
@@ -244,6 +257,11 @@ class PytorchModel(LLM):
         if not stream:
             if "falcon" in self.model_family.model_name:
                 for completion_chunk, completion_usage in generate_stream_falcon(
+                    self._model, self._tokenizer, prompt, device, generate_config
+                ):
+                    pass
+            elif "chatglm" in self.model_family.model_name:
+                for completion_chunk, completion_usage in generate_stream_chatglm(
                     self._model, self._tokenizer, prompt, device, generate_config
                 ):
                     pass
@@ -394,11 +412,13 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
         if llm_spec.model_format != "pytorch":
             return False
         if llm_family.model_name in [
-            "baichuan",
             "baichuan-chat",
             "vicuna-v1.3",
             "falcon",
             "falcon-instruct",
+            "chatglm",
+            "chatglm2",
+            "chatglm2-32k",
         ]:
             return False
         if "chat" not in llm_family.model_ability:

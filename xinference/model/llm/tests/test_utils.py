@@ -167,3 +167,51 @@ def test_prompt_style_falcon():
     assert expected == ChatModelMixin.get_prompt(
         "Write a poem.", chat_history, prompt_style
     )
+
+
+def test_prompt_style_chatglm_v1():
+    prompt_style = PromptStyleV1(
+        style_name="CHATGLM",
+        system_prompt="",
+        roles=["问", "答"],
+        intra_message_sep="\n",
+    )
+    chat_history = [
+        ChatCompletionMessage(role=prompt_style.roles[0], content="Hi there."),
+        ChatCompletionMessage(
+            role=prompt_style.roles[1], content="Hello, how may I help you?"
+        ),
+    ]
+    expected = (
+        "[Round 0]\n问：Hi there.\n"
+        "答：Hello, how may I help you?\n"
+        "[Round 1]\n问：Write a poem.\n"
+        "答："
+    )
+    assert expected == ChatModelMixin.get_prompt(
+        "Write a poem.", chat_history, prompt_style
+    )
+
+
+def test_prompt_style_chatglm_v2():
+    prompt_style = PromptStyleV1(
+        style_name="CHATGLM",
+        system_prompt="",
+        roles=["问", "答"],
+        intra_message_sep="\n\n",
+    )
+    chat_history = [
+        ChatCompletionMessage(role=prompt_style.roles[0], content="Hi there."),
+        ChatCompletionMessage(
+            role=prompt_style.roles[1], content="Hello, how may I help you?"
+        ),
+    ]
+    expected = (
+        "[Round 1]\n\n问：Hi there.\n\n"
+        "答：Hello, how may I help you?\n\n"
+        "[Round 2]\n\n问：Write a poem.\n\n"
+        "答："
+    )
+    assert expected == ChatModelMixin.get_prompt(
+        "Write a poem.", chat_history, prompt_style
+    )

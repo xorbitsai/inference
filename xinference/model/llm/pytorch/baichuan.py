@@ -15,62 +15,7 @@
 from typing import Optional
 
 from ..llm_family import LLMFamilyV1, LLMSpecV1
-from .core import PytorchChatModel, PytorchModel, PytorchModelConfig
-
-
-class BaichuanPytorchModel(PytorchModel):
-    def __init__(
-        self,
-        model_uid: str,
-        model_family: "LLMFamilyV1",
-        model_spec: "LLMSpecV1",
-        quantization: str,
-        model_path: str,
-        pytorch_model_config: Optional[PytorchModelConfig] = None,
-    ):
-        super().__init__(
-            model_uid,
-            model_family,
-            model_spec,
-            quantization,
-            model_path,
-            pytorch_model_config=pytorch_model_config,
-        )
-
-    def _load_model(self, kwargs: dict):
-        try:
-            from transformers import AutoModelForCausalLM, AutoTokenizer
-        except ImportError:
-            error_message = "Failed to import module 'transformers'"
-            installation_guide = [
-                "Please make sure 'transformers' is installed. ",
-                "You can install it by `pip install transformers`\n",
-            ]
-
-            raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
-
-        tokenizer = AutoTokenizer.from_pretrained(
-            self.model_path,
-            trust_remote_code=True,
-            revision=kwargs["revision"],
-        )
-        model = AutoModelForCausalLM.from_pretrained(
-            self.model_path,
-            trust_remote_code=True,
-            low_cpu_mem_usage=True,
-            **kwargs,
-        )
-        return model, tokenizer
-
-    @classmethod
-    def match(cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1") -> bool:
-        if llm_spec.model_format != "pytorch":
-            return False
-        if "baichuan" not in llm_family.model_name:
-            return False
-        if "generate" not in llm_family.model_ability:
-            return False
-        return True
+from .core import PytorchChatModel, PytorchModelConfig
 
 
 class BaichuanPytorchChatModel(PytorchChatModel):
@@ -124,7 +69,7 @@ class BaichuanPytorchChatModel(PytorchChatModel):
     def match(cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1") -> bool:
         if llm_spec.model_format != "pytorch":
             return False
-        if "baichuan" not in llm_family.model_name:
+        if "baichuan-chat" not in llm_family.model_name:
             return False
         if "chat" not in llm_family.model_ability:
             return False

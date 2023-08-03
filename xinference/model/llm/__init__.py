@@ -108,10 +108,11 @@ def match_llm_cls(
 def _install():
     from .ggml.chatglm import ChatglmCppChatModel
     from .ggml.llamacpp import LlamaCppChatModel, LlamaCppModel
-    from .pytorch.baichuan import BaichuanPytorchChatModel, BaichuanPytorchModel
+    from .pytorch.baichuan import BaichuanPytorchChatModel
+    from .pytorch.chatglm import ChatglmPytorchChatModel
     from .pytorch.core import PytorchChatModel, PytorchModel
     from .pytorch.falcon import FalconPytorchChatModel, FalconPytorchModel
-    from .pytorch.vicuna import VicunaCensoredPytorch
+    from .pytorch.vicuna import VicunaPytorchChatModel
 
     _LLM_CLASSES.extend(
         [
@@ -120,11 +121,11 @@ def _install():
             LlamaCppChatModel,
             PytorchModel,
             PytorchChatModel,
-            BaichuanPytorchModel,
             BaichuanPytorchChatModel,
-            VicunaCensoredPytorch,
+            VicunaPytorchChatModel,
             FalconPytorchModel,
             FalconPytorchChatModel,
+            ChatglmPytorchChatModel,
         ]
     )
 
