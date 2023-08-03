@@ -201,6 +201,7 @@ class PytorchModel(LLM):
             "baichuan-chat",
             "vicuna-v1.3",
             "falcon",
+            "falcon-instruct",
         ]:
             return False
         if "generate" not in llm_family.model_ability:
@@ -397,6 +398,7 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
             "baichuan-chat",
             "vicuna-v1.3",
             "falcon",
+            "falcon-instruct",
         ]:
             return False
         if "chat" not in llm_family.model_ability:
