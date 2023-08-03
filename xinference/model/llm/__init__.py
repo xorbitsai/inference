@@ -14,96 +14,23 @@
 
 import codecs
 import json
-import logging
 import os
-import platform
-from typing import List, Optional, Tuple, Type
 
 from .core import LLM
 from .llm_family import (
+    BUILTIN_LLM_FAMILIES,
+    LLM_CLASSES,
     GgmlLLMSpecV1,
     LLMFamilyV1,
     LLMSpecV1,
     PromptStyleV1,
     PytorchLLMSpecV1,
+    get_user_defined_llm_families,
+    match_llm,
+    match_llm_cls,
+    register_llm,
+    unregister_llm,
 )
-
-_LLM_CLASSES: List[Type[LLM]] = []
-
-LLM_FAMILIES: List["LLMFamilyV1"] = []
-
-logger = logging.getLogger(__name__)
-
-
-def _is_linux():
-    return platform.system() == "Linux"
-
-
-def _has_cuda_device():
-    cuda_visible_devices = os.environ.get("CUDA_VISIBLE_DEVICES")
-    if cuda_visible_devices:
-        return True
-    else:
-        from xorbits._mars.resource import cuda_count
-
-        return cuda_count() > 0
-
-
-def match_llm(
-    model_name: str,
-    model_format: Optional[str] = None,
-    model_size_in_billions: Optional[int] = None,
-    quantization: Optional[str] = None,
-    is_local_deployment: bool = False,
-) -> Optional[Tuple[LLMFamilyV1, LLMSpecV1, str]]:
-    """
-    Find an LLM family, spec, and quantization that satisfy given criteria.
-    """
-    for family in LLM_FAMILIES:
-        if model_name != family.model_name:
-            continue
-        for spec in family.model_specs:
-            if (
-                model_format
-                and model_format != spec.model_format
-                or model_size_in_billions
-                and model_size_in_billions != spec.model_size_in_billions
-                or quantization
-                and quantization not in spec.quantizations
-            ):
-                continue
-            if quantization:
-                return family, spec, quantization
-            else:
-                # by default, choose the most coarse-grained quantization.
-                # TODO: too hacky.
-                quantizations = spec.quantizations
-                quantizations.sort()
-                for q in quantizations:
-                    if (
-                        is_local_deployment
-                        and not (_is_linux() and _has_cuda_device())
-                        and q == "4-bit"
-                    ):
-                        logger.warning(
-                            "Skipping %s for non-linux or non-cuda local deployment .",
-                            q,
-                        )
-                        continue
-                    return family, spec, q
-    return None
-
-
-def match_llm_cls(
-    llm_family: LLMFamilyV1, llm_spec: "LLMSpecV1"
-) -> Optional[Type[LLM]]:
-    """
-    Find an LLM implementation for given LLM family and spec.
-    """
-    for cls in _LLM_CLASSES:
-        if cls.match(llm_family, llm_spec):
-            return cls
-    return None
 
 
 def _install():
@@ -115,7 +42,7 @@ def _install():
     from .pytorch.falcon import FalconPytorchChatModel, FalconPytorchModel
     from .pytorch.vicuna import VicunaPytorchChatModel
 
-    _LLM_CLASSES.extend(
+    LLM_CLASSES.extend(
         [
             ChatglmCppChatModel,
             LlamaCppModel,
@@ -134,4 +61,13 @@ def _install():
         os.path.dirname(os.path.abspath(__file__)), "llm_family.json"
     )
     for json_obj in json.load(codecs.open(json_path, "r", encoding="utf-8")):
-        LLM_FAMILIES.append(LLMFamilyV1.parse_obj(json_obj))
+        BUILTIN_LLM_FAMILIES.append(LLMFamilyV1.parse_obj(json_obj))
+
+    from ...constants import XINFERENCE_MODEL_DIR
+
+    user_defined_llm_dir = os.path.join(XINFERENCE_MODEL_DIR, "llm")
+    if os.path.isdir(user_defined_llm_dir):
+        for f in os.listdir(user_defined_llm_dir):
+            with codecs.open(f, encoding="utf-8") as fd:
+                user_defined_llm_family = LLMFamilyV1.parse_obj(json.load(fd))
+                register_llm(user_defined_llm_family, persist=False)

@@ -4,7 +4,7 @@ import time
 from typing import List
 
 from xinference.client import Client
-from xinference.model.llm import LLM_FAMILIES
+from xinference.model.llm import BUILTIN_LLM_FAMILIES
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.getLevelName("INFO".upper()))
@@ -97,7 +97,7 @@ def get_speed_for_generate_model(model, prompt):
 def run_model(endpoint):
     client = Client(endpoint)
 
-    for model_family in LLM_FAMILIES:
+    for model_family in BUILTIN_LLM_FAMILIES:
         model_name = model_family.model_name
         if model_name in SKIP_MODELS:
             continue

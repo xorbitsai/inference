@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING, Dict, List, Optional
 import gradio as gr
 
 from ..locale.utils import Locale
-from ..model.llm import LLM_FAMILIES, LLMFamilyV1, match_llm
+from ..model.llm import BUILTIN_LLM_FAMILIES, LLMFamilyV1, match_llm
 from ..model.llm.llm_family import cache
 from .api import SyncSupervisorAPI
 
@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 
 MODEL_TO_FAMILIES: Dict[str, LLMFamilyV1] = dict(
     (model_family.model_name, model_family)
-    for model_family in LLM_FAMILIES
+    for model_family in BUILTIN_LLM_FAMILIES
     if "chat" in model_family.model_ability
 )
 

@@ -162,13 +162,13 @@ def model_list(endpoint: Optional[str], all: bool):
     from tabulate import tabulate
 
     # TODO: get from the supervisor
-    from ..model.llm import LLM_FAMILIES
+    from ..model.llm import BUILTIN_LLM_FAMILIES
 
     endpoint = get_endpoint(endpoint)
 
     table = []
     if all:
-        for model_family in LLM_FAMILIES:
+        for model_family in BUILTIN_LLM_FAMILIES:
             table.append(
                 [
                     model_family.model_name,

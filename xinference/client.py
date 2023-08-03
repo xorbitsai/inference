@@ -480,6 +480,22 @@ class Client:
         # generate a time-based uuid.
         return str(uuid.uuid1())
 
+    def register_model(self, model_type: str, model: str, persist: bool):
+        coro = self._supervisor_ref.register_model(model_type, model, persist)
+        self._isolation.call(coro)
+
+    def unregister_model(self, model_type: str, model_name: str, permanent: bool):
+        coro = self._supervisor_ref.unregister_model(model_type, model_name, permanent)
+        self._isolation.call(coro)
+
+    def list_model_registries(self, model_type: str) -> List[Dict[str, Any]]:
+        coro = self._supervisor_ref.list_model_registries(model_type)
+        return self._isolation.call(coro)
+
+    def get_model_registry(self, model_type: str, model_name: str) -> Dict[str, Any]:
+        coro = self._supervisor_ref.get_model_registry(model_type, model_name)
+        return self._isolation.call(coro)
+
     def launch_model(
         self,
         model_name: str,

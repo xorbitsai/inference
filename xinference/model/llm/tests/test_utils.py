@@ -238,3 +238,16 @@ def test_prompt_style_qwen():
     assert expected == ChatModelMixin.get_prompt(
         "Write a poem.", chat_history, prompt_style
     )
+
+
+def test_is_valid_model_name():
+    from ..utils import is_valid_model_name
+
+    assert is_valid_model_name("foo")
+    assert is_valid_model_name("foo-bar")
+    assert is_valid_model_name("foo_bar")
+    assert is_valid_model_name("123")
+    assert not is_valid_model_name("foo@bar")
+    assert not is_valid_model_name("foo bar")
+    assert not is_valid_model_name("_foo")
+    assert not is_valid_model_name("-foo")

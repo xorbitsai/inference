@@ -110,6 +110,27 @@ class WorkerActor(xo.Actor):
             "quantization": quantization,
         }
 
+    @log_sync(logger=logger)
+    async def register_model(self, model_type: str, model: str, persist: bool):
+        # TODO: centralized model registry
+        if model_type == "LLM":
+            from ..model.llm import LLMFamilyV1, register_llm
+
+            llm_family = LLMFamilyV1.parse_raw(model)
+            register_llm(llm_family, persist)
+        else:
+            raise ValueError(f"Unsupported model type: {model_type}")
+
+    @log_sync(logger=logger)
+    async def unregister_model(self, model_type: str, model_name: str, permanent: bool):
+        # TODO: centralized model registry
+        if model_type == "LLM":
+            from ..model.llm import unregister_llm
+
+            unregister_llm(model_name, permanent)
+        else:
+            raise ValueError(f"Unsupported model type: {model_type}")
+
     @log_async(logger=logger)
     async def launch_builtin_model(
         self,
