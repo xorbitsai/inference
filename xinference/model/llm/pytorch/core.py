@@ -120,10 +120,12 @@ class PytorchModel(LLM):
         tokenizer = AutoTokenizer.from_pretrained(
             self.model_path,
             use_fast=self._use_fast_tokenizer,
+            trust_remote_code=True,
             revision=kwargs["revision"],
         )
         model = AutoModelForCausalLM.from_pretrained(
             self.model_path,
+            trust_remote_code=True,
             low_cpu_mem_usage=True,
             **kwargs,
         )
@@ -197,7 +199,6 @@ class PytorchModel(LLM):
         if llm_spec.model_format != "pytorch":
             return False
         if llm_family.model_name in [
-            "baichuan",
             "baichuan-chat",
             "vicuna-v1.3",
             "falcon",
@@ -411,7 +412,6 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
         if llm_spec.model_format != "pytorch":
             return False
         if llm_family.model_name in [
-            "baichuan",
             "baichuan-chat",
             "vicuna-v1.3",
             "falcon",

@@ -18,7 +18,7 @@ from ..llm_family import LLMFamilyV1, LLMSpecV1
 from .core import PytorchChatModel, PytorchModelConfig
 
 
-class ChatglmPytorchModel(PytorchChatModel):
+class ChatglmPytorchChatModel(PytorchChatModel):
     def __init__(
         self,
         model_uid: str,

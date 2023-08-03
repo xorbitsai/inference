@@ -32,7 +32,7 @@ from .. import LLMFamilyV1, LLMSpecV1
 from .core import PytorchChatModel, PytorchModelConfig
 
 
-class VicunaCensoredPytorch(PytorchChatModel):
+class VicunaPytorchChatModel(PytorchChatModel):
     def __init__(
         self,
         model_uid: str,
