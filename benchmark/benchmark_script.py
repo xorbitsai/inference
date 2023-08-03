@@ -3,8 +3,6 @@ import os
 import time
 from typing import List
 
-import psutil
-
 from xinference.client import Client
 from xinference.model.llm import LLM_FAMILIES
 
@@ -28,7 +26,10 @@ def get_gpu_mem_info(gpu_id=GPU_ID):
     used: currently used gpu memory
     free: available gpu memory
     """
-    import pynvml
+    try:
+        import pynvml
+    except ImportError:
+        raise ImportError("Failed to import module 'pynvml', Please make sure 'pynvml' is installed.\n")
 
     pynvml.nvmlInit()
     if gpu_id < 0 or gpu_id >= pynvml.nvmlDeviceGetCount():
@@ -52,6 +53,11 @@ def get_cpu_mem_info():
     mem_free: available memory of the current machine
     mem_process_used: memory used by the current process
     """
+    try:
+        import psutil
+    except ImportError:
+        raise ImportError("Failed to import module 'psutil', Please make sure 'psutil' is installed.\n")
+
     mem_total = round(psutil.virtual_memory().total / 1024 / 1024, 2)
     mem_free = round(psutil.virtual_memory().available / 1024 / 1024, 2)
     mem_process_used = round(
