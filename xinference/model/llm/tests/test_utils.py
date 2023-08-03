@@ -141,6 +141,34 @@ def test_prompt_style_llama2():
     )
 
 
+def test_prompt_style_falcon():
+    prompt_style = PromptStyleV1(
+        style_name="FALCON",
+        system_prompt="",
+        roles=["User", "Assistant"],
+        intra_message_sep="\n",
+        inter_message_sep="<|endoftext|>",
+        stop=["\nUser"],
+        stop_token_ids=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+    )
+    chat_history = [
+        ChatCompletionMessage(role=prompt_style.roles[0], content="Hi there."),
+        ChatCompletionMessage(
+            role=prompt_style.roles[1], content="Hello, how may I help you?"
+        ),
+    ]
+    expected = (
+        "User: Hi there.\n\n"
+        "Assistant: Hello, how may I help you?\n\n"
+        "User: Write a poem.\n\n"
+        "Assistant:"
+    )
+
+    assert expected == ChatModelMixin.get_prompt(
+        "Write a poem.", chat_history, prompt_style
+    )
+
+
 def test_prompt_style_chatglm_v1():
     prompt_style = PromptStyleV1(
         style_name="CHATGLM",

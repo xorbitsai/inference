@@ -111,7 +111,7 @@ def _install():
     from .pytorch.baichuan import BaichuanPytorchChatModel, BaichuanPytorchModel
     from .pytorch.chatglm import ChatglmPytorchModel
     from .pytorch.core import PytorchChatModel, PytorchModel
-    from .pytorch.falcon import FalconPytorchModel
+    from .pytorch.falcon import FalconPytorchChatModel, FalconPytorchModel
     from .pytorch.vicuna import VicunaCensoredPytorch
 
     _LLM_CLASSES.extend(
@@ -125,6 +125,7 @@ def _install():
             BaichuanPytorchChatModel,
             VicunaCensoredPytorch,
             FalconPytorchModel,
+            FalconPytorchChatModel,
             ChatglmPytorchModel,
         ]
     )
