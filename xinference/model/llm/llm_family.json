@@ -614,21 +614,7 @@
           "none"
         ],
         "model_id": "tiiuae/falcon-40b"
-      }
-    ],
-    "prompt_style": null
-  },
-  {
-    "version": 1,
-    "model_name": "falcon",
-    "model_lang": [
-      "en"
-    ],
-    "model_ability": [
-      "embed",
-      "generate"
-    ],
-    "model_specs": [
+      },
       {
         "model_format": "pytorch",
         "model_size_in_billions": 7,
@@ -662,45 +648,7 @@
           "none"
         ],
         "model_id": "tiiuae/falcon-7b-instruct"
-      }
-    ],
-    "prompt_style": {
-      "style_name": "FALCON",
-      "system_prompt": "",
-      "roles": [
-        "User",
-        "Assistant"
-      ],
-      "intra_message_sep": "\n",
-      "inter_message_sep": "<|endoftext|>",
-      "stop": ["\nUser"],
-      "stop_token_ids": [
-        0,
-        1,
-        2,
-        3,
-        4,
-        5,
-        6,
-        7,
-        8,
-        9,
-        10,
-        11
-      ]
-    }
-  },
-  {
-    "version": 1,
-    "model_name": "falcon-instruct",
-    "model_lang": [
-      "en"
-    ],
-    "model_ability": [
-      "embed",
-      "chat"
-    ],
-    "model_specs": [
+      },
       {
         "model_format": "pytorch",
         "model_size_in_billions": 40,
