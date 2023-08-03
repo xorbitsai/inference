@@ -107,6 +107,7 @@ def match_llm_cls(
 
 def _install():
     from .ggml.chatglm import ChatglmCppChatModel
+    from .ggml.ctransformer import CtransformerModel
     from .ggml.llamacpp import LlamaCppChatModel, LlamaCppModel
     from .pytorch.baichuan import BaichuanPytorchChatModel, BaichuanPytorchModel
     from .pytorch.core import PytorchChatModel, PytorchModel
@@ -120,6 +121,7 @@ def _install():
             PytorchChatModel,
             BaichuanPytorchModel,
             BaichuanPytorchChatModel,
+            CtransformerModel,
         ]
     )
 
