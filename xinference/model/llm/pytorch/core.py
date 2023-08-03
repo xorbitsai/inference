@@ -201,6 +201,7 @@ class PytorchModel(LLM):
             "baichuan-chat",
             "vicuna-v1.3",
             "falcon",
+            "falcon-instruct",
         ]:
             return False
         if "generate" not in llm_family.model_ability:
@@ -215,7 +216,10 @@ class PytorchModel(LLM):
         def generator_wrapper(
             prompt: str, device: str, generate_config: PytorchGenerateConfig
         ) -> Iterator[CompletionChunk]:
-            if "falcon" in self.model_family.model_name:
+            if (
+                "falcon" in self.model_family.model_name
+                or "falcon-instruct" in self.model_family.model_name
+            ):
                 for completion_chunk, _ in generate_stream_falcon(
                     self._model, self._tokenizer, prompt, device, generate_config
                 ):
@@ -241,7 +245,10 @@ class PytorchModel(LLM):
         else:
             device = self._pytorch_model_config.get("device", "cuda")
         if not stream:
-            if "falcon" in self.model_family.model_name:
+            if (
+                "falcon" in self.model_family.model_name
+                or "falcon-instruct" in self.model_family.model_name
+            ):
                 for completion_chunk, completion_usage in generate_stream_falcon(
                     self._model, self._tokenizer, prompt, device, generate_config
                 ):
@@ -397,6 +404,7 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
             "baichuan-chat",
             "vicuna-v1.3",
             "falcon",
+            "falcon-instruct",
         ]:
             return False
         if "chat" not in llm_family.model_ability:
