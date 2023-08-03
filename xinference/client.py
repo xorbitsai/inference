@@ -57,10 +57,47 @@ class GenerateModelHandle(ModelHandle):
             Union["LlamaCppGenerateConfig", "PytorchGenerateConfig"]
         ] = None,
     ) -> Union["Completion", Iterator["CompletionChunk"]]:
+        """
+        Creates a completion for the provided prompt and parameters.
+
+        Parameters
+        ----------
+        prompt: str
+            The user's input.
+        generate_config: Optional[Union["LlamaCppGenerateConfig", "PytorchGenerateConfig"]]
+            Additional configurations for completion.
+            "LlamaCppGenerateConfig" -> Configuration for ggml model.
+            "PytorchGenerateConfig" -> Configuration for pytorch model.
+
+        Returns
+        -------
+        Union["Completion", Iterator["CompletionChunk"]]
+            Stream is a parameter in generate_config.
+            When stream is set to True, the function will return Iterator["CompletionChunk"].
+            When stream is set to False, the function will return "Completion".
+
+        """
+
         coro = self._model_ref.generate(prompt, generate_config)
         return self._isolation.call(coro)
 
     def create_embedding(self, input: Union[str, List[str]]) -> "Embedding":
+        """
+        Creates an embedding vector representing the input text.
+
+        Parameters
+        ----------
+        input: Union[str, List[str]]
+            Input text to embed, encoded as a string or array of tokens.
+            To embed multiple inputs in a single request, pass an array of strings or array of token arrays.
+
+        Returns
+        -------
+        Embedding
+            The resulted Embedding vector that can be easily consumed by machine learning models and algorithms.
+
+        """
+
         coro = self._model_ref.create_embedding(input)
         return self._isolation.call(coro)
 
@@ -75,6 +112,35 @@ class ChatModelHandle(GenerateModelHandle):
             Union["LlamaCppGenerateConfig", "PytorchGenerateConfig"]
         ] = None,
     ) -> Union["ChatCompletion", Iterator["ChatCompletionChunk"]]:
+        """
+        Given a list of messages comprising a conversation, the model will return a response.
+
+        Parameters
+        ----------
+        prompt : str
+            The user's input.
+        Parameters
+        ----------
+        prompt: str
+            The user's input.
+        system_prompt: Optional[str]
+            The system context provide to Model prior to any chats.
+        chat_history: Optional[List["ChatCompletionMessage"]]
+            A list of messages comprising the conversation so far.
+        generate_config: Optional[Union["LlamaCppGenerateConfig", "PytorchGenerateConfig"]]
+            Additional configuration for the chat generation.
+            "LlamaCppGenerateConfig" -> configuration for ggml model
+            "PytorchGenerateConfig" -> configuration for pytorch model
+
+        Returns
+        -------
+        Union["ChatCompletion", Iterator["ChatCompletionChunk"]]
+            Stream is a parameter in generate_config.
+            When stream is set to True, the function will return Iterator["ChatCompletionChunk"].
+            When stream is set to False, the function will return "ChatCompletion".
+
+        """
+
         coro = self._model_ref.chat(
             prompt, system_prompt, chat_history, generate_config
         )
@@ -88,6 +154,27 @@ class ChatglmCppChatModelHandle(ModelHandle):
         chat_history: Optional[List["ChatCompletionMessage"]] = None,
         generate_config: Optional["ChatglmCppGenerateConfig"] = None,
     ) -> Union["ChatCompletion", Iterator["ChatCompletionChunk"]]:
+        """
+        Given a list of messages comprising a conversation, the ChatGLM model will return a response.
+
+        Parameters
+        ----------
+        prompt: str
+            The user's input
+        chat_history: Optional[List["ChatCompletionMessage"]]
+            A list of messages comprising the conversation so far.
+        generate_config: Optional["ChatglmCppGenerateConfig"]
+            Additional Configuration for the ChatGLM Model generation.
+
+        Returns
+        -------
+        Union["ChatCompletion", Iterator["ChatCompletionChunk"]]
+            Stream is a parameter in generate_config.
+            When stream is set to True, the function will return Iterator["ChatCompletionChunk"].
+            When stream is set to False, the function will return "ChatCompletion".
+
+        """
+
         coro = self._model_ref.chat(prompt, chat_history, generate_config)
         return self._isolation.call(coro)
 
@@ -95,6 +182,21 @@ class ChatglmCppChatModelHandle(ModelHandle):
 def streaming_response_iterator(
     response_lines: Iterator[bytes],
 ) -> Iterator["CompletionChunk"]:
+    """
+    Create an Iterator to handle the streaming type of generation.
+
+    Parameters
+    ----------
+    response_lines: Iterator[bytes]
+        Generated lines by the Model Generator.
+
+    Returns
+    -------
+    Iterator["CompletionChunk"]
+        Iterator of CompletionChunks generated by models.
+
+    """
+
     for line in response_lines:
         line = line.strip()
         if line.startswith(b"data:"):
@@ -106,6 +208,21 @@ def streaming_response_iterator(
 def chat_streaming_response_iterator(
     response_lines: Iterator[bytes],
 ) -> Iterator["ChatCompletionChunk"]:
+    """
+    Create an Iterator to handle the streaming type of generation.
+
+    Parameters
+    ----------
+    response_lines: Iterator[bytes]
+        Generated lines by the Model Generator.
+
+    Returns
+    -------
+    Iterator["ChatCompletionChunk"]
+        Iterator of ChatCompletionChunks generated by models.
+
+    """
+
     for line in response_lines:
         line = line.strip()
         if line.startswith(b"data:"):
@@ -132,6 +249,32 @@ class RESTfulGenerateModelHandle(RESTfulModelHandle):
             Union["LlamaCppGenerateConfig", "PytorchGenerateConfig"]
         ] = None,
     ) -> Union["Completion", Iterator["CompletionChunk"]]:
+        """
+        Creates a completion for the provided prompt and parameters via RESTful APIs.
+
+        Parameters
+        ----------
+        prompt: str
+            The user's message or user's input.
+        generate_config: Optional[Union["LlamaCppGenerateConfig", "PytorchGenerateConfig"]]
+            Additional configuration for the chat generation.
+            "LlamaCppGenerateConfig" -> Configuration for ggml model
+            "PytorchGenerateConfig" -> Configuration for pytorch model
+
+        Returns
+        -------
+        Union["Completion", Iterator["CompletionChunk"]]
+            Stream is a parameter in generate_config.
+            When stream is set to True, the function will return Iterator["CompletionChunk"].
+            When stream is set to False, the function will return "Completion".
+
+        Raises
+        ------
+        RuntimeError
+            Fail to generate the completion from the server. Detailed information provided in error message.
+
+        """
+
         url = f"{self._base_url}/v1/completions"
 
         request_body: Dict[str, Any] = {"model": self._model_uid, "prompt": prompt}
@@ -152,6 +295,26 @@ class RESTfulGenerateModelHandle(RESTfulModelHandle):
         return response_data
 
     def create_embedding(self, input: Union[str, List[str]]) -> "Embedding":
+        """
+        Create an Embedding from user input via RESTful APIs.
+
+        Parameters
+        ----------
+        input: Union[str, List[str]]
+            Input text to embed, encoded as a string or array of tokens.
+            To embed multiple inputs in a single request, pass an array of strings or array of token arrays.
+
+        Returns
+        -------
+        Embedding
+           The resulted Embedding vector that can be easily consumed by machine learning models and algorithms.
+
+        Raises
+        ------
+        RuntimeError
+            Report the failure of embeddings and provide the error message.
+
+        """
         url = f"{self._base_url}/v1/embeddings"
         request_body = {"model": self._model_uid, "input": input}
         response = requests.post(url, json=request_body)
@@ -174,6 +337,36 @@ class RESTfulChatModelHandle(RESTfulGenerateModelHandle):
             Union["LlamaCppGenerateConfig", "PytorchGenerateConfig"]
         ] = None,
     ) -> Union["ChatCompletion", Iterator["ChatCompletionChunk"]]:
+        """
+        Given a list of messages comprising a conversation, the model will return a response via RESTful APIs.
+
+        Parameters
+        ----------
+        prompt: str
+            The user's input.
+        system_prompt: Optional[str]
+            The system context provide to Model prior to any chats.
+        chat_history: Optional[List["ChatCompletionMessage"]]
+            A list of messages comprising the conversation so far.
+        generate_config: Optional[Union["LlamaCppGenerateConfig", "PytorchGenerateConfig"]]
+            Additional configuration for the chat generation.
+            "LlamaCppGenerateConfig" -> configuration for ggml model
+            "PytorchGenerateConfig" -> configuration for pytorch model
+
+        Returns
+        -------
+        Union["ChatCompletion", Iterator["ChatCompletionChunk"]]
+            Stream is a parameter in generate_config.
+            When stream is set to True, the function will return Iterator["ChatCompletionChunk"].
+            When stream is set to False, the function will return "ChatCompletion".
+
+        Raises
+        ------
+        RuntimeError
+            Report the failure to generate the chat from the server. Detailed information provided in error message.
+
+        """
+
         url = f"{self._base_url}/v1/chat/completions"
 
         if chat_history is None:
@@ -217,6 +410,32 @@ class RESTfulChatglmCppChatModelHandle(RESTfulModelHandle):
         chat_history: Optional[List["ChatCompletionMessage"]] = None,
         generate_config: Optional["ChatglmCppGenerateConfig"] = None,
     ) -> Union["ChatCompletion", Iterator["ChatCompletionChunk"]]:
+        """
+        Given a list of messages comprising a conversation, the ChatGLM model will return a response via RESTful APIs.
+
+        Parameters
+        ----------
+        prompt: str
+            The user's input.
+        chat_history: Optional[List["ChatCompletionMessage"]]
+            A list of messages comprising the conversation so far.
+        generate_config: Optional["ChatglmCppGenerateConfig"]
+            Additional configuration for ChatGLM chat generation.
+
+        Returns
+        -------
+        Union["ChatCompletion", Iterator["ChatCompletionChunk"]]
+            Stream is a parameter in generate_config.
+            When stream is set to True, the function will return Iterator["ChatCompletionChunk"].
+            When stream is set to False, the function will return "ChatCompletion".
+
+        Raises
+        ------
+        RuntimeError
+            Report the failure to generate the chat from the server. Detailed information provided in error message.
+
+        """
+
         url = f"{self._base_url}/v1/chat/completions"
 
         if chat_history is None:
@@ -257,7 +476,7 @@ class Client:
         )
 
     @classmethod
-    def gen_model_uid(cls) -> str:
+    def _gen_model_uid(cls) -> str:
         # generate a time-based uuid.
         return str(uuid.uuid1())
 
@@ -269,7 +488,30 @@ class Client:
         quantization: Optional[str] = None,
         **kwargs,
     ) -> str:
-        model_uid = self.gen_model_uid()
+        """
+        Launch the Model based on the parameters on the server.
+
+        Parameters
+        ----------
+        model_name: str
+            The name of model.
+        model_size_in_billions: Optional[int]
+            The size (in billions) of the model.
+        model_format: Optional[str]
+            The format of the model.
+        quantization: Optional[str]
+            The quantization of model.
+        **kwargs:
+            Any other parameters been specified.
+
+        Returns
+        -------
+        str
+            The unique model_uid for the launched model.
+
+        """
+
+        model_uid = self._gen_model_uid()
 
         coro = self._supervisor_ref.launch_builtin_model(
             model_uid=model_uid,
@@ -284,14 +526,51 @@ class Client:
         return model_uid
 
     def terminate_model(self, model_uid: str):
+        """
+        Terminate the specific model running on the server.
+
+        Parameters
+        ----------
+        model_uid: str
+            The unique id that identify the model we want.
+        """
+
         coro = self._supervisor_ref.terminate_model(model_uid)
-        return self._isolation.call(coro)
+        self._isolation.call(coro)
 
     def list_models(self) -> Dict[str, Dict[str, Any]]:
+        """
+        Retrieve the model specifications from the Server.
+
+        Returns
+        -------
+        Dict[str, Dict[str, Any]]
+            The collection of model specifications with their names on the server.
+
+        """
+
         coro = self._supervisor_ref.list_models()
         return self._isolation.call(coro)
 
     def get_model(self, model_uid: str) -> "ModelHandle":
+        """
+        Launch the Model based on the parameters on the server.
+
+        Parameters
+        ----------
+        model_uid: str
+            The unique id that identify the model.
+
+        Returns
+        -------
+        ModelHandle
+            The corresponding Model Handler based on the Model specified in the uid:
+            "ChatglmCppChatModelHandle" -> handler for ChatGLM chat model
+            "GenerateModelHandle" -> handle for generate model. e.g. Baichuan.
+            "ChatModelHandle" -> handle for chat model. e.g. Baichuan-chat.
+
+        """
+
         desc: Dict[str, Any] = self._isolation.call(
             self._supervisor_ref.describe_model(model_uid)
         )
@@ -312,11 +591,21 @@ class RESTfulClient:
         self.base_url = base_url
 
     @classmethod
-    def gen_model_uid(cls) -> str:
+    def _gen_model_uid(cls) -> str:
         # generate a time-based uuid.
         return str(uuid.uuid1())
 
     def list_models(self) -> Dict[str, Dict[str, Any]]:
+        """
+        Retrieve the model specifications from the Server.
+
+        Returns
+        -------
+        Dict[str, Dict[str, Any]]
+            The collection of model specifications with their names on the server.
+
+        """
+
         url = f"{self.base_url}/v1/models"
 
         response = requests.get(url)
@@ -336,9 +625,32 @@ class RESTfulClient:
         quantization: Optional[str] = None,
         **kwargs,
     ) -> str:
+        """
+        Launch the model based on the parameters on the server via RESTful APIs.
+
+        Parameters
+        ----------
+        model_name: str
+            The name of model.
+        model_size_in_billions: Optional[int]
+            The size (in billions) of the model.
+        model_format: Optional[str]
+            The format of the model.
+        quantization: Optional[str]
+            The quantization of model.
+        **kwargs:
+            Any other parameters been specified.
+
+        Returns
+        -------
+        str
+            The unique model_uid for the launched model.
+
+        """
+
         url = f"{self.base_url}/v1/models"
 
-        model_uid = self.gen_model_uid()
+        model_uid = self._gen_model_uid()
 
         payload = {
             "model_uid": model_uid,
@@ -362,6 +674,21 @@ class RESTfulClient:
         return model_uid
 
     def terminate_model(self, model_uid: str):
+        """
+        Terminate the specific model running on the server.
+
+        Parameters
+        ----------
+        model_uid: str
+            The unique id that identify the model we want.
+
+        Raises
+        ------
+        RuntimeError
+            Report failure to get the wanted model with given model_uid. Provide details of failure through error message.
+
+        """
+
         url = f"{self.base_url}/v1/models/{model_uid}"
 
         response = requests.delete(url)
@@ -379,6 +706,29 @@ class RESTfulClient:
         return response_data
 
     def get_model(self, model_uid: str) -> RESTfulModelHandle:
+        """
+        Launch the model based on the parameters on the server via RESTful APIs.
+
+        Parameters
+        ----------
+        model_uid: str
+            The unique id that identify the model.
+
+        Returns
+        -------
+        ModelHandle
+            The corresponding Model Handler based on the Model specified in the uid:
+            "RESTfulChatglmCppChatModelHandle" -> provide handle to ChatGLM Model
+            "RESTfulGenerateModelHandle" -> provide handle to basic generate Model. e.g. Baichuan.
+            "RESTfulChatModelHandle" -> provide handle to chat Model. e.g. Baichuan-chat.
+
+        Raises
+        ------
+        RuntimeError
+            Report failure to get the wanted model with given model_uid. Provide details of failure through error message.
+
+        """
+
         url = f"{self.base_url}/v1/models/{model_uid}"
         response = requests.get(url)
         if response.status_code != 200:
