@@ -105,6 +105,7 @@ if __name__ == "__main__":
 
     demo = gr.ChatInterface(
         fn=generate_wrapper,
+        analytics_enabled=False,
         examples=[
             "Show me a two sentence horror story with a plot twist",
             "Generate a Haiku poem using trignometry as the central theme",
