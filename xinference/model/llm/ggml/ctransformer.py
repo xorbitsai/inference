@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import logging
-from typing import TYPE_CHECKING, Iterator, Optional, Sequence, TypedDict, Union
+from typing import Iterator, Optional, Sequence, TypedDict, Union
 
 from ctransformers import AutoConfig
 
@@ -22,9 +22,7 @@ from xinference.types import Completion, CompletionChunk
 from ..core import LLM
 from ..llm_family import LLMFamilyV1, LLMSpecV1
 from .ctransformers_util import generate_stream
-
-if TYPE_CHECKING:
-    from ... import ModelSpec
+from .llamacpp import SIZE_TO_GPU_LAYERS
 
 logger = logging.getLogger(__name__)
 
@@ -65,25 +63,22 @@ class CtransformerModel(LLM):
     def __init__(
         self,
         model_uid: str,
-        model_spec: "ModelSpec",
+        model_family: "LLMFamilyV1",
+        model_spec: "LLMSpecV1",
+        quantization: str,
         model_path: str,
-        model_type: str,
-        model_file: Optional[str],
         ctransformerModelConfig: Optional[AutoConfig] = None,
     ):
-        super().__init__(model_uid, model_spec)
+        super().__init__(model_uid, model_family, model_spec, quantization, model_path)
 
-        # closest_size = min(
-        #     SIZE_TO_GPU_LAYERS.keys(),
-        #     key=lambda x: abs(x - model_spec.model_size_in_billions),
-        # )
-        # self._gpu_layers = SIZE_TO_GPU_LAYERS[closest_size]
-        self._model_path = model_path
+        closest_size = min(
+            SIZE_TO_GPU_LAYERS.keys(),
+            key=lambda x: abs(x - model_spec.model_size_in_billions),
+        )
+        self._gpu_layers = SIZE_TO_GPU_LAYERS[closest_size]
         self._ctransformer_model_config: AutoConfig = self._sanitize_model_config(
             model_path, ctransformerModelConfig
         )
-        self._model_type = model_type
-        self._model_file = model_file
         self._llm = None
 
     def _sanitize_model_config(
