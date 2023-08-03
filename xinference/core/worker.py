@@ -112,7 +112,7 @@ class WorkerActor(xo.Actor):
 
     @log_sync(logger=logger)
     async def register_model(self, model_type: str, model: str, persist: bool):
-        # TODO: centralized model registry
+        # TODO: centralized model registrations
         if model_type == "LLM":
             from ..model.llm import LLMFamilyV1, register_llm
 
@@ -123,7 +123,7 @@ class WorkerActor(xo.Actor):
 
     @log_sync(logger=logger)
     async def unregister_model(self, model_type: str, model_name: str, permanent: bool):
-        # TODO: centralized model registry
+        # TODO: centralized model registrations
         if model_type == "LLM":
             from ..model.llm import unregister_llm
 

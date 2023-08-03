@@ -75,7 +75,7 @@ class SupervisorActor(xo.Actor):
         raise RuntimeError("No available worker found")
 
     @log_sync(logger=logger)
-    def list_model_registries(self, model_type: str) -> List[Dict[str, Any]]:
+    def list_model_registrations(self, model_type: str) -> List[Dict[str, Any]]:
         if model_type == "LLM":
             from ..model.llm import BUILTIN_LLM_FAMILIES, get_user_defined_llm_families
 
@@ -96,7 +96,9 @@ class SupervisorActor(xo.Actor):
             raise ValueError(f"Unsupported model type: {model_type}")
 
     @log_sync(logger=logger)
-    def get_model_registry(self, model_type: str, model_name: str) -> Dict[str, Any]:
+    def get_model_registrations(
+        self, model_type: str, model_name: str
+    ) -> Dict[str, Any]:
         if model_type == "LLM":
             from ..model.llm import BUILTIN_LLM_FAMILIES, get_user_defined_llm_families
 
