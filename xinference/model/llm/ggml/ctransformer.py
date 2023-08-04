@@ -27,23 +27,6 @@ from .llamacpp import SIZE_TO_GPU_LAYERS
 
 logger = logging.getLogger(__name__)
 
-
-# class AutoConfig(TypedDict, total=False):
-#     top_k: int
-#     top_p: float
-#     temperature: float
-#     repetition_penalty: float
-#     last_n_tokens: float
-#     seed: int
-#     max_new_tokens: int
-#     stop: List[str]
-#     stream: bool
-#     reset: bool
-#     batch_size: int
-#     threads: int
-#     context_length: int
-#     gpu_layers: int
-
 # all supported models for Ctransformers with their model type.
 model_type_for_ctransformer = {
     "GPT-2": "gpt2",

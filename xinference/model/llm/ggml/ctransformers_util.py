@@ -142,8 +142,6 @@ def generate_stream(
             text=total_text, index=0, logprobs=None, finish_reason=finish_reason
         )
 
-    logger.error("Output_final, completion: %s", text)
-
     completion_chunk = CompletionChunk(
         id=str(uuid.uuid1()),
         object="text_completion",
