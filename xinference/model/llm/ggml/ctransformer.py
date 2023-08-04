@@ -98,7 +98,7 @@ class CtransformerModel(LLM):
 
     def _sanitize_model_config(
         self, model_path, ctransformerModelConfig: Optional["AutoConfig"]
-    ) -> AutoConfig:
+    ) -> "AutoConfig":
         try:
             from ctransformers import AutoConfig
         except ImportError:
