@@ -16,14 +16,24 @@ import logging
 import os
 from typing import Iterator, Optional, Sequence, TypedDict, Union
 
-from ctransformers import AutoConfig
-
 from xinference.model.llm.ggml.ctransformers_util import generate_stream
 from xinference.types import Completion, CompletionChunk
 
 from ..core import LLM
 from ..llm_family import LLMFamilyV1, LLMSpecV1
 from .llamacpp import SIZE_TO_GPU_LAYERS
+
+try:
+    from ctransformers import AutoConfig
+except ImportError:
+    error_message = "Failed to import module 'ctransformers'"
+
+    installation_guide = [
+        "Please make sure 'ctransformers' is installed. You can install it by checking out the repository: "
+        "https://github.com/marella/ctransformers",
+    ]
+
+    raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
 logger = logging.getLogger(__name__)
 
