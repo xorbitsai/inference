@@ -43,6 +43,7 @@ def generate_stream(
     threads: Optional[int] = None,
     stop: Optional[Sequence[str]] = None,
     reset: Optional[bool] = None,
+    **kwargs
 ) -> Iterator[Tuple[CompletionChunk, CompletionUsage]]:
     max_new_tokens = _get(max_new_tokens)
     stop = _get(stop) or []
