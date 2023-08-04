@@ -96,7 +96,7 @@ class SupervisorActor(xo.Actor):
             raise ValueError(f"Unsupported model type: {model_type}")
 
     @log_sync(logger=logger)
-    def get_model_registrations(
+    def get_model_registration(
         self, model_type: str, model_name: str
     ) -> Dict[str, Any]:
         if model_type == "LLM":
