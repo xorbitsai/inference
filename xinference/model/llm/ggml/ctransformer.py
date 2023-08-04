@@ -79,7 +79,7 @@ class CtransformerModel(LLM):
         model_spec: "LLMSpecV1",
         quantization: str,
         model_path: str,
-        ctransformerModelConfig,
+        ctransformerModelConfig: Optional["AutoConfig"],
     ):
         super().__init__(model_uid, model_family, model_spec, quantization, model_path)
 
@@ -97,7 +97,7 @@ class CtransformerModel(LLM):
         self._llm = None
 
     def _sanitize_model_config(
-        self, model_path, ctransformerModelConfig: Optional[AutoConfig]
+        self, model_path, ctransformerModelConfig: Optional["AutoConfig"]
     ) -> AutoConfig:
         try:
             from ctransformers import AutoConfig
