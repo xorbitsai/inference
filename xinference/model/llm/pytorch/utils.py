@@ -104,7 +104,11 @@ def generate_stream(
         temperature, repetition_penalty, top_p, top_k
     )
 
-    input_ids = tokenizer(prompt).input_ids
+    if "qwen" in str(type(model)).lower():
+        # TODO: hacky
+        input_ids = tokenizer(prompt, allowed_special="all").input_ids
+    else:
+        input_ids = tokenizer(prompt).input_ids
     output_ids = list(input_ids)
 
     if model.config.is_encoder_decoder:
