@@ -15,6 +15,7 @@
 
 import logging
 import os
+import sys
 from typing import Optional
 
 import click
@@ -146,7 +147,7 @@ def model_launch(
         quantization=quantization,
     )
 
-    print(f"Model uid: {model_uid}")
+    print(f"Model uid: {model_uid}", file=sys.stderr)
 
 
 @cli.command("list")
@@ -157,18 +158,16 @@ def model_launch(
 )
 @click.option("--all", is_flag=True)
 def model_list(endpoint: Optional[str], all: bool):
-    import sys
-
     from tabulate import tabulate
 
     # TODO: get from the supervisor
-    from ..model.llm import LLM_FAMILIES
+    from ..model.llm import BUILTIN_LLM_FAMILIES
 
     endpoint = get_endpoint(endpoint)
 
     table = []
     if all:
-        for model_family in LLM_FAMILIES:
+        for model_family in BUILTIN_LLM_FAMILIES:
             table.append(
                 [
                     model_family.model_name,
