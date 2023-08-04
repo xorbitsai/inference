@@ -99,6 +99,7 @@ class CtransformerModel(LLM):
             model_path, ctransformerModelConfig
         )
         self._model_family = model_family
+        self._model_uid = model_uid
         self._llm = None
 
     def _sanitize_model_config(
@@ -192,9 +193,9 @@ class CtransformerModel(LLM):
             _prompt: str,
             _generate_config: CtransformerGenerateConfig,
         ) -> Iterator[CompletionChunk]:
-            assert self._llm is not None
+            assert self._model_uid is not None
             for _completion_chunk, _ in generate_stream(
-                model=self._llm, prompt=_prompt, **_generate_config
+                model=self._model_uid, prompt=_prompt, **_generate_config
             ):
                 yield _completion_chunk
 
@@ -208,12 +209,16 @@ class CtransformerModel(LLM):
         if stream_or_not:
             return generator_wrapper(_prompt=prompt, _generate_config=generate_config)
         else:
-            assert self._llm is not None
+            assert self.model_uid is not None
+            completion_chunk = None
+            completion_usage = None
             for completion_chunk, completion_usage in generate_stream(
-                self._llm, prompt=prompt, **generate_config
+                self.model_uid, prompt=prompt, **generate_config
             ):
                 pass
 
+            assert completion_chunk is not None
+            assert completion_usage is not None
             completion = Completion(
                 id=completion_chunk["id"],
                 object=completion_chunk["object"],
