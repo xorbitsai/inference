@@ -63,6 +63,15 @@ class CtransformerGenerateConfig(TypedDict, total=False):
 
 
 class CtransformerModel(LLM):
+    try:
+        from ctransformers import AutoConfig
+    except ImportError:
+        error_message = "Failed to import module 'ctransformers - AutoConfig'"
+        installation_guide = [
+            "Please make sure 'ctransformers' is installed, You can install it by checking out the repository for "
+            "command: https://github.com/marella/ctransformers",
+        ]
+
     def __init__(
         self,
         model_uid: str,
