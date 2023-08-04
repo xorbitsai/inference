@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import logging
 import re
 import time
 import uuid
@@ -19,6 +20,8 @@ from typing import Iterator, Optional, Sequence, Tuple
 from ctransformers.utils import utf8_split_incomplete
 
 from xinference.types import CompletionChoice, CompletionChunk, CompletionUsage
+
+logger = logging.getLogger(__name__)
 
 
 def _get(*values):
@@ -79,6 +82,8 @@ def generate_stream(
         output = complete.decode(errors="ignore")
         text += output
 
+        logger.error("Output, completion: %s", text)
+
         # https://github.com/abetlen/llama-cpp-python/blob/1a13d76c487df1c8560132d10bda62d6e2f4fa93/llama_cpp/llama.py#L686-L706
         # Check if one of the stop sequences is part of the text.
         # Note that the stop sequence may not always be at the end of text.
@@ -126,6 +131,7 @@ def generate_stream(
             finish_reason = "length"
             break
 
+    logger.error("Output, completion: %s", text)
     completion_choice = CompletionChoice(
         text=text, index=0, logprobs=None, finish_reason=finish_reason
     )
