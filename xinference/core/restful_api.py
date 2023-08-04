@@ -480,7 +480,7 @@ class RESTfulAPIActor(xo.Actor):
             (msg["content"] for msg in body.messages if msg["role"] == "system"), None
         )
 
-        chat_history = body.messages
+        chat_history = body.messages[:-1]  # exclude the prompt
 
         model_uid = body.model
 
@@ -494,6 +494,26 @@ class RESTfulAPIActor(xo.Actor):
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
 
+        try:
+            desc = await self._supervisor_ref.describe_model(model_uid)
+
+        except ValueError as ve:
+            logger.error(str(ve), exc_info=True)
+            raise HTTPException(status_code=400, detail=str(ve))
+
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
+        is_chatglm = desc.get("model_format") == "ggmlv3" and "chatglm" in desc.get(
+            "model_name", ""
+        )
+
+        if is_chatglm and system_prompt is not None:
+            raise HTTPException(
+                status_code=400, detail="ChatGLM does not have system prompt"
+            )
+
         if body.stream:
             # create a pair of memory object streams
             send_chan, recv_chan = anyio.create_memory_object_stream(10)
@@ -501,9 +521,12 @@ class RESTfulAPIActor(xo.Actor):
             async def event_publisher(inner_send_chan: MemoryObjectSendStream):
                 async with inner_send_chan:
                     try:
-                        iterator = await model.chat(
-                            prompt, system_prompt, chat_history, kwargs
-                        )
+                        if is_chatglm:
+                            iterator = await model.chat(prompt, chat_history, kwargs)
+                        else:
+                            iterator = await model.chat(
+                                prompt, system_prompt, chat_history, kwargs
+                            )
                         async for chunk in iterator:
                             await inner_send_chan.send(dict(data=json.dumps(chunk)))
                             if await request.is_disconnected():
@@ -525,7 +548,10 @@ class RESTfulAPIActor(xo.Actor):
 
         else:
             try:
-                return await model.chat(prompt, system_prompt, chat_history, kwargs)
+                if is_chatglm:
+                    return await model.chat(prompt, chat_history, kwargs)
+                else:
+                    return await model.chat(prompt, system_prompt, chat_history, kwargs)
             except Exception as e:
                 logger.error(e, exc_info=True)
                 raise HTTPException(status_code=500, detail=str(e))
