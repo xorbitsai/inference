@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import codecs
 import json
 import logging
 import os
@@ -132,5 +133,5 @@ def _install():
     json_path = os.path.join(
         os.path.dirname(os.path.abspath(__file__)), "llm_family.json"
     )
-    for json_obj in json.load(open(json_path)):
+    for json_obj in json.load(codecs.open(json_path, "r", encoding="utf-8")):
         LLM_FAMILIES.append(LLMFamilyV1.parse_obj(json_obj))
