@@ -176,6 +176,7 @@ class CtransformerModel(LLM):
         if stream_or_not:
             return generator_wrapper(_prompt=prompt, _generate_config=generate_config)
         else:
+            assert self._llm is not None
             for completion_chunk, completion_usage in generate_stream(
                 self._llm, prompt=prompt, **generate_config
             ):
