@@ -505,13 +505,13 @@ class RESTfulAPIActor(xo.Actor):
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
 
-        is_chatglm = desc.get("model_format") == "ggmlv3" and "chatglm" in desc.get(
-            "model_name", ""
-        )
+        is_chatglm_ggml = desc.get(
+            "model_format"
+        ) == "ggmlv3" and "chatglm" in desc.get("model_name", "")
 
-        if is_chatglm and system_prompt is not None:
+        if is_chatglm_ggml and system_prompt is not None:
             raise HTTPException(
-                status_code=400, detail="ChatGLM does not have system prompt"
+                status_code=400, detail="ChatGLM ggml does not have system prompt"
             )
 
         if body.stream:
@@ -521,7 +521,7 @@ class RESTfulAPIActor(xo.Actor):
             async def event_publisher(inner_send_chan: MemoryObjectSendStream):
                 async with inner_send_chan:
                     try:
-                        if is_chatglm:
+                        if is_chatglm_ggml:
                             iterator = await model.chat(prompt, chat_history, kwargs)
                         else:
                             iterator = await model.chat(
@@ -548,7 +548,7 @@ class RESTfulAPIActor(xo.Actor):
 
         else:
             try:
-                if is_chatglm:
+                if is_chatglm_ggml:
                     return await model.chat(prompt, chat_history, kwargs)
                 else:
                     return await model.chat(prompt, system_prompt, chat_history, kwargs)
