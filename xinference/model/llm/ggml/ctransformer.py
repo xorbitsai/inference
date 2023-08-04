@@ -200,6 +200,10 @@ class CtransformerModel(LLM):
 
         generate_config = self._sanitize_generate_config(generate_config)
 
+        logger.error(
+            "Enter generate, prompt: %s, generate config: %s", prompt, generate_config
+        )
+
         stream_or_not = generate_config.get("stream", False)
         if stream_or_not:
             return generator_wrapper(_prompt=prompt, _generate_config=generate_config)
