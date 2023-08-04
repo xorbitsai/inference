@@ -43,7 +43,7 @@ def generate_stream(
     last_n_tokens: Optional[int] = None,
     seed: Optional[int] = None,
     batch_size: Optional[int] = None,
-    stream: Optional[bool] = True,
+    stream: Optional[bool] = False,
     threads: Optional[int] = None,
     stop: Optional[Sequence[str]] = None,
     reset: Optional[bool] = None,
@@ -59,6 +59,7 @@ def generate_stream(
     stop_regex = re.compile("|".join(map(re.escape, stop)))
     count = 0
     text = ""
+    total_text = ""
     incomplete = b""
 
     # parameters needed for Xinference.
@@ -81,6 +82,7 @@ def generate_stream(
         complete, incomplete = utf8_split_incomplete(incomplete)
         output = complete.decode(errors="ignore")
         text += output
+        total_text += output
 
         logger.error("Output, completion: %s", text)
 
@@ -131,10 +133,17 @@ def generate_stream(
             finish_reason = "length"
             break
 
-    logger.error("Output, completion: %s", text)
-    completion_choice = CompletionChoice(
-        text=text, index=0, logprobs=None, finish_reason=finish_reason
-    )
+    if stream is False:
+        completion_choice = CompletionChoice(
+            text=total_text, index=0, logprobs=None, finish_reason=finish_reason
+        )
+    else:
+        completion_choice = CompletionChoice(
+            text=total_text, index=0, logprobs=None, finish_reason=finish_reason
+        )
+
+    logger.error("Output_final, completion: %s", text)
+
     completion_chunk = CompletionChunk(
         id=str(uuid.uuid1()),
         object="text_completion",
