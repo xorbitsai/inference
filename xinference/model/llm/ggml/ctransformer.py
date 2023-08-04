@@ -151,6 +151,8 @@ class CtransformerModel(LLM):
     def match(cls, llm_family: LLMFamilyV1, llm_spec: LLMSpecV1) -> bool:
         if llm_spec.model_format != "ggmlv3":
             return False
+        if "starcoder" not in llm_spec.model_name:
+            return False
         if llm_spec.model_id not in ["TheBloke/starcoder-GGML"]:
             return False
         if "generate" not in llm_family.model_ability:

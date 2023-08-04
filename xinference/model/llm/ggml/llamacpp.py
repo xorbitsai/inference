@@ -187,7 +187,7 @@ class LlamaCppModel(LLM):
     def match(cls, llm_family: LLMFamilyV1, llm_spec: LLMSpecV1) -> bool:
         if llm_spec.model_format != "ggmlv3":
             return False
-        if "chatglm" in llm_family.model_name:
+        if "chatglm" in llm_family.model_name or "starcoder" in llm_family.model_name:
             return False
         if "generate" not in llm_family.model_ability:
             return False
