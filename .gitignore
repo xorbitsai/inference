@@ -138,6 +138,7 @@ static/
 
 # doc
 doc/source/savefig/
+*.txt
 
 asv/results
 
