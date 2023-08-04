@@ -17,7 +17,17 @@ import time
 import uuid
 from typing import Iterator, Optional, Sequence, Tuple
 
-from ctransformers.utils import utf8_split_incomplete
+try:
+    from ctransformers.utils import utf8_split_incomplete
+except ImportError:
+    error_message = "Failed to import module 'ctransformers'"
+
+    installation_guide = [
+        "Please make sure 'ctransformers' is installed. You can install it by checking out the repository: "
+        "https://github.com/marella/ctransformers",
+    ]
+
+    raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
 from xinference.types import CompletionChoice, CompletionChunk, CompletionUsage
 
@@ -47,7 +57,7 @@ def generate_stream(
     threads: Optional[int] = None,
     stop: Optional[Sequence[str]] = None,
     reset: Optional[bool] = None,
-    **kwargs
+    **kwargs,
 ) -> Iterator[Tuple[CompletionChunk, CompletionUsage]]:
     max_new_tokens = _get(max_new_tokens)
     stop = _get(stop) or []
