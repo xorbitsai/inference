@@ -222,4 +222,7 @@ class CtransformerModel(LLM):
                 choices=completion_chunk["choices"],
                 usage=completion_usage,
             )
+
+            logger.error("Generated", completion, generate_config)
+
             return completion
