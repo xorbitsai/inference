@@ -258,7 +258,7 @@ class LlamaCppChatModel(LlamaCppModel, ChatModelMixin):
     def match(cls, llm_family: LLMFamilyV1, llm_spec: LLMSpecV1) -> bool:
         if llm_spec.model_format != "ggmlv3":
             return False
-        if "chatglm" in llm_family.model_name:
+        if "chatglm" in llm_family.model_name or "StarCoder" in llm_family.model_name:
             return False
         if "chat" not in llm_family.model_ability:
             return False
