@@ -223,6 +223,10 @@ class CtransformerModel(LLM):
                 usage=completion_usage,
             )
 
-            logger.error("Generated", completion, generate_config)
+            logger.error(
+                "Generated, completion: %s, generate config: %s",
+                completion,
+                generate_config,
+            )
 
             return completion
