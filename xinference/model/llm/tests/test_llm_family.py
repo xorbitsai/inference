@@ -269,7 +269,7 @@ def test_custom_llm():
 
     assert family in get_user_defined_llm_families()
 
-    unregister_llm(family.model_name, True)
+    unregister_llm(family.model_name)
     assert family not in get_user_defined_llm_families()
 
 
@@ -303,7 +303,7 @@ def test_persistent_custom_llm():
         os.path.join(XINFERENCE_MODEL_DIR, "llm")
     )
 
-    unregister_llm(family.model_name, True)
+    unregister_llm(family.model_name)
     assert family not in get_user_defined_llm_families()
     assert f"{family.model_name}.json" not in os.listdir(
         os.path.join(XINFERENCE_MODEL_DIR, "llm")
