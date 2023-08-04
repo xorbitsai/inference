@@ -195,7 +195,10 @@ class CtransformerModel(LLM):
         ) -> Iterator[CompletionChunk]:
             assert self._model_uid is not None
             for _completion_chunk, _ in generate_stream(
-                model=self._model_uid, prompt=_prompt, **_generate_config
+                model=self._model_uid,
+                model_ref=self._llm,
+                prompt=_prompt,
+                **_generate_config,
             ):
                 yield _completion_chunk
 
@@ -213,7 +216,10 @@ class CtransformerModel(LLM):
             completion_chunk = None
             completion_usage = None
             for completion_chunk, completion_usage in generate_stream(
-                self.model_uid, prompt=prompt, **generate_config
+                model=self.model_uid,
+                model_ref=self._llm,
+                prompt=prompt,
+                **generate_config,
             ):
                 pass
 

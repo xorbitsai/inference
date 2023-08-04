@@ -29,6 +29,7 @@ def _get(*values):
 
 def generate_stream(
     model,
+    model_ref,
     prompt: str,
     *,
     max_new_tokens: Optional[int] = None,
@@ -50,7 +51,7 @@ def generate_stream(
     if isinstance(stop, str):
         stop = [stop]
 
-    tokens = model.tokenize(prompt)
+    tokens = model_ref.tokenize(prompt)
 
     stop_regex = re.compile("|".join(map(re.escape, stop)))
     count = 0
@@ -60,7 +61,7 @@ def generate_stream(
     # parameters needed for Xinference.
     finish_reason = None
 
-    for token in model.generate(
+    for token in model_ref.generate(
         tokens,
         top_k=top_k,
         top_p=top_p,
@@ -73,7 +74,7 @@ def generate_stream(
         reset=reset,
     ):
         # Handle incomplete UTF-8 multi-byte characters.
-        incomplete += model.detokenize([token], decode=False)
+        incomplete += model_ref.detokenize([token], decode=False)
         complete, incomplete = utf8_split_incomplete(incomplete)
         output = complete.decode(errors="ignore")
         text += output
