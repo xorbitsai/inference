@@ -44,6 +44,23 @@ logger = logging.getLogger(__name__)
 #     context_length: int
 #     gpu_layers: int
 
+# all supported models for Ctransformers with their model type.
+model_type_for_ctransformer = {
+    "GPT-2": "gpt2",
+    "GPT-J": "gptj",
+    "GPT4All-J": "gptj",
+    "GPT-NeoX": "gpt_neox",
+    "StableLM": "gpt_neox",
+    "LLaMA": "llama",
+    "LLaMA-2": "llama",
+    "MPT": "mpt",
+    "Dolly-V2": "dolly-v2",
+    "Replit": "replit",
+    "StarCoder": "starcoder",
+    "StarChat": "starcoder",
+    "Falcon": "falcon",
+}
+
 
 class CtransformerGenerateConfig(TypedDict, total=False):
     max_new_tokens: Optional[int]
@@ -72,6 +89,7 @@ class CtransformerModel(LLM):
     ):
         super().__init__(model_uid, model_family, model_spec, quantization, model_path)
 
+        self._model_type = None
         closest_size = min(
             SIZE_TO_GPU_LAYERS.keys(),
             key=lambda x: abs(x - model_spec.model_size_in_billions),
@@ -80,6 +98,7 @@ class CtransformerModel(LLM):
         self._ctransformer_model_config: AutoConfig = self._sanitize_model_config(
             model_path, ctransformerModelConfig
         )
+        self._model_family = model_family
         self._llm = None
 
     def _sanitize_model_config(
@@ -142,8 +161,10 @@ class CtransformerModel(LLM):
         if os.path.exists(legacy_model_file_path):
             model_path = legacy_model_file_path
 
+        self._model_type = self._determine_model_type()
         self._llm = AutoModelForCausalLM.from_pretrained(
             model_path_or_repo_id=model_path,
+            model_type=self._model_type,
             config=self._ctransformer_model_config,
         )
 
@@ -151,11 +172,18 @@ class CtransformerModel(LLM):
     def match(cls, llm_family: LLMFamilyV1, llm_spec: LLMSpecV1) -> bool:
         if llm_spec.model_format != "ggmlv3":
             return False
-        if "starcoder" not in llm_family.model_name:
+        if "StarCoder" not in llm_family.model_name:
             return False
         if "generate" not in llm_family.model_ability:
             return False
         return True
+
+    def _determine_model_type(self):
+        if self._model_family.model_name not in model_type_for_ctransformer:
+            raise ValueError(
+                "The current model is not supported, check your model name. "
+            )
+        return model_type_for_ctransformer[self._model_family.model_name]
 
     def generate(
         self, prompt: str, generate_config: CtransformerGenerateConfig
