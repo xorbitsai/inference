@@ -107,7 +107,7 @@ def run_model(endpoint):
             quantizations = model_spec.quantizations
             if model_format == "ggmlv3":
                 # only test 1 quantization for ggml model
-                quantizations = quantizations[:1]
+                quantizations = ["q4_0"] if "q4_0" in quantizations else quantizations[:1]
             for quantization in quantizations:
                 logger.info(
                     f"Model: {model_name}-{model_format}-{model_size}b-{quantization}"
