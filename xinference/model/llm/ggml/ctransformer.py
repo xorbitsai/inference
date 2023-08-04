@@ -14,7 +14,7 @@
 
 import logging
 import os
-from typing import Iterator, Optional, Sequence, TypedDict, Union
+from typing import TYPE_CHECKING, Iterator, Optional, Sequence, TypedDict, Union
 
 from xinference.model.llm.ggml.ctransformers_util import generate_stream
 from xinference.types import Completion, CompletionChunk
@@ -23,17 +23,8 @@ from ..core import LLM
 from ..llm_family import LLMFamilyV1, LLMSpecV1
 from .llamacpp import SIZE_TO_GPU_LAYERS
 
-try:
+if TYPE_CHECKING:
     from ctransformers import AutoConfig
-except ImportError:
-    error_message = "Failed to import module 'ctransformers'"
-
-    installation_guide = [
-        "Please make sure 'ctransformers' is installed. You can install it by checking out the repository: "
-        "https://github.com/marella/ctransformers",
-    ]
-
-    raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
 logger = logging.getLogger(__name__)
 
@@ -99,6 +90,23 @@ class CtransformerModel(LLM):
     def _sanitize_model_config(
         self, model_path, ctransformerModelConfig: Optional[AutoConfig]
     ) -> AutoConfig:
+        try:
+            from ctransformers import AutoConfig
+        except ImportError:
+            error_message = "Failed to import module 'ctransformers - AutoConfig'"
+            if self._is_darwin_and_apple_silicon():
+                system = "Metal"
+            else:
+                system = "CUDA"
+
+            installation_guide = [
+                f"Please make sure 'ctransformers' is installed and {system} accelerator is provided.",
+                f"You can install it by checking out the repository for command for {system} platform:"
+                f"https://github.com/marella/ctransformers",
+            ]
+
+            raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
+
         if ctransformerModelConfig is None:
             ctransformerModelConfig = AutoConfig.from_pretrained(
                 model_path,

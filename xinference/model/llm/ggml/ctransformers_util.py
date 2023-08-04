@@ -17,18 +17,6 @@ import time
 import uuid
 from typing import Iterator, Optional, Sequence, Tuple
 
-try:
-    from ctransformers.utils import utf8_split_incomplete
-except ImportError:
-    error_message = "Failed to import module 'ctransformers'"
-
-    installation_guide = [
-        "Please make sure 'ctransformers' is installed. You can install it by checking out the repository: "
-        "https://github.com/marella/ctransformers",
-    ]
-
-    raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
-
 from xinference.types import CompletionChoice, CompletionChunk, CompletionUsage
 
 logger = logging.getLogger(__name__)
@@ -88,6 +76,20 @@ def generate_stream(
         reset=reset,
     ):
         # Handle incomplete UTF-8 multi-byte characters.
+        try:
+            from ctransformers.utils import utf8_split_incomplete
+        except ImportError:
+            error_message = (
+                "Failed to import module 'ctransformers - utf8_split_incomplete'"
+            )
+
+            installation_guide = [
+                "Please make sure 'ctransformers' is installed. You can install it by checking out the repository: "
+                "https://github.com/marella/ctransformers",
+            ]
+
+            raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
+
         incomplete += model_ref.detokenize([token], decode=False)
         complete, incomplete = utf8_split_incomplete(incomplete)
         output = complete.decode(errors="ignore")
