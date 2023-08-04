@@ -133,13 +133,14 @@ def generate_stream(
             finish_reason = "length"
             break
 
+    logger.error("Final, completion: %s", text)
     if stream is False:
         completion_choice = CompletionChoice(
             text=total_text, index=0, logprobs=None, finish_reason=finish_reason
         )
     else:
         completion_choice = CompletionChoice(
-            text=total_text, index=0, logprobs=None, finish_reason=finish_reason
+            text=text, index=0, logprobs=None, finish_reason=finish_reason
         )
 
     completion_chunk = CompletionChunk(
