@@ -28,6 +28,7 @@ from .llamacpp import SIZE_TO_GPU_LAYERS
 logger = logging.getLogger(__name__)
 
 # all supported models for Ctransformers with their model type.
+# Please Strictly follows this name format when inputting new model to model_family.
 model_type_for_ctransformer = {
     "GPT-2": "gpt2",
     "GPT-J": "gptj",
