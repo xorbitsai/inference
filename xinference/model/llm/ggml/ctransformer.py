@@ -177,7 +177,7 @@ class CtransformerModel(LLM):
             return generator_wrapper(_prompt=prompt, _generate_config=generate_config)
         else:
             for completion_chunk, completion_usage in generate_stream(
-                self._model, prompt=prompt, **generate_config
+                self._llm, prompt=prompt, **generate_config
             ):
                 pass
 
