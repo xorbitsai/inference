@@ -79,7 +79,7 @@ class CtransformerModel(LLM):
         model_spec: "LLMSpecV1",
         quantization: str,
         model_path: str,
-        ctransformerModelConfig: Optional[AutoConfig] = None,
+        ctransformerModelConfig,
     ):
         super().__init__(model_uid, model_family, model_spec, quantization, model_path)
 
