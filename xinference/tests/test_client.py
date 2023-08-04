@@ -102,7 +102,7 @@ def test_client_custom_model(setup):
             custom_model_reg = model_reg
     assert custom_model_reg is not None
 
-    client.unregister_model(model_type="LLM", model_name="custom_model", permanent=True)
+    client.unregister_model(model_type="LLM", model_name="custom_model")
     new_model_regs = client.list_model_registrations(model_type="LLM")
     assert len(new_model_regs) == len(model_regs)
     custom_model_reg = None

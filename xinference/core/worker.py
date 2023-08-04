@@ -122,12 +122,12 @@ class WorkerActor(xo.Actor):
             raise ValueError(f"Unsupported model type: {model_type}")
 
     @log_sync(logger=logger)
-    async def unregister_model(self, model_type: str, model_name: str, permanent: bool):
+    async def unregister_model(self, model_type: str, model_name: str):
         # TODO: centralized model registrations
         if model_type == "LLM":
             from ..model.llm import unregister_llm
 
-            unregister_llm(model_name, permanent)
+            unregister_llm(model_name)
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
 

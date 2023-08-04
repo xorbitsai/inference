@@ -248,7 +248,7 @@ def register_llm(llm_family: LLMFamilyV1, persist: bool):
             fd.write(llm_family.json())
 
 
-def unregister_llm(model_name: str, permanent: bool):
+def unregister_llm(model_name: str):
     with UD_LLM_FAMILIES_LOCK:
         llm_family = None
         for i, f in enumerate(UD_LLM_FAMILIES):
@@ -257,12 +257,12 @@ def unregister_llm(model_name: str, permanent: bool):
                 break
         if llm_family:
             UD_LLM_FAMILIES.remove(llm_family)
-            if permanent:
-                persist_path = os.path.join(
-                    XINFERENCE_MODEL_DIR, "llm", f"{llm_family.model_name}.json"
-                )
-                if os.path.exists(persist_path):
-                    os.remove(persist_path)
+
+            persist_path = os.path.join(
+                XINFERENCE_MODEL_DIR, "llm", f"{llm_family.model_name}.json"
+            )
+            if os.path.exists(persist_path):
+                os.remove(persist_path)
         else:
             raise ValueError(f"Model {model_name} not found")
 

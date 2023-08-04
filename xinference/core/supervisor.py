@@ -125,15 +125,15 @@ class SupervisorActor(xo.Actor):
             raise ValueError(f"Unsupported model type: {model_type}")
 
     @log_async(logger=logger)
-    async def unregister_model(self, model_type: str, model_name: str, permanent: bool):
+    async def unregister_model(self, model_type: str, model_name: str):
         if model_type == "LLM":
             from ..model.llm import unregister_llm
 
-            unregister_llm(model_name, permanent)
+            unregister_llm(model_name)
 
             if not self.is_local_deployment:
                 for worker in self._worker_address_to_worker.values():
-                    await worker.unregister_model(model_name, permanent)
+                    await worker.unregister_model(model_name)
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
 

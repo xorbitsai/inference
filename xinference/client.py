@@ -484,8 +484,8 @@ class Client:
         coro = self._supervisor_ref.register_model(model_type, model, persist)
         self._isolation.call(coro)
 
-    def unregister_model(self, model_type: str, model_name: str, permanent: bool):
-        coro = self._supervisor_ref.unregister_model(model_type, model_name, permanent)
+    def unregister_model(self, model_type: str, model_name: str):
+        coro = self._supervisor_ref.unregister_model(model_type, model_name)
         self._isolation.call(coro)
 
     def list_model_registrations(self, model_type: str) -> List[Dict[str, Any]]:
