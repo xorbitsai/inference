@@ -744,7 +744,8 @@
     "version": 1,
     "model_name": "qwen-chat",
     "model_lang": [
-      "en", "zh"
+      "en",
+      "zh"
     ],
     "model_ability": [
       "embed",
@@ -774,5 +775,31 @@
         151643
       ]
     }
+  },
+  {
+    "version": 1,
+    "model_name": "starcoder",
+    "model_lang": [
+      "en"
+    ],
+    "model_ability":[
+      "generate"
+    ],
+    "model_specs": [
+      {
+        "model_format": "ggmlv3",
+        "model_size_in_billions": 16,
+        "quantizations": [
+          "q4_0",
+          "q4_1",
+          "q5_0",
+          "q5_1",
+          "q8_0"
+        ],
+        "model_id": "TheBloke/starcoder-GGML",
+        "model_file_name_template": "starcoder.ggmlv3.{quantization}.bin"
+      }
+    ],
+    "prompt_style": null
   }
 ]
