@@ -156,4 +156,4 @@ def generate_stream(
         total_tokens=count + len(tokens),
     )
 
-    yield completion_chunk, completion_usage
+    return completion_chunk, completion_usage
