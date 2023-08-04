@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import logging
+import os
 from typing import Iterator, Optional, Sequence, TypedDict, Union
 
 from ctransformers import AutoConfig
@@ -130,10 +131,19 @@ class CtransformerModel(LLM):
 
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
+        # handle legacy cache.
+        model_path = os.path.join(
+            self.model_path,
+            self.model_spec.model_file_name_template.format(
+                quantization=self.quantization
+            ),
+        )
+        legacy_model_file_path = os.path.join(self.model_path, "model.bin")
+        if os.path.exists(legacy_model_file_path):
+            model_path = legacy_model_file_path
+
         self._llm = AutoModelForCausalLM.from_pretrained(
-            model_path_or_repo_id=self._model_path,
-            model_type=self._model_type,
-            model_file=self._model_file,
+            model_path_or_repo_id=model_path,
             config=self._ctransformer_model_config,
         )
 
@@ -142,8 +152,6 @@ class CtransformerModel(LLM):
         if llm_spec.model_format != "ggmlv3":
             return False
         if llm_spec.model_id not in ["TheBloke/starcoder-GGML"]:
-            return False
-        if "chatglm" in llm_family.model_name:
             return False
         if "generate" not in llm_family.model_ability:
             return False
