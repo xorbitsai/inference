@@ -18,7 +18,6 @@ import time
 from typing import Iterator
 
 import pytest
-from ctransformers import AutoConfig, Config
 
 from xinference.model.llm import GgmlLLMSpecV1, LLMFamilyV1
 from xinference.model.llm.ggml.ctransformer import (
@@ -143,6 +142,10 @@ mock_model_family = LLMFamilyV1.parse_raw(test_model_spec)
 @pytest.fixture
 def mock_AutoConfig_Pretrained(mocker):
     # Create a mock of the Child.method() and set its return value
+    try:
+        from ctransformers import AutoConfig, Config
+    except ImportError:
+        raise ImportError("ctransformers AutoConfig or Config cannot been imported.")
     mock_from_pretrained = mocker.patch.object(AutoConfig, "from_pretrained")
     config = Config()
     auto_config = AutoConfig(config=config)
@@ -167,6 +170,11 @@ def test_ctransformer_init(model_spec, model_family, mock_AutoConfig_Pretrained)
         model_path=path,
         ctransformerModelConfig=None,
     )
+
+    try:
+        from ctransformers import AutoConfig
+    except ImportError:
+        raise ImportError("ctransformers AutoConfig or Config cannot been imported.")
 
     assert model.model_uid == uid
     assert model.quantization == quantization
