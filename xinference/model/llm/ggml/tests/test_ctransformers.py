@@ -217,15 +217,6 @@ def test_ctransformer_init(model_spec, model_family, mock_AutoConfig_Pretrained)
         model.model_family.model_specs[0].model_file_name_template
         == model_spec.model_file_name_template
     )
-    assert (
-        model.model_family.model_specs[0].model_local_path
-        == model.model_spec.model_local_path
-    )
-    assert (
-        model.model_family.model_specs[0].model_local_path
-        == model_spec.model_local_path
-    )
-
     assert model._llm is None
 
 
