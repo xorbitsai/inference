@@ -146,9 +146,9 @@ class MockAutoConfig:
         self.config = config
 
 
+# Mock the AutoConfig_Pretrained to not directly import ctransformers
 @pytest.fixture
 def mock_AutoConfig_Pretrained(mocker):
-    # Create a mock of the Child.method() and set its return value
     ctransformers_module = importlib.import_module("ctransformers")
     mock_from_pretrained = mocker.patch.object(
         ctransformers_module.AutoConfig,  # Target object to patch
