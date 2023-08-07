@@ -19,7 +19,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.12.1\n"
 
-#: ../../source/reference/index.rst:5
-msgid "API Reference 📋"
+#: ../../source/user_guide/faq.rst:3
+msgid "FAQ 📚"
 msgstr ""
 
