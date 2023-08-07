@@ -47,7 +47,7 @@ class PytorchGenerateConfig(TypedDict, total=False):
 
 
 class PytorchModelConfig(TypedDict, total=False):
-    revision: str
+    revision: Optional[str]
     device: str
     gpus: Optional[str]
     num_gpus: int
