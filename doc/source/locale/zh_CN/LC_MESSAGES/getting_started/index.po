@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-07-18 11:00+0800\n"
+"POT-Creation-Date: 2023-08-07 11:39+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -20,6 +20,5 @@ msgstr ""
 "Generated-By: Babel 2.12.1\n"
 
 #: ../../source/getting_started/index.rst:5
-msgid "Getting Started"
+msgid "Getting Started 🚀"
 msgstr ""
-
