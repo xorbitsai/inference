@@ -162,6 +162,13 @@ class PytorchModel(LLM):
                 kwargs["device_map"] = "auto"
                 if quantization == "4-bit":
                     kwargs["load_in_4bit"] = True
+                    kwargs["bnb_4bit_compute_dtype"] = torch.float16
+                    kwargs["bnb_4bit_use_double_quant"] = True
+                    kwargs["llm_int8_skip_modules"] = [
+                        "lm_head",
+                        "encoder",
+                        "EncDecAttention",
+                    ]
                 elif quantization == "8-bit":
                     kwargs["load_in_8bit"] = True
                 else:
