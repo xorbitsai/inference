@@ -34,6 +34,7 @@ class GgmlLLMSpecV1(BaseModel):
     model_id: str
     model_file_name_template: str
     model_uri: Optional[str]
+    model_revision: Optional[str]
 
 
 class PytorchLLMSpecV1(BaseModel):
@@ -42,6 +43,7 @@ class PytorchLLMSpecV1(BaseModel):
     quantizations: List[str]
     model_id: str
     model_uri: Optional[str]
+    model_revision: Optional[str]
 
 
 class PromptStyleV1(BaseModel):
@@ -139,6 +141,7 @@ def cache_from_huggingface(
         assert isinstance(llm_spec, PytorchLLMSpecV1)
         huggingface_hub.snapshot_download(
             llm_spec.model_id,
+            revision=llm_spec.model_revision,
             local_dir=cache_dir,
             local_dir_use_symlinks=True,
         )
@@ -147,6 +150,7 @@ def cache_from_huggingface(
         file_name = llm_spec.model_file_name_template.format(quantization=quantization)
         huggingface_hub.hf_hub_download(
             llm_spec.model_id,
+            revision=llm_spec.model_revision,
             filename=file_name,
             local_dir=cache_dir,
             local_dir_use_symlinks=True,
