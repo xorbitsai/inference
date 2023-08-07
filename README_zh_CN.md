@@ -252,7 +252,7 @@ from xinference.client import Client
 # replace with real xinference endpoint
 endpoint = "http://localhost:9997"
 client = Client(endpoint)
-client.register_model("LLM", json.dumps(custom_model), False)
+client.register_model(model_type="LLM", model=json.dumps(custom_model), persist=False)
 ```
 
 加载模型：
@@ -279,8 +279,8 @@ text = """CREATE TABLE work_orders (
 
 SELECT"""
 
-model = client.get_model(uid)
-model.generate(text)
+model = client.get_model(model_uid=uid)
+model.generate(prompt=text)
 ```
 
 结果：
