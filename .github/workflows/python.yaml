@@ -103,9 +103,3 @@ jobs:
             -W ignore::PendingDeprecationWarning \
             --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference
         working-directory: .
-
-      - name: Report coverage data
-        uses: codecov/codecov-action@v3
-        with:
-          working-directory: .
-          flags: unittests

@@ -16,7 +16,7 @@ import asyncio
 import time
 from dataclasses import dataclass
 from logging import getLogger
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 import xoscar as xo
 
@@ -73,6 +73,69 @@ class SupervisorActor(xo.Actor):
             return target_worker
 
         raise RuntimeError("No available worker found")
+
+    @log_sync(logger=logger)
+    def list_model_registrations(self, model_type: str) -> List[Dict[str, Any]]:
+        if model_type == "LLM":
+            from ..model.llm import BUILTIN_LLM_FAMILIES, get_user_defined_llm_families
+
+            ret = [
+                {"model_name": f.model_name, "is_builtin": True}
+                for f in BUILTIN_LLM_FAMILIES
+            ]
+            user_defined_llm_families = get_user_defined_llm_families()
+            ret.extend(
+                [
+                    {"model_name": f.model_name, "is_builtin": False}
+                    for f in user_defined_llm_families
+                ]
+            )
+
+            return ret
+        else:
+            raise ValueError(f"Unsupported model type: {model_type}")
+
+    @log_sync(logger=logger)
+    def get_model_registration(
+        self, model_type: str, model_name: str
+    ) -> Dict[str, Any]:
+        if model_type == "LLM":
+            from ..model.llm import BUILTIN_LLM_FAMILIES, get_user_defined_llm_families
+
+            for f in BUILTIN_LLM_FAMILIES + get_user_defined_llm_families():
+                if f.model_name == model_name:
+                    return f
+
+            raise ValueError(f"Model {model_name} not found")
+        else:
+            raise ValueError(f"Unsupported model type: {model_type}")
+
+    @log_async(logger=logger)
+    async def register_model(self, model_type: str, model: str, persist: bool):
+        if model_type == "LLM":
+            from ..model.llm import LLMFamilyV1, register_llm
+
+            llm_family = LLMFamilyV1.parse_raw(model)
+            register_llm(llm_family, persist)
+
+            if not self.is_local_deployment:
+                for worker in self._worker_address_to_worker.values():
+                    await worker.register_model(model_type, model, persist)
+        else:
+            raise ValueError(f"Unsupported model type: {model_type}")
+
+    @log_async(logger=logger)
+    async def unregister_model(self, model_type: str, model_name: str):
+        if model_type == "LLM":
+            from ..model.llm import unregister_llm
+
+            unregister_llm(model_name)
+
+            if not self.is_local_deployment:
+                for worker in self._worker_address_to_worker.values():
+                    await worker.unregister_model(model_name)
+        else:
+            raise ValueError(f"Unsupported model type: {model_type}")
 
     async def launch_builtin_model(
         self,

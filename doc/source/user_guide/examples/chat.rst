@@ -1,20 +1,20 @@
-==========
-**chat** 🤖️
-==========
+====================
+Example: chatbot 🤖️
+====================
 
-🌟 **Description**:
+**Description**:
 
 Demonstrate how to interact with Xinference to play with LLM chat functionality with an AI agent 💻
 
-🌟 **Used Technology**:
+**Used Technology**:
 
     @ `ggerganov <https://twitter.com/ggerganov>`_ 's `ggml <https://github.com/ggerganov/ggml>`_
 
-    @ `Xorbitsio inference <https://github.com/xorbitsai/inference>`_ as a launcher
+    @ `Xinference <https://github.com/xorbitsai/inference>`_ as a launcher
 
     @ All LLaMA and Chatglm models supported by `Xorbitsio inference <https://github.com/xorbitsai/inference>`_
 
-🌟 **Detailed Explanation on the Demo Functionality** :
+**Detailed Explanation on the Demo Functionality** :
 
 1. Take the user command line input in the terminal and grab the required parameters for model lanuching.
 
@@ -27,5 +27,5 @@ Demonstrate how to interact with Xinference to play with LLM chat functionality 
 
 5. Store the user's input and agent's response into the chat history as context for the upcoming rounds.
 
-🌟 **Source Code** :
+**Source Code** :
     * `chat <https://github.com/RayJi01/Xprobe_inference/blob/main/examples/chat.py>`_

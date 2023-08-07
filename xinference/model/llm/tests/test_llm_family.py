@@ -122,7 +122,7 @@ def test_serialize_llm_family_v1():
         prompt_style=prompt_style,
     )
 
-    expected = """{"version": 1, "model_name": "TestModel", "model_lang": ["en"], "model_ability": ["embed", "generate"], "model_description": null, "model_specs": [{"model_format": "ggmlv3", "model_size_in_billions": 2, "quantizations": ["q4_0", "q4_1"], "model_id": "example/TestModel", "model_file_name_template": "TestModel.{quantization}.ggmlv3.bin", "model_local_path": null}, {"model_format": "pytorch", "model_size_in_billions": 3, "quantizations": ["int8", "int4", "none"], "model_id": "example/TestModel", "model_local_path": null}], "prompt_style": {"style_name": "ADD_COLON_SINGLE", "system_prompt": "A chat between a curious human and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the human's questions.", "roles": ["user", "assistant"], "intra_message_sep": "\\n### ", "inter_message_sep": "\\n### ", "stop": null, "stop_token_ids": null}}"""
+    expected = """{"version": 1, "model_name": "TestModel", "model_lang": ["en"], "model_ability": ["embed", "generate"], "model_description": null, "model_specs": [{"model_format": "ggmlv3", "model_size_in_billions": 2, "quantizations": ["q4_0", "q4_1"], "model_id": "example/TestModel", "model_file_name_template": "TestModel.{quantization}.ggmlv3.bin", "model_uri": null}, {"model_format": "pytorch", "model_size_in_billions": 3, "quantizations": ["int8", "int4", "none"], "model_id": "example/TestModel", "model_uri": null}], "prompt_style": {"style_name": "ADD_COLON_SINGLE", "system_prompt": "A chat between a curious human and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the human's questions.", "roles": ["user", "assistant"], "intra_message_sep": "\\n### ", "inter_message_sep": "\\n### ", "stop": null, "stop_token_ids": null}}"""
     assert json.loads(llm_family.json()) == json.loads(expected)
 
 
@@ -193,6 +193,16 @@ def test_cache_from_huggingface_ggml():
     assert os.path.islink(os.path.join(cache_dir, "README.md"))
 
 
+def test_cache_from_uri_ggml():
+    # TODO: implement
+    pass
+
+
+def test_cache_from_uri_pytorch():
+    # TODO: implement
+    pass
+
+
 def test_legacy_cache():
     import os
 
@@ -233,3 +243,78 @@ def test_legacy_cache():
     assert cache(
         llm_family=family, llm_spec=spec, quantization="q8_0"
     ) == os.path.dirname(cache_path)
+
+
+def test_custom_llm():
+    from ..llm_family import get_user_defined_llm_families, register_llm, unregister_llm
+
+    spec = GgmlLLMSpecV1(
+        model_format="ggmlv3",
+        model_size_in_billions=3,
+        model_id="TheBloke/orca_mini_3B-GGML",
+        quantizations=["q8_0"],
+        model_file_name_template="README.md",
+    )
+    family = LLMFamilyV1(
+        version=1,
+        model_type="LLM",
+        model_name="custom_model",
+        model_lang=["en"],
+        model_ability=["embed", "chat"],
+        model_specs=[spec],
+        prompt_style=None,
+    )
+
+    register_llm(family, False)
+
+    assert family in get_user_defined_llm_families()
+
+    unregister_llm(family.model_name)
+    assert family not in get_user_defined_llm_families()
+
+
+def test_persistent_custom_llm():
+    import os
+
+    from ....constants import XINFERENCE_MODEL_DIR
+    from ..llm_family import get_user_defined_llm_families, register_llm, unregister_llm
+
+    spec = GgmlLLMSpecV1(
+        model_format="ggmlv3",
+        model_size_in_billions=3,
+        model_id="TheBloke/orca_mini_3B-GGML",
+        quantizations=["q8_0"],
+        model_file_name_template="README.md",
+    )
+    family = LLMFamilyV1(
+        version=1,
+        model_type="LLM",
+        model_name="custom_model",
+        model_lang=["en"],
+        model_ability=["embed", "chat"],
+        model_specs=[spec],
+        prompt_style=None,
+    )
+
+    register_llm(family, True)
+
+    assert family in get_user_defined_llm_families()
+    assert f"{family.model_name}.json" in os.listdir(
+        os.path.join(XINFERENCE_MODEL_DIR, "llm")
+    )
+
+    unregister_llm(family.model_name)
+    assert family not in get_user_defined_llm_families()
+    assert f"{family.model_name}.json" not in os.listdir(
+        os.path.join(XINFERENCE_MODEL_DIR, "llm")
+    )
+
+
+def test_match_llm():
+    # TODO: implement
+    pass
+
+
+def test_match_llm_cls():
+    # TODO: implement
+    pass

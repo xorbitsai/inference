@@ -192,3 +192,9 @@ class ChatModelMixin:
             ],
             "usage": completion["usage"],
         }
+
+
+def is_valid_model_name(model_name: str) -> bool:
+    import re
+
+    return re.match(r"^[A-Za-z0-9][A-Za-z0-9_\-]*$", model_name) is not None
