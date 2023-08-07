@@ -64,7 +64,6 @@ const ModelCard = ({ imgURL, serviceName, description, url, jsonData }) => {
       border: "1px solid #ddd",
       borderRadius: "20px",
       padding: "15px",
-      //   boxShadow: "0 4px 8px 0",
     },
     img: {
       display: "block",
@@ -83,13 +82,13 @@ const ModelCard = ({ imgURL, serviceName, description, url, jsonData }) => {
       padding: "0px 0px 15px 0px",
     },
     button: {
-      color: "white",
       display: "block",
       padding: "10px 24px",
       margin: "0 auto",
       border: "none",
       borderRadius: "5px",
       cursor: "pointer",
+      fontWeight: "bold",
     },
   };
 
@@ -101,7 +100,11 @@ const ModelCard = ({ imgURL, serviceName, description, url, jsonData }) => {
       <button
         style={{
           ...styles.button,
-          backgroundColor: isCallingApi | isUpdatingModel ? "gray" : "#4CAF50",
+          color: isCallingApi | isUpdatingModel ? "white" : "#ea580c",
+          background:
+            isCallingApi | isUpdatingModel
+              ? "gray"
+              : "linear-gradient(to bottom right, #ffedd5, #fdba74)",
         }}
         onClick={() => {
           launchModel(url, jsonData);
