@@ -214,12 +214,11 @@ custom_model = {
   "model_name": "nsql-2B",  
   # supported languages
   "model_lang": [
-    "en", "zh"
+    "en"
   ],
   # model abilities. could be "embed", "generate"
   # and "chat".
   "model_ability": [
-    "embed",
     "generate"
   ],
   # model specifications.
@@ -227,7 +226,7 @@ custom_model = {
     {
       # model format.
       "model_format": "pytorch",
-      "model_size_in_billions": 7,
+      "model_size_in_billions": 2,
       # quantizations.
       "quantizations": [
         "4-bit",
