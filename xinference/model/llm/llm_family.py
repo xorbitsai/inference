@@ -160,13 +160,9 @@ def _is_linux():
 
 
 def _has_cuda_device():
-    cuda_visible_devices = os.environ.get("CUDA_VISIBLE_DEVICES")
-    if cuda_visible_devices:
-        return True
-    else:
-        from xorbits._mars.resource import cuda_count
+    from xorbits._mars.resource import cuda_count
 
-        return cuda_count() > 0
+    return cuda_count() > 0
 
 
 def get_user_defined_llm_families():

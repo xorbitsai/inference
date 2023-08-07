@@ -53,6 +53,14 @@ class LLM(abc.ABC):
     def _is_linux():
         return platform.system() == "Linux"
 
+    @staticmethod
+    def _is_darwin():
+        return platform.system() == "Darwin"
+
+    @staticmethod
+    def _is_arm():
+        return platform.processor() == "arm"
+
     @abstractmethod
     def load(self):
         raise NotImplementedError
