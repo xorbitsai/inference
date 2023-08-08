@@ -24,7 +24,7 @@ potential of cutting-edge AI models.
 <i><a href="https://join.slack.com/t/xorbitsio/shared_invite/zt-1z3zsm9ep-87yI9YZ_B79HLB2ccTq4WA">👉 Join our Slack community!</a></i>
 </div>
 
-## 🔥 Hot topics
+## 🔥 Hot Topics
 ### Framework Enhancements
 - LoRA support: [#271](https://github.com/xorbitsai/inference/issues/271)
 - Multi-GPU support for PyTorch models: [#226](https://github.com/xorbitsai/inference/issues/226)

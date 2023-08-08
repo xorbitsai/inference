@@ -35,7 +35,7 @@ allowing the seamless distribution of model inference across multiple devices or
 with popular third-party libraries like LangChain and LlamaIndex. (Coming soon)
 
 
-🔥 Hot topics
+🔥 Hot Topics
 -------------
 
 Framework Enhancements

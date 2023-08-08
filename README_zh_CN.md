@@ -23,6 +23,19 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 <i><a href="https://join.slack.com/t/xorbitsio/shared_invite/zt-1z3zsm9ep-87yI9YZ_B79HLB2ccTq4WA">👉 立刻加入我们的 Slack 社区!</a></i>
 </div>
 
+## 🔥 近期热点
+### 框架增强
+- LoRA 支持: [#271](https://github.com/xorbitsai/inference/issues/271)
+- PyTorch 模型多 GPU 支持: [#226](https://github.com/xorbitsai/inference/issues/226)
+- Xinference 仪表盘: [#93](https://github.com/xorbitsai/inference/issues/93>)
+### 新模型
+- 内置 GGML 格式的 Starcoder: [#289](https://github.com/xorbitsai/inference/pull/289)
+- 内置 [MusicGen](https://github.com/facebookresearch/audiocraft/blob/main/docs/MUSICGEN.md): [#313](https://github.com/xorbitsai/inference/issues/313)
+- 内置 [SD-XL](https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0): [#318](https://github.com/xorbitsai/inference/issues/318)
+### 工具
+- LlamaIndex 插件: [#7151](https://github.com/jerryjliu/llama_index/pull/7151)
+
+
 
 ## 主要功能
 🌟 **模型推理，轻而易举**：大语言模型，语音识别模型，多模态模型的部署流程被大大简化。一个命令即可完成模型
