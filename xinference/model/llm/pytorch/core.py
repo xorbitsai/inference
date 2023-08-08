@@ -47,7 +47,7 @@ class PytorchGenerateConfig(TypedDict, total=False):
 
 
 class PytorchModelConfig(TypedDict, total=False):
-    revision: str
+    revision: Optional[str]
     device: str
     gpus: Optional[str]
     num_gpus: int
@@ -80,7 +80,7 @@ class PytorchModel(LLM):
     ) -> PytorchModelConfig:
         if pytorch_model_config is None:
             pytorch_model_config = PytorchModelConfig()
-        pytorch_model_config.setdefault("revision", "main")
+        pytorch_model_config.setdefault("revision", self.model_spec.model_revision)
         pytorch_model_config.setdefault("gpus", None)
         pytorch_model_config.setdefault("num_gpus", 1)
         pytorch_model_config.setdefault("gptq_ckpt", None)
@@ -171,7 +171,10 @@ class PytorchModel(LLM):
             kwargs = {"torch_dtype": torch.float16}
         else:
             raise ValueError(f"Device {self._device} is not supported in temporary")
-        kwargs["revision"] = self._pytorch_model_config.get("revision", "main")
+
+        kwargs["revision"] = self._pytorch_model_config.get(
+            "revision", self.model_spec.model_revision
+        )
 
         if quantization != "none":
             if self._device == "cuda" and self._is_linux():
