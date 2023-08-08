@@ -18,14 +18,12 @@ from typing import Union
 import pytest
 
 from .....client import Client, GenerateModelHandle
-from ... import BUILTIN_LLM_FAMILIES, LLMFamilyV1, LLMSpecV1
+from ... import BUILTIN_LLM_FAMILIES
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("quantization", ["8-bit", "4-bit", "none"])
-async def test_opt_pytorch_model(
-    setup, quantization, llm_family: LLMFamilyV1, llm_spec: LLMSpecV1
-):
+async def test_opt_pytorch_model(setup, quantization):
     endpoint, _ = setup
     client = Client(endpoint)
     assert len(client.list_models()) == 0
