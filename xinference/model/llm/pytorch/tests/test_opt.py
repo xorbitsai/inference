@@ -13,6 +13,7 @@
 # limitations under the License.
 import os
 from pathlib import Path
+from typing import Union
 
 import pytest
 
@@ -69,7 +70,7 @@ async def test_opt_pytorch_model(
         )
         actual_revision = os.listdir(snapshot_address)
         model_name = "opt"
-        expected_revision = ""
+        expected_revision: Union[str, None] = ""
 
         for family in BUILTIN_LLM_FAMILIES:
             if model_name != family.model_name:
