@@ -168,4 +168,6 @@ def generate_stream(
         total_tokens=count + len(tokens),
     )
 
+    logger.error("Completionchoice: %s", completion_choice)
+
     return completion_chunk, completion_usage
