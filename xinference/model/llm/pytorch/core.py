@@ -73,7 +73,7 @@ class PytorchModel(LLM):
         self._pytorch_model_config: PytorchModelConfig = self._sanitize_model_config(
             pytorch_model_config
         )
-        self._device = self._select_device()
+        self._device = self._pytorch_model_config["device"]
 
     def _sanitize_model_config(
         self, pytorch_model_config: Optional[PytorchModelConfig]
@@ -81,13 +81,13 @@ class PytorchModel(LLM):
         if pytorch_model_config is None:
             pytorch_model_config = PytorchModelConfig()
         pytorch_model_config.setdefault("revision", "main")
-        pytorch_model_config.setdefault("device", "auto")
         pytorch_model_config.setdefault("gpus", None)
         pytorch_model_config.setdefault("num_gpus", 1)
         pytorch_model_config.setdefault("gptq_ckpt", None)
         pytorch_model_config.setdefault("gptq_wbits", 16)
         pytorch_model_config.setdefault("gptq_groupsize", -1)
         pytorch_model_config.setdefault("gptq_act_order", False)
+        pytorch_model_config["device"] = self._select_device()
         return pytorch_model_config
 
     def _sanitize_generate_config(
@@ -111,13 +111,11 @@ class PytorchModel(LLM):
             return "cuda" if _has_cuda_device() else "cpu"
         elif device == "cuda":
             if not _has_cuda_device():
-                raise ValueError(
-                    "No cuda device is detected in your environment, please set device to cpu"
-                )
+                raise ValueError("No cuda device is detected in your environment")
         elif device == "mps":
             if not self._is_darwin_and_apple_silicon():
                 raise ValueError(
-                    "mps is only used on Mac M1/M2 machines, please set device to cpu"
+                    "mps is only available for Mac computers with Apple silicon"
                 )
         elif device == "cpu":
             pass
