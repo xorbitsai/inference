@@ -1,6 +1,6 @@
 import { Typography, Box } from "@mui/material";
 
-const Header = ({ title, subtitle }) => {
+const Title = ({ title, subtitle }) => {
   return (
     <Box mb="30px">
       <Typography
@@ -18,4 +18,4 @@ const Header = ({ title, subtitle }) => {
   );
 };
 
-export default Header;
+export default Title;

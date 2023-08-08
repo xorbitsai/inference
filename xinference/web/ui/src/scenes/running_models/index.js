@@ -7,17 +7,17 @@ import Title from "../../components/Title";
 import OpenInBrowserOutlinedIcon from "@mui/icons-material/OpenInBrowserOutlined";
 import DeleteOutlineOutlinedIcon from "@mui/icons-material/DeleteOutlineOutlined";
 
-const ModelDashboard = () => {
+const RunningModels = () => {
   const theme = useTheme();
   const colors = tokens(theme.palette.mode);
   const [modelData, setModelData] = useState([
-    // {
-    //   id: "bc594eb0-35bb-11ee-93dc-c1317bde8f3f",
-    //   url: "www.google.com",
-    //   model_name: "wizardlm-v1.0",
-    //   model_size_in_billions: "7",
-    //   quantization: "q2_k",
-    // },
+    {
+      id: "bc594eb0-35bb-11ee-93dc-c1317bde8f3f",
+      url: "www.google.com",
+      model_name: "wizardlm-v1.0",
+      model_size_in_billions: "7",
+      quantization: "q2_k",
+    },
   ]);
   const { isCallingApi, setIsCallingApi } = useContext(ApiContext);
   const { isUpdatingModel, setIsUpdatingModel } = useContext(ApiContext);
@@ -109,12 +109,17 @@ const ModelDashboard = () => {
             style={{
               width: "100%",
               display: "flex",
-              justifyContent: "space-around",
-              alignItems: "center",
+              justifyContent: "left",
+              alignItems: "left",
             }}
           >
             <button
-              style={{ borderWidth: "0px", backgroundColor: "transparent" }}
+              style={{
+                borderWidth: "0px",
+                backgroundColor: "transparent",
+                paddingLeft: "0px",
+                paddingRight: "10px",
+              }}
               onClick={() => window.open(openUrl, "_blank", "noreferrer")}
             >
               <Box
@@ -125,18 +130,23 @@ const ModelDashboard = () => {
                 justifyContent="center"
                 borderRadius="4px"
                 style={{
-                  border: "1px solid #fed7aa",
+                  border: "1px solid #e5e7eb",
                   borderWidth: "1px",
-                  borderColor: "#fed7aa",
+                  borderColor: "#e5e7eb",
                   background:
-                    "linear-gradient(to bottom right, #ffedd5, #fdba74)",
+                    "linear-gradient(to bottom right, #f3f4f6, #e5e7eb)",
                 }}
               >
                 <OpenInBrowserOutlinedIcon />
               </Box>
             </button>
             <button
-              style={{ borderWidth: "0px", backgroundColor: "transparent" }}
+              style={{
+                borderWidth: "0px",
+                backgroundColor: "transparent",
+                paddingLeft: "0px",
+                paddingRight: "10px",
+              }}
               onClick={() => {
                 if (isCallingApi | isUpdatingModel) {
                   return;
@@ -166,11 +176,11 @@ const ModelDashboard = () => {
                 justifyContent="center"
                 borderRadius="4px"
                 style={{
-                  border: "1px solid #ffada5",
+                  border: "1px solid #e5e7eb",
                   borderWidth: "1px",
-                  borderColor: "#ffada5",
+                  borderColor: "#e5e7eb",
                   background:
-                    "linear-gradient(to right bottom, #ffd9d5, #ff8b83)",
+                    "linear-gradient(to bottom right, #f3f4f6, #e5e7eb)",
                 }}
               >
                 <DeleteOutlineOutlinedIcon />
@@ -184,7 +194,7 @@ const ModelDashboard = () => {
 
   return (
     <Box m="20px">
-      <Title title="MODEL DASHBOARD" />
+      <Title title="Running Models" />
       <Box m="40px 0 0 0" height="75vh">
         <DataGrid
           rows={modelData}
@@ -237,4 +247,4 @@ const ModelDashboard = () => {
   );
 };
 
-export default ModelDashboard;
+export default RunningModels;

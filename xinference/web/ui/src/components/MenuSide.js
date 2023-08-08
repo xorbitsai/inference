@@ -25,7 +25,7 @@ const navItems = [
     icon: <RocketLaunchOutlined />,
   },
   {
-    text: "Model Dashboard",
+    text: "Running Models",
     icon: <SmartToyOutlined />,
   },
   {

@@ -6,7 +6,7 @@ import Layout from "./scenes/_layout";
 
 import ContactUs from "./scenes/contact_us";
 import LaunchModel from "./scenes/launch_model";
-import ModelDashboard from "./scenes/model_dashboard";
+import RunningModels from "./scenes/running_models";
 
 function App() {
   const [theme, colorMode] = useMode();
@@ -21,7 +21,7 @@ function App() {
                 <Route element={<Layout />}>
                   <Route path="/" element={<LaunchModel />} />
                   <Route path="/contact_us" element={<ContactUs />} />
-                  <Route path="/model_dashboard" element={<ModelDashboard />} />
+                  <Route path="/running_models" element={<RunningModels />} />
                 </Route>
               </Routes>
             </ApiContextProvider>
