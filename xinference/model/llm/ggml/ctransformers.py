@@ -264,9 +264,6 @@ class CtransformersModel(LLM):
             assert completion_chunk is not None
             assert completion_usage is not None
 
-            logger.error(
-                "Generated choice, completion: %s", completion_chunk["choices"]
-            )
             completion = Completion(
                 id=completion_chunk["id"],
                 object=completion_chunk["object"],
