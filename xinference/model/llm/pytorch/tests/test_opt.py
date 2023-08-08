@@ -78,4 +78,4 @@ async def test_opt_pytorch_model(setup, quantization):
             for spec in family.model_specs:
                 expected_revision = spec.model_revision
 
-        assert expected_revision == actual_revision
+        assert [expected_revision] == actual_revision
