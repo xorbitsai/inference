@@ -35,7 +35,7 @@ from .llm_family import (
 
 def _install():
     from .ggml.chatglm import ChatglmCppChatModel
-    from .ggml.ctransformer import CtransformerModel
+    from .ggml.ctransformers import CtransformersModel
     from .ggml.llamacpp import LlamaCppChatModel, LlamaCppModel
     from .pytorch.baichuan import BaichuanPytorchChatModel
     from .pytorch.chatglm import ChatglmPytorchChatModel
@@ -55,7 +55,7 @@ def _install():
             FalconPytorchModel,
             FalconPytorchChatModel,
             ChatglmPytorchChatModel,
-            CtransformerModel,
+            CtransformersModel,
         ]
     )
 

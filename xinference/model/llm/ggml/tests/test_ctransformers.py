@@ -22,9 +22,9 @@ from unittest.mock import Mock
 import pytest
 
 from xinference.model.llm import GgmlLLMSpecV1, LLMFamilyV1
-from xinference.model.llm.ggml.ctransformer import (
-    CtransformerGenerateConfig,
-    CtransformerModel,
+from xinference.model.llm.ggml.ctransformers import (
+    CtransformersGenerateConfig,
+    CtransformersModel,
 )
 from xinference.types import (
     Completion,
@@ -39,7 +39,7 @@ class MockPipeline:
         pass
 
 
-class MockCtransformersModel(CtransformerModel):
+class MockCtransformersModel(CtransformersModel):
     def load(self):
         self._llm = MockPipeline()
 
@@ -72,7 +72,7 @@ class MockCtransformersModel(CtransformerModel):
         yield completion
 
     def generate(
-        self, prompt: str, generate_config: CtransformerGenerateConfig
+        self, prompt: str, generate_config_raw: CtransformersGenerateConfig
     ) -> Completion:
         completion_choice = CompletionChoice(
             text="test_ctransformers_generate",
@@ -177,7 +177,7 @@ def test_ctransformer_init(model_spec, model_family, mock_AutoConfig_Pretrained)
         model_spec=model_spec,
         quantization=quantization,
         model_path=path,
-        ctransformerModelConfig=None,
+        ctransformers_Model_Config=None,
     )
 
     assert model.model_uid == uid
@@ -235,7 +235,7 @@ def test_model_generate(model_spec, model_family, mock_AutoConfig_Pretrained):
         model_spec=model_spec,
         quantization=quantization,
         model_path=path,
-        ctransformerModelConfig=None,
+        ctransformers_Model_Config=None,
     )
 
     assert model._llm is None
@@ -256,7 +256,9 @@ def test_model_generate(model_spec, model_family, mock_AutoConfig_Pretrained):
         assert completion["usage"]["total_tokens"] == 30
 
     # generate without stream
-    responses = model.generate("def Helloworld():", generate_config={"stream": True})
+    responses = model.generate(
+        "def Helloworld():", generate_config_raw={"stream": True}
+    )
     assert responses["object"] == "text_completion"
     assert responses["choices"][0]["text"] == "test_ctransformers_generate"
     assert responses["choices"][0]["finish_reason"] == "test"

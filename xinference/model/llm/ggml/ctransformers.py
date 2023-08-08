@@ -47,8 +47,25 @@ model_type_for_ctransformer = {
 }
 
 
-class CtransformerGenerateConfig(TypedDict, total=False):
-    max_new_tokens: Optional[int]
+class CtransformersModelConfig(TypedDict, total=False):
+    top_k: int
+    top_p: float
+    temperature: float
+    repetition_penalty: float
+    last_n_tokens: int
+    seed: int
+    batch_size: int
+    threads: int
+    max_new_tokens: int
+    stop: Optional[Sequence[str]]
+    stream: bool
+    reset: bool
+    context_length: int
+    gpu_layers: int
+
+
+class CtransformersGenerateConfig(TypedDict, total=False):
+    max_tokens: Optional[int]
     top_k: Optional[int]
     top_p: Optional[float]
     temperature: Optional[float]
@@ -62,7 +79,7 @@ class CtransformerGenerateConfig(TypedDict, total=False):
     reset: Optional[bool]
 
 
-class CtransformerModel(LLM):
+class CtransformersModel(LLM):
     try:
         from ctransformers import AutoConfig
     except ImportError:
@@ -79,7 +96,7 @@ class CtransformerModel(LLM):
         model_spec: "LLMSpecV1",
         quantization: str,
         model_path: str,
-        ctransformerModelConfig: Optional["AutoConfig"],
+        ctransformers_Model_Config: Optional[CtransformersModelConfig],
     ):
         super().__init__(model_uid, model_family, model_spec, quantization, model_path)
 
@@ -90,14 +107,14 @@ class CtransformerModel(LLM):
         )
         self._gpu_layers = SIZE_TO_GPU_LAYERS[closest_size]
         self._ctransformer_model_config: AutoConfig = self._sanitize_model_config(
-            model_path, ctransformerModelConfig
+            model_path, ctransformers_Model_Config
         )
         self._model_family = model_family
         self._model_uid = model_uid
         self._llm = None
 
     def _sanitize_model_config(
-        self, model_path, ctransformerModelConfig: Optional["AutoConfig"]
+        self, model_path, ctransformers_model_config: Optional[CtransformersModelConfig]
     ) -> "AutoConfig":
         try:
             from ctransformers import AutoConfig
@@ -116,33 +133,35 @@ class CtransformerModel(LLM):
 
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
-        if ctransformerModelConfig is None:
-            ctransformerModelConfig = AutoConfig.from_pretrained(
+        if ctransformers_model_config is None:
+            ctransformers_model_config = AutoConfig.from_pretrained(
                 model_path,
                 local_files_only=False,
             )
 
-        return ctransformerModelConfig
+        return ctransformers_model_config
 
     def _sanitize_generate_config(
         self,
-        ctransformerGenerateConfig: Optional[CtransformerGenerateConfig],
-    ) -> CtransformerGenerateConfig:
-        if ctransformerGenerateConfig is None:
-            ctransformerGenerateConfig = CtransformerGenerateConfig()
-        ctransformerGenerateConfig.setdefault("top_k", 40)
-        ctransformerGenerateConfig.setdefault("top_p", 0.95)
-        ctransformerGenerateConfig.setdefault("temperature", 0.8)
-        ctransformerGenerateConfig.setdefault("repetition_penalty", 1.1)
-        ctransformerGenerateConfig.setdefault("last_n_tokens", 64)
-        ctransformerGenerateConfig.setdefault("seed", -1)
-        ctransformerGenerateConfig.setdefault("batch_size", 8)
-        ctransformerGenerateConfig.setdefault("threads", -1)
-        ctransformerGenerateConfig.setdefault("stop", None)
-        ctransformerGenerateConfig.setdefault("stream", None)
-        ctransformerGenerateConfig.setdefault("reset", True)
+        ctransformers_generate_config: Optional[CtransformersGenerateConfig],
+    ) -> CtransformersGenerateConfig:
+        # if the bufferConfig is not None, we try to copy the selected attributes to the ctransformersGenerateConfig.
+        if ctransformers_generate_config is None:
+            ctransformers_generate_config = CtransformersGenerateConfig()
 
-        return ctransformerGenerateConfig
+        ctransformers_generate_config.setdefault("top_k", 40)
+        ctransformers_generate_config.setdefault("top_p", 0.95)
+        ctransformers_generate_config.setdefault("temperature", 0.8)
+        ctransformers_generate_config.setdefault("repetition_penalty", 1.1)
+        ctransformers_generate_config.setdefault("last_n_tokens", 64)
+        ctransformers_generate_config.setdefault("seed", -1)
+        ctransformers_generate_config.setdefault("batch_size", 8)
+        ctransformers_generate_config.setdefault("threads", -1)
+        ctransformers_generate_config.setdefault("stop", None)
+        ctransformers_generate_config.setdefault("stream", None)
+        ctransformers_generate_config.setdefault("reset", True)
+
+        return ctransformers_generate_config
 
     def load(self):
         try:
@@ -162,16 +181,12 @@ class CtransformerModel(LLM):
 
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
-        # handle legacy cache.
         model_path = os.path.join(
             self.model_path,
             self.model_spec.model_file_name_template.format(
                 quantization=self.quantization
             ),
         )
-        legacy_model_file_path = os.path.join(self.model_path, "model.bin")
-        if os.path.exists(legacy_model_file_path):
-            model_path = legacy_model_file_path
 
         self._model_type = self._determine_model_type()
         self._llm = AutoModelForCausalLM.from_pretrained(
@@ -198,22 +213,26 @@ class CtransformerModel(LLM):
         return model_type_for_ctransformer[self._model_family.model_name]
 
     def generate(
-        self, prompt: str, generate_config: CtransformerGenerateConfig
+        self, prompt: str, generate_config_raw: CtransformersGenerateConfig
     ) -> Union[Completion, Iterator[CompletionChunk]]:
         def generator_wrapper(
             _prompt: str,
-            _generate_config: CtransformerGenerateConfig,
+            _max_new_tokens: Union[int, None],
+            _generate_config: CtransformersGenerateConfig,
         ) -> Iterator[CompletionChunk]:
             assert self._model_uid is not None
             for _completion_chunk, _ in generate_stream(
                 model=self._model_uid,
                 model_ref=self._llm,
                 prompt=_prompt,
+                max_new_tokens=_max_new_tokens,
                 **_generate_config,
             ):
                 yield _completion_chunk
 
-        generate_config = self._sanitize_generate_config(generate_config)
+        generate_config = self._sanitize_generate_config(generate_config_raw)
+        max_new_tokens: Union[int, None]
+        max_new_tokens = generate_config.pop("max_tokens")
 
         logger.error(
             "Enter generate, prompt: %s, generate config: %s", prompt, generate_config
@@ -221,7 +240,11 @@ class CtransformerModel(LLM):
 
         stream_or_not = generate_config.get("stream", False)
         if stream_or_not:
-            return generator_wrapper(_prompt=prompt, _generate_config=generate_config)
+            return generator_wrapper(
+                _prompt=prompt,
+                _max_new_tokens=max_new_tokens,
+                _generate_config=generate_config,
+            )
         else:
             assert self.model_uid is not None
             completion_chunk = None
@@ -230,6 +253,7 @@ class CtransformerModel(LLM):
                 model=self.model_uid,
                 model_ref=self._llm,
                 prompt=prompt,
+                max_new_tokens=max_new_tokens,
                 **generate_config,
             ):
                 pass
