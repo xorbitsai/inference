@@ -94,6 +94,7 @@ def test_serialize_llm_family_v1():
         model_size_in_billions=2,
         quantizations=["q4_0", "q4_1"],
         model_id="example/TestModel",
+        model_revision="123",
         model_file_name_template="TestModel.{quantization}.ggmlv3.bin",
     )
     pytorch_spec = PytorchLLMSpecV1(
@@ -101,6 +102,7 @@ def test_serialize_llm_family_v1():
         model_size_in_billions=3,
         quantizations=["int8", "int4", "none"],
         model_id="example/TestModel",
+        model_revision="456",
     )
     prompt_style = PromptStyleV1(
         style_name="ADD_COLON_SINGLE",
@@ -122,7 +124,7 @@ def test_serialize_llm_family_v1():
         prompt_style=prompt_style,
     )
 
-    expected = """{"version": 1, "model_name": "TestModel", "model_lang": ["en"], "model_ability": ["embed", "generate"], "model_description": null, "model_specs": [{"model_format": "ggmlv3", "model_size_in_billions": 2, "quantizations": ["q4_0", "q4_1"], "model_id": "example/TestModel", "model_file_name_template": "TestModel.{quantization}.ggmlv3.bin", "model_uri": null}, {"model_format": "pytorch", "model_size_in_billions": 3, "quantizations": ["int8", "int4", "none"], "model_id": "example/TestModel", "model_uri": null}], "prompt_style": {"style_name": "ADD_COLON_SINGLE", "system_prompt": "A chat between a curious human and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the human's questions.", "roles": ["user", "assistant"], "intra_message_sep": "\\n### ", "inter_message_sep": "\\n### ", "stop": null, "stop_token_ids": null}}"""
+    expected = """{"version": 1, "model_name": "TestModel", "model_lang": ["en"], "model_ability": ["embed", "generate"], "model_description": null, "model_specs": [{"model_format": "ggmlv3", "model_size_in_billions": 2, "quantizations": ["q4_0", "q4_1"], "model_id": "example/TestModel", "model_revision": "123", "model_file_name_template": "TestModel.{quantization}.ggmlv3.bin", "model_uri": null}, {"model_format": "pytorch", "model_size_in_billions": 3, "quantizations": ["int8", "int4", "none"], "model_id": "example/TestModel", "model_revision": "456", "model_uri": null}], "prompt_style": {"style_name": "ADD_COLON_SINGLE", "system_prompt": "A chat between a curious human and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the human's questions.", "roles": ["user", "assistant"], "intra_message_sep": "\\n### ", "inter_message_sep": "\\n### ", "stop": null, "stop_token_ids": null}}"""
     assert json.loads(llm_family.json()) == json.loads(expected)
 
 

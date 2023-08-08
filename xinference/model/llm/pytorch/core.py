@@ -171,7 +171,9 @@ class PytorchModel(LLM):
             kwargs = {"torch_dtype": torch.float16}
         else:
             raise ValueError(f"Device {self._device} is not supported in temporary")
-        kwargs["revision"] = self._pytorch_model_config.get("revision", "main")
+        kwargs["revision"] = self._pytorch_model_config.get(
+            "revision", self.model_spec.model_revision
+        )
 
         if quantization != "none":
             if self._device == "cuda" and self._is_linux():

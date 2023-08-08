@@ -31,8 +31,7 @@
           "q8_0"
         ],
         "model_id": "TheBloke/baichuan-llama-7B-GGML",
-        "model_file_name_template": "baichuan-llama-7b.ggmlv3.{quantization}.bin",
-        "model_revision": null
+        "model_file_name_template": "baichuan-llama-7b.ggmlv3.{quantization}.bin"
       },
       {
         "model_format": "pytorch",
@@ -91,8 +90,7 @@
           "q8_0"
         ],
         "model_id": "TheBloke/baichuan-vicuna-7B-GGML",
-        "model_file_name_template": "baichuan-vicuna-7b.ggmlv3.{quantization}.bin",
-        "model_revision": null
+        "model_file_name_template": "baichuan-vicuna-7b.ggmlv3.{quantization}.bin"
       },
       {
         "model_format": "pytorch",
@@ -152,8 +150,7 @@
           "q8_0"
         ],
         "model_id": "TheBloke/WizardLM-7B-V1.0-Uncensored-GGML",
-        "model_file_name_template": "wizardlm-7b-v1.0-uncensored.ggmlv3.{quantization}.bin",
-        "model_revision": null
+        "model_file_name_template": "wizardlm-7b-v1.0-uncensored.ggmlv3.{quantization}.bin"
       },
       {
         "model_format": "ggmlv3",
@@ -241,8 +238,7 @@
           "q8_0"
         ],
         "model_id": "TheBloke/vicuna-13b-v1.3.0-GGML",
-        "model_file_name_template": "vicuna-13b-v1.3.0.ggmlv3.{quantization}.bin",
-        "model_revision": null
+        "model_file_name_template": "vicuna-13b-v1.3.0.ggmlv3.{quantization}.bin"
       },
       {
         "model_format": "ggmlv3",
@@ -264,8 +260,7 @@
           "q8_0"
         ],
         "model_id": "TheBloke/vicuna-33B-GGML",
-        "model_file_name_template": "vicuna-33b.ggmlv3.{quantization}.bin",
-        "model_revision": null
+        "model_file_name_template": "vicuna-33b.ggmlv3.{quantization}.bin"
       },
       {
         "model_format": "pytorch",
@@ -334,8 +329,7 @@
           "q8_0"
         ],
         "model_id": "TheBloke/orca_mini_3B-GGML",
-        "model_file_name_template": "orca-mini-3b.ggmlv3.{quantization}.bin",
-        "model_revision": null
+        "model_file_name_template": "orca-mini-3b.ggmlv3.{quantization}.bin"
       },
       {
         "model_format": "ggmlv3",
@@ -348,8 +342,7 @@
           "q8_0"
         ],
         "model_id": "TheBloke/orca_mini_7B-GGML",
-        "model_file_name_template": "orca-mini-7b.ggmlv3.{quantization}.bin",
-        "model_revision": null
+        "model_file_name_template": "orca-mini-7b.ggmlv3.{quantization}.bin"
       },
       {
         "model_format": "ggmlv3",
@@ -362,8 +355,7 @@
           "q8_0"
         ],
         "model_id": "TheBloke/orca_mini_13B-GGML",
-        "model_file_name_template": "orca-mini-13b.ggmlv3.{quantization}.bin",
-        "model_revision": null
+        "model_file_name_template": "orca-mini-13b.ggmlv3.{quantization}.bin"
       }
     ],
     "prompt_style": {
@@ -399,8 +391,7 @@
           "q8_0"
         ],
         "model_id": "Xorbits/chatglm-6B-GGML",
-        "model_file_name_template": "chatglm-ggml-{quantization}.bin",
-        "model_revision": null
+        "model_file_name_template": "chatglm-ggml-{quantization}.bin"
       },
       {
         "model_format": "pytorch",
@@ -447,8 +438,7 @@
           "q8_0"
         ],
         "model_id": "Xorbits/chatglm2-6B-GGML",
-        "model_file_name_template": "chatglm2-ggml-{quantization}.bin",
-        "model_revision": null
+        "model_file_name_template": "chatglm2-ggml-{quantization}.bin"
       },
       {
         "model_format": "pytorch",
@@ -537,8 +527,7 @@
           "q8_0"
         ],
         "model_id": "TheBloke/Llama-2-7B-Chat-GGML",
-        "model_file_name_template": "llama-2-7b-chat.ggmlv3.{quantization}.bin",
-        "model_revision": null
+        "model_file_name_template": "llama-2-7b-chat.ggmlv3.{quantization}.bin"
       },
       {
         "model_format": "ggmlv3",
@@ -560,8 +549,7 @@
           "q8_0"
         ],
         "model_id": "TheBloke/Llama-2-13B-chat-GGML",
-        "model_file_name_template": "llama-2-13b-chat.ggmlv3.{quantization}.bin",
-        "model_revision": null
+        "model_file_name_template": "llama-2-13b-chat.ggmlv3.{quantization}.bin"
       },
       {
         "model_format": "ggmlv3",
@@ -570,8 +558,7 @@
           "q4_0"
         ],
         "model_id": "TheBloke/Llama-2-70B-Chat-GGML",
-        "model_file_name_template": "llama-2-70b-chat.ggmlv3.{quantization}.bin",
-        "model_revision": null
+        "model_file_name_template": "llama-2-70b-chat.ggmlv3.{quantization}.bin"
       }
     ],
     "prompt_style": {
@@ -619,8 +606,7 @@
           "q8_0"
         ],
         "model_id": "TheBloke/Llama-2-7B-GGML",
-        "model_file_name_template": "llama-2-7b.ggmlv3.{quantization}.bin",
-        "model_revision": null
+        "model_file_name_template": "llama-2-7b.ggmlv3.{quantization}.bin"
       },
       {
         "model_format": "ggmlv3",
@@ -642,8 +628,7 @@
           "q8_0"
         ],
         "model_id": "TheBloke/Llama-2-13B-GGML",
-        "model_file_name_template": "llama-2-13b.ggmlv3.{quantization}.bin",
-        "model_revision": null
+        "model_file_name_template": "llama-2-13b.ggmlv3.{quantization}.bin"
       }
     ],
     "prompt_style": null
