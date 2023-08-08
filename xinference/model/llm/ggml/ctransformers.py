@@ -232,7 +232,10 @@ class CtransformersModel(LLM):
 
         generate_config = self._sanitize_generate_config(generate_config_raw)
         max_new_tokens: Union[int, None]
-        max_new_tokens = generate_config.pop("max_tokens")
+        if "max_tokens" in generate_config:
+            max_new_tokens = generate_config.pop("max_tokens")
+        else:
+            max_new_tokens = None
 
         logger.error(
             "Enter generate, prompt: %s, generate config: %s", prompt, generate_config
@@ -260,6 +263,10 @@ class CtransformersModel(LLM):
 
             assert completion_chunk is not None
             assert completion_usage is not None
+
+            logger.error(
+                "Generated choice, completion: %s", completion_chunk["choices"]
+            )
             completion = Completion(
                 id=completion_chunk["id"],
                 object=completion_chunk["object"],
