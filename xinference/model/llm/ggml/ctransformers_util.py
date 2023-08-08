@@ -170,4 +170,4 @@ def generate_stream(
 
     logger.error("Completionchoice: %s", completion_choice)
 
-    return completion_chunk, completion_usage
+    yield completion_chunk, completion_usage
