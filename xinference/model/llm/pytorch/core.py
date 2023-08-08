@@ -80,7 +80,7 @@ class PytorchModel(LLM):
     ) -> PytorchModelConfig:
         if pytorch_model_config is None:
             pytorch_model_config = PytorchModelConfig()
-        pytorch_model_config["revision"] = self.model_spec.model_revision
+        pytorch_model_config.setdefault("revision", self.model_spec.model_revision)
         pytorch_model_config.setdefault("gpus", None)
         pytorch_model_config.setdefault("num_gpus", 1)
         pytorch_model_config.setdefault("gptq_ckpt", None)

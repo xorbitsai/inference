@@ -11,15 +11,20 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import os
+from pathlib import Path
 
 import pytest
 
 from .....client import Client, GenerateModelHandle
+from ... import BUILTIN_LLM_FAMILIES, LLMFamilyV1, LLMSpecV1
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("quantization", ["8-bit", "4-bit", "none"])
-async def test_opt_pytorch_model(setup, quantization):
+async def test_opt_pytorch_model(
+    setup, quantization, llm_family: LLMFamilyV1, llm_spec: LLMSpecV1
+):
     endpoint, _ = setup
     client = Client(endpoint)
     assert len(client.list_models()) == 0
@@ -56,3 +61,20 @@ async def test_opt_pytorch_model(setup, quantization):
 
         client.terminate_model(model_uid=model_uid)
         assert len(client.list_models()) == 0
+
+        home_address = str(Path.home())
+        snapshot_address = (
+            home_address
+            + "/.cache/huggingface/hub/models--facebook--opt-125m/snapshots"
+        )
+        actual_revision = os.listdir(snapshot_address)
+        model_name = "opt"
+        expected_revision = ""
+
+        for family in BUILTIN_LLM_FAMILIES:
+            if model_name != family.model_name:
+                continue
+            for spec in family.model_specs:
+                expected_revision = spec.model_revision
+
+        assert expected_revision == actual_revision
