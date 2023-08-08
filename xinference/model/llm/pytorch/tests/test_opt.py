@@ -53,6 +53,7 @@ async def test_opt_pytorch_model(
         assert isinstance(model, GenerateModelHandle)
 
         completion = model.generate("Once upon a time, there was a very old computer")
+        assert isinstance(completion, dict)
         assert "text" in completion["choices"][0]
 
         embedding_res = model.create_embedding(
