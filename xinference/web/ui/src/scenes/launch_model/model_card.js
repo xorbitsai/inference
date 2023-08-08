@@ -4,7 +4,7 @@ import { ApiContext } from "../../components/apiContext";
 
 const ModelCard = ({ imgURL, serviceName, description, url, jsonData }) => {
   const { isCallingApi, setIsCallingApi } = useContext(ApiContext);
-  const { isUpdatingModel, setIsUpdatingModel } = useContext(ApiContext);
+  const { isUpdatingModel } = useContext(ApiContext);
 
   const launchModel = (url, jsonData) => {
     setIsCallingApi(true);
@@ -64,11 +64,12 @@ const ModelCard = ({ imgURL, serviceName, description, url, jsonData }) => {
       border: "1px solid #ddd",
       borderRadius: "20px",
       padding: "15px",
+      background: "white",
     },
     img: {
       display: "block",
       margin: "0 auto",
-      width: "200px",
+      width: "180px",
       height: "180px",
       objectFit: "cover",
       borderRadius: "10px",

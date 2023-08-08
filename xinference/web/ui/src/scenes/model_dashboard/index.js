@@ -1,15 +1,24 @@
 import React, { useEffect, useState, useContext } from "react";
-import { Box, Typography, useTheme } from "@mui/material";
+import { Box, useTheme, Stack } from "@mui/material";
 import { ApiContext } from "../../components/apiContext";
 import { DataGrid } from "@mui/x-data-grid";
 import { tokens } from "../../theme";
+import Title from "../../components/Title";
 import OpenInBrowserOutlinedIcon from "@mui/icons-material/OpenInBrowserOutlined";
 import DeleteOutlineOutlinedIcon from "@mui/icons-material/DeleteOutlineOutlined";
 
 const ModelDashboard = () => {
   const theme = useTheme();
   const colors = tokens(theme.palette.mode);
-  const [modelData, setModelData] = useState([]);
+  const [modelData, setModelData] = useState([
+    // {
+    //   id: "bc594eb0-35bb-11ee-93dc-c1317bde8f3f",
+    //   url: "www.google.com",
+    //   model_name: "wizardlm-v1.0",
+    //   model_size_in_billions: "7",
+    //   quantization: "q2_k",
+    // },
+  ]);
   const { isCallingApi, setIsCallingApi } = useContext(ApiContext);
   const { isUpdatingModel, setIsUpdatingModel } = useContext(ApiContext);
 
@@ -56,6 +65,7 @@ const ModelDashboard = () => {
 
   useEffect(() => {
     update(isCallingApi);
+    // eslint-disable-next-line
   }, [isCallingApi]);
 
   const columns = [
@@ -82,9 +92,12 @@ const ModelDashboard = () => {
     },
     {
       field: "url",
-      headerName: "",
+      headerName: "Actions",
       flex: 1,
       minWidth: 200,
+      sortable: false,
+      filterable: false,
+      disableColumnMenu: true,
       renderCell: ({ row: { url } }) => {
         if (url === "IS_LOADING") {
           return <div></div>;
@@ -110,11 +123,16 @@ const ModelDashboard = () => {
                 p="5px"
                 display="flex"
                 justifyContent="center"
-                backgroundColor={colors.greenAccent[600]}
                 borderRadius="4px"
+                style={{
+                  border: "1px solid #fed7aa",
+                  borderWidth: "1px",
+                  borderColor: "#fed7aa",
+                  background:
+                    "linear-gradient(to bottom right, #ffedd5, #fdba74)",
+                }}
               >
                 <OpenInBrowserOutlinedIcon />
-                <Typography sx={{ ml: "5px" }}>Open</Typography>
               </Box>
             </button>
             <button
@@ -141,16 +159,21 @@ const ModelDashboard = () => {
               }}
             >
               <Box
-                width="75px"
+                width="70px"
                 m="0 auto"
                 p="5px"
                 display="flex"
                 justifyContent="center"
-                backgroundColor="red"
                 borderRadius="4px"
+                style={{
+                  border: "1px solid #ffada5",
+                  borderWidth: "1px",
+                  borderColor: "#ffada5",
+                  background:
+                    "linear-gradient(to right bottom, #ffd9d5, #ff8b83)",
+                }}
               >
                 <DeleteOutlineOutlinedIcon />
-                <Typography sx={{ ml: "5px" }}>Delete</Typography>
               </Box>
             </button>
           </Box>
@@ -161,36 +184,54 @@ const ModelDashboard = () => {
 
   return (
     <Box m="20px">
-      <Box
-        m="40px 0 0 0"
-        height="75vh"
-        sx={{
-          "& .MuiDataGrid-root": {
-            border: "none",
-            width: "95% !important",
-            maxWidth: "1200px !important",
-            minWidth: "600px !important",
-          },
-          "& .MuiDataGrid-cell": {
-            borderBottom: "none",
-          },
-          "& .CustomWide-cell": {
-            minWidth: "250px !important",
-          },
-          "& .MuiDataGrid-columnHeaders": {
-            backgroundColor: colors.blueAccent[700],
-            borderBottom: "none",
-          },
-          "& .MuiDataGrid-virtualScroller": {
-            backgroundColor: colors.primary[400],
-          },
-          "& .MuiDataGrid-footerContainer": {
-            borderTop: "none",
-            backgroundColor: colors.blueAccent[700],
-          },
-        }}
-      >
-        <DataGrid rows={modelData} columns={columns} />
+      <Title title="MODEL DASHBOARD" />
+      <Box m="40px 0 0 0" height="75vh">
+        <DataGrid
+          rows={modelData}
+          columns={columns}
+          sx={{
+            "& .MuiDataGrid-main": {
+              width: "95% !important",
+              overflow: "visible",
+            },
+            "& .MuiDataGrid-row": {
+              background: "white",
+              margin: "10px 0px",
+            },
+            "& .MuiDataGrid-cell": {
+              borderBottom: "none",
+            },
+            "& .CustomWide-cell": {
+              minWidth: "250px !important",
+            },
+            "& .MuiDataGrid-columnHeaders": {
+              borderBottom: "none",
+            },
+            "& .MuiDataGrid-columnHeaderTitle": {
+              fontWeight: "bold",
+            },
+            "& .MuiDataGrid-virtualScroller": {
+              overflowX: "visible !important",
+              overflow: "visible",
+            },
+            "& .MuiDataGrid-footerContainer": {
+              borderTop: "none",
+            },
+            "border-width": "0px",
+          }}
+          slots={{
+            noRowsOverlay: () => (
+              <Stack height="100%" alignItems="center" justifyContent="center">
+                No Running Models
+              </Stack>
+            ),
+            noResultsOverlay: () => (
+              <Stack height="100%" alignItems="center" justifyContent="center">
+                No Running Models Matches
+              </Stack>
+            ),
+          }}
+        />
       </Box>
     </Box>
   );

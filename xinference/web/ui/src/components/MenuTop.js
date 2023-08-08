@@ -1,11 +1,9 @@
-import { Box, IconButton, useTheme } from "@mui/material";
-import { useContext } from "react";
-import { ColorModeContext } from "../theme";
+import { Box, IconButton } from "@mui/material";
 import NotificationsOutlinedIcon from "@mui/icons-material/NotificationsOutlined";
 
 const MenuTop = () => {
   return (
-    <Box display="flex" justifyContent="right" p={2}>
+    <Box display="flex" justifyContent="right" p={1}>
       {/* Settings */}
       <Box display="flex">
         <IconButton>
