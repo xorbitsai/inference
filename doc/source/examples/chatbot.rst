@@ -1,3 +1,5 @@
+.. _examples_chatbot:
+
 ====================
 Example: chatbot 🤖️
 ====================

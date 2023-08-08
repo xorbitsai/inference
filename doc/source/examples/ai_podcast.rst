@@ -1,3 +1,5 @@
+.. _examples_ai_podcast:
+
 ======================
 Example: AI Podcast 🎙
 ======================
