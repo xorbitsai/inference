@@ -197,7 +197,7 @@ class PytorchModel(LLM):
             self._model.to(self._device)
         logger.debug(f"Model Memory: {self._model.get_memory_footprint()}")
 
-    def _select_device(self, device):
+    def _select_device(self, device: str) -> str:
         try:
             import torch
         except ImportError:
