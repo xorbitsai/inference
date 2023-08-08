@@ -21,7 +21,7 @@ const LaunchModel = () => {
 
   return (
     <Box m="20px">
-      <Title title="LAUNCH MODEL" />
+      <Title title="Launch Model" />
       <div style={style}>
         <ModelCard
           imgURL={require("../../media/logo_wizardlm.webp")}
