@@ -87,7 +87,10 @@ class PytorchModel(LLM):
         pytorch_model_config.setdefault("gptq_wbits", 16)
         pytorch_model_config.setdefault("gptq_groupsize", -1)
         pytorch_model_config.setdefault("gptq_act_order", False)
-        pytorch_model_config["device"] = self._select_device()
+        pytorch_model_config.setdefault("device", "auto")
+        pytorch_model_config["device"] = self._select_device(
+            pytorch_model_config["device"]
+        )
         return pytorch_model_config
 
     def _sanitize_generate_config(
@@ -103,8 +106,7 @@ class PytorchModel(LLM):
         pytorch_generate_config["model"] = self.model_uid
         return pytorch_generate_config
 
-    def _select_device(self):
-        device = self._pytorch_model_config.get("device", "auto")
+    def _select_device(self, device):
         if device == "auto":
             if self._is_darwin():
                 return "mps" if self._is_arm() else "cpu"
