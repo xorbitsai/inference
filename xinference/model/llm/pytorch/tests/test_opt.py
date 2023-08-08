@@ -64,6 +64,7 @@ async def test_opt_pytorch_model(
         client.terminate_model(model_uid=model_uid)
         assert len(client.list_models()) == 0
 
+        # check for cached revision
         home_address = str(Path.home())
         snapshot_address = (
             home_address
