@@ -108,7 +108,7 @@ if __name__ == "__main__":
         analytics_enabled=False,
         examples=[
             "Show me a two sentence horror story with a plot twist",
-            "Generate a Haiku poem using trignometry as the central theme",
+            "Generate a Haiku poem using trigonometry as the central theme",
             "Write three sentences of scholarly description regarding a supernatural beast",
             "Prove there does not exist a largest integer",
         ],

@@ -78,7 +78,7 @@ try:
     from xinference.types import ChatCompletionMessage
 except ImportError:
     raise ImportError(
-        "Falied to import xinference, please check the "
+        "Failed to import xinference, please check the "
         "correct package at https://pypi.org/project/xinference/"
     )
 
