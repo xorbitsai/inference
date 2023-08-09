@@ -35,46 +35,26 @@ allowing the seamless distribution of model inference across multiple devices or
 with popular third-party libraries like LangChain and LlamaIndex. (Coming soon)
 
 
-Installation
-------------
-Xinference can be installed via pip from PyPI. It is highly recommended to create a new virtual
-environment to avoid conflicts::
+🔥 Hot Topics
+-------------
 
-  pip install "xinference[all]"
+Framework Enhancements
+~~~~~~~~~~~~~~~~~~~~~~
+- Custom model support: `#325 <https://github.com/xorbitsai/inference/pull/325>`_
+- LoRA support: `#271 <https://github.com/xorbitsai/inference/issues/271>`_
+- Multi-GPU support for PyTorch models: `#226 <https://github.com/xorbitsai/inference/issues/226>`_
+- Xinference dashboard: `#93 <https://github.com/xorbitsai/inference/issues/93>`_
 
+New Models
+~~~~~~~~~~
+- Built-in support for `Starcoder` in GGML: `#289 <https://github.com/xorbitsai/inference/pull/289>`_
+- Built-in support for `MusicGen <https://github.com/facebookresearch/audiocraft/blob/main/docs/MUSICGEN.md>`_: `#313 <https://github.com/xorbitsai/inference/issues/313>`_
+- Built-in support for `SD-XL <https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0>`_: `318 <https://github.com/xorbitsai/inference/issues/318>`_
 
-``xinference[all]`` installs all the necessary packages for serving models. If you want to achieve acceleration on
-different hardware, refer to the installation documentation of the corresponding package.
+Tools
+~~~~~
+- LlamaIndex plugin: `7151 <https://github.com/jerryjliu/llama_index/pull/7151>`_
 
-* `llama-cpp-python <https://github.com/abetlen/llama-cpp-python#installation-from-pypi-recommended>`_ is required to run ``baichuan``, ``wizardlm-v1.0``, ``vicuna-v1.3`` and ``orca``.
-* `chatglm-cpp-python <https://github.com/li-plus/chatglm.cpp#getting-started>`_ is required to run ``chatglm`` and ``chatglm2``.
-
-
-Builtin models
---------------
-
-To view the builtin models, run the following command::
-
-   xinference list --all
-
-
-+-------------------+------------------+-----------+---------+--------------------+-----------------------------------------+
-| Name              | Type             | Language  | Format  | Size (in billions) | Quantization                            |
-+===================+==================+===========+=========+====================+=========================================+
-| baichuan          | Foundation Model | en, zh    | ggmlv3  | 7                  | 'q2_K', 'q3_K_L', ... , 'q6_K', 'q8_0'  |
-+-------------------+------------------+-----------+---------+--------------------+-----------------------------------------+
-| chatglm           | SFT Model        | en, zh    | ggmlv3  | 6                  | 'q4_0', 'q4_1', 'q5_0', 'q5_1', 'q8_0'  |
-+-------------------+------------------+-----------+---------+--------------------+-----------------------------------------+
-| chatglm2          | SFT Model        | en, zh    | ggmlv3  | 6                  | 'q4_0', 'q4_1', 'q5_0', 'q5_1', 'q8_0'  |
-+-------------------+------------------+-----------+---------+--------------------+-----------------------------------------+
-| wizardlm-v1.0     | SFT Model        | en        | ggmlv3  | 7, 13, 33          | 'q2_K', 'q3_K_L', ... , 'q6_K', 'q8_0'  |
-+-------------------+------------------+-----------+---------+--------------------+-----------------------------------------+
-| wizardlm-v1.1     | SFT Model        | en        | ggmlv3  | 13                 | 'q2_K', 'q3_K_L', ... , 'q6_K', 'q8_0'  |
-+-------------------+------------------+-----------+---------+--------------------+-----------------------------------------+
-| vicuna-v1.3       | SFT Model        | en        | ggmlv3  | 7, 13              | 'q2_K', 'q3_K_L', ... , 'q6_K', 'q8_0'  |
-+-------------------+------------------+-----------+---------+--------------------+-----------------------------------------+
-| orca              | SFT Model        | en        | ggmlv3  | 3, 7, 13           | 'q4_0', 'q4_1', 'q5_0', 'q5_1', 'q8_0'  |
-+-------------------+------------------+-----------+---------+--------------------+-----------------------------------------+
 
 License
 -------
@@ -85,6 +65,9 @@ License
    :maxdepth: 2
    :hidden:
 
-   getting_started/index
+   installation
+   getting_started
+   models/index
    user_guide/index
+   examples/index
    reference/index

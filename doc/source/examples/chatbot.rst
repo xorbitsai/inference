@@ -1,3 +1,5 @@
+.. _examples_chatbot:
+
 ====================
 Example: chatbot 🤖️
 ====================
@@ -16,7 +18,7 @@ Demonstrate how to interact with Xinference to play with LLM chat functionality 
 
 **Detailed Explanation on the Demo Functionality** :
 
-1. Take the user command line input in the terminal and grab the required parameters for model lanuching.
+1. Take the user command line input in the terminal and grab the required parameters for model launching.
 
 2. Launch the Xinference frameworks and automatically deploy the model user demanded into the cluster.
 

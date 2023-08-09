@@ -24,6 +24,19 @@ potential of cutting-edge AI models.
 <i><a href="https://join.slack.com/t/xorbitsio/shared_invite/zt-1z3zsm9ep-87yI9YZ_B79HLB2ccTq4WA">👉 Join our Slack community!</a></i>
 </div>
 
+## 🔥 Hot Topics
+### Framework Enhancements
+- Custom model support: [#325](https://github.com/xorbitsai/inference/pull/325)
+- LoRA support: [#271](https://github.com/xorbitsai/inference/issues/271)
+- Multi-GPU support for PyTorch models: [#226](https://github.com/xorbitsai/inference/issues/226)
+- Xinference dashboard: [#93](https://github.com/xorbitsai/inference/issues/93>)
+### New Models
+- Built-in support for Starcoder in GGML: [#289](https://github.com/xorbitsai/inference/pull/289)
+- Built-in support for [MusicGen](https://github.com/facebookresearch/audiocraft/blob/main/docs/MUSICGEN.md): [#313](https://github.com/xorbitsai/inference/issues/313)
+- Built-in support for [SD-XL](https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0): [#318](https://github.com/xorbitsai/inference/issues/318)
+### Tools
+- LlamaIndex plugin: [#7151](https://github.com/jerryjliu/llama_index/pull/7151)
+
 
 ## Key Features
 🌟 **Model Serving Made Easy**: Simplify the process of serving large language, speech 

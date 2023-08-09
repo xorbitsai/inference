@@ -1,8 +1,8 @@
 .. _user_guide_index:
 
-=============
-User Guide 📒
-=============
+==========
+User Guide
+==========
 
 With Xinference, you can unlock the full potential of your data and leverage its capabilities in diverse scenarios.
 Whether you are working with complex datasets, conducting research, or developing innovative projects,
@@ -20,6 +20,6 @@ maximize your experience with Xinference.
    :maxdepth: 2
    :hidden:
 
-   examples/AI_Podcast
-   examples/chat
    faq
+   cache_management
+   backends
