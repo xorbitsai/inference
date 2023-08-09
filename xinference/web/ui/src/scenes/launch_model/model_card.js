@@ -16,8 +16,6 @@ const ModelCard = ({ imgURL, serviceName, description, url, jsonData }) => {
       endpoint: url,
     };
 
-    console.log("Sending request to: " + jsonDataWithID.endpoint);
-
     // First fetch request to initiate the model
     fetch(url + "/v1/models", {
       method: "POST",
@@ -28,11 +26,8 @@ const ModelCard = ({ imgURL, serviceName, description, url, jsonData }) => {
     })
       .then((response) => {
         response.json();
-        console.log("First");
       })
-      .then((data) => {
-        console.log("Firstdata");
-        console.log(data);
+      .then(() => {
         // Second fetch request to build the gradio page
         return fetch(url + "/v1/gradio/" + uuid, {
           method: "POST",
@@ -44,11 +39,8 @@ const ModelCard = ({ imgURL, serviceName, description, url, jsonData }) => {
       })
       .then((response) => {
         response.json();
-        console.log("Second");
       })
-      .then((data) => {
-        console.log("Seconddata");
-        console.log(data);
+      .then(() => {
         window.open(url + "/" + uuid, "_blank", "noreferrer");
         setIsCallingApi(false);
       })

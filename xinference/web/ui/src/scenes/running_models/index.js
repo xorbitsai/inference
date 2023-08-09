@@ -1,43 +1,23 @@
 import React, { useEffect, useState, useContext } from "react";
-import { Box, useTheme, Stack } from "@mui/material";
+import { Box, Stack } from "@mui/material";
 import { ApiContext } from "../../components/apiContext";
 import { DataGrid } from "@mui/x-data-grid";
-import { tokens } from "../../theme";
 import Title from "../../components/Title";
 import OpenInBrowserOutlinedIcon from "@mui/icons-material/OpenInBrowserOutlined";
 import DeleteOutlineOutlinedIcon from "@mui/icons-material/DeleteOutlineOutlined";
 
 const RunningModels = () => {
-  const theme = useTheme();
-  const colors = tokens(theme.palette.mode);
-  const [modelData, setModelData] = useState([
-    {
-      id: "bc594eb0-35bb-11ee-93dc-c1317bde8f3f",
-      url: "www.google.com",
-      model_name: "wizardlm-v1.0",
-      model_size_in_billions: "7",
-      quantization: "q2_k",
-    },
-  ]);
+  const [modelData, setModelData] = useState([]);
   const { isCallingApi, setIsCallingApi } = useContext(ApiContext);
   const { isUpdatingModel, setIsUpdatingModel } = useContext(ApiContext);
-
-  const fullUrl = window.location.href;
-  let endPoint = "";
-  if ("XINFERENCE_ENDPOINT" in process.env) {
-    endPoint = process.env.XINFERENCE_ENDPOINT;
-  } else {
-    endPoint = fullUrl.split("/ui")[0];
-  }
+  const endPoint = useContext(ApiContext).endPoint;
 
   const update = (isCallingApi) => {
     if (isCallingApi) {
-      console.log(isCallingApi);
       setModelData([
         { id: "Loading, do not refresh page...", url: "IS_LOADING" },
       ]);
     } else {
-      console.log(isCallingApi);
       setIsUpdatingModel(true);
       fetch(`${endPoint}/v1/models`, {
         method: "GET",
@@ -98,12 +78,16 @@ const RunningModels = () => {
       sortable: false,
       filterable: false,
       disableColumnMenu: true,
-      renderCell: ({ row: { url } }) => {
+      renderCell: ({ row }) => {
+        const url = row.url;
+        const openUrl = `${endPoint}/` + url;
+        const closeUrl = `${endPoint}/v1/models/` + url;
+        const gradioUrl = `${endPoint}/v1/gradio/` + url;
+
         if (url === "IS_LOADING") {
           return <div></div>;
         }
-        const openUrl = `${endPoint}/` + url;
-        const closeUrl = `${endPoint}/v1/models/` + url;
+
         return (
           <Box
             style={{
@@ -120,7 +104,50 @@ const RunningModels = () => {
                 paddingLeft: "0px",
                 paddingRight: "10px",
               }}
-              onClick={() => window.open(openUrl, "_blank", "noreferrer")}
+              onClick={() => {
+                if (isCallingApi || isUpdatingModel) {
+                  // Make sure no ongoing call
+                  return;
+                }
+
+                setIsCallingApi(true);
+
+                fetch(openUrl, {
+                  method: "HEAD",
+                })
+                  .then((response) => {
+                    if (response.status === 404) {
+                      // If web UI doesn't exist (404 Not Found)
+                      console.log("UI does not exist, creating new...");
+                      return fetch(gradioUrl, {
+                        method: "POST",
+                        headers: {
+                          "Content-Type": "application/json",
+                        },
+                      })
+                        .then((response) => response.json())
+                        .then(() =>
+                          window.open(openUrl, "_blank", "noopener noreferrer")
+                        )
+                        .finally(() => setIsCallingApi(false));
+                    } else if (response.ok) {
+                      // If web UI does exist
+                      console.log("UI exists, opening...");
+                      window.open(openUrl, "_blank", "noopener noreferrer");
+                      setIsCallingApi(false);
+                    } else {
+                      // Other HTTP errors
+                      console.error(
+                        `Unexpected response status: ${response.status}`
+                      );
+                      setIsCallingApi(false);
+                    }
+                  })
+                  .catch((error) => {
+                    console.error("Error:", error);
+                    setIsCallingApi(false);
+                  });
+              }}
             >
               <Box
                 width="70px"
