@@ -65,7 +65,7 @@ Chinese (AI_Podcast_ZH.py)
      )
      model_a_ref = client.get_model(model_a_uid)
 
-   Then, the Xinference clinet will handle "target model downloading and caching", "set up environment and process
+   Then, the Xinference client will handle "target model downloading and caching", "set up environment and process
    for the model", and "run the service at selected endpoint. " You are now ready to play with your llm model.
 
 **Original Demo Video** :
