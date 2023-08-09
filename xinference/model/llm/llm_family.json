@@ -756,25 +756,28 @@
   },
   {
     "version": 1,
-    "model_name": "starchat-alpha",
+    "model_name": "starchat-beta",
     "model_lang": [
       "en"
     ],
     "model_ability": [
+      "embed",
       "chat"
     ],
     "model_specs": [
       {
         "model_format": "pytorch",
         "model_size_in_billions": 16,
-        "quantization": [
-          "4-bit"
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
         ],
-        "model_id": "HuggingFaceH4/starchat-alpha",
-        "model_revision": "b693a7a7d52bed1cd7cc0fe00399db838b09c74f"
+        "model_id": "HuggingFaceH4/starchat-beta",
+        "model_revision": "b1bcda690655777373f57ea6614eb095ec2c886f"
       }
     ],
-    "prompt_style":{
+    "prompt_style": {
       "style_name": "CHATML",
       "system_prompt": "<system>{system_message}\n",
       "roles": [
@@ -790,25 +793,28 @@
   },
   {
     "version": 1,
-    "model_name": "starchat-beta",
+    "model_name": "starchat-alpha",
     "model_lang": [
       "en"
     ],
     "model_ability": [
+      "embed",
       "chat"
     ],
     "model_specs": [
       {
         "model_format": "pytorch",
         "model_size_in_billions": 16,
-        "quantization": [
-          "4-bit"
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
         ],
-        "model_id": "HuggingFaceH4/starchat-beta",
-        "model_revision": "b1bcda690655777373f57ea6614eb095ec2c886f"
+        "model_id": "HuggingFaceH4/starchat-alpha",
+        "model_revision": "b693a7a7d52bed1cd7cc0fe00399db838b09c74f"
       }
     ],
-    "prompt_style":{
+    "prompt_style": {
       "style_name": "CHATML",
       "system_prompt": "<system>{system_message}\n",
       "roles": [
