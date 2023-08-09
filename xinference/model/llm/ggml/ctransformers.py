@@ -16,11 +16,11 @@ import logging
 import os
 from typing import TYPE_CHECKING, Iterator, Optional, Sequence, TypedDict, Union
 
-from xinference.model.llm.ggml.ctransformers_util import generate_stream
 from xinference.types import Completion, CompletionChunk
 
 from ..core import LLM
 from ..llm_family import LLMFamilyV1, LLMSpecV1
+from .ctransformers_util import generate_stream
 from .llamacpp import SIZE_TO_GPU_LAYERS
 
 if TYPE_CHECKING:
@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 # all supported models for Ctransformers with their model type.
 # Please Strictly follows this name format when inputting new model to model_family.
-model_type_for_ctransformer = {
+MODEL_TYPE_FOR_CTRANSFORMERS = {
     "GPT-2": "gpt2",
     "GPT-J": "gptj",
     "GPT4All-J": "gptj",
@@ -206,11 +206,11 @@ class CtransformersModel(LLM):
         return True
 
     def _determine_model_type(self):
-        if self._model_family.model_name not in model_type_for_ctransformer:
+        if self._model_family.model_name not in MODEL_TYPE_FOR_CTRANSFORMERS:
             raise ValueError(
                 "The current model is not supported, check your model name. "
             )
-        return model_type_for_ctransformer[self._model_family.model_name]
+        return MODEL_TYPE_FOR_CTRANSFORMERS[self._model_family.model_name]
 
     def generate(
         self, prompt: str, generate_config_raw: CtransformersGenerateConfig
