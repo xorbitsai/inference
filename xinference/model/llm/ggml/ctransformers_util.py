@@ -17,15 +17,9 @@ import time
 import uuid
 from typing import Iterator, Optional, Sequence, Tuple
 
-from xinference.types import CompletionChoice, CompletionChunk, CompletionUsage
+from ....types import CompletionChoice, CompletionChunk, CompletionUsage
 
 logger = logging.getLogger(__name__)
-
-
-def _get(*values):
-    for value in values:
-        if value is not None:
-            return value
 
 
 def generate_stream(
@@ -47,8 +41,7 @@ def generate_stream(
     reset: Optional[bool] = None,
     **kwargs,
 ) -> Iterator[Tuple[CompletionChunk, CompletionUsage]]:
-    max_new_tokens = _get(max_new_tokens)
-    stop = _get(stop) or []
+    stop = stop or []
     if isinstance(stop, str):
         stop = [stop]
 

@@ -14,7 +14,7 @@
 
 import logging
 import os
-from typing import TYPE_CHECKING, Iterator, Optional, Sequence, TypedDict, Union
+from typing import Iterator, Optional, Sequence, TypedDict, Union
 
 from xinference.types import Completion, CompletionChunk
 
@@ -22,9 +22,6 @@ from ..core import LLM
 from ..llm_family import LLMFamilyV1, LLMSpecV1
 from .ctransformers_util import generate_stream
 from .llamacpp import SIZE_TO_GPU_LAYERS
-
-if TYPE_CHECKING:
-    from ctransformers import AutoConfig
 
 logger = logging.getLogger(__name__)
 
@@ -106,7 +103,7 @@ class CtransformersModel(LLM):
             key=lambda x: abs(x - model_spec.model_size_in_billions),
         )
         self._gpu_layers = SIZE_TO_GPU_LAYERS[closest_size]
-        self._ctransformer_model_config: AutoConfig = self._sanitize_model_config(
+        self._ctransformer_model_config = self._sanitize_model_config(
             model_path, ctransformers_Model_Config
         )
         self._model_family = model_family
@@ -145,7 +142,7 @@ class CtransformersModel(LLM):
         self,
         ctransformers_generate_config: Optional[CtransformersGenerateConfig],
     ) -> CtransformersGenerateConfig:
-        # if the bufferConfig is not None, we try to copy the selected attributes to the ctransformersGenerateConfig.
+        # if the input config is not None, we try to copy the selected attributes to the ctransformersGenerateConfig.
         if ctransformers_generate_config is None:
             ctransformers_generate_config = CtransformersGenerateConfig()
 
@@ -168,14 +165,10 @@ class CtransformersModel(LLM):
             from ctransformers import AutoModelForCausalLM
         except ImportError:
             error_message = "Failed to import module 'ctransformers'"
-            if self._is_darwin_and_apple_silicon():
-                system = "Metal"
-            else:
-                system = "CUDA"
 
             installation_guide = [
-                f"Please make sure 'ctransformers' is installed and {system} accelerator is provided.",
-                f"You can install it by checking out the repository for command for {system} platform:"
+                f"Please make sure 'ctransformers' is installed.",
+                f"You can install it by checking out the repository for command."
                 f"https://github.com/marella/ctransformers",
             ]
 
@@ -208,7 +201,7 @@ class CtransformersModel(LLM):
     def _determine_model_type(self):
         if self._model_family.model_name not in MODEL_TYPE_FOR_CTRANSFORMERS:
             raise ValueError(
-                "The current model is not supported, check your model name. "
+                f"The current model {self._model_family.model_name} is not supported, check your model name. "
             )
         return MODEL_TYPE_FOR_CTRANSFORMERS[self._model_family.model_name]
 
@@ -231,13 +224,9 @@ class CtransformersModel(LLM):
                 yield _completion_chunk
 
         generate_config = self._sanitize_generate_config(generate_config_raw)
-        max_new_tokens: Union[int, None]
-        if "max_tokens" in generate_config:
-            max_new_tokens = generate_config.pop("max_tokens")
-        else:
-            max_new_tokens = None
+        max_new_tokens = generate_config.pop("max_tokens", None)
 
-        logger.error(
+        logger.debug(
             "Enter generate, prompt: %s, generate config: %s", prompt, generate_config
         )
 
@@ -273,7 +262,7 @@ class CtransformersModel(LLM):
                 usage=completion_usage,
             )
 
-            logger.error(
+            logger.debug(
                 "Generated, completion: %s, generate config: %s",
                 completion,
                 generate_config,
