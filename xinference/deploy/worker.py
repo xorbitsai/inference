@@ -14,7 +14,7 @@
 
 import asyncio
 import logging
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 
 import xoscar as xo
 
@@ -53,7 +53,7 @@ async def _start_worker(
     await pool.join()
 
 
-def main(address: str, supervisor_address: str, logging_conf: Optional[Dict] = None):
+def main(address: str, supervisor_address: str, logging_conf: Any = None):
     loop = asyncio.get_event_loop()
     task = loop.create_task(_start_worker(address, supervisor_address, logging_conf))
 
