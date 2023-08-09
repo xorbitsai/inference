@@ -60,6 +60,7 @@ async def start_supervisor_components(address: str, host: str, port: int):
         uid=RESTfulAPIActor.uid(),
         sockets=sockets,
         gradio_block=gradio_block,
+        endpoint=f"http://{host}:{port}",
     )
     await restful_actor.serve()
     url = f"http://{host}:{port}"

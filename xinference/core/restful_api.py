@@ -217,13 +217,15 @@ class CreateChatCompletionRequest(BaseModel):
 
 
 class RESTfulAPIActor(xo.Actor):
-    def __init__(self, sockets: List[socket.socket], gradio_block: gr.Blocks):
+    def __init__(
+        self, sockets: List[socket.socket], gradio_block: gr.Blocks, endpoint: str
+    ):
         super().__init__()
         self._supervisor_ref: xo.ActorRefType["SupervisorActor"]
         self._sockets = sockets
         self._gradio_block = gradio_block
+        self._endpoint = endpoint
         self._router = None
-        self._endpoint = None
         self._app = None
 
     @classmethod
@@ -348,7 +350,6 @@ class RESTfulAPIActor(xo.Actor):
 
     async def launch_model(self, request: Request) -> JSONResponse:
         payload = await request.json()
-        self._endpoint = payload.get("endpoint")
         model_uid = payload.get("model_uid")
         model_name = payload.get("model_name")
         model_size_in_billions = payload.get("model_size_in_billions")
@@ -397,6 +398,7 @@ class RESTfulAPIActor(xo.Actor):
         return JSONResponse(content={"model_uid": model_uid})
 
     def build_interface(self, model_uid: str):
+        assert self._app is not None
         assert self._endpoint is not None
 
         from .chat_interface import ChatInterface

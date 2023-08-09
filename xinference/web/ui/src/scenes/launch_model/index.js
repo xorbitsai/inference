@@ -1,16 +1,11 @@
-import React from "react";
+import React, { useContext } from "react";
 import ModelCard from "./model_card";
 import Title from "../../components/Title";
 import { Box } from "@mui/material";
+import { ApiContext } from "../../components/apiContext";
 
 const LaunchModel = () => {
-  const fullUrl = window.location.href;
-  let endPoint = "";
-  if ("XINFERENCE_ENDPOINT" in process.env) {
-    endPoint = process.env.XINFERENCE_ENDPOINT;
-  } else {
-    endPoint = fullUrl.split("/ui")[0];
-  }
+  let endPoint = useContext(ApiContext).endPoint;
 
   const style = {
     display: "grid",
