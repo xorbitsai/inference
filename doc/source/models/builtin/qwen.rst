@@ -1,4 +1,4 @@
-.. _models_builtin_llm_qwen:
+.. _models_builtin_qwen:
 
 ====
 Qwen

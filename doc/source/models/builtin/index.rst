@@ -1,8 +1,8 @@
 .. _models_builtin_index:
 
-======
-Models
-======
+===============
+Built-in Models
+===============
 
 
 .. toctree::
