@@ -30,7 +30,7 @@ from ..constants import (
 )
 
 
-def log_level_config(log_level: str) -> str:
+def get_config_string(log_level: str) -> str:
     return f"""
         [loggers]
         keys=root
@@ -84,7 +84,7 @@ def cli(
         from .local import main
 
         logging_conf = configparser.RawConfigParser()
-        logger_config_string = log_level_config(log_level)
+        logger_config_string = get_config_string(log_level)
         logging_conf.read_string(logger_config_string)
         logging.config.fileConfig(logging_conf)  # type: ignore
 
@@ -130,7 +130,7 @@ def worker(log_level: str, endpoint: Optional[str], host: str):
     from ..deploy.worker import main
 
     logging_conf = configparser.RawConfigParser()
-    logger_config_string = log_level_config(log_level)
+    logger_config_string = get_config_string(log_level)
     logging_conf.read_string(logger_config_string)
     logging.config.fileConfig(level=logging.getLevelName(log_level.upper()))  # type: ignore
 
