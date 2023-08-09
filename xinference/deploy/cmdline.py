@@ -11,8 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-
+import configparser
 import logging
 import os
 import sys
@@ -29,6 +28,32 @@ from ..constants import (
     XINFERENCE_DEFAULT_LOCAL_HOST,
     XINFERENCE_ENV_ENDPOINT,
 )
+
+
+def log_level_config(log_level: str) -> str:
+    return f"""
+        [loggers]
+        keys=root
+
+        [handlers]
+        keys=stream_handler
+
+        [formatters]
+        keys=formatter
+
+        [logger_root]
+        level={log_level.upper()}
+        handlers=stream_handler
+
+        [handler_stream_handler]
+        class=StreamHandler
+        formatter=formatter
+        level={log_level.upper()}
+        args=(sys.stderr,)
+
+        [formatter_formatter]
+        format=%(asctime)s %(name)-12s %(process)d %(levelname)-8s %(message)s
+        """
 
 
 def get_endpoint(endpoint: Optional[str]) -> str:
@@ -58,9 +83,10 @@ def cli(
     if ctx.invoked_subcommand is None:
         from .local import main
 
-        if log_level:
-            logging.basicConfig(level=logging.getLevelName(log_level.upper()))
-        logging_conf = dict(level=log_level.upper())
+        logging_conf = configparser.RawConfigParser()
+        logger_config_string = log_level_config(log_level)
+        logging_conf.read_string(logger_config_string)
+        logging.config.fileConfig(logging_conf)  # type: ignore
 
         address = f"{host}:{get_next_port()}"
 
@@ -103,9 +129,10 @@ def supervisor(
 def worker(log_level: str, endpoint: Optional[str], host: str):
     from ..deploy.worker import main
 
-    if log_level:
-        logging.basicConfig(level=logging.getLevelName(log_level.upper()))
-    logging_conf = dict(level=log_level.upper())
+    logging_conf = configparser.RawConfigParser()
+    logger_config_string = log_level_config(log_level)
+    logging_conf.read_string(logger_config_string)
+    logging.config.fileConfig(level=logging.getLevelName(log_level.upper()))  # type: ignore
 
     endpoint = get_endpoint(endpoint)
 
