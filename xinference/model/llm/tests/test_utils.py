@@ -240,6 +240,37 @@ def test_prompt_style_qwen():
     )
 
 
+def test_chatML_style():
+    prompt_style = PromptStyleV1(
+        style_name="CHATML",
+        system_prompt="<system>{system_message}\n",
+        roles=["<|user|>", "<|assistant|>"],
+        intra_message_sep="<|end|>",
+    )
+
+    chat_history = [
+        ChatCompletionMessage(role=prompt_style.roles[0], content="Hi there."),
+        ChatCompletionMessage(
+            role=prompt_style.roles[1], content="Hello, how may I help you?"
+        ),
+    ]
+
+    expected = (
+        "<system>{system_message}\n"
+        "<|end|>\n"
+        "<|user|>\n"
+        "Hi there.<|end|>\n"
+        "<|assistant|>\n"
+        "Hello, how may I help you?<|end|>\n"
+        "<|user|>\n"
+        "Write me a HelloWorld Function<|end|>\n"
+        "<|assistant|>\n"
+    )
+    assert expected == ChatModelMixin.get_prompt(
+        "Write me a HelloWorld Function", chat_history, prompt_style
+    )
+
+
 def test_is_valid_model_name():
     from ..utils import is_valid_model_name
 
