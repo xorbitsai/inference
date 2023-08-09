@@ -13,17 +13,12 @@ import {
 import {
   ChevronRightOutlined,
   GitHub,
-  RocketLaunchOutlined,
   SmartToyOutlined,
 } from "@mui/icons-material";
 import icon from "../media/icon.webp";
 import { useLocation, useNavigate } from "react-router-dom";
 
 const navItems = [
-  {
-    text: "Launch Model",
-    icon: <RocketLaunchOutlined />,
-  },
   {
     text: "Running Models",
     icon: <SmartToyOutlined />,
@@ -138,7 +133,7 @@ const MenuSide = () => {
                           "_blank",
                           "noreferrer"
                         );
-                      } else if (link === "launch_model") {
+                      } else if (link === "running_models") {
                         navigate(`/`);
                         setActive(link);
                         console.log(active);
