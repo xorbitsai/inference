@@ -139,6 +139,7 @@ class LlamaCppModel(LLM):
             llamacpp_model_config["n_gqa"] = 8
 
         if self._is_darwin_and_apple_silicon() and self._can_apply_metal():
+            # TODO: platform.processor() is not safe, need to be replaced to other method.
             llamacpp_model_config.setdefault("n_gpu_layers", 1)
         elif self._is_linux() and self._can_apply_cublas():
             llamacpp_model_config.setdefault("n_gpu_layers", self._gpu_layers)

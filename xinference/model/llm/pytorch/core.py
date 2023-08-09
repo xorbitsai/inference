@@ -26,7 +26,7 @@ from ....types import (
     EmbeddingUsage,
 )
 from ..core import LLM
-from ..llm_family import LLMFamilyV1, LLMSpecV1, _has_cuda_device
+from ..llm_family import LLMFamilyV1, LLMSpecV1
 from ..utils import ChatModelMixin
 
 logger = logging.getLogger(__name__)
@@ -73,7 +73,6 @@ class PytorchModel(LLM):
         self._pytorch_model_config: PytorchModelConfig = self._sanitize_model_config(
             pytorch_model_config
         )
-        self._device = self._pytorch_model_config["device"]
 
     def _sanitize_model_config(
         self, pytorch_model_config: Optional[PytorchModelConfig]
@@ -88,9 +87,6 @@ class PytorchModel(LLM):
         pytorch_model_config.setdefault("gptq_groupsize", -1)
         pytorch_model_config.setdefault("gptq_act_order", False)
         pytorch_model_config.setdefault("device", "auto")
-        pytorch_model_config["device"] = self._select_device(
-            pytorch_model_config["device"]
-        )
         return pytorch_model_config
 
     def _sanitize_generate_config(
@@ -105,25 +101,6 @@ class PytorchModel(LLM):
         pytorch_generate_config.setdefault("stream_interval", 2)
         pytorch_generate_config["model"] = self.model_uid
         return pytorch_generate_config
-
-    def _select_device(self, device):
-        if device == "auto":
-            if self._is_darwin():
-                return "mps" if self._is_arm() else "cpu"
-            return "cuda" if _has_cuda_device() else "cpu"
-        elif device == "cuda":
-            if not _has_cuda_device():
-                raise ValueError("No cuda device is detected in your environment")
-        elif device == "mps":
-            if not self._is_darwin_and_apple_silicon():
-                raise ValueError(
-                    "mps is only available for Mac computers with Apple silicon"
-                )
-        elif device == "cpu":
-            pass
-        else:
-            raise ValueError(f"Device {device} is not supported in temporary")
-        return device
 
     def _load_model(self, kwargs: dict):
         try:
@@ -162,6 +139,9 @@ class PytorchModel(LLM):
 
         quantization = self.quantization
         num_gpus = self._pytorch_model_config.get("num_gpus", 1)
+        device = self._pytorch_model_config.get("device", "auto")
+        self._pytorch_model_config["device"] = self._select_device(device)
+        self._device = self._pytorch_model_config["device"]
 
         if self._device == "cpu":
             kwargs = {"torch_dtype": torch.float32}
@@ -219,6 +199,32 @@ class PytorchModel(LLM):
         ) or self._device == "mps":
             self._model.to(self._device)
         logger.debug(f"Model Memory: {self._model.get_memory_footprint()}")
+
+    def _select_device(self, device: str) -> str:
+        try:
+            import torch
+        except ImportError:
+            raise ImportError(
+                f"Failed to import module 'torch'. Please make sure 'torch' is installed.\n\n"
+            )
+
+        if device == "auto":
+            if torch.cuda.is_available():
+                return "cuda"
+            elif torch.backends.mps.is_available():
+                return "mps"
+            return "cpu"
+        elif device == "cuda":
+            if not torch.cuda.is_available():
+                raise ValueError("cuda is unavailable in your environment")
+        elif device == "mps":
+            if not torch.backends.mps.is_available():
+                raise ValueError("mps is unavailable in your environment")
+        elif device == "cpu":
+            pass
+        else:
+            raise ValueError(f"Device {device} is not supported in temporary")
+        return device
 
     @classmethod
     def match(cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1") -> bool:
