@@ -40,6 +40,7 @@ with popular third-party libraries like LangChain and LlamaIndex. (Coming soon)
 
 Framework Enhancements
 ~~~~~~~~~~~~~~~~~~~~~~
+- Custom model support: `#325 <https://github.com/xorbitsai/inference/pull/325>`_
 - LoRA support: `#271 <https://github.com/xorbitsai/inference/issues/271>`_
 - Multi-GPU support for PyTorch models: `#226 <https://github.com/xorbitsai/inference/issues/226>`_
 - Xinference dashboard: `#93 <https://github.com/xorbitsai/inference/issues/93>`_

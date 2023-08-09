@@ -25,6 +25,7 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 
 ## 🔥 近期热点
 ### 框架增强
+- 自定义模型: [#325](https://github.com/xorbitsai/inference/pull/325)
 - LoRA 支持: [#271](https://github.com/xorbitsai/inference/issues/271)
 - PyTorch 模型多 GPU 支持: [#226](https://github.com/xorbitsai/inference/issues/226)
 - Xinference 仪表盘: [#93](https://github.com/xorbitsai/inference/issues/93>)

@@ -26,6 +26,7 @@ potential of cutting-edge AI models.
 
 ## 🔥 Hot Topics
 ### Framework Enhancements
+- Custom model support: [#325](https://github.com/xorbitsai/inference/pull/325)
 - LoRA support: [#271](https://github.com/xorbitsai/inference/issues/271)
 - Multi-GPU support for PyTorch models: [#226](https://github.com/xorbitsai/inference/issues/226)
 - Xinference dashboard: [#93](https://github.com/xorbitsai/inference/issues/93>)
