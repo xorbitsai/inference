@@ -98,6 +98,7 @@ const RunningModels = () => {
             }}
           >
             <button
+              title="Launch Web UI"
               style={{
                 borderWidth: "0px",
                 backgroundColor: "transparent",
@@ -150,7 +151,7 @@ const RunningModels = () => {
               }}
             >
               <Box
-                width="70px"
+                width="40px"
                 m="0 auto"
                 p="5px"
                 display="flex"
@@ -160,14 +161,13 @@ const RunningModels = () => {
                   border: "1px solid #e5e7eb",
                   borderWidth: "1px",
                   borderColor: "#e5e7eb",
-                  background:
-                    "linear-gradient(to bottom right, #f3f4f6, #e5e7eb)",
                 }}
               >
                 <OpenInBrowserOutlinedIcon />
               </Box>
             </button>
             <button
+              title="Terminate Model"
               style={{
                 borderWidth: "0px",
                 backgroundColor: "transparent",
@@ -196,7 +196,7 @@ const RunningModels = () => {
               }}
             >
               <Box
-                width="70px"
+                width="40px"
                 m="0 auto"
                 p="5px"
                 display="flex"
@@ -206,8 +206,6 @@ const RunningModels = () => {
                   border: "1px solid #e5e7eb",
                   borderWidth: "1px",
                   borderColor: "#e5e7eb",
-                  background:
-                    "linear-gradient(to bottom right, #f3f4f6, #e5e7eb)",
                 }}
               >
                 <DeleteOutlineOutlinedIcon />
