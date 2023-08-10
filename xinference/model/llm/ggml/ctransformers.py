@@ -30,19 +30,19 @@ logger = logging.getLogger(__name__)
 # all supported models for Ctransformers with their model type.
 # Please Strictly follows this name format when inputting new model to model_family.
 MODEL_TYPE_FOR_CTRANSFORMERS = {
-    "GPT-2": "gpt2",
-    "GPT-J": "gptj",
-    "GPT4All-J": "gptj",
-    "GPT-NeoX": "gpt_neox",
-    "StableLM": "gpt_neox",
-    "LLaMA": "llama",
-    "LLaMA-2": "llama",
-    "MPT": "mpt",
-    "Dolly-V2": "dolly-v2",
-    "Replit": "replit",
+    "gpt-2": "gpt2",
+    "gpt-j": "gptj",
+    "gpt4all-j": "gptj",
+    "gpt-neox": "gpt_neox",
+    "stablelm": "gpt_neox",
+    "llama": "llama",
+    "llama-2": "llama",
+    "mpt": "mpt",
+    "dolly-v2": "dolly-v2",
+    "replit": "replit",
     "starcoder": "starcoder",
     "starchat": "starcoder",
-    "Falcon": "falcon",
+    "falcon": "falcon",
 }
 
 

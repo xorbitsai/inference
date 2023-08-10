@@ -125,16 +125,16 @@ def test_ctransformer_init(model_spec, model_family):
 
 
 @pytest.mark.asyncio
-async def test_opt_pytorch_model(setup):
+async def test_starcoder_model(setup):
     endpoint, _ = setup
     client = Client(endpoint)
     assert len(client.list_models()) == 0
 
     model_uid = client.launch_model(
-        model_name="starcoder",
-        model_size_in_billions=16,
+        model_name="gpt-2",
+        model_size_in_billions=1,
         model_format="ggmlv3",
-        quantization="q4_0",
+        quantization="none",
     )
 
     assert len(client.list_models()) == 1
@@ -142,7 +142,7 @@ async def test_opt_pytorch_model(setup):
     model = client.get_model(model_uid=model_uid)
     assert isinstance(model, GenerateModelHandle)
 
-    completion = model.generate("def HelloWorld():")
+    completion = model.generate("AI is going to")
     assert "id" in completion
     assert "text" in completion["choices"][0]
     assert len(completion["choices"][0]["text"]) > 0
