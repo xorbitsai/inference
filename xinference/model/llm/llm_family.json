@@ -762,7 +762,7 @@
     ],
     "model_ability": [
       "embed",
-      "generate"
+      "chat"
     ],
     "model_specs": [
       {
