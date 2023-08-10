@@ -240,10 +240,10 @@ def test_prompt_style_qwen():
     )
 
 
-def test_chatML_style():
+def test_prompt_style_chatml():
     prompt_style = PromptStyleV1(
         style_name="CHATML",
-        system_prompt="<system>{system_message}\n",
+        system_prompt="<system>You are a wonderful code assistant\n",
         roles=["<|user|>", "<|assistant|>"],
         intra_message_sep="<|end|>",
     )
@@ -256,7 +256,7 @@ def test_chatML_style():
     ]
 
     expected = (
-        "<system>{system_message}\n"
+        "<system>You are a wonderful code assistant\n"
         "<|end|>\n"
         "<|user|>\n"
         "Hi there.<|end|>\n"
