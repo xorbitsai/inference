@@ -49,11 +49,17 @@ def is_partial_stop(output: str, stop_str: str):
 
 def get_context_length(config):
     """Get the context length of a model from a huggingface model config."""
-    if hasattr(config, "max_sequence_length"):
+    if (
+        hasattr(config, "max_sequence_length")
+        and config.max_sequence_length is not None
+    ):
         return config.max_sequence_length
-    elif hasattr(config, "seq_length"):
+    elif hasattr(config, "seq_length") and config.seq_length is not None:
         return config.seq_length
-    elif hasattr(config, "max_position_embeddings"):
+    elif (
+        hasattr(config, "max_position_embeddings")
+        and config.max_position_embeddings is not None
+    ):
         return config.max_position_embeddings
     else:
         return 2048
