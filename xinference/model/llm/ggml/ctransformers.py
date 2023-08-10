@@ -14,7 +14,10 @@
 
 import logging
 import os
-from typing import Iterator, Optional, Sequence, TypedDict, Union
+from typing import TYPE_CHECKING, Iterator, Optional, Sequence, TypedDict, Union
+
+if TYPE_CHECKING:
+    from ctransformers import AutoConfig
 
 from xinference.types import Completion, CompletionChunk
 
@@ -45,20 +48,8 @@ MODEL_TYPE_FOR_CTRANSFORMERS = {
 
 
 class CtransformersModelConfig(TypedDict, total=False):
-    top_k: int
-    top_p: float
-    temperature: float
-    repetition_penalty: float
-    last_n_tokens: int
-    seed: int
-    batch_size: int
-    threads: int
-    max_new_tokens: int
-    stop: Optional[Sequence[str]]
-    stream: bool
-    reset: bool
-    context_length: int
-    gpu_layers: int
+    n_ctx: int
+    n_gpu_layers: int
 
 
 class CtransformersGenerateConfig(TypedDict, total=False):
@@ -77,15 +68,6 @@ class CtransformersGenerateConfig(TypedDict, total=False):
 
 
 class CtransformersModel(LLM):
-    try:
-        from ctransformers import AutoConfig
-    except ImportError:
-        error_message = "Failed to import module 'ctransformers - AutoConfig'"
-        installation_guide = [
-            "Please make sure 'ctransformers' is installed, You can install it by checking out the repository for "
-            "command: https://github.com/marella/ctransformers",
-        ]
-
     def __init__(
         self,
         model_uid: str,
@@ -114,49 +96,88 @@ class CtransformersModel(LLM):
         self, model_path, ctransformers_model_config: Optional[CtransformersModelConfig]
     ) -> "AutoConfig":
         try:
-            from ctransformers import AutoConfig
+            from ctransformers import AutoConfig, Config
         except ImportError:
-            error_message = "Failed to import module 'ctransformers - AutoConfig'"
-            if self._is_darwin_and_apple_silicon():
-                system = "Metal"
-            else:
-                system = "CUDA"
+            error_message = (
+                "Failed to import module 'ctransformers - AutoConfig and Config'"
+            )
 
             installation_guide = [
-                f"Please make sure 'ctransformers' is installed and {system} accelerator is provided.",
-                f"You can install it by checking out the repository for command for {system} platform:"
+                f"Please make sure 'ctransformers' is installed.",
+                f"You can install it by checking out the repository for command:"
                 f"https://github.com/marella/ctransformers",
             ]
 
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
-        if ctransformers_model_config is None:
-            ctransformers_model_config = AutoConfig.from_pretrained(
-                model_path,
-                local_files_only=False,
-            )
+        # if the model have customized config, we update it.
+        if ctransformers_model_config:
+            potential_context_length = ctransformers_model_config.pop("n_ctx", None)
+            potential_gpu_layers = ctransformers_model_config.pop("n_gpu_layers", None)
 
-        return ctransformers_model_config
+            if potential_context_length and potential_gpu_layers:
+                ctransformers_model_config_returned = Config(
+                    context_length=potential_context_length,
+                    gpu_layers=potential_gpu_layers,
+                )
+            elif potential_gpu_layers:
+                ctransformers_model_config_returned = Config(
+                    gpu_layers=potential_gpu_layers
+                )
+            elif potential_context_length:
+                ctransformers_model_config_returned = Config(
+                    context_length=potential_context_length
+                )
+            else:
+                ctransformers_model_config_returned = Config()
+        else:
+            ctransformers_model_config_returned = Config()
+
+        return AutoConfig(ctransformers_model_config_returned)
 
     def _sanitize_generate_config(
         self,
         ctransformers_generate_config: Optional[CtransformersGenerateConfig],
     ) -> CtransformersGenerateConfig:
+        try:
+            from ctransformers import Config
+        except ImportError:
+            error_message = "Failed to import module 'ctransformers - Config'"
+
+            installation_guide = [
+                f"Please make sure 'ctransformers' is installed.",
+                f"You can install it by checking out the repository for command:"
+                f"https://github.com/marella/ctransformers",
+            ]
+
+            raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
+
         # if the input config is not None, we try to copy the selected attributes to the ctransformersGenerateConfig.
         if ctransformers_generate_config is None:
             ctransformers_generate_config = CtransformersGenerateConfig()
 
-        ctransformers_generate_config.setdefault("top_k", 40)
-        ctransformers_generate_config.setdefault("top_p", 0.95)
-        ctransformers_generate_config.setdefault("temperature", 0.8)
-        ctransformers_generate_config.setdefault("repetition_penalty", 1.1)
-        ctransformers_generate_config.setdefault("last_n_tokens", 64)
-        ctransformers_generate_config.setdefault("seed", -1)
-        ctransformers_generate_config.setdefault("batch_size", 8)
-        ctransformers_generate_config.setdefault("threads", -1)
-        ctransformers_generate_config.setdefault("stop", None)
-        ctransformers_generate_config.setdefault("stream", None)
-        ctransformers_generate_config.setdefault("reset", True)
+        # get the newest configuration from ctransformers.
+        default_config = Config()
+
+        ctransformers_generate_config.setdefault("top_k", default_config.top_k)
+        ctransformers_generate_config.setdefault("top_p", default_config.top_p)
+        ctransformers_generate_config.setdefault(
+            "temperature", default_config.temperature
+        )
+        ctransformers_generate_config.setdefault(
+            "repetition_penalty", default_config.repetition_penalty
+        )
+        ctransformers_generate_config.setdefault(
+            "last_n_tokens", default_config.last_n_tokens
+        )
+        ctransformers_generate_config.setdefault("seed", default_config.seed)
+        ctransformers_generate_config.setdefault(
+            "batch_size", default_config.batch_size
+        )
+        ctransformers_generate_config.setdefault("threads", default_config.threads)
+        ctransformers_generate_config.setdefault("stop", default_config.stop)
+        ctransformers_generate_config.setdefault("stream", default_config.stream)
+        ctransformers_generate_config.setdefault("reset", default_config.reset)
 
         return ctransformers_generate_config
 
