@@ -55,8 +55,7 @@
         "model_id": "baichuan-inc/Baichuan-13B-Base",
         "model_revision": "0ef0739c7bdd34df954003ef76d80f3dabca2ff9"
       }
-    ],
-    "prompt_style": null
+    ]
   },
   {
     "version": 1,
@@ -70,28 +69,6 @@
       "chat"
     ],
     "model_specs": [
-      {
-        "model_format": "ggmlv3",
-        "model_size_in_billions": 7,
-        "quantizations": [
-          "q2_K",
-          "q3_K_L",
-          "q3_K_M",
-          "q3_K_S",
-          "q4_0",
-          "q4_1",
-          "q4_K_M",
-          "q4_K_S",
-          "q5_0",
-          "q5_1",
-          "q5_K_M",
-          "q5_K_S",
-          "q6_K",
-          "q8_0"
-        ],
-        "model_id": "TheBloke/baichuan-vicuna-7B-GGML",
-        "model_file_name_template": "baichuan-vicuna-7b.ggmlv3.{quantization}.bin"
-      },
       {
         "model_format": "pytorch",
         "model_size_in_billions": 13,

@@ -58,6 +58,7 @@ gettext_compact = False  # optional
 # a list of builtin themes.
 #
 html_theme = 'pydata_sphinx_theme'
+html_title = "Xorbits Inference"
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
@@ -65,11 +66,24 @@ html_theme = 'pydata_sphinx_theme'
 html_static_path = ['_static']
 
 html_theme_options = {
+    "show_toc_level": 2,
     "icon_links": [
         {
             "name": "GitHub",
             "url": "https://github.com/xorbitsai/inference",
             "icon": "fa-brands fa-github",
+            "type": "fontawesome",
+        },
+        {
+            "name": "Slack",
+            "url": "https://join.slack.com/t/xorbitsio/shared_invite/zt-1o3z9ucdh-RbfhbPVpx7prOVdM1CAuxg",
+            "icon": "fa-brands fa-slack",
+            "type": "fontawesome",
+        },
+        {
+            "name": "Twitter",
+            "url": "https://twitter.com/xorbitsio",
+            "icon": "fa-brands fa-twitter",
             "type": "fontawesome",
         },
     ]
