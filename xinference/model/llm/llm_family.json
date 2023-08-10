@@ -778,7 +778,7 @@
   },
   {
     "version": 1,
-    "model_name": "StarCoder",
+    "model_name": "starcoder",
     "model_lang": [
       "en"
     ],

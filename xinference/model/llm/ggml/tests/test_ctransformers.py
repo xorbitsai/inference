@@ -12,93 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import random
-import re
 import string
-import time
-from typing import Iterator
 
 import pytest
 
-from xinference.model.llm import GgmlLLMSpecV1, LLMFamilyV1
-from xinference.model.llm.ggml.ctransformers import (
-    CtransformersGenerateConfig,
-    CtransformersModel,
-)
-from xinference.types import (
-    Completion,
-    CompletionChoice,
-    CompletionChunk,
-    CompletionUsage,
-)
+from xinference.client import Client, GenerateModelHandle
 
-
-class MockPipeline:
-    def __init__(self) -> None:
-        pass
+from ....llm import GgmlLLMSpecV1, LLMFamilyV1
+from ..ctransformers import CtransformersModel
 
 
 class MockCtransformersModel(CtransformersModel):
     def load(self):
-        self._llm = MockPipeline()
-
-    def generate_stream(self) -> Iterator[Completion]:
-        for i in range(5):
-            res = f"ctransformers_test_stream_{i}"
-            completion_choice = CompletionChoice(
-                text=res, index=0, logprobs=None, finish_reason="test_stream"
-            )
-            completion_chunk = CompletionChunk(
-                id=str(f"test_{i}"),
-                object="text_completion",
-                created=int(time.time()),
-                model=self._model_uid,
-                choices=[completion_choice],
-            )
-            completion_usage = CompletionUsage(
-                prompt_tokens=10,
-                completion_tokens=20,
-                total_tokens=30,
-            )
-            completion = Completion(
-                id=completion_chunk["id"],
-                object=completion_chunk["object"],
-                created=completion_chunk["created"],
-                model=completion_chunk["model"],
-                choices=completion_chunk["choices"],
-                usage=completion_usage,
-            )
-        yield completion
-
-    def generate(
-        self, prompt: str, generate_config_raw: CtransformersGenerateConfig
-    ) -> Completion:
-        completion_choice = CompletionChoice(
-            text="test_ctransformers_generate",
-            index=0,
-            logprobs=None,
-            finish_reason="test",
-        )
-        completion_chunk = CompletionChunk(
-            id=str("test"),
-            object="text_completion",
-            created=int(time.time()),
-            model=self._model_uid,
-            choices=[completion_choice],
-        )
-        completion_usage = CompletionUsage(
-            prompt_tokens=10,
-            completion_tokens=20,
-            total_tokens=30,
-        )
-        completion = Completion(
-            id=completion_chunk["id"],
-            object=completion_chunk["object"],
-            created=completion_chunk["created"],
-            model=completion_chunk["model"],
-            choices=completion_chunk["choices"],
-            usage=completion_usage,
-        )
-        return completion
+        pass
 
 
 mock_model_spec = GgmlLLMSpecV1(
@@ -199,48 +125,32 @@ def test_ctransformer_init(model_spec, model_family):
     assert model._llm is None
 
 
-@pytest.mark.parametrize(
-    "model_spec, model_family", [(mock_model_spec, mock_model_family)]
-)
-def test_model_generate(model_spec, model_family):
-    quantization = "q4_0"
-    uid = "".join(random.choice(string.digits) for i in range(100))
-    path = "".join(
-        random.choice(string.ascii_letters + string.punctuation) for i in range(100)
-    )
-    model = MockCtransformersModel(
-        model_uid=uid,
-        model_family=model_family,
-        model_spec=model_spec,
+@pytest.mark.asyncio
+@pytest.mark.parametrize("quantization", ["q4_0", "q4_1", "q5_0", "q5_1", "q8_0"])
+async def test_opt_pytorch_model(setup, quantization):
+    endpoint, _ = setup
+    client = Client(endpoint)
+    assert len(client.list_models()) == 0
+
+    model_uid = client.launch_model(
+        model_name="starcoder",
+        model_size_in_billions=16,
+        model_format="ggmlv3",
         quantization=quantization,
-        model_path=path,
-        ctransformers_Model_Config=None,
     )
+    assert len(client.list_models()) == 1
 
-    assert model._llm is None
+    model = client.get_model(model_uid=model_uid)
+    assert isinstance(model, GenerateModelHandle)
 
-    model.load()
-    assert isinstance(model._llm, MockPipeline)
+    completion = model.generate("def HelloWorld():")
+    assert "id" in completion
+    assert "text" in completion["choices"][0]
+    assert len(completion["choices"][0]["text"]) > 0
+    assert "finish_reason" in completion["choices"][0]
+    assert "prompt_tokens" in completion["usage"]
+    assert "completion_tokens" in completion["usage"]
+    assert "total_tokens" in completion["usage"]
 
-    # generate with stream
-    pattern = r"[0-4]"
-    for completion in model.generate_stream():
-        assert completion["id"].startswith("test_")
-        assert re.search(pattern, completion["id"])
-        assert completion["choices"][0]["text"].startswith("ctransformers_test_stream_")
-        assert re.search(pattern, completion["choices"][0]["text"])
-        assert completion["choices"][0]["finish_reason"] == "test_stream"
-        assert completion["usage"]["prompt_tokens"] == 10
-        assert completion["usage"]["completion_tokens"] == 20
-        assert completion["usage"]["total_tokens"] == 30
-
-    # generate without stream
-    responses = model.generate(
-        "def Helloworld():", generate_config_raw={"stream": True}
-    )
-    assert responses["object"] == "text_completion"
-    assert responses["choices"][0]["text"] == "test_ctransformers_generate"
-    assert responses["choices"][0]["finish_reason"] == "test"
-    assert responses["usage"]["prompt_tokens"] == 10
-    assert responses["usage"]["completion_tokens"] == 20
-    assert responses["usage"]["total_tokens"] == 30
+    client.terminate_model(model_uid=model_uid)
+    assert len(client.list_models()) == 0

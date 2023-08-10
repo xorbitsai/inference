@@ -89,7 +89,7 @@ def generate_stream(
         text += output
         total_text += output
 
-        logger.error("Output, completion: %s", text)
+        logger.debug("Output, completion: %s", text)
 
         # https://github.com/abetlen/llama-cpp-python/blob/1a13d76c487df1c8560132d10bda62d6e2f4fa93/llama_cpp/llama.py#L686-L706
         # Check if one of the stop sequences is part of the text.
@@ -160,6 +160,6 @@ def generate_stream(
         total_tokens=count + len(tokens),
     )
 
-    logger.error("Completionchoice: %s", completion_choice)
+    logger.debug("Completionchoice: %s", completion_choice)
 
     yield completion_chunk, completion_usage

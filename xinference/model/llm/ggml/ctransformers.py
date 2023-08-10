@@ -19,8 +19,7 @@ from typing import TYPE_CHECKING, Iterator, Optional, Sequence, TypedDict, Union
 if TYPE_CHECKING:
     from ctransformers import AutoConfig
 
-from xinference.types import Completion, CompletionChunk
-
+from ....types import Completion, CompletionChunk
 from ..core import LLM
 from ..llm_family import LLMFamilyV1, LLMSpecV1
 from .ctransformers_util import generate_stream
@@ -41,8 +40,8 @@ MODEL_TYPE_FOR_CTRANSFORMERS = {
     "MPT": "mpt",
     "Dolly-V2": "dolly-v2",
     "Replit": "replit",
-    "StarCoder": "starcoder",
-    "StarChat": "starcoder",
+    "starcoder": "starcoder",
+    "starchat": "starcoder",
     "Falcon": "falcon",
 }
 
@@ -92,6 +91,10 @@ class CtransformersModel(LLM):
         self._model_uid = model_uid
         self._llm = None
 
+    def _can_apply_cublas(self):
+        # TODO: figure out the quantizations supported.
+        return True
+
     def _sanitize_model_config(
         self, model_path, ctransformers_model_config: Optional[CtransformersModelConfig]
     ) -> "AutoConfig":
@@ -111,27 +114,23 @@ class CtransformersModel(LLM):
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
         # if the model have customized config, we update it.
+        ctransformers_model_config_returned = Config()
+        potential_gpu_layers = None
         if ctransformers_model_config:
             potential_context_length = ctransformers_model_config.pop("n_ctx", None)
             potential_gpu_layers = ctransformers_model_config.pop("n_gpu_layers", None)
 
-            if potential_context_length and potential_gpu_layers:
-                ctransformers_model_config_returned = Config(
-                    context_length=potential_context_length,
-                    gpu_layers=potential_gpu_layers,
-                )
-            elif potential_gpu_layers:
-                ctransformers_model_config_returned = Config(
-                    gpu_layers=potential_gpu_layers
-                )
-            elif potential_context_length:
-                ctransformers_model_config_returned = Config(
-                    context_length=potential_context_length
-                )
-            else:
-                ctransformers_model_config_returned = Config()
-        else:
-            ctransformers_model_config_returned = Config()
+            ctransformers_model_config_returned.context_length = (
+                potential_context_length
+            )
+            ctransformers_model_config_returned.gpu_layers = potential_gpu_layers
+
+        # if user does not define gpu layers, we have to set it with our system if applicable.
+        if potential_gpu_layers is None:
+            if self._is_darwin_and_apple_silicon():
+                ctransformers_model_config_returned.gpu_layers = 1
+            elif self._is_linux() and self._can_apply_cublas():
+                ctransformers_model_config_returned = self._gpu_layers
 
         return AutoConfig(ctransformers_model_config_returned)
 
@@ -139,45 +138,13 @@ class CtransformersModel(LLM):
         self,
         ctransformers_generate_config: Optional[CtransformersGenerateConfig],
     ) -> CtransformersGenerateConfig:
-        try:
-            from ctransformers import Config
-        except ImportError:
-            error_message = "Failed to import module 'ctransformers - Config'"
-
-            installation_guide = [
-                f"Please make sure 'ctransformers' is installed.",
-                f"You can install it by checking out the repository for command:"
-                f"https://github.com/marella/ctransformers",
-            ]
-
-            raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
-
         # if the input config is not None, we try to copy the selected attributes to the ctransformersGenerateConfig.
         if ctransformers_generate_config is None:
             ctransformers_generate_config = CtransformersGenerateConfig()
 
-        # get the newest configuration from ctransformers.
-        default_config = Config()
-
-        ctransformers_generate_config.setdefault("top_k", default_config.top_k)
-        ctransformers_generate_config.setdefault("top_p", default_config.top_p)
-        ctransformers_generate_config.setdefault(
-            "temperature", default_config.temperature
-        )
-        ctransformers_generate_config.setdefault(
-            "repetition_penalty", default_config.repetition_penalty
-        )
-        ctransformers_generate_config.setdefault(
-            "last_n_tokens", default_config.last_n_tokens
-        )
-        ctransformers_generate_config.setdefault("seed", default_config.seed)
-        ctransformers_generate_config.setdefault(
-            "batch_size", default_config.batch_size
-        )
-        ctransformers_generate_config.setdefault("threads", default_config.threads)
-        ctransformers_generate_config.setdefault("stop", default_config.stop)
-        ctransformers_generate_config.setdefault("stream", default_config.stream)
-        ctransformers_generate_config.setdefault("reset", default_config.reset)
+        # for our system, the threads will have to be set to 4
+        # all other parameters, if not specified, will be set to default when generate.
+        ctransformers_generate_config.setdefault("threads", 4)
 
         return ctransformers_generate_config
 
