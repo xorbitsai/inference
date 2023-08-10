@@ -23,7 +23,6 @@ from ....types import Completion, CompletionChunk
 from ..core import LLM
 from ..llm_family import LLMFamilyV1, LLMSpecV1
 from .ctransformers_util import generate_stream
-from .llamacpp import SIZE_TO_GPU_LAYERS
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +42,16 @@ MODEL_TYPE_FOR_CTRANSFORMERS = {
     "starcoder": "starcoder",
     "starchat": "starcoder",
     "falcon": "falcon",
+}
+
+CTRANSFORMERS_SUPPORTED_MODEL = ["starcoder", "gpt-2"]
+
+SIZE_TO_GPU_LAYERS = {
+    3: 26,
+    7: 32,
+    13: 40,
+    30: 60,
+    65: 80,
 }
 
 
@@ -180,7 +189,7 @@ class CtransformersModel(LLM):
     def match(cls, llm_family: LLMFamilyV1, llm_spec: LLMSpecV1) -> bool:
         if llm_spec.model_format != "ggmlv3":
             return False
-        if "StarCoder" not in llm_family.model_name:
+        if llm_family.model_name not in CTRANSFORMERS_SUPPORTED_MODEL:
             return False
         if "generate" not in llm_family.model_ability:
             return False

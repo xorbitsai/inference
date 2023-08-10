@@ -125,7 +125,7 @@ def test_ctransformer_init(model_spec, model_family):
 
 
 @pytest.mark.asyncio
-async def test_starcoder_model(setup):
+async def test_Ctransformer_model(setup):
     endpoint, _ = setup
     client = Client(endpoint)
     assert len(client.list_models()) == 0
