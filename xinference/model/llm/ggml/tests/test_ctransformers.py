@@ -125,7 +125,7 @@ def test_ctransformer_init(model_spec, model_family):
 
 
 @pytest.mark.asyncio
-async def test_Ctransformer_model(setup):
+async def test_ctransformers_generate(setup):
     endpoint, _ = setup
     client = Client(endpoint)
     assert len(client.list_models()) == 0
@@ -142,14 +142,25 @@ async def test_Ctransformer_model(setup):
     model = client.get_model(model_uid=model_uid)
     assert isinstance(model, GenerateModelHandle)
 
-    completion = model.generate("AI is going to")
+    completion = model.generate("AI is going to", generate_config={"max_tokens": 5})
+    print(completion)
     assert "id" in completion
     assert "text" in completion["choices"][0]
     assert len(completion["choices"][0]["text"]) > 0
+
+    assert completion["model"] == model_uid
+
     assert "finish_reason" in completion["choices"][0]
+    assert completion["choices"][0]["finish_reason"] == "length"
+
     assert "prompt_tokens" in completion["usage"]
+    assert completion["usage"]["prompt_tokens"] == 4
+
     assert "completion_tokens" in completion["usage"]
+    assert completion["usage"]["completion_tokens"] == 5
+
     assert "total_tokens" in completion["usage"]
+    assert completion["usage"]["total_tokens"] == 9
 
     client.terminate_model(model_uid=model_uid)
     assert len(client.list_models()) == 0

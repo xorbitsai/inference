@@ -139,7 +139,7 @@ class CtransformersModel(LLM):
             if self._is_darwin_and_apple_silicon():
                 ctransformers_model_config_returned.gpu_layers = 1
             elif self._is_linux() and self._can_apply_cublas():
-                ctransformers_model_config_returned = self._gpu_layers
+                ctransformers_model_config_returned.gpu_layers = self._gpu_layers
 
         return AutoConfig(ctransformers_model_config_returned)
 
