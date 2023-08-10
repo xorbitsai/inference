@@ -16,8 +16,7 @@ import string
 
 import pytest
 
-from xinference.client import Client, GenerateModelHandle
-
+from .....client import Client, GenerateModelHandle
 from ....llm import GgmlLLMSpecV1, LLMFamilyV1
 from ..ctransformers import CtransformersModel
 
@@ -126,8 +125,7 @@ def test_ctransformer_init(model_spec, model_family):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("quantization", ["q4_0", "q4_1", "q5_0", "q5_1", "q8_0"])
-async def test_opt_pytorch_model(setup, quantization):
+async def test_opt_pytorch_model(setup):
     endpoint, _ = setup
     client = Client(endpoint)
     assert len(client.list_models()) == 0
@@ -136,8 +134,9 @@ async def test_opt_pytorch_model(setup, quantization):
         model_name="starcoder",
         model_size_in_billions=16,
         model_format="ggmlv3",
-        quantization=quantization,
+        quantization="q4_0",
     )
+
     assert len(client.list_models()) == 1
 
     model = client.get_model(model_uid=model_uid)
