@@ -55,21 +55,33 @@ class ChatInterface:
                 )
             return res
 
-        def generate_wrapper(message: str, history: List[List[str]]) -> str:
+        def generate_wrapper(
+            message: str,
+            history: List[List[str]],
+            max_response_length: int,
+            temperature: float,
+        ) -> str:
             output = model.chat(
                 prompt=message,
                 chat_history=to_chat(flatten(history)),
-                generate_config={"max_tokens": 512, "stream": False},
+                generate_config={
+                    "max_tokens": int(max_response_length),
+                    "temperature": temperature,
+                    "stream": False,
+                },
             )
             return output["choices"][0]["message"]["content"]
 
         return gr.ChatInterface(
             fn=generate_wrapper,
-            examples=[
-                "Show me a two sentence horror story with a plot twist",
-                "Generate a Haiku poem using trigonometry as the central theme",
-                "Write three sentences of scholarly description regarding a supernatural beast",
-                "Prove there does not exist a largest integer",
+            # TODO: Change min/max based on model context size
+            additional_inputs=[
+                gr.Slider(
+                    minimum=1, maximum=2048, value=1024, step=1, label="Max Tokens"
+                ),
+                gr.Slider(
+                    minimum=0, maximum=1, value=0.8, step=0.01, label="Temperature"
+                ),
             ],
             title=f"🚀 Xinference Chat Bot : {model_name} 🚀",
             css="""
