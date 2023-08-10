@@ -75,6 +75,12 @@ class CtransformersGenerateConfig(TypedDict, total=False):
     reset: Optional[bool]
 
 
+def _has_cuda_device():
+    from xorbits._mars.resource import cuda_count
+
+    return cuda_count() > 0
+
+
 class CtransformersModel(LLM):
     def __init__(
         self,
@@ -99,10 +105,6 @@ class CtransformersModel(LLM):
         self._model_family = model_family
         self._model_uid = model_uid
         self._llm = None
-
-    def _can_apply_cublas(self):
-        # TODO: figure out the quantizations supported.
-        return True
 
     def _sanitize_model_config(
         self, model_path, ctransformers_model_config: Optional[CtransformersModelConfig]
@@ -138,7 +140,7 @@ class CtransformersModel(LLM):
         if potential_gpu_layers is None:
             if self._is_darwin_and_apple_silicon():
                 ctransformers_model_config_returned.gpu_layers = 1
-            elif self._is_linux() and self._can_apply_cublas():
+            elif _has_cuda_device():
                 ctransformers_model_config_returned.gpu_layers = self._gpu_layers
 
         return AutoConfig(ctransformers_model_config_returned)
