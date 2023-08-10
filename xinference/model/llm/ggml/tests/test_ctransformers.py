@@ -11,13 +11,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import importlib
 import random
 import re
 import string
 import time
 from typing import Iterator
-from unittest.mock import Mock
 
 import pytest
 
@@ -141,31 +139,12 @@ test_model_spec = """{
 mock_model_family = LLMFamilyV1.parse_raw(test_model_spec)
 
 
-class MockAutoConfig:
-    def __init__(self, config, *args, **kwargs):
-        self.config = config
-
-
-# Mock the AutoConfig_Pretrained to not directly import ctransformers
-@pytest.fixture
-def mock_AutoConfig_Pretrained(mocker):
-    ctransformers_module = importlib.import_module("ctransformers")
-    mock_from_pretrained = mocker.patch.object(
-        ctransformers_module.AutoConfig,  # Target object to patch
-        "from_pretrained",  # Attribute to patch
-        side_effect=MockAutoConfig,  # Custom side_effect function
-    )
-
-    config = Mock()
-    auto_config = MockAutoConfig(config)
-    mock_from_pretrained.return_value = auto_config
-    return mock_from_pretrained
-
-
 @pytest.mark.parametrize(
     "model_spec, model_family", [(mock_model_spec, mock_model_family)]
 )
-def test_ctransformer_init(model_spec, model_family, mock_AutoConfig_Pretrained):
+def test_ctransformer_init(model_spec, model_family):
+    from ctransformers import AutoConfig
+
     quantization = "q4_0"
     uid = "".join(random.choice(string.digits) for i in range(15))
     path = "".join(
@@ -184,7 +163,7 @@ def test_ctransformer_init(model_spec, model_family, mock_AutoConfig_Pretrained)
     assert model.quantization == quantization
     assert model.model_path == path
     assert model._ctransformer_model_config is not None
-    assert isinstance(model._ctransformer_model_config, MockAutoConfig)
+    assert isinstance(model._ctransformer_model_config, AutoConfig)
 
     assert isinstance(model.model_spec, GgmlLLMSpecV1)
     assert isinstance(model.model_family, LLMFamilyV1)
@@ -223,7 +202,7 @@ def test_ctransformer_init(model_spec, model_family, mock_AutoConfig_Pretrained)
 @pytest.mark.parametrize(
     "model_spec, model_family", [(mock_model_spec, mock_model_family)]
 )
-def test_model_generate(model_spec, model_family, mock_AutoConfig_Pretrained):
+def test_model_generate(model_spec, model_family):
     quantization = "q4_0"
     uid = "".join(random.choice(string.digits) for i in range(100))
     path = "".join(
