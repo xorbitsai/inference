@@ -133,6 +133,21 @@ class ChatModelMixin:
                 else:
                     ret += f"<|im_start|>{role}\n"
             return ret
+        elif prompt_style.style_name == "CHATML":
+            ret = (
+                ""
+                if prompt_style.system_prompt == ""
+                else prompt_style.system_prompt + prompt_style.intra_message_sep + "\n"
+            )
+            for message in chat_history:
+                role = message["role"]
+                content = message["content"]
+
+                if content:
+                    ret += role + "\n" + content + prompt_style.intra_message_sep + "\n"
+                else:
+                    ret += role + "\n"
+            return ret
         else:
             raise ValueError(f"Invalid prompt style: {prompt_style.style_name}")
 
