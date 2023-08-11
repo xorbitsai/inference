@@ -979,5 +979,95 @@
       ],
       "stop": ["<eoa>"]
     }
+  },
+  {
+    "version": 1,
+    "model_name": "vicuna-v1.5",
+    "model_lang": [
+      "en"
+    ],
+    "model_ability": [
+      "embed",
+      "chat"
+    ],
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "lmsys/vicuna-7b-v1.5",
+        "model_revision": "de56c35b1763eaae20f4d60efd64af0a9091ebe5"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 13,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "lmsys/vicuna-13b-v1.5",
+        "model_revision": "3deb0106f72a3a433f0c6ea0cb978bdf14bcd3a6"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "ADD_COLON_TWO",
+      "system_prompt": "A chat between a curious human and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the human's questions.",
+      "roles": [
+        "USER",
+        "ASSISTANT"
+      ],
+      "intra_message_sep": " ",
+      "inter_message_sep": "</s>"
+    }
+  },
+  {
+    "version": 1,
+    "model_name": "vicuna-v1.5-16k",
+    "model_lang": [
+      "en"
+    ],
+    "model_ability": [
+      "embed",
+      "chat"
+    ],
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "lmsys/vicuna-7b-v1.5-16k",
+        "model_revision": "9a93d7d11fac7f3f9074510b80092b53bc1a5bec"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 13,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "lmsys/vicuna-13b-v1.5-16k",
+        "model_revision": "277697af19d4b267626ebc9f4e078d19a9a0fddf"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "ADD_COLON_TWO",
+      "system_prompt": "A chat between a curious human and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the human's questions.",
+      "roles": [
+        "USER",
+        "ASSISTANT"
+      ],
+      "intra_message_sep": " ",
+      "inter_message_sep": "</s>"
+    }
   }
 ]
