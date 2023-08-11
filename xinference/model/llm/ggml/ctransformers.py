@@ -130,27 +130,25 @@ class CtransformersModel(LLM):
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
         # if the model have customized config, we update it.
-        ctransformers_model_config_returned = Config()
+        model_config_ret = Config()
         potential_gpu_layers = None
         if ctransformers_model_config:
             potential_context_length = ctransformers_model_config.pop("n_ctx", None)
             potential_gpu_layers = ctransformers_model_config.pop("n_gpu_layers", None)
 
-            ctransformers_model_config_returned.context_length = (
-                potential_context_length
-            )
-            ctransformers_model_config_returned.gpu_layers = potential_gpu_layers
+            model_config_ret.context_length = potential_context_length
+            model_config_ret.gpu_layers = potential_gpu_layers
 
         # if user does not define gpu layers, we have to set it with our system if applicable.
         if potential_gpu_layers is None:
             if self._model_family.model_name not in CTRANSFORMERS_GPU_SUPPORT:
-                ctransformers_model_config_returned.gpu_layers = -1
+                model_config_ret.gpu_layers = -1
             elif self._is_darwin_and_apple_silicon():
-                ctransformers_model_config_returned.gpu_layers = 1
+                model_config_ret.gpu_layers = 1
             elif _has_cuda_device():
-                ctransformers_model_config_returned.gpu_layers = self._gpu_layers
+                model_config_ret.gpu_layers = self._gpu_layers
 
-        return AutoConfig(ctransformers_model_config_returned)
+        return AutoConfig(model_config_ret)
 
     def _sanitize_generate_config(
         self,
