@@ -44,7 +44,10 @@ MODEL_TYPE_FOR_CTRANSFORMERS = {
     "falcon": "falcon",
 }
 
+# these two constants subjects to change for future development and ctransformers updates.
 CTRANSFORMERS_SUPPORTED_MODEL = ["starcoder", "gpt-2"]
+
+CTRANSFORMERS_GPU_SUPPORT = ["llama", "llama-2", "mpt", "falcon"]
 
 SIZE_TO_GPU_LAYERS = {
     3: 26,
@@ -138,7 +141,9 @@ class CtransformersModel(LLM):
 
         # if user does not define gpu layers, we have to set it with our system if applicable.
         if potential_gpu_layers is None:
-            if self._is_darwin_and_apple_silicon():
+            if self._model_family.model_name not in CTRANSFORMERS_GPU_SUPPORT:
+                ctransformers_model_config_returned.gpu_layers = -1
+            elif self._is_darwin_and_apple_silicon():
                 ctransformers_model_config_returned.gpu_layers = 1
             elif _has_cuda_device():
                 ctransformers_model_config_returned.gpu_layers = self._gpu_layers
