@@ -12,22 +12,28 @@ if __name__ == "__main__":
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=textwrap.dedent(
             """\
-             instructions to run:
-                 1. Install Xinference and Llama-cpp-python
-                 2. Run 'xinference --host "localhost" --port 9997' in terminal
-                 3. Run this python file in new terminal window
+            instructions to run:
 
-                 e.g. (feel free to copy)
-                 python gradio_chatinterface.py \\
-                 --endpoint http://localhost:9997 \\
-                 --model_name vicuna-v1.3 \\
-                 --model_size_in_billions 7 \\
-                 --model_format ggmlv3 \\
-                 --quantization q2_K
+                1. Install Xinference, Llama-cpp-python, and other dependencies if necessary
+                2. Run command `xinference --host "localhost"` in terminal
+                3. You should see something similar to the following output:
 
-                 If you decide to change the port number in step 2,
-                 please also change the endpoint in the arguments
-             """
+                INFO:xinference:Xinference successfully started. Endpoint: http://localhost:9997
+                INFO:xinference.core.service:Worker 127.0.0.1:21561 has been added successfully
+                INFO:xinference.deploy.worker:Xinference worker successfully started.
+
+                4. In the output, locate the endpoint. In the above case it is `http://localhost:9997`
+                5. Run this python file in new terminal window, change the endpoint accordingly
+
+            example (feel free to copy):
+
+                python gradio_chatinterface.py \\
+                --endpoint http://localhost:9997 \\
+                --model_name vicuna-v1.3 \\
+                --model_size_in_billions 7 \\
+                --model_format ggmlv3 \\
+                --quantization q2_K
+            """
         ),
     )
 
@@ -95,6 +101,7 @@ if __name__ == "__main__":
             )
         return res
 
+
     def generate_wrapper(message: str, history: List[List[str]]) -> str:
         output = model.chat(
             prompt=message,
@@ -102,6 +109,7 @@ if __name__ == "__main__":
             generate_config={"max_tokens": 512, "stream": False},
         )
         return output["choices"][0]["message"]["content"]
+
 
     demo = gr.ChatInterface(
         fn=generate_wrapper,
