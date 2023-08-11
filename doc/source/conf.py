@@ -58,7 +58,7 @@ gettext_compact = False  # optional
 # a list of builtin themes.
 #
 html_theme = 'pydata_sphinx_theme'
-html_title = "Xorbits Inference"
+html_title = "Xinference"
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
