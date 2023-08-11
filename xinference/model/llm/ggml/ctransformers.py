@@ -45,7 +45,7 @@ MODEL_TYPE_FOR_CTRANSFORMERS = {
 }
 
 # these two constants subjects to change for future development and ctransformers updates.
-CTRANSFORMERS_SUPPORTED_MODEL = ["starcoder", "gpt-2", "mpt"]
+CTRANSFORMERS_SUPPORTED_MODEL = ["starcoder", "gpt-2"]
 
 CTRANSFORMERS_GPU_SUPPORT = ["llama", "llama-2", "mpt", "falcon"]
 
