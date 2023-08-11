@@ -31,6 +31,17 @@ Chat & Instruction-following Models
 - :ref:`WizardLM v1.0 <models_builtin_wizardlm_v1_0>`
 
 
+Code Generation Models
+++++++++++++++++++++++
+- :ref:`Starcoder <models_builtin_starcoder>`
+- :ref:`StarCoderPlus <models_builtin_starcoderplus>`
+
+
+Code Assistant Models
++++++++++++++++++++++
+- :ref:`Starchat-beta <models_builtin_starchat_beta>`
+
+
 .. toctree::
    :maxdepth: 2
    :hidden:
@@ -46,6 +57,9 @@ Chat & Instruction-following Models
    llama-2
    opt
    orca_mini
+   starchat-beta
+   starcoder
+   starcoderplus
    qwen-chat
    vicuna-v1.3
    wizardlm-v1.0
