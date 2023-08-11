@@ -126,11 +126,8 @@ Xinference  client.
 - For cluster deployment, the endpoint will be `http://${supervisor_host}:9997`, where
 `${supervisor_host}` is the hostname or IP address of the server where the supervisor is running.
 
-You can also view a web UI using the Xinference endpoint to chat with all the 
-builtin models. You can even **chat with two cutting-edge AI models side-by-side to compare
-their performance**!
-
-![web UI](assets/demo.gif)
+You can also view a web UI dashboard using the Xinference endpoint, where you can keep track of all 
+running models, delete them at will, and launch Gradio chatbots with any chat models.
 
 ### Xinference CLI
 Xinference provides a command line interface (CLI) for model management. Here are some useful 
