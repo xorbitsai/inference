@@ -25,7 +25,7 @@ if __name__ == "__main__":
                 4. In the output, locate the endpoint. In the above case it is `http://localhost:9997`
                 5. Run this python file in new terminal window, change the endpoint accordingly
 
-            example (feel free to copy):
+                example run command (feel free to copy):
 
                 python gradio_chatinterface.py \\
                 --endpoint http://localhost:9997 \\
