@@ -101,13 +101,15 @@ class CtransformersModel(LLM):
             SIZE_TO_GPU_LAYERS.keys(),
             key=lambda x: abs(x - model_spec.model_size_in_billions),
         )
+
+        self._model_family = model_family
+        self._model_uid = model_uid
+        self._llm = None
+
         self._gpu_layers = SIZE_TO_GPU_LAYERS[closest_size]
         self._ctransformer_model_config = self._sanitize_model_config(
             model_path, ctransformers_Model_Config
         )
-        self._model_family = model_family
-        self._model_uid = model_uid
-        self._llm = None
 
     def _sanitize_model_config(
         self, model_path, ctransformers_model_config: Optional[CtransformersModelConfig]
