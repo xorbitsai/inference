@@ -101,7 +101,6 @@ if __name__ == "__main__":
             )
         return res
 
-
     def generate_wrapper(message: str, history: List[List[str]]) -> str:
         output = model.chat(
             prompt=message,
@@ -109,7 +108,6 @@ if __name__ == "__main__":
             generate_config={"max_tokens": 512, "stream": False},
         )
         return output["choices"][0]["message"]["content"]
-
 
     demo = gr.ChatInterface(
         fn=generate_wrapper,

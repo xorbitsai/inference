@@ -3,10 +3,10 @@ from typing import TYPE_CHECKING, Dict, List, Optional
 
 import gradio as gr
 
+from xinference.client import RESTfulClient
 from xinference.locale.utils import Locale
 from xinference.model.llm import BUILTIN_LLM_FAMILIES, LLMFamilyV1, match_llm
 from xinference.model.llm.llm_family import cache
-from xinference.client import RESTfulClient
 
 if TYPE_CHECKING:
     from xinference.types import ChatCompletionChunk, ChatCompletionMessage
@@ -20,11 +20,11 @@ MODEL_TO_FAMILIES: Dict[str, LLMFamilyV1] = dict(
 
 class GradioApp:
     def __init__(
-            self,
-            endpoint: str,
-            gladiator_num: int = 2,
-            max_model_num: int = 3,
-            use_launched_model: bool = False,
+        self,
+        endpoint: str,
+        gladiator_num: int = 2,
+        max_model_num: int = 3,
+        use_launched_model: bool = False,
     ):
         self._api = RESTfulClient(endpoint)
         self._gladiator_num = gladiator_num
@@ -33,11 +33,11 @@ class GradioApp:
         self._locale = Locale()
 
     def _create_model(
-            self,
-            model_name: str,
-            model_size_in_billions: Optional[int] = None,
-            model_format: Optional[str] = None,
-            quantization: Optional[str] = None,
+        self,
+        model_name: str,
+        model_size_in_billions: Optional[int] = None,
+        model_format: Optional[str] = None,
+        quantization: Optional[str] = None,
     ):
         models = self._api.list_models()
         if len(models) >= self._max_model_num:
@@ -47,15 +47,15 @@ class GradioApp:
         )
 
     async def generate(
-            self,
-            model: str,
-            message: str,
-            chat: List[List[str]],
-            max_token: int,
-            temperature: float,
-            top_p: float,
-            window_size: int,
-            show_finish_reason: bool,
+        self,
+        model: str,
+        message: str,
+        chat: List[List[str]],
+        max_token: int,
+        temperature: float,
+        top_p: float,
+        window_size: int,
+        show_finish_reason: bool,
     ):
         if not message:
             yield message, chat
@@ -76,7 +76,7 @@ class GradioApp:
                 history.append({"role": "assistant", "content": out})
 
             if window_size != 0:
-                history = history[-(window_size // 2):]
+                history = history[-(window_size // 2) :]
 
             # chatglm only support even number of conversation history.
             if len(history) % 2 != 0:
@@ -250,7 +250,7 @@ class GradioApp:
                     )
 
             def select_model_size(
-                    model_name: str, model_format: str, model_size_in_billions: str
+                model_name: str, model_format: str, model_size_in_billions: str
             ):
                 if model_name:
                     model_family = MODEL_TO_FAMILIES[model_name]
@@ -259,8 +259,8 @@ class GradioApp:
                             quantization
                             for spec in model_family.model_specs
                             if spec.model_format == model_format
-                               and str(spec.model_size_in_billions)
-                               == model_size_in_billions
+                            and str(spec.model_size_in_billions)
+                            == model_size_in_billions
                             for quantization in spec.quantizations
                         }
                     )
@@ -293,11 +293,11 @@ class GradioApp:
             chat, model_uid = components[1], components[-1]
 
         def select_model(
-                _model_name: str,
-                _model_format: str,
-                _model_size_in_billions: str,
-                _quantization: str,
-                progress=gr.Progress(track_tqdm=True),
+            _model_name: str,
+            _model_format: str,
+            _model_size_in_billions: str,
+            _quantization: str,
+            progress=gr.Progress(track_tqdm=True),
         ):
             match_result = match_llm(
                 _model_name,
@@ -325,10 +325,10 @@ class GradioApp:
             ), gr.Textbox.update(value=model_uid)
 
         def clear_chat(
-                _model_name: str,
-                _model_format: str,
-                _model_size_in_billions: str,
-                _quantization: str,
+            _model_name: str,
+            _model_format: str,
+            _model_size_in_billions: str,
+            _quantization: str,
         ):
             full_name = "-".join(
                 [_model_name, _model_size_in_billions, _model_format, _quantization]
