@@ -92,7 +92,7 @@ class CtransformersModel(LLM):
         model_spec: "LLMSpecV1",
         quantization: str,
         model_path: str,
-        ctransformers_Model_Config: Optional[CtransformersModelConfig],
+        ctransformers_model_config: Optional[CtransformersModelConfig],
     ):
         super().__init__(model_uid, model_family, model_spec, quantization, model_path)
 
@@ -108,7 +108,7 @@ class CtransformersModel(LLM):
 
         self._gpu_layers = SIZE_TO_GPU_LAYERS[closest_size]
         self._ctransformer_model_config = self._sanitize_model_config(
-            model_path, ctransformers_Model_Config
+            model_path, ctransformers_model_config
         )
 
     def _sanitize_model_config(
@@ -230,11 +230,12 @@ class CtransformersModel(LLM):
                 yield _completion_chunk
 
         generate_config = self._sanitize_generate_config(generate_config_raw)
-        max_new_tokens = generate_config.pop("max_tokens", None)
 
         logger.debug(
             "Enter generate, prompt: %s, generate config: %s", prompt, generate_config
         )
+
+        max_new_tokens = generate_config.pop("max_tokens", None)
 
         stream_or_not = generate_config.get("stream", False)
         if stream_or_not:

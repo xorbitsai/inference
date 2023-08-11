@@ -20,12 +20,6 @@ from .....client import Client, GenerateModelHandle
 from ....llm import GgmlLLMSpecV1, LLMFamilyV1
 from ..ctransformers import CtransformersModel
 
-
-class MockCtransformersModel(CtransformersModel):
-    def load(self):
-        pass
-
-
 mock_model_spec = GgmlLLMSpecV1(
     model_format="ggmlv3",
     model_size_in_billions=6,
@@ -75,13 +69,13 @@ def test_ctransformer_init(model_spec, model_family):
     path = "".join(
         random.choice(string.ascii_letters + string.punctuation) for i in range(100)
     )
-    model = MockCtransformersModel(
+    model = CtransformersModel(
         model_uid=uid,
         model_family=model_family,
         model_spec=model_spec,
         quantization=quantization,
         model_path=path,
-        ctransformers_Model_Config=None,
+        ctransformers_model_config=None,
     )
 
     assert model.model_uid == uid

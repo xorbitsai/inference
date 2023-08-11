@@ -56,6 +56,20 @@ def generate_stream(
     # parameters needed for Xinference.
     finish_reason = None
 
+    try:
+        from ctransformers.utils import utf8_split_incomplete
+    except ImportError:
+        error_message = (
+            "Failed to import module 'ctransformers - utf8_split_incomplete'"
+        )
+
+        installation_guide = [
+            "Please make sure 'ctransformers' is installed. You can install it by checking out the repository: "
+            "https://github.com/marella/ctransformers",
+        ]
+
+        raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
+
     for token in model_ref.generate(
         tokens,
         top_k=top_k,
@@ -69,27 +83,11 @@ def generate_stream(
         reset=reset,
     ):
         # Handle incomplete UTF-8 multi-byte characters.
-        try:
-            from ctransformers.utils import utf8_split_incomplete
-        except ImportError:
-            error_message = (
-                "Failed to import module 'ctransformers - utf8_split_incomplete'"
-            )
-
-            installation_guide = [
-                "Please make sure 'ctransformers' is installed. You can install it by checking out the repository: "
-                "https://github.com/marella/ctransformers",
-            ]
-
-            raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
-
         incomplete += model_ref.detokenize([token], decode=False)
         complete, incomplete = utf8_split_incomplete(incomplete)
         output = complete.decode(errors="ignore")
         text += output
         total_text += output
-
-        logger.debug("Output, completion: %s", text)
 
         # https://github.com/abetlen/llama-cpp-python/blob/1a13d76c487df1c8560132d10bda62d6e2f4fa93/llama_cpp/llama.py#L686-L706
         # Check if one of the stop sequences is part of the text.
@@ -159,7 +157,5 @@ def generate_stream(
         completion_tokens=count,
         total_tokens=count + len(tokens),
     )
-
-    logger.debug("Completionchoice: %s", completion_choice)
 
     yield completion_chunk, completion_usage
