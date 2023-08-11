@@ -799,8 +799,7 @@
         "model_id": "TheBloke/starcoder-GGML",
         "model_file_name_template": "starcoder.ggmlv3.{quantization}.bin"
       }
-    ],
-    "prompt_style": null
+    ]
   },
   {
     "version": 1,
@@ -821,7 +820,6 @@
         "model_id": "marella/gpt-2-ggml",
         "model_file_name_template": "ggml-model.bin"
       }
-    ],
-    "prompt_style": null
+    ]
   }
 ]
