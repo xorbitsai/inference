@@ -92,6 +92,7 @@ class WorkerActor(xo.Actor):
         # baichuan-base and baichuan-chat depend on `cpm_kernels` module,
         # but `cpm_kernels` cannot run on Darwin system.
         if platform.system() == "Darwin":
+            # TODO: there's no baichuan-base.
             if model_name in ["baichuan-base", "baichuan-chat"]:
                 raise ValueError(f"{model_name} model can't run on Darwin system.")
 

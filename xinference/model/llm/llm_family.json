@@ -607,8 +607,7 @@
         "model_id": "TheBloke/Llama-2-13B-GGML",
         "model_file_name_template": "llama-2-13b.ggmlv3.{quantization}.bin"
       }
-    ],
-    "prompt_style": null
+    ]
   },
   {
     "version": 1,
@@ -632,8 +631,7 @@
         "model_id": "facebook/opt-125m",
         "model_revision": "3d2b5f275bdf882b8775f902e1bfdb790e2cfc32"
       }
-    ],
-    "prompt_style": null
+    ]
   },
   {
     "version": 1,
@@ -668,8 +666,7 @@
         "model_id": "tiiuae/falcon-7b",
         "model_revision": "378337427557d1df3e742264a2901a49f25d4eb1"
       }
-    ],
-    "prompt_style": null
+    ]
   },
   {
     "version": 1,

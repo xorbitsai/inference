@@ -23,4 +23,4 @@ chosen quantization method from the options listed above::
 
 .. note::
 
-   Not supported on macOS since this model depends on `cpm_kernels`.
+   Not supported on macOS.

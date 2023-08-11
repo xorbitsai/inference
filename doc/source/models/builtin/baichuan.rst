@@ -43,7 +43,7 @@ chosen quantization method from the options listed above::
 
 .. note::
 
-   Not supported on macOS since this model depends on `cpm_kernels`.
+   Not supported on macOS.
 
 Model Spec 3 (pytorch, 13 Billion)
 ++++++++++++++++++++++++++++++++++
@@ -60,4 +60,4 @@ chosen quantization method from the options listed above::
 
 .. note::
 
-   Not supported on macOS since this model depends on `cpm_kernels`.
+   Not supported on macOS.
