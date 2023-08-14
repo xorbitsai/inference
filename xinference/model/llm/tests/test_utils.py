@@ -298,6 +298,36 @@ def test_prompt_style_internlm():
     assert expected == actual
 
 
+def test_prompt_style_add_colon_single_cot():
+    prompt_style = PromptStyleV1(
+        style_name="ADD_COLON_SINGLE_COT",
+        system_prompt=(
+            "Below is an instruction that describes a task. Write a response that appropriately "
+            "completes the request."
+        ),
+        roles=["Instruction", "Response"],
+        intra_message_sep="\n\n### ",
+    )
+
+    chat_history = [
+        ChatCompletionMessage(role=prompt_style.roles[0], content="Hi there."),
+        ChatCompletionMessage(
+            role=prompt_style.roles[1], content="Hello, how may I help you?"
+        ),
+    ]
+    expected = (
+        "Below is an instruction that describes a task. Write a response that appropriately "
+        "completes the request."
+        "\n\n### Instruction: Hi there."
+        "\n\n### Response: Hello, how may I help you?"
+        "\n\n### Instruction: Write a poem."
+        "\n\n### Response: Let's think step by step."
+    )
+    assert expected == ChatModelMixin.get_prompt(
+        "Write a poem.", chat_history, prompt_style
+    )
+
+
 def test_is_valid_model_name():
     from ..utils import is_valid_model_name
 

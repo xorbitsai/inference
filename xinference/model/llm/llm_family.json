@@ -937,7 +937,9 @@
         1,
         103028
       ],
-      "stop": ["<eoa>"]
+      "stop": [
+        "<eoa>"
+      ]
     }
   },
   {
@@ -977,7 +979,9 @@
         1,
         103028
       ],
-      "stop": ["<eoa>"]
+      "stop": [
+        "<eoa>"
+      ]
     }
   },
   {
@@ -1068,6 +1072,61 @@
       ],
       "intra_message_sep": " ",
       "inter_message_sep": "</s>"
+    }
+  },
+  {
+    "version": 1,
+    "model_name": "wizardmath-v1.0",
+    "model_lang": [
+      "en"
+    ],
+    "model_ability": [
+      "embed",
+      "chat"
+    ],
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "WizardLM/WizardMath-7B-V1.0",
+        "model_revision": "3c3a3b33334f4b35344b22c5c7465957ee7b2c75"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 13,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "WizardLM/WizardMath-13B-V1.0",
+        "model_revision": "ef95532e96e634c634992dab891a17032dc71c8d"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 70,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "WizardLM/WizardMath-70B-V1.0",
+        "model_revision": " 8823afe1d77b1ebdd6ac0c14e6e8977037d1830e"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "ADD_COLON_SINGLE_COT",
+      "system_prompt": "Below is an instruction that describes a task. Write a response that appropriately completes the request.",
+      "roles": [
+        "Instruction",
+        "Response"
+      ],
+      "intra_message_sep": "\n\n### "
     }
   }
 ]
