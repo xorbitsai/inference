@@ -164,7 +164,7 @@ def cache_from_uri(
         src_root = src_root[:-1]
 
     if src_scheme == "file":
-        if not src_root.startswith("/"):
+        if not os.path.isabs(src_root):
             raise ValueError(
                 f"Model URI cannot be a relative path: {llm_spec.model_uri}"
             )
