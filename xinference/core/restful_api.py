@@ -303,7 +303,7 @@ class RESTfulAPIActor(xo.Actor):
         )
 
         self._router.add_api_route(
-            "/v1/gradio/{model_uid}", self.build_interface, methods=["POST"]
+            "/v1/ui/{model_uid}", self.build_interface, methods=["POST"]
         )
 
         self._app.include_router(self._router)
@@ -333,7 +333,6 @@ class RESTfulAPIActor(xo.Actor):
             self._app.mount(
                 "/ui/",
                 SPAStaticFiles(directory=ui_location, html=True),
-                name="Xinference",
             )
         else:
             warnings.warn(
@@ -384,7 +383,6 @@ class RESTfulAPIActor(xo.Actor):
         quantization = payload.get("quantization")
 
         exclude_keys = {
-            "endpoint",
             "model_uid",
             "model_name",
             "model_size_in_billions",

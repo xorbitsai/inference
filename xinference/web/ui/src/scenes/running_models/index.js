@@ -82,7 +82,7 @@ const RunningModels = () => {
         const url = row.url;
         const openUrl = `${endPoint}/` + url;
         const closeUrl = `${endPoint}/v1/models/` + url;
-        const gradioUrl = `${endPoint}/v1/gradio/` + url;
+        const gradioUrl = `${endPoint}/v1/ui/` + url;
 
         if (url === "IS_LOADING") {
           return <div></div>;
