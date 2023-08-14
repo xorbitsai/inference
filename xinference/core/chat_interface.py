@@ -16,7 +16,7 @@ from typing import Dict, List
 
 import gradio as gr
 
-from xinference.client import RESTfulClient
+from ..client import RESTfulClient
 
 
 class ChatInterface:
@@ -31,7 +31,7 @@ class ChatInterface:
 
     def build_interface(self):
         model = self.client.get_model(self.model_uid)
-        model_info = self.client.get_model_info(self.model_uid)
+        model_info = self.client.describe_model(self.model_uid)
         model_name = model_info["model_name"]
         model_format = model_info["model_format"]
         model_size_in_billions = model_info["model_size_in_billions"]

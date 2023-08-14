@@ -764,7 +764,45 @@ class RESTfulClient:
         else:
             raise ValueError(f"Unrecognized model ability: {desc['model_ability']}")
 
-    def get_model_info(self, model_uid: str):
+    def describe_model(self, model_uid: str):
+        """
+        Get model information via RESTful APIs.
+
+        Parameters
+        ----------
+        model_uid: str
+            The unique id that identify the model.
+
+        Returns
+        -------
+        dict
+            A dictionary containing the following keys:
+            - "model_type": str
+               the type of the model determined by its function, e.g. "LLM" (Large Language Model)
+            - "model_name": str
+               the name of the specific LLM model family
+            - "model_lang": List[str]
+               the languages supported by the LLM model
+            - "model_ability": List[str]
+               the ability or capabilities of the LLM model
+            - "model_description": str
+               a detailed description of the LLM model
+            - "model_format": str
+               the format specification of the LLM model
+            - "model_size_in_billions": int
+               the size of the LLM model in billions
+            - "quantization": str
+               the quantization applied to the model
+            - "revision": str
+               the revision number of the LLM model specification
+
+        Raises
+        ------
+        RuntimeError
+            Report failure to get the wanted model with given model_uid. Provide details of failure through error message.
+
+        """
+
         url = f"{self.base_url}/v1/models/{model_uid}"
         response = requests.get(url)
         if response.status_code != 200:
