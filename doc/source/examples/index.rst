@@ -10,3 +10,4 @@ Examples
 
    ai_podcast
    chatbot
+   arena

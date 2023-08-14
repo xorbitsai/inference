@@ -74,6 +74,4 @@ Chinese (AI_Podcast_ZH.py)
 
 **Source Code** :
 
-    * `AI_Podcast <https://github.com/xorbitsai/inference/blob/main/examples/AI_podcast.py>`_ (English Version)
-
-    * AI_Podcast_ZH (Chinese Version)
+    * `AI_Podcast <https://github.com/xorbitsai/inference/examples/gradio_arena.py>`
