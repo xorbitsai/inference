@@ -9,7 +9,7 @@ from xinference.model.llm import BUILTIN_LLM_FAMILIES, LLMFamilyV1, match_llm
 from xinference.model.llm.llm_family import cache
 
 if TYPE_CHECKING:
-    from xinference.types import ChatCompletionChunk, ChatCompletionMessage
+    from xinference.types import ChatCompletionMessage
 
 MODEL_TO_FAMILIES: Dict[str, LLMFamilyV1] = dict(
     (model_family.model_name, model_family)
@@ -86,29 +86,21 @@ class GradioApp:
                 max_tokens=max_token,
                 temperature=temperature,
                 top_p=top_p,
-                stream=True,
+                stream=False,
             )
             chat += [[message, ""]]
-            chat_generator = model_ref.chat(
+            chat_response = model_ref.chat(
                 message,
                 chat_history=history,
                 generate_config=generate_config,
             )
 
-            chunk: Optional["ChatCompletionChunk"] = None
-            for chunk in chat_generator:
-                assert chunk is not None
-                delta = chunk["choices"][0]["delta"]
-                if "content" not in delta:
-                    continue
-                else:
-                    chat[-1][1] += delta["content"]
-                    yield "", chat
-            if show_finish_reason and chunk is not None:
+            chat[-1][1] += chat_response["choices"][0]["message"]["content"]
+            if show_finish_reason and chat_response is not None:
                 chat[-1][
                     1
-                ] += f"[{self._locale('stop reason')}: {chunk['choices'][0]['finish_reason']}]"
-                yield "", chat
+                ] += f"[{self._locale('stop reason')}: {chat_response['choices'][0]['finish_reason']}]"
+            yield "", chat
 
     def _build_chatbot(self, model_uid: str, model_name: str):
         with gr.Accordion(self._locale("Parameters"), open=False):
@@ -371,23 +363,9 @@ class GradioApp:
 
         gr.ClearButton(components=[msg] + chats + texts)
 
-    def _build_single(self):
-        chat, model_text = self._build_chat_column()
-
-        msg = gr.Textbox(label=self._locale("Input"))
-
-        def update_message(text_in: str):
-            return "", text_in
-
-        msg.submit(update_message, inputs=[msg], outputs=[msg, model_text])
-        gr.ClearButton(components=[chat, msg, model_text])
-
     def build(self):
         with gr.Blocks() as blocks:
-            with gr.Tab(self._locale("Chat")):
-                self._build_single()
-            with gr.Tab(self._locale("Arena")):
-                self._build_arena()
+            self._build_arena()
         blocks.queue(concurrency_count=40)
         blocks.launch()
 
