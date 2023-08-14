@@ -193,181 +193,32 @@ To view the builtin models, run the following command:
 $ xinference list --all
 ```
 
-### ggmlv3 models
+| Name             | Language     | Ability               |
+|------------------|--------------|-----------------------|
+| baichuan         | ['en', 'zh'] | ['embed', 'generate'] |
+| baichuan-chat    | ['en', 'zh'] | ['embed', 'chat']     |
+| chatglm          | ['en', 'zh'] | ['embed', 'chat']     |
+| chatglm2         | ['en', 'zh'] | ['embed', 'chat']     |
+| chatglm2-32k     | ['en', 'zh'] | ['embed', 'chat']     |
+| falcon           | ['en']       | ['embed', 'generate'] |
+| falcon-instruct  | ['en']       | ['embed', 'chat']     |
+| gpt-2            | ['en']       | ['generate']          |
+| llama-2          | ['en']       | ['embed', 'generate'] |
+| llama-2-chat     | ['en']       | ['embed', 'chat']     |
+| opt              | ['en']       | ['embed', 'generate'] |
+| orca             | ['en']       | ['embed', 'chat']     |
+| qwen-chat        | ['en', 'zh'] | ['embed', 'chat']     |
+| starcoder        | ['en']       | ['generate']          |
+| starcoderplus    | ['en']       | ['embed', 'generate'] |
+| starchat-beta    | ['en']       | ['embed', 'chat']     |
+| vicuna-v1.3      | ['en']       | ['embed', 'chat']     |
+| wizardlm-v1.0    | ['en']       | ['embed', 'chat']     |
 
-| Name          | Type             | Language | Format  | Size (in billions) | Quantization                            |
-|---------------|------------------|----------|---------|--------------------|-----------------------------------------|
-| llama-2       | Foundation Model | en       | ggmlv3  | 7, 13              | 'q2_K', 'q3_K_L', ... , 'q6_K', 'q8_0'  |
-| baichuan      | Foundation Model | en, zh   | ggmlv3  | 7                  | 'q2_K', 'q3_K_L', ... , 'q6_K', 'q8_0'  |
-| llama-2-chat  | RLHF Model       | en       | ggmlv3  | 7, 13, 70          | 'q2_K', 'q3_K_L', ... , 'q6_K', 'q8_0'  |
-| chatglm       | SFT Model        | en, zh   | ggmlv3  | 6                  | 'q4_0', 'q4_1', 'q5_0', 'q5_1', 'q8_0'  |
-| chatglm2      | SFT Model        | en, zh   | ggmlv3  | 6                  | 'q4_0', 'q4_1', 'q5_0', 'q5_1', 'q8_0'  |
-| wizardlm-v1.0 | SFT Model        | en       | ggmlv3  | 7, 13, 33          | 'q2_K', 'q3_K_L', ... , 'q6_K', 'q8_0'  |
-| wizardlm-v1.1 | SFT Model        | en       | ggmlv3  | 13                 | 'q2_K', 'q3_K_L', ... , 'q6_K', 'q8_0'  |
-| vicuna-v1.3   | SFT Model        | en       | ggmlv3  | 7, 13              | 'q2_K', 'q3_K_L', ... , 'q6_K', 'q8_0'  |
-| orca          | SFT Model        | en       | ggmlv3  | 3, 7, 13           | 'q4_0', 'q4_1', 'q5_0', 'q5_1', 'q8_0'  |
-
-### pytorch models
-
-| Name          | Type             | Language | Format  | Size (in billions) | Quantization             |
-|---------------|------------------|----------|---------|--------------------|--------------------------|
-| baichuan      | Foundation Model | en, zh   | pytorch | 7, 13              | '4-bit', '8-bit', 'none' |
-| baichuan-chat | SFT Model        | en, zh   | pytorch | 13                 | '4-bit', '8-bit', 'none' |
-| vicuna-v1.3   | SFT Model        | en       | pytorch | 7, 13, 33          | '4-bit', '8-bit', 'none' |
-
+For in-depth details on the built-in models, please refer to [built-in models](https://inference.readthedocs.io/en/latest/models/builtin/index.html). 
 
 **NOTE**:
 - Xinference will download models automatically for you, and by default the models will be saved under `${USER}/.xinference/cache`.
-- Foundation models only provide interface `generate`.
-- RLHF and SFT models provide both `generate` and `chat`.
-- If you want to use Apple Metal GPU for acceleration, please choose the q4_0 and q4_1 quantization methods.
-- `llama-2-chat` 70B ggmlv3 model only supports q4_0 quantization currently.
+
 
 ## Custom models \[Experimental\]
-Custom models are currently an experimental feature and are expected to be officially released in version v0.2.0.
-
-Define a custom model based on the following template:
-```python
-custom_model = {
-  "version": 1,
-  # model name. must start with a letter or a 
-  # digit, and can only contain letters, digits, 
-  # underscores, or dashes.
-  "model_name": "nsql-2B",  
-  # supported languages
-  "model_lang": [
-    "en"
-  ],
-  # model abilities. could be "embed", "generate"
-  # and "chat".
-  "model_ability": [
-    "generate"
-  ],
-  # model specifications.
-  "model_specs": [
-    {
-      # model format.
-      "model_format": "pytorch",
-      "model_size_in_billions": 2,
-      # quantizations.
-      "quantizations": [
-        "4-bit",
-        "8-bit",
-        "none"
-      ],
-      # hugging face model ID.
-      "model_id": "NumbersStation/nsql-2B"
-    }
-  ],
-  # prompt style, required by chat models.
-  # for more details, see: xinference/model/llm/tests/test_utils.py
-  "prompt_style": None
-}
-```
-
-Register the custom model:
-```python
-import json
-
-from xinference.client import Client
-
-# replace with real xinference endpoint
-endpoint = "http://localhost:9997"
-client = Client(endpoint)
-client.register_model(model_type="LLM", model=json.dumps(custom_model), persist=False)
-```
-
-Load the custom model:
-```python
-uid = client.launch_model(model_name='nsql-2B')
-```
-
-Run the custom model:
-```python
-text = """CREATE TABLE work_orders (
-    ID NUMBER,
-    CREATED_AT TEXT,
-    COST FLOAT,
-    INVOICE_AMOUNT FLOAT,
-    IS_DUE BOOLEAN,
-    IS_OPEN BOOLEAN,
-    IS_OVERDUE BOOLEAN,
-    COUNTRY_NAME TEXT,
-)
-
--- Using valid SQLite, answer the following questions for the tables provided above.
-
--- how many work orders are open?
-
-SELECT"""
-
-model = client.get_model(model_uid=uid)
-model.generate(prompt=text)
-```
-
-Result:
-```json
-{
-   "id":"aeb5c87a-352e-11ee-89ad-9af9f16816c5",
-   "object":"text_completion",
-   "created":1691418511,
-   "model":"3b912fc4-352e-11ee-8e66-9af9f16816c5",
-   "choices":[
-      {
-         "text":" COUNT(*) FROM work_orders WHERE IS_OPEN = '1';",
-         "index":0,
-         "logprobs":"None",
-         "finish_reason":"stop"
-      }
-   ],
-   "usage":{
-      "prompt_tokens":117,
-      "completion_tokens":17,
-      "total_tokens":134
-   }
-}
-```
-
-## Pytorch Model Best Practices
-
-Pytorch has been integrated recently, and the usage scenarios are described below:
-
-### supported models
-- Foundation Model：baichuan（7B、13B）。
-- SFT Model：baichuan-chat（13B）、vicuna-v1.3（7B、13B、33B）。
-
-### supported devices
-- CUDA: On Linux and Windows systems, `cuda` device is used by default.
-- MPS: On Mac M1/M2 devices, `mps` device is used by default.
-- CPU: It is not recommended to use a `cpu` device, as it takes up a lot of memory and the inference speed is very slow.
-
-### quantization methods
-- `none`: indicates that no quantization is used.
-- `8-bit`: use 8-bit quantization.
-- `4-bit`: use 4-bit quantization. Note: 4-bit quantization is only supported on Linux systems and CUDA devices.
-
-### other instructions
-- On MacOS system, baichuan-chat model is not supported, and baichuan model cannot use 8-bit quantization.
-
-### use cases
-
-The table below shows memory usage and supported devices of some models.
-
-| Name          | Size (B) | OS    | No quantization (MB) | Quantization 8-bit (MB) | Quantization 4-bit (MB) |
-|---------------|----------|-------|----------------------|-------------------------|-------------------------|
-| baichuan-chat | 13       | linux | not currently tested | 13275                   | 7263                    |
-| baichuan-chat | 13       | macos | not supported        | not supported           | not supported           |
-| vicuna-v1.3   | 7        | linux | 12884                | 6708                    | 3620                    |
-| vicuna-v1.3   | 7        | macos | 12916                | 565                     | not supported           |
-| baichuan      | 7        | linux | 13480                | 7304                    | 4216                    |
-| baichuan      | 7        | macos | 13480                | not supported           | not supported           |
-
-
-
-## Roadmap
-Xinference is currently under active development. Here's a roadmap outlining our planned 
-developments for the next few weeks:
-
-### Langchain & LlamaIndex integration
-With Xinference, it will be much easier for users to use these libraries and build applications 
-with LLMs.
+Please refer to [built-in models](https://inference.readthedocs.io/en/latest/models/custom.html).

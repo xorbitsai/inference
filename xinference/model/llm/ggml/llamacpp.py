@@ -28,6 +28,7 @@ from ....types import (
 from ..core import LLM
 from ..llm_family import LLMFamilyV1, LLMSpecV1
 from ..utils import ChatModelMixin
+from .ctransformers import CTRANSFORMERS_SUPPORTED_MODEL
 
 if TYPE_CHECKING:
     from llama_cpp import LogitsProcessorList, StoppingCriteriaList
@@ -188,7 +189,10 @@ class LlamaCppModel(LLM):
     def match(cls, llm_family: LLMFamilyV1, llm_spec: LLMSpecV1) -> bool:
         if llm_spec.model_format != "ggmlv3":
             return False
-        if "chatglm" in llm_family.model_name:
+        if (
+            "chatglm" in llm_family.model_name
+            or llm_family.model_name in CTRANSFORMERS_SUPPORTED_MODEL
+        ):
             return False
         if "generate" not in llm_family.model_ability:
             return False
@@ -259,7 +263,10 @@ class LlamaCppChatModel(LlamaCppModel, ChatModelMixin):
     def match(cls, llm_family: LLMFamilyV1, llm_spec: LLMSpecV1) -> bool:
         if llm_spec.model_format != "ggmlv3":
             return False
-        if "chatglm" in llm_family.model_name:
+        if (
+            "chatglm" in llm_family.model_name
+            or llm_family.model_name in CTRANSFORMERS_SUPPORTED_MODEL
+        ):
             return False
         if "chat" not in llm_family.model_ability:
             return False

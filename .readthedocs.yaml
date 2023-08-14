@@ -12,7 +12,7 @@ build:
 python:
   install:
     - method: pip
-      path: python
+      path: .
       extra_requirements:
         - doc
 
