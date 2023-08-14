@@ -97,8 +97,7 @@ class ModelActor(xo.Actor):
             return ret
 
     async def generate(self, prompt: str, *args, **kwargs):
-        await self._lock.acquire()
-        try:
+        async with self._lock:
             if not hasattr(self._model, "generate"):
                 raise AttributeError(
                     f"Model {self._model.model_spec} is not for generate."
@@ -107,20 +106,15 @@ class ModelActor(xo.Actor):
             return self._wrap_generator(
                 getattr(self._model, "generate")(prompt, *args, **kwargs)
             )
-        finally:
-            self._lock.release()
 
     async def chat(self, prompt: str, *args, **kwargs):
-        await self._lock.acquire()
-        try:
+        async with self._lock:
             if not hasattr(self._model, "chat"):
                 raise AttributeError(f"Model {self._model.model_spec} is not for chat.")
 
             return self._wrap_generator(
                 getattr(self._model, "chat")(prompt, *args, **kwargs)
             )
-        finally:
-            self._lock.release()
 
     async def create_embedding(self, input: Union[str, List[str]], *args, **kwargs):
         if not hasattr(self._model, "create_embedding"):
