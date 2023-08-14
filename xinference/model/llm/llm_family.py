@@ -109,17 +109,99 @@ def cache(
         return os.path.dirname(legacy_cache_path)
     else:
         if llm_spec.model_uri is not None:
-            return cache_from_uri(llm_family, llm_spec, quantization)
+            logger.debug(f"Caching from URI: {llm_spec.model_uri}")
+            return cache_from_uri(llm_family, llm_spec)
         else:
+            logger.debug(f"Caching from Hugging Face: {llm_spec.model_id}")
             return cache_from_huggingface(llm_family, llm_spec, quantization)
+
+
+def parse_uri(uri: str) -> Tuple[str, str]:
+    import glob
+    from urllib.parse import urlparse
+
+    if os.path.exists(uri) or glob.glob(uri):
+        return "file", uri
+    else:
+        parsed = urlparse(uri)
+        scheme = parsed.scheme
+        path = parsed.netloc + parsed.path
+        if parsed.scheme == "" or len(parsed.scheme) == 1:  # len == 1 for windows
+            scheme = "file"
+        return scheme, path
+
+
+SUPPORTED_SCHEMES = ["s3"]
 
 
 def cache_from_uri(
     llm_family: LLMFamilyV1,
     llm_spec: "LLMSpecV1",
-    quantization: Optional[str] = None,
 ) -> str:
-    raise NotImplementedError
+    from fsspec import AbstractFileSystem, filesystem
+
+    def copy(
+        _src_fs: "AbstractFileSystem",
+        src_path: str,
+        dst_fs: "AbstractFileSystem",
+        dst_path: str,
+    ):
+        logger.error((src_path, dst_path))
+        with _src_fs.open(src_path, "rb") as src_file:
+            with dst_fs.open(dst_path, "wb") as dst_file:
+                dst_file.write(src_file.read())
+
+    cache_dir_name = (
+        f"{llm_family.model_name}-{llm_spec.model_format}"
+        f"-{llm_spec.model_size_in_billions}b"
+    )
+    cache_dir = os.path.realpath(os.path.join(XINFERENCE_CACHE_DIR, cache_dir_name))
+
+    assert llm_spec.model_uri is not None
+    src_scheme, src_root = parse_uri(llm_spec.model_uri)
+    if src_root.endswith("/"):
+        # remove trailing path separator
+        src_root = src_root[:-1]
+
+    if src_scheme == "file":
+        if not src_root.startswith("/"):
+            raise ValueError(
+                f"Model URI cannot be a relative path: {llm_spec.model_uri}"
+            )
+        os.symlink(src_root, cache_dir, target_is_directory=True)
+        return cache_dir
+    elif src_scheme in SUPPORTED_SCHEMES:
+        if not os.path.exists(cache_dir):
+            os.makedirs(cache_dir, exist_ok=True)
+
+        src_fs = filesystem(src_scheme)
+        local_fs: AbstractFileSystem = filesystem("file")
+
+        files_to_download = []
+        for path, _, files in src_fs.walk(llm_spec.model_uri):
+            for file in files:
+                src_path = f"{path}/{file}"
+                local_path = src_path.replace(src_root, cache_dir)
+                files_to_download.append((src_path, local_path))
+        print(files_to_download)
+
+        from concurrent.futures import ThreadPoolExecutor
+
+        from tqdm import tqdm
+
+        with tqdm(total=len(files_to_download), desc="Downloading files") as pbar:
+            with ThreadPoolExecutor(max_workers=4) as executor:
+                futures = [
+                    executor.submit(copy, src_fs, src_path, local_fs, local_path)
+                    for src_path, local_path in files_to_download
+                ]
+                for future in futures:
+                    future.result()
+                    pbar.update(1)
+
+        return cache_dir
+    else:
+        raise ValueError(f"Unsupported URL scheme: {src_scheme}")
 
 
 def cache_from_huggingface(
@@ -132,7 +214,10 @@ def cache_from_huggingface(
     """
     import huggingface_hub
 
-    cache_dir_name = f"{llm_family.model_name}-{llm_spec.model_format}-{llm_spec.model_size_in_billions}b"
+    cache_dir_name = (
+        f"{llm_family.model_name}-{llm_spec.model_format}"
+        f"-{llm_spec.model_size_in_billions}b"
+    )
     cache_dir = os.path.realpath(os.path.join(XINFERENCE_CACHE_DIR, cache_dir_name))
     if not os.path.exists(cache_dir):
         os.makedirs(cache_dir, exist_ok=True)
