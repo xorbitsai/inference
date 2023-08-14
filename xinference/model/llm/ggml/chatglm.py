@@ -184,7 +184,8 @@ class ChatglmCppChatModel(LLM):
 
         generate_config = self._sanitize_generate_config(generate_config)
         params = dict(generate_config)
-        params["max_length"] = params.pop("max_tokens")
+        if "max_tokens" in params:
+            params["max_length"] = params.pop("max_tokens")
 
         assert self._llm is not None
 
