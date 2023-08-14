@@ -8,8 +8,9 @@ Example: Chatbot Arena 🤼️
 
 Experience the thrill of conversing with two AI models simultaneously! This interface allows you to launch two models side by side and engage them in a chat. Enter a prompt, and watch as both models respond to your inquiry 🎙️
 
-**Friendly Warning**:
-    Please do not try to open both models together. Patiently wait until one is finished launching before starting the next. Similarly, wait until you've received responses from both models before moving on to the next question. Thank you for understanding! 🚦
+**Notice**:
+
+Please do not try to open both models together. Patiently wait until one is finished launching before starting the next. Similarly, wait until you've received responses from both models before moving on to the next question. Thank you for understanding! 🚦
 
 **Used Technology**:
 
@@ -30,4 +31,4 @@ Experience the thrill of conversing with two AI models simultaneously! This inte
 5. Show the outputs of both models in the interface. Respective chat histories serve as context for upcoming rounds.
 
 **Source Code** :
-    * `dual_chat <https://github.com/RayJi01/Xprobe_inference/blob/main/examples/dual_chat.py>`_
+    * `arena <https://github.com/xorbitsai/inference/blob/main/examples/gradio_arena.py>`_
