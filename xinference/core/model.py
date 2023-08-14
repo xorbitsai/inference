@@ -55,7 +55,7 @@ class IteratorWrapper(Generic[T]):
                 raise
 
 
-class ModelActor(xo.Actor):
+class ModelActor(xo.StatelessActor):
     @classmethod
     def gen_uid(cls, model: "LLM"):
         return f"{model.__class__}-model-actor"
