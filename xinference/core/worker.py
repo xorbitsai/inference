@@ -60,7 +60,7 @@ class WorkerActor(xo.Actor):
     async def __pre_destroy__(self):
         self._upload_task.cancel()
 
-    @log_sync
+    @log_sync(logger=logger)
     def get_model_count(self) -> int:
         return len(self._model_uid_to_model)
 

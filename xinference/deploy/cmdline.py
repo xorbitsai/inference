@@ -132,7 +132,7 @@ def worker(log_level: str, endpoint: Optional[str], host: str):
     logging_conf = configparser.RawConfigParser()
     logger_config_string = get_config_string(log_level)
     logging_conf.read_string(logger_config_string)
-    logging.config.fileConfig(level=logging.getLevelName(log_level.upper()))  # type: ignore
+    logging.config.fileConfig(logging_conf)  # type: ignore
 
     endpoint = get_endpoint(endpoint)
 
