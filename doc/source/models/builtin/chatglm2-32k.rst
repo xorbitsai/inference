@@ -1,7 +1,7 @@
 .. _models_builtin_chatglm2_32k:
 
 ============
-ChatGLM2-32k
+ChatGLM2 32k
 ============
 
 - **Model Name:** chatglm2-32k
