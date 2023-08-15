@@ -933,8 +933,9 @@
       ],
       "intra_message_sep": "<eoh>\n",
       "inter_message_sep": "<eoa>\n",
-      "stop": [
-        "<eoa>"
+      "stop_token_ids": [
+        1,
+        103028
       ]
     }
   },
@@ -971,8 +972,9 @@
       ],
       "intra_message_sep": "<eoh>\n",
       "inter_message_sep": "<eoa>\n",
-      "stop": [
-        "<eoa>"
+      "stop_token_ids": [
+        1,
+        103028
       ]
     }
   }
