@@ -711,7 +711,9 @@
       ],
       "intra_message_sep": "\n",
       "inter_message_sep": "<|endoftext|>",
-      "stop": ["\nUser"],
+      "stop": [
+        "\nUser"
+      ],
       "stop_token_ids": [
         0,
         1,
@@ -833,7 +835,7 @@
     "model_lang": [
       "en"
     ],
-    "model_ability":[
+    "model_ability": [
       "generate"
     ],
     "model_specs": [
@@ -858,7 +860,7 @@
     "model_lang": [
       "en"
     ],
-    "model_ability":[
+    "model_ability": [
       "generate"
     ],
     "model_specs": [
@@ -877,10 +879,12 @@
     "version": 1,
     "model_name": "internlm",
     "model_lang": [
-      "en", "zh"
+      "en",
+      "zh"
     ],
-    "model_ability":[
-      "embed","generate"
+    "model_ability": [
+      "embed",
+      "generate"
     ],
     "model_specs": [
       {
@@ -929,10 +933,12 @@
       ],
       "intra_message_sep": "<eoh>\n",
       "inter_message_sep": "<eoa>\n",
-      "stop":["<eoa>"]
+      "stop": [
+        "<eoa>"
+      ]
     }
   },
-    {
+  {
     "version": 1,
     "model_name": "internlm-chat-8k",
     "model_lang": [
@@ -965,7 +971,9 @@
       ],
       "intra_message_sep": "<eoh>\n",
       "inter_message_sep": "<eoa>\n",
-      "stop":["<eoa>"]
+      "stop": [
+        "<eoa>"
+      ]
     }
   }
 ]
