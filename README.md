@@ -221,4 +221,4 @@ For in-depth details on the built-in models, please refer to [built-in models](h
 
 
 ## Custom models \[Experimental\]
-Please refer to [built-in models](https://inference.readthedocs.io/en/latest/models/custom.html).
+Please refer to [custom models](https://inference.readthedocs.io/en/latest/models/custom.html).
