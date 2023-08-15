@@ -14,9 +14,7 @@
 <br />
 
 
-Xorbits Inference（Xinference）是一个性能强大且功能全面的分布式推理框架。可用于大语言模型（LLM），语音识别模
-型，多模态模型等各种模型的推理。通过 Xorbits Inference，你可以轻松地一键部署你自己的模型或内置的前沿开源模型。
-无论你是研究者，开发者，或是数据科学家，都可以通过 Xorbits Inference 与最前沿的 AI 模型，发掘更多可能。
+Xorbits Inference（Xinference）是一个性能强大且功能全面的分布式推理框架。可用于大语言模型（LLM），语音识别模型，多模态模型等各种模型的推理。通过 Xorbits Inference，你可以轻松地一键部署你自己的模型或内置的前沿开源模型。无论你是研究者，开发者，或是数据科学家，都可以通过 Xorbits Inference 与最前沿的 AI 模型，发掘更多可能。
 
 
 <div align="center">
@@ -28,7 +26,7 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 - 自定义模型: [#325](https://github.com/xorbitsai/inference/pull/325)
 - LoRA 支持: [#271](https://github.com/xorbitsai/inference/issues/271)
 - PyTorch 模型多 GPU 支持: [#226](https://github.com/xorbitsai/inference/issues/226)
-- Xinference 仪表盘: [#93](https://github.com/xorbitsai/inference/issues/93>)
+- Xinference 仪表盘: [#93](https://github.com/xorbitsai/inference/issues/93)
 ### 新模型
 - 内置 GGML 格式的 Starcoder: [#289](https://github.com/xorbitsai/inference/pull/289)
 - 内置 [MusicGen](https://github.com/facebookresearch/audiocraft/blob/main/docs/MUSICGEN.md): [#313](https://github.com/xorbitsai/inference/issues/313)
@@ -39,24 +37,18 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 
 
 ## 主要功能
-🌟 **模型推理，轻而易举**：大语言模型，语音识别模型，多模态模型的部署流程被大大简化。一个命令即可完成模型
-的部署工作。 
+🌟 **模型推理，轻而易举**：大语言模型，语音识别模型，多模态模型的部署流程被大大简化。一个命令即可完成模型的部署工作。 
 
-⚡️ **前沿模型，应有尽有**：框架内置众多中英文的前沿大语言模型，包括 baichuan，chatglm2 等，一键即可体验！内置
-模型列表还在快速更新中！
+⚡️ **前沿模型，应有尽有**：框架内置众多中英文的前沿大语言模型，包括 baichuan，chatglm2 等，一键即可体验！内置模型列表还在快速更新中！
 
 
-🖥 **异构硬件，快如闪电**：通过 [ggml](https://github.com/ggerganov/ggml)，同时使用你的 GPU 与 CPU 进行推
-理，降低延迟，提高吞吐！
+🖥 **异构硬件，快如闪电**：通过 [ggml](https://github.com/ggerganov/ggml)，同时使用你的 GPU 与 CPU 进行推理，降低延迟，提高吞吐！
 
-⚙️ **接口调用，灵活多样**：提供多种使用模型的接口，包括 RPC，RESTful API，命令行，web UI 等等。方便模型的管理
-与监控。
+⚙️ **接口调用，灵活多样**：提供多种使用模型的接口，包括 RPC，RESTful API，命令行，web UI 等等。方便模型的管理与监控。
 
-🌐 **集群计算，分布协同**: 支持分布式部署，通过内置的资源调度器，让不同大小的模型按需调度到不同机器，充分使用集
-群资源。
+🌐 **集群计算，分布协同**: 支持分布式部署，通过内置的资源调度器，让不同大小的模型按需调度到不同机器，充分使用集群资源。
 
-🔌 **开放生态，无缝对接**: 与流行的三方库无缝对接，包括 LangChain，LlamaIndex 等（即将到来）。让开发者能够快
-速构建基于 AI 的应用。
+🔌 **开放生态，无缝对接**: 与流行的三方库无缝对接，包括 LangChain，LlamaIndex 等（即将到来）。让开发者能够快速构建基于 AI 的应用。
 
 ## 快速入门
 Xinference 可以通过 pip 从 PyPI 安装。我们非常推荐在安装前创建一个新的虚拟环境以避免依赖冲突。
@@ -99,8 +91,7 @@ $ xinference
 ```
 
 #### 分布式部署
-分布式场景下，你需要在一台服务器上部署一个 Xinference supervisor，并在其余服务器上分别部署一个 Xinference
-worker。 具体步骤如下：
+分布式场景下，你需要在一台服务器上部署一个 Xinference supervisor，并在其余服务器上分别部署一个 Xinference worker。 具体步骤如下：
 
 **启动 supervisor**: 执行:
 ```bash
@@ -116,11 +107,9 @@ $ xinference-worker -e "http://${supervisor_host}:9997"
 Xinference 启动后，将会打印服务的 endpoint。这个 endpoint 用于通过命令行工具或编程接口进行模型的管理。
 
 - 本地部署下, endpoint 默认为 `http://localhost:9997`.
-- 集群部署下, endpoint 默认为 `http://${supervisor_host}:9997`。其中 `${supervisor_host}` 为
-supervisor 所在服务器的主机名或 IP 地址。
+- 集群部署下, endpoint 默认为 `http://${supervisor_host}:9997`。其中 `${supervisor_host}` 为supervisor 所在服务器的主机名或 IP 地址。
 
-你还可以通过 web UI 与任意内置模型聊天。Xinference 甚至**支持同时与两个最前沿的 AI 模型聊天并比较它们的回复质
-量**！
+你还可以通过 web UI 与任意内置模型聊天。Xinference 甚至**支持同时与两个最前沿的 AI 模型聊天并比较它们的回复质量**！
 
 ![web UI](assets/demo.gif)
 
