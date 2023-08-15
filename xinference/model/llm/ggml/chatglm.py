@@ -183,18 +183,23 @@ class ChatglmCppChatModel(LLM):
         logger.debug("Full conversation history:\n%s", str(chat_history_list))
 
         generate_config = self._sanitize_generate_config(generate_config)
+        params = dict(generate_config)
+        if "max_tokens" in params:
+            params["max_length"] = params.pop("max_tokens")
 
         assert self._llm is not None
 
-        if generate_config.get("stream", False):
+        if params.pop("stream", False):
             it = self._llm.stream_chat(
                 chat_history_list,
+                **params,
             )
             assert not isinstance(it, str)
             return self._convert_raw_text_chunks_to_chat(it, self.model_uid)
         else:
             c = self._llm.chat(
                 chat_history_list,
+                **params,
             )
             assert not isinstance(c, Iterator)
             return self._convert_raw_text_completion_to_chat(c, self.model_uid)
