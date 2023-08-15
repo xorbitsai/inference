@@ -418,7 +418,7 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
             and self.model_family.prompt_style
             and self.model_family.prompt_style.stop
         ):
-            pytorch_generate_config["stop"] = self.model_family.prompt_style.stop
+            pytorch_generate_config["stop"] = self.model_family.prompt_style.stop.copy()
         if (
             "stop_token_ids" not in pytorch_generate_config
             and self.model_family.prompt_style
@@ -426,7 +426,7 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
         ):
             pytorch_generate_config[
                 "stop_token_ids"
-            ] = self.model_family.prompt_style.stop_token_ids
+            ] = self.model_family.prompt_style.stop_token_ids.copy()
 
         return pytorch_generate_config
 
