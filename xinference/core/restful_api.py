@@ -426,11 +426,11 @@ class RESTfulAPIActor(xo.Actor):
         assert self._app is not None
         assert self._endpoint is not None
 
-        from .chat_interface import ChatInterface
+        from .chat_interface import LLMInterface
 
-        chatbot = ChatInterface(self._endpoint, model_uid)
-        chatbot_app = gr.routes.App.create_app(chatbot.build_interface())
-        self._app.mount(f"/{model_uid}", chatbot_app)
+        interface = LLMInterface(self._endpoint, model_uid)
+        interface_app = gr.routes.App.create_app(interface.build_interface())
+        self._app.mount(f"/{model_uid}", interface_app)
 
         return JSONResponse(content={"model_uid": model_uid})
 

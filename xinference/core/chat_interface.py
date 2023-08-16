@@ -15,11 +15,13 @@
 from typing import Dict, List
 
 import gradio as gr
+from gradio.components import Markdown, Textbox
+from gradio.layouts import Accordion, Column, Row
 
 from ..client import RESTfulClient
 
 
-class ChatInterface:
+class LLMInterface:
     def __init__(
         self,
         endpoint: str,
@@ -32,6 +34,24 @@ class ChatInterface:
     def build_interface(self):
         model = self.client.get_model(self.model_uid)
         model_info = self.client.describe_model(self.model_uid)
+        model_ability = model_info["model_ability"]
+
+        if "chat" in model_ability:
+            return self.build_chat_interface(
+                model,
+                model_info,
+            )
+        else:
+            return self.build_generate_interface(
+                model,
+                model_info,
+            )
+
+    def build_chat_interface(
+        self,
+        model,
+        model_info,
+    ):
         model_name = model_info["model_name"]
         model_format = model_info["model_format"]
         model_size_in_billions = model_info["model_size_in_billions"]
@@ -108,3 +128,157 @@ class ChatInterface:
             </div>
             """,
         )
+
+    def build_generate_interface(
+        self,
+        model,
+        model_info,
+    ):
+        model_name = model_info["model_name"]
+        model_format = model_info["model_format"]
+        model_size_in_billions = model_info["model_size_in_billions"]
+        quantization = model_info["quantization"]
+
+        def undo(text, hist):
+            print(hist)
+            print("TEXT:", text)
+            if len(hist) == 0:
+                return {
+                    textbox: "",
+                    history: [text],
+                }
+            if text == hist[-1]:
+                hist = hist[:-1]
+
+            return {
+                textbox: hist[-1] if len(hist) > 0 else "",
+                history: hist,
+            }
+
+        def clear(text, hist):
+            print(hist)
+            print("TEXT:", text)
+            if len(hist) == 0 or (len(hist) > 0 and text != hist[-1]):
+                hist.append(text)
+            hist.append("")
+            return {
+                textbox: "",
+                history: hist,
+            }
+
+        def complete(text, hist, length, temperature):
+            print(hist)
+            print("TEXT:", text)
+            if len(hist) == 0 or (len(hist) > 0 and text != hist[-1]):
+                hist.append(text)
+            response = model.generate(
+                prompt=text,
+                generate_config={"max_tokens": length, "temperature": temperature},
+            )
+            text_gen = text + response["choices"][0]["text"]
+            hist.append(text_gen)
+            return {
+                textbox: text_gen,
+                history: hist,
+            }
+
+        def retry(text, hist, length, temperature):
+            print(hist)
+            print("TEXT:", text)
+            if len(hist) == 0 or (len(hist) > 0 and text != hist[-1]):
+                hist.append(text)
+            text = hist[-2] if len(hist) > 1 else ""
+            response = model.generate(
+                prompt=text,
+                generate_config={"max_tokens": length, "temperature": temperature},
+            )
+            text_gen = text + response["choices"][0]["text"]
+            return {
+                textbox: text_gen,
+                history: hist,
+            }
+
+        with gr.Blocks(
+            css="""
+            .center{
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                padding: 0px;
+                color: #9ea4b0 !important;
+            }
+            """
+        ) as demo:
+            history = gr.State([])
+
+            Markdown(
+                f"""
+                <h1 style='text-align: center; margin-bottom: 1rem'>🚀 Xinference Generate Bot : {model_name}</h1>
+                """
+            )
+            Markdown(
+                f"""
+                <div class="center">
+                Model ID: {self.model_uid}
+                </div>
+                <div class="center">
+                Model Size: {model_size_in_billions} Billion Parameters
+                </div>
+                <div class="center">
+                Model Format: {model_format}
+                </div>
+                <div class="center">
+                Model Quantization: {quantization}
+                </div>
+                """
+            )
+
+            with Column(variant="panel"):
+                textbox = Textbox(
+                    container=False,
+                    show_label=False,
+                    label="Message",
+                    placeholder="Type a message...",
+                    lines=21,
+                    max_lines=50,
+                )
+
+                with Row():
+                    btn_generate = gr.Button("Generate", variant="primary")
+                with Row():
+                    btn_undo = gr.Button("↩️  Undo")
+                    btn_retry = gr.Button("🔄  Retry")
+                    btn_clear = gr.Button("🗑️  Clear")
+                with Accordion("Additional Inputs", open=False):
+                    length = gr.Slider(
+                        minimum=1, maximum=1024, value=10, step=1, label="Max Tokens"
+                    )
+                    temperature = gr.Slider(
+                        minimum=0, maximum=1, value=0.8, step=0.01, label="Temperature"
+                    )
+
+                btn_generate.click(
+                    fn=complete,
+                    inputs=[textbox, history, length, temperature],
+                    outputs=[textbox, history],
+                )
+
+                btn_undo.click(
+                    fn=undo,
+                    inputs=[textbox, history],
+                    outputs=[textbox, history],
+                )
+
+                btn_retry.click(
+                    fn=retry,
+                    inputs=[textbox, history, length, temperature],
+                    outputs=[textbox, history],
+                )
+
+                btn_clear.click(
+                    fn=clear,
+                    inputs=[textbox, history],
+                    outputs=[textbox, history],
+                )
+
+        return demo
