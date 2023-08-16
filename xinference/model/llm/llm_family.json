@@ -925,18 +925,19 @@
       }
     ],
     "prompt_style": {
-      "style_name": "NO_COLON_TWO",
-      "system_prompt": "<s>",
+      "style_name": "INTERNLM",
+      "system_prompt": "",
       "roles": [
-        "<|User|>:",
-        "<|Bot|>:"
+        "<|User|>",
+        "<|Bot|>"
       ],
       "intra_message_sep": "<eoh>\n",
       "inter_message_sep": "<eoa>\n",
       "stop_token_ids": [
         1,
         103028
-      ]
+      ],
+      "stop": ["<eoa>"]
     }
   },
   {
