@@ -12,12 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import json
+from unittest.mock import MagicMock, Mock
 
 from xinference.model.llm.llm_family import (
     GgmlLLMSpecV1,
     LLMFamilyV1,
     PromptStyleV1,
     PytorchLLMSpecV1,
+    parse_uri,
 )
 
 
@@ -195,14 +197,102 @@ def test_cache_from_huggingface_ggml():
     assert os.path.islink(os.path.join(cache_dir, "README.md"))
 
 
-def test_cache_from_uri_ggml():
-    # TODO: implement
-    pass
+def test_cache_from_uri_local():
+    import os
+
+    from ..llm_family import cache_from_uri
+
+    with open("model.bin", "w") as fd:
+        fd.write("foo")
+
+    spec = GgmlLLMSpecV1(
+        model_format="ggmlv3",
+        model_size_in_billions=3,
+        model_id="TestModel",
+        model_uri=os.path.abspath(os.getcwd()),
+        quantizations=["q4_0"],
+        model_file_name_template="model.bin",
+    )
+    family = LLMFamilyV1(
+        version=1,
+        model_type="LLM",
+        model_name="test",
+        model_lang=["en"],
+        model_ability=["embed", "chat"],
+        model_specs=[spec],
+        prompt_style=None,
+    )
+
+    cache_dir = cache_from_uri(family, spec)
+    assert os.path.exists(cache_dir)
+    assert os.path.islink(cache_dir)
+    assert os.path.exists(os.path.join(cache_dir, "model.bin"))
 
 
-def test_cache_from_uri_pytorch():
-    # TODO: implement
-    pass
+def test_parse_uri():
+    scheme, path = parse_uri("dir")
+    assert scheme == "file"
+    assert path == "dir"
+
+    scheme, path = parse_uri("dir/file")
+    assert scheme == "file"
+    assert path == "dir/file"
+
+    scheme, path = parse_uri("s3://bucket")
+    assert scheme == "s3"
+    assert path == "bucket"
+
+    scheme, path = parse_uri("s3://bucket/dir")
+    assert scheme == "s3"
+    assert path == "bucket/dir"
+
+
+def test_cache_from_uri_remote():
+    import os
+
+    from ..llm_family import cache_from_uri
+
+    spec = GgmlLLMSpecV1(
+        model_format="ggmlv3",
+        model_size_in_billions=3,
+        model_id="TestModel",
+        model_uri="s3://test_bucket",
+        quantizations=["q4_0"],
+        model_file_name_template="model.bin",
+    )
+    family = LLMFamilyV1(
+        version=1,
+        model_type="LLM",
+        model_name="test",
+        model_lang=["en"],
+        model_ability=["embed", "chat"],
+        model_specs=[spec],
+        prompt_style=None,
+    )
+
+    from unittest.mock import patch
+
+    import fsspec
+
+    fsspec.real_filesystem = fsspec.filesystem
+
+    def fsspec_filesystem_side_effect(scheme: str):
+        if scheme == "s3":
+            mock_fs = Mock()
+            mock_fs.walk.return_value = [("test_bucket", None, ["model.bin"])]
+            mock_file = MagicMock()
+            mock_file_descriptor = Mock()
+            mock_file_descriptor.read.return_value = "foo".encode()
+            mock_file.__enter__.return_value = mock_file_descriptor
+            mock_fs.open.return_value = mock_file
+            return mock_fs
+        else:
+            return fsspec.real_filesystem(scheme)
+
+    with patch("fsspec.filesystem", side_effect=fsspec_filesystem_side_effect):
+        cache_dir = cache_from_uri(family, spec)
+    assert os.path.exists(cache_dir)
+    assert os.path.exists(os.path.join(cache_dir, "model.bin"))
 
 
 def test_legacy_cache():
