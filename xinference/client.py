@@ -810,3 +810,38 @@ class RESTfulClient:
                 f"Failed to get the model description, detail: {response.json()['detail']}"
             )
         return response.json()
+
+    def register_model(self, model_type: str, model: str, persist: bool):
+        url = f"{self.base_url}/v2/models/register_model"
+        request_body = {"model_type": model_type, "model": model, "persist": persist}
+        response = requests.post(url, json=request_body)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to register model, detail: {response.json()['detail']}"
+            )
+
+        response_data = response.json()
+        return response_data
+
+    def unregister_model(self, model_type: str, model_name: str):
+        url = f"{self.base_url}/v2/models/unregister_model"
+        request_body = {"model_type": model_type, "model_name": model_name}
+        response = requests.post(url, json=request_body)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to register model, detail: {response.json()['detail']}"
+            )
+
+        response_data = response.json()
+        return response_data
+
+    def list_model_registrations(self, model_type: str) -> List[Dict[str, Any]]:
+        url = f"{self.base_url}/v2/list_model_registrations/{model_type}"
+        response = requests.get(url)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to list model registration, detail: {response.json()['detail']}"
+            )
+
+        response_data = response.json()
+        return response_data

@@ -176,3 +176,86 @@ async def test_restful_api(setup):
 
     url = f"{endpoint}/v1/models/test_restful_api2"
     response = requests.delete(url)
+
+    # list model registration
+
+    url = f"{endpoint}/v2/list_model_registrations/LLM"
+
+    response = requests.get(url)
+
+    assert response.status_code == 200
+    model_regs = response.json()
+    assert len(model_regs) > 0
+    for model_reg in model_regs:
+        assert model_reg["is_builtin"]
+
+    # register_model
+
+    model = """{
+  "version": 1,
+  "model_name": "custom_model",
+  "model_lang": [
+    "en", "zh"
+  ],
+  "model_ability": [
+    "embed",
+    "chat"
+  ],
+  "model_specs": [
+    {
+      "model_format": "pytorch",
+      "model_size_in_billions": 7,
+      "quantizations": [
+        "4-bit",
+        "8-bit",
+        "none"
+      ],
+      "model_id": "ziqingyang/chinese-alpaca-2-7b"
+    }
+  ],
+  "prompt_style": {
+    "style_name": "ADD_COLON_SINGLE",
+    "system_prompt": "Below is an instruction that describes a task. Write a response that appropriately completes the request.",
+    "roles": [
+      "Instruction",
+      "Response"
+    ],
+    "intra_message_sep": "\\n\\n### "
+  }
+}"""
+
+    # model_dict = json.loads(model)
+    url = f"{endpoint}/v2/models/register_model"
+
+    payload = {"model_type": "LLM", "model": model, "persist": False}
+
+    response = requests.post(url, json=payload)
+    assert response.status_code == 200
+
+    url = f"{endpoint}/v2/list_model_registrations/LLM"
+
+    response = requests.get(url)
+
+    assert response.status_code == 200
+    new_model_regs = response.json()
+    assert len(new_model_regs) == len(model_regs) + 1
+
+    # unregister_model
+    url = f"{endpoint}/v2/models/unregister_model"
+
+    payload = {"model_type": "LLM", "model_name": "custom_model"}
+
+    response = requests.post(url, json=payload)
+    assert response.status_code == 200
+
+    url = f"{endpoint}/v2/list_model_registrations/LLM"
+
+    response = requests.get(url)
+    assert response.status_code == 200
+    new_model_regs = response.json()
+    assert len(new_model_regs) == len(model_regs)
+    custom_model_reg = None
+    for model_reg in new_model_regs:
+        if model_reg["model_name"] == "custom_model":
+            custom_model_reg = model_reg
+    assert custom_model_reg is None
