@@ -148,6 +148,22 @@ class ChatModelMixin:
                 else:
                     ret += role + "\n"
             return ret
+        elif prompt_style.style_name == "INTERNLM":
+            seps = [prompt_style.intra_message_sep, prompt_style.inter_message_sep]
+            ret = ""
+            for i, message in enumerate(chat_history[:-2]):
+                if i % 2 == 0:
+                    ret += "<s>"
+                role = message["role"]
+                content = message["content"]
+                ret += role + ":" + content + seps[i % 2]
+            if len(ret) == 0:
+                ret += "<s>"
+            ret += (
+                chat_history[-2]["role"] + ":" + chat_history[-2]["content"] + seps[0]
+            )
+            ret += chat_history[-1]["role"] + ":"
+            return ret
         else:
             raise ValueError(f"Invalid prompt style: {prompt_style.style_name}")
 

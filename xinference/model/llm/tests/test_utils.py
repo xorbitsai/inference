@@ -102,27 +102,6 @@ def test_prompt_style_no_colon_two():
         "Write a poem.", chat_history, prompt_style
     )
 
-    prompt_style = PromptStyleV1(
-        style_name="NO_COLON_TWO",
-        system_prompt="<s>",
-        roles=["<|User|>:", "<|Bot|>:"],
-        intra_message_sep="<eoh>\n",
-        inter_message_sep="<eoa>\n",
-    )
-    expected = (
-        "<s><|User|>:Hi there.<eoh>\n<|Bot|>:Hello, how may I help you?<eoa>\n"
-        "<|User|>:Write a poem.<eoh>\n<|Bot|>:"
-    )
-    chat_history = [
-        ChatCompletionMessage(role=prompt_style.roles[0], content="Hi there."),
-        ChatCompletionMessage(
-            role=prompt_style.roles[1], content="Hello, how may I help you?"
-        ),
-    ]
-    assert expected == ChatModelMixin.get_prompt(
-        "Write a poem.", chat_history, prompt_style
-    )
-
 
 def test_prompt_style_llama2():
     prompt_style = PromptStyleV1(
@@ -290,6 +269,33 @@ def test_prompt_style_chatml():
     assert expected == ChatModelMixin.get_prompt(
         "Write me a HelloWorld Function", chat_history, prompt_style
     )
+
+
+def test_prompt_style_internlm():
+    prompt_style = PromptStyleV1(
+        style_name="INTERNLM",
+        system_prompt="",
+        roles=["<|User|>", "<|Bot|>"],
+        intra_message_sep="<eoh>\n",
+        inter_message_sep="<eoa>\n",
+    )
+
+    expected = "<s><|User|>:Write a poem.<eoh>\n<|Bot|>:"
+    actual = ChatModelMixin.get_prompt("Write a poem.", [], prompt_style)
+    assert expected == actual
+
+    chat_history = [
+        ChatCompletionMessage(role=prompt_style.roles[0], content="Hi there."),
+        ChatCompletionMessage(
+            role=prompt_style.roles[1], content="Hello, how may I help you?"
+        ),
+    ]
+    expected = (
+        "<s><|User|>:Hi there.<eoh>\n<|Bot|>:Hello, how may I help you?<eoa>\n"
+        "<|User|>:Write a poem.<eoh>\n<|Bot|>:"
+    )
+    actual = ChatModelMixin.get_prompt("Write a poem.", chat_history, prompt_style)
+    assert expected == actual
 
 
 def test_is_valid_model_name():
