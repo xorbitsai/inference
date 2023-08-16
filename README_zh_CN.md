@@ -119,7 +119,10 @@ Xinference 启动后，将会打印服务的 endpoint。这个 endpoint 用于�
 - 集群部署下, endpoint 默认为 `http://${supervisor_host}:9997`。其中 `${supervisor_host}` 为
 supervisor 所在服务器的主机名或 IP 地址。
 
-您还可以使用 Xinference 端点查看模型仪表板，在这里您可以监视所有运行的模型，随意删除它们，并使用任何聊天模型启动 Gradio 聊天机器人。
+你还可以通过 web UI 与任意内置模型聊天。Xinference 甚至**支持同时与两个最前沿的 AI 模型聊天并比较它们的回复质
+量**！
+
+![web UI](assets/demo.gif)
 
 ### Xinference 命令行
 Xinference 提供了命令行工具用于模型管理。支持的命令包括：
