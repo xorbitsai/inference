@@ -396,6 +396,11 @@ class RESTfulAPIActor(xo.Actor):
         return JSONResponse(content={"model_uid": model_uid})
 
     def build_interface(self, model_uid: str):
+        """
+        Separate build_interface with launch_model
+        build_interface requires RESTful Client for API calls
+        but calling API in async function does not return
+        """
         assert self._app is not None
         assert self._endpoint is not None
 
