@@ -641,6 +641,7 @@ class RESTfulClient:
         model_size_in_billions: Optional[int] = None,
         model_format: Optional[str] = None,
         quantization: Optional[str] = None,
+        model_uid: Optional[str] = None,
         **kwargs,
     ) -> str:
         """
@@ -656,6 +657,8 @@ class RESTfulClient:
             The format of the model.
         quantization: Optional[str]
             The quantization of model.
+        model_uid: Optional[str]
+            The assigned model_uid of model.
         **kwargs:
             Any other parameters been specified.
 
@@ -668,7 +671,7 @@ class RESTfulClient:
 
         url = f"{self.base_url}/v1/models"
 
-        model_uid = self._gen_model_uid()
+        model_uid = self._gen_model_uid() if model_uid is None else model_uid
 
         payload = {
             "model_uid": model_uid,
@@ -689,6 +692,7 @@ class RESTfulClient:
 
         response_data = response.json()
         model_uid = response_data["model_uid"]
+        assert model_uid is not None
         return model_uid
 
     def terminate_model(self, model_uid: str):

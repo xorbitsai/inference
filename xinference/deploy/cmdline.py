@@ -157,12 +157,14 @@ def worker(log_level: str, endpoint: Optional[str], host: str):
 @click.option("--size-in-billions", "-s", default=None, type=int)
 @click.option("--model-format", "-f", default=None, type=str)
 @click.option("--quantization", "-q", default=None, type=str)
+@click.option("--model-uid", "-i", default=None, type=str)
 def model_launch(
     endpoint: Optional[str],
     model_name: str,
     size_in_billions: int,
     model_format: str,
     quantization: str,
+    model_uid: str,
 ):
     endpoint = get_endpoint(endpoint)
 
@@ -172,6 +174,7 @@ def model_launch(
         model_size_in_billions=size_in_billions,
         model_format=model_format,
         quantization=quantization,
+        model_uid=model_uid,
     )
 
     print(f"Model uid: {model_uid}", file=sys.stderr)

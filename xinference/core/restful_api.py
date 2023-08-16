@@ -320,7 +320,7 @@ class RESTfulAPIActor(xo.Actor):
             key: value for key, value in payload.items() if key not in exclude_keys
         }
 
-        if model_uid is None or model_uid is None:
+        if model_uid is None or model_name is None:
             raise HTTPException(
                 status_code=400,
                 detail="Invalid input. Please specify the model UID and the model name",
