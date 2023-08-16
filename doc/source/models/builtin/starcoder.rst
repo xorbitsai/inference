@@ -1,8 +1,8 @@
 .. _models_builtin_starcoder:
 
-===============
-Starcoder Model
-===============
+=========
+StarCoder
+=========
 
 - **Model Name:** starcoder
 - **Languages:** en

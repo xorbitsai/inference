@@ -14,7 +14,7 @@
 
 import asyncio
 import logging
-from typing import Any, Dict, Optional
+from typing import Any
 
 import xoscar as xo
 
@@ -42,7 +42,7 @@ async def start_worker_components(address: str, supervisor_address: str):
 
 
 async def _start_worker(
-    address: str, supervisor_address: str, logging_conf: Optional[Dict] = None
+    address: str, supervisor_address: str, logging_conf: Any = None
 ):
     from .utils import create_worker_actor_pool
 
