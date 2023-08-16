@@ -24,3 +24,6 @@ Execute the following command to launch the model, remember to replace `${quanti
 
    xinference launch --model-name internlm-chat-8k --size-in-billions 7 --model-format pytorch --quantization ${quantization}
 
+.. note::
+
+   4-bit quantization is not supported on macOS.
