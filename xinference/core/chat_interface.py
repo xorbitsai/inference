@@ -213,7 +213,7 @@ class LLMInterface:
 
             Markdown(
                 f"""
-                <h1 style='text-align: center; margin-bottom: 1rem'>🚀 Xinference Generate Bot : {model_name}</h1>
+                <h1 style='text-align: center; margin-bottom: 1rem'>🚀 Xinference Generate Bot : {model_name} 🚀</h1>
                 """
             )
             Markdown(
