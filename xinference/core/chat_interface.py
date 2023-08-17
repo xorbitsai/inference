@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 from typing import Dict, List
 
 import gradio as gr
@@ -31,27 +32,38 @@ class LLMInterface:
         self.endpoint = endpoint
         self.model_uid = model_uid
 
-    def build_interface(self):
+    def build(self) -> "gr.Blocks":
         model = self.client.get_model(self.model_uid)
         model_info = self.client.describe_model(self.model_uid)
         model_ability = model_info["model_ability"]
 
         if "chat" in model_ability:
-            return self.build_chat_interface(
+            interface = self.build_chat_interface(
                 model,
                 model_info,
             )
         else:
-            return self.build_generate_interface(
+            interface = self.build_generate_interface(
                 model,
                 model_info,
             )
+
+        favicon_path = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            os.path.pardir,
+            "web",
+            "ui",
+            "public",
+            "favicon.svg",
+        )
+        interface.favicon_path = favicon_path
+        return interface
 
     def build_chat_interface(
         self,
         model,
         model_info,
-    ):
+    ) -> "gr.Blocks":
         model_name = model_info["model_name"]
         model_format = model_info["model_format"]
         model_size_in_billions = model_info["model_size_in_billions"]
@@ -100,7 +112,7 @@ class LLMInterface:
                     minimum=1, maximum=2048, value=1024, step=1, label="Max Tokens"
                 ),
                 gr.Slider(
-                    minimum=0, maximum=1, value=0.8, step=0.01, label="Temperature"
+                    minimum=0, maximum=2, value=1, step=0.01, label="Temperature"
                 ),
             ],
             title=f"🚀 Xinference Chat Bot : {model_name} 🚀",
@@ -127,6 +139,7 @@ class LLMInterface:
             Model Quantization: {quantization}
             </div>
             """,
+            analytics_enabled=False,
         )
 
     def build_generate_interface(
@@ -207,8 +220,9 @@ class LLMInterface:
                 padding: 0px;
                 color: #9ea4b0 !important;
             }
-            """
-        ) as demo:
+            """,
+            analytics_enabled=False,
+        ) as generate_interface:
             history = gr.State([])
 
             Markdown(
@@ -254,7 +268,7 @@ class LLMInterface:
                         minimum=1, maximum=1024, value=10, step=1, label="Max Tokens"
                     )
                     temperature = gr.Slider(
-                        minimum=0, maximum=1, value=0.8, step=0.01, label="Temperature"
+                        minimum=0, maximum=2, value=1, step=0.01, label="Temperature"
                     )
 
                 btn_generate.click(
@@ -281,4 +295,4 @@ class LLMInterface:
                     outputs=[textbox, history],
                 )
 
-        return demo
+        return generate_interface

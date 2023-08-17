@@ -21,7 +21,6 @@ import xoscar as xo
 from xoscar.utils import get_next_port
 
 from ..constants import XINFERENCE_DEFAULT_ENDPOINT_PORT
-from ..core.gradio import GradioApp
 from ..core.restful_api import RESTfulAPIActor
 from ..core.supervisor import SupervisorActor
 
@@ -30,7 +29,6 @@ logger = logging.getLogger("xinference")
 
 async def start_supervisor_components(address: str, host: str, port: int):
     await xo.create_actor(SupervisorActor, address=address, uid=SupervisorActor.uid())
-    gradio_block = GradioApp(address).build()
     # create a socket for RESTful API
     try:
         sockets = []
@@ -62,7 +60,6 @@ async def start_supervisor_components(address: str, host: str, port: int):
         address=address,
         uid=RESTfulAPIActor.uid(),
         sockets=sockets,
-        gradio_block=gradio_block,
         endpoint=f"http://{host}:{port}",
     )
     await restful_actor.serve()
