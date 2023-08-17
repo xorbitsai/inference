@@ -70,6 +70,8 @@ def _install():
     user_defined_llm_dir = os.path.join(XINFERENCE_MODEL_DIR, "llm")
     if os.path.isdir(user_defined_llm_dir):
         for f in os.listdir(user_defined_llm_dir):
-            with codecs.open(f, encoding="utf-8") as fd:
+            with codecs.open(
+                os.path.join(user_defined_llm_dir, f), encoding="utf-8"
+            ) as fd:
                 user_defined_llm_family = LLMFamilyV1.parse_obj(json.load(fd))
                 register_llm(user_defined_llm_family, persist=False)
