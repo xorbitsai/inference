@@ -164,6 +164,16 @@ class ChatModelMixin:
             )
             ret += chat_history[-1]["role"] + ":"
             return ret
+        elif prompt_style.style_name == "ADD_COLON_SINGLE_COT":
+            ret = prompt_style.system_prompt + prompt_style.intra_message_sep
+            for message in chat_history:
+                role = message["role"]
+                content = message["content"]
+                if content:
+                    ret += role + ": " + content + prompt_style.intra_message_sep
+                else:
+                    ret += role + ": Let's think step by step."
+            return ret
         else:
             raise ValueError(f"Invalid prompt style: {prompt_style.style_name}")
 
