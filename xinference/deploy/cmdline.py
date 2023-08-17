@@ -22,7 +22,13 @@ import click
 from xoscar.utils import get_next_port
 
 from .. import __version__
-from ..client import Client, RESTfulClient
+from ..client import (
+    Client,
+    RESTfulChatglmCppChatModelHandle,
+    RESTfulChatModelHandle,
+    RESTfulClient,
+    RESTfulGenerateModelHandle,
+)
 from ..constants import (
     XINFERENCE_DEFAULT_DISTRIBUTED_HOST,
     XINFERENCE_DEFAULT_ENDPOINT_PORT,
@@ -311,17 +317,24 @@ def model_generate(
                 # avoid displaying exception-unhandled warnings
                 task.exception()
     else:
-        client = RESTfulClient(base_url=endpoint)
-        model = client.get_model(model_uid=model_uid)
+        restful_client = RESTfulClient(base_url=endpoint)
+        restful_model = restful_client.get_model(model_uid=model_uid)
+        if not isinstance(
+            restful_model, (RESTfulChatModelHandle, RESTfulGenerateModelHandle)
+        ):
+            raise ValueError(f"model {model_uid} has no generate method")
+
         while True:
             prompt = input("User: ")
             if prompt == "":
                 break
             print(f"Assistant: {prompt}", end="")
-            response = model.generate(
+            response = restful_model.generate(
                 prompt=prompt,
                 generate_config={"stream": stream, "max_tokens": max_tokens},
             )
+            if not isinstance(response, dict):
+                raise ValueError("generate result is not valid")
             print(f"{response['choices'][0]['text']}\n")
 
 
@@ -390,8 +403,12 @@ def model_chat(
                 # avoid displaying exception-unhandled warnings
                 task.exception()
     else:
-        client = RESTfulClient(base_url=endpoint)
-        model = client.get_model(model_uid=model_uid)
+        restful_client = RESTfulClient(base_url=endpoint)
+        restful_model = restful_client.get_model(model_uid=model_uid)
+        if not isinstance(
+            restful_model, (RESTfulChatModelHandle, RESTfulChatglmCppChatModelHandle)
+        ):
+            raise ValueError(f"model {model_uid} has no chat method")
 
         while True:
             prompt = input("User: ")
@@ -399,11 +416,13 @@ def model_chat(
                 break
             chat_history.append(ChatCompletionMessage(role="user", content=prompt))
             print("Assistant: ", end="")
-            response = model.chat(
+            response = restful_model.chat(
                 prompt=prompt,
                 chat_history=chat_history,
                 generate_config={"stream": stream, "max_tokens": max_tokens},
             )
+            if not isinstance(response, dict):
+                raise ValueError("chat result is not valid")
             response_content = response["choices"][0]["message"]["content"]
             print(f"{response_content}\n")
         chat_history.append(
