@@ -185,7 +185,6 @@ def cache_from_uri(
                 src_path = f"{path}/{file}"
                 local_path = src_path.replace(src_root, cache_dir)
                 files_to_download.append((src_path, local_path))
-        print(files_to_download)
 
         from concurrent.futures import ThreadPoolExecutor
 
