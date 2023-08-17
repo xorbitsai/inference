@@ -11,7 +11,7 @@ WizardMath v1.0
 Specifications
 ^^^^^^^^^^^^^^
 
-Model Spec (pytorch, 7 Billion)
+Model Spec 1 (pytorch, 7 Billion)
 +++++++++++++++++++++++++++++++
 
 - **Model Format:** pytorch
@@ -28,7 +28,7 @@ chosen quantization method from the options listed above::
 
    4-bit quantization is not supported on macOS.
 
-Model Spec (pytorch, 13 Billion)
+Model Spec 2 (pytorch, 13 Billion)
 +++++++++++++++++++++++++++++++++
 
 - **Model Format:** pytorch
@@ -45,7 +45,7 @@ chosen quantization method from the options listed above::
 
    4-bit quantization is not supported on macOS.
 
-Model Spec (pytorch, 70 Billion)
+Model Spec 3 (pytorch, 70 Billion)
 +++++++++++++++++++++++++++++++++
 
 - **Model Format:** pytorch
