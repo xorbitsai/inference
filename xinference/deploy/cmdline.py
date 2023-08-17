@@ -261,10 +261,12 @@ def model_terminate(
     type=str,
 )
 @click.option("--model-uid", type=str)
+@click.option("--max_tokens", default=256, type=int)
 @click.option("--stream", default=True, type=bool)
 def model_generate(
     endpoint: Optional[str],
     model_uid: str,
+    max_tokens: int,
     stream: bool,
 ):
     endpoint = get_endpoint(endpoint)
@@ -280,7 +282,7 @@ def model_generate(
                 print(f"Assistant: {prompt}", end="")
                 async for chunk in model.generate(
                     prompt=prompt,
-                    generate_config={"stream": True},
+                    generate_config={"stream": stream, "max_tokens": max_tokens},
                 ):
                     choice = chunk["choices"][0]
                     if "text" not in choice:
@@ -316,7 +318,10 @@ def model_generate(
             if prompt == "":
                 break
             print(f"Assistant: {prompt}", end="")
-            response = model.generate(prompt, {"stream": stream})
+            response = model.generate(
+                prompt=prompt,
+                generate_config={"stream": stream, "max_tokens": max_tokens},
+            )
             print(f"{response['choices'][0]['text']}\n")
 
 
@@ -327,10 +332,12 @@ def model_generate(
     type=str,
 )
 @click.option("--model-uid", type=str)
+@click.option("--max_tokens", default=256, type=int)
 @click.option("--stream", default=True, type=bool)
 def model_chat(
     endpoint: Optional[str],
     model_uid: str,
+    max_tokens: int,
     stream: bool,
 ):
     endpoint = get_endpoint(endpoint)
@@ -350,7 +357,7 @@ def model_chat(
                 async for chunk in model.chat(
                     prompt=prompt,
                     chat_history=chat_history,
-                    generate_config={"stream": True},
+                    generate_config={"stream": stream, "max_tokens": max_tokens},
                 ):
                     delta = chunk["choices"][0]["delta"]
                     if "content" not in delta:
@@ -395,7 +402,7 @@ def model_chat(
             response = model.chat(
                 prompt=prompt,
                 chat_history=chat_history,
-                generate_config={"stream": False},
+                generate_config={"stream": stream, "max_tokens": max_tokens},
             )
             response_content = response["choices"][0]["message"]["content"]
             print(f"{response_content}\n")
