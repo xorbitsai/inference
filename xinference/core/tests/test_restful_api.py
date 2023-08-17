@@ -179,7 +179,7 @@ async def test_restful_api(setup):
 
     # list model registration
 
-    url = f"{endpoint}/v2/list_model_registrations/LLM"
+    url = f"{endpoint}/v1/model_registrations/LLM"
 
     response = requests.get(url)
 
@@ -224,15 +224,14 @@ async def test_restful_api(setup):
   }
 }"""
 
-    # model_dict = json.loads(model)
-    url = f"{endpoint}/v2/models/register_model"
+    url = f"{endpoint}/v1/model_registrations/LLM"
 
-    payload = {"model_type": "LLM", "model": model, "persist": False}
+    payload = {"model": model, "persist": False}
 
     response = requests.post(url, json=payload)
     assert response.status_code == 200
 
-    url = f"{endpoint}/v2/list_model_registrations/LLM"
+    url = f"{endpoint}/v1/model_registrations/LLM"
 
     response = requests.get(url)
 
@@ -240,15 +239,20 @@ async def test_restful_api(setup):
     new_model_regs = response.json()
     assert len(new_model_regs) == len(model_regs) + 1
 
+    # get_model_registrations
+    url = f"{endpoint}/v1/model_registrations/LLM/custom_model"
+    response = requests.get(url, json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert "custom_model" in data["model_name"]
+
     # unregister_model
-    url = f"{endpoint}/v2/models/unregister_model"
+    url = f"{endpoint}/v1/model_registrations/LLM/custom_model"
 
-    payload = {"model_type": "LLM", "model_name": "custom_model"}
-
-    response = requests.post(url, json=payload)
+    response = requests.delete(url, json=payload)
     assert response.status_code == 200
 
-    url = f"{endpoint}/v2/list_model_registrations/LLM"
+    url = f"{endpoint}/v1/model_registrations/LLM"
 
     response = requests.get(url)
     assert response.status_code == 200

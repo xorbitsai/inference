@@ -225,6 +225,9 @@ def test_RESTful_client_custom_model(setup):
 }"""
     client.register_model(model_type="LLM", model=model, persist=False)
 
+    data = client.get_model_registration(model_type="LLM", model_name="custom_model")
+    assert "custom_model" in data["model_name"]
+
     new_model_regs = client.list_model_registrations(model_type="LLM")
     assert len(new_model_regs) == len(model_regs) + 1
     custom_model_reg = None

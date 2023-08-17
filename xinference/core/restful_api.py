@@ -217,14 +217,8 @@ class CreateChatCompletionRequest(BaseModel):
 
 
 class RegisterModelRequest(BaseModel):
-    model_type: str
     model: str
     persist: bool
-
-
-class UnregisterModelRequest(BaseModel):
-    model_type: str
-    model_name: str
 
 
 class RESTfulAPIActor(xo.Actor):
@@ -288,18 +282,25 @@ class RESTfulAPIActor(xo.Actor):
 
         # for custom models
         self._router.add_api_route(
-            "/v2/models/register_model", self.register_model, methods=["POST"]
+            "/v1/model_registrations/{model_type}",
+            self.register_model,
+            methods=["POST"],
         )
         self._router.add_api_route(
-            "/v2/models/unregister_model", self.unregister_model, methods=["POST"]
+            "/v1/model_registrations/{model_type}/{model_name}",
+            self.unregister_model,
+            methods=["DELETE"],
         )
         self._router.add_api_route(
-            "/v2/list_model_registrations/{model_type}",
+            "/v1/model_registrations/{model_type}",
             self.list_model_registrations,
             methods=["GET"],
         )
-
-
+        self._router.add_api_route(
+            "/v1/model_registrations/{model_type}/{model_name}",
+            self.get_model_registrations,
+            methods=["GET"],
+        )
         self._router.add_api_route(
             "/v1/ui/{model_uid}", self.build_interface, methods=["POST"]
         )
@@ -655,8 +656,7 @@ class RESTfulAPIActor(xo.Actor):
                 logger.error(e, exc_info=True)
                 raise HTTPException(status_code=500, detail=str(e))
 
-    async def register_model(self, request: RegisterModelRequest):
-        model_type = request.model_type
+    async def register_model(self, model_type: str, request: RegisterModelRequest):
         model = request.model
         persist = request.persist
 
@@ -669,10 +669,7 @@ class RESTfulAPIActor(xo.Actor):
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
 
-    async def unregister_model(self, request: UnregisterModelRequest):
-        model_type = request.model_type
-        model_name = request.model_name
-
+    async def unregister_model(self, model_type: str, model_name: str):
         try:
             await self._supervisor_ref.unregister_model(model_type, model_name)
         except ValueError as re:
@@ -685,6 +682,20 @@ class RESTfulAPIActor(xo.Actor):
     async def list_model_registrations(self, model_type: str) -> List[Dict[str, Any]]:
         try:
             return await self._supervisor_ref.list_model_registrations(model_type)
+        except ValueError as re:
+            logger.error(re, exc_info=True)
+            raise HTTPException(status_code=400, detail=str(re))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def get_model_registrations(
+        self, model_type: str, model_name: str
+    ) -> Dict[str, Any]:
+        try:
+            return await self._supervisor_ref.get_model_registration(
+                model_type, model_name
+            )
         except ValueError as re:
             logger.error(re, exc_info=True)
             raise HTTPException(status_code=400, detail=str(re))
