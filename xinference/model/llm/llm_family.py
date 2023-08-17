@@ -156,6 +156,8 @@ def cache_from_uri(
         f"-{llm_spec.model_size_in_billions}b"
     )
     cache_dir = os.path.realpath(os.path.join(XINFERENCE_CACHE_DIR, cache_dir_name))
+    if os.path.exists(cache_dir):
+        return cache_dir
 
     assert llm_spec.model_uri is not None
     src_scheme, src_root = parse_uri(llm_spec.model_uri)
@@ -350,6 +352,24 @@ def unregister_llm(model_name: str):
             )
             if os.path.exists(persist_path):
                 os.remove(persist_path)
+
+            llm_spec = llm_family.model_specs[0]
+            cache_dir_name = (
+                f"{llm_family.model_name}-{llm_spec.model_format}"
+                f"-{llm_spec.model_size_in_billions}b"
+            )
+            cache_dir = os.path.join(XINFERENCE_CACHE_DIR, cache_dir_name)
+            if os.path.exists(cache_dir):
+                logger.warning(
+                    f"Remove the cache of user-defined model {llm_family.model_name}. "
+                    f"Cache directory: {cache_dir}"
+                )
+                if os.path.islink(cache_dir):
+                    os.remove("my-vicuna-ggmlv3-7b")
+                else:
+                    logger.warning(
+                        f"Cache directory is not a soft link, please remove it manually."
+                    )
         else:
             raise ValueError(f"Model {model_name} not found")
 
