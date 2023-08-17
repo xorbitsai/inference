@@ -174,26 +174,32 @@ model.chat(
 $ xinference list --all
 ```
 
-| Name             | Language     | Ability               |
-|------------------|--------------|-----------------------|
-| baichuan         | ['en', 'zh'] | ['embed', 'generate'] |
-| baichuan-chat    | ['en', 'zh'] | ['embed', 'chat']     |
-| chatglm          | ['en', 'zh'] | ['embed', 'chat']     |
-| chatglm2         | ['en', 'zh'] | ['embed', 'chat']     |
-| chatglm2-32k     | ['en', 'zh'] | ['embed', 'chat']     |
-| falcon           | ['en']       | ['embed', 'generate'] |
-| falcon-instruct  | ['en']       | ['embed', 'chat']     |
-| gpt-2            | ['en']       | ['generate']          |
-| llama-2          | ['en']       | ['embed', 'generate'] |
-| llama-2-chat     | ['en']       | ['embed', 'chat']     |
-| opt              | ['en']       | ['embed', 'generate'] |
-| orca             | ['en']       | ['embed', 'chat']     |
-| qwen-chat        | ['en', 'zh'] | ['embed', 'chat']     |
-| starcoder        | ['en']       | ['generate']          |
-| starcoderplus    | ['en']       | ['embed', 'generate'] |
-| starchat-beta    | ['en']       | ['embed', 'chat']     |
-| vicuna-v1.3      | ['en']       | ['embed', 'chat']     |
-| wizardlm-v1.0    | ['en']       | ['embed', 'chat']     |
+| Name             | Language      | Ability                |
+|------------------|---------------|------------------------|
+| baichuan         | ['en', 'zh']  | ['embed', 'generate']  |
+| baichuan-chat    | ['en', 'zh']  | ['embed', 'chat']      |
+| chatglm          | ['en', 'zh']  | ['embed', 'chat']      |
+| chatglm2         | ['en', 'zh']  | ['embed', 'chat']      |
+| chatglm2-32k     | ['en', 'zh']  | ['embed', 'chat']      |
+| falcon           | ['en']        | ['embed', 'generate']  |
+| falcon-instruct  | ['en']        | ['embed', 'chat']      |
+| gpt-2            | ['en']        | ['generate']           |
+| internlm         | ['en', 'zh']  | ['embed', 'generate']  |
+| internlm-chat    | ['en', 'zh']  | ['embed', 'chat']      |
+| internlm-chat-8k | ['en', 'zh']  | ['embed', 'chat']      |
+| llama-2          | ['en']        | ['embed', 'generate']  |
+| llama-2-chat     | ['en']        | ['embed', 'chat']      |
+| opt              | ['en']        | ['embed', 'generate']  |
+| orca             | ['en']        | ['embed', 'chat']      |
+| qwen-chat        | ['en', 'zh']  | ['embed', 'chat']      |
+| starchat-beta    | ['en']        | ['embed', 'chat']      |
+| starcoder        | ['en']        | ['generate']           |
+| starcoderplus    | ['en']        | ['embed', 'generate']  |
+| vicuna-v1.3      | ['en']        | ['embed', 'chat']      |
+| vicuna-v1.5      | ['en']        | ['embed', 'chat']      |
+| vicuna-v1.5-16k  | ['en']        | ['embed', 'chat']      |
+| wizardlm-v1.0    | ['en']        | ['embed', 'chat']      |
+| wizardmath-v1.0  | ['en']        | ['embed', 'chat']      |
 
 更多信息请参考 [内置模型](https://inference.readthedocs.io/en/latest/models/builtin/index.html)。
 
