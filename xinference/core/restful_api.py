@@ -294,9 +294,6 @@ class RESTfulAPIActor(xo.Actor):
             methods=["GET"],
         )
 
-        self._app.include_router(self._router)
-
-        
         app.include_router(self._router)
         app = gr.mount_gradio_app(app, self._gradio_block, path="/")
 
