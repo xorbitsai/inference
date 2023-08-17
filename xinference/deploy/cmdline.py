@@ -221,7 +221,6 @@ def list_model_registrations(
     registrations = client.list_model_registrations(model_type=model_type)
 
     table = []
-
     for registration in registrations:
         registration_info = []
         for _, value in registration.items():
@@ -512,6 +511,32 @@ def model_chat(
         chat_history.append(
             ChatCompletionMessage(role="assistant", content=response_content)
         )
+
+
+@cli.command("create_embedding")
+@click.option(
+    "--endpoint",
+    "-e",
+    type=str,
+)
+@click.option("--model-uid", type=str)
+@click.option("--input", "-i", type=str)
+def model_create_embedding(
+    endpoint: Optional[str],
+    model_uid: str,
+    input: str,
+):
+    endpoint = get_endpoint(endpoint)
+
+    restful_client = RESTfulClient(base_url=endpoint)
+    restful_model = restful_client.get_model(model_uid=model_uid)
+    if not isinstance(
+        restful_model, (RESTfulChatModelHandle, RESTfulGenerateModelHandle)
+    ):
+        raise ValueError(f"model {model_uid} has no create_embedding method")
+
+    embedding = restful_model.create_embedding(input)
+    print(f"{embedding['data'][0]['embedding']}")
 
 
 if __name__ == "__main__":
