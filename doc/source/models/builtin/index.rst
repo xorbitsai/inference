@@ -31,6 +31,8 @@ Chat & Instruction-following Models
 - :ref:`Orca Mini <models_builtin_orca_mini>`
 - :ref:`Qwen Chat <models_builtin_qwen_chat>`
 - :ref:`Vicuna v1.3 <models_builtin_vicuna_v1_3>`
+- :ref:`Vicuna v1.5 <models_builtin_vicuna_v1_5>`
+- :ref:`Vicuna v1.5 16k <models_builtin_vicuna_v1_5_16k>`
 - :ref:`WizardLM v1.0 <models_builtin_wizardlm_v1_0>`
 
 
@@ -68,4 +70,6 @@ Code Assistant Models
    starcoderplus
    qwen-chat
    vicuna-v1.3
+   vicuna-v1.5
+   vicuna-v1.5-16k
    wizardlm-v1.0
