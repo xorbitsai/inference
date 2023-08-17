@@ -155,6 +155,90 @@ def worker(log_level: str, endpoint: Optional[str], host: str):
     )
 
 
+@cli.command("register")
+@click.option(
+    "--endpoint",
+    "-e",
+    type=str,
+)
+@click.option("--model-type", "-t", default="LLM", type=str)
+@click.option("--model", "-m", type=str)
+@click.option("--persist", "-p", default=False, type=bool)
+def register_model(
+    endpoint: Optional[str],
+    model_type: str,
+    model: str,
+    persist: bool,
+):
+    endpoint = get_endpoint(endpoint)
+
+    client = RESTfulClient(base_url=endpoint)
+    client.register_model(
+        model_type=model_type,
+        model=model,
+        persist=persist,
+    )
+
+
+@cli.command("unregister")
+@click.option(
+    "--endpoint",
+    "-e",
+    type=str,
+)
+@click.option("--model-type", "-t", default="LLM", type=str)
+@click.option("--model-name", "-n", type=str)
+def unregister_model(
+    endpoint: Optional[str],
+    model_type: str,
+    model_name: str,
+):
+    endpoint = get_endpoint(endpoint)
+
+    client = RESTfulClient(base_url=endpoint)
+    client.unregister_model(
+        model_type=model_type,
+        model_name=model_name,
+    )
+
+
+@cli.command("registrations")
+@click.option(
+    "--endpoint",
+    "-e",
+    type=str,
+)
+@click.option("--model-type", "-t", default="LLM", type=str)
+def list_model_registrations(
+    endpoint: Optional[str],
+    model_type: str,
+):
+    from tabulate import tabulate
+
+    endpoint = get_endpoint(endpoint)
+
+    client = RESTfulClient(base_url=endpoint)
+    registrations = client.list_model_registrations(model_type=model_type)
+
+    table = []
+
+    for registration in registrations:
+        registration_info = []
+        for _, value in registration.items():
+            registration_info.append(value)
+        table.append(registration_info)
+    print(
+        tabulate(
+            table,
+            headers=[
+                "ModelName",
+                "IsBuiltinModel",
+            ],
+        ),
+        file=sys.stderr,
+    )
+
+
 @cli.command("launch")
 @click.option(
     "--endpoint",
