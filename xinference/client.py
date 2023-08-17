@@ -481,20 +481,69 @@ class Client:
         return str(uuid.uuid1())
 
     def register_model(self, model_type: str, model: str, persist: bool):
+        """
+        Register a custom model.
+
+        Parameters
+        ----------
+        model_type: str
+            The type of model.
+        model: str
+            The model definition. (refer to: https://inference.readthedocs.io/en/latest/models/custom.html)
+        persist: bool
+        """
         coro = self._supervisor_ref.register_model(model_type, model, persist)
         self._isolation.call(coro)
 
     def unregister_model(self, model_type: str, model_name: str):
+        """
+        Unregister a custom model.
+
+        Parameters
+        ----------
+        model_type: str
+            The type of model.
+        model_name: str
+            The name of the model
+        """
         coro = self._supervisor_ref.unregister_model(model_type, model_name)
         self._isolation.call(coro)
 
     def list_model_registrations(self, model_type: str) -> List[Dict[str, Any]]:
+        """
+        List models registered on the server.
+
+        Parameters
+        ----------
+        model_type: str
+            The type of the model.
+
+        Returns
+        -------
+        List[Dict[str, Any]]
+            The collection of registered models on the server.
+        """
         coro = self._supervisor_ref.list_model_registrations(model_type)
         return self._isolation.call(coro)
 
     def get_model_registration(
         self, model_type: str, model_name: str
     ) -> Dict[str, Any]:
+        """
+        Get the model with the model type and model name registered on the server.
+
+        Parameters
+        ----------
+        model_type: str
+            The type of the model.
+
+        model_name: str
+            The name of the model.
+        Returns
+        -------
+        List[Dict[str, Any]]
+            The collection of registered models on the server.
+        """
         coro = self._supervisor_ref.get_model_registration(model_type, model_name)
         return self._isolation.call(coro)
 
@@ -763,3 +812,163 @@ class RESTfulClient:
             return RESTfulChatModelHandle(model_uid, self.base_url)
         else:
             raise ValueError(f"Unrecognized model ability: {desc['model_ability']}")
+
+    def describe_model(self, model_uid: str):
+        """
+        Get model information via RESTful APIs.
+
+        Parameters
+        ----------
+        model_uid: str
+            The unique id that identify the model.
+
+        Returns
+        -------
+        dict
+            A dictionary containing the following keys:
+            - "model_type": str
+               the type of the model determined by its function, e.g. "LLM" (Large Language Model)
+            - "model_name": str
+               the name of the specific LLM model family
+            - "model_lang": List[str]
+               the languages supported by the LLM model
+            - "model_ability": List[str]
+               the ability or capabilities of the LLM model
+            - "model_description": str
+               a detailed description of the LLM model
+            - "model_format": str
+               the format specification of the LLM model
+            - "model_size_in_billions": int
+               the size of the LLM model in billions
+            - "quantization": str
+               the quantization applied to the model
+            - "revision": str
+               the revision number of the LLM model specification
+
+        Raises
+        ------
+        RuntimeError
+            Report failure to get the wanted model with given model_uid. Provide details of failure through error message.
+
+        """
+
+        url = f"{self.base_url}/v1/models/{model_uid}"
+        response = requests.get(url)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to get the model description, detail: {response.json()['detail']}"
+            )
+        return response.json()
+
+    def register_model(self, model_type: str, model: str, persist: bool):
+        """
+        Register a custom model.
+
+        Parameters
+        ----------
+        model_type: str
+            The type of model.
+        model: str
+            The model definition. (refer to: https://inference.readthedocs.io/en/latest/models/custom.html)
+        persist: bool
+
+
+        Raises
+        ------
+        RuntimeError
+            Report failure to register the custom model. Provide details of failure through error message.
+        """
+        url = f"{self.base_url}/v1/model_registrations/{model_type}"
+        request_body = {"model": model, "persist": persist}
+        response = requests.post(url, json=request_body)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to register model, detail: {response.json()['detail']}"
+            )
+
+        response_data = response.json()
+        return response_data
+
+    def unregister_model(self, model_type: str, model_name: str):
+        """
+        Unregister a custom model.
+
+        Parameters
+        ----------
+        model_type: str
+            The type of model.
+        model_name: str
+            The name of the model
+
+        Raises
+        ------
+        RuntimeError
+            Report failure to unregister the custom model. Provide details of failure through error message.
+        """
+        url = f"{self.base_url}/v1/model_registrations/{model_type}/{model_name}"
+        response = requests.delete(url)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to register model, detail: {response.json()['detail']}"
+            )
+
+        response_data = response.json()
+        return response_data
+
+    def list_model_registrations(self, model_type: str) -> List[Dict[str, Any]]:
+        """
+        List models registered on the server.
+
+        Parameters
+        ----------
+        model_type: str
+            The type of the model.
+
+        Returns
+        -------
+        List[Dict[str, Any]]
+            The collection of registered models on the server.
+
+        Raises
+        ------
+        RuntimeError
+            Report failure to list model registration. Provide details of failure through error message.
+
+        """
+        url = f"{self.base_url}/v1/model_registrations/{model_type}"
+        response = requests.get(url)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to list model registration, detail: {response.json()['detail']}"
+            )
+
+        response_data = response.json()
+        return response_data
+
+    def get_model_registration(
+        self, model_type: str, model_name: str
+    ) -> Dict[str, Any]:
+        """
+        Get the model with the model type and model name registered on the server.
+
+        Parameters
+        ----------
+        model_type: str
+            The type of the model.
+
+        model_name: str
+            The name of the model.
+        Returns
+        -------
+        List[Dict[str, Any]]
+            The collection of registered models on the server.
+        """
+        url = f"{self.base_url}/v1/model_registrations/{model_type}/{model_name}"
+        response = requests.get(url)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to list model registration, detail: {response.json()['detail']}"
+            )
+
+        response_data = response.json()
+        return response_data

@@ -212,6 +212,11 @@ class CreateChatCompletionRequest(BaseModel):
         }
 
 
+class RegisterModelRequest(BaseModel):
+    model: str
+    persist: bool
+
+
 class RESTfulAPIActor(xo.Actor):
     def __init__(self, sockets: List[socket.socket], gradio_block: gr.Blocks):
         super().__init__()
@@ -266,6 +271,29 @@ class RESTfulAPIActor(xo.Actor):
             methods=["POST"],
             response_model=ChatCompletion,
         )
+
+        # for custom models
+        self._router.add_api_route(
+            "/v1/model_registrations/{model_type}",
+            self.register_model,
+            methods=["POST"],
+        )
+        self._router.add_api_route(
+            "/v1/model_registrations/{model_type}/{model_name}",
+            self.unregister_model,
+            methods=["DELETE"],
+        )
+        self._router.add_api_route(
+            "/v1/model_registrations/{model_type}",
+            self.list_model_registrations,
+            methods=["GET"],
+        )
+        self._router.add_api_route(
+            "/v1/model_registrations/{model_type}/{model_name}",
+            self.get_model_registrations,
+            methods=["GET"],
+        )
+
         app.include_router(self._router)
         app = gr.mount_gradio_app(app, self._gradio_block, path="/")
 
@@ -555,3 +583,50 @@ class RESTfulAPIActor(xo.Actor):
             except Exception as e:
                 logger.error(e, exc_info=True)
                 raise HTTPException(status_code=500, detail=str(e))
+
+    async def register_model(self, model_type: str, request: RegisterModelRequest):
+        model = request.model
+        persist = request.persist
+
+        try:
+            await self._supervisor_ref.register_model(model_type, model, persist)
+        except ValueError as re:
+            logger.error(re, exc_info=True)
+            raise HTTPException(status_code=400, detail=str(re))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def unregister_model(self, model_type: str, model_name: str):
+        try:
+            await self._supervisor_ref.unregister_model(model_type, model_name)
+        except ValueError as re:
+            logger.error(re, exc_info=True)
+            raise HTTPException(status_code=400, detail=str(re))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def list_model_registrations(self, model_type: str) -> List[Dict[str, Any]]:
+        try:
+            return await self._supervisor_ref.list_model_registrations(model_type)
+        except ValueError as re:
+            logger.error(re, exc_info=True)
+            raise HTTPException(status_code=400, detail=str(re))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def get_model_registrations(
+        self, model_type: str, model_name: str
+    ) -> Dict[str, Any]:
+        try:
+            return await self._supervisor_ref.get_model_registration(
+                model_type, model_name
+            )
+        except ValueError as re:
+            logger.error(re, exc_info=True)
+            raise HTTPException(status_code=400, detail=str(re))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))

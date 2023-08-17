@@ -171,28 +171,33 @@ model.chat(
 $ xinference list --all
 ```
 
-### ggmlv3 モデル
 
-| Name          | Type             | Language | Format  | Size (in billions) | Quantization                            |
-|---------------|------------------|----------|---------|--------------------|-----------------------------------------|
-| llama-2       | Foundation Model | en       | ggmlv3  | 7, 13              | 'q2_K', 'q3_K_L', ... , 'q6_K', 'q8_0'  |
-| baichuan      | Foundation Model | en, zh   | ggmlv3  | 7                  | 'q2_K', 'q3_K_L', ... , 'q6_K', 'q8_0'  |
-| llama-2-chat  | RLHF Model       | en       | ggmlv3  | 7, 13, 70          | 'q2_K', 'q3_K_L', ... , 'q6_K', 'q8_0'  |
-| chatglm       | SFT Model        | en, zh   | ggmlv3  | 6                  | 'q4_0', 'q4_1', 'q5_0', 'q5_1', 'q8_0'  |
-| chatglm2      | SFT Model        | en, zh   | ggmlv3  | 6                  | 'q4_0', 'q4_1', 'q5_0', 'q5_1', 'q8_0'  |
-| wizardlm-v1.0 | SFT Model        | en       | ggmlv3  | 7, 13, 33          | 'q2_K', 'q3_K_L', ... , 'q6_K', 'q8_0'  |
-| wizardlm-v1.1 | SFT Model        | en       | ggmlv3  | 13                 | 'q2_K', 'q3_K_L', ... , 'q6_K', 'q8_0'  |
-| vicuna-v1.3   | SFT Model        | en       | ggmlv3  | 7, 13              | 'q2_K', 'q3_K_L', ... , 'q6_K', 'q8_0'  |
-| orca          | SFT Model        | en       | ggmlv3  | 3, 7, 13           | 'q4_0', 'q4_1', 'q5_0', 'q5_1', 'q8_0'  |
-
-### pytorch モデル
-
-| Name          | Type             | Language | Format  | Size (in billions) | Quantization             |
-|---------------|------------------|----------|---------|--------------------|--------------------------|
-| baichuan      | Foundation Model | en, zh   | pytorch | 7, 13              | '4-bit', '8-bit', 'none' |
-| baichuan-chat | SFT Model        | en, zh   | pytorch | 13                 | '4-bit', '8-bit', 'none' |
-| vicuna-v1.3   | SFT Model        | en       | pytorch | 7, 13, 33          | '4-bit', '8-bit', 'none' |
-
+| Name             | Language      | Ability                |
+|------------------|---------------|------------------------|
+| baichuan         | ['en', 'zh']  | ['embed', 'generate']  |
+| baichuan-chat    | ['en', 'zh']  | ['embed', 'chat']      |
+| chatglm          | ['en', 'zh']  | ['embed', 'chat']      |
+| chatglm2         | ['en', 'zh']  | ['embed', 'chat']      |
+| chatglm2-32k     | ['en', 'zh']  | ['embed', 'chat']      |
+| falcon           | ['en']        | ['embed', 'generate']  |
+| falcon-instruct  | ['en']        | ['embed', 'chat']      |
+| gpt-2            | ['en']        | ['generate']           |
+| internlm         | ['en', 'zh']  | ['embed', 'generate']  |
+| internlm-chat    | ['en', 'zh']  | ['embed', 'chat']      |
+| internlm-chat-8k | ['en', 'zh']  | ['embed', 'chat']      |
+| llama-2          | ['en']        | ['embed', 'generate']  |
+| llama-2-chat     | ['en']        | ['embed', 'chat']      |
+| opt              | ['en']        | ['embed', 'generate']  |
+| orca             | ['en']        | ['embed', 'chat']      |
+| qwen-chat        | ['en', 'zh']  | ['embed', 'chat']      |
+| starchat-beta    | ['en']        | ['embed', 'chat']      |
+| starcoder        | ['en']        | ['generate']           |
+| starcoderplus    | ['en']        | ['embed', 'generate']  |
+| vicuna-v1.3      | ['en']        | ['embed', 'chat']      |
+| vicuna-v1.5      | ['en']        | ['embed', 'chat']      |
+| vicuna-v1.5-16k  | ['en']        | ['embed', 'chat']      |
+| wizardlm-v1.0    | ['en']        | ['embed', 'chat']      |
+| wizardmath-v1.0  | ['en']        | ['embed', 'chat']      |
 
 **注**:
 - Xinference は自動的にモデルをダウンロードし、デフォルトでは `${USER}/.xinference/cache` の下に保存されます。
