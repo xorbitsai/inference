@@ -430,9 +430,18 @@ class RESTfulAPIActor(xo.Actor):
 
         from .chat_interface import LLMInterface
 
-        interface = LLMInterface(self._endpoint, model_uid)
-        interface_app = gr.routes.App.create_app(interface.build())
-        self._app.mount(f"/{model_uid}", interface_app)
+        try:
+            interface = LLMInterface(self._endpoint, model_uid)
+            # interface_app = gr.routes.App.create_app(interface.build())
+            # self._app.mount(f"/{model_uid}", interface_app)
+            gr.mount_gradio_app(self._app, interface.build(), f"/{model_uid}")
+        except ValueError as ve:
+            logger.error(str(ve), exc_info=True)
+            raise HTTPException(status_code=400, detail=str(ve))
+
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
 
         return JSONResponse(content={"model_uid": model_uid})
 
