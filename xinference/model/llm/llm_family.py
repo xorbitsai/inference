@@ -364,7 +364,7 @@ def unregister_llm(model_name: str):
                     f"Cache directory: {cache_dir}"
                 )
                 if os.path.islink(cache_dir):
-                    os.remove("cache_dir")
+                    os.remove(cache_dir)
                 else:
                     logger.warning(
                         f"Cache directory is not a soft link, please remove it manually."
