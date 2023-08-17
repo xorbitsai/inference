@@ -11,8 +11,8 @@ Vicuna v1.5-16k
 Specifications
 ^^^^^^^^^^^^^^
 
-Model Spec (pytorch, 7 Billion)
-+++++++++++++++++++++++++++++++
+Model Spec 1 (pytorch, 7 Billion)
++++++++++++++++++++++++++++++++++
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 7
@@ -24,8 +24,12 @@ chosen quantization method from the options listed above::
 
    xinference launch --model-name vicuna-v1.5-16k --size-in-billions 7 --model-format pytorch --quantization ${quantization}
 
-Model Spec (pytorch, 13 Billion)
-++++++++++++++++++++++++++++++++
+.. note::
+
+   4-bit quantization is not supported on macOS.
+
+Model Spec 2 (pytorch, 13 Billion)
+++++++++++++++++++++++++++++++++++
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 13
@@ -36,3 +40,7 @@ Execute the following command to launch the model, remember to replace `${quanti
 chosen quantization method from the options listed above::
 
    xinference launch --model-name vicuna-v1.5-16k --size-in-billions 13 --model-format pytorch --quantization ${quantization}
+
+.. note::
+
+   4-bit quantization is not supported on macOS.
