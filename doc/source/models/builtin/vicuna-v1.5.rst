@@ -24,6 +24,10 @@ chosen quantization method from the options listed above::
 
    xinference launch --model-name vicuna-v1.5 --size-in-billions 7 --model-format pytorch --quantization ${quantization}
 
+.. note::
+
+   4-bit quantization is not supported on macOS.
+
 Model Spec (pytorch, 13 Billion)
 ++++++++++++++++++++++++++++++++
 
@@ -36,3 +40,7 @@ Execute the following command to launch the model, remember to replace `${quanti
 chosen quantization method from the options listed above::
 
    xinference launch --model-name vicuna-v1.5 --size-in-billions 13 --model-format pytorch --quantization ${quantization}
+
+.. note::
+
+   4-bit quantization is not supported on macOS.
