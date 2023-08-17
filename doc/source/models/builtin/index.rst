@@ -34,6 +34,7 @@ Chat & Instruction-following Models
 - :ref:`Vicuna v1.5 <models_builtin_vicuna_v1_5>`
 - :ref:`Vicuna v1.5 16k <models_builtin_vicuna_v1_5_16k>`
 - :ref:`WizardLM v1.0 <models_builtin_wizardlm_v1_0>`
+- :ref:`WizardMath v1.0 <models_builtin_wizardmath_v1_0>`
 
 
 Code Generation Models
@@ -73,3 +74,4 @@ Code Assistant Models
    vicuna-v1.5
    vicuna-v1.5-16k
    wizardlm-v1.0
+   wizardmath-v1.0
