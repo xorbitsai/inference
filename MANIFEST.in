@@ -10,4 +10,3 @@ include xinference/_version.py
 global-exclude conftest.py
 include xinference/locale/*.json
 include xinference/model/llm/*.json
-global-include xinference/web/ui/build/**/*
