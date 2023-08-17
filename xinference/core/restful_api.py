@@ -14,8 +14,10 @@
 
 import json
 import logging
+import os
 import socket
 import threading
+import warnings
 from functools import partial
 from typing import Any, Dict, List, Literal, Optional, Union
 
@@ -26,8 +28,10 @@ from anyio.streams.memory import MemoryObjectSendStream
 from fastapi import APIRouter, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
+from starlette.responses import RedirectResponse
 from typing_extensions import NotRequired, TypedDict
 from uvicorn import Config, Server
 
@@ -213,12 +217,16 @@ class CreateChatCompletionRequest(BaseModel):
 
 
 class RESTfulAPIActor(xo.Actor):
-    def __init__(self, sockets: List[socket.socket], gradio_block: gr.Blocks):
+    def __init__(
+        self, sockets: List[socket.socket], gradio_block: gr.Blocks, endpoint: str
+    ):
         super().__init__()
         self._supervisor_ref: xo.ActorRefType["SupervisorActor"]
         self._sockets = sockets
         self._gradio_block = gradio_block
+        self._endpoint = endpoint
         self._router = None
+        self._app = None
 
     @classmethod
     def uid(cls) -> str:
@@ -230,8 +238,8 @@ class RESTfulAPIActor(xo.Actor):
         )
 
     def serve(self):
-        app = FastAPI()
-        app.add_middleware(
+        self._app = FastAPI()
+        self._app.add_middleware(
             CORSMiddleware,
             allow_origins=["*"],
             allow_credentials=True,
@@ -266,11 +274,50 @@ class RESTfulAPIActor(xo.Actor):
             methods=["POST"],
             response_model=ChatCompletion,
         )
-        app.include_router(self._router)
-        app = gr.mount_gradio_app(app, self._gradio_block, path="/")
+
+        self._router.add_api_route(
+            "/v1/ui/{model_uid}", self.build_interface, methods=["POST"]
+        )
+
+        self._app.include_router(self._router)
+
+        class SPAStaticFiles(StaticFiles):
+            async def get_response(self, path: str, scope):
+                response = await super().get_response(path, scope)
+                if response.status_code == 404:
+                    response = await super().get_response(".", scope)
+                return response
+
+        try:
+            lib_location = os.path.abspath(
+                os.path.dirname(__import__("xinference").__file__)
+            )
+            ui_location = os.path.join(lib_location, "web/ui/build/")
+        except ImportError as e:
+            raise ImportError(f"Xinference is imported incorrectly: {e}")
+
+        if os.path.exists(ui_location):
+
+            @self._app.get("/")
+            def read_main():
+                response = RedirectResponse(url="/ui/")
+                return response
+
+            self._app.mount(
+                "/ui/",
+                SPAStaticFiles(directory=ui_location, html=True),
+            )
+        else:
+            warnings.warn(
+                f"""
+            Xinference ui is not built at expected directory: {ui_location}
+            To resolve this warning, navigate to {os.path.join(lib_location, "web/ui/")}
+            And build the Xinference ui by running "npm run build"
+            """
+            )
 
         # run uvicorn in another daemon thread.
-        config = Config(app=app, log_level="critical")
+        config = Config(app=self._app, log_level="critical")
         server = Server(config)
 
         def _serve():
@@ -348,9 +395,36 @@ class RESTfulAPIActor(xo.Actor):
 
         return JSONResponse(content={"model_uid": model_uid})
 
+    def build_interface(self, model_uid: str):
+        """
+        Separate build_interface with launch_model
+        build_interface requires RESTful Client for API calls
+        but calling API in async function does not return
+        """
+        assert self._app is not None
+        assert self._endpoint is not None
+
+        from .chat_interface import LLMInterface
+
+        interface = LLMInterface(self._endpoint, model_uid)
+        interface_app = gr.routes.App.create_app(interface.build_interface())
+        self._app.mount(f"/{model_uid}", interface_app)
+
+        return JSONResponse(content={"model_uid": model_uid})
+
     async def terminate_model(self, model_uid: str):
         try:
+            assert self._app is not None
             await self._supervisor_ref.terminate_model(model_uid)
+            self._app.router.routes = [
+                route
+                for route in self._app.router.routes
+                if not (
+                    hasattr(route, "path")
+                    and isinstance(route.path, str)
+                    and route.path == "/" + model_uid
+                )
+            ]
         except ValueError as ve:
             logger.error(str(ve), exc_info=True)
             raise HTTPException(status_code=400, detail=str(ve))
