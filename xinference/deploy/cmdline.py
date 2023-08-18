@@ -275,31 +275,31 @@ def model_launch(
     type=str,
 )
 @click.option("--all", is_flag=True)
-def model_list(endpoint: Optional[str], all: bool):
+@click.option("--model-type", "-t", default="LLM", type=str)
+def model_list(endpoint: Optional[str], all: bool, model_type: str):
     from tabulate import tabulate
 
-    # TODO: get from the supervisor
-    from ..model.llm import BUILTIN_LLM_FAMILIES
-
     endpoint = get_endpoint(endpoint)
+    client = RESTfulClient(base_url=endpoint)
 
     table = []
     if all:
-        for model_family in BUILTIN_LLM_FAMILIES:
+        registrations = client.list_model_registrations(model_type=model_type)
+        for registration in registrations:
+            model_name = registration["model_name"]
+            model_family = client.get_model_registration(model_type, model_name)
             table.append(
                 [
-                    model_family.model_name,
-                    model_family.model_lang,
-                    model_family.model_ability,
+                    model_family["model_name"],
+                    model_family["model_lang"],
+                    model_family["model_ability"],
                 ]
             )
-
         print(
             tabulate(table, headers=["Name", "Language", "Ability"]),
             file=sys.stderr,
         )
     else:
-        client = RESTfulClient(base_url=endpoint)
         models = client.list_models()
         for model_uid, model_spec in models.items():
             table.append(

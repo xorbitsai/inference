@@ -204,6 +204,14 @@ def test_cmdline_of_custom_model(setup):
     assert result.exit_code == 0
     assert "custom_model" in result.stdout
 
+    # list model
+    result = runner.invoke(
+        model_list,
+        ["--endpoint", endpoint, "--model-type", "LLM", "--all"],
+    )
+    assert result.exit_code == 0
+    assert "custom_model" in result.stdout
+
     # unregister custom model
     result = runner.invoke(
         unregister_model,
@@ -227,6 +235,14 @@ def test_cmdline_of_custom_model(setup):
             "--model-type",
             "LLM",
         ],
+    )
+    assert result.exit_code == 0
+    assert "custom_model" not in result.stdout
+
+    # list model again
+    result = runner.invoke(
+        model_list,
+        ["--endpoint", endpoint, "--model-type", "LLM", "--all"],
     )
     assert result.exit_code == 0
     assert "custom_model" not in result.stdout
