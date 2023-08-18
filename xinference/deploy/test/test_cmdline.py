@@ -11,6 +11,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+import os
+import tempfile
+
 import pytest
 from click.testing import CliRunner
 
@@ -18,7 +22,6 @@ from ...client import Client
 from ..cmdline import (
     list_model_registrations,
     model_chat,
-    model_create_embedding,
     model_generate,
     model_list,
     model_terminate,
@@ -107,21 +110,6 @@ def test_cmdline(setup, stream):
     assert len(result.stdout) != 0
     print(result.stdout)
 
-    # model create_embedding
-    result = runner.invoke(
-        model_create_embedding,
-        [
-            "--endpoint",
-            endpoint,
-            "--model-uid",
-            model_uid,
-            "--input",
-            "The food was delicious and the waiter...",
-        ],
-    )
-    assert result.exit_code == 0
-    assert len(result.stdout) != 0
-
     # terminate model
     result = runner.invoke(
         model_terminate,
@@ -183,6 +171,9 @@ def test_cmdline_of_custom_model(setup):
     "intra_message_sep": "\\n\\n### "
   }
 }"""
+    with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+        temp_filename = temp_file.name
+        temp_file.write(custom_model_desc.encode("utf-8"))
     result = runner.invoke(
         register_model,
         [
@@ -190,13 +181,14 @@ def test_cmdline_of_custom_model(setup):
             endpoint,
             "--model-type",
             "LLM",
-            "--model",
-            custom_model_desc,
+            "--file",
+            temp_filename,
             "--persist",
             False,
         ],
     )
     assert result.exit_code == 0
+    os.unlink(temp_filename)
 
     # list model registrations
     result = runner.invoke(
@@ -207,14 +199,6 @@ def test_cmdline_of_custom_model(setup):
             "--model-type",
             "LLM",
         ],
-    )
-    assert result.exit_code == 0
-    assert "custom_model" in result.stdout
-
-    # list model
-    result = runner.invoke(
-        model_list,
-        ["--endpoint", endpoint, "--model-type", "LLM", "--all"],
     )
     assert result.exit_code == 0
     assert "custom_model" in result.stdout
@@ -242,14 +226,6 @@ def test_cmdline_of_custom_model(setup):
             "--model-type",
             "LLM",
         ],
-    )
-    assert result.exit_code == 0
-    assert "custom_model" not in result.stdout
-
-    # list model again
-    result = runner.invoke(
-        model_list,
-        ["--endpoint", endpoint, "--model-type", "LLM", "--all"],
     )
     assert result.exit_code == 0
     assert "custom_model" not in result.stdout
