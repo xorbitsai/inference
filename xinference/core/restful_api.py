@@ -11,11 +11,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import asyncio
 import json
 import logging
 import os
 import socket
+import sys
 import threading
 import warnings
 from functools import partial
@@ -430,10 +431,20 @@ class RESTfulAPIActor(xo.Actor):
 
         from .chat_interface import LLMInterface
 
+        # asyncio.Lock() behaves differently in 3.9 than 3.10+
+        # A event loop is required in 3.9 but not 3.10+
+        if sys.version_info == (3, 9):
+            try:
+                asyncio.get_event_loop()
+            except RuntimeError:
+                warnings.warn(
+                    "asyncio.Lock() requires an event loop in Python 3.9"
+                    + "a placeholder event loop has been created"
+                )
+                asyncio.set_event_loop(asyncio.new_event_loop())
+
         try:
             interface = LLMInterface(self._endpoint, model_uid)
-            # interface_app = gr.routes.App.create_app(interface.build())
-            # self._app.mount(f"/{model_uid}", interface_app)
             gr.mount_gradio_app(self._app, interface.build(), f"/{model_uid}")
         except ValueError as ve:
             logger.error(str(ve), exc_info=True)

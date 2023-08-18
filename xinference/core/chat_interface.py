@@ -153,8 +153,6 @@ class LLMInterface:
         quantization = model_info["quantization"]
 
         def undo(text, hist):
-            print(hist)
-            print("TEXT:", text)
             if len(hist) == 0:
                 return {
                     textbox: "",
@@ -169,8 +167,6 @@ class LLMInterface:
             }
 
         def clear(text, hist):
-            print(hist)
-            print("TEXT:", text)
             if len(hist) == 0 or (len(hist) > 0 and text != hist[-1]):
                 hist.append(text)
             hist.append("")
@@ -180,8 +176,6 @@ class LLMInterface:
             }
 
         def complete(text, hist, length, temperature):
-            print(hist)
-            print("TEXT:", text)
             if len(hist) == 0 or (len(hist) > 0 and text != hist[-1]):
                 hist.append(text)
             response = model.generate(
@@ -196,8 +190,6 @@ class LLMInterface:
             }
 
         def retry(text, hist, length, temperature):
-            print(hist)
-            print("TEXT:", text)
             if len(hist) == 0 or (len(hist) > 0 and text != hist[-1]):
                 hist.append(text)
             text = hist[-2] if len(hist) > 1 else ""
@@ -212,6 +204,7 @@ class LLMInterface:
             }
 
         with gr.Blocks(
+            title=f"🚀 Xinference Generate Bot : {model_name} 🚀",
             css="""
             .center{
                 display: flex;
