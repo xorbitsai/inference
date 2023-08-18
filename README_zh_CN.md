@@ -134,10 +134,10 @@ model = client.get_model(model_uid)
 chat_history = []
 prompt = "What is the largest animal?"
 model.chat(
-            prompt,
-            chat_history,
-            generate_config={"max_tokens": 1024}
-        )
+    prompt,
+    chat_history,
+    generate_config={"max_tokens": 1024}
+)
 ```
 
 返回值：
@@ -206,5 +206,5 @@ $ xinference list --all
 **注意**:
 - Xinference 会自动为你下载模型，默认的模型存放路径为 `${USER}/.xinference/cache`。
 
-## 自定义模型\[Experimental\]
-请参考 [自定义模型](https://inference.readthedocs.io/en/latest/models/custom.html).
+## 自定义模型
+请参考 [自定义模型](https://inference.readthedocs.io/en/latest/models/custom.html)。

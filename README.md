@@ -226,5 +226,5 @@ For in-depth details on the built-in models, please refer to [built-in models](h
 - Xinference will download models automatically for you, and by default the models will be saved under `${USER}/.xinference/cache`.
 
 
-## Custom models \[Experimental\]
+## Custom models
 Please refer to [custom models](https://inference.readthedocs.io/en/latest/models/custom.html).
