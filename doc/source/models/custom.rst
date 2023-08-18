@@ -50,12 +50,12 @@ Define a custom model based on the following template:
 * model_lang: A list of strings representing the supported languages for the model. Example: ["en"], which means that the model supports English.
 * model_ability: A list of strings defining the abilities of the model. It could include options like "embed", "generate", and "chat". In this case, the model has the ability to "generate".
 * model_specs: An array of objects defining the specifications of the model. These include:
-  * model_format: A string that defines the model format, could be "pytorch" or "ggmlv3".
-  * model_size_in_billions: An integer defining the size of the model in billions of parameters.
-  * quantizations: A list of strings defining the available quantizations for the model. For PyTorch models, it could be "4-bit", "8-bit", or "none". For ggmlv3 models, the quantizations should correspond to values that work with the ``model_file_name_template``.
-  * model_id: A string representing the model ID, possibly referring to an identifier used by Hugging Face.
-  * model_uri: A string representing the URI where the model can be loaded from, such as "file:///path/to/llama-2-7b". If model URI is absent, Xinference will try to download the model from Hugging Face with the model ID.
-  * model_file_name_template: Required by ggml models. An f-string template used for defining the model file name based on the quantization.
+   * model_format: A string that defines the model format, could be "pytorch" or "ggmlv3".
+   * model_size_in_billions: An integer defining the size of the model in billions of parameters.
+   * quantizations: A list of strings defining the available quantizations for the model. For PyTorch models, it could be "4-bit", "8-bit", or "none". For ggmlv3 models, the quantizations should correspond to values that work with the ``model_file_name_template``.
+   * model_id: A string representing the model ID, possibly referring to an identifier used by Hugging Face.
+   * model_uri: A string representing the URI where the model can be loaded from, such as "file:///path/to/llama-2-7b". If model URI is absent, Xinference will try to download the model from Hugging Face with the model ID.
+   * model_file_name_template: Required by ggml models. An f-string template used for defining the model file name based on the quantization.
 * prompt_style: An optional field that could be required by chat models to define the style of prompts. The given example has this set to None, but additional details could be found in a referenced file xinference/model/llm/tests/test_utils.py.
 
 
