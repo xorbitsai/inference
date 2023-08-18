@@ -171,7 +171,7 @@ def worker(log_level: str, endpoint: Optional[str], host: str):
 )
 @click.option("--model-type", "-t", default="LLM", type=str)
 @click.option("--file", "-f", type=str)
-@click.option("--persist", "-p", default=False, type=bool)
+@click.option("--persist", "-p", is_flag=True)
 def register_model(
     endpoint: Optional[str],
     model_type: str,

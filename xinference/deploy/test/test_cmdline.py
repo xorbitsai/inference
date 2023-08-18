@@ -183,8 +183,6 @@ def test_cmdline_of_custom_model(setup):
             "LLM",
             "--file",
             temp_filename,
-            "--persist",
-            False,
         ],
     )
     assert result.exit_code == 0
