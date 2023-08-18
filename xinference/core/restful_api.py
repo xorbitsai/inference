@@ -433,7 +433,7 @@ class RESTfulAPIActor(xo.Actor):
 
         # asyncio.Lock() behaves differently in 3.9 than 3.10+
         # A event loop is required in 3.9 but not 3.10+
-        if sys.version_info == (3, 9):
+        if sys.version_info < (3, 10):
             try:
                 asyncio.get_event_loop()
             except RuntimeError:
