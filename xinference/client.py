@@ -392,13 +392,15 @@ class RESTfulChatModelHandle(RESTfulGenerateModelHandle):
             for key, value in generate_config.items():
                 request_body[key] = value
 
-        response = requests.post(url, json=request_body)
+        stream = bool(generate_config and generate_config.get("stream"))
+        response = requests.post(url, json=request_body, stream=stream)
+
         if response.status_code != 200:
             raise RuntimeError(
                 f"Failed to generate chat completion, detail: {response.json()['detail']}"
             )
 
-        if generate_config and generate_config.get("stream"):
+        if stream:
             return chat_streaming_response_iterator(response.iter_lines())
 
         response_data = response.json()
@@ -454,13 +456,15 @@ class RESTfulChatglmCppChatModelHandle(RESTfulModelHandle):
             for key, value in generate_config.items():
                 request_body[key] = value
 
-        response = requests.post(url, json=request_body)
+        stream = bool(generate_config and generate_config.get("stream"))
+        response = requests.post(url, json=request_body, stream=stream)
+
         if response.status_code != 200:
             raise RuntimeError(
                 f"Failed to generate chat completion, detail: {response.json()['detail']}"
             )
 
-        if generate_config and generate_config.get("stream"):
+        if stream:
             return chat_streaming_response_iterator(response.iter_lines())
 
         response_data = response.json()
