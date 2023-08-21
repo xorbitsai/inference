@@ -14,6 +14,7 @@ Define a custom model based on the following template:
 
    {
      "version": 1,
+     "context_length": 2048,
      "model_name": "custom-llama-2",
      "model_lang": [
        "en"
@@ -47,6 +48,7 @@ Define a custom model based on the following template:
    }
 
 * model_name: A string defining the name of the model. The name must start with a letter or a digit and can only contain letters, digits, underscores, or dashes.
+* context_length: An integer that specifies the maximum context size the model can accommodate, encompassing both the input and output lengths. It defines the boundary within which the model is designed to function optimally.
 * model_lang: A list of strings representing the supported languages for the model. Example: ["en"], which means that the model supports English.
 * model_ability: A list of strings defining the abilities of the model. It could include options like "embed", "generate", and "chat". In this case, the model has the ability to "generate".
 * model_specs: An array of objects defining the specifications of the model. These include:
