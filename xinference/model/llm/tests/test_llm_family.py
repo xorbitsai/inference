@@ -62,6 +62,7 @@ def test_deserialize_llm_family_v1():
     model_family = LLMFamilyV1.parse_raw(serialized)
     assert isinstance(model_family, LLMFamilyV1)
     assert model_family.version == 1
+    assert model_family.context_length == 2048
     assert model_family.model_name == "TestModel"
     assert model_family.model_lang == ["en"]
     assert model_family.model_ability == ["embed", "generate"]
