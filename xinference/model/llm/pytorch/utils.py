@@ -100,7 +100,7 @@ def generate_stream(
     repetition_penalty = float(generate_config.get("repetition_penalty", 1.0))
     top_p = float(generate_config.get("top_p", 1.0))
     top_k = int(generate_config.get("top_k", -1))  # -1 means disable
-    max_new_tokens = int(generate_config.get("max_new_tokens", 256))
+    max_tokens = int(generate_config.get("max_tokens", 256))
     echo = bool(generate_config.get("echo", False))
     stop_str = generate_config.get("stop", None)
     stop_token_ids = generate_config.get("stop_token_ids", None) or []
@@ -120,7 +120,7 @@ def generate_stream(
     if model.config.is_encoder_decoder:
         max_src_len = context_len
     else:
-        max_src_len = context_len - max_new_tokens - 8
+        max_src_len = context_len - max_tokens - 8
 
     input_ids = input_ids[-max_src_len:]
     input_echo_len = len(input_ids)
@@ -139,7 +139,7 @@ def generate_stream(
     sent_interrupt = False
     token = None
     last_output_length = 0
-    for i in range(max_new_tokens):
+    for i in range(max_tokens):
         if i == 0:
             if model.config.is_encoder_decoder:
                 out = model.decoder(
@@ -205,7 +205,7 @@ def generate_stream(
         else:
             stopped = False
 
-        if i % stream_interval == 0 or i == max_new_tokens - 1 or stopped:
+        if i % stream_interval == 0 or i == max_tokens - 1 or stopped:
             if echo:
                 tmp_output_ids = output_ids
                 rfind_start = len_prompt
@@ -282,7 +282,7 @@ def generate_stream(
             break
 
     # finish stream event, which contains finish reason
-    if i == max_new_tokens - 1:
+    if i == max_tokens - 1:
         finish_reason = "length"
     elif stopped:
         finish_reason = "stop"
@@ -332,7 +332,7 @@ def generate_stream_falcon(
     repetition_penalty = float(generate_config.get("repetition_penalty", 1.0))
     top_p = float(generate_config.get("top_p", 1.0))
     top_k = int(generate_config.get("top_k", 50))  # -1 means disable
-    max_new_tokens = int(generate_config.get("max_new_tokens", 256))
+    max_tokens = int(generate_config.get("max_tokens", 256))
     echo = bool(generate_config.get("echo", False))
     stop_str = generate_config.get("stop", None)
     stop_token_ids = generate_config.get("stop_token_ids", None) or []
@@ -342,7 +342,7 @@ def generate_stream_falcon(
     input_ids = inputs["input_ids"]
     attention_mask = inputs["attention_mask"]
 
-    max_src_len = context_len - max_new_tokens - 8
+    max_src_len = context_len - max_tokens - 8
 
     input_ids = input_ids[-max_src_len:]  # truncate from the left
     attention_mask = attention_mask[-max_src_len:]  # truncate from the left
@@ -352,7 +352,7 @@ def generate_stream_falcon(
     streamer = TextIteratorStreamer(tokenizer, skip_prompt=True, **decode_config)
 
     generation_config = GenerationConfig(
-        max_new_tokens=max_new_tokens,
+        max_tokens=max_tokens,
         do_sample=temperature >= 1e-5,
         temperature=temperature,
         repetition_penalty=repetition_penalty,
@@ -435,7 +435,7 @@ def generate_stream_falcon(
     output = output.strip()
 
     # finish stream event, which contains finish reason
-    if i == max_new_tokens - 1:
+    if i == max_tokens - 1:
         finish_reason = "length"
     elif partially_stopped:
         finish_reason = None
@@ -507,14 +507,14 @@ def generate_stream_chatglm(
     temperature = float(generate_config.get("temperature", 1.0))
     repetition_penalty = float(generate_config.get("repetition_penalty", 1.0))
     top_p = float(generate_config.get("top_p", 1.0))
-    max_new_tokens = int(generate_config.get("max_new_tokens", 256))
+    max_tokens = int(generate_config.get("max_tokens", 256))
     echo = generate_config.get("echo", False)
 
     inputs = tokenizer([prompt], return_tensors="pt").to(model.device)
     input_echo_len = len(inputs["input_ids"][0])
 
     gen_kwargs = {
-        "max_length": max_new_tokens + input_echo_len,
+        "max_length": max_tokens + input_echo_len,
         "do_sample": True if temperature > 1e-5 else False,
         "top_p": top_p,
         "repetition_penalty": repetition_penalty,
@@ -558,7 +558,7 @@ def generate_stream_chatglm(
 
         yield completion_chunk, completion_usage
 
-    if total_len - input_echo_len == max_new_tokens - 1:
+    if total_len - input_echo_len == max_tokens - 1:
         finish_reason = "length"
     else:
         finish_reason = "stop"
