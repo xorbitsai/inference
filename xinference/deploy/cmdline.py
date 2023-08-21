@@ -24,7 +24,6 @@ from xoscar.utils import get_next_port
 
 from .. import __version__
 from ..client import (
-    Client,
     RESTfulChatglmCppChatModelHandle,
     RESTfulChatModelHandle,
     RESTfulClient,
@@ -354,9 +353,7 @@ def model_generate(
 ):
     endpoint = get_endpoint(endpoint)
     if stream:
-        # TODO: when stream=True, RestfulClient cannot generate words one by one.
-        # So use Client in temporary. The implementation needs to be changed to
-        # RestfulClient in the future.
+
         async def generate_internal():
             while True:
                 # the prompt will be written to stdout.
@@ -365,7 +362,7 @@ def model_generate(
                 if prompt == "":
                     break
                 print(f"Completion: {prompt}", end="", file=sys.stdout)
-                async for chunk in model.generate(
+                for chunk in model.generate(
                     prompt=prompt,
                     generate_config={"stream": stream, "max_tokens": max_tokens},
                 ):
@@ -376,7 +373,7 @@ def model_generate(
                         print(choice["text"], end="", flush=True, file=sys.stdout)
                 print("\n", file=sys.stdout)
 
-        client = Client(endpoint=endpoint)
+        client = RESTfulClient(base_url=endpoint)
         model = client.get_model(model_uid=model_uid)
 
         loop = asyncio.get_event_loop()
@@ -436,9 +433,7 @@ def model_chat(
     endpoint = get_endpoint(endpoint)
     chat_history: "List[ChatCompletionMessage]" = []
     if stream:
-        # TODO: when stream=True, RestfulClient cannot generate words one by one.
-        # So use Client in temporary. The implementation needs to be changed to
-        # RestfulClient in the future.
+
         async def chat_internal():
             while True:
                 # the prompt will be written to stdout.
@@ -449,7 +444,7 @@ def model_chat(
                 chat_history.append(ChatCompletionMessage(role="user", content=prompt))
                 print("Assistant: ", end="", file=sys.stdout)
                 response_content = ""
-                async for chunk in model.chat(
+                for chunk in model.chat(
                     prompt=prompt,
                     chat_history=chat_history,
                     generate_config={"stream": stream, "max_tokens": max_tokens},
@@ -465,7 +460,7 @@ def model_chat(
                     ChatCompletionMessage(role="assistant", content=response_content)
                 )
 
-        client = Client(endpoint=endpoint)
+        client = RESTfulClient(base_url=endpoint)
         model = client.get_model(model_uid=model_uid)
 
         loop = asyncio.get_event_loop()
