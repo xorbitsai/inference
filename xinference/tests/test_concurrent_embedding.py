@@ -16,25 +16,38 @@
 """
 Simple test for multithreaded embedding creation
 """
-
 import threading
 import time
 
 from xinference.client import RESTfulClient
 
+lock = threading.Lock()
+concurrent_results = {}
+nonconcurrent_results = {}
+
 
 def embedding_thread(model, text):
-    model.create_embedding(text)
+    global concurrent_results
+    embedding = model.create_embedding(text)
+    with lock:
+        concurrent_results[text] = embedding
 
 
 def nonconcurrent_embedding(model, texts):
+    global nonconcurrent_results
     for text in texts:
-        model.create_embedding(text)
+        embedding = model.create_embedding(text)
+        nonconcurrent_results[text] = embedding
 
 
 def main():
-    client = RESTfulClient("http://127.0.0.1:35819")
-    model_uid = client.launch_model(model_name="orca", quantization="q4_0")
+    client = RESTfulClient("http://127.0.0.1:60282")
+    model_uid = client.launch_model(
+        model_name="opt",
+        model_size_in_billions=1,
+        model_format="pytorch",
+        quantization="8-bit",
+    )
     model = client.get_model(model_uid)
 
     texts = ["Once upon a time", "Hello, world!", "Hi"]
@@ -57,6 +70,14 @@ def main():
     nonconcurrent_embedding(model, texts)
     end_time = time.time()
     print(f"Nonconcurrent Time: {end_time - start_time:.4f} seconds")
+
+    print("Comparing embeddings...")
+
+    for text in texts:
+        if concurrent_results[text] == nonconcurrent_results[text]:
+            print(f"Embedding for '{text}' matches.")
+        else:
+            print(f"Embedding for '{text}' does not match.")
 
 
 if __name__ == "__main__":

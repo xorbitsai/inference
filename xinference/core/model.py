@@ -103,18 +103,22 @@ class ModelActor(xo.StatelessActor):
                     f"Model {self._model.model_spec} is not for generate."
                 )
 
-            return self._wrap_generator(
+            result = await self._wrap_generator(
                 getattr(self._model, "generate")(prompt, *args, **kwargs)
             )
+
+            return result
 
     async def chat(self, prompt: str, *args, **kwargs):
         async with self._lock:
             if not hasattr(self._model, "chat"):
                 raise AttributeError(f"Model {self._model.model_spec} is not for chat.")
 
-            return self._wrap_generator(
+            result = await self._wrap_generator(
                 getattr(self._model, "chat")(prompt, *args, **kwargs)
             )
+
+            return result
 
     async def create_embedding(self, input: Union[str, List[str]], *args, **kwargs):
         if not hasattr(self._model, "create_embedding"):
