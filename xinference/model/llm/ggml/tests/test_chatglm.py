@@ -50,6 +50,7 @@ mock_model_spec = GgmlLLMSpecV1(
 
 serialized = """{
    "version":1,
+   "context_length":2048,
    "model_name":"TestModel",
    "model_lang":[
       "en"

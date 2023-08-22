@@ -193,6 +193,7 @@ async def test_restful_api(setup):
 
     model = """{
   "version": 1,
+  "context_length":2048,
   "model_name": "custom_model",
   "model_lang": [
     "en", "zh"

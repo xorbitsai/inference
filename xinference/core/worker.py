@@ -110,6 +110,7 @@ class WorkerActor(xo.Actor):
             "model_size_in_billions": llm_spec.model_size_in_billions,
             "quantization": quantization,
             "revision": llm_spec.model_revision,
+            "context_length": llm_family.context_length,
         }
 
     @log_sync(logger=logger)

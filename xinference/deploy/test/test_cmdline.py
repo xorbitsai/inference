@@ -141,6 +141,7 @@ def test_cmdline_of_custom_model(setup):
     # register custom model
     custom_model_desc = """{
   "version": 1,
+  "context_length":2048,
   "model_name": "custom_model",
   "model_lang": [
     "en", "zh"

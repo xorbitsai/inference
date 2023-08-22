@@ -26,6 +26,7 @@ from xinference.model.llm.llm_family import (
 def test_deserialize_llm_family_v1():
     serialized = """{
    "version":1,
+   "context_length":2048,
    "model_name":"TestModel",
    "model_lang":[
       "en"
@@ -61,6 +62,7 @@ def test_deserialize_llm_family_v1():
     model_family = LLMFamilyV1.parse_raw(serialized)
     assert isinstance(model_family, LLMFamilyV1)
     assert model_family.version == 1
+    assert model_family.context_length == 2048
     assert model_family.model_name == "TestModel"
     assert model_family.model_lang == ["en"]
     assert model_family.model_ability == ["embed", "generate"]
@@ -118,6 +120,7 @@ def test_serialize_llm_family_v1():
     )
     llm_family = LLMFamilyV1(
         version=1,
+        context_length=2048,
         model_type="LLM",
         model_name="TestModel",
         model_lang=["en"],
@@ -126,7 +129,7 @@ def test_serialize_llm_family_v1():
         prompt_style=prompt_style,
     )
 
-    expected = """{"version": 1, "model_name": "TestModel", "model_lang": ["en"], "model_ability": ["embed", "generate"], "model_description": null, "model_specs": [{"model_format": "ggmlv3", "model_size_in_billions": 2, "quantizations": ["q4_0", "q4_1"], "model_id": "example/TestModel", "model_revision": "123", "model_file_name_template": "TestModel.{quantization}.ggmlv3.bin", "model_uri": null}, {"model_format": "pytorch", "model_size_in_billions": 3, "quantizations": ["int8", "int4", "none"], "model_id": "example/TestModel", "model_revision": "456", "model_uri": null}], "prompt_style": {"style_name": "ADD_COLON_SINGLE", "system_prompt": "A chat between a curious human and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the human's questions.", "roles": ["user", "assistant"], "intra_message_sep": "\\n### ", "inter_message_sep": "\\n### ", "stop": null, "stop_token_ids": null}}"""
+    expected = """{"version": 1, "context_length": 2048, "model_name": "TestModel", "model_lang": ["en"], "model_ability": ["embed", "generate"], "model_description": null, "model_specs": [{"model_format": "ggmlv3", "model_size_in_billions": 2, "quantizations": ["q4_0", "q4_1"], "model_id": "example/TestModel", "model_revision": "123", "model_file_name_template": "TestModel.{quantization}.ggmlv3.bin", "model_uri": null}, {"model_format": "pytorch", "model_size_in_billions": 3, "quantizations": ["int8", "int4", "none"], "model_id": "example/TestModel", "model_revision": "456", "model_uri": null}], "prompt_style": {"style_name": "ADD_COLON_SINGLE", "system_prompt": "A chat between a curious human and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the human's questions.", "roles": ["user", "assistant"], "intra_message_sep": "\\n### ", "inter_message_sep": "\\n### ", "stop": null, "stop_token_ids": null}}"""
     assert json.loads(llm_family.json()) == json.loads(expected)
 
 
@@ -151,6 +154,7 @@ def test_cache_from_huggingface_pytorch():
     )
     family = LLMFamilyV1(
         version=1,
+        context_length=2048,
         model_type="LLM",
         model_name="opt",
         model_lang=["en"],
@@ -180,6 +184,7 @@ def test_cache_from_huggingface_ggml():
     )
     family = LLMFamilyV1(
         version=1,
+        context_length=2048,
         model_type="LLM",
         model_name="orca",
         model_lang=["en"],
@@ -215,6 +220,7 @@ def test_cache_from_uri_local():
     )
     family = LLMFamilyV1(
         version=1,
+        context_length=2048,
         model_type="LLM",
         model_name="test",
         model_lang=["en"],
@@ -262,6 +268,7 @@ def test_cache_from_uri_remote():
     )
     family = LLMFamilyV1(
         version=1,
+        context_length=2048,
         model_type="LLM",
         model_name="test",
         model_lang=["en"],
@@ -309,6 +316,7 @@ def test_legacy_cache():
     )
     family = LLMFamilyV1(
         version=1,
+        context_length=2048,
         model_type="LLM",
         model_name="orca",
         model_lang=["en"],
@@ -349,6 +357,7 @@ def test_custom_llm():
     )
     family = LLMFamilyV1(
         version=1,
+        context_length=2048,
         model_type="LLM",
         model_name="custom_model",
         model_lang=["en"],
@@ -380,6 +389,7 @@ def test_persistent_custom_llm():
     )
     family = LLMFamilyV1(
         version=1,
+        context_length=2048,
         model_type="LLM",
         model_name="custom_model",
         model_lang=["en"],

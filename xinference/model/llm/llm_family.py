@@ -58,6 +58,7 @@ class PromptStyleV1(BaseModel):
 
 class LLMFamilyV1(BaseModel):
     version: Literal[1]
+    context_length: int
     model_name: str
     model_lang: List[Literal["en", "zh"]]
     model_ability: List[Literal["embed", "generate", "chat"]]

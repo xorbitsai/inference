@@ -850,6 +850,8 @@ class RESTfulClient:
                the quantization applied to the model
             - "revision": str
                the revision number of the LLM model specification
+            - "context_length": int
+               the maximum text length the LLM model can accommodate (include all input & output)
 
         Raises
         ------
