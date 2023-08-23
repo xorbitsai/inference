@@ -1,6 +1,7 @@
 [
   {
     "version": 1,
+    "context_length": 4096,
     "model_name": "baichuan",
     "model_lang": [
       "en",
@@ -59,6 +60,7 @@
   },
   {
     "version": 1,
+    "context_length": 4096,
     "model_name": "baichuan-chat",
     "model_lang": [
       "en",
@@ -98,6 +100,7 @@
   },
   {
     "version": 1,
+    "context_length": 2048,
     "model_name": "wizardlm-v1.0",
     "model_lang": [
       "en"
@@ -164,6 +167,7 @@
   },
   {
     "version": 1,
+    "context_length": 2048,
     "model_name": "vicuna-v1.3",
     "model_lang": [
       "en"
@@ -286,6 +290,7 @@
   },
   {
     "version": 1,
+    "context_length": 2048,
     "model_name": "orca",
     "model_lang": [
       "en"
@@ -347,6 +352,7 @@
   },
   {
     "version": 1,
+    "context_length": 2048,
     "model_name": "chatglm",
     "model_lang": [
       "en",
@@ -394,6 +400,7 @@
   },
   {
     "version": 1,
+    "context_length": 8192,
     "model_name": "chatglm2",
     "model_lang": [
       "en",
@@ -441,6 +448,7 @@
   },
   {
     "version": 1,
+    "context_length": 32768,
     "model_name": "chatglm2-32k",
     "model_lang": [
       "en",
@@ -475,6 +483,7 @@
   },
   {
     "version": 1,
+    "context_length": 4096,
     "model_name": "llama-2-chat",
     "model_lang": [
       "en"
@@ -587,6 +596,7 @@
   },
   {
     "version": 1,
+    "context_length": 4096,
     "model_name": "llama-2",
     "model_lang": [
       "en"
@@ -699,6 +709,7 @@
   },
   {
     "version": 1,
+    "context_length": 2048,
     "model_name": "opt",
     "model_lang": [
       "en"
@@ -723,6 +734,7 @@
   },
   {
     "version": 1,
+    "context_length": 2048,
     "model_name": "falcon",
     "model_lang": [
       "en"
@@ -758,6 +770,7 @@
   },
   {
     "version": 1,
+    "context_length": 2048,
     "model_name": "falcon-instruct",
     "model_lang": [
       "en"
@@ -820,6 +833,7 @@
   },
   {
     "version": 1,
+    "context_length": 8192,
     "model_name": "starcoderplus",
     "model_lang": [
       "en"
@@ -845,6 +859,7 @@
   },
   {
     "version": 1,
+    "context_length": 8192,
     "model_name": "starchat-beta",
     "model_lang": [
       "en"
@@ -882,6 +897,7 @@
   },
   {
     "version": 1,
+    "context_length": 2048,
     "model_name": "qwen-chat",
     "model_lang": [
       "en",
@@ -919,6 +935,7 @@
   },
   {
     "version": 1,
+    "context_length": 8192,
     "model_name": "starcoder",
     "model_lang": [
       "en"
@@ -944,6 +961,7 @@
   },
   {
     "version": 1,
+    "context_length": 1024,
     "model_name": "gpt-2",
     "model_lang": [
       "en"
@@ -965,6 +983,7 @@
   },
   {
     "version": 1,
+    "context_length": 8192,
     "model_name": "internlm",
     "model_lang": [
       "en",
@@ -990,6 +1009,7 @@
   },
   {
     "version": 1,
+    "context_length": 4096,
     "model_name": "internlm-chat",
     "model_lang": [
       "en",
@@ -1032,6 +1052,7 @@
   },
   {
     "version": 1,
+    "context_length": 8192,
     "model_name": "internlm-chat-8k",
     "model_lang": [
       "en",
@@ -1074,6 +1095,7 @@
   },
   {
     "version": 1,
+    "context_length": 4096,
     "model_name": "vicuna-v1.5",
     "model_lang": [
       "en"
@@ -1119,6 +1141,7 @@
   },
   {
     "version": 1,
+    "context_length": 16384,
     "model_name": "vicuna-v1.5-16k",
     "model_lang": [
       "en"
@@ -1164,6 +1187,7 @@
   },
   {
     "version": 1,
+    "context_length": 2048,
     "model_name": "wizardmath-v1.0",
     "model_lang": [
       "en"

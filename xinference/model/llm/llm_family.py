@@ -58,6 +58,7 @@ class PromptStyleV1(BaseModel):
 
 class LLMFamilyV1(BaseModel):
     version: Literal[1]
+    context_length: int
     model_name: str
     model_lang: List[Literal["en", "zh"]]
     model_ability: List[Literal["embed", "generate", "chat"]]
@@ -170,6 +171,8 @@ def cache_from_uri(
             raise ValueError(
                 f"Model URI cannot be a relative path: {llm_spec.model_uri}"
             )
+        if not os.path.exists(XINFERENCE_CACHE_DIR):
+            os.makedirs(XINFERENCE_CACHE_DIR, exist_ok=True)
         os.symlink(src_root, cache_dir, target_is_directory=True)
         return cache_dir
     elif src_scheme in SUPPORTED_SCHEMES:

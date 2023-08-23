@@ -62,6 +62,7 @@ def test_client_custom_model(setup):
 
     model = """{
   "version": 1,
+  "context_length":2048,
   "model_name": "custom_model",
   "model_lang": [
     "en", "zh"
@@ -193,6 +194,7 @@ def test_RESTful_client_custom_model(setup):
 
     model = """{
   "version": 1,
+  "context_length":2048,
   "model_name": "custom_model",
   "model_lang": [
     "en", "zh"

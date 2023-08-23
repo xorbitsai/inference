@@ -110,6 +110,7 @@ class WorkerActor(xo.Actor):
             "model_size_in_billions": llm_spec.model_size_in_billions,
             "quantization": quantization,
             "revision": llm_spec.model_revision,
+            "context_length": llm_family.context_length,
         }
 
     @log_sync(logger=logger)
@@ -169,6 +170,7 @@ class WorkerActor(xo.Actor):
         save_path = await asyncio.to_thread(cache, llm_family, llm_spec, quantization)
 
         llm_cls = match_llm_cls(llm_family, llm_spec)
+        logger.debug(f"Launching {model_uid} with {llm_cls.__name__}")
         if not llm_cls:
             raise ValueError(
                 f"Model not supported, name: {model_name}, format: {model_format},"

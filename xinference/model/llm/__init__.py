@@ -44,21 +44,35 @@ def _install():
     from .pytorch.llama_2 import LlamaPytorchChatModel, LlamaPytorchModel
     from .pytorch.vicuna import VicunaPytorchChatModel
 
+    # register llm classes.
+    LLM_CLASSES.extend(
+        [
+            LlamaCppChatModel,
+            LlamaCppModel,
+        ]
+    )
     LLM_CLASSES.extend(
         [
             ChatglmCppChatModel,
-            LlamaCppModel,
-            LlamaCppChatModel,
-            PytorchModel,
-            PytorchChatModel,
+        ]
+    )
+    LLM_CLASSES.extend(
+        [
+            CtransformersModel,
+        ]
+    )
+    LLM_CLASSES.extend(
+        [
             BaichuanPytorchChatModel,
             VicunaPytorchChatModel,
-            FalconPytorchModel,
             FalconPytorchChatModel,
             ChatglmPytorchChatModel,
             CtransformersModel,
             LlamaPytorchModel,
             LlamaPytorchChatModel,
+            PytorchChatModel,
+            FalconPytorchModel,
+            PytorchModel,
         ]
     )
 

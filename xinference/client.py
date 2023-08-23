@@ -651,10 +651,10 @@ class Client:
 
         if desc["model_format"] == "ggmlv3" and "chatglm" in desc["model_name"]:
             return ChatglmCppChatModelHandle(model_ref, self._isolation)
-        elif "generate" in desc["model_ability"]:
-            return GenerateModelHandle(model_ref, self._isolation)
         elif "chat" in desc["model_ability"]:
             return ChatModelHandle(model_ref, self._isolation)
+        elif "generate" in desc["model_ability"]:
+            return GenerateModelHandle(model_ref, self._isolation)
         else:
             raise ValueError(f"Unrecognized model ability: {desc['model_ability']}")
 
@@ -812,10 +812,10 @@ class RESTfulClient:
 
         if desc["model_format"] == "ggmlv3" and "chatglm" in desc["model_name"]:
             return RESTfulChatglmCppChatModelHandle(model_uid, self.base_url)
-        elif "generate" in desc["model_ability"]:
-            return RESTfulGenerateModelHandle(model_uid, self.base_url)
         elif "chat" in desc["model_ability"]:
             return RESTfulChatModelHandle(model_uid, self.base_url)
+        elif "generate" in desc["model_ability"]:
+            return RESTfulGenerateModelHandle(model_uid, self.base_url)
         else:
             raise ValueError(f"Unrecognized model ability: {desc['model_ability']}")
 
@@ -850,6 +850,8 @@ class RESTfulClient:
                the quantization applied to the model
             - "revision": str
                the revision number of the LLM model specification
+            - "context_length": int
+               the maximum text length the LLM model can accommodate (include all input & output)
 
         Raises
         ------

@@ -38,7 +38,7 @@ class PytorchGenerateConfig(TypedDict, total=False):
     top_p: float
     top_k: int
     stream: bool
-    max_new_tokens: int
+    max_tokens: int
     echo: bool
     stop: Optional[Union[str, List[str]]]
     stop_token_ids: Optional[Union[int, List[int]]]
@@ -97,7 +97,7 @@ class PytorchModel(LLM):
             pytorch_generate_config = PytorchGenerateConfig()
         pytorch_generate_config.setdefault("temperature", 0.7)
         pytorch_generate_config.setdefault("repetition_penalty", 1.0)
-        pytorch_generate_config.setdefault("max_new_tokens", 512)
+        pytorch_generate_config.setdefault("max_tokens", 512)
         pytorch_generate_config.setdefault("stream_interval", 2)
         pytorch_generate_config["model"] = self.model_uid
         return pytorch_generate_config
