@@ -67,7 +67,6 @@ def _install():
             VicunaPytorchChatModel,
             FalconPytorchChatModel,
             ChatglmPytorchChatModel,
-            CtransformersModel,
             LlamaPytorchModel,
             LlamaPytorchChatModel,
             PytorchChatModel,
