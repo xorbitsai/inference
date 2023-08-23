@@ -38,7 +38,7 @@ class LlamaPytorchModel(PytorchModel):
         )
 
     def _load_model(self, kwargs: dict):
-        model, tokenizer = super().load_model(self.model_path, kwargs)
+        model, tokenizer = super()._load_model(kwargs)
         model.config.eos_token_id = tokenizer.eos_token_id
         model.config.pad_token_id = tokenizer.pad_token_id
         return model, tokenizer
@@ -75,7 +75,7 @@ class LlamaPytorchChatModel(PytorchChatModel):
         self._use_fast_tokenizer = False
 
     def _load_model(self, kwargs: dict):
-        model, tokenizer = super().load_model(self.model_path, kwargs)
+        model, tokenizer = super()._load_model(kwargs)
         model.config.eos_token_id = tokenizer.eos_token_id
         model.config.pad_token_id = tokenizer.pad_token_id
         return model, tokenizer
