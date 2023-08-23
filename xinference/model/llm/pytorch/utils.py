@@ -100,7 +100,7 @@ def generate_stream(
     repetition_penalty = float(generate_config.get("repetition_penalty", 1.0))
     top_p = float(generate_config.get("top_p", 1.0))
     top_k = int(generate_config.get("top_k", -1))  # -1 means disable
-    max_new_tokens = int(generate_config.get("max_new_tokens", 256))
+    max_new_tokens = int(generate_config.get("max_tokens", 256))
     echo = bool(generate_config.get("echo", False))
     stop_str = generate_config.get("stop", None)
     stop_token_ids = generate_config.get("stop_token_ids", None) or []
@@ -332,7 +332,7 @@ def generate_stream_falcon(
     repetition_penalty = float(generate_config.get("repetition_penalty", 1.0))
     top_p = float(generate_config.get("top_p", 1.0))
     top_k = int(generate_config.get("top_k", 50))  # -1 means disable
-    max_new_tokens = int(generate_config.get("max_new_tokens", 256))
+    max_new_tokens = int(generate_config.get("max_tokens", 256))
     echo = bool(generate_config.get("echo", False))
     stop_str = generate_config.get("stop", None)
     stop_token_ids = generate_config.get("stop_token_ids", None) or []
@@ -507,7 +507,7 @@ def generate_stream_chatglm(
     temperature = float(generate_config.get("temperature", 1.0))
     repetition_penalty = float(generate_config.get("repetition_penalty", 1.0))
     top_p = float(generate_config.get("top_p", 1.0))
-    max_new_tokens = int(generate_config.get("max_new_tokens", 256))
+    max_new_tokens = int(generate_config.get("max_tokens", 256))
     echo = generate_config.get("echo", False)
 
     inputs = tokenizer([prompt], return_tensors="pt").to(model.device)

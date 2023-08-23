@@ -263,7 +263,7 @@ def _base_sanitize_generate_config() -> PytorchGenerateConfig:
     pytorch_generate_config = PytorchGenerateConfig()
     pytorch_generate_config.setdefault("temperature", 0.7)
     pytorch_generate_config.setdefault("repetition_penalty", 1.0)
-    pytorch_generate_config.setdefault("max_new_tokens", 512)
+    pytorch_generate_config.setdefault("max_tokens", 512)
     pytorch_generate_config.setdefault("stream_interval", 2)
     pytorch_generate_config["stop"] = [f" {username} "]
     return pytorch_generate_config
