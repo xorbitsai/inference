@@ -41,6 +41,7 @@ def _install():
     from .pytorch.chatglm import ChatglmPytorchChatModel
     from .pytorch.core import PytorchChatModel, PytorchModel
     from .pytorch.falcon import FalconPytorchChatModel, FalconPytorchModel
+    from .pytorch.llama_2 import LlamaPytorchChatModel, LlamaPytorchModel
     from .pytorch.vicuna import VicunaPytorchChatModel
 
     LLM_CLASSES.extend(
@@ -56,6 +57,8 @@ def _install():
             FalconPytorchChatModel,
             ChatglmPytorchChatModel,
             CtransformersModel,
+            LlamaPytorchModel,
+            LlamaPytorchChatModel,
         ]
     )
 
