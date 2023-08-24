@@ -178,15 +178,26 @@ class WorkerActor(xo.Actor):
                 f" size: {model_size_in_billions}, quantization: {quantization}"
             )
 
-        model = llm_cls(
-            model_uid,
-            llm_family,
-            llm_spec,
-            quantization,
-            save_path,
-            peft_model_path,
-            kwargs,
-        )
+        if model_format == "pytorch":
+            model = llm_cls(
+                model_uid,
+                llm_family,
+                llm_spec,
+                quantization,
+                save_path,
+                peft_model_path,
+                kwargs,
+            )
+        else:
+            model = llm_cls(
+                model_uid,
+                llm_family,
+                llm_spec,
+                quantization,
+                save_path,
+                kwargs,
+            )
+
         subpool_address = self._choose_subpool()
         model_ref = await xo.create_actor(
             ModelActor, address=subpool_address, uid=model_uid, model=model
