@@ -541,10 +541,56 @@
         "model_format": "ggmlv3",
         "model_size_in_billions": 70,
         "quantizations": [
-          "q4_0"
+          "q2_K",
+          "q3_K_L",
+          "q3_K_M",
+          "q3_K_S",
+          "q4_0",
+          "q4_1",
+          "q4_K_M",
+          "q4_K_S",
+          "q5_0",
+          "q5_1",
+          "q5_K_M",
+          "q5_K_S",
+          "q6_K",
+          "q8_0"
         ],
         "model_id": "TheBloke/Llama-2-70B-Chat-GGML",
         "model_file_name_template": "llama-2-70b-chat.ggmlv3.{quantization}.bin"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "meta-llama/Llama-2-7b-chat-hf",
+        "model_revision": "08751db2aca9bf2f7f80d2e516117a53d7450235"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 13,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "meta-llama/Llama-2-13b-chat-hf",
+        "model_revision": "0ba94ac9b9e1d5a0037780667e8b219adde1908c"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 70,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "meta-llama/Llama-2-70b-chat-hf",
+        "model_revision": "36d9a7388cc80e5f4b3e9701ca2f250d21a96c30"
       }
     ],
     "prompt_style": {
@@ -616,6 +662,61 @@
         ],
         "model_id": "TheBloke/Llama-2-13B-GGML",
         "model_file_name_template": "llama-2-13b.ggmlv3.{quantization}.bin"
+      },
+      {
+        "model_format": "ggmlv3",
+        "model_size_in_billions": 70,
+        "quantizations": [
+          "q2_K",
+          "q3_K_L",
+          "q3_K_M",
+          "q3_K_S",
+          "q4_0",
+          "q4_1",
+          "q4_K_M",
+          "q4_K_S",
+          "q5_0",
+          "q5_1",
+          "q5_K_M",
+          "q5_K_S",
+          "q6_K",
+          "q8_0"
+        ],
+        "model_id": "TheBloke/Llama-2-70B-GGML",
+        "model_file_name_template": "llama-2-70b.ggmlv3.{quantization}.bin"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "meta-llama/Llama-2-7b",
+        "model_revision": "365ffa8f1a6c455d3e2028ae658236b4b85ba824"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 13,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "meta-llama/Llama-2-13b",
+        "model_revision": "bd5c881755fa1f0518506e60207229b13b0f67e1"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 70,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "meta-llama/Llama-2-70b",
+        "model_revision": "fce501427e806d830acbd5e0a697a7924dc49278"
       }
     ]
   },
