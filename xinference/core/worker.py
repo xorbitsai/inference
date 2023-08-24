@@ -178,7 +178,7 @@ class WorkerActor(xo.Actor):
                 f" size: {model_size_in_billions}, quantization: {quantization}"
             )
 
-        if model_format == "pytorch":
+        if llm_spec.model_format == "pytorch":
             model = llm_cls(
                 model_uid,
                 llm_family,
