@@ -58,7 +58,8 @@ for seamless management and monitoring.
 allowing the seamless distribution of model inference across multiple devices or machines.
 
 🔌 **Built-in Integration with Third-Party Libraries**: Xorbits Inference seamlessly integrates
-with popular third-party libraries like LangChain and LlamaIndex. (Coming soon)
+with popular third-party libraries like [LangChain](https://python.langchain.com/docs/integrations/providers/xinference) 
+and [LlamaIndex](https://gpt-index.readthedocs.io/en/stable/examples/llm/XinferenceLocalDeployment.html#i-run-pip-install-xinference-all-in-a-terminal-window).
 
 ## Getting Started
 Xinference can be installed via pip from PyPI. It is highly recommended to create a new virtual
