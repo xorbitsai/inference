@@ -41,6 +41,7 @@ class AsyncSupervisorAPI:
         model_size_in_billions: Optional[int] = None,
         model_format: Optional[str] = None,
         quantization: Optional[str] = None,
+        peft_model_path: Optional[str] = None,
         **kwargs,
     ) -> str:
         supervisor_ref = await self._get_supervisor_ref()
@@ -50,6 +51,7 @@ class AsyncSupervisorAPI:
             model_size_in_billions=model_size_in_billions,
             model_format=model_format,
             quantization=quantization,
+            peft_model_path=peft_model_path,
             **kwargs,
         )
         return model_uid
@@ -93,6 +95,7 @@ class SyncSupervisorAPI:
         model_size_in_billions: Optional[int] = None,
         model_format: Optional[str] = None,
         quantization: Optional[str] = None,
+        peft_model_path: Optional[str] = None,
         **kwargs,
     ) -> str:
         async def _launch_model():
@@ -103,6 +106,7 @@ class SyncSupervisorAPI:
                 model_size_in_billions=model_size_in_billions,
                 model_format=model_format,
                 quantization=quantization,
+                peft_model_path=peft_model_path,
                 **kwargs,
             )
             return model_uid
