@@ -43,7 +43,7 @@ Model Spec 3 (ggmlv3, 70 Billion)
 
 - **Model Format:** ggmlv3
 - **Model Size (in billions):** 70
-- **Quantizations:** q4_0
+- **Quantizations:** q2_K, q3_K_L, q3_K_M, q3_K_S, q4_0, q4_1, q4_K_M, q4_K_S, q5_0, q5_1, q5_K_M, q5_K_S, q6_K, q8_0
 - **Model ID:** TheBloke/Llama-2-70B-Chat-GGML
 
 Execute the following command to launch the model, remember to replace `${quantization}` with your

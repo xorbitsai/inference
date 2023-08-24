@@ -538,6 +538,28 @@
         "model_file_name_template": "llama-2-13b-chat.ggmlv3.{quantization}.bin"
       },
       {
+        "model_format": "ggmlv3",
+        "model_size_in_billions": 70,
+        "quantizations": [
+          "q2_K",
+          "q3_K_L",
+          "q3_K_M",
+          "q3_K_S",
+          "q4_0",
+          "q4_1",
+          "q4_K_M",
+          "q4_K_S",
+          "q5_0",
+          "q5_1",
+          "q5_K_M",
+          "q5_K_S",
+          "q6_K",
+          "q8_0"
+        ],
+        "model_id": "TheBloke/Llama-2-70B-Chat-GGML",
+        "model_file_name_template": "llama-2-70b-chat.ggmlv3.{quantization}.bin"
+      },
+      {
         "model_format": "pytorch",
         "model_size_in_billions": 7,
         "quantizations": [
