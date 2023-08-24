@@ -239,7 +239,7 @@ class PytorchModel(LLM):
             "chatglm2",
             "chatglm2-32k",
             "llama-2",
-            "llama-2-chat-hf",
+            "llama-2-chat",
         ]:
             return False
         if "generate" not in llm_family.model_ability:
@@ -445,7 +445,7 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
             "chatglm2",
             "chatglm2-32k",
             "llama-2",
-            "llama-2-chat-hf",
+            "llama-2-chat",
         ]:
             return False
         if "chat" not in llm_family.model_ability:
