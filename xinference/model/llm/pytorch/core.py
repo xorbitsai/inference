@@ -66,6 +66,7 @@ class PytorchModel(LLM):
         model_spec: "LLMSpecV1",
         quantization: str,
         model_path: str,
+        peft_model_path: Optional[str] = None,
         pytorch_model_config: Optional[PytorchModelConfig] = None,
     ):
         super().__init__(model_uid, model_family, model_spec, quantization, model_path)
@@ -73,6 +74,7 @@ class PytorchModel(LLM):
         self._pytorch_model_config: PytorchModelConfig = self._sanitize_model_config(
             pytorch_model_config
         )
+        self.peft_model_path = peft_model_path
 
     def _sanitize_model_config(
         self, pytorch_model_config: Optional[PytorchModelConfig]
@@ -135,6 +137,7 @@ class PytorchModel(LLM):
             raise ImportError(
                 f"Failed to import module 'torch'. Please make sure 'torch' is installed.\n\n"
             )
+
         from .compression import load_compress_model
 
         quantization = self.quantization
@@ -193,6 +196,24 @@ class PytorchModel(LLM):
                     return
 
         self._model, self._tokenizer = self._load_model(kwargs)
+
+        if self.peft_model_path is not None:
+            try:
+                from peft import PeftModel
+            except ImportError:
+                raise ImportError(
+                    f"Failed to import 'PeftModel' from 'torch'. Please make sure 'peft' is installed.\n\n"
+                )
+
+            # Apply LoRA
+            self._model = PeftModel.from_pretrained(
+                self._model,
+                self.peft_model_path,
+            )
+
+            self._model = self._model.merge_and_unload()
+
+            print("Successfully loaded the PEFT path.")
 
         if (
             self._device == "cuda" and num_gpus == 1 and quantization == "none"
@@ -397,6 +418,7 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
         model_spec: "LLMSpecV1",
         quantization: str,
         model_path: str,
+        peft_model_path: Optional[str] = None,
         pytorch_model_config: Optional[PytorchModelConfig] = None,
     ):
         super().__init__(
@@ -405,6 +427,7 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
             model_spec,
             quantization,
             model_path,
+            peft_model_path,
             pytorch_model_config,
         )
 

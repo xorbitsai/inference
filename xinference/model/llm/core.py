@@ -16,7 +16,7 @@ import abc
 import logging
 import platform
 from abc import abstractmethod
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
     from .llm_family import LLMFamilyV1, LLMSpecV1
@@ -32,6 +32,7 @@ class LLM(abc.ABC):
         model_spec: "LLMSpecV1",
         quantization: str,
         model_path: str,
+        peft_model_path: Optional[str] = None,
         *args,
         **kwargs,
     ):
@@ -40,6 +41,7 @@ class LLM(abc.ABC):
         self.model_spec = model_spec
         self.quantization = quantization
         self.model_path = model_path
+        self.peft_model_path = peft_model_path
         if args:
             raise ValueError(f"Unrecognized positional arguments: {args}")
         if kwargs:

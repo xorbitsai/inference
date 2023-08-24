@@ -142,6 +142,7 @@ class WorkerActor(xo.Actor):
         model_size_in_billions: Optional[int],
         model_format: Optional[str],
         quantization: Optional[str],
+        peft_model_path: Optional[str],
         **kwargs,
     ) -> xo.ActorRefType["ModelActor"]:
         assert model_uid not in self._model_uid_to_model
@@ -178,7 +179,13 @@ class WorkerActor(xo.Actor):
             )
 
         model = llm_cls(
-            model_uid, llm_family, llm_spec, quantization, save_path, kwargs
+            model_uid,
+            llm_family,
+            llm_spec,
+            quantization,
+            save_path,
+            peft_model_path,
+            kwargs,
         )
         subpool_address = self._choose_subpool()
         model_ref = await xo.create_actor(
