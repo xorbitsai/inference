@@ -44,7 +44,7 @@ Define a custom model based on the following template:
          "model_id": "TheBloke/Llama-2-7B-GGML",
          "model_file_name_template": "llama-2-7b.ggmlv3.{quantization}.bin"
        }
-     ],
+     ]
    }
 
 * model_name: A string defining the name of the model. The name must start with a letter or a digit and can only contain letters, digits, underscores, or dashes.
