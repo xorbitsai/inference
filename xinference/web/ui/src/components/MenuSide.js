@@ -12,8 +12,9 @@ import {
 } from "@mui/material";
 import {
   ChevronRightOutlined,
-  GitHub,
+  RocketLaunchOutlined,
   SmartToyOutlined,
+  GitHub,
 } from "@mui/icons-material";
 import icon from "../media/icon.webp";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -22,6 +23,10 @@ const navItems = [
   {
     text: "Running Models",
     icon: <SmartToyOutlined />,
+  },
+  {
+    text: "Launch Model",
+    icon: <RocketLaunchOutlined />,
   },
   {
     text: "Contact Us",
@@ -122,6 +127,7 @@ const MenuSide = () => {
               }
 
               const link = text.toLowerCase().replace(" ", "_");
+              console.log(link);
 
               return (
                 <ListItem key={text}>

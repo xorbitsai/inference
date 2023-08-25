@@ -5,6 +5,7 @@ import { useMode } from "./theme";
 import Layout from "./scenes/_layout";
 
 import RunningModels from "./scenes/running_models";
+import LaunchModel from "./scenes/launch_model";
 
 function App() {
   const [theme] = useMode();
@@ -17,6 +18,7 @@ function App() {
             <Routes>
               <Route element={<Layout />}>
                 <Route path="/" element={<RunningModels />} />
+                <Route path="/launch_model" element={<LaunchModel />} />
               </Route>
             </Routes>
           </ApiContextProvider>
