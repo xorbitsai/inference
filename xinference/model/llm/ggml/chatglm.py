@@ -183,13 +183,21 @@ class ChatglmCppChatModel(LLM):
         logger.debug("Full conversation history:\n%s", str(chat_history_list))
 
         generate_config = self._sanitize_generate_config(generate_config)
-        params = dict(generate_config)
-        if "max_tokens" in params:
-            params["max_length"] = params.pop("max_tokens")
+
+        params = {
+            "max_length": generate_config.get("max_tokens"),
+            "max_context_length": generate_config.get("max_tokens"),
+            "top_k": generate_config.get("top_k"),
+            "top_p": generate_config.get("top_p"),
+            "temperature": generate_config.get("temperature"),
+        }
+
+        # Remove None values to exclude missing keys from params
+        params = {k: v for k, v in params.items() if v is not None}
 
         assert self._llm is not None
 
-        if params.pop("stream", False):
+        if generate_config["stream"]:
             it = self._llm.stream_chat(
                 chat_history_list,
                 **params,
