@@ -282,15 +282,15 @@ def generate_stream(
             break
 
     # finish stream event, which contains finish reason
-    if i == max_new_tokens - 1:
-        finish_reason = "length"
-    elif stopped:
+    if stopped:
         finish_reason = "stop"
+    elif i == max_new_tokens - 1:
+        finish_reason = "length"
     else:
         finish_reason = None
 
     completion_choice = CompletionChoice(
-        text=output, index=0, logprobs=None, finish_reason=finish_reason
+        text="", index=0, logprobs=None, finish_reason=finish_reason
     )
     completion_chunk = CompletionChunk(
         id=str(uuid.uuid1()),
