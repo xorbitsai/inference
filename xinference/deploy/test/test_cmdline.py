@@ -18,7 +18,7 @@ import tempfile
 import pytest
 from click.testing import CliRunner
 
-from ...client import Client
+from ...client import RESTfulClient
 from ..cmdline import (
     list_model_registrations,
     model_chat,
@@ -59,7 +59,7 @@ def test_cmdline(setup, stream):
     """
     # if use `model_launch` command to launch model, CI will fail.
     # So use client to launch model in temporary
-    client = Client(endpoint)
+    client = RESTfulClient(endpoint)
     model_uid = client.launch_model(
         model_name="orca", model_size_in_billions=3, quantization="q4_0"
     )
