@@ -1,8 +1,9 @@
-import React, { useContext } from "react";
+import React, { useState, useContext } from "react";
 import { v1 as uuidv1 } from "uuid";
 import { ApiContext } from "../../components/apiContext";
 
 const ModelCard = ({ imgURL, serviceName, description, url, jsonData }) => {
+  const [showBlankPage, setShowBlankPage] = useState(false);
   const { isCallingApi, setIsCallingApi } = useContext(ApiContext);
   const { isUpdatingModel } = useContext(ApiContext);
 
@@ -84,6 +85,45 @@ const ModelCard = ({ imgURL, serviceName, description, url, jsonData }) => {
     },
   };
 
+  if (showBlankPage) {
+    return (
+      <div style={styles.card}>
+        <button
+          style={{
+            ...styles.button,
+            color: isCallingApi | isUpdatingModel ? "white" : "#ea580c",
+            background:
+              isCallingApi | isUpdatingModel
+                ? "gray"
+                : "linear-gradient(to bottom right, #ffedd5, #fdba74)",
+          }}
+          onClick={() => {
+            launchModel(url, jsonData);
+          }}
+          disabled={isCallingApi | isUpdatingModel}
+        >
+          {isCallingApi | isUpdatingModel ? "Loading..." : "Launch"}
+        </button>
+        <button
+          style={{
+            ...styles.button,
+            color: isCallingApi | isUpdatingModel ? "white" : "#ea580c",
+            background:
+              isCallingApi | isUpdatingModel
+                ? "gray"
+                : "linear-gradient(to bottom right, #ffedd5, #fdba74)",
+          }}
+          onClick={() => {
+            setShowBlankPage(false);
+          }}
+          disabled={isCallingApi | isUpdatingModel}
+        >
+          {isCallingApi | isUpdatingModel ? "Loading..." : "Back"}
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div style={styles.card}>
       <img style={styles.img} src={imgURL} alt={serviceName} />
@@ -99,7 +139,7 @@ const ModelCard = ({ imgURL, serviceName, description, url, jsonData }) => {
               : "linear-gradient(to bottom right, #ffedd5, #fdba74)",
         }}
         onClick={() => {
-          launchModel(url, jsonData);
+          setShowBlankPage(true);
         }}
         disabled={isCallingApi | isUpdatingModel}
       >
