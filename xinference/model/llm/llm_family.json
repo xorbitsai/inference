@@ -1253,5 +1253,97 @@
       ],
       "intra_message_sep": "\n\n### "
     }
+  },
+  {
+    "version": 1,
+    "context_length": 100000,
+    "model_name": "code-llama",
+    "model_lang": [
+      "en"
+    ],
+    "model_ability": [
+      "generate"
+    ],
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "TheBloke/CodeLlama-7B-fp16",
+        "model_revision": " ce09049eb9140a19cf78051cb5d849607b6fa8ec"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 13,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "TheBloke/CodeLlama-13B-fp16",
+        "model_revision": " d67ca1183da991d0d97927bdaaf35599556dfd76"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 34,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "TheBloke/CodeLlama-34B-fp16",
+        "model_revision": " f91d0cf7fc338cdc726f9c72d5ea15fe51bb16e9"
+      }
+    ]
+  },
+  {
+    "version": 1,
+    "context_length": 100000,
+    "model_name": "code-llama-python",
+    "model_lang": [
+      "en"
+    ],
+    "model_ability": [
+      "generate"
+    ],
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "TheBloke/CodeLlama-7B-Python-fp16",
+        "model_revision": " d51c51e625bc24b9a7a0616e82681b4859e2cfe4"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 13,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "TheBloke/CodeLlama-13B-Python-fp16",
+        "model_revision": " 442282f4207442b828953a72c51a919c332cba5c"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 34,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "TheBloke/CodeLlama-34B-Python-fp16",
+        "model_revision": " 875f9d97fb6c9619d8867887dd1d80918ff0f593"
+      }
+    ]
   }
 ]
