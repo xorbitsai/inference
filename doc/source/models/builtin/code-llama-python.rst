@@ -21,6 +21,10 @@ Model Spec 1 (pytorch, 7 Billion)
 - **Quantizations:** 4-bit, 8-bit, none
 - **Model ID:** TheBloke/CodeLlama-7B-Python-fp16
 
+.. note::
+
+   4-bit quantization is not supported on macOS.
+
 Model Spec 2 (pytorch, 13 Billion)
 +++++++++++++++++++++++++++++++++
 
@@ -29,6 +33,10 @@ Model Spec 2 (pytorch, 13 Billion)
 - **Quantizations:** 4-bit, 8-bit, none
 - **Model ID:** TheBloke/CodeLlama-13B-Python-fp16
 
+.. note::
+
+   4-bit quantization is not supported on macOS.
+
 Model Spec 3 (pytorch, 34 Billion)
 +++++++++++++++++++++++++++++++++
 
@@ -36,3 +44,7 @@ Model Spec 3 (pytorch, 34 Billion)
 - **Model Size (in billions):** 34
 - **Quantizations:** 4-bit, 8-bit, none
 - **Model ID:** TheBloke/CodeLlama-34B-Python-fp16
+
+.. note::
+
+   4-bit quantization is not supported on macOS.
