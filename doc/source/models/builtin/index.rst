@@ -41,6 +41,8 @@ Code Generation Models
 ++++++++++++++++++++++
 - :ref:`Starcoder <models_builtin_starcoder>`
 - :ref:`StarCoderPlus <models_builtin_starcoderplus>`
+- :ref:`Code-Llama <models_builtin_code_llama>`
+- :ref:`Code-Llama-Python <models_builtin_code_llama_python>`
 
 
 Code Assistant Models
