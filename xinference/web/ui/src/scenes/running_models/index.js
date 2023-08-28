@@ -175,7 +175,7 @@ const RunningModels = () => {
                 paddingRight: "10px",
               }}
               onClick={() => {
-                if (isCallingApi | isUpdatingModel) {
+                if (isCallingApi || isUpdatingModel) {
                   return;
                 }
                 setIsCallingApi(true);

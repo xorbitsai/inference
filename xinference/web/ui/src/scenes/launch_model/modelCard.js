@@ -91,34 +91,34 @@ const ModelCard = ({ imgURL, serviceName, description, url, jsonData }) => {
         <button
           style={{
             ...styles.button,
-            color: isCallingApi | isUpdatingModel ? "white" : "#ea580c",
+            color: isCallingApi || isUpdatingModel ? "white" : "#ea580c",
             background:
-              isCallingApi | isUpdatingModel
+              isCallingApi || isUpdatingModel
                 ? "gray"
                 : "linear-gradient(to bottom right, #ffedd5, #fdba74)",
           }}
           onClick={() => {
             launchModel(url, jsonData);
           }}
-          disabled={isCallingApi | isUpdatingModel}
+          disabled={isCallingApi || isUpdatingModel}
         >
-          {isCallingApi | isUpdatingModel ? "Loading..." : "Launch"}
+          {isCallingApi || isUpdatingModel ? "Loading..." : "Launch"}
         </button>
         <button
           style={{
             ...styles.button,
-            color: isCallingApi | isUpdatingModel ? "white" : "#ea580c",
+            color: isCallingApi || isUpdatingModel ? "white" : "#ea580c",
             background:
-              isCallingApi | isUpdatingModel
+              isCallingApi || isUpdatingModel
                 ? "gray"
                 : "linear-gradient(to bottom right, #ffedd5, #fdba74)",
           }}
           onClick={() => {
             setShowBlankPage(false);
           }}
-          disabled={isCallingApi | isUpdatingModel}
+          disabled={isCallingApi || isUpdatingModel}
         >
-          {isCallingApi | isUpdatingModel ? "Loading..." : "Back"}
+          {isCallingApi || isUpdatingModel ? "Loading..." : "Back"}
         </button>
       </div>
     );
@@ -132,18 +132,18 @@ const ModelCard = ({ imgURL, serviceName, description, url, jsonData }) => {
       <button
         style={{
           ...styles.button,
-          color: isCallingApi | isUpdatingModel ? "white" : "#ea580c",
+          color: isCallingApi || isUpdatingModel ? "white" : "#ea580c",
           background:
-            isCallingApi | isUpdatingModel
+            isCallingApi || isUpdatingModel
               ? "gray"
               : "linear-gradient(to bottom right, #ffedd5, #fdba74)",
         }}
         onClick={() => {
           setShowBlankPage(true);
         }}
-        disabled={isCallingApi | isUpdatingModel}
+        disabled={isCallingApi || isUpdatingModel}
       >
-        {isCallingApi | isUpdatingModel ? "Loading..." : "Launch"}
+        {isCallingApi || isUpdatingModel ? "Loading..." : "Launch"}
       </button>
     </div>
   );
