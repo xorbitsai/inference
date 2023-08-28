@@ -26,6 +26,8 @@ from . import LLM
 
 logger = logging.getLogger(__name__)
 
+MAX_RETRIES = 3
+
 
 class GgmlLLMSpecV1(BaseModel):
     model_format: Literal["ggmlv3"]
@@ -226,12 +228,10 @@ def cache_from_huggingface(
     if not os.path.exists(cache_dir):
         os.makedirs(cache_dir, exist_ok=True)
 
-    max_retry = 3
-
     if llm_spec.model_format == "pytorch":
         assert isinstance(llm_spec, PytorchLLMSpecV1)
 
-        for _ in range(max_retry):
+        for current_attempt in range(1, MAX_RETRIES + 1):
             try:
                 huggingface_hub.snapshot_download(
                     llm_spec.model_id,
@@ -241,18 +241,22 @@ def cache_from_huggingface(
                 )
                 break
             except huggingface_hub.utils.LocalEntryNotFoundError:
+                remaining_attempts = MAX_RETRIES - current_attempt
+                logger.warning(
+                    f"Attempt {current_attempt} failed. Max remaining attempts: {remaining_attempts}"
+                )
                 pass
             except Exception as e:
-                logger.error(f"fail to download the model: {e}")
-                break
+                raise RuntimeError(f"Failed to download the model: {e}")
+
         else:
-            logger.info("fail to launch model due to network error")
+            raise RuntimeError("Failed to download after multiple retries")
 
     elif llm_spec.model_format == "ggmlv3":
         assert isinstance(llm_spec, GgmlLLMSpecV1)
         file_name = llm_spec.model_file_name_template.format(quantization=quantization)
 
-        for _ in range(max_retry):
+        for current_attempt in range(1, MAX_RETRIES + 1):
             try:
                 huggingface_hub.hf_hub_download(
                     llm_spec.model_id,
@@ -263,12 +267,17 @@ def cache_from_huggingface(
                 )
                 break
             except huggingface_hub.utils.LocalEntryNotFoundError:
+                remaining_attempts = MAX_RETRIES - current_attempt
+                logger.warning(
+                    f"Attempt {current_attempt} failed. Max remaining attempts: {remaining_attempts}"
+                )
                 pass
             except Exception as e:
-                logger.error(f"fail to download the model: {e}")
-                break
+                raise RuntimeError(f"Failed to download the model: {e}")
+
         else:
-            logger.info("fail to launch model due to network error")
+            raise RuntimeError("Failed to download after multiple retries")
+
     return cache_dir
 
 
