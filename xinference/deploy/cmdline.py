@@ -101,7 +101,7 @@ def get_endpoint(endpoint: Optional[str]) -> str:
     default="INFO",
     type=str,
     help="""Set the logger level. Options listed from most log to least log are:
-              ALL > TRACE > DEBUG > INFO > WARN > ERROR > FATAL > OFF (Default level is INFO)""",
+              NOTSET > DEBUG > INFO > WARNING > ERROR > CRITICAL (Default level is INFO)""",
 )
 @click.option(
     "--host",
@@ -142,14 +142,14 @@ def cli(
 
 
 @click.command(
-    help="Starts a Xinference supervisor to control and monitor the worker actors."
+    help="Starts an Xinference supervisor to control and monitor the worker actors."
 )
 @click.option(
     "--log-level",
     default="INFO",
     type=str,
     help="""Set the logger level for the supervisor. Options listed from most log to least log are:
-              ALL > TRACE > DEBUG > INFO > WARN > ERROR > FATAL > OFF (Default level is INFO)""",
+              NOTSET > DEBUG > INFO > WARNING > ERROR > CRITICAL (Default level is INFO)""",
 )
 @click.option(
     "--host",
@@ -182,18 +182,16 @@ def supervisor(
 
 
 @click.command(
-    help="Starts a Xinference worker to execute tasks assigned by the supervisor in a distributed setup."
+    help="Starts an Xinference worker to execute tasks assigned by the supervisor in a distributed setup."
 )
 @click.option(
     "--log-level",
     default="INFO",
     type=str,
     help="""Set the logger level for the worker. Options listed from most log to least log are:
-              ALL > TRACE > DEBUG > INFO > WARN > ERROR > FATAL > OFF (Default level is INFO)""",
+              NOTSET > DEBUG > INFO > WARNING > ERROR > CRITICAL (Default level is INFO)""",
 )
-@click.option(
-    "--endpoint", "-e", type=str, help="Specify the endpoint URL for the worker."
-)
+@click.option("--endpoint", "-e", type=str, help="Xinference endpoint.")
 @click.option(
     "--host",
     "-H",
@@ -223,9 +221,7 @@ def worker(log_level: str, endpoint: Optional[str], host: str):
 
 
 @cli.command("register", help="Registers a new model with Xinference for deployment.")
-@click.option(
-    "--endpoint", "-e", type=str, help="Endpoint URL for registering the model."
-)
+@click.option("--endpoint", "-e", type=str, help="Xinference endpoint.")
 @click.option(
     "--model-type",
     "-t",
@@ -262,9 +258,7 @@ def register_model(
     "unregister",
     help="Unregisters a model from Xinference, removing it from deployment.",
 )
-@click.option(
-    "--endpoint", "-e", type=str, help="Endpoint URL for unregistering the model."
-)
+@click.option("--endpoint", "-e", type=str, help="Xinference endpoint.")
 @click.option(
     "--model-type",
     "-t",
@@ -292,7 +286,7 @@ def unregister_model(
     "--endpoint",
     "-e",
     type=str,
-    help="Endpoint URL to retrieve the list of registrations.",
+    help="Xinference endpoint.",
 )
 @click.option(
     "--model-type",
@@ -339,7 +333,7 @@ def list_model_registrations(
     "--endpoint",
     "-e",
     type=str,
-    help="Specify the endpoint URL for launching the model.",
+    help="Xinference endpoint.",
 )
 @click.option(
     "--model-name",
@@ -391,13 +385,13 @@ def model_launch(
 
 @cli.command(
     "list",
-    help="List either all built-in models or only the currently deployed models in Xinference.",
+    help="List all running models in Xinference.",
 )
 @click.option(
     "--endpoint",
     "-e",
     type=str,
-    help="Specify the endpoint URL for listing models.",
+    help="Xinference endpoint.",
 )
 def model_list(endpoint: Optional[str]):
     from tabulate import tabulate
@@ -442,13 +436,13 @@ def model_list(endpoint: Optional[str]):
     "--endpoint",
     "-e",
     type=str,
-    help="Specify the endpoint URL for terminating the model.",
+    help="Xinference endpoint.",
 )
 @click.option(
     "--model-uid",
     type=str,
     required=True,
-    help="Provide the unique identifier (UID) of the model to be terminated.",
+    help="The unique identifier (UID) of the model.",
 )
 def model_terminate(
     endpoint: Optional[str],
@@ -460,12 +454,12 @@ def model_terminate(
     client.terminate_model(model_uid=model_uid)
 
 
-@cli.command("generate", help="Generates text using a specified model in Xinference.")
-@click.option("--endpoint", "-e", type=str, help="Endpoint URL for generating text.")
+@cli.command("generate", help="Generate text using a running LLM.")
+@click.option("--endpoint", "-e", type=str, help="Xinference endpoint.")
 @click.option(
     "--model-uid",
     type=str,
-    help="Unique identifier of the model to use for text generation.",
+    help="The unique identifier (UID) of the model.",
 )
 @click.option(
     "--max_tokens",
@@ -550,13 +544,9 @@ def model_generate(
             print(f"{response['choices'][0]['text']}\n", file=sys.stdout)
 
 
-@cli.command(
-    "chat", help="Engage in a chat session with a specified model in Xinference."
-)
-@click.option("--endpoint", "-e", type=str, help="Endpoint URL for the chat session.")
-@click.option(
-    "--model-uid", type=str, help="Unique identifier of the model to use for chatting."
-)
+@cli.command("chat", help="Chat with a running LLM.")
+@click.option("--endpoint", "-e", type=str, help="Xinference endpoint.")
+@click.option("--model-uid", type=str, help="The unique identifier (UID) of the model.")
 @click.option(
     "--max_tokens",
     default=256,
