@@ -228,22 +228,29 @@ def cache_from_huggingface(
 
     if llm_spec.model_format == "pytorch":
         assert isinstance(llm_spec, PytorchLLMSpecV1)
-        huggingface_hub.snapshot_download(
-            llm_spec.model_id,
-            revision=llm_spec.model_revision,
-            local_dir=cache_dir,
-            local_dir_use_symlinks=True,
-        )
+        try:
+            huggingface_hub.snapshot_download(
+                llm_spec.model_id,
+                revision=llm_spec.model_revision,
+                local_dir=cache_dir,
+                local_dir_use_symlinks=True,
+            )
+        except Exception:
+            logger.info("fail to launch model due to network error")
+
     elif llm_spec.model_format == "ggmlv3":
         assert isinstance(llm_spec, GgmlLLMSpecV1)
         file_name = llm_spec.model_file_name_template.format(quantization=quantization)
-        huggingface_hub.hf_hub_download(
-            llm_spec.model_id,
-            revision=llm_spec.model_revision,
-            filename=file_name,
-            local_dir=cache_dir,
-            local_dir_use_symlinks=True,
-        )
+        try:
+            huggingface_hub.hf_hub_download(
+                llm_spec.model_id,
+                revision=llm_spec.model_revision,
+                filename=file_name,
+                local_dir=cache_dir,
+                local_dir_use_symlinks=True,
+            )
+        except Exception:
+            logger.info("fail to launch model due to network error")
 
     return cache_dir
 
