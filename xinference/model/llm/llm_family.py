@@ -226,16 +226,12 @@ def cache_from_huggingface(
     if not os.path.exists(cache_dir):
         os.makedirs(cache_dir, exist_ok=True)
 
+    max_retry = 3
+
     if llm_spec.model_format == "pytorch":
         assert isinstance(llm_spec, PytorchLLMSpecV1)
-        try:
-            huggingface_hub.snapshot_download(
-                llm_spec.model_id,
-                revision=llm_spec.model_revision,
-                local_dir=cache_dir,
-                local_dir_use_symlinks=True,
-            )
-        except huggingface_hub.utils.LocalEntryNotFoundError:
+
+        for _ in range(max_retry):
             try:
                 huggingface_hub.snapshot_download(
                     llm_spec.model_id,
@@ -243,22 +239,20 @@ def cache_from_huggingface(
                     local_dir=cache_dir,
                     local_dir_use_symlinks=True,
                 )
+                break
             except huggingface_hub.utils.LocalEntryNotFoundError:
-                logger.info("fail to launch model due to network error")
+                pass
+            except Exception as e:
+                logger.error(f"fail to download the model: {e}")
+                break
+        else:
+            logger.info("fail to launch model due to network error")
 
     elif llm_spec.model_format == "ggmlv3":
         assert isinstance(llm_spec, GgmlLLMSpecV1)
         file_name = llm_spec.model_file_name_template.format(quantization=quantization)
-        try:
-            huggingface_hub.hf_hub_download(
-                llm_spec.model_id,
-                revision=llm_spec.model_revision,
-                filename=file_name,
-                local_dir=cache_dir,
-                local_dir_use_symlinks=True,
-            )
-        except huggingface_hub.utils.LocalEntryNotFoundError:
-            # retry
+
+        for _ in range(max_retry):
             try:
                 huggingface_hub.hf_hub_download(
                     llm_spec.model_id,
@@ -267,9 +261,14 @@ def cache_from_huggingface(
                     local_dir=cache_dir,
                     local_dir_use_symlinks=True,
                 )
+                break
             except huggingface_hub.utils.LocalEntryNotFoundError:
-                logger.info("fail to launch model due to network error")
-
+                pass
+            except Exception as e:
+                logger.error(f"fail to download the model: {e}")
+                break
+        else:
+            logger.info("fail to launch model due to network error")
     return cache_dir
 
 
