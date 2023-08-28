@@ -235,8 +235,16 @@ def cache_from_huggingface(
                 local_dir=cache_dir,
                 local_dir_use_symlinks=True,
             )
-        except Exception:
-            logger.info("fail to launch model due to network error")
+        except huggingface_hub.utils.LocalEntryNotFoundError:
+            try:
+                huggingface_hub.snapshot_download(
+                    llm_spec.model_id,
+                    revision=llm_spec.model_revision,
+                    local_dir=cache_dir,
+                    local_dir_use_symlinks=True,
+                )
+            except huggingface_hub.utils.LocalEntryNotFoundError:
+                logger.info("fail to launch model due to network error")
 
     elif llm_spec.model_format == "ggmlv3":
         assert isinstance(llm_spec, GgmlLLMSpecV1)
@@ -249,8 +257,18 @@ def cache_from_huggingface(
                 local_dir=cache_dir,
                 local_dir_use_symlinks=True,
             )
-        except Exception:
-            logger.info("fail to launch model due to network error")
+        except huggingface_hub.utils.LocalEntryNotFoundError:
+            # retry
+            try:
+                huggingface_hub.hf_hub_download(
+                    llm_spec.model_id,
+                    revision=llm_spec.model_revision,
+                    filename=file_name,
+                    local_dir=cache_dir,
+                    local_dir_use_symlinks=True,
+                )
+            except huggingface_hub.utils.LocalEntryNotFoundError:
+                logger.info("fail to launch model due to network error")
 
     return cache_dir
 
