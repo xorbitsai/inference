@@ -243,11 +243,9 @@ def cache_from_huggingface(
             except huggingface_hub.utils.LocalEntryNotFoundError:
                 remaining_attempts = MAX_RETRIES - current_attempt
                 logger.warning(
-                    f"Attempt {current_attempt} failed. Max remaining attempts: {remaining_attempts}"
+                    f"Attempt {current_attempt} failed. Remaining attempts: {remaining_attempts}"
                 )
                 pass
-            except Exception as e:
-                raise RuntimeError(f"Failed to download the model: {e}")
 
         else:
             raise RuntimeError("Failed to download after multiple retries")
@@ -269,11 +267,9 @@ def cache_from_huggingface(
             except huggingface_hub.utils.LocalEntryNotFoundError:
                 remaining_attempts = MAX_RETRIES - current_attempt
                 logger.warning(
-                    f"Attempt {current_attempt} failed. Max remaining attempts: {remaining_attempts}"
+                    f"Attempt {current_attempt} failed. Remaining attempts: {remaining_attempts}"
                 )
                 pass
-            except Exception as e:
-                raise RuntimeError(f"Failed to download the model: {e}")
 
         else:
             raise RuntimeError("Failed to download after multiple retries")
