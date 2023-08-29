@@ -60,7 +60,7 @@ const LaunchModel = () => {
     <Box m="20px">
       <Title title="Launch Model" />
       <div style={style}>
-        <ModelCard
+        {/* <ModelCard
           imgURL={require("../../media/logo_wizardlm.webp")}
           serviceName="WizardLM-v1.0"
           description="WizardLM is an open-source chatbot trained by fine-tuning LLaMA using the innovative Evol-Instruct method."
@@ -79,16 +79,12 @@ const LaunchModel = () => {
             model_name: "vicuna-v1.3",
             model_size_in_billions: 7,
           }}
-        />
+        /> */}
         {registrationData.map((registration, index) => (
           <ModelCard
             imgURL={require("../../media/logo_vicuna.webp")}
-            serviceName={registration.model_name}
-            description={registration.model_description}
             url={endPoint}
-            jsonData={{
-              model_name: registration.model_name,
-            }} // or any other properties
+            jsonData={registration}
           />
         ))}
       </div>
