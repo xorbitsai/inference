@@ -172,6 +172,8 @@ class WorkerActor(xo.Actor):
 
         if peft_model_path is not None:
             save_peft_path = await asyncio.to_thread(cache_peft, peft_model_path)
+        else:
+            save_peft_path = None
 
         llm_cls = match_llm_cls(llm_family, llm_spec)
         logger.debug(f"Launching {model_uid} with {llm_cls.__name__}")
