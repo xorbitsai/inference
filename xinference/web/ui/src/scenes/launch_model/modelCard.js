@@ -2,12 +2,16 @@ import React, { useState, useContext, useEffect } from "react";
 import { v1 as uuidv1 } from "uuid";
 import { ApiContext } from "../../components/apiContext";
 import { FormControl, InputLabel, Select, MenuItem, Box } from "@mui/material";
+import {
+  ChatOutlined,
+  EditNoteOutlined,
+  HelpCenterOutlined,
+} from "@mui/icons-material";
 
 const CARD_HEIGHT = 350;
 const CARD_WIDTH = 270;
 
-const ModelCard = ({ imgURL, url, jsonData }) => {
-  const modelData = jsonData;
+const ModelCard = ({ imgURL, url, modelData }) => {
   const [selected, setSelected] = useState(false);
   const { isCallingApi, setIsCallingApi } = useContext(ApiContext);
   const { isUpdatingModel } = useContext(ApiContext);
@@ -156,6 +160,7 @@ const ModelCard = ({ imgURL, url, jsonData }) => {
       fontSize: "20px",
     },
     p: {
+      minHeight: "140px",
       fontSize: "14px",
       padding: "0px 0px 15px 0px",
     },
@@ -184,6 +189,27 @@ const ModelCard = ({ imgURL, url, jsonData }) => {
       transform: "translateX(100%)",
       transition: "transform 0.2s ease-in-out",
     },
+    iconRow: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+    },
+    iconItem: {
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      margin: "20px",
+    },
+    boldIconText: {
+      fontWeight: "bold",
+      fontSize: "1.2em",
+    },
+    muiIcon: {
+      fontSize: "1.5em",
+    },
+    smallText: {
+      fontSize: "0.8em",
+    },
   };
 
   // Set two different states based on mouse hover
@@ -195,9 +221,42 @@ const ModelCard = ({ imgURL, url, jsonData }) => {
     >
       {/* First state: show description page */}
       <Box style={styles.descriptionCard}>
-        <img style={styles.img} src={imgURL} alt={modelData.model_name} />
+        {/* <img style={styles.img} src={imgURL} alt={modelData.model_name} /> */}
         <h2 style={styles.h2}>{modelData.model_name}</h2>
         <p style={styles.p}>{modelData.model_description}</p>
+
+        <div style={styles.iconRow}>
+          <div style={styles.iconItem}>
+            <span style={styles.boldIconText}>
+              {Math.floor(modelData.context_length / 1000)}K
+            </span>
+            <small style={styles.smallText}>context length</small>
+          </div>
+          {(() => {
+            if (modelData.model_ability.includes("chat")) {
+              return (
+                <div style={styles.iconItem}>
+                  <ChatOutlined style={styles.muiIcon} />
+                  <small style={styles.smallText}>chat model</small>
+                </div>
+              );
+            } else if (modelData.model_ability.includes("generate")) {
+              return (
+                <div style={styles.iconItem}>
+                  <EditNoteOutlined style={styles.muiIcon} />
+                  <small style={styles.smallText}>generate model</small>
+                </div>
+              );
+            } else {
+              return (
+                <div style={styles.iconItem}>
+                  <HelpCenterOutlined style={styles.muiIcon} />
+                  <small style={styles.smallText}>other model</small>
+                </div>
+              );
+            }
+          })()}
+        </div>
         <p style={styles.instructionText}>
           Hover with mouse to launch the model
         </p>
