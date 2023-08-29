@@ -3,6 +3,9 @@ import { v1 as uuidv1 } from "uuid";
 import { ApiContext } from "../../components/apiContext";
 import { FormControl, InputLabel, Select, MenuItem, Box } from "@mui/material";
 
+const CARD_HEIGHT = 350;
+const CARD_WIDTH = 270;
+
 const ModelCard = ({ imgURL, url, jsonData }) => {
   const modelData = jsonData;
   const [selected, setSelected] = useState(false);
@@ -18,6 +21,7 @@ const ModelCard = ({ imgURL, url, jsonData }) => {
   const [sizeOptions, setSizeOptions] = useState([]);
   const [quantizationOptions, setQuantizationOptions] = useState([]);
 
+  // UseEffects for parameter selection, change options based on previous selections
   useEffect(() => {
     if (modelData) {
       const modelFamily = modelData.model_specs;
@@ -107,11 +111,36 @@ const ModelCard = ({ imgURL, url, jsonData }) => {
   };
 
   const styles = {
-    card: {
-      width: "280px",
+    container: {
+      display: "block",
+      position: "relative",
+      width: `${CARD_WIDTH}px`,
+      height: `${CARD_HEIGHT}px`,
       border: "1px solid #ddd",
       borderRadius: "20px",
-      padding: "15px",
+      background: "white",
+      overflow: "hidden",
+    },
+    descriptionCard: {
+      position: "relative",
+      top: "-1px",
+      left: "-1px",
+      width: `${CARD_WIDTH}px`,
+      height: `${CARD_HEIGHT}px`,
+      border: "1px solid #ddd",
+      padding: "20px",
+      borderRadius: "20px",
+      background: "white",
+    },
+    parameterCard: {
+      position: "relative",
+      top: `-${CARD_HEIGHT + 1}px`,
+      left: "-1px",
+      width: `${CARD_WIDTH}px`,
+      height: `${CARD_HEIGHT}px`,
+      border: "1px solid #ddd",
+      padding: "20px",
+      borderRadius: "20px",
       background: "white",
     },
     img: {
@@ -147,11 +176,40 @@ const ModelCard = ({ imgURL, url, jsonData }) => {
       margin: "10px 0",
       textAlign: "center",
     },
+    slideIn: {
+      transform: "translateX(0%)",
+      transition: "transform 0.2s ease-in-out",
+    },
+    slideOut: {
+      transform: "translateX(100%)",
+      transition: "transform 0.2s ease-in-out",
+    },
   };
 
-  if (selected) {
-    return (
-      <Box style={styles.card} onMouseLeave={() => setSelected(false)}>
+  // Set two different states based on mouse hover
+  return (
+    <Box
+      style={styles.container}
+      onMouseEnter={() => setSelected(true)}
+      onMouseLeave={() => setSelected(false)}
+    >
+      {/* First state: show description page */}
+      <Box style={styles.descriptionCard}>
+        <img style={styles.img} src={imgURL} alt={modelData.model_name} />
+        <h2 style={styles.h2}>{modelData.model_name}</h2>
+        <p style={styles.p}>{modelData.model_description}</p>
+        <p style={styles.instructionText}>
+          Hover with mouse to launch the model
+        </p>
+      </Box>
+      {/* Second state: show parameter selection page */}
+      <Box
+        style={
+          selected
+            ? { ...styles.parameterCard, ...styles.slideIn }
+            : { ...styles.parameterCard, ...styles.slideOut }
+        }
+      >
         <Box display="flex" flexDirection="column" width="80%" mx="auto">
           <FormControl variant="outlined" margin="dense">
             <InputLabel id="modelFormat-label">Model Format</InputLabel>
@@ -224,15 +282,6 @@ const ModelCard = ({ imgURL, url, jsonData }) => {
           {isCallingApi || isUpdatingModel ? "Loading..." : "Launch"}
         </button>
       </Box>
-    );
-  }
-
-  return (
-    <Box style={styles.card} onMouseEnter={() => setSelected(true)}>
-      <img style={styles.img} src={imgURL} alt={modelData.model_name} />
-      <h2 style={styles.h2}>{modelData.model_name}</h2>
-      <p style={styles.p}>{modelData.model_description}</p>
-      <p style={styles.instructionText}>Hover with mouse to launch the model</p>
     </Box>
   );
 };
