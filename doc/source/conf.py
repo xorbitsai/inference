@@ -17,9 +17,9 @@
 
 # -- Project information -----------------------------------------------------
 
-project = 'Xinference'
-copyright = '2023, Xorbits Inc.'
-author = 'xorbitsai'
+project = "Xinference"
+copyright = "2023, Xorbits Inc."
+author = "xorbitsai"
 
 
 # -- General configuration ---------------------------------------------------
@@ -40,7 +40,7 @@ extensions = [
 ]
 
 # Add any paths that contain templates here, relative to this directory.
-templates_path = ['_templates']
+templates_path = ["_templates"]
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
@@ -57,13 +57,13 @@ gettext_compact = False  # optional
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'pydata_sphinx_theme'
+html_theme = "pydata_sphinx_theme"
 html_title = "Xinference"
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['_static']
+html_static_path = ["_static"]
 
 html_theme_options = {
     "show_toc_level": 2,
@@ -86,7 +86,7 @@ html_theme_options = {
             "icon": "fa-brands fa-twitter",
             "type": "fontawesome",
         },
-    ]
+    ],
 }
 
 html_favicon = "_static/favicon.svg"

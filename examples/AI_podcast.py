@@ -214,7 +214,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
-        "-e", "--endpoint", type=str, help="Xinference endpoint, required", required=True
+        "-e",
+        "--endpoint",
+        type=str,
+        help="Xinference endpoint, required",
+        required=True,
     )
     args = parser.parse_args()
 

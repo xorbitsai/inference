@@ -21,7 +21,7 @@ from typing import List, Optional, Tuple, Type, Union
 from pydantic import BaseModel, Field
 from typing_extensions import Annotated, Literal
 
-from ...constants import XINFERENCE_CACHE_DIR, XINFERENCE_MODEL_DIR, XINFERENCE_LORA_DIR
+from ...constants import XINFERENCE_CACHE_DIR, XINFERENCE_LORA_DIR, XINFERENCE_MODEL_DIR
 from . import LLM
 
 logger = logging.getLogger(__name__)
@@ -116,9 +116,8 @@ def cache(
             logger.debug(f"Caching from Hugging Face: {llm_spec.model_id}")
             return cache_from_huggingface(llm_family, llm_spec, quantization)
 
-def cache_peft(
-    peft_model_path: str
-) -> str:
+
+def cache_peft(peft_model_path: str) -> str:
     legacy_cache_path = os.path.join(peft_model_path, "adaptor_model.bin")
     if os.path.exists(legacy_cache_path):
         logger.debug("Legacy cache path exists: %s", legacy_cache_path)
@@ -126,12 +125,13 @@ def cache_peft(
     else:
         # Cache peft path from Hugging Face. Return the cache directory.
         import huggingface_hub
+
         cache_dir = os.path.join(XINFERENCE_LORA_DIR, peft_model_path)
         if not os.path.exists(cache_dir):
             os.makedirs(cache_dir, exist_ok=True)
 
         # TODO: add retry
-    
+
         huggingface_hub.snapshot_download(
             peft_model_path,
             local_dir=cache_dir,
