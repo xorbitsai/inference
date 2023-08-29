@@ -166,9 +166,11 @@ class WorkerActor(xo.Actor):
         llm_family, llm_spec, quantization = match_result
         assert quantization is not None
 
-        from ..model.llm.llm_family import cache
+        from ..model.llm.llm_family import cache, cache_peft
 
         save_path = await asyncio.to_thread(cache, llm_family, llm_spec, quantization)
+
+        save_peft_path = await asyncio.to_thread(cache_peft, peft_model_path)
 
         llm_cls = match_llm_cls(llm_family, llm_spec)
         logger.debug(f"Launching {model_uid} with {llm_cls.__name__}")
@@ -185,7 +187,7 @@ class WorkerActor(xo.Actor):
                 llm_spec,
                 quantization,
                 save_path,
-                peft_model_path,
+                save_peft_path,
                 kwargs,
             )
         else:

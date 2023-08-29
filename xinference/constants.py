@@ -18,6 +18,7 @@ from pathlib import Path
 XINFERENCE_HOME = str(Path.home() / ".xinference")
 XINFERENCE_CACHE_DIR = os.path.join(XINFERENCE_HOME, "cache")
 XINFERENCE_MODEL_DIR = os.path.join(XINFERENCE_HOME, "model")
+XINFERENCE_LORA_DIR = os.path.join(XINFERENCE_HOME, "lora")
 XINFERENCE_LOG_DIR = os.path.join(XINFERENCE_HOME, "logs")
 
 XINFERENCE_DEFAULT_LOCAL_HOST = "127.0.0.1"
