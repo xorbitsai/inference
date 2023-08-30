@@ -335,7 +335,7 @@ class RESTfulAPIActor(xo.Actor):
         model_size_in_billions = payload.get("model_size_in_billions")
         model_format = payload.get("model_format")
         quantization = payload.get("quantization")
-        replica = payload.get("replica")
+        replica = payload.get("replica", 1)
 
         exclude_keys = {
             "model_uid",
