@@ -39,6 +39,9 @@ class LlamaPytorchModel(PytorchModel):
 
     def _load_model(self, kwargs: dict):
         model, tokenizer = super()._load_model(kwargs)
+        # Llama has no pad token by default
+        # https://github.com/huggingface/transformers/blob/07998ef39926b76d3f6667025535d0859eed61c3/docs/source/en/llm_tutorial.md?plain=1#L125
+        tokenizer.pad_token = tokenizer.eos_token
         model.config.eos_token_id = tokenizer.eos_token_id
         model.config.pad_token_id = tokenizer.pad_token_id
         return model, tokenizer
@@ -76,6 +79,9 @@ class LlamaPytorchChatModel(PytorchChatModel):
 
     def _load_model(self, kwargs: dict):
         model, tokenizer = super()._load_model(kwargs)
+        # Llama has no pad token by default
+        # https://github.com/huggingface/transformers/blob/07998ef39926b76d3f6667025535d0859eed61c3/docs/source/en/llm_tutorial.md?plain=1#L125
+        tokenizer.pad_token = tokenizer.eos_token
         model.config.eos_token_id = tokenizer.eos_token_id
         model.config.pad_token_id = tokenizer.pad_token_id
         return model, tokenizer
