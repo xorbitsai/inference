@@ -17,7 +17,7 @@ import random
 import time
 from dataclasses import dataclass
 from logging import getLogger
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, AsyncGenerator, Dict, List, Optional
 
 import xoscar as xo
 
@@ -156,7 +156,7 @@ class SupervisorActor(xo.Actor):
         quantization: Optional[str],
         replica: Optional[int] = 1,
         **kwargs,
-    ) -> str:
+    ) -> AsyncGenerator:
         logger.debug(
             (
                 f"Enter launch_builtin_model, model_uid: %s, model_name: %s, model_size: %s, "
