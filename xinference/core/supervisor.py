@@ -157,7 +157,7 @@ class SupervisorActor(xo.Actor):
         model_size_in_billions: Optional[int],
         model_format: Optional[str],
         quantization: Optional[str],
-        replica: Optional[int] = 1,
+        replica: int = 1,
         **kwargs,
     ) -> AsyncGenerator:
         logger.debug(

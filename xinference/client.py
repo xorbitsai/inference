@@ -559,7 +559,7 @@ class Client:
         model_size_in_billions: Optional[int] = None,
         model_format: Optional[str] = None,
         quantization: Optional[str] = None,
-        replica: Optional[int] = 1,
+        replica: int = 1,
         **kwargs,
     ) -> str:
         """
@@ -699,7 +699,7 @@ class RESTfulClient:
         model_size_in_billions: Optional[int] = None,
         model_format: Optional[str] = None,
         quantization: Optional[str] = None,
-        replica: Optional[int] = 1,
+        replica: int = 1,
         **kwargs,
     ) -> str:
         """

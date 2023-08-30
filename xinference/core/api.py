@@ -41,7 +41,7 @@ class AsyncSupervisorAPI:
         model_size_in_billions: Optional[int] = None,
         model_format: Optional[str] = None,
         quantization: Optional[str] = None,
-        replica: Optional[int] = 1,
+        replica: int = 1,
         **kwargs,
     ) -> str:
         supervisor_ref = await self._get_supervisor_ref()
@@ -95,7 +95,7 @@ class SyncSupervisorAPI:
         model_size_in_billions: Optional[int] = None,
         model_format: Optional[str] = None,
         quantization: Optional[str] = None,
-        replica: Optional[int] = 1,
+        replica: int = 1,
         **kwargs,
     ) -> str:
         async def _launch_model():
