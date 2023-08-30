@@ -26,7 +26,7 @@ from . import LLM
 
 logger = logging.getLogger(__name__)
 
-MAX_RETRIES = 3
+MAX_ATTEMPTS = 3
 
 
 class GgmlLLMSpecV1(BaseModel):
@@ -231,7 +231,7 @@ def cache_from_huggingface(
     if llm_spec.model_format == "pytorch":
         assert isinstance(llm_spec, PytorchLLMSpecV1)
 
-        for current_attempt in range(1, MAX_RETRIES + 1):
+        for current_attempt in range(1, MAX_ATTEMPTS + 1):
             try:
                 huggingface_hub.snapshot_download(
                     llm_spec.model_id,
@@ -241,20 +241,21 @@ def cache_from_huggingface(
                 )
                 break
             except huggingface_hub.utils.LocalEntryNotFoundError:
-                remaining_attempts = MAX_RETRIES - current_attempt
+                remaining_attempts = MAX_ATTEMPTS - current_attempt
                 logger.warning(
                     f"Attempt {current_attempt} failed. Remaining attempts: {remaining_attempts}"
                 )
-                pass
 
         else:
-            raise RuntimeError("Failed to download after multiple retries")
+            raise RuntimeError(
+                f"Failed to download model '{llm_spec.model_name}' (size: {llm_spec.model_size}, format: {llm_spec.model_format}) after multiple retries"
+            )
 
     elif llm_spec.model_format == "ggmlv3":
         assert isinstance(llm_spec, GgmlLLMSpecV1)
         file_name = llm_spec.model_file_name_template.format(quantization=quantization)
 
-        for current_attempt in range(1, MAX_RETRIES + 1):
+        for current_attempt in range(1, MAX_ATTEMPTS + 1):
             try:
                 huggingface_hub.hf_hub_download(
                     llm_spec.model_id,
@@ -265,14 +266,15 @@ def cache_from_huggingface(
                 )
                 break
             except huggingface_hub.utils.LocalEntryNotFoundError:
-                remaining_attempts = MAX_RETRIES - current_attempt
+                remaining_attempts = MAX_ATTEMPTS - current_attempt
                 logger.warning(
                     f"Attempt {current_attempt} failed. Remaining attempts: {remaining_attempts}"
                 )
-                pass
 
         else:
-            raise RuntimeError("Failed to download after multiple retries")
+            raise RuntimeError(
+                f"Failed to download model '{llm_spec.model_name}' (size: {llm_spec.model_size}, format: {llm_spec.model_format}) after multiple retries"
+            )
 
     return cache_dir
 
