@@ -26,6 +26,8 @@ async def create_worker_actor_pool(
 ) -> "MainActorPoolType":
     from xorbits._mars.resource import cuda_count
 
+    subprocess_start_method = "forkserver" if os.name != "nt" else "spawn"
+
     cuda_device_indices = []
     cuda_visible_devices = os.environ.get("CUDA_VISIBLE_DEVICES")
     if cuda_visible_devices:
@@ -46,6 +48,7 @@ async def create_worker_actor_pool(
             n_process=n_process,
             labels=labels,
             envs=envs,
+            subprocess_start_method=subprocess_start_method,
             logging_conf=logging_conf,
         )
         return pool
@@ -64,6 +67,7 @@ async def create_worker_actor_pool(
             address=address,
             n_process=n_process,
             labels=labels,
+            subprocess_start_method=subprocess_start_method,
             logging_conf=logging_conf,
         )
         return pool
