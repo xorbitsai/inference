@@ -559,6 +559,7 @@ class Client:
         model_size_in_billions: Optional[int] = None,
         model_format: Optional[str] = None,
         quantization: Optional[str] = None,
+        replica: Optional[int] = 1,
         **kwargs,
     ) -> str:
         """
@@ -574,6 +575,8 @@ class Client:
             The format of the model.
         quantization: Optional[str]
             The quantization of model.
+        replica: Optional[int]
+            The replica of model, default is 1.
         **kwargs:
             Any other parameters been specified.
 
@@ -592,11 +595,11 @@ class Client:
             model_size_in_billions=model_size_in_billions,
             model_format=model_format,
             quantization=quantization,
+            replica=replica,
             **kwargs,
         )
-        self._isolation.call(coro)
 
-        return model_uid
+        return self._isolation.call(coro)
 
     def terminate_model(self, model_uid: str):
         """
@@ -696,6 +699,7 @@ class RESTfulClient:
         model_size_in_billions: Optional[int] = None,
         model_format: Optional[str] = None,
         quantization: Optional[str] = None,
+        replica: Optional[int] = 1,
         **kwargs,
     ) -> str:
         """
@@ -711,6 +715,8 @@ class RESTfulClient:
             The format of the model.
         quantization: Optional[str]
             The quantization of model.
+        replica: Optional[int]
+            The replica of model, default is 1.
         **kwargs:
             Any other parameters been specified.
 
@@ -731,6 +737,7 @@ class RESTfulClient:
             "model_size_in_billions": model_size_in_billions,
             "model_format": model_format,
             "quantization": quantization,
+            "replica": replica,
         }
 
         for key, value in kwargs.items():

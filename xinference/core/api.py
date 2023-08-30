@@ -41,15 +41,17 @@ class AsyncSupervisorAPI:
         model_size_in_billions: Optional[int] = None,
         model_format: Optional[str] = None,
         quantization: Optional[str] = None,
+        replica: Optional[int] = 1,
         **kwargs,
     ) -> str:
         supervisor_ref = await self._get_supervisor_ref()
-        await supervisor_ref.launch_builtin_model(
+        model_uid = await supervisor_ref.launch_builtin_model(
             model_uid=model_uid,
             model_name=model_name,
             model_size_in_billions=model_size_in_billions,
             model_format=model_format,
             quantization=quantization,
+            replica=replica,
             **kwargs,
         )
         return model_uid
@@ -93,19 +95,20 @@ class SyncSupervisorAPI:
         model_size_in_billions: Optional[int] = None,
         model_format: Optional[str] = None,
         quantization: Optional[str] = None,
+        replica: Optional[int] = 1,
         **kwargs,
     ) -> str:
         async def _launch_model():
             supervisor_ref = await self._get_supervisor_ref()
-            await supervisor_ref.launch_builtin_model(
+            return await supervisor_ref.launch_builtin_model(
                 model_uid=model_uid,
                 model_name=model_name,
                 model_size_in_billions=model_size_in_billions,
                 model_format=model_format,
                 quantization=quantization,
+                replica=replica,
                 **kwargs,
             )
-            return model_uid
 
         return self._isolation.call(_launch_model())
 

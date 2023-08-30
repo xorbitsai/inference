@@ -51,6 +51,28 @@ def test_client(setup):
     assert len(client.list_models()) == 0
 
 
+def test_replica_model(setup):
+    endpoint, _ = setup
+    client = Client(endpoint)
+    assert len(client.list_models()) == 0
+
+    model_uid = client.launch_model(
+        model_name="orca", model_size_in_billions=3, quantization="q4_0", replica=3
+    )
+    assert len(client.list_models()) == 3
+
+    replica_uids = set()
+    while len(replica_uids) != 3:
+        model = client.get_model(model_uid=model_uid)
+        replica_uids.add(model._model_ref.uid)
+
+    embedding_res = model.create_embedding("The food was delicious and the waiter...")
+    assert "embedding" in embedding_res["data"][0]
+
+    client.terminate_model(model_uid=model_uid)
+    assert len(client.list_models()) == 0
+
+
 def test_client_custom_model(setup):
     endpoint, _ = setup
     client = Client(endpoint)

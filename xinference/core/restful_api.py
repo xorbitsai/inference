@@ -335,6 +335,7 @@ class RESTfulAPIActor(xo.Actor):
         model_size_in_billions = payload.get("model_size_in_billions")
         model_format = payload.get("model_format")
         quantization = payload.get("quantization")
+        replica = payload.get("replica")
 
         exclude_keys = {
             "model_uid",
@@ -342,6 +343,7 @@ class RESTfulAPIActor(xo.Actor):
             "model_size_in_billions",
             "model_format",
             "quantization",
+            "replica",
         }
 
         kwargs = {
@@ -355,12 +357,13 @@ class RESTfulAPIActor(xo.Actor):
             )
 
         try:
-            await self._supervisor_ref.launch_builtin_model(
+            model_uid = await self._supervisor_ref.launch_builtin_model(
                 model_uid=model_uid,
                 model_name=model_name,
                 model_size_in_billions=model_size_in_billions,
                 model_format=model_format,
                 quantization=quantization,
+                replica=replica,
                 **kwargs,
             )
 
