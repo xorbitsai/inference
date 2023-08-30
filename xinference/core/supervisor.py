@@ -34,13 +34,13 @@ logger = getLogger(__name__)
 DEFAULT_NODE_TIMEOUT = 30
 
 
-def _iter_replica_model_uid(model_uid):
+def _iter_replica_model_uid(model_uid, replica):
     """
     Generates all the replica model uids.
     """
-    replica = int(model_uid.split("-")[-1])
+    replica = int(replica)
     for rep_id in range(replica):
-        yield f"{model_uid}-{rep_id}"
+        yield f"{model_uid}-{replica}-{rep_id}"
 
 
 @dataclass
@@ -53,7 +53,10 @@ class SupervisorActor(xo.Actor):
     def __init__(self):
         super().__init__()
         self._worker_address_to_worker: Dict[str, xo.ActorRefType["WorkerActor"]] = {}
-        self._model_uid_to_worker: Dict[str, xo.ActorRefType["WorkerActor"]] = {}
+        self._replica_model_uid_to_worker: Dict[
+            str, xo.ActorRefType["WorkerActor"]
+        ] = {}
+        self._model_uid_to_replica: Dict[str, int] = {}
         self._worker_status: Dict[str, WorkerStatus] = {}
 
     @classmethod
@@ -169,17 +172,16 @@ class SupervisorActor(xo.Actor):
             quantization,
             replica,
         )
-        model_uid = f"{model_uid}-{replica}"
 
-        async def _launch_one_model(_model_uid):
-            if _model_uid in self._model_uid_to_worker:
+        async def _launch_one_model(_replica_model_uid):
+            if _replica_model_uid in self._replica_model_uid_to_worker:
                 raise ValueError(
-                    f"Model is already in the model list, uid: {_model_uid}"
+                    f"Model is already in the model list, uid: {_replica_model_uid}"
                 )
 
             worker_ref = await self._choose_worker()
             await worker_ref.launch_builtin_model(
-                model_uid=_model_uid,
+                model_uid=_replica_model_uid,
                 model_name=model_name,
                 model_size_in_billions=model_size_in_billions,
                 model_format=model_format,
@@ -187,14 +189,17 @@ class SupervisorActor(xo.Actor):
                 **kwargs,
             )
             # TODO: not protected.
-            self._model_uid_to_worker[_model_uid] = worker_ref
+            self._replica_model_uid_to_worker[_replica_model_uid] = worker_ref
 
+        if model_uid in self._model_uid_to_replica:
+            raise ValueError(f"Model is already in the model list, uid: {model_uid}")
         try:
-            for rep_model_uid in _iter_replica_model_uid(model_uid):
+            for rep_model_uid in _iter_replica_model_uid(model_uid, replica):
                 yield _launch_one_model(rep_model_uid)
         except Exception:
             await self.terminate_model(model_uid, suppress_exception=True)
             raise
+        self._model_uid_to_replica[model_uid] = replica
         raise xo.Return(model_uid)
 
     async def _check_dead_nodes(self):
@@ -203,8 +208,11 @@ class SupervisorActor(xo.Actor):
             for address, status in self._worker_status.items():
                 if time.time() - status.update_time > DEFAULT_NODE_TIMEOUT:
                     dead_models = []
-                    for model_uid in self._model_uid_to_worker:
-                        if self._model_uid_to_worker[model_uid].address == address:
+                    for model_uid in self._replica_model_uid_to_worker:
+                        if (
+                            self._replica_model_uid_to_worker[model_uid].address
+                            == address
+                        ):
                             dead_models.append(model_uid)
                     logger.error(
                         "Worker timeout. address: %s, influenced models: %s",
@@ -220,40 +228,58 @@ class SupervisorActor(xo.Actor):
 
     @log_async(logger=logger)
     async def terminate_model(self, model_uid: str, suppress_exception=False):
-        async def _terminate_one_model(_model_uid):
-            if _model_uid not in self._model_uid_to_worker:
+        async def _terminate_one_model(_replica_model_uid):
+            if _replica_model_uid not in self._replica_model_uid_to_worker:
                 raise ValueError(
-                    f"Model not found in the model list, uid: {_model_uid}"
+                    f"Model not found in the model list, uid: {_replica_model_uid}"
                 )
 
-            worker_ref = self._model_uid_to_worker[_model_uid]
-            await worker_ref.terminate_model(model_uid=_model_uid)
-            del self._model_uid_to_worker[_model_uid]
+            worker_ref = self._replica_model_uid_to_worker[_replica_model_uid]
+            await worker_ref.terminate_model(model_uid=_replica_model_uid)
+            del self._replica_model_uid_to_worker[_replica_model_uid]
 
-        for rep_model_uid in _iter_replica_model_uid(model_uid):
+        if model_uid not in self._model_uid_to_replica:
+            raise ValueError(f"Model not found in the model list, uid: {model_uid}")
+        replica = self._model_uid_to_replica[model_uid]
+        for rep_model_uid in _iter_replica_model_uid(model_uid, replica):
             try:
                 await _terminate_one_model(rep_model_uid)
             except Exception:
                 if not suppress_exception:
                     raise
+        del self._model_uid_to_replica[model_uid]
 
     @log_async(logger=logger)
     async def get_model(self, model_uid: str) -> xo.ActorRefType["ModelActor"]:
-        model_uid = random.choice(list(_iter_replica_model_uid(model_uid)))
-        if model_uid not in self._model_uid_to_worker:
+        if model_uid not in self._model_uid_to_replica:
             raise ValueError(f"Model not found in the model list, uid: {model_uid}")
+        replica = self._model_uid_to_replica[model_uid]
+        replica_model_uid = random.choice(
+            list(_iter_replica_model_uid(model_uid, replica))
+        )
+        if replica_model_uid not in self._replica_model_uid_to_worker:
+            raise ValueError(
+                f"Model not found in the model list, uid: {replica_model_uid}"
+            )
 
-        worker_ref = self._model_uid_to_worker[model_uid]
-        return await worker_ref.get_model(model_uid=model_uid)
+        worker_ref = self._replica_model_uid_to_worker[replica_model_uid]
+        return await worker_ref.get_model(model_uid=replica_model_uid)
 
     @log_async(logger=logger)
     async def describe_model(self, model_uid: str) -> Dict[str, Any]:
-        model_uid = random.choice(list(_iter_replica_model_uid(model_uid)))
-        if model_uid not in self._model_uid_to_worker:
+        if model_uid not in self._model_uid_to_replica:
             raise ValueError(f"Model not found in the model list, uid: {model_uid}")
+        replica = self._model_uid_to_replica[model_uid]
+        replica_model_uid = random.choice(
+            list(_iter_replica_model_uid(model_uid, replica))
+        )
+        if replica_model_uid not in self._replica_model_uid_to_worker:
+            raise ValueError(
+                f"Model not found in the model list, uid: {replica_model_uid}"
+            )
 
-        worker_ref = self._model_uid_to_worker[model_uid]
-        return await worker_ref.describe_model(model_uid=model_uid)
+        worker_ref = self._replica_model_uid_to_worker[replica_model_uid]
+        return await worker_ref.describe_model(model_uid=replica_model_uid)
 
     @log_async(logger=logger)
     async def list_models(self) -> Dict[str, Dict[str, Any]]:
