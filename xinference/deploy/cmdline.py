@@ -364,10 +364,12 @@ def model_generate(
         print(f"Completion: {prompt}", end="", file=sys.stdout)
 
         if stream:
-            for chunk in model.generate(
+            iter = model.generate(
                 prompt=prompt,
                 generate_config={"stream": stream, "max_tokens": max_tokens},
-            ):
+            )
+            assert not isinstance(iter, dict)
+            for chunk in iter:
                 choice = chunk["choices"][0]
                 if "text" not in choice:
                     continue
@@ -378,8 +380,7 @@ def model_generate(
                 prompt=prompt,
                 generate_config={"stream": stream, "max_tokens": max_tokens},
             )
-            if not isinstance(response, dict):
-                raise ValueError("generate result is not valid")
+            assert isinstance(response, dict)
             print(f"{response['choices'][0]['text']}", file=sys.stdout)
         print("\n", file=sys.stdout)
 
@@ -420,11 +421,13 @@ def model_chat(
 
         response_content = ""
         if stream:
-            for chunk in model.chat(
+            iter = model.chat(
                 prompt=prompt,
                 chat_history=chat_history,
                 generate_config={"stream": stream, "max_tokens": max_tokens},
-            ):
+            )
+            assert not isinstance(iter, dict)
+            for chunk in iter:
                 delta = chunk["choices"][0]["delta"]
                 if "content" not in delta:
                     continue
@@ -437,6 +440,7 @@ def model_chat(
                 chat_history=chat_history,
                 generate_config={"stream": stream, "max_tokens": max_tokens},
             )
+            assert isinstance(response, dict)
             response_content = response["choices"][0]["message"]["content"]
             print(f"{response_content}", file=sys.stdout)
 
