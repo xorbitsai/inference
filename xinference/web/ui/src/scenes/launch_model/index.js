@@ -1,7 +1,7 @@
 import React, { useContext, useState, useEffect } from "react";
 import ModelCard from "./modelCard";
 import Title from "../../components/Title";
-import { Box } from "@mui/material";
+import { Box, TextField, FormControl } from "@mui/material";
 import { ApiContext } from "../../components/apiContext";
 
 const LaunchModel = () => {
@@ -9,6 +9,27 @@ const LaunchModel = () => {
   const [registrationData, setRegistrationData] = useState([]);
   const { isCallingApi, setIsCallingApi } = useContext(ApiContext);
   const { isUpdatingModel } = useContext(ApiContext);
+
+  // States used for filtering
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const handleChange = (event) => {
+    setSearchTerm(event.target.value);
+  };
+
+  const filter = (registration) => {
+    if (
+      !registration.model_name
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase()) &&
+      !registration.model_description
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase())
+    ) {
+      return false;
+    }
+    return true;
+  };
 
   const update = async () => {
     if (isCallingApi || isUpdatingModel) return;
@@ -59,10 +80,27 @@ const LaunchModel = () => {
   return (
     <Box m="20px">
       <Title title="Launch Model" />
+      <FormControl
+        variant="outlined"
+        margin="normal"
+        sx={{ width: "100%", paddingBottom: "30px" }}
+      >
+        <TextField
+          id="search"
+          type="search"
+          label="Search for model name and description"
+          value={searchTerm}
+          onChange={handleChange}
+          size="small"
+          sx={{ width: "95%", paddingBottom: "30px" }}
+        />
+      </FormControl>
       <div style={style}>
-        {registrationData.map((registration) => (
-          <ModelCard url={endPoint} modelData={registration} />
-        ))}
+        {registrationData
+          .filter((registration) => filter(registration))
+          .map((filteredRegistration) => (
+            <ModelCard url={endPoint} modelData={filteredRegistration} />
+          ))}
       </div>
     </Box>
   );

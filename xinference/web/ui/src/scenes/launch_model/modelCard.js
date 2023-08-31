@@ -296,9 +296,13 @@ const ModelCard = ({ url, modelData }) => {
             }
           })()}
         </div>
-        <p style={styles.instructionText}>
-          Click with mouse to launch the model
-        </p>
+        {hover ? (
+          <p style={styles.instructionText}>
+            Click with mouse to launch the model
+          </p>
+        ) : (
+          <p style={styles.instructionText}></p>
+        )}
       </Box>
       {/* Second state: show parameter selection page */}
       <Box
