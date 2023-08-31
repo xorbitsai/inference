@@ -184,13 +184,15 @@ class SupervisorActor(xo.Actor):
 
         if model_uid in self._model_uid_to_replica:
             raise ValueError(f"Model is already in the model list, uid: {model_uid}")
+        # Set replica first for exception handler to terminate model.
+        self._model_uid_to_replica[model_uid] = replica
         try:
             for rep_model_uid in iter_replica_model_uid(model_uid, replica):
                 yield _launch_one_model(rep_model_uid)
         except Exception:
             await self.terminate_model(model_uid, suppress_exception=True)
+            self._model_uid_to_replica.pop(model_uid, None)
             raise
-        self._model_uid_to_replica[model_uid] = replica
         raise xo.Return(model_uid)
 
     async def _check_dead_nodes(self):
