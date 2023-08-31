@@ -2,16 +2,20 @@ import React, { useState, useContext, useEffect } from "react";
 import { v1 as uuidv1 } from "uuid";
 import { ApiContext } from "../../components/apiContext";
 import { FormControl, InputLabel, Select, MenuItem, Box } from "@mui/material";
+import { CircularProgress } from "@mui/material";
 import {
   ChatOutlined,
   EditNoteOutlined,
   HelpCenterOutlined,
+  UndoOutlined,
+  RocketLaunchOutlined,
 } from "@mui/icons-material";
 
 const CARD_HEIGHT = 350;
 const CARD_WIDTH = 270;
 
 const ModelCard = ({ imgURL, url, modelData }) => {
+  const [hover, setHover] = useState(false);
   const [selected, setSelected] = useState(false);
   const { isCallingApi, setIsCallingApi } = useContext(ApiContext);
   const { isUpdatingModel } = useContext(ApiContext);
@@ -69,6 +73,10 @@ const ModelCard = ({ imgURL, url, modelData }) => {
   }, [modelFormat, modelSize, modelData]);
 
   const launchModel = (url) => {
+    if (isCallingApi || isUpdatingModel) {
+      return;
+    }
+
     setIsCallingApi(true);
 
     const uuid = uuidv1();
@@ -125,6 +133,17 @@ const ModelCard = ({ imgURL, url, modelData }) => {
       background: "white",
       overflow: "hidden",
     },
+    containerSelected: {
+      display: "block",
+      position: "relative",
+      width: `${CARD_WIDTH}px`,
+      height: `${CARD_HEIGHT}px`,
+      border: "1px solid #ddd",
+      borderRadius: "20px",
+      background: "white",
+      overflow: "hidden",
+      boxShadow: "0 0 2px #00000099",
+    },
     descriptionCard: {
       position: "relative",
       top: "-1px",
@@ -164,15 +183,31 @@ const ModelCard = ({ imgURL, url, modelData }) => {
       fontSize: "14px",
       padding: "0px 0px 15px 0px",
     },
-    button: {
-      display: "block",
-      padding: "10px 24px",
+    buttonsContainer: {
+      display: "flex",
       margin: "0 auto",
       marginTop: "30px",
       border: "none",
-      borderRadius: "5px",
-      cursor: "pointer",
-      fontWeight: "bold",
+      justifyContent: "space-between",
+      alignItems: "center",
+    },
+    buttonContainer: {
+      width: "45%",
+      borderWidth: "0px",
+      backgroundColor: "transparent",
+      paddingLeft: "0px",
+      paddingRight: "0px",
+    },
+    buttonItem: {
+      width: "100%",
+      margin: "0 auto",
+      padding: "5px",
+      display: "flex",
+      justifyContent: "center",
+      borderRadius: "4px",
+      border: "1px solid #e5e7eb",
+      borderWidth: "1px",
+      borderColor: "#e5e7eb",
     },
     instructionText: {
       fontSize: "12px",
@@ -215,13 +250,17 @@ const ModelCard = ({ imgURL, url, modelData }) => {
   // Set two different states based on mouse hover
   return (
     <Box
-      style={styles.container}
-      onMouseEnter={() => setSelected(true)}
-      onMouseLeave={() => setSelected(false)}
+      style={hover ? styles.containerSelected : styles.container}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      onClick={() => {
+        if (!selected) {
+          setSelected(true);
+        }
+      }}
     >
       {/* First state: show description page */}
       <Box style={styles.descriptionCard}>
-        {/* <img style={styles.img} src={imgURL} alt={modelData.model_name} /> */}
         <h2 style={styles.h2}>{modelData.model_name}</h2>
         <p style={styles.p}>{modelData.model_description}</p>
 
@@ -258,7 +297,7 @@ const ModelCard = ({ imgURL, url, modelData }) => {
           })()}
         </div>
         <p style={styles.instructionText}>
-          Hover with mouse to launch the model
+          Click with mouse to launch the model
         </p>
       </Box>
       {/* Second state: show parameter selection page */}
@@ -269,8 +308,9 @@ const ModelCard = ({ imgURL, url, modelData }) => {
             : { ...styles.parameterCard, ...styles.slideOut }
         }
       >
+        <h2 style={styles.h2}>{modelData.model_name}</h2>
         <Box display="flex" flexDirection="column" width="80%" mx="auto">
-          <FormControl variant="outlined" margin="dense">
+          <FormControl variant="outlined" margin="normal" size="small">
             <InputLabel id="modelFormat-label">Model Format</InputLabel>
             <Select
               labelId="modelFormat-label"
@@ -287,7 +327,8 @@ const ModelCard = ({ imgURL, url, modelData }) => {
           </FormControl>
           <FormControl
             variant="outlined"
-            margin="dense"
+            margin="normal"
+            size="small"
             disabled={!modelFormat}
           >
             <InputLabel id="modelSize-label">Model Size</InputLabel>
@@ -306,7 +347,8 @@ const ModelCard = ({ imgURL, url, modelData }) => {
           </FormControl>
           <FormControl
             variant="outlined"
-            margin="dense"
+            margin="normal"
+            size="small"
             disabled={!modelFormat || !modelSize}
           >
             <InputLabel id="quantization-label">Quantization</InputLabel>
@@ -324,22 +366,60 @@ const ModelCard = ({ imgURL, url, modelData }) => {
             </Select>
           </FormControl>
         </Box>
-        <button
-          style={{
-            ...styles.button,
-            color: isCallingApi || isUpdatingModel ? "white" : "#ea580c",
-            background:
-              isCallingApi || isUpdatingModel
-                ? "gray"
-                : "linear-gradient(to bottom right, #ffedd5, #fdba74)",
-          }}
-          onClick={() => {
-            launchModel(url, modelData);
-          }}
-          disabled={isCallingApi || isUpdatingModel}
-        >
-          {isCallingApi || isUpdatingModel ? "Loading..." : "Launch"}
-        </button>
+        <Box style={styles.buttonsContainer}>
+          <button
+            title="Launch Web UI"
+            style={styles.buttonContainer}
+            onClick={() => launchModel(url, modelData)}
+            disabled={
+              isCallingApi ||
+              isUpdatingModel ||
+              !(modelFormat && modelSize && modelData && quantization)
+            }
+          >
+            {(() => {
+              if (isCallingApi || isUpdatingModel) {
+                return (
+                  <Box
+                    style={{ ...styles.buttonItem, backgroundColor: "#f2f2f2" }}
+                  >
+                    <CircularProgress
+                      size="20px"
+                      sx={{
+                        color: "#000000",
+                      }}
+                    />
+                  </Box>
+                );
+              } else if (
+                !(modelFormat && modelSize && modelData && quantization)
+              ) {
+                return (
+                  <Box
+                    style={{ ...styles.buttonItem, backgroundColor: "#f2f2f2" }}
+                  >
+                    <RocketLaunchOutlined size="20px" />
+                  </Box>
+                );
+              } else {
+                return (
+                  <Box style={styles.buttonItem}>
+                    <RocketLaunchOutlined color="#000000" size="20px" />
+                  </Box>
+                );
+              }
+            })()}
+          </button>
+          <button
+            title="Launch Web UI"
+            style={styles.buttonContainer}
+            onClick={() => setSelected(false)}
+          >
+            <Box style={styles.buttonItem}>
+              <UndoOutlined color="#000000" size="20px" />
+            </Box>
+          </button>
+        </Box>
       </Box>
     </Box>
   );
