@@ -101,7 +101,7 @@ def get_endpoint(endpoint: Optional[str]) -> str:
     default="INFO",
     type=str,
     help="""Set the logger level. Options listed from most log to least log are:
-              NOTSET > DEBUG > INFO > WARNING > ERROR > CRITICAL (Default level is INFO)""",
+              DEBUG > INFO > WARNING > ERROR > CRITICAL (Default level is INFO)""",
 )
 @click.option(
     "--host",
@@ -149,7 +149,7 @@ def cli(
     default="INFO",
     type=str,
     help="""Set the logger level for the supervisor. Options listed from most log to least log are:
-              NOTSET > DEBUG > INFO > WARNING > ERROR > CRITICAL (Default level is INFO)""",
+              DEBUG > INFO > WARNING > ERROR > CRITICAL (Default level is INFO)""",
 )
 @click.option(
     "--host",
@@ -189,7 +189,7 @@ def supervisor(
     default="INFO",
     type=str,
     help="""Set the logger level for the worker. Options listed from most log to least log are:
-              NOTSET > DEBUG > INFO > WARNING > ERROR > CRITICAL (Default level is INFO)""",
+              DEBUG > INFO > WARNING > ERROR > CRITICAL (Default level is INFO)""",
 )
 @click.option("--endpoint", "-e", type=str, help="Xinference endpoint.")
 @click.option(
@@ -229,12 +229,12 @@ def worker(log_level: str, endpoint: Optional[str], host: str):
     type=str,
     help="Type of model to register (default is 'LLM').",
 )
-@click.option("--file", "-f", type=str, help="Path to the file containing the model.")
+@click.option("--file", "-f", type=str, help="Path to the model configuration file.")
 @click.option(
     "--persist",
     "-p",
     is_flag=True,
-    help="Persist the model to the filesystem, retains the model after server restarts.",
+    help="Persist the model configuration to the filesystem, retains the model registration after server restarts.",
 )
 def register_model(
     endpoint: Optional[str],
