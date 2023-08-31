@@ -60,12 +60,8 @@ const LaunchModel = () => {
     <Box m="20px">
       <Title title="Launch Model" />
       <div style={style}>
-        {registrationData.map((registration, index) => (
-          <ModelCard
-            imgURL={require("../../media/logo_vicuna.webp")}
-            url={endPoint}
-            modelData={registration}
-          />
+        {registrationData.map((registration) => (
+          <ModelCard url={endPoint} modelData={registration} />
         ))}
       </div>
     </Box>

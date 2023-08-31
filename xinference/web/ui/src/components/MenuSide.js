@@ -21,12 +21,12 @@ import { useLocation, useNavigate } from "react-router-dom";
 
 const navItems = [
   {
-    text: "Running Models",
-    icon: <SmartToyOutlined />,
-  },
-  {
     text: "Launch Model",
     icon: <RocketLaunchOutlined />,
+  },
+  {
+    text: "Running Models",
+    icon: <SmartToyOutlined />,
   },
   {
     text: "Contact Us",
@@ -139,7 +139,7 @@ const MenuSide = () => {
                           "_blank",
                           "noreferrer"
                         );
-                      } else if (link === "running_models") {
+                      } else if (link === "launch_model") {
                         navigate(`/`);
                         setActive(link);
                         console.log(active);

@@ -17,8 +17,8 @@ function App() {
             <CssBaseline />
             <Routes>
               <Route element={<Layout />}>
-                <Route path="/" element={<RunningModels />} />
-                <Route path="/launch_model" element={<LaunchModel />} />
+                <Route path="/" element={<LaunchModel />} />
+                <Route path="/running_models" element={<RunningModels />} />
               </Route>
             </Routes>
           </ApiContextProvider>

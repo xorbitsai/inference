@@ -14,7 +14,7 @@ import {
 const CARD_HEIGHT = 350;
 const CARD_WIDTH = 270;
 
-const ModelCard = ({ imgURL, url, modelData }) => {
+const ModelCard = ({ url, modelData }) => {
   const [hover, setHover] = useState(false);
   const [selected, setSelected] = useState(false);
   const { isCallingApi, setIsCallingApi } = useContext(ApiContext);
