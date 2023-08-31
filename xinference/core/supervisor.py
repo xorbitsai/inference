@@ -190,8 +190,8 @@ class SupervisorActor(xo.Actor):
             for rep_model_uid in iter_replica_model_uid(model_uid, replica):
                 yield _launch_one_model(rep_model_uid)
         except Exception:
+            # terminate_model will remove the replica.
             await self.terminate_model(model_uid, suppress_exception=True)
-            self._model_uid_to_replica.pop(model_uid, None)
             raise
         raise xo.Return(model_uid)
 
