@@ -32,7 +32,7 @@ class LLM(abc.ABC):
         model_spec: "LLMSpecV1",
         quantization: str,
         model_path: str,
-        peft_model_path: Optional[str] = None,
+        peft_model_id: Optional[str] = None,
         *args,
         **kwargs,
     ):
@@ -41,7 +41,7 @@ class LLM(abc.ABC):
         self.model_spec = model_spec
         self.quantization = quantization
         self.model_path = model_path
-        self.peft_model_path = peft_model_path
+        self.peft_model_id = peft_model_id
         if args:
             raise ValueError(f"Unrecognized positional arguments: {args}")
         if kwargs:

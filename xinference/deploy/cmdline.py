@@ -259,14 +259,14 @@ def list_model_registrations(
 @click.option("--size-in-billions", "-s", default=None, type=int)
 @click.option("--model-format", "-f", default=None, type=str)
 @click.option("--quantization", "-q", default=None, type=str)
-@click.option("--peft-model-path", "-p", default=None, type=str)
+@click.option("--peft-model-id", default=None, type=str)
 def model_launch(
     endpoint: Optional[str],
     model_name: str,
     size_in_billions: int,
     model_format: str,
     quantization: str,
-    peft_model_path: str,
+    peft_model_id: str,
 ):
     endpoint = get_endpoint(endpoint)
 
@@ -276,7 +276,7 @@ def model_launch(
         model_size_in_billions=size_in_billions,
         model_format=model_format,
         quantization=quantization,
-        peft_model_path=peft_model_path,
+        peft_model_id=peft_model_id,
     )
 
     print(f"Model uid: {model_uid}", file=sys.stderr)

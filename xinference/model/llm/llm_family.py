@@ -123,23 +123,36 @@ def cache(
             return cache_from_huggingface(llm_family, llm_spec, quantization)
 
 
-def cache_peft(peft_model_path: str) -> str:
-    # Cache peft path from Hugging Face. Return the cache directory.
+def cache_peft(peft_model_id: str) -> str:
+    # Cache peft path from Hugging Face. Return the peft directory.
+
     import huggingface_hub
 
-    cache_dir = os.path.join(XINFERENCE_PEFT_MODEL_DIR, peft_model_path)
-    if not os.path.exists(cache_dir):
-        os.makedirs(cache_dir, exist_ok=True)
+    peft_dir = os.path.join(XINFERENCE_PEFT_MODEL_DIR, peft_model_id)
+    if not os.path.exists(peft_dir):
+        os.makedirs(peft_dir, exist_ok=True)
 
-    # TODO: add retry
+    for current_attempt in range(1, MAX_ATTEMPTS + 1):
+        try:
+            huggingface_hub.snapshot_download(
+                peft_model_id,
+                local_dir=peft_dir,
+                local_dir_use_symlinks=True,
+            )
+            logger.debug("Peft model directory: %s", peft_dir)
+            break
+        except huggingface_hub.utils.LocalEntryNotFoundError:
+            remaining_attempts = MAX_ATTEMPTS - current_attempt
+            logger.warning(
+                f"Attempt {current_attempt} failed. Remaining attempts: {remaining_attempts}"
+            )
 
-    huggingface_hub.snapshot_download(
-        peft_model_path,
-        local_dir=cache_dir,
-        local_dir_use_symlinks=True,
-    )
-    logger.debug("Cache directory: %s", cache_dir)
-    return cache_dir
+    else:
+        raise RuntimeError(
+            f"Failed to download the peft model from '{peft_model_id}' after multiple retries"
+        )
+
+    return peft_dir
 
 
 def parse_uri(uri: str) -> Tuple[str, str]:

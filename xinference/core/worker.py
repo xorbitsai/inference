@@ -142,7 +142,7 @@ class WorkerActor(xo.Actor):
         model_size_in_billions: Optional[int],
         model_format: Optional[str],
         quantization: Optional[str],
-        peft_model_path: Optional[str],
+        peft_model_id: Optional[str],
         **kwargs,
     ) -> xo.ActorRefType["ModelActor"]:
         assert model_uid not in self._model_uid_to_model
@@ -166,12 +166,17 @@ class WorkerActor(xo.Actor):
         llm_family, llm_spec, quantization = match_result
         assert quantization is not None
 
+        if llm_spec.model_format != "pytorch" and peft_model_id is not None:
+            raise ValueError(
+                f"PEFT adaptors can only be applied to PyTorch models. However, you are trying to launch {model_name} with format {model_format}."
+            )
+
         from ..model.llm.llm_family import cache, cache_peft
 
         save_path = await asyncio.to_thread(cache, llm_family, llm_spec, quantization)
 
-        if peft_model_path is not None:
-            save_peft_path = await asyncio.to_thread(cache_peft, peft_model_path)
+        if peft_model_id is not None:
+            save_peft_path = await asyncio.to_thread(cache_peft, peft_model_id)
         else:
             save_peft_path = None
 

@@ -26,7 +26,7 @@ class ChatglmPytorchChatModel(PytorchChatModel):
         model_spec: "LLMSpecV1",
         quantization: str,
         model_path: str,
-        peft_model_path: Optional[str] = None,
+        peft_model_id: Optional[str] = None,
         pytorch_model_config: Optional[PytorchModelConfig] = None,
     ):
         super().__init__(
@@ -35,7 +35,7 @@ class ChatglmPytorchChatModel(PytorchChatModel):
             model_spec,
             quantization,
             model_path,
-            peft_model_path,
+            peft_model_id,
             pytorch_model_config=pytorch_model_config,
         )
 

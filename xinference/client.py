@@ -559,7 +559,7 @@ class Client:
         model_size_in_billions: Optional[int] = None,
         model_format: Optional[str] = None,
         quantization: Optional[str] = None,
-        peft_model_path: Optional[str] = None,
+        peft_model_id: Optional[str] = None,
         **kwargs,
     ) -> str:
         """
@@ -575,7 +575,7 @@ class Client:
             The format of the model.
         quantization: Optional[str]
             The quantization of model.
-        peft_model_path: Optional[str]
+        peft_model_id: Optional[str]
             PEFT (Parameter-Efficient Fine-Tuning) path.
         **kwargs:
             Any other parameters been specified.
@@ -595,7 +595,7 @@ class Client:
             model_size_in_billions=model_size_in_billions,
             model_format=model_format,
             quantization=quantization,
-            peft_model_path=peft_model_path,
+            peft_model_id=peft_model_id,
             **kwargs,
         )
         self._isolation.call(coro)
@@ -700,7 +700,7 @@ class RESTfulClient:
         model_size_in_billions: Optional[int] = None,
         model_format: Optional[str] = None,
         quantization: Optional[str] = None,
-        peft_model_path: Optional[str] = None,
+        peft_model_id: Optional[str] = None,
         **kwargs,
     ) -> str:
         """
@@ -716,7 +716,7 @@ class RESTfulClient:
             The format of the model.
         quantization: Optional[str]
             The quantization of model.
-        peft_model_path: Optional[str]
+        peft_model_id: Optional[str]
             PEFT (Parameter-Efficient Fine-Tuning) path.
         **kwargs:
             Any other parameters been specified.
@@ -738,7 +738,7 @@ class RESTfulClient:
             "model_size_in_billions": model_size_in_billions,
             "model_format": model_format,
             "quantization": quantization,
-            "peft_model_path": peft_model_path,
+            "peft_model_id": peft_model_id,
         }
 
         for key, value in kwargs.items():

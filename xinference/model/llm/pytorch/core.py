@@ -66,7 +66,7 @@ class PytorchModel(LLM):
         model_spec: "LLMSpecV1",
         quantization: str,
         model_path: str,
-        peft_model_path: Optional[str] = None,
+        peft_model_id: Optional[str] = None,
         pytorch_model_config: Optional[PytorchModelConfig] = None,
     ):
         super().__init__(model_uid, model_family, model_spec, quantization, model_path)
@@ -74,7 +74,7 @@ class PytorchModel(LLM):
         self._pytorch_model_config: PytorchModelConfig = self._sanitize_model_config(
             pytorch_model_config
         )
-        self.peft_model_path = peft_model_path
+        self.peft_model_id = peft_model_id
 
     def _sanitize_model_config(
         self, pytorch_model_config: Optional[PytorchModelConfig]
@@ -197,7 +197,7 @@ class PytorchModel(LLM):
 
         self._model, self._tokenizer = self._load_model(kwargs)
 
-        if self.peft_model_path is not None:
+        if self.peft_model_id is not None:
             try:
                 from peft import PeftModel
             except ImportError:
@@ -208,12 +208,14 @@ class PytorchModel(LLM):
             # Apply LoRA
             self._model = PeftModel.from_pretrained(
                 self._model,
-                self.peft_model_path,
+                self.peft_model_id,
             )
 
             self._model = self._model.merge_and_unload()
 
-            print("Successfully loaded the PEFT path.")
+            logger.info(
+                f"Successfully loaded the PEFT adaptor for model {self.model_uid}."
+            )
 
         if (
             self._device == "cuda" and num_gpus == 1 and quantization == "none"
@@ -418,7 +420,7 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
         model_spec: "LLMSpecV1",
         quantization: str,
         model_path: str,
-        peft_model_path: Optional[str] = None,
+        peft_model_id: Optional[str] = None,
         pytorch_model_config: Optional[PytorchModelConfig] = None,
     ):
         super().__init__(
@@ -427,7 +429,7 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
             model_spec,
             quantization,
             model_path,
-            peft_model_path,
+            peft_model_id,
             pytorch_model_config,
         )
 

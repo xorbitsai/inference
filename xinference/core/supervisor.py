@@ -144,7 +144,7 @@ class SupervisorActor(xo.Actor):
         model_size_in_billions: Optional[int],
         model_format: Optional[str],
         quantization: Optional[str],
-        peft_model_path: Optional[str],
+        peft_model_id: Optional[str],
         **kwargs,
     ) -> xo.ActorRefType["ModelActor"]:
         logger.debug(
@@ -157,7 +157,7 @@ class SupervisorActor(xo.Actor):
             str(model_size_in_billions) if model_size_in_billions else "",
             model_format,
             quantization,
-            peft_model_path,
+            peft_model_id,
         )
 
         if model_uid in self._model_uid_to_worker:
@@ -170,7 +170,7 @@ class SupervisorActor(xo.Actor):
             model_size_in_billions=model_size_in_billions,
             model_format=model_format,
             quantization=quantization,
-            peft_model_path=peft_model_path,
+            peft_model_id=peft_model_id,
             **kwargs,
         )
         # TODO: not protected.
