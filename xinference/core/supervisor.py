@@ -23,7 +23,7 @@ import xoscar as xo
 
 from ..core import ModelActor
 from .resource import ResourceStatus
-from .utils import log_async, log_sync
+from .utils import iter_replica_model_uid, log_async, log_sync
 
 if TYPE_CHECKING:
     from .worker import WorkerActor
@@ -32,15 +32,6 @@ logger = getLogger(__name__)
 
 
 DEFAULT_NODE_TIMEOUT = 30
-
-
-def _iter_replica_model_uid(model_uid, replica):
-    """
-    Generates all the replica model uids.
-    """
-    replica = int(replica)
-    for rep_id in range(replica):
-        yield f"{model_uid}-{replica}-{rep_id}"
 
 
 @dataclass
@@ -194,7 +185,7 @@ class SupervisorActor(xo.Actor):
         if model_uid in self._model_uid_to_replica:
             raise ValueError(f"Model is already in the model list, uid: {model_uid}")
         try:
-            for rep_model_uid in _iter_replica_model_uid(model_uid, replica):
+            for rep_model_uid in iter_replica_model_uid(model_uid, replica):
                 yield _launch_one_model(rep_model_uid)
         except Exception:
             await self.terminate_model(model_uid, suppress_exception=True)
@@ -241,7 +232,7 @@ class SupervisorActor(xo.Actor):
         if model_uid not in self._model_uid_to_replica:
             raise ValueError(f"Model not found in the model list, uid: {model_uid}")
         replica = self._model_uid_to_replica[model_uid]
-        for rep_model_uid in _iter_replica_model_uid(model_uid, replica):
+        for rep_model_uid in iter_replica_model_uid(model_uid, replica):
             try:
                 await _terminate_one_model(rep_model_uid)
             except Exception:
@@ -255,7 +246,7 @@ class SupervisorActor(xo.Actor):
             raise ValueError(f"Model not found in the model list, uid: {model_uid}")
         replica = self._model_uid_to_replica[model_uid]
         replica_model_uid = random.choice(
-            list(_iter_replica_model_uid(model_uid, replica))
+            list(iter_replica_model_uid(model_uid, replica))
         )
         if replica_model_uid not in self._replica_model_uid_to_worker:
             raise ValueError(
@@ -271,7 +262,7 @@ class SupervisorActor(xo.Actor):
             raise ValueError(f"Model not found in the model list, uid: {model_uid}")
         replica = self._model_uid_to_replica[model_uid]
         replica_model_uid = random.choice(
-            list(_iter_replica_model_uid(model_uid, replica))
+            list(iter_replica_model_uid(model_uid, replica))
         )
         if replica_model_uid not in self._replica_model_uid_to_worker:
             raise ValueError(

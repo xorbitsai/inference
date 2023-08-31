@@ -51,3 +51,12 @@ def log_sync(logger):
         return wrapped
 
     return decorator
+
+
+def iter_replica_model_uid(model_uid, replica):
+    """
+    Generates all the replica model uids.
+    """
+    replica = int(replica)
+    for rep_id in range(replica):
+        yield f"{model_uid}-{replica}-{rep_id}"
