@@ -369,7 +369,6 @@ def list_model_registrations(
     type=str,
     help="Specify the ID for the PEFT adaptor for the model.",
 )
-
 def model_launch(
     endpoint: Optional[str],
     model_name: str,
