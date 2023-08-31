@@ -18,6 +18,8 @@ import platform
 from abc import abstractmethod
 from typing import TYPE_CHECKING
 
+from ...core.utils import parse_replica_model_uid
+
 if TYPE_CHECKING:
     from .llm_family import LLMFamilyV1, LLMSpecV1
 
@@ -27,7 +29,7 @@ logger = logging.getLogger(__name__)
 class LLM(abc.ABC):
     def __init__(
         self,
-        model_uid: str,
+        replica_model_uid: str,
         model_family: "LLMFamilyV1",
         model_spec: "LLMSpecV1",
         quantization: str,
@@ -35,7 +37,9 @@ class LLM(abc.ABC):
         *args,
         **kwargs,
     ):
-        self.model_uid = model_uid
+        self.model_uid, self.replica, self.rep_id = parse_replica_model_uid(
+            replica_model_uid
+        )
         self.model_family = model_family
         self.model_spec = model_spec
         self.quantization = quantization

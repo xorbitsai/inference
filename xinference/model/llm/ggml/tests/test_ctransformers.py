@@ -143,7 +143,7 @@ async def test_ctransformers_generate(setup):
     assert "text" in completion["choices"][0]
     assert len(completion["choices"][0]["text"]) > 0
 
-    assert completion["model"].startswith(model_uid)
+    assert completion["model"] == model_uid
 
     assert "finish_reason" in completion["choices"][0]
     assert completion["choices"][0]["finish_reason"] == "length"

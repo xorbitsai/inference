@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Generator
+from typing import Generator, Tuple
 
 
 def log_async(logger):
@@ -62,3 +62,14 @@ def iter_replica_model_uid(model_uid: str, replica: int) -> Generator[str, None,
     replica = int(replica)
     for rep_id in range(replica):
         yield f"{model_uid}-{replica}-{rep_id}"
+
+
+def parse_replica_model_uid(replica_model_uid: str) -> Tuple[str, int, int]:
+    """
+    Parse replica model uid to model uid, replica and rep id.
+    """
+    parts = replica_model_uid.split("-")
+    rep_id = int(parts.pop())
+    replica = int(parts.pop())
+    model_uid = "-".join(parts)
+    return model_uid, replica, rep_id
