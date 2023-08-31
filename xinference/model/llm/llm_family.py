@@ -21,7 +21,11 @@ from typing import List, Optional, Tuple, Type, Union
 from pydantic import BaseModel, Field
 from typing_extensions import Annotated, Literal
 
-from ...constants import XINFERENCE_CACHE_DIR, XINFERENCE_LORA_DIR, XINFERENCE_MODEL_DIR
+from ...constants import (
+    XINFERENCE_CACHE_DIR,
+    XINFERENCE_MODEL_DIR,
+    XINFERENCE_PEFT_MODEL_DIR,
+)
 from . import LLM
 
 logger = logging.getLogger(__name__)
@@ -118,27 +122,22 @@ def cache(
 
 
 def cache_peft(peft_model_path: str) -> str:
-    legacy_cache_path = os.path.join(peft_model_path, "adaptor_model.bin")
-    if os.path.exists(legacy_cache_path):
-        logger.debug("Legacy cache path exists: %s", legacy_cache_path)
-        return os.path.dirname(legacy_cache_path)
-    else:
-        # Cache peft path from Hugging Face. Return the cache directory.
-        import huggingface_hub
+    # Cache peft path from Hugging Face. Return the cache directory.
+    import huggingface_hub
 
-        cache_dir = os.path.join(XINFERENCE_LORA_DIR, peft_model_path)
-        if not os.path.exists(cache_dir):
-            os.makedirs(cache_dir, exist_ok=True)
+    cache_dir = os.path.join(XINFERENCE_PEFT_MODEL_DIR, peft_model_path)
+    if not os.path.exists(cache_dir):
+        os.makedirs(cache_dir, exist_ok=True)
 
-        # TODO: add retry
+    # TODO: add retry
 
-        huggingface_hub.snapshot_download(
-            peft_model_path,
-            local_dir=cache_dir,
-            local_dir_use_symlinks=True,
-        )
-        logger.debug("Cache directory: %s", cache_dir)
-        return cache_dir
+    huggingface_hub.snapshot_download(
+        peft_model_path,
+        local_dir=cache_dir,
+        local_dir_use_symlinks=True,
+    )
+    logger.debug("Cache directory: %s", cache_dir)
+    return cache_dir
 
 
 def parse_uri(uri: str) -> Tuple[str, str]:
