@@ -39,8 +39,9 @@ RESTful API（OpenAI API と互換性あり）、CLI、WebUI をサポートし�
 
 🌐 **配布デプロイメント**: Excel の分散展開シナリオでは、複数のデバイスやマシンにモデルの推論をシームレスに分散させることができます。
 
-🔌 **サードパーティライブラリとの組み込み統合**: Xorbits Inference は、LangChain や LlamaIndex のような人気のあるサードパーティライブラリと
-シームレスに統合されています。(近日公開)
+🔌 **サードパーティライブラリとの組み込み統合**: Xorbits Inference は、[LangChain](https://python.langchain.com/docs/integrations/providers/xinference)
+や [LlamaIndex](https://gpt-index.readthedocs.io/en/stable/examples/llm/XinferenceLocalDeployment.html#i-run-pip-install-xinference-all-in-a-terminal-window) のような人気のあるサードパーティライブラリと
+シームレスに統合されています。
 
 ## はじめに
 Xinference は PyPI から pip 経由でインストールできます。コンフリクトを避けるため、新しい仮想環境を作成することを強く推奨します。
