@@ -19,9 +19,11 @@ Launch a Model with a PEFT Model / Adaptor
 
    xinference launch --model-name "llama-2-chat" --size-in-billions 7 --model-format pytorch --quantization none --peft-model-id "FlagAlpha/Llama2-Chinese-7b-Chat-LoRA"
 
-You can specify the Hugging Face ID for the adaptor as :code:`peft_model_id`. Make sure that the model format is :code:`pytorch`, and other model attributes (e.g., model size) are matched for the base model and the PEFT adaptor.
+.. note::
 
-In addition, We cannot merge LORA layers when the model is loaded in 8-bit mode. Thus, make sure that the model quantization is not 8-bit if you want to apply LoRA to it.
+   We cannot merge LORA layers when the model is loaded in 8-bit mode. Thus, make sure that the model quantization is not 8-bit if you want to apply LoRA to it.
+
+You can specify the Hugging Face ID for the adaptor as :code:`peft_model_id`. Make sure that the model format is :code:`pytorch`, and other model attributes (e.g., model size) are matched for the base model and the PEFT adaptor.
 
 For those PEFT adaptors extracted from Hugging Face, the adaptor will be automatically saved in :code:`${USER}/.xinference/peft_model/`. 
 
