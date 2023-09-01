@@ -185,7 +185,7 @@ $ xinference list --all
 | chatglm2-32k     | ['en', 'zh']  | ['embed', 'chat']      |
 | code-llama       | ['en']        | ['generate']           |
 | code-llama-python| ['en']        | ['generate']           |
-| code-llama-instruct| ['en']      | ['chat']           |
+| code-llama-instruct| ['en']      | ['chat']               |
 | falcon           | ['en']        | ['embed', 'generate']  |
 | falcon-instruct  | ['en']        | ['embed', 'chat']      |
 | gpt-2            | ['en']        | ['generate']           |
