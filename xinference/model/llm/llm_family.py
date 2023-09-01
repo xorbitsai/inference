@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import json as js
 import logging
 import os
 import platform
@@ -69,12 +68,6 @@ class LLMFamilyV1(BaseModel):
     model_description: Optional[str]
     model_specs: List["LLMSpecV1"]
     prompt_style: Optional["PromptStyleV1"]
-
-    def json(self, *args, **kwargs):
-        json_output = js.loads(BaseModel.json(self, *args, **kwargs))
-        if "context_length" in json_output and json_output["context_length"] is None:
-            del json_output["context_length"]
-        return js.dumps(json_output)
 
 
 LLMSpecV1 = Annotated[
