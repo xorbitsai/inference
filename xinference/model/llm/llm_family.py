@@ -28,6 +28,7 @@ from . import LLM
 logger = logging.getLogger(__name__)
 
 MAX_ATTEMPTS = 3
+DEFAULT_CONTEXT_LENGTH = 2048
 
 
 class GgmlLLMSpecV1(BaseModel):
@@ -61,7 +62,7 @@ class PromptStyleV1(BaseModel):
 
 class LLMFamilyV1(BaseModel):
     version: Literal[1]
-    context_length: Optional[int]
+    context_length: Optional[int] = DEFAULT_CONTEXT_LENGTH
     model_name: str
     model_lang: List[Literal["en", "zh"]]
     model_ability: List[Literal["embed", "generate", "chat"]]

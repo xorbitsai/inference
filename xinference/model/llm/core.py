@@ -18,21 +18,10 @@ import platform
 from abc import abstractmethod
 from typing import TYPE_CHECKING
 
-# Default context length for user-defined models
-DEFAULT_CONTEXT_LENGTH = 2048
-
 if TYPE_CHECKING:
     from .llm_family import LLMFamilyV1, LLMSpecV1
 
 logger = logging.getLogger(__name__)
-
-
-def sanitize_model_family(model_family: "LLMFamilyV1") -> "LLMFamilyV1":
-    if "context_length" not in model_family.__dict__:
-        model_family.__dict__.update({"context_length": DEFAULT_CONTEXT_LENGTH})
-    elif model_family.__dict__["context_length"] is None:
-        model_family.__dict__.update({"context_length": DEFAULT_CONTEXT_LENGTH})
-    return model_family
 
 
 class LLM(abc.ABC):
@@ -47,7 +36,7 @@ class LLM(abc.ABC):
         **kwargs,
     ):
         self.model_uid = model_uid
-        self.model_family = sanitize_model_family(model_family)
+        self.model_family = model_family
         self.model_spec = model_spec
         self.quantization = quantization
         self.model_path = model_path
