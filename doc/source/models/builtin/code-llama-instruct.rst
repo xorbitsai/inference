@@ -1,13 +1,14 @@
-.. _models_builtin_code_llama:
+.. _models_builtin_code_llama_instruct:
 
-==========
-Code-Llama
-==========
+
+===================
+Code-Llama-Instruct
+===================
 
 - **Context Length:** 100000
-- **Model Name:** code-llama
+- **Model Name:** code-llama-instruct
 - **Languages:** en
-- **Abilities:** generate
+- **Abilities:** chat
 
 Specifications
 ^^^^^^^^^^^^^^
@@ -18,12 +19,12 @@ Model Spec 1 (pytorch, 7 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 7
 - **Quantizations:** 4-bit, 8-bit, none
-- **Model ID:** TheBloke/CodeLlama-7B-fp16
+- **Model ID:** codellama/CodeLlama-7b-Instruct-hf
 
 Execute the following command to launch the model, remember to replace `${quantization}` with your
 chosen quantization method from the options listed above::
 
-   xinference launch --model-name code-llama --size-in-billions 7 --model-format pytorch --quantization ${quantization}
+   xinference launch --model-name code-llama-instruct --size-in-billions 7 --model-format pytorch --quantization ${quantization}
 
 .. note::
 
@@ -35,12 +36,13 @@ Model Spec 2 (pytorch, 13 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 13
 - **Quantizations:** 4-bit, 8-bit, none
-- **Model ID:** TheBloke/CodeLlama-13B-fp16
+- **Model ID:** codellama/CodeLlama-13b-Instruct-hf
 
 Execute the following command to launch the model, remember to replace `${quantization}` with your
 chosen quantization method from the options listed above::
 
-   xinference launch --model-name code-llama --size-in-billions 13 --model-format pytorch --quantization ${quantization}
+   xinference launch --model-name code-llama-instruct --size-in-billions 13 --model-format pytorch --quantization ${quantization}
+
 
 .. note::
 
@@ -52,12 +54,13 @@ Model Spec 3 (pytorch, 34 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 34
 - **Quantizations:** 4-bit, 8-bit, none
-- **Model ID:** TheBloke/CodeLlama-34B-fp16
+- **Model ID:** codellama/CodeLlama-34b-Instruct-hf
 
 Execute the following command to launch the model, remember to replace `${quantization}` with your
 chosen quantization method from the options listed above::
 
-   xinference launch --model-name code-llama --size-in-billions 34 --model-format pytorch --quantization ${quantization}
+   xinference launch --model-name code-llama-instruct --size-in-billions 34 --model-format pytorch --quantization ${quantization}
+
 
 .. note::
 

@@ -1345,5 +1345,64 @@
         "model_revision": "875f9d97fb6c9619d8867887dd1d80918ff0f593"
       }
     ]
+  },
+  {
+    "version": 1,
+    "context_length": 100000,
+    "model_name": "code-llama-instruct",
+    "model_lang": [
+      "en"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "codellama/CodeLlama-7b-Instruct-hf",
+        "model_revision": "6114dd1e16f69e0765ccbd7a64d33d04b265fbd2"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 13,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "codellama/CodeLlama-13b-Instruct-hf",
+        "model_revision": "ff0983bc4267bb98ead4fb5168fe2f049b442787"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 34,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "codellama/CodeLlama-34b-Instruct-hf",
+        "model_revision": "38a1e15d8524a1f0a7760a7acf8242b81ae4eb87"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "CODELLAMA",
+      "system_prompt": "<s>[INST] <<SYS>>\nWrite code to solve the following coding problem that obeys the constraints and passes the example test cases. Please wrap your code answer using ```:\n<</SYS>>\n\n",
+      "roles": [
+        "[INST]",
+        "[/INST]"
+      ],
+      "intra_message_sep": " ",
+      "inter_message_sep": " </s><s>",
+      "stop_token_ids": [
+        2
+      ]
+    }
   }
 ]
