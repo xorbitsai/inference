@@ -1,0 +1,10 @@
+[
+  {
+    "model_name": "bge-large-en",
+    "dimensions": 1024,
+    "max_tokens": 512,
+    "language": "en",
+    "model_id": "BAAI/bge-large-en",
+    "model_revision": "d57a0d82f0d0884de76bbce093f201364d9b720e"
+  }
+]

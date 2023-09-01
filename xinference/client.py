@@ -556,6 +556,7 @@ class Client:
     def launch_model(
         self,
         model_name: str,
+        model_type: str = "LLM",
         model_size_in_billions: Optional[int] = None,
         model_format: Optional[str] = None,
         quantization: Optional[str] = None,
@@ -568,6 +569,8 @@ class Client:
         ----------
         model_name: str
             The name of model.
+        model_type: str
+            Type of model.
         model_size_in_billions: Optional[int]
             The size (in billions) of the model.
         model_format: Optional[str]
@@ -589,6 +592,7 @@ class Client:
         coro = self._supervisor_ref.launch_builtin_model(
             model_uid=model_uid,
             model_name=model_name,
+            model_type=model_type,
             model_size_in_billions=model_size_in_billions,
             model_format=model_format,
             quantization=quantization,

@@ -144,6 +144,7 @@ class SupervisorActor(xo.Actor):
         model_size_in_billions: Optional[int],
         model_format: Optional[str],
         quantization: Optional[str],
+        model_type: str = "LLM",
         **kwargs,
     ) -> xo.ActorRefType["ModelActor"]:
         logger.debug(
@@ -168,6 +169,7 @@ class SupervisorActor(xo.Actor):
             model_size_in_billions=model_size_in_billions,
             model_format=model_format,
             quantization=quantization,
+            model_type=model_type,
             **kwargs,
         )
         # TODO: not protected.

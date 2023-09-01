@@ -142,6 +142,7 @@ class WorkerActor(xo.Actor):
         model_size_in_billions: Optional[int],
         model_format: Optional[str],
         quantization: Optional[str],
+        model_type: str = "LLM",
         **kwargs,
     ) -> xo.ActorRefType["ModelActor"]:
         assert model_uid not in self._model_uid_to_model
