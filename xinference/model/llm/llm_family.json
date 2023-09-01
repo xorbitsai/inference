@@ -1392,7 +1392,7 @@
       }
     ],
     "prompt_style": {
-      "style_name": "CODELLAMA",
+      "style_name": "LLAMA2",
       "system_prompt": "<s>[INST] <<SYS>>\nWrite code to solve the following coding problem that obeys the constraints and passes the example test cases. Please wrap your code answer using ```:\n<</SYS>>\n\n",
       "roles": [
         "[INST]",

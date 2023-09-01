@@ -76,10 +76,7 @@ class ChatModelMixin:
                 else:
                     ret += role
             return ret
-        elif (
-            prompt_style.style_name == "LLAMA2"
-            or prompt_style.style_name == "CODELLAMA"
-        ):
+        elif prompt_style.style_name == "LLAMA2":
             seps = [prompt_style.intra_message_sep, prompt_style.inter_message_sep]
             ret = ""
             for i, message in enumerate(chat_history):

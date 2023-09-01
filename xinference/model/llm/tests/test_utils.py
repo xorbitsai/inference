@@ -328,33 +328,6 @@ def test_prompt_style_add_colon_single_cot():
     )
 
 
-def test_prompt_style_codellama():
-    prompt_style = PromptStyleV1(
-        style_name="CODELLAMA",
-        system_prompt=(
-            "<s>[INST] <<SYS>>\nWrite code to solve the following coding problem that obeys the constraints and passes the example test cases. Please wrap your code answer using ```:\n<</SYS>>\n\n"
-        ),
-        roles=["[INST]", "[/INST]"],
-        intra_message_sep=" ",
-        inter_message_sep=" </s><s>",
-        stop_token_ids=[2],
-    )
-    chat_history = [
-        ChatCompletionMessage(role=prompt_style.roles[0], content="Hi there."),
-        ChatCompletionMessage(
-            role=prompt_style.roles[1], content="Hello, how may I help you?"
-        ),
-    ]
-    expected = (
-        "<s>[INST] <<SYS>>\nWrite code to solve the following coding problem that obeys the constraints and passes the example test cases. Please wrap your code answer using ```:\n<</SYS>>\n\nHi there.[/INST] Hello, how may I help"
-        " you? </s><s>[INST] Write a poem. [/INST]"
-    )
-
-    assert expected == ChatModelMixin.get_prompt(
-        "Write a poem.", chat_history, prompt_style
-    )
-
-
 def test_is_valid_model_name():
     from ..utils import is_valid_model_name
 
