@@ -11,9 +11,20 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import asyncio
 import inspect
-from typing import TYPE_CHECKING, Any, Generic, Iterator, List, Optional, TypeVar, Union
+import uuid
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    Generic,
+    Iterator,
+    List,
+    Optional,
+    TypeVar,
+    Union,
+)
 
 import xoscar as xo
 
@@ -30,7 +41,8 @@ T = TypeVar("T")
 
 
 class IteratorWrapper(Generic[T]):
-    def __init__(self, model_actor_addr: str, model_actor_uid: str):
+    def __init__(self, uid: str, model_actor_addr: str, model_actor_uid: str):
+        self._uid = uid
         self._model_actor_addr = model_actor_addr
         self._model_actor_uid = model_actor_uid
         self._model_actor_ref: Optional[xo.ActorRefType["ModelActor"]] = None
@@ -46,7 +58,7 @@ class IteratorWrapper(Generic[T]):
 
         try:
             assert self._model_actor_ref is not None
-            return await self._model_actor_ref.next()
+            return await self._model_actor_ref.next(self._uid)
         except Exception as e:
             if "StopIteration" in str(e):
                 raise StopAsyncIteration
@@ -54,7 +66,7 @@ class IteratorWrapper(Generic[T]):
                 raise
 
 
-class ModelActor(xo.Actor):
+class ModelActor(xo.StatelessActor):
     @classmethod
     def gen_uid(cls, model: "LLM"):
         return f"{model.__class__}-model-actor"
@@ -85,36 +97,57 @@ class ModelActor(xo.Actor):
 
     def __init__(self, model: "LLM"):
         super().__init__()
+        from ..model.llm.pytorch.core import PytorchModel
+
         self._model = model
-        self._generator: Optional[Iterator] = None
+        self._generators: Dict[str, Iterator] = {}
+        self._lock = (
+            None if isinstance(self._model, PytorchModel) else asyncio.locks.Lock()
+        )
 
     def load(self):
         self._model.load()
 
     async def _wrap_generator(self, ret: Any):
         if inspect.isgenerator(ret):
-            self._generator = ret
+            generator_uid = str(uuid.uuid1())
+            self._generators[generator_uid] = ret
             return IteratorWrapper(
-                model_actor_addr=self.address, model_actor_uid=self.uid
+                uid=generator_uid,
+                model_actor_addr=self.address,
+                model_actor_uid=self.uid,
             )
         else:
             return ret
+
+    async def _call_wrapper(self, _wrapper):
+        if self._lock is None:
+            return await asyncio.to_thread(_wrapper)
+        else:
+            async with self._lock:
+                return await asyncio.to_thread(_wrapper)
 
     async def generate(self, prompt: str, *args, **kwargs):
         if not hasattr(self._model, "generate"):
             raise AttributeError(f"Model {self._model.model_spec} is not for generate.")
 
-        return self._wrap_generator(
-            getattr(self._model, "generate")(prompt, *args, **kwargs)
-        )
+        def _wrapper():
+            return self._wrap_generator(
+                getattr(self._model, "generate")(prompt, *args, **kwargs)
+            )
+
+        return await self._call_wrapper(_wrapper)
 
     async def chat(self, prompt: str, *args, **kwargs):
         if not hasattr(self._model, "chat"):
             raise AttributeError(f"Model {self._model.model_spec} is not for chat.")
 
-        return self._wrap_generator(
-            getattr(self._model, "chat")(prompt, *args, **kwargs)
-        )
+        def _wrapper():
+            return self._wrap_generator(
+                getattr(self._model, "chat")(prompt, *args, **kwargs)
+            )
+
+        return await self._call_wrapper(_wrapper)
 
     async def create_embedding(self, input: Union[str, List[str]], *args, **kwargs):
         if not hasattr(self._model, "create_embedding"):
@@ -122,12 +155,21 @@ class ModelActor(xo.Actor):
                 f"Model {self._model.model_spec} is not for creating embedding."
             )
 
-        return getattr(self._model, "create_embedding")(input, *args, **kwargs)
+        def _wrapper():
+            return getattr(self._model, "create_embedding")(input, *args, **kwargs)
 
-    async def next(self) -> Union["ChatCompletionChunk", "CompletionChunk"]:
+        return await self._call_wrapper(_wrapper)
+
+    async def next(
+        self, generator_uid: str
+    ) -> Union["ChatCompletionChunk", "CompletionChunk"]:
         try:
-            assert self._generator is not None
-            return next(self._generator)
+            assert generator_uid in self._generators
+
+            def _wrapper():
+                return next(self._generators[generator_uid])
+
+            return await self._call_wrapper(_wrapper)
         except StopIteration:
-            self._generator = None
+            self._generators.pop(generator_uid, None)
             raise Exception("StopIteration")
