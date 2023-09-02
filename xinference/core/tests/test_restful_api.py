@@ -12,12 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import pytest
 import requests
 
 
-@pytest.mark.asyncio
-async def test_restful_api(setup):
+def test_restful_api(setup):
     endpoint, _ = setup
     url = f"{endpoint}/v1/models"
 
@@ -264,3 +262,25 @@ async def test_restful_api(setup):
         if model_reg["model_name"] == "custom_model":
             custom_model_reg = model_reg
     assert custom_model_reg is None
+
+
+# def test_restful_api_for_embedding(setup):
+#     endpoint, _ = setup
+#     url = f"{endpoint}/v1/models"
+#
+#     # list
+#     response = requests.get(url)
+#     response_data = response.json()
+#     assert len(response_data) == 0
+#
+#     # launch
+#     payload = {
+#         "model_uid": "test_embedding",
+#         "model_name": "orca",
+#         "quantization": "q4_0",
+#     }
+#
+#     response = requests.post(url, json=payload)
+#     response_data = response.json()
+#     model_uid_res = response_data["model_uid"]
+#     assert model_uid_res == "test_restful_api"
