@@ -34,7 +34,7 @@ def test_model():
         "sorting algorithms",
     ]
     model.load()
-    r = model.encode(input_texts)
+    r = model.create_embedding(input_texts)
     assert len(r["data"]) == 4
     for d in r["data"]:
         assert len(d["embedding"]) == 384

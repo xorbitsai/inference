@@ -117,12 +117,12 @@ def create_llm_model_instance(
     save_path = cache(llm_family, llm_spec, quantization)
 
     llm_cls = match_llm_cls(llm_family, llm_spec)
-    logger.debug(f"Launching {model_uid} with {llm_cls.__name__}")
     if not llm_cls:
         raise ValueError(
             f"Model not supported, name: {model_name}, format: {model_format},"
             f" size: {model_size_in_billions}, quantization: {quantization}"
         )
+    logger.debug(f"Launching {model_uid} with {llm_cls.__name__}")
 
     model = llm_cls(model_uid, llm_family, llm_spec, quantization, save_path, kwargs)
     return model, LLMModelDescription(llm_family, llm_spec, quantization)

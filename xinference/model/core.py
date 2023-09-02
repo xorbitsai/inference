@@ -34,6 +34,7 @@ def create_model_instance(
     is_local_deployment: bool = False,
     **kwargs,
 ) -> Tuple[Any, ModelDescription]:
+    from .embedding.core import create_embedding_model_instance
     from .llm.core import create_llm_model_instance
 
     if model_type == "LLM":
@@ -47,6 +48,6 @@ def create_model_instance(
             **kwargs,
         )
     elif model_type == "embedding":
-        raise NotImplementedError
+        return create_embedding_model_instance(model_uid, model_name, **kwargs)
     else:
         raise ValueError(f"Unsupported model type: {model_type}.")

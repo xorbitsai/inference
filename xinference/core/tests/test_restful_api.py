@@ -264,27 +264,28 @@ def test_restful_api(setup):
     assert custom_model_reg is None
 
 
-# def test_restful_api_for_embedding(setup):
-#     endpoint, _ = setup
-#     url = f"{endpoint}/v1/models"
-#
-#     # list
-#     response = requests.get(url)
-#     response_data = response.json()
-#     assert len(response_data) == 0
-#
-#     # launch
-#     payload = {
-#         "model_uid": "test_embedding",
-#         "model_name": "bge-large-en",
-#         "model_type": "embedding",
-#     }
-#
-#     response = requests.post(url, json=payload)
-#     response_data = response.json()
-#     model_uid_res = response_data["model_uid"]
-#     assert model_uid_res == "test_embedding"
-#
-#     response = requests.get(url)
-#     response_data = response.json()
-#     assert len(response_data) == 1
+def test_restful_api_for_embedding(setup):
+    endpoint, _ = setup
+    url = f"{endpoint}/v1/models"
+
+    # list
+    response = requests.get(url)
+    response_data = response.json()
+    assert len(response_data) == 0
+
+    # launch
+    payload = {
+        "model_uid": "test_embedding",
+        "model_name": "bge-large-en",
+        "model_type": "embedding",
+    }
+
+    response = requests.post(url, json=payload)
+    response_data = response.json()
+    print(response_data)
+    model_uid_res = response_data["model_uid"]
+    assert model_uid_res == "test_embedding"
+
+    response = requests.get(url)
+    response_data = response.json()
+    assert len(response_data) == 1

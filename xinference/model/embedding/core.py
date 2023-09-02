@@ -14,13 +14,14 @@
 
 import logging
 import os
-from typing import List, Optional, Union, no_type_check
+from typing import List, Optional, Tuple, Union, no_type_check
 
 import numpy as np
 from pydantic import BaseModel
 
 from ...constants import XINFERENCE_CACHE_DIR
 from ...types import Embedding, EmbeddingData, EmbeddingUsage
+from ..core import ModelDescription
 
 MAX_ATTEMPTS = 3
 
@@ -86,13 +87,7 @@ class EmbeddingModel:
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
         self._model = SentenceTransformer(self._model_path, device=self._device)
 
-    @classmethod
-    def match(cls, model_name: str):
-        from . import BUILTIN_EMBEDDING_MODELS
-
-        return model_name in BUILTIN_EMBEDDING_MODELS
-
-    def encode(self, sentences: Union[str, List[str]], **kwargs):
+    def create_embedding(self, sentences: Union[str, List[str]], **kwargs):
         from sentence_transformers import SentenceTransformer
 
         normalize_embeddings = kwargs.pop("normalize_embeddings", True)
@@ -244,3 +239,40 @@ class EmbeddingModel:
             data=embedding_list,
             usage=usage,
         )
+
+
+class EmbeddingModelDescription(ModelDescription):
+    def __init__(self, model_spec: EmbeddingModelSpec):
+        self._model_spec = model_spec
+
+    def to_description(self):
+        return {
+            "model_type": "embedding",
+            "model_name": self._model_spec.model_name,
+            "dimensions": self._model_spec.dimensions,
+            "max_tokens": self._model_spec.max_tokens,
+            "language": self._model_spec.language,
+            "model_revision": self._model_spec.model_revision,
+        }
+
+
+def match_embedding(model_name: str) -> EmbeddingModelSpec:
+    from . import BUILTIN_EMBEDDING_MODELS
+
+    if model_name in BUILTIN_EMBEDDING_MODELS:
+        return BUILTIN_EMBEDDING_MODELS[model_name]
+    else:
+        raise ValueError(
+            f"Embedding model {model_name} not found, available"
+            f"model list: {BUILTIN_EMBEDDING_MODELS.keys()}"
+        )
+
+
+def create_embedding_model_instance(
+    model_uid: str, model_name: str, **kwargs
+) -> Tuple[EmbeddingModel, EmbeddingModelDescription]:
+    model_spec = match_embedding(model_name)
+    model_path = cache(model_spec)
+    model = EmbeddingModel(model_uid, model_path, **kwargs)
+    model_description = EmbeddingModelDescription(model_spec)
+    return model, model_description
