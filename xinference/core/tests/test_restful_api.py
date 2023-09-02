@@ -14,6 +14,8 @@
 
 import requests
 
+from ...model.embedding import BUILTIN_EMBEDDING_MODELS
+
 
 def test_restful_api(setup):
     endpoint, _ = setup
@@ -265,6 +267,9 @@ def test_restful_api(setup):
 
 
 def test_restful_api_for_embedding(setup):
+    model_name = "gte-base"
+    model_spec = BUILTIN_EMBEDDING_MODELS[model_name]
+
     endpoint, _ = setup
     url = f"{endpoint}/v1/models"
 
@@ -276,16 +281,53 @@ def test_restful_api_for_embedding(setup):
     # launch
     payload = {
         "model_uid": "test_embedding",
-        "model_name": "bge-large-en",
+        "model_name": model_name,
         "model_type": "embedding",
     }
 
     response = requests.post(url, json=payload)
     response_data = response.json()
-    print(response_data)
     model_uid_res = response_data["model_uid"]
     assert model_uid_res == "test_embedding"
 
     response = requests.get(url)
     response_data = response.json()
     assert len(response_data) == 1
+
+    # test embedding
+    url = f"{endpoint}/v1/embeddings"
+    payload = {
+        "model": "test_embedding",
+        "input": "The food was delicious and the waiter...",
+    }
+    response = requests.post(url, json=payload)
+    embedding_res = response.json()
+
+    assert "embedding" in embedding_res["data"][0]
+    assert len(embedding_res["data"][0]["embedding"]) == model_spec.dimensions
+
+    # test multiple
+    payload = {
+        "model": "test_embedding",
+        "input": [
+            "The food was delicious and the waiter...",
+            "how to implement quick sort in python?",
+            "Beijing",
+            "sorting algorithms",
+        ],
+    }
+    response = requests.post(url, json=payload)
+    embedding_res = response.json()
+
+    assert len(embedding_res["data"]) == 4
+    for data in embedding_res["data"]:
+        assert len(data["embedding"]) == model_spec.dimensions
+
+    # delete model
+    url = f"{endpoint}/v1/models/test_embedding"
+    response = requests.delete(url)
+    assert response.status_code == 200
+
+    response = requests.get(f"{endpoint}/v1/models")
+    response_data = response.json()
+    assert len(response_data) == 0

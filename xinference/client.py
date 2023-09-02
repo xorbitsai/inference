@@ -49,7 +49,29 @@ class ModelHandle:
         self._isolation = isolation
 
 
-class GenerateModelHandle(ModelHandle):
+class EmbeddingModelHandle(ModelHandle):
+    def create_embedding(self, input: Union[str, List[str]]) -> "Embedding":
+        """
+        Creates an embedding vector representing the input text.
+
+        Parameters
+        ----------
+        input: Union[str, List[str]]
+            Input text to embed, encoded as a string or array of tokens.
+            To embed multiple inputs in a single request, pass an array of strings or array of token arrays.
+
+        Returns
+        -------
+        Embedding
+            The resulted Embedding vector that can be easily consumed by machine learning models and algorithms.
+
+        """
+
+        coro = self._model_ref.create_embedding(input)
+        return self._isolation.call(coro)
+
+
+class GenerateModelHandle(EmbeddingModelHandle):
     def generate(
         self,
         prompt: str,
@@ -79,26 +101,6 @@ class GenerateModelHandle(ModelHandle):
         """
 
         coro = self._model_ref.generate(prompt, generate_config)
-        return self._isolation.call(coro)
-
-    def create_embedding(self, input: Union[str, List[str]]) -> "Embedding":
-        """
-        Creates an embedding vector representing the input text.
-
-        Parameters
-        ----------
-        input: Union[str, List[str]]
-            Input text to embed, encoded as a string or array of tokens.
-            To embed multiple inputs in a single request, pass an array of strings or array of token arrays.
-
-        Returns
-        -------
-        Embedding
-            The resulted Embedding vector that can be easily consumed by machine learning models and algorithms.
-
-        """
-
-        coro = self._model_ref.create_embedding(input)
         return self._isolation.call(coro)
 
 
@@ -147,7 +149,7 @@ class ChatModelHandle(GenerateModelHandle):
         return self._isolation.call(coro)
 
 
-class ChatglmCppChatModelHandle(ModelHandle):
+class ChatglmCppChatModelHandle(EmbeddingModelHandle):
     def chat(
         self,
         prompt: str,
@@ -241,7 +243,41 @@ class RESTfulModelHandle:
         self._base_url = base_url
 
 
-class RESTfulGenerateModelHandle(RESTfulModelHandle):
+class RESTfulEmbeddingModelHandle(RESTfulModelHandle):
+    def create_embedding(self, input: Union[str, List[str]]) -> "Embedding":
+        """
+        Create an Embedding from user input via RESTful APIs.
+
+        Parameters
+        ----------
+        input: Union[str, List[str]]
+            Input text to embed, encoded as a string or array of tokens.
+            To embed multiple inputs in a single request, pass an array of strings or array of token arrays.
+
+        Returns
+        -------
+        Embedding
+           The resulted Embedding vector that can be easily consumed by machine learning models and algorithms.
+
+        Raises
+        ------
+        RuntimeError
+            Report the failure of embeddings and provide the error message.
+
+        """
+        url = f"{self._base_url}/v1/embeddings"
+        request_body = {"model": self._model_uid, "input": input}
+        response = requests.post(url, json=request_body)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to create the embeddings, detail: {response.json()['detail']}"
+            )
+
+        response_data = response.json()
+        return response_data
+
+
+class RESTfulGenerateModelHandle(RESTfulEmbeddingModelHandle):
     def generate(
         self,
         prompt: str,
@@ -292,38 +328,6 @@ class RESTfulGenerateModelHandle(RESTfulModelHandle):
 
         if stream:
             return streaming_response_iterator(response.iter_lines())
-
-        response_data = response.json()
-        return response_data
-
-    def create_embedding(self, input: Union[str, List[str]]) -> "Embedding":
-        """
-        Create an Embedding from user input via RESTful APIs.
-
-        Parameters
-        ----------
-        input: Union[str, List[str]]
-            Input text to embed, encoded as a string or array of tokens.
-            To embed multiple inputs in a single request, pass an array of strings or array of token arrays.
-
-        Returns
-        -------
-        Embedding
-           The resulted Embedding vector that can be easily consumed by machine learning models and algorithms.
-
-        Raises
-        ------
-        RuntimeError
-            Report the failure of embeddings and provide the error message.
-
-        """
-        url = f"{self._base_url}/v1/embeddings"
-        request_body = {"model": self._model_uid, "input": input}
-        response = requests.post(url, json=request_body)
-        if response.status_code != 200:
-            raise RuntimeError(
-                f"Failed to create the embeddings, detail: {response.json()['detail']}"
-            )
 
         response_data = response.json()
         return response_data
@@ -407,7 +411,7 @@ class RESTfulChatModelHandle(RESTfulGenerateModelHandle):
         return response_data
 
 
-class RESTfulChatglmCppChatModelHandle(RESTfulModelHandle):
+class RESTfulChatglmCppChatModelHandle(RESTfulEmbeddingModelHandle):
     def chat(
         self,
         prompt: str,
@@ -652,15 +656,19 @@ class Client:
             self._supervisor_ref.describe_model(model_uid)
         )
         model_ref = self._isolation.call(self._supervisor_ref.get_model(model_uid))
-
-        if desc["model_format"] == "ggmlv3" and "chatglm" in desc["model_name"]:
-            return ChatglmCppChatModelHandle(model_ref, self._isolation)
-        elif "chat" in desc["model_ability"]:
-            return ChatModelHandle(model_ref, self._isolation)
-        elif "generate" in desc["model_ability"]:
-            return GenerateModelHandle(model_ref, self._isolation)
+        if desc["model_type"] == "LLM":
+            if desc["model_format"] == "ggmlv3" and "chatglm" in desc["model_name"]:
+                return ChatglmCppChatModelHandle(model_ref, self._isolation)
+            elif "chat" in desc["model_ability"]:
+                return ChatModelHandle(model_ref, self._isolation)
+            elif "generate" in desc["model_ability"]:
+                return GenerateModelHandle(model_ref, self._isolation)
+            else:
+                raise ValueError(f"Unrecognized model ability: {desc['model_ability']}")
+        elif desc["model_type"] == "embedding":
+            return EmbeddingModelHandle(model_ref, self._isolation)
         else:
-            raise ValueError(f"Unrecognized model ability: {desc['model_ability']}")
+            raise ValueError(f"Unknown model type:{desc['model_type']}")
 
 
 class RESTfulClient:

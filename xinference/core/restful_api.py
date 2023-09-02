@@ -556,10 +556,8 @@ class RESTfulAPIActor(xo.Actor):
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
 
-        input = request.input
-
         try:
-            embedding = await model.create_embedding(input)
+            embedding = await model.create_embedding(request.input)
             return embedding
         except RuntimeError as re:
             logger.error(re, exc_info=True)

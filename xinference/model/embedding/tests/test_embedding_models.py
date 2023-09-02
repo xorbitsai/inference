@@ -27,6 +27,15 @@ TEST_MODEL_SPEC = EmbeddingModelSpec(
 def test_model():
     model_path = cache(TEST_MODEL_SPEC)
     model = EmbeddingModel("mock", model_path)
+    # input is a string
+    input_text = "what is the capital of China?"
+    model.load()
+    r = model.create_embedding(input_text)
+    assert len(r["data"]) == 1
+    for d in r["data"]:
+        assert len(d["embedding"]) == 384
+
+    # input is a lit
     input_texts = [
         "what is the capital of China?",
         "how to implement quick sort in python?",

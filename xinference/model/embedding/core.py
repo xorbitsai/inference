@@ -223,12 +223,18 @@ class EmbeddingModel:
             return all_embeddings, all_token_nums
 
         all_embeddings, all_token_nums = encode(
-            self._model, sentences, normalize_embeddings=normalize_embeddings, **kwargs
+            self._model,
+            sentences,
+            convert_to_numpy=False,
+            normalize_embeddings=normalize_embeddings,
+            **kwargs,
         )
+        if isinstance(sentences, str):
+            all_embeddings = [all_embeddings]
         embedding_list = []
         for index, data in enumerate(all_embeddings):
             embedding_list.append(
-                EmbeddingData(index=index, object="embedding", embedding=data)
+                EmbeddingData(index=index, object="embedding", embedding=data.tolist())
             )
         usage = EmbeddingUsage(
             prompt_tokens=all_token_nums, total_tokens=all_token_nums
