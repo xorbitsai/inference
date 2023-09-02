@@ -387,6 +387,7 @@ class RESTfulAPIActor(xo.Actor):
             "model_size_in_billions",
             "model_format",
             "quantization",
+            "model_type",
         }
 
         kwargs = {

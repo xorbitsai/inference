@@ -276,11 +276,15 @@ def test_restful_api(setup):
 #     # launch
 #     payload = {
 #         "model_uid": "test_embedding",
-#         "model_name": "orca",
-#         "quantization": "q4_0",
+#         "model_name": "bge-large-en",
+#         "model_type": "embedding",
 #     }
 #
 #     response = requests.post(url, json=payload)
 #     response_data = response.json()
 #     model_uid_res = response_data["model_uid"]
-#     assert model_uid_res == "test_restful_api"
+#     assert model_uid_res == "test_embedding"
+#
+#     response = requests.get(url)
+#     response_data = response.json()
+#     assert len(response_data) == 1
