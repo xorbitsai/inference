@@ -72,7 +72,7 @@ class LLMModelDescription(ModelDescription):
         self._llm_spec = llm_spec
         self._quantization = quantization
 
-    def to_description(self):
+    def to_dict(self):
         return {
             "model_type": "LLM",
             "model_name": self._llm_family.model_name,

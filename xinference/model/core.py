@@ -17,7 +17,7 @@ from typing import Any, Optional, Tuple
 
 
 class ModelDescription(ABC):
-    def to_description(self):
+    def to_dict(self):
         """
         Return a dict to describe some information about model.
         :return:

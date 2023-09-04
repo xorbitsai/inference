@@ -170,7 +170,7 @@ class WorkerActor(xo.Actor):
     def list_models(self) -> Dict[str, Dict[str, Any]]:
         ret = {}
         for k, v in self._model_uid_to_model_spec.items():
-            ret[k] = v.to_description()
+            ret[k] = v.to_dict()
         return ret
 
     @log_sync(logger=logger)
@@ -185,7 +185,7 @@ class WorkerActor(xo.Actor):
         if model_uid not in self._model_uid_to_model:
             raise ValueError(f"Model not found in the model list, uid: {model_uid}")
 
-        return self._model_uid_to_model_spec[model_uid].to_description()
+        return self._model_uid_to_model_spec[model_uid].to_dict()
 
     async def report_status(self):
         status = await asyncio.to_thread(gather_node_info)

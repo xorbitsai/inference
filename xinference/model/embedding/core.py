@@ -32,7 +32,7 @@ class EmbeddingModelSpec(BaseModel):
     model_name: str
     dimensions: int
     max_tokens: int
-    language: str
+    language: List[str]
     model_id: str
     model_revision: str
 
@@ -251,7 +251,7 @@ class EmbeddingModelDescription(ModelDescription):
     def __init__(self, model_spec: EmbeddingModelSpec):
         self._model_spec = model_spec
 
-    def to_description(self):
+    def to_dict(self):
         return {
             "model_type": "embedding",
             "model_name": self._model_spec.model_name,

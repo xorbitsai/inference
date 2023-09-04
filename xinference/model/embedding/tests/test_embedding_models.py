@@ -18,7 +18,7 @@ TEST_MODEL_SPEC = EmbeddingModelSpec(
     model_name="gte-small",
     dimensions=384,
     max_tokens=512,
-    language="en",
+    language=["en"],
     model_id="thenlper/gte-small",
     model_revision="d8e2604cadbeeda029847d19759d219e0ce2e6d8",
 )
