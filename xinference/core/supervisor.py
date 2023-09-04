@@ -150,7 +150,7 @@ class SupervisorActor(xo.Actor):
         logger.debug(
             (
                 f"Enter launch_builtin_model, model_uid: %s, model_name: %s, model_size: %s, "
-                f"model_format: %s, quantization: %s"
+                f"model_format: %s, quantization: %s, peft_model_id: %s"
             ),
             model_uid,
             model_name,
