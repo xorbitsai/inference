@@ -13,6 +13,7 @@
 # limitations under the License.
 import random
 import string
+from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 
@@ -136,6 +137,22 @@ async def test_ctransformers_generate(setup):
 
     model = client.get_model(model_uid=model_uid)
     assert isinstance(model, GenerateModelHandle)
+
+    # Test concurrent generate is OK.
+    def _check():
+        completion = model.generate("AI is going to", generate_config={"max_tokens": 5})
+        print(completion)
+        assert "id" in completion
+        assert "text" in completion["choices"][0]
+        assert len(completion["choices"][0]["text"]) > 0
+
+    results = []
+    with ThreadPoolExecutor() as executor:
+        for _ in range(10):
+            r = executor.submit(_check)
+            results.append(r)
+    for r in results:
+        r.result()
 
     completion = model.generate("AI is going to", generate_config={"max_tokens": 5})
     print(completion)
