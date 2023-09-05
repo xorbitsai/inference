@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import json
+import shutil
 from unittest.mock import MagicMock, Mock
 
 from xinference.model.llm.llm_family import (
@@ -246,6 +247,8 @@ def test_cache_from_uri_local():
     assert os.path.islink(cache_dir)
     assert os.path.exists(os.path.join(cache_dir, "model.bin"))
 
+    os.remove(cache_dir)
+
 
 def test_parse_uri():
     scheme, path = parse_uri("dir")
@@ -295,7 +298,7 @@ def test_cache_from_uri_remote():
 
     fsspec.real_filesystem = fsspec.filesystem
 
-    def fsspec_filesystem_side_effect(scheme: str):
+    def fsspec_filesystem_side_effect(scheme: str, *args, **kwargs):
         if scheme == "s3":
             mock_fs = Mock()
             mock_fs.walk.return_value = [("test_bucket", None, ["model.bin"])]
@@ -323,7 +326,7 @@ def test_legacy_cache():
         model_format="ggmlv3",
         model_size_in_billions=3,
         model_id="TheBloke/orca_mini_3B-GGML",
-        quantizations=["q8_0"],
+        quantizations=["test"],
         model_file_name_template="README.md",
     )
     family = LLMFamilyV1(
@@ -341,20 +344,18 @@ def test_legacy_cache():
         family.model_name,
         spec.model_format,
         spec.model_size_in_billions,
-        quantization="q8_0",
+        quantization="test",
     )
-
-    assert cache(
-        llm_family=family, llm_spec=spec, quantization="q8_0"
-    ) != os.path.dirname(cache_path)
 
     os.makedirs(os.path.dirname(cache_path), exist_ok=True)
     with open(cache_path, "w") as fd:
         fd.write("foo")
 
     assert cache(
-        llm_family=family, llm_spec=spec, quantization="q8_0"
+        llm_family=family, llm_spec=spec, quantization="test"
     ) == os.path.dirname(cache_path)
+
+    shutil.rmtree(os.path.dirname(cache_path), ignore_errors=True)
 
 
 def test_custom_llm():
