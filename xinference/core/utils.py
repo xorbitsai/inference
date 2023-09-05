@@ -64,6 +64,13 @@ def iter_replica_model_uid(model_uid: str, replica: int) -> Generator[str, None,
         yield f"{model_uid}-{replica}-{rep_id}"
 
 
+def build_replica_model_uid(model_uid: str, replica: int, rep_id: int) -> str:
+    """
+    Build a replica model uid.
+    """
+    return f"{model_uid}-{replica}-{rep_id}"
+
+
 def parse_replica_model_uid(replica_model_uid: str) -> Tuple[str, int, int]:
     """
     Parse replica model uid to model uid, replica and rep id.
