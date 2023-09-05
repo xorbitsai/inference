@@ -57,12 +57,12 @@ def test_replica_model(setup):
     assert len(client.list_models()) == 0
 
     model_uid = client.launch_model(
-        model_name="orca", model_size_in_billions=3, quantization="q4_0", replica=3
+        model_name="orca", model_size_in_billions=3, quantization="q4_0", replica=2
     )
-    assert len(client.list_models()) == 3
+    assert len(client.list_models()) == 2
 
     replica_uids = set()
-    while len(replica_uids) != 3:
+    while len(replica_uids) != 2:
         model = client.get_model(model_uid=model_uid)
         replica_uids.add(model._model_ref.uid)
 
