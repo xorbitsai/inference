@@ -87,6 +87,23 @@ UD_LLM_FAMILIES: List["LLMFamilyV1"] = []
 UD_LLM_FAMILIES_LOCK = Lock()
 
 
+def is_locale_chinese_simplified() -> bool:
+    import locale
+
+    try:
+        default_locale = locale.getdefaultlocale()
+        if default_locale:
+            return default_locale[0] == "zh_CN"
+    except:
+        return False
+
+
+def download_from_self_hosted_storage() -> bool:
+    from ...constants import XINFERENCE_ENV_MODEL_SRC
+
+    return os.environ.get(XINFERENCE_ENV_MODEL_SRC) == "xorbits"
+
+
 def get_legacy_cache_path(
     model_name: str,
     model_format: str,
@@ -111,10 +128,13 @@ def cache(
     if os.path.exists(legacy_cache_path):
         logger.debug("Legacy cache path exists: %s", legacy_cache_path)
         return os.path.dirname(legacy_cache_path)
+    elif is_locale_chinese_simplified() or download_from_self_hosted_storage():
+        logger.debug(f"Caching from self-hosted storage")
+        return cache_from_self_hosted_storage(llm_family, llm_spec, quantization)
     else:
         if llm_spec.model_uri is not None:
             logger.debug(f"Caching from URI: {llm_spec.model_uri}")
-            return cache_from_uri(llm_family, llm_spec)
+            return cache_from_uri(llm_family, llm_spec, quantization)
         else:
             logger.debug(f"Caching from Hugging Face: {llm_spec.model_id}")
             return cache_from_huggingface(llm_family, llm_spec, quantization)
@@ -138,9 +158,24 @@ def parse_uri(uri: str) -> Tuple[str, str]:
 SUPPORTED_SCHEMES = ["s3"]
 
 
+def cache_from_self_hosted_storage(
+    llm_family: LLMFamilyV1,
+    llm_spec: "LLMSpecV1",
+    quantization: Optional[str] = None,
+) -> str:
+    llm_spec = llm_spec.copy()
+    llm_spec.model_uri = (
+        f"s3://xinference-models/llm/"
+        f"{llm_family.model_name}-{llm_spec.model_format}-{llm_spec.model_size_in_billions}b"
+    )
+
+    return cache_from_uri(llm_family, llm_spec, quantization)
+
+
 def cache_from_uri(
     llm_family: LLMFamilyV1,
     llm_spec: "LLMSpecV1",
+    quantization: Optional[str] = None,
 ) -> str:
     from fsspec import AbstractFileSystem, filesystem
 
@@ -186,11 +221,19 @@ def cache_from_uri(
         local_fs: AbstractFileSystem = filesystem("file")
 
         files_to_download = []
-        for path, _, files in src_fs.walk(llm_spec.model_uri):
-            for file in files:
-                src_path = f"{path}/{file}"
-                local_path = src_path.replace(src_root, cache_dir)
-                files_to_download.append((src_path, local_path))
+        if llm_spec.model_format == "pytorch":
+            for path, _, files in src_fs.walk(llm_spec.model_uri):
+                for file in files:
+                    src_path = f"{path}/{file}"
+                    local_path = src_path.replace(src_root, cache_dir)
+                    files_to_download.append((src_path, local_path))
+        elif llm_spec.model_format == "ggmlv3":
+            file = llm_spec.model_file_name_template.format(quantization=quantization)
+            src_path = f"{src_root}/{file}"
+            local_path = f"{cache_dir}/{file}"
+            files_to_download.append((src_path, local_path))
+        else:
+            raise ValueError(f"Unsupported model format: {llm_spec.model_format}")
 
         from concurrent.futures import ThreadPoolExecutor
 
