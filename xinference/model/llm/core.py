@@ -18,9 +18,8 @@ import platform
 from abc import abstractmethod
 from typing import TYPE_CHECKING, Optional, Tuple
 
-from ..core import ModelDescription
-
 from ...core.utils import parse_replica_model_uid
+from ..core import ModelDescription
 
 if TYPE_CHECKING:
     from .llm_family import LLMFamilyV1, LLMSpecV1
