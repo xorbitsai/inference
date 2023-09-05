@@ -291,7 +291,9 @@ class SupervisorActor(xo.Actor):
             )
 
         worker_ref = self._replica_model_uid_to_worker[replica_model_uid]
-        return await worker_ref.describe_model(model_uid=replica_model_uid)
+        info = await worker_ref.describe_model(model_uid=replica_model_uid)
+        info["replica"] = replica_info.replica
+        return info
 
     @log_async(logger=logger)
     async def list_models(self) -> Dict[str, Dict[str, Any]]:

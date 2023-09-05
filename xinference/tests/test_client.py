@@ -94,6 +94,10 @@ def test_replica_model(setup):
     embedding_res = model.create_embedding("The food was delicious and the waiter...")
     assert "embedding" in embedding_res["data"][0]
 
+    client2 = RESTfulClient(endpoint)
+    info = client2.describe_model(model_uid=model_uid)
+    assert info["replica"] == 2
+
     client.terminate_model(model_uid=model_uid)
     assert len(client.list_models()) == 0
 
