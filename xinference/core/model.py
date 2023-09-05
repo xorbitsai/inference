@@ -60,7 +60,13 @@ class ModelActor(xo.Actor):
         return f"{model.__class__}-model-actor"
 
     async def __pre_destroy__(self):
-        if self._model.model_spec.model_format == "pytorch":
+        from ..model.embedding.core import EmbeddingModel
+        from ..model.llm.pytorch.core import PytorchModel as LLMPytorchModel
+
+        if (
+            isinstance(self._model, LLMPytorchModel)
+            and self._model.model_spec.model_format == "pytorch"
+        ) or isinstance(self._model, EmbeddingModel):
             try:
                 import gc
 

@@ -24,6 +24,7 @@ Chat & Instruction-following Models
 - :ref:`ChatGLM <models_builtin_chatglm>`
 - :ref:`ChatGLM2 <models_builtin_chatglm2>`
 - :ref:`ChatGLM2-32k <models_builtin_chatglm2_32k>`
+- :ref:`CodeLlama-Instruct <models_builtin_code_llama_instruct>`
 - :ref:`Falcon Instruct <models_builtin_falcon_instruct>`
 - :ref:`InternLM Chat <models_builtin_internlm_chat>`
 - :ref:`InternLM Chat 8K <models_builtin_internlm_chat_8k>`
@@ -42,6 +43,7 @@ Code Generation Models
 - :ref:`Starcoder <models_builtin_starcoder>`
 - :ref:`StarCoderPlus <models_builtin_starcoderplus>`
 - :ref:`Code-Llama <models_builtin_code_llama>`
+- :ref:`CodeLlama-Instruct <models_builtin_code_llama_instruct>`
 - :ref:`Code-Llama-Python <models_builtin_code_llama_python>`
 
 
@@ -59,6 +61,9 @@ Code Assistant Models
    chatglm
    chatglm2-32k
    chatglm2
+   code-llama
+   code-llama-instruct
+   code-llama-python
    falcon-instruct
    falcon
    internlm

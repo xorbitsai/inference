@@ -148,6 +148,7 @@ class SupervisorActor(xo.Actor):
         model_size_in_billions: Optional[int],
         model_format: Optional[str],
         quantization: Optional[str],
+        model_type: Optional[str],
         replica: int = 1,
         **kwargs,
     ) -> AsyncGenerator:
@@ -170,13 +171,17 @@ class SupervisorActor(xo.Actor):
                     f"Model is already in the model list, uid: {_replica_model_uid}"
                 )
 
+            nonlocal model_type
             worker_ref = await self._choose_worker()
-            await worker_ref.launch_builtin_model(
+            # LLM as default for compatibility
+            model_type = model_type or "LLM"
+            yield worker_ref.launch_builtin_model(
                 model_uid=_replica_model_uid,
                 model_name=model_name,
                 model_size_in_billions=model_size_in_billions,
                 model_format=model_format,
                 quantization=quantization,
+                model_type=model_type,
                 **kwargs,
             )
             # TODO: not protected.

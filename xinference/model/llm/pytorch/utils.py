@@ -289,9 +289,15 @@ def generate_stream(
     else:
         finish_reason = None
 
-    completion_choice = CompletionChoice(
-        text="", index=0, logprobs=None, finish_reason=finish_reason
-    )
+    if stream:
+        completion_choice = CompletionChoice(
+            text="", index=0, logprobs=None, finish_reason=finish_reason
+        )
+    else:
+        completion_choice = CompletionChoice(
+            text=output, index=0, logprobs=None, finish_reason=finish_reason
+        )
+
     completion_chunk = CompletionChunk(
         id=str(uuid.uuid1()),
         object="text_completion",
