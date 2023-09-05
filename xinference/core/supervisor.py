@@ -144,6 +144,7 @@ class SupervisorActor(xo.Actor):
         model_size_in_billions: Optional[int],
         model_format: Optional[str],
         quantization: Optional[str],
+        model_type: Optional[str],
         **kwargs,
     ) -> xo.ActorRefType["ModelActor"]:
         logger.debug(
@@ -162,12 +163,15 @@ class SupervisorActor(xo.Actor):
             raise ValueError(f"Model is already in the model list, uid: {model_uid}")
 
         worker_ref = await self._choose_worker()
+        # LLM as default for compatibility
+        model_type = model_type or "LLM"
         model_ref = yield worker_ref.launch_builtin_model(
             model_uid=model_uid,
             model_name=model_name,
             model_size_in_billions=model_size_in_billions,
             model_format=model_format,
             quantization=quantization,
+            model_type=model_type,
             **kwargs,
         )
         # TODO: not protected.

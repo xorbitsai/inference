@@ -14,7 +14,13 @@
 
 import pytest
 
-from ..client import ChatModelHandle, Client, RESTfulChatModelHandle, RESTfulClient
+from ..client import (
+    ChatModelHandle,
+    Client,
+    EmbeddingModelHandle,
+    RESTfulChatModelHandle,
+    RESTfulClient,
+)
 
 
 def test_client(setup):
@@ -46,6 +52,24 @@ def test_client(setup):
 
     embedding_res = model.create_embedding("The food was delicious and the waiter...")
     assert "embedding" in embedding_res["data"][0]
+
+    client.terminate_model(model_uid=model_uid)
+    assert len(client.list_models()) == 0
+
+
+def test_client_for_embedding(setup):
+    endpoint, _ = setup
+    client = Client(endpoint)
+    assert len(client.list_models()) == 0
+
+    model_uid = client.launch_model(model_name="gte-base", model_type="embedding")
+    assert len(client.list_models()) == 1
+
+    model = client.get_model(model_uid=model_uid)
+    assert isinstance(model, EmbeddingModelHandle)
+
+    completion = model.create_embedding("write a poem.")
+    assert len(completion["data"][0]["embedding"]) == 768
 
     client.terminate_model(model_uid=model_uid)
     assert len(client.list_models()) == 0

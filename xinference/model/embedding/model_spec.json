@@ -1,0 +1,82 @@
+[
+  {
+    "model_name": "bge-large-en",
+    "dimensions": 1024,
+    "max_tokens": 512,
+    "language": ["en"],
+    "model_id": "BAAI/bge-large-en",
+    "model_revision": "d57a0d82f0d0884de76bbce093f201364d9b720e"
+  },
+  {
+    "model_name": "bge-base-en",
+    "dimensions": 768,
+    "max_tokens": 512,
+    "language": ["en"],
+    "model_id": "BAAI/bge-base-en",
+    "model_revision": "90e113f4f9cd0c83220c873b94ca7bc37f85de97"
+  },
+  {
+    "model_name": "gte-large",
+    "dimensions": 1024,
+    "max_tokens": 512,
+    "language": ["en"],
+    "model_id": "thenlper/gte-large",
+    "model_revision": "2b5163b62ed28492dc70eb19a882b71c81dbc7c8"
+  },
+  {
+    "model_name": "gte-base",
+    "dimensions": 768,
+    "max_tokens": 512,
+    "language": ["en"],
+    "model_id": "thenlper/gte-base",
+    "model_revision": "792749e8178be77f479b26788a0e1adb4ec9c8a9"
+  },
+  {
+    "model_name": "e5-large-v2",
+    "dimensions": 1024,
+    "max_tokens": 512,
+    "language": ["en"],
+    "model_id": "intfloat/e5-large-v2",
+    "model_revision": "b322e09026e4ea05f42beadf4d661fb4e101d311"
+  },
+  {
+    "model_name": "bge-large-zh",
+    "dimensions": 1024,
+    "max_tokens": 512,
+    "language": ["zh"],
+    "model_id": "BAAI/bge-large-zh",
+    "model_revision": "1b543b301eb63dd32914b56d939db2a972df15d5"
+  },
+  {
+    "model_name": "bge-large-zh-noinstruct",
+    "dimensions": 1024,
+    "max_tokens": 512,
+    "language": ["zh"],
+    "model_id": "BAAI/bge-large-zh-noinstruct",
+    "model_revision": "d971248454d6267756fab9caa431c2c2fc5f0f35"
+  },
+  {
+    "model_name": "bge-base-zh",
+    "dimensions": 768,
+    "max_tokens": 512,
+    "language": ["zh"],
+    "model_id": "BAAI/bge-base-zh",
+    "model_revision": "faefe5952238b3d28bc35d1c8fe63eb269d8cee0"
+  },
+  {
+    "model_name": "multilingual-e5-large",
+    "dimensions": 1024,
+    "max_tokens": 514,
+    "language": ["zh"],
+    "model_id": "intfloat/multilingual-e5-large",
+    "model_revision": "c505dce3578a12ec54e47bdc72bef5cd0eacb085"
+  },
+  {
+    "model_name": "bge-small-zh",
+    "dimensions": 512,
+    "max_tokens": 512,
+    "language": ["zh"],
+    "model_id": "BAAI/bge-small-zh",
+    "model_revision": "52185a5f4aa5bb1fe80c0671b7303161880a2d79"
+  }
+]

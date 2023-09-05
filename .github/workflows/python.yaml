@@ -93,6 +93,7 @@ jobs:
           pip install transformers_stream_generator
           pip install bitsandbytes
           pip install ctransformers
+          pip install sentence-transformers
           pip install -e ".[dev]"
         working-directory: .
 
