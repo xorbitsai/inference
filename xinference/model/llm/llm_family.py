@@ -163,19 +163,36 @@ def cache_from_self_hosted_storage(
     llm_spec: "LLMSpecV1",
     quantization: Optional[str] = None,
 ) -> str:
+    # set the default region for self-hosted storage.
+    old_aws_default_region = None
+    if "AWS_DEFAULT_REGION" in os.environ:
+        old_aws_default_region = os.environ["AWS_DEFAULT_REGION"]
+    os.environ["AWS_DEFAULT_REGION"] = "cn-northwest-1"
+
     llm_spec = llm_spec.copy()
     llm_spec.model_uri = (
         f"s3://xinference-models/llm/"
         f"{llm_family.model_name}-{llm_spec.model_format}-{llm_spec.model_size_in_billions}b"
     )
 
-    return cache_from_uri(llm_family, llm_spec, quantization)
+    cache_dir = cache_from_uri(
+        llm_family, llm_spec, quantization, self_hosted_storage=True
+    )
+
+    # restore the default region.
+    if old_aws_default_region:
+        os.environ["AWS_DEFAULT_REGION"] = old_aws_default_region
+    else:
+        del os.environ["AWS_DEFAULT_REGION"]
+
+    return cache_dir
 
 
 def cache_from_uri(
     llm_family: LLMFamilyV1,
     llm_spec: "LLMSpecV1",
     quantization: Optional[str] = None,
+    self_hosted_storage: bool = False,
 ) -> str:
     from fsspec import AbstractFileSystem, filesystem
 
@@ -185,10 +202,11 @@ def cache_from_uri(
         dst_fs: "AbstractFileSystem",
         dst_path: str,
     ):
-        logger.error((src_path, dst_path))
+        logger.debug(f"Copy from {src_path} to {dst_path}")
         with _src_fs.open(src_path, "rb") as src_file:
             with dst_fs.open(dst_path, "wb") as dst_file:
                 dst_file.write(src_file.read())
+        logger.debug(f"Copy from {src_path} to {dst_path} finished")
 
     cache_dir_name = (
         f"{llm_family.model_name}-{llm_spec.model_format}"
@@ -199,7 +217,7 @@ def cache_from_uri(
     assert llm_spec.model_uri is not None
     src_scheme, src_root = parse_uri(llm_spec.model_uri)
     if src_root.endswith("/"):
-        # remove trailing path separator
+        # remove trailing path separator.
         src_root = src_root[:-1]
 
     if src_scheme == "file":
@@ -215,7 +233,8 @@ def cache_from_uri(
             os.symlink(src_root, cache_dir, target_is_directory=True)
         return cache_dir
     elif src_scheme in SUPPORTED_SCHEMES:
-        src_fs = filesystem(src_scheme)
+        # use anonymous connection for self-hosted storage.
+        src_fs = filesystem(src_scheme, anon=self_hosted_storage)
         local_fs: AbstractFileSystem = filesystem("file")
 
         files_to_download = []
