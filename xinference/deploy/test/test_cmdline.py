@@ -61,7 +61,7 @@ def test_cmdline(setup, stream):
     # So use client to launch model in temporary
     client = Client(endpoint)
     model_uid = client.launch_model(
-        model_name="orca", model_size_in_billions=3, quantization="q4_0"
+        model_name="orca", model_size_in_billions=3, quantization="q4_0", replica=2
     )
     assert len(model_uid) != 0
 
