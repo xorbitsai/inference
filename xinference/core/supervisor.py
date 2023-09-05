@@ -23,7 +23,13 @@ import xoscar as xo
 
 from ..core import ModelActor
 from .resource import ResourceStatus
-from .utils import build_replica_model_uid, iter_replica_model_uid, log_async, log_sync
+from .utils import (
+    build_replica_model_uid,
+    iter_replica_model_uid,
+    log_async,
+    log_sync,
+    parse_replica_model_uid,
+)
 
 if TYPE_CHECKING:
     from .worker import WorkerActor
@@ -292,7 +298,7 @@ class SupervisorActor(xo.Actor):
         ret = {}
         for worker in self._worker_address_to_worker.values():
             ret.update(await worker.list_models())
-        return ret
+        return {parse_replica_model_uid(k)[0]: v for k, v in ret.items()}
 
     @log_sync(logger=logger)
     def is_local_deployment(self) -> bool:

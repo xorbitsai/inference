@@ -83,7 +83,8 @@ def test_replica_model(setup):
     model_uid = client.launch_model(
         model_name="orca", model_size_in_billions=3, quantization="q4_0", replica=2
     )
-    assert len(client.list_models()) == 2
+    # Only one model with 2 replica
+    assert len(client.list_models()) == 1
 
     replica_uids = set()
     while len(replica_uids) != 2:
