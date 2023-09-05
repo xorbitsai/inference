@@ -64,7 +64,8 @@ chosen quantization method from the options listed above::
 
    xinference launch --model-name llama-2-chat --size-in-billions 7 --model-format pytorch --quantization ${quantization}
 
-Note
+.. note::
+
 4-bit quantization is not supported on macOS.
 
 
@@ -81,7 +82,8 @@ chosen quantization method from the options listed above::
 
    xinference launch --model-name llama-2-chat --size-in-billions 13 --model-format pytorch --quantization ${quantization}
 
-Note
+.. note::
+
 4-bit quantization is not supported on macOS.
 
 Model Spec 6 (pytorch, 70 Billion)
@@ -97,5 +99,6 @@ chosen quantization method from the options listed above::
 
    xinference launch --model-name llama-2-chat --size-in-billions 70 --model-format pytorch --quantization ${quantization}
 
-Note
+.. note::
+
 4-bit quantization is not supported on macOS.
