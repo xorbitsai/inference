@@ -144,18 +144,20 @@ class SupervisorActor(xo.Actor):
         model_size_in_billions: Optional[int],
         model_format: Optional[str],
         quantization: Optional[str],
+        peft_model_id: Optional[str],
         **kwargs,
     ) -> xo.ActorRefType["ModelActor"]:
         logger.debug(
             (
                 f"Enter launch_builtin_model, model_uid: %s, model_name: %s, model_size: %s, "
-                f"model_format: %s, quantization: %s"
+                f"model_format: %s, quantization: %s, peft_model_id: %s"
             ),
             model_uid,
             model_name,
             str(model_size_in_billions) if model_size_in_billions else "",
             model_format,
             quantization,
+            peft_model_id,
         )
 
         if model_uid in self._model_uid_to_worker:
@@ -168,6 +170,7 @@ class SupervisorActor(xo.Actor):
             model_size_in_billions=model_size_in_billions,
             model_format=model_format,
             quantization=quantization,
+            peft_model_id=peft_model_id,
             **kwargs,
         )
         # TODO: not protected.

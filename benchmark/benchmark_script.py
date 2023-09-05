@@ -29,7 +29,9 @@ def get_gpu_mem_info(gpu_id=GPU_ID):
     try:
         import pynvml
     except ImportError:
-        raise ImportError("Failed to import module 'pynvml', Please make sure 'pynvml' is installed.\n")
+        raise ImportError(
+            "Failed to import module 'pynvml', Please make sure 'pynvml' is installed.\n"
+        )
 
     pynvml.nvmlInit()
     if gpu_id < 0 or gpu_id >= pynvml.nvmlDeviceGetCount():
@@ -56,7 +58,9 @@ def get_cpu_mem_info():
     try:
         import psutil
     except ImportError:
-        raise ImportError("Failed to import module 'psutil', Please make sure 'psutil' is installed.\n")
+        raise ImportError(
+            "Failed to import module 'psutil', Please make sure 'psutil' is installed.\n"
+        )
 
     mem_total = round(psutil.virtual_memory().total / 1024 / 1024, 2)
     mem_free = round(psutil.virtual_memory().available / 1024 / 1024, 2)
@@ -107,7 +111,9 @@ def run_model(endpoint):
             quantizations = model_spec.quantizations
             if model_format == "ggmlv3":
                 # only test 1 quantization for ggml model
-                quantizations = ["q4_0"] if "q4_0" in quantizations else quantizations[:1]
+                quantizations = (
+                    ["q4_0"] if "q4_0" in quantizations else quantizations[:1]
+                )
             for quantization in quantizations:
                 logger.info(
                     f"Model: {model_name}-{model_format}-{model_size}b-{quantization}"

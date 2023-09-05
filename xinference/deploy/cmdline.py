@@ -363,12 +363,19 @@ def list_model_registrations(
     type=str,
     help="Define the quantization settings for the model.",
 )
+@click.option(
+    "--peft-model-id",
+    default=None,
+    type=str,
+    help="Specify the ID for the PEFT adaptor for the model.",
+)
 def model_launch(
     endpoint: Optional[str],
     model_name: str,
     size_in_billions: int,
     model_format: str,
     quantization: str,
+    peft_model_id: str,
 ):
     endpoint = get_endpoint(endpoint)
 
@@ -378,6 +385,7 @@ def model_launch(
         model_size_in_billions=size_in_billions,
         model_format=model_format,
         quantization=quantization,
+        peft_model_id=peft_model_id,
     )
 
     print(f"Model uid: {model_uid}", file=sys.stderr)

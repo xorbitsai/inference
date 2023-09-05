@@ -142,6 +142,7 @@ class WorkerActor(xo.Actor):
         model_size_in_billions: Optional[int],
         model_format: Optional[str],
         quantization: Optional[str],
+        peft_model_id: Optional[str],
         **kwargs,
     ) -> xo.ActorRefType["ModelActor"]:
         assert model_uid not in self._model_uid_to_model
@@ -165,9 +166,19 @@ class WorkerActor(xo.Actor):
         llm_family, llm_spec, quantization = match_result
         assert quantization is not None
 
-        from ..model.llm.llm_family import cache
+        if llm_spec.model_format != "pytorch" and peft_model_id is not None:
+            raise ValueError(
+                f"PEFT adaptors can only be applied to PyTorch models. However, you are trying to launch {model_name} with format {model_format}."
+            )
+
+        from ..model.llm.llm_family import cache, cache_peft
 
         save_path = await asyncio.to_thread(cache, llm_family, llm_spec, quantization)
+
+        if peft_model_id is not None:
+            save_peft_path = await asyncio.to_thread(cache_peft, peft_model_id)
+        else:
+            save_peft_path = None
 
         llm_cls = match_llm_cls(llm_family, llm_spec)
         logger.debug(f"Launching {model_uid} with {llm_cls.__name__}")
@@ -177,9 +188,26 @@ class WorkerActor(xo.Actor):
                 f" size: {model_size_in_billions}, quantization: {quantization}"
             )
 
-        model = llm_cls(
-            model_uid, llm_family, llm_spec, quantization, save_path, kwargs
-        )
+        if llm_spec.model_format == "pytorch":
+            model = llm_cls(
+                model_uid,
+                llm_family,
+                llm_spec,
+                quantization,
+                save_path,
+                save_peft_path,
+                kwargs,
+            )
+        else:
+            model = llm_cls(
+                model_uid,
+                llm_family,
+                llm_spec,
+                quantization,
+                save_path,
+                kwargs,
+            )
+
         subpool_address = self._choose_subpool()
         model_ref = await xo.create_actor(
             ModelActor, address=subpool_address, uid=model_uid, model=model

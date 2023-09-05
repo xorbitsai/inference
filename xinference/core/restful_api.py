@@ -379,6 +379,7 @@ class RESTfulAPIActor(xo.Actor):
         model_size_in_billions = payload.get("model_size_in_billions")
         model_format = payload.get("model_format")
         quantization = payload.get("quantization")
+        peft_model_id = payload.get("peft_model_id")
 
         exclude_keys = {
             "model_uid",
@@ -386,6 +387,7 @@ class RESTfulAPIActor(xo.Actor):
             "model_size_in_billions",
             "model_format",
             "quantization",
+            "peft_model_id",
         }
 
         kwargs = {
@@ -405,6 +407,7 @@ class RESTfulAPIActor(xo.Actor):
                 model_size_in_billions=model_size_in_billions,
                 model_format=model_format,
                 quantization=quantization,
+                peft_model_id=peft_model_id,
                 **kwargs,
             )
 

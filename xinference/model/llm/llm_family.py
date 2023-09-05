@@ -21,7 +21,11 @@ from typing import List, Optional, Tuple, Type, Union
 from pydantic import BaseModel, Field
 from typing_extensions import Annotated, Literal
 
-from ...constants import XINFERENCE_CACHE_DIR, XINFERENCE_MODEL_DIR
+from ...constants import (
+    XINFERENCE_CACHE_DIR,
+    XINFERENCE_MODEL_DIR,
+    XINFERENCE_PEFT_MODEL_DIR,
+)
 from . import LLM
 
 logger = logging.getLogger(__name__)
@@ -118,6 +122,38 @@ def cache(
         else:
             logger.debug(f"Caching from Hugging Face: {llm_spec.model_id}")
             return cache_from_huggingface(llm_family, llm_spec, quantization)
+
+
+def cache_peft(peft_model_id: str) -> str:
+    # Cache peft path from Hugging Face. Return the peft directory.
+
+    import huggingface_hub
+
+    peft_dir = os.path.join(XINFERENCE_PEFT_MODEL_DIR, peft_model_id)
+    if not os.path.exists(peft_dir):
+        os.makedirs(peft_dir, exist_ok=True)
+
+    for current_attempt in range(1, MAX_ATTEMPTS + 1):
+        try:
+            huggingface_hub.snapshot_download(
+                peft_model_id,
+                local_dir=peft_dir,
+                local_dir_use_symlinks=True,
+            )
+            logger.debug("Peft model directory: %s", peft_dir)
+            break
+        except huggingface_hub.utils.LocalEntryNotFoundError:
+            remaining_attempts = MAX_ATTEMPTS - current_attempt
+            logger.warning(
+                f"Attempt {current_attempt} failed. Remaining attempts: {remaining_attempts}"
+            )
+
+    else:
+        raise RuntimeError(
+            f"Failed to download the peft model from '{peft_model_id}' after multiple retries"
+        )
+
+    return peft_dir
 
 
 def parse_uri(uri: str) -> Tuple[str, str]:
