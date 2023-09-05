@@ -11,7 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import json
+import os
 import shutil
 from unittest.mock import MagicMock, Mock
 
@@ -147,8 +149,6 @@ def test_serialize_llm_family_v1():
 
 
 def test_builtin_llm_families():
-    import os
-
     json_path = os.path.join(
         os.path.dirname(os.path.abspath(__file__)), "..", "llm_family.json"
     )
@@ -178,11 +178,10 @@ def test_cache_from_huggingface_pytorch():
 
     cache_dir = cache_from_huggingface(family, spec, quantization=None)
 
-    import os
-
     assert os.path.exists(cache_dir)
     assert os.path.exists(os.path.join(cache_dir, "README.md"))
     assert os.path.islink(os.path.join(cache_dir, "README.md"))
+    shutil.rmtree(cache_dir)
 
 
 def test_cache_from_huggingface_ggml():
@@ -208,16 +207,13 @@ def test_cache_from_huggingface_ggml():
 
     cache_dir = cache_from_huggingface(family, spec, quantization=None)
 
-    import os
-
     assert os.path.exists(cache_dir)
     assert os.path.exists(os.path.join(cache_dir, "README.md"))
     assert os.path.islink(os.path.join(cache_dir, "README.md"))
+    shutil.rmtree(cache_dir)
 
 
 def test_cache_from_uri_local():
-    import os
-
     from ..llm_family import cache_from_uri
 
     with open("model.bin", "w") as fd:
@@ -228,7 +224,7 @@ def test_cache_from_uri_local():
         model_size_in_billions=3,
         model_id="TestModel",
         model_uri=os.path.abspath(os.getcwd()),
-        quantizations=["q4_0"],
+        quantizations=[""],
         model_file_name_template="model.bin",
     )
     family = LLMFamilyV1(
@@ -246,7 +242,6 @@ def test_cache_from_uri_local():
     assert os.path.exists(cache_dir)
     assert os.path.islink(cache_dir)
     assert os.path.exists(os.path.join(cache_dir, "model.bin"))
-
     os.remove(cache_dir)
 
 
@@ -269,8 +264,6 @@ def test_parse_uri():
 
 
 def test_cache_from_uri_remote():
-    import os
-
     from ..llm_family import cache_from_uri
 
     spec = GgmlLLMSpecV1(
@@ -278,7 +271,7 @@ def test_cache_from_uri_remote():
         model_size_in_billions=3,
         model_id="TestModel",
         model_uri="s3://test_bucket",
-        quantizations=["q4_0"],
+        quantizations=[""],
         model_file_name_template="model.bin",
     )
     family = LLMFamilyV1(
@@ -315,18 +308,17 @@ def test_cache_from_uri_remote():
         cache_dir = cache_from_uri(family, spec)
     assert os.path.exists(cache_dir)
     assert os.path.exists(os.path.join(cache_dir, "model.bin"))
+    shutil.rmtree(cache_dir, ignore_errors=True)
 
 
 def test_legacy_cache():
-    import os
-
     from ..llm_family import cache, get_legacy_cache_path
 
     spec = GgmlLLMSpecV1(
         model_format="ggmlv3",
         model_size_in_billions=3,
         model_id="TheBloke/orca_mini_3B-GGML",
-        quantizations=["test"],
+        quantizations=["test_legacy_cache"],
         model_file_name_template="README.md",
     )
     family = LLMFamilyV1(
@@ -344,7 +336,7 @@ def test_legacy_cache():
         family.model_name,
         spec.model_format,
         spec.model_size_in_billions,
-        quantization="test",
+        quantization="test_legacy_cache",
     )
 
     os.makedirs(os.path.dirname(cache_path), exist_ok=True)
@@ -352,10 +344,36 @@ def test_legacy_cache():
         fd.write("foo")
 
     assert cache(
-        llm_family=family, llm_spec=spec, quantization="test"
+        llm_family=family, llm_spec=spec, quantization="test_legacy_cache"
     ) == os.path.dirname(cache_path)
-
     shutil.rmtree(os.path.dirname(cache_path), ignore_errors=True)
+
+
+def test_cache_from_self_hosted_storage():
+    from ..llm_family import cache_from_self_hosted_storage
+
+    spec = GgmlLLMSpecV1(
+        model_format="ggmlv3",
+        model_size_in_billions=3,
+        model_id="TheBloke/orca_mini_3B-GGML",
+        quantizations=[""],
+        model_file_name_template="README.md",
+    )
+    family = LLMFamilyV1(
+        version=1,
+        context_length=2048,
+        model_type="LLM",
+        model_name="orca",
+        model_lang=["en"],
+        model_ability=["embed", "chat"],
+        model_specs=[spec],
+        prompt_style=None,
+    )
+
+    cache_dir = cache_from_self_hosted_storage(family, spec, quantization="")
+    assert os.path.exists(cache_dir)
+    assert os.path.exists(os.path.join(cache_dir, "README.md"))
+    shutil.rmtree(cache_dir, ignore_errors=True)
 
 
 def test_custom_llm():
@@ -365,7 +383,7 @@ def test_custom_llm():
         model_format="ggmlv3",
         model_size_in_billions=3,
         model_id="TheBloke/orca_mini_3B-GGML",
-        quantizations=["q8_0"],
+        quantizations=[""],
         model_file_name_template="README.md",
     )
     family = LLMFamilyV1(
@@ -388,8 +406,6 @@ def test_custom_llm():
 
 
 def test_persistent_custom_llm():
-    import os
-
     from ....constants import XINFERENCE_MODEL_DIR
     from ..llm_family import get_user_defined_llm_families, register_llm, unregister_llm
 
@@ -397,7 +413,7 @@ def test_persistent_custom_llm():
         model_format="ggmlv3",
         model_size_in_billions=3,
         model_id="TheBloke/orca_mini_3B-GGML",
-        quantizations=["q8_0"],
+        quantizations=[""],
         model_file_name_template="README.md",
     )
     family = LLMFamilyV1(
