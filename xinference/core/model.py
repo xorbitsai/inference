@@ -163,13 +163,18 @@ class ModelActor(xo.StatelessActor):
     async def next(
         self, generator_uid: str
     ) -> Union["ChatCompletionChunk", "CompletionChunk"]:
-        try:
-            assert generator_uid in self._generators
+        assert generator_uid in self._generators
+        stop = object()
 
-            def _wrapper():
+        def _wrapper():
+            try:
                 return next(self._generators[generator_uid])
+            except StopIteration:
+                return stop
 
-            return await self._call_wrapper(_wrapper)
-        except StopIteration:
+        r = await self._call_wrapper(_wrapper)
+        if r is stop:
             self._generators.pop(generator_uid, None)
             raise Exception("StopIteration")
+        else:
+            return r
