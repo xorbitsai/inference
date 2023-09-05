@@ -91,7 +91,7 @@ def is_locale_chinese_simplified() -> bool:
     import locale
 
     try:
-        default_locale = locale.getdefaultlocale()
+        default_locale = locale.getlocale()
         if default_locale:
             return default_locale[0] == "zh_CN"
     except:

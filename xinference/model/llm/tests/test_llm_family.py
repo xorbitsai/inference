@@ -441,6 +441,27 @@ def test_persistent_custom_llm():
     )
 
 
+def test_is_locale_chinese_simplified():
+    import locale
+
+    from ..llm_family import is_locale_chinese_simplified
+
+    assert not is_locale_chinese_simplified()
+
+    locale.setlocale(locale.LC_ALL, "zh_CN.UTF-8")
+    assert is_locale_chinese_simplified()
+
+
+def test_download_from_self_hosted_storage():
+    from ....constants import XINFERENCE_ENV_MODEL_SRC
+    from ..llm_family import download_from_self_hosted_storage
+
+    assert not download_from_self_hosted_storage()
+
+    os.environ[XINFERENCE_ENV_MODEL_SRC] = "xorbits"
+    assert download_from_self_hosted_storage()
+
+
 def test_match_llm():
     # TODO: implement
     pass
