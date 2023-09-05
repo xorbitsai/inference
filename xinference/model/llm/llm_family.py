@@ -126,17 +126,17 @@ def cache(
         quantization,
     )
     if os.path.exists(legacy_cache_path):
-        logger.debug("Legacy cache path exists: %s", legacy_cache_path)
+        logger.info("Legacy cache path exists: %s", legacy_cache_path)
         return os.path.dirname(legacy_cache_path)
     elif is_locale_chinese_simplified() or download_from_self_hosted_storage():
-        logger.debug(f"Caching from self-hosted storage")
+        logger.info(f"Caching from self-hosted storage")
         return cache_from_self_hosted_storage(llm_family, llm_spec, quantization)
     else:
         if llm_spec.model_uri is not None:
-            logger.debug(f"Caching from URI: {llm_spec.model_uri}")
+            logger.info(f"Caching from URI: {llm_spec.model_uri}")
             return cache_from_uri(llm_family, llm_spec, quantization)
         else:
-            logger.debug(f"Caching from Hugging Face: {llm_spec.model_id}")
+            logger.info(f"Caching from Hugging Face: {llm_spec.model_id}")
             return cache_from_huggingface(llm_family, llm_spec, quantization)
 
 
@@ -195,8 +195,6 @@ def cache_from_uri(
         f"-{llm_spec.model_size_in_billions}b"
     )
     cache_dir = os.path.realpath(os.path.join(XINFERENCE_CACHE_DIR, cache_dir_name))
-    if os.path.exists(cache_dir):
-        return cache_dir
 
     assert llm_spec.model_uri is not None
     src_scheme, src_root = parse_uri(llm_spec.model_uri)
@@ -209,19 +207,25 @@ def cache_from_uri(
             raise ValueError(
                 f"Model URI cannot be a relative path: {llm_spec.model_uri}"
             )
-        if not os.path.exists(XINFERENCE_CACHE_DIR):
-            os.makedirs(XINFERENCE_CACHE_DIR, exist_ok=True)
-        os.symlink(src_root, cache_dir, target_is_directory=True)
+        os.makedirs(XINFERENCE_CACHE_DIR, exist_ok=True)
+        if os.path.exists(cache_dir):
+            logger.info(f"Cache {cache_dir} exists")
+            return cache_dir
+        else:
+            os.symlink(src_root, cache_dir, target_is_directory=True)
         return cache_dir
     elif src_scheme in SUPPORTED_SCHEMES:
-        if not os.path.exists(cache_dir):
-            os.makedirs(cache_dir, exist_ok=True)
-
         src_fs = filesystem(src_scheme)
         local_fs: AbstractFileSystem = filesystem("file")
 
         files_to_download = []
         if llm_spec.model_format == "pytorch":
+            if os.path.exists(cache_dir):
+                logger.info(f"Cache {cache_dir} exists")
+                return cache_dir
+            else:
+                os.makedirs(cache_dir, exist_ok=True)
+
             for path, _, files in src_fs.walk(llm_spec.model_uri):
                 for file in files:
                     src_path = f"{path}/{file}"
@@ -229,6 +233,12 @@ def cache_from_uri(
                     files_to_download.append((src_path, local_path))
         elif llm_spec.model_format == "ggmlv3":
             file = llm_spec.model_file_name_template.format(quantization=quantization)
+            if os.path.exists(os.path.join(cache_dir, file)):
+                logger.info(f"Cache {os.path.join(cache_dir, file)} exists")
+                return cache_dir
+            else:
+                os.makedirs(cache_dir, exist_ok=True)
+
             src_path = f"{src_root}/{file}"
             local_path = f"{cache_dir}/{file}"
             files_to_download.append((src_path, local_path))
