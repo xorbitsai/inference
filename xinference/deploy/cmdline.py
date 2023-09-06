@@ -370,6 +370,13 @@ def list_model_registrations(
     type=str,
     help="Define the quantization settings for the model.",
 )
+@click.option(
+    "--replica",
+    "-r",
+    default=1,
+    type=int,
+    help="The replica count of the model, default is 1.",
+)
 def model_launch(
     endpoint: Optional[str],
     model_name: str,
@@ -377,6 +384,7 @@ def model_launch(
     size_in_billions: int,
     model_format: str,
     quantization: str,
+    replica: int,
 ):
     endpoint = get_endpoint(endpoint)
 
@@ -387,6 +395,7 @@ def model_launch(
         model_size_in_billions=size_in_billions,
         model_format=model_format,
         quantization=quantization,
+        replica=replica,
     )
 
     print(f"Model uid: {model_uid}", file=sys.stderr)

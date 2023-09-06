@@ -59,6 +59,7 @@ def test_restful_api(setup):
     response = requests.get(f"{endpoint}/v1/models/test_restful_api")
     response_data = response.json()
     assert response_data["model_name"] == "orca"
+    assert response_data["replica"] == 1
 
     response = requests.delete(f"{endpoint}/v1/models/bogus")
     assert response.status_code == 400

@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import Generator, Tuple
+
 
 def log_async(logger):
     import time
@@ -51,3 +53,32 @@ def log_sync(logger):
         return wrapped
 
     return decorator
+
+
+def iter_replica_model_uid(model_uid: str, replica: int) -> Generator[str, None, None]:
+    """
+    Generates all the replica model uids.
+    """
+    replica = int(replica)
+    for rep_id in range(replica):
+        yield f"{model_uid}-{replica}-{rep_id}"
+
+
+def build_replica_model_uid(model_uid: str, replica: int, rep_id: int) -> str:
+    """
+    Build a replica model uid.
+    """
+    return f"{model_uid}-{replica}-{rep_id}"
+
+
+def parse_replica_model_uid(replica_model_uid: str) -> Tuple[str, int, int]:
+    """
+    Parse replica model uid to model uid, replica and rep id.
+    """
+    parts = replica_model_uid.split("-")
+    if len(parts) == 1:
+        return replica_model_uid, -1, -1
+    rep_id = int(parts.pop())
+    replica = int(parts.pop())
+    model_uid = "-".join(parts)
+    return model_uid, replica, rep_id
