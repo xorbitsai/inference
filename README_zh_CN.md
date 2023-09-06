@@ -28,9 +28,7 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 - PyTorch 模型多 GPU 支持: [#226](https://github.com/xorbitsai/inference/issues/226)
 - Xinference 仪表盘: [#93](https://github.com/xorbitsai/inference/issues/93)
 ### 新模型
-- 内置 GGML 格式的 Starcoder: [#289](https://github.com/xorbitsai/inference/pull/289)
-- 内置 [MusicGen](https://github.com/facebookresearch/audiocraft/blob/main/docs/MUSICGEN.md): [#313](https://github.com/xorbitsai/inference/issues/313)
-- 内置 [SD-XL](https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0): [#318](https://github.com/xorbitsai/inference/issues/318)
+- 内置 [CodeLLama](https://github.com/facebookresearch/codellama): [#414](https://github.com/xorbitsai/inference/pull/414) [#402](https://github.com/xorbitsai/inference/pull/402)
 ### 工具
 - LlamaIndex 插件: [#7151](https://github.com/jerryjliu/llama_index/pull/7151)
 
@@ -111,16 +109,16 @@ Xinference 启动后，将会打印服务的 endpoint。这个 endpoint 用于�
 - 本地部署下, endpoint 默认为 `http://localhost:9997`.
 - 集群部署下, endpoint 默认为 `http://${supervisor_host}:9997`。其中 `${supervisor_host}` 为supervisor 所在服务器的主机名或 IP 地址。
 
-你还可以通过 web UI 与任意内置模型聊天。Xinference 甚至**支持同时与两个最前沿的 AI 模型聊天并比较它们的回复质量**！
+你还可以通过 web UI 启动并管理模型，使用任意内置模型生成文本或对话。
 
-![web UI](assets/demo.gif)
+![web UI](assets/index.jpg)
 
 ### Xinference 命令行
 Xinference 提供了命令行工具用于模型管理。支持的命令包括：
 
 - 启动一个模型 (将会返回一个模型 UID)：`xinference launch`
 - 查看所有运行中的模型：`xinference list`
-- 查看所有内置模型：`xinference list --all`
+- 查看所有支持的模型：`xinference registrations`
 - 结束模型：`xinference terminate --model-uid ${model_uid}`
 
 ### Xinference 编程接口
@@ -173,38 +171,38 @@ model.chat(
 ## 内置模型
 运行以下命令查看内置模型列表：
 ```bash
-$ xinference list --all
+$ xinference registrations
 ```
 
-| Name             | Language      | Ability                |
-|------------------|---------------|------------------------|
-| baichuan         | ['en', 'zh']  | ['embed', 'generate']  |
-| baichuan-chat    | ['en', 'zh']  | ['embed', 'chat']      |
-| chatglm          | ['en', 'zh']  | ['embed', 'chat']      |
-| chatglm2         | ['en', 'zh']  | ['embed', 'chat']      |
-| chatglm2-32k     | ['en', 'zh']  | ['embed', 'chat']      |
-| code-llama       | ['en']        | ['generate']           |
-| code-llama-python| ['en']        | ['generate']           |
-| code-llama-instruct| ['en']      | ['chat']               |
-| falcon           | ['en']        | ['embed', 'generate']  |
-| falcon-instruct  | ['en']        | ['embed', 'chat']      |
-| gpt-2            | ['en']        | ['generate']           |
-| internlm         | ['en', 'zh']  | ['embed', 'generate']  |
-| internlm-chat    | ['en', 'zh']  | ['embed', 'chat']      |
-| internlm-chat-8k | ['en', 'zh']  | ['embed', 'chat']      |
-| llama-2          | ['en']        | ['embed', 'generate']  |
-| llama-2-chat     | ['en']        | ['embed', 'chat']      |
-| opt              | ['en']        | ['embed', 'generate']  |
-| orca             | ['en']        | ['embed', 'chat']      |
-| qwen-chat        | ['en', 'zh']  | ['embed', 'chat']      |
-| starchat-beta    | ['en']        | ['embed', 'chat']      |
-| starcoder        | ['en']        | ['generate']           |
-| starcoderplus    | ['en']        | ['embed', 'generate']  |
-| vicuna-v1.3      | ['en']        | ['embed', 'chat']      |
-| vicuna-v1.5      | ['en']        | ['embed', 'chat']      |
-| vicuna-v1.5-16k  | ['en']        | ['embed', 'chat']      |
-| wizardlm-v1.0    | ['en']        | ['embed', 'chat']      |
-| wizardmath-v1.0  | ['en']        | ['embed', 'chat']      |
+| Type | Name                | Language     | Ability                |
+|------|---------------------|--------------|------------------------|
+| LLM  | baichuan            | ['en', 'zh'] | ['embed', 'generate']  |
+| LLM  | baichuan-chat       | ['en', 'zh'] | ['embed', 'chat']      |
+| LLM  | chatglm             | ['en', 'zh'] | ['embed', 'chat']      |
+| LLM  | chatglm2            | ['en', 'zh'] | ['embed', 'chat']      |
+| LLM  | chatglm2-32k        | ['en', 'zh'] | ['embed', 'chat']      |
+| LLM  | code-llama          | ['en']       | ['generate']           |
+| LLM  | code-llama-instruct | ['en']       | ['chat']               |
+| LLM  | code-llama-python   | ['en']       | ['generate']           |
+| LLM  | falcon              | ['en']       | ['embed', 'generate']  |
+| LLM  | falcon-instruct     | ['en']       | ['embed', 'chat']      |
+| LLM  | gpt-2               | ['en']       | ['generate']           |
+| LLM  | internlm            | ['en', 'zh'] | ['embed', 'generate']  |
+| LLM  | internlm-chat       | ['en', 'zh'] | ['embed', 'chat']      |
+| LLM  | internlm-chat-8k    | ['en', 'zh'] | ['embed', 'chat']      |
+| LLM  | llama-2             | ['en']       | ['embed', 'generate']  |
+| LLM  | llama-2-chat        | ['en']       | ['embed', 'chat']      |
+| LLM  | opt                 | ['en']       | ['embed', 'generate']  |
+| LLM  | orca                | ['en']       | ['embed', 'chat']      |
+| LLM  | qwen-chat           | ['en', 'zh'] | ['embed', 'chat']      |
+| LLM  | starchat-beta       | ['en']       | ['embed', 'chat']      |
+| LLM  | starcoder           | ['en']       | ['generate']           |
+| LLM  | starcoderplus       | ['en']       | ['embed', 'generate']  |
+| LLM  | vicuna-v1.3         | ['en']       | ['embed', 'chat']      |
+| LLM  | vicuna-v1.5         | ['en']       | ['embed', 'chat']      |
+| LLM  | vicuna-v1.5-16k     | ['en']       | ['embed', 'chat']      |
+| LLM  | wizardlm-v1.0       | ['en']       | ['embed', 'chat']      |
+| LLM  | wizardmath-v1.0     | ['en']       | ['embed', 'chat']      |
 
 更多信息请参考 [内置模型](https://inference.readthedocs.io/en/latest/models/builtin/index.html)。
 

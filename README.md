@@ -31,9 +31,7 @@ potential of cutting-edge AI models.
 - Multi-GPU support for PyTorch models: [#226](https://github.com/xorbitsai/inference/issues/226)
 - Xinference dashboard: [#93](https://github.com/xorbitsai/inference/issues/93)
 ### New Models
-- Built-in support for Starcoder in GGML: [#289](https://github.com/xorbitsai/inference/pull/289)
-- Built-in support for [MusicGen](https://github.com/facebookresearch/audiocraft/blob/main/docs/MUSICGEN.md): [#313](https://github.com/xorbitsai/inference/issues/313)
-- Built-in support for [SD-XL](https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0): [#318](https://github.com/xorbitsai/inference/issues/318)
+- Built-in support for [CodeLLama](https://github.com/facebookresearch/codellama): [#414](https://github.com/xorbitsai/inference/pull/414) [#402](https://github.com/xorbitsai/inference/pull/402)
 ### Tools
 - LlamaIndex plugin: [#7151](https://github.com/jerryjliu/llama_index/pull/7151)
 
@@ -127,10 +125,9 @@ Xinference  client.
 `${supervisor_host}` is the hostname or IP address of the server where the supervisor is running.
 
 You can also view a web UI using the Xinference endpoint to chat with all the 
-builtin models. You can even **chat with two cutting-edge AI models side-by-side to compare
-their performance**!
+builtin models.
 
-![web UI](assets/demo.gif)
+![web UI](assets/index.jpg)
 
 ### Xinference CLI
 Xinference provides a command line interface (CLI) for model management. Here are some useful 
@@ -138,7 +135,7 @@ commands:
 
 - Launch a model (a model UID will be returned): `xinference launch`
 - List running models: `xinference list`
-- List all the builtin models: `xinference list --all`
+- List all the supported models: `xinference registrations`
 - Terminate a model: `xinference terminate --model-uid ${model_uid}`
 
 ### Xinference Client
@@ -154,10 +151,10 @@ model = client.get_model(model_uid)
 chat_history = []
 prompt = "What is the largest animal?"
 model.chat(
-            prompt,
-            chat_history,
-            generate_config={"max_tokens": 1024}
-        )
+    prompt,
+    chat_history,
+    generate_config={"max_tokens": 1024}
+)
 ```
 
 Result:
@@ -191,38 +188,38 @@ See [examples](examples) for more examples.
 ## Builtin models
 To view the builtin models, run the following command:
 ```bash
-$ xinference list --all
+$ xinference registrations
 ```
 
-| Name             | Language      | Ability                |
-|------------------|---------------|------------------------|
-| baichuan         | ['en', 'zh']  | ['embed', 'generate']  |
-| baichuan-chat    | ['en', 'zh']  | ['embed', 'chat']      |
-| chatglm          | ['en', 'zh']  | ['embed', 'chat']      |
-| chatglm2         | ['en', 'zh']  | ['embed', 'chat']      |
-| chatglm2-32k     | ['en', 'zh']  | ['embed', 'chat']      |
-| code-llama       | ['en']        | ['generate']           |
-| code-llama-python| ['en']        | ['generate']           |
-| code-llama-instruct| ['en']      | ['chat']               |
-| falcon           | ['en']        | ['embed', 'generate']  |
-| falcon-instruct  | ['en']        | ['embed', 'chat']      |
-| gpt-2            | ['en']        | ['generate']           |
-| internlm         | ['en', 'zh']  | ['embed', 'generate']  |
-| internlm-chat    | ['en', 'zh']  | ['embed', 'chat']      |
-| internlm-chat-8k | ['en', 'zh']  | ['embed', 'chat']      |
-| llama-2          | ['en']        | ['embed', 'generate']  |
-| llama-2-chat     | ['en']        | ['embed', 'chat']      |
-| opt              | ['en']        | ['embed', 'generate']  |
-| orca             | ['en']        | ['embed', 'chat']      |
-| qwen-chat        | ['en', 'zh']  | ['embed', 'chat']      |
-| starchat-beta    | ['en']        | ['embed', 'chat']      |
-| starcoder        | ['en']        | ['generate']           |
-| starcoderplus    | ['en']        | ['embed', 'generate']  |
-| vicuna-v1.3      | ['en']        | ['embed', 'chat']      |
-| vicuna-v1.5      | ['en']        | ['embed', 'chat']      |
-| vicuna-v1.5-16k  | ['en']        | ['embed', 'chat']      |
-| wizardlm-v1.0    | ['en']        | ['embed', 'chat']      |
-| wizardmath-v1.0  | ['en']        | ['embed', 'chat']      |
+| Type | Name                | Language     | Ability                |
+|------|---------------------|--------------|------------------------|
+| LLM  | baichuan            | ['en', 'zh'] | ['embed', 'generate']  |
+| LLM  | baichuan-chat       | ['en', 'zh'] | ['embed', 'chat']      |
+| LLM  | chatglm             | ['en', 'zh'] | ['embed', 'chat']      |
+| LLM  | chatglm2            | ['en', 'zh'] | ['embed', 'chat']      |
+| LLM  | chatglm2-32k        | ['en', 'zh'] | ['embed', 'chat']      |
+| LLM  | code-llama          | ['en']       | ['generate']           |
+| LLM  | code-llama-instruct | ['en']       | ['chat']               |
+| LLM  | code-llama-python   | ['en']       | ['generate']           |
+| LLM  | falcon              | ['en']       | ['embed', 'generate']  |
+| LLM  | falcon-instruct     | ['en']       | ['embed', 'chat']      |
+| LLM  | gpt-2               | ['en']       | ['generate']           |
+| LLM  | internlm            | ['en', 'zh'] | ['embed', 'generate']  |
+| LLM  | internlm-chat       | ['en', 'zh'] | ['embed', 'chat']      |
+| LLM  | internlm-chat-8k    | ['en', 'zh'] | ['embed', 'chat']      |
+| LLM  | llama-2             | ['en']       | ['embed', 'generate']  |
+| LLM  | llama-2-chat        | ['en']       | ['embed', 'chat']      |
+| LLM  | opt                 | ['en']       | ['embed', 'generate']  |
+| LLM  | orca                | ['en']       | ['embed', 'chat']      |
+| LLM  | qwen-chat           | ['en', 'zh'] | ['embed', 'chat']      |
+| LLM  | starchat-beta       | ['en']       | ['embed', 'chat']      |
+| LLM  | starcoder           | ['en']       | ['generate']           |
+| LLM  | starcoderplus       | ['en']       | ['embed', 'generate']  |
+| LLM  | vicuna-v1.3         | ['en']       | ['embed', 'chat']      |
+| LLM  | vicuna-v1.5         | ['en']       | ['embed', 'chat']      |
+| LLM  | vicuna-v1.5-16k     | ['en']       | ['embed', 'chat']      |
+| LLM  | wizardlm-v1.0       | ['en']       | ['embed', 'chat']      |
+| LLM  | wizardmath-v1.0     | ['en']       | ['embed', 'chat']      |
 
 For in-depth details on the built-in models, please refer to [built-in models](https://inference.readthedocs.io/en/latest/models/builtin/index.html). 
 
