@@ -4,11 +4,12 @@ import Button from "@mui/material/Button";
 import { ApiContext } from "../../components/apiContext";
 import {
   Box,
-  Switch,
-  FormControl,
-  FormGroup,
   Checkbox,
+  FormGroup,
   FormControlLabel,
+  Radio,
+  RadioGroup,
+  FormControl,
 } from "@mui/material";
 
 const SUPPORTED_LANGUAGES_DICT = { en: "english", zh: "mandarin" };
@@ -37,12 +38,14 @@ const SUPPORTED_LANGUAGES = Object.keys(SUPPORTED_LANGUAGES_DICT);
 const RegisterModel = () => {
   const endPoint = useContext(ApiContext).endPoint;
   const [persist, setPersist] = useState(false);
+  const [showRaw, setShowRaw] = useState(false);
   const [formData, setFormData] = useState({
     version: 1,
     context_length: 2048,
     model_name: "custom-llama-2",
     model_lang: ["en"],
     model_ability: ["generate"],
+    model_description: "This is a custom model description.",
     model_specs: [
       {
         model_format: "pytorch",
@@ -67,11 +70,6 @@ const RegisterModel = () => {
     (spec) => spec.model_format === "ggmlv3"
   );
 
-  // context length must be
-  // 1. all numeric characters (0-9)
-  // 2. does not begin with 0
-  // 3. between 1 and 10 digits long
-  const errorContextLength = !/^(?!0)\d{1,10}$/.test(formData.context_length);
   // model name must be
   // 1. all alphanueric characters, dashes, or periods
   // 2. does not contain two consecutive dashes or periods
@@ -81,14 +79,42 @@ const RegisterModel = () => {
     !/^(?!-|\.)(?!.*--)(?!.*\.\.)(?!.*\.-)(?!.*-\.)[A-Za-z0-9-.]{1,255}(?<!-|\.)$/.test(
       formData.model_name
     );
+  const errorModelDescription =
+    !/^[A-Za-z0-9\s!"#$%&'()*+,-./:;<=>?@[\]^_`{|}~]{0,500}$/.test(
+      formData.model_description
+    );
+  const errorContextLength = formData.context_length === 0;
   const errorLanguage =
     formData.model_lang === undefined || formData.model_lang.length === 0;
   const errorAbility =
     formData.model_ability === undefined || formData.model_ability.length === 0;
   const errorModelFormat =
     formData.model_specs === undefined || formData.model_specs.length === 0;
-  const errorPytorchQuantization = false;
-  const errorGgmlv3Quantization = false;
+  const errorPytorchQuantization =
+    formData.model_specs &&
+    formData.model_specs.some((spec) => {
+      return (
+        spec.model_format === "pytorch" &&
+        (spec.quantizations === undefined || spec.quantizations.length === 0)
+      );
+    });
+  const errorGgmlv3Quantization =
+    formData.model_specs &&
+    formData.model_specs.some((spec) => {
+      return (
+        spec.model_format === "ggmlv3" &&
+        (spec.quantizations === undefined || spec.quantizations.length === 0)
+      );
+    });
+  const errorAny =
+    errorModelName ||
+    errorModelDescription ||
+    errorContextLength ||
+    errorLanguage ||
+    errorAbility ||
+    errorModelFormat ||
+    errorPytorchQuantization ||
+    errorGgmlv3Quantization;
 
   const toggleLanguage = (lang) => {
     if (formData.model_lang.includes(lang)) {
@@ -234,8 +260,8 @@ const RegisterModel = () => {
               value = value.replace(/^0+/, "") || "0";
             }
             // Ensure it's a positive integer, if not set it to the minimum
-            if (!/^\d+$/.test(value) || parseInt(value) < 1) {
-              value = "1";
+            if (!/^\d+$/.test(value) || parseInt(value) < 0) {
+              value = "0";
             }
             // Update with the processed value
             setFormData({
@@ -253,6 +279,17 @@ const RegisterModel = () => {
           helperText="Alphanumeric characters with properly placed hyphens and periods"
           onChange={(event) =>
             setFormData({ ...formData, model_name: event.target.value })
+          }
+        />
+        <Box padding="10px"></Box>
+        <TextField
+          label="Model Description"
+          error={errorModelDescription}
+          defaultValue={formData.model_description}
+          size="small"
+          helperText="A short, 1-2 sentence description of your custom model"
+          onChange={(event) =>
+            setFormData({ ...formData, model_description: event.target.value })
           }
         />
         <Box padding="5px"></Box>
@@ -383,6 +420,68 @@ const RegisterModel = () => {
           </Box>
         </Box>
       </FormControl>
+      <Box padding="5px"></Box>
+
+      <label
+        style={{
+          paddingLeft: 5,
+        }}
+      >
+        Persist Model
+      </label>
+
+      <RadioGroup
+        value={persist ? "acrossSessions" : "thisSessionOnly"}
+        onChange={() => setPersist(!persist)}
+      >
+        <Box sx={styles.checkboxWrapper}>
+          <Box sx={{ marginLeft: "10px" }}>
+            <FormControlLabel
+              value="thisSessionOnly"
+              control={<Radio />}
+              label="Register this model in this session only"
+            />
+          </Box>
+          <Box sx={{ marginLeft: "10px" }}>
+            <FormControlLabel
+              value="acrossSessions"
+              control={<Radio />}
+              label="Register this model across sessions"
+            />
+          </Box>
+        </Box>
+      </RadioGroup>
+      <Box padding="5px"></Box>
+
+      <label
+        style={{
+          paddingLeft: 5,
+        }}
+      >
+        Show Raw
+      </label>
+
+      <RadioGroup
+        value={showRaw ? "show" : "notShow"}
+        onChange={() => setShowRaw(!showRaw)}
+      >
+        <Box sx={styles.checkboxWrapper}>
+          <Box sx={{ marginLeft: "10px" }}>
+            <FormControlLabel
+              value="notShow"
+              control={<Radio />}
+              label="Only display interactible selections"
+            />
+          </Box>
+          <Box sx={{ marginLeft: "10px" }}>
+            <FormControlLabel
+              value="show"
+              control={<Radio />}
+              label="Show raw json for API call"
+            />
+          </Box>
+        </Box>
+      </RadioGroup>
 
       {/* PyTorch Model Spec Form */}
       {pytorchSelected && (
@@ -582,18 +681,6 @@ const RegisterModel = () => {
         </FormGroup>
       )}
 
-      <FormGroup>
-        <h2>Persist</h2>
-        <FormControlLabel
-          control={<Switch onChange={() => setPersist(!persist)} />}
-          label={
-            persist
-              ? "Register across sessions"
-              : "Register in this session only"
-          }
-        />
-      </FormGroup>
-
       <Box width={"100%"} m="20px">
         <Button
           variant="contained"
@@ -627,8 +714,18 @@ const RegisterModel = () => {
       </Box>
 
       {/* Debug: Display form data */}
-      <pre>PERSIST: {persist ? "TRUE" : "FALSE"}</pre>
-      <pre>{JSON.stringify(formData, null, 2)}</pre>
+      {showRaw && (
+        <pre style={{ padding: "30px" }}>
+          {JSON.stringify(
+            {
+              model: formData,
+              persist: persist,
+            },
+            null,
+            2
+          )}
+        </pre>
+      )}
     </Box>
   );
 };
