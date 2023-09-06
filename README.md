@@ -194,7 +194,9 @@ $ xinference registrations
 | Type | Name                | Language     | Ability                |
 |------|---------------------|--------------|------------------------|
 | LLM  | baichuan            | ['en', 'zh'] | ['embed', 'generate']  |
+| LLM  | baichuan-2          | ['en', 'zh'] | ['embed', 'generate']  |
 | LLM  | baichuan-chat       | ['en', 'zh'] | ['embed', 'chat']      |
+| LLM  | baichuan-2-chat     | ['en', 'zh'] | ['embed', 'chat']      |
 | LLM  | chatglm             | ['en', 'zh'] | ['embed', 'chat']      |
 | LLM  | chatglm2            | ['en', 'zh'] | ['embed', 'chat']      |
 | LLM  | chatglm2-32k        | ['en', 'zh'] | ['embed', 'chat']      |
