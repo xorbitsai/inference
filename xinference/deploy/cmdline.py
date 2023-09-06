@@ -597,7 +597,6 @@ def model_chat(
                 prompt = input("User: ")
                 if prompt == "":
                     break
-                chat_history.append(ChatCompletionMessage(role="user", content=prompt))
                 print("Assistant: ", end="", file=sys.stdout)
                 response_content = ""
                 async for chunk in model.chat(
@@ -612,6 +611,7 @@ def model_chat(
                         response_content += delta["content"]
                         print(delta["content"], end="", flush=True, file=sys.stdout)
                 print("\n", file=sys.stdout)
+                chat_history.append(ChatCompletionMessage(role="user", content=prompt))
                 chat_history.append(
                     ChatCompletionMessage(role="assistant", content=response_content)
                 )
