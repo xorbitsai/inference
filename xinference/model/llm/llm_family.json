@@ -1265,7 +1265,7 @@
           "none"
         ],
         "model_id": "WizardLM/WizardMath-70B-V1.0",
-        "model_revision": " 8823afe1d77b1ebdd6ac0c14e6e8977037d1830e"
+        "model_revision": "e089c3f9d2ad9d1acb62425aec3f4126f498f4c5"
       }
     ],
     "prompt_style": {
