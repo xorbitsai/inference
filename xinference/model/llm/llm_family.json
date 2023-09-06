@@ -1376,6 +1376,7 @@
     "version": 1,
     "context_length": 100000,
     "model_name": "code-llama-instruct",
+    "model_description": "Code-Llama-Instruct is an instruct-tuned version of the Code-Llama LLM.",
     "model_lang": [
       "en"
     ],
