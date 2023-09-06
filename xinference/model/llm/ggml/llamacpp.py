@@ -123,7 +123,8 @@ class LlamaCppModel(LLM):
         if llamacpp_model_config is None:
             llamacpp_model_config = LlamaCppModelConfig()
 
-        llamacpp_model_config.setdefault("n_ctx", self.model_family.context_length)
+        if self.model_family.context_length:
+            llamacpp_model_config.setdefault("n_ctx", self.model_family.context_length)
         llamacpp_model_config.setdefault("embedding", True)
         llamacpp_model_config.setdefault("use_mmap", False)
         llamacpp_model_config.setdefault("use_mlock", True)
