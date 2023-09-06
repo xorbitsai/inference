@@ -1434,7 +1434,7 @@
   {
     "version": 1,
     "context_length": 4096,
-    "model_name": "baichuan2-chat",
+    "model_name": "baichuan-2-chat",
     "model_lang": [
       "en",
       "zh"
