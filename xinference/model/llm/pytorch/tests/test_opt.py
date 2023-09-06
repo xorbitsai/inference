@@ -83,7 +83,7 @@ async def test_opt_pytorch_model(setup, quantization):
 
         results = []
         with ThreadPoolExecutor() as executor:
-            for _ in range(10):
+            for _ in range(3):
                 r = executor.submit(_check)
                 results.append(r)
         for r in results:

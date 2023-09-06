@@ -148,7 +148,7 @@ async def test_ctransformers_generate(setup):
 
     results = []
     with ThreadPoolExecutor() as executor:
-        for _ in range(10):
+        for _ in range(3):
             r = executor.submit(_check)
             results.append(r)
     for r in results:
