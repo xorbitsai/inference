@@ -26,6 +26,7 @@ from ..llm_family import (
     PromptStyleV1,
     PytorchLLMSpecV1,
     is_locale_chinese_simplified,
+    is_self_hosted,
     parse_uri,
 )
 
@@ -507,6 +508,30 @@ def test_exception_handling():
 
     # Ensure the region is deleted if it wasn't set before
     assert "AWS_DEFAULT_REGION" not in os.environ
+
+
+def test_is_self_hosted():
+    spec = GgmlLLMSpecV1(
+        model_format="ggmlv3",
+        model_size_in_billions=3,
+        model_id="TheBloke/orca_mini_3B-GGML",
+        quantizations=[""],
+        model_file_name_template="README.md",
+    )
+    family = LLMFamilyV1(
+        version=1,
+        context_length=2048,
+        model_type="LLM",
+        model_name="orca",
+        model_lang=["en"],
+        model_ability=["embed", "chat"],
+        model_specs=[spec],
+        prompt_style=None,
+    )
+    assert is_self_hosted(family, spec)
+
+    family.model_name = "foo"
+    assert not is_self_hosted(family, spec)
 
 
 def test_match_llm():
