@@ -174,6 +174,9 @@ class ChatModelMixin:
                 else:
                     ret += role + ": Let's think step by step."
             return ret
+        elif prompt_style.style_name == "BIG_TRANSLATE":
+            message = chat_history[-2]
+            return prompt_style.system_prompt.format(message["content"])
         else:
             raise ValueError(f"Invalid prompt style: {prompt_style.style_name}")
 
