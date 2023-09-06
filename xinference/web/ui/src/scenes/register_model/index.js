@@ -4,6 +4,7 @@ import Button from "@mui/material/Button";
 import { ApiContext } from "../../components/apiContext";
 import {
   Box,
+  Switch,
   FormControl,
   FormGroup,
   Checkbox,
@@ -35,6 +36,7 @@ const SUPPORTED_LANGUAGES = Object.keys(SUPPORTED_LANGUAGES_DICT);
 
 const RegisterModel = () => {
   const endPoint = useContext(ApiContext).endPoint;
+  const [persist, setPersist] = useState(false);
   const [formData, setFormData] = useState({
     version: 1,
     context_length: 2048,
@@ -446,7 +448,7 @@ const RegisterModel = () => {
           </label>
           <Box sx={styles.checkboxWrapper}>
             {PYTORCH_QUANTIZATIONS.map((quantization) => (
-              <Box key={quantization} sx={{ marginRight: "10px" }}>
+              <Box key={quantization} sx={{ marginLeft: "10px" }}>
                 <FormControlLabel
                   control={
                     <Checkbox
@@ -546,7 +548,7 @@ const RegisterModel = () => {
           </label>
           <Box sx={styles.checkboxWrapper}>
             {GGMLV3_QUANTIZATIONS.map((quantization) => (
-              <Box key={quantization} sx={{ marginRight: "10px" }}>
+              <Box key={quantization} sx={{ marginLeft: "10px" }}>
                 <FormControlLabel
                   control={
                     <Checkbox
@@ -580,6 +582,18 @@ const RegisterModel = () => {
         </FormGroup>
       )}
 
+      <FormGroup>
+        <h2>Persist</h2>
+        <FormControlLabel
+          control={<Switch onChange={() => setPersist(!persist)} />}
+          label={
+            persist
+              ? "Register across sessions"
+              : "Register in this session only"
+          }
+        />
+      </FormGroup>
+
       <Box width={"100%"} m="20px">
         <Button
           variant="contained"
@@ -593,7 +607,7 @@ const RegisterModel = () => {
               },
               body: JSON.stringify({
                 model: JSON.stringify(formData),
-                persist: false,
+                persist: persist,
               }),
             })
               .then((response) => {
@@ -613,6 +627,7 @@ const RegisterModel = () => {
       </Box>
 
       {/* Debug: Display form data */}
+      <pre>PERSIST: {persist ? "TRUE" : "FALSE"}</pre>
       <pre>{JSON.stringify(formData, null, 2)}</pre>
     </Box>
   );
