@@ -116,7 +116,7 @@ Xinference には、モデル管理のためのコマンドラインインター
 
 - モデルを起動する（モデルの UID が返される）: `xinference launch`
 - 実行中のモデルをリストアップする: `xinference list`
-- 全てのビルトインモデルをリストアップする: `xinference list --all`
+- 全てのビルトインモデルをリストアップする: `xinference registrations`
 - モデルを終了する： モデルの終了: `xinference terminate --model-uid ${model_uid}`
 
 ### Xinference クライアント
@@ -132,10 +132,10 @@ model = client.get_model(model_uid)
 chat_history = []
 prompt = "What is the largest animal?"
 model.chat(
-            prompt,
-            chat_history,
-            generate_config={"max_tokens": 1024}
-        )
+    prompt,
+    chat_history,
+    generate_config={"max_tokens": 1024}
+)
 ```
 
 結果:
@@ -169,39 +169,38 @@ model.chat(
 ## 内蔵モデル
 内蔵モデルを表示するには、以下のコマンドを実行します:
 ```bash
-$ xinference list --all
+$ xinference registrations
 ```
 
-
-| Name             | Language      | Ability                |
-|------------------|---------------|------------------------|
-| baichuan         | ['en', 'zh']  | ['embed', 'generate']  |
-| baichuan-chat    | ['en', 'zh']  | ['embed', 'chat']      |
-| chatglm          | ['en', 'zh']  | ['embed', 'chat']      |
-| chatglm2         | ['en', 'zh']  | ['embed', 'chat']      |
-| chatglm2-32k     | ['en', 'zh']  | ['embed', 'chat']      |
-| code-llama       | ['en']        | ['generate']           |
-| code-llama-python| ['en']        | ['generate']           |
-| code-llama-instruct| ['en']      | ['chat']               |
-| falcon           | ['en']        | ['embed', 'generate']  |
-| falcon-instruct  | ['en']        | ['embed', 'chat']      |
-| gpt-2            | ['en']        | ['generate']           |
-| internlm         | ['en', 'zh']  | ['embed', 'generate']  |
-| internlm-chat    | ['en', 'zh']  | ['embed', 'chat']      |
-| internlm-chat-8k | ['en', 'zh']  | ['embed', 'chat']      |
-| llama-2          | ['en']        | ['embed', 'generate']  |
-| llama-2-chat     | ['en']        | ['embed', 'chat']      |
-| opt              | ['en']        | ['embed', 'generate']  |
-| orca             | ['en']        | ['embed', 'chat']      |
-| qwen-chat        | ['en', 'zh']  | ['embed', 'chat']      |
-| starchat-beta    | ['en']        | ['embed', 'chat']      |
-| starcoder        | ['en']        | ['generate']           |
-| starcoderplus    | ['en']        | ['embed', 'generate']  |
-| vicuna-v1.3      | ['en']        | ['embed', 'chat']      |
-| vicuna-v1.5      | ['en']        | ['embed', 'chat']      |
-| vicuna-v1.5-16k  | ['en']        | ['embed', 'chat']      |
-| wizardlm-v1.0    | ['en']        | ['embed', 'chat']      |
-| wizardmath-v1.0  | ['en']        | ['embed', 'chat']      |
+| Type | Name                | Language     | Ability                |
+|------|---------------------|--------------|------------------------|
+| LLM  | baichuan            | ['en', 'zh'] | ['embed', 'generate']  |
+| LLM  | baichuan-chat       | ['en', 'zh'] | ['embed', 'chat']      |
+| LLM  | chatglm             | ['en', 'zh'] | ['embed', 'chat']      |
+| LLM  | chatglm2            | ['en', 'zh'] | ['embed', 'chat']      |
+| LLM  | chatglm2-32k        | ['en', 'zh'] | ['embed', 'chat']      |
+| LLM  | code-llama          | ['en']       | ['generate']           |
+| LLM  | code-llama-instruct | ['en']       | ['chat']               |
+| LLM  | code-llama-python   | ['en']       | ['generate']           |
+| LLM  | falcon              | ['en']       | ['embed', 'generate']  |
+| LLM  | falcon-instruct     | ['en']       | ['embed', 'chat']      |
+| LLM  | gpt-2               | ['en']       | ['generate']           |
+| LLM  | internlm            | ['en', 'zh'] | ['embed', 'generate']  |
+| LLM  | internlm-chat       | ['en', 'zh'] | ['embed', 'chat']      |
+| LLM  | internlm-chat-8k    | ['en', 'zh'] | ['embed', 'chat']      |
+| LLM  | llama-2             | ['en']       | ['embed', 'generate']  |
+| LLM  | llama-2-chat        | ['en']       | ['embed', 'chat']      |
+| LLM  | opt                 | ['en']       | ['embed', 'generate']  |
+| LLM  | orca                | ['en']       | ['embed', 'chat']      |
+| LLM  | qwen-chat           | ['en', 'zh'] | ['embed', 'chat']      |
+| LLM  | starchat-beta       | ['en']       | ['embed', 'chat']      |
+| LLM  | starcoder           | ['en']       | ['generate']           |
+| LLM  | starcoderplus       | ['en']       | ['embed', 'generate']  |
+| LLM  | vicuna-v1.3         | ['en']       | ['embed', 'chat']      |
+| LLM  | vicuna-v1.5         | ['en']       | ['embed', 'chat']      |
+| LLM  | vicuna-v1.5-16k     | ['en']       | ['embed', 'chat']      |
+| LLM  | wizardlm-v1.0       | ['en']       | ['embed', 'chat']      |
+| LLM  | wizardmath-v1.0     | ['en']       | ['embed', 'chat']      |
 
 **注**:
 - Xinference は自動的にモデルをダウンロードし、デフォルトでは `${USER}/.xinference/cache` の下に保存されます。
@@ -210,45 +209,9 @@ $ xinference list --all
 - Apple Metal GPU をアクセラレーションに使用する場合は、q4_0 と q4_1 の量子化方法を選択してください。
 - `llama-2-chat` 70B ggmlv3 モデルは現在 q4_0 量子化しかサポートしていない。
 
-
-## Pytorch モデルのベストプラクティス
-
-最近 Pytorch が統合されました。使用シナリオを以下に説明します:
-
-### サポートモデル
-- 基礎モデル: baichuan（7B、13B）。
-- SFT モデル: baichuan-chat（13B）、vicuna-v1.3（7B、13B、33B）。
-
-### サポートデバイス
-- CUDA： Linux と Windows システムでは、デフォルトで `cuda` デバイスが使用される。
-- MPS： Mac M1/M2 デバイスでは、デフォルトで `mps` デバイスが使用される。
-- CPU： `cpu` デバイスを使用することは推奨されない。多くのメモリを消費し、推論速度が非常に遅くなるからです。
-
-### 量子化メソッド
-- `none`: 量子化を行わないことを示す。
-- `8-bit`: 8 ビット量子化を使用する。
-- `4-bit`: 4 ビット量子化を使用する。注意：4ビット量子化は Linux システムと CUDA デバイスでのみサポートされています。
-
-### その他の命令
-- MacOSシステムでは、baichuan-chat モデルはサポートされておらず、baichuan モデルは 8 ビット量子化を使用できない
-
-### ユースケース
-
-以下の表は、一部のモデルのメモリ使用量と対応デバイスを示しています。
-
-| Name          | Size (B) | OS    | No quantization (MB) | Quantization 8-bit (MB) | Quantization 4-bit (MB) |
-|---------------|----------|-------|----------------------|-------------------------|-------------------------|
-| baichuan-chat | 13       | linux | not currently tested | 13275                   | 7263                    |
-| baichuan-chat | 13       | macos | not supported        | not supported           | not supported           |
-| vicuna-v1.3   | 7        | linux | 12884                | 6708                    | 3620                    |
-| vicuna-v1.3   | 7        | macos | 12916                | 565                     | not supported           |
-| baichuan      | 7        | linux | 13480                | 7304                    | 4216                    |
-| baichuan      | 7        | macos | 13480                | not supported           | not supported           |
+## カスタムモデル
+[カスタムモデル](https://inference.readthedocs.io/en/latest/models/custom.html)を参照してください。
 
 
 
-## ロードマップ
-Xinference は現在活発に開発中です。今後数週間の開発予定ロードマップは以下の通りです:
 
-### Langchain と LlamaIndex 統合
-Xinference があれば、ユーザーはこれらのライブラリを使用し、LLM でアプリケーションを構築することがより簡単になります。
