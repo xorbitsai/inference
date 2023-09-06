@@ -11,6 +11,7 @@ Text Generation Models
 ++++++++++++++++++++++
 
 - :ref:`Baichuan <models_builtin_baichuan>`
+- :ref:`Baichuan <models_builtin_baichuan_2>`
 - :ref:`Falcon <models_builtin_falcon>`
 - :ref:`InternLM <models_builtin_internlm>`
 - :ref:`Llama-2 <models_builtin_llama_2>`
@@ -21,6 +22,7 @@ Chat & Instruction-following Models
 +++++++++++++++++++++++++++++++++++
 
 - :ref:`Baichuan Chat <models_builtin_baichuan_chat>`
+- :ref:`Baichuan-2 Chat <models_builtin_baichuan_2_chat>`
 - :ref:`ChatGLM <models_builtin_chatglm>`
 - :ref:`ChatGLM2 <models_builtin_chatglm2>`
 - :ref:`ChatGLM2-32k <models_builtin_chatglm2_32k>`
@@ -57,7 +59,9 @@ Code Assistant Models
    :hidden:
 
    baichuan-chat
+   baichuan-2-chat
    baichuan
+   baichuan-2
    chatglm
    chatglm2-32k
    chatglm2
