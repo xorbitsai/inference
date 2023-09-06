@@ -14,6 +14,7 @@ import {
   ChevronRightOutlined,
   RocketLaunchOutlined,
   SmartToyOutlined,
+  AddBoxOutlined,
   GitHub,
 } from "@mui/icons-material";
 import icon from "../media/icon.webp";
@@ -27,6 +28,10 @@ const navItems = [
   {
     text: "Running Models",
     icon: <SmartToyOutlined />,
+  },
+  {
+    text: "Register Model",
+    icon: <AddBoxOutlined />,
   },
   {
     text: "Contact Us",
