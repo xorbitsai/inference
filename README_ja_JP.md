@@ -107,9 +107,8 @@ Xinference が起動すると、CLI または Xinference クライアントか�
 `${supervisor_host}` は supervisor が稼動しているサーバのホスト名または IP アドレスです。
 
 また、Xinference エンドポイントを使用してウェブ UI を表示し、すべての内蔵モデルとチャットすることもできます。
-**2 つの最先端 AI モデルを並べてチャットし、パフォーマンスを比較することもできます**！
 
-![web UI](assets/demo.gif)
+![web UI](assets/index.jpg)
 
 ### Xinference CLI
 Xinference には、モデル管理のためのコマンドラインインターフェース（CLI）が用意されています。便利なコマンドをいくつか紹介します:

@@ -125,9 +125,9 @@ Xinference  client.
 `${supervisor_host}` is the hostname or IP address of the server where the supervisor is running.
 
 You can also view a web UI using the Xinference endpoint to chat with all the 
-builtin models. You can even **chat with two cutting-edge AI models side-by-side to compare
-their performance**!
+builtin models.
 
+![web UI](assets/index.jpg)
 
 ### Xinference CLI
 Xinference provides a command line interface (CLI) for model management. Here are some useful 
