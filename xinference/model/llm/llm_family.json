@@ -1327,7 +1327,7 @@
   },
   {
     "version": 1,
-    "context_length": 100000,
+    "context_length": 2048,
     "model_name": "BigTranslate",
     "model_lang": [
       "en"
