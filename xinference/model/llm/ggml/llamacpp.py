@@ -14,7 +14,6 @@
 
 import logging
 import os
-import platform
 from typing import TYPE_CHECKING, Iterator, List, Optional, TypedDict, Union
 
 from ....types import (
@@ -123,11 +122,8 @@ class LlamaCppModel(LLM):
     ) -> LlamaCppModelConfig:
         if llamacpp_model_config is None:
             llamacpp_model_config = LlamaCppModelConfig()
-        if platform.system() == "Windows":
-            llamacpp_model_config.setdefault("n_ctx", 512)
-        else:
-            llamacpp_model_config.setdefault("n_ctx", 2048)
 
+        llamacpp_model_config.setdefault("n_ctx", self.model_family.context_length)
         llamacpp_model_config.setdefault("embedding", True)
         llamacpp_model_config.setdefault("use_mmap", False)
         llamacpp_model_config.setdefault("use_mlock", True)
