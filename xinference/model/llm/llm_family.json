@@ -1444,7 +1444,7 @@
       "generate",
       "chat"
     ],
-    "model_description": "Baichuan2 is an open-source Transformer based LLM that is trained on both Chinese and English data.",
+    "model_description": "Baichuan2-chat is a fine-tuned version of the Baichuan LLM, specializing in chatting.",
     "model_specs": [
       {
         "model_format": "pytorch",
