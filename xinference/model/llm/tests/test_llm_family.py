@@ -248,6 +248,7 @@ def test_cache_from_uri_local():
     assert os.path.islink(cache_dir)
     assert os.path.exists(os.path.join(cache_dir, "model.bin"))
     os.remove(cache_dir)
+    os.remove("model.bin")
 
 
 def test_parse_uri():
