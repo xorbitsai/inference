@@ -438,6 +438,7 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
             return False
         if llm_family.model_name in [
             "baichuan-chat",
+            "baichuan-2-chat",
             "vicuna-v1.3",
             "falcon",
             "falcon-instruct",
