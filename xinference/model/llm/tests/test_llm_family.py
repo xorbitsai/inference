@@ -15,13 +15,17 @@
 import json
 import os
 import shutil
-from unittest.mock import MagicMock, Mock
+from unittest.mock import MagicMock, Mock, patch
 
-from xinference.model.llm.llm_family import (
+import pytest
+
+from ..llm_family import (
+    AWSRegion,
     GgmlLLMSpecV1,
     LLMFamilyV1,
     PromptStyleV1,
     PytorchLLMSpecV1,
+    is_locale_chinese_simplified,
     parse_uri,
 )
 
@@ -231,7 +235,7 @@ def test_cache_from_uri_local():
         version=1,
         context_length=2048,
         model_type="LLM",
-        model_name="test",
+        model_name="test_cache_from_uri_local",
         model_lang=["en"],
         model_ability=["embed", "chat"],
         model_specs=[spec],
@@ -278,7 +282,7 @@ def test_cache_from_uri_remote():
         version=1,
         context_length=2048,
         model_type="LLM",
-        model_name="test",
+        model_name="test_cache_from_uri_remote",
         model_lang=["en"],
         model_ability=["embed", "chat"],
         model_specs=[spec],
@@ -442,14 +446,17 @@ def test_persistent_custom_llm():
 
 
 def test_is_locale_chinese_simplified():
-    import locale
+    def zh_cn():
+        return ("zh_CN", "UTF-8")
 
-    from ..llm_family import is_locale_chinese_simplified
+    def en_us():
+        return ("en_US", "UTF-8")
 
-    assert not is_locale_chinese_simplified()
+    with patch("locale.getdefaultlocale", side_effect=zh_cn):
+        assert is_locale_chinese_simplified()
 
-    locale.setlocale(locale.LC_ALL, "zh_CN.UTF-8")
-    assert is_locale_chinese_simplified()
+    with patch("locale.getdefaultlocale", side_effect=en_us):
+        assert not is_locale_chinese_simplified()
 
 
 def test_download_from_self_hosted_storage():
@@ -460,6 +467,46 @@ def test_download_from_self_hosted_storage():
 
     os.environ[XINFERENCE_ENV_MODEL_SRC] = "xorbits"
     assert download_from_self_hosted_storage()
+
+
+def test_set_aws_region():
+    with AWSRegion("foo"):
+        assert os.environ["AWS_DEFAULT_REGION"] == "foo"
+
+    # Ensure the region is deleted if it wasn't set before
+    assert "AWS_DEFAULT_REGION" not in os.environ
+
+
+def test_restore_aws_region():
+    # Set an initial region
+    os.environ["AWS_DEFAULT_REGION"] = "us-west-1"
+
+    with AWSRegion("foo"):
+        assert os.environ["AWS_DEFAULT_REGION"] == "foo"
+
+    # Ensure the region is restored to its original value after exiting the context
+    assert os.environ["AWS_DEFAULT_REGION"] == "us-west-1"
+
+
+def test_no_restore_if_not_set():
+    # Ensure AWS_DEFAULT_REGION is not set
+    if "AWS_DEFAULT_REGION" in os.environ:
+        del os.environ["AWS_DEFAULT_REGION"]
+
+    with AWSRegion("foo"):
+        assert os.environ["AWS_DEFAULT_REGION"] == "foo"
+
+    # Ensure the region is deleted if it wasn't set before
+    assert "AWS_DEFAULT_REGION" not in os.environ
+
+
+def test_exception_handling():
+    with pytest.raises(ValueError):
+        with AWSRegion("foo"):
+            raise ValueError("Test exception")
+
+    # Ensure the region is deleted if it wasn't set before
+    assert "AWS_DEFAULT_REGION" not in os.environ
 
 
 def test_match_llm():

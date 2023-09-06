@@ -91,9 +91,8 @@ def is_locale_chinese_simplified() -> bool:
     import locale
 
     try:
-        default_locale = locale.getlocale()
-        if default_locale:
-            return default_locale[0] == "zh_CN"
+        lang, _ = locale.getdefaultlocale()
+        return lang == "zh_CN"
     except:
         return False
 
@@ -101,7 +100,10 @@ def is_locale_chinese_simplified() -> bool:
 def download_from_self_hosted_storage() -> bool:
     from ...constants import XINFERENCE_ENV_MODEL_SRC
 
-    return os.environ.get(XINFERENCE_ENV_MODEL_SRC) == "xorbits"
+    return (
+        is_locale_chinese_simplified()
+        or os.environ.get(XINFERENCE_ENV_MODEL_SRC) == "xorbits"
+    )
 
 
 def get_legacy_cache_path(
@@ -128,7 +130,7 @@ def cache(
     if os.path.exists(legacy_cache_path):
         logger.info("Legacy cache path exists: %s", legacy_cache_path)
         return os.path.dirname(legacy_cache_path)
-    elif is_locale_chinese_simplified() or download_from_self_hosted_storage():
+    elif download_from_self_hosted_storage() and is_self_hosted(llm_family, llm_spec):
         logger.info(f"Caching from self-hosted storage")
         return cache_from_self_hosted_storage(llm_family, llm_spec, quantization)
     else:
@@ -158,34 +160,53 @@ def parse_uri(uri: str) -> Tuple[str, str]:
 SUPPORTED_SCHEMES = ["s3"]
 
 
+class AWSRegion:
+    def __init__(self, region: str):
+        self.region = region
+        self.original_aws_default_region = None
+
+    def __enter__(self):
+        if "AWS_DEFAULT_REGION" in os.environ:
+            self.original_aws_default_region = os.environ["AWS_DEFAULT_REGION"]
+        os.environ["AWS_DEFAULT_REGION"] = self.region
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        if self.original_aws_default_region:
+            os.environ["AWS_DEFAULT_REGION"] = self.original_aws_default_region
+        else:
+            del os.environ["AWS_DEFAULT_REGION"]
+
+
+def is_self_hosted(
+    llm_family: LLMFamilyV1,
+    llm_spec: "LLMSpecV1",
+):
+    from fsspec import AbstractFileSystem, filesystem
+
+    with AWSRegion("cn-northwest-1"):
+        src_fs: AbstractFileSystem = filesystem("s3", anon=True)
+        model_dir = (
+            f"/xinference-models/llm/"
+            f"{llm_family.model_name}-{llm_spec.model_format}-{llm_spec.model_size_in_billions}b"
+        )
+        return src_fs.exists(model_dir)
+
+
 def cache_from_self_hosted_storage(
     llm_family: LLMFamilyV1,
     llm_spec: "LLMSpecV1",
     quantization: Optional[str] = None,
 ) -> str:
-    # set the default region for self-hosted storage.
-    old_aws_default_region = None
-    if "AWS_DEFAULT_REGION" in os.environ:
-        old_aws_default_region = os.environ["AWS_DEFAULT_REGION"]
-    os.environ["AWS_DEFAULT_REGION"] = "cn-northwest-1"
+    with AWSRegion("cn-northwest-1"):
+        llm_spec = llm_spec.copy()
+        llm_spec.model_uri = (
+            f"s3://xinference-models/llm/"
+            f"{llm_family.model_name}-{llm_spec.model_format}-{llm_spec.model_size_in_billions}b"
+        )
 
-    llm_spec = llm_spec.copy()
-    llm_spec.model_uri = (
-        f"s3://xinference-models/llm/"
-        f"{llm_family.model_name}-{llm_spec.model_format}-{llm_spec.model_size_in_billions}b"
-    )
-
-    cache_dir = cache_from_uri(
-        llm_family, llm_spec, quantization, self_hosted_storage=True
-    )
-
-    # restore the default region.
-    if old_aws_default_region:
-        os.environ["AWS_DEFAULT_REGION"] = old_aws_default_region
-    else:
-        del os.environ["AWS_DEFAULT_REGION"]
-
-    return cache_dir
+        return cache_from_uri(
+            llm_family, llm_spec, quantization, self_hosted_storage=True
+        )
 
 
 def cache_from_uri(
@@ -234,7 +255,7 @@ def cache_from_uri(
         return cache_dir
     elif src_scheme in SUPPORTED_SCHEMES:
         # use anonymous connection for self-hosted storage.
-        src_fs = filesystem(src_scheme, anon=self_hosted_storage)
+        src_fs: AbstractFileSystem = filesystem(src_scheme, anon=self_hosted_storage)
         local_fs: AbstractFileSystem = filesystem("file")
 
         files_to_download = []
