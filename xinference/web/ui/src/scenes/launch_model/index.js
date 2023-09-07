@@ -18,13 +18,17 @@ const LaunchModel = () => {
   };
 
   const filter = (registration) => {
+    if (!registration || typeof searchTerm !== "string") return false;
+    const modelName = registration.model_name
+      ? registration.model_name.toLowerCase()
+      : "";
+    const modelDescription = registration.model_description
+      ? registration.model_description.toLowerCase()
+      : "";
+
     if (
-      !registration.model_name
-        .toLowerCase()
-        .includes(searchTerm.toLowerCase()) &&
-      !registration.model_description
-        .toLowerCase()
-        .includes(searchTerm.toLowerCase())
+      !modelName.includes(searchTerm.toLowerCase()) &&
+      !modelDescription.includes(searchTerm.toLowerCase())
     ) {
       return false;
     }
