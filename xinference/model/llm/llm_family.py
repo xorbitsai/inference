@@ -232,6 +232,8 @@ def cache_from_uri(
             try:
                 with _src_fs.open(_src_path, "rb") as src_file:
                     file_size = _src_fs.info(src_path)["size"]
+
+                    dst_fs.makedirs(os.path.dirname(dst_path), exist_ok=True)
                     with dst_fs.open(dst_path, "wb") as dst_file:
                         chunk_size = 1024 * 1024  # 1 MB
 
@@ -298,7 +300,6 @@ def cache_from_uri(
                 os.makedirs(cache_dir, exist_ok=True)
 
             for path, _, files in src_fs.walk(llm_spec.model_uri):
-                os.makedirs(path, exist_ok=True)
                 for file in files:
                     src_path = f"{path}/{file}"
                     local_path = src_path.replace(src_root, cache_dir)
