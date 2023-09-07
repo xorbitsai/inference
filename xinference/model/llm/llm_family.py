@@ -329,6 +329,10 @@ def cache_from_uri(
         if failed:
             logger.warning(f"Removing cache directory: {cache_dir}")
             shutil.rmtree(cache_dir, ignore_errors=True)
+            raise RuntimeError(
+                f"Failed to download model '{llm_family.model_name}' "
+                f"(size: {llm_spec.model_size_in_billions}, format: {llm_spec.model_format})"
+            )
         return cache_dir
     else:
         raise ValueError(f"Unsupported URL scheme: {src_scheme}")
