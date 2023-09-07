@@ -151,7 +151,7 @@ def test_builtin_llm_families():
     json_path = os.path.join(
         os.path.dirname(os.path.abspath(__file__)), "..", "llm_family.json"
     )
-    for json_obj in json.load(open(json_path)):
+    for json_obj in json.load(open(json_path, encoding="utf-8")):
         LLMFamilyV1.parse_obj(json_obj)
 
 
