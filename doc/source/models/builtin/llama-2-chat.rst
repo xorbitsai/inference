@@ -1,7 +1,7 @@
 .. _models_builtin_llama_2_chat:
 
 ============
-Llama-2-Chat
+Llama-2 Chat
 ============
 
 - **Model Name:** llama-2-chat
