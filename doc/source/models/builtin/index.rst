@@ -11,7 +11,7 @@ Text Generation Models
 ++++++++++++++++++++++
 
 - :ref:`Baichuan <models_builtin_baichuan>`
-- :ref:`Baichuan <models_builtin_baichuan_2>`
+- :ref:`Baichuan-2 <models_builtin_baichuan_2>`
 - :ref:`Falcon <models_builtin_falcon>`
 - :ref:`InternLM <models_builtin_internlm>`
 - :ref:`Llama-2 <models_builtin_llama_2>`
@@ -30,7 +30,7 @@ Chat & Instruction-following Models
 - :ref:`Falcon Instruct <models_builtin_falcon_instruct>`
 - :ref:`InternLM Chat <models_builtin_internlm_chat>`
 - :ref:`InternLM Chat 8K <models_builtin_internlm_chat_8k>`
-- :ref:`Llama-2-Chat <models_builtin_llama_2_chat>`
+- :ref:`Llama-2 Chat <models_builtin_llama_2_chat>`
 - :ref:`Orca Mini <models_builtin_orca_mini>`
 - :ref:`Qwen Chat <models_builtin_qwen_chat>`
 - :ref:`Vicuna v1.3 <models_builtin_vicuna_v1_3>`
