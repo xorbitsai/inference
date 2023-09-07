@@ -1,5 +1,6 @@
 global-include *.pyx
 global-include *.pxd
+global-include xinference/**/*.json
 global-exclude *.c
 global-exclude *.cpp
 include setup.cfg
@@ -10,4 +11,5 @@ include xinference/_version.py
 global-exclude conftest.py
 include xinference/locale/*.json
 include xinference/model/llm/*.json
+include xinference/model/embedding/*.json
 global-include xinference/web/ui/build/**/*
