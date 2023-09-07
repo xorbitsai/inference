@@ -228,7 +228,7 @@ def cache_from_uri(
         from tqdm import tqdm
 
         for attempt in range(max_attempt):
-            logger.debug(f"Copy from {_src_path} to {dst_path}, attempt: {attempt}")
+            logger.info(f"Copy from {_src_path} to {dst_path}, attempt: {attempt}")
             try:
                 with _src_fs.open(_src_path, "rb") as src_file:
                     file_size = _src_fs.info(src_path)["size"]
@@ -250,7 +250,7 @@ def cache_from_uri(
                                     break
                                 dst_file.write(chunk)
                                 pbar.update(len(chunk))
-                logger.debug(
+                logger.info(
                     f"Copy from {_src_path} to {dst_path} finished, attempt: {attempt}"
                 )
                 break
@@ -321,9 +321,7 @@ def cache_from_uri(
         from concurrent.futures import ThreadPoolExecutor
 
         failed = False
-        with ThreadPoolExecutor(
-            max_workers=min(len(files_to_download), 16)
-        ) as executor:
+        with ThreadPoolExecutor(max_workers=min(len(files_to_download), 4)) as executor:
             futures = [
                 (
                     src_path,
