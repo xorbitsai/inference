@@ -300,10 +300,11 @@ def test_cache_from_uri_remote():
     def fsspec_filesystem_side_effect(scheme: str, *args, **kwargs):
         if scheme == "s3":
             mock_fs = Mock()
+            mock_fs.info.return_value = {"size": 3}
             mock_fs.walk.return_value = [("test_bucket", None, ["model.bin"])]
             mock_file = MagicMock()
             mock_file_descriptor = Mock()
-            mock_file_descriptor.read.return_value = "foo".encode()
+            mock_file_descriptor.read.side_effect = ["foo".encode(), None]
             mock_file.__enter__.return_value = mock_file_descriptor
             mock_fs.open.return_value = mock_file
             return mock_fs
@@ -315,6 +316,53 @@ def test_cache_from_uri_remote():
     assert os.path.exists(cache_dir)
     assert os.path.exists(os.path.join(cache_dir, "model.bin"))
     shutil.rmtree(cache_dir, ignore_errors=True)
+
+
+def test_cache_from_uri_remote_exception_handling():
+    from ..llm_family import cache_from_uri
+
+    spec = GgmlLLMSpecV1(
+        model_format="ggmlv3",
+        model_size_in_billions=3,
+        model_id="TestModel",
+        model_uri="s3://test_bucket",
+        quantizations=[""],
+        model_file_name_template="model.bin",
+    )
+    family = LLMFamilyV1(
+        version=1,
+        context_length=2048,
+        model_type="LLM",
+        model_name="test_cache_from_uri_remote_exception_handling",
+        model_lang=["en"],
+        model_ability=["embed", "chat"],
+        model_specs=[spec],
+        prompt_style=None,
+    )
+
+    from unittest.mock import patch
+
+    import fsspec
+
+    fsspec.real_filesystem = fsspec.filesystem
+
+    def fsspec_filesystem_side_effect(scheme: str, *args, **kwargs):
+        if scheme == "s3":
+            mock_fs = Mock()
+            mock_fs.info.return_value = {"size": 3}
+            mock_fs.walk.return_value = [("test_bucket", None, ["model.bin"])]
+            mock_file = MagicMock()
+            mock_file_descriptor = Mock()
+            mock_file_descriptor.read.side_effect = Exception("Mock exception")
+            mock_file.__enter__.return_value = mock_file_descriptor
+            mock_fs.open.return_value = mock_file
+            return mock_fs
+        else:
+            return fsspec.real_filesystem(scheme)
+
+    with patch("fsspec.filesystem", side_effect=fsspec_filesystem_side_effect):
+        cache_dir = cache_from_uri(family, spec)
+    assert not os.path.exists(cache_dir)
 
 
 def test_legacy_cache():
@@ -471,7 +519,7 @@ def test_download_from_self_hosted_storage():
     assert download_from_self_hosted_storage()
 
 
-def test_set_aws_region():
+def test_aws_region_set():
     with AWSRegion("foo"):
         assert os.environ["AWS_DEFAULT_REGION"] == "foo"
 
@@ -479,7 +527,7 @@ def test_set_aws_region():
     assert "AWS_DEFAULT_REGION" not in os.environ
 
 
-def test_restore_aws_region():
+def test_aws_region_restore():
     # Set an initial region
     os.environ["AWS_DEFAULT_REGION"] = "us-west-1"
 
@@ -490,7 +538,7 @@ def test_restore_aws_region():
     assert os.environ["AWS_DEFAULT_REGION"] == "us-west-1"
 
 
-def test_no_restore_if_not_set():
+def test_aws_region_no_restore_if_not_set():
     # Ensure AWS_DEFAULT_REGION is not set
     if "AWS_DEFAULT_REGION" in os.environ:
         del os.environ["AWS_DEFAULT_REGION"]
@@ -502,7 +550,7 @@ def test_no_restore_if_not_set():
     assert "AWS_DEFAULT_REGION" not in os.environ
 
 
-def test_exception_handling():
+def test_aws_region_exception_handling():
     with pytest.raises(ValueError):
         with AWSRegion("foo"):
             raise ValueError("Test exception")

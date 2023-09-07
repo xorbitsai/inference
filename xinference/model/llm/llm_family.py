@@ -15,6 +15,7 @@
 import logging
 import os
 import platform
+import shutil
 from threading import Lock
 from typing import List, Optional, Tuple, Type, Union
 
@@ -304,16 +305,30 @@ def cache_from_uri(
 
         from concurrent.futures import ThreadPoolExecutor
 
+        failed = False
         with ThreadPoolExecutor(
             max_workers=min(len(files_to_download), 16)
         ) as executor:
             futures = [
-                executor.submit(copy, src_fs, src_path, local_fs, local_path)
+                (
+                    src_path,
+                    executor.submit(copy, src_fs, src_path, local_fs, local_path),
+                )
                 for src_path, local_path in files_to_download
             ]
-            for future in futures:
-                future.result()
+            for src_path, future in futures:
+                if failed:
+                    future.cancel()
+                else:
+                    try:
+                        future.result()
+                    except:
+                        logger.error(f"Download {src_path} failed", exc_info=True)
+                        failed = True
 
+        if failed:
+            logger.warning(f"Removing cache directory: {cache_dir}")
+            shutil.rmtree(cache_dir, ignore_errors=True)
         return cache_dir
     else:
         raise ValueError(f"Unsupported URL scheme: {src_scheme}")
