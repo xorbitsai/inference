@@ -86,3 +86,41 @@ Code Assistant Models
    vicuna-v1.5-16k
    wizardlm-v1.0
    wizardmath-v1.0
+
+
+Embedding Models
+^^^^^^^^^^^^^^^^^^^^^
+
+Language: English
+++++++++++++++++++++++
+- :ref:`bge-large-en <models_builtin_bge_large_en>`
+- :ref:`bge-base-en <models_builtin_bge_base_en>`
+- :ref:`gte-large <models_builtin_gte_large>`
+- :ref:`gte-base <models_builtin_gte_base>`
+- :ref:`e5-large-v2 <models_builtin_e5_large_v2>`
+
+
+Language: Chinese
++++++++++++++++++++++
+- :ref:`bge-large-zh <models_builtin_bge_large_zh>`
+- :ref:`bge-large-zh-noinstruct <models_builtin_bge_large_zh_noinstruct>`
+- :ref:`bge-base-zh <models_builtin_bge_base_zh>`
+- :ref:`multilingual-e5-large <models_builtin_multilingual_e5_large>`
+- :ref:`bge-small-zh <models_builtin_bge_small_zh>`
+
+
+
+.. toctree::
+   :maxdepth: 2
+   :hidden:
+
+   bge-large-en
+   bge-base-en
+   gte-large
+   gte-base
+   e5-large-v2
+   bge-large-zh
+   bge-large-zh-noinstruct
+   bge-base-zh
+   multilingual-e5-large
+   bge-small-zh
