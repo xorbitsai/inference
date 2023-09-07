@@ -481,9 +481,9 @@ def model_terminate(
 )
 @click.option(
     "--max_tokens",
-    default=256,
+    default=512,
     type=int,
-    help="Maximum number of tokens in the generated text (default is 256).",
+    help="Maximum number of tokens in the generated text (default is 512).",
 )
 @click.option(
     "--stream",
@@ -519,7 +519,7 @@ def model_generate(
                         continue
                     else:
                         print(choice["text"], end="", flush=True, file=sys.stdout)
-                print("\n", file=sys.stdout)
+                print("", file=sys.stdout)
 
         client = Client(endpoint=endpoint)
         model = client.get_model(model_uid=model_uid)
@@ -567,9 +567,9 @@ def model_generate(
 @click.option("--model-uid", type=str, help="The unique identifier (UID) of the model.")
 @click.option(
     "--max_tokens",
-    default=256,
+    default=512,
     type=int,
-    help="Maximum number of tokens in each message (default is 256).",
+    help="Maximum number of tokens in each message (default is 512).",
 )
 @click.option(
     "--stream",
@@ -610,7 +610,7 @@ def model_chat(
                     else:
                         response_content += delta["content"]
                         print(delta["content"], end="", flush=True, file=sys.stdout)
-                print("\n", file=sys.stdout)
+                print("", file=sys.stdout)
                 chat_history.append(ChatCompletionMessage(role="user", content=prompt))
                 chat_history.append(
                     ChatCompletionMessage(role="assistant", content=response_content)
