@@ -85,6 +85,7 @@ jobs:
         env:
           MODULE: ${{ matrix.module }}
         run: |
+          pip install -e "git+https://github.com/ChengjieLi28/xoscar.git@feat/add_new_sub_pool#subdirectory=python&egg=xoscar"
           pip install llama-cpp-python==0.1.77
           pip install transformers
           pip install torch

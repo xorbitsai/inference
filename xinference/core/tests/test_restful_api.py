@@ -267,7 +267,6 @@ async def test_restful_api(setup):
         if model_reg["model_name"] == "custom_model":
             custom_model_reg = model_reg
     assert custom_model_reg is None
-    print("Done!!!!!")
 
 
 def test_restful_api_for_embedding(setup):
