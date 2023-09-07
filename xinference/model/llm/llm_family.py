@@ -284,11 +284,14 @@ def cache_from_uri(
             else:
                 os.makedirs(cache_dir, exist_ok=True)
 
-            for path, _, files in src_fs.walk(llm_spec.model_uri):
+            for path, dirs, files in src_fs.walk(llm_spec.model_uri):
                 for file in files:
                     src_path = f"{path}/{file}"
                     local_path = src_path.replace(src_root, cache_dir)
                     files_to_download.append((src_path, local_path))
+                for dir in dirs:
+                    src_dir = f"{path}/{dir}"
+                    os.makedirs(src_dir, exist_ok=True)
         elif llm_spec.model_format == "ggmlv3":
             file = llm_spec.model_file_name_template.format(quantization=quantization)
             if os.path.exists(os.path.join(cache_dir, file)):
