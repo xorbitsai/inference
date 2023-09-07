@@ -319,6 +319,7 @@ def test_cache_from_uri_remote():
 
 
 def test_cache_from_uri_remote_exception_handling():
+    from ....constants import XINFERENCE_CACHE_DIR
     from ..llm_family import cache_from_uri
 
     spec = GgmlLLMSpecV1(
@@ -360,8 +361,17 @@ def test_cache_from_uri_remote_exception_handling():
         else:
             return fsspec.real_filesystem(scheme)
 
-    with patch("fsspec.filesystem", side_effect=fsspec_filesystem_side_effect):
-        cache_dir = cache_from_uri(family, spec)
+    with pytest.raises(
+        RuntimeError,
+        match="Failed to download model 'test_cache_from_uri_remote_exception_handling'",
+    ):
+        with patch("fsspec.filesystem", side_effect=fsspec_filesystem_side_effect):
+            cache_from_uri(family, spec)
+
+    cache_dir_name = (
+        f"{family.model_name}-{spec.model_format}" f"-{spec.model_size_in_billions}b"
+    )
+    cache_dir = os.path.realpath(os.path.join(XINFERENCE_CACHE_DIR, cache_dir_name))
     assert not os.path.exists(cache_dir)
 
 
