@@ -219,15 +219,32 @@ def cache_from_uri(
 
     def copy(
         _src_fs: "AbstractFileSystem",
-        src_path: str,
+        _src_path: str,
         dst_fs: "AbstractFileSystem",
         dst_path: str,
     ):
-        logger.debug(f"Copy from {src_path} to {dst_path}")
-        with _src_fs.open(src_path, "rb") as src_file:
+        from tqdm import tqdm
+
+        logger.debug(f"Copy from {_src_path} to {dst_path}")
+        with _src_fs.open(_src_path, "rb") as src_file:
+            file_size = _src_fs.info(src_path)["size"]
             with dst_fs.open(dst_path, "wb") as dst_file:
-                dst_file.write(src_file.read())
-        logger.debug(f"Copy from {src_path} to {dst_path} finished")
+                chunk_size = 1024 * 1024  # 1 MB
+
+                with tqdm(
+                    total=file_size,
+                    unit="B",
+                    unit_scale=True,
+                    unit_divisor=1024,
+                    desc=_src_path,
+                ) as pbar:
+                    while True:
+                        chunk = src_file.read(chunk_size)
+                        if not chunk:
+                            break
+                        dst_file.write(chunk)
+                        pbar.update(len(chunk))
+        logger.debug(f"Copy from {_src_path} to {dst_path} finished")
 
     cache_dir_name = (
         f"{llm_family.model_name}-{llm_spec.model_format}"
@@ -287,17 +304,15 @@ def cache_from_uri(
 
         from concurrent.futures import ThreadPoolExecutor
 
-        from tqdm import tqdm
-
-        with tqdm(total=len(files_to_download), desc="Downloading files") as pbar:
-            with ThreadPoolExecutor(max_workers=4) as executor:
-                futures = [
-                    executor.submit(copy, src_fs, src_path, local_fs, local_path)
-                    for src_path, local_path in files_to_download
-                ]
-                for future in futures:
-                    future.result()
-                    pbar.update(1)
+        with ThreadPoolExecutor(
+            max_workers=min(len(files_to_download), 16)
+        ) as executor:
+            futures = [
+                executor.submit(copy, src_fs, src_path, local_fs, local_path)
+                for src_path, local_path in files_to_download
+            ]
+            for future in futures:
+                future.result()
 
         return cache_dir
     else:
@@ -342,7 +357,9 @@ def cache_from_huggingface(
 
         else:
             raise RuntimeError(
-                f"Failed to download model '{llm_spec.model_name}' (size: {llm_spec.model_size}, format: {llm_spec.model_format}) after multiple retries"
+                f"Failed to download model '{llm_family.model_name}' "
+                f"(size: {llm_spec.model_size_in_billions}, format: {llm_spec.model_format}) "
+                f"after multiple retries"
             )
 
     elif llm_spec.model_format == "ggmlv3":
@@ -367,7 +384,9 @@ def cache_from_huggingface(
 
         else:
             raise RuntimeError(
-                f"Failed to download model '{llm_spec.model_name}' (size: {llm_spec.model_size}, format: {llm_spec.model_format}) after multiple retries"
+                f"Failed to download model '{llm_family.model_name}' "
+                f"(size: {llm_spec.model_size_in_billions}, format: {llm_spec.model_format}) "
+                f"after multiple retries"
             )
 
     return cache_dir
