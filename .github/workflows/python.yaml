@@ -95,6 +95,7 @@ jobs:
           pip install ctransformers
           pip install sentence-transformers
           pip install -e ".[dev]"
+          pip install cmake
           pip install -e "git+https://github.com/ChengjieLi28/xoscar.git@feat/add_new_sub_pool#subdirectory=python&egg=xoscar"
         working-directory: .
 
