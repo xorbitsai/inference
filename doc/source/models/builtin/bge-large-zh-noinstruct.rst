@@ -1,8 +1,8 @@
 .. _models_builtin_bge_large_zh_noinstruct:
 
-========================
+=======================
 bge-large-zh-noinstruct
-========================
+=======================
 
 - **Model Name:** bge-large-zh-noinstruct
 - **Languages:** zh

@@ -1,8 +1,8 @@
 .. _models_builtin_gte_base:
 
-=============
+========
 gte-base
-=============
+========
 
 - **Model Name:** gte-base
 - **Languages:** en

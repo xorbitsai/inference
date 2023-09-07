@@ -1,8 +1,8 @@
 .. _models_builtin_multilingual_e5_large:
 
-=============
+===========
 bge-base-zh
-=============
+===========
 
 - **Model Name:** multilingual-e5-large
 - **Languages:** zh

@@ -1,8 +1,8 @@
 .. _models_builtin_bge_base_zh:
 
-=============
+===========
 bge-base-zh
-=============
+===========
 
 - **Model Name:** bge-base-zh
 - **Languages:** zh

@@ -1,8 +1,8 @@
 .. _models_builtin_gte_large:
 
-=============
+=========
 gte-large
-=============
+=========
 
 - **Model Name:** gte-large
 - **Languages:** en

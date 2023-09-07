@@ -1,8 +1,8 @@
 .. _models_builtin_bge_small_zh:
 
-=============
+============
 bge-large-en
-=============
+============
 
 - **Model Name:** bge_small_zh
 - **Languages:** zh
