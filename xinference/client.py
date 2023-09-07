@@ -833,14 +833,19 @@ class RESTfulClient:
             )
         desc = response.json()
 
-        if desc["model_format"] == "ggmlv3" and "chatglm" in desc["model_name"]:
-            return RESTfulChatglmCppChatModelHandle(model_uid, self.base_url)
-        elif "chat" in desc["model_ability"]:
-            return RESTfulChatModelHandle(model_uid, self.base_url)
-        elif "generate" in desc["model_ability"]:
-            return RESTfulGenerateModelHandle(model_uid, self.base_url)
+        if desc["model_type"] == "LLM":
+            if desc["model_format"] == "ggmlv3" and "chatglm" in desc["model_name"]:
+                return RESTfulChatglmCppChatModelHandle(model_uid, self.base_url)
+            elif "chat" in desc["model_ability"]:
+                return RESTfulChatModelHandle(model_uid, self.base_url)
+            elif "generate" in desc["model_ability"]:
+                return RESTfulGenerateModelHandle(model_uid, self.base_url)
+            else:
+                raise ValueError(f"Unrecognized model ability: {desc['model_ability']}")
+        elif desc["model_type"] == "embedding":
+            return RESTfulEmbeddingModelHandle(model_uid, self.base_url)
         else:
-            raise ValueError(f"Unrecognized model ability: {desc['model_ability']}")
+            raise ValueError(f"Unknown model type:{desc['model_type']}")
 
     def describe_model(self, model_uid: str):
         """
