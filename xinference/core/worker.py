@@ -44,9 +44,10 @@ class WorkerActor(xo.Actor):
         self._model_uid_to_model: Dict[str, xo.ActorRefType["ModelActor"]] = {}
         self._model_uid_to_model_spec: Dict[str, ModelDescription] = {}
 
-        self._gpu_to_model_uids: Dict[int, Set[Tuple[str, str]]] = {
+        self._gpu_to_model_uids: Dict[int, Set[str]] = {
             device: set() for device in cuda_devices
         }
+        self._model_uid_to_addr: Dict[str, str] = {}
         self._main_pool = main_pool
         logger.debug(
             f"Worker actor initialized with main pool: {self._main_pool.external_address}"
@@ -158,7 +159,8 @@ class WorkerActor(xo.Actor):
         self._model_uid_to_model[model_uid] = model_ref
         self._model_uid_to_model_spec[model_uid] = model_description
         if device is not None:
-            self._gpu_to_model_uids[device].add((model_uid, subpool_address))
+            self._gpu_to_model_uids[device].add(model_uid)
+        self._model_uid_to_addr[model_uid] = subpool_address
         return model_ref
 
     @log_async(logger=logger)
@@ -172,17 +174,14 @@ class WorkerActor(xo.Actor):
         del self._model_uid_to_model[model_uid]
         del self._model_uid_to_model_spec[model_uid]
 
-        sub_pool_addr = None
         for device in self._gpu_to_model_uids:
-            mid_to_addr: Dict[str, str] = {
-                mid: addr for mid, addr in self._gpu_to_model_uids[device]
-            }
-            if model_uid in mid_to_addr:
-                sub_pool_addr = mid_to_addr[model_uid]
-                self._gpu_to_model_uids[device].remove((model_uid, sub_pool_addr))
+            if model_uid in self._gpu_to_model_uids[device]:
+                self._gpu_to_model_uids[device].remove(model_uid)
                 break
-        assert sub_pool_addr is not None
+
+        sub_pool_addr = self._model_uid_to_addr[model_uid]
         await self._main_pool.remove_sub_pool(sub_pool_addr)
+        del self._model_uid_to_addr[model_uid]
 
     @log_sync(logger=logger)
     def list_models(self) -> Dict[str, Dict[str, Any]]:
