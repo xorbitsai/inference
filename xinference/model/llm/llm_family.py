@@ -223,29 +223,42 @@ def cache_from_uri(
         _src_path: str,
         dst_fs: "AbstractFileSystem",
         dst_path: str,
+        max_attempt: int = 3,
     ):
         from tqdm import tqdm
 
-        logger.debug(f"Copy from {_src_path} to {dst_path}")
-        with _src_fs.open(_src_path, "rb") as src_file:
-            file_size = _src_fs.info(src_path)["size"]
-            with dst_fs.open(dst_path, "wb") as dst_file:
-                chunk_size = 1024 * 1024  # 1 MB
+        for attempt in range(max_attempt):
+            logger.debug(f"Copy from {_src_path} to {dst_path}, attempt: {attempt}")
+            try:
+                with _src_fs.open(_src_path, "rb") as src_file:
+                    file_size = _src_fs.info(src_path)["size"]
+                    with dst_fs.open(dst_path, "wb") as dst_file:
+                        chunk_size = 1024 * 1024  # 1 MB
 
-                with tqdm(
-                    total=file_size,
-                    unit="B",
-                    unit_scale=True,
-                    unit_divisor=1024,
-                    desc=_src_path,
-                ) as pbar:
-                    while True:
-                        chunk = src_file.read(chunk_size)
-                        if not chunk:
-                            break
-                        dst_file.write(chunk)
-                        pbar.update(len(chunk))
-        logger.debug(f"Copy from {_src_path} to {dst_path} finished")
+                        with tqdm(
+                            total=file_size,
+                            unit="B",
+                            unit_scale=True,
+                            unit_divisor=1024,
+                            desc=_src_path,
+                        ) as pbar:
+                            while True:
+                                chunk = src_file.read(chunk_size)
+                                if not chunk:
+                                    break
+                                dst_file.write(chunk)
+                                pbar.update(len(chunk))
+                logger.debug(
+                    f"Copy from {_src_path} to {dst_path} finished, attempt: {attempt}"
+                )
+                break
+            except:
+                logger.error(
+                    f"Failed to copy from {_src_path} to {dst_path} on attempt {attempt + 1}",
+                    exc_info=True,
+                )
+                if attempt + 1 == max_attempt:
+                    raise
 
     cache_dir_name = (
         f"{llm_family.model_name}-{llm_spec.model_format}"
