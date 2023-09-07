@@ -33,7 +33,9 @@ async def setup():
         pool.external_address, "127.0.0.1", xo.utils.get_next_port()
     )
     await start_worker_components(
-        address=pool.external_address, supervisor_address=pool.external_address
+        address=pool.external_address,
+        supervisor_address=pool.external_address,
+        main_pool=pool,
     )
 
     # wait for the api.

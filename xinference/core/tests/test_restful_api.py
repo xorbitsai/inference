@@ -12,12 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import pytest
 import requests
 
 from ...model.embedding import BUILTIN_EMBEDDING_MODELS
 
 
-def test_restful_api(setup):
+@pytest.mark.asyncio
+async def test_restful_api(setup):
     endpoint, _ = setup
     url = f"{endpoint}/v1/models"
 
@@ -265,6 +267,7 @@ def test_restful_api(setup):
         if model_reg["model_name"] == "custom_model":
             custom_model_reg = model_reg
     assert custom_model_reg is None
+    print("Done!!!!!")
 
 
 def test_restful_api_for_embedding(setup):
