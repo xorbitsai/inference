@@ -210,6 +210,7 @@ $ xinference registrations
 
 **注意**:
 - Xinference 会自动为你下载模型，默认的模型存放路径为 `${USER}/.xinference/cache`。
-
+- 如果您在Hugging Face下载模型时遇到问题，请运行 `export XINFERENCE_MODEL_SRC=xorbits`，从我们的镜像站点下载模型。
+- 
 ## 自定义模型
 请参考 [自定义模型](https://inference.readthedocs.io/en/latest/models/custom.html)。

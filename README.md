@@ -226,8 +226,8 @@ $ xinference registrations
 For in-depth details on the built-in models, please refer to [built-in models](https://inference.readthedocs.io/en/latest/models/builtin/index.html). 
 
 **NOTE**:
-- Xinference will download models automatically for you, and by default the models will be saved under `${USER}/.xinference/cache`.
-
+- Xinference will download models automatically for you, and by default the models will be saved under `${USER}/.xinference/cache`. 
+- If you have trouble downloading models from the Hugging Face, run `export XINFERENCE_MODEL_SRC=xorbits` to download models from our mirror site.
 
 ## Custom models
 Please refer to [custom models](https://inference.readthedocs.io/en/latest/models/custom.html).
