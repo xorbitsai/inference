@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Union
 
 import requests
 import xoscar as xo
+from xorbits._mars.resource import cuda_count
 
 from .core.model import ModelActor
 from .core.supervisor import SupervisorActor
@@ -565,6 +566,7 @@ class Client:
         model_format: Optional[str] = None,
         quantization: Optional[str] = None,
         replica: int = 1,
+        n_gpu: Optional[int] = None,
         **kwargs,
     ) -> str:
         """
@@ -584,6 +586,9 @@ class Client:
             The quantization of model.
         replica: Optional[int]
             The replica of model, default is 1.
+        n_gpu: Optional[int]
+            The number of GPUs used by the model, default is None.
+            None means cpu only.
         **kwargs:
             Any other parameters been specified.
 
@@ -593,6 +598,11 @@ class Client:
             The unique model_uid for the launched model.
 
         """
+        if n_gpu is not None and (n_gpu <= 0 or n_gpu > cuda_count()):
+            raise ValueError(
+                f"The parameter `n_gpu` must be greater than 0 and "
+                f"not greater than the number of GPUs: {cuda_count()} on the machine."
+            )
 
         model_uid = self._gen_model_uid()
 
@@ -604,6 +614,7 @@ class Client:
             model_format=model_format,
             quantization=quantization,
             replica=replica,
+            n_gpu=n_gpu,
             **kwargs,
         )
 

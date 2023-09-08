@@ -15,7 +15,7 @@
 import asyncio
 import platform
 from logging import getLogger
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 import xoscar as xo
 from xoscar import MainActorPoolType
@@ -73,27 +73,44 @@ class WorkerActor(xo.Actor):
     def get_model_count(self) -> int:
         return len(self._model_uid_to_model)
 
-    async def _choose_subpool(self) -> Tuple[str, Union[int, None]]:
-        min_running_model_count = None
-        device: Union[int, None] = None
-        for dev in self._gpu_to_model_uids:
-            running_model_count = len(self._gpu_to_model_uids[dev])
-            if (
-                min_running_model_count is None
-                or running_model_count < min_running_model_count
-            ):
-                min_running_model_count = running_model_count
-                device = dev
-
-        env = {}
-        if device is not None:
-            logger.debug(
-                f"GPU selected: {device}, running model count: {min_running_model_count}"
+    def allocate_devices(self, n_gpu: int) -> List[int]:
+        """
+        Allocate GPUs to the model based on the form-filling method to achieve a balanced GPU load as much as possible.
+        """
+        allocated_device: Dict[int, int] = {}
+        devices: List[int] = []
+        for _ in range(n_gpu):
+            min_running_model_count = min(
+                [
+                    len(models) + allocated_device.get(dev, 0)
+                    for dev, models in self._gpu_to_model_uids.items()
+                ]
             )
-            env["CUDA_VISIBLE_DEVICES"] = device
+            for dev in self._gpu_to_model_uids:
+                running_model_count = len(
+                    self._gpu_to_model_uids[dev]
+                ) + allocated_device.get(dev, 0)
+                if (
+                    len(devices) < n_gpu
+                    and running_model_count <= min_running_model_count
+                ):
+                    min_running_model_count = running_model_count
+                    devices.append(dev)
+                    allocated_device[dev] = allocated_device.get(dev, 0) + 1
+        return sorted(devices)
+
+    async def _choose_subpool(
+        self, model_uid: str, n_gpu: Optional[int] = None
+    ) -> Tuple[str, List[str]]:
+        env = {}
+        devices = []
+        if n_gpu is not None:
+            devices = self.allocate_devices(n_gpu)
+            env["CUDA_VISIBLE_DEVICES"] = ",".join([str(dev) for dev in devices])
+            logger.debug(f"GPU selected: {devices} for model {model_uid}")
 
         sub_pool_address = await self._main_pool.append_sub_pool(env=env)
-        return sub_pool_address, device
+        return sub_pool_address, [str(dev) for dev in devices]
 
     def _check_model_is_valid(self, model_name):
         # baichuan-base and baichuan-chat depend on `cpm_kernels` module,
@@ -133,6 +150,7 @@ class WorkerActor(xo.Actor):
         model_format: Optional[str],
         quantization: Optional[str],
         model_type: str = "LLM",
+        n_gpu: Optional[int] = None,
         **kwargs,
     ) -> xo.ActorRefType["ModelActor"]:
         assert model_uid not in self._model_uid_to_model
@@ -151,15 +169,15 @@ class WorkerActor(xo.Actor):
             **kwargs,
         )
 
-        subpool_address, device = await self._choose_subpool()
+        subpool_address, devices = await self._choose_subpool(model_uid, n_gpu=n_gpu)
         model_ref = await xo.create_actor(
             ModelActor, address=subpool_address, uid=model_uid, model=model
         )
         await model_ref.load()
         self._model_uid_to_model[model_uid] = model_ref
         self._model_uid_to_model_spec[model_uid] = model_description
-        if device is not None:
-            self._gpu_to_model_uids[device].add(model_uid)
+        for dev in devices:
+            self._gpu_to_model_uids[int(dev)].add(model_uid)
         self._model_uid_to_addr[model_uid] = subpool_address
         return model_ref
 
@@ -177,7 +195,6 @@ class WorkerActor(xo.Actor):
         for device in self._gpu_to_model_uids:
             if model_uid in self._gpu_to_model_uids[device]:
                 self._gpu_to_model_uids[device].remove(model_uid)
-                break
 
         sub_pool_addr = self._model_uid_to_addr[model_uid]
         await self._main_pool.remove_sub_pool(sub_pool_addr)

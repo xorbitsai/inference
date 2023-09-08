@@ -162,6 +162,7 @@ class SupervisorActor(xo.Actor):
         quantization: Optional[str],
         model_type: Optional[str],
         replica: int = 1,
+        n_gpu: Optional[int] = None,
         **kwargs,
     ) -> AsyncGenerator:
         logger.debug(
@@ -194,6 +195,7 @@ class SupervisorActor(xo.Actor):
                 model_format=model_format,
                 quantization=quantization,
                 model_type=model_type,
+                n_gpu=n_gpu,
                 **kwargs,
             )
             # TODO: not protected.

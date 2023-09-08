@@ -75,10 +75,6 @@ jobs:
           fetch-depth: 0
           submodules: recursive
 
-      - name: Add msbuild to PATH
-        if: ${{ matrix.os == 'windows-latest'}}
-        uses: microsoft/setup-msbuild@v1.1
-
       - name: Set up conda ${{ matrix.python-version }}
         uses: conda-incubator/setup-miniconda@v2
         with:
@@ -99,9 +95,6 @@ jobs:
           pip install ctransformers
           pip install sentence-transformers
           pip install -e ".[dev]"
-          pip uninstall -y cmake
-          pip install -e "git+https://github.com/ChengjieLi28/xoscar.git@feat/add_new_sub_pool#subdirectory=python&egg=xoscar"
-          pip install cmake
         working-directory: .
 
       - name: Test with pytest
