@@ -11,14 +11,22 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import json
-from unittest.mock import MagicMock, Mock
 
-from xinference.model.llm.llm_family import (
+import json
+import os
+import shutil
+from unittest.mock import MagicMock, Mock, patch
+
+import pytest
+
+from ..llm_family import (
+    AWSRegion,
     GgmlLLMSpecV1,
     LLMFamilyV1,
     PromptStyleV1,
     PytorchLLMSpecV1,
+    is_locale_chinese_simplified,
+    is_self_hosted,
     parse_uri,
 )
 
@@ -146,8 +154,6 @@ def test_serialize_llm_family_v1():
 
 
 def test_builtin_llm_families():
-    import os
-
     json_path = os.path.join(
         os.path.dirname(os.path.abspath(__file__)), "..", "llm_family.json"
     )
@@ -177,11 +183,10 @@ def test_cache_from_huggingface_pytorch():
 
     cache_dir = cache_from_huggingface(family, spec, quantization=None)
 
-    import os
-
     assert os.path.exists(cache_dir)
     assert os.path.exists(os.path.join(cache_dir, "README.md"))
     assert os.path.islink(os.path.join(cache_dir, "README.md"))
+    shutil.rmtree(cache_dir)
 
 
 def test_cache_from_huggingface_ggml():
@@ -207,16 +212,13 @@ def test_cache_from_huggingface_ggml():
 
     cache_dir = cache_from_huggingface(family, spec, quantization=None)
 
-    import os
-
     assert os.path.exists(cache_dir)
     assert os.path.exists(os.path.join(cache_dir, "README.md"))
     assert os.path.islink(os.path.join(cache_dir, "README.md"))
+    shutil.rmtree(cache_dir)
 
 
 def test_cache_from_uri_local():
-    import os
-
     from ..llm_family import cache_from_uri
 
     with open("model.bin", "w") as fd:
@@ -227,14 +229,14 @@ def test_cache_from_uri_local():
         model_size_in_billions=3,
         model_id="TestModel",
         model_uri=os.path.abspath(os.getcwd()),
-        quantizations=["q4_0"],
+        quantizations=[""],
         model_file_name_template="model.bin",
     )
     family = LLMFamilyV1(
         version=1,
         context_length=2048,
         model_type="LLM",
-        model_name="test",
+        model_name="test_cache_from_uri_local",
         model_lang=["en"],
         model_ability=["embed", "chat"],
         model_specs=[spec],
@@ -245,6 +247,8 @@ def test_cache_from_uri_local():
     assert os.path.exists(cache_dir)
     assert os.path.islink(cache_dir)
     assert os.path.exists(os.path.join(cache_dir, "model.bin"))
+    os.remove(cache_dir)
+    os.remove("model.bin")
 
 
 def test_parse_uri():
@@ -266,8 +270,6 @@ def test_parse_uri():
 
 
 def test_cache_from_uri_remote():
-    import os
-
     from ..llm_family import cache_from_uri
 
     spec = GgmlLLMSpecV1(
@@ -275,14 +277,14 @@ def test_cache_from_uri_remote():
         model_size_in_billions=3,
         model_id="TestModel",
         model_uri="s3://test_bucket",
-        quantizations=["q4_0"],
+        quantizations=[""],
         model_file_name_template="model.bin",
     )
     family = LLMFamilyV1(
         version=1,
         context_length=2048,
         model_type="LLM",
-        model_name="test",
+        model_name="test_cache_from_uri_remote",
         model_lang=["en"],
         model_ability=["embed", "chat"],
         model_specs=[spec],
@@ -295,13 +297,14 @@ def test_cache_from_uri_remote():
 
     fsspec.real_filesystem = fsspec.filesystem
 
-    def fsspec_filesystem_side_effect(scheme: str):
+    def fsspec_filesystem_side_effect(scheme: str, *args, **kwargs):
         if scheme == "s3":
             mock_fs = Mock()
+            mock_fs.info.return_value = {"size": 3}
             mock_fs.walk.return_value = [("test_bucket", None, ["model.bin"])]
             mock_file = MagicMock()
             mock_file_descriptor = Mock()
-            mock_file_descriptor.read.return_value = "foo".encode()
+            mock_file_descriptor.read.side_effect = ["foo".encode(), None]
             mock_file.__enter__.return_value = mock_file_descriptor
             mock_fs.open.return_value = mock_file
             return mock_fs
@@ -312,18 +315,74 @@ def test_cache_from_uri_remote():
         cache_dir = cache_from_uri(family, spec)
     assert os.path.exists(cache_dir)
     assert os.path.exists(os.path.join(cache_dir, "model.bin"))
+    shutil.rmtree(cache_dir, ignore_errors=True)
+
+
+def test_cache_from_uri_remote_exception_handling():
+    from ....constants import XINFERENCE_CACHE_DIR
+    from ..llm_family import cache_from_uri
+
+    spec = GgmlLLMSpecV1(
+        model_format="ggmlv3",
+        model_size_in_billions=3,
+        model_id="TestModel",
+        model_uri="s3://test_bucket",
+        quantizations=[""],
+        model_file_name_template="model.bin",
+    )
+    family = LLMFamilyV1(
+        version=1,
+        context_length=2048,
+        model_type="LLM",
+        model_name="test_cache_from_uri_remote_exception_handling",
+        model_lang=["en"],
+        model_ability=["embed", "chat"],
+        model_specs=[spec],
+        prompt_style=None,
+    )
+
+    from unittest.mock import patch
+
+    import fsspec
+
+    fsspec.real_filesystem = fsspec.filesystem
+
+    def fsspec_filesystem_side_effect(scheme: str, *args, **kwargs):
+        if scheme == "s3":
+            mock_fs = Mock()
+            mock_fs.info.return_value = {"size": 3}
+            mock_fs.walk.return_value = [("test_bucket", None, ["model.bin"])]
+            mock_file = MagicMock()
+            mock_file_descriptor = Mock()
+            mock_file_descriptor.read.side_effect = Exception("Mock exception")
+            mock_file.__enter__.return_value = mock_file_descriptor
+            mock_fs.open.return_value = mock_file
+            return mock_fs
+        else:
+            return fsspec.real_filesystem(scheme)
+
+    with pytest.raises(
+        RuntimeError,
+        match="Failed to download model 'test_cache_from_uri_remote_exception_handling'",
+    ):
+        with patch("fsspec.filesystem", side_effect=fsspec_filesystem_side_effect):
+            cache_from_uri(family, spec)
+
+    cache_dir_name = (
+        f"{family.model_name}-{spec.model_format}" f"-{spec.model_size_in_billions}b"
+    )
+    cache_dir = os.path.realpath(os.path.join(XINFERENCE_CACHE_DIR, cache_dir_name))
+    assert not os.path.exists(cache_dir)
 
 
 def test_legacy_cache():
-    import os
-
     from ..llm_family import cache, get_legacy_cache_path
 
     spec = GgmlLLMSpecV1(
         model_format="ggmlv3",
         model_size_in_billions=3,
         model_id="TheBloke/orca_mini_3B-GGML",
-        quantizations=["q8_0"],
+        quantizations=["test_legacy_cache"],
         model_file_name_template="README.md",
     )
     family = LLMFamilyV1(
@@ -341,20 +400,44 @@ def test_legacy_cache():
         family.model_name,
         spec.model_format,
         spec.model_size_in_billions,
-        quantization="q8_0",
+        quantization="test_legacy_cache",
     )
-
-    assert cache(
-        llm_family=family, llm_spec=spec, quantization="q8_0"
-    ) != os.path.dirname(cache_path)
 
     os.makedirs(os.path.dirname(cache_path), exist_ok=True)
     with open(cache_path, "w") as fd:
         fd.write("foo")
 
     assert cache(
-        llm_family=family, llm_spec=spec, quantization="q8_0"
+        llm_family=family, llm_spec=spec, quantization="test_legacy_cache"
     ) == os.path.dirname(cache_path)
+    shutil.rmtree(os.path.dirname(cache_path), ignore_errors=True)
+
+
+def test_cache_from_self_hosted_storage():
+    from ..llm_family import cache_from_self_hosted_storage
+
+    spec = GgmlLLMSpecV1(
+        model_format="ggmlv3",
+        model_size_in_billions=3,
+        model_id="TheBloke/orca_mini_3B-GGML",
+        quantizations=[""],
+        model_file_name_template="README.md",
+    )
+    family = LLMFamilyV1(
+        version=1,
+        context_length=2048,
+        model_type="LLM",
+        model_name="orca",
+        model_lang=["en"],
+        model_ability=["embed", "chat"],
+        model_specs=[spec],
+        prompt_style=None,
+    )
+
+    cache_dir = cache_from_self_hosted_storage(family, spec, quantization="")
+    assert os.path.exists(cache_dir)
+    assert os.path.exists(os.path.join(cache_dir, "README.md"))
+    shutil.rmtree(cache_dir, ignore_errors=True)
 
 
 def test_custom_llm():
@@ -364,7 +447,7 @@ def test_custom_llm():
         model_format="ggmlv3",
         model_size_in_billions=3,
         model_id="TheBloke/orca_mini_3B-GGML",
-        quantizations=["q8_0"],
+        quantizations=[""],
         model_file_name_template="README.md",
     )
     family = LLMFamilyV1(
@@ -387,8 +470,6 @@ def test_custom_llm():
 
 
 def test_persistent_custom_llm():
-    import os
-
     from ....constants import XINFERENCE_MODEL_DIR
     from ..llm_family import get_user_defined_llm_families, register_llm, unregister_llm
 
@@ -396,7 +477,7 @@ def test_persistent_custom_llm():
         model_format="ggmlv3",
         model_size_in_billions=3,
         model_id="TheBloke/orca_mini_3B-GGML",
-        quantizations=["q8_0"],
+        quantizations=[""],
         model_file_name_template="README.md",
     )
     family = LLMFamilyV1(
@@ -422,6 +503,94 @@ def test_persistent_custom_llm():
     assert f"{family.model_name}.json" not in os.listdir(
         os.path.join(XINFERENCE_MODEL_DIR, "llm")
     )
+
+
+def test_is_locale_chinese_simplified():
+    def zh_cn():
+        return ("zh_CN", "UTF-8")
+
+    def en_us():
+        return ("en_US", "UTF-8")
+
+    with patch("locale.getdefaultlocale", side_effect=zh_cn):
+        assert is_locale_chinese_simplified()
+
+    with patch("locale.getdefaultlocale", side_effect=en_us):
+        assert not is_locale_chinese_simplified()
+
+
+def test_download_from_self_hosted_storage():
+    from ....constants import XINFERENCE_ENV_MODEL_SRC
+    from ..llm_family import download_from_self_hosted_storage
+
+    assert not download_from_self_hosted_storage()
+
+    os.environ[XINFERENCE_ENV_MODEL_SRC] = "xorbits"
+    assert download_from_self_hosted_storage()
+
+
+def test_aws_region_set():
+    with AWSRegion("foo"):
+        assert os.environ["AWS_DEFAULT_REGION"] == "foo"
+
+    # Ensure the region is deleted if it wasn't set before
+    assert "AWS_DEFAULT_REGION" not in os.environ
+
+
+def test_aws_region_restore():
+    # Set an initial region
+    os.environ["AWS_DEFAULT_REGION"] = "us-west-1"
+
+    with AWSRegion("foo"):
+        assert os.environ["AWS_DEFAULT_REGION"] == "foo"
+
+    # Ensure the region is restored to its original value after exiting the context
+    assert os.environ["AWS_DEFAULT_REGION"] == "us-west-1"
+
+
+def test_aws_region_no_restore_if_not_set():
+    # Ensure AWS_DEFAULT_REGION is not set
+    if "AWS_DEFAULT_REGION" in os.environ:
+        del os.environ["AWS_DEFAULT_REGION"]
+
+    with AWSRegion("foo"):
+        assert os.environ["AWS_DEFAULT_REGION"] == "foo"
+
+    # Ensure the region is deleted if it wasn't set before
+    assert "AWS_DEFAULT_REGION" not in os.environ
+
+
+def test_aws_region_exception_handling():
+    with pytest.raises(ValueError):
+        with AWSRegion("foo"):
+            raise ValueError("Test exception")
+
+    # Ensure the region is deleted if it wasn't set before
+    assert "AWS_DEFAULT_REGION" not in os.environ
+
+
+def test_is_self_hosted():
+    spec = GgmlLLMSpecV1(
+        model_format="ggmlv3",
+        model_size_in_billions=3,
+        model_id="TheBloke/orca_mini_3B-GGML",
+        quantizations=[""],
+        model_file_name_template="README.md",
+    )
+    family = LLMFamilyV1(
+        version=1,
+        context_length=2048,
+        model_type="LLM",
+        model_name="orca",
+        model_lang=["en"],
+        model_ability=["embed", "chat"],
+        model_specs=[spec],
+        prompt_style=None,
+    )
+    assert is_self_hosted(family, spec)
+
+    family.model_name = "foo"
+    assert not is_self_hosted(family, spec)
 
 
 def test_match_llm():
