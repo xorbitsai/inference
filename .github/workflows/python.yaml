@@ -75,6 +75,10 @@ jobs:
           fetch-depth: 0
           submodules: recursive
 
+      - name: Add msbuild to PATH
+        if: ${{ matrix.os == 'windows-latest'}}
+        uses: microsoft/setup-msbuild@v1.1
+
       - name: Set up conda ${{ matrix.python-version }}
         uses: conda-incubator/setup-miniconda@v2
         with:
