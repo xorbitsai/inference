@@ -114,6 +114,9 @@ class WorkerActor(xo.Actor):
             devices = self.allocate_devices(gpu_cnt)
             env["CUDA_VISIBLE_DEVICES"] = ",".join([str(dev) for dev in devices])
             logger.debug(f"GPU selected: {devices} for model {model_uid}")
+        if n_gpu is None:
+            env["CUDA_VISIBLE_DEVICES"] = "-1"
+            logger.debug(f"GPU disabled for model {model_uid}")
 
         sub_pool_address = await self._main_pool.append_sub_pool(
             env=env, start_method="forkserver" if os.name != "nt" else "spawn"

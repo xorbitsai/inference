@@ -219,7 +219,12 @@ class PytorchModel(LLM):
             )
 
         if device == "auto":
-            if torch.cuda.is_available():
+            # If the user manually specifies n_gpu as None,
+            # it will not utilize the CUDA device, even if it's available.
+            if (
+                torch.cuda.is_available()
+                and os.getenv("CUDA_VISIBLE_DEVICES", None) != "-1"
+            ):
                 return "cuda"
             elif torch.backends.mps.is_available():
                 return "mps"
