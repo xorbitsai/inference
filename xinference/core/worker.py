@@ -18,6 +18,7 @@ from logging import getLogger
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 import xoscar as xo
+from xorbits._mars.resource import cuda_count
 from xoscar import MainActorPoolType
 
 from ..core import ModelActor
@@ -153,6 +154,12 @@ class WorkerActor(xo.Actor):
         n_gpu: Optional[int] = None,
         **kwargs,
     ) -> xo.ActorRefType["ModelActor"]:
+        if n_gpu is not None and (n_gpu <= 0 or n_gpu > cuda_count()):
+            raise ValueError(
+                f"The parameter `n_gpu` must be greater than 0 and "
+                f"not greater than the number of GPUs: {cuda_count()} on the machine."
+            )
+
         assert model_uid not in self._model_uid_to_model
         self._check_model_is_valid(model_name)
         assert self._supervisor_ref is not None
