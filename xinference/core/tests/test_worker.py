@@ -50,7 +50,7 @@ class MockWorkerActor(WorkerActor):
         n_gpu: Optional[int] = None,
         **kwargs,
     ):
-        subpool_address, devices = await self._choose_subpool(model_uid, n_gpu=n_gpu)
+        subpool_address, devices = await self._create_subpool(model_uid, n_gpu=n_gpu)
         for dev in devices:
             self._gpu_to_model_uids[int(dev)].add(model_uid)
         self._model_uid_to_addr[model_uid] = subpool_address

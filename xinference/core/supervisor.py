@@ -17,7 +17,16 @@ import itertools
 import time
 from dataclasses import dataclass
 from logging import getLogger
-from typing import TYPE_CHECKING, Any, AsyncGenerator, Dict, Iterator, List, Optional
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    AsyncGenerator,
+    Dict,
+    Iterator,
+    List,
+    Optional,
+    Union,
+)
 
 import xoscar as xo
 
@@ -162,7 +171,7 @@ class SupervisorActor(xo.Actor):
         quantization: Optional[str],
         model_type: Optional[str],
         replica: int = 1,
-        n_gpu: Optional[int] = None,
+        n_gpu: Optional[Union[int, str]] = "auto",
         **kwargs,
     ) -> AsyncGenerator:
         logger.debug(

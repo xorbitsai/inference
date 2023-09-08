@@ -381,7 +381,7 @@ class RESTfulAPIActor(xo.Actor):
         quantization = payload.get("quantization")
         model_type = payload.get("model_type")
         replica = payload.get("replica", 1)
-        n_gpu = payload.get("n_gpu", None)
+        n_gpu = payload.get("n_gpu", "auto")
 
         exclude_keys = {
             "model_uid",

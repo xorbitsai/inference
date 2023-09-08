@@ -15,7 +15,7 @@
 import asyncio
 import platform
 from logging import getLogger
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 import xoscar as xo
 from xorbits._mars.resource import cuda_count
@@ -100,13 +100,17 @@ class WorkerActor(xo.Actor):
                     allocated_device[dev] = allocated_device.get(dev, 0) + 1
         return sorted(devices)
 
-    async def _choose_subpool(
-        self, model_uid: str, n_gpu: Optional[int] = None
+    async def _create_subpool(
+        self,
+        model_uid: str,
+        n_gpu: Optional[Union[int, str]] = "auto",
     ) -> Tuple[str, List[str]]:
         env = {}
         devices = []
-        if n_gpu is not None:
-            devices = self.allocate_devices(n_gpu)
+        if isinstance(n_gpu, int) or (n_gpu == "auto" and cuda_count() > 0):
+            # Currently, n_gpu=auto means using 1 GPU
+            gpu_cnt = n_gpu if isinstance(n_gpu, int) else 1
+            devices = self.allocate_devices(gpu_cnt)
             env["CUDA_VISIBLE_DEVICES"] = ",".join([str(dev) for dev in devices])
             logger.debug(f"GPU selected: {devices} for model {model_uid}")
 
@@ -151,14 +155,17 @@ class WorkerActor(xo.Actor):
         model_format: Optional[str],
         quantization: Optional[str],
         model_type: str = "LLM",
-        n_gpu: Optional[int] = None,
+        n_gpu: Optional[Union[int, str]] = "auto",
         **kwargs,
     ) -> xo.ActorRefType["ModelActor"]:
-        if n_gpu is not None and (n_gpu <= 0 or n_gpu > cuda_count()):
-            raise ValueError(
-                f"The parameter `n_gpu` must be greater than 0 and "
-                f"not greater than the number of GPUs: {cuda_count()} on the machine."
-            )
+        if n_gpu is not None:
+            if isinstance(n_gpu, int) and (n_gpu <= 0 or n_gpu > cuda_count()):
+                raise ValueError(
+                    f"The parameter `n_gpu` must be greater than 0 and "
+                    f"not greater than the number of GPUs: {cuda_count()} on the machine."
+                )
+            if isinstance(n_gpu, str) and n_gpu != "auto":
+                raise ValueError("Currently `n_gpu` only supports `auto`.")
 
         assert model_uid not in self._model_uid_to_model
         self._check_model_is_valid(model_name)
@@ -176,7 +183,7 @@ class WorkerActor(xo.Actor):
             **kwargs,
         )
 
-        subpool_address, devices = await self._choose_subpool(model_uid, n_gpu=n_gpu)
+        subpool_address, devices = await self._create_subpool(model_uid, n_gpu=n_gpu)
         model_ref = await xo.create_actor(
             ModelActor, address=subpool_address, uid=model_uid, model=model
         )
