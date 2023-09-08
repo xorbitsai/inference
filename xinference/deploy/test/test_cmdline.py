@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import os
+import sys
 import tempfile
 
 import pytest
@@ -60,8 +61,13 @@ def test_cmdline(setup, stream):
     # if use `model_launch` command to launch model, CI will fail.
     # So use client to launch model in temporary
     client = Client(endpoint)
+    # Windows CI has limited resources, use replica 1
+    replica = 1 if sys.platform == "win32" else 2
     model_uid = client.launch_model(
-        model_name="orca", model_size_in_billions=3, quantization="q4_0", replica=2
+        model_name="orca",
+        model_size_in_billions=3,
+        quantization="q4_0",
+        replica=replica,
     )
     assert len(model_uid) != 0
 
