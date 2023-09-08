@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import asyncio
+import os
 import platform
 from logging import getLogger
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
@@ -114,7 +115,9 @@ class WorkerActor(xo.Actor):
             env["CUDA_VISIBLE_DEVICES"] = ",".join([str(dev) for dev in devices])
             logger.debug(f"GPU selected: {devices} for model {model_uid}")
 
-        sub_pool_address = await self._main_pool.append_sub_pool(env=env)
+        sub_pool_address = await self._main_pool.append_sub_pool(
+            env=env, start_method="forkserver" if os.name != "nt" else "spawn"
+        )
         return sub_pool_address, [str(dev) for dev in devices]
 
     def _check_model_is_valid(self, model_name):
