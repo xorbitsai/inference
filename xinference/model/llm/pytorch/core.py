@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import logging
+import os
 from typing import Iterator, List, Optional, TypedDict, Union
 
 from ....types import (
@@ -137,8 +138,15 @@ class PytorchModel(LLM):
             )
         from .compression import load_compress_model
 
+        cuda_devices = os.getenv("CUDA_VISIBLE_DEVICES", None)
+        cuda_devices = cuda_devices.split(",") if cuda_devices else []
+
         quantization = self.quantization
-        num_gpus = self._pytorch_model_config.get("num_gpus", 1)
+        num_gpus = (
+            len(cuda_devices)
+            if cuda_devices
+            else self._pytorch_model_config.get("num_gpus", 1)
+        )
         device = self._pytorch_model_config.get("device", "auto")
         self._pytorch_model_config["device"] = self._select_device(device)
         self._device = self._pytorch_model_config["device"]
@@ -192,6 +200,8 @@ class PytorchModel(LLM):
                     logger.debug(f"Model Memory: {self._model.get_memory_footprint()}")
                     return
 
+        if num_gpus > 1:
+            kwargs.update({"device_map": "auto"})
         self._model, self._tokenizer = self._load_model(kwargs)
 
         if (
