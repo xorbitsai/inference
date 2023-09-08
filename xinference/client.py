@@ -673,6 +673,43 @@ class Client:
         else:
             raise ValueError(f"Unknown model type:{desc['model_type']}")
 
+    def describe_model(self, model_uid: str) -> Dict:
+        """
+        Get model information.
+
+        Parameters
+        ----------
+        model_uid: str
+            The unique id that identify the model.
+
+        Returns
+        -------
+        dict
+            A dictionary containing the following keys:
+            - "model_type": str
+               the type of the model determined by its function, e.g. "LLM" (Large Language Model)
+            - "model_name": str
+               the name of the specific LLM model family
+            - "model_lang": List[str]
+               the languages supported by the LLM model
+            - "model_ability": List[str]
+               the ability or capabilities of the LLM model
+            - "model_description": str
+               a detailed description of the LLM model
+            - "model_format": str
+               the format specification of the LLM model
+            - "model_size_in_billions": int
+               the size of the LLM model in billions
+            - "quantization": str
+               the quantization applied to the model
+            - "revision": str
+               the revision number of the LLM model specification
+            - "context_length": int
+               the maximum text length the LLM model can accommodate (include all input & output)
+        """
+
+        return self._isolation.call(self._supervisor_ref.describe_model(model_uid))
+
 
 class RESTfulClient:
     def __init__(self, base_url):
