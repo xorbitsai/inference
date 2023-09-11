@@ -136,11 +136,13 @@ class PytorchModel(LLM):
             )
         from .compression import load_compress_model
 
-        cuda_devices = os.getenv("CUDA_VISIBLE_DEVICES", None)
-        cuda_device_indexes = cuda_devices.split(",") if cuda_devices else []
+        cuda_visible_devices_env = os.getenv("CUDA_VISIBLE_DEVICES", None)
+        cuda_visible_devices = (
+            cuda_visible_devices_env.split(",") if cuda_visible_devices_env else []
+        )
 
         quantization = self.quantization
-        num_gpus = len(cuda_device_indexes) if cuda_devices != "-1" else 0
+        num_gpus = len(cuda_visible_devices) if cuda_visible_devices_env != "-1" else 0
         device = self._pytorch_model_config.get("device", "auto")
         self._pytorch_model_config["device"] = self._select_device(device)
         self._device = self._pytorch_model_config["device"]
@@ -211,12 +213,8 @@ class PytorchModel(LLM):
             )
 
         if device == "auto":
-            # If the user manually specifies n_gpu as None,
-            # it will not utilize the CUDA device, even if it's available.
-            if (
-                torch.cuda.is_available()
-                and os.getenv("CUDA_VISIBLE_DEVICES", None) != "-1"
-            ):
+            # When env CUDA_VISIBLE_DEVICES=-1, torch.cuda.is_available() return False
+            if torch.cuda.is_available():
                 return "cuda"
             elif torch.backends.mps.is_available():
                 return "mps"
