@@ -17,7 +17,7 @@ import configparser
 import logging
 import os
 import sys
-from typing import List, Optional
+from typing import List, Optional, Union
 
 import click
 from xoscar.utils import get_next_port
@@ -377,6 +377,13 @@ def list_model_registrations(
     type=int,
     help="The replica count of the model, default is 1.",
 )
+@click.option(
+    "--n-gpu",
+    "-g",
+    default="auto",
+    type=str,
+    help='The number of GPUs used by the model, default is "auto".',
+)
 def model_launch(
     endpoint: Optional[str],
     model_name: str,
@@ -385,7 +392,15 @@ def model_launch(
     model_format: str,
     quantization: str,
     replica: int,
+    n_gpu: str,
 ):
+    if n_gpu.lower() == "none":
+        _n_gpu: Optional[Union[int, str]] = None
+    elif n_gpu == "auto":
+        _n_gpu = n_gpu
+    else:
+        _n_gpu = int(n_gpu)
+
     endpoint = get_endpoint(endpoint)
 
     client = RESTfulClient(base_url=endpoint)
@@ -396,6 +411,7 @@ def model_launch(
         model_format=model_format,
         quantization=quantization,
         replica=replica,
+        n_gpu=_n_gpu,
     )
 
     print(f"Model uid: {model_uid}", file=sys.stderr)
