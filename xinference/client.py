@@ -587,7 +587,7 @@ class Client:
             The replica of model, default is 1.
         n_gpu: Optional[Union[int, str]],
             The number of GPUs used by the model, default is "auto".
-            ``n_gpu=None`` means cpu only, ``n_gpu=auto`` means using GPU in advance.
+            ``n_gpu=None`` means cpu only, ``n_gpu=auto`` lets the system automatically determine the best number of GPUs to use.
         **kwargs:
             Any other parameters been specified.
 
@@ -776,7 +776,7 @@ class RESTfulClient:
             The replica of model, default is 1.
         n_gpu: Optional[Union[int, str]],
             The number of GPUs used by the model, default is "auto".
-            ``n_gpu=None`` means cpu only, ``n_gpu=auto`` means using GPU in advance.
+            ``n_gpu=None`` means cpu only, ``n_gpu=auto`` lets the system automatically determine the best number of GPUs to use.
         **kwargs:
             Any other parameters been specified.
 
