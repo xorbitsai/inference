@@ -3,6 +3,7 @@ import { createTheme } from "@mui/material/styles";
 // mui theme settings
 export const themeSettings = () => {
   return {
+    ERROR_COLOR: "#d8342c",
     typography: {
       fontFamily: ["Source Sans Pro", "sans-serif"].join(","),
       fontSize: 12,

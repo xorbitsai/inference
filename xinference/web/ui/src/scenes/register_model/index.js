@@ -11,6 +11,7 @@ import {
   RadioGroup,
   FormControl,
 } from "@mui/material";
+import { useMode } from "../../theme";
 
 const SUPPORTED_LANGUAGES_DICT = { en: "english", zh: "mandarin" };
 const SUPPORTED_FEATURES = ["embed", "generate", "chat"];
@@ -36,6 +37,7 @@ const GGMLV3_QUANTIZATIONS = [
 const SUPPORTED_LANGUAGES = Object.keys(SUPPORTED_LANGUAGES_DICT);
 
 const RegisterModel = () => {
+  const ERROR_COLOR = useMode();
   const endPoint = useContext(ApiContext).endPoint;
   const [persist, setPersist] = useState(false);
   const [showRaw, setShowRaw] = useState(false);
@@ -319,7 +321,7 @@ const RegisterModel = () => {
         <label
           style={{
             paddingLeft: 5,
-            color: errorLanguage ? "#d8342c" : "inherit",
+            color: errorLanguage ? ERROR_COLOR : "inherit",
           }}
         >
           Model Languages
@@ -333,13 +335,22 @@ const RegisterModel = () => {
                     checked={formData.model_lang.includes(lang)}
                     onChange={() => toggleLanguage(lang)}
                     name={lang}
-                    sx={errorLanguage ? styles.checkboxError : {}}
+                    sx={
+                      errorLanguage
+                        ? {
+                            color: ERROR_COLOR,
+                            "&.Mui-checked": {
+                              color: ERROR_COLOR,
+                            },
+                          }
+                        : {}
+                    }
                   />
                 }
                 label={SUPPORTED_LANGUAGES_DICT[lang]}
                 style={{
                   paddingLeft: 10,
-                  color: errorLanguage ? "#d8342c" : "inherit",
+                  color: errorLanguage ? ERROR_COLOR : "inherit",
                 }}
               />
             </Box>
@@ -351,7 +362,7 @@ const RegisterModel = () => {
         <label
           style={{
             paddingLeft: 5,
-            color: errorAbility ? "#d8342c" : "inherit",
+            color: errorAbility ? ERROR_COLOR : "inherit",
           }}
         >
           Model Abilities
@@ -365,13 +376,22 @@ const RegisterModel = () => {
                     checked={formData.model_ability.includes(ability)}
                     onChange={() => toggleAbility(ability)}
                     name={ability}
-                    sx={errorAbility ? styles.checkboxError : {}}
+                    sx={
+                      errorAbility
+                        ? {
+                            color: ERROR_COLOR,
+                            "&.Mui-checked": {
+                              color: ERROR_COLOR,
+                            },
+                          }
+                        : {}
+                    }
                   />
                 }
                 label={ability}
                 style={{
                   paddingLeft: 10,
-                  color: errorAbility ? "#d8342c" : "inherit",
+                  color: errorAbility ? ERROR_COLOR : "inherit",
                 }}
               />
             </Box>
@@ -383,7 +403,7 @@ const RegisterModel = () => {
         <label
           style={{
             paddingLeft: 5,
-            color: errorModelFormat ? "#d8342c" : "inherit",
+            color: errorModelFormat ? ERROR_COLOR : "inherit",
           }}
         >
           Model Formats
@@ -402,9 +422,9 @@ const RegisterModel = () => {
                   sx={
                     errorModelFormat
                       ? {
-                          color: "#d8342c",
+                          color: ERROR_COLOR,
                           "&.Mui-checked": {
-                            color: "#d8342c",
+                            color: ERROR_COLOR,
                           },
                         }
                       : {}
@@ -414,7 +434,7 @@ const RegisterModel = () => {
               label="pytorch"
               style={{
                 paddingLeft: 10,
-                color: errorModelFormat ? "#d8342c" : "inherit",
+                color: errorModelFormat ? ERROR_COLOR : "inherit",
               }}
             />
           </Box>
@@ -429,13 +449,22 @@ const RegisterModel = () => {
                   )}
                   onChange={toggleGgmlv3Format}
                   name="ggmlv3"
-                  sx={errorModelFormat ? styles.checkboxError : {}}
+                  sx={
+                    errorModelFormat
+                      ? {
+                          color: ERROR_COLOR,
+                          "&.Mui-checked": {
+                            color: ERROR_COLOR,
+                          },
+                        }
+                      : {}
+                  }
                 />
               }
               label="ggmlv3"
               style={{
                 paddingLeft: 10,
-                color: errorModelFormat ? "#d8342c" : "inherit",
+                color: errorModelFormat ? ERROR_COLOR : "inherit",
               }}
             />
           </Box>
@@ -561,7 +590,7 @@ const RegisterModel = () => {
           <label
             style={{
               paddingLeft: 10,
-              color: errorPytorchQuantization ? "#d8342c" : "inherit",
+              color: errorPytorchQuantization ? ERROR_COLOR : "inherit",
             }}
           >
             PyTorch Quantizations
@@ -582,9 +611,9 @@ const RegisterModel = () => {
                       sx={
                         errorPytorchQuantization
                           ? {
-                              color: "#d8342c",
+                              color: ERROR_COLOR,
                               "&.Mui-checked": {
-                                color: "#d8342c",
+                                color: ERROR_COLOR,
                               },
                             }
                           : {}
@@ -593,7 +622,7 @@ const RegisterModel = () => {
                   }
                   label={quantization}
                   style={{
-                    color: errorPytorchQuantization ? "#d8342c" : "inherit",
+                    color: errorPytorchQuantization ? ERROR_COLOR : "inherit",
                   }}
                 />
               </Box>
@@ -661,7 +690,7 @@ const RegisterModel = () => {
           <label
             style={{
               paddingLeft: 10,
-              color: errorGgmlv3Quantization ? "#d8342c" : "inherit",
+              color: errorGgmlv3Quantization ? ERROR_COLOR : "inherit",
             }}
           >
             GGMLv3 Quantizations
@@ -682,9 +711,9 @@ const RegisterModel = () => {
                       sx={
                         errorGgmlv3Quantization
                           ? {
-                              color: "#d8342c",
+                              color: ERROR_COLOR,
                               "&.Mui-checked": {
-                                color: "#d8342c",
+                                color: ERROR_COLOR,
                               },
                             }
                           : {}
@@ -693,7 +722,7 @@ const RegisterModel = () => {
                   }
                   label={quantization}
                   style={{
-                    color: errorGgmlv3Quantization ? "#d8342c" : "inherit",
+                    color: errorGgmlv3Quantization ? ERROR_COLOR : "inherit",
                   }}
                 />
               </Box>
@@ -703,7 +732,9 @@ const RegisterModel = () => {
       )}
 
       <Box width={"100%"} m="20px">
-        <div style={styles.error}>{errorMessage}</div>
+        <div style={{ ...styles.error, color: ERROR_COLOR }}>
+          {errorMessage}
+        </div>
         <Button
           variant="contained"
           color="primary"
@@ -772,12 +803,6 @@ const styles = {
     flexWrap: "wrap",
     maxWidth: "80%",
   },
-  checkboxError: {
-    color: "#d8342c",
-    "&.Mui-checked": {
-      color: "#d8342c",
-    },
-  },
   labelPaddingLeft: {
     paddingLeft: 5,
   },
@@ -789,7 +814,6 @@ const styles = {
     margin: "20px",
   },
   error: {
-    color: "#d8342c",
     fontWeight: "bold",
     margin: "5px 0",
     padding: "1px",
