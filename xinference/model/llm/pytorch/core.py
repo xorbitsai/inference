@@ -177,7 +177,7 @@ class PytorchModel(LLM):
                         f"Quantization {quantization} is not supported in temporary"
                     )
             else:
-                if num_gpus != 1:
+                if num_gpus != 1 and self._device == "cuda":
                     raise ValueError(f"Quantization is not supported for multi-gpu")
                 elif quantization != "8-bit":
                     raise ValueError(
