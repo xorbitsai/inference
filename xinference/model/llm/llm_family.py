@@ -420,6 +420,8 @@ def cache_from_huggingface(
                 f"(size: {llm_spec.model_size_in_billions}, format: {llm_spec.model_format}) "
                 f"after multiple retries"
             )
+    else:
+        raise ValueError(f"Unsupported model format: {llm_spec.model_format}")
 
     return cache_dir
 
