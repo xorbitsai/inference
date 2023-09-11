@@ -39,6 +39,7 @@ const RegisterModel = () => {
   const endPoint = useContext(ApiContext).endPoint;
   const [persist, setPersist] = useState(false);
   const [showRaw, setShowRaw] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
   const [formData, setFormData] = useState({
     version: 1,
     context_length: 2048,
@@ -98,12 +99,30 @@ const RegisterModel = () => {
         (spec.quantizations === undefined || spec.quantizations.length === 0)
       );
     });
+  const errorPytorchModelSize =
+    formData.model_specs &&
+    formData.model_specs.some((spec) => {
+      return (
+        spec.model_format === "pytorch" &&
+        (spec.model_size_in_billions === undefined ||
+          spec.model_size_in_billions === 0)
+      );
+    });
   const errorGgmlv3Quantization =
     formData.model_specs &&
     formData.model_specs.some((spec) => {
       return (
         spec.model_format === "ggmlv3" &&
         (spec.quantizations === undefined || spec.quantizations.length === 0)
+      );
+    });
+  const errorGgmlv3ModelSize =
+    formData.model_specs &&
+    formData.model_specs.some((spec) => {
+      return (
+        spec.model_format === "ggmlv3" &&
+        (spec.model_size_in_billions === undefined ||
+          spec.model_size_in_billions === 0)
       );
     });
   const errorAny =
@@ -114,7 +133,9 @@ const RegisterModel = () => {
     errorAbility ||
     errorModelFormat ||
     errorPytorchQuantization ||
-    errorGgmlv3Quantization;
+    errorPytorchModelSize ||
+    errorGgmlv3Quantization ||
+    errorGgmlv3ModelSize;
 
   const toggleLanguage = (lang) => {
     if (formData.model_lang.includes(lang)) {
@@ -489,8 +510,8 @@ const RegisterModel = () => {
           <h2>PyTorch Model Spec</h2>
           <TextField
             label="Model Size in Billions"
-            type="number"
             size="small"
+            error={errorPytorchModelSize}
             value={
               formData.model_specs.find(
                 (spec) => spec.model_format === "pytorch"
@@ -503,8 +524,8 @@ const RegisterModel = () => {
                 value = value.replace(/^0+/, "") || "0";
               }
               // Ensure it's a positive integer, if not set it to the minimum
-              if (!/^\d+$/.test(value) || parseInt(value) < 1) {
-                value = "1";
+              if (!/^\d+$/.test(value) || parseInt(value) < 0) {
+                value = "0";
               }
               // Update the spec with the processed value
               updatePyTorchSpec({
@@ -587,8 +608,8 @@ const RegisterModel = () => {
           <h2>GGMLv3 Model Spec</h2>
           <TextField
             label="Model Size in Billions"
-            type="number"
             size="small"
+            error={errorGgmlv3ModelSize}
             value={
               formData.model_specs.find(
                 (spec) => spec.model_format === "ggmlv3"
@@ -601,8 +622,8 @@ const RegisterModel = () => {
                 value = value.replace(/^0+/, "") || "0";
               }
               // Ensure it's a positive integer, if not set it to the minimum
-              if (!/^\d+$/.test(value) || parseInt(value) < 1) {
-                value = "1";
+              if (!/^\d+$/.test(value) || parseInt(value) < 0) {
+                value = "0";
               }
               // Update the spec with the processed value
               updateGGMLSpec({
@@ -682,11 +703,16 @@ const RegisterModel = () => {
       )}
 
       <Box width={"100%"} m="20px">
+        <div style={styles.error}>{errorMessage}</div>
         <Button
           variant="contained"
           color="primary"
           type="submit"
           onClick={() => {
+            if (errorAny) {
+              setErrorMessage("Please fill in valid value for all fields");
+              return;
+            }
             fetch(endPoint + "/v1/model_registrations/LLM", {
               method: "POST",
               headers: {
@@ -701,12 +727,15 @@ const RegisterModel = () => {
                 return response.json();
               })
               .then((data) => console.log(data))
-              .catch((error) =>
+              .catch((error) => {
                 console.error(
                   "There was a problem with the fetch operation:",
                   error
-                )
-              );
+                );
+                setErrorMessage(
+                  error.message || "An unexpected error occurred."
+                );
+              });
           }}
         >
           Register Model
@@ -758,5 +787,12 @@ const styles = {
   buttonBox: {
     width: "100%",
     margin: "20px",
+  },
+  error: {
+    color: "#d8342c",
+    fontWeight: "bold",
+    margin: "5px 0",
+    padding: "1px",
+    borderRadius: "5px",
   },
 };
