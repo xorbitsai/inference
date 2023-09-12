@@ -95,7 +95,7 @@ def test_replica_model(setup):
     assert len(client.list_models()) == 1
 
     replica_uids = set()
-    while len(replica_uids) != 2:
+    while len(replica_uids) != replica:
         model = client.get_model(model_uid=model_uid)
         replica_uids.add(model._model_ref.uid)
 
