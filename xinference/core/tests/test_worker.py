@@ -36,8 +36,8 @@ class MockWorkerActor(WorkerActor):
     async def __pre_destroy__(self):
         pass
 
-    def get_gpu_to_model_uids(self):
-        return self._gpu_to_model_uids
+    def get_gpu_to_model_uid(self):
+        return self._gpu_to_model_uid
 
     async def launch_builtin_model(
         self,
@@ -52,13 +52,13 @@ class MockWorkerActor(WorkerActor):
     ):
         subpool_address, devices = await self._create_subpool(model_uid, n_gpu=n_gpu)
         for dev in devices:
-            self._gpu_to_model_uids[int(dev)].add(model_uid)
+            self._gpu_to_model_uid[int(dev)] = model_uid
         self._model_uid_to_addr[model_uid] = subpool_address
 
     async def terminate_model(self, model_uid: str):
-        for device in self._gpu_to_model_uids:
-            if model_uid in self._gpu_to_model_uids[device]:
-                self._gpu_to_model_uids[device].remove(model_uid)
+        devs = [dev for dev, uid in self._gpu_to_model_uid.items() if uid == model_uid]
+        for dev in devs:
+            del self._gpu_to_model_uid[dev]
 
         sub_pool_addr = self._model_uid_to_addr[model_uid]
         await self._main_pool.remove_sub_pool(sub_pool_addr)
@@ -96,28 +96,28 @@ async def test_allocate_cuda_devices(setup_pool):
     await worker.launch_builtin_model("x2", "x2", None, None, None, n_gpu=4)
     assert devices == [1, 2, 3, 4]
 
-    devices = await worker.allocate_devices(4)
-    await worker.launch_builtin_model("x3", "x3", None, None, None, n_gpu=4)
-    assert devices == [0, 5, 6, 7]
+    devices = await worker.allocate_devices(3)
+    await worker.launch_builtin_model("x3", "x3", None, None, None, n_gpu=3)
+    assert devices == [5, 6, 7]
 
-    devices = await worker.allocate_devices(5)
-    await worker.launch_builtin_model("x4", "x4", None, None, None, n_gpu=5)
-    assert devices == [1, 2, 3, 4, 5]
+    with pytest.raises(RuntimeError):
+        await worker.allocate_devices(5)
+
+    await worker.terminate_model("x2")
+
+    devices = await worker.allocate_devices(2)
+    await worker.launch_builtin_model("x4", "x4", None, None, None, n_gpu=2)
+    assert devices == [1, 2]
 
     devices = await worker.allocate_devices(2)
     await worker.launch_builtin_model("x5", "x5", None, None, None, n_gpu=2)
-    assert devices == [6, 7]
+    assert devices == [3, 4]
 
-    devices = await worker.allocate_devices(1)
-    await worker.launch_builtin_model("x6", "x6", None, None, None, n_gpu=1)
-    assert devices == [0]
-
-    devices = await worker.allocate_devices(1)
-    await worker.launch_builtin_model("x7", "x7", None, None, None, n_gpu=1)
-    assert devices == [1]
+    with pytest.raises(RuntimeError):
+        await worker.allocate_devices(1)
 
     pool_config = (await get_pool_config(addr)).as_dict()
-    assert len(pool_config["pools"]) == 8
+    assert len(pool_config["pools"]) == 4 + 1
 
 
 @pytest.mark.asyncio
@@ -138,26 +138,24 @@ async def test_terminate_model_flag(setup_pool):
 
     await worker.launch_builtin_model("x2", "x2", None, None, None, n_gpu=4)
 
-    await worker.launch_builtin_model("x3", "x3", None, None, None, n_gpu=4)
-
-    devices = await worker.allocate_devices(5)
-    await worker.launch_builtin_model("x4", "x4", None, None, None, n_gpu=5)
-    assert devices == [1, 2, 3, 4, 5]
+    devices = await worker.allocate_devices(3)
+    await worker.launch_builtin_model("x3", "x3", None, None, None, n_gpu=3)
+    assert devices == [5, 6, 7]
 
     with pytest.raises(KeyError):
         await worker.terminate_model("x5")
 
     pool_config = (await get_pool_config(addr)).as_dict()
-    assert len(pool_config["pools"]) == 5
+    assert len(pool_config["pools"]) == 3 + 1
 
     await worker.terminate_model("x2")
     pool_config = (await get_pool_config(addr)).as_dict()
-    assert len(pool_config["pools"]) == 4
+    assert len(pool_config["pools"]) == 2 + 1
 
-    gpu_to_model_ids = await worker.get_gpu_to_model_uids()
+    gpu_to_model_id = await worker.get_gpu_to_model_uid()
     for dev in devices:
-        assert "x4" in gpu_to_model_ids[dev]
-    await worker.terminate_model("x4")
-    gpu_to_model_ids = await worker.get_gpu_to_model_uids()
+        assert "x3" == gpu_to_model_id[dev]
+    await worker.terminate_model("x3")
+    gpu_to_model_id = await worker.get_gpu_to_model_uid()
     for dev in devices:
-        assert "x4" not in gpu_to_model_ids[dev]
+        assert dev not in gpu_to_model_id

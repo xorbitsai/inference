@@ -16,7 +16,7 @@ import asyncio
 import os
 import platform
 from logging import getLogger
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import xoscar as xo
 from xorbits._mars.resource import cuda_count
@@ -41,14 +41,13 @@ class WorkerActor(xo.Actor):
         cuda_devices: List[int],
     ):
         super().__init__()
+        self._total_cuda_devices = cuda_devices
         self._supervisor_address = supervisor_address
         self._supervisor_ref = None
         self._model_uid_to_model: Dict[str, xo.ActorRefType["ModelActor"]] = {}
         self._model_uid_to_model_spec: Dict[str, ModelDescription] = {}
 
-        self._gpu_to_model_uids: Dict[int, Set[str]] = {
-            device: set() for device in cuda_devices
-        }
+        self._gpu_to_model_uid: Dict[int, str] = {}
         self._model_uid_to_addr: Dict[str, str] = {}
         self._main_pool = main_pool
         logger.debug(
@@ -79,26 +78,11 @@ class WorkerActor(xo.Actor):
         """
         Allocate GPUs to the model based on the form-filling method to achieve a balanced GPU load as much as possible.
         """
-        allocated_device: Dict[int, int] = {}
-        devices: List[int] = []
-        for _ in range(n_gpu):
-            min_running_model_count = min(
-                [
-                    len(models) + allocated_device.get(dev, 0)
-                    for dev, models in self._gpu_to_model_uids.items()
-                ]
-            )
-            for dev in self._gpu_to_model_uids:
-                running_model_count = len(
-                    self._gpu_to_model_uids[dev]
-                ) + allocated_device.get(dev, 0)
-                if (
-                    len(devices) < n_gpu
-                    and running_model_count <= min_running_model_count
-                ):
-                    min_running_model_count = running_model_count
-                    devices.append(dev)
-                    allocated_device[dev] = allocated_device.get(dev, 0) + 1
+        if n_gpu > len(self._total_cuda_devices) - len(self._gpu_to_model_uid):
+            raise RuntimeError("No available slot found for the model")
+        devices: List[int] = [
+            dev for dev in self._total_cuda_devices if dev not in self._gpu_to_model_uid
+        ][:n_gpu]
         return sorted(devices)
 
     async def _create_subpool(
@@ -197,7 +181,7 @@ class WorkerActor(xo.Actor):
         self._model_uid_to_model[model_uid] = model_ref
         self._model_uid_to_model_spec[model_uid] = model_description
         for dev in devices:
-            self._gpu_to_model_uids[int(dev)].add(model_uid)
+            self._gpu_to_model_uid[int(dev)] = model_uid
         self._model_uid_to_addr[model_uid] = subpool_address
         return model_ref
 
@@ -212,9 +196,9 @@ class WorkerActor(xo.Actor):
         del self._model_uid_to_model[model_uid]
         del self._model_uid_to_model_spec[model_uid]
 
-        for device in self._gpu_to_model_uids:
-            if model_uid in self._gpu_to_model_uids[device]:
-                self._gpu_to_model_uids[device].remove(model_uid)
+        devs = [dev for dev, uid in self._gpu_to_model_uid.items() if uid == model_uid]
+        for dev in devs:
+            del self._gpu_to_model_uid[dev]
 
         sub_pool_addr = self._model_uid_to_addr[model_uid]
         await self._main_pool.remove_sub_pool(sub_pool_addr)
