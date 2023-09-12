@@ -104,7 +104,7 @@ def test_replica_model(setup):
 
     client2 = RESTfulClient(endpoint)
     info = client2.describe_model(model_uid=model_uid)
-    assert info["replica"] == 2
+    assert info["replica"] == replica
 
     client.terminate_model(model_uid=model_uid)
     assert len(client.list_models()) == 0
