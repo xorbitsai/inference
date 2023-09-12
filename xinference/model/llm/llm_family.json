@@ -1522,5 +1522,48 @@
         "model_revision": "fa88072fee36e36282287410e00897df2f59e09b"
       }
     ]
+  },
+  {
+    "version": 1,
+    "context_length": 2048,
+    "model_name": "OpenBuddy",
+    "model_lang": [
+      "en"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "OpenBuddy is a powerful open multilingual chatbot model aimed at global users, emphasizing conversational AI and seamless multilingual support for English, Chinese, and other languages. The chat history is disabled for better translation.",
+    "model_specs": [
+      {
+        "model_format": "ggmlv3",
+        "model_size_in_billions": 13,
+        "quantizations": [
+          "Q2_K",
+          "Q3_K_S",
+          "Q3_K_M",
+          "Q3_K_L",
+          "Q4_0",
+          "Q4_1",
+          "Q4_K_S",
+          "Q4_K_M",
+          "Q5_0",
+          "Q5_1",
+          "Q5_K_S",
+          "Q5_K_M",
+          "Q6_K",
+          "Q8_0"
+        ],
+        "model_id": "TheBloke/OpenBuddy-Llama2-13B-v11.1-GGML",
+        "model_file_name_template": "openbuddy-llama2-13b-v11.1.ggmlv3.{quantization}.bin"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "INSTRUCTION",
+      "system_prompt": "You are a professional translator. Be faithful or accurate in translation. Make the translation readable or intelligible. Be elegant or natural in translation. Do not translate person's name. Do not add any additional text to the translation. Do not give me any comments or suggestions.\nUser:\n\n{0}\nAssistant:",
+      "roles": ["User", "Assistant"],
+      "intra_message_sep": "",
+      "inter_message_sep": ""
+    }
   }
 ]
