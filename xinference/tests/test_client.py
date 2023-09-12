@@ -11,7 +11,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import sys
+
+import os
 
 import pytest
 
@@ -83,7 +84,7 @@ def test_replica_model(setup):
     assert len(client.list_models()) == 0
 
     # Windows CI has limited resources, use replica 1
-    replica = 1 if sys.platform == "win32" else 2
+    replica = 1 if os.name == "nt" else 2
     model_uid = client.launch_model(
         model_name="orca",
         model_size_in_billions=3,
