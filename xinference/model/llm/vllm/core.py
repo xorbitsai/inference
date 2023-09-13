@@ -240,8 +240,6 @@ class VLLMModel(LLM):
                 )
                 for i, choice in enumerate(chunk["choices"]):
                     delta = choice["text"][len(previous_texts[i]) :]
-                    # TODO: remove.
-                    logger.debug(f"Delta: {delta}")
                     previous_texts[i] = choice["text"]
                     choice["text"] = delta
                 yield chunk
