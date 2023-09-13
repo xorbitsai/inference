@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import datetime
 import logging
 import os
 from typing import TYPE_CHECKING, Iterator, List, Optional, TypedDict, Union
@@ -152,6 +153,39 @@ class LlamaCppModel(LLM):
         generate_config["model"] = self.model_uid
         return generate_config
 
+    def _convert_ggml_to_gguf(self, model_path: str) -> str:
+        # We assume that the file extension for ggml format is bin,
+        # and the file extension for gguf format is gguf.
+        # ggml path: /ROOT_DIR/{model-name}-ggmlv3-{model-size}/{model-name}.ggmlv3.{quantization}.bin
+        # converted gguf path: /ROOT_DIR/{model-name}-gguf-{model-size}/{model-name}.{quantization}.gguf
+        from .tools import convert
+
+        root_dir = os.path.dirname(os.path.dirname(model_path))
+        gguf_dir = os.path.join(
+            root_dir,
+            "{}-ggufv1-{}b".format(
+                self.model_family.model_name, self.model_spec.model_size_in_billions
+            ),
+        )
+        os.makedirs(gguf_dir, exist_ok=True)
+        gguf_path = os.path.join(
+            gguf_dir,
+            "{}.{}.ggufv1".format(self.model_family.model_name, self.quantization),
+        )
+        # trick for validation, use a mark file to make sure the gguf file is converted
+        mark_file = os.path.join(gguf_dir, "__valid")
+        if os.path.exists(mark_file):
+            return gguf_path
+        else:
+            logger.warning(
+                "You are using a model with ggmlv3, "
+                "and it will take some time to convert to ggufv1"
+            )
+            convert(model_path, gguf_path)
+            with open(mark_file, "w") as f:
+                f.write(str(datetime.datetime.now()))
+            return gguf_path
+
     def load(self):
         try:
             from llama_cpp import Llama
@@ -176,15 +210,21 @@ class LlamaCppModel(LLM):
         if os.path.exists(legacy_model_file_path):
             model_path = legacy_model_file_path
 
-        self._llm = Llama(
-            model_path=model_path,
-            verbose=False,
-            **self._llamacpp_model_config,
-        )
+        if self.model_spec.model_format == "ggmlv3":
+            model_path = self._convert_ggml_to_gguf(model_path)
+
+        try:
+            self._llm = Llama(
+                model_path=model_path,
+                verbose=False,
+                **self._llamacpp_model_config,
+            )
+        except AssertionError:
+            raise RuntimeError(f"Load model {self.model_spec} failed")
 
     @classmethod
     def match(cls, llm_family: LLMFamilyV1, llm_spec: LLMSpecV1) -> bool:
-        if llm_spec.model_format != "ggmlv3":
+        if llm_spec.model_format != "ggmlv3" and llm_spec.model_format != "ggufv1":
             return False
         if (
             "chatglm" in llm_family.model_name
