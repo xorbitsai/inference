@@ -133,7 +133,11 @@ class VLLMModel(LLM):
         return sanitized
 
     @classmethod
-    def match(cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1") -> bool:
+    def match(
+        cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
+    ) -> bool:
+        if quantization != "none":
+            return False
         if llm_spec.model_format != "pytorch":
             return False
         if llm_family.model_name not in VLLM_SUPPORTED_MODELS:
@@ -256,7 +260,11 @@ class VLLMModel(LLM):
 
 class VLLMChatModel(VLLMModel, ChatModelMixin):
     @classmethod
-    def match(cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1") -> bool:
+    def match(
+        cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
+    ) -> bool:
+        if quantization != "none":
+            return False
         if llm_spec.model_format != "pytorch":
             return False
         if llm_family.model_name not in VLLM_SUPPORTED_CHAT_MODELS:

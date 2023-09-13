@@ -227,7 +227,9 @@ class LlamaCppModel(LLM):
             raise RuntimeError(f"Load model {self.model_family.model_name} failed")
 
     @classmethod
-    def match(cls, llm_family: LLMFamilyV1, llm_spec: LLMSpecV1) -> bool:
+    def match(
+        cls, llm_family: LLMFamilyV1, llm_spec: LLMSpecV1, quantization: str
+    ) -> bool:
         if llm_spec.model_format not in ["ggmlv3", "ggufv2"]:
             return False
         if (
@@ -301,7 +303,9 @@ class LlamaCppChatModel(LlamaCppModel, ChatModelMixin):
         )
 
     @classmethod
-    def match(cls, llm_family: LLMFamilyV1, llm_spec: LLMSpecV1) -> bool:
+    def match(
+        cls, llm_family: LLMFamilyV1, llm_spec: LLMSpecV1, quantization: str
+    ) -> bool:
         if llm_spec.model_format not in ["ggmlv3", "ggufv2"]:
             return False
         if (

@@ -63,7 +63,9 @@ class LLM(abc.ABC):
         raise NotImplementedError
 
     @classmethod
-    def match(cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1") -> bool:
+    def match(
+        cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
+    ) -> bool:
         raise NotImplementedError
 
 
@@ -119,7 +121,7 @@ def create_llm_model_instance(
     assert quantization is not None
     save_path = cache(llm_family, llm_spec, quantization)
 
-    llm_cls = match_llm_cls(llm_family, llm_spec)
+    llm_cls = match_llm_cls(llm_family, llm_spec, quantization)
     if not llm_cls:
         raise ValueError(
             f"Model not supported, name: {model_name}, format: {model_format},"
