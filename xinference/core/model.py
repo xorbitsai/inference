@@ -11,19 +11,21 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import asyncio
 import inspect
 import uuid
 from typing import (
     TYPE_CHECKING,
     Any,
+    AsyncGenerator,
     Dict,
     Generic,
     Iterator,
     List,
     Optional,
     TypeVar,
-    Union,
+    Union, Callable, Coroutine,
 )
 
 import xoscar as xo
@@ -74,9 +76,10 @@ class ModelActor(xo.StatelessActor):
     async def __pre_destroy__(self):
         from ..model.embedding.core import EmbeddingModel
         from ..model.llm.pytorch.core import PytorchModel as LLMPytorchModel
+        from ..model.llm.vllm.core import VLLMModel as LLMVLLMModel
 
         if (
-            isinstance(self._model, LLMPytorchModel)
+            isinstance(self._model, (LLMPytorchModel, LLMVLLMModel))
             and self._model.model_spec.model_format == "pytorch"
         ) or isinstance(self._model, EmbeddingModel):
             try:
@@ -98,20 +101,23 @@ class ModelActor(xo.StatelessActor):
     def __init__(self, model: "LLM"):
         super().__init__()
         from ..model.llm.pytorch.core import PytorchModel
+        from ..model.llm.vllm.core import VLLMModel
 
         self._model = model
-        self._generators: Dict[str, Iterator] = {}
+
+        self._generators: Dict[str, Union[Iterator, AsyncGenerator]] = {}
         self._lock = (
-            None if isinstance(self._model, PytorchModel) else asyncio.locks.Lock()
+            None if isinstance(self._model, (PytorchModel, VLLMModel)) else asyncio.locks.Lock()
         )
 
     def load(self):
         self._model.load()
 
     async def _wrap_generator(self, ret: Any):
-        if inspect.isgenerator(ret):
+        if inspect.isgenerator(ret) or inspect.isasyncgen(ret):
             generator_uid = str(uuid.uuid1())
             self._generators[generator_uid] = ret
+
             return IteratorWrapper(
                 uid=generator_uid,
                 model_actor_addr=self.address,
@@ -120,32 +126,44 @@ class ModelActor(xo.StatelessActor):
         else:
             return ret
 
-    async def _call_wrapper(self, _wrapper):
+    async def _call_wrapper(self, _wrapper: Callable):
         if self._lock is None:
-            return await asyncio.to_thread(_wrapper)
+            return await asyncio.create_task(_wrapper())
         else:
             async with self._lock:
-                return await asyncio.to_thread(_wrapper)
+                return await asyncio.create_task(_wrapper())
 
     async def generate(self, prompt: str, *args, **kwargs):
-        if not hasattr(self._model, "generate"):
+        if not hasattr(self._model, "generate") and not hasattr(
+            self._model, "async_generate"
+        ):
             raise AttributeError(f"Model {self._model.model_spec} is not for generate.")
 
-        def _wrapper():
-            return self._wrap_generator(
-                getattr(self._model, "generate")(prompt, *args, **kwargs)
-            )
+        async def _wrapper():
+            if hasattr(self._model, "generate"):
+                return self._wrap_generator(
+                    getattr(self._model, "generate")(prompt, *args, **kwargs)
+                )
+            else:
+                return self._wrap_generator(
+                    await getattr(self._model, "async_generate")(prompt, *args, **kwargs)
+                )
 
         return await self._call_wrapper(_wrapper)
 
     async def chat(self, prompt: str, *args, **kwargs):
-        if not hasattr(self._model, "chat"):
+        if not hasattr(self._model, "chat") and not hasattr(self._model, "async_chat"):
             raise AttributeError(f"Model {self._model.model_spec} is not for chat.")
 
-        def _wrapper():
-            return self._wrap_generator(
-                getattr(self._model, "chat")(prompt, *args, **kwargs)
-            )
+        async def _wrapper():
+            if hasattr(self._model, "chat"):
+                return self._wrap_generator(
+                    getattr(self._model, "chat")(prompt, *args, **kwargs)
+                )
+            else:
+                return self._wrap_generator(
+                    await getattr(self._model, "async_chat")(prompt, *args, **kwargs)
+                )
 
         return await self._call_wrapper(_wrapper)
 
@@ -155,7 +173,7 @@ class ModelActor(xo.StatelessActor):
                 f"Model {self._model.model_spec} is not for creating embedding."
             )
 
-        def _wrapper():
+        async def _wrapper():
             return getattr(self._model, "create_embedding")(input, *args, **kwargs)
 
         return await self._call_wrapper(_wrapper)
@@ -166,9 +184,17 @@ class ModelActor(xo.StatelessActor):
         assert generator_uid in self._generators
         stop = object()
 
-        def _wrapper():
+        async def _wrapper():
+            gen = self._generators[generator_uid]
             try:
-                return next(self._generators[generator_uid])
+                if inspect.isgenerator(gen):
+                    return next(gen)
+                elif inspect.isasyncgen(gen):
+                    return await anext(gen)
+                else:
+                    raise TypeError(
+                        f"Unexpected type {type(gen)}, expecting generator or async generator"
+                    )
             except StopIteration:
                 return stop
 

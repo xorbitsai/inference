@@ -478,8 +478,8 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
         if stream:
             it = self.generate(full_prompt, generate_config)
             assert isinstance(it, Iterator)
-            return self._convert_chat_completion_chunks_to_chat(it)
+            return self._to_chat_completion_chunks(it)
         else:
             c = self.generate(full_prompt, generate_config)
             assert not isinstance(c, Iterator)
-            return self._convert_text_completion_to_chat(c)
+            return self._to_chat_completion(c)

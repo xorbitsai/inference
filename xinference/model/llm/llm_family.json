@@ -703,8 +703,8 @@
           "8-bit",
           "none"
         ],
-        "model_id": "meta-llama/Llama-2-7b",
-        "model_revision": "365ffa8f1a6c455d3e2028ae658236b4b85ba824"
+        "model_id": "meta-llama/Llama-2-7b-hf",
+        "model_revision": "6fdf2e60f86ff2481f2241aaee459f85b5b0bbb9"
       },
       {
         "model_format": "pytorch",
@@ -714,8 +714,8 @@
           "8-bit",
           "none"
         ],
-        "model_id": "meta-llama/Llama-2-13b",
-        "model_revision": "bd5c881755fa1f0518506e60207229b13b0f67e1"
+        "model_id": "meta-llama/Llama-2-13b-hf",
+        "model_revision": "db6b8eb1feabb38985fdf785a89895959e944936"
       },
       {
         "model_format": "pytorch",
@@ -726,7 +726,7 @@
           "none"
         ],
         "model_id": "meta-llama/Llama-2-70b",
-        "model_revision": "fce501427e806d830acbd5e0a697a7924dc49278"
+        "model_revision": "cc8aa03a000ff08b4d5c5b39673321a2a396c396"
       }
     ]
   },
