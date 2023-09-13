@@ -34,7 +34,9 @@ async def _start_local_cluster(
             address=address, logging_conf=logging_conf
         )
         url = await start_supervisor_components(address=address, host=host, port=port)
-        await start_worker_components(address=address, supervisor_address=address)
+        await start_worker_components(
+            address=address, supervisor_address=address, main_pool=pool
+        )
         webbrowser.open(url)
         await pool.join()
     except asyncio.CancelledError:

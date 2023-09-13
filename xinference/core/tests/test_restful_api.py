@@ -12,12 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import pytest
 import requests
 
 from ...model.embedding import BUILTIN_EMBEDDING_MODELS
 
 
-def test_restful_api(setup):
+@pytest.mark.asyncio
+async def test_restful_api(setup):
     endpoint, _ = setup
     url = f"{endpoint}/v1/models"
 
@@ -37,6 +39,16 @@ def test_restful_api(setup):
     response_data = response.json()
     model_uid_res = response_data["model_uid"]
     assert model_uid_res == "test_restful_api"
+
+    # launch n_gpu error
+    payload = {
+        "model_uid": "test_restful_api",
+        "model_name": "orca",
+        "quantization": "q4_0",
+        "n_gpu": -1,
+    }
+    response = requests.post(url, json=payload)
+    assert response.status_code == 400
 
     payload = {
         "model_uid": "test_restful_api",

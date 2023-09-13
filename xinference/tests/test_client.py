@@ -59,6 +59,19 @@ def test_client(setup):
     client.terminate_model(model_uid=model_uid)
     assert len(client.list_models()) == 0
 
+    with pytest.raises(ValueError):
+        client.launch_model(
+            model_name="orca", model_size_in_billions=3, quantization="q4_0", n_gpu=100
+        )
+
+    with pytest.raises(ValueError):
+        client.launch_model(
+            model_name="orca",
+            model_size_in_billions=3,
+            quantization="q4_0",
+            n_gpu="abcd",
+        )
+
 
 def test_client_for_embedding(setup):
     endpoint, _ = setup

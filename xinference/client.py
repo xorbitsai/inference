@@ -565,6 +565,7 @@ class Client:
         model_format: Optional[str] = None,
         quantization: Optional[str] = None,
         replica: int = 1,
+        n_gpu: Optional[Union[int, str]] = "auto",
         **kwargs,
     ) -> str:
         """
@@ -584,6 +585,9 @@ class Client:
             The quantization of model.
         replica: Optional[int]
             The replica of model, default is 1.
+        n_gpu: Optional[Union[int, str]],
+            The number of GPUs used by the model, default is "auto".
+            ``n_gpu=None`` means cpu only, ``n_gpu=auto`` lets the system automatically determine the best number of GPUs to use.
         **kwargs:
             Any other parameters been specified.
 
@@ -593,7 +597,6 @@ class Client:
             The unique model_uid for the launched model.
 
         """
-
         model_uid = self._gen_model_uid()
 
         coro = self._supervisor_ref.launch_builtin_model(
@@ -604,6 +607,7 @@ class Client:
             model_format=model_format,
             quantization=quantization,
             replica=replica,
+            n_gpu=n_gpu,
             **kwargs,
         )
 
@@ -750,6 +754,7 @@ class RESTfulClient:
         model_format: Optional[str] = None,
         quantization: Optional[str] = None,
         replica: int = 1,
+        n_gpu: Optional[Union[int, str]] = "auto",
         **kwargs,
     ) -> str:
         """
@@ -769,6 +774,9 @@ class RESTfulClient:
             The quantization of model.
         replica: Optional[int]
             The replica of model, default is 1.
+        n_gpu: Optional[Union[int, str]],
+            The number of GPUs used by the model, default is "auto".
+            ``n_gpu=None`` means cpu only, ``n_gpu=auto`` lets the system automatically determine the best number of GPUs to use.
         **kwargs:
             Any other parameters been specified.
 
@@ -791,6 +799,7 @@ class RESTfulClient:
             "model_format": model_format,
             "quantization": quantization,
             "replica": replica,
+            "n_gpu": n_gpu,
         }
 
         for key, value in kwargs.items():
