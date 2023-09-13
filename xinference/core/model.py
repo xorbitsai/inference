@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import inspect
 from typing import TYPE_CHECKING, Any, Generic, Iterator, List, Optional, TypeVar, Union
 
@@ -54,7 +55,7 @@ class IteratorWrapper(Generic[T]):
                 raise
 
 
-class ModelActor(xo.Actor):
+class ModelActor(xo.StatelessActor):
     @classmethod
     def gen_uid(cls, model: "LLM"):
         return f"{model.__class__}-model-actor"
@@ -87,6 +88,7 @@ class ModelActor(xo.Actor):
         super().__init__()
         self._model = model
         self._generator: Optional[Iterator] = None
+        self._lock = asyncio.Lock()
 
     def load(self):
         self._model.load()
@@ -101,20 +103,28 @@ class ModelActor(xo.Actor):
             return ret
 
     async def generate(self, prompt: str, *args, **kwargs):
-        if not hasattr(self._model, "generate"):
-            raise AttributeError(f"Model {self._model.model_spec} is not for generate.")
+        async with self._lock:
+            if not hasattr(self._model, "generate"):
+                raise AttributeError(
+                    f"Model {self._model.model_spec} is not for generate."
+                )
 
-        return self._wrap_generator(
-            getattr(self._model, "generate")(prompt, *args, **kwargs)
-        )
+            result = await self._wrap_generator(
+                getattr(self._model, "generate")(prompt, *args, **kwargs)
+            )
+
+            return result
 
     async def chat(self, prompt: str, *args, **kwargs):
-        if not hasattr(self._model, "chat"):
-            raise AttributeError(f"Model {self._model.model_spec} is not for chat.")
+        async with self._lock:
+            if not hasattr(self._model, "chat"):
+                raise AttributeError(f"Model {self._model.model_spec} is not for chat.")
 
-        return self._wrap_generator(
-            getattr(self._model, "chat")(prompt, *args, **kwargs)
-        )
+            result = await self._wrap_generator(
+                getattr(self._model, "chat")(prompt, *args, **kwargs)
+            )
+
+            return result
 
     async def create_embedding(self, input: Union[str, List[str]], *args, **kwargs):
         if not hasattr(self._model, "create_embedding"):
