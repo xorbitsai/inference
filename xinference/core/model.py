@@ -145,6 +145,7 @@ class ModelActor(xo.StatelessActor):
                     getattr(self._model, "generate")(prompt, *args, **kwargs)
                 )
             else:
+                # for vLLM.
                 return self._wrap_generator(
                     await getattr(self._model, "async_generate")(prompt, *args, **kwargs)
                 )
@@ -161,6 +162,7 @@ class ModelActor(xo.StatelessActor):
                     getattr(self._model, "chat")(prompt, *args, **kwargs)
                 )
             else:
+                # for vLLM.
                 return self._wrap_generator(
                     await getattr(self._model, "async_chat")(prompt, *args, **kwargs)
                 )
@@ -190,6 +192,7 @@ class ModelActor(xo.StatelessActor):
                 if inspect.isgenerator(gen):
                     return next(gen)
                 elif inspect.isasyncgen(gen):
+                    # for vLLM.
                     return await anext(gen)
                 else:
                     raise TypeError(

@@ -725,7 +725,7 @@
           "8-bit",
           "none"
         ],
-        "model_id": "meta-llama/Llama-2-70b",
+        "model_id": "meta-llama/Llama-2-70b-hf",
         "model_revision": "cc8aa03a000ff08b4d5c5b39673321a2a396c396"
       }
     ]

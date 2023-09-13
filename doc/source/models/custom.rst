@@ -31,8 +31,8 @@ Define a custom model based on the following template:
            "8-bit",
            "none"
          ],
-         "model_id": "meta-llama/Llama-2-7b",
-         "model_uri": "file:///path/to/llama-2-7b"
+         "model_id": "meta-llama/Llama-2-7b-hf",
+         "model_uri": "file:///path/to/llama-2-7b-hf"
        },
        {
          "model_format": "ggmlv3",
