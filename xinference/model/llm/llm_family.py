@@ -32,7 +32,7 @@ DEFAULT_CONTEXT_LENGTH = 2048
 
 
 class GgmlLLMSpecV1(BaseModel):
-    model_format: Literal["ggmlv3"]
+    model_format: Literal["ggmlv3", "ggufv1"]
     model_size_in_billions: int
     quantizations: List[str]
     model_id: str
@@ -394,7 +394,7 @@ def cache_from_huggingface(
                 f"after multiple retries"
             )
 
-    elif llm_spec.model_format == "ggmlv3":
+    elif llm_spec.model_format in ["ggmlv3", "ggufv1"]:
         assert isinstance(llm_spec, GgmlLLMSpecV1)
         file_name = llm_spec.model_file_name_template.format(quantization=quantization)
 

@@ -30,3 +30,21 @@ def test_load_ggmlv3(setup):
     completion = model.chat("write a poem.")
     assert "content" in completion["choices"][0]["message"]
     assert len(completion["choices"][0]["message"]["content"]) != 0
+
+
+def test_gguf(setup):
+    endpoint, _ = setup
+    client = Client(endpoint)
+
+    model_uid = client.launch_model(
+        model_name="TinyLlama",
+        model_size_in_billions=1,
+        model_format="ggufv1",
+        quantization="Q2_K",
+    )
+    assert len(client.list_models()) == 1
+    model = client.get_model(model_uid)
+    completion = model.generate("AI is going to", generate_config={"max_tokens": 5})
+    assert "id" in completion
+    assert "text" in completion["choices"][0]
+    assert len(completion["choices"][0]["text"]) > 0
