@@ -19,13 +19,14 @@ from typing import (
     TYPE_CHECKING,
     Any,
     AsyncGenerator,
+    Callable,
     Dict,
     Generic,
     Iterator,
     List,
     Optional,
     TypeVar,
-    Union, Callable, Coroutine,
+    Union,
 )
 
 import xoscar as xo
@@ -107,7 +108,9 @@ class ModelActor(xo.StatelessActor):
 
         self._generators: Dict[str, Union[Iterator, AsyncGenerator]] = {}
         self._lock = (
-            None if isinstance(self._model, (PytorchModel, VLLMModel)) else asyncio.locks.Lock()
+            None
+            if isinstance(self._model, (PytorchModel, VLLMModel))
+            else asyncio.locks.Lock()
         )
 
     def load(self):
@@ -147,7 +150,9 @@ class ModelActor(xo.StatelessActor):
             else:
                 # for vLLM.
                 return self._wrap_generator(
-                    await getattr(self._model, "async_generate")(prompt, *args, **kwargs)
+                    await getattr(self._model, "async_generate")(
+                        prompt, *args, **kwargs
+                    )
                 )
 
         return await self._call_wrapper(_wrapper)
