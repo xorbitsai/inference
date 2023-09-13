@@ -129,6 +129,7 @@ class VLLMModel(LLM):
         sanitized.setdefault("top_p", generate_config.get("top_p", 1.0))
         sanitized.setdefault("max_tokens", generate_config.get("max_tokens", 16))
         sanitized.setdefault("stop", generate_config.get("stop", None))
+        sanitized.setdefault("stream", generate_config.get("stream", None))
 
         return sanitized
 
