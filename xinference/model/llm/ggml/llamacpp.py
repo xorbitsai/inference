@@ -156,6 +156,7 @@ class LlamaCppModel(LLM):
     def _convert_ggml_to_gguf(self, model_path: str) -> str:
         # We assume that the file extension for ggml format is bin,
         # and the file extension for gguf format is gguf.
+        # For example:
         # ggml path: /ROOT_DIR/{model-name}-ggmlv3-{model-size}/{model-name}.ggmlv3.{quantization}.bin
         # converted gguf path: /ROOT_DIR/{model-name}-gguf-{model-size}/{model-name}.{quantization}.gguf
         from .tools import convert
@@ -220,11 +221,11 @@ class LlamaCppModel(LLM):
                 **self._llamacpp_model_config,
             )
         except AssertionError:
-            raise RuntimeError(f"Load model {self.model_spec} failed")
+            raise RuntimeError(f"Load model {self.model_family.model_name} failed")
 
     @classmethod
     def match(cls, llm_family: LLMFamilyV1, llm_spec: LLMSpecV1) -> bool:
-        if llm_spec.model_format != "ggmlv3" and llm_spec.model_format != "ggufv2":
+        if llm_spec.model_format not in ["ggmlv3", "ggufv2"]:
             return False
         if (
             "chatglm" in llm_family.model_name
@@ -298,7 +299,7 @@ class LlamaCppChatModel(LlamaCppModel, ChatModelMixin):
 
     @classmethod
     def match(cls, llm_family: LLMFamilyV1, llm_spec: LLMSpecV1) -> bool:
-        if llm_spec.model_format != "ggmlv3" and llm_spec.model_format != "ggufv2":
+        if llm_spec.model_format not in ["ggmlv3", "ggufv2"]:
             return False
         if (
             "chatglm" in llm_family.model_name

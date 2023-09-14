@@ -1706,7 +1706,7 @@
   {
     "version": 1,
     "context_length": 2048,
-    "model_name": "TinyLlama",
+    "model_name": "tiny-llama",
     "model_lang": [
       "en"
     ],

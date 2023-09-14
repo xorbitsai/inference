@@ -37,7 +37,7 @@ def test_gguf(setup):
     client = Client(endpoint)
 
     model_uid = client.launch_model(
-        model_name="TinyLlama",
+        model_name="tiny-llama",
         model_size_in_billions=1,
         model_format="ggufv2",
         quantization="Q2_K",
