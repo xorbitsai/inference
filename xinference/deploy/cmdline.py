@@ -433,33 +433,58 @@ def model_list(endpoint: Optional[str]):
     endpoint = get_endpoint(endpoint)
     client = RESTfulClient(base_url=endpoint)
 
-    table = []
+    llm_table = []
+    embedding_table = []
     models = client.list_models()
     for model_uid, model_spec in models.items():
-        table.append(
-            [
-                model_uid,
-                model_spec["model_type"],
-                model_spec["model_name"],
-                model_spec["model_format"],
-                model_spec["model_size_in_billions"],
-                model_spec["quantization"],
-            ]
+        if model_spec["model_type"] == "LLM":
+            llm_table.append(
+                [
+                    model_uid,
+                    model_spec["model_type"],
+                    model_spec["model_name"],
+                    model_spec["model_format"],
+                    model_spec["model_size_in_billions"],
+                    model_spec["quantization"],
+                ]
+            )
+        elif model_spec["model_type"] == "embedding":
+            embedding_table.append(
+                [
+                    model_uid,
+                    model_spec["model_type"],
+                    model_spec["model_name"],
+                    model_spec["dimensions"],
+                ]
+            )
+    if llm_table:
+        print(
+            tabulate(
+                llm_table,
+                headers=[
+                    "UID",
+                    "Type",
+                    "Name",
+                    "Format",
+                    "Size (in billions)",
+                    "Quantization",
+                ],
+            ),
+            file=sys.stderr,
         )
-    print(
-        tabulate(
-            table,
-            headers=[
-                "UID",
-                "Type",
-                "Name",
-                "Format",
-                "Size (in billions)",
-                "Quantization",
-            ],
-        ),
-        file=sys.stderr,
-    )
+    if embedding_table:
+        print(
+            tabulate(
+                embedding_table,
+                headers=[
+                    "UID",
+                    "Type",
+                    "Name",
+                    "Dimensions",
+                ],
+            ),
+            file=sys.stderr,
+        )
 
 
 @cli.command(
