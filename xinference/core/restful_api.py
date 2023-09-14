@@ -515,9 +515,12 @@ class RESTfulAPIActor(xo.Actor):
         if body.stream:
 
             async def encode_iterator():
-                iterator = await model.generate(body.prompt, kwargs)
-                async for item in iterator:
-                    yield json.dumps(item)
+                try:
+                    iterator = await model.generate(body.prompt, kwargs)
+                    async for item in iterator:
+                        yield json.dumps(item)
+                except Exception as ex:
+                    yield json.dumps({"error": str(ex)})
 
             return StreamingResponse(encode_iterator())
         else:
@@ -619,14 +622,17 @@ class RESTfulAPIActor(xo.Actor):
         if body.stream:
 
             async def encode_iterator():
-                if is_chatglm_ggml:
-                    iterator = await model.chat(prompt, chat_history, kwargs)
-                else:
-                    iterator = await model.chat(
-                        prompt, system_prompt, chat_history, kwargs
-                    )
-                async for item in iterator:
-                    yield json.dumps(item)
+                try:
+                    if is_chatglm_ggml:
+                        iterator = await model.chat(prompt, chat_history, kwargs)
+                    else:
+                        iterator = await model.chat(
+                            prompt, system_prompt, chat_history, kwargs
+                        )
+                    async for item in iterator:
+                        yield json.dumps(item)
+                except Exception as ex:
+                    yield json.dumps({"error": str(ex)})
 
             return StreamingResponse(encode_iterator())
         else:

@@ -226,7 +226,11 @@ def chat_streaming_response_iterator(
     """
 
     for line in response_chunk:
-        yield json.loads(line.decode("utf-8"))
+        content = json.loads(line.decode("utf-8"))
+        error = content.get("error", None)
+        if error is not None:
+            raise Exception(str(error))
+        yield content
 
 
 class RESTfulModelHandle:
