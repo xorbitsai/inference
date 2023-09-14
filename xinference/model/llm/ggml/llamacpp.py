@@ -163,14 +163,14 @@ class LlamaCppModel(LLM):
         root_dir = os.path.dirname(os.path.dirname(model_path))
         gguf_dir = os.path.join(
             root_dir,
-            "{}-ggufv1-{}b".format(
+            "{}-ggufv2-{}b".format(
                 self.model_family.model_name, self.model_spec.model_size_in_billions
             ),
         )
         os.makedirs(gguf_dir, exist_ok=True)
         gguf_path = os.path.join(
             gguf_dir,
-            "{}.{}.ggufv1".format(self.model_family.model_name, self.quantization),
+            "{}.{}.ggufv2".format(self.model_family.model_name, self.quantization),
         )
         # trick for validation, use a mark file to make sure the gguf file is converted
         mark_file = os.path.join(gguf_dir, "__valid")
@@ -179,7 +179,7 @@ class LlamaCppModel(LLM):
         else:
             logger.warning(
                 "You are using a model with ggmlv3, "
-                "and it will take some time to convert to ggufv1"
+                "and it will take some time to convert to ggufv2"
             )
             convert(model_path, gguf_path)
             with open(mark_file, "w") as f:
@@ -224,7 +224,7 @@ class LlamaCppModel(LLM):
 
     @classmethod
     def match(cls, llm_family: LLMFamilyV1, llm_spec: LLMSpecV1) -> bool:
-        if llm_spec.model_format != "ggmlv3" and llm_spec.model_format != "ggufv1":
+        if llm_spec.model_format != "ggmlv3" and llm_spec.model_format != "ggufv2":
             return False
         if (
             "chatglm" in llm_family.model_name
@@ -298,7 +298,7 @@ class LlamaCppChatModel(LlamaCppModel, ChatModelMixin):
 
     @classmethod
     def match(cls, llm_family: LLMFamilyV1, llm_spec: LLMSpecV1) -> bool:
-        if llm_spec.model_format != "ggmlv3" and llm_spec.model_format != "ggufv1":
+        if llm_spec.model_format != "ggmlv3" and llm_spec.model_format != "ggufv2":
             return False
         if (
             "chatglm" in llm_family.model_name

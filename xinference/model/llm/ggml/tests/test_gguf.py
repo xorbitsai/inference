@@ -39,7 +39,7 @@ def test_gguf(setup):
     model_uid = client.launch_model(
         model_name="TinyLlama",
         model_size_in_billions=1,
-        model_format="ggufv1",
+        model_format="ggufv2",
         quantization="Q2_K",
     )
     assert len(client.list_models()) == 1
