@@ -58,6 +58,13 @@ class VLLMGenerateConfig(TypedDict, total=False):
     stream: bool  # non-sampling param, should not be passed to the engine.
 
 
+try:
+    import vllm  # noqa: F401
+
+    VLLM_INSTALLED = True
+except ImportError:
+    VLLM_INSTALLED = False
+
 VLLM_SUPPORTED_MODELS = ["llama-2"]
 VLLM_SUPPORTED_CHAT_MODELS = ["llama-2-chat", "vicuna-v1.5"]
 
@@ -145,7 +152,7 @@ class VLLMModel(LLM):
             return False
         if "generate" not in llm_family.model_ability:
             return False
-        return True
+        return VLLM_INSTALLED
 
     @staticmethod
     def _convert_request_output_to_completion_chunk(
@@ -270,7 +277,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
             return False
         if "chat" not in llm_family.model_ability:
             return False
-        return True
+        return VLLM_INSTALLED
 
     def _sanitize_chat_config(
         self,
