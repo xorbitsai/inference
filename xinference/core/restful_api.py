@@ -514,15 +514,16 @@ class RESTfulAPIActor(xo.Actor):
 
         if body.stream:
 
-            async def encode_iterator():
+            async def stream_results():
                 try:
                     iterator = await model.generate(body.prompt, kwargs)
                     async for item in iterator:
                         yield json.dumps(item)
                 except Exception as ex:
+                    logger.exception("Chat completion stream got an error: %s", ex)
                     yield json.dumps({"error": str(ex)})
 
-            return StreamingResponse(encode_iterator())
+            return StreamingResponse(stream_results())
         else:
             try:
                 return await model.generate(body.prompt, kwargs)
@@ -621,7 +622,7 @@ class RESTfulAPIActor(xo.Actor):
 
         if body.stream:
 
-            async def encode_iterator():
+            async def stream_results():
                 try:
                     if is_chatglm_ggml:
                         iterator = await model.chat(prompt, chat_history, kwargs)
@@ -632,9 +633,10 @@ class RESTfulAPIActor(xo.Actor):
                     async for item in iterator:
                         yield json.dumps(item)
                 except Exception as ex:
+                    logger.exception("Chat completion stream got an error: %s", ex)
                     yield json.dumps({"error": str(ex)})
 
-            return StreamingResponse(encode_iterator())
+            return StreamingResponse(stream_results())
         else:
             try:
                 if is_chatglm_ggml:
