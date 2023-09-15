@@ -413,7 +413,7 @@ def test_legacy_cache():
     shutil.rmtree(os.path.dirname(cache_path), ignore_errors=True)
 
 
-@pytest.skip
+@pytest.skip(reason="Temporary disabled")
 def test_cache_from_self_hosted_storage():
     from ..llm_family import cache_from_self_hosted_storage
 
