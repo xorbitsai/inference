@@ -24,3 +24,6 @@ chosen quantization method from the options listed above::
 
    xinference launch --model-name OpenBuddy --size-in-billions 13 --model-format ggmlv3 --quantization ${quantization}
 
+.. note::
+
+   Multiple rounds chat is disabled for better translation.
