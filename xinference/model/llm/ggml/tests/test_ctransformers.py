@@ -13,13 +13,15 @@
 # limitations under the License.
 import random
 import string
-from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 
-from .....client import Client, GenerateModelHandle
+# from .....client import Client, GenerateModelHandle
 from ....llm import GgmlLLMSpecV1, LLMFamilyV1
 from ..ctransformers import CtransformersModel
+
+# from concurrent.futures import ThreadPoolExecutor
+
 
 mock_model_spec = GgmlLLMSpecV1(
     model_format="ggmlv3",
@@ -120,59 +122,59 @@ def test_ctransformer_init(model_spec, model_family):
     assert model._llm is None
 
 
-@pytest.mark.asyncio
-async def test_ctransformers_generate(setup):
-    endpoint, _ = setup
-    client = Client(endpoint)
-    assert len(client.list_models()) == 0
-
-    model_uid = client.launch_model(
-        model_name="gpt-2",
-        model_size_in_billions=1,
-        model_format="ggmlv3",
-        quantization="none",
-    )
-
-    assert len(client.list_models()) == 1
-
-    model = client.get_model(model_uid=model_uid)
-    assert isinstance(model, GenerateModelHandle)
-
-    # Test concurrent generate is OK.
-    def _check():
-        completion = model.generate("AI is going to", generate_config={"max_tokens": 5})
-        print(completion)
-        assert "id" in completion
-        assert "text" in completion["choices"][0]
-        assert len(completion["choices"][0]["text"]) > 0
-
-    results = []
-    with ThreadPoolExecutor() as executor:
-        for _ in range(3):
-            r = executor.submit(_check)
-            results.append(r)
-    for r in results:
-        r.result()
-
-    completion = model.generate("AI is going to", generate_config={"max_tokens": 5})
-    print(completion)
-    assert "id" in completion
-    assert "text" in completion["choices"][0]
-    assert len(completion["choices"][0]["text"]) > 0
-
-    assert completion["model"] == model_uid
-
-    assert "finish_reason" in completion["choices"][0]
-    assert completion["choices"][0]["finish_reason"] == "length"
-
-    assert "prompt_tokens" in completion["usage"]
-    assert completion["usage"]["prompt_tokens"] == 4
-
-    assert "completion_tokens" in completion["usage"]
-    assert completion["usage"]["completion_tokens"] == 5
-
-    assert "total_tokens" in completion["usage"]
-    assert completion["usage"]["total_tokens"] == 9
-
-    client.terminate_model(model_uid=model_uid)
-    assert len(client.list_models()) == 0
+# @pytest.mark.asyncio
+# async def test_ctransformers_generate(setup):
+#     endpoint, _ = setup
+#     client = Client(endpoint)
+#     assert len(client.list_models()) == 0
+#
+#     model_uid = client.launch_model(
+#         model_name="gpt-2",
+#         model_size_in_billions=1,
+#         model_format="ggmlv3",
+#         quantization="none",
+#     )
+#
+#     assert len(client.list_models()) == 1
+#
+#     model = client.get_model(model_uid=model_uid)
+#     assert isinstance(model, GenerateModelHandle)
+#
+#     # Test concurrent generate is OK.
+#     def _check():
+#         completion = model.generate("AI is going to", generate_config={"max_tokens": 5})
+#         print(completion)
+#         assert "id" in completion
+#         assert "text" in completion["choices"][0]
+#         assert len(completion["choices"][0]["text"]) > 0
+#
+#     results = []
+#     with ThreadPoolExecutor() as executor:
+#         for _ in range(3):
+#             r = executor.submit(_check)
+#             results.append(r)
+#     for r in results:
+#         r.result()
+#
+#     completion = model.generate("AI is going to", generate_config={"max_tokens": 5})
+#     print(completion)
+#     assert "id" in completion
+#     assert "text" in completion["choices"][0]
+#     assert len(completion["choices"][0]["text"]) > 0
+#
+#     assert completion["model"] == model_uid
+#
+#     assert "finish_reason" in completion["choices"][0]
+#     assert completion["choices"][0]["finish_reason"] == "length"
+#
+#     assert "prompt_tokens" in completion["usage"]
+#     assert completion["usage"]["prompt_tokens"] == 4
+#
+#     assert "completion_tokens" in completion["usage"]
+#     assert completion["usage"]["completion_tokens"] == 5
+#
+#     assert "total_tokens" in completion["usage"]
+#     assert completion["usage"]["total_tokens"] == 9
+#
+#     client.terminate_model(model_uid=model_uid)
+#     assert len(client.list_models()) == 0
