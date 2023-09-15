@@ -23,6 +23,7 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 
 ## 🔥 近期热点
 ### 框架增强
+- 引入 vLLM: [#445](https://github.com/xorbitsai/inference/pull/445)
 - Embedding 模型支持: [#418](https://github.com/xorbitsai/inference/pull/418)
 - LoRA 支持: [#271](https://github.com/xorbitsai/inference/issues/271)
 - PyTorch 模型多 GPU 支持: [#226](https://github.com/xorbitsai/inference/issues/226)
@@ -40,7 +41,6 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 🌟 **模型推理，轻而易举**：大语言模型，语音识别模型，多模态模型的部署流程被大大简化。一个命令即可完成模型的部署工作。 
 
 ⚡️ **前沿模型，应有尽有**：框架内置众多中英文的前沿大语言模型，包括 baichuan，chatglm2 等，一键即可体验！内置模型列表还在快速更新中！
-
 
 🖥 **异构硬件，快如闪电**：通过 [ggml](https://github.com/ggerganov/ggml)，同时使用你的 GPU 与 CPU 进行推理，降低延迟，提高吞吐！
 

@@ -26,6 +26,7 @@ potential of cutting-edge AI models.
 
 ## 🔥 Hot Topics
 ### Framework Enhancements
+- Incorporate vLLM: [#445](https://github.com/xorbitsai/inference/pull/445)
 - Embedding model support: [#418](https://github.com/xorbitsai/inference/pull/418)
 - LoRA support: [#271](https://github.com/xorbitsai/inference/issues/271)
 - Multi-GPU support for PyTorch models: [#226](https://github.com/xorbitsai/inference/issues/226)
