@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import logging
+import os
 from typing import Iterator, List, Optional, TypedDict, Union
 
 from ....types import (
@@ -80,8 +81,6 @@ class PytorchModel(LLM):
         if pytorch_model_config is None:
             pytorch_model_config = PytorchModelConfig()
         pytorch_model_config.setdefault("revision", self.model_spec.model_revision)
-        pytorch_model_config.setdefault("gpus", None)
-        pytorch_model_config.setdefault("num_gpus", 1)
         pytorch_model_config.setdefault("gptq_ckpt", None)
         pytorch_model_config.setdefault("gptq_wbits", 16)
         pytorch_model_config.setdefault("gptq_groupsize", -1)
@@ -137,8 +136,13 @@ class PytorchModel(LLM):
             )
         from .compression import load_compress_model
 
+        cuda_visible_devices_env = os.getenv("CUDA_VISIBLE_DEVICES", None)
+        cuda_visible_devices = (
+            cuda_visible_devices_env.split(",") if cuda_visible_devices_env else []
+        )
+
         quantization = self.quantization
-        num_gpus = self._pytorch_model_config.get("num_gpus", 1)
+        num_gpus = len(cuda_visible_devices) if cuda_visible_devices_env != "-1" else 0
         device = self._pytorch_model_config.get("device", "auto")
         self._pytorch_model_config["device"] = self._select_device(device)
         self._device = self._pytorch_model_config["device"]
@@ -175,7 +179,7 @@ class PytorchModel(LLM):
                         f"Quantization {quantization} is not supported in temporary"
                     )
             else:
-                if num_gpus != 1:
+                if num_gpus != 1 and self._device == "cuda":
                     raise ValueError(f"Quantization is not supported for multi-gpu")
                 elif quantization != "8-bit":
                     raise ValueError(
@@ -192,11 +196,11 @@ class PytorchModel(LLM):
                     logger.debug(f"Model Memory: {self._model.get_memory_footprint()}")
                     return
 
+        if num_gpus > 0 and self._device == "cuda":
+            kwargs.update({"device_map": "auto"})
         self._model, self._tokenizer = self._load_model(kwargs)
 
-        if (
-            self._device == "cuda" and num_gpus == 1 and quantization == "none"
-        ) or self._device == "mps":
+        if self._device == "mps":
             self._model.to(self._device)
         logger.debug(f"Model Memory: {self._model.get_memory_footprint()}")
 
@@ -209,6 +213,7 @@ class PytorchModel(LLM):
             )
 
         if device == "auto":
+            # When env CUDA_VISIBLE_DEVICES=-1, torch.cuda.is_available() return False
             if torch.cuda.is_available():
                 return "cuda"
             elif torch.backends.mps.is_available():

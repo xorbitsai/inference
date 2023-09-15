@@ -12,23 +12,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
-from typing import TYPE_CHECKING, Any
-
-import xoscar as xo
-
-if TYPE_CHECKING:
-    from xoscar.backends.pool import MainActorPoolType
-
-
-async def create_worker_actor_pool(
-    address: str, logging_conf: Any = None
-) -> "MainActorPoolType":
-    subprocess_start_method = "forkserver" if os.name != "nt" else "spawn"
-
-    return await xo.create_actor_pool(
-        address=address,
-        n_process=0,
-        subprocess_start_method=subprocess_start_method,
-        logging_conf=logging_conf,
-    )
+from .convert_ggml_to_gguf import convert

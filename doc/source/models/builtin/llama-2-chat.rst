@@ -1,7 +1,7 @@
 .. _models_builtin_llama_2_chat:
 
 ============
-Llama-2-Chat
+Llama-2 Chat
 ============
 
 - **Model Name:** llama-2-chat
@@ -66,7 +66,7 @@ chosen quantization method from the options listed above::
 
 .. note::
 
-4-bit quantization is not supported on macOS.
+   4-bit quantization is not supported on macOS.
 
 
 Model Spec 5 (pytorch, 13 Billion)
@@ -84,7 +84,7 @@ chosen quantization method from the options listed above::
 
 .. note::
 
-4-bit quantization is not supported on macOS.
+   4-bit quantization is not supported on macOS.
 
 Model Spec 6 (pytorch, 70 Billion)
 ++++++++++++++++++++++++++++++++++
@@ -101,4 +101,4 @@ chosen quantization method from the options listed above::
 
 .. note::
 
-4-bit quantization is not supported on macOS.
+   4-bit quantization is not supported on macOS.

@@ -85,7 +85,7 @@ jobs:
         env:
           MODULE: ${{ matrix.module }}
         run: |
-          pip install llama-cpp-python==0.1.77
+          pip install llama-cpp-python>=0.2.0
           pip install transformers
           pip install torch
           pip install accelerate
@@ -94,6 +94,7 @@ jobs:
           pip install bitsandbytes
           pip install ctransformers
           pip install sentence-transformers
+          pip install s3fs
           pip install -e ".[dev]"
         working-directory: .
 

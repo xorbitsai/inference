@@ -17,7 +17,7 @@ import configparser
 import logging
 import os
 import sys
-from typing import List, Optional
+from typing import List, Optional, Union
 
 import click
 from xoscar.utils import get_next_port
@@ -377,6 +377,13 @@ def list_model_registrations(
     type=int,
     help="The replica count of the model, default is 1.",
 )
+@click.option(
+    "--n-gpu",
+    "-g",
+    default="auto",
+    type=str,
+    help='The number of GPUs used by the model, default is "auto".',
+)
 def model_launch(
     endpoint: Optional[str],
     model_name: str,
@@ -385,7 +392,15 @@ def model_launch(
     model_format: str,
     quantization: str,
     replica: int,
+    n_gpu: str,
 ):
+    if n_gpu.lower() == "none":
+        _n_gpu: Optional[Union[int, str]] = None
+    elif n_gpu == "auto":
+        _n_gpu = n_gpu
+    else:
+        _n_gpu = int(n_gpu)
+
     endpoint = get_endpoint(endpoint)
 
     client = RESTfulClient(base_url=endpoint)
@@ -396,6 +411,7 @@ def model_launch(
         model_format=model_format,
         quantization=quantization,
         replica=replica,
+        n_gpu=_n_gpu,
     )
 
     print(f"Model uid: {model_uid}", file=sys.stderr)
@@ -481,9 +497,9 @@ def model_terminate(
 )
 @click.option(
     "--max_tokens",
-    default=256,
+    default=512,
     type=int,
-    help="Maximum number of tokens in the generated text (default is 256).",
+    help="Maximum number of tokens in the generated text (default is 512).",
 )
 @click.option(
     "--stream",
@@ -519,7 +535,7 @@ def model_generate(
                         continue
                     else:
                         print(choice["text"], end="", flush=True, file=sys.stdout)
-                print("\n", file=sys.stdout)
+                print("", file=sys.stdout)
 
         client = Client(endpoint=endpoint)
         model = client.get_model(model_uid=model_uid)
@@ -567,9 +583,9 @@ def model_generate(
 @click.option("--model-uid", type=str, help="The unique identifier (UID) of the model.")
 @click.option(
     "--max_tokens",
-    default=256,
+    default=512,
     type=int,
-    help="Maximum number of tokens in each message (default is 256).",
+    help="Maximum number of tokens in each message (default is 512).",
 )
 @click.option(
     "--stream",
@@ -610,7 +626,7 @@ def model_chat(
                     else:
                         response_content += delta["content"]
                         print(delta["content"], end="", flush=True, file=sys.stdout)
-                print("\n", file=sys.stdout)
+                print("", file=sys.stdout)
                 chat_history.append(ChatCompletionMessage(role="user", content=prompt))
                 chat_history.append(
                     ChatCompletionMessage(role="assistant", content=response_content)

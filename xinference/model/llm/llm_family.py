@@ -15,6 +15,7 @@
 import logging
 import os
 import platform
+import shutil
 from threading import Lock
 from typing import List, Optional, Tuple, Type, Union
 
@@ -31,7 +32,7 @@ DEFAULT_CONTEXT_LENGTH = 2048
 
 
 class GgmlLLMSpecV1(BaseModel):
-    model_format: Literal["ggmlv3"]
+    model_format: Literal["ggmlv3", "ggufv2"]
     model_size_in_billions: int
     quantizations: List[str]
     model_id: str
@@ -87,6 +88,25 @@ UD_LLM_FAMILIES: List["LLMFamilyV1"] = []
 UD_LLM_FAMILIES_LOCK = Lock()
 
 
+def is_locale_chinese_simplified() -> bool:
+    import locale
+
+    try:
+        lang, _ = locale.getdefaultlocale()
+        return lang == "zh_CN"
+    except:
+        return False
+
+
+def download_from_self_hosted_storage() -> bool:
+    from ...constants import XINFERENCE_ENV_MODEL_SRC
+
+    return (
+        is_locale_chinese_simplified()
+        or os.environ.get(XINFERENCE_ENV_MODEL_SRC) == "xorbits"
+    )
+
+
 def get_legacy_cache_path(
     model_name: str,
     model_format: str,
@@ -109,14 +129,17 @@ def cache(
         quantization,
     )
     if os.path.exists(legacy_cache_path):
-        logger.debug("Legacy cache path exists: %s", legacy_cache_path)
+        logger.info("Legacy cache path exists: %s", legacy_cache_path)
         return os.path.dirname(legacy_cache_path)
+    elif download_from_self_hosted_storage() and is_self_hosted(llm_family, llm_spec):
+        logger.info(f"Caching from self-hosted storage")
+        return cache_from_self_hosted_storage(llm_family, llm_spec, quantization)
     else:
         if llm_spec.model_uri is not None:
-            logger.debug(f"Caching from URI: {llm_spec.model_uri}")
-            return cache_from_uri(llm_family, llm_spec)
+            logger.info(f"Caching from URI: {llm_spec.model_uri}")
+            return cache_from_uri(llm_family, llm_spec, quantization)
         else:
-            logger.debug(f"Caching from Hugging Face: {llm_spec.model_id}")
+            logger.info(f"Caching from Hugging Face: {llm_spec.model_id}")
             return cache_from_huggingface(llm_family, llm_spec, quantization)
 
 
@@ -138,35 +161,117 @@ def parse_uri(uri: str) -> Tuple[str, str]:
 SUPPORTED_SCHEMES = ["s3"]
 
 
+class AWSRegion:
+    def __init__(self, region: str):
+        self.region = region
+        self.original_aws_default_region = None
+
+    def __enter__(self):
+        if "AWS_DEFAULT_REGION" in os.environ:
+            self.original_aws_default_region = os.environ["AWS_DEFAULT_REGION"]
+        os.environ["AWS_DEFAULT_REGION"] = self.region
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        if self.original_aws_default_region:
+            os.environ["AWS_DEFAULT_REGION"] = self.original_aws_default_region
+        else:
+            del os.environ["AWS_DEFAULT_REGION"]
+
+
+def is_self_hosted(
+    llm_family: LLMFamilyV1,
+    llm_spec: "LLMSpecV1",
+):
+    from fsspec import AbstractFileSystem, filesystem
+
+    with AWSRegion("cn-northwest-1"):
+        src_fs: AbstractFileSystem = filesystem("s3", anon=True)
+        model_dir = (
+            f"/xinference-models/llm/"
+            f"{llm_family.model_name}-{llm_spec.model_format}-{llm_spec.model_size_in_billions}b"
+        )
+        return src_fs.exists(model_dir)
+
+
+def cache_from_self_hosted_storage(
+    llm_family: LLMFamilyV1,
+    llm_spec: "LLMSpecV1",
+    quantization: Optional[str] = None,
+) -> str:
+    with AWSRegion("cn-northwest-1"):
+        llm_spec = llm_spec.copy()
+        llm_spec.model_uri = (
+            f"s3://xinference-models/llm/"
+            f"{llm_family.model_name}-{llm_spec.model_format}-{llm_spec.model_size_in_billions}b"
+        )
+
+        return cache_from_uri(
+            llm_family, llm_spec, quantization, self_hosted_storage=True
+        )
+
+
 def cache_from_uri(
     llm_family: LLMFamilyV1,
     llm_spec: "LLMSpecV1",
+    quantization: Optional[str] = None,
+    self_hosted_storage: bool = False,
 ) -> str:
     from fsspec import AbstractFileSystem, filesystem
 
     def copy(
         _src_fs: "AbstractFileSystem",
-        src_path: str,
+        _src_path: str,
         dst_fs: "AbstractFileSystem",
         dst_path: str,
+        max_attempt: int = 3,
     ):
-        logger.error((src_path, dst_path))
-        with _src_fs.open(src_path, "rb") as src_file:
-            with dst_fs.open(dst_path, "wb") as dst_file:
-                dst_file.write(src_file.read())
+        from tqdm import tqdm
+
+        for attempt in range(max_attempt):
+            logger.info(f"Copy from {_src_path} to {dst_path}, attempt: {attempt}")
+            try:
+                with _src_fs.open(_src_path, "rb") as src_file:
+                    file_size = _src_fs.info(src_path)["size"]
+
+                    dst_fs.makedirs(os.path.dirname(dst_path), exist_ok=True)
+                    with dst_fs.open(dst_path, "wb") as dst_file:
+                        chunk_size = 1024 * 1024  # 1 MB
+
+                        with tqdm(
+                            total=file_size,
+                            unit="B",
+                            unit_scale=True,
+                            unit_divisor=1024,
+                            desc=_src_path,
+                        ) as pbar:
+                            while True:
+                                chunk = src_file.read(chunk_size)
+                                if not chunk:
+                                    break
+                                dst_file.write(chunk)
+                                pbar.update(len(chunk))
+                logger.info(
+                    f"Copy from {_src_path} to {dst_path} finished, attempt: {attempt}"
+                )
+                break
+            except:
+                logger.error(
+                    f"Failed to copy from {_src_path} to {dst_path} on attempt {attempt + 1}",
+                    exc_info=True,
+                )
+                if attempt + 1 == max_attempt:
+                    raise
 
     cache_dir_name = (
         f"{llm_family.model_name}-{llm_spec.model_format}"
         f"-{llm_spec.model_size_in_billions}b"
     )
     cache_dir = os.path.realpath(os.path.join(XINFERENCE_CACHE_DIR, cache_dir_name))
-    if os.path.exists(cache_dir):
-        return cache_dir
 
     assert llm_spec.model_uri is not None
     src_scheme, src_root = parse_uri(llm_spec.model_uri)
     if src_root.endswith("/"):
-        # remove trailing path separator
+        # remove trailing path separator.
         src_root = src_root[:-1]
 
     if src_scheme == "file":
@@ -174,38 +279,73 @@ def cache_from_uri(
             raise ValueError(
                 f"Model URI cannot be a relative path: {llm_spec.model_uri}"
             )
-        if not os.path.exists(XINFERENCE_CACHE_DIR):
-            os.makedirs(XINFERENCE_CACHE_DIR, exist_ok=True)
-        os.symlink(src_root, cache_dir, target_is_directory=True)
+        os.makedirs(XINFERENCE_CACHE_DIR, exist_ok=True)
+        if os.path.exists(cache_dir):
+            logger.info(f"Cache {cache_dir} exists")
+            return cache_dir
+        else:
+            os.symlink(src_root, cache_dir, target_is_directory=True)
         return cache_dir
     elif src_scheme in SUPPORTED_SCHEMES:
-        if not os.path.exists(cache_dir):
-            os.makedirs(cache_dir, exist_ok=True)
-
-        src_fs = filesystem(src_scheme)
+        # use anonymous connection for self-hosted storage.
+        src_fs: AbstractFileSystem = filesystem(src_scheme, anon=self_hosted_storage)
         local_fs: AbstractFileSystem = filesystem("file")
 
         files_to_download = []
-        for path, _, files in src_fs.walk(llm_spec.model_uri):
-            for file in files:
-                src_path = f"{path}/{file}"
-                local_path = src_path.replace(src_root, cache_dir)
-                files_to_download.append((src_path, local_path))
+        if llm_spec.model_format == "pytorch":
+            if os.path.exists(cache_dir):
+                logger.info(f"Cache {cache_dir} exists")
+                return cache_dir
+            else:
+                os.makedirs(cache_dir, exist_ok=True)
+
+            for path, _, files in src_fs.walk(llm_spec.model_uri):
+                for file in files:
+                    src_path = f"{path}/{file}"
+                    local_path = src_path.replace(src_root, cache_dir)
+                    files_to_download.append((src_path, local_path))
+        elif llm_spec.model_format == "ggmlv3":
+            file = llm_spec.model_file_name_template.format(quantization=quantization)
+            if os.path.exists(os.path.join(cache_dir, file)):
+                logger.info(f"Cache {os.path.join(cache_dir, file)} exists")
+                return cache_dir
+            else:
+                os.makedirs(cache_dir, exist_ok=True)
+
+            src_path = f"{src_root}/{file}"
+            local_path = f"{cache_dir}/{file}"
+            files_to_download.append((src_path, local_path))
+        else:
+            raise ValueError(f"Unsupported model format: {llm_spec.model_format}")
 
         from concurrent.futures import ThreadPoolExecutor
 
-        from tqdm import tqdm
+        failed = False
+        with ThreadPoolExecutor(max_workers=min(len(files_to_download), 4)) as executor:
+            futures = [
+                (
+                    src_path,
+                    executor.submit(copy, src_fs, src_path, local_fs, local_path),
+                )
+                for src_path, local_path in files_to_download
+            ]
+            for src_path, future in futures:
+                if failed:
+                    future.cancel()
+                else:
+                    try:
+                        future.result()
+                    except:
+                        logger.error(f"Download {src_path} failed", exc_info=True)
+                        failed = True
 
-        with tqdm(total=len(files_to_download), desc="Downloading files") as pbar:
-            with ThreadPoolExecutor(max_workers=4) as executor:
-                futures = [
-                    executor.submit(copy, src_fs, src_path, local_fs, local_path)
-                    for src_path, local_path in files_to_download
-                ]
-                for future in futures:
-                    future.result()
-                    pbar.update(1)
-
+        if failed:
+            logger.warning(f"Removing cache directory: {cache_dir}")
+            shutil.rmtree(cache_dir, ignore_errors=True)
+            raise RuntimeError(
+                f"Failed to download model '{llm_family.model_name}' "
+                f"(size: {llm_spec.model_size_in_billions}, format: {llm_spec.model_format})"
+            )
         return cache_dir
     else:
         raise ValueError(f"Unsupported URL scheme: {src_scheme}")
@@ -249,10 +389,12 @@ def cache_from_huggingface(
 
         else:
             raise RuntimeError(
-                f"Failed to download model '{llm_spec.model_name}' (size: {llm_spec.model_size}, format: {llm_spec.model_format}) after multiple retries"
+                f"Failed to download model '{llm_family.model_name}' "
+                f"(size: {llm_spec.model_size_in_billions}, format: {llm_spec.model_format}) "
+                f"after multiple retries"
             )
 
-    elif llm_spec.model_format == "ggmlv3":
+    elif llm_spec.model_format in ["ggmlv3", "ggufv2"]:
         assert isinstance(llm_spec, GgmlLLMSpecV1)
         file_name = llm_spec.model_file_name_template.format(quantization=quantization)
 
@@ -274,8 +416,12 @@ def cache_from_huggingface(
 
         else:
             raise RuntimeError(
-                f"Failed to download model '{llm_spec.model_name}' (size: {llm_spec.model_size}, format: {llm_spec.model_format}) after multiple retries"
+                f"Failed to download model '{llm_family.model_name}' "
+                f"(size: {llm_spec.model_size_in_billions}, format: {llm_spec.model_format}) "
+                f"after multiple retries"
             )
+    else:
+        raise ValueError(f"Unsupported model format: {llm_spec.model_format}")
 
     return cache_dir
 
@@ -309,21 +455,32 @@ def match_llm(
     """
     user_defined_llm_families = get_user_defined_llm_families()
 
+    def _match_quantization(q: Union[str, None], quantizations: List[str]):
+        # Currently, the quantization name could include both uppercase and lowercase letters,
+        # so it is necessary to ensure that the case sensitivity does not
+        # affect the matching results.
+        if q is None:
+            return q
+        for quant in quantizations:
+            if q.lower() == quant.lower():
+                return quant
+
     for family in BUILTIN_LLM_FAMILIES + user_defined_llm_families:
         if model_name != family.model_name:
             continue
         for spec in family.model_specs:
+            matched_quantization = _match_quantization(quantization, spec.quantizations)
             if (
                 model_format
                 and model_format != spec.model_format
                 or model_size_in_billions
                 and model_size_in_billions != spec.model_size_in_billions
                 or quantization
-                and quantization not in spec.quantizations
+                and matched_quantization is None
             ):
                 continue
             if quantization:
-                return family, spec, quantization
+                return family, spec, matched_quantization
             else:
                 # by default, choose the most coarse-grained quantization.
                 # TODO: too hacky.

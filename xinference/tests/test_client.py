@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
+
 import pytest
 
 from ..client import (
@@ -20,6 +22,7 @@ from ..client import (
     EmbeddingModelHandle,
     RESTfulChatModelHandle,
     RESTfulClient,
+    RESTfulEmbeddingModelHandle,
 )
 
 
@@ -56,6 +59,19 @@ def test_client(setup):
     client.terminate_model(model_uid=model_uid)
     assert len(client.list_models()) == 0
 
+    with pytest.raises(ValueError):
+        client.launch_model(
+            model_name="orca", model_size_in_billions=3, quantization="q4_0", n_gpu=100
+        )
+
+    with pytest.raises(ValueError):
+        client.launch_model(
+            model_name="orca",
+            model_size_in_billions=3,
+            quantization="q4_0",
+            n_gpu="abcd",
+        )
+
 
 def test_client_for_embedding(setup):
     endpoint, _ = setup
@@ -80,14 +96,19 @@ def test_replica_model(setup):
     client = Client(endpoint)
     assert len(client.list_models()) == 0
 
+    # Windows CI has limited resources, use replica 1
+    replica = 1 if os.name == "nt" else 2
     model_uid = client.launch_model(
-        model_name="orca", model_size_in_billions=3, quantization="q4_0", replica=2
+        model_name="orca",
+        model_size_in_billions=3,
+        quantization="q4_0",
+        replica=replica,
     )
     # Only one model with 2 replica
     assert len(client.list_models()) == 1
 
     replica_uids = set()
-    while len(replica_uids) != 2:
+    while len(replica_uids) != replica:
         model = client.get_model(model_uid=model_uid)
         replica_uids.add(model._model_ref.uid)
 
@@ -96,7 +117,7 @@ def test_replica_model(setup):
 
     client2 = RESTfulClient(endpoint)
     info = client2.describe_model(model_uid=model_uid)
-    assert info["replica"] == 2
+    assert info["replica"] == replica
 
     client.terminate_model(model_uid=model_uid)
     assert len(client.list_models()) == 0
@@ -231,6 +252,24 @@ def test_RESTful_client(setup):
     assert "embedding" in embedding_res["data"][0]
 
     client.terminate_model(model_uid=model_uid2)
+    assert len(client.list_models()) == 0
+
+
+def test_RESTful_client_for_embedding(setup):
+    endpoint, _ = setup
+    client = RESTfulClient(endpoint)
+    assert len(client.list_models()) == 0
+
+    model_uid = client.launch_model(model_name="gte-base", model_type="embedding")
+    assert len(client.list_models()) == 1
+
+    model = client.get_model(model_uid=model_uid)
+    assert isinstance(model, RESTfulEmbeddingModelHandle)
+
+    completion = model.create_embedding("write a poem.")
+    assert len(completion["data"][0]["embedding"]) == 768
+
+    client.terminate_model(model_uid=model_uid)
     assert len(client.list_models()) == 0
 
 

@@ -13,11 +13,14 @@
 # limitations under the License.
 
 import asyncio
+import os
 import platform
 from logging import getLogger
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import xoscar as xo
+from xorbits._mars.resource import cuda_count
+from xoscar import MainActorPoolType
 
 from ..core import ModelActor
 from ..model.core import ModelDescription, create_model_instance
@@ -31,16 +34,25 @@ DEFAULT_NODE_HEARTBEAT_INTERVAL = 1
 
 
 class WorkerActor(xo.Actor):
-    def __init__(self, supervisor_address: str, subpool_addresses: List[str]):
+    def __init__(
+        self,
+        supervisor_address: str,
+        main_pool: MainActorPoolType,
+        cuda_devices: List[int],
+    ):
         super().__init__()
+        self._total_cuda_devices = cuda_devices
         self._supervisor_address = supervisor_address
         self._supervisor_ref = None
         self._model_uid_to_model: Dict[str, xo.ActorRefType["ModelActor"]] = {}
         self._model_uid_to_model_spec: Dict[str, ModelDescription] = {}
-        self._subpool_address_to_model_uids: Dict[str, Set[str]] = dict(
-            [(subpool_address, set()) for subpool_address in subpool_addresses]
+
+        self._gpu_to_model_uid: Dict[int, str] = {}
+        self._model_uid_to_addr: Dict[str, str] = {}
+        self._main_pool = main_pool
+        logger.debug(
+            f"Worker actor initialized with main pool: {self._main_pool.external_address}"
         )
-        logger.debug(f"Worker actor initialized with subpools: {subpool_addresses}")
 
     @classmethod
     def uid(cls) -> str:
@@ -62,29 +74,38 @@ class WorkerActor(xo.Actor):
     def get_model_count(self) -> int:
         return len(self._model_uid_to_model)
 
-    def _choose_subpool(self) -> str:
-        min_running_model_count = None
-        target_subpool_address = None
-        for subpool_address in self._subpool_address_to_model_uids:
-            running_model_count = len(
-                self._subpool_address_to_model_uids[subpool_address]
-            )
-            if (
-                min_running_model_count is None
-                or running_model_count < min_running_model_count
-            ):
-                min_running_model_count = running_model_count
-                target_subpool_address = subpool_address
+    def allocate_devices(self, n_gpu: int) -> List[int]:
+        """
+        Allocate GPUs to the model based on the form-filling method to achieve a balanced GPU load as much as possible.
+        """
+        if n_gpu > len(self._total_cuda_devices) - len(self._gpu_to_model_uid):
+            raise RuntimeError("No available slot found for the model")
+        devices: List[int] = [
+            dev for dev in self._total_cuda_devices if dev not in self._gpu_to_model_uid
+        ][:n_gpu]
+        return sorted(devices)
 
-        if target_subpool_address:
-            logger.debug(
-                "Subpool selected: %s, running model count: %d",
-                target_subpool_address,
-                min_running_model_count,
-            )
-            return target_subpool_address
+    async def _create_subpool(
+        self,
+        model_uid: str,
+        n_gpu: Optional[Union[int, str]] = "auto",
+    ) -> Tuple[str, List[str]]:
+        env = {}
+        devices = []
+        if isinstance(n_gpu, int) or (n_gpu == "auto" and cuda_count() > 0):
+            # Currently, n_gpu=auto means using 1 GPU
+            gpu_cnt = n_gpu if isinstance(n_gpu, int) else 1
+            devices = self.allocate_devices(gpu_cnt)
+            env["CUDA_VISIBLE_DEVICES"] = ",".join([str(dev) for dev in devices])
+            logger.debug(f"GPU selected: {devices} for model {model_uid}")
+        if n_gpu is None:
+            env["CUDA_VISIBLE_DEVICES"] = "-1"
+            logger.debug(f"GPU disabled for model {model_uid}")
 
-        raise RuntimeError("No available slot found")
+        sub_pool_address = await self._main_pool.append_sub_pool(
+            env=env, start_method="forkserver" if os.name != "nt" else "spawn"
+        )
+        return sub_pool_address, [str(dev) for dev in devices]
 
     def _check_model_is_valid(self, model_name):
         # baichuan-base and baichuan-chat depend on `cpm_kernels` module,
@@ -124,8 +145,18 @@ class WorkerActor(xo.Actor):
         model_format: Optional[str],
         quantization: Optional[str],
         model_type: str = "LLM",
+        n_gpu: Optional[Union[int, str]] = "auto",
         **kwargs,
     ) -> xo.ActorRefType["ModelActor"]:
+        if n_gpu is not None:
+            if isinstance(n_gpu, int) and (n_gpu <= 0 or n_gpu > cuda_count()):
+                raise ValueError(
+                    f"The parameter `n_gpu` must be greater than 0 and "
+                    f"not greater than the number of GPUs: {cuda_count()} on the machine."
+                )
+            if isinstance(n_gpu, str) and n_gpu != "auto":
+                raise ValueError("Currently `n_gpu` only supports `auto`.")
+
         assert model_uid not in self._model_uid_to_model
         self._check_model_is_valid(model_name)
         assert self._supervisor_ref is not None
@@ -142,14 +173,16 @@ class WorkerActor(xo.Actor):
             **kwargs,
         )
 
-        subpool_address = self._choose_subpool()
+        subpool_address, devices = await self._create_subpool(model_uid, n_gpu=n_gpu)
         model_ref = await xo.create_actor(
             ModelActor, address=subpool_address, uid=model_uid, model=model
         )
         await model_ref.load()
         self._model_uid_to_model[model_uid] = model_ref
         self._model_uid_to_model_spec[model_uid] = model_description
-        self._subpool_address_to_model_uids[subpool_address].add(model_uid)
+        for dev in devices:
+            self._gpu_to_model_uid[int(dev)] = model_uid
+        self._model_uid_to_addr[model_uid] = subpool_address
         return model_ref
 
     @log_async(logger=logger)
@@ -162,9 +195,14 @@ class WorkerActor(xo.Actor):
         await xo.destroy_actor(model_ref)
         del self._model_uid_to_model[model_uid]
         del self._model_uid_to_model_spec[model_uid]
-        for subpool_address in self._subpool_address_to_model_uids:
-            if model_uid in self._subpool_address_to_model_uids[subpool_address]:
-                self._subpool_address_to_model_uids[subpool_address].remove(model_uid)
+
+        devs = [dev for dev, uid in self._gpu_to_model_uid.items() if uid == model_uid]
+        for dev in devs:
+            del self._gpu_to_model_uid[dev]
+
+        sub_pool_addr = self._model_uid_to_addr[model_uid]
+        await self._main_pool.remove_sub_pool(sub_pool_addr)
+        del self._model_uid_to_addr[model_uid]
 
     @log_sync(logger=logger)
     def list_models(self) -> Dict[str, Dict[str, Any]]:

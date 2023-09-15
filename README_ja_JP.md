@@ -206,10 +206,7 @@ $ xinference registrations
 
 **注**:
 - Xinference は自動的にモデルをダウンロードし、デフォルトでは `${USER}/.xinference/cache` の下に保存されます。
-- Foundation モデルは `generate` インターフェースのみを提供する。
-- RLHF と SFT のモデルは `generate` と `chat` の両方を提供する。
-- Apple Metal GPU をアクセラレーションに使用する場合は、q4_0 と q4_1 の量子化方法を選択してください。
-- `llama-2-chat` 70B ggmlv3 モデルは現在 q4_0 量子化しかサポートしていない。
+- Hugging Face からモデルをダウンロードする際に問題が発生した場合は、 `export XINFERENCE_MODEL_SRC=xorbits` を実行して、ミラーサイトからモデルをダウンロードしてください。
 
 ## カスタムモデル
 [カスタムモデル](https://inference.readthedocs.io/en/latest/models/custom.html)を参照してください。
