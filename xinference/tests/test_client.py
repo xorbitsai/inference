@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import os
+from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 
@@ -233,6 +234,26 @@ def test_RESTful_client(setup):
 
     for chunk in streaming_response:
         assert "content" or "role" in chunk["choices"][0]["delta"]
+
+    # Test concurrent chat is OK.
+    def _check(stream=False):
+        completion = model.chat("AI is going to", generate_config={"stream": stream})
+        if stream:
+            for chunk in completion:
+                assert "content" or "role" in chunk["choices"][0]["delta"]
+        else:
+            assert "id" in completion
+            assert "content" in completion["choices"][0]["message"]
+            assert len(completion["choices"][0]["message"]) > 0
+
+    for stream in [True, False]:
+        results = []
+        with ThreadPoolExecutor() as executor:
+            for _ in range(3):
+                r = executor.submit(_check, stream=stream)
+                results.append(r)
+        for r in results:
+            r.result()
 
     client.terminate_model(model_uid=model_uid)
     assert len(client.list_models()) == 0
