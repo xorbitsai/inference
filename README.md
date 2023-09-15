@@ -223,6 +223,7 @@ $ xinference registrations
 | LLM  | vicuna-v1.5-16k     | ['en']       | ['embed', 'chat']      |
 | LLM  | wizardlm-v1.0       | ['en']       | ['embed', 'chat']      |
 | LLM  | wizardmath-v1.0     | ['en']       | ['embed', 'chat']      |
+| LLM  | OpenBuddy-v11.1     | ['en', 'zh'] | ['embed', 'chat']      |
 
 For in-depth details on the built-in models, please refer to [built-in models](https://inference.readthedocs.io/en/latest/models/builtin/index.html). 
 
