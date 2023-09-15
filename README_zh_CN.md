@@ -205,6 +205,7 @@ $ xinference registrations
 | LLM  | vicuna-v1.5-16k     | ['en']       | ['embed', 'chat']      |
 | LLM  | wizardlm-v1.0       | ['en']       | ['embed', 'chat']      |
 | LLM  | wizardmath-v1.0     | ['en']       | ['embed', 'chat']      |
+| LLM  | OpenBuddy-v11.1     | ['en', 'zh'] | ['embed', 'chat']      |
 
 更多信息请参考 [内置模型](https://inference.readthedocs.io/en/latest/models/builtin/index.html)。
 
