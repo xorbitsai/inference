@@ -33,8 +33,9 @@ potential of cutting-edge AI models.
 - Xinference dashboard: [#93](https://github.com/xorbitsai/inference/issues/93)
 ### New Models
 - Built-in support for [CodeLLama](https://github.com/facebookresearch/codellama): [#414](https://github.com/xorbitsai/inference/pull/414) [#402](https://github.com/xorbitsai/inference/pull/402)
-### Tools
-- LlamaIndex plugin: [#7151](https://github.com/jerryjliu/llama_index/pull/7151)
+### Integrations
+- [Dify](https://docs.dify.ai/advanced/model-configuration/xinference): an LLMOps platform that enables developers (and even non-developers) to quickly build useful applications based on large language models, ensuring they are visual, operable, and improvable.
+- [Chatbox](https://chatboxai.app/): a desktop client for multiple cutting-edge LLM models, available on Windows, Mac and Linux.
 
 
 ## Key Features
@@ -57,8 +58,7 @@ for seamless management and monitoring.
 allowing the seamless distribution of model inference across multiple devices or machines.
 
 🔌 **Built-in Integration with Third-Party Libraries**: Xorbits Inference seamlessly integrates
-with popular third-party libraries like [LangChain](https://python.langchain.com/docs/integrations/providers/xinference) 
-and [LlamaIndex](https://gpt-index.readthedocs.io/en/stable/examples/llm/XinferenceLocalDeployment.html#i-run-pip-install-xinference-all-in-a-terminal-window).
+with popular third-party libraries including [LangChain](https://python.langchain.com/docs/integrations/providers/xinference), [LlamaIndex](https://gpt-index.readthedocs.io/en/stable/examples/llm/XinferenceLocalDeployment.html#i-run-pip-install-xinference-all-in-a-terminal-window), [Dify](https://docs.dify.ai/advanced/model-configuration/xinference), and [Chatbox](https://chatboxai.app/).
 
 ## Getting Started
 Xinference can be installed via pip from PyPI. It is highly recommended to create a new virtual

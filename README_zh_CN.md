@@ -29,8 +29,10 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 - Xinference 仪表盘: [#93](https://github.com/xorbitsai/inference/issues/93)
 ### 新模型
 - 内置 [CodeLLama](https://github.com/facebookresearch/codellama): [#414](https://github.com/xorbitsai/inference/pull/414) [#402](https://github.com/xorbitsai/inference/pull/402)
-### 工具
-- LlamaIndex 插件: [#7151](https://github.com/jerryjliu/llama_index/pull/7151)
+### 集成
+- [Dify](https://docs.dify.ai/advanced/model-configuration/xinference): 一个涵盖了大型语言模型开发、部署、维护和优化的 LLMOps 平台。
+- [Chatbox](https://chatboxai.app/): 一个支持前沿大语言模型的桌面客户端，支持 Windows，Mac，以及 Linux。
+
 
 
 
@@ -46,9 +48,7 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 
 🌐 **集群计算，分布协同**: 支持分布式部署，通过内置的资源调度器，让不同大小的模型按需调度到不同机器，充分使用集群资源。
 
-🔌 **开放生态，无缝对接**: 与流行的三方库无缝对接，包括 [LangChain](https://python.langchain.com/docs/integrations/providers/xinference) 
-and [LlamaIndex](https://gpt-index.readthedocs.io/en/stable/examples/llm/XinferenceLocalDeployment.html#i-run-pip-install-xinference-all-in-a-terminal-window)。
-让开发者能够快速构建基于 AI 的应用。
+🔌 **开放生态，无缝对接**: 与流行的三方库无缝对接，包括 [LangChain](https://python.langchain.com/docs/integrations/providers/xinference)，[LlamaIndex](https://gpt-index.readthedocs.io/en/stable/examples/llm/XinferenceLocalDeployment.html#i-run-pip-install-xinference-all-in-a-terminal-window)，[Dify](https://docs.dify.ai/advanced/model-configuration/xinference)，以及 [Chatbox](https://chatboxai.app/)。
 
 ## 快速入门
 Xinference 可以通过 pip 从 PyPI 安装。我们非常推荐在安装前创建一个新的虚拟环境以避免依赖冲突。
