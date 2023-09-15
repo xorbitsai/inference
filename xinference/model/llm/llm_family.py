@@ -455,21 +455,32 @@ def match_llm(
     """
     user_defined_llm_families = get_user_defined_llm_families()
 
+    def _match_quantization(q: Union[str, None], quantizations: List[str]):
+        # Currently, the quantization name could include both uppercase and lowercase letters,
+        # so it is necessary to ensure that the case sensitivity does not
+        # affect the matching results.
+        if q is None:
+            return q
+        for quant in quantizations:
+            if q.lower() == quant.lower():
+                return quant
+
     for family in BUILTIN_LLM_FAMILIES + user_defined_llm_families:
         if model_name != family.model_name:
             continue
         for spec in family.model_specs:
+            matched_quantization = _match_quantization(quantization, spec.quantizations)
             if (
                 model_format
                 and model_format != spec.model_format
                 or model_size_in_billions
                 and model_size_in_billions != spec.model_size_in_billions
                 or quantization
-                and quantization not in spec.quantizations
+                and matched_quantization is None
             ):
                 continue
             if quantization:
-                return family, spec, quantization
+                return family, spec, matched_quantization
             else:
                 # by default, choose the most coarse-grained quantization.
                 # TODO: too hacky.

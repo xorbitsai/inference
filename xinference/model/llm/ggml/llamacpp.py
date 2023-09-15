@@ -154,11 +154,6 @@ class LlamaCppModel(LLM):
         return generate_config
 
     def _convert_ggml_to_gguf(self, model_path: str) -> str:
-        # We assume that the file extension for ggml format is bin,
-        # and the file extension for gguf format is gguf.
-        # For example:
-        # ggml path: /ROOT_DIR/{model-name}-ggmlv3-{model-size}/{model-name}.ggmlv3.{quantization}.bin
-        # converted gguf path: /ROOT_DIR/{model-name}-gguf-{model-size}/{model-name}.{quantization}.gguf
         from .tools import convert
 
         root_dir = os.path.dirname(os.path.dirname(model_path))

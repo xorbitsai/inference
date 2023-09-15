@@ -27,6 +27,7 @@ from ..llm_family import (
     PytorchLLMSpecV1,
     is_locale_chinese_simplified,
     is_self_hosted,
+    match_llm,
     parse_uri,
 )
 
@@ -594,8 +595,26 @@ def test_is_self_hosted():
 
 
 def test_match_llm():
-    # TODO: implement
-    pass
+    assert match_llm("fake") is None
+    family, spec, q = match_llm("orca", model_format="ggmlv3")
+    assert family.model_name == "orca"
+    assert q == "q4_0"
+
+    family, spec, q = match_llm(
+        "llama-2-chat", model_format="ggmlv3", quantization="Q4_0"
+    )
+    assert family.model_name == "llama-2-chat"
+    assert q == "q4_0"
+
+    family, spec, q = match_llm(
+        "code-llama", model_format="ggufv2", quantization="q4_0"
+    )
+    assert family.model_name == "code-llama"
+    assert q == "Q4_0"
+
+    family, spec, q = match_llm("code-llama")
+    assert family.model_name == "code-llama"
+    assert spec.model_format == "pytorch"
 
 
 def test_match_llm_cls():
