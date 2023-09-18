@@ -4,7 +4,7 @@
 Launching Models
 ================
 
-You can submit commands to launch the model via Xinference's command line tool or Client.
+You can launch models using Xinference's command line tool or client.
 
 First, make sure you have installed the Xinference SDK:
 
