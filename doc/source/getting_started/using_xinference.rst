@@ -19,9 +19,12 @@ Using Xinference In a Cluster
 =============================
 
 
-To deploy Xinference in a cluster, you need to start a Xinference supervisor on one server and Xinference workers on the other servers. Follow the steps below:
+To deploy Xinference in a cluster, you need to start a Xinference supervisor on one server and Xinference workers
+on the other servers. Follow the steps below:
 
-Starting the Supervisor: On the server where you want to run the Xinference supervisor, run the following command:
+Starting the Supervisor
+-----------------------
+On the server where you want to run the Xinference supervisor, run the following command:
 
 .. code-block:: bash
   
@@ -29,7 +32,10 @@ Starting the Supervisor: On the server where you want to run the Xinference supe
 
 Replace ${supervisor_host} with the actual host of your supervisor server.
 
-Starting the Workers: On each of the other servers where you want to run Xinference workers, run the following command:
+Starting the Workers
+--------------------
+
+On each of the other servers where you want to run Xinference workers, run the following command:
 
 .. code-block:: bash
   
