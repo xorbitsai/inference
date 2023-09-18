@@ -7,7 +7,7 @@ Accessing Models
 
 .. note:: Suppose you have started the Xinference server endpoint at ``http://0.0.0.0:8001``. 
 
-Please refer to :ref:`Launching Models <launching_models>` guide for get your model running.
+Please refer to :ref:`Launching Models <launching_models>` guide to get your model running.
 
 Using Clients
 =============
