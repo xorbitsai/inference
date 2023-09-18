@@ -184,15 +184,15 @@ class LlamaCppModel(LLM):
 
     def load(self):
         try:
-            import llama_cpp
+            # import llama_cpp
             from llama_cpp import Llama
 
-            if llama_cpp.__version__ < "0.2.0":
-                raise ValueError(
-                    "The llama_cpp version must be greater than 0.2.0. "
-                    "Please upgrade your version via `pip install -U llama_cpp` or refer to "
-                    "https://github.com/abetlen/llama-cpp-python#installation-with-openblas--cublas--clblast--metal."
-                )
+            # if llama_cpp.__version__ < "0.2.0":
+            #     raise ValueError(
+            #         "The llama_cpp version must be greater than 0.2.0. "
+            #         "Please upgrade your version via `pip install -U llama_cpp` or refer to "
+            #         "https://github.com/abetlen/llama-cpp-python#installation-with-openblas--cublas--clblast--metal."
+            #     )
         except ImportError:
             error_message = "Failed to import module 'llama_cpp'"
             installation_guide = [
