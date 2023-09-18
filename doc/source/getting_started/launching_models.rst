@@ -54,4 +54,4 @@ You can also list the running models using the ``list_models`` method:
 
    from xinference.client import RESTfulClient
    client = RESTfulClient("http://127.0.0.1:8001")
-   print(c.list_models())
+   print(client.list_models())
