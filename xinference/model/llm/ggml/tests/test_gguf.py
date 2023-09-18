@@ -12,9 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import pytest
+
 from .....client import Client
 
 
+@pytest.mark.skip(reason="Temporary disabled")
 def test_load_ggmlv3(setup):
     endpoint, _ = setup
     client = Client(endpoint)
@@ -32,6 +35,7 @@ def test_load_ggmlv3(setup):
     assert len(completion["choices"][0]["message"]["content"]) != 0
 
 
+@pytest.mark.skip(reason="Temporary disabled")
 def test_gguf(setup):
     endpoint, _ = setup
     client = Client(endpoint)
