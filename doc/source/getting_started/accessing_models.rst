@@ -5,7 +5,7 @@ Accessing Models
 ================
 
 
-.. note:: Suppose you have started the Xinference server endpoint at ``http://0.0.0.0:8001``. 
+.. note:: Suppose you have started the Xinference server endpoint at ``http://127.0.0.1:9997``. 
 
 Please refer to :ref:`Launching Models <launching_models>` guide to get your model running.
 
@@ -20,7 +20,7 @@ When the abilities of the LLM include "chat," we can converse with it using the 
 .. code-block:: python
 
    from xinference.client import RESTfulClient
-   client = RESTfulClient("http://0.0.0.0:8001")
+   client = RESTfulClient("http://127.0.0.1:9997")
    model = client.get_model("f543d078-55f1-11ee-8fc0-0a28cc89f433")  # The model UID of the model you just launched.
 
    chat_history = []
@@ -65,7 +65,7 @@ To interact with Xinference's embedding model, i.e., inputting a text and gettin
 .. code-block:: python
 
    from xinference.client import RESTfulClient
-   client = RESTfulClient("http://0.0.0.0:8001")
+   client = RESTfulClient("http://127.0.0.1:9997")
    model = client.get_model(model_uid)
    model.create_embedding("write a poem.")
 
@@ -80,7 +80,7 @@ The response will be:
         {
           "index": 0,
           "object": "embedding",
-          "embedding": [-0.003699747147038579]
+          "embedding": [-0.003699747147038579, ...]
         }
     ],
     "usage": {
@@ -100,7 +100,7 @@ chat with the model via the service's endpoint:
    import openai
    import sys
 
-   openai.api_base = "http://0.0.0.0:8001/v1"
+   openai.api_base = "http://127.0.0.1:9997/v1"
    openai.api_key = ""
 
    for resp in openai.Completion.create(model=model_uid, prompt=prompt, max_tokens=512, stream=True):
