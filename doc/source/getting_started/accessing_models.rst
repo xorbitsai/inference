@@ -9,7 +9,7 @@ Accessing Models
 
 Please refer to :ref:`Launching Models <launching_models>` guide to get your model running.
 
-Using Clients
+Using Xinference Client
 =============
 
 
