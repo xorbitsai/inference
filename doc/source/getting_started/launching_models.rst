@@ -12,7 +12,7 @@ First, make sure you have installed the Xinference SDK:
 
    pip install xinference
 
-Using the Command Line to Launch the Model
+Launching models with CLI
 ==========================================
 
 .. note:: Suppose you have started the Xinference server endpoint at ``http://0.0.0.0:8001``. 
