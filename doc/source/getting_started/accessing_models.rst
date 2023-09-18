@@ -66,7 +66,7 @@ To interact with Xinference's embedding model, i.e., inputting a text and gettin
 
    from xinference.client import RESTfulClient
    client = RESTfulClient("http://127.0.0.1:9997")
-   model = client.get_model(model_uid)
+   model = client.get_model("3ef99480-496f-11ee-9009-c2c8e4cad3f6")
    model.create_embedding("write a poem.")
 
 The response will be:
