@@ -33,7 +33,7 @@ To launch an instance of General Text Embeddings (GTE) model:
 
    xinference launch --model-name "gte-base" \
                      --model-type "embedding" \
-                     --endpoint  "http://0.0.0.0:8001"
+                     --endpoint  "http://127.0.0.1:8001"
 
 
 Using RESTfulClient to Launch the Model
