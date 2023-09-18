@@ -21,7 +21,7 @@ When the abilities of the LLM include "chat," we can converse with it using the 
 
    from xinference.client import RESTfulClient
    client = RESTfulClient("http://0.0.0.0:8001")
-   model = client.get_model(model_uid)
+   model = client.get_model("f543d078-55f1-11ee-8fc0-0a28cc89f433")  # The model UID of the model you just launched.
 
    chat_history = []
    prompt = "What is the largest animal?"
