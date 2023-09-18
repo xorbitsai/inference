@@ -243,13 +243,13 @@ def test_RESTful_client(setup):
         for _ in range(3):
             r = executor.submit(_check_stream)
             results.append(r)
-    # Parallel iterates is not supported by ggml.
+    # Parallel generation is not supported by ggml.
     error_count = 0
     for r in results:
         try:
             r.result()
         except Exception as ex:
-            assert "Parallel iteration" in str(ex)
+            assert "Parallel generation" in str(ex)
             error_count += 1
     assert error_count == 2
 
