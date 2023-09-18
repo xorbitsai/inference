@@ -18,7 +18,7 @@ Launching models with CLI
 .. note:: Suppose you have started the Xinference server endpoint at ``http://0.0.0.0:8001``. 
 
 
-Launch Llama 2 Chat model:
+To launch an instance of Llama2 chat model:
 
 .. code-block:: bash
 
