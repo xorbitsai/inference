@@ -520,7 +520,7 @@ class RESTfulAPIActor(xo.Actor):
                     async for item in iterator:
                         yield json.dumps(item)
                 except Exception as ex:
-                    logger.exception("Chat completion stream got an error: %s", ex)
+                    logger.exception("Completion stream got an error: %s", ex)
                     yield json.dumps({"error": str(ex)})
 
             return StreamingResponse(stream_results())
