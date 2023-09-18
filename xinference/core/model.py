@@ -110,9 +110,8 @@ class ModelActor(xo.StatelessActor):
 
     async def _wrap_generator(self, ret: Any):
         if inspect.isgenerator(ret):
-            if self._lock is not None:
-                # Make sure only one iterator is valid.
-                self._generators.clear()
+            if self._lock is not None and self._generators:
+                raise Exception("Parallel iteration is not supported by ggml.")
             generator_uid = str(uuid.uuid1())
             self._generators[generator_uid] = ret
             return IteratorWrapper(
@@ -171,11 +170,6 @@ class ModelActor(xo.StatelessActor):
 
         def _wrapper():
             try:
-                if self._lock is not None and generator_uid not in self._generators:
-                    raise Exception(
-                        f"The generator {generator_uid} is invalid, "
-                        f"parallel iteration is not supported by ggml."
-                    )
                 return next(self._generators[generator_uid])
             except StopIteration:
                 return stop
