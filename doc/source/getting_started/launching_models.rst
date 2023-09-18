@@ -27,7 +27,7 @@ To launch an instance of Llama2 chat model:
                      --size-in-billions 13 \
                      --endpoint "http://0.0.0.0:8001"
 
-Launch GTE Embedding model:
+To launch an instance of General Text Embeddings (GTE) model:
 
 .. code-block:: bash
 
