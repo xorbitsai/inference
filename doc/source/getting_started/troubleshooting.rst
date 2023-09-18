@@ -30,13 +30,4 @@ Set up credentials to access huggingface
 
 Your credential to access huggingface can be found online at `https://huggingface.co/settings/tokens <https://huggingface.co/settings/tokens>`_.
 
-If you are running photons locally, you can do one of the following:
-
-- set the token as an environmental variable, with ``export HUGGING_FACE_HUB_TOKEN=your_token_here``.
-- or, in your python environment, run the following command and login. Huggingface will store the credential
-  in the local cache, usually ``.huggingface/token``, for repeated usage:
-
-.. code-block:: python
-
-   import huggingface_hub
-   huggingface_hub.login()
+You can set the token as an environmental variable, with ``export HUGGING_FACE_HUB_TOKEN=your_token_here``.
