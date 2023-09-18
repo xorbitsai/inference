@@ -69,8 +69,7 @@ License
    :maxdepth: 2
    :hidden:
 
-   installation
-   getting_started
+   getting_started/index
    models/index
    user_guide/index
    examples/index
