@@ -85,7 +85,7 @@ jobs:
         env:
           MODULE: ${{ matrix.module }}
         run: |
-          pip install llama-cpp-python>=0.2.0
+          pip install llama-cpp-python==0.1.77
           pip install transformers
           pip install torch
           pip install accelerate
