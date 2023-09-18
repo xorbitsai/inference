@@ -41,7 +41,7 @@ Launching models with client
 .. code-block:: python
 
    from xinference.client import RESTfulClient
-   c = RESTfulClient("http://0.0.0.0:8001")
+   client = RESTfulClient("http://127.0.0.1:8001")
    model_uid = client.launch_model(model_name="llama-2-chat", 
                                    model_format="ggmlv3",
                                    size_in_billions=13)
