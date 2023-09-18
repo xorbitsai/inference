@@ -13,8 +13,8 @@ Using Clients
 =============
 
 
-LLM Model
----------
+Large Language Model
+-----------------------
 When the abilities of the LLM include "chat," we can converse with it using the model's chat interface:
 
 .. code-block:: python
