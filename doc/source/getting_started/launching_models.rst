@@ -25,7 +25,7 @@ To launch an instance of Llama2 chat model:
    xinference launch --model-name "llama-2-chat" \
                      --model-format "ggmlv3" \
                      --size-in-billions 13 \
-                     --endpoint "http://0.0.0.0:8001"
+                     --endpoint "http://127.0.0.1:8001"
 
 To launch an instance of General Text Embeddings (GTE) model:
 
