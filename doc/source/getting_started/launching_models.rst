@@ -46,7 +46,7 @@ Using RESTfulClient to Launch the Model
                                    model_format="ggmlv3",
                                    size_in_billions=13)
 
-After launching the model, you can see the corresponding model's uid in the console. 
+Once the model instance is launched, the system will return the model's UID.
 You will need to use this model's UID as a handle to interact with the model using the client. 
 You can also list the running models using the ``list_models`` method:
 
