@@ -111,7 +111,7 @@ class ModelActor(xo.StatelessActor):
     async def _wrap_generator(self, ret: Any):
         if inspect.isgenerator(ret):
             if self._lock is not None and self._generators:
-                raise Exception("Parallel iteration is not supported by ggml.")
+                raise Exception("Parallel generation is not supported by ggml.")
             generator_uid = str(uuid.uuid1())
             self._generators[generator_uid] = ret
             return IteratorWrapper(
