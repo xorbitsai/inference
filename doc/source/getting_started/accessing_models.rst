@@ -35,27 +35,27 @@ The response will look like:
 
 .. code-block:: json
 
-{
-   "id":"chat3626defa-55f2-11ee-8f6c-0a28cc89f433",
-   "object":"chat.completion",
-   "created":1695020931,
-   "model":"f543d078-55f1-11ee-8fc0-0a28cc89f433",
-   "choices":[
-      {
-         "index":0,
-         "message":{
-            "role":"assistant",
-            "content":"The largest animal in the world is the blue whale. It can grow up to 100 feet long and weigh up to 200 tons. It is the largest mammal on Earth and the largest living thing that ever existed. Blue whales are found in all of the world's oceans and are the only animals that can communicate with each other through a series of clicks and whistles. They are also the fastest animals in the world, able to swim at speeds of up to 35 miles per hour."
-         },
-         "finish_reason":"stop"
-      }
-   ],
-   "usage":{
-      "prompt_tokens":48,
-      "completion_tokens":117,
-      "total_tokens":165
-   }
-}
+  {
+    "id":"chat3626defa-55f2-11ee-8f6c-0a28cc89f433",
+    "object":"chat.completion",
+    "created":1695020931,
+    "model":"f543d078-55f1-11ee-8fc0-0a28cc89f433",
+    "choices":[
+        {
+          "index":0,
+          "message":{
+              "role":"assistant",
+              "content":"The largest animal in the world is the blue whale. It can grow up to 100 feet long and weigh up to 200 tons. It is the largest mammal on Earth and the largest living thing that ever existed. Blue whales are found in all of the world's oceans and are the only animals that can communicate with each other through a series of clicks and whistles. They are also the fastest animals in the world, able to swim at speeds of up to 35 miles per hour."
+          },
+          "finish_reason":"stop"
+        }
+    ],
+    "usage":{
+        "prompt_tokens":48,
+        "completion_tokens":117,
+        "total_tokens":165
+    }
+  }
 
 Embedding Model
 ---------------
@@ -80,7 +80,7 @@ The response will be:
         {
           "index": 0,
           "object": "embedding",
-          "embedding": [-0.003699747147038579, ...]
+          "embedding": [-0.003699747147038579, "..."]
         }
     ],
     "usage": {
