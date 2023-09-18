@@ -17,7 +17,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 
-from .....client import Client, GenerateModelHandle
+from .....client import Client, RESTfulGenerateModelHandle
 from ....llm import GgmlLLMSpecV1, LLMFamilyV1
 from ..ctransformers import CtransformersModel
 
@@ -136,7 +136,7 @@ async def test_ctransformers_generate(setup):
     assert len(client.list_models()) == 1
 
     model = client.get_model(model_uid=model_uid)
-    assert isinstance(model, GenerateModelHandle)
+    assert isinstance(model, RESTfulGenerateModelHandle)
 
     # Test concurrent generate is OK.
     def _check():

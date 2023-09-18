@@ -17,8 +17,8 @@ import os
 import pytest
 
 from ..client import (
+    ActorClient,
     ChatModelHandle,
-    Client,
     EmbeddingModelHandle,
     RESTfulChatModelHandle,
     RESTfulClient,
@@ -28,7 +28,7 @@ from ..client import (
 
 def test_client(setup):
     endpoint, _ = setup
-    client = Client(endpoint)
+    client = ActorClient(endpoint)
     assert len(client.list_models()) == 0
 
     model_uid = client.launch_model(
@@ -75,7 +75,7 @@ def test_client(setup):
 
 def test_client_for_embedding(setup):
     endpoint, _ = setup
-    client = Client(endpoint)
+    client = ActorClient(endpoint)
     assert len(client.list_models()) == 0
 
     model_uid = client.launch_model(model_name="gte-base", model_type="embedding")
@@ -93,7 +93,7 @@ def test_client_for_embedding(setup):
 
 def test_replica_model(setup):
     endpoint, _ = setup
-    client = Client(endpoint)
+    client = ActorClient(endpoint)
     assert len(client.list_models()) == 0
 
     # Windows CI has limited resources, use replica 1
@@ -125,7 +125,7 @@ def test_replica_model(setup):
 
 def test_client_custom_model(setup):
     endpoint, _ = setup
-    client = Client(endpoint)
+    client = ActorClient(endpoint)
 
     model_regs = client.list_model_registrations(model_type="LLM")
     assert len(model_regs) > 0
