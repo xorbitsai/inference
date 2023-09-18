@@ -15,7 +15,7 @@ First, make sure you have installed the Xinference SDK:
 Launching models with CLI
 ==========================================
 
-.. note:: Suppose you have started the Xinference server endpoint at ``http://0.0.0.0:8001``. 
+.. note:: Suppose you have started the Xinference server endpoint at ``http://127.0.0.1:9997``. 
 
 
 To launch an instance of Llama2 chat model:
@@ -25,7 +25,7 @@ To launch an instance of Llama2 chat model:
    xinference launch --model-name "llama-2-chat" \
                      --model-format "ggmlv3" \
                      --size-in-billions 13 \
-                     --endpoint "http://127.0.0.1:8001"
+                     --endpoint "http://127.0.0.1:9997"
 
 To launch an instance of General Text Embeddings (GTE) model:
 
@@ -33,7 +33,7 @@ To launch an instance of General Text Embeddings (GTE) model:
 
    xinference launch --model-name "gte-base" \
                      --model-type "embedding" \
-                     --endpoint  "http://127.0.0.1:8001"
+                     --endpoint  "http://127.0.0.1:9997"
 
 
 Launching models with client
@@ -41,7 +41,7 @@ Launching models with client
 .. code-block:: python
 
    from xinference.client import RESTfulClient
-   client = RESTfulClient("http://127.0.0.1:8001")
+   client = RESTfulClient("http://127.0.0.1:9997")
    model_uid = client.launch_model(model_name="llama-2-chat", 
                                    model_format="ggmlv3",
                                    size_in_billions=13)
@@ -53,5 +53,5 @@ You can also list the running models using the ``list_models`` method:
 .. code-block:: python
 
    from xinference.client import RESTfulClient
-   client = RESTfulClient("http://127.0.0.1:8001")
+   client = RESTfulClient("http://127.0.0.1:9997")
    print(client.list_models())
