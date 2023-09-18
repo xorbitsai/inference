@@ -214,8 +214,8 @@ class LlamaCppModel(LLM):
         if os.path.exists(legacy_model_file_path):
             model_path = legacy_model_file_path
 
-        if self.model_spec.model_format == "ggmlv3":
-            model_path = self._convert_ggml_to_gguf(model_path)
+        # if self.model_spec.model_format == "ggmlv3":
+        #     model_path = self._convert_ggml_to_gguf(model_path)
 
         try:
             self._llm = Llama(
