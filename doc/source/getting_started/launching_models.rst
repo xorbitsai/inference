@@ -48,7 +48,7 @@ Using RESTfulClient to Launch the Model
 
 After launching the model, you can see the corresponding model's uid in the console. 
 You will need to use this model's uid as a handle to interact with the model in the client. 
-You can also list the running models using the ``list_models()`` method of RESTfulClient:
+You can also list the running models using the ``list_models`` method:
 
 .. code-block:: python
 
