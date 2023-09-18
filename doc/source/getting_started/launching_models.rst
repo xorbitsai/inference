@@ -36,7 +36,7 @@ To launch an instance of General Text Embeddings (GTE) model:
                      --endpoint  "http://127.0.0.1:8001"
 
 
-Using RESTfulClient to Launch the Model
+Launching models with client
 =======================================
 .. code-block:: python
 
