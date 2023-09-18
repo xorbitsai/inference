@@ -35,28 +35,27 @@ The response will look like:
 
 .. code-block:: json
 
-   {
-     "id": "chatcmpl-8d76b65a-bad0-42ef-912d-4a0533d90d61",
-     "model": "56f69622-1e73-11ee-a3bd-9af9f16816c6",
-     "object": "chat.completion",
-     "created": 1688919187,
-     "choices": [
-       {
-         "index": 0,
-         "message": {
-           "role": "assistant",
-           "content": "The largest animal that has been scientifically measured is the blue whale..."
+{
+   "id":"chat3626defa-55f2-11ee-8f6c-0a28cc89f433",
+   "object":"chat.completion",
+   "created":1695020931,
+   "model":"f543d078-55f1-11ee-8fc0-0a28cc89f433",
+   "choices":[
+      {
+         "index":0,
+         "message":{
+            "role":"assistant",
+            "content":"The largest animal in the world is the blue whale. It can grow up to 100 feet long and weigh up to 200 tons. It is the largest mammal on Earth and the largest living thing that ever existed. Blue whales are found in all of the world's oceans and are the only animals that can communicate with each other through a series of clicks and whistles. They are also the fastest animals in the world, able to swim at speeds of up to 35 miles per hour."
          },
-         "finish_reason": "None"
-       }
-     ],
-     "usage": {
-       "prompt_tokens": -1,
-       "completion_tokens": -1,
-       "total_tokens": -1
-     }
+         "finish_reason":"stop"
+      }
+   ],
+   "usage":{
+      "prompt_tokens":48,
+      "completion_tokens":117,
+      "total_tokens":165
    }
-
+}
 
 Embedding Model
 ---------------
