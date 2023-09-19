@@ -186,6 +186,7 @@ def test_client_custom_model(setup):
     assert custom_model_reg is None
 
 
+@pytest.mark.skipif(os.name == "nt", reason="Skip windows")
 def test_RESTful_client(setup):
     endpoint, _ = setup
     client = RESTfulClient(endpoint)
@@ -238,40 +239,39 @@ def test_RESTful_client(setup):
     client.terminate_model(model_uid=model_uid)
     assert len(client.list_models()) == 0
 
-    if os.name != "nt":
-        model_uid = client.launch_model(
-            model_name="tiny-llama",
-            model_size_in_billions=1,
-            model_format="ggufv2",
-            quantization="Q2_K",
+    model_uid = client.launch_model(
+        model_name="tiny-llama",
+        model_size_in_billions=1,
+        model_format="ggufv2",
+        quantization="Q2_K",
+    )
+    assert len(client.list_models()) == 1
+
+    # Test concurrent chat is OK.
+    def _check(stream=False):
+        model = client.get_model(model_uid=model_uid)
+        completion = model.generate(
+            "AI is going to", generate_config={"stream": stream, "max_tokens": 5}
         )
-        assert len(client.list_models()) == 1
+        if stream:
+            for chunk in completion:
+                assert "text" in chunk["choices"][0]
+                assert len(chunk["choices"][0]["text"]) > 0
+        else:
+            assert "text" in completion["choices"][0]
+            assert len(completion["choices"][0]["text"]) > 0
 
-        # Test concurrent chat is OK.
-        def _check(stream=False):
-            model = client.get_model(model_uid=model_uid)
-            completion = model.generate(
-                "AI is going to", generate_config={"stream": stream, "max_tokens": 5}
-            )
-            if stream:
-                for chunk in completion:
-                    assert "text" in chunk["choices"][0]
-                    assert len(chunk["choices"][0]["text"]) > 0
-            else:
-                assert "text" in completion["choices"][0]
-                assert len(completion["choices"][0]["text"]) > 0
+    for stream in [True, False]:
+        results = []
+        with ThreadPoolExecutor() as executor:
+            for _ in range(3):
+                r = executor.submit(_check, stream=stream)
+                results.append(r)
+        for r in results:
+            r.result()
 
-        for stream in [True, False]:
-            results = []
-            with ThreadPoolExecutor() as executor:
-                for _ in range(3):
-                    r = executor.submit(_check, stream=stream)
-                    results.append(r)
-            for r in results:
-                r.result()
-
-        client.terminate_model(model_uid=model_uid)
-        assert len(client.list_models()) == 0
+    client.terminate_model(model_uid=model_uid)
+    assert len(client.list_models()) == 0
 
     with pytest.raises(RuntimeError):
         client.terminate_model(model_uid=model_uid)
