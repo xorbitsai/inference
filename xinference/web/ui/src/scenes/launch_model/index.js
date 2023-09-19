@@ -53,11 +53,11 @@ const LaunchModel = () => {
             `${endPoint}/v1/model_registrations/LLM/${registration.model_name}`,
             {
               method: "GET",
-            }
+            },
           );
 
           return await detailResponse.json();
-        })
+        }),
       );
 
       setRegistrationData(newRegistrationData);

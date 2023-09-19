@@ -47,7 +47,7 @@ const ModelCard = ({ url, modelData }) => {
         ...new Set(
           modelFamily
             .filter((spec) => spec.model_format === modelFormat)
-            .map((spec) => spec.model_size_in_billions)
+            .map((spec) => spec.model_size_in_billions),
         ),
       ];
       setSizeOptions(sizes);
@@ -63,9 +63,9 @@ const ModelCard = ({ url, modelData }) => {
             .filter(
               (spec) =>
                 spec.model_format === modelFormat &&
-                spec.model_size_in_billions === parseFloat(modelSize)
+                spec.model_size_in_billions === parseFloat(modelSize),
             )
-            .flatMap((spec) => spec.quantizations)
+            .flatMap((spec) => spec.quantizations),
         ),
       ];
       setQuantizationOptions(quants);
