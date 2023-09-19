@@ -250,7 +250,7 @@ def test_RESTful_client(setup):
     def _check(stream=False):
         model = client.get_model(model_uid=model_uid)
         completion = model.generate(
-            "AI is going to", generate_config={"stream": stream}
+            "AI is going to", generate_config={"stream": stream, "max_tokens": 5}
         )
         if stream:
             for chunk in completion:
