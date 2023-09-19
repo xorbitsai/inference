@@ -235,16 +235,30 @@ def test_RESTful_client(setup):
     for chunk in streaming_response:
         assert "content" or "role" in chunk["choices"][0]["delta"]
 
+    client.terminate_model(model_uid=model_uid)
+    assert len(client.list_models()) == 0
+
+    model_uid = client.launch_model(
+        model_name="tiny-llama",
+        model_size_in_billions=1,
+        model_format="ggufv2",
+        quantization="Q2_K",
+    )
+    assert len(client.list_models()) == 1
+
     # Test concurrent chat is OK.
     def _check(stream=False):
-        completion = model.chat("AI is going to", generate_config={"stream": stream})
+        model = client.get_model(model_uid=model_uid)
+        completion = model.generate(
+            "AI is going to", generate_config={"stream": stream}
+        )
         if stream:
             for chunk in completion:
-                assert "content" or "role" in chunk["choices"][0]["delta"]
+                assert "text" in chunk["choices"][0]
+                assert len(chunk["choices"][0]["text"]) > 0
         else:
-            assert "id" in completion
-            assert "content" in completion["choices"][0]["message"]
-            assert len(completion["choices"][0]["message"]) > 0
+            assert "text" in completion["choices"][0]
+            assert len(completion["choices"][0]["text"]) > 0
 
     for stream in [True, False]:
         results = []
