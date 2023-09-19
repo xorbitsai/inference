@@ -101,10 +101,7 @@ def is_locale_chinese_simplified() -> bool:
 def download_from_self_hosted_storage() -> bool:
     from ...constants import XINFERENCE_ENV_MODEL_SRC
 
-    return (
-        is_locale_chinese_simplified()
-        or os.environ.get(XINFERENCE_ENV_MODEL_SRC) == "xorbits"
-    )
+    return os.environ.get(XINFERENCE_ENV_MODEL_SRC) == "xorbits"
 
 
 def get_legacy_cache_path(
