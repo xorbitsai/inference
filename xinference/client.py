@@ -329,7 +329,7 @@ class RESTfulGenerateModelHandle(RESTfulEmbeddingModelHandle):
             )
 
         if stream:
-            return streaming_response_iterator(response.iter_lines())
+            return streaming_response_iterator(response.iter_content(chunk_size=None))
 
         response_data = response.json()
         return response_data
