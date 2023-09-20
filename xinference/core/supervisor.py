@@ -115,6 +115,7 @@ class SupervisorActor(xo.Actor):
                     for f in user_defined_llm_families
                 ]
             )
+            ret.sort(key=lambda item: item["model_name"].lower())
 
             return ret
         else:
