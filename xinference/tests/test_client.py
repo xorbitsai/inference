@@ -286,12 +286,18 @@ def test_RESTful_client(setup):
 
     for stream in [True, False]:
         results = []
+        error_count = 0
         with ThreadPoolExecutor() as executor:
             for _ in range(3):
                 r = executor.submit(_check, stream=stream)
                 results.append(r)
         for r in results:
-            r.result()
+            try:
+                r.result()
+            except Exception as ex:
+                assert "Parallel generation" in str(ex)
+                error_count += 1
+        assert error_count == (2 if stream else 0)
 
     client.terminate_model(model_uid=model_uid)
     assert len(client.list_models()) == 0
