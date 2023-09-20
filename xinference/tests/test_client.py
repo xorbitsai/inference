@@ -26,6 +26,24 @@ from ..client import (
     RESTfulEmbeddingModelHandle,
 )
 
+# def test_client1(setup):
+#     import os
+#     from ..constants import XINFERENCE_ENV_MODELSCOPE
+#
+#     os.environ[XINFERENCE_ENV_MODELSCOPE] = "1"
+#
+#     endpoint, _ = setup
+#     client = Client(endpoint)
+#     assert len(client.list_models()) == 0
+#
+#     model_uid = client.launch_model(
+#         model_name="llama-2-chat", model_size_in_billions=7, model_format="ggufv2"
+#     )
+#     assert len(client.list_models()) == 1
+#     model = client.get_model(model_uid=model_uid)
+#     completion = model.chat("write a poem.")
+#     print(completion)
+
 
 @pytest.mark.skipif(os.name == "nt", reason="Skip windows")
 def test_client(setup):
