@@ -179,8 +179,6 @@ const RegisterModel = () => {
     }
     formData.prompt_style = promptStyle;
 
-    console.log(formData);
-
     if (errorAny) {
       setErrorMessage("Please fill in valid value for all fields");
       return;
