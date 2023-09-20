@@ -349,26 +349,28 @@ const ModelCard = ({ url, modelData }) => {
               ))}
             </Select>
           </FormControl>
-          {(modelData.is_builtin || modelFormat === "pytorch") &&  (<FormControl
-            variant="outlined"
-            margin="normal"
-            size="small"
-            disabled={!modelFormat || !modelSize}
-          >
-            <InputLabel id="quantization-label">Quantization</InputLabel>
-            <Select
-              labelId="quantization-label"
-              value={quantization}
-              onChange={(e) => setQuantization(e.target.value)}
-              label="Quantization"
+          {(modelData.is_builtin || modelFormat === "pytorch") && (
+            <FormControl
+              variant="outlined"
+              margin="normal"
+              size="small"
+              disabled={!modelFormat || !modelSize}
             >
-              {quantizationOptions.map((quant) => (
-                <MenuItem key={quant} value={quant}>
-                  {quant}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>)}
+              <InputLabel id="quantization-label">Quantization</InputLabel>
+              <Select
+                labelId="quantization-label"
+                value={quantization}
+                onChange={(e) => setQuantization(e.target.value)}
+                label="Quantization"
+              >
+                {quantizationOptions.map((quant) => (
+                  <MenuItem key={quant} value={quant}>
+                    {quant}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          )}
         </Box>
         <Box style={styles.buttonsContainer}>
           <button
@@ -378,7 +380,13 @@ const ModelCard = ({ url, modelData }) => {
             disabled={
               isCallingApi ||
               isUpdatingModel ||
-              !(modelFormat && modelSize && modelData && (quantization || (!modelData.is_builtin && modelFormat !== "pytorch")))
+              !(
+                modelFormat &&
+                modelSize &&
+                modelData &&
+                (quantization ||
+                  (!modelData.is_builtin && modelFormat !== "pytorch"))
+              )
             }
           >
             {(() => {
@@ -396,7 +404,13 @@ const ModelCard = ({ url, modelData }) => {
                   </Box>
                 );
               } else if (
-                !(modelFormat && modelSize && modelData && (quantization || (!modelData.is_builtin && modelFormat !== "pytorch")))
+                !(
+                  modelFormat &&
+                  modelSize &&
+                  modelData &&
+                  (quantization ||
+                    (!modelData.is_builtin && modelFormat !== "pytorch"))
+                )
               ) {
                 return (
                   <Box

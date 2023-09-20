@@ -56,7 +56,10 @@ const LaunchModel = () => {
             },
           );
 
-          return {...await desc.json(), is_builtin: registration.is_builtin};
+          return {
+            ...(await desc.json()),
+            is_builtin: registration.is_builtin,
+          };
         }),
       );
 

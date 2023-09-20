@@ -156,22 +156,26 @@ const RegisterModel = () => {
   const handleClick = async () => {
     if (!isModelFormatPytorch()) {
       const { baseDir, filename } = getPathComponents(modelUri);
-      formData.model_specs = [{
-        model_format: modelFormat,
-        model_size_in_billions: modelSize,
-        quantizations: [""],
-        model_id: "",
-        model_file_name_template: filename,
-        model_uri: baseDir,
-      }];
-    } else{
-      formData.model_specs = [{
+      formData.model_specs = [
+        {
+          model_format: modelFormat,
+          model_size_in_billions: modelSize,
+          quantizations: [""],
+          model_id: "",
+          model_file_name_template: filename,
+          model_uri: baseDir,
+        },
+      ];
+    } else {
+      formData.model_specs = [
+        {
           model_format: modelFormat,
           model_size_in_billions: modelSize,
           quantizations: ["4-bit", "8-bit", "none"],
           model_id: "",
           model_uri: modelUri,
-        }];
+        },
+      ];
     }
     formData.prompt_style = promptStyle;
 
@@ -326,9 +330,7 @@ const RegisterModel = () => {
           label="Model Size in Billions"
           size="small"
           error={errorModelSize}
-          value={
-            modelSize
-          }
+          value={modelSize}
           onChange={(e) => {
             let value = e.target.value;
             // Remove leading zeros
@@ -347,9 +349,7 @@ const RegisterModel = () => {
         <TextField
           label="Model Path"
           size="small"
-          value={
-            modelUri
-          }
+          value={modelUri}
           onChange={(e) => {
             setModelUri(e.target.value);
           }}
