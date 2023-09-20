@@ -49,14 +49,14 @@ const LaunchModel = () => {
 
       const newRegistrationData = await Promise.all(
         registrations.map(async (registration) => {
-          const detailResponse = await fetch(
+          const desc = await fetch(
             `${endPoint}/v1/model_registrations/LLM/${registration.model_name}`,
             {
               method: "GET",
             },
           );
 
-          return await detailResponse.json();
+          return {...await desc.json(), is_builtin: registration.is_builtin};
         }),
       );
 

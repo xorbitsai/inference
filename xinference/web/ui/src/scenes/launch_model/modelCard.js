@@ -181,7 +181,7 @@ const ModelCard = ({ url, modelData }) => {
     p: {
       minHeight: "140px",
       fontSize: "14px",
-      padding: "0px 0px 15px 0px",
+      padding: "0px 10px 15px 10px",
     },
     buttonsContainer: {
       display: "flex",
@@ -349,7 +349,7 @@ const ModelCard = ({ url, modelData }) => {
               ))}
             </Select>
           </FormControl>
-          <FormControl
+          {(modelData.is_builtin || modelFormat === "pytorch") &&  (<FormControl
             variant="outlined"
             margin="normal"
             size="small"
@@ -368,7 +368,7 @@ const ModelCard = ({ url, modelData }) => {
                 </MenuItem>
               ))}
             </Select>
-          </FormControl>
+          </FormControl>)}
         </Box>
         <Box style={styles.buttonsContainer}>
           <button
@@ -378,7 +378,7 @@ const ModelCard = ({ url, modelData }) => {
             disabled={
               isCallingApi ||
               isUpdatingModel ||
-              !(modelFormat && modelSize && modelData && quantization)
+              !(modelFormat && modelSize && modelData && (quantization || (!modelData.is_builtin && modelFormat !== "pytorch")))
             }
           >
             {(() => {
@@ -396,7 +396,7 @@ const ModelCard = ({ url, modelData }) => {
                   </Box>
                 );
               } else if (
-                !(modelFormat && modelSize && modelData && quantization)
+                !(modelFormat && modelSize && modelData && (quantization || (!modelData.is_builtin && modelFormat !== "pytorch")))
               ) {
                 return (
                   <Box

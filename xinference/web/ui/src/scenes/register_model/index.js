@@ -25,6 +25,8 @@ const RegisterModel = () => {
   const endPoint = useContext(ApiContext).endPoint;
   const [errorMessage, setErrorMessage] = useState("");
   const [modelFormat, setModelFormat] = useState("pytorch");
+  const [modelSize, setModelSize] = useState(7);
+  const [modelUri, setModelUri] = useState("/path/to/llama-2");
   const [formData, setFormData] = useState({
     version: 1,
     context_length: 2048,
@@ -35,21 +37,7 @@ const RegisterModel = () => {
     model_specs: [],
     prompt_style: undefined,
   });
-  const [torchModelSpec, setTorchModelSpec] = useState({
-    model_format: "pytorch",
-    model_size_in_billions: 7,
-    quantizations: ["int8", "int4", "none"],
-    model_id: "",
-    model_uri: "/path/to/llama-2-7b",
-  });
-  const [ggmlModelSpec, setGgmlModelSpec] = useState({
-    model_format: "ggmlv3",
-    model_size_in_billions: 7,
-    quantizations: [""],
-    model_id: "",
-    model_file_name_template: "model.bin",
-    model_uri: "/path/to/llama-2-7b",
-  });
+  const [promptStyleLabel, setPromptStyleLabel] = useState("vicuna");
   const [promptStyle, setPromptStyle] = useState({
     style_name: "ADD_COLON_TWO",
     system_prompt:
@@ -153,14 +141,40 @@ const RegisterModel = () => {
     return modelFormat === "pytorch";
   };
 
+  const getPathComponents = (path) => {
+    const normalizedPath = path.replace(/\\/g, "/");
+    const baseDir = normalizedPath.substring(
+      0,
+      normalizedPath.lastIndexOf("/"),
+    );
+    const filename = normalizedPath.substring(
+      normalizedPath.lastIndexOf("/") + 1,
+    );
+    return { baseDir, filename };
+  };
+
   const handleClick = async () => {
     if (!isModelFormatPytorch()) {
-      setGgmlModelSpec({ ...ggmlModelSpec, model_format: modelFormat });
+      const { baseDir, filename } = getPathComponents(modelUri);
+      formData.model_specs = [{
+        model_format: modelFormat,
+        model_size_in_billions: modelSize,
+        quantizations: [""],
+        model_id: "",
+        model_file_name_template: filename,
+        model_uri: baseDir,
+      }];
+    } else{
+      formData.model_specs = [{
+          model_format: modelFormat,
+          model_size_in_billions: modelSize,
+          quantizations: ["4-bit", "8-bit", "none"],
+          model_id: "",
+          model_uri: modelUri,
+        }];
     }
-    formData.model_specs = [
-      isModelFormatPytorch() ? torchModelSpec : ggmlModelSpec,
-    ];
     formData.prompt_style = promptStyle;
+
     console.log(formData);
 
     if (errorAny) {
@@ -187,8 +201,7 @@ const RegisterModel = () => {
           }`,
         );
       }
-      const data = await response.json();
-      console.log("Operation succeeded!", data);
+
       setErrorMessage(
         "Model has been registered successfully! Navigate to launch model page to proceed.",
       );
@@ -256,7 +269,6 @@ const RegisterModel = () => {
         <RadioGroup
           value={modelFormat}
           onChange={(e) => {
-            console.log(e);
             setModelFormat(e.target.value);
           }}
         >
@@ -315,9 +327,7 @@ const RegisterModel = () => {
           size="small"
           error={errorModelSize}
           value={
-            isModelFormatPytorch()
-              ? torchModelSpec.model_size_in_billions
-              : ggmlModelSpec.model_size_in_billions
+            modelSize
           }
           onChange={(e) => {
             let value = e.target.value;
@@ -329,41 +339,19 @@ const RegisterModel = () => {
             if (!/^\d+$/.test(value) || parseInt(value) < 0) {
               value = "0";
             }
-            if (isModelFormatPytorch()) {
-              setTorchModelSpec({
-                ...torchModelSpec,
-                model_size_in_billions: Number(value),
-              });
-            } else {
-              setGgmlModelSpec({
-                ...ggmlModelSpec,
-                model_size_in_billions: Number(value),
-              });
-            }
+            setModelSize(Number(value));
           }}
         />
         <Box padding="15px"></Box>
 
         <TextField
-          label="Model URI"
+          label="Model Path"
           size="small"
           value={
-            isModelFormatPytorch
-              ? torchModelSpec.model_uri
-              : ggmlModelSpec.model_uri
+            modelUri
           }
           onChange={(e) => {
-            if (isModelFormatPytorch()) {
-              setTorchModelSpec({
-                ...torchModelSpec,
-                model_uri: e.target.value,
-              });
-            } else {
-              setGgmlModelSpec({
-                ...ggmlModelSpec,
-                model_uri: e.target.value,
-              });
-            }
+            setModelUri(e.target.value);
           }}
         />
         <Box padding="15px"></Box>
@@ -474,21 +462,29 @@ const RegisterModel = () => {
           </label>
           <FormHelperText>
             Select a prompt style that aligns with the training data of your
-            model. Choosing the correct format can significantly enhance the
-            model's understanding and generation capabilities, leading to more
-            accurate and coherent responses.
+            model.
           </FormHelperText>
           <RadioGroup
-            value={promptStyle}
+            value={promptStyleLabel}
             onChange={(e) => {
-              setPromptStyle(e.target.value);
+              setPromptStyleLabel(e.target.value);
+              const ps = promptStyles.find(
+                (item) => item.name === promptStyleLabel,
+              );
+              setPromptStyle({
+                style_name: ps.style_name,
+                system_prompt: ps.system_prompt,
+                roles: ps.roles,
+                intra_message_sep: ps.intra_message_sep,
+                inter_message_sep: ps.inter_message_sep,
+              });
             }}
           >
             <Box sx={styles.checkboxWrapper}>
               {promptStyles.map((p) => (
                 <Box sx={{ marginLeft: "10px" }}>
                   <FormControlLabel
-                    value={p}
+                    value={p.name}
                     control={<Radio />}
                     label={p.name}
                   />
