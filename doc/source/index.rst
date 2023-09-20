@@ -33,7 +33,9 @@ allowing the seamless distribution of model inference across multiple devices or
 
 🔌 **Built-in Integration with Third-Party Libraries**: Xorbits Inference seamlessly integrates
 with popular third-party libraries like `LangChain <https://python.langchain.com/docs/integrations/providers/xinference>`_
-and `LlamaIndex <https://gpt-index.readthedocs.io/en/stable/examples/llm/XinferenceLocalDeployment.html#i-run-pip-install-xinference-all-in-a-terminal-window>`_.
+, `LlamaIndex <https://gpt-index.readthedocs.io/en/stable/examples/llm/XinferenceLocalDeployment.html#i-run-pip-install-xinference-all-in-a-terminal-window>`_
+, `Dify <https://docs.dify.ai/advanced/model-configuration/xinference>`_
+, and `Chatbox <https://chatboxai.app/>`_.
 
 
 🔥 Hot Topics
@@ -41,20 +43,21 @@ and `LlamaIndex <https://gpt-index.readthedocs.io/en/stable/examples/llm/Xinfere
 
 Framework Enhancements
 ~~~~~~~~~~~~~~~~~~~~~~
-- Custom model support: `#325 <https://github.com/xorbitsai/inference/pull/325>`_
+- Incorporate vLLM: `#445 <https://github.com/xorbitsai/inference/pull/445>`_
+- Embedding model support: `#418 <https://github.com/xorbitsai/inference/pull/418>`_
 - LoRA support: `#271 <https://github.com/xorbitsai/inference/issues/271>`_
 - Multi-GPU support for PyTorch models: `#226 <https://github.com/xorbitsai/inference/issues/226>`_
 - Xinference dashboard: `#93 <https://github.com/xorbitsai/inference/issues/93>`_
 
 New Models
 ~~~~~~~~~~
-- Built-in support for `Starcoder` in GGML: `#289 <https://github.com/xorbitsai/inference/pull/289>`_
-- Built-in support for `MusicGen <https://github.com/facebookresearch/audiocraft/blob/main/docs/MUSICGEN.md>`_: `#313 <https://github.com/xorbitsai/inference/issues/313>`_
-- Built-in support for `SD-XL <https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0>`_: `318 <https://github.com/xorbitsai/inference/issues/318>`_
+- Built-in support for `CodeLLama <https://github.com/facebookresearch/codellama>`_: `#414 <https://github.com/xorbitsai/inference/pull/414>`_ `#402 <https://github.com/xorbitsai/inference/pull/402>`_
 
-Tools
-~~~~~
-- LlamaIndex plugin: `7151 <https://github.com/jerryjliu/llama_index/pull/7151>`_
+
+Integrations
+~~~~~~~~~~~~
+- `Dify <https://docs.dify.ai/advanced/model-configuration/xinference>`_: an LLMOps platform that enables developers (and even non-developers) to quickly build useful applications based on large language models, ensuring they are visual, operable, and improvable.
+- `Chatbox <https://chatboxai.app/>`_: a desktop client for multiple cutting-edge LLM models, available on Windows, Mac and Linux.
 
 
 License
@@ -66,8 +69,7 @@ License
    :maxdepth: 2
    :hidden:
 
-   installation
-   getting_started
+   getting_started/index
    models/index
    user_guide/index
    examples/index

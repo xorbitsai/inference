@@ -32,7 +32,7 @@ DEFAULT_CONTEXT_LENGTH = 2048
 
 
 class GgmlLLMSpecV1(BaseModel):
-    model_format: Literal["ggmlv3"]
+    model_format: Literal["ggmlv3", "ggufv2"]
     model_size_in_billions: int
     quantizations: List[str]
     model_id: str
@@ -101,10 +101,7 @@ def is_locale_chinese_simplified() -> bool:
 def download_from_self_hosted_storage() -> bool:
     from ...constants import XINFERENCE_ENV_MODEL_SRC
 
-    return (
-        is_locale_chinese_simplified()
-        or os.environ.get(XINFERENCE_ENV_MODEL_SRC) == "xorbits"
-    )
+    return os.environ.get(XINFERENCE_ENV_MODEL_SRC) == "xorbits"
 
 
 def get_legacy_cache_path(
@@ -394,7 +391,7 @@ def cache_from_huggingface(
                 f"after multiple retries"
             )
 
-    elif llm_spec.model_format == "ggmlv3":
+    elif llm_spec.model_format in ["ggmlv3", "ggufv2"]:
         assert isinstance(llm_spec, GgmlLLMSpecV1)
         file_name = llm_spec.model_file_name_template.format(quantization=quantization)
 
@@ -455,21 +452,32 @@ def match_llm(
     """
     user_defined_llm_families = get_user_defined_llm_families()
 
+    def _match_quantization(q: Union[str, None], quantizations: List[str]):
+        # Currently, the quantization name could include both uppercase and lowercase letters,
+        # so it is necessary to ensure that the case sensitivity does not
+        # affect the matching results.
+        if q is None:
+            return q
+        for quant in quantizations:
+            if q.lower() == quant.lower():
+                return quant
+
     for family in BUILTIN_LLM_FAMILIES + user_defined_llm_families:
         if model_name != family.model_name:
             continue
         for spec in family.model_specs:
+            matched_quantization = _match_quantization(quantization, spec.quantizations)
             if (
                 model_format
                 and model_format != spec.model_format
                 or model_size_in_billions
                 and model_size_in_billions != spec.model_size_in_billions
                 or quantization
-                and quantization not in spec.quantizations
+                and matched_quantization is None
             ):
                 continue
             if quantization:
-                return family, spec, quantization
+                return family, spec, matched_quantization
             else:
                 # by default, choose the most coarse-grained quantization.
                 # TODO: too hacky.
