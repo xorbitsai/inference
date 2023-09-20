@@ -76,6 +76,7 @@ Code Assistant Models
    internlm-chat-8k
    llama-2-chat
    llama-2
+   openbuddy
    opt
    orca_mini
    starchat-beta
