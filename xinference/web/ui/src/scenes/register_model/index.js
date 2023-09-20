@@ -351,6 +351,7 @@ const RegisterModel = () => {
           onChange={(e) => {
             setModelUri(e.target.value);
           }}
+          helperText="For PyTorch, provide the model directory. For GGML/GGUF, provide the model file path."
         />
         <Box padding="15px"></Box>
 
