@@ -27,6 +27,7 @@ from ..client import (
 )
 
 
+@pytest.mark.skipif(os.name == "nt", reason="Skip windows")
 def test_client(setup):
     endpoint, _ = setup
     client = Client(endpoint)
@@ -92,6 +93,7 @@ def test_client_for_embedding(setup):
     assert len(client.list_models()) == 0
 
 
+@pytest.mark.skipif(os.name == "nt", reason="Skip windows")
 def test_replica_model(setup):
     endpoint, _ = setup
     client = Client(endpoint)
