@@ -144,6 +144,10 @@ class VLLMModel(LLM):
     def match(
         cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
+        if not cls._has_cuda_device():
+            return False
+        if not cls._is_linux():
+            return False
         if quantization != "none":
             return False
         if llm_spec.model_format != "pytorch":
