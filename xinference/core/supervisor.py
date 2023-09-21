@@ -115,7 +115,12 @@ class SupervisorActor(xo.Actor):
                     for f in user_defined_llm_families
                 ]
             )
-            ret.sort(key=lambda item: item["model_name"].lower())
+
+            def sort_helper(item):
+                assert isinstance(item["model_name"], str)
+                return item.get("model_name").lower()
+
+            ret.sort(key=sort_helper)
 
             return ret
         else:
