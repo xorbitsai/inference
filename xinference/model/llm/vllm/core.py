@@ -65,8 +65,13 @@ try:
 except ImportError:
     VLLM_INSTALLED = False
 
-VLLM_SUPPORTED_MODELS = ["llama-2"]
-VLLM_SUPPORTED_CHAT_MODELS = ["llama-2-chat", "vicuna-v1.5"]
+VLLM_SUPPORTED_MODELS = ["llama-2", "baichuan"]
+VLLM_SUPPORTED_CHAT_MODELS = [
+    "llama-2-chat",
+    "vicuna-v1.3",
+    "vicuna-v1.5",
+    "baichuan-chat",
+]
 
 
 class VLLMModel(LLM):
