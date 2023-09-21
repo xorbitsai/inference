@@ -15,6 +15,7 @@
 import json
 import os
 import shutil
+import tempfile
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
@@ -27,6 +28,7 @@ from ..llm_family import (
     PytorchLLMSpecV1,
     is_locale_chinese_simplified,
     is_self_hosted,
+    is_valid_model_uri,
     match_llm,
     parse_uri,
 )
@@ -622,3 +624,9 @@ def test_match_llm():
 def test_match_llm_cls():
     # TODO: implement
     pass
+
+
+def test_is_valid_file_uri():
+    with tempfile.NamedTemporaryFile() as tmp_file:
+        assert is_valid_model_uri(f"file://{tmp_file.name}") is True
+    assert is_valid_model_uri(f"file://{tmp_file.name}") is False
