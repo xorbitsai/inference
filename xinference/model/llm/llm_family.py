@@ -383,11 +383,11 @@ def _get_cache_dir(
     return cache_dir
 
 
-def symlink_local_dir(path: str, local_dir: str, filename: str) -> str:
+def symlink_local_file(path: str, local_dir: str, relpath: str) -> str:
     from huggingface_hub.file_download import _create_symlink
 
     # cross platform transcription of filename, to be used as a local file path.
-    relative_filename = os.path.join(*filename.split("/"))
+    relative_filename = os.path.join(*relpath.split("/"))
     if os.name == "nt":
         if relative_filename.startswith("..\\") or "\\..\\" in relative_filename:
             raise ValueError(
@@ -444,10 +444,18 @@ def cache_from_modelscope(
     Cache model from Modelscope. Return the cache directory.
     """
     from modelscope.hub.file_download import model_file_download
+    from modelscope.hub.snapshot_download import snapshot_download
 
     cache_dir = _get_cache_dir(llm_family, llm_spec)
     if llm_spec.model_format == "pytorch":
-        raise NotImplementedError
+        download_dir = snapshot_download(
+            llm_spec.model_id, revision=llm_spec.model_revision
+        )
+        for subdir, dirs, files in os.walk(download_dir):
+            for file in files:
+                relpath = os.path.relpath(os.path.join(subdir, file), download_dir)
+                symlink_local_file(os.path.join(subdir, file), cache_dir, relpath)
+
     elif llm_spec.model_format in ["ggmlv3", "ggufv2"]:
         filename = llm_spec.model_file_name_template.format(quantization=quantization)
         download_path = retry_download(
@@ -458,7 +466,7 @@ def cache_from_modelscope(
             filename,
             revision=llm_spec.model_revision,
         )
-        symlink_local_dir(download_path, cache_dir, filename)
+        symlink_local_file(download_path, cache_dir, filename)
     return cache_dir
 
 
