@@ -19,6 +19,7 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
+from ....constants import XINFERENCE_ENV_MODELSCOPE
 from ..llm_family import (
     AWSRegion,
     GgmlLLMSpecV1,
@@ -617,6 +618,16 @@ def test_match_llm():
     family, spec, q = match_llm("code-llama")
     assert family.model_name == "code-llama"
     assert spec.model_format == "pytorch"
+
+    try:
+        os.environ[XINFERENCE_ENV_MODELSCOPE] = "1"
+        family, spec, q = match_llm("llama-2-chat")
+        assert family.model_name == "llama-2-chat"
+        assert spec.model_hub == "modelscope"
+        assert q == "Q4_K_M"
+        assert spec.model_format == "ggufv2"
+    finally:
+        os.environ.pop(XINFERENCE_ENV_MODELSCOPE)
 
 
 def test_match_llm_cls():
