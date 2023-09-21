@@ -102,8 +102,14 @@ class WorkerActor(xo.Actor):
             env["CUDA_VISIBLE_DEVICES"] = "-1"
             logger.debug(f"GPU disabled for model {model_uid}")
 
+        if os.name != "nt" and platform.system() != "Darwin":
+            # Linux
+            start_method = "forkserver"
+        else:
+            # Windows and macOS
+            start_method = "spawn"
         sub_pool_address = await self._main_pool.append_sub_pool(
-            env=env, start_method="forkserver" if os.name != "nt" else "spawn"
+            env=env, start_method=start_method
         )
         return sub_pool_address, [str(dev) for dev in devices]
 

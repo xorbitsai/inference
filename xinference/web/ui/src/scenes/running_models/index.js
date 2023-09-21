@@ -128,7 +128,7 @@ const RunningModels = () => {
                       })
                         .then((response) => response.json())
                         .then(() =>
-                          window.open(openUrl, "_blank", "noopener noreferrer")
+                          window.open(openUrl, "_blank", "noopener noreferrer"),
                         )
                         .finally(() => setIsCallingApi(false));
                     } else if (response.ok) {
@@ -139,7 +139,7 @@ const RunningModels = () => {
                     } else {
                       // Other HTTP errors
                       console.error(
-                        `Unexpected response status: ${response.status}`
+                        `Unexpected response status: ${response.status}`,
                       );
                       setIsCallingApi(false);
                     }

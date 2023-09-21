@@ -14,6 +14,7 @@ import {
   ChevronRightOutlined,
   RocketLaunchOutlined,
   SmartToyOutlined,
+  AddBoxOutlined,
   GitHub,
 } from "@mui/icons-material";
 import icon from "../media/icon.webp";
@@ -29,6 +30,10 @@ const navItems = [
     icon: <SmartToyOutlined />,
   },
   {
+    text: "Register Model",
+    icon: <AddBoxOutlined />,
+  },
+  {
     text: "Contact Us",
     icon: <GitHub />,
   },
@@ -40,7 +45,7 @@ const MenuSide = () => {
   const [active, setActive] = useState("");
   const navigate = useNavigate();
   const [drawerWidth, setDrawerWidth] = useState(
-    `${Math.min(Math.max(window.innerWidth * 0.2, 287), 320)}px`
+    `${Math.min(Math.max(window.innerWidth * 0.2, 287), 320)}px`,
   );
 
   useEffect(() => {
@@ -57,7 +62,7 @@ const MenuSide = () => {
       const newScreenWidth = window.innerWidth;
       const newMaxDrawerWidth = Math.min(
         Math.max(newScreenWidth * 0.2, 287),
-        320
+        320,
       );
       setDrawerWidth(`${newMaxDrawerWidth}px`);
     };
@@ -137,7 +142,7 @@ const MenuSide = () => {
                         window.open(
                           "https://github.com/xorbitsai/inference",
                           "_blank",
-                          "noreferrer"
+                          "noreferrer",
                         );
                       } else if (link === "launch_model") {
                         navigate(`/`);
