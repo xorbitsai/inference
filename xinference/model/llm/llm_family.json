@@ -1739,7 +1739,7 @@
     "model_ability": [
       "chat"
     ],
-    "model_description": "OpenBuddy is a powerful open multilingual chatbot model aimed at global users, emphasizing conversational AI and seamless multilingual support for English, Chinese, and other languages. The chat history is disabled for better translation.",
+    "model_description": "OpenBuddy is a powerful open multilingual chatbot model aimed at global users.",
     "model_specs": [
       {
         "model_format": "ggmlv3",
