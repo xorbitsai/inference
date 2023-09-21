@@ -562,11 +562,13 @@ def unregister_llm(model_name: str):
             raise ValueError(f"Model {model_name} not found")
 
 
-def match_llm_cls(family: LLMFamilyV1, llm_spec: "LLMSpecV1") -> Optional[Type[LLM]]:
+def match_llm_cls(
+    family: LLMFamilyV1, llm_spec: "LLMSpecV1", quantization: str
+) -> Optional[Type[LLM]]:
     """
     Find an LLM implementation for given LLM family and spec.
     """
     for cls in LLM_CLASSES:
-        if cls.match(family, llm_spec):
+        if cls.match(family, llm_spec, quantization):
             return cls
     return None
