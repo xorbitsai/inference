@@ -64,6 +64,12 @@ class LLM(abc.ABC):
 
         return cuda_count() > 0
 
+    @staticmethod
+    def _get_cuda_count():
+        from xorbits._mars.resource import cuda_count
+
+        return cuda_count()
+
     @abstractmethod
     def load(self):
         raise NotImplementedError
