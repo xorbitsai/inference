@@ -102,10 +102,16 @@ class WorkerActor(xo.Actor):
             env["CUDA_VISIBLE_DEVICES"] = "-1"
             logger.debug(f"GPU disabled for model {model_uid}")
 
-        sub_pool_address = await self._main_pool.append_sub_pool(
-            env=env, start_method="forkserver" if os.name != "nt" else "spawn"
+        if os.name != "nt" and platform.system() != "Darwin":
+            # Linux
+            start_method = "forkserver"
+        else:
+            # Windows and macOS
+            start_method = "spawn"
+        subpool_address = await self._main_pool.append_sub_pool(
+            env=env, start_method=start_method
         )
-        return sub_pool_address, [str(dev) for dev in devices]
+        return subpool_address, [str(dev) for dev in devices]
 
     def _check_model_is_valid(self, model_name):
         # baichuan-base and baichuan-chat depend on `cpm_kernels` module,
@@ -174,10 +180,15 @@ class WorkerActor(xo.Actor):
         )
 
         subpool_address, devices = await self._create_subpool(model_uid, n_gpu=n_gpu)
-        model_ref = await xo.create_actor(
-            ModelActor, address=subpool_address, uid=model_uid, model=model
-        )
-        await model_ref.load()
+        try:
+            model_ref = await xo.create_actor(
+                ModelActor, address=subpool_address, uid=model_uid, model=model
+            )
+            await model_ref.load()
+        except:
+            await self._main_pool.remove_sub_pool(subpool_address)
+            raise
+
         self._model_uid_to_model[model_uid] = model_ref
         self._model_uid_to_model_spec[model_uid] = model_description
         for dev in devices:
@@ -200,8 +211,8 @@ class WorkerActor(xo.Actor):
         for dev in devs:
             del self._gpu_to_model_uid[dev]
 
-        sub_pool_addr = self._model_uid_to_addr[model_uid]
-        await self._main_pool.remove_sub_pool(sub_pool_addr)
+        subpool_address = self._model_uid_to_addr[model_uid]
+        await self._main_pool.remove_sub_pool(subpool_address)
         del self._model_uid_to_addr[model_uid]
 
     @log_sync(logger=logger)

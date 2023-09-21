@@ -219,11 +219,11 @@ class RegisterModelRequest(BaseModel):
 
 
 class RESTfulAPIActor(xo.Actor):
-    def __init__(self, sockets: List[socket.socket], endpoint: str):
+    def __init__(self, sockets: List[socket.socket], internal_endpoint: str):
         super().__init__()
         self._supervisor_ref: xo.ActorRefType["SupervisorActor"]
         self._sockets = sockets
-        self._endpoint = endpoint
+        self._internal_endpoint = internal_endpoint
         self._router = None
         self._app = None
 
@@ -432,7 +432,7 @@ class RESTfulAPIActor(xo.Actor):
         but calling API in async function does not return
         """
         assert self._app is not None
-        assert self._endpoint is not None
+        assert self._internal_endpoint is not None
 
         from .chat_interface import LLMInterface
 
@@ -449,7 +449,7 @@ class RESTfulAPIActor(xo.Actor):
                 asyncio.set_event_loop(asyncio.new_event_loop())
 
         try:
-            interface = LLMInterface(self._endpoint, model_uid)
+            interface = LLMInterface(self._internal_endpoint, model_uid)
             gr.mount_gradio_app(self._app, interface.build(), f"/{model_uid}")
         except ValueError as ve:
             logger.error(str(ve), exc_info=True)

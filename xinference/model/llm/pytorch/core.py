@@ -57,6 +57,7 @@ class PytorchModelConfig(TypedDict, total=False):
     gptq_wbits: int
     gptq_groupsize: int
     gptq_act_order: bool
+    trust_remote_code: bool
 
 
 class PytorchModel(LLM):
@@ -86,6 +87,7 @@ class PytorchModel(LLM):
         pytorch_model_config.setdefault("gptq_groupsize", -1)
         pytorch_model_config.setdefault("gptq_act_order", False)
         pytorch_model_config.setdefault("device", "auto")
+        pytorch_model_config.setdefault("trust_remote_code", False)
         return pytorch_model_config
 
     def _sanitize_generate_config(
@@ -116,12 +118,11 @@ class PytorchModel(LLM):
         tokenizer = AutoTokenizer.from_pretrained(
             self.model_path,
             use_fast=self._use_fast_tokenizer,
-            trust_remote_code=True,
+            trust_remote_code=kwargs["trust_remote_code"],
             revision=kwargs["revision"],
         )
         model = AutoModelForCausalLM.from_pretrained(
             self.model_path,
-            trust_remote_code=True,
             low_cpu_mem_usage=True,
             **kwargs,
         )
@@ -158,6 +159,9 @@ class PytorchModel(LLM):
 
         kwargs["revision"] = self._pytorch_model_config.get(
             "revision", self.model_spec.model_revision
+        )
+        kwargs["trust_remote_code"] = self._pytorch_model_config.get(
+            "trust_remote_code"
         )
 
         if quantization != "none":

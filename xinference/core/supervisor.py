@@ -116,6 +116,12 @@ class SupervisorActor(xo.Actor):
                 ]
             )
 
+            def sort_helper(item):
+                assert isinstance(item["model_name"], str)
+                return item.get("model_name").lower()
+
+            ret.sort(key=sort_helper)
+
             return ret
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
