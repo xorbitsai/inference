@@ -97,7 +97,9 @@ class ChatglmCppChatModel(LLM):
         self._llm = chatglm_cpp.Pipeline(Path(model_file_path))
 
     @classmethod
-    def match(cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1") -> bool:
+    def match(
+        cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
+    ) -> bool:
         if llm_spec.model_format != "ggmlv3":
             return False
         if "chatglm" not in llm_family.model_name:

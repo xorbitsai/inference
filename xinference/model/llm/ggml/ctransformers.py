@@ -193,7 +193,9 @@ class CtransformersModel(LLM):
         )
 
     @classmethod
-    def match(cls, llm_family: LLMFamilyV1, llm_spec: LLMSpecV1) -> bool:
+    def match(
+        cls, llm_family: LLMFamilyV1, llm_spec: LLMSpecV1, quantization: str
+    ) -> bool:
         if llm_spec.model_format != "ggmlv3":
             return False
         if llm_family.model_name not in CTRANSFORMERS_SUPPORTED_MODEL:

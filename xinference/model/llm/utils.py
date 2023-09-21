@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Iterator, List
+from typing import AsyncGenerator, Iterator, List
 
 from xinference.model.llm.llm_family import PromptStyleV1
 
@@ -180,45 +180,70 @@ class ChatModelMixin:
         else:
             raise ValueError(f"Invalid prompt style: {prompt_style.style_name}")
 
-    @staticmethod
-    def _convert_chat_completion_chunks_to_chat(
+    @classmethod
+    def _to_chat_completion_chunk(cls, chunk: CompletionChunk) -> ChatCompletionChunk:
+        return {
+            "id": "chat" + chunk["id"],
+            "model": chunk["model"],
+            "created": chunk["created"],
+            "object": "chat.completion.chunk",
+            "choices": [
+                {
+                    "index": i,
+                    "delta": {
+                        "content": choice["text"],
+                    },
+                    "finish_reason": choice["finish_reason"],
+                }
+                for i, choice in enumerate(chunk["choices"])
+            ],
+        }
+
+    @classmethod
+    def _get_first_chat_completion_chunk(
+        cls, chunk: CompletionChunk
+    ) -> ChatCompletionChunk:
+        return {
+            "id": "chat" + chunk["id"],
+            "model": chunk["model"],
+            "created": chunk["created"],
+            "object": "chat.completion.chunk",
+            "choices": [
+                {
+                    "index": i,
+                    "delta": {
+                        "role": "assistant",
+                    },
+                    "finish_reason": None,
+                }
+                for i, choice in enumerate(chunk["choices"])
+            ],
+        }
+
+    @classmethod
+    def _to_chat_completion_chunks(
+        cls,
         chunks: Iterator[CompletionChunk],
     ) -> Iterator[ChatCompletionChunk]:
         for i, chunk in enumerate(chunks):
             if i == 0:
-                yield {
-                    "id": "chat" + chunk["id"],
-                    "model": chunk["model"],
-                    "created": chunk["created"],
-                    "object": "chat.completion.chunk",
-                    "choices": [
-                        {
-                            "index": 0,
-                            "delta": {
-                                "role": "assistant",
-                            },
-                            "finish_reason": None,
-                        }
-                    ],
-                }
-            yield {
-                "id": "chat" + chunk["id"],
-                "model": chunk["model"],
-                "created": chunk["created"],
-                "object": "chat.completion.chunk",
-                "choices": [
-                    {
-                        "index": 0,
-                        "delta": {
-                            "content": chunk["choices"][0]["text"],
-                        },
-                        "finish_reason": chunk["choices"][0]["finish_reason"],
-                    }
-                ],
-            }
+                yield cls._get_first_chat_completion_chunk(chunk)
+            yield cls._to_chat_completion_chunk(chunk)
+
+    @classmethod
+    async def _async_to_chat_completion_chunks(
+        cls,
+        chunks: AsyncGenerator[CompletionChunk, None],
+    ) -> AsyncGenerator[ChatCompletionChunk, None]:
+        i = 0
+        async for chunk in chunks:
+            if i == 0:
+                yield cls._get_first_chat_completion_chunk(chunk)
+            yield cls._to_chat_completion_chunk(chunk)
+            i += 1
 
     @staticmethod
-    def _convert_text_completion_to_chat(completion: Completion) -> ChatCompletion:
+    def _to_chat_completion(completion: Completion) -> ChatCompletion:
         return {
             "id": "chat" + completion["id"],
             "object": "chat.completion",
@@ -226,13 +251,14 @@ class ChatModelMixin:
             "model": completion["model"],
             "choices": [
                 {
-                    "index": 0,
+                    "index": i,
                     "message": {
                         "role": "assistant",
-                        "content": completion["choices"][0]["text"],
+                        "content": choice["text"],
                     },
-                    "finish_reason": completion["choices"][0]["finish_reason"],
+                    "finish_reason": choice["finish_reason"],
                 }
+                for i, choice in enumerate(completion["choices"])
             ],
             "usage": completion["usage"],
         }

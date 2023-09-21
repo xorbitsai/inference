@@ -66,7 +66,9 @@ class BaichuanPytorchChatModel(PytorchChatModel):
         return model, tokenizer
 
     @classmethod
-    def match(cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1") -> bool:
+    def match(
+        cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
+    ) -> bool:
         if llm_spec.model_format != "pytorch":
             return False
         if llm_family.model_name not in ["baichuan-chat", "baichuan-2-chat"]:
