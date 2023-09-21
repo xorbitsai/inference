@@ -18,7 +18,7 @@ import platform
 import shutil
 from pathlib import Path
 from threading import Lock
-from typing import List, Optional, Tuple, Type, Union
+from typing import Callable, List, Optional, Tuple, Type, Union
 
 from pydantic import BaseModel, Field
 from typing_extensions import Annotated, Literal
@@ -411,6 +411,30 @@ def symlink_local_dir(path: str, local_dir: str, filename: str) -> str:
     return local_dir_filepath
 
 
+def retry_download(
+    download_func: Callable,
+    llm_family: LLMFamilyV1,
+    llm_spec: "LLMSpecV1",
+    *args,
+    **kwargs,
+):
+    for current_attempt in range(1, MAX_ATTEMPTS + 1):
+        try:
+            return download_func(*args, **kwargs)
+        except:
+            remaining_attempts = MAX_ATTEMPTS - current_attempt
+            logger.warning(
+                f"Attempt {current_attempt} failed. Remaining attempts: {remaining_attempts}"
+            )
+
+    else:
+        raise RuntimeError(
+            f"Failed to download model '{llm_family.model_name}' "
+            f"(size: {llm_spec.model_size_in_billions}, format: {llm_spec.model_format}) "
+            f"after multiple retries"
+        )
+
+
 def cache_from_modelscope(
     llm_family: LLMFamilyV1,
     llm_spec: "LLMSpecV1",
@@ -426,7 +450,10 @@ def cache_from_modelscope(
         raise NotImplementedError
     elif llm_spec.model_format in ["ggmlv3", "ggufv2"]:
         filename = llm_spec.model_file_name_template.format(quantization=quantization)
-        download_path = model_file_download(
+        download_path = retry_download(
+            model_file_download,
+            llm_family,
+            llm_spec,
             llm_spec.model_id,
             filename,
             revision=llm_spec.model_revision,
@@ -449,54 +476,29 @@ def cache_from_huggingface(
     if llm_spec.model_format == "pytorch":
         assert isinstance(llm_spec, PytorchLLMSpecV1)
 
-        for current_attempt in range(1, MAX_ATTEMPTS + 1):
-            try:
-                huggingface_hub.snapshot_download(
-                    llm_spec.model_id,
-                    revision=llm_spec.model_revision,
-                    local_dir=cache_dir,
-                    local_dir_use_symlinks=True,
-                )
-                break
-            except huggingface_hub.utils.LocalEntryNotFoundError:
-                remaining_attempts = MAX_ATTEMPTS - current_attempt
-                logger.warning(
-                    f"Attempt {current_attempt} failed. Remaining attempts: {remaining_attempts}"
-                )
-
-        else:
-            raise RuntimeError(
-                f"Failed to download model '{llm_family.model_name}' "
-                f"(size: {llm_spec.model_size_in_billions}, format: {llm_spec.model_format}) "
-                f"after multiple retries"
-            )
+        retry_download(
+            huggingface_hub.snapshot_download,
+            llm_family,
+            llm_spec,
+            llm_spec.model_id,
+            revision=llm_spec.model_revision,
+            local_dir=cache_dir,
+            local_dir_use_symlinks=True,
+        )
 
     elif llm_spec.model_format in ["ggmlv3", "ggufv2"]:
         assert isinstance(llm_spec, GgmlLLMSpecV1)
         file_name = llm_spec.model_file_name_template.format(quantization=quantization)
-
-        for current_attempt in range(1, MAX_ATTEMPTS + 1):
-            try:
-                huggingface_hub.hf_hub_download(
-                    llm_spec.model_id,
-                    revision=llm_spec.model_revision,
-                    filename=file_name,
-                    local_dir=cache_dir,
-                    local_dir_use_symlinks=True,
-                )
-                break
-            except huggingface_hub.utils.LocalEntryNotFoundError:
-                remaining_attempts = MAX_ATTEMPTS - current_attempt
-                logger.warning(
-                    f"Attempt {current_attempt} failed. Remaining attempts: {remaining_attempts}"
-                )
-
-        else:
-            raise RuntimeError(
-                f"Failed to download model '{llm_family.model_name}' "
-                f"(size: {llm_spec.model_size_in_billions}, format: {llm_spec.model_format}) "
-                f"after multiple retries"
-            )
+        retry_download(
+            huggingface_hub.hf_hub_download,
+            llm_family,
+            llm_spec,
+            llm_spec.model_id,
+            revision=llm_spec.model_revision,
+            filename=file_name,
+            local_dir=cache_dir,
+            local_dir_use_symlinks=True,
+        )
     else:
         raise ValueError(f"Unsupported model format: {llm_spec.model_format}")
 
