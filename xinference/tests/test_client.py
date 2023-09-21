@@ -233,7 +233,8 @@ def test_RESTful_client(setup):
 
     def _check_stream():
         streaming_response = model.chat(
-            prompt="What is the capital of France?", generate_config={"stream": True}
+            prompt="What is the capital of France?",
+            generate_config={"stream": True, "max_tokens": 5},
         )
         for chunk in streaming_response:
             print(chunk)
