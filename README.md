@@ -32,6 +32,8 @@ potential of cutting-edge AI models.
 - Multi-GPU support for PyTorch models: [#226](https://github.com/xorbitsai/inference/issues/226)
 - Xinference dashboard: [#93](https://github.com/xorbitsai/inference/issues/93)
 ### New Models
+- Built-in support for [internlm-20b](https://huggingface.co/internlm/internlm-20b/commits/main): [#486](https://github.com/xorbitsai/inference/pull/486)
+- Built-in support for [internlm-chat-20b](https://huggingface.co/internlm/internlm-chat-20b): [#486](https://github.com/xorbitsai/inference/pull/486)
 - Built-in support for [CodeLLama](https://github.com/facebookresearch/codellama): [#414](https://github.com/xorbitsai/inference/pull/414) [#402](https://github.com/xorbitsai/inference/pull/402)
 ### Integrations
 - [Dify](https://docs.dify.ai/advanced/model-configuration/xinference): an LLMOps platform that enables developers (and even non-developers) to quickly build useful applications based on large language models, ensuring they are visual, operable, and improvable.
@@ -208,8 +210,10 @@ $ xinference registrations
 | LLM  | falcon-instruct     | ['en']       | ['embed', 'chat']      |
 | LLM  | gpt-2               | ['en']       | ['generate']           |
 | LLM  | internlm            | ['en', 'zh'] | ['embed', 'generate']  |
+| LLM  | internlm-16k        | ['en', 'zh'] | ['embed', 'generate']  |
 | LLM  | internlm-chat       | ['en', 'zh'] | ['embed', 'chat']      |
 | LLM  | internlm-chat-8k    | ['en', 'zh'] | ['embed', 'chat']      |
+| LLM  | internlm-chat-16k   | ['en', 'zh'] | ['embed', 'chat']      |
 | LLM  | llama-2             | ['en']       | ['embed', 'generate']  |
 | LLM  | llama-2-chat        | ['en']       | ['embed', 'chat']      |
 | LLM  | opt                 | ['en']       | ['embed', 'generate']  |

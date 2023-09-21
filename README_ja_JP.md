@@ -187,8 +187,10 @@ $ xinference registrations
 | LLM  | falcon-instruct     | ['en']       | ['embed', 'chat']      |
 | LLM  | gpt-2               | ['en']       | ['generate']           |
 | LLM  | internlm            | ['en', 'zh'] | ['embed', 'generate']  |
+| LLM  | internlm-16k        | ['en', 'zh'] | ['embed', 'generate']  |
 | LLM  | internlm-chat       | ['en', 'zh'] | ['embed', 'chat']      |
 | LLM  | internlm-chat-8k    | ['en', 'zh'] | ['embed', 'chat']      |
+| LLM  | internlm-chat-16k   | ['en', 'zh'] | ['embed', 'chat']      |
 | LLM  | llama-2             | ['en']       | ['embed', 'generate']  |
 | LLM  | llama-2-chat        | ['en']       | ['embed', 'chat']      |
 | LLM  | opt                 | ['en']       | ['embed', 'generate']  |
