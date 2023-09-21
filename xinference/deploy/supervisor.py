@@ -58,7 +58,7 @@ async def start_supervisor_components(address: str, host: str, port: int):
         address=address,
         uid=RESTfulAPIActor.uid(),
         sockets=sockets,
-        endpoint=f"http://{internal_host}:{port}",
+        internal_endpoint=f"http://{internal_host}:{port}",
     )
     await restful_actor.serve()
     url = f"http://{host}:{port}"
