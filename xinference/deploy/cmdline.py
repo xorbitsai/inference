@@ -379,10 +379,15 @@ def list_model_registrations(
 )
 @click.option(
     "--n-gpu",
-    "-g",
     default="auto",
     type=str,
     help='The number of GPUs used by the model, default is "auto".',
+)
+@click.option(
+    "--trust-remote-code",
+    default=False,
+    type=bool,
+    help="Whether or not to allow for custom models defined on the Hub in their own modeling files.",
 )
 def model_launch(
     endpoint: Optional[str],
@@ -393,6 +398,7 @@ def model_launch(
     quantization: str,
     replica: int,
     n_gpu: str,
+    trust_remote_code: bool,
 ):
     if n_gpu.lower() == "none":
         _n_gpu: Optional[Union[int, str]] = None
@@ -412,6 +418,7 @@ def model_launch(
         quantization=quantization,
         replica=replica,
         n_gpu=_n_gpu,
+        trust_remote_code=trust_remote_code,
     )
 
     print(f"Model uid: {model_uid}", file=sys.stderr)
