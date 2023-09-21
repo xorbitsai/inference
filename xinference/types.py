@@ -17,6 +17,15 @@ from typing import Dict, List, Optional
 from typing_extensions import Literal, NotRequired, TypedDict
 
 
+class Image(TypedDict):
+    url: Optional[str]
+    b64_json: Optional[str]
+
+
+class ImageList(TypedDict):
+    data: List[Image]
+
+
 class EmbeddingUsage(TypedDict):
     prompt_tokens: int
     total_tokens: int

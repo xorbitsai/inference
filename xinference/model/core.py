@@ -36,6 +36,7 @@ def create_model_instance(
 ) -> Tuple[Any, ModelDescription]:
     from .embedding.core import create_embedding_model_instance
     from .llm.core import create_llm_model_instance
+    from .multimodal.core import create_multimodal_model_instance
 
     if model_type == "LLM":
         return create_llm_model_instance(
@@ -49,5 +50,7 @@ def create_model_instance(
         )
     elif model_type == "embedding":
         return create_embedding_model_instance(model_uid, model_name, **kwargs)
+    elif model_type == "multimodal":
+        return create_multimodal_model_instance(model_uid, model_name, **kwargs)
     else:
         raise ValueError(f"Unsupported model type: {model_type}.")
