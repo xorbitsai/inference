@@ -230,7 +230,6 @@ def test_RESTful_client(setup):
 
     completion = model.chat("What is the capital of France?")
     assert "content" in completion["choices"][0]["message"]
-    print("test stream")
 
     def _check_stream():
         streaming_response = model.chat(
@@ -238,7 +237,6 @@ def test_RESTful_client(setup):
             generate_config={"stream": True, "max_tokens": 5},
         )
         for chunk in streaming_response:
-            print(chunk)
             assert "content" or "role" in chunk["choices"][0]["delta"]
 
     _check_stream()

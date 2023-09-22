@@ -118,14 +118,11 @@ class ModelActor(xo.StatelessActor):
 
     async def _wrap_generator(self, ret: Any):
         if inspect.isgenerator(ret) or inspect.isasyncgen(ret):
-            print(f"enter _wrap_generator {self._generators}")
             if self._lock is not None and self._generators:
-                print("raise Parallel generation")
                 raise Exception("Parallel generation is not supported by ggml.")
             generator_uid = str(uuid.uuid1())
             self._generators[generator_uid] = ret
 
-            print("exit _wrap_generator")
             return IteratorWrapper(
                 uid=generator_uid,
                 model_actor_addr=self.address,
