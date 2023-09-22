@@ -211,9 +211,7 @@ $ xinference registrations
 | LLM  | glaive-coder        | ['en']       | ['chat']              |
 | LLM  | gpt-2               | ['en']       | ['generate']           |
 | LLM  | internlm-7b         | ['en', 'zh'] | ['embed', 'generate']  |
-| LLM  | internlm-16k        | ['en', 'zh'] | ['embed', 'generate']  |
 | LLM  | internlm-chat-7b    | ['en', 'zh'] | ['embed', 'chat']      |
-| LLM  | internlm-chat-8k    | ['en', 'zh'] | ['embed', 'chat']      |
 | LLM  | internlm-chat-20b   | ['en', 'zh'] | ['embed', 'chat']      |
 | LLM  | llama-2             | ['en']       | ['embed', 'generate']  |
 | LLM  | llama-2-chat        | ['en']       | ['embed', 'chat']      |
