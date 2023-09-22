@@ -16,13 +16,18 @@ import logging
 import os
 import platform
 import shutil
+from pathlib import Path
 from threading import Lock
-from typing import List, Optional, Tuple, Type, Union
+from typing import Callable, List, Optional, Tuple, Type, Union
 
 from pydantic import BaseModel, Field
 from typing_extensions import Annotated, Literal
 
-from ...constants import XINFERENCE_CACHE_DIR, XINFERENCE_MODEL_DIR
+from ...constants import (
+    XINFERENCE_CACHE_DIR,
+    XINFERENCE_ENV_MODEL_SRC,
+    XINFERENCE_MODEL_DIR,
+)
 from . import LLM
 
 logger = logging.getLogger(__name__)
@@ -37,6 +42,7 @@ class GgmlLLMSpecV1(BaseModel):
     quantizations: List[str]
     model_id: str
     model_file_name_template: str
+    model_hub: str = "huggingface"
     model_uri: Optional[str]
     model_revision: Optional[str]
 
@@ -46,6 +52,7 @@ class PytorchLLMSpecV1(BaseModel):
     model_size_in_billions: int
     quantizations: List[str]
     model_id: str
+    model_hub: str = "huggingface"
     model_uri: Optional[str]
     model_revision: Optional[str]
 
@@ -82,6 +89,7 @@ LLMFamilyV1.update_forward_refs()
 LLM_CLASSES: List[Type[LLM]] = []
 
 BUILTIN_LLM_FAMILIES: List["LLMFamilyV1"] = []
+BUILTIN_MODELSCOPE_LLM_FAMILIES: List["LLMFamilyV1"] = []
 
 UD_LLM_FAMILIES: List["LLMFamilyV1"] = []
 
@@ -95,6 +103,15 @@ def is_locale_chinese_simplified() -> bool:
         lang, _ = locale.getdefaultlocale()
         return lang == "zh_CN"
     except:
+        return False
+
+
+def download_from_modelscope() -> bool:
+    if os.environ.get(XINFERENCE_ENV_MODEL_SRC) == "modelscope":
+        return True
+    elif is_locale_chinese_simplified():
+        return True
+    else:
         return False
 
 
@@ -136,8 +153,14 @@ def cache(
             logger.info(f"Caching from URI: {llm_spec.model_uri}")
             return cache_from_uri(llm_family, llm_spec, quantization)
         else:
-            logger.info(f"Caching from Hugging Face: {llm_spec.model_id}")
-            return cache_from_huggingface(llm_family, llm_spec, quantization)
+            if llm_spec.model_hub == "huggingface":
+                logger.info(f"Caching from Hugging Face: {llm_spec.model_id}")
+                return cache_from_huggingface(llm_family, llm_spec, quantization)
+            elif llm_spec.model_hub == "modelscope":
+                logger.info(f"Caching from Modelscope: {llm_spec.model_id}")
+                return cache_from_modelscope(llm_family, llm_spec, quantization)
+            else:
+                raise ValueError(f"Unknown model hub: {llm_spec.model_hub}")
 
 
 def parse_uri(uri: str) -> Tuple[str, str]:
@@ -348,6 +371,109 @@ def cache_from_uri(
         raise ValueError(f"Unsupported URL scheme: {src_scheme}")
 
 
+def _get_cache_dir(
+    llm_family: LLMFamilyV1,
+    llm_spec: "LLMSpecV1",
+):
+    cache_dir_name = (
+        f"{llm_family.model_name}-{llm_spec.model_format}"
+        f"-{llm_spec.model_size_in_billions}b"
+    )
+    cache_dir = os.path.realpath(os.path.join(XINFERENCE_CACHE_DIR, cache_dir_name))
+    if not os.path.exists(cache_dir):
+        os.makedirs(cache_dir, exist_ok=True)
+    return cache_dir
+
+
+def symlink_local_file(path: str, local_dir: str, relpath: str) -> str:
+    from huggingface_hub.file_download import _create_symlink
+
+    # cross platform transcription of filename, to be used as a local file path.
+    relative_filename = os.path.join(*relpath.split("/"))
+    if os.name == "nt":
+        if relative_filename.startswith("..\\") or "\\..\\" in relative_filename:
+            raise ValueError(
+                f"Invalid filename: cannot handle filename '{relative_filename}' on Windows. Please ask the repository"
+                " owner to rename this file."
+            )
+    # Using `os.path.abspath` instead of `Path.resolve()` to avoid resolving symlinks
+    local_dir_filepath = os.path.join(local_dir, relative_filename)
+    if (
+        Path(os.path.abspath(local_dir))
+        not in Path(os.path.abspath(local_dir_filepath)).parents
+    ):
+        raise ValueError(
+            f"Cannot copy file '{relative_filename}' to local dir '{local_dir}': file would not be in the local"
+            " directory."
+        )
+
+    os.makedirs(os.path.dirname(local_dir_filepath), exist_ok=True)
+    real_blob_path = os.path.realpath(path)
+    _create_symlink(real_blob_path, local_dir_filepath, new_blob=False)
+    return local_dir_filepath
+
+
+def retry_download(
+    download_func: Callable,
+    llm_family: LLMFamilyV1,
+    llm_spec: "LLMSpecV1",
+    *args,
+    **kwargs,
+):
+    for current_attempt in range(1, MAX_ATTEMPTS + 1):
+        try:
+            return download_func(*args, **kwargs)
+        except:
+            remaining_attempts = MAX_ATTEMPTS - current_attempt
+            logger.warning(
+                f"Attempt {current_attempt} failed. Remaining attempts: {remaining_attempts}"
+            )
+
+    else:
+        raise RuntimeError(
+            f"Failed to download model '{llm_family.model_name}' "
+            f"(size: {llm_spec.model_size_in_billions}, format: {llm_spec.model_format}) "
+            f"after multiple retries"
+        )
+
+
+def cache_from_modelscope(
+    llm_family: LLMFamilyV1,
+    llm_spec: "LLMSpecV1",
+    quantization: Optional[str] = None,
+) -> str:
+    """
+    Cache model from Modelscope. Return the cache directory.
+    """
+    from modelscope.hub.file_download import model_file_download
+    from modelscope.hub.snapshot_download import snapshot_download
+
+    cache_dir = _get_cache_dir(llm_family, llm_spec)
+    if llm_spec.model_format == "pytorch":
+        download_dir = snapshot_download(
+            llm_spec.model_id, revision=llm_spec.model_revision
+        )
+        for subdir, dirs, files in os.walk(download_dir):
+            for file in files:
+                relpath = os.path.relpath(os.path.join(subdir, file), download_dir)
+                symlink_local_file(os.path.join(subdir, file), cache_dir, relpath)
+
+    elif llm_spec.model_format in ["ggmlv3", "ggufv2"]:
+        filename = llm_spec.model_file_name_template.format(quantization=quantization)
+        download_path = retry_download(
+            model_file_download,
+            llm_family,
+            llm_spec,
+            llm_spec.model_id,
+            filename,
+            revision=llm_spec.model_revision,
+        )
+        symlink_local_file(download_path, cache_dir, filename)
+    else:
+        raise ValueError(f"Unsupported format: {llm_spec.model_format}")
+    return cache_dir
+
+
 def cache_from_huggingface(
     llm_family: LLMFamilyV1,
     llm_spec: "LLMSpecV1",
@@ -358,65 +484,33 @@ def cache_from_huggingface(
     """
     import huggingface_hub
 
-    cache_dir_name = (
-        f"{llm_family.model_name}-{llm_spec.model_format}"
-        f"-{llm_spec.model_size_in_billions}b"
-    )
-    cache_dir = os.path.realpath(os.path.join(XINFERENCE_CACHE_DIR, cache_dir_name))
-    if not os.path.exists(cache_dir):
-        os.makedirs(cache_dir, exist_ok=True)
-
+    cache_dir = _get_cache_dir(llm_family, llm_spec)
     if llm_spec.model_format == "pytorch":
         assert isinstance(llm_spec, PytorchLLMSpecV1)
 
-        for current_attempt in range(1, MAX_ATTEMPTS + 1):
-            try:
-                huggingface_hub.snapshot_download(
-                    llm_spec.model_id,
-                    revision=llm_spec.model_revision,
-                    local_dir=cache_dir,
-                    local_dir_use_symlinks=True,
-                )
-                break
-            except huggingface_hub.utils.LocalEntryNotFoundError:
-                remaining_attempts = MAX_ATTEMPTS - current_attempt
-                logger.warning(
-                    f"Attempt {current_attempt} failed. Remaining attempts: {remaining_attempts}"
-                )
-
-        else:
-            raise RuntimeError(
-                f"Failed to download model '{llm_family.model_name}' "
-                f"(size: {llm_spec.model_size_in_billions}, format: {llm_spec.model_format}) "
-                f"after multiple retries"
-            )
+        retry_download(
+            huggingface_hub.snapshot_download,
+            llm_family,
+            llm_spec,
+            llm_spec.model_id,
+            revision=llm_spec.model_revision,
+            local_dir=cache_dir,
+            local_dir_use_symlinks=True,
+        )
 
     elif llm_spec.model_format in ["ggmlv3", "ggufv2"]:
         assert isinstance(llm_spec, GgmlLLMSpecV1)
         file_name = llm_spec.model_file_name_template.format(quantization=quantization)
-
-        for current_attempt in range(1, MAX_ATTEMPTS + 1):
-            try:
-                huggingface_hub.hf_hub_download(
-                    llm_spec.model_id,
-                    revision=llm_spec.model_revision,
-                    filename=file_name,
-                    local_dir=cache_dir,
-                    local_dir_use_symlinks=True,
-                )
-                break
-            except huggingface_hub.utils.LocalEntryNotFoundError:
-                remaining_attempts = MAX_ATTEMPTS - current_attempt
-                logger.warning(
-                    f"Attempt {current_attempt} failed. Remaining attempts: {remaining_attempts}"
-                )
-
-        else:
-            raise RuntimeError(
-                f"Failed to download model '{llm_family.model_name}' "
-                f"(size: {llm_spec.model_size_in_billions}, format: {llm_spec.model_format}) "
-                f"after multiple retries"
-            )
+        retry_download(
+            huggingface_hub.hf_hub_download,
+            llm_family,
+            llm_spec,
+            llm_spec.model_id,
+            revision=llm_spec.model_revision,
+            filename=file_name,
+            local_dir=cache_dir,
+            local_dir_use_symlinks=True,
+        )
     else:
         raise ValueError(f"Unsupported model format: {llm_spec.model_format}")
 
@@ -462,7 +556,16 @@ def match_llm(
             if q.lower() == quant.lower():
                 return quant
 
-    for family in BUILTIN_LLM_FAMILIES + user_defined_llm_families:
+    if download_from_modelscope():
+        all_families = (
+            BUILTIN_MODELSCOPE_LLM_FAMILIES
+            + BUILTIN_LLM_FAMILIES
+            + user_defined_llm_families
+        )
+    else:
+        all_families = BUILTIN_LLM_FAMILIES + user_defined_llm_families
+
+    for family in all_families:
         if model_name != family.model_name:
             continue
         for spec in family.model_specs:

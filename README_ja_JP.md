@@ -205,7 +205,7 @@ $ xinference registrations
 | LLM  | vicuna-v1.5-16k     | ['en']       | ['embed', 'chat']     |
 | LLM  | wizardlm-v1.0       | ['en']       | ['embed', 'chat']     |
 | LLM  | wizardmath-v1.0     | ['en']       | ['embed', 'chat']     |
-| LLM  | OpenBuddy-v11.1     | ['en', 'zh'] | ['embed', 'chat']     |
+| LLM  | OpenBuddy           | ['en', 'zh'] | ['embed', 'chat']     |
 
 **注**:
 - Xinference は自動的にモデルをダウンロードし、デフォルトでは `${USER}/.xinference/cache` の下に保存されます。

@@ -25,6 +25,7 @@ from ..client import (
     RESTfulClient,
     RESTfulEmbeddingModelHandle,
 )
+from ..constants import XINFERENCE_ENV_MODEL_SRC
 
 
 @pytest.mark.skipif(os.name == "nt", reason="Skip windows")
@@ -374,3 +375,21 @@ def test_RESTful_client_custom_model(setup):
         if model_reg["model_name"] == "custom_model":
             custom_model_reg = model_reg
     assert custom_model_reg is None
+
+
+def test_client_from_modelscope(setup):
+    try:
+        os.environ[XINFERENCE_ENV_MODEL_SRC] = "modelscope"
+
+        endpoint, _ = setup
+        client = Client(endpoint)
+        assert len(client.list_models()) == 0
+
+        model_uid = client.launch_model(model_name="tiny-llama")
+        assert len(client.list_models()) == 1
+        model = client.get_model(model_uid=model_uid)
+        completion = model.generate("write a poem.", generate_config={"max_tokens": 5})
+        assert "text" in completion["choices"][0]
+        assert len(completion["choices"][0]["text"]) > 0
+    finally:
+        os.environ.pop(XINFERENCE_ENV_MODEL_SRC)
