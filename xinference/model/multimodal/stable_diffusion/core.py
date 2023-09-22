@@ -71,7 +71,7 @@ class DiffusionModel:
                     image_list.append(Image(url=path, b64_json=None))
                     executor.submit(img.save, path, "jpeg")
             return ImageList(data=image_list)
-        else:
+        elif response_format == "b64_json":
 
             def _gen_base64_image(_img):
                 buffered = BytesIO()
@@ -82,3 +82,5 @@ class DiffusionModel:
                 results = list(map(partial(executor.submit, _gen_base64_image), images))
                 image_list = [Image(url=None, b64_json=s.result()) for s in results]
             return ImageList(data=image_list)
+        else:
+            raise Exception(f"Unsupported response format: {response_format}")

@@ -11,7 +11,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import base64
 import os.path
+from io import BytesIO
+
+from PIL import Image
 
 from ..core import MultimodalModelSpec, cache
 from ..stable_diffusion.core import DiffusionModel
@@ -33,3 +37,9 @@ def test_model():
     r = model.text_to_image(input_text)
     assert len(r["data"]) == 1
     assert os.path.exists(r["data"][0]["url"])
+    r = model.text_to_image(input_text, response_format="b64_json")
+    assert len(r["data"]) == 1
+    b64_json = r["data"][0]["b64_json"]
+    image_bytes = base64.decodebytes(b64_json)
+    img = Image.open(BytesIO(image_bytes))
+    assert img.size == (1024, 1024)
