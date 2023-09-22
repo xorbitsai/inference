@@ -104,5 +104,8 @@ jobs:
         run: |
           pytest --timeout=1500 \
             -W ignore::PendingDeprecationWarning \
-            --cov-config=setup.cfg --cov-report=xml --cov=xinference -s -v xinference/tests/test_client.py
+            --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/tests/test_client.py
+          pytest --timeout=1500 \
+            -W ignore::PendingDeprecationWarning \
+            --cov-config=setup.cfg --cov-report=xml --cov=xinference --ignore xinference/tests/test_client.py xinference
         working-directory: .
