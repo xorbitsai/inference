@@ -49,6 +49,7 @@ When the following conditions are met, Xinference will choose vLLM as the infere
 - The model is within the list of models supported by vLLM.
 
 Currently, supported model includes:
+
 - ``llama-2``, ``llama-2-chat``
 - ``baichuan``, ``baichuan-chat``
 - ``internlm``, ``internlm-20b``, ``internlm-chat``, ``internlm-chat-20b``
