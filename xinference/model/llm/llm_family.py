@@ -469,6 +469,8 @@ def cache_from_modelscope(
             revision=llm_spec.model_revision,
         )
         symlink_local_file(download_path, cache_dir, filename)
+    else:
+        raise ValueError(f"Unsupported format: {llm_spec.model_format}")
     return cache_dir
 
 
