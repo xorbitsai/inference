@@ -29,6 +29,8 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 - PyTorch 模型多 GPU 支持: [#226](https://github.com/xorbitsai/inference/issues/226)
 - Xinference 仪表盘: [#93](https://github.com/xorbitsai/inference/issues/93)
 ### 新模型
+- 内置 [internlm-20b](https://huggingface.co/internlm/internlm-20b/commits/main): [#486](https://github.com/xorbitsai/inference/pull/486)
+- 内置 [internlm-chat-20b](https://huggingface.co/internlm/internlm-chat-20b): [#486](https://github.com/xorbitsai/inference/pull/486)
 - 内置 [CodeLLama](https://github.com/facebookresearch/codellama): [#414](https://github.com/xorbitsai/inference/pull/414) [#402](https://github.com/xorbitsai/inference/pull/402)
 ### 集成
 - [Dify](https://docs.dify.ai/advanced/model-configuration/xinference): 一个涵盖了大型语言模型开发、部署、维护和优化的 LLMOps 平台。
@@ -190,8 +192,10 @@ $ xinference registrations
 | LLM  | falcon-instruct     | ['en']       | ['embed', 'chat']      |
 | LLM  | gpt-2               | ['en']       | ['generate']           |
 | LLM  | internlm            | ['en', 'zh'] | ['embed', 'generate']  |
+| LLM  | internlm-16k        | ['en', 'zh'] | ['embed', 'generate']  |
 | LLM  | internlm-chat       | ['en', 'zh'] | ['embed', 'chat']      |
 | LLM  | internlm-chat-8k    | ['en', 'zh'] | ['embed', 'chat']      |
+| LLM  | internlm-chat-16k   | ['en', 'zh'] | ['embed', 'chat']      |
 | LLM  | llama-2             | ['en']       | ['embed', 'generate']  |
 | LLM  | llama-2-chat        | ['en']       | ['embed', 'chat']      |
 | LLM  | opt                 | ['en']       | ['embed', 'generate']  |

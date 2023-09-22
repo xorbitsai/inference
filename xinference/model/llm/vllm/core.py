@@ -65,12 +65,15 @@ try:
 except ImportError:
     VLLM_INSTALLED = False
 
-VLLM_SUPPORTED_MODELS = ["llama-2", "baichuan"]
+VLLM_SUPPORTED_MODELS = ["llama-2", "baichuan", "internlm-16k"]
 VLLM_SUPPORTED_CHAT_MODELS = [
     "llama-2-chat",
     "vicuna-v1.3",
     "vicuna-v1.5",
     "baichuan-chat",
+    "internlm-chat",
+    "internlm-chat-8k",
+    "internlm-chat-16k",
 ]
 
 
