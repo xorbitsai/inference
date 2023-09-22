@@ -230,6 +230,7 @@ def test_RESTful_client(setup):
 
     completion = model.chat("What is the capital of France?")
     assert "content" in completion["choices"][0]["message"]
+    print("test stream")
 
     def _check_stream():
         streaming_response = model.chat(
