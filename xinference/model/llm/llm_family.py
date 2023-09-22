@@ -155,7 +155,10 @@ def parse_uri(uri: str) -> Tuple[str, str]:
         return scheme, path
 
 
-def is_valid_model_uri(model_uri: str) -> bool:
+def is_valid_model_uri(model_uri: Optional[str]) -> bool:
+    if not model_uri:
+        return False
+
     src_scheme, src_root = parse_uri(model_uri)
 
     if src_scheme == "file":
