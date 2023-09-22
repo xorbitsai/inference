@@ -272,8 +272,9 @@ def test_RESTful_client(setup):
     assert len(client.list_models()) == 1
 
     # Test concurrent chat is OK.
+    model = client.get_model(model_uid=model_uid)
+
     def _check(stream=False):
-        model = client.get_model(model_uid=model_uid)
         completion = model.generate(
             "AI is going to", generate_config={"stream": stream, "max_tokens": 5}
         )
