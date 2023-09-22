@@ -25,7 +25,7 @@ from ..client import (
     RESTfulClient,
     RESTfulEmbeddingModelHandle,
 )
-from ..constants import XINFERENCE_ENV_MODELSCOPE
+from ..constants import XINFERENCE_ENV_MODEL_SRC
 
 
 @pytest.mark.skipif(os.name == "nt", reason="Skip windows")
@@ -379,7 +379,7 @@ def test_RESTful_client_custom_model(setup):
 
 def test_client_from_modelscope(setup):
     try:
-        os.environ[XINFERENCE_ENV_MODELSCOPE] = "1"
+        os.environ[XINFERENCE_ENV_MODEL_SRC] = "modelscope"
 
         endpoint, _ = setup
         client = Client(endpoint)
@@ -392,4 +392,4 @@ def test_client_from_modelscope(setup):
         assert "text" in completion["choices"][0]
         assert len(completion["choices"][0]["text"]) > 0
     finally:
-        os.environ.pop(XINFERENCE_ENV_MODELSCOPE)
+        os.environ.pop(XINFERENCE_ENV_MODEL_SRC)

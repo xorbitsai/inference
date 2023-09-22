@@ -23,7 +23,11 @@ from typing import Callable, List, Optional, Tuple, Type, Union
 from pydantic import BaseModel, Field
 from typing_extensions import Annotated, Literal
 
-from ...constants import XINFERENCE_CACHE_DIR, XINFERENCE_MODEL_DIR
+from ...constants import (
+    XINFERENCE_CACHE_DIR,
+    XINFERENCE_ENV_MODEL_SRC,
+    XINFERENCE_MODEL_DIR,
+)
 from . import LLM
 
 logger = logging.getLogger(__name__)
@@ -85,7 +89,7 @@ LLMFamilyV1.update_forward_refs()
 LLM_CLASSES: List[Type[LLM]] = []
 
 BUILTIN_LLM_FAMILIES: List["LLMFamilyV1"] = []
-BUILTIN_MODELSCOPE_LLL_FAMILIES: List["LLMFamilyV1"] = []
+BUILTIN_MODELSCOPE_LLM_FAMILIES: List["LLMFamilyV1"] = []
 
 UD_LLM_FAMILIES: List["LLMFamilyV1"] = []
 
@@ -103,9 +107,7 @@ def is_locale_chinese_simplified() -> bool:
 
 
 def download_from_modelscope() -> bool:
-    from ...constants import XINFERENCE_ENV_MODELSCOPE
-
-    if bool(int(os.environ.get(XINFERENCE_ENV_MODELSCOPE, "0"))):
+    if os.environ.get(XINFERENCE_ENV_MODEL_SRC) == "modelscope":
         return True
     elif is_locale_chinese_simplified():
         return True
@@ -554,7 +556,7 @@ def match_llm(
 
     if download_from_modelscope():
         all_families = (
-            BUILTIN_MODELSCOPE_LLL_FAMILIES
+            BUILTIN_MODELSCOPE_LLM_FAMILIES
             + BUILTIN_LLM_FAMILIES
             + user_defined_llm_families
         )
