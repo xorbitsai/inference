@@ -1042,7 +1042,7 @@
   {
     "version": 1,
     "context_length": 4096,
-    "model_name": "internlm-7b-chat",
+    "model_name": "internlm-chat-7b",
     "model_lang": [
       "en",
       "zh"
