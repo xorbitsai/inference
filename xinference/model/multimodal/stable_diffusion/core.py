@@ -52,12 +52,13 @@ class DiffusionModel:
     def text_to_image(
         self,
         prompt: str,
-        n: Optional[int] = 1,
-        size: Optional[str] = "1024*1024",
-        response_format: Optional[str] = "url",
+        n: int = 1,
+        size: str = "1024*1024",
+        response_format: str = "url",
         **kwargs,
     ):
         width, height = map(int, size.split("*"))
+        assert callable(self._model)
         images = self._model(
             prompt, height=height, width=width, num_images_per_prompt=n, **kwargs
         ).images
