@@ -521,9 +521,11 @@ def register_llm(llm_family: LLMFamilyV1, persist: bool):
             f"Invalid model name {llm_family.model_name}. The model name must start with a letter"
             f" or a digit, and can only contain letters, digits, underscores, or dashes."
         )
-    assert llm_family.model_specs[0].model_uri is not None
-    if not is_valid_model_uri(llm_family.model_specs[0].model_uri):
-        raise ValueError(f"Invalid model URI {llm_family.model_specs[0].model_uri}.")
+
+    for spec in llm_family.model_specs:
+        model_uri = spec.model_uri
+        if model_uri and not is_valid_model_uri(model_uri):
+            raise ValueError(f"Invalid model URI {model_uri}.")
 
     with UD_LLM_FAMILIES_LOCK:
         for family in BUILTIN_LLM_FAMILIES + UD_LLM_FAMILIES:
