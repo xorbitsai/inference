@@ -95,6 +95,7 @@ jobs:
           pip install ctransformers
           pip install sentence-transformers
           pip install s3fs
+          pip install diffusers
           pip install -e ".[dev]"
         working-directory: .
 
