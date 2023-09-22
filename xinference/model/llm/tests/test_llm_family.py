@@ -82,11 +82,13 @@ def test_deserialize_llm_family_v1():
     assert ggml_spec.model_format == "ggmlv3"
     assert ggml_spec.model_size_in_billions == 2
     assert ggml_spec.model_id == "example/TestModel"
+    assert ggml_spec.model_hub == "huggingface"
     assert ggml_spec.model_file_name_template == "TestModel.{quantization}.ggmlv3.bin"
 
     pytorch_spec = model_family.model_specs[1]
     assert pytorch_spec.model_format == "pytorch"
     assert pytorch_spec.model_size_in_billions == 3
+    assert pytorch_spec.model_hub == "huggingface"
     assert pytorch_spec.model_id == "example/TestModel"
 
     prompt_style = PromptStyleV1(
