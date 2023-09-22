@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import base64
-import logging
 import os
 import uuid
 from concurrent.futures import ThreadPoolExecutor
