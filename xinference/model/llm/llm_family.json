@@ -1015,7 +1015,7 @@
   {
     "version": 1,
     "context_length": 8192,
-    "model_name": "internlm",
+    "model_name": "internlm-7b",
     "model_lang": [
       "en",
       "zh"
@@ -1042,7 +1042,7 @@
   {
     "version": 1,
     "context_length": 4096,
-    "model_name": "internlm-chat",
+    "model_name": "internlm-chat-7b",
     "model_lang": [
       "en",
       "zh"
@@ -1085,8 +1085,35 @@
   },
   {
     "version": 1,
-    "context_length": 8192,
-    "model_name": "internlm-chat-8k",
+    "context_length": 16384,
+    "model_name": "internlm-20b",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "embed",
+      "generate"
+    ],
+    "model_description": "Pre-trained on over 2.3T Tokens containing high-quality English, Chinese, and code data.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 20,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "internlm/internlm-20b",
+        "model_revision": "f0433b0db933a9adfa169f756ab8547f67ccef1d"
+      }
+    ]
+  },
+  {
+    "version": 1,
+    "context_length": 16384,
+    "model_name": "internlm-chat-20b",
     "model_lang": [
       "en",
       "zh"
@@ -1095,18 +1122,18 @@
       "embed",
       "chat"
     ],
-    "model_description": "Internlm-chat-8k is a special version of Internlm-chat, with a context window of 8k tokens instead of 4k.",
+    "model_description": "Pre-trained on over 2.3T Tokens containing high-quality English, Chinese, and code data. The Chat version has undergone SFT and RLHF training.",
     "model_specs": [
       {
         "model_format": "pytorch",
-        "model_size_in_billions": 7,
+        "model_size_in_billions": 20,
         "quantizations": [
           "4-bit",
           "8-bit",
           "none"
         ],
-        "model_id": "internlm/internlm-chat-7b-8k",
-        "model_revision": "8bd146e7dc41ba5f3eba95679554a03acc9f0043"
+        "model_id": "internlm/internlm-chat-20b",
+        "model_revision": "84969e0447c3807207e9acdd92c9302309ec64fc"
       }
     ],
     "prompt_style": {
@@ -1770,6 +1797,44 @@
       "roles": ["User", "Assistant"],
       "intra_message_sep": "",
       "inter_message_sep": ""
+    }
+  },
+    {
+    "version": 1,
+    "context_length": 100000,
+    "model_name": "glaive-coder",
+    "model_description": "A code model trained on a dataset of ~140k programming related problems and solutions generated from Glaive’s synthetic data generation platform.",
+    "model_lang": [
+      "en"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "glaiveai/glaive-coder-7b",
+        "model_revision": "72a255a58480ef0713eed988312fe82f77f94f37"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "LLAMA2",
+      "system_prompt": "<s>[INST] <<SYS>>\nWrite code to solve the following coding problem that obeys the constraints and passes the example test cases. Please wrap your code answer using ```:\n<</SYS>>\n\n",
+      "roles": [
+        "[INST]",
+        "[/INST]"
+      ],
+      "intra_message_sep": " ",
+      "inter_message_sep": " </s><s>",
+      "stop_token_ids": [
+        2
+      ]
     }
   }
 ]

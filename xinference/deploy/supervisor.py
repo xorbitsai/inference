@@ -52,15 +52,13 @@ async def start_supervisor_components(address: str, host: str, port: int):
         else:
             raise
 
-    if host == "0.0.0.0":
-        host = "localhost"
-
+    internal_host = "localhost" if host == "0.0.0.0" else host
     restful_actor = await xo.create_actor(
         RESTfulAPIActor,
         address=address,
         uid=RESTfulAPIActor.uid(),
         sockets=sockets,
-        endpoint=f"http://{host}:{port}",
+        internal_endpoint=f"http://{internal_host}:{port}",
     )
     await restful_actor.serve()
     url = f"http://{host}:{port}"

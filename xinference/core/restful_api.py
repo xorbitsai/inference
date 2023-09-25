@@ -19,19 +19,15 @@ import socket
 import sys
 import threading
 import warnings
-from functools import partial
 from typing import Any, Dict, List, Literal, Optional, Union
 
-import anyio
 import gradio as gr
 import xoscar as xo
-from anyio.streams.memory import MemoryObjectSendStream
 from fastapi import APIRouter, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
-from sse_starlette.sse import EventSourceResponse
 from starlette.responses import RedirectResponse
 from typing_extensions import NotRequired, TypedDict
 from uvicorn import Config, Server
@@ -223,11 +219,11 @@ class RegisterModelRequest(BaseModel):
 
 
 class RESTfulAPIActor(xo.Actor):
-    def __init__(self, sockets: List[socket.socket], endpoint: str):
+    def __init__(self, sockets: List[socket.socket], internal_endpoint: str):
         super().__init__()
         self._supervisor_ref: xo.ActorRefType["SupervisorActor"]
         self._sockets = sockets
-        self._endpoint = endpoint
+        self._internal_endpoint = internal_endpoint
         self._router = None
         self._app = None
 
@@ -436,7 +432,7 @@ class RESTfulAPIActor(xo.Actor):
         but calling API in async function does not return
         """
         assert self._app is not None
-        assert self._endpoint is not None
+        assert self._internal_endpoint is not None
 
         from .chat_interface import LLMInterface
 
@@ -453,7 +449,7 @@ class RESTfulAPIActor(xo.Actor):
                 asyncio.set_event_loop(asyncio.new_event_loop())
 
         try:
-            interface = LLMInterface(self._endpoint, model_uid)
+            interface = LLMInterface(self._internal_endpoint, model_uid)
             gr.mount_gradio_app(self._app, interface.build(), f"/{model_uid}")
         except ValueError as ve:
             logger.error(str(ve), exc_info=True)
@@ -517,32 +513,17 @@ class RESTfulAPIActor(xo.Actor):
             raise HTTPException(status_code=500, detail=str(e))
 
         if body.stream:
-            # create a pair of memory object streams
-            send_chan, recv_chan = anyio.create_memory_object_stream(10)
 
-            async def event_publisher(inner_send_chan: MemoryObjectSendStream):
-                async with inner_send_chan:
-                    try:
-                        iterator = await model.generate(body.prompt, kwargs)
-                        async for chunk in iterator:
-                            await inner_send_chan.send(dict(data=json.dumps(chunk)))
-                            if await request.is_disconnected():
-                                raise anyio.get_cancelled_exc_class()()
-                    except anyio.get_cancelled_exc_class() as e:
-                        logger.warning("disconnected")
-                        with anyio.move_on_after(1, shield=True):
-                            logger.warning(
-                                f"Disconnected from client (via refresh/close) {request.client}"
-                            )
-                            await inner_send_chan.send(dict(closing=True))
-                            raise e
-                    except Exception as e:
-                        raise HTTPException(status_code=500, detail=str(e))
+            async def stream_results():
+                try:
+                    iterator = await model.generate(body.prompt, kwargs)
+                    async for item in iterator:
+                        yield json.dumps(item)
+                except Exception as ex:
+                    logger.exception("Completion stream got an error: %s", ex)
+                    yield json.dumps({"error": str(ex)})
 
-            return EventSourceResponse(
-                recv_chan, data_sender_callable=partial(event_publisher, send_chan)
-            )
-
+            return StreamingResponse(stream_results())
         else:
             try:
                 return await model.generate(body.prompt, kwargs)
@@ -640,37 +621,22 @@ class RESTfulAPIActor(xo.Actor):
             )
 
         if body.stream:
-            # create a pair of memory object streams
-            send_chan, recv_chan = anyio.create_memory_object_stream(10)
 
-            async def event_publisher(inner_send_chan: MemoryObjectSendStream):
-                async with inner_send_chan:
-                    try:
-                        if is_chatglm_ggml:
-                            iterator = await model.chat(prompt, chat_history, kwargs)
-                        else:
-                            iterator = await model.chat(
-                                prompt, system_prompt, chat_history, kwargs
-                            )
-                        async for chunk in iterator:
-                            await inner_send_chan.send(dict(data=json.dumps(chunk)))
-                            if await request.is_disconnected():
-                                raise anyio.get_cancelled_exc_class()()
-                    except anyio.get_cancelled_exc_class() as e:
-                        logger.warning("disconnected")
-                        with anyio.move_on_after(1, shield=True):
-                            logger.warning(
-                                f"Disconnected from client (via refresh/close) {request.client}"
-                            )
-                            await inner_send_chan.send(dict(closing=True))
-                            raise e
-                    except Exception as e:
-                        raise HTTPException(status_code=500, detail=str(e))
+            async def stream_results():
+                try:
+                    if is_chatglm_ggml:
+                        iterator = await model.chat(prompt, chat_history, kwargs)
+                    else:
+                        iterator = await model.chat(
+                            prompt, system_prompt, chat_history, kwargs
+                        )
+                    async for item in iterator:
+                        yield json.dumps(item)
+                except Exception as ex:
+                    logger.exception("Chat completion stream got an error: %s", ex)
+                    yield json.dumps({"error": str(ex)})
 
-            return EventSourceResponse(
-                recv_chan, data_sender_callable=partial(event_publisher, send_chan)
-            )
-
+            return StreamingResponse(stream_results())
         else:
             try:
                 if is_chatglm_ggml:

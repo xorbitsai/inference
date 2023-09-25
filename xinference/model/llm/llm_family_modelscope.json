@@ -1,0 +1,426 @@
+[
+  {
+    "version": 1,
+    "context_length": 4096,
+    "model_name": "llama-2-chat",
+    "model_lang": [
+      "en"
+    ],
+    "model_ability": [
+      "embed",
+      "chat"
+    ],
+    "model_description": "Llama-2-Chat is a fine-tuned version of the Llama-2 LLM, specializing in chatting.",
+    "model_specs": [
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "Q4_K_M"
+        ],
+        "model_id": "Xorbits/Llama-2-7b-Chat-GGUF",
+        "model_file_name_template": "llama-2-7b-chat.{quantization}.gguf",
+        "model_hub": "modelscope",
+        "model_revision": "v0.0.1"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 13,
+        "quantizations": [
+          "Q4_K_M"
+        ],
+        "model_id": "Xorbits/Llama-2-13b-Chat-GGUF",
+        "model_file_name_template": "llama-2-7b-chat.{quantization}.gguf",
+        "model_hub": "modelscope",
+        "model_revision": "v0.0.1"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "modelscope/Llama-2-7b-chat-ms",
+        "model_hub": "modelscope",
+        "model_revision": "v1.0.5"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 13,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "modelscope/Llama-2-13b-chat-ms",
+        "model_hub": "modelscope",
+        "model_revision": "v1.0.2"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 70,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "modelscope/Llama-2-70b-chat-ms",
+        "model_hub": "modelscope",
+        "model_revision": "v1.0.1"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "LLAMA2",
+      "system_prompt": "<s>[INST] <<SYS>>\nYou are a helpful AI assistant.\n<</SYS>>\n\n",
+      "roles": [
+        "[INST]",
+        "[/INST]"
+      ],
+      "intra_message_sep": " ",
+      "inter_message_sep": " </s><s>",
+      "stop_token_ids": [
+        2
+      ]
+    }
+  },
+  {
+    "version": 1,
+    "context_length": 2048,
+    "model_name": "tiny-llama",
+    "model_lang": [
+      "en"
+    ],
+    "model_ability": [
+      "generate"
+    ],
+    "model_description": "The TinyLlama project aims to pretrain a 1.1B Llama model on 3 trillion tokens.",
+    "model_specs": [
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 1,
+        "quantizations": [
+          "Q2_K"
+        ],
+        "model_id": "Green-Sky/TinyLlama-1.1B-step-50K-105b-GGUF",
+        "model_file_name_template": "ggml-model-{quantization}.gguf"
+      }
+    ]
+  },
+  {
+    "version": 1,
+    "context_length": 4096,
+    "model_name": "baichuan-2-chat",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "embed",
+      "generate",
+      "chat"
+    ],
+    "model_description": "Baichuan2-chat is a fine-tuned version of the Baichuan LLM, specializing in chatting.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "baichuan-inc/Baichuan2-7B-Chat",
+        "model_hub": "modelscope",
+        "model_revision": "v1.0.1"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 13,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "baichuan-inc/Baichuan2-7B-Chat",
+        "model_hub": "modelscope",
+        "model_revision": "v1.0.1"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "NO_COLON_TWO",
+      "system_prompt": "",
+      "roles": [
+        "<reserved_106>",
+        "<reserved_107>"
+      ],
+      "intra_message_sep": "",
+      "inter_message_sep": "</s>",
+      "stop_token_ids": [
+        2,
+        195
+      ]
+    }
+  },
+  {
+    "version": 1,
+    "context_length": 4096,
+    "model_name": "baichuan-2",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "embed",
+      "generate"
+    ],
+    "model_description": "Baichuan2 is an open-source Transformer based LLM that is trained on both Chinese and English data.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "baichuan-inc/Baichuan2-7B-Base",
+        "model_revision": "v1.0.1",
+        "model_hub": "modelscope"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 13,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "baichuan-inc/Baichuan2-13B-Base",
+        "model_revision": "v1.0.1",
+        "model_hub": "modelscope"
+      }
+    ]
+  },
+  {
+    "version": 1,
+    "context_length": 8192,
+    "model_name": "chatglm2",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "embed",
+      "chat"
+    ],
+    "model_description": "ChatGLM2 is the second generation of ChatGLM, still open-source and trained on Chinese and English data.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 6,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_hub": "modelscope",
+        "model_id": "ZhipuAI/chatglm2-6b",
+        "model_revision": "v1.0.11"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "CHATGLM",
+      "system_prompt": "",
+      "roles": [
+        "问",
+        "答"
+      ],
+      "intra_message_sep": "\n\n"
+    }
+  },
+  {
+    "version": 1,
+    "context_length": 32768,
+    "model_name": "chatglm2-32k",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "embed",
+      "chat"
+    ],
+    "model_description": "ChatGLM2-32k is a special version of ChatGLM2, with a context window of 32k tokens instead of 8k.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 6,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_hub": "modelscope",
+        "model_id": "ZhipuAI/chatglm2-6b-32k",
+        "model_revision": "v1.0.1"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "CHATGLM",
+      "system_prompt": "",
+      "roles": [
+        "问",
+        "答"
+      ],
+      "intra_message_sep": "\n\n"
+    }
+  },
+  {
+    "version": 1,
+    "context_length": 8192,
+    "model_name": "internlm-7b",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "embed",
+      "generate"
+    ],
+    "model_description": "InternLM is a Transformer-based LLM that is trained on both Chinese and English data, focusing on practical scenarios.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "Shanghai_AI_Laboratory/internlm-7b",
+        "model_hub": "modelscope",
+        "model_revision": "v1.0.0"
+      }
+    ]
+  },
+  {
+    "version": 1,
+    "context_length": 4096,
+    "model_name": "internlm-chat-7b",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "embed",
+      "chat"
+    ],
+    "model_description": "Internlm-chat is a fine-tuned version of the Internlm LLM, specializing in chatting.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "Shanghai_AI_Laboratory/internlm-chat-7b",
+        "model_hub": "modelscope",
+        "model_revision": "v1.0.0"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "INTERNLM",
+      "system_prompt": "",
+      "roles": [
+        "<|User|>",
+        "<|Bot|>"
+      ],
+      "intra_message_sep": "<eoh>\n",
+      "inter_message_sep": "<eoa>\n",
+      "stop_token_ids": [
+        1,
+        103028
+      ],
+      "stop": [
+        "<eoa>"
+      ]
+    }
+  },
+  {
+    "version": 1,
+    "context_length": 16384,
+    "model_name": "internlm-20b",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "embed",
+      "generate"
+    ],
+    "model_description": "Pre-trained on over 2.3T Tokens containing high-quality English, Chinese, and code data.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 20,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "Shanghai_AI_Laboratory/internlm-20b",
+        "model_hub": "modelscope",
+        "model_revision": "v1.0.0"
+      }
+    ]
+  },
+  {
+    "version": 1,
+    "context_length": 16384,
+    "model_name": "internlm-chat-20b",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "embed",
+      "chat"
+    ],
+    "model_description": "Pre-trained on over 2.3T Tokens containing high-quality English, Chinese, and code data. The Chat version has undergone SFT and RLHF training.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 20,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "Shanghai_AI_Laboratory/internlm-chat-20b",
+        "model_hub": "modelscope",
+        "model_revision": "v1.0.0"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "INTERNLM",
+      "system_prompt": "",
+      "roles": [
+        "<|User|>",
+        "<|Bot|>"
+      ],
+      "intra_message_sep": "<eoh>\n",
+      "inter_message_sep": "<eoa>\n",
+      "stop_token_ids": [
+        1,
+        103028
+      ],
+      "stop": [
+        "<eoa>"
+      ]
+    }
+  }
+]

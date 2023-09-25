@@ -38,14 +38,6 @@ const RegisterModel = () => {
     prompt_style: undefined,
   });
   const [promptStyleLabel, setPromptStyleLabel] = useState("vicuna");
-  const [promptStyle, setPromptStyle] = useState({
-    style_name: "ADD_COLON_TWO",
-    system_prompt:
-      "A chat between a curious human and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the human's questions.",
-    roles: ["USER", "ASSISTANT"],
-    intra_message_sep: " ",
-    inter_message_sep: "</s>",
-  });
   const promptStyles = [
     {
       name: "vicuna",
@@ -177,7 +169,15 @@ const RegisterModel = () => {
         },
       ];
     }
-    formData.prompt_style = promptStyle;
+
+    const ps = promptStyles.find((item) => item.name === promptStyleLabel);
+    formData.prompt_style = {
+      style_name: ps.style_name,
+      system_prompt: ps.system_prompt,
+      roles: ps.roles,
+      intra_message_sep: ps.intra_message_sep,
+      inter_message_sep: ps.inter_message_sep,
+    };
 
     if (errorAny) {
       setErrorMessage("Please fill in valid value for all fields");
@@ -467,16 +467,6 @@ const RegisterModel = () => {
             value={promptStyleLabel}
             onChange={(e) => {
               setPromptStyleLabel(e.target.value);
-              const ps = promptStyles.find(
-                (item) => item.name === promptStyleLabel,
-              );
-              setPromptStyle({
-                style_name: ps.style_name,
-                system_prompt: ps.system_prompt,
-                roles: ps.roles,
-                intra_message_sep: ps.intra_message_sep,
-                inter_message_sep: ps.inter_message_sep,
-              });
             }}
           >
             <Box sx={styles.checkboxWrapper}>

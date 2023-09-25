@@ -78,12 +78,6 @@ class CtransformersGenerateConfig(TypedDict, total=False):
     reset: Optional[bool]
 
 
-def _has_cuda_device():
-    from xorbits._mars.resource import cuda_count
-
-    return cuda_count() > 0
-
-
 class CtransformersModel(LLM):
     def __init__(
         self,
@@ -145,7 +139,7 @@ class CtransformersModel(LLM):
                 model_config_ret.gpu_layers = -1
             elif self._is_darwin_and_apple_silicon():
                 model_config_ret.gpu_layers = 1
-            elif _has_cuda_device():
+            elif self._has_cuda_device():
                 model_config_ret.gpu_layers = self._gpu_layers
 
         return AutoConfig(model_config_ret)

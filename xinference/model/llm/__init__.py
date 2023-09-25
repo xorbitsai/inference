@@ -19,6 +19,7 @@ import os
 from .core import LLM
 from .llm_family import (
     BUILTIN_LLM_FAMILIES,
+    BUILTIN_MODELSCOPE_LLM_FAMILIES,
     LLM_CLASSES,
     GgmlLLMSpecV1,
     LLMFamilyV1,
@@ -82,6 +83,12 @@ def _install():
     )
     for json_obj in json.load(codecs.open(json_path, "r", encoding="utf-8")):
         BUILTIN_LLM_FAMILIES.append(LLMFamilyV1.parse_obj(json_obj))
+
+    modelscope_json_path = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "llm_family_modelscope.json"
+    )
+    for json_obj in json.load(codecs.open(modelscope_json_path, "r", encoding="utf-8")):
+        BUILTIN_MODELSCOPE_LLM_FAMILIES.append(LLMFamilyV1.parse_obj(json_obj))
 
     from ...constants import XINFERENCE_MODEL_DIR
 

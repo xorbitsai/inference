@@ -32,6 +32,8 @@ potential of cutting-edge AI models.
 - Multi-GPU support for PyTorch models: [#226](https://github.com/xorbitsai/inference/issues/226)
 - Xinference dashboard: [#93](https://github.com/xorbitsai/inference/issues/93)
 ### New Models
+- Built-in support for [internlm-20b](https://huggingface.co/internlm/internlm-20b/commits/main): [#486](https://github.com/xorbitsai/inference/pull/486)
+- Built-in support for [internlm-chat-20b](https://huggingface.co/internlm/internlm-chat-20b): [#486](https://github.com/xorbitsai/inference/pull/486)
 - Built-in support for [CodeLLama](https://github.com/facebookresearch/codellama): [#414](https://github.com/xorbitsai/inference/pull/414) [#402](https://github.com/xorbitsai/inference/pull/402)
 ### Integrations
 - [Dify](https://docs.dify.ai/advanced/model-configuration/xinference): an LLMOps platform that enables developers (and even non-developers) to quickly build useful applications based on large language models, ensuring they are visual, operable, and improvable.
@@ -206,10 +208,11 @@ $ xinference registrations
 | LLM  | code-llama-python   | ['en']       | ['generate']           |
 | LLM  | falcon              | ['en']       | ['embed', 'generate']  |
 | LLM  | falcon-instruct     | ['en']       | ['embed', 'chat']      |
+| LLM  | glaive-coder        | ['en']       | ['chat']              |
 | LLM  | gpt-2               | ['en']       | ['generate']           |
-| LLM  | internlm            | ['en', 'zh'] | ['embed', 'generate']  |
-| LLM  | internlm-chat       | ['en', 'zh'] | ['embed', 'chat']      |
-| LLM  | internlm-chat-8k    | ['en', 'zh'] | ['embed', 'chat']      |
+| LLM  | internlm-7b         | ['en', 'zh'] | ['embed', 'generate']  |
+| LLM  | internlm-chat-7b    | ['en', 'zh'] | ['embed', 'chat']      |
+| LLM  | internlm-chat-20b   | ['en', 'zh'] | ['embed', 'chat']      |
 | LLM  | llama-2             | ['en']       | ['embed', 'generate']  |
 | LLM  | llama-2-chat        | ['en']       | ['embed', 'chat']      |
 | LLM  | opt                 | ['en']       | ['embed', 'generate']  |
@@ -223,13 +226,20 @@ $ xinference registrations
 | LLM  | vicuna-v1.5-16k     | ['en']       | ['embed', 'chat']      |
 | LLM  | wizardlm-v1.0       | ['en']       | ['embed', 'chat']      |
 | LLM  | wizardmath-v1.0     | ['en']       | ['embed', 'chat']      |
-| LLM  | OpenBuddy-v11.1     | ['en', 'zh'] | ['embed', 'chat']      |
+| LLM  | OpenBuddy           | ['en', 'zh'] | ['embed', 'chat']      |
 
 For in-depth details on the built-in models, please refer to [built-in models](https://inference.readthedocs.io/en/latest/models/builtin/index.html). 
 
 **NOTE**:
 - Xinference will download models automatically for you, and by default the models will be saved under `${USER}/.xinference/cache`. 
-- If you have trouble downloading models from the Hugging Face, run `export XINFERENCE_MODEL_SRC=xorbits` to download models from our mirror site.
+- If you have trouble downloading models from the Hugging Face, run `export XINFERENCE_MODEL_SRC=modelscope` to download models from [modelscope](https://modelscope.cn/). Models supported by modelscope:
+  - llama-2
+  - llama-2-chat
+  - baichuan-2
+  - baichuan-2-chat
+  - chatglm2
+  - chatglm2-32k
+  - internlm-chat-20b
 
 ## Custom models
 Please refer to [custom models](https://inference.readthedocs.io/en/latest/models/custom.html).

@@ -65,8 +65,16 @@ try:
 except ImportError:
     VLLM_INSTALLED = False
 
-VLLM_SUPPORTED_MODELS = ["llama-2"]
-VLLM_SUPPORTED_CHAT_MODELS = ["llama-2-chat", "vicuna-v1.5"]
+VLLM_SUPPORTED_MODELS = ["llama-2", "baichuan", "internlm-16k"]
+VLLM_SUPPORTED_CHAT_MODELS = [
+    "llama-2-chat",
+    "vicuna-v1.3",
+    "vicuna-v1.5",
+    "baichuan-chat",
+    "internlm-chat-7b",
+    "internlm-chat-8k",
+    "internlm-chat-20b",
+]
 
 
 class VLLMModel(LLM):
@@ -105,9 +113,11 @@ class VLLMModel(LLM):
         if model_config is None:
             model_config = VLLMModelConfig()
 
+        cuda_count = self._get_cuda_count()
+
         model_config.setdefault("tokenizer_mode", "auto")
         model_config.setdefault("trust_remote_code", False)
-        model_config.setdefault("tensor_parallel_size", 1)
+        model_config.setdefault("tensor_parallel_size", cuda_count)
         model_config.setdefault("block_size", 16)
         model_config.setdefault("swap_space", 4)
         model_config.setdefault("gpu_memory_utilization", 0.90)
@@ -144,6 +154,10 @@ class VLLMModel(LLM):
     def match(
         cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
+        if not cls._has_cuda_device():
+            return False
+        if not cls._is_linux():
+            return False
         if quantization != "none":
             return False
         if llm_spec.model_format != "pytorch":

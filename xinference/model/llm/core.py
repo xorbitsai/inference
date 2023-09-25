@@ -58,6 +58,18 @@ class LLM(abc.ABC):
     def _is_linux():
         return platform.system() == "Linux"
 
+    @staticmethod
+    def _has_cuda_device():
+        from xorbits._mars.resource import cuda_count
+
+        return cuda_count() > 0
+
+    @staticmethod
+    def _get_cuda_count():
+        from xorbits._mars.resource import cuda_count
+
+        return cuda_count()
+
     @abstractmethod
     def load(self):
         raise NotImplementedError

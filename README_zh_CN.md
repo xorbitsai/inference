@@ -29,6 +29,8 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 - PyTorch 模型多 GPU 支持: [#226](https://github.com/xorbitsai/inference/issues/226)
 - Xinference 仪表盘: [#93](https://github.com/xorbitsai/inference/issues/93)
 ### 新模型
+- 内置 [internlm-20b](https://huggingface.co/internlm/internlm-20b/commits/main): [#486](https://github.com/xorbitsai/inference/pull/486)
+- 内置 [internlm-chat-20b](https://huggingface.co/internlm/internlm-chat-20b): [#486](https://github.com/xorbitsai/inference/pull/486)
 - 内置 [CodeLLama](https://github.com/facebookresearch/codellama): [#414](https://github.com/xorbitsai/inference/pull/414) [#402](https://github.com/xorbitsai/inference/pull/402)
 ### 集成
 - [Dify](https://docs.dify.ai/advanced/model-configuration/xinference): 一个涵盖了大型语言模型开发、部署、维护和优化的 LLMOps 平台。
@@ -188,10 +190,11 @@ $ xinference registrations
 | LLM  | code-llama-python   | ['en']       | ['generate']           |
 | LLM  | falcon              | ['en']       | ['embed', 'generate']  |
 | LLM  | falcon-instruct     | ['en']       | ['embed', 'chat']      |
+| LLM  | glaive-coder        | ['en']       | ['chat']              |
 | LLM  | gpt-2               | ['en']       | ['generate']           |
-| LLM  | internlm            | ['en', 'zh'] | ['embed', 'generate']  |
-| LLM  | internlm-chat       | ['en', 'zh'] | ['embed', 'chat']      |
-| LLM  | internlm-chat-8k    | ['en', 'zh'] | ['embed', 'chat']      |
+| LLM  | internlm-7b         | ['en', 'zh'] | ['embed', 'generate']  |
+| LLM  | internlm-chat-7b    | ['en', 'zh'] | ['embed', 'chat']      |
+| LLM  | internlm-chat-20b   | ['en', 'zh'] | ['embed', 'chat']      |
 | LLM  | llama-2             | ['en']       | ['embed', 'generate']  |
 | LLM  | llama-2-chat        | ['en']       | ['embed', 'chat']      |
 | LLM  | opt                 | ['en']       | ['embed', 'generate']  |
@@ -205,13 +208,20 @@ $ xinference registrations
 | LLM  | vicuna-v1.5-16k     | ['en']       | ['embed', 'chat']      |
 | LLM  | wizardlm-v1.0       | ['en']       | ['embed', 'chat']      |
 | LLM  | wizardmath-v1.0     | ['en']       | ['embed', 'chat']      |
-| LLM  | OpenBuddy-v11.1     | ['en', 'zh'] | ['embed', 'chat']      |
+| LLM  | OpenBuddy           | ['en', 'zh'] | ['embed', 'chat']      |
 
 更多信息请参考 [内置模型](https://inference.readthedocs.io/en/latest/models/builtin/index.html)。
 
 **注意**:
 - Xinference 会自动为你下载模型，默认的模型存放路径为 `${USER}/.xinference/cache`。
-- 如果您在Hugging Face下载模型时遇到问题，请运行 `export XINFERENCE_MODEL_SRC=xorbits`，从我们的镜像站点下载模型。
-- 
+- 如果您在Hugging Face下载模型时遇到问题，请运行 `export XINFERENCE_MODEL_SRC=modelscope`，默认优先从 modelscope 下载。目前 modelscope 支持的模型有：
+  - llama-2
+  - llama-2-chat
+  - baichuan-2
+  - baichuan-2-chat
+  - chatglm2
+  - chatglm2-32k
+  - internlm-chat-20b
+
 ## 自定义模型
 请参考 [自定义模型](https://inference.readthedocs.io/en/latest/models/custom.html)。
