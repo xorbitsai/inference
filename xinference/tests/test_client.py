@@ -232,12 +232,33 @@ def test_RESTful_client(setup):
     completion = model.chat("What is the capital of France?")
     assert "content" in completion["choices"][0]["message"]
 
-    streaming_response = model.chat(
-        prompt="What is the capital of France?", generate_config={"stream": True}
-    )
+    def _check_stream():
+        streaming_response = model.chat(
+            prompt="What is the capital of France?",
+            generate_config={"stream": True, "max_tokens": 5},
+        )
+        for chunk in streaming_response:
+            assert "content" or "role" in chunk["choices"][0]["delta"]
 
-    for chunk in streaming_response:
-        assert "content" or "role" in chunk["choices"][0]["delta"]
+    _check_stream()
+
+    results = []
+    with ThreadPoolExecutor() as executor:
+        for _ in range(2):
+            r = executor.submit(_check_stream)
+            results.append(r)
+    # Parallel generation is not supported by ggml.
+    error_count = 0
+    for r in results:
+        try:
+            r.result()
+        except Exception as ex:
+            assert "Parallel generation" in str(ex)
+            error_count += 1
+    assert error_count == 1
+
+    # After iteration finish, we can iterate again.
+    _check_stream()
 
     client.terminate_model(model_uid=model_uid)
     assert len(client.list_models()) == 0
@@ -251,8 +272,9 @@ def test_RESTful_client(setup):
     assert len(client.list_models()) == 1
 
     # Test concurrent chat is OK.
+    model = client.get_model(model_uid=model_uid)
+
     def _check(stream=False):
-        model = client.get_model(model_uid=model_uid)
         completion = model.generate(
             "AI is going to", generate_config={"stream": stream, "max_tokens": 5}
         )
@@ -266,12 +288,18 @@ def test_RESTful_client(setup):
 
     for stream in [True, False]:
         results = []
+        error_count = 0
         with ThreadPoolExecutor() as executor:
             for _ in range(3):
                 r = executor.submit(_check, stream=stream)
                 results.append(r)
         for r in results:
-            r.result()
+            try:
+                r.result()
+            except Exception as ex:
+                assert "Parallel generation" in str(ex)
+                error_count += 1
+        assert error_count == (2 if stream else 0)
 
     client.terminate_model(model_uid=model_uid)
     assert len(client.list_models()) == 0
