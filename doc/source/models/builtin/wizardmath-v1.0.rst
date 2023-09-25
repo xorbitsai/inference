@@ -12,7 +12,7 @@ Specifications
 ^^^^^^^^^^^^^^
 
 Model Spec 1 (pytorch, 7 Billion)
-+++++++++++++++++++++++++++++++
++++++++++++++++++++++++++++++++++
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 7
@@ -29,7 +29,7 @@ chosen quantization method from the options listed above::
    4-bit quantization is not supported on macOS.
 
 Model Spec 2 (pytorch, 13 Billion)
-+++++++++++++++++++++++++++++++++
+++++++++++++++++++++++++++++++++++
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 13
@@ -46,7 +46,7 @@ chosen quantization method from the options listed above::
    4-bit quantization is not supported on macOS.
 
 Model Spec 3 (pytorch, 70 Billion)
-+++++++++++++++++++++++++++++++++
+++++++++++++++++++++++++++++++++++
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 70

@@ -12,7 +12,7 @@ Specifications
 ^^^^^^^^^^^^^^
 
 Model Spec 1 (ggmlv3, 13 Billion)
-++++++++++++++++++++++++++++++++
++++++++++++++++++++++++++++++++++
 
 - **Model Format:** ggmlv3
 - **Model Size (in billions):** 13

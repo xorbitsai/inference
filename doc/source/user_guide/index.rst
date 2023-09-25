@@ -7,6 +7,5 @@ User Guide
 .. toctree::
    :maxdepth: 2
 
-   faq
    cache_management
    backends

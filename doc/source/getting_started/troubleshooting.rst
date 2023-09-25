@@ -23,7 +23,7 @@ Get access to the huggingface repo
 
 To obtain access, navigate to the desired huggingface repository and agree to its terms and conditions. 
 As an illustration, for the `llama2` model, you can use this link:
- `https://huggingface.co/meta-llama/Llama-2-7b-hf <https://huggingface.co/meta-llama/Llama-2-7b-hf>`_.
+`https://huggingface.co/meta-llama/Llama-2-7b-hf <https://huggingface.co/meta-llama/Llama-2-7b-hf>`_.
 
 Set up credentials to access huggingface
 ----------------------------------------
