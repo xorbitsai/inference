@@ -87,7 +87,8 @@ jobs:
       - name: Set up conda GPU ${{ matrix.python-version }}
         if: ${{ matrix.module == 'gpu' }}
         run: |
-          conda activate xinference_test
+          conda init bash
+          conda activate inference_test
 
       - name: Install dependencies
         env:
