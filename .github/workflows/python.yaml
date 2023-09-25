@@ -63,10 +63,11 @@ jobs:
         python-version: [ "3.8", "3.9", "3.10", "3.11" ]
         module: [ "xinference" ]
         exclude:
-          - { os: macos-latest, python-version: 3.9 }
-          - { os: macos-latest, python-version: 3.10 }
-          - { os: windows-latest, python-version: 3.9 }
-          - { os: windows-latest, python-version: 3.10 }
+          - { os: macos-latest, module: inference, python-version: 3.9 }
+          - { os: macos-latest, module: inference, python-version: 3.10 }
+          - { os: windows-latest, module: inference, python-version: 3.9 }
+          - { os: windows-latest, module: inference, python-version: 3.10 }
+          - { os: self-hosted, module: gpu, python-version: 3.9}
 
     steps:
       - name: Check out code
@@ -77,6 +78,7 @@ jobs:
 
       - name: Set up conda ${{ matrix.python-version }}
         uses: conda-incubator/setup-miniconda@v2
+        if: ${{ matrix.module != 'gpu' }}
         with:
           python-version: ${{ matrix.python-version }}
           activate-environment: ${{ env.CONDA_ENV }}
@@ -84,6 +86,7 @@ jobs:
       - name: Install dependencies
         env:
           MODULE: ${{ matrix.module }}
+        if: ${{ matrix.module != 'gpu' }}
         run: |
           pip install llama-cpp-python>=0.2.0
           pip install transformers
@@ -103,7 +106,13 @@ jobs:
         env:
           MODULE: ${{ matrix.module }}
         run: |
-          pytest --timeout=1500 \
-            -W ignore::PendingDeprecationWarning \
-            --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference
+          if [ "$MODULE" == "gpu" ]; then
+            pytest -m cuda --gpu --timeout=1500 \
+              -W ignore::PendingDeprecationWarning \
+              --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/multimodal/tests/test_stable_diffusion.py
+          else
+            pytest --timeout=1500 \
+              -W ignore::PendingDeprecationWarning \
+              --cov-config=setup.cfg --cov-report=xml --cov=xinference --ignore xinference/model/multimodal/tests/test_stable_diffusion.py xinference
+          fi
         working-directory: .
