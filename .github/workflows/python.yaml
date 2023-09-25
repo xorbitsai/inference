@@ -53,6 +53,7 @@ jobs:
     needs: lint
     env:
       CONDA_ENV: test
+      PYTHON: /root/miniconda3/bin/python
     defaults:
       run:
         shell: bash -l {0}
@@ -83,8 +84,6 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           activate-environment: ${{ env.CONDA_ENV }}
-        run: |
-          export PYTHON=/root/miniconda3/bin/pytho
 
       - name: Set up conda GPU ${{ matrix.python-version }}
         if: ${{ matrix.module == 'gpu' }}
