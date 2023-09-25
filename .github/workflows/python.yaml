@@ -63,10 +63,11 @@ jobs:
         python-version: [ "3.8", "3.9", "3.10", "3.11" ]
         module: [ "xinference" ]
         exclude:
-          - { os: macos-latest, module: inference, python-version: 3.9 }
-          - { os: macos-latest, module: inference, python-version: 3.10 }
-          - { os: windows-latest, module: inference, python-version: 3.9 }
-          - { os: windows-latest, module: inference, python-version: 3.10 }
+          - { os: macos-latest, python-version: 3.9 }
+          - { os: macos-latest, python-version: 3.10 }
+          - { os: windows-latest, python-version: 3.9 }
+          - { os: windows-latest, python-version: 3.10 }
+        include:
           - { os: self-hosted, module: gpu, python-version: 3.9}
 
     steps:
@@ -83,10 +84,14 @@ jobs:
           python-version: ${{ matrix.python-version }}
           activate-environment: ${{ env.CONDA_ENV }}
 
+      - name: Set up conda GPU ${{ matrix.python-version }}
+        if: ${{ matrix.module == 'gpu' }}
+        run: |
+          conda activate xinference_test
+
       - name: Install dependencies
         env:
           MODULE: ${{ matrix.module }}
-        if: ${{ matrix.module != 'gpu' }}
         run: |
           pip install llama-cpp-python>=0.2.0
           pip install transformers
