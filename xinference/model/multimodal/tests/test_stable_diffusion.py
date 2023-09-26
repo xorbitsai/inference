@@ -34,12 +34,12 @@ def test_model():
     # input is a string
     input_text = "an apple"
     model.load()
-    r = model.text_to_image(input_text)
+    r = model.text_to_image(input_text, size="256*256")
     assert len(r["data"]) == 1
     assert os.path.exists(r["data"][0]["url"])
-    r = model.text_to_image(input_text, response_format="b64_json")
+    r = model.text_to_image(input_text, size="256*256", response_format="b64_json")
     assert len(r["data"]) == 1
     b64_json = r["data"][0]["b64_json"]
     image_bytes = base64.decodebytes(b64_json)
     img = Image.open(BytesIO(image_bytes))
-    assert img.size == (1024, 1024)
+    assert img.size == (256, 256)
