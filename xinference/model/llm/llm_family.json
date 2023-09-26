@@ -1010,7 +1010,18 @@
           "none"
         ],
         "model_id": "Qwen/Qwen-7B-Chat",
-        "model_revision": "5c611a5cde5769440581f91e8b4bba050f62b1af"
+        "model_revision": "21ed8f83fe8e900c9b89930bf9a3d2762019beae"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 14,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "Qwen/Qwen-14B-Chat",
+        "model_revision": "ce2da0f67e98e106c646f97ce0ffba28e7eb19ff"
       }
     ],
     "prompt_style": {
