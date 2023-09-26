@@ -53,7 +53,7 @@ jobs:
     needs: lint
     env:
       CONDA_ENV: test
-      PYTHON: /root/miniconda3/bin/python
+      SELF_HOST_PYTHON: /root/miniconda3/envs/inference_test/bin/python
     defaults:
       run:
         shell: bash -l {0}
@@ -85,28 +85,24 @@ jobs:
           python-version: ${{ matrix.python-version }}
           activate-environment: ${{ env.CONDA_ENV }}
 
-      - name: Set up conda GPU ${{ matrix.python-version }}
-        if: ${{ matrix.module == 'gpu' }}
-        run: |
-          export PYTHON=/root/miniconda3/envs/inference_test/bin/python
-
       - name: Install dependencies
         env:
           MODULE: ${{ matrix.module }}
+        if: ${{ matrix.module != 'gpu' }}
         run: |
-          ${{ env.PYTHON }} -m pip install llama-cpp-python>=0.2.0
-          ${{ env.PYTHON }} -m pip install transformers
-          ${{ env.PYTHON }} -m pip install torch
-          ${{ env.PYTHON }} -m pip install accelerate
-          ${{ env.PYTHON }} -m pip install sentencepiece
-          ${{ env.PYTHON }} -m pip install transformers_stream_generator
-          ${{ env.PYTHON }} -m pip install bitsandbytes
-          ${{ env.PYTHON }} -m pip install ctransformers
-          ${{ env.PYTHON }} -m pip install sentence-transformers
-          ${{ env.PYTHON }} -m pip install s3fs
-          ${{ env.PYTHON }} -m pip install modelscope
-          ${{ env.PYTHON }} -m pip install diffusers
-          ${{ env.PYTHON }} -m pip install -e ".[dev]"
+          pip install llama-cpp-python>=0.2.0
+          pip install transformers
+          pip install torch
+          pip install accelerate
+          pip install sentencepiece
+          pip install transformers_stream_generator
+          pip install bitsandbytes
+          pip install ctransformers
+          pip install sentence-transformers
+          pip install s3fs
+          pip install modelscope
+          pip install diffusers
+          pip install -e ".[dev]"
         working-directory: .
 
       - name: Test with pytest
@@ -114,14 +110,14 @@ jobs:
           MODULE: ${{ matrix.module }}
         run: |
           if [ "$MODULE" == "gpu" ]; then
-            ${{ env.PYTHON }} -m pytest --timeout=1500 \
+            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=1500 \
               -W ignore::PendingDeprecationWarning \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/multimodal/tests/test_stable_diffusion.py
           else
-            ${{ env.PYTHON }} -m pytest --timeout=1500 \
+            pytest --timeout=1500 \
               -W ignore::PendingDeprecationWarning \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/tests/test_client.py
-            ${{ env.PYTHON }} -m pytest --timeout=1500 \
+            pytest --timeout=1500 \
               -W ignore::PendingDeprecationWarning \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference --ignore xinference/tests/test_client.py --ignore xinference/model/multimodal/tests/test_stable_diffusion.py xinference
           fi
