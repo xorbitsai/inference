@@ -410,7 +410,7 @@ def test_client_from_modelscope(setup):
         os.environ[XINFERENCE_ENV_MODEL_SRC] = "modelscope"
 
         endpoint, _ = setup
-        client = Client(endpoint)
+        client = RESTfulClient(endpoint)
         assert len(client.list_models()) == 0
 
         model_uid = client.launch_model(model_name="tiny-llama")
