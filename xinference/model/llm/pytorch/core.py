@@ -87,7 +87,7 @@ class PytorchModel(LLM):
         pytorch_model_config.setdefault("gptq_groupsize", -1)
         pytorch_model_config.setdefault("gptq_act_order", False)
         pytorch_model_config.setdefault("device", "auto")
-        pytorch_model_config.setdefault("trust_remote_code", False)
+        pytorch_model_config.setdefault("trust_remote_code", True)
         return pytorch_model_config
 
     def _sanitize_generate_config(
