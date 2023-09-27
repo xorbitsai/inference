@@ -179,6 +179,21 @@ def parse_uri(uri: str) -> Tuple[str, str]:
         return scheme, path
 
 
+def is_valid_model_uri(model_uri: Optional[str]) -> bool:
+    if not model_uri:
+        return False
+
+    src_scheme, src_root = parse_uri(model_uri)
+
+    if src_scheme == "file":
+        if not os.path.isabs(src_root):
+            raise ValueError(f"Model URI cannot be a relative path: {model_uri}")
+        return os.path.exists(src_root)
+    else:
+        # TODO: handle other schemes.
+        return True
+
+
 SUPPORTED_SCHEMES = ["s3"]
 
 
@@ -634,6 +649,11 @@ def register_llm(llm_family: LLMFamilyV1, persist: bool):
             f"Invalid model name {llm_family.model_name}. The model name must start with a letter"
             f" or a digit, and can only contain letters, digits, underscores, or dashes."
         )
+
+    for spec in llm_family.model_specs:
+        model_uri = spec.model_uri
+        if model_uri and not is_valid_model_uri(model_uri):
+            raise ValueError(f"Invalid model URI {model_uri}.")
 
     with UD_LLM_FAMILIES_LOCK:
         for family in BUILTIN_LLM_FAMILIES + UD_LLM_FAMILIES:
