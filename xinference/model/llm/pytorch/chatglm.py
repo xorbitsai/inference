@@ -51,12 +51,11 @@ class ChatglmPytorchChatModel(PytorchChatModel):
 
         tokenizer = AutoTokenizer.from_pretrained(
             self.model_path,
-            trust_remote_code=True,
+            trust_remote_code=kwargs["trust_remote_code"],
             revision=kwargs["revision"],
         )
         model = AutoModel.from_pretrained(
             self.model_path,
-            trust_remote_code=True,
             **kwargs,
         )
         return model, tokenizer

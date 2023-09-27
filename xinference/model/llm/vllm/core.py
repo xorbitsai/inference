@@ -116,7 +116,7 @@ class VLLMModel(LLM):
         cuda_count = self._get_cuda_count()
 
         model_config.setdefault("tokenizer_mode", "auto")
-        model_config.setdefault("trust_remote_code", False)
+        model_config.setdefault("trust_remote_code", True)
         model_config.setdefault("tensor_parallel_size", cuda_count)
         model_config.setdefault("block_size", 16)
         model_config.setdefault("swap_space", 4)

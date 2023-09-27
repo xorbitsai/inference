@@ -54,12 +54,11 @@ class BaichuanPytorchChatModel(PytorchChatModel):
         tokenizer = AutoTokenizer.from_pretrained(
             self.model_path,
             use_fast=self._use_fast_tokenizer,
-            trust_remote_code=True,
+            trust_remote_code=kwargs["trust_remote_code"],
             revision=kwargs["revision"],
         )
         model = AutoModelForCausalLM.from_pretrained(
             self.model_path,
-            trust_remote_code=True,
             **kwargs,
         )
         model.generation_config = GenerationConfig.from_pretrained(self.model_path)

@@ -385,7 +385,7 @@ def list_model_registrations(
 )
 @click.option(
     "--trust-remote-code",
-    default=False,
+    default=True,
     type=bool,
     help="Whether or not to allow for custom models defined on the Hub in their own modeling files.",
 )
