@@ -35,6 +35,7 @@ if TYPE_CHECKING:
         Completion,
         CompletionChunk,
         Embedding,
+        ImageList,
     )
 
 
@@ -178,6 +179,38 @@ class ChatglmCppChatModelHandle(EmbeddingModelHandle):
         """
 
         coro = self._model_ref.chat(prompt, chat_history, generate_config)
+        return self._isolation.call(coro)
+
+
+class MultimodalModelHandle(ModelHandle):
+    def text_to_image(
+        self,
+        prompt: str,
+        n: int = 1,
+        size: str = "1024*1024",
+        response_format: str = "url",
+        **kwargs,
+    ) -> "ImageList":
+        """
+        Creates an image by the input text.
+
+        Parameters
+        ----------
+        prompt (`str` or `List[str]`, *optional*):
+            The prompt or prompts to guide image generation. If not defined, you need to pass `prompt_embeds`.
+        n (`int`, *optional*, defaults to 1):
+            The number of images to generate per prompt. Must be between 1 and 10.
+        size (`str`, *optional*, defaults to `1024*1024`):
+            The width*height in pixels of the generated image. Must be one of 256x256, 512x512, or 1024x1024.
+        response_format (`str`, *optional*, defaults to `url`):
+            The format in which the generated images are returned. Must be one of url or b64_json.
+        Returns
+        -------
+        ImageList
+            A list of image objects.
+        """
+
+        coro = self._model_ref.text_to_image(prompt, n, size, response_format, **kwargs)
         return self._isolation.call(coro)
 
 
@@ -680,6 +713,8 @@ class Client:
                 raise ValueError(f"Unrecognized model ability: {desc['model_ability']}")
         elif desc["model_type"] == "embedding":
             return EmbeddingModelHandle(model_ref, self._isolation)
+        elif desc["model_type"] == "multimodal":
+            return MultimodalModelHandle(model_ref, self._isolation)
         else:
             raise ValueError(f"Unknown model type:{desc['model_type']}")
 
