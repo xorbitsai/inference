@@ -217,6 +217,7 @@ $ xinference registrations
 | LLM  | llama-2-chat        | ['en']       | ['embed', 'chat']      |
 | LLM  | opt                 | ['en']       | ['embed', 'generate']  |
 | LLM  | orca                | ['en']       | ['embed', 'chat']      |
+| LLM  | phi1.5              | ['en']       | ['generate']           |
 | LLM  | qwen-chat           | ['en', 'zh'] | ['embed', 'chat']      |
 | LLM  | starchat-beta       | ['en']       | ['embed', 'chat']      |
 | LLM  | starcoder           | ['en']       | ['generate']           |
