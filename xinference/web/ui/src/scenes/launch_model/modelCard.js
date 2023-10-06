@@ -19,6 +19,9 @@ const ModelCard = ({ url, modelData }) => {
   const [selected, setSelected] = useState(false);
   const { isCallingApi, setIsCallingApi } = useContext(ApiContext);
   const { isUpdatingModel } = useContext(ApiContext);
+  const isMacLike = /(Mac|iPhone|iPod|iPad)/i.test(
+    window.navigator.userAgent.toLowerCase()
+  );
 
   // Model parameter selections
   const [modelFormat, setModelFormat] = useState("");
@@ -47,7 +50,7 @@ const ModelCard = ({ url, modelData }) => {
         ...new Set(
           modelFamily
             .filter((spec) => spec.model_format === modelFormat)
-            .map((spec) => spec.model_size_in_billions),
+            .map((spec) => spec.model_size_in_billions)
         ),
       ];
       setSizeOptions(sizes);
@@ -63,9 +66,9 @@ const ModelCard = ({ url, modelData }) => {
             .filter(
               (spec) =>
                 spec.model_format === modelFormat &&
-                spec.model_size_in_billions === parseFloat(modelSize),
+                spec.model_size_in_billions === parseFloat(modelSize)
             )
-            .flatMap((spec) => spec.quantizations),
+            .flatMap((spec) => spec.quantizations)
         ),
       ];
       setQuantizationOptions(quants);
@@ -363,11 +366,16 @@ const ModelCard = ({ url, modelData }) => {
                 onChange={(e) => setQuantization(e.target.value)}
                 label="Quantization"
               >
-                {quantizationOptions.map((quant) => (
-                  <MenuItem key={quant} value={quant}>
-                    {quant}
-                  </MenuItem>
-                ))}
+                {quantizationOptions
+                  .filter(
+                    (quant) =>
+                      !(isMacLike && (quant === "4-bit" || quant === "8-bit"))
+                  )
+                  .map((quant) => (
+                    <MenuItem key={quant} value={quant}>
+                      {quant}
+                    </MenuItem>
+                  ))}
               </Select>
             </FormControl>
           )}
