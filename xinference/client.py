@@ -514,9 +514,9 @@ class RESTfulChatglmCppChatModelHandle(RESTfulEmbeddingModelHandle):
         return response_data
 
 
-class Client:
+class ActorClient:
     def __init__(self, endpoint: str):
-        restful_client = RESTfulClient(endpoint)
+        restful_client = Client(endpoint)
         self._supervisor_address = restful_client._get_supervisor_internal_address()
         self._isolation = Isolation(asyncio.new_event_loop(), threaded=True)
         self._isolation.start()
@@ -756,7 +756,7 @@ class Client:
         return self._isolation.call(self._supervisor_ref.describe_model(model_uid))
 
 
-class RESTfulClient:
+class Client:
     def __init__(self, base_url):
         self.base_url = base_url
 
@@ -1095,3 +1095,7 @@ class RESTfulClient:
 
         response_data = response.json()
         return response_data
+
+
+# For compatibility
+RESTfulClient = Client

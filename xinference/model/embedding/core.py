@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import datetime
 import logging
 import os
 from typing import List, Optional, Tuple, Union, no_type_check
@@ -46,6 +47,9 @@ def cache(model_spec: EmbeddingModelSpec):
     )
     if not os.path.exists(cache_dir):
         os.makedirs(cache_dir, exist_ok=True)
+    meta_path = os.path.join(cache_dir, "__valid_download")
+    if os.path.exists(meta_path):
+        return cache_dir
     for current_attempt in range(1, MAX_ATTEMPTS + 1):
         try:
             huggingface_hub.snapshot_download(
@@ -54,8 +58,10 @@ def cache(model_spec: EmbeddingModelSpec):
                 local_dir=cache_dir,
                 local_dir_use_symlinks=True,
             )
+            with open(meta_path, "w") as f:
+                f.write(str(datetime.datetime.now()))
             break
-        except huggingface_hub.utils.LocalEntryNotFoundError:
+        except:
             remaining_attempts = MAX_ATTEMPTS - current_attempt
             logger.warning(
                 f"Attempt {current_attempt} failed. Remaining attempts: {remaining_attempts}"

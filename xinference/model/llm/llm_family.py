@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import datetime
 import logging
 import os
 import platform
@@ -176,6 +177,21 @@ def parse_uri(uri: str) -> Tuple[str, str]:
         if parsed.scheme == "" or len(parsed.scheme) == 1:  # len == 1 for windows
             scheme = "file"
         return scheme, path
+
+
+def is_valid_model_uri(model_uri: Optional[str]) -> bool:
+    if not model_uri:
+        return False
+
+    src_scheme, src_root = parse_uri(model_uri)
+
+    if src_scheme == "file":
+        if not os.path.isabs(src_root):
+            raise ValueError(f"Model URI cannot be a relative path: {model_uri}")
+        return os.path.exists(src_root)
+    else:
+        # TODO: handle other schemes.
+        return True
 
 
 SUPPORTED_SCHEMES = ["s3"]
@@ -450,15 +466,27 @@ def cache_from_modelscope(
 
     cache_dir = _get_cache_dir(llm_family, llm_spec)
     if llm_spec.model_format == "pytorch":
-        download_dir = snapshot_download(
-            llm_spec.model_id, revision=llm_spec.model_revision
+        meta_path = os.path.join(cache_dir, "__valid_download")
+        if os.path.exists(meta_path):
+            return cache_dir
+        download_dir = retry_download(
+            snapshot_download,
+            llm_family,
+            llm_spec,
+            llm_spec.model_id,
+            revision=llm_spec.model_revision,
         )
         for subdir, dirs, files in os.walk(download_dir):
             for file in files:
                 relpath = os.path.relpath(os.path.join(subdir, file), download_dir)
                 symlink_local_file(os.path.join(subdir, file), cache_dir, relpath)
+        with open(meta_path, "w") as f:
+            f.write(str(datetime.datetime.now()))
 
     elif llm_spec.model_format in ["ggmlv3", "ggufv2"]:
+        meta_path = os.path.join(cache_dir, f"__valid_download_{quantization}")
+        if os.path.exists(meta_path):
+            return cache_dir
         filename = llm_spec.model_file_name_template.format(quantization=quantization)
         download_path = retry_download(
             model_file_download,
@@ -469,6 +497,8 @@ def cache_from_modelscope(
             revision=llm_spec.model_revision,
         )
         symlink_local_file(download_path, cache_dir, filename)
+        with open(meta_path, "w") as f:
+            f.write(str(datetime.datetime.now()))
     else:
         raise ValueError(f"Unsupported format: {llm_spec.model_format}")
     return cache_dir
@@ -487,6 +517,9 @@ def cache_from_huggingface(
     cache_dir = _get_cache_dir(llm_family, llm_spec)
     if llm_spec.model_format == "pytorch":
         assert isinstance(llm_spec, PytorchLLMSpecV1)
+        meta_path = os.path.join(cache_dir, "__valid_download")
+        if os.path.exists(meta_path):
+            return cache_dir
 
         retry_download(
             huggingface_hub.snapshot_download,
@@ -497,9 +530,14 @@ def cache_from_huggingface(
             local_dir=cache_dir,
             local_dir_use_symlinks=True,
         )
+        with open(meta_path, "w") as f:
+            f.write(str(datetime.datetime.now()))
 
     elif llm_spec.model_format in ["ggmlv3", "ggufv2"]:
         assert isinstance(llm_spec, GgmlLLMSpecV1)
+        meta_path = os.path.join(cache_dir, f"__valid_download_{quantization}")
+        if os.path.exists(meta_path):
+            return cache_dir
         file_name = llm_spec.model_file_name_template.format(quantization=quantization)
         retry_download(
             huggingface_hub.hf_hub_download,
@@ -511,6 +549,8 @@ def cache_from_huggingface(
             local_dir=cache_dir,
             local_dir_use_symlinks=True,
         )
+        with open(meta_path, "w") as f:
+            f.write(str(datetime.datetime.now()))
     else:
         raise ValueError(f"Unsupported model format: {llm_spec.model_format}")
 
@@ -609,6 +649,11 @@ def register_llm(llm_family: LLMFamilyV1, persist: bool):
             f"Invalid model name {llm_family.model_name}. The model name must start with a letter"
             f" or a digit, and can only contain letters, digits, underscores, or dashes."
         )
+
+    for spec in llm_family.model_specs:
+        model_uri = spec.model_uri
+        if model_uri and not is_valid_model_uri(model_uri):
+            raise ValueError(f"Invalid model URI {model_uri}.")
 
     with UD_LLM_FAMILIES_LOCK:
         for family in BUILTIN_LLM_FAMILIES + UD_LLM_FAMILIES:
