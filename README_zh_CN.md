@@ -190,7 +190,7 @@ $ xinference registrations
 | LLM  | code-llama-python   | ['en']       | ['generate']           |
 | LLM  | falcon              | ['en']       | ['embed', 'generate']  |
 | LLM  | falcon-instruct     | ['en']       | ['embed', 'chat']      |
-| LLM  | glaive-coder        | ['en']       | ['chat']              |
+| LLM  | glaive-coder        | ['en']       | ['chat']               |
 | LLM  | gpt-2               | ['en']       | ['generate']           |
 | LLM  | internlm-7b         | ['en', 'zh'] | ['embed', 'generate']  |
 | LLM  | internlm-chat-7b    | ['en', 'zh'] | ['embed', 'chat']      |
@@ -199,6 +199,7 @@ $ xinference registrations
 | LLM  | llama-2-chat        | ['en']       | ['embed', 'chat']      |
 | LLM  | opt                 | ['en']       | ['embed', 'generate']  |
 | LLM  | orca                | ['en']       | ['embed', 'chat']      |
+| LLM  | phi1                | ['en']       | ['generate']           |
 | LLM  | phi1.5              | ['en']       | ['generate']           |
 | LLM  | qwen-chat           | ['en', 'zh'] | ['embed', 'chat']      |
 | LLM  | starchat-beta       | ['en']       | ['embed', 'chat']      |
