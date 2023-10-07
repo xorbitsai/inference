@@ -65,15 +65,11 @@ def get_context_length(config):
         return 2048
 
 
-def normalize_logits(
-    logits_processor: LogitsProcessorList, repetition_penalty: float, output_ids, logits
-):
+def normalize_logits(logits_processor: LogitsProcessorList, output_ids, logits):
     if logits_processor:
-        if repetition_penalty > 1.0:
-            tmp_output_ids = torch.as_tensor([output_ids], device=logits.device)
-        else:
-            tmp_output_ids = None
-        last_token_logits = logits_processor(tmp_output_ids, logits[:, -1, :])[0]
+        last_token_logits = logits_processor(
+            torch.as_tensor([output_ids], device=logits.device).long(), logits[:, -1, :]
+        )[0]
     else:
         last_token_logits = logits[0, -1, :]
 
@@ -175,7 +171,6 @@ def speculative_generate_stream(
             draft_token = sample(
                 normalize_logits(
                     logits_processor=logits_processor,
-                    repetition_penalty=repetition_penalty,
                     output_ids=output_ids,
                     logits=draft_model_out.logits,
                 ),
@@ -231,7 +226,6 @@ def speculative_generate_stream(
                 next_token = sample(
                     normalize_logits(
                         logits_processor=logits_processor,
-                        repetition_penalty=repetition_penalty,
                         output_ids=output_ids,
                         logits=logits[:, :draft_token_idx, :],
                     ),
@@ -246,7 +240,6 @@ def speculative_generate_stream(
             next_token = sample(
                 normalize_logits(
                     logits_processor=logits_processor,
-                    repetition_penalty=repetition_penalty,
                     output_ids=output_ids,
                     logits=logits,
                 ),
