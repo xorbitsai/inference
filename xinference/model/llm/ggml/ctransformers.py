@@ -42,10 +42,11 @@ MODEL_TYPE_FOR_CTRANSFORMERS = {
     "starcoder": "starcoder",
     "starchat": "starcoder",
     "falcon": "falcon",
+    "mistral-v0.1": "mistral",
 }
 
 # these two constants subjects to change for future development and ctransformers updates.
-CTRANSFORMERS_SUPPORTED_MODEL = ["starcoder", "gpt-2"]
+CTRANSFORMERS_SUPPORTED_MODEL = ["starcoder", "gpt-2", "mistral-v0.1"]
 
 CTRANSFORMERS_GPU_SUPPORT = ["llama", "llama-2", "mpt", "falcon"]
 
@@ -190,7 +191,7 @@ class CtransformersModel(LLM):
     def match(
         cls, llm_family: LLMFamilyV1, llm_spec: LLMSpecV1, quantization: str
     ) -> bool:
-        if llm_spec.model_format != "ggmlv3":
+        if llm_spec.model_format != "ggmlv3" and llm_spec.model_format != "ggufv2":
             return False
         if llm_family.model_name not in CTRANSFORMERS_SUPPORTED_MODEL:
             return False
