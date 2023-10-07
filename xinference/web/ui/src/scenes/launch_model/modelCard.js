@@ -19,9 +19,7 @@ const ModelCard = ({ url, modelData }) => {
   const [selected, setSelected] = useState(false);
   const { isCallingApi, setIsCallingApi } = useContext(ApiContext);
   const { isUpdatingModel } = useContext(ApiContext);
-  const isMacLike = /(Mac|iPhone|iPod|iPad)/i.test(
-    window.navigator.userAgent.toLowerCase()
-  );
+  const isMacLike = /(Mac|iPhone|iPod|iPad)/i.test(window.navigator.userAgent);
 
   // Model parameter selections
   const [modelFormat, setModelFormat] = useState("");
