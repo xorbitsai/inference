@@ -162,14 +162,15 @@ def speculative_generate_stream(
                 draft_model_out = draft_model(
                     torch.as_tensor([input_ids], device=device), use_cache=True
                 )
+                draft_logits = draft_model_out.logits
             else:
                 draft_model_out = draft_model(
                     torch.as_tensor([[draft_token]], device=device),
                     use_cache=True,
                     past_key_values=draft_model_kv_cache,
                 )
+                draft_logits = torch.cat((draft_logits, draft_model_out.logits), dim=1)
             draft_model_kv_cache = draft_model_out.past_key_values
-            draft_logits = draft_model_out.logits  # [1, n_seq, n_vocab]
             draft_token = sample(
                 normalize_logits(
                     logits_processor=logits_processor,
@@ -189,18 +190,19 @@ def speculative_generate_stream(
             out = model(torch.as_tensor([output_ids], device=device), use_cache=True)
         else:
             out = model(
-                torch.as_tensor([output_ids[:-num_draft_tokens]], device=device),
+                torch.as_tensor([output_ids[-num_draft_tokens:]], device=device),
                 use_cache=True,
                 past_key_values=kv_cache,
             )
         kv_cache = out.past_key_values
-        logits = out.logits  # [1, n_seq, n_vocab]
+        logits = out.logits
 
         accepted = 0
         assert draft_logits is not None
-        for draft_token_idx in range(
-            len(output_ids) - num_draft_tokens, len(output_ids)
-        ):
+        # TODO: remove
+        logger.info(f"draft logits shape: {draft_logits.shape}")
+        logger.info(f"logits shape: {logits.shape}")
+        for draft_token_idx in range(-num_draft_tokens, 0):
             r = torch.rand(1, device=device)
             draft_token = output_ids[draft_token_idx]
 
