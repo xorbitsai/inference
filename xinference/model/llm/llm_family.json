@@ -759,7 +759,7 @@
   {
     "version": 1,
     "context_length": 2048,
-    "model_name": "phi-1.5",
+    "model_name": "phi-1_5",
     "model_lang": [
       "en"
     ],
