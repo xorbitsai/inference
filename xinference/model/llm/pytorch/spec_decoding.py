@@ -132,7 +132,11 @@ def speculative_generate_stream(
         temperature, repetition_penalty, top_p, top_k
     )
 
-    input_ids = tokenizer(prompt, allowed_special="all").input_ids
+    if "qwen" in str(type(model)).lower():
+        # TODO: hacky
+        input_ids = tokenizer(prompt, allowed_special="all").input_ids
+    else:
+        input_ids = tokenizer(prompt).input_ids
     num_prompt_tokens = len(input_ids)
     output_ids = list(input_ids)
 
