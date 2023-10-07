@@ -149,7 +149,7 @@ def speculative_generate_stream(
     while len(output_ids) < max_tokens:
         num_draft_tokens = 0
         draft_logits = None
-        draft_token = None
+        draft_token = output_ids[-1]
         while num_draft_tokens < gamma:
             # allow the draft model to generate more than max_tokens since some of the generated
             # tokens could be rejected.
@@ -160,13 +160,24 @@ def speculative_generate_stream(
                     use_cache=True,
                 )
                 draft_logits = draft_model_out.logits
+                for i in range(draft_logits.shape[1]):
+                    draft_logits[:, i, :] = normalize_logits(
+                        logits_processor=logits_processor,
+                        output_ids=output_ids,
+                        logits=draft_logits[:, : i + 1, :],
+                    )
             else:
                 draft_model_out = draft_model(
                     torch.as_tensor([[draft_token]], device=draft_model.device),
                     use_cache=True,
                     past_key_values=draft_model_kv_cache,
                 )
-                draft_logits = torch.cat((draft_logits, draft_model_out.logits), dim=1)
+                normalized = normalize_logits(
+                    logits_processor=logits_processor,
+                    output_ids=output_ids,
+                    logits=draft_model_out.logits,
+                )
+                draft_logits = torch.cat((draft_logits, normalized), dim=1)
             draft_model_kv_cache = draft_model_out.past_key_values
             draft_token = sample(
                 normalize_logits(
@@ -194,6 +205,12 @@ def speculative_generate_stream(
             )
         kv_cache = out.past_key_values
         logits = out.logits
+        for i in range(logits.shape[1]):
+            logits[:, i, :] = normalize_logits(
+                logits_processor=logits_processor,
+                output_ids=output_ids,
+                logits=logits[:, : i + 1, :],
+            )
 
         assert draft_logits is not None
         # TODO: remove
