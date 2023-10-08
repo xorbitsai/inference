@@ -24,6 +24,25 @@ import icon from "../media/icon.webp";
 import { useLocation, useNavigate } from "react-router-dom";
 import { LanguageContext } from "../theme";
 
+const navItems = [
+  {
+    link: "launch_model",
+    icon: <RocketLaunchOutlined />,
+  },
+  {
+    link: "running_models",
+    icon: <SmartToyOutlined />,
+  },
+  {
+    link: "register_model",
+    icon: <AddBoxOutlined />,
+  },
+  {
+    link: "contact_us",
+    icon: <GitHub />,
+  },
+];
+
 const MenuSide = () => {
   const theme = useTheme();
   const { translation, translation_dict, language, setLanguage } =
@@ -35,27 +54,6 @@ const MenuSide = () => {
   const [drawerWidth, setDrawerWidth] = useState(
     `${Math.min(Math.max(window.innerWidth * 0.2, 287), 320)}px`
   );
-
-  const navItems = [
-    {
-      link: "launch_model",
-      icon: <RocketLaunchOutlined />,
-    },
-    {
-      link: "running_models",
-      icon: <SmartToyOutlined />,
-    },
-    {
-      link: "register_model",
-      icon: <AddBoxOutlined />,
-    },
-    {
-      link: "contact_us",
-      icon: <GitHub />,
-    },
-  ];
-
-  console.log(translation);
 
   useEffect(() => {
     setActive(pathname.substring(1));
