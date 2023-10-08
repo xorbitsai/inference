@@ -102,6 +102,10 @@ def rollback_kv_cache(
     return tuple(ret)
 
 
+def rollback_logits(logits: torch.Tensor, n: int):
+    return logits[:, :-n, :]  # [1, n_seq, n_vocab]
+
+
 @torch.inference_mode()
 def speculative_generate_stream(
     draft_model,
@@ -141,15 +145,18 @@ def speculative_generate_stream(
     input_ids = input_ids[-max_src_len:]
 
     draft_model_kv_cache = None
+    draft_logits = None
     kv_cache = None
+    logits = None
+
+    next_token = None
 
     num_total_draft_tokens = 0
     num_total_accepted_tokens = 0
 
     while len(output_ids) < max_tokens:
         num_draft_tokens = 0
-        draft_logits = None
-        draft_token = output_ids[-1]
+        draft_tokens = output_ids[-2:] if next_token is not None else output_ids[-1:]
         while num_draft_tokens < gamma:
             # allow the draft model to generate more than max_tokens since some of the generated
             # tokens could be rejected.
@@ -160,35 +167,34 @@ def speculative_generate_stream(
                     use_cache=True,
                 )
                 draft_logits = draft_model_out.logits
-                for i in range(draft_logits.shape[1]):
-                    draft_logits[:, i, :] = normalize_logits(
+                for i in range(draft_model_out.logits.shape[1]):
+                    normalized = normalize_logits(
                         logits_processor=logits_processor,
                         output_ids=output_ids,
-                        logits=draft_logits[:, : i + 1, :],
+                        logits=draft_model_out.logits[:, : i + 1, :],
                     )
+                    draft_logits[:, i, :] = normalized.clone()
             else:
                 draft_model_out = draft_model(
-                    torch.as_tensor([[draft_token]], device=draft_model.device),
+                    torch.as_tensor([draft_tokens], device=draft_model.device),
                     use_cache=True,
                     past_key_values=draft_model_kv_cache,
                 )
-                normalized = normalize_logits(
-                    logits_processor=logits_processor,
-                    output_ids=output_ids,
-                    logits=draft_model_out.logits,
-                )
-                draft_logits = torch.cat((draft_logits, normalized), dim=1)
+                for i in range(draft_model_out.logits.shape[1]):
+                    normalized = normalize_logits(
+                        logits_processor=logits_processor,
+                        output_ids=output_ids[:-len(draft_tokens) + i],
+                        logits=draft_model_out.logits[:, : i + 1, :],
+                    ).unsqueeze(0).unsqueeze(0)
+                    draft_logits = torch.cat((draft_logits, normalized), dim=1)
             draft_model_kv_cache = draft_model_out.past_key_values
             draft_token = sample(
-                normalize_logits(
-                    logits_processor=logits_processor,
-                    output_ids=output_ids,
-                    logits=draft_model_out.logits,
-                ),
+                draft_logits[:, -1, :][0],
                 temperature,
                 top_p,
             )
             output_ids.append(draft_token)
+            draft_tokens = [draft_token]
             num_draft_tokens += 1
             num_total_draft_tokens += 1
 
@@ -197,27 +203,32 @@ def speculative_generate_stream(
             out = model(
                 torch.as_tensor([output_ids], device=model.device), use_cache=True
             )
+            logits = out.logits
+            for i in range(logits.shape[1]):
+                normalized = normalize_logits(
+                    logits_processor=logits_processor,
+                    output_ids=output_ids[: len(output_ids) - num_draft_tokens + i],
+                    logits=logits[:, : i + 1, :],
+                )
+                logits[:, i, :] = normalized.clone()
         else:
             out = model(
-                torch.as_tensor([output_ids[-num_draft_tokens:]], device=model.device),
+                torch.as_tensor([[next_token] + output_ids[-num_draft_tokens:]], device=model.device),
                 use_cache=True,
                 past_key_values=kv_cache,
             )
+            for i in range(out.logits.shape[1]):
+                normalized = (
+                    normalize_logits(
+                        logits_processor=logits_processor,
+                        output_ids=output_ids[: len(output_ids) - num_draft_tokens + i],
+                        logits=out.logits[:, : i + 1, :],
+                    )
+                    .unsqueeze(0)
+                    .unsqueeze(0)
+                )
+                logits = torch.cat((logits, normalized), dim=1)
         kv_cache = out.past_key_values
-        logits = out.logits
-        for i in range(logits.shape[1]):
-            logits[:, i, :] = normalize_logits(
-                logits_processor=logits_processor,
-                output_ids=output_ids,
-                logits=logits[:, : i + 1, :],
-            )
-
-        assert draft_logits is not None
-        # TODO: remove
-        logger.info(f"draft logits shape: {draft_logits.shape}")
-        logger.info(f"logits shape: {logits.shape}")
-        if logits.device != draft_logits.device:
-            draft_logits = draft_logits.to(logits.device)
 
         accepted = 0
         for draft_token_idx in range(-num_draft_tokens, 0):
@@ -226,51 +237,43 @@ def speculative_generate_stream(
 
             if r < torch.min(
                 torch.tensor([1], device=device),
-                draft_logits[0, draft_token_idx, draft_token]
-                / logits[0, draft_token_idx, draft_token],
+                draft_logits.to(logits.device)[0, draft_token_idx, draft_token]
+                / logits[0, draft_token_idx - 1, draft_token],
             ):
                 accepted += 1
                 num_total_accepted_tokens += 1
             else:
                 # rollback.
+                logger.error(
+                    f"Rolling back {num_draft_tokens - accepted} "
+                    f"tokens: {tokenizer.decode(output_ids[: draft_token_idx])} "
+                    f"| {tokenizer.decode(output_ids[draft_token_idx:])}")
                 output_ids = output_ids[:draft_token_idx]
-                assert draft_model_kv_cache is not None
                 draft_model_kv_cache = rollback_kv_cache(
                     draft_model_kv_cache, num_draft_tokens - accepted
                 )
                 kv_cache = rollback_kv_cache(kv_cache, num_draft_tokens - accepted)
-
-                next_token = sample(
-                    normalize_logits(
-                        logits_processor=logits_processor,
-                        output_ids=output_ids,
-                        logits=logits[:, :draft_token_idx, :],
-                    ),
-                    temperature,
-                    top_p,
+                draft_logits = rollback_logits(
+                    draft_logits, num_draft_tokens - accepted
                 )
-                output_ids.append(next_token)
+                logits = rollback_logits(logits, num_draft_tokens - accepted)
                 break
 
-        logger.info(f"{accepted}/{num_draft_tokens} draft tokens are accepted")
-        if accepted == num_draft_tokens:
-            next_token = sample(
-                normalize_logits(
-                    logits_processor=logits_processor,
-                    output_ids=output_ids,
-                    logits=logits,
-                ),
-                temperature,
-                top_p,
-            )
-            output_ids.append(next_token)
+        next_token = sample(
+            logits[:, -1, :][0],
+            temperature,
+            top_p,
+        )
+        output_ids.append(next_token)
 
-    logger.info(
+        logger.error(f"{accepted}/{num_draft_tokens} draft tokens are accepted")
+
+    logger.debug(
         f"In total, {num_total_accepted_tokens}/{num_total_draft_tokens} draft tokens are "
         f"accepted, acceptance rate: {num_total_accepted_tokens / num_total_draft_tokens:.2f}"
     )
 
-    output_ids = output_ids[: min(max_tokens, len(output_ids))]
+    output_ids = output_ids[num_prompt_tokens : min(max_tokens, len(output_ids))]
     output = tokenizer.decode(
         output_ids,
         skip_special_tokens=True,
