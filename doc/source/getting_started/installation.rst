@@ -3,20 +3,61 @@
 ============
 Installation
 ============
+Xinference can be installed with ``pip`` on Linux, Windows, and MacOS. To run models using Xinference, you will need to install the backend corresponding to the type of model you intend to serve.
+
+If you aim to serve all supported models, you can install all the necessary dependencies with a single command::
+
+   pip install "xinference[all]"
+
+If you want to install only the necessary backends, here's a breakdown of how to do it.
+
+Transformers Backend
+~~~~~~~~~~~~~~~~~~~~
+PyTorch (transformers) supports the inference of most state-of-art models. It is the default backend for models in PyTorch format::
+
+   pip install "xinference[transformers]"
 
 
-Installing from PyPI
-====================
+vLLM Backend
+~~~~~~~~~~~~
+vLLM is a fast and easy-to-use library for LLM inference and serving. Xinference will choose vLLM as the backend to achieve better throughput when the following conditions are met:
 
-Xinference can be installed with ``pip`` on Linux, Windows and MacOS.
-The easiest way to install the latest version of ``Xinference`` is by running the following::
+- The model format is PyTorch
+- The quantization method is none
+- The system is Linux and has at least one CUDA device
+- The model is within the list of models supported by vLLM.
 
-    pip install xinference
-  
+Currently, supported models include:
 
-Xinference can be used with Pytorch, GGML engines. If you don't have Pytorch, GGML installed, 
-you will need to install Xinference with one of those targets::
+- ``llama-2``, ``llama-2-chat``
+- ``baichuan``, ``baichuan-chat``
+- ``internlm``, ``internlm-20b``, ``internlm-chat``, ``internlm-chat-20b``
+- ``vicuna-v1.3``, ``vicuna-v1.5``
 
-    pip install "xinference[pytorch]"
-    pip install "xinference[ggml]"
+To install Xinference and vLLM::
 
+   pip install "xinference[vllm]"
+
+
+GGML Backend
+~~~~~~~~~~~~
+It's advised to install the GGML dependencies manually based on your hardware specifications to enable acceleration.
+
+Initial setup::
+
+   pip install xinference
+   pip install ctransformers
+
+Hardware-Specific installations:
+
+- Apple Silicon::
+
+   CMAKE_ARGS="-DLLAMA_METAL=on" pip install llama-cpp-python
+
+- Nvidia cards::
+
+   CMAKE_ARGS="-DLLAMA_CUBLAS=on" pip install llama-cpp-python
+
+- AMD cards::
+
+   CMAKE_ARGS="-DLLAMA_HIPBLAS=on" pip install llama-cpp-python
