@@ -13,12 +13,14 @@
 # limitations under the License.
 import base64
 import os.path
+import requests
 from io import BytesIO
 
 from PIL import Image
 
 from ..core import MultimodalModelFamilyV1, cache
 from ..stable_diffusion.core import DiffusionModel
+from .. import BUILTIN_MULTIMODAL_MODELS
 
 TEST_MODEL_SPEC = MultimodalModelFamilyV1(
     model_family="stable_diffusion",
@@ -43,3 +45,44 @@ def test_model():
     image_bytes = base64.decodebytes(b64_json)
     img = Image.open(BytesIO(image_bytes))
     assert img.size == (256, 256)
+
+
+def test_restful_api_for_multimodal(setup):
+    model_name = "stable-diffusion-v1-5"
+    model_spec = BUILTIN_MULTIMODAL_MODELS[model_name]
+
+    endpoint, _ = setup
+    url = f"{endpoint}/v1/models"
+
+    # list
+    response = requests.get(url)
+    response_data = response.json()
+    assert len(response_data) == 0
+
+    # launch
+    payload = {
+        "model_uid": "test_stable_diffusion",
+        "model_name": model_name,
+        "model_type": "multimodal",
+    }
+
+    response = requests.post(url, json=payload)
+    response_data = response.json()
+    model_uid_res = response_data["model_uid"]
+    assert model_uid_res == "test_stable_diffusion"
+
+    response = requests.get(url)
+    response_data = response.json()
+    assert len(response_data) == 1
+
+    # test embedding
+    url = f"{endpoint}/v1/images/generations"
+    payload = {
+        "model": "test_stable_diffusion",
+        "prompt": "an apple",
+        "size": "256*256",
+    }
+    response = requests.post(url, json=payload)
+    r = response.json()
+    assert len(r["data"]) == 1
+    assert os.path.exists(r["data"][0]["url"])
