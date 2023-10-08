@@ -11,11 +11,35 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import configparser
+import logging
 import time
 
 import pytest_asyncio
 import xoscar as xo
+
+TEST_LOGGING_CONF = """[loggers]
+keys=root
+
+[handlers]
+keys=stream_handler
+
+[formatters]
+keys=formatter
+
+[logger_root]
+level=DEBUG
+handlers=stream_handler
+
+[handler_stream_handler]
+class=StreamHandler
+formatter=formatter
+level=DEBUG
+args=(sys.stderr,)
+
+[formatter_formatter]
+format=%(asctime)s %(name)-12s %(process)d %(levelname)-8s %(message)s
+"""
 
 
 @pytest_asyncio.fixture
@@ -24,8 +48,13 @@ async def setup():
     from .deploy.utils import create_worker_actor_pool
     from .deploy.worker import start_worker_components
 
+    logging_conf = configparser.RawConfigParser()
+    logging_conf.read_string(TEST_LOGGING_CONF)
+    logging.config.fileConfig(logging_conf)  # type: ignore
+
     pool = await create_worker_actor_pool(
-        f"test://127.0.0.1:{xo.utils.get_next_port()}"
+        address=f"test://127.0.0.1:{xo.utils.get_next_port()}",
+        logging_conf=logging_conf,
     )
     print(f"Pool running on localhost:{pool.external_address}")
 
