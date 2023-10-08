@@ -27,7 +27,7 @@ MAX_ATTEMPTS = 3
 logger = logging.getLogger(__name__)
 
 
-class MultimodalModelSpec(BaseModel):
+class MultimodalModelFamilyV1(BaseModel):
     model_family: str
     model_name: str
     model_id: str
@@ -35,7 +35,7 @@ class MultimodalModelSpec(BaseModel):
 
 
 class MultimodalModelDescription(ModelDescription):
-    def __init__(self, model_spec: MultimodalModelSpec):
+    def __init__(self, model_spec: MultimodalModelFamilyV1):
         self._model_spec = model_spec
 
     def to_dict(self):
@@ -47,7 +47,7 @@ class MultimodalModelDescription(ModelDescription):
         }
 
 
-def match_diffusion(model_name: str) -> MultimodalModelSpec:
+def match_diffusion(model_name: str) -> MultimodalModelFamilyV1:
     from . import BUILTIN_MULTIMODAL_MODELS
 
     if model_name in BUILTIN_MULTIMODAL_MODELS:
@@ -59,7 +59,7 @@ def match_diffusion(model_name: str) -> MultimodalModelSpec:
         )
 
 
-def cache(model_spec: MultimodalModelSpec):
+def cache(model_spec: MultimodalModelFamilyV1):
     # TODO: cache from uri
     import huggingface_hub
 

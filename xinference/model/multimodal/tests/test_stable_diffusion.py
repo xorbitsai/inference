@@ -17,10 +17,10 @@ from io import BytesIO
 
 from PIL import Image
 
-from ..core import MultimodalModelSpec, cache
+from ..core import MultimodalModelFamilyV1, cache
 from ..stable_diffusion.core import DiffusionModel
 
-TEST_MODEL_SPEC = MultimodalModelSpec(
+TEST_MODEL_SPEC = MultimodalModelFamilyV1(
     model_family="stable_diffusion",
     model_name="small-stable-diffusion-v0",
     model_id="OFA-Sys/small-stable-diffusion-v0",

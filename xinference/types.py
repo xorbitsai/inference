@@ -23,6 +23,7 @@ class Image(TypedDict):
 
 
 class ImageList(TypedDict):
+    created: int
     data: List[Image]
 
 
