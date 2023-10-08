@@ -217,6 +217,9 @@ class LlamaCppModel(LLM):
         if self.model_spec.model_format == "ggmlv3":
             model_path = self._convert_ggml_to_gguf(model_path)
 
+        # TODO: for debugging
+        logger.info(f"Model path exists: {os.path.exists(model_path)}")
+        logger.info(f"Model path ls: {os.listdir(os.path.dirname(model_path))}")
         try:
             self._llm = Llama(
                 model_path=model_path,
