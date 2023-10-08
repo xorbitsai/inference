@@ -468,6 +468,7 @@ def cache_from_modelscope(
     if llm_spec.model_format == "pytorch":
         meta_path = os.path.join(cache_dir, "__valid_download")
         if os.path.exists(meta_path):
+            logger.info(f"Cache {cache_dir} exists")
             return cache_dir
         download_dir = retry_download(
             snapshot_download,
@@ -486,6 +487,7 @@ def cache_from_modelscope(
     elif llm_spec.model_format in ["ggmlv3", "ggufv2"]:
         meta_path = os.path.join(cache_dir, f"__valid_download_{quantization}")
         if os.path.exists(meta_path):
+            logger.info(f"Cache {cache_dir} exists")
             return cache_dir
         filename = llm_spec.model_file_name_template.format(quantization=quantization)
         download_path = retry_download(
@@ -519,6 +521,7 @@ def cache_from_huggingface(
         assert isinstance(llm_spec, PytorchLLMSpecV1)
         meta_path = os.path.join(cache_dir, "__valid_download")
         if os.path.exists(meta_path):
+            logger.info(f"Cache {cache_dir} exists")
             return cache_dir
 
         retry_download(
@@ -537,6 +540,7 @@ def cache_from_huggingface(
         assert isinstance(llm_spec, GgmlLLMSpecV1)
         meta_path = os.path.join(cache_dir, f"__valid_download_{quantization}")
         if os.path.exists(meta_path):
+            logger.info(f"Cache {cache_dir} exists")
             return cache_dir
         file_name = llm_spec.model_file_name_template.format(quantization=quantization)
         retry_download(
