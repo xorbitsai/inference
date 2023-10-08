@@ -1,7 +1,7 @@
 import React, { useState, useContext } from "react";
 import TextField from "@mui/material/TextField";
 import Button from "@mui/material/Button";
-import { ApiContext } from "../../components/apiContext";
+import { useMode, ApiContext } from "../../theme";
 import {
   Box,
   Checkbox,
@@ -11,7 +11,6 @@ import {
   RadioGroup,
   FormControl,
 } from "@mui/material";
-import { useMode } from "../../theme";
 import Title from "../../components/Title";
 
 const SUPPORTED_LANGUAGES_DICT = { en: "English", zh: "Chinese" };
@@ -22,7 +21,7 @@ const SUPPORTED_LANGUAGES = Object.keys(SUPPORTED_LANGUAGES_DICT);
 
 const RegisterModel = () => {
   const ERROR_COLOR = useMode();
-  const endPoint = useContext(ApiContext).endPoint;
+  const { endPoint } = useContext(ApiContext);
   const [errorMessage, setErrorMessage] = useState("");
   const [modelFormat, setModelFormat] = useState("pytorch");
   const [modelSize, setModelSize] = useState(7);
@@ -102,11 +101,11 @@ const RegisterModel = () => {
   // 1. Starts with an alphanumeric character (a letter or a digit).
   // 2. Followed by any number of alphanumeric characters, underscores (_), or hyphens (-).
   const errorModelName = !/^[A-Za-z0-9][A-Za-z0-9_-]*$/.test(
-    formData.model_name,
+    formData.model_name
   );
   const errorModelDescription =
     !/^[A-Za-z0-9\s!"#$%&'()*+,-./:;<=>?@[\]^_`{|}~]{0,500}$/.test(
-      formData.model_description,
+      formData.model_description
     );
   const errorContextLength = formData.context_length === 0;
   const errorLanguage =
@@ -137,10 +136,10 @@ const RegisterModel = () => {
     const normalizedPath = path.replace(/\\/g, "/");
     const baseDir = normalizedPath.substring(
       0,
-      normalizedPath.lastIndexOf("/"),
+      normalizedPath.lastIndexOf("/")
     );
     const filename = normalizedPath.substring(
-      normalizedPath.lastIndexOf("/") + 1,
+      normalizedPath.lastIndexOf("/") + 1
     );
     return { baseDir, filename };
   };
@@ -200,12 +199,12 @@ const RegisterModel = () => {
         throw new Error(
           `Server error: ${response.status} - ${
             errorData.detail || "Unknown error"
-          }`,
+          }`
         );
       }
 
       setErrorMessage(
-        "Model has been registered successfully! Navigate to launch model page to proceed.",
+        "Model has been registered successfully! Navigate to launch model page to proceed."
       );
     } catch (error) {
       console.error("There was a problem with the fetch operation:", error);
@@ -421,7 +420,7 @@ const RegisterModel = () => {
                 control={
                   <Checkbox
                     checked={formData.model_ability.includes(
-                      ability.toLowerCase(),
+                      ability.toLowerCase()
                     )}
                     onChange={() => toggleAbility(ability.toLowerCase())}
                     name={ability}

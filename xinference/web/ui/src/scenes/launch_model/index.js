@@ -2,15 +2,13 @@ import React, { useContext, useState, useEffect } from "react";
 import ModelCard from "./modelCard";
 import Title from "../../components/Title";
 import { Box, TextField, FormControl } from "@mui/material";
-import { ApiContext } from "../../components/apiContext";
+import { ApiContext } from "../../theme";
 
 const LaunchModel = () => {
-  let endPoint = useContext(ApiContext).endPoint;
-  const [registrationData, setRegistrationData] = useState([]);
-  const { isCallingApi, setIsCallingApi } = useContext(ApiContext);
-  const { isUpdatingModel } = useContext(ApiContext);
+  const { endPoint, isCallingApi, setIsCallingApi, isUpdatingModel } =
+    useContext(ApiContext);
 
-  // States used for filtering
+  const [registrationData, setRegistrationData] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
 
   const handleChange = (event) => {
@@ -53,14 +51,14 @@ const LaunchModel = () => {
             `${endPoint}/v1/model_registrations/LLM/${registration.model_name}`,
             {
               method: "GET",
-            },
+            }
           );
 
           return {
             ...(await desc.json()),
             is_builtin: registration.is_builtin,
           };
-        }),
+        })
       );
 
       setRegistrationData(newRegistrationData);

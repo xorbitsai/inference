@@ -1,6 +1,6 @@
 import React, { useState, useContext, useEffect } from "react";
 import { v1 as uuidv1 } from "uuid";
-import { ApiContext } from "../../components/apiContext";
+import { ApiContext } from "../../theme";
 import { FormControl, InputLabel, Select, MenuItem, Box } from "@mui/material";
 import { CircularProgress } from "@mui/material";
 import {
@@ -15,10 +15,11 @@ const CARD_HEIGHT = 350;
 const CARD_WIDTH = 270;
 
 const ModelCard = ({ url, modelData }) => {
+  const { isCallingApi, setIsCallingApi, isUpdatingModel } =
+    useContext(ApiContext);
+
   const [hover, setHover] = useState(false);
   const [selected, setSelected] = useState(false);
-  const { isCallingApi, setIsCallingApi } = useContext(ApiContext);
-  const { isUpdatingModel } = useContext(ApiContext);
 
   // Model parameter selections
   const [modelFormat, setModelFormat] = useState("");
@@ -47,7 +48,7 @@ const ModelCard = ({ url, modelData }) => {
         ...new Set(
           modelFamily
             .filter((spec) => spec.model_format === modelFormat)
-            .map((spec) => spec.model_size_in_billions),
+            .map((spec) => spec.model_size_in_billions)
         ),
       ];
       setSizeOptions(sizes);
@@ -63,9 +64,9 @@ const ModelCard = ({ url, modelData }) => {
             .filter(
               (spec) =>
                 spec.model_format === modelFormat &&
-                spec.model_size_in_billions === parseFloat(modelSize),
+                spec.model_size_in_billions === parseFloat(modelSize)
             )
-            .flatMap((spec) => spec.quantizations),
+            .flatMap((spec) => spec.quantizations)
         ),
       ];
       setQuantizationOptions(quants);

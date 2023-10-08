@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useContext } from "react";
 import {
   Box,
   Drawer,
@@ -7,6 +7,8 @@ import {
   ListItemButton,
   ListItemIcon,
   ListItemText,
+  Select,
+  MenuItem,
   Typography,
   useTheme,
 } from "@mui/material";
@@ -14,39 +16,46 @@ import {
   ChevronRightOutlined,
   RocketLaunchOutlined,
   SmartToyOutlined,
+  TranslateOutlined,
   AddBoxOutlined,
   GitHub,
 } from "@mui/icons-material";
 import icon from "../media/icon.webp";
 import { useLocation, useNavigate } from "react-router-dom";
-
-const navItems = [
-  {
-    text: "Launch Model",
-    icon: <RocketLaunchOutlined />,
-  },
-  {
-    text: "Running Models",
-    icon: <SmartToyOutlined />,
-  },
-  {
-    text: "Register Model",
-    icon: <AddBoxOutlined />,
-  },
-  {
-    text: "Contact Us",
-    icon: <GitHub />,
-  },
-];
+import { LanguageContext } from "../theme";
 
 const MenuSide = () => {
   const theme = useTheme();
+  const { translation, translation_dict, language, setLanguage } =
+    useContext(LanguageContext);
+
   const { pathname } = useLocation();
   const [active, setActive] = useState("");
   const navigate = useNavigate();
   const [drawerWidth, setDrawerWidth] = useState(
-    `${Math.min(Math.max(window.innerWidth * 0.2, 287), 320)}px`,
+    `${Math.min(Math.max(window.innerWidth * 0.2, 287), 320)}px`
   );
+
+  const navItems = [
+    {
+      link: "launch_model",
+      icon: <RocketLaunchOutlined />,
+    },
+    {
+      link: "running_models",
+      icon: <SmartToyOutlined />,
+    },
+    {
+      link: "register_model",
+      icon: <AddBoxOutlined />,
+    },
+    {
+      link: "contact_us",
+      icon: <GitHub />,
+    },
+  ];
+
+  console.log(translation);
 
   useEffect(() => {
     setActive(pathname.substring(1));
@@ -62,7 +71,7 @@ const MenuSide = () => {
       const newScreenWidth = window.innerWidth;
       const newMaxDrawerWidth = Math.min(
         Math.max(newScreenWidth * 0.2, 287),
-        320,
+        320
       );
       setDrawerWidth(`${newMaxDrawerWidth}px`);
     };
@@ -118,31 +127,32 @@ const MenuSide = () => {
         </Box>
       </Box>
 
+      {/* Pages or Screens */}
       <Box>
         <Box width="100%">
           <Box m="1.5rem 2rem 2rem 3rem"></Box>
           <List>
-            {navItems.map(({ text, icon }) => {
+            {navItems.map(({ link, icon }) => {
               if (!icon) {
                 return (
-                  <Typography key={text} sx={{ m: "2.25rem 0 1rem 3rem" }}>
-                    {text}
+                  <Typography
+                    key={translation.page_title[link]}
+                    sx={{ m: "2.25rem 0 1rem 3rem" }}
+                  >
+                    {translation.page_title[link]}
                   </Typography>
                 );
               }
 
-              const link = text.toLowerCase().replace(" ", "_");
-              console.log(link);
-
               return (
-                <ListItem key={text}>
+                <ListItem key={translation.page_title[link]}>
                   <ListItemButton
                     onClick={() => {
                       if (link === "contact_us") {
                         window.open(
                           "https://github.com/xorbitsai/inference",
                           "_blank",
-                          "noreferrer",
+                          "noreferrer"
                         );
                       } else if (link === "launch_model") {
                         navigate(`/`);
@@ -162,12 +172,55 @@ const MenuSide = () => {
                     >
                       {icon}
                     </ListItemIcon>
-                    <ListItemText primary={text} />
+                    <ListItemText primary={translation.page_title[link]} />
                     <ChevronRightOutlined sx={{ ml: "auto" }} />
                   </ListItemButton>
                 </ListItem>
               );
             })}
+
+            {/* Translation */}
+            <ListItem key="translation">
+              <ListItemButton
+                onClick={() => {}}
+                disableRipple={true}
+                sx={{
+                  "&:hover": {
+                    backgroundColor: "transparent",
+                  },
+                }}
+              >
+                <ListItemIcon
+                  sx={{
+                    ml: "2rem",
+                    mr: "-0.4rem",
+                  }}
+                >
+                  <TranslateOutlined />
+                </ListItemIcon>
+                <Select
+                  value={language}
+                  onChange={(event) => setLanguage(event.target.value)}
+                  variant="outlined"
+                  displayEmpty
+                  sx={{
+                    "& .MuiOutlinedInput-input": {
+                      padding: "10px 0px 10px 14px",
+                      height: "fit-content",
+                    },
+                    "& .MuiOutlinedInput-root": {
+                      marginLeft: "-14px",
+                    },
+                  }}
+                >
+                  {Object.keys(translation_dict).map((lang) => (
+                    <MenuItem key={lang} value={lang}>
+                      {lang}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </ListItemButton>
+            </ListItem>
           </List>
         </Box>
       </Box>

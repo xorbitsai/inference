@@ -1,16 +1,21 @@
 import React, { useEffect, useState, useContext } from "react";
 import { Box, Stack } from "@mui/material";
-import { ApiContext } from "../../components/apiContext";
+import { ApiContext } from "../../theme";
 import { DataGrid } from "@mui/x-data-grid";
 import Title from "../../components/Title";
 import OpenInBrowserOutlinedIcon from "@mui/icons-material/OpenInBrowserOutlined";
 import DeleteOutlineOutlinedIcon from "@mui/icons-material/DeleteOutlineOutlined";
 
 const RunningModels = () => {
+  const {
+    endPoint,
+    isCallingApi,
+    setIsCallingApi,
+    isUpdatingModel,
+    setIsUpdatingModel,
+  } = useContext(ApiContext);
+
   const [modelData, setModelData] = useState([]);
-  const { isCallingApi, setIsCallingApi } = useContext(ApiContext);
-  const { isUpdatingModel, setIsUpdatingModel } = useContext(ApiContext);
-  const endPoint = useContext(ApiContext).endPoint;
 
   const update = (isCallingApi) => {
     if (isCallingApi) {
@@ -128,7 +133,7 @@ const RunningModels = () => {
                       })
                         .then((response) => response.json())
                         .then(() =>
-                          window.open(openUrl, "_blank", "noopener noreferrer"),
+                          window.open(openUrl, "_blank", "noopener noreferrer")
                         )
                         .finally(() => setIsCallingApi(false));
                     } else if (response.ok) {
@@ -139,7 +144,7 @@ const RunningModels = () => {
                     } else {
                       // Other HTTP errors
                       console.error(
-                        `Unexpected response status: ${response.status}`,
+                        `Unexpected response status: ${response.status}`
                       );
                       setIsCallingApi(false);
                     }
