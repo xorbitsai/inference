@@ -9,6 +9,10 @@ If you aim to serve all supported models, you can install all the necessary depe
 
    pip install "xinference[all]"
 
+.. note::
+   If you want to serve models in GGML format, tt's advised to install the GGML dependencies manually based on your hardware specifications to enable acceleration. For more details, see the :ref:`installation_ggml` section.
+
+
 If you want to install only the necessary backends, here's a breakdown of how to do it.
 
 Transformers Backend
@@ -38,6 +42,7 @@ To install Xinference and vLLM::
 
    pip install "xinference[vllm]"
 
+.. _installation_ggml:
 
 GGML Backend
 ~~~~~~~~~~~~
