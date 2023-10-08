@@ -123,6 +123,15 @@ class SupervisorActor(xo.Actor):
             ret.sort(key=sort_helper)
 
             return ret
+        elif model_type == "embedding":
+            from ..model.embedding import BUILTIN_EMBEDDING_MODELS
+
+            ret = [
+                {"model_name": f.model_name, "is_builtin": True}
+                for f in BUILTIN_EMBEDDING_MODELS.values()
+            ]
+            ret.sort(key=lambda x: x["model_name"].lower())
+            return ret
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
 
@@ -137,6 +146,13 @@ class SupervisorActor(xo.Actor):
                 if f.model_name == model_name:
                     return f
 
+            raise ValueError(f"Model {model_name} not found")
+        if model_type == "embedding":
+            from ..model.embedding import BUILTIN_EMBEDDING_MODELS
+
+            for f in BUILTIN_EMBEDDING_MODELS.values():
+                if f.model_name == model_name:
+                    return f
             raise ValueError(f"Model {model_name} not found")
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
