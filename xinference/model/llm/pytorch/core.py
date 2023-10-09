@@ -16,6 +16,8 @@ import logging
 import os
 from typing import Iterator, List, Optional, TypedDict, Union
 
+from xinference_client.handler.types import PytorchGenerateConfig
+
 from ....types import (
     ChatCompletion,
     ChatCompletionChunk,
@@ -31,20 +33,6 @@ from ..llm_family import LLMFamilyV1, LLMSpecV1
 from ..utils import ChatModelMixin
 
 logger = logging.getLogger(__name__)
-
-
-class PytorchGenerateConfig(TypedDict, total=False):
-    temperature: float
-    repetition_penalty: float
-    top_p: float
-    top_k: int
-    stream: bool
-    max_tokens: int
-    echo: bool
-    stop: Optional[Union[str, List[str]]]
-    stop_token_ids: Optional[Union[int, List[int]]]
-    stream_interval: int
-    model: Optional[str]
 
 
 class PytorchModelConfig(TypedDict, total=False):

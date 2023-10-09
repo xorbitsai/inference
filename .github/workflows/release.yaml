@@ -1,9 +1,6 @@
 name: Build and upload to PyPI
 
 on:
-  schedule:
-    # trigger build every day at 4:30 UTC
-    - cron: '30 4 * * *'
   push:
     tags:
       - '*'
