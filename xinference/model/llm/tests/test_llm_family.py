@@ -27,6 +27,10 @@ from ..llm_family import (
     LLMFamilyV1,
     PromptStyleV1,
     PytorchLLMSpecV1,
+    _generate_meta_file,
+    _get_cache_dir,
+    _get_meta_path,
+    _skip_download,
     is_locale_chinese_simplified,
     is_self_hosted,
     is_valid_model_uri,
@@ -649,3 +653,155 @@ def test_is_valid_file_uri():
     with tempfile.NamedTemporaryFile() as tmp_file:
         assert is_valid_model_uri(f"file://{tmp_file.name}") is True
     assert is_valid_model_uri(f"file://{tmp_file.name}") is False
+
+
+def test_skip_download_pytorch():
+    hf_spec = PytorchLLMSpecV1(
+        model_format="pytorch",
+        model_size_in_billions=3,
+        quantizations=["int8", "int4", "none"],
+        model_id="example/TestModel",
+        model_hub="huggingface",
+        model_revision="456",
+    )
+    ms_spec = PytorchLLMSpecV1(
+        model_format="pytorch",
+        model_size_in_billions=3,
+        quantizations=["int8", "int4", "none"],
+        model_id="example/TestModel",
+        model_hub="modelscope",
+        model_revision="456",
+    )
+    prompt_style = PromptStyleV1(
+        style_name="ADD_COLON_SINGLE",
+        system_prompt=(
+            "A chat between a curious human and an artificial intelligence assistant. The "
+            "assistant gives helpful, detailed, and polite answers to the human's questions."
+        ),
+        roles=["user", "assistant"],
+        intra_message_sep="\n### ",
+        inter_message_sep="\n### ",
+    )
+    llm_family = LLMFamilyV1(
+        version=1,
+        model_type="LLM",
+        model_name="test_skip_download_pytorch",
+        model_lang=["en"],
+        model_ability=["embed", "generate"],
+        model_specs=[hf_spec, ms_spec],
+        prompt_style=prompt_style,
+    )
+
+    cache_dir = _get_cache_dir(llm_family, hf_spec)
+
+    hf_meta_path = _get_meta_path(
+        cache_dir, hf_spec.model_format, hf_spec.model_hub, quantization=None
+    )
+    ms_meta_path = _get_meta_path(
+        cache_dir, ms_spec.model_format, ms_spec.model_hub, quantization=None
+    )
+
+    # since huggingface meta file exists, skip for both.
+    _generate_meta_file(hf_meta_path, llm_family, hf_spec, quantization=None)
+    assert os.path.exists(hf_meta_path)
+    try:
+        assert _skip_download(
+            cache_dir, hf_spec.model_format, hf_spec.model_hub, quantization=None
+        )
+        assert _skip_download(
+            cache_dir, ms_spec.model_format, ms_spec.model_hub, quantization=None
+        )
+    finally:
+        os.remove(hf_meta_path)
+        assert not os.path.exists(hf_meta_path)
+
+    # since modelscope meta file exists, skip for both.
+    _generate_meta_file(ms_meta_path, llm_family, ms_spec, quantization=None)
+    assert os.path.exists(ms_meta_path)
+    try:
+        assert _skip_download(
+            cache_dir, hf_spec.model_format, hf_spec.model_hub, quantization=None
+        )
+        assert _skip_download(
+            cache_dir, ms_spec.model_format, ms_spec.model_hub, quantization=None
+        )
+    finally:
+        os.remove(ms_meta_path)
+        assert not os.path.exists(ms_meta_path)
+
+
+def test_skip_download_ggml():
+    hf_spec = GgmlLLMSpecV1(
+        model_format="ggmlv3",
+        model_size_in_billions=2,
+        quantizations=["q4_0", "q4_1"],
+        model_id="example/TestModel",
+        model_hub="huggingface",
+        model_revision="123",
+        model_file_name_template="TestModel.{quantization}.ggmlv3.bin",
+    )
+    ms_spec = GgmlLLMSpecV1(
+        model_format="ggmlv3",
+        model_size_in_billions=2,
+        quantizations=["q4_0", "q4_1"],
+        model_id="example/TestModel",
+        model_hub="modelscope",
+        model_revision="123",
+        model_file_name_template="TestModel.{quantization}.ggmlv3.bin",
+    )
+    prompt_style = PromptStyleV1(
+        style_name="ADD_COLON_SINGLE",
+        system_prompt=(
+            "A chat between a curious human and an artificial intelligence assistant. The "
+            "assistant gives helpful, detailed, and polite answers to the human's questions."
+        ),
+        roles=["user", "assistant"],
+        intra_message_sep="\n### ",
+        inter_message_sep="\n### ",
+    )
+    llm_family = LLMFamilyV1(
+        version=1,
+        model_type="LLM",
+        model_name="test_skip_download_ggml",
+        model_lang=["en"],
+        model_ability=["embed", "generate"],
+        model_specs=[hf_spec, ms_spec],
+        prompt_style=prompt_style,
+    )
+
+    cache_dir = _get_cache_dir(llm_family, hf_spec)
+
+    hf_meta_path = _get_meta_path(
+        cache_dir, hf_spec.model_format, hf_spec.model_hub, quantization="q4_0"
+    )
+    ms_meta_path = _get_meta_path(
+        cache_dir, ms_spec.model_format, ms_spec.model_hub, quantization="q4_0"
+    )
+
+    # since huggingface meta file exists, only skip when model hub is huggingface.
+    _generate_meta_file(hf_meta_path, llm_family, hf_spec, quantization="q4_0")
+    assert os.path.exists(hf_meta_path)
+    try:
+        assert _skip_download(
+            cache_dir, hf_spec.model_format, hf_spec.model_hub, quantization="q4_0"
+        )
+        assert not _skip_download(
+            cache_dir, ms_spec.model_format, ms_spec.model_hub, quantization="q4_0"
+        )
+    finally:
+        os.remove(hf_meta_path)
+        assert not os.path.exists(hf_meta_path)
+
+    # since modelscope meta file exists, only skip when model hub is modelscope.
+    _generate_meta_file(ms_meta_path, llm_family, ms_spec, quantization="q4_0")
+    assert os.path.exists(ms_meta_path)
+    try:
+        assert not _skip_download(
+            cache_dir, hf_spec.model_format, hf_spec.model_hub, quantization="q4_0"
+        )
+        assert _skip_download(
+            cache_dir, ms_spec.model_format, ms_spec.model_hub, quantization="q4_0"
+        )
+    finally:
+        os.remove(ms_meta_path)
+        assert not os.path.exists(ms_meta_path)

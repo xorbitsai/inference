@@ -494,12 +494,10 @@ def _skip_download(
             logger.info(f"Cache {cache_dir} exists")
             return True
         else:
-            for model_hub, meta_path in model_hub_to_meta_path.items():
-                if model_hub != model_hub and os.path.exists(meta_path):
+            for hub, meta_path in model_hub_to_meta_path.items():
+                if hub != model_hub and os.path.exists(meta_path):
                     # PyTorch models from modelscope can also be loaded by transformers.
-                    logger.warning(
-                        f"Cache {cache_dir} exists, but it was from {model_hub}"
-                    )
+                    logger.warning(f"Cache {cache_dir} exists, but it was from {hub}")
                     return True
             return False
     elif model_format in ["ggmlv3", "ggufv2"]:
