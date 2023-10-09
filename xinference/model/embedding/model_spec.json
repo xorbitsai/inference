@@ -78,5 +78,53 @@
     "language": ["zh"],
     "model_id": "BAAI/bge-small-zh",
     "model_revision": "52185a5f4aa5bb1fe80c0671b7303161880a2d79"
+  },
+  {
+    "model_name": "bge-small-zh-v1.5",
+    "dimensions": 512,
+    "max_tokens": 512,
+    "language": ["zh"],
+    "model_id": "BAAI/bge-small-zh-v1.5",
+    "model_revision": "a7ec18349c42fc774b0e86af26215e38a10fbe9d"
+  },
+  {
+    "model_name": "bge-base-zh-v1.5",
+    "dimensions": 768,
+    "max_tokens": 512,
+    "language": ["zh"],
+    "model_id": "BAAI/bge-base-zh-v1.5",
+    "model_revision": "fcd022c36ff982da395e71ae930a5ad0d4b9330f"
+  },
+  {
+    "model_name": "bge-large-zh-v1.5",
+    "dimensions": 1024,
+    "max_tokens": 512,
+    "language": ["zh"],
+    "model_id": "BAAI/bge-large-zh-v1.5",
+    "model_revision": "029c4bfff6b0c5cfcd20b40c17ed52ec55202748"
+  },
+  {
+    "model_name": "bge-small-en-v1.5",
+    "dimensions": 384,
+    "max_tokens": 512,
+    "language": ["en"],
+    "model_id": "BAAI/bge-small-en-v1.5",
+    "model_revision": "88885630388d6249d876a3ab145b78b34665b79a"
+  },
+  {
+    "model_name": "bge-base-en-v1.5",
+    "dimensions": 768,
+    "max_tokens": 512,
+    "language": ["en"],
+    "model_id": "BAAI/bge-base-en-v1.5",
+    "model_revision": "1dafa38af496bee39ad5e0d11447fac46d0714e1"
+  },
+  {
+    "model_name": "bge-large-en-v1.5",
+    "dimensions": 1024,
+    "max_tokens": 512,
+    "language": ["en"],
+    "model_id": "BAAI/bge-large-en-v1.5",
+    "model_revision": "5888da4a3a013e65d33dd6f612ecd4625eb87a7d"
   }
 ]
