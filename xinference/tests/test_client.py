@@ -16,15 +16,12 @@ import os
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest
-
-from ..client import (
-    ActorClient,
-    ChatModelHandle,
-    EmbeddingModelHandle,
+from xinference_client.handler.model_handler import (
     RESTfulChatModelHandle,
-    RESTfulClient,
     RESTfulEmbeddingModelHandle,
 )
+
+from ..client import ActorClient, ChatModelHandle, EmbeddingModelHandle, RESTfulClient
 from ..constants import XINFERENCE_ENV_MODEL_SRC
 
 

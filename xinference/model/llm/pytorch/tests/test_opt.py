@@ -21,8 +21,9 @@ from typing import Union
 
 import pytest
 import xoscar
+from xinference_client.handler.model_handler import RESTfulGenerateModelHandle
 
-from .....client import Client, RESTfulGenerateModelHandle
+from .....client import Client
 from .....core.model import ModelActor
 from ... import BUILTIN_LLM_FAMILIES
 from ..core import PytorchModel

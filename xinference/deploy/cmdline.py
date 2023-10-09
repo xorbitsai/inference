@@ -20,16 +20,15 @@ import sys
 from typing import List, Optional, Union
 
 import click
+from xinference_client.handler.model_handler import (
+    RESTfulChatglmCppChatModelHandle,
+    RESTfulChatModelHandle,
+    RESTfulGenerateModelHandle,
+)
 from xoscar.utils import get_next_port
 
 from .. import __version__
-from ..client import (
-    ActorClient,
-    RESTfulChatglmCppChatModelHandle,
-    RESTfulChatModelHandle,
-    RESTfulClient,
-    RESTfulGenerateModelHandle,
-)
+from ..client import ActorClient, RESTfulClient
 from ..constants import (
     XINFERENCE_DEFAULT_DISTRIBUTED_HOST,
     XINFERENCE_DEFAULT_ENDPOINT_PORT,

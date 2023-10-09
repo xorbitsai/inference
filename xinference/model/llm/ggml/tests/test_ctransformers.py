@@ -15,8 +15,9 @@ import random
 import string
 
 import pytest
+from xinference_client.handler.model_handler import RESTfulGenerateModelHandle
 
-from .....client import Client, RESTfulGenerateModelHandle
+from .....client import Client
 from ....llm import GgmlLLMSpecV1, LLMFamilyV1
 from ..ctransformers import CtransformersModel
 
