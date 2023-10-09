@@ -216,7 +216,7 @@ def test_cache_from_huggingface_ggml():
         prompt_style=None,
     )
 
-    cache_dir = cache_from_huggingface(family, spec, quantization=None)
+    cache_dir = cache_from_huggingface(family, spec, quantization="q4_0")
 
     assert os.path.exists(cache_dir)
     assert os.path.exists(os.path.join(cache_dir, "README.md"))
