@@ -15,7 +15,7 @@
 import logging
 import time
 import uuid
-from typing import Iterator, Tuple
+from typing import Iterator, List, Tuple
 
 import torch
 from transformers.generation.logits_process import (
@@ -65,15 +65,44 @@ def get_context_length(config):
         return 2048
 
 
-def normalize_logits(logits_processor: LogitsProcessorList, output_ids, logits):
-    if logits_processor:
-        last_token_logits = logits_processor(
-            torch.as_tensor([output_ids], device=logits.device).long(), logits[:, -1, :]
-        )[0]
-    else:
-        last_token_logits = logits[0, -1, :]
+def normalize_logits(
+    logits_processor: LogitsProcessorList,
+    input_ids: List[int],
+    logits: torch.Tensor,  # [1, n_seq, n_vocab]
+) -> torch.Tensor:
+    """
+    Parameters
+    ----------
+    logits : torch.Tensor
+        Logits of shape `(n_batch, n_seq, n_vocab)`.
 
-    return last_token_logits
+    Returns
+    -------
+    Normalized logits of shape `(n_batch, n_seq, n_vocab)`.
+    """
+
+    def _helper(
+        _input_ids: List[int], _logits: torch.Tensor  # [1, n_vocab]
+    ) -> torch.Tensor:
+        if logits_processor:
+            last_token_logits = logits_processor(
+                torch.as_tensor([_input_ids], device=_logits.device).long(),
+                _logits[:, -1, :],
+            )[0]
+        else:
+            return _logits[0]
+
+        return last_token_logits  # [n_vocab,]
+
+    for i in range(logits.shape[1]):
+        normalized = _helper(
+            input_ids[
+                : -logits.shape[1] + i
+            ],  # input_ids may not equal logits.shape[1]
+            logits[:, i, :],
+        )
+        logits[:, i, :] = normalized.clone()
+    return logits
 
 
 def sample(last_token_logits, temperature, top_p):
@@ -166,27 +195,19 @@ def speculative_generate_stream(
                     torch.as_tensor([input_ids], device=draft_model.device),
                     use_cache=True,
                 )
-                draft_logits = draft_model_out.logits
-                for i in range(draft_model_out.logits.shape[1]):
-                    normalized = normalize_logits(
-                        logits_processor=logits_processor,
-                        output_ids=output_ids,
-                        logits=draft_model_out.logits[:, : i + 1, :],
-                    )
-                    draft_logits[:, i, :] = normalized.clone()
+                draft_logits = normalize_logits(
+                    logits_processor, input_ids, draft_model_out.logits
+                )
             else:
                 draft_model_out = draft_model(
                     torch.as_tensor([draft_tokens], device=draft_model.device),
                     use_cache=True,
                     past_key_values=draft_model_kv_cache,
                 )
-                for i in range(draft_model_out.logits.shape[1]):
-                    normalized = normalize_logits(
-                        logits_processor=logits_processor,
-                        output_ids=output_ids[:-len(draft_tokens) + i],
-                        logits=draft_model_out.logits[:, : i + 1, :],
-                    ).unsqueeze(0).unsqueeze(0)
-                    draft_logits = torch.cat((draft_logits, normalized), dim=1)
+                normalized = normalize_logits(
+                    logits_processor, output_ids, draft_model_out.logits
+                )
+                draft_logits = torch.cat((draft_logits, normalized), dim=1)
             draft_model_kv_cache = draft_model_out.past_key_values
             draft_token = sample(
                 draft_logits[:, -1, :][0],
@@ -203,33 +224,21 @@ def speculative_generate_stream(
             out = model(
                 torch.as_tensor([output_ids], device=model.device), use_cache=True
             )
-            logits = out.logits
-            for i in range(logits.shape[1]):
-                normalized = normalize_logits(
-                    logits_processor=logits_processor,
-                    output_ids=output_ids[: len(output_ids) - num_draft_tokens + i],
-                    logits=logits[:, : i + 1, :],
-                )
-                logits[:, i, :] = normalized.clone()
+            logits = normalize_logits(logits_processor, output_ids, out.logits)
         else:
             out = model(
-                torch.as_tensor([[next_token] + output_ids[-num_draft_tokens:]], device=model.device),
+                torch.as_tensor(
+                    [[next_token] + output_ids[-num_draft_tokens:]], device=model.device
+                ),
                 use_cache=True,
                 past_key_values=kv_cache,
             )
-            for i in range(out.logits.shape[1]):
-                normalized = (
-                    normalize_logits(
-                        logits_processor=logits_processor,
-                        output_ids=output_ids[: len(output_ids) - num_draft_tokens + i],
-                        logits=out.logits[:, : i + 1, :],
-                    )
-                    .unsqueeze(0)
-                    .unsqueeze(0)
-                )
-                logits = torch.cat((logits, normalized), dim=1)
+            normalized = normalize_logits(logits_processor, output_ids, out.logits)
+            logits = torch.cat((logits, normalized), dim=1)
         kv_cache = out.past_key_values
 
+        assert draft_logits is not None
+        assert draft_model_kv_cache is not None
         accepted = 0
         for draft_token_idx in range(-num_draft_tokens, 0):
             r = torch.rand(1, device=device)
@@ -247,7 +256,8 @@ def speculative_generate_stream(
                 logger.error(
                     f"Rolling back {num_draft_tokens - accepted} "
                     f"tokens: {tokenizer.decode(output_ids[: draft_token_idx])} "
-                    f"| {tokenizer.decode(output_ids[draft_token_idx:])}")
+                    f"| {tokenizer.decode(output_ids[draft_token_idx:])}"
+                )
                 output_ids = output_ids[:draft_token_idx]
                 draft_model_kv_cache = rollback_kv_cache(
                     draft_model_kv_cache, num_draft_tokens - accepted
