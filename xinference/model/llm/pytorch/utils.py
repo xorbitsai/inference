@@ -17,20 +17,44 @@ import re
 import time
 import uuid
 from threading import Thread
-from typing import Iterable, Iterator, Tuple
+from typing import Iterable, Iterator, List, Tuple, Union
 
-import torch
-from transformers import GenerationConfig, TextIteratorStreamer
-from transformers.generation.logits_process import (
-    LogitsProcessor,
-    LogitsProcessorList,
-    RepetitionPenaltyLogitsProcessor,
-    TemperatureLogitsWarper,
-    TopKLogitsWarper,
-    TopPLogitsWarper,
+try:
+    import torch
+    import torch.nn.functional as F
+except ImportError as e:
+    raise ImportError(
+        "Could not import torch. Please install it with `pip install torch`."
+    ) from e
+
+try:
+    from transformers import GenerationConfig, TextIteratorStreamer
+    from transformers.generation.logits_process import (
+        LogitsProcessor,
+        LogitsProcessorList,
+        RepetitionPenaltyLogitsProcessor,
+        TemperatureLogitsWarper,
+        TopKLogitsWarper,
+        TopPLogitsWarper,
+    )
+except ImportError:
+    error_message = "Failed to import module 'transformers'"
+    installation_guide = [
+        "Please make sure 'transformers' is installed. ",
+        "You can install it by `pip install transformers`\n",
+    ]
+
+    raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
+
+
+from ....types import (
+    CompletionChoice,
+    CompletionChunk,
+    CompletionUsage,
+    Embedding,
+    EmbeddingData,
+    EmbeddingUsage,
 )
-
-from ....types import CompletionChoice, CompletionChunk, CompletionUsage
 
 
 def is_sentence_complete(output: str):
@@ -586,3 +610,68 @@ def generate_stream_chatglm(
     )
 
     yield completion_chunk, completion_usage
+
+
+@torch.inference_mode()
+def create_embedding(model, tokenizer, inp: Union[str, List[str]], model_uid):
+    if isinstance(inp, str):
+        inputs = [inp]
+    else:
+        inputs = inp
+
+    is_llama = "llama" in str(type(model))  # llama supports batch inference
+    is_chatglm = "chatglm" in str(type(model))
+    if is_llama:
+        encoding = tokenizer.batch_encode_plus(
+            inputs, padding=True, return_tensors="pt"
+        )
+        input_ids = encoding["input_ids"].to(model.device)
+        attention_mask = encoding["attention_mask"].to(model.device)
+        model_output = model(input_ids, attention_mask, output_hidden_states=True)
+        data = model_output.hidden_states[-1]
+        mask = attention_mask.unsqueeze(-1).expand(data.size()).float()
+        masked_embeddings = data * mask
+        sum_embeddings = torch.sum(masked_embeddings, dim=1)
+        seq_length = torch.sum(mask, dim=1)
+        embedding = sum_embeddings / seq_length
+        normalized_embeddings = F.normalize(embedding, p=2, dim=1)
+        normalized_embeddings = normalized_embeddings.tolist()
+        token_num = torch.sum(attention_mask).item()
+
+        embedding_list = []
+        for index, data in enumerate(normalized_embeddings):
+            embedding_list.append(
+                EmbeddingData(index=index, object="embedding", embedding=data)
+            )
+
+        usage = EmbeddingUsage(prompt_tokens=token_num, total_tokens=token_num)
+
+        ret = Embedding(
+            object="list",
+            model=model_uid,
+            data=embedding_list,
+            usage=usage,
+        )
+
+    else:
+        embedding = []
+        token_num = 0
+        for index, text in enumerate(inputs):
+            input_ids = tokenizer.encode(text, return_tensors="pt").to(model.device)
+            model_output = model(input_ids, output_hidden_states=True)
+            if is_chatglm:
+                data = (model_output.hidden_states[-1].transpose(0, 1))[0]
+            else:
+                data = model_output.hidden_states[-1][0]
+            data = F.normalize(torch.mean(data, dim=0), p=2, dim=0)
+            data = data.tolist()
+
+            embedding.append(
+                EmbeddingData(index=index, object="embedding", embedding=data)
+            )
+            token_num += len(input_ids[0])
+
+        usage = EmbeddingUsage(prompt_tokens=token_num, total_tokens=token_num)
+        ret = Embedding(object="list", model=model_uid, data=embedding, usage=usage)
+
+    return ret
