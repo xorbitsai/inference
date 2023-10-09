@@ -20,7 +20,6 @@ from PIL import Image
 
 from ..core import MultimodalModelFamilyV1, cache
 from ..stable_diffusion.core import DiffusionModel
-from .. import BUILTIN_MULTIMODAL_MODELS
 
 TEST_MODEL_SPEC = MultimodalModelFamilyV1(
     model_family="stable_diffusion",
@@ -49,7 +48,6 @@ def test_model():
 
 def test_restful_api_for_multimodal(setup):
     model_name = "stable-diffusion-v1-5"
-    model_spec = BUILTIN_MULTIMODAL_MODELS[model_name]
 
     endpoint, _ = setup
     url = f"{endpoint}/v1/models"
