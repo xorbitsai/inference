@@ -12,21 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import xinference_client.handler.types
-
-ChatCompletionChoice = xinference_client.handler.types.ChatCompletionChoice
-ChatCompletion = xinference_client.handler.types.ChatCompletion
-ChatCompletionChunk = xinference_client.handler.types.ChatCompletionChunk
-ChatCompletionChunkChoice = xinference_client.handler.types.ChatCompletionChunkChoice
-ChatCompletionChunkDelta = xinference_client.handler.types.ChatCompletionChunkDelta
-ChatCompletionMessage = xinference_client.handler.types.ChatCompletionMessage
-
-Completion = xinference_client.handler.types.Completion
-CompletionChoice = xinference_client.handler.types.CompletionChoice
-CompletionChunk = xinference_client.handler.types.CompletionChunk
-CompletionLogprobs = xinference_client.handler.types.CompletionLogprobs
-CompletionUsage = xinference_client.handler.types.CompletionUsage
-
-Embedding = xinference_client.handler.types.Embedding
-EmbeddingData = xinference_client.handler.types.EmbeddingData
-EmbeddingUsage = xinference_client.handler.types.EmbeddingUsage
+from xinference_client.handler.types import (  # noqa: F401
+    ChatCompletion,
+    ChatCompletionChoice,
+    ChatCompletionChunk,
+    ChatCompletionChunkChoice,
+    ChatCompletionChunkDelta,
+    ChatCompletionMessage,
+    Completion,
+    CompletionChoice,
+    CompletionChunk,
+    CompletionLogprobs,
+    CompletionUsage,
+    Embedding,
+    EmbeddingData,
+    EmbeddingUsage,
+)
