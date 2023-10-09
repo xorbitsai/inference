@@ -253,11 +253,6 @@ def speculative_generate_stream(
                 num_total_accepted_tokens += 1
             else:
                 # rollback.
-                logger.error(
-                    f"Rolling back {num_draft_tokens - accepted} "
-                    f"tokens: {tokenizer.decode(output_ids[: draft_token_idx])} "
-                    f"| {tokenizer.decode(output_ids[draft_token_idx:])}"
-                )
                 output_ids = output_ids[:draft_token_idx]
                 draft_model_kv_cache = rollback_kv_cache(
                     draft_model_kv_cache, num_draft_tokens - accepted
@@ -275,8 +270,7 @@ def speculative_generate_stream(
             top_p,
         )
         output_ids.append(next_token)
-
-        logger.error(f"{accepted}/{num_draft_tokens} draft tokens are accepted")
+        logger.debug(f"{accepted}/{num_draft_tokens} draft tokens are accepted")
 
     logger.debug(
         f"In total, {num_total_accepted_tokens}/{num_total_draft_tokens} draft tokens are "
