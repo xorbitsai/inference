@@ -13,9 +13,9 @@
 # limitations under the License.
 import base64
 import os.path
-import requests
 from io import BytesIO
 
+import requests
 from PIL import Image
 
 from ..core import MultimodalModelFamilyV1, cache
