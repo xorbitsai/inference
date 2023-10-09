@@ -87,7 +87,7 @@ def normalize_logits(
         if logits_processor:
             last_token_logits = logits_processor(
                 torch.as_tensor([_input_ids], device=_logits.device).long(),
-                _logits[:, -1, :],
+                _logits,
             )[0]
         else:
             return _logits[0]
