@@ -103,8 +103,9 @@
         "quantizations": [
           "Q2_K"
         ],
-        "model_id": "TheBloke/TinyLlama-1.1B-Chat-v0.3-GGUF",
-        "model_file_name_template": "tinyllama-1.1b-chat-v0.3.{quantization}.gguf"
+        "model_id": "Xorbits/TinyLlama-1.1B-step-50K-105b-GGUF",
+        "model_hub": "modelscope",
+        "model_file_name_template": "ggml-model-{quantization}.gguf"
       }
     ]
   },
