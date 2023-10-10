@@ -15,7 +15,7 @@
 import datetime
 import logging
 import os
-from typing import Iterator, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Iterator, List, Optional, TypedDict, Union
 
 from ....types import (
     ChatCompletion,
@@ -33,6 +33,51 @@ from ..utils import ChatModelMixin
 from .ctransformers import CTRANSFORMERS_SUPPORTED_MODEL
 
 logger = logging.getLogger(__name__)
+
+
+class LlamaCppGenerateConfig(TypedDict, total=False):
+    suffix: Optional[str]
+    max_tokens: int
+    temperature: float
+    top_p: float
+    logprobs: Optional[int]
+    echo: bool
+    stop: Optional[Union[str, List[str]]]
+    frequency_penalty: float
+    presence_penalty: float
+    repetition_penalty: float
+    top_k: int
+    stream: bool
+    tfs_z: float
+    mirostat_mode: int
+    mirostat_tau: float
+    mirostat_eta: float
+    model: Optional[str]
+    grammar: Optional[Any]
+    stopping_criteria: Optional["StoppingCriteriaList"]
+    logits_processor: Optional["LogitsProcessorList"]
+
+
+class LlamaCppModelConfig(TypedDict, total=False):
+    n_ctx: int
+    n_parts: int
+    n_gpu_layers: int
+    seed: int
+    f16_kv: bool
+    logits_all: bool
+    vocab_only: bool
+    use_mmap: bool
+    use_mlock: bool
+    embedding: bool
+    n_threads: Optional[int]
+    n_batch: int
+    last_n_tokens_size: int
+    lora_base: Optional[str]
+    lora_path: Optional[str]
+    low_vram: bool
+    n_gqa: Optional[int]  # (TEMPORARY) must be 8 for llama2 70b
+    rms_norm_eps: Optional[float]  # (TEMPORARY)
+    verbose: bool
 
 
 SIZE_TO_GPU_LAYERS = {
@@ -222,6 +267,12 @@ class LlamaCppModel(LLM):
             generate_config.pop("repetition_penalty")
 
         stream = generate_config.get("stream", False)
+        if generate_config.get("grammar", None) is not None:
+            from llama_cpp import LlamaGrammar
+
+            generate_config["grammar"] = LlamaGrammar.from_string(
+                generate_config["grammar"]
+            )
         if not stream:
             assert self._llm is not None
             completion = self._llm(
