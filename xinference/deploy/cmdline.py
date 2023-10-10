@@ -24,7 +24,7 @@ from xoscar.utils import get_next_port
 
 from .. import __version__
 from ..client import (
-    Client,
+    ActorClient,
     RESTfulChatglmCppChatModelHandle,
     RESTfulChatModelHandle,
     RESTfulClient,
@@ -569,7 +569,7 @@ def model_generate(
                         print(choice["text"], end="", flush=True, file=sys.stdout)
                 print("", file=sys.stdout)
 
-        client = Client(endpoint=endpoint)
+        client = ActorClient(endpoint=endpoint)
         model = client.get_model(model_uid=model_uid)
 
         loop = asyncio.get_event_loop()
@@ -664,7 +664,7 @@ def model_chat(
                     ChatCompletionMessage(role="assistant", content=response_content)
                 )
 
-        client = Client(endpoint=endpoint)
+        client = ActorClient(endpoint=endpoint)
         model = client.get_model(model_uid=model_uid)
 
         loop = asyncio.get_event_loop()

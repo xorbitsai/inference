@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import datetime
 import logging
 import os
 import platform
@@ -453,6 +452,79 @@ def retry_download(
         )
 
 
+def _get_meta_path(
+    cache_dir: str,
+    model_format: str,
+    model_hub: str,
+    quantization: Optional[str] = None,
+):
+    if model_format == "pytorch":
+        if model_hub == "huggingface":
+            return os.path.join(cache_dir, "__valid_download")
+        else:
+            return os.path.join(cache_dir, f"__valid_download_{model_hub}")
+    elif model_format in ["ggmlv3", "ggufv2"]:
+        assert quantization is not None
+        if model_hub == "huggingface":
+            return os.path.join(cache_dir, f"__valid_download_{quantization}")
+        else:
+            return os.path.join(
+                cache_dir, f"__valid_download_{model_hub}_{quantization}"
+            )
+    else:
+        raise ValueError(f"Unsupported format: {model_format}")
+
+
+def _skip_download(
+    cache_dir: str,
+    model_format: str,
+    model_hub: str,
+    quantization: Optional[str] = None,
+) -> bool:
+    if model_format == "pytorch":
+        model_hub_to_meta_path = {
+            "huggingface": _get_meta_path(
+                cache_dir, model_format, "huggingface", quantization
+            ),
+            "modelscope": _get_meta_path(
+                cache_dir, model_format, "modelscope", quantization
+            ),
+        }
+        if os.path.exists(model_hub_to_meta_path[model_hub]):
+            logger.info(f"Cache {cache_dir} exists")
+            return True
+        else:
+            for hub, meta_path in model_hub_to_meta_path.items():
+                if hub != model_hub and os.path.exists(meta_path):
+                    # PyTorch models from modelscope can also be loaded by transformers.
+                    logger.warning(f"Cache {cache_dir} exists, but it was from {hub}")
+                    return True
+            return False
+    elif model_format in ["ggmlv3", "ggufv2"]:
+        assert quantization is not None
+        return os.path.exists(
+            _get_meta_path(cache_dir, model_format, model_hub, quantization)
+        )
+    else:
+        raise ValueError(f"Unsupported format: {model_format}")
+
+
+def _generate_meta_file(
+    meta_path: str,
+    llm_family: "LLMFamilyV1",
+    llm_spec: "LLMSpecV1",
+    quantization: Optional[str] = None,
+):
+    assert not os.path.exists(meta_path), f"meta path {meta_path} should not exists"
+    with open(meta_path, "w") as f:
+        import json
+
+        from .core import LLMDescription
+
+        desc = LLMDescription(llm_family, llm_spec, quantization)
+        json.dump(desc.to_dict(), f)
+
+
 def cache_from_modelscope(
     llm_family: LLMFamilyV1,
     llm_spec: "LLMSpecV1",
@@ -465,10 +537,12 @@ def cache_from_modelscope(
     from modelscope.hub.snapshot_download import snapshot_download
 
     cache_dir = _get_cache_dir(llm_family, llm_spec)
+    if _skip_download(
+        cache_dir, llm_spec.model_format, llm_spec.model_hub, quantization
+    ):
+        return cache_dir
+
     if llm_spec.model_format == "pytorch":
-        meta_path = os.path.join(cache_dir, "__valid_download")
-        if os.path.exists(meta_path):
-            return cache_dir
         download_dir = retry_download(
             snapshot_download,
             llm_family,
@@ -480,13 +554,8 @@ def cache_from_modelscope(
             for file in files:
                 relpath = os.path.relpath(os.path.join(subdir, file), download_dir)
                 symlink_local_file(os.path.join(subdir, file), cache_dir, relpath)
-        with open(meta_path, "w") as f:
-            f.write(str(datetime.datetime.now()))
 
     elif llm_spec.model_format in ["ggmlv3", "ggufv2"]:
-        meta_path = os.path.join(cache_dir, f"__valid_download_{quantization}")
-        if os.path.exists(meta_path):
-            return cache_dir
         filename = llm_spec.model_file_name_template.format(quantization=quantization)
         download_path = retry_download(
             model_file_download,
@@ -497,10 +566,14 @@ def cache_from_modelscope(
             revision=llm_spec.model_revision,
         )
         symlink_local_file(download_path, cache_dir, filename)
-        with open(meta_path, "w") as f:
-            f.write(str(datetime.datetime.now()))
     else:
         raise ValueError(f"Unsupported format: {llm_spec.model_format}")
+
+    meta_path = _get_meta_path(
+        cache_dir, llm_spec.model_format, llm_spec.model_hub, quantization
+    )
+    _generate_meta_file(meta_path, llm_family, llm_spec, quantization)
+
     return cache_dir
 
 
@@ -515,12 +588,13 @@ def cache_from_huggingface(
     import huggingface_hub
 
     cache_dir = _get_cache_dir(llm_family, llm_spec)
+    if _skip_download(
+        cache_dir, llm_spec.model_format, llm_spec.model_hub, quantization
+    ):
+        return cache_dir
+
     if llm_spec.model_format == "pytorch":
         assert isinstance(llm_spec, PytorchLLMSpecV1)
-        meta_path = os.path.join(cache_dir, "__valid_download")
-        if os.path.exists(meta_path):
-            return cache_dir
-
         retry_download(
             huggingface_hub.snapshot_download,
             llm_family,
@@ -530,14 +604,9 @@ def cache_from_huggingface(
             local_dir=cache_dir,
             local_dir_use_symlinks=True,
         )
-        with open(meta_path, "w") as f:
-            f.write(str(datetime.datetime.now()))
 
     elif llm_spec.model_format in ["ggmlv3", "ggufv2"]:
         assert isinstance(llm_spec, GgmlLLMSpecV1)
-        meta_path = os.path.join(cache_dir, f"__valid_download_{quantization}")
-        if os.path.exists(meta_path):
-            return cache_dir
         file_name = llm_spec.model_file_name_template.format(quantization=quantization)
         retry_download(
             huggingface_hub.hf_hub_download,
@@ -549,10 +618,13 @@ def cache_from_huggingface(
             local_dir=cache_dir,
             local_dir_use_symlinks=True,
         )
-        with open(meta_path, "w") as f:
-            f.write(str(datetime.datetime.now()))
     else:
         raise ValueError(f"Unsupported model format: {llm_spec.model_format}")
+
+    meta_path = _get_meta_path(
+        cache_dir, llm_spec.model_format, llm_spec.model_hub, quantization
+    )
+    _generate_meta_file(meta_path, llm_family, llm_spec, quantization)
 
     return cache_dir
 

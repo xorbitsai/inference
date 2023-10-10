@@ -81,9 +81,12 @@ class LLM(abc.ABC):
         raise NotImplementedError
 
 
-class LLMModelDescription(ModelDescription):
+class LLMDescription(ModelDescription):
     def __init__(
-        self, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
+        self,
+        llm_family: "LLMFamilyV1",
+        llm_spec: "LLMSpecV1",
+        quantization: Optional[str],
     ):
         self._llm_family = llm_family
         self._llm_spec = llm_spec
@@ -99,6 +102,7 @@ class LLMModelDescription(ModelDescription):
             "model_format": self._llm_spec.model_format,
             "model_size_in_billions": self._llm_spec.model_size_in_billions,
             "quantization": self._quantization,
+            "model_hub": self._llm_spec.model_hub,
             "revision": self._llm_spec.model_revision,
             "context_length": self._llm_family.context_length,
         }
@@ -112,7 +116,7 @@ def create_llm_model_instance(
     quantization: Optional[str] = None,
     is_local_deployment: bool = False,
     **kwargs,
-) -> Tuple[LLM, LLMModelDescription]:
+) -> Tuple[LLM, LLMDescription]:
     from . import match_llm, match_llm_cls
     from .llm_family import cache
 
@@ -142,4 +146,4 @@ def create_llm_model_instance(
     logger.debug(f"Launching {model_uid} with {llm_cls.__name__}")
 
     model = llm_cls(model_uid, llm_family, llm_spec, quantization, save_path, kwargs)
-    return model, LLMModelDescription(llm_family, llm_spec, quantization)
+    return model, LLMDescription(llm_family, llm_spec, quantization)
