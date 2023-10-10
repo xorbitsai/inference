@@ -21,8 +21,6 @@ from functools import partial
 from io import BytesIO
 from typing import Optional
 
-import torch
-
 from ....constants import XINFERENCE_IMAGE_DIR
 from ....types import Image, ImageList
 
@@ -35,6 +33,7 @@ class DiffusionModel:
         self._model = None
 
     def load(self):
+        import torch
         from diffusers import AutoPipelineForText2Image
 
         self._model = AutoPipelineForText2Image.from_pretrained(
