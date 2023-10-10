@@ -397,9 +397,11 @@ def speculative_generate_stream(
         f"In total, {total_num_accepted_tokens}/{total_num_draft_tokens} draft tokens are "
         f"accepted, acceptance rate: {total_num_accepted_tokens / total_num_draft_tokens:.2f}"
     )
-    logger.info(f"In total, {total_seconds_on_drafting:.2f}s, {total_seconds_on_eval:.2f}s and "
-                f"{total_seconds_on_accepting:.2f}s are spent on drafting, eval, and accepting "
-                f"respectively.")
+    logger.info(
+        f"In total, {total_seconds_on_drafting:.2f}s, {total_seconds_on_eval:.2f}s and "
+        f"{total_seconds_on_accepting:.2f}s are spent on drafting, eval, and accepting "
+        f"respectively."
+    )
 
     output_ids = output_ids[num_prompt_tokens : min(max_new_tokens, len(output_ids))]
     output = tokenizer.decode(

@@ -12,58 +12,42 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
+
 import torch
-from transformers import AutoTokenizer, AutoModelForCausalLM
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from ..spec_decoding import speculative_generate_stream
-from ..utils import generate_stream
-
-import logging
 
 logging.basicConfig(level=logging.DEBUG)
 
 
 def test_spec_decoding():
-    # model = AutoModelForCausalLM.from_pretrained(
-    #     "openlm-research/open_llama_7b_v2",
-    #     # load_in_8bit=True,
-    #     device_map="auto",
-    #     torch_dtype=torch.float16,
-    # )
+    """
+    Use the draft model itself as the target model. If the decoding works, all the draft tokens
+    should be accepted, and the result of speculative decoding should be the same as the regular
+    decoding, which starts with "The largest animal ever recorded is the Tyrannosaurus Rex".
+    """
+
+    model_id = "PY007/TinyLlama-1.1B-Chat-v0.3"
     draft_model = AutoModelForCausalLM.from_pretrained(
-        "openlm-research/open_llama_3b_v2",
-        # load_in_8bit=True,
+        model_id,
         device_map="auto",
         torch_dtype=torch.float16,
     )
-    tokenizer = AutoTokenizer.from_pretrained("openlm-research/open_llama_7b_v2")
-    prompt = "Q: What is the largest animal?\nA:"
+    tokenizer = AutoTokenizer.from_pretrained(model_id)
+    prompt = "What is the largest animal?"
+    formatted_prompt = (
+        f"<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n"
+    )
 
-    print("\nSpeculative decoding:")
     for completion_chunk, completion_usage in speculative_generate_stream(
         draft_model=draft_model,
         model=draft_model,
         tokenizer=tokenizer,
-        prompt=prompt,
+        prompt=formatted_prompt,
         device="cuda",
         generate_config={"model": "test", "temperature": 0, "max_tokens": 64},
     ):
-        print(completion_chunk["choices"][0]["text"])
-
-    print("\nRegular decoding:")
-    for completion_chunk, completion_usage in generate_stream(
-        model=draft_model,
-        tokenizer=tokenizer,
-        prompt=prompt,
-        device="cuda",
-        generate_config={"model": "test", "temperature": 0}
-    ):
-        pass
-    print(completion_chunk['choices'][0]['text'])
-
-    # input_ids = tokenizer(prompt, return_tensors="pt").input_ids
-    # input_ids = input_ids.to("cuda")
-    # generation_output = draft_model.generate(
-    #     input_ids=input_ids, max_new_tokens=256
-    # )
-    # print(tokenizer.decode(generation_output[0]))
+        completion = completion_chunk["choices"][0]["text"]
+        assert completion.startswith("The largest animal ever recorded is the Tyrannosaurus Rex")
