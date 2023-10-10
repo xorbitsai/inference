@@ -19,6 +19,7 @@ from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 try:
     import torch
+    from torch.nn import functional as F
 except ImportError:
     raise ImportError(
         f"Failed to import module 'torch'. Please make sure 'torch' is installed.\n\n"
@@ -83,7 +84,7 @@ def normalize_logits(
     logits_processor: LogitsProcessorList,
     input_ids: List[int],
     logits: torch.FloatTensor,  # [1, n_seq, n_vocab]
-) -> torch.FloatTensor:
+) -> torch.Tensor:
     """
     Parameters
     ----------
@@ -92,7 +93,8 @@ def normalize_logits(
 
     Returns
     -------
-    Normalized logits of shape `(n_batch, n_seq, n_vocab)`.
+    torch.Tensor
+        Normalized logits of shape `(n_batch, n_seq, n_vocab)`.
     """
 
     def _helper(
@@ -117,7 +119,7 @@ def normalize_logits(
             logits[:, i, :],
         )
         logits[:, i, :] = normalized.clone()
-    return logits
+    return F.softmax(logits, dim=-1)
 
 
 def sample(
@@ -138,8 +140,7 @@ def sample(
         _, indices = torch.topk(last_token_logits, 2)
         tokens = [int(index) for index in indices.tolist()]
     else:
-        probs = torch.softmax(last_token_logits, dim=-1)
-        indices = torch.multinomial(probs, num_samples=2)
+        indices = torch.multinomial(last_token_logits, num_samples=2)
         tokens = [int(token) for token in indices.tolist()]
     return tokens[0]
 
@@ -161,6 +162,14 @@ def rollback_kv_cache(
 
 def rollback_logits(logits: torch.Tensor, n: int):
     return logits[:, :-n, :]  # [1, n_seq, n_vocab]
+
+
+def is_partial_stop(output: str, stop_str: str):
+    """Check whether the output contains a partial stop str."""
+    for i in range(0, min(len(output), len(stop_str))):
+        if stop_str.startswith(output[-i:]):
+            return True
+    return False
 
 
 def draft(
@@ -257,7 +266,7 @@ def speculative_generate_stream(
     top_p = float(generate_config.get("top_p", 1.0))
     top_k = int(generate_config.get("top_k", -1))  # -1 means disable
     max_new_tokens = int(generate_config.get("max_tokens", 256))
-    # stop_str = generate_config.get("stop", None)
+    stop_str = generate_config.get("stop", None)
     stop_token_ids = generate_config.get("stop_token_ids", None) or []
     stop_token_ids.append(tokenizer.eos_token_id)
 
@@ -283,6 +292,8 @@ def speculative_generate_stream(
 
     # performance stats.
     total_seconds_on_drafting = 0.0
+    total_seconds_on_eval = 0.0
+    total_seconds_on_accepting = 0.0
     total_num_draft_tokens = 0
     total_num_accepted_tokens = 0
 
@@ -303,6 +314,8 @@ def speculative_generate_stream(
         total_seconds_on_drafting += time.time() - start
         total_num_draft_tokens += num_draft_tokens
 
+        # eval stage.
+        start = time.time()
         if kv_cache is None:
             # prefill.
             out = model(
@@ -320,7 +333,10 @@ def speculative_generate_stream(
             normalized = normalize_logits(logits_processor, output_ids, out.logits)
             logits = torch.cat((logits, normalized), dim=1)
         kv_cache = out.past_key_values
+        total_seconds_on_eval += time.time() - start
 
+        # accepting stage.
+        start = time.time()
         assert draft_logits is not None
         assert draft_kv_cache is not None
         accepted = 0
@@ -347,10 +363,13 @@ def speculative_generate_stream(
                 )
                 logits = rollback_logits(logits, num_draft_tokens - accepted)
 
-                # sample according to the modified distribution
+                # sample the next token according to the modified distribution.
                 modified_dist = (
                     logits[:, draft_token_idx, :]
-                    - tmp_draft_logits[0, draft_token_idx, :]
+                    - tmp_draft_logits[:, draft_token_idx, :]
+                )
+                modified_dist = torch.where(
+                    modified_dist > 0, modified_dist, torch.zeros_like(modified_dist)
                 )
                 normalized = normalize_logits(
                     logits_processor,
@@ -372,12 +391,15 @@ def speculative_generate_stream(
                 top_p,
             )
             output_ids.append(next_token)
+        total_seconds_on_accepting += time.time() - start
 
     logger.info(
         f"In total, {total_num_accepted_tokens}/{total_num_draft_tokens} draft tokens are "
         f"accepted, acceptance rate: {total_num_accepted_tokens / total_num_draft_tokens:.2f}"
     )
-    logger.info(f"In total, {total_seconds_on_drafting:.2f} was spent on drafting.")
+    logger.info(f"In total, {total_seconds_on_drafting:.2f}s, {total_seconds_on_eval:.2f}s and "
+                f"{total_seconds_on_accepting:.2f}s are spent on drafting, eval, and accepting "
+                f"respectively.")
 
     output_ids = output_ids[num_prompt_tokens : min(max_new_tokens, len(output_ids))]
     output = tokenizer.decode(
