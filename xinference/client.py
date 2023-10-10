@@ -182,14 +182,19 @@ class ChatglmCppChatModelHandle(EmbeddingModelHandle):
 
 
 def streaming_response_iterator(
-    response_chunk: Iterator[bytes],
+    response_lines: Iterator[bytes],
 ) -> Iterator["CompletionChunk"]:
     """
     Create an Iterator to handle the streaming type of generation.
 
+    Note
+    ----------
+    This method is for compatible with openai. Please refer to:
+    https://github.com/openai/openai-python/blob/v0.28.1/openai/api_requestor.py#L99
+
     Parameters
     ----------
-    response_chunk: Iterator[bytes]
+    response_lines: Iterator[bytes]
         Generated lines by the Model Generator.
 
     Returns
@@ -199,24 +204,33 @@ def streaming_response_iterator(
 
     """
 
-    for chunk in response_chunk:
-        content = json.loads(chunk.decode("utf-8"))
-        error = content.get("error", None)
-        if error is not None:
-            raise Exception(str(error))
-        yield content
+    for line in response_lines:
+        line = line.strip()
+        if line.startswith(b"data:"):
+            data = line[len(b"data:") :].strip()
+            data = json.loads(data.decode("utf-8"))
+            yield data
+        elif line.startswith(b"error:"):
+            error = line[len(b"error:") :].strip()
+            error = error.decode("utf-8")
+            raise Exception(error)
 
 
 # Duplicate code due to type hint issues
 def chat_streaming_response_iterator(
-    response_chunk: Iterator[bytes],
+    response_lines: Iterator[bytes],
 ) -> Iterator["ChatCompletionChunk"]:
     """
     Create an Iterator to handle the streaming type of generation.
 
+    Note
+    ----------
+    This method is for compatible with openai. Please refer to:
+    https://github.com/openai/openai-python/blob/v0.28.1/openai/api_requestor.py#L99
+
     Parameters
     ----------
-    response_chunk: Iterator[bytes]
+    response_lines: Iterator[bytes]
         Generated chunk by the Model Generator.
 
     Returns
@@ -226,12 +240,16 @@ def chat_streaming_response_iterator(
 
     """
 
-    for chunk in response_chunk:
-        content = json.loads(chunk.decode("utf-8"))
-        error = content.get("error", None)
-        if error is not None:
-            raise Exception(str(error))
-        yield content
+    for line in response_lines:
+        line = line.strip()
+        if line.startswith(b"data:"):
+            data = line[len(b"data:") :].strip()
+            data = json.loads(data.decode("utf-8"))
+            yield data
+        elif line.startswith(b"error:"):
+            error = line[len(b"error:") :].strip()
+            error = error.decode("utf-8")
+            raise Exception(error)
 
 
 class RESTfulModelHandle:
@@ -329,7 +347,7 @@ class RESTfulGenerateModelHandle(RESTfulEmbeddingModelHandle):
             )
 
         if stream:
-            return streaming_response_iterator(response.iter_content(chunk_size=None))
+            return streaming_response_iterator(response.iter_lines())
 
         response_data = response.json()
         return response_data
@@ -407,9 +425,7 @@ class RESTfulChatModelHandle(RESTfulGenerateModelHandle):
             )
 
         if stream:
-            return chat_streaming_response_iterator(
-                response.iter_content(chunk_size=None)
-            )
+            return chat_streaming_response_iterator(response.iter_lines())
 
         response_data = response.json()
         return response_data
@@ -473,9 +489,7 @@ class RESTfulChatglmCppChatModelHandle(RESTfulEmbeddingModelHandle):
             )
 
         if stream:
-            return chat_streaming_response_iterator(
-                response.iter_content(chunk_size=None)
-            )
+            return chat_streaming_response_iterator(response.iter_lines())
 
         response_data = response.json()
         return response_data
