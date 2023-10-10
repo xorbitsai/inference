@@ -22,6 +22,7 @@ const SUPPORTED_LANGUAGES = Object.keys(SUPPORTED_LANGUAGES_DICT);
 const RegisterModel = () => {
   const ERROR_COLOR = useMode();
   const { endPoint } = useContext(ApiContext);
+  
   const [errorMessage, setErrorMessage] = useState("");
   const [modelFormat, setModelFormat] = useState("pytorch");
   const [modelSize, setModelSize] = useState(7);
