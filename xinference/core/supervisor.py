@@ -101,6 +101,10 @@ class SupervisorActor(xo.Actor):
 
     @log_sync(logger=logger)
     def list_model_registrations(self, model_type: str) -> List[Dict[str, Any]]:
+        def sort_helper(item):
+            assert isinstance(item["model_name"], str)
+            return item.get("model_name").lower()
+
         if model_type == "LLM":
             from ..model.llm import BUILTIN_LLM_FAMILIES, get_user_defined_llm_families
 
@@ -116,10 +120,6 @@ class SupervisorActor(xo.Actor):
                 ]
             )
 
-            def sort_helper(item):
-                assert isinstance(item["model_name"], str)
-                return item.get("model_name").lower()
-
             ret.sort(key=sort_helper)
 
             return ret
@@ -127,10 +127,10 @@ class SupervisorActor(xo.Actor):
             from ..model.embedding import BUILTIN_EMBEDDING_MODELS
 
             ret = [
-                {"model_name": f.model_name, "is_builtin": True}
-                for f in BUILTIN_EMBEDDING_MODELS.values()
+                {"model_name": model_name, "is_builtin": True}
+                for model_name in BUILTIN_EMBEDDING_MODELS
             ]
-            ret.sort(key=lambda x: x["model_name"].lower())
+            ret.sort(key=sort_helper)
             return ret
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
