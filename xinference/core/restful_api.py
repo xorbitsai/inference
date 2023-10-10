@@ -580,7 +580,9 @@ class RESTfulAPIActor(xo.Actor):
             raise HTTPException(status_code=500, detail=str(e))
 
         try:
-            image_list = await model.text_to_image(request.input)
+            image_list = await model.text_to_image(
+                request.prompt, request.n, request.size, request.response_format
+            )
             return image_list
         except RuntimeError as re:
             logger.error(re, exc_info=True)

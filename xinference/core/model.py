@@ -209,7 +209,7 @@ class ModelActor(xo.StatelessActor):
             )
 
         async def _wrapper():
-            return getattr(self._model, "create_embedding")(
+            return getattr(self._model, "text_to_image")(
                 prompt, n, size, response_format, *args, **kwargs
             )
 
