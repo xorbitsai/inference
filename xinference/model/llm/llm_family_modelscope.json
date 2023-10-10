@@ -103,7 +103,8 @@
         "quantizations": [
           "Q2_K"
         ],
-        "model_id": "Green-Sky/TinyLlama-1.1B-step-50K-105b-GGUF",
+        "model_id": "Xorbits/TinyLlama-1.1B-step-50K-105b-GGUF",
+        "model_hub": "modelscope",
         "model_file_name_template": "ggml-model-{quantization}.gguf"
       }
     ]

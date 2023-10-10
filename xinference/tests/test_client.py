@@ -267,7 +267,7 @@ def test_RESTful_client(setup):
         model_name="tiny-llama",
         model_size_in_billions=1,
         model_format="ggufv2",
-        quantization="Q2_K",
+        quantization="q2_K",
     )
     assert len(client.list_models()) == 1
 
