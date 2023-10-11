@@ -16,11 +16,11 @@ import codecs
 import json
 import os
 
-from .core import MultimodalModelFamilyV1
+from .core import ImageModelFamilyV1
 
 _model_spec_json = os.path.join(os.path.dirname(__file__), "model_spec.json")
-BUILTIN_MULTIMODAL_MODELS = dict(
-    (spec["model_name"], MultimodalModelFamilyV1(**spec))
+BUILTIN_IMAGE_MODELS = dict(
+    (spec["model_name"], ImageModelFamilyV1(**spec))
     for spec in json.load(codecs.open(_model_spec_json, "r", encoding="utf-8"))
 )
 del _model_spec_json

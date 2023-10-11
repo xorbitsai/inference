@@ -182,7 +182,7 @@ class ChatglmCppChatModelHandle(EmbeddingModelHandle):
         return self._isolation.call(coro)
 
 
-class MultimodalModelHandle(ModelHandle):
+class ImageModelHandle(ModelHandle):
     def text_to_image(
         self,
         prompt: str,
@@ -312,7 +312,7 @@ class RESTfulEmbeddingModelHandle(RESTfulModelHandle):
         return response_data
 
 
-class RESTfulMultimodalModelHandle(RESTfulModelHandle):
+class RESTfulImageModelHandle(RESTfulModelHandle):
     def text_to_image(
         self,
         prompt: str,
@@ -757,8 +757,8 @@ class ActorClient:
                 raise ValueError(f"Unrecognized model ability: {desc['model_ability']}")
         elif desc["model_type"] == "embedding":
             return EmbeddingModelHandle(model_ref, self._isolation)
-        elif desc["model_type"] == "multimodal":
-            return MultimodalModelHandle(model_ref, self._isolation)
+        elif desc["model_type"] == "image":
+            return ImageModelHandle(model_ref, self._isolation)
         else:
             raise ValueError(f"Unknown model type:{desc['model_type']}")
 
@@ -975,8 +975,8 @@ class Client:
                 raise ValueError(f"Unrecognized model ability: {desc['model_ability']}")
         elif desc["model_type"] == "embedding":
             return RESTfulEmbeddingModelHandle(model_uid, self.base_url)
-        elif desc["model_type"] == "multimodal":
-            return RESTfulMultimodalModelHandle(model_uid, self.base_url)
+        elif desc["model_type"] == "image":
+            return RESTfulImageModelHandle(model_uid, self.base_url)
         else:
             raise ValueError(f"Unknown model type:{desc['model_type']}")
 

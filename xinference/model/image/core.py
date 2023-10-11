@@ -27,39 +27,39 @@ MAX_ATTEMPTS = 3
 logger = logging.getLogger(__name__)
 
 
-class MultimodalModelFamilyV1(BaseModel):
+class ImageModelFamilyV1(BaseModel):
     model_family: str
     model_name: str
     model_id: str
     model_revision: str
 
 
-class MultimodalModelDescription(ModelDescription):
-    def __init__(self, model_spec: MultimodalModelFamilyV1):
+class ImageModelDescription(ModelDescription):
+    def __init__(self, model_spec: ImageModelFamilyV1):
         self._model_spec = model_spec
 
     def to_dict(self):
         return {
-            "model_type": "multimodal",
+            "model_type": "image",
             "model_name": self._model_spec.model_name,
             "model_family": self._model_spec.model_family,
             "model_revision": self._model_spec.model_revision,
         }
 
 
-def match_diffusion(model_name: str) -> MultimodalModelFamilyV1:
-    from . import BUILTIN_MULTIMODAL_MODELS
+def match_diffusion(model_name: str) -> ImageModelFamilyV1:
+    from . import BUILTIN_IMAGE_MODELS
 
-    if model_name in BUILTIN_MULTIMODAL_MODELS:
-        return BUILTIN_MULTIMODAL_MODELS[model_name]
+    if model_name in BUILTIN_IMAGE_MODELS:
+        return BUILTIN_IMAGE_MODELS[model_name]
     else:
         raise ValueError(
-            f"Embedding model {model_name} not found, available"
-            f"model list: {BUILTIN_MULTIMODAL_MODELS.keys()}"
+            f"Image model {model_name} not found, available"
+            f"model list: {BUILTIN_IMAGE_MODELS.keys()}"
         )
 
 
-def cache(model_spec: MultimodalModelFamilyV1):
+def cache(model_spec: ImageModelFamilyV1):
     # TODO: cache from uri
     import huggingface_hub
 
@@ -90,11 +90,11 @@ def cache(model_spec: MultimodalModelFamilyV1):
     return cache_dir
 
 
-def create_multimodal_model_instance(
+def create_image_model_instance(
     model_uid: str, model_name: str, **kwargs
-) -> Tuple[DiffusionModel, MultimodalModelDescription]:
+) -> Tuple[DiffusionModel, ImageModelDescription]:
     model_spec = match_diffusion(model_name)
     model_path = cache(model_spec)
     model = DiffusionModel(model_uid, model_path, **kwargs)
-    model_description = MultimodalModelDescription(model_spec)
+    model_description = ImageModelDescription(model_spec)
     return model, model_description

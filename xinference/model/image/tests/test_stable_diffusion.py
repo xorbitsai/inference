@@ -18,10 +18,10 @@ from io import BytesIO
 import requests
 from PIL import Image
 
-from ..core import MultimodalModelFamilyV1, cache
+from ..core import ImageModelFamilyV1, cache
 from ..stable_diffusion.core import DiffusionModel
 
-TEST_MODEL_SPEC = MultimodalModelFamilyV1(
+TEST_MODEL_SPEC = ImageModelFamilyV1(
     model_family="stable_diffusion",
     model_name="small-stable-diffusion-v0",
     model_id="OFA-Sys/small-stable-diffusion-v0",
@@ -46,7 +46,7 @@ def test_model():
     assert img.size == (256, 256)
 
 
-def test_restful_api_for_multimodal(setup):
+def test_restful_api_for_image(setup):
     model_name = "stable-diffusion-v1-5"
 
     endpoint, _ = setup
@@ -61,7 +61,7 @@ def test_restful_api_for_multimodal(setup):
     payload = {
         "model_uid": "test_stable_diffusion",
         "model_name": model_name,
-        "model_type": "multimodal",
+        "model_type": "image",
     }
 
     response = requests.post(url, json=payload)
