@@ -1,0 +1,10 @@
+[
+  {
+    "model_name": "bge-small-zh-v1.5",
+    "dimensions": 512,
+    "max_tokens": 512,
+    "language": ["zh"],
+    "model_id": "Xorbits/bge-small-zh-v1.5",
+    "model_revision": "v0.0.2"
+  }
+]
