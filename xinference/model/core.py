@@ -37,10 +37,7 @@ def create_model_instance(
     from .embedding.core import create_embedding_model_instance
     from .llm.core import create_llm_model_instance
 
-    # embedding model doesn't accept trust_remote_code
-    trust_remote_code = kwargs.pop("trust_remote_code", None)
     if model_type == "LLM":
-        kwargs["trust_remote_code"] = trust_remote_code
         return create_llm_model_instance(
             model_uid,
             model_name,
@@ -51,6 +48,8 @@ def create_model_instance(
             **kwargs,
         )
     elif model_type == "embedding":
+        # embedding model doesn't accept trust_remote_code
+        kwargs.pop("trust_remote_code", None)
         return create_embedding_model_instance(model_uid, model_name, **kwargs)
     else:
         raise ValueError(f"Unsupported model type: {model_type}.")
