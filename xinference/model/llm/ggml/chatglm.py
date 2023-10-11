@@ -17,9 +17,15 @@ import os
 import time
 import uuid
 from pathlib import Path
-from typing import TYPE_CHECKING, Iterator, List, Optional, TypedDict, Union
+from typing import TYPE_CHECKING, Iterator, List, Optional, Union
 
-from ....types import ChatCompletion, ChatCompletionChunk, ChatCompletionMessage
+from ....types import (
+    ChatCompletion,
+    ChatCompletionChunk,
+    ChatCompletionMessage,
+    ChatglmCppGenerateConfig,
+    ChatglmCppModelConfig,
+)
 from .. import LLMFamilyV1, LLMSpecV1
 from ..core import LLM
 
@@ -28,17 +34,6 @@ if TYPE_CHECKING:
 
 
 logger = logging.getLogger(__name__)
-
-
-class ChatglmCppModelConfig(TypedDict, total=False):
-    pass
-
-
-class ChatglmCppGenerateConfig(TypedDict, total=False):
-    max_tokens: int
-    top_p: float
-    temperature: float
-    stream: bool
 
 
 class ChatglmCppChatModel(LLM):
