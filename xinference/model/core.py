@@ -35,8 +35,8 @@ def create_model_instance(
     **kwargs,
 ) -> Tuple[Any, ModelDescription]:
     from .embedding.core import create_embedding_model_instance
-    from .llm.core import create_llm_model_instance
     from .image.core import create_image_model_instance
+    from .llm.core import create_llm_model_instance
 
     if model_type == "LLM":
         return create_llm_model_instance(
