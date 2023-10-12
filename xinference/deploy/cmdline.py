@@ -350,6 +350,13 @@ def list_model_registrations(
     help="Specify type of model, LLM as default.",
 )
 @click.option(
+    "--model-uid",
+    "-u",
+    type=str,
+    default=None,
+    help="Specify UID of model, default is None.",
+)
+@click.option(
     "--size-in-billions",
     "-s",
     default=None,
@@ -393,6 +400,7 @@ def model_launch(
     endpoint: Optional[str],
     model_name: str,
     model_type: str,
+    model_uid: str,
     size_in_billions: int,
     model_format: str,
     quantization: str,
@@ -413,6 +421,7 @@ def model_launch(
     model_uid = client.launch_model(
         model_name=model_name,
         model_type=model_type,
+        model_uid=model_uid,
         model_size_in_billions=size_in_billions,
         model_format=model_format,
         quantization=quantization,
