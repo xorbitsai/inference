@@ -389,3 +389,10 @@ async def test_openai(setup):
         result.append(chunk)
     assert result
     assert type(result[0]).__name__ == "OpenAIObject"
+
+    result = await openai.ChatCompletion.acreate(
+        messages=messages, stream=False, model=model_uid_res
+    )
+
+    assert result
+    assert type(result).__name__ == "OpenAIObject"
