@@ -113,12 +113,11 @@ class WorkerActor(xo.Actor):
         )
         return subpool_address, [str(dev) for dev in devices]
 
-    def _check_model_is_valid(self, model_name):
+    def _check_model_is_valid(self, model_name: str, model_format: str):
         # baichuan-base and baichuan-chat depend on `cpm_kernels` module,
         # but `cpm_kernels` cannot run on Darwin system.
-        if platform.system() == "Darwin":
-            # TODO: there's no baichuan-base.
-            if model_name in ["baichuan-base", "baichuan-chat"]:
+        if platform.system() == "Darwin" and model_format == "pytorch":
+            if "baichuan" in model_name:
                 raise ValueError(f"{model_name} model can't run on Darwin system.")
 
     @log_sync(logger=logger)
@@ -143,6 +142,57 @@ class WorkerActor(xo.Actor):
             raise ValueError(f"Unsupported model type: {model_type}")
 
     @log_async(logger=logger)
+    async def launch_speculative_model(
+        self,
+        model_uid: str,
+        model_name: str,
+        model_size_in_billions: Optional[int],
+        quantization: Optional[str],
+        draft_model_name: str,
+        draft_model_size_in_billions: Optional[int],
+        draft_quantization: Optional[str],
+        n_gpu: Optional[Union[int, str]] = "auto"
+    ):
+        if n_gpu is not None:
+            if isinstance(n_gpu, int) and (n_gpu <= 0 or n_gpu > cuda_count()):
+                raise ValueError(
+                    f"The parameter `n_gpu` must be greater than 0 and "
+                    f"not greater than the number of GPUs: {cuda_count()} on the machine."
+                )
+            if isinstance(n_gpu, str) and n_gpu != "auto":
+                raise ValueError("Currently `n_gpu` only supports `auto`.")
+
+        from ..model.llm.core import create_speculative_llm_model_instance
+        model, model_description = create_speculative_llm_model_instance(
+            model_uid=model_uid,
+            model_name=model_name,
+            model_size_in_billions=model_size_in_billions,
+            quantization=quantization,
+            draft_model_name=draft_model_name,
+            draft_model_size_in_billions=draft_model_size_in_billions,
+            draft_quantization=draft_quantization,
+            is_local_deployment=True,
+        )
+
+        subpool_address, devices = await self._create_subpool(model_uid, n_gpu=n_gpu)
+        try:
+            model_ref = await xo.create_actor(
+                ModelActor, address=subpool_address, uid=model_uid, model=model
+            )
+            await model_ref.load()
+        except:
+            logger.error(f"Failed to load model {model_uid}", exc_info=True)
+            await self._main_pool.remove_sub_pool(subpool_address)
+            raise
+
+        self._model_uid_to_model[model_uid] = model_ref
+        self._model_uid_to_model_spec[model_uid] = model_description
+        for dev in devices:
+            self._gpu_to_model_uid[int(dev)] = model_uid
+        self._model_uid_to_addr[model_uid] = subpool_address
+        return model_ref
+
+    @log_async(logger=logger)
     async def launch_builtin_model(
         self,
         model_uid: str,
@@ -164,7 +214,7 @@ class WorkerActor(xo.Actor):
                 raise ValueError("Currently `n_gpu` only supports `auto`.")
 
         assert model_uid not in self._model_uid_to_model
-        self._check_model_is_valid(model_name)
+        self._check_model_is_valid(model_name, model_format)
         assert self._supervisor_ref is not None
         is_local_deployment = await self._supervisor_ref.is_local_deployment()
 
@@ -186,6 +236,7 @@ class WorkerActor(xo.Actor):
             )
             await model_ref.load()
         except:
+            logger.error(f"Failed to load model {model_uid}", exc_info=True)
             await self._main_pool.remove_sub_pool(subpool_address)
             raise
 

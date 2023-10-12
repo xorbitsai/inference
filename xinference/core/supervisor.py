@@ -201,6 +201,49 @@ class SupervisorActor(xo.Actor):
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
 
+    @log_async(logger=logger)
+    async def launch_speculative_llm(self,
+        model_uid: str,
+        model_name: str,
+        model_size_in_billions: Optional[int],
+        quantization: Optional[str],
+        draft_model_name: str,
+        draft_model_size_in_billions: Optional[int],
+        draft_quantization: Optional[str],
+    ):
+        # TODO: the draft and target model must be on the same worker.
+        if not self.is_local_deployment():
+            raise ValueError("Speculative model is not supported in distributed deployment yet.")
+
+        if model_uid in self._model_uid_to_replica_info:
+            raise ValueError(f"Model is already in the model list, uid: {model_uid}")
+
+        worker_ref = await self._choose_worker()
+        replica = 1
+        self._model_uid_to_replica_info[model_uid] = ReplicaInfo(
+            replica=replica, scheduler=itertools.cycle(range(replica))
+        )
+
+        try:
+            for rep_model_uid in iter_replica_model_uid(model_uid, replica):
+                yield worker_ref.launch_builtin_model(
+                    model_uid=rep_model_uid,
+                    model_name=model_name,
+                    model_size_in_billions=model_size_in_billions,
+                    quantization=quantization,
+                    draft_model_name=draft_model_name,
+                    draft_model_size_in_billions=draft_model_size_in_billions,
+                    draft_quantization=draft_quantization,
+                )
+                self._replica_model_uid_to_worker[rep_model_uid] = worker_ref
+
+        except Exception:
+            # terminate_model will remove the replica info.
+            await self.terminate_model(model_uid, suppress_exception=True)
+            raise
+        raise xo.Return(model_uid)
+
+
     async def launch_builtin_model(
         self,
         model_uid: str,

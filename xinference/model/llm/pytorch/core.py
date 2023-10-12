@@ -78,7 +78,7 @@ class PytorchModel(LLM):
         pytorch_generate_config["model"] = self.model_uid
         return pytorch_generate_config
 
-    def _load_model(self, kwargs: dict):
+    def _load_model(self, **kwargs):
         try:
             from transformers import AutoModelForCausalLM, AutoTokenizer
         except ImportError:

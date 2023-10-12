@@ -250,7 +250,6 @@ def speculative_generate_stream(
     model: PreTrainedModel,
     tokenizer: PreTrainedTokenizer,
     prompt: str,
-    device: str,
     generate_config: Dict[str, Any],
 ) -> Iterator[Tuple[CompletionChunk, CompletionUsage]]:
     # TODO: currently, repetition penalty leads to garbled outputs.
@@ -261,7 +260,7 @@ def speculative_generate_stream(
 
     stream_interval = generate_config.get("stream_interval", 2)
     stream = generate_config.get("stream", False)
-    gamma = generate_config.get("gamma", 4)
+    gamma = generate_config.get("gamma", 3)
     temperature = float(generate_config.get("temperature", 1.0))
     top_p = float(generate_config.get("top_p", 1.0))
     top_k = int(generate_config.get("top_k", -1))  # -1 means disable
@@ -341,17 +340,16 @@ def speculative_generate_stream(
         assert draft_kv_cache is not None
         accepted = 0
         for draft_token_idx in range(-num_draft_tokens, 0):
-            r = torch.rand(1, device=device)
+            r = torch.rand(1, device=logits.device)
             draft_token = output_ids[draft_token_idx]
-            tmp_draft_logits = draft_logits.to(logits.device)
-            if r < torch.min(
-                torch.tensor([1], device=device),
-                tmp_draft_logits[0, draft_token_idx, draft_token]
-                / logits[0, draft_token_idx - 1, draft_token],
-            ):
+            token_logits = logits[:, draft_token_idx - 1, :]  # [1, n_vocab,]
+            draft_token_logits = draft_logits[:, draft_token_idx, :].to(logits.device)  # [1, n_vocab,]
+            if token_logits[0, draft_token] / draft_token_logits[0, draft_token] > r:
                 accepted += 1
                 total_num_accepted_tokens += 1
             else:
+                logger.error(f"Accepted ({accepted}/{num_draft_tokens}): '{tokenizer.decode(output_ids[-num_draft_tokens: draft_token_idx])}'")
+                logger.error(f"Rejected: '{tokenizer.decode(output_ids[draft_token_idx:])}'")
                 # rollback.
                 output_ids = output_ids[:draft_token_idx]
                 draft_kv_cache = rollback_kv_cache(
@@ -363,11 +361,8 @@ def speculative_generate_stream(
                 )
                 logits = rollback_logits(logits, num_draft_tokens - accepted)
 
-                # sample the next token according to the modified distribution.
-                modified_dist = (
-                    logits[:, draft_token_idx, :]
-                    - tmp_draft_logits[:, draft_token_idx, :]
-                )
+                # sample the next token according to the modified distribution of shape [1, n_vocab]
+                modified_dist = token_logits - draft_token_logits
                 modified_dist = torch.where(
                     modified_dist > 0, modified_dist, torch.zeros_like(modified_dist)
                 )
@@ -378,10 +373,11 @@ def speculative_generate_stream(
                 )
                 next_token = sample(
                     normalized[0, -1, :],
-                    temperature,
+                    0,
                     top_p,
                 )
                 output_ids.append(next_token)
+                logger.error(f"Generated: '{tokenizer.decode([next_token])}'")
                 break
 
         if accepted == num_draft_tokens:
@@ -391,19 +387,20 @@ def speculative_generate_stream(
                 top_p,
             )
             output_ids.append(next_token)
+            logger.error(f"Generated: '{tokenizer.decode([next_token])}'")
         total_seconds_on_accepting += time.time() - start
 
-    logger.info(
+    logger.error(
         f"In total, {total_num_accepted_tokens}/{total_num_draft_tokens} draft tokens are "
         f"accepted, acceptance rate: {total_num_accepted_tokens / total_num_draft_tokens:.2f}"
     )
-    logger.info(
+    logger.error(
         f"In total, {total_seconds_on_drafting:.2f}s, {total_seconds_on_eval:.2f}s and "
         f"{total_seconds_on_accepting:.2f}s are spent on drafting, eval, and accepting "
         f"respectively."
     )
 
-    output_ids = output_ids[num_prompt_tokens : min(max_new_tokens, len(output_ids))]
+    output_ids = output_ids[num_prompt_tokens: min(max_new_tokens + num_prompt_tokens, len(output_ids))]
     output = tokenizer.decode(
         output_ids,
         skip_special_tokens=True,
@@ -422,7 +419,7 @@ def speculative_generate_stream(
     )
     completion_usage = CompletionUsage(
         prompt_tokens=num_prompt_tokens,
-        completion_tokens=len(output_ids) - num_prompt_tokens,
+        completion_tokens=len(output_ids),
         total_tokens=len(output_ids),
     )
 
