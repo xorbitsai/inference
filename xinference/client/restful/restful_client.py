@@ -315,7 +315,7 @@ class Client:
         self,
         model_name: str,
         model_type: str = "LLM",
-        model_uid: str = None,
+        model_uid: Optional[str] = None,
         model_size_in_billions: Optional[int] = None,
         model_format: Optional[str] = None,
         quantization: Optional[str] = None,
