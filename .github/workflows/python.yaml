@@ -97,7 +97,6 @@ jobs:
           pip install s3fs
           pip install modelscope
           pip install -e ".[dev]"
-          pip install openai
         working-directory: .
 
       - name: Test with pytest
