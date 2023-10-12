@@ -34,6 +34,7 @@ from uvicorn import Config, Server
 
 from ..types import ChatCompletion, Completion, Embedding
 from .supervisor import SupervisorActor
+from .utils import is_valid_model_uid
 
 logger = logging.getLogger(__name__)
 
@@ -398,6 +399,11 @@ class RESTfulAPIActor(xo.Actor):
             raise HTTPException(
                 status_code=400,
                 detail="Invalid input. Please specify the model UID and the model name",
+            )
+        if not is_valid_model_uid(model_uid):
+            raise HTTPException(
+                status_code=400,
+                detail="The model UID is invalid. Please specify the model UID by a-z or A-Z and 0 < length <= 100.",
             )
 
         try:
