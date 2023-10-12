@@ -381,8 +381,7 @@ class Client:
             )
 
         response_data = response.json()
-        model_uid = response_data["model_uid"]
-        return model_uid
+        return response_data["model_uid"]
 
     def terminate_model(self, model_uid: str):
         """
