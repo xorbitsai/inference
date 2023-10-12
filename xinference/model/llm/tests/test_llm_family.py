@@ -21,6 +21,7 @@ from unittest.mock import MagicMock, Mock, patch
 import pytest
 
 from ....constants import XINFERENCE_ENV_MODEL_SRC
+from ...utils import is_locale_chinese_simplified
 from ..llm_family import (
     AWSRegion,
     GgmlLLMSpecV1,
@@ -31,7 +32,6 @@ from ..llm_family import (
     _get_cache_dir,
     _get_meta_path,
     _skip_download,
-    is_locale_chinese_simplified,
     is_self_hosted,
     is_valid_model_uri,
     match_llm,
