@@ -34,6 +34,7 @@ from ..core import ModelActor
 from .resource import ResourceStatus
 from .utils import (
     build_replica_model_uid,
+    is_valid_model_uid,
     iter_replica_model_uid,
     log_async,
     log_sync,
@@ -215,6 +216,11 @@ class SupervisorActor(xo.Actor):
             )
             # TODO: not protected.
             self._replica_model_uid_to_worker[_replica_model_uid] = worker_ref
+
+        if not is_valid_model_uid(model_uid):
+            raise ValueError(
+                "The model UID is invalid. Please specify the model UID by a-z or A-Z, 0 < length <= 100."
+            )
 
         if model_uid in self._model_uid_to_replica_info:
             raise ValueError(f"Model is already in the model list, uid: {model_uid}")
