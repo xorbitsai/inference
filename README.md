@@ -63,35 +63,68 @@ allowing the seamless distribution of model inference across multiple devices or
 with popular third-party libraries including [LangChain](https://python.langchain.com/docs/integrations/providers/xinference), [LlamaIndex](https://gpt-index.readthedocs.io/en/stable/examples/llm/XinferenceLocalDeployment.html#i-run-pip-install-xinference-all-in-a-terminal-window), [Dify](https://docs.dify.ai/advanced/model-configuration/xinference), and [Chatbox](https://chatboxai.app/).
 
 ## Getting Started
-Xinference can be installed via pip from PyPI. It is highly recommended to create a new virtual
-environment to avoid conflicts.
-
 ### Installation
-```bash
-$ pip install "xinference"
-```
-`xinference` installs basic packages for serving models. 
+Xinference can be installed with `pip` on Linux, Windows, and macOS. It is highly recommended to create a new virtual environment to avoid conflicts.
 
-#### Installation with GGML
-To serve ggml models, you need to install the following extra dependencies:
-```bash
-$ pip install "xinference[ggml]"
-```
-If you want to achieve acceleration on 
-different hardware, refer to the installation documentation of the corresponding package.
-- [llama-cpp-python](https://github.com/abetlen/llama-cpp-python#installation-from-pypi-recommended) is required to run `baichuan`, `wizardlm-v1.0`, `vicuna-v1.3` and `orca`.
-- [chatglm-cpp-python](https://github.com/li-plus/chatglm.cpp#getting-started) is required to run `chatglm` and `chatglm2`.
+To run models using Xinference, you will need to install the backend corresponding to the type of model you intend to serve.
 
-#### Installation with PyTorch
-To serve PyTorch models, you need to install the following extra dependencies:
+If you aim to serve all supported models, you can install all the necessary dependencies with a single command:
 ```bash
-$ pip install "xinference[pytorch]"
+pip install "xinference[all]"
 ```
 
-#### Installation with all dependencies
-If you want to serve all the supported models, install all the dependencies:
+**NOTE**: if you want to serve models in GGML format, it's advised to **install the GGML dependencies manually** based on your hardware specifications to enable acceleration. For more details, see the [GGML Backend](#ggml-backend) section.
+
+#### Transformers Backend
+The transformers backend supports most of the state-of-art models. It is the default backend for models in PyTorch format.
 ```bash
-$ pip install "xinference[all]"
+pip install "xinference[transformers]"
+```
+   
+#### vLLM Backend
+vLLM is a fast and easy-to-use library for LLM inference and serving. Xinference will choose vLLM as the backend to achieve better throughput when the following conditions are met:
+
+- The model format is PyTorch
+- The model is within the list of models supported by vLLM
+- The quantization method is `none` (AWQ quantization will be supported soon)
+- The system is Linux and has at least one CUDA device
+
+Currently, supported models include:
+
+- ``llama-2``, ``llama-2-chat``
+- ``baichuan``, ``baichuan-chat``
+- ``internlm``, ``internlm-20b``, ``internlm-chat``, ``internlm-chat-20b``
+- ``vicuna-v1.3``, ``vicuna-v1.5``
+
+To install Xinference and vLLM:
+```bash
+pip install "xinference[vllm]"
+```
+
+#### GGML Backend
+It's advised to install the GGML dependencies manually based on your hardware specifications to enable acceleration.
+
+Initial setup:
+```bash
+pip install xinference
+pip install ctransformers
+```
+
+Hardware-Specific installations:
+
+- Apple Silicon:
+```bash
+    CMAKE_ARGS="-DLLAMA_METAL=on" pip install llama-cpp-python
+```
+
+- Nvidia cards:
+```bash
+    CMAKE_ARGS="-DLLAMA_CUBLAS=on" pip install llama-cpp-python
+```
+
+- AMD cards:
+```bash
+    CMAKE_ARGS="-DLLAMA_HIPBLAS=on" pip install llama-cpp-python
 ```
 
 
