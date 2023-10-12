@@ -18,8 +18,8 @@ from typing import Iterator
 
 import pytest
 
-from xinference.model.llm.ggml.chatglm import ChatglmCppChatModel
-from xinference.model.llm.llm_family import GgmlLLMSpecV1, LLMFamilyV1
+from ...ggml.chatglm import ChatglmCppChatModel
+from ...llm_family import GgmlLLMSpecV1, LLMFamilyV1
 
 
 class MockPipeline:

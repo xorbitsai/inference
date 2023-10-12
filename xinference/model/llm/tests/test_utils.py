@@ -12,9 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from xinference.model.llm.llm_family import PromptStyleV1
-
 from ....types import ChatCompletionMessage
+from ..llm_family import PromptStyleV1
 from ..utils import ChatModelMixin
 
 
