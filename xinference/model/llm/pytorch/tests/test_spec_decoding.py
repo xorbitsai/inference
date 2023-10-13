@@ -29,7 +29,7 @@ def test_spec_decoding():
     decoding, which starts with "The largest animal ever recorded is the Tyrannosaurus Rex".
     """
 
-    model_id = "/home/wangzhong/.cache/modelscope/hub/modelscope/Llama-2-7b-chat-ms"
+    model_id = "PY007/TinyLlama-1.1B-Chat-v0.3"
     draft_model = AutoModelForCausalLM.from_pretrained(
         model_id,
         device_map="auto",
@@ -44,49 +44,12 @@ def test_spec_decoding():
         model=draft_model,
         tokenizer=tokenizer,
         prompt=formatted_prompt,
+        device="cuda",
         generate_config={"model": "test", "temperature": 0, "max_tokens": 64},
     ):
-        completion = completion_chunk["choices"][0]["text"]
-        print(completion)
-        # assert completion.startswith("The largest animal ever recorded is the Tyrannosaurus Rex")
+        pass
 
-
-def test():
-    model = AutoModelForCausalLM.from_pretrained(
-        "/home/wangzhong/.cache/modelscope/hub/AI-ModelScope/WizardCoder-Python-34B-V1.0",
-        device_map="cuda:0",
-        torch_dtype=torch.float16,
+    completion = completion_chunk["choices"][0]["text"]
+    assert completion.startswith(
+        "The largest animal ever recorded is the Tyrannosaurus Rex"
     )
-    draft_model = AutoModelForCausalLM.from_pretrained(
-        "/home/wangzhong/.cache/modelscope/hub/AI-ModelScope/WizardCoder-Python-13B-V1.0",
-        device_map="cuda:1",
-        torch_dtype=torch.float16,
-    )
-    tokenizer = AutoTokenizer.from_pretrained(
-        "/home/wangzhong/.cache/modelscope/hub/AI-ModelScope/WizardCoder-Python-34B-V1.0"
-    )
-    prompt = """Write a function to check if 2 pytorch tensors are on a same device."""
-    prompt_template = """Below is an instruction that describes a task. Write a response that appropriately completes the request.
-
-### Instruction:
-{instruction}
-
-### Response:
-"""
-    prompt = prompt_template.format(instruction=prompt)
-
-    for completion_chunk, completion_usage in speculative_generate_stream(
-        draft_model=draft_model,
-        model=model,
-        tokenizer=tokenizer,
-        prompt=prompt,
-        generate_config={
-            "model": "test",
-            "temperature": 0.8,
-            "top_p": 0.95,
-            "top_k": 40,
-            "max_tokens": 1024,
-        },
-    ):
-        completion = completion_chunk["choices"][0]["text"]
-        print(completion)
