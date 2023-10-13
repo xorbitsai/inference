@@ -1775,7 +1775,7 @@
           "none"
         ],
         "model_id": "RWKV/rwkv-4-430m-pile",
-        "model_revision": "a4f6ec80438d4262d1bbc8f385feb2ef1a4a9d6b"
+        "model_revision": "6f7bcd0e5b0851cc00710a5c7d2ef5f5f24363a5"
       },
       {
         "model_format": "pytorch",
