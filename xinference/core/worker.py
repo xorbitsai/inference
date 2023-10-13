@@ -113,7 +113,7 @@ class WorkerActor(xo.Actor):
         )
         return subpool_address, [str(dev) for dev in devices]
 
-    def _check_model_is_valid(self, model_name: str, model_format: str):
+    def _check_model_is_valid(self, model_name: str, model_format: Optional[str]):
         # baichuan-base and baichuan-chat depend on `cpm_kernels` module,
         # but `cpm_kernels` cannot run on Darwin system.
         if platform.system() == "Darwin" and model_format == "pytorch":
