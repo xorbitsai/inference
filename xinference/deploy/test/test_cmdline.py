@@ -31,7 +31,8 @@ from ..cmdline import (
 
 
 @pytest.mark.parametrize("stream", [True, False])
-def test_cmdline(setup, stream):
+@pytest.mark.parametrize("model_uid", [None, "my_model_uid"])
+def test_cmdline(setup, stream, model_uid):
     endpoint, _ = setup
     runner = CliRunner()
 
@@ -62,12 +63,16 @@ def test_cmdline(setup, stream):
     client = Client(endpoint)
     # Windows CI has limited resources, use replica 1
     replica = 1 if os.name == "nt" else 2
+    original_model_uid = model_uid
     model_uid = client.launch_model(
         model_name="orca",
+        model_uid=model_uid,
         model_size_in_billions=3,
         quantization="q4_0",
         replica=replica,
     )
+    if original_model_uid == "my_model_uid":
+        assert model_uid == "my_model_uid"
     assert len(model_uid) != 0
 
     # list model
