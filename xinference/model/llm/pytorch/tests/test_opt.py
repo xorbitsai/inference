@@ -22,7 +22,8 @@ from typing import Union
 import pytest
 import xoscar
 
-from .....client import Client, RESTfulGenerateModelHandle
+from .....client import Client
+from .....client.restful.restful_client import RESTfulGenerateModelHandle
 from .....core.model import ModelActor
 from ... import BUILTIN_LLM_FAMILIES
 from ..core import PytorchModel

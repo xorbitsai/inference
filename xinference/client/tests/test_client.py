@@ -17,15 +17,10 @@ from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 
-from ..client import (
-    ActorClient,
-    ChatModelHandle,
-    EmbeddingModelHandle,
-    RESTfulChatModelHandle,
-    RESTfulClient,
-    RESTfulEmbeddingModelHandle,
-)
-from ..constants import XINFERENCE_ENV_MODEL_SRC
+from ...constants import XINFERENCE_ENV_MODEL_SRC
+from ..oscar.actor_client import ActorClient, ChatModelHandle, EmbeddingModelHandle
+from ..restful.restful_client import Client as RESTfulClient
+from ..restful.restful_client import RESTfulChatModelHandle, RESTfulEmbeddingModelHandle
 
 
 @pytest.mark.skipif(os.name == "nt", reason="Skip windows")

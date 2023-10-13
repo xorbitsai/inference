@@ -23,11 +23,11 @@ import click
 from xoscar.utils import get_next_port
 
 from .. import __version__
-from ..client import (
-    ActorClient,
+from ..client import RESTfulClient
+from ..client.oscar.actor_client import ActorClient
+from ..client.restful.restful_client import (
     RESTfulChatglmCppChatModelHandle,
     RESTfulChatModelHandle,
-    RESTfulClient,
     RESTfulGenerateModelHandle,
 )
 from ..constants import (

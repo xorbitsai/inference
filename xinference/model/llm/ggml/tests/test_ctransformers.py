@@ -16,7 +16,8 @@ import string
 
 import pytest
 
-from .....client import Client, RESTfulGenerateModelHandle
+from .....client import Client
+from .....client.restful.restful_client import RESTfulGenerateModelHandle
 from ....llm import GgmlLLMSpecV1, LLMFamilyV1
 from ..ctransformers import CtransformersModel
 
