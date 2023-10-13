@@ -43,8 +43,8 @@ def _install():
     from .pytorch.core import PytorchChatModel, PytorchModel
     from .pytorch.falcon import FalconPytorchChatModel, FalconPytorchModel
     from .pytorch.llama_2 import LlamaPytorchChatModel, LlamaPytorchModel
-    from .pytorch.vicuna import VicunaPytorchChatModel
     from .pytorch.rwkv import RWKVPilePytorchModel
+    from .pytorch.vicuna import VicunaPytorchChatModel
     from .vllm.core import VLLMChatModel, VLLMModel
 
     # register llm classes.

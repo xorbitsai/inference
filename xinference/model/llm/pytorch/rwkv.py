@@ -39,7 +39,7 @@ class RWKVPilePytorchModel(PytorchModel):
 
     def _load_model(self, kwargs: dict):
         try:
-            from transformers import RwkvForCausalLM, AutoTokenizer
+            from transformers import AutoTokenizer, RwkvForCausalLM
         except ImportError:
             error_message = "Failed to import module 'transformers'"
             installation_guide = [
@@ -75,4 +75,3 @@ class RWKVPilePytorchModel(PytorchModel):
         if "generate" not in llm_family.model_ability:
             return False
         return True
-

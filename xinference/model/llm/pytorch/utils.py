@@ -587,6 +587,7 @@ def generate_stream_chatglm(
 
     yield completion_chunk, completion_usage
 
+
 @torch.inference_mode()
 def generate_stream_rwkv(
     model,
