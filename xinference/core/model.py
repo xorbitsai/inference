@@ -39,7 +39,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-from utils import log_async
+from .utils import log_async
 
 T = TypeVar("T")
 
