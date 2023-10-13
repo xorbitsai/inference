@@ -1774,8 +1774,44 @@
         "quantizations": [
           "none"
         ],
-        "model_id": "RWKV/rwkv-4-169m-pile",
-        "model_revision": "46bdc280eb97b6141d5d51a935e0c4870ecaefcc"
+        "model_id": "RWKV/rwkv-4-430m-pile",
+        "model_revision": "a4f6ec80438d4262d1bbc8f385feb2ef1a4a9d6b"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 2,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "RWKV/rwkv-4-1b5-pile",
+        "model_revision": "643585471eaf5821d94dfcb498ab5b94a36b42cf"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 3,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "RWKV/rwkv-4-3b-pile",
+        "model_revision": "7fdda3c5570d4a9711f8f02cc3a20941a5623cd3"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "RWKV/rwkv-4-7b-pile",
+        "model_revision": "922e22a761427e50d7be457b31a76b1126021b8b"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 14,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "RWKV/rwkv-4-14b-pile",
+        "model_revision": "4effb0fa9d15c2f383a1d159f4a40df0e09eb6d5"
       }
     ]
   },

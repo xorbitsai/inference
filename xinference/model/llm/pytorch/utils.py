@@ -667,7 +667,7 @@ def generate_stream_rwkv(
                     ),
                     encoder_hidden_states=encoder_output,
                     use_cache=True,
-                    past_key_values=past_key_values if not sent_interrupt else None,
+                    state=state if not sent_interrupt else None,
                 )
                 sent_interrupt = False
 
