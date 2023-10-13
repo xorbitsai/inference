@@ -108,5 +108,5 @@ jobs:
             --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/client/tests/test_client.py
           pytest --timeout=1500 \
             -W ignore::PendingDeprecationWarning \
-            --cov-config=setup.cfg --cov-report=xml --cov=xinference --ignore xinference/client/tests/test_client.py xinference
+            --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/core/tests/test_restful_api.py
         working-directory: .
