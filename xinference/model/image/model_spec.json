@@ -1,0 +1,14 @@
+[
+  {
+    "model_name": "stable-diffusion-v1-5",
+    "model_family": "stable_diffusion",
+    "model_id": "runwayml/stable-diffusion-v1-5",
+    "model_revision": "1d0c4ebf6ff58a5caecab40fa1406526bca4b5b9"
+  },
+  {
+    "model_name": "stable-diffusion-xl-base-1.0",
+    "model_family": "stable_diffusion",
+    "model_id": "stabilityai/stable-diffusion-xl-base-1.0",
+    "model_revision": "f898a3e026e802f68796b95e9702464bac78d76f"
+  }
+]

@@ -11,19 +11,3 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-import os
-from pathlib import Path
-
-XINFERENCE_HOME = str(Path.home() / ".xinference")
-XINFERENCE_CACHE_DIR = os.path.join(XINFERENCE_HOME, "cache")
-XINFERENCE_MODEL_DIR = os.path.join(XINFERENCE_HOME, "model")
-XINFERENCE_LOG_DIR = os.path.join(XINFERENCE_HOME, "logs")
-XINFERENCE_IMAGE_DIR = os.path.join(XINFERENCE_HOME, "image")
-
-XINFERENCE_DEFAULT_LOCAL_HOST = "127.0.0.1"
-XINFERENCE_DEFAULT_DISTRIBUTED_HOST = "0.0.0.0"
-XINFERENCE_DEFAULT_ENDPOINT_PORT = 9997
-
-XINFERENCE_ENV_ENDPOINT = "XINFERENCE_ENDPOINT"
-XINFERENCE_ENV_MODEL_SRC = "XINFERENCE_MODEL_SRC"

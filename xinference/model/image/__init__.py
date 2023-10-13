@@ -12,18 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import codecs
+import json
 import os
-from pathlib import Path
 
-XINFERENCE_HOME = str(Path.home() / ".xinference")
-XINFERENCE_CACHE_DIR = os.path.join(XINFERENCE_HOME, "cache")
-XINFERENCE_MODEL_DIR = os.path.join(XINFERENCE_HOME, "model")
-XINFERENCE_LOG_DIR = os.path.join(XINFERENCE_HOME, "logs")
-XINFERENCE_IMAGE_DIR = os.path.join(XINFERENCE_HOME, "image")
+from .core import ImageModelFamilyV1
 
-XINFERENCE_DEFAULT_LOCAL_HOST = "127.0.0.1"
-XINFERENCE_DEFAULT_DISTRIBUTED_HOST = "0.0.0.0"
-XINFERENCE_DEFAULT_ENDPOINT_PORT = 9997
-
-XINFERENCE_ENV_ENDPOINT = "XINFERENCE_ENDPOINT"
-XINFERENCE_ENV_MODEL_SRC = "XINFERENCE_MODEL_SRC"
+_model_spec_json = os.path.join(os.path.dirname(__file__), "model_spec.json")
+BUILTIN_IMAGE_MODELS = dict(
+    (spec["model_name"], ImageModelFamilyV1(**spec))
+    for spec in json.load(codecs.open(_model_spec_json, "r", encoding="utf-8"))
+)
+del _model_spec_json

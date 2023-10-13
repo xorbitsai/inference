@@ -32,7 +32,7 @@ from starlette.responses import RedirectResponse
 from typing_extensions import NotRequired, TypedDict
 from uvicorn import Config, Server
 
-from ..types import ChatCompletion, Completion, Embedding
+from ..types import ChatCompletion, Completion, Embedding, ImageList
 from .supervisor import SupervisorActor
 
 logger = logging.getLogger(__name__)
@@ -170,6 +170,15 @@ class CreateEmbeddingRequest(BaseModel):
         }
 
 
+class TextToImageRequest(BaseModel):
+    model: str
+    prompt: Union[str, List[str]] = Field(description="The input to embed.")
+    n: Optional[int] = 1
+    response_format: Optional[str] = "url"
+    size: Optional[str] = "1024*1024"
+    user: Optional[str] = None
+
+
 class ChatCompletionRequestMessage(TypedDict):
     role: Literal["assistant", "user", "system"]
     content: str
@@ -266,6 +275,12 @@ class RESTfulAPIActor(xo.Actor):
             self.create_embedding,
             methods=["POST"],
             response_model=Embedding,
+        )
+        self._router.add_api_route(
+            "/v1/images/generations",
+            self.create_images,
+            methods=["POST"],
+            response_model=ImageList,
         )
         self._router.add_api_route(
             "/v1/chat/completions",
@@ -546,6 +561,29 @@ class RESTfulAPIActor(xo.Actor):
         try:
             embedding = await model.create_embedding(request.input)
             return embedding
+        except RuntimeError as re:
+            logger.error(re, exc_info=True)
+            raise HTTPException(status_code=400, detail=str(re))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def create_images(self, request: TextToImageRequest):
+        model_uid = request.model
+        try:
+            model = await self._supervisor_ref.get_model(model_uid)
+        except ValueError as ve:
+            logger.error(str(ve), exc_info=True)
+            raise HTTPException(status_code=400, detail=str(ve))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
+        try:
+            image_list = await model.text_to_image(
+                request.prompt, request.n, request.size, request.response_format
+            )
+            return image_list
         except RuntimeError as re:
             logger.error(re, exc_info=True)
             raise HTTPException(status_code=400, detail=str(re))
