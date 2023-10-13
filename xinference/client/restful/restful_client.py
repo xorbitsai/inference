@@ -311,6 +311,7 @@ class Client:
         self,
         model_name: str,
         model_type: str = "LLM",
+        model_uid: Optional[str] = None,
         model_size_in_billions: Optional[int] = None,
         model_format: Optional[str] = None,
         quantization: Optional[str] = None,
@@ -327,6 +328,8 @@ class Client:
             The name of model.
         model_type: str
             type of model.
+        model_uid: str
+            UID of model, auto generate a UUID if is None.
         model_size_in_billions: Optional[int]
             The size (in billions) of the model.
         model_format: Optional[str]
@@ -350,7 +353,8 @@ class Client:
 
         url = f"{self.base_url}/v1/models"
 
-        model_uid = self._gen_model_uid()
+        if model_uid is None:
+            model_uid = self._gen_model_uid()
 
         payload = {
             "model_uid": model_uid,
@@ -373,8 +377,7 @@ class Client:
             )
 
         response_data = response.json()
-        model_uid = response_data["model_uid"]
-        return model_uid
+        return response_data["model_uid"]
 
     def terminate_model(self, model_uid: str):
         """

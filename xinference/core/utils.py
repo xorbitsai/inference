@@ -82,3 +82,12 @@ def parse_replica_model_uid(replica_model_uid: str) -> Tuple[str, int, int]:
     replica = int(parts.pop())
     model_uid = "-".join(parts)
     return model_uid, replica, rep_id
+
+
+def is_valid_model_uid(model_uid: str) -> bool:
+    if not model_uid or len(model_uid) > 100:
+        return False
+
+    import re
+
+    return re.match(r"^[A-Za-z0-9][A-Za-z0-9_\-]*$", model_uid) is not None
