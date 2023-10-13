@@ -14,11 +14,11 @@
 
 import logging
 import os
-from typing import Optional, Union, Iterator, List
+from typing import Iterator, List, Optional, Union
 
 from ....types import Completion, CompletionChunk, Embedding
-from .core import PytorchChatModel, PytorchModelConfig, PytorchGenerateConfig
 from .. import LLMFamilyV1, LLMSpecV1
+from .core import PytorchChatModel, PytorchGenerateConfig, PytorchModelConfig
 
 logger = logging.getLogger(__name__)
 

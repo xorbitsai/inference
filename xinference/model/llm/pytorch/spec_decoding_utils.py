@@ -15,7 +15,7 @@ import gc
 import logging
 import time
 import uuid
-from typing import Any, Dict, Iterator, List, Optional, Tuple, Iterable
+from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple
 
 try:
     import torch
@@ -358,8 +358,13 @@ def speculative_generate_stream(
                 if draft_token in stop_token_ids:
                     stopped = True
             else:
-                # logger.error(f"Accepted ({accepted}/{num_draft_tokens}): '{tokenizer.decode(output_ids[-num_draft_tokens: draft_token_idx])}'")
-                # logger.error(f"Rejected: '{tokenizer.decode(output_ids[draft_token_idx:])}'")
+                if logger.level == logging.DEBUG:
+                    logger.debug(
+                        f"Accepted ({accepted}/{num_draft_tokens}): '{tokenizer.decode(output_ids[-num_draft_tokens: draft_token_idx])}'"
+                    )
+                    logger.debug(
+                        f"Rejected: '{tokenizer.decode(output_ids[draft_token_idx:])}'"
+                    )
                 # rollback.
                 output_ids = output_ids[:draft_token_idx]
                 draft_kv_cache = rollback_kv_cache(
@@ -387,21 +392,25 @@ def speculative_generate_stream(
                     top_p,
                 )
                 output_ids.append(next_token)
-                # logger.error(f"Generated: '{tokenizer.decode([next_token])}'")
+                if logger.level == logging.DEBUG:
+                    logger.debug(f"Generated: '{tokenizer.decode([next_token])}'")
                 if next_token in stop_token_ids:
                     stopped = True
                 break
 
         if accepted == num_draft_tokens:
-            # logger.error(
-            #     f"Accepted ({accepted}/{num_draft_tokens}): '{tokenizer.decode(output_ids[-num_draft_tokens:])}'")
+            if logger.level == logging.DEBUG:
+                logger.debug(
+                    f"Accepted ({accepted}/{num_draft_tokens}): '{tokenizer.decode(output_ids[-num_draft_tokens:])}'"
+                )
             next_token = sample(
                 logits[0, -1, :],
                 temperature,
                 top_p,
             )
             output_ids.append(next_token)
-            # logger.error(f"Generated: '{tokenizer.decode([next_token])}'")
+            if logger.level == logging.DEBUG:
+                logger.debug(f"Generated: '{tokenizer.decode([next_token])}'")
             if next_token in stop_token_ids:
                 stopped = True
 
@@ -471,11 +480,11 @@ def speculative_generate_stream(
     else:
         finish_reason = "length"
 
-    logger.error(
+    logger.debug(
         f"In total, {total_num_accepted_tokens}/{total_num_draft_tokens} draft tokens are "
         f"accepted, acceptance rate: {total_num_accepted_tokens / total_num_draft_tokens:.2f}"
     )
-    logger.error(
+    logger.debug(
         f"In total, {total_seconds_on_drafting:.2f}s, {total_seconds_on_eval:.2f}s and "
         f"{total_seconds_on_accepting:.2f}s are spent on drafting, eval, and accepting "
         f"respectively."
