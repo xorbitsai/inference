@@ -262,6 +262,7 @@ class RESTfulAPIActor(xo.Actor):
             "/v1/models/{model_uid}", self.describe_model, methods=["GET"]
         )
         self._router.add_api_route("/v1/models", self.launch_model, methods=["POST"])
+        self._router.add_api_route("/experimental/speculative_llms", self.launch_speculative_llm, methods=["POST"])
         self._router.add_api_route(
             "/v1/models/{model_uid}", self.terminate_model, methods=["DELETE"]
         )
@@ -384,6 +385,47 @@ class RESTfulAPIActor(xo.Actor):
         except Exception as e:
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
+
+    async def launch_speculative_llm(self, request: Request) -> JSONResponse:
+        payload = await request.json()
+        model_uid = payload.get("model_uid")
+        model_name = payload.get("model_name")
+        model_size_in_billions = payload.get("model_size_in_billions")
+        quantization = payload.get("quantization")
+        draft_model_name = payload.get("draft_model_name")
+        draft_model_size_in_billions = payload.get("draft_model_size_in_billions")
+        draft_quantization = payload.get("draft_quantization")
+        n_gpu = payload.get("n_gpu", "auto")
+
+        if model_uid is None or model_uid is None:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid input. Please specify the model UID and the model name",
+            )
+
+        try:
+            model_uid = await self._supervisor_ref.launch_speculative_llm(
+                model_uid=model_uid,
+                model_name=model_name,
+                model_size_in_billions=model_size_in_billions,
+                quantization=quantization,
+                draft_model_name=draft_model_name,
+                draft_model_size_in_billions=draft_model_size_in_billions,
+                draft_quantization=draft_quantization,
+                n_gpu=n_gpu,
+            )
+
+        except ValueError as ve:
+            logger.error(str(ve), exc_info=True)
+            raise HTTPException(status_code=400, detail=str(ve))
+        except RuntimeError as re:
+            logger.error(str(re), exc_info=True)
+            raise HTTPException(status_code=503, detail=str(re))
+        except Exception as e:
+            logger.error(str(e), exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
+        return JSONResponse(content={"model_uid": model_uid})
 
     async def launch_model(self, request: Request) -> JSONResponse:
         payload = await request.json()

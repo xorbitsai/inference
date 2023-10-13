@@ -210,6 +210,7 @@ class SupervisorActor(xo.Actor):
         draft_model_name: str,
         draft_model_size_in_billions: Optional[int],
         draft_quantization: Optional[str],
+        n_gpu: Optional[Union[int, str]] = "auto"
     ):
         # TODO: the draft and target model must be on the same worker.
         if not self.is_local_deployment():
@@ -226,7 +227,7 @@ class SupervisorActor(xo.Actor):
 
         try:
             for rep_model_uid in iter_replica_model_uid(model_uid, replica):
-                yield worker_ref.launch_builtin_model(
+                yield worker_ref.launch_speculative_model(
                     model_uid=rep_model_uid,
                     model_name=model_name,
                     model_size_in_billions=model_size_in_billions,
@@ -234,6 +235,7 @@ class SupervisorActor(xo.Actor):
                     draft_model_name=draft_model_name,
                     draft_model_size_in_billions=draft_model_size_in_billions,
                     draft_quantization=draft_quantization,
+                    n_gpu=n_gpu,
                 )
                 self._replica_model_uid_to_worker[rep_model_uid] = worker_ref
 
@@ -242,7 +244,6 @@ class SupervisorActor(xo.Actor):
             await self.terminate_model(model_uid, suppress_exception=True)
             raise
         raise xo.Return(model_uid)
-
 
     async def launch_builtin_model(
         self,

@@ -16,6 +16,7 @@ import uuid
 from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Union
 
 import requests
+import warnings
 
 from ..common import streaming_response_iterator
 
@@ -351,6 +352,52 @@ class Client:
 
         response_data = response.json()
         return response_data
+
+    def launch_speculative_llm(
+        self,
+        model_name: str,
+        model_size_in_billions: Optional[int],
+        quantization: Optional[str],
+        draft_model_name: str,
+        draft_model_size_in_billions: Optional[int],
+        draft_quantization: Optional[str],
+        n_gpu: Optional[Union[int, str]] = "auto"
+    ):
+        """
+        Launch the LLM along with a draft model based on the parameters on the server via RESTful APIs. This is an
+        experimental feature and the API may change in the future.
+
+        Returns
+        -------
+        str
+            The unique model_uid for the launched model.
+
+        """
+        warnings.warn("`launch_speculative_llm` is an experimental feature and the API may change in the future.")
+
+        model_uid = self._gen_model_uid()
+
+        payload = {
+            "model_uid": model_uid,
+            "model_name": model_name,
+            "model_size_in_billions": model_size_in_billions,
+            "quantization": quantization,
+            "draft_model_name": draft_model_name,
+            "draft_model_size_in_billions": draft_model_size_in_billions,
+            "draft_quantization": draft_quantization,
+            "n_gpu": n_gpu,
+        }
+
+        url = f"{self.base_url}/experimental/speculative_llms"
+        response = requests.post(url, json=payload)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to launch model, detail: {response.json()['detail']}"
+            )
+
+        response_data = response.json()
+        model_uid = response_data["model_uid"]
+        return model_uid
 
     def launch_model(
         self,

@@ -14,16 +14,16 @@
 
 import logging
 import os
-from typing import Optional, Union, Iterator
+from typing import Optional, Union, Iterator, List
 
-from ....types import Completion, CompletionChunk
-from .core import PytorchModel, PytorchModelConfig, PytorchGenerateConfig
+from ....types import Completion, CompletionChunk, Embedding
+from .core import PytorchChatModel, PytorchModelConfig, PytorchGenerateConfig
 from .. import LLMFamilyV1, LLMSpecV1
 
 logger = logging.getLogger(__name__)
 
 
-class SpeculativeModel(PytorchModel):
+class SpeculativeModel(PytorchChatModel):
     def __init__(
         self,
         model_uid: str,
@@ -130,4 +130,14 @@ class SpeculativeModel(PytorchModel):
             )
             return completion
         else:
-            return NotImplementedError
+            for completion_chunk, completion_usage in speculative_generate_stream(
+                    draft_model=self._draft_model,
+                    model=self._model,
+                    tokenizer=self._tokenizer,
+                    prompt=prompt,
+                    generate_config=generate_config
+            ):
+                yield completion_chunk
+
+    def create_embedding(self, input: Union[str, List[str]]) -> Embedding:
+        raise NotImplementedError
