@@ -252,6 +252,10 @@ def speculative_generate_stream(
     prompt: str,
     generate_config: Dict[str, Any],
 ) -> Iterator[Tuple[CompletionChunk, CompletionUsage]]:
+    logger.debug(
+        f"Enter speculative_generate_stream, prompt: {prompt}, generate_config: {generate_config}"
+    )
+
     # TODO: currently, repetition penalty leads to garbled outputs.
     if float(generate_config.get("repetition_penalty", 1.0)) != 1.0:
         raise ValueError(

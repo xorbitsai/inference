@@ -104,6 +104,18 @@ class SpeculativeModel(PytorchChatModel):
     def generate(
         self, prompt: str, generate_config: Optional[PytorchGenerateConfig] = None
     ) -> Union[Completion, Iterator[CompletionChunk]]:
+        def generator_wrapper(
+            _prompt: str, _generate_config: PytorchGenerateConfig
+        ) -> Iterator[CompletionChunk]:
+            for _completion_chunk, _completion_usage in speculative_generate_stream(
+                draft_model=self._draft_model,
+                model=self._model,
+                tokenizer=self._tokenizer,
+                prompt=_prompt,
+                generate_config=_generate_config,
+            ):
+                yield _completion_chunk
+
         from .spec_decoding_utils import speculative_generate_stream
 
         generate_config = self._sanitize_generate_config(generate_config)
@@ -133,14 +145,7 @@ class SpeculativeModel(PytorchChatModel):
             )
             return completion
         else:
-            for completion_chunk, completion_usage in speculative_generate_stream(
-                draft_model=self._draft_model,
-                model=self._model,
-                tokenizer=self._tokenizer,
-                prompt=prompt,
-                generate_config=generate_config,
-            ):
-                yield completion_chunk
+            return generator_wrapper(prompt, generate_config)
 
     def create_embedding(self, input: Union[str, List[str]]) -> Embedding:
         raise NotImplementedError
