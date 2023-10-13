@@ -210,7 +210,7 @@ class SupervisorActor(xo.Actor):
         draft_model_name: str,
         draft_model_size_in_billions: Optional[int],
         draft_quantization: Optional[str],
-        n_gpu: Optional[Union[int, str]] = "auto"
+        n_gpu: Optional[Union[int, str]] = "auto",
     ) -> AsyncGenerator:
         logger.debug(
             (
@@ -226,7 +226,9 @@ class SupervisorActor(xo.Actor):
 
         # TODO: the draft and target model must be on the same worker.
         if not self.is_local_deployment():
-            raise ValueError("Speculative model is not supported in distributed deployment yet.")
+            raise ValueError(
+                "Speculative model is not supported in distributed deployment yet."
+            )
 
         if model_uid in self._model_uid_to_replica_info:
             raise ValueError(f"Model is already in the model list, uid: {model_uid}")

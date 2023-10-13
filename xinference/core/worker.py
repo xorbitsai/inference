@@ -151,7 +151,7 @@ class WorkerActor(xo.Actor):
         draft_model_name: str,
         draft_model_size_in_billions: Optional[int],
         draft_quantization: Optional[str],
-        n_gpu: Optional[Union[int, str]] = "auto"
+        n_gpu: Optional[Union[int, str]] = "auto",
     ):
         if n_gpu is not None:
             if isinstance(n_gpu, int) and (n_gpu <= 0 or n_gpu > cuda_count()):
@@ -163,6 +163,7 @@ class WorkerActor(xo.Actor):
                 raise ValueError("Currently `n_gpu` only supports `auto`.")
 
         from ..model.llm.core import create_speculative_llm_model_instance
+
         model, model_description = create_speculative_llm_model_instance(
             model_uid=model_uid,
             model_name=model_name,

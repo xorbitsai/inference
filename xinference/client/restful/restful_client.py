@@ -361,7 +361,7 @@ class Client:
         draft_model_name: str,
         draft_model_size_in_billions: Optional[int],
         draft_quantization: Optional[str],
-        n_gpu: Optional[Union[int, str]] = "auto"
+        n_gpu: Optional[Union[int, str]] = "auto",
     ):
         """
         Launch the LLM along with a draft model based on the parameters on the server via RESTful APIs. This is an
@@ -373,7 +373,9 @@ class Client:
             The unique model_uid for the launched model.
 
         """
-        warnings.warn("`launch_speculative_llm` is an experimental feature and the API may change in the future.")
+        warnings.warn(
+            "`launch_speculative_llm` is an experimental feature and the API may change in the future."
+        )
 
         model_uid = self._gen_model_uid()
 

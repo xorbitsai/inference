@@ -311,7 +311,8 @@ def speculative_generate_stream(
             draft_model=draft_model,
             gamma=gamma,
             logits_processor=logits_processor,
-            temperature=temperature * 0.5,  # make the draft model outputs less random for better quality.
+            temperature=temperature
+            * 0.5,  # make the draft model outputs less random for better quality.
             top_p=top_p,
         )
         total_seconds_on_drafting += time.time() - start
@@ -348,7 +349,9 @@ def speculative_generate_stream(
             r = torch.rand(1, device=logits.device)
             draft_token = output_ids[draft_token_idx]
             token_logits = logits[:, draft_token_idx - 1, :]  # [1, n_vocab,]
-            draft_token_logits = draft_logits[:, draft_token_idx, :].to(logits.device)  # [1, n_vocab,]
+            draft_token_logits = draft_logits[:, draft_token_idx, :].to(
+                logits.device
+            )  # [1, n_vocab,]
             if token_logits[0, draft_token] / draft_token_logits[0, draft_token] > r:
                 accepted += 1
                 total_num_accepted_tokens += 1
@@ -404,7 +407,11 @@ def speculative_generate_stream(
 
         total_seconds_on_accepting += time.time() - start
 
-        if len(output_ids) % stream_interval == 0 or len(output_ids) >= max_new_tokens or stopped:
+        if (
+            len(output_ids) % stream_interval == 0
+            or len(output_ids) >= max_new_tokens
+            or stopped
+        ):
             output = tokenizer.decode(
                 output_ids if echo else output_ids[num_prompt_tokens:],
                 skip_special_tokens=True,

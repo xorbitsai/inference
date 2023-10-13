@@ -16,13 +16,13 @@ import abc
 import logging
 import platform
 from abc import abstractmethod
-from typing import TYPE_CHECKING, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Optional, Tuple
 
 from ...core.utils import parse_replica_model_uid
 from ..core import ModelDescription
 
 if TYPE_CHECKING:
-    from .llm_family import LLMFamilyV1, LLMSpecV1, match_llm, cache
+    from .llm_family import LLMFamilyV1, LLMSpecV1
 
 logger = logging.getLogger(__name__)
 
@@ -159,6 +159,9 @@ def create_speculative_llm_model_instance(
     draft_quantization: Optional[str],
     is_local_deployment: bool = False,
 ) -> Tuple[LLM, LLMDescription]:
+    from . import match_llm
+    from .llm_family import cache
+
     match_result = match_llm(
         model_name,
         "pytorch",
@@ -194,6 +197,7 @@ def create_speculative_llm_model_instance(
     draft_save_path = cache(draft_llm_family, draft_llm_spec, draft_quantization)
 
     from .pytorch.spec import SpeculativeModel
+
     model = SpeculativeModel(
         model_uid,
         model_family=llm_family,
@@ -203,7 +207,7 @@ def create_speculative_llm_model_instance(
         draft_model_family=draft_llm_family,
         draft_model_spec=draft_llm_spec,
         draft_quantization=draft_quantization,
-        draft_model_path=draft_save_path
+        draft_model_path=draft_save_path,
     )
 
     return model, LLMDescription(llm_family, llm_spec, quantization)

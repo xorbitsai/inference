@@ -37,9 +37,7 @@ def test_spec_decoding():
     )
     tokenizer = AutoTokenizer.from_pretrained(model_id)
     prompt = "What is the largest animal?"
-    formatted_prompt = (
-        f"<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n"
-    )
+    formatted_prompt = f"<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n"
 
     for completion_chunk, completion_usage in speculative_generate_stream(
         draft_model=draft_model,
@@ -64,7 +62,9 @@ def test():
         device_map="cuda:1",
         torch_dtype=torch.float16,
     )
-    tokenizer = AutoTokenizer.from_pretrained("/home/wangzhong/.cache/modelscope/hub/AI-ModelScope/WizardCoder-Python-34B-V1.0")
+    tokenizer = AutoTokenizer.from_pretrained(
+        "/home/wangzhong/.cache/modelscope/hub/AI-ModelScope/WizardCoder-Python-34B-V1.0"
+    )
     prompt = """Write a function to check if 2 pytorch tensors are on a same device."""
     prompt_template = """Below is an instruction that describes a task. Write a response that appropriately completes the request.
 
@@ -80,7 +80,13 @@ def test():
         model=model,
         tokenizer=tokenizer,
         prompt=prompt,
-        generate_config={"model": "test", "temperature": 0.8, "top_p": 0.95, "top_k": 40, "max_tokens": 1024},
+        generate_config={
+            "model": "test",
+            "temperature": 0.8,
+            "top_p": 0.95,
+            "top_k": 40,
+            "max_tokens": 1024,
+        },
     ):
         completion = completion_chunk["choices"][0]["text"]
         print(completion)

@@ -262,7 +262,11 @@ class RESTfulAPIActor(xo.Actor):
             "/v1/models/{model_uid}", self.describe_model, methods=["GET"]
         )
         self._router.add_api_route("/v1/models", self.launch_model, methods=["POST"])
-        self._router.add_api_route("/experimental/speculative_llms", self.launch_speculative_llm, methods=["POST"])
+        self._router.add_api_route(
+            "/experimental/speculative_llms",
+            self.launch_speculative_llm,
+            methods=["POST"],
+        )
         self._router.add_api_route(
             "/v1/models/{model_uid}", self.terminate_model, methods=["DELETE"]
         )

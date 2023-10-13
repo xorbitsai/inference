@@ -106,10 +106,9 @@ def generate_stream(
     stop_token_ids = generate_config.get("stop_token_ids", None) or []
     stop_token_ids.append(tokenizer.eos_token_id)
 
-    # logits_processor = prepare_logits_processor(
-    #     temperature, repetition_penalty, top_p, top_k
-    # )
-    logits_processor = LogitsProcessorList()
+    logits_processor = prepare_logits_processor(
+        temperature, repetition_penalty, top_p, top_k
+    )
 
     if "qwen" in str(type(model)).lower():
         # TODO: hacky

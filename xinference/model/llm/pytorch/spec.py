@@ -58,7 +58,6 @@ class SpeculativeModel(PytorchChatModel):
             cuda_visible_devices_env.split(",") if cuda_visible_devices_env else []
         )
 
-        quantization = self.quantization
         num_gpus = len(cuda_visible_devices) if cuda_visible_devices_env != "-1" else 0
         device = self._pytorch_model_config.get("device", "auto")
         self._pytorch_model_config["device"] = self._select_device(device)
@@ -77,7 +76,9 @@ class SpeculativeModel(PytorchChatModel):
         )
 
         if self.quantization != "none":
-            raise ValueError("Quantization is not supported by speculative decoding yet")
+            raise ValueError(
+                "Quantization is not supported by speculative decoding yet"
+            )
 
         if num_gpus > 0 and self._device == "cuda":
             kwargs.update({"device_map": "auto"})
@@ -88,7 +89,8 @@ class SpeculativeModel(PytorchChatModel):
         if self._device == "mps":
             self._model.to(self._device)
         logger.debug(
-            f"Model {self.model_uid} memory footprint: {self._model.get_memory_footprint()}")
+            f"Model {self.model_uid} memory footprint: {self._model.get_memory_footprint()}"
+        )
 
         self._draft_model, _ = self._load_model(
             revision=self._draft_model_spec.model_revision, **kwargs
@@ -96,7 +98,8 @@ class SpeculativeModel(PytorchChatModel):
         if self._device == "mps":
             self._model.to(self._device)
         logger.debug(
-            f"Draft model {self.model_uid} memory footprint: {self._model.get_memory_footprint()}")
+            f"Draft model {self.model_uid} memory footprint: {self._model.get_memory_footprint()}"
+        )
 
     def generate(
         self, prompt: str, generate_config: Optional[PytorchGenerateConfig] = None
@@ -112,11 +115,11 @@ class SpeculativeModel(PytorchChatModel):
         stream = generate_config.get("stream", False)
         if not stream:
             for completion_chunk, completion_usage in speculative_generate_stream(
-                    draft_model=self._draft_model,
+                draft_model=self._draft_model,
                 model=self._model,
                 tokenizer=self._tokenizer,
                 prompt=prompt,
-                generate_config=generate_config
+                generate_config=generate_config,
             ):
                 pass
 
@@ -131,11 +134,11 @@ class SpeculativeModel(PytorchChatModel):
             return completion
         else:
             for completion_chunk, completion_usage in speculative_generate_stream(
-                    draft_model=self._draft_model,
-                    model=self._model,
-                    tokenizer=self._tokenizer,
-                    prompt=prompt,
-                    generate_config=generate_config
+                draft_model=self._draft_model,
+                model=self._model,
+                tokenizer=self._tokenizer,
+                prompt=prompt,
+                generate_config=generate_config,
             ):
                 yield completion_chunk
 
