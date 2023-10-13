@@ -201,8 +201,8 @@ class SupervisorActor(xo.Actor):
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
 
-    @log_async(logger=logger)
-    async def launch_speculative_llm(self,
+    async def launch_speculative_llm(
+        self,
         model_uid: str,
         model_name: str,
         model_size_in_billions: Optional[int],
@@ -211,7 +211,19 @@ class SupervisorActor(xo.Actor):
         draft_model_size_in_billions: Optional[int],
         draft_quantization: Optional[str],
         n_gpu: Optional[Union[int, str]] = "auto"
-    ):
+    ) -> AsyncGenerator:
+        logger.debug(
+            (
+                f"Enter launch_speculative_llm, model_uid: %s, model_name: %s, model_size: %s, "
+                f"draft_model_name: %s, draft_model_size: %s"
+            ),
+            model_uid,
+            model_name,
+            str(model_size_in_billions) if model_size_in_billions else "",
+            draft_model_name,
+            draft_model_size_in_billions,
+        )
+
         # TODO: the draft and target model must be on the same worker.
         if not self.is_local_deployment():
             raise ValueError("Speculative model is not supported in distributed deployment yet.")
