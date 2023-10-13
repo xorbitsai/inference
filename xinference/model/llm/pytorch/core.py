@@ -14,7 +14,7 @@
 
 import logging
 import os
-from typing import Iterator, List, Optional, TypedDict, Union
+from typing import Iterator, List, Optional, Union
 
 from ....types import (
     ChatCompletion,
@@ -25,39 +25,14 @@ from ....types import (
     Embedding,
     EmbeddingData,
     EmbeddingUsage,
+    PytorchGenerateConfig,
+    PytorchModelConfig,
 )
 from ..core import LLM
 from ..llm_family import LLMFamilyV1, LLMSpecV1
 from ..utils import ChatModelMixin
 
 logger = logging.getLogger(__name__)
-
-
-class PytorchGenerateConfig(TypedDict, total=False):
-    temperature: float
-    repetition_penalty: float
-    top_p: float
-    top_k: int
-    stream: bool
-    max_tokens: int
-    echo: bool
-    stop: Optional[Union[str, List[str]]]
-    stop_token_ids: Optional[Union[int, List[int]]]
-    stream_interval: int
-    model: Optional[str]
-
-
-class PytorchModelConfig(TypedDict, total=False):
-    revision: Optional[str]
-    device: str
-    gpus: Optional[str]
-    num_gpus: int
-    max_gpu_memory: str
-    gptq_ckpt: Optional[str]
-    gptq_wbits: int
-    gptq_groupsize: int
-    gptq_act_order: bool
-    trust_remote_code: bool
 
 
 class PytorchModel(LLM):

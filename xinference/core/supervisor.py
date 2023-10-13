@@ -34,6 +34,7 @@ from ..core import ModelActor
 from .resource import ResourceStatus
 from .utils import (
     build_replica_model_uid,
+    is_valid_model_uid,
     iter_replica_model_uid,
     log_async,
     log_sync,
@@ -101,6 +102,10 @@ class SupervisorActor(xo.Actor):
 
     @log_sync(logger=logger)
     def list_model_registrations(self, model_type: str) -> List[Dict[str, Any]]:
+        def sort_helper(item):
+            assert isinstance(item["model_name"], str)
+            return item.get("model_name").lower()
+
         if model_type == "LLM":
             from ..model.llm import BUILTIN_LLM_FAMILIES, get_user_defined_llm_families
 
@@ -116,12 +121,17 @@ class SupervisorActor(xo.Actor):
                 ]
             )
 
-            def sort_helper(item):
-                assert isinstance(item["model_name"], str)
-                return item.get("model_name").lower()
-
             ret.sort(key=sort_helper)
 
+            return ret
+        elif model_type == "embedding":
+            from ..model.embedding import BUILTIN_EMBEDDING_MODELS
+
+            ret = [
+                {"model_name": model_name, "is_builtin": True}
+                for model_name in BUILTIN_EMBEDDING_MODELS
+            ]
+            ret.sort(key=sort_helper)
             return ret
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
@@ -137,6 +147,13 @@ class SupervisorActor(xo.Actor):
                 if f.model_name == model_name:
                     return f
 
+            raise ValueError(f"Model {model_name} not found")
+        if model_type == "embedding":
+            from ..model.embedding import BUILTIN_EMBEDDING_MODELS
+
+            for f in BUILTIN_EMBEDDING_MODELS.values():
+                if f.model_name == model_name:
+                    return f
             raise ValueError(f"Model {model_name} not found")
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
@@ -215,6 +232,11 @@ class SupervisorActor(xo.Actor):
             )
             # TODO: not protected.
             self._replica_model_uid_to_worker[_replica_model_uid] = worker_ref
+
+        if not is_valid_model_uid(model_uid):
+            raise ValueError(
+                "The model UID is invalid. Please specify the model UID by a-z or A-Z, 0 < length <= 100."
+            )
 
         if model_uid in self._model_uid_to_replica_info:
             raise ValueError(f"Model is already in the model list, uid: {model_uid}")

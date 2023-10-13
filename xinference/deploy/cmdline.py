@@ -23,11 +23,11 @@ import click
 from xoscar.utils import get_next_port
 
 from .. import __version__
-from ..client import (
-    ActorClient,
+from ..client import RESTfulClient
+from ..client.oscar.actor_client import ActorClient
+from ..client.restful.restful_client import (
     RESTfulChatglmCppChatModelHandle,
     RESTfulChatModelHandle,
-    RESTfulClient,
     RESTfulGenerateModelHandle,
 )
 from ..constants import (
@@ -307,22 +307,44 @@ def list_model_registrations(
     registrations = client.list_model_registrations(model_type=model_type)
 
     table = []
-    for registration in registrations:
-        model_name = registration["model_name"]
-        model_family = client.get_model_registration(model_type, model_name)
-        table.append(
-            [
-                model_type,
-                model_family["model_name"],
-                model_family["model_lang"],
-                model_family["model_ability"],
-                registration["is_builtin"],
-            ]
+    if model_type == "LLM":
+        for registration in registrations:
+            model_name = registration["model_name"]
+            model_family = client.get_model_registration(model_type, model_name)
+            table.append(
+                [
+                    model_type,
+                    model_family["model_name"],
+                    model_family["model_lang"],
+                    model_family["model_ability"],
+                    registration["is_builtin"],
+                ]
+            )
+        print(
+            tabulate(
+                table, headers=["Type", "Name", "Language", "Ability", "Is-built-in"]
+            ),
+            file=sys.stderr,
         )
-    print(
-        tabulate(table, headers=["Type", "Name", "Language", "Ability", "Is-built-in"]),
-        file=sys.stderr,
-    )
+    elif model_type == "embedding":
+        for registration in registrations:
+            model_name = registration["model_name"]
+            model_family = client.get_model_registration(model_type, model_name)
+            table.append(
+                [
+                    model_type,
+                    model_family["model_name"],
+                    model_family["language"],
+                    model_family["dimensions"],
+                    registration["is_builtin"],
+                ]
+            )
+        print(
+            tabulate(
+                table, headers=["Type", "Name", "Language", "Dimensions", "Is-built-in"]
+            ),
+            file=sys.stderr,
+        )
 
 
 @cli.command(
@@ -348,6 +370,13 @@ def list_model_registrations(
     type=str,
     default="LLM",
     help="Specify type of model, LLM as default.",
+)
+@click.option(
+    "--model-uid",
+    "-u",
+    type=str,
+    default=None,
+    help="Specify UID of model, default is None.",
 )
 @click.option(
     "--size-in-billions",
@@ -393,6 +422,7 @@ def model_launch(
     endpoint: Optional[str],
     model_name: str,
     model_type: str,
+    model_uid: str,
     size_in_billions: int,
     model_format: str,
     quantization: str,
@@ -413,6 +443,7 @@ def model_launch(
     model_uid = client.launch_model(
         model_name=model_name,
         model_type=model_type,
+        model_uid=model_uid,
         model_size_in_billions=size_in_billions,
         model_format=model_format,
         quantization=quantization,

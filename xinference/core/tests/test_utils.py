@@ -14,6 +14,7 @@
 
 from ..utils import (
     build_replica_model_uid,
+    is_valid_model_uid,
     iter_replica_model_uid,
     parse_replica_model_uid,
 )
@@ -29,3 +30,18 @@ def test_replica_model_uid():
         all_gen_ids.append(replica_model_uid)
     assert len(all_gen_ids) == 5
     assert len(set(all_gen_ids)) == 5
+
+
+def test_is_valid_model_uid():
+    from ...client.restful.restful_client import Client
+
+    assert is_valid_model_uid("foo")
+    assert is_valid_model_uid("foo-bar")
+    assert is_valid_model_uid("foo_bar")
+    assert is_valid_model_uid("123")
+    assert not is_valid_model_uid("foo@bar")
+    assert not is_valid_model_uid("foo bar")
+    assert not is_valid_model_uid("_foo")
+    assert not is_valid_model_uid("-foo")
+    for _ in range(10):
+        assert is_valid_model_uid(Client._gen_model_uid())

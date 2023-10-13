@@ -3,14 +3,14 @@
 ============
 Installation
 ============
-Xinference can be installed with ``pip`` on Linux, Windows, and MacOS. To run models using Xinference, you will need to install the backend corresponding to the type of model you intend to serve.
+Xinference can be installed with ``pip`` on Linux, Windows, and macOS. To run models using Xinference, you will need to install the backend corresponding to the type of model you intend to serve.
 
 If you aim to serve all supported models, you can install all the necessary dependencies with a single command::
 
    pip install "xinference[all]"
 
 .. note::
-   If you want to serve models in GGML format, tt's advised to install the GGML dependencies manually based on your hardware specifications to enable acceleration. For more details, see the :ref:`installation_ggml` section.
+   If you want to serve models in GGML format, it's advised to install the GGML dependencies manually based on your hardware specifications to enable acceleration. For more details, see the :ref:`installation_ggml` section.
 
 
 If you want to install only the necessary backends, here's a breakdown of how to do it.
