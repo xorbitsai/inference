@@ -251,6 +251,7 @@ class PytorchModel(LLM):
             "chatglm2-32k",
             "llama-2",
             "llama-2-chat",
+            "rwkv-4-pile",
         ]:
             return False
         if "generate" not in llm_family.model_ability:
@@ -264,6 +265,7 @@ class PytorchModel(LLM):
             generate_stream,
             generate_stream_chatglm,
             generate_stream_falcon,
+            generate_stream_rwkv,
         )
 
         def generator_wrapper(
@@ -276,6 +278,11 @@ class PytorchModel(LLM):
                     yield completion_chunk
             elif "chatglm" in self.model_family.model_name:
                 for completion_chunk, _ in generate_stream_chatglm(
+                    self._model, self._tokenizer, prompt, self._device, generate_config
+                ):
+                    yield completion_chunk
+            elif "rwkv" in self.model_family.model_name:
+                for completion_chunk, _ in generate_stream_rwkv(
                     self._model, self._tokenizer, prompt, self._device, generate_config
                 ):
                     yield completion_chunk
@@ -303,6 +310,11 @@ class PytorchModel(LLM):
                     pass
             elif "chatglm" in self.model_family.model_name:
                 for completion_chunk, completion_usage in generate_stream_chatglm(
+                    self._model, self._tokenizer, prompt, self._device, generate_config
+                ):
+                    pass
+            elif "rwkv" in self.model_family.model_name:
+                for completion_chunk, completion_usage in generate_stream_rwkv(
                     self._model, self._tokenizer, prompt, self._device, generate_config
                 ):
                     pass
