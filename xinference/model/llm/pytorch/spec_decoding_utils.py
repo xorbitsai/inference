@@ -358,7 +358,7 @@ def speculative_generate_stream(
                 if draft_token in stop_token_ids:
                     stopped = True
             else:
-                if logger.level == logging.DEBUG:
+                if logger.getEffectiveLevel() <= logging.DEBUG:
                     logger.debug(
                         f"Accepted ({accepted}/{num_draft_tokens}): '{tokenizer.decode(output_ids[-num_draft_tokens: draft_token_idx])}'"
                     )
@@ -392,14 +392,14 @@ def speculative_generate_stream(
                     top_p,
                 )
                 output_ids.append(next_token)
-                if logger.level == logging.DEBUG:
+                if logger.getEffectiveLevel() <= logging.DEBUG:
                     logger.debug(f"Generated: '{tokenizer.decode([next_token])}'")
                 if next_token in stop_token_ids:
                     stopped = True
                 break
 
         if accepted == num_draft_tokens:
-            if logger.level == logging.DEBUG:
+            if logger.getEffectiveLevel() <= logging.DEBUG:
                 logger.debug(
                     f"Accepted ({accepted}/{num_draft_tokens}): '{tokenizer.decode(output_ids[-num_draft_tokens:])}'"
                 )
@@ -409,7 +409,7 @@ def speculative_generate_stream(
                 top_p,
             )
             output_ids.append(next_token)
-            if logger.level == logging.DEBUG:
+            if logger.getEffectiveLevel() <= logging.DEBUG:
                 logger.debug(f"Generated: '{tokenizer.decode([next_token])}'")
             if next_token in stop_token_ids:
                 stopped = True
