@@ -304,7 +304,7 @@ def speculative_generate_stream(
     total_num_draft_tokens = 0
     total_num_accepted_tokens = 0
 
-    while len(output_ids) < max_new_tokens:
+    while len(output_ids) < max_new_tokens + num_prompt_tokens:
         # allow the draft model to generate more than max_tokens since some of the generated
         # tokens could be rejected.
         start = time.time()

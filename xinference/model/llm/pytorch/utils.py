@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import gc
+import logging
 import re
 import time
 import uuid
@@ -31,6 +32,8 @@ from transformers.generation.logits_process import (
 )
 
 from ....types import CompletionChoice, CompletionChunk, CompletionUsage
+
+logger = logging.getLogger(__name__)
 
 
 def is_sentence_complete(output: str):
@@ -135,6 +138,7 @@ def generate_stream(
             device=device,
         )
 
+    start = time.time()
     past_key_values = out = None
     sent_interrupt = False
     token = None
@@ -280,6 +284,9 @@ def generate_stream(
 
         if stopped:
             break
+
+    elapsed_time = time.time() - start
+    logger.debug(f"Average generation speed: {i / elapsed_time:.2f} tokens/s.")
 
     # finish stream event, which contains finish reason
     if stopped:

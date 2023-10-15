@@ -177,7 +177,7 @@ class PytorchModel(LLM):
 
         if num_gpus > 0 and self._device == "cuda":
             kwargs.update({"device_map": "auto"})
-        self._model, self._tokenizer = self._load_model(kwargs)
+        self._model, self._tokenizer = self._load_model(**kwargs)
 
         if self._device == "mps":
             self._model.to(self._device)
