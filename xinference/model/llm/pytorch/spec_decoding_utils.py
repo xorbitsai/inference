@@ -176,7 +176,7 @@ def draft(
     input_ids: List[int],
     kv_cache: Optional[Tuple[Tuple[torch.Tensor, torch.Tensor], ...]],
     logits: Optional[torch.FloatTensor],
-    draft_model: PreTrainedModel,
+    draft_model: "PreTrainedModel",
     gamma: int,
     logits_processor: LogitsProcessorList,
     temperature: float,
@@ -246,9 +246,9 @@ def draft(
 
 @torch.inference_mode()
 def speculative_generate_stream(
-    draft_model: PreTrainedModel,
-    model: PreTrainedModel,
-    tokenizer: PreTrainedTokenizer,
+    draft_model: "PreTrainedModel",
+    model: "PreTrainedModel",
+    tokenizer: "PreTrainedTokenizer",
     prompt: str,
     generate_config: Dict[str, Any],
 ) -> Iterator[Tuple[CompletionChunk, CompletionUsage]]:
@@ -488,10 +488,13 @@ def speculative_generate_stream(
         f"In total, {total_num_accepted_tokens}/{total_num_draft_tokens} draft tokens are "
         f"accepted, acceptance rate: {total_num_accepted_tokens / total_num_draft_tokens:.2f}"
     )
+    total_seconds = (
+        total_seconds_on_drafting + total_seconds_on_eval + total_seconds_on_accepting
+    )
     logger.debug(
         f"In total, {total_seconds_on_drafting:.2f}s, {total_seconds_on_eval:.2f}s and "
         f"{total_seconds_on_accepting:.2f}s are spent on drafting, eval, and accepting "
-        f"respectively."
+        f"respectively. Average generation speed: {(len(output_ids) - num_prompt_tokens) / total_seconds:.2f} tokens/s."
     )
 
     if stream:
@@ -519,5 +522,7 @@ def speculative_generate_stream(
     yield completion_chunk, completion_usage
 
     # clean up.
+    del kv_cache
+    del draft_kv_cache
     gc.collect()
     torch.cuda.empty_cache()

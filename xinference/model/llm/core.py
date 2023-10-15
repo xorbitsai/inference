@@ -196,7 +196,7 @@ def create_speculative_llm_model_instance(
     assert draft_quantization is not None
     draft_save_path = cache(draft_llm_family, draft_llm_spec, draft_quantization)
 
-    from .pytorch.spec import SpeculativeModel
+    from .pytorch.spec_model import SpeculativeModel
 
     model = SpeculativeModel(
         model_uid,

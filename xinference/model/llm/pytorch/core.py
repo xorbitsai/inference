@@ -402,13 +402,13 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
             pytorch_generate_config
         )
         if (
-            "stop" not in pytorch_generate_config
+            pytorch_generate_config.get("stop", None) is None
             and self.model_family.prompt_style
             and self.model_family.prompt_style.stop
         ):
             pytorch_generate_config["stop"] = self.model_family.prompt_style.stop.copy()
         if (
-            "stop_token_ids" not in pytorch_generate_config
+            pytorch_generate_config.get("stop_token_ids", None) is None
             and self.model_family.prompt_style
             and self.model_family.prompt_style.stop_token_ids
         ):

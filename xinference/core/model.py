@@ -103,7 +103,7 @@ class ModelActor(xo.StatelessActor):
     def __init__(self, model: "LLM"):
         super().__init__()
         from ..model.llm.pytorch.core import PytorchModel
-        from ..model.llm.pytorch.spec import SpeculativeModel
+        from ..model.llm.pytorch.spec_model import SpeculativeModel
         from ..model.llm.vllm.core import VLLMModel
 
         self._model = model

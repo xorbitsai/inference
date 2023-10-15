@@ -45,6 +45,31 @@ class SpeculativeModel(PytorchChatModel):
         self._draft_quantization = draft_quantization
         self._draft_model_path = draft_model_path
 
+    def _load_model(self, model_path, **kwargs):
+        try:
+            from transformers import AutoModelForCausalLM, AutoTokenizer
+        except ImportError:
+            error_message = "Failed to import module 'transformers'"
+            installation_guide = [
+                "Please make sure 'transformers' is installed. ",
+                "You can install it by `pip install transformers`\n",
+            ]
+
+            raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
+
+        tokenizer = AutoTokenizer.from_pretrained(
+            model_path,
+            use_fast=self._use_fast_tokenizer,
+            trust_remote_code=kwargs["trust_remote_code"],
+            revision=kwargs["revision"],
+        )
+        model = AutoModelForCausalLM.from_pretrained(
+            model_path,
+            low_cpu_mem_usage=True,
+            **kwargs,
+        )
+        return model, tokenizer
+
     def load(self):
         try:
             import torch
@@ -84,7 +109,9 @@ class SpeculativeModel(PytorchChatModel):
             kwargs.update({"device_map": "auto"})
 
         self._model, self._tokenizer = self._load_model(
-            revision=self.model_spec.model_revision, **kwargs
+            model_path=self.model_path,
+            revision=self.model_spec.model_revision,
+            **kwargs,
         )
         if self._device == "mps":
             self._model.to(self._device)
@@ -93,7 +120,9 @@ class SpeculativeModel(PytorchChatModel):
         )
 
         self._draft_model, _ = self._load_model(
-            revision=self._draft_model_spec.model_revision, **kwargs
+            model_path=self._draft_model_path,
+            revision=self._draft_model_spec.model_revision,
+            **kwargs,
         )
         if self._device == "mps":
             self._model.to(self._device)
