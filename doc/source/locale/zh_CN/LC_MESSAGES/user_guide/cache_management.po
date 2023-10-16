@@ -19,6 +19,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.12.1\n"
 
-#: ../../source/user_guide/index.rst:5
-msgid "User Guide"
+#: ../../source/user_guide/cache_management.rst:5
+msgid "Cache Management"
 msgstr ""
+

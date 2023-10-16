@@ -1,0 +1,61 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2023-10-16 10:33+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: zh_CN\n"
+"Language-Team: zh_CN <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.12.1\n"
+
+#: ../../source/models/builtin/starcoder.rst:5
+msgid "StarCoder"
+msgstr ""
+
+#: ../../source/models/builtin/starcoder.rst:7
+msgid "**Model Name:** starcoder"
+msgstr ""
+
+#: ../../source/models/builtin/starcoder.rst:8
+msgid "**Languages:** en"
+msgstr ""
+
+#: ../../source/models/builtin/starcoder.rst:9
+msgid "**Abilities:** generate"
+msgstr ""
+
+#: ../../source/models/builtin/starcoder.rst:12
+msgid "Specifications"
+msgstr ""
+
+#: ../../source/models/builtin/starcoder.rst:15
+msgid "Model Spec (ggmlv3, 16 Billion)"
+msgstr ""
+
+#: ../../source/models/builtin/starcoder.rst:17
+msgid "**Model Format:** ggmlv3"
+msgstr ""
+
+#: ../../source/models/builtin/starcoder.rst:18
+msgid "**Model Size (in billions):** 16"
+msgstr ""
+
+#: ../../source/models/builtin/starcoder.rst:19
+msgid "**Quantizations:** q4_0, q4_1, q5_0, q5_1, q8_0"
+msgstr ""
+
+#: ../../source/models/builtin/starcoder.rst:20
+msgid "**Model ID:** TheBloke/starcoder-GGML"
+msgstr ""
+
