@@ -48,6 +48,7 @@ Code Generation Models
 - :ref:`Code-Llama <models_builtin_code_llama>`
 - :ref:`CodeLlama-Instruct <models_builtin_code_llama_instruct>`
 - :ref:`Code-Llama-Python <models_builtin_code_llama_python>`
+- :ref:`WizardCoder-Python-v1.0 <models_builtin_wizardcoder_python_v1_0>`
 
 
 Code Assistant Models
