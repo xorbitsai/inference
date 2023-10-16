@@ -424,5 +424,55 @@
         "<eoa>"
       ]
     }
+  },
+  {
+    "version": 1,
+    "context_length": 100000,
+    "model_name": "wizardcoder-python-v1.0",
+    "model_lang": [
+      "en"
+    ],
+    "model_ability": [
+      "generate",
+      "chat"
+    ],
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 13,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_hub": "modelscope",
+        "model_id": "AI-ModelScope/WizardCoder-Python-13B-V1.0",
+        "model_revision": "v1.0.0"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 34,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_hub": "modelscope",
+        "model_id": "AI-ModelScope/WizardCoder-Python-34B-V1.0",
+        "model_revision": "v1.0.0"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "ADD_COLON_SINGLE",
+      "system_prompt": "Below is an instruction that describes a task. Write a response that appropriately completes the request.",
+      "roles": [
+        "Instruction",
+        "Response"
+      ],
+      "intra_message_sep": "\n\n### ",
+      "stop": [
+        "</s>"
+      ]
+    }
   }
 ]
