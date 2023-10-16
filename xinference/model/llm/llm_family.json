@@ -1802,12 +1802,15 @@
     "prompt_style": {
       "style_name": "INSTRUCTION",
       "system_prompt": "You are a professional translator. Be faithful or accurate in translation. Make the translation readable or intelligible. Be elegant or natural in translation. Do not translate person's name. Do not add any additional text to the translation. Do not give me any comments or suggestions.\nUser:\n\n{0}\nAssistant:",
-      "roles": ["User", "Assistant"],
+      "roles": [
+        "User",
+        "Assistant"
+      ],
       "intra_message_sep": "",
       "inter_message_sep": ""
     }
   },
-    {
+  {
     "version": 1,
     "context_length": 100000,
     "model_name": "glaive-coder",
@@ -1842,6 +1845,65 @@
       "inter_message_sep": " </s><s>",
       "stop_token_ids": [
         2
+      ]
+    }
+  },
+  {
+    "version": 1,
+    "context_length": 100000,
+    "model_name": "wizardcoder-python-v1.0",
+    "model_lang": [
+      "en"
+    ],
+    "model_ability": [
+      "generate",
+      "chat"
+    ],
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "WizardLM/WizardCoder-Python-7B-V1.0",
+        "model_revision": "e40673a27a4aefcff2c6d2b3b1e0681a38703e4e"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 13,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "WizardLM/WizardCoder-Python-13B-V1.0",
+        "model_revision": "d920d26e2108377de0f676a3c4be666f5212f4a1"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 34,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "WizardLM/WizardCoder-Python-34B-V1.0",
+        "model_revision": "d869ce178715f8d6e8141e2ed50e6290985eedb0"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "ADD_COLON_SINGLE",
+      "system_prompt": "Below is an instruction that describes a task. Write a response that appropriately completes the request.",
+      "roles": [
+        "Instruction",
+        "Response"
+      ],
+      "intra_message_sep": "\n\n### ",
+      "stop": [
+        "</s>"
       ]
     }
   }
