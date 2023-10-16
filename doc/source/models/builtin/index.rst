@@ -89,6 +89,7 @@ Code Assistant Models
    vicuna-v1.5-16k
    wizardlm-v1.0
    wizardmath-v1.0
+   wizardcoder-python-v1.0
 
 
 Embedding Models

@@ -13,7 +13,7 @@ Specifications
 ^^^^^^^^^^^^^^
 
 Model Spec 1 (pytorch, 7 Billion)
-+++++++++++++++++++++++++++++++
++++++++++++++++++++++++++++++++++
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 7
@@ -31,7 +31,7 @@ chosen quantization method from the options listed above::
 
 
 Model Spec 2 (pytorch, 13 Billion)
-+++++++++++++++++++++++++++++++++
+++++++++++++++++++++++++++++++++++
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 13
@@ -48,7 +48,7 @@ chosen quantization method from the options listed above::
    4-bit quantization is not supported on macOS.
 
 Model Spec 3 (pytorch, 34 Billion)
-+++++++++++++++++++++++++++++++++
+++++++++++++++++++++++++++++++++++
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 34
@@ -65,7 +65,7 @@ chosen quantization method from the options listed above::
    4-bit quantization is not supported on macOS.
 
 Model Spec 4 (ggufv2, 7 Billion)
-+++++++++++++++++++++++++++++
+++++++++++++++++++++++++++++++++
 
 - **Model Format:** ggufv2
 - **Model Size (in billions):** 7
@@ -78,7 +78,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-name wizardcoder-python-v1.0 --size-in-billions 7 --model-format ggufv2 --quantization ${quantization}
 
 Model Spec 5 (ggufv2, 13 Billion)
-++++++++++++++++++++++++++++++
++++++++++++++++++++++++++++++++++
 
 - **Model Format:** ggufv2
 - **Model Size (in billions):** 13
@@ -92,7 +92,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-name wizardcoder-python-v1.0 --size-in-billions 13 --model-format ggufv2 --quantization ${quantization}
 
 Model Spec 6 (ggufv2, 34 Billion)
-++++++++++++++++++++++++++++++
++++++++++++++++++++++++++++++++++
 
 - **Model Format:** ggufv2
 - **Model Size (in billions):** 34
