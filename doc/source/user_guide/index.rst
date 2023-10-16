@@ -10,3 +10,4 @@ User Guide
    cache_management
    backends
    client_api
+   spec_decoding
