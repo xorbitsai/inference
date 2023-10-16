@@ -473,9 +473,9 @@ class Client:
         -------
         ModelHandle
             The corresponding Model Handler based on the Model specified in the uid:
-              - ChatglmCppChatModelHandle -> provide handle to ChatGLM Model
-              - GenerateModelHandle -> provide handle to basic generate Model. e.g. Baichuan.
-              - ChatModelHandle -> provide handle to chat Model. e.g. Baichuan-chat.
+              - :obj:`xinference.client.handlers.ChatglmCppChatModelHandle` -> provide handle to ChatGLM Model
+              - :obj:`xinference.client.handlers.GenerateModelHandle` -> provide handle to basic generate Model. e.g. Baichuan.
+              - :obj:`xinference.client.handlers.ChatModelHandle` -> provide handle to chat Model. e.g. Baichuan-chat.
 
 
         Raises
