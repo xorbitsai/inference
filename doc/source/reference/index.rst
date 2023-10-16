@@ -3,7 +3,6 @@
 =============
 API Reference
 =============
-.. currentmodule:: xinference.client
 
 
 Client
@@ -11,17 +10,17 @@ Client
 .. autosummary::
    :toctree: generated/
 
-   Client
+   xinference.client.Client
 
-   Client.describe_model
-   Client.get_model
-   Client.get_model_registration
-   Client.launch_model
-   Client.list_model_registrations
-   Client.list_models
-   Client.register_model
-   Client.terminate_model
-   Client.unregister_model
+   xinference.client.Client.describe_model
+   xinference.client.Client.get_model
+   xinference.client.Client.get_model_registration
+   xinference.client.Client.launch_model
+   xinference.client.Client.list_model_registrations
+   xinference.client.Client.list_models
+   xinference.client.Client.register_model
+   xinference.client.Client.terminate_model
+   xinference.client.Client.unregister_model
 
 
 Model Handles
