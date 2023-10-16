@@ -521,6 +521,7 @@ class Client:
         -------
         dict
             A dictionary containing the following keys:
+
             - "model_type": str
                the type of the model determined by its function, e.g. "LLM" (Large Language Model)
             - "model_name": str
