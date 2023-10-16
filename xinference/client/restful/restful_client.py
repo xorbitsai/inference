@@ -473,9 +473,10 @@ class Client:
         -------
         ModelHandle
             The corresponding Model Handler based on the Model specified in the uid:
-            "RESTfulChatglmCppChatModelHandle" -> provide handle to ChatGLM Model
-            "RESTfulGenerateModelHandle" -> provide handle to basic generate Model. e.g. Baichuan.
-            "RESTfulChatModelHandle" -> provide handle to chat Model. e.g. Baichuan-chat.
+              - ChatglmCppChatModelHandle -> provide handle to ChatGLM Model
+              - GenerateModelHandle -> provide handle to basic generate Model. e.g. Baichuan.
+              - ChatModelHandle -> provide handle to chat Model. e.g. Baichuan-chat.
+
 
         Raises
         ------
