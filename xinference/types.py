@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 
 from typing_extensions import Literal, NotRequired, TypedDict
 
@@ -169,6 +169,7 @@ class LlamaCppGenerateConfig(TypedDict, total=False):
     mirostat_tau: float
     mirostat_eta: float
     model: Optional[str]
+    grammar: Optional[Any]
     stopping_criteria: Optional["StoppingCriteriaList"]
     logits_processor: Optional["LogitsProcessorList"]
 
