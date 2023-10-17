@@ -262,9 +262,8 @@ def speculative_generate_stream(
             "repetition penalty is not supported by speculative decoding yet"
         )
 
-    stream_interval = generate_config.get("stream_interval", 2)
+    gamma = generate_config.get("gamma", 4)
     stream = generate_config.get("stream", False)
-    gamma = generate_config.get("gamma", 3)
     temperature = float(generate_config.get("temperature", 1.0))
     top_p = float(generate_config.get("top_p", 1.0))
     top_k = int(generate_config.get("top_k", -1))  # -1 means disable
@@ -421,13 +420,12 @@ def speculative_generate_stream(
         total_seconds_on_accepting += time.time() - start
 
         if (
-            len(output_ids) % stream_interval == 0
+            accepted > 0  # more than 2 tokens has been generated, flush.
             or len(output_ids) >= max_new_tokens
             or stopped
         ):
             output = tokenizer.decode(
                 output_ids if echo else output_ids[num_prompt_tokens:],
-                skip_special_tokens=True,
                 spaces_between_special_tokens=False,
                 clean_up_tokenization_spaces=True,
             )
@@ -439,6 +437,7 @@ def speculative_generate_stream(
                     pos = output.rfind(stop_str, rfind_start)
                     if pos != -1:
                         output = output[:pos]
+                        stopped = True
                     else:
                         partially_stopped = is_partial_stop(output, stop_str)
                 elif isinstance(stop_str, Iterable):
@@ -446,6 +445,7 @@ def speculative_generate_stream(
                         pos = output.rfind(each_stop, rfind_start)
                         if pos != -1:
                             output = output[:pos]
+                            stopped = True
                             break
                         else:
                             partially_stopped = is_partial_stop(output, each_stop)
@@ -484,14 +484,14 @@ def speculative_generate_stream(
     else:
         finish_reason = "length"
 
-    logger.debug(
+    logger.info(
         f"In total, {total_num_accepted_tokens}/{total_num_draft_tokens} draft tokens are "
         f"accepted, acceptance rate: {total_num_accepted_tokens / total_num_draft_tokens:.2f}"
     )
     total_seconds = (
         total_seconds_on_drafting + total_seconds_on_eval + total_seconds_on_accepting
     )
-    logger.debug(
+    logger.info(
         f"In total, {total_seconds_on_drafting:.2f}s, {total_seconds_on_eval:.2f}s and "
         f"{total_seconds_on_accepting:.2f}s are spent on drafting, eval, and accepting "
         f"respectively. Average generation speed: {(len(output_ids) - num_prompt_tokens) / total_seconds:.2f} tokens/s."

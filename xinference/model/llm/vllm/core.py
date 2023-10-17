@@ -121,6 +121,7 @@ class VLLMModel(LLM):
         model_config.setdefault("block_size", 16)
         model_config.setdefault("swap_space", 4)
         model_config.setdefault("gpu_memory_utilization", 0.90)
+        # TODO: remove
         model_config.setdefault("max_num_batched_tokens", 2560)
         model_config.setdefault("max_num_seqs", 256)
 

@@ -286,7 +286,7 @@ def generate_stream(
             break
 
     elapsed_time = time.time() - start
-    logger.debug(f"Average generation speed: {i / elapsed_time:.2f} tokens/s.")
+    logger.info(f"Average generation speed: {i / elapsed_time:.2f} tokens/s.")
 
     # finish stream event, which contains finish reason
     if stopped:
