@@ -1,0 +1,175 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2023-10-16 10:33+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: ja_JP\n"
+"Language-Team: ja_JP <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.12.1\n"
+
+#: ../../source/models/custom.rst:5
+msgid "Custom Models"
+msgstr ""
+
+#: ../../source/models/custom.rst:6
+msgid ""
+"Xinference provides a flexible and comprehensive way to integrate, "
+"manage, and utilize custom models."
+msgstr ""
+
+#: ../../source/models/custom.rst:9
+msgid "Define a custom model"
+msgstr ""
+
+#: ../../source/models/custom.rst:11
+msgid "Define a custom model based on the following template:"
+msgstr ""
+
+#: ../../source/models/custom.rst:50
+msgid ""
+"model_name: A string defining the name of the model. The name must start "
+"with a letter or a digit and can only contain letters, digits, "
+"underscores, or dashes."
+msgstr ""
+
+#: ../../source/models/custom.rst:51
+msgid ""
+"context_length: context_length: An optional integer that specifies the "
+"maximum context size the model was trained to accommodate, encompassing "
+"both the input and output lengths. If not defined, the default value is "
+"2048 tokens (~1,500 words)."
+msgstr ""
+
+#: ../../source/models/custom.rst:52
+msgid ""
+"model_lang: A list of strings representing the supported languages for "
+"the model. Example: [\"en\"], which means that the model supports "
+"English."
+msgstr ""
+
+#: ../../source/models/custom.rst:53
+msgid ""
+"model_ability: A list of strings defining the abilities of the model. It "
+"could include options like \"embed\", \"generate\", and \"chat\". In this"
+" case, the model has the ability to \"generate\"."
+msgstr ""
+
+#: ../../source/models/custom.rst:59
+msgid ""
+"model_specs: An array of objects defining the specifications of the "
+"model. These include:"
+msgstr ""
+
+#: ../../source/models/custom.rst:55
+msgid ""
+"model_format: A string that defines the model format, could be "
+"\"pytorch\" or \"ggmlv3\"."
+msgstr ""
+
+#: ../../source/models/custom.rst:56
+msgid ""
+"model_size_in_billions: An integer defining the size of the model in "
+"billions of parameters."
+msgstr ""
+
+#: ../../source/models/custom.rst:57
+msgid ""
+"quantizations: A list of strings defining the available quantizations for"
+" the model. For PyTorch models, it could be \"4-bit\", \"8-bit\", or "
+"\"none\". For ggmlv3 models, the quantizations should correspond to "
+"values that work with the ``model_file_name_template``."
+msgstr ""
+
+#: ../../source/models/custom.rst:58
+msgid ""
+"model_id: A string representing the model ID, possibly referring to an "
+"identifier used by Hugging Face."
+msgstr ""
+
+#: ../../source/models/custom.rst:59
+msgid ""
+"model_uri: A string representing the URI where the model can be loaded "
+"from, such as \"file:///path/to/llama-2-7b\". If model URI is absent, "
+"Xinference will try to download the model from Hugging Face with the "
+"model ID."
+msgstr ""
+
+#: ../../source/models/custom.rst:60
+msgid ""
+"model_file_name_template: Required by ggml models. An f-string template "
+"used for defining the model file name based on the quantization."
+msgstr ""
+
+#: ../../source/models/custom.rst:61
+msgid ""
+"prompt_style: An optional field that could be required by chat models to "
+"define the style of prompts. The given example has this set to None, but "
+"additional details could be found in a referenced file "
+"xinference/model/llm/tests/test_utils.py."
+msgstr ""
+
+#: ../../source/models/custom.rst:65
+msgid "Register a Custom Model"
+msgstr ""
+
+#: ../../source/models/custom.rst:67
+msgid "Register a custom model programmatically:"
+msgstr ""
+
+#: ../../source/models/custom.rst:82 ../../source/models/custom.rst:97
+#: ../../source/models/custom.rst:112 ../../source/models/custom.rst:167
+msgid "Or via CLI:"
+msgstr ""
+
+#: ../../source/models/custom.rst:89
+msgid "List the Built-in and Custom Models"
+msgstr ""
+
+#: ../../source/models/custom.rst:91
+msgid "List built-in and custom models programmatically:"
+msgstr ""
+
+#: ../../source/models/custom.rst:104
+msgid "Launch the Custom Model"
+msgstr ""
+
+#: ../../source/models/custom.rst:106
+msgid "Launch the custom model programmatically:"
+msgstr ""
+
+#: ../../source/models/custom.rst:119
+msgid "Interact with the Custom Model"
+msgstr ""
+
+#: ../../source/models/custom.rst:121
+msgid "Invoke the model programmatically:"
+msgstr ""
+
+#: ../../source/models/custom.rst:128
+msgid "Result:"
+msgstr ""
+
+#: ../../source/models/custom.rst:152
+msgid "Or via CLI, replace ``${UID}`` with real model UID:"
+msgstr ""
+
+#: ../../source/models/custom.rst:159
+msgid "Unregister the Custom Model"
+msgstr ""
+
+#: ../../source/models/custom.rst:161
+msgid "Unregister the custom model programmatically:"
+msgstr ""
+

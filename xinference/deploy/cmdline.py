@@ -307,22 +307,44 @@ def list_model_registrations(
     registrations = client.list_model_registrations(model_type=model_type)
 
     table = []
-    for registration in registrations:
-        model_name = registration["model_name"]
-        model_family = client.get_model_registration(model_type, model_name)
-        table.append(
-            [
-                model_type,
-                model_family["model_name"],
-                model_family["model_lang"],
-                model_family["model_ability"],
-                registration["is_builtin"],
-            ]
+    if model_type == "LLM":
+        for registration in registrations:
+            model_name = registration["model_name"]
+            model_family = client.get_model_registration(model_type, model_name)
+            table.append(
+                [
+                    model_type,
+                    model_family["model_name"],
+                    model_family["model_lang"],
+                    model_family["model_ability"],
+                    registration["is_builtin"],
+                ]
+            )
+        print(
+            tabulate(
+                table, headers=["Type", "Name", "Language", "Ability", "Is-built-in"]
+            ),
+            file=sys.stderr,
         )
-    print(
-        tabulate(table, headers=["Type", "Name", "Language", "Ability", "Is-built-in"]),
-        file=sys.stderr,
-    )
+    elif model_type == "embedding":
+        for registration in registrations:
+            model_name = registration["model_name"]
+            model_family = client.get_model_registration(model_type, model_name)
+            table.append(
+                [
+                    model_type,
+                    model_family["model_name"],
+                    model_family["language"],
+                    model_family["dimensions"],
+                    registration["is_builtin"],
+                ]
+            )
+        print(
+            tabulate(
+                table, headers=["Type", "Name", "Language", "Dimensions", "Is-built-in"]
+            ),
+            file=sys.stderr,
+        )
 
 
 @cli.command(

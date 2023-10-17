@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-07-18 10:54+0800\n"
+"POT-Creation-Date: 2023-10-16 10:33+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -77,166 +77,84 @@ msgstr ""
 #: ../../source/index.rst:34
 msgid ""
 "🔌 **Built-in Integration with Third-Party Libraries**: Xorbits Inference "
-"seamlessly integrates with popular third-party libraries like LangChain "
-"and LlamaIndex. (Coming soon)"
+"seamlessly integrates with popular third-party libraries like `LangChain "
+"<https://python.langchain.com/docs/integrations/providers/xinference>`_ ,"
+" `LlamaIndex <https://gpt-index.readthedocs.io/en/stable/examples/llm/"
+"XinferenceLocalDeployment.html#i-run-pip-install-xinference-all-in-a-"
+"terminal-window>`_ , `Dify <https://docs.dify.ai/advanced/model-"
+"configuration/xinference>`_ , and `Chatbox <https://chatboxai.app/>`_."
 msgstr ""
 
-#: ../../source/index.rst:39
-msgid "Installation"
+#: ../../source/index.rst:42
+msgid "🔥 Hot Topics"
 msgstr ""
 
-#: ../../source/index.rst:40
-msgid ""
-"Xinference can be installed via pip from PyPI. It is highly recommended "
-"to create a new virtual environment to avoid conflicts::"
+#: ../../source/index.rst:45
+msgid "Framework Enhancements"
 msgstr ""
 
 #: ../../source/index.rst:46
 msgid ""
-"``xinference[all]`` installs all the necessary packages for serving "
-"models. If you want to achieve acceleration on different hardware, refer "
-"to the installation documentation of the corresponding package."
+"Incorporate vLLM: `#445 "
+"<https://github.com/xorbitsai/inference/pull/445>`_"
+msgstr ""
+
+#: ../../source/index.rst:47
+msgid ""
+"Embedding model support: `#418 "
+"<https://github.com/xorbitsai/inference/pull/418>`_"
+msgstr ""
+
+#: ../../source/index.rst:48
+msgid "LoRA support: `#271 <https://github.com/xorbitsai/inference/issues/271>`_"
 msgstr ""
 
 #: ../../source/index.rst:49
 msgid ""
-"`llama-cpp-python <https://github.com/abetlen/llama-cpp-python"
-"#installation-from-pypi-recommended>`_ is required to run ``baichuan``, "
-"``wizardlm-v1.0``, ``vicuna-v1.3`` and ``orca``."
+"Multi-GPU support for PyTorch models: `#226 "
+"<https://github.com/xorbitsai/inference/issues/226>`_"
 msgstr ""
 
 #: ../../source/index.rst:50
 msgid ""
-"`chatglm-cpp-python <https://github.com/li-plus/chatglm.cpp#getting-"
-"started>`_ is required to run ``chatglm`` and ``chatglm2``."
+"Xinference dashboard: `#93 "
+"<https://github.com/xorbitsai/inference/issues/93>`_"
+msgstr ""
+
+#: ../../source/index.rst:53
+msgid "New Models"
 msgstr ""
 
 #: ../../source/index.rst:54
-msgid "Builtin models"
+msgid ""
+"Built-in support for `CodeLLama "
+"<https://github.com/facebookresearch/codellama>`_: `#414 "
+"<https://github.com/xorbitsai/inference/pull/414>`_ `#402 "
+"<https://github.com/xorbitsai/inference/pull/402>`_"
 msgstr ""
 
-#: ../../source/index.rst:56
-msgid "To view the builtin models, run the following command::"
+#: ../../source/index.rst:58
+msgid "Integrations"
 msgstr ""
 
-#: ../../source/index.rst:62
-msgid "Name"
+#: ../../source/index.rst:59
+msgid ""
+"`Dify <https://docs.dify.ai/advanced/model-configuration/xinference>`_: "
+"an LLMOps platform that enables developers (and even non-developers) to "
+"quickly build useful applications based on large language models, "
+"ensuring they are visual, operable, and improvable."
 msgstr ""
 
-#: ../../source/index.rst:62
-msgid "Type"
-msgstr ""
-
-#: ../../source/index.rst:62
-msgid "Language"
-msgstr ""
-
-#: ../../source/index.rst:62
-msgid "Format"
-msgstr ""
-
-#: ../../source/index.rst:62
-msgid "Size (in billions)"
-msgstr ""
-
-#: ../../source/index.rst:62
-msgid "Quantization"
+#: ../../source/index.rst:60
+msgid ""
+"`Chatbox <https://chatboxai.app/>`_: a desktop client for multiple "
+"cutting-edge LLM models, available on Windows, Mac and Linux."
 msgstr ""
 
 #: ../../source/index.rst:64
-msgid "baichuan"
-msgstr ""
-
-#: ../../source/index.rst:64
-msgid "Foundation Model"
-msgstr ""
-
-#: ../../source/index.rst:64 ../../source/index.rst:66
-#: ../../source/index.rst:68
-msgid "en, zh"
-msgstr ""
-
-#: ../../source/index.rst:64 ../../source/index.rst:66
-#: ../../source/index.rst:68 ../../source/index.rst:70
-#: ../../source/index.rst:72 ../../source/index.rst:74
-#: ../../source/index.rst:76
-msgid "ggmlv3"
-msgstr ""
-
-#: ../../source/index.rst:64
-msgid "7"
-msgstr ""
-
-#: ../../source/index.rst:64 ../../source/index.rst:70
-#: ../../source/index.rst:72 ../../source/index.rst:74
-msgid "'q2_K', 'q3_K_L', ... , 'q6_K', 'q8_0'"
-msgstr ""
-
-#: ../../source/index.rst:66
-msgid "chatglm"
-msgstr ""
-
-#: ../../source/index.rst:66 ../../source/index.rst:68
-#: ../../source/index.rst:70 ../../source/index.rst:72
-#: ../../source/index.rst:74 ../../source/index.rst:76
-msgid "SFT Model"
-msgstr ""
-
-#: ../../source/index.rst:66 ../../source/index.rst:68
-msgid "6"
-msgstr ""
-
-#: ../../source/index.rst:66 ../../source/index.rst:68
-#: ../../source/index.rst:76
-msgid "'q4_0', 'q4_1', 'q5_0', 'q5_1', 'q8_0'"
-msgstr ""
-
-#: ../../source/index.rst:68
-msgid "chatglm2"
-msgstr ""
-
-#: ../../source/index.rst:70
-msgid "wizardlm-v1.0"
-msgstr ""
-
-#: ../../source/index.rst:70 ../../source/index.rst:72
-#: ../../source/index.rst:74 ../../source/index.rst:76
-msgid "en"
-msgstr ""
-
-#: ../../source/index.rst:70
-msgid "7, 13, 33"
-msgstr ""
-
-#: ../../source/index.rst:72
-msgid "wizardlm-v1.1"
-msgstr ""
-
-#: ../../source/index.rst:72
-msgid "13"
-msgstr ""
-
-#: ../../source/index.rst:74
-msgid "vicuna-v1.3"
-msgstr ""
-
-#: ../../source/index.rst:74
-msgid "7, 13"
-msgstr ""
-
-#: ../../source/index.rst:76
-msgid "orca"
-msgstr ""
-
-#: ../../source/index.rst:76
-msgid "3, 7, 13"
-msgstr ""
-
-#: ../../source/index.rst:80
 msgid "License"
 msgstr ""
 
-#: ../../source/index.rst:81
+#: ../../source/index.rst:65
 msgid "`Apache 2 <https://github.com/xorbitsai/inference/blob/main/LICENSE>`_"
 msgstr ""
-

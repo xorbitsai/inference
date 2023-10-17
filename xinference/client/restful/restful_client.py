@@ -28,6 +28,7 @@ if TYPE_CHECKING:
         Completion,
         CompletionChunk,
         Embedding,
+        ImageList,
         LlamaCppGenerateConfig,
         PytorchGenerateConfig,
     )
@@ -72,6 +73,50 @@ class RESTfulEmbeddingModelHandle(RESTfulModelHandle):
         if response.status_code != 200:
             raise RuntimeError(
                 f"Failed to create the embeddings, detail: {response.json()['detail']}"
+            )
+
+        response_data = response.json()
+        return response_data
+
+
+class RESTfulImageModelHandle(RESTfulModelHandle):
+    def text_to_image(
+        self,
+        prompt: str,
+        n: int = 1,
+        size: str = "1024*1024",
+        response_format: str = "url",
+    ) -> "ImageList":
+        """
+        Creates an image by the input text.
+
+        Parameters
+        ----------
+        prompt (`str` or `List[str]`, *optional*):
+            The prompt or prompts to guide image generation. If not defined, you need to pass `prompt_embeds`.
+        n (`int`, *optional*, defaults to 1):
+            The number of images to generate per prompt. Must be between 1 and 10.
+        size (`str`, *optional*, defaults to `1024*1024`):
+            The width*height in pixels of the generated image. Must be one of 256x256, 512x512, or 1024x1024.
+        response_format (`str`, *optional*, defaults to `url`):
+            The format in which the generated images are returned. Must be one of url or b64_json.
+        Returns
+        -------
+        ImageList
+            A list of image objects.
+        """
+        url = f"{self._base_url}/v1/images/generations"
+        request_body = {
+            "model": self._model_uid,
+            "prompt": prompt,
+            "n": n,
+            "size": size,
+            "response_format": response_format,
+        }
+        response = requests.post(url, json=request_body)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to create the images, detail: {response.json()['detail']}"
             )
 
         response_data = response.json()
@@ -454,6 +499,8 @@ class Client:
                 raise ValueError(f"Unrecognized model ability: {desc['model_ability']}")
         elif desc["model_type"] == "embedding":
             return RESTfulEmbeddingModelHandle(model_uid, self.base_url)
+        elif desc["model_type"] == "image":
+            return RESTfulImageModelHandle(model_uid, self.base_url)
         else:
             raise ValueError(f"Unknown model type:{desc['model_type']}")
 

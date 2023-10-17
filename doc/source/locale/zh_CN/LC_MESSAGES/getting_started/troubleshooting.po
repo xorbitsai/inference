@@ -1,0 +1,71 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2023-10-16 10:33+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: zh_CN\n"
+"Language-Team: zh_CN <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.12.1\n"
+
+#: ../../source/getting_started/troubleshooting.rst:5
+msgid "Troubleshooting"
+msgstr ""
+
+#: ../../source/getting_started/troubleshooting.rst:9
+msgid "No huggingface repo access"
+msgstr ""
+
+#: ../../source/getting_started/troubleshooting.rst:11
+msgid ""
+"Sometimes, you may face errors accessing huggingface models, such as the "
+"following message when accessing `llama2`:"
+msgstr ""
+
+#: ../../source/getting_started/troubleshooting.rst:18
+msgid ""
+"This typically indicates either a lack of access rights to the repository"
+" or missing huggingface access tokens. The following sections provide "
+"guidance on addressing these issues."
+msgstr ""
+
+#: ../../source/getting_started/troubleshooting.rst:22
+msgid "Get access to the huggingface repo"
+msgstr ""
+
+#: ../../source/getting_started/troubleshooting.rst:24
+msgid ""
+"To obtain access, navigate to the desired huggingface repository and "
+"agree to its terms and conditions. As an illustration, for the `llama2` "
+"model, you can use this link: `https://huggingface.co/meta-llama/Llama-2"
+"-7b-hf <https://huggingface.co/meta-llama/Llama-2-7b-hf>`_."
+msgstr ""
+
+#: ../../source/getting_started/troubleshooting.rst:29
+msgid "Set up credentials to access huggingface"
+msgstr ""
+
+#: ../../source/getting_started/troubleshooting.rst:31
+msgid ""
+"Your credential to access huggingface can be found online at "
+"`https://huggingface.co/settings/tokens "
+"<https://huggingface.co/settings/tokens>`_."
+msgstr ""
+
+#: ../../source/getting_started/troubleshooting.rst:33
+msgid ""
+"You can set the token as an environmental variable, with ``export "
+"HUGGING_FACE_HUB_TOKEN=your_token_here``."
+msgstr ""
+

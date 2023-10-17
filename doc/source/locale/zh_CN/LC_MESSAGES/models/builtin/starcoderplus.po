@@ -1,0 +1,72 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2023-10-16 10:33+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: zh_CN\n"
+"Language-Team: zh_CN <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.12.1\n"
+
+#: ../../source/models/builtin/starcoderplus.rst:5
+msgid "StarCoderPlus"
+msgstr ""
+
+#: ../../source/models/builtin/starcoderplus.rst:7
+msgid "**Model Name:** starcoderplus"
+msgstr ""
+
+#: ../../source/models/builtin/starcoderplus.rst:8
+msgid "**Languages:** en"
+msgstr ""
+
+#: ../../source/models/builtin/starcoderplus.rst:9
+msgid "**Abilities:** embed, generate"
+msgstr ""
+
+#: ../../source/models/builtin/starcoderplus.rst:12
+msgid "Specifications"
+msgstr ""
+
+#: ../../source/models/builtin/starcoderplus.rst:15
+msgid "Model Spec (pytorch, 16 Billion)"
+msgstr ""
+
+#: ../../source/models/builtin/starcoderplus.rst:17
+msgid "**Model Format:** pytorch"
+msgstr ""
+
+#: ../../source/models/builtin/starcoderplus.rst:18
+msgid "**Model Size (in billions):** 16"
+msgstr ""
+
+#: ../../source/models/builtin/starcoderplus.rst:19
+msgid "**Quantizations:** 4-bit, 8-bit, none"
+msgstr ""
+
+#: ../../source/models/builtin/starcoderplus.rst:20
+msgid "**Model ID:** bigcode/starcoderplus"
+msgstr ""
+
+#: ../../source/models/builtin/starcoderplus.rst:22
+msgid ""
+"Execute the following command to launch the model, remember to replace "
+"`${quantization}` with your chosen quantization method from the options "
+"listed above::"
+msgstr ""
+
+#: ../../source/models/builtin/starcoderplus.rst:29
+msgid "4-bit quantization is not supported on macOS."
+msgstr ""
+
