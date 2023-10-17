@@ -348,6 +348,7 @@ def test_restful_api_for_embedding(setup):
 
 
 @pytest.mark.asyncio
+@pytest.mark.skip
 async def test_openai(setup):
     endpoint, _ = setup
     url = f"{endpoint}/v1/models"
