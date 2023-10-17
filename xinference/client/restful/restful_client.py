@@ -92,13 +92,13 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
 
         Parameters
         ----------
-        prompt (`str` or `List[str]`, *optional*):
+        prompt: `str` or `List[str]`
             The prompt or prompts to guide image generation. If not defined, you need to pass `prompt_embeds`.
-        n (`int`, *optional*, defaults to 1):
+        n: `int`, defaults to 1
             The number of images to generate per prompt. Must be between 1 and 10.
-        size (`str`, *optional*, defaults to `1024*1024`):
+        size: `str`, defaults to `1024*1024`
             The width*height in pixels of the generated image. Must be one of 256x256, 512x512, or 1024x1024.
-        response_format (`str`, *optional*, defaults to `url`):
+        response_format: `str`, defaults to `url`
             The format in which the generated images are returned. Must be one of url or b64_json.
         Returns
         -------
@@ -473,9 +473,10 @@ class Client:
         -------
         ModelHandle
             The corresponding Model Handler based on the Model specified in the uid:
-            "RESTfulChatglmCppChatModelHandle" -> provide handle to ChatGLM Model
-            "RESTfulGenerateModelHandle" -> provide handle to basic generate Model. e.g. Baichuan.
-            "RESTfulChatModelHandle" -> provide handle to chat Model. e.g. Baichuan-chat.
+              - :obj:`xinference.client.handlers.ChatglmCppChatModelHandle` -> provide handle to ChatGLM Model
+              - :obj:`xinference.client.handlers.GenerateModelHandle` -> provide handle to basic generate Model. e.g. Baichuan.
+              - :obj:`xinference.client.handlers.ChatModelHandle` -> provide handle to chat Model. e.g. Baichuan-chat.
+
 
         Raises
         ------
@@ -521,6 +522,7 @@ class Client:
         -------
         dict
             A dictionary containing the following keys:
+
             - "model_type": str
                the type of the model determined by its function, e.g. "LLM" (Large Language Model)
             - "model_name": str
