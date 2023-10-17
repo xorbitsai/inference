@@ -62,15 +62,16 @@ class ReplicaInfo:
     scheduler: Iterator
 
 
-class SupervisorActor(xo.Actor):
+class SupervisorActor(xo.StatelessActor):
     def __init__(self):
         super().__init__()
         self._worker_address_to_worker: Dict[str, xo.ActorRefType["WorkerActor"]] = {}
+        self._worker_status: Dict[str, WorkerStatus] = {}
         self._replica_model_uid_to_worker: Dict[
             str, xo.ActorRefType["WorkerActor"]
         ] = {}
         self._model_uid_to_replica_info: Dict[str, ReplicaInfo] = {}
-        self._worker_status: Dict[str, WorkerStatus] = {}
+        self._lock = asyncio.Lock()
 
     @classmethod
     def uid(cls) -> str:
@@ -86,7 +87,10 @@ class SupervisorActor(xo.Actor):
         # TODO: better allocation strategy.
         min_running_model_count = None
         target_worker = None
-        for worker in self._worker_address_to_worker.values():
+        async with self._lock:
+            workers = list(self._worker_address_to_worker.values())
+
+        for worker in workers:
             running_model_count = await worker.get_model_count()
             if (
                 min_running_model_count is None
@@ -183,7 +187,10 @@ class SupervisorActor(xo.Actor):
             register_llm(llm_family, persist)
 
             if not self.is_local_deployment:
-                for worker in self._worker_address_to_worker.values():
+                async with self._lock:
+                    workers = list(self._worker_address_to_worker.values())
+
+                for worker in workers:
                     await worker.register_model(model_type, model, persist)
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
@@ -196,7 +203,10 @@ class SupervisorActor(xo.Actor):
             unregister_llm(model_name)
 
             if not self.is_local_deployment:
-                for worker in self._worker_address_to_worker.values():
+                async with self._lock:
+                    workers = list(self._worker_address_to_worker.values())
+
+                for worker in workers:
                     await worker.unregister_model(model_name)
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
@@ -330,42 +340,44 @@ class SupervisorActor(xo.Actor):
     async def _check_dead_nodes(self):
         while True:
             dead_nodes = []
-            for address, status in self._worker_status.items():
-                if time.time() - status.update_time > DEFAULT_NODE_TIMEOUT:
-                    dead_models = []
-                    for model_uid in self._replica_model_uid_to_worker:
-                        if (
-                            self._replica_model_uid_to_worker[model_uid].address
-                            == address
-                        ):
-                            dead_models.append(model_uid)
-                    logger.error(
-                        "Worker timeout. address: %s, influenced models: %s",
-                        address,
-                        dead_models,
-                    )
-                    dead_nodes.append(address)
+            async with self._lock:
+                for address, status in self._worker_status.items():
+                    if time.time() - status.update_time > DEFAULT_NODE_TIMEOUT:
+                        dead_models = []
+                        for model_uid in self._replica_model_uid_to_worker:
+                            if (
+                                self._replica_model_uid_to_worker[model_uid].address
+                                == address
+                            ):
+                                dead_models.append(model_uid)
+                        logger.error(
+                            "Worker timeout. address: %s, influenced models: %s",
+                            address,
+                            dead_models,
+                        )
+                        dead_nodes.append(address)
 
-            for address in dead_nodes:
-                self._worker_status.pop(address)
-                self._worker_address_to_worker.pop(address)
+                for address in dead_nodes:
+                    self._worker_status.pop(address)
+                    self._worker_address_to_worker.pop(address)
             await asyncio.sleep(5)
 
     @log_async(logger=logger)
     async def terminate_model(self, model_uid: str, suppress_exception=False):
         async def _terminate_one_model(_replica_model_uid):
-            if _replica_model_uid not in self._replica_model_uid_to_worker:
+            worker_ref = self._replica_model_uid_to_worker.get(_replica_model_uid, None)
+
+            if worker_ref is None:
                 raise ValueError(
                     f"Model not found in the model list, uid: {_replica_model_uid}"
                 )
-
-            worker_ref = self._replica_model_uid_to_worker[_replica_model_uid]
             await worker_ref.terminate_model(model_uid=_replica_model_uid)
             del self._replica_model_uid_to_worker[_replica_model_uid]
 
-        if model_uid not in self._model_uid_to_replica_info:
+        replica_info = self._model_uid_to_replica_info.get(model_uid, None)
+        if replica_info is None:
             raise ValueError(f"Model not found in the model list, uid: {model_uid}")
-        replica_info = self._model_uid_to_replica_info[model_uid]
+
         for rep_model_uid in iter_replica_model_uid(model_uid, replica_info.replica):
             try:
                 await _terminate_one_model(rep_model_uid)
@@ -376,34 +388,34 @@ class SupervisorActor(xo.Actor):
 
     @log_async(logger=logger)
     async def get_model(self, model_uid: str) -> xo.ActorRefType["ModelActor"]:
-        if model_uid not in self._model_uid_to_replica_info:
+        replica_info = self._model_uid_to_replica_info.get(model_uid, None)
+        if replica_info is None:
             raise ValueError(f"Model not found in the model list, uid: {model_uid}")
-        replica_info = self._model_uid_to_replica_info[model_uid]
+
         replica_model_uid = build_replica_model_uid(
             model_uid, replica_info.replica, next(replica_info.scheduler)
         )
-        if replica_model_uid not in self._replica_model_uid_to_worker:
+
+        worker_ref = self._replica_model_uid_to_worker.get(replica_model_uid, None)
+        if worker_ref is None:
             raise ValueError(
                 f"Model not found in the model list, uid: {replica_model_uid}"
             )
-
-        worker_ref = self._replica_model_uid_to_worker[replica_model_uid]
         return await worker_ref.get_model(model_uid=replica_model_uid)
 
     @log_async(logger=logger)
     async def describe_model(self, model_uid: str) -> Dict[str, Any]:
-        if model_uid not in self._model_uid_to_replica_info:
+        replica_info = self._model_uid_to_replica_info.get(model_uid, None)
+        if replica_info is None:
             raise ValueError(f"Model not found in the model list, uid: {model_uid}")
-        replica_info = self._model_uid_to_replica_info[model_uid]
         # Use rep id 0 to instead of next(replica_info.scheduler) to avoid
         # consuming the generator.
         replica_model_uid = build_replica_model_uid(model_uid, replica_info.replica, 0)
-        if replica_model_uid not in self._replica_model_uid_to_worker:
+        worker_ref = self._replica_model_uid_to_worker.get(replica_model_uid, None)
+        if worker_ref is None:
             raise ValueError(
                 f"Model not found in the model list, uid: {replica_model_uid}"
             )
-
-        worker_ref = self._replica_model_uid_to_worker[replica_model_uid]
         info = await worker_ref.describe_model(model_uid=replica_model_uid)
         info["replica"] = replica_info.replica
         return info
@@ -411,7 +423,10 @@ class SupervisorActor(xo.Actor):
     @log_async(logger=logger)
     async def list_models(self) -> Dict[str, Dict[str, Any]]:
         ret = {}
-        for worker in self._worker_address_to_worker.values():
+        async with self._lock:
+            workers = list(self._worker_address_to_worker.values())
+
+        for worker in workers:
             ret.update(await worker.list_models())
         return {parse_replica_model_uid(k)[0]: v for k, v in ret.items()}
 
@@ -427,7 +442,9 @@ class SupervisorActor(xo.Actor):
     async def add_worker(self, worker_address: str):
         from .worker import WorkerActor
 
-        assert worker_address not in self._worker_address_to_worker
+        assert (
+            worker_address not in self._worker_address_to_worker
+        ), f"Worker {worker_address} exists"
 
         worker_ref = await xo.actor_ref(address=worker_address, uid=WorkerActor.uid())
         self._worker_address_to_worker[worker_address] = worker_ref
