@@ -57,7 +57,6 @@ class FalconPytorchModel(PytorchModel):
         model = AutoModelForCausalLM.from_pretrained(
             self.model_path,
             low_cpu_mem_usage=True,
-            trust_remote_code=True,
             **kwargs,
         )
         tokenizer.pad_token_id = 9
@@ -109,12 +108,12 @@ class FalconPytorchChatModel(PytorchChatModel):
 
         tokenizer = AutoTokenizer.from_pretrained(
             self.model_path,
+            trust_remote_code=kwargs["trust_remote_code"],
             revision=kwargs["revision"],
         )
         model = AutoModelForCausalLM.from_pretrained(
             self.model_path,
             low_cpu_mem_usage=True,
-            trust_remote_code=True,
             **kwargs,
         )
         tokenizer.pad_token_id = 9
