@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Union
 
 import requests
 
-from ..common import chat_streaming_response_iterator, streaming_response_iterator
+from ..common import streaming_response_iterator
 
 if TYPE_CHECKING:
     from ...types import (
@@ -173,7 +173,7 @@ class RESTfulGenerateModelHandle(RESTfulEmbeddingModelHandle):
             )
 
         if stream:
-            return streaming_response_iterator(response.iter_content(chunk_size=None))
+            return streaming_response_iterator(response.iter_lines())
 
         response_data = response.json()
         return response_data
@@ -251,9 +251,7 @@ class RESTfulChatModelHandle(RESTfulGenerateModelHandle):
             )
 
         if stream:
-            return chat_streaming_response_iterator(
-                response.iter_content(chunk_size=None)
-            )
+            return streaming_response_iterator(response.iter_lines())
 
         response_data = response.json()
         return response_data
@@ -317,9 +315,7 @@ class RESTfulChatglmCppChatModelHandle(RESTfulEmbeddingModelHandle):
             )
 
         if stream:
-            return chat_streaming_response_iterator(
-                response.iter_content(chunk_size=None)
-            )
+            return streaming_response_iterator(response.iter_lines())
 
         response_data = response.json()
         return response_data

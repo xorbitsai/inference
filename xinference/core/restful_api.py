@@ -533,12 +533,15 @@ class RESTfulAPIActor(xo.Actor):
                 try:
                     iterator = await model.generate(body.prompt, kwargs)
                     async for item in iterator:
-                        yield json.dumps(item)
+                        yield f"data: {json.dumps(item)}\n"
                 except Exception as ex:
                     logger.exception("Completion stream got an error: %s", ex)
-                    yield json.dumps({"error": str(ex)})
+                    yield f"error: {ex}"
 
-            return StreamingResponse(stream_results())
+            # The Content-Type: text/event-stream header is required for openai stream.
+            return StreamingResponse(
+                stream_results(), headers={"Content-Type": "text/event-stream"}
+            )
         else:
             try:
                 return await model.generate(body.prompt, kwargs)
@@ -669,12 +672,15 @@ class RESTfulAPIActor(xo.Actor):
                             prompt, system_prompt, chat_history, kwargs
                         )
                     async for item in iterator:
-                        yield json.dumps(item)
+                        yield f"data: {json.dumps(item)}\n"
                 except Exception as ex:
                     logger.exception("Chat completion stream got an error: %s", ex)
-                    yield json.dumps({"error": str(ex)})
+                    yield f"error: {ex}"
 
-            return StreamingResponse(stream_results())
+            # The Content-Type: text/event-stream header is required for openai stream.
+            return StreamingResponse(
+                stream_results(), headers={"Content-Type": "text/event-stream"}
+            )
         else:
             try:
                 if is_chatglm_ggml:
