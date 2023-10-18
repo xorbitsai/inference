@@ -124,7 +124,7 @@ List available built-in image models:
 
     Type    Name                          Family            Is-built-in
     ------  ----------------------------  ----------------  -------------
-    image   stable-diffusion-v1-5         stable_diffusion  True
+    image   stable-diffusion-v1.5         stable_diffusion  True
     image   stable-diffusion-xl-base-1.0  stable_diffusion  True
 
 
@@ -135,9 +135,9 @@ Launch an image model and generate an image by prompt:
     from xinference.client import Client
 
     client = Client("http://localhost:9997")
-    # The stable-diffusion-v1-5 is an image model, so the `model_type` needs to be specified.
+    # The stable-diffusion-v1.5 is an image model, so the `model_type` needs to be specified.
     # Additional kwargs can be passed to AutoPipelineForText2Image.from_pretrained here.
-    model_uid = client.launch_model(model_name="stable-diffusion-v1-5", model_type="image")
+    model_uid = client.launch_model(model_name="stable-diffusion-v1.5", model_type="image")
     model = client.get_model(model_uid)
 
     input_text = "an apple"
