@@ -1,7 +1,7 @@
 import React, { useContext, useState, useEffect } from "react";
 import ModelCard from "./modelCard";
 import Title from "../../components/Title";
-import { Box, TextField, FormControl } from "@mui/material";
+import { Box, TextField, FormControl, Select, MenuItem } from "@mui/material";
 import { ApiContext } from "../../components/apiContext";
 
 const LaunchModel = () => {
@@ -101,6 +101,12 @@ const LaunchModel = () => {
           size="small"
           sx={{ width: "95%", paddingBottom: "30px" }}
         />
+        <Select label="Model Type">
+          <MenuItem value="all">all models</MenuItem>
+          <MenuItem value="gen">generate models</MenuItem>
+          <MenuItem value="chat">chat models</MenuItem>
+          <MenuItem value="emb">embedding models</MenuItem>
+        </Select>
       </FormControl>
       <div style={style}>
         {registrationData
