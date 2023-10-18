@@ -12,10 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import sys
+
 import openai
 import pytest
 import requests
-import sys
 
 from ...model.embedding import BUILTIN_EMBEDDING_MODELS
 
