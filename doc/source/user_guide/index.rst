@@ -9,4 +9,4 @@ User Guide
 
    cache_management
    backends
-   api_examples
+   client_api

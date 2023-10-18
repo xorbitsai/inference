@@ -1,8 +1,8 @@
-.. _user_guide_api_examples:
+.. _user_guide_client_api:
 
-===================
-Client API Examples
-===================
+==========
+Client API
+==========
 
 Full Client API References: :ref:`reference_index`
 
