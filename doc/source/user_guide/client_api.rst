@@ -4,9 +4,9 @@
 Client API
 ==========
 
-Full Client API References: :ref:`reference_index`
+Complete Client API Reference: :ref:`reference_index`
 
-In order to use Client, user need to start the xinference server by the following command line:
+To utilize the Client API, initiate the xinference server using the command below:
 
 .. code-block::
 
@@ -15,17 +15,14 @@ In order to use Client, user need to start the xinference server by the followin
     2023-10-17 16:32:21,700 xinference.core.supervisor 24584 INFO     Worker 127.0.0.1:62590 has been added successfully
     2023-10-17 16:32:21,701 xinference.deploy.worker 24584 INFO     Xinference worker successfully started.
 
-As the log shows above, the endpoint is `http://127.0.0.1:9997`. Users can use Client to connect 
-to the xinference server through this endpoint.
+Based on the log above, the endpoint is `http://127.0.0.1:9997`. Users can connect to the xinference server through this endpoint using the Client.
 
-
-Models are divided into these categories: LLM, embedding, image, ... More types of models will be added in the future.
-
+Models are categorized into LLM, embedding, image, etc. We plan to introduce more model types in the future.
 
 LLM
 ~~~
 
-List available built-in LLM models:
+To list the available built-in LLM models:
 
 .. code-block::
 
@@ -38,9 +35,7 @@ List available built-in LLM models:
     LLM     baichuan-2-chat          ['en', 'zh']  ['embed', 'generate', 'chat']  True
     ...
 
-
-Launch a LLM model and chat:
-
+To initialize an LLM and chat:
 
 .. code-block::
 
@@ -56,7 +51,7 @@ Launch a LLM model and chat:
 
     chat_history = []
     prompt = "What is the largest animal?"
-    # If the model has "generate" capability, then you can call
+    # If the model has "generate" capability, then you can call the
     # model.generate API.
     model.chat(
         prompt,
@@ -64,11 +59,10 @@ Launch a LLM model and chat:
         generate_config={"max_tokens": 1024}
     )
 
-
 Embedding
 ~~~~~~~~~
 
-List available built-in embedding models:
+To list the available built-in embedding models:
 
 .. code-block::
 
@@ -81,8 +75,7 @@ List available built-in embedding models:
     embedding  bge-base-zh              ['zh']               768  True
     ...
 
-
-Launch an embedding model and embed a text:
+To launch an embedding model and embed text:
 
 .. code-block::
 
@@ -93,10 +86,10 @@ Launch an embedding model and embed a text:
     model_uid = client.launch_model(model_name="bge-small-en-v1.5", model_type="embedding")
     model = client.get_model(model_uid)
 
-    input_text = "what is the capital of China?"
+    input_text = "What is the capital of China?"
     model.create_embedding(input_text)
 
-Output
+Output:
 
 .. code-block::
 
@@ -116,7 +109,7 @@ Output
 Image
 ~~~~~
 
-List available built-in image models:
+To list the available built-in image models:
 
 .. code-block::
 
@@ -127,11 +120,10 @@ List available built-in image models:
     image   stable-diffusion-v1.5         stable_diffusion  True
     image   stable-diffusion-xl-base-1.0  stable_diffusion  True
 
-
-Launch an image model and generate an image by prompt:
+To initiate an image model and generate an image using a text prompt:
 
 .. code-block::
-    
+
     from xinference.client import Client
 
     client = Client("http://localhost:9997")
@@ -143,7 +135,7 @@ Launch an image model and generate an image by prompt:
     input_text = "an apple"
     model.text_to_image(input_text)
 
-Output
+Output:
 
 .. code-block::
 
