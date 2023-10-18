@@ -82,12 +82,10 @@ class WorkerActor(xo.StatelessActor):
         if n_gpu > len(self._total_cuda_devices) - len(self._gpu_to_model_uid):
             raise RuntimeError("No available slot found for the model")
 
+        devices: List[int] = [
+            dev for dev in self._total_cuda_devices if dev not in self._gpu_to_model_uid
+        ][:n_gpu]
         async with self._lock:
-            devices: List[int] = [
-                dev
-                for dev in self._total_cuda_devices
-                if dev not in self._gpu_to_model_uid
-            ][:n_gpu]
             for dev in devices:
                 self._gpu_to_model_uid[int(dev)] = model_uid
 
