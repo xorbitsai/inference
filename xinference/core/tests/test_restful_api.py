@@ -350,7 +350,9 @@ def test_restful_api_for_embedding(setup):
 
 
 @pytest.mark.asyncio
-@pytest.mark.skipif(sys.platform == "win32", "Window CI hangs after run this case.")
+@pytest.mark.skipif(
+    sys.platform == "win32", reason="Window CI hangs after run this case."
+)
 async def test_openai(setup):
     endpoint, _ = setup
     url = f"{endpoint}/v1/models"
