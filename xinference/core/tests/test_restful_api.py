@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import sys
+
+import openai
 import pytest
 import requests
 
@@ -344,3 +347,57 @@ def test_restful_api_for_embedding(setup):
     response = requests.get(f"{endpoint}/v1/models")
     response_data = response.json()
     assert len(response_data) == 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.skipif(
+    sys.platform == "win32", reason="Window CI hangs after run this case."
+)
+async def test_openai(setup):
+    endpoint, _ = setup
+    url = f"{endpoint}/v1/models"
+
+    # list
+    response = requests.get(url)
+    response_data = response.json()
+    assert len(response_data) == 0
+
+    # launch
+    payload = {
+        "model_uid": "test_restful_api",
+        "model_name": "orca",
+        "quantization": "q4_0",
+    }
+
+    response = requests.post(url, json=payload)
+    response_data = response.json()
+    model_uid_res = response_data["model_uid"]
+    assert model_uid_res == "test_restful_api"
+
+    openai.api_key = ""
+    openai.api_base = f"{endpoint}/v1"
+
+    # chat
+    messages = [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "Hello!"},
+        {"role": "assistant", "content": "Hi what can I help you?"},
+        {"role": "user", "content": "What is the capital of France?"},
+    ]
+
+    result = []
+    async for chunk in await openai.ChatCompletion.acreate(
+        messages=messages, stream=True, model=model_uid_res
+    ):
+        if not hasattr(chunk, "choices") or len(chunk.choices) == 0:
+            continue
+        result.append(chunk)
+    assert result
+    assert type(result[0]).__name__ == "OpenAIObject"
+
+    result = await openai.ChatCompletion.acreate(
+        messages=messages, stream=False, model=model_uid_res
+    )
+
+    assert result
+    assert type(result).__name__ == "OpenAIObject"
