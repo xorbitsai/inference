@@ -15,6 +15,7 @@
 import openai
 import pytest
 import requests
+import sys
 
 from ...model.embedding import BUILTIN_EMBEDDING_MODELS
 
@@ -348,7 +349,7 @@ def test_restful_api_for_embedding(setup):
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip
+@pytest.mark.skipif(sys.platform == "win32", "Window CI hangs after run this case.")
 async def test_openai(setup):
     endpoint, _ = setup
     url = f"{endpoint}/v1/models"
