@@ -57,6 +57,7 @@ class FalconPytorchModel(PytorchModel):
         model = AutoModelForCausalLM.from_pretrained(
             self.model_path,
             low_cpu_mem_usage=True,
+            trust_remote_code=True,
             **kwargs,
         )
         tokenizer.pad_token_id = 9
