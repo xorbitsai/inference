@@ -147,6 +147,7 @@ class CreateCompletionRequest(BaseModel):
     top_k: int = top_k_field
     repetition_penalty: float = repetition_penalty_field
     logit_bias_type: Optional[Literal["input_ids", "tokens"]] = Field(None)
+    grammar: Optional[str] = Field(None)
 
     class Config:
         schema_extra = {
@@ -209,6 +210,7 @@ class CreateChatCompletionRequest(BaseModel):
     top_k: int = top_k_field
     repetition_penalty: float = repetition_penalty_field
     logit_bias_type: Optional[Literal["input_ids", "tokens"]] = Field(None)
+    grammar: Optional[str] = Field(None)
 
     class Config:
         schema_extra = {

@@ -26,6 +26,7 @@ potential of cutting-edge AI models.
 
 ## 🔥 Hot Topics
 ### Framework Enhancements
+- Support grammar-based sampling for ggml models: [#525](https://github.com/xorbitsai/inference/pull/525)
 - Incorporate vLLM: [#445](https://github.com/xorbitsai/inference/pull/445)
 - Embedding model support: [#418](https://github.com/xorbitsai/inference/pull/418)
 - LoRA support: [#271](https://github.com/xorbitsai/inference/issues/271)

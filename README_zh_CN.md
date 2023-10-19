@@ -23,6 +23,7 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 
 ## 🔥 近期热点
 ### 框架增强
+- 支持指定 grammar 输出: [#525](https://github.com/xorbitsai/inference/pull/525)
 - 引入 vLLM: [#445](https://github.com/xorbitsai/inference/pull/445)
 - Embedding 模型支持: [#418](https://github.com/xorbitsai/inference/pull/418)
 - LoRA 支持: [#271](https://github.com/xorbitsai/inference/issues/271)
