@@ -24,8 +24,6 @@ from ...constants import XINFERENCE_CACHE_DIR
 from ...types import Embedding, EmbeddingData, EmbeddingUsage
 from ..core import ModelDescription
 
-MAX_ATTEMPTS = 3
-
 logger = logging.getLogger(__name__)
 
 
@@ -40,7 +38,10 @@ class EmbeddingModelSpec(BaseModel):
 
 def cache(model_spec: EmbeddingModelSpec):
     # TODO: cache from uri
-    import huggingface_hub
+    from huggingface_hub import snapshot_download as hf_download
+    from modelscope.hub.snapshot_download import snapshot_download as ms_download
+
+    from ..utils import retry_download, symlink_local_file
 
     cache_dir = os.path.realpath(
         os.path.join(XINFERENCE_CACHE_DIR, model_spec.model_name)
@@ -50,26 +51,32 @@ def cache(model_spec: EmbeddingModelSpec):
     meta_path = os.path.join(cache_dir, "__valid_download")
     if os.path.exists(meta_path):
         return cache_dir
-    for current_attempt in range(1, MAX_ATTEMPTS + 1):
-        try:
-            huggingface_hub.snapshot_download(
-                model_spec.model_id,
-                revision=model_spec.model_revision,
-                local_dir=cache_dir,
-                local_dir_use_symlinks=True,
-            )
-            with open(meta_path, "w") as f:
-                f.write(str(datetime.datetime.now()))
-            break
-        except:
-            remaining_attempts = MAX_ATTEMPTS - current_attempt
-            logger.warning(
-                f"Attempt {current_attempt} failed. Remaining attempts: {remaining_attempts}"
-            )
-    else:
-        raise RuntimeError(
-            f"Failed to download model '{model_spec.model_name}' after {MAX_ATTEMPTS} attempts"
+
+    from_modelscope: bool = model_spec.model_id.startswith("Xorbits/")
+    if from_modelscope:
+        download_dir = retry_download(
+            ms_download,
+            model_spec.model_name,
+            None,
+            model_spec.model_id,
+            revision=model_spec.model_revision,
         )
+        for subdir, dirs, files in os.walk(download_dir):
+            for file in files:
+                relpath = os.path.relpath(os.path.join(subdir, file), download_dir)
+                symlink_local_file(os.path.join(subdir, file), cache_dir, relpath)
+    else:
+        retry_download(
+            hf_download,
+            model_spec.model_name,
+            None,
+            model_spec.model_id,
+            revision=model_spec.model_revision,
+            local_dir=cache_dir,
+            local_dir_use_symlinks=True,
+        )
+        with open(meta_path, "w") as f:
+            f.write(str(datetime.datetime.now()))
     return cache_dir
 
 
@@ -269,7 +276,18 @@ class EmbeddingModelDescription(ModelDescription):
 
 
 def match_embedding(model_name: str) -> EmbeddingModelSpec:
-    from . import BUILTIN_EMBEDDING_MODELS
+    from ..utils import download_from_modelscope
+    from . import BUILTIN_EMBEDDING_MODELS, MODELSCOPE_EMBEDDING_MODELS
+
+    if download_from_modelscope():
+        if model_name in MODELSCOPE_EMBEDDING_MODELS:
+            logger.debug(f"Embedding model {model_name} found in ModelScope.")
+            return MODELSCOPE_EMBEDDING_MODELS[model_name]
+        else:
+            logger.debug(
+                f"Embedding model {model_name} not found in ModelScope, "
+                f"now try to load it via builtin way."
+            )
 
     if model_name in BUILTIN_EMBEDDING_MODELS:
         return BUILTIN_EMBEDDING_MODELS[model_name]
