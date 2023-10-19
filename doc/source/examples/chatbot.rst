@@ -1,12 +1,12 @@
 .. _examples_chatbot:
 
-====================
-Example: chatbot 🤖️
-====================
+=======================
+Example: CLI chatbot 🤖️
+=======================
 
 **Description**:
 
-Demonstrate how to interact with Xinference to play with LLM chat functionality with an AI agent 💻
+Demonstrate how to interact with Xinference to play with LLM chat functionality with an AI agent in command line💻
 
 **Used Technology**:
 

@@ -10,7 +10,7 @@ This example showcases how to build a chatbot with 120 lines of code with Gradio
 
 **Used Technology**:
 
-    @ `Xinference <https://github.com/xorbitsai/inference>`_ as a LLM model serving framework
+    @ `Xinference <https://github.com/xorbitsai/inference>`_ as a LLM model hosting service
 
     @ `Gradio <https://github.com/gradio-app/gradio>`_ as a web interface for the chatbot
 
