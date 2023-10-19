@@ -16,6 +16,7 @@ import {
   SmartToyOutlined,
   AddBoxOutlined,
   GitHub,
+  LibraryBooksOutlined,
 } from "@mui/icons-material";
 import icon from "../media/icon.webp";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -24,6 +25,10 @@ const navItems = [
   {
     text: "Launch Model",
     icon: <RocketLaunchOutlined />,
+  },
+  {
+    text: "Launch Embedding",
+    icon: <LibraryBooksOutlined />,
   },
   {
     text: "Running Models",
