@@ -50,7 +50,7 @@ The following tutorials cover the basics of using Xinference in different scenar
 Third-Party Library Integrations
 ================================
 
-Xinference is designed to seamlessly integrate and deploy open-source AI models, so we want to incorporate support for mainstream toolkits
+Xinference is designed to seamlessly integrate and deploy open-sourced AI models, so we want to incorporate support for mainstream toolkits
 in the AI landscape. Xinference can be used with the following third-party libraries:
 
 * LangChain `Text Embedding Models <https://python.langchain.com/docs/integrations/text_embedding/xinference>`_ and `LLMs <https://python.langchain.com/docs/integrations/llms/xinference>`_
