@@ -1,17 +1,14 @@
 import React, { useState, useContext, useEffect } from "react";
 import { v1 as uuidv1 } from "uuid";
 import { ApiContext } from "../../components/apiContext";
-import { FormControl, InputLabel, Select, MenuItem, Box } from "@mui/material";
+import { Box } from "@mui/material";
 import { CircularProgress } from "@mui/material";
 import {
-  ChatOutlined,
-  EditNoteOutlined,
-  HelpCenterOutlined,
   UndoOutlined,
   RocketLaunchOutlined,
 } from "@mui/icons-material";
 
-const CARD_HEIGHT = 250;
+const CARD_HEIGHT = 270;
 const CARD_WIDTH = 270;
 
 const EmbeddingCard = ({ url, modelData }) => {
@@ -108,20 +105,17 @@ const EmbeddingCard = ({ url, modelData }) => {
       objectFit: "cover",
       borderRadius: "10px",
     },
+    titleContainer: {
+      minHeight: "120px",
+    },
     h2: {
-      minHeight: "100px",
       margin: "10px 10px",
       fontSize: "20px",
-    },
-    p: {
-      minHeight: "140px",
-      fontSize: "14px",
-      padding: "0px 10px 15px 10px",
     },
     buttonsContainer: {
       display: "flex",
       margin: "0 auto",
-      marginTop: "30px",
+      marginTop: "120px",
       border: "none",
       justifyContent: "space-between",
       alignItems: "center",
@@ -180,6 +174,23 @@ const EmbeddingCard = ({ url, modelData }) => {
     smallText: {
       fontSize: "0.8em",
     },
+    langRow: {
+      margin: "2px 5px 40px 5px"
+    },
+    langTag: {
+      margin: "0px 10px 0px 0px",
+      padding: "2px 10px",
+      borderRadius: "50px",
+      fontSize: "0.8em"
+    },
+    langEn: {
+      border: "1px solid #0099CC",
+      backgroundColor: "#CCFFFF"
+    },
+    langZh: {
+      border: "1px solid #FF6666",
+      backgroundColor: "#FFCCCC"
+    }
   };
 
   // Set two different states based on mouse hover
@@ -196,8 +207,25 @@ const EmbeddingCard = ({ url, modelData }) => {
     >
       {/* First state: show description page */}
       <Box style={styles.descriptionCard}>
-        <h2 style={styles.h2}>{modelData.model_name}</h2>
-
+        <div style={styles.titleContainer}>
+          <h2 style={styles.h2}>{modelData.model_name}</h2>
+          <div style={styles.langRow}>
+            {(() => {
+              if (modelData.language.includes("en")) {
+                return (
+                  <span style={{ ...styles.langTag, ...styles.langEn }}>EN</span>
+                );
+              }
+            })()}
+            {(() => {
+              if (modelData.language.includes("zh")) {
+                return (
+                  <span style={{ ...styles.langTag, ...styles.langZh }}>ZH</span>
+                );
+              }
+            })()}
+          </div>
+        </div>
         <div style={styles.iconRow}>
           <div style={styles.iconItem}>
             <span style={styles.boldIconText}>
