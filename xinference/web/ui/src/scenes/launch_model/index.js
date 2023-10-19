@@ -1,7 +1,7 @@
 import React, { useContext, useState, useEffect } from "react";
 import ModelCard from "./modelCard";
 import Title from "../../components/Title";
-import { Box, TextField, FormControl, Select, MenuItem } from "@mui/material";
+import { Box, TextField, FormControl, Select, MenuItem, InputLabel } from "@mui/material";
 import { ApiContext } from "../../components/apiContext";
 
 const LaunchModel = () => {
@@ -13,9 +13,15 @@ const LaunchModel = () => {
   // States used for filtering
   const [searchTerm, setSearchTerm] = useState("");
 
+  const [modelType, setModelType] = useState("all");
+
   const handleChange = (event) => {
     setSearchTerm(event.target.value);
   };
+
+  const handleSelected = (event) => {
+    setModelType(event.target.value);
+  }
 
   const filter = (registration) => {
     if (!registration || typeof searchTerm !== "string") return false;
@@ -31,6 +37,11 @@ const LaunchModel = () => {
       !modelDescription.includes(searchTerm.toLowerCase())
     ) {
       return false;
+    }
+    if (modelType && modelType !== "all") {
+      if(registration.model_ability.indexOf(modelType)<0) {
+        return false;
+      }
     }
     return true;
   };
@@ -90,7 +101,7 @@ const LaunchModel = () => {
       <FormControl
         variant="outlined"
         margin="normal"
-        sx={{ width: "100%", paddingBottom: "30px" }}
+        sx={{ width: "100%", paddingBottom: "10px" }}
       >
         <TextField
           id="search"
@@ -99,13 +110,25 @@ const LaunchModel = () => {
           value={searchTerm}
           onChange={handleChange}
           size="small"
-          sx={{ width: "95%", paddingBottom: "30px" }}
+          sx={{ width: "95%" }}
         />
-        <Select label="Model Type">
+      </FormControl>
+      <FormControl
+        variant="outlined"
+        margin="normal"
+        sx={{ width: "100%", paddingBottom: "30px" }}>
+        <InputLabel id="type-select-label">Model Type</InputLabel>
+        <Select
+          id="type"
+          labelId="type-select-label"
+          label="Model Type"
+          onChange={handleSelected}
+          value={modelType}
+          size="small" sx={{ width: "200px" }}>
           <MenuItem value="all">all models</MenuItem>
-          <MenuItem value="gen">generate models</MenuItem>
+          <MenuItem value="generate">generate models</MenuItem>
           <MenuItem value="chat">chat models</MenuItem>
-          <MenuItem value="emb">embedding models</MenuItem>
+          <MenuItem value="embed">embedding models</MenuItem>
         </Select>
       </FormControl>
       <div style={style}>
