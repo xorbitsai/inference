@@ -53,6 +53,7 @@ def create_model_instance(
         kwargs.pop("trust_remote_code", None)
         return create_embedding_model_instance(model_uid, model_name, **kwargs)
     elif model_type == "image":
+        kwargs.pop("trust_remote_code", None)
         return create_image_model_instance(model_uid, model_name, **kwargs)
     else:
         raise ValueError(f"Unsupported model type: {model_type}.")

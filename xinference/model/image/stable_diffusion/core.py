@@ -26,11 +26,14 @@ from ....types import Image, ImageList
 
 
 class DiffusionModel:
-    def __init__(self, model_uid: str, model_path: str, device: Optional[str] = None):
+    def __init__(
+        self, model_uid: str, model_path: str, device: Optional[str] = None, **kwargs
+    ):
         self._model_uid = model_uid
         self._model_path = model_path
         self._device = device
         self._model = None
+        self._kwargs = kwargs
 
     def load(self):
         import torch
@@ -38,6 +41,7 @@ class DiffusionModel:
 
         self._model = AutoPipelineForText2Image.from_pretrained(
             self._model_path,
+            **self._kwargs,
             # The following params crashes on Mac M2
             # torch_dtype=torch.float16,
             # use_safetensors=True,

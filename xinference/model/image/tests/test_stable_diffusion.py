@@ -47,7 +47,7 @@ def test_model():
 
 
 def test_restful_api_for_image(setup):
-    model_name = "stable-diffusion-v1-5"
+    model_name = "stable-diffusion-v1.5"
 
     endpoint, _ = setup
     url = f"{endpoint}/v1/models"
