@@ -12,14 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 import os
-from typing import Dict, List
+from typing import Dict, Generator, List
 
 import gradio as gr
 from gradio.components import Markdown, Textbox
 from gradio.layouts import Accordion, Column, Row
 
-from ..client import RESTfulClient
+logger = logging.getLogger(__name__)
 
 
 class LLMInterface:
@@ -27,27 +28,34 @@ class LLMInterface:
         self,
         endpoint: str,
         model_uid: str,
+        model_name: str,
+        model_size_in_billions: int,
+        model_format: str,
+        quantization: str,
+        context_length: int,
+        model_ability: List[str],
+        model_description: str,
+        model_lang: List[str],
     ):
-        self.client = RESTfulClient(endpoint)
         self.endpoint = endpoint
         self.model_uid = model_uid
+        self.model_name = model_name
+        self.model_size_in_billions = model_size_in_billions
+        self.model_format = model_format
+        self.quantization = quantization
+        self.context_length = context_length
+        self.model_ability = model_ability
+        self.model_description = model_description
+        self.model_lang = model_lang
 
     def build(self) -> "gr.Blocks":
-        model = self.client.get_model(self.model_uid)
-        model_info = self.client.describe_model(self.model_uid)
-        model_ability = model_info["model_ability"]
-
-        if "chat" in model_ability:
-            interface = self.build_chat_interface(
-                model,
-                model_info,
-            )
+        if "chat" in self.model_ability:
+            interface = self.build_chat_interface()
         else:
-            interface = self.build_generate_interface(
-                model,
-                model_info,
-            )
+            interface = self.build_generate_interface()
 
+        interface.queue()
+        interface.startup_events()
         favicon_path = os.path.join(
             os.path.dirname(os.path.abspath(__file__)),
             os.path.pardir,
@@ -61,14 +69,7 @@ class LLMInterface:
 
     def build_chat_interface(
         self,
-        model,
-        model_info,
     ) -> "gr.Blocks":
-        model_name = model_info["model_name"]
-        model_format = model_info["model_format"]
-        model_size_in_billions = model_info["model_size_in_billions"]
-        quantization = model_info["quantization"]
-
         def flatten(matrix: List[List[str]]) -> List[str]:
             flat_list = []
             for row in matrix:
@@ -90,32 +91,48 @@ class LLMInterface:
         def generate_wrapper(
             message: str,
             history: List[List[str]],
-            max_response_length: int,
+            max_tokens: int,
             temperature: float,
-        ) -> str:
-            output = model.chat(
+        ) -> Generator:
+            from ..client import RESTfulClient
+
+            client = RESTfulClient(self.endpoint)
+            model = client.get_model(self.model_uid)
+
+            response_content = ""
+            for chunk in model.chat(
                 prompt=message,
                 chat_history=to_chat(flatten(history)),
                 generate_config={
-                    "max_tokens": int(max_response_length),
+                    "max_tokens": int(max_tokens),
                     "temperature": temperature,
-                    "stream": False,
+                    "stream": True,
                 },
-            )
-            return output["choices"][0]["message"]["content"]
+            ):
+                delta = chunk["choices"][0]["delta"]
+                if "content" not in delta:
+                    continue
+                else:
+                    response_content += delta["content"]
+                    yield response_content
+
+            yield response_content
 
         return gr.ChatInterface(
             fn=generate_wrapper,
-            # TODO: Change min/max based on model context size
             additional_inputs=[
                 gr.Slider(
-                    minimum=1, maximum=2048, value=1024, step=1, label="Max Tokens"
+                    minimum=1,
+                    maximum=self.context_length,
+                    value=128,
+                    step=1,
+                    label="Max Tokens",
                 ),
                 gr.Slider(
                     minimum=0, maximum=2, value=1, step=0.01, label="Temperature"
                 ),
             ],
-            title=f"🚀 Xinference Chat Bot : {model_name} 🚀",
+            title=f"🚀 Xinference Chat Bot : {self.model_name} 🚀",
             css="""
             .center{
                 display: flex;
@@ -130,13 +147,13 @@ class LLMInterface:
             Model ID: {self.model_uid}
             </div>
             <div class="center">
-            Model Size: {model_size_in_billions} Billion Parameters
+            Model Size: {self.model_size_in_billions} Billion Parameters
             </div>
             <div class="center">
-            Model Format: {model_format}
+            Model Format: {self.model_format}
             </div>
             <div class="center">
-            Model Quantization: {quantization}
+            Model Quantization: {self.quantization}
             </div>
             """,
             analytics_enabled=False,
@@ -144,14 +161,7 @@ class LLMInterface:
 
     def build_generate_interface(
         self,
-        model,
-        model_info,
     ):
-        model_name = model_info["model_name"]
-        model_format = model_info["model_format"]
-        model_size_in_billions = model_info["model_size_in_billions"]
-        quantization = model_info["quantization"]
-
         def undo(text, hist):
             if len(hist) == 0:
                 return {
@@ -175,36 +185,77 @@ class LLMInterface:
                 history: hist,
             }
 
-        def complete(text, hist, length, temperature):
+        def complete(text, hist, max_tokens, temperature) -> Generator:
+            from ..client import RESTfulClient
+
+            client = RESTfulClient(self.endpoint)
+            model = client.get_model(self.model_uid)
+
             if len(hist) == 0 or (len(hist) > 0 and text != hist[-1]):
                 hist.append(text)
-            response = model.generate(
+
+            response_content = text
+            for chunk in model.generate(
                 prompt=text,
-                generate_config={"max_tokens": length, "temperature": temperature},
-            )
-            text_gen = text + response["choices"][0]["text"]
-            hist.append(text_gen)
+                generate_config={
+                    "max_tokens": max_tokens,
+                    "temperature": temperature,
+                    "stream": True,
+                },
+            ):
+                choice = chunk["choices"][0]
+                if "text" not in choice:
+                    continue
+                else:
+                    response_content += choice["text"]
+                    yield {
+                        textbox: response_content,
+                        history: hist,
+                    }
+
+            hist.append(response_content)
             return {
-                textbox: text_gen,
+                textbox: response_content,
                 history: hist,
             }
 
-        def retry(text, hist, length, temperature):
+        def retry(text, hist, max_tokens, temperature) -> Generator:
+            from ..client import RESTfulClient
+
+            client = RESTfulClient(self.endpoint)
+            model = client.get_model(self.model_uid)
+
             if len(hist) == 0 or (len(hist) > 0 and text != hist[-1]):
                 hist.append(text)
             text = hist[-2] if len(hist) > 1 else ""
-            response = model.generate(
+
+            response_content = text
+            for chunk in model.generate(
                 prompt=text,
-                generate_config={"max_tokens": length, "temperature": temperature},
-            )
-            text_gen = text + response["choices"][0]["text"]
+                generate_config={
+                    "max_tokens": max_tokens,
+                    "temperature": temperature,
+                    "stream": True,
+                },
+            ):
+                choice = chunk["choices"][0]
+                if "text" not in choice:
+                    continue
+                else:
+                    response_content += choice["text"]
+                    yield {
+                        textbox: response_content,
+                        history: hist,
+                    }
+
+            hist.append(response_content)
             return {
-                textbox: text_gen,
+                textbox: response_content,
                 history: hist,
             }
 
         with gr.Blocks(
-            title=f"🚀 Xinference Generate Bot : {model_name} 🚀",
+            title=f"🚀 Xinference Generate Bot : {self.model_name} 🚀",
             css="""
             .center{
                 display: flex;
@@ -220,7 +271,7 @@ class LLMInterface:
 
             Markdown(
                 f"""
-                <h1 style='text-align: center; margin-bottom: 1rem'>🚀 Xinference Generate Bot : {model_name} 🚀</h1>
+                <h1 style='text-align: center; margin-bottom: 1rem'>🚀 Xinference Generate Bot : {self.model_name} 🚀</h1>
                 """
             )
             Markdown(
@@ -229,13 +280,13 @@ class LLMInterface:
                 Model ID: {self.model_uid}
                 </div>
                 <div class="center">
-                Model Size: {model_size_in_billions} Billion Parameters
+                Model Size: {self.model_size_in_billions} Billion Parameters
                 </div>
                 <div class="center">
-                Model Format: {model_format}
+                Model Format: {self.model_format}
                 </div>
                 <div class="center">
-                Model Quantization: {quantization}
+                Model Quantization: {self.quantization}
                 </div>
                 """
             )
@@ -258,7 +309,11 @@ class LLMInterface:
                     btn_clear = gr.Button("🗑️  Clear")
                 with Accordion("Additional Inputs", open=False):
                     length = gr.Slider(
-                        minimum=1, maximum=1024, value=10, step=1, label="Max Tokens"
+                        minimum=1,
+                        maximum=self.context_length,
+                        value=1024,
+                        step=1,
+                        label="Max Tokens",
                     )
                     temperature = gr.Slider(
                         minimum=0, maximum=2, value=1, step=0.01, label="Temperature"

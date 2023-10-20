@@ -79,6 +79,7 @@ class SupervisorActor(xo.StatelessActor):
 
     async def __post_create__(self):
         self._check_dead_nodes_task = asyncio.create_task(self._check_dead_nodes())
+        logger.info(f"Xinference supervisor {self.address} started")
 
     async def __pre_destroy__(self):
         self._check_dead_nodes_task.cancel()
@@ -448,7 +449,7 @@ class SupervisorActor(xo.StatelessActor):
 
         worker_ref = await xo.actor_ref(address=worker_address, uid=WorkerActor.uid())
         self._worker_address_to_worker[worker_address] = worker_ref
-        logger.info("Worker %s has been added successfully", worker_address)
+        logger.debug("Worker %s has been added successfully", worker_address)
 
     async def report_worker_status(
         self, worker_address: str, status: Dict[str, ResourceStatus]

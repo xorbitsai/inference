@@ -54,9 +54,6 @@ class WorkerActor(xo.StatelessActor):
         self._model_uid_to_addr: Dict[str, str] = {}
 
         self._lock = asyncio.Lock()
-        logger.debug(
-            f"Worker actor initialized with main pool: {self._main_pool.external_address}"
-        )
 
     @classmethod
     def uid(cls) -> str:
@@ -70,6 +67,7 @@ class WorkerActor(xo.StatelessActor):
         )
         await self._supervisor_ref.add_worker(self.address)
         self._upload_task = asyncio.create_task(self._periodical_report_status())
+        logger.info(f"Xinference worker {self.address} started")
 
     async def __pre_destroy__(self):
         self._upload_task.cancel()

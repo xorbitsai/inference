@@ -11,13 +11,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import asyncio
 import json
 import logging
 import os
-import socket
 import sys
-import threading
 import warnings
 from typing import Any, Dict, List, Literal, Optional, Union
 
@@ -32,11 +31,17 @@ from pydantic import BaseModel, Field
 from starlette.responses import RedirectResponse
 from typing_extensions import NotRequired, TypedDict
 from uvicorn import Config, Server
+from xoscar.utils import get_next_port
 
-from ..types import ChatCompletion, Completion, Embedding, ImageList
-from .supervisor import SupervisorActor
+from xinference.constants import XINFERENCE_DEFAULT_ENDPOINT_PORT
+from xinference.core.supervisor import SupervisorActor
+from xinference.types import ChatCompletion, Completion, Embedding, ImageList
+
+logging.basicConfig(level=logging.DEBUG)
+
 
 logger = logging.getLogger(__name__)
+
 
 max_tokens_field = Field(
     default=128, ge=1, le=32768, description="The maximum number of tokens to generate."
@@ -230,26 +235,40 @@ class RegisterModelRequest(BaseModel):
     persist: bool
 
 
-class RESTfulAPIActor(xo.Actor):
-    def __init__(self, sockets: List[socket.socket], internal_endpoint: str):
+class BuildGradioInterfaceRequest(BaseModel):
+    model_type: str
+    model_name: str
+    model_size_in_billions: int
+    model_format: str
+    quantization: str
+    context_length: int
+    model_ability: List[str]
+    model_description: str
+    model_lang: List[str]
+
+
+class RESTfulAPI:
+    def __init__(self, supervisor_address: str, host: str, port: int):
         super().__init__()
-        self._supervisor_ref: xo.ActorRefType["SupervisorActor"]
-        self._sockets = sockets
-        self._internal_endpoint = internal_endpoint
-        self._router = None
-        self._app = None
+        self._supervisor_address = supervisor_address
+        self._host = host
+        self._port = port
+        self._supervisor_ref = None
+        self._router = APIRouter()
+        self._app = FastAPI()
 
     @classmethod
     def uid(cls) -> str:
         return "RESTfulAPI"
 
-    async def __post_create__(self):
-        self._supervisor_ref = await xo.actor_ref(
-            address=self.address, uid=SupervisorActor.uid()
-        )
+    async def _get_supervisor_ref(self):
+        if self._supervisor_ref is None:
+            self._supervisor_ref = await xo.actor_ref(
+                address=self._supervisor_address, uid=SupervisorActor.uid()
+            )
+        return self._supervisor_ref
 
-    def serve(self):
-        self._app = FastAPI()
+    def serve(self, logging_conf: Optional[dict] = None):
         self._app.add_middleware(
             CORSMiddleware,
             allow_origins=["*"],
@@ -257,7 +276,6 @@ class RESTfulAPIActor(xo.Actor):
             allow_methods=["*"],
             allow_headers=["*"],
         )
-        self._router = APIRouter()
         self._router.add_api_route("/v1/models", self.list_models, methods=["GET"])
         self._router.add_api_route(
             "/v1/models/{model_uid}", self.describe_model, methods=["GET"]
@@ -326,7 +344,7 @@ class RESTfulAPIActor(xo.Actor):
         )
 
         self._router.add_api_route(
-            "/v1/ui/{model_uid}", self.build_interface, methods=["POST"]
+            "/v1/ui/{model_uid}", self.build_gradio_interface, methods=["POST"]
         )
 
         self._app.include_router(self._router)
@@ -339,9 +357,9 @@ class RESTfulAPIActor(xo.Actor):
                 return response
 
         try:
-            lib_location = os.path.abspath(
-                os.path.dirname(__import__("xinference").__file__)
-            )
+            package_file_path = __import__("xinference").__file__
+            assert package_file_path is not None
+            lib_location = os.path.abspath(os.path.dirname(package_file_path))
             ui_location = os.path.join(lib_location, "web/ui/build/")
         except ImportError as e:
             raise ImportError(f"Xinference is imported incorrectly: {e}")
@@ -366,28 +384,22 @@ class RESTfulAPIActor(xo.Actor):
             """
             )
 
-        # run uvicorn in another daemon thread.
-        config = Config(app=self._app, log_level="critical")
+        config = Config(
+            app=self._app, host=self._host, port=self._port, log_config=logging_conf
+        )
         server = Server(config)
-
-        def _serve():
-            httpx_logger = logging.getLogger("httpx")
-            httpx_logger.setLevel(logging.CRITICAL)
-            server.run(self._sockets)
-
-        server_thread = threading.Thread(target=_serve, daemon=True)
-        server_thread.start()
+        server.run()
 
     async def list_models(self) -> Dict[str, Dict[str, Any]]:
         try:
-            return await self._supervisor_ref.list_models()
+            return await (await self._get_supervisor_ref()).list_models()
         except Exception as e:
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
 
     async def describe_model(self, model_uid: str) -> Dict[str, Any]:
         try:
-            return await self._supervisor_ref.describe_model(model_uid)
+            return await (await self._get_supervisor_ref()).describe_model(model_uid)
 
         except ValueError as ve:
             logger.error(str(ve), exc_info=True)
@@ -471,7 +483,7 @@ class RESTfulAPIActor(xo.Actor):
             )
 
         try:
-            model_uid = await self._supervisor_ref.launch_builtin_model(
+            model_uid = await (await self._get_supervisor_ref()).launch_builtin_model(
                 model_uid=model_uid,
                 model_name=model_name,
                 model_size_in_billions=model_size_in_billions,
@@ -495,16 +507,16 @@ class RESTfulAPIActor(xo.Actor):
 
         return JSONResponse(content={"model_uid": model_uid})
 
-    def build_interface(self, model_uid: str):
+    async def build_gradio_interface(
+        self, model_uid: str, body: BuildGradioInterfaceRequest
+    ):
         """
         Separate build_interface with launch_model
         build_interface requires RESTful Client for API calls
         but calling API in async function does not return
         """
         assert self._app is not None
-        assert self._internal_endpoint is not None
-
-        from .chat_interface import LLMInterface
+        assert body.model_type == "LLM"
 
         # asyncio.Lock() behaves differently in 3.9 than 3.10+
         # A event loop is required in 3.9 but not 3.10+
@@ -518,9 +530,23 @@ class RESTfulAPIActor(xo.Actor):
                 )
                 asyncio.set_event_loop(asyncio.new_event_loop())
 
+        from xinference.core.chat_interface import LLMInterface
+
         try:
-            interface = LLMInterface(self._internal_endpoint, model_uid)
-            gr.mount_gradio_app(self._app, interface.build(), f"/{model_uid}")
+            internal_host = "localhost" if self._host == "0.0.0.0" else self._host
+            interface = LLMInterface(
+                endpoint=f"http://{internal_host}:{self._port}",
+                model_uid=model_uid,
+                model_name=body.model_name,
+                model_size_in_billions=body.model_size_in_billions,
+                model_format=body.model_format,
+                quantization=body.quantization,
+                context_length=body.context_length,
+                model_ability=body.model_ability,
+                model_description=body.model_description,
+                model_lang=body.model_lang,
+            ).build()
+            gr.mount_gradio_app(self._app, interface, f"/{model_uid}")
         except ValueError as ve:
             logger.error(str(ve), exc_info=True)
             raise HTTPException(status_code=400, detail=str(ve))
@@ -534,7 +560,7 @@ class RESTfulAPIActor(xo.Actor):
     async def terminate_model(self, model_uid: str):
         try:
             assert self._app is not None
-            await self._supervisor_ref.terminate_model(model_uid)
+            await (await self._get_supervisor_ref()).terminate_model(model_uid)
             self._app.router.routes = [
                 route
                 for route in self._app.router.routes
@@ -553,7 +579,7 @@ class RESTfulAPIActor(xo.Actor):
             raise HTTPException(status_code=500, detail=str(e))
 
     async def get_address(self):
-        return self.address
+        return self._supervisor_address
 
     async def create_completion(self, request: Request, body: CreateCompletionRequest):
         exclude = {
@@ -573,7 +599,7 @@ class RESTfulAPIActor(xo.Actor):
         model_uid = body.model
 
         try:
-            model = await self._supervisor_ref.get_model(model_uid)
+            model = await (await self._get_supervisor_ref()).get_model(model_uid)
         except ValueError as ve:
             logger.error(str(ve), exc_info=True)
             raise HTTPException(status_code=400, detail=str(ve))
@@ -608,7 +634,7 @@ class RESTfulAPIActor(xo.Actor):
         model_uid = request.model
 
         try:
-            model = await self._supervisor_ref.get_model(model_uid)
+            model = await (await self._get_supervisor_ref()).get_model(model_uid)
         except ValueError as ve:
             logger.error(str(ve), exc_info=True)
             raise HTTPException(status_code=400, detail=str(ve))
@@ -629,7 +655,7 @@ class RESTfulAPIActor(xo.Actor):
     async def create_images(self, request: TextToImageRequest):
         model_uid = request.model
         try:
-            model = await self._supervisor_ref.get_model(model_uid)
+            model = await (await self._get_supervisor_ref()).get_model(model_uid)
         except ValueError as ve:
             logger.error(str(ve), exc_info=True)
             raise HTTPException(status_code=400, detail=str(ve))
@@ -742,7 +768,7 @@ class RESTfulAPIActor(xo.Actor):
         model_uid = body.model
 
         try:
-            model = await self._supervisor_ref.get_model(model_uid)
+            model = await (await self._get_supervisor_ref()).get_model(model_uid)
 
         except ValueError as ve:
             logger.error(str(ve), exc_info=True)
@@ -752,7 +778,7 @@ class RESTfulAPIActor(xo.Actor):
             raise HTTPException(status_code=500, detail=str(e))
 
         try:
-            desc = await self._supervisor_ref.describe_model(model_uid)
+            desc = await (await self._get_supervisor_ref()).describe_model(model_uid)
 
         except ValueError as ve:
             logger.error(str(ve), exc_info=True)
@@ -806,7 +832,9 @@ class RESTfulAPIActor(xo.Actor):
         persist = request.persist
 
         try:
-            await self._supervisor_ref.register_model(model_type, model, persist)
+            await (await self._get_supervisor_ref()).register_model(
+                model_type, model, persist
+            )
         except ValueError as re:
             logger.error(re, exc_info=True)
             raise HTTPException(status_code=400, detail=str(re))
@@ -816,7 +844,9 @@ class RESTfulAPIActor(xo.Actor):
 
     async def unregister_model(self, model_type: str, model_name: str):
         try:
-            await self._supervisor_ref.unregister_model(model_type, model_name)
+            await (await self._get_supervisor_ref()).unregister_model(
+                model_type, model_name
+            )
         except ValueError as re:
             logger.error(re, exc_info=True)
             raise HTTPException(status_code=400, detail=str(re))
@@ -826,7 +856,9 @@ class RESTfulAPIActor(xo.Actor):
 
     async def list_model_registrations(self, model_type: str) -> List[Dict[str, Any]]:
         try:
-            return await self._supervisor_ref.list_model_registrations(model_type)
+            return await (await self._get_supervisor_ref()).list_model_registrations(
+                model_type
+            )
         except ValueError as re:
             logger.error(re, exc_info=True)
             raise HTTPException(status_code=400, detail=str(re))
@@ -838,7 +870,7 @@ class RESTfulAPIActor(xo.Actor):
         self, model_type: str, model_name: str
     ) -> Dict[str, Any]:
         try:
-            return await self._supervisor_ref.get_model_registration(
+            return await (await self._get_supervisor_ref()).get_model_registration(
                 model_type, model_name
             )
         except ValueError as re:
@@ -847,3 +879,26 @@ class RESTfulAPIActor(xo.Actor):
         except Exception as e:
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
+
+
+def run(
+    supervisor_address: str, host: str, port: int, logging_conf: Optional[dict] = None
+):
+    logger.info(f"Starting Xinference at endpoint: http://{host}:{port}")
+    try:
+        api = RESTfulAPI(supervisor_address=supervisor_address, host=host, port=port)
+        api.serve(logging_conf=logging_conf)
+    except SystemExit:
+        logger.warning("Failed to create socket with port %d", port)
+        # compare the reference to differentiate between the cases where the user specify the
+        # default port and the user does not specify the port.
+        if port is XINFERENCE_DEFAULT_ENDPOINT_PORT:
+            port = get_next_port()
+            logger.info(f"Found available port: {port}")
+            logger.info(f"Starting Xinference at endpoint: http://{host}:{port}")
+            api = RESTfulAPI(
+                supervisor_address=supervisor_address, host=host, port=port
+            )
+            api.serve(logging_conf=logging_conf)
+        else:
+            raise
