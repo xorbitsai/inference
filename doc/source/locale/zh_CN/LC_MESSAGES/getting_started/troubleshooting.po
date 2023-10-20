@@ -21,7 +21,7 @@ msgstr ""
 
 #: ../../source/getting_started/troubleshooting.rst:5
 msgid "Troubleshooting"
-msgstr ""
+msgstr "故障排除"
 
 #: ../../source/getting_started/troubleshooting.rst:9
 msgid "No huggingface repo access"

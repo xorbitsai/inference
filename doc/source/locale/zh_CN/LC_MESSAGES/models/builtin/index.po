@@ -17,11 +17,11 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Generated-By: Babel 2.12.1\n"
+"Generated-By: Babel 2.11.0\n"
 
 #: ../../source/models/builtin/index.rst:5
 msgid "Built-in Models"
-msgstr ""
+msgstr "内置模型"
 
 #: ../../source/models/builtin/index.rst:8
 msgid "Large Language Models"

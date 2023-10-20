@@ -21,7 +21,7 @@ msgstr ""
 
 #: ../../source/getting_started/accessing_models.rst:5
 msgid "Accessing Models"
-msgstr ""
+msgstr "访问模型"
 
 #: ../../source/getting_started/accessing_models.rst:8
 msgid ""

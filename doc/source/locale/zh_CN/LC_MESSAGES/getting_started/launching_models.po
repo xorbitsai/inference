@@ -21,7 +21,7 @@ msgstr ""
 
 #: ../../source/getting_started/launching_models.rst:5
 msgid "Launching Models"
-msgstr ""
+msgstr "启动模型"
 
 #: ../../source/getting_started/launching_models.rst:7
 msgid "You can launch models using Xinference's command line tool or client."

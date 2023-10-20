@@ -21,7 +21,7 @@ msgstr ""
 
 #: ../../source/user_guide/client_api.rst:5
 msgid "Client API"
-msgstr ""
+msgstr "客户端 API"
 
 #: ../../source/user_guide/client_api.rst:7
 msgid "Complete Client API Reference: :ref:`reference_index`"

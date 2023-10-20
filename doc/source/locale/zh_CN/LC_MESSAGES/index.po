@@ -21,7 +21,7 @@ msgstr ""
 
 #: ../../source/index.rst:4
 msgid "Xorbits Inference: Model Serving Made Easy🤖"
-msgstr ""
+msgstr "Xorbits Inference：轻松应用模型推理"
 
 #: ../../source/index.rst:6
 msgid ""

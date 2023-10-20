@@ -21,7 +21,7 @@ msgstr ""
 
 #: ../../source/models/custom.rst:5
 msgid "Custom Models"
-msgstr ""
+msgstr "自定义模型"
 
 #: ../../source/models/custom.rst:6
 msgid ""

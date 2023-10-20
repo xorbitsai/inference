@@ -21,7 +21,7 @@ msgstr ""
 
 #: ../../source/examples/ai_podcast.rst:5
 msgid "Example: AI Podcast 🎙"
-msgstr ""
+msgstr "示例：智能播客 🎙"
 
 #: ../../source/examples/ai_podcast.rst:7
 msgid "**Description**:"
