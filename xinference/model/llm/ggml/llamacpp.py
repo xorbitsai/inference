@@ -124,7 +124,7 @@ class LlamaCppModel(LLM):
             "{}.{}.ggufv2".format(self.model_family.model_name, self.quantization),
         )
         # trick for validation, use a mark file to make sure the gguf file is converted
-        mark_file = os.path.join(gguf_dir, "__valid")
+        mark_file = os.path.join(gguf_dir, f"__valid_{self.quantization}")
         if os.path.exists(mark_file):
             return gguf_path
         else:
