@@ -41,7 +41,6 @@ const LaunchEmbedding = () => {
       });
 
       const registrations = await response.json();
-      console.log("[Embedding]模型：", registrations);
       const newRegistrationData = await Promise.all(
         registrations.map(async (registration) => {
           const desc = await fetch(
@@ -59,7 +58,6 @@ const LaunchEmbedding = () => {
       );
 
       setRegistrationData(newRegistrationData);
-      console.log(newRegistrationData);
     } catch (error) {
       console.error("Error:", error);
     } finally {
