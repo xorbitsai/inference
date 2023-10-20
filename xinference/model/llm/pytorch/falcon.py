@@ -37,7 +37,7 @@ class FalconPytorchModel(PytorchModel):
             pytorch_model_config=pytorch_model_config,
         )
 
-    def _load_model(self, kwargs: dict):
+    def _load_model(self, **kwargs):
         try:
             from transformers import AutoModelForCausalLM, AutoTokenizer
         except ImportError:
@@ -94,7 +94,7 @@ class FalconPytorchChatModel(PytorchChatModel):
             pytorch_model_config=pytorch_model_config,
         )
 
-    def _load_model(self, kwargs: dict):
+    def _load_model(self, **kwargs):
         try:
             from transformers import AutoModelForCausalLM, AutoTokenizer
         except ImportError:

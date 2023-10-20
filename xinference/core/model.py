@@ -39,6 +39,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+from .utils import log_async
 
 T = TypeVar("T")
 
@@ -102,6 +103,7 @@ class ModelActor(xo.StatelessActor):
     def __init__(self, model: "LLM"):
         super().__init__()
         from ..model.llm.pytorch.core import PytorchModel
+        from ..model.llm.pytorch.spec_model import SpeculativeModel
         from ..model.llm.vllm.core import VLLMModel
 
         self._model = model
@@ -109,7 +111,7 @@ class ModelActor(xo.StatelessActor):
         self._generators: Dict[str, Union[Iterator, AsyncGenerator]] = {}
         self._lock = (
             None
-            if isinstance(self._model, (PytorchModel, VLLMModel))
+            if isinstance(self._model, (PytorchModel, SpeculativeModel, VLLMModel))
             else asyncio.locks.Lock()
         )
 
@@ -141,6 +143,7 @@ class ModelActor(xo.StatelessActor):
     async def _call_async_wrapper(self, _wrapper: Callable):
         return await asyncio.create_task(_wrapper())
 
+    @log_async(logger=logger)
     async def generate(self, prompt: str, *args, **kwargs):
         if not hasattr(self._model, "generate") and not hasattr(
             self._model, "async_generate"
@@ -163,6 +166,7 @@ class ModelActor(xo.StatelessActor):
         else:
             return await self._call_async_wrapper(_async_wrapper)
 
+    @log_async(logger=logger)
     async def chat(self, prompt: str, *args, **kwargs):
         if not hasattr(self._model, "chat") and not hasattr(self._model, "async_chat"):
             raise AttributeError(f"Model {self._model.model_spec} is not for chat.")
@@ -215,6 +219,7 @@ class ModelActor(xo.StatelessActor):
 
         return await self._call_wrapper(_wrapper)
 
+    @log_async(logger=logger)
     async def next(
         self, generator_uid: str
     ) -> Union["ChatCompletionChunk", "CompletionChunk"]:

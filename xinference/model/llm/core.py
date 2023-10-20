@@ -147,3 +147,67 @@ def create_llm_model_instance(
 
     model = llm_cls(model_uid, llm_family, llm_spec, quantization, save_path, kwargs)
     return model, LLMDescription(llm_family, llm_spec, quantization)
+
+
+def create_speculative_llm_model_instance(
+    model_uid: str,
+    model_name: str,
+    model_size_in_billions: Optional[int],
+    quantization: Optional[str],
+    draft_model_name: str,
+    draft_model_size_in_billions: Optional[int],
+    draft_quantization: Optional[str],
+    is_local_deployment: bool = False,
+) -> Tuple[LLM, LLMDescription]:
+    from . import match_llm
+    from .llm_family import cache
+
+    match_result = match_llm(
+        model_name,
+        "pytorch",
+        model_size_in_billions,
+        quantization,
+        is_local_deployment,
+    )
+
+    if not match_result:
+        raise ValueError(
+            f"Model not found, name: {model_name}, format: pytorch,"
+            f" size: {model_size_in_billions}, quantization: {quantization}"
+        )
+    llm_family, llm_spec, quantization = match_result
+    assert quantization is not None
+    save_path = cache(llm_family, llm_spec, quantization)
+
+    draft_match_result = match_llm(
+        draft_model_name,
+        "pytorch",
+        draft_model_size_in_billions,
+        draft_quantization,
+        is_local_deployment,
+    )
+
+    if not draft_match_result:
+        raise ValueError(
+            f"Model not found, name: {draft_model_name}, format: pytorch,"
+            f" size: {draft_model_size_in_billions}, quantization: {draft_quantization}"
+        )
+    draft_llm_family, draft_llm_spec, draft_quantization = draft_match_result
+    assert draft_quantization is not None
+    draft_save_path = cache(draft_llm_family, draft_llm_spec, draft_quantization)
+
+    from .pytorch.spec_model import SpeculativeModel
+
+    model = SpeculativeModel(
+        model_uid,
+        model_family=llm_family,
+        model_spec=llm_spec,
+        quantization=quantization,
+        model_path=save_path,
+        draft_model_family=draft_llm_family,
+        draft_model_spec=draft_llm_spec,
+        draft_quantization=draft_quantization,
+        draft_model_path=draft_save_path,
+    )
+
+    return model, LLMDescription(llm_family, llm_spec, quantization)

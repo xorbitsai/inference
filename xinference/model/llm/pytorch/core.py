@@ -78,7 +78,7 @@ class PytorchModel(LLM):
         pytorch_generate_config["model"] = self.model_uid
         return pytorch_generate_config
 
-    def _load_model(self, kwargs: dict):
+    def _load_model(self, **kwargs):
         try:
             from transformers import AutoModelForCausalLM, AutoTokenizer
         except ImportError:
@@ -177,7 +177,7 @@ class PytorchModel(LLM):
 
         if num_gpus > 0 and self._device == "cuda":
             kwargs.update({"device_map": "auto"})
-        self._model, self._tokenizer = self._load_model(kwargs)
+        self._model, self._tokenizer = self._load_model(**kwargs)
 
         if self._device == "mps":
             self._model.to(self._device)
@@ -402,13 +402,13 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
             pytorch_generate_config
         )
         if (
-            "stop" not in pytorch_generate_config
+            pytorch_generate_config.get("stop", None) is None
             and self.model_family.prompt_style
             and self.model_family.prompt_style.stop
         ):
             pytorch_generate_config["stop"] = self.model_family.prompt_style.stop.copy()
         if (
-            "stop_token_ids" not in pytorch_generate_config
+            pytorch_generate_config.get("stop_token_ids", None) is None
             and self.model_family.prompt_style
             and self.model_family.prompt_style.stop_token_ids
         ):
