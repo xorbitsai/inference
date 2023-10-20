@@ -13,10 +13,10 @@
 # limitations under the License.
 
 import uuid
+import warnings
 from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Union
 
 import requests
-import warnings
 
 from ..common import streaming_response_iterator
 
