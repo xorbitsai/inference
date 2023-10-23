@@ -245,6 +245,23 @@ const ModelCard = ({ url, modelData }) => {
     smallText: {
       fontSize: "0.8em",
     },
+    langRow: {
+      margin: "2px 5px"
+    },
+    langTag: {
+      margin: "0px 10px 0px 0px",
+      padding: "2px 10px",
+      borderRadius: "50px",
+      fontSize: "0.8em"
+    },
+    langEn: {
+      border: "1px solid #e5e7eb",
+      backgroundColor: "transparent"
+    },
+    langZh: {
+      border: "1px solid #e5e7eb",
+      backgroundColor: "transparent"
+    }
   };
 
   // Set two different states based on mouse hover
@@ -262,6 +279,22 @@ const ModelCard = ({ url, modelData }) => {
       {/* First state: show description page */}
       <Box style={styles.descriptionCard}>
         <h2 style={styles.h2}>{modelData.model_name}</h2>
+        <div style={styles.langRow}>
+          {(()=> {
+            if ( modelData.model_lang.includes("en")) {
+              return (
+                <span style={{...styles.langTag, ...styles.langEn}}>EN</span>
+              );
+            }
+          })()}
+          {(()=> {
+            if ( modelData.model_lang.includes("zh")) {
+              return (
+                <span style={{...styles.langTag, ...styles.langZh}}>ZH</span>
+              )
+            }
+          })()}
+        </div>
         <p style={styles.p}>{modelData.model_description}</p>
 
         <div style={styles.iconRow}>
