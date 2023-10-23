@@ -1,7 +1,14 @@
 import React, { useContext, useState, useEffect } from "react";
 import ModelCard from "./modelCard";
 import Title from "../../components/Title";
-import { Box, TextField, FormControl, Select, MenuItem, InputLabel } from "@mui/material";
+import {
+  Box,
+  TextField,
+  FormControl,
+  Select,
+  MenuItem,
+  InputLabel,
+} from "@mui/material";
 import { ApiContext } from "../../components/apiContext";
 
 const LaunchModel = () => {
@@ -13,15 +20,15 @@ const LaunchModel = () => {
   // States used for filtering
   const [searchTerm, setSearchTerm] = useState("");
 
-  const [modelType, setModelType] = useState("all");
+  const [modelAbility, setModelAbility] = useState("all");
 
   const handleChange = (event) => {
     setSearchTerm(event.target.value);
   };
 
-  const handleSelected = (event) => {
-    setModelType(event.target.value);
-  }
+  const handleAbilityChange = (event) => {
+    setModelAbility(event.target.value);
+  };
 
   const filter = (registration) => {
     if (!registration || typeof searchTerm !== "string") return false;
@@ -38,8 +45,8 @@ const LaunchModel = () => {
     ) {
       return false;
     }
-    if (modelType && modelType !== "all") {
-      if(registration.model_ability.indexOf(modelType)<0) {
+    if (modelAbility && modelAbility !== "all") {
+      if (registration.model_ability.indexOf(modelAbility) < 0) {
         return false;
       }
     }
@@ -116,19 +123,21 @@ const LaunchModel = () => {
       <FormControl
         variant="outlined"
         margin="normal"
-        sx={{ width: "100%", paddingBottom: "30px" }}>
-        <InputLabel id="type-select-label">Model Type</InputLabel>
+        sx={{ width: "100%", paddingBottom: "30px" }}
+      >
+        <InputLabel id="ability-select-label">Model Ability</InputLabel>
         <Select
-          id="type"
-          labelId="type-select-label"
-          label="Model Type"
-          onChange={handleSelected}
-          value={modelType}
-          size="small" sx={{ width: "200px" }}>
-          <MenuItem value="all">all models</MenuItem>
-          <MenuItem value="generate">generate models</MenuItem>
-          <MenuItem value="chat">chat models</MenuItem>
-          <MenuItem value="embed">embedding models</MenuItem>
+          id="ability"
+          labelId="ability-select-label"
+          label="Model Ability"
+          onChange={handleAbilityChange}
+          value={modelAbility}
+          size="small"
+          sx={{ width: "200px" }}
+        >
+          <MenuItem value="all">all</MenuItem>
+          <MenuItem value="generate">generate</MenuItem>
+          <MenuItem value="chat">chat</MenuItem>
         </Select>
       </FormControl>
       <div style={style}>
