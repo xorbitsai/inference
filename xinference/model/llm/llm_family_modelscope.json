@@ -7,7 +7,6 @@
       "en"
     ],
     "model_ability": [
-      "embed",
       "chat"
     ],
     "model_description": "Llama-2-Chat is a fine-tuned version of the Llama-2 LLM, specializing in chatting.",
@@ -119,7 +118,6 @@
       "zh"
     ],
     "model_ability": [
-      "embed",
       "chat"
     ],
     "model_description": "Baichuan2-chat is a fine-tuned version of the Baichuan LLM, specializing in chatting.",
@@ -173,7 +171,6 @@
       "zh"
     ],
     "model_ability": [
-      "embed",
       "generate"
     ],
     "model_description": "Baichuan2 is an open-source Transformer based LLM that is trained on both Chinese and English data.",
@@ -213,7 +210,6 @@
       "zh"
     ],
     "model_ability": [
-      "embed",
       "chat"
     ],
     "model_description": "ChatGLM2 is the second generation of ChatGLM, still open-source and trained on Chinese and English data.",
@@ -250,7 +246,6 @@
       "zh"
     ],
     "model_ability": [
-      "embed",
       "chat"
     ],
     "model_description": "ChatGLM2-32k is a special version of ChatGLM2, with a context window of 32k tokens instead of 8k.",
@@ -287,7 +282,6 @@
       "zh"
     ],
     "model_ability": [
-      "embed",
       "generate"
     ],
     "model_description": "InternLM is a Transformer-based LLM that is trained on both Chinese and English data, focusing on practical scenarios.",
@@ -315,7 +309,6 @@
       "zh"
     ],
     "model_ability": [
-      "embed",
       "chat"
     ],
     "model_description": "Internlm-chat is a fine-tuned version of the Internlm LLM, specializing in chatting.",
@@ -360,7 +353,6 @@
       "zh"
     ],
     "model_ability": [
-      "embed",
       "generate"
     ],
     "model_description": "Pre-trained on over 2.3T Tokens containing high-quality English, Chinese, and code data.",
@@ -388,7 +380,6 @@
       "zh"
     ],
     "model_ability": [
-      "embed",
       "chat"
     ],
     "model_description": "Pre-trained on over 2.3T Tokens containing high-quality English, Chinese, and code data. The Chat version has undergone SFT and RLHF training.",
@@ -432,7 +423,6 @@
       "en"
     ],
     "model_ability": [
-      "generate",
       "chat"
     ],
     "model_specs": [
