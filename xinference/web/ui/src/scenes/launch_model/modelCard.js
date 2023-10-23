@@ -255,12 +255,12 @@ const ModelCard = ({ url, modelData }) => {
       fontSize: "0.8em"
     },
     langEn: {
-      border: "1px solid #0099CC",
-      backgroundColor: "#CCFFFF"
+      border: "1px solid #e5e7eb",
+      backgroundColor: "transparent"
     },
     langZh: {
-      border: "1px solid #FF6666",
-      backgroundColor: "#FFCCCC"
+      border: "1px solid #e5e7eb",
+      backgroundColor: "transparent"
     }
   };
 
