@@ -1,7 +1,14 @@
 import React, { useContext, useState, useEffect } from "react";
 import ModelCard from "./modelCard";
 import Title from "../../components/Title";
-import { Box, TextField, FormControl } from "@mui/material";
+import {
+  Box,
+  TextField,
+  FormControl,
+  Select,
+  MenuItem,
+  InputLabel,
+} from "@mui/material";
 import { ApiContext } from "../../components/apiContext";
 
 const LaunchModel = () => {
@@ -13,8 +20,14 @@ const LaunchModel = () => {
   // States used for filtering
   const [searchTerm, setSearchTerm] = useState("");
 
+  const [modelAbility, setModelAbility] = useState("all");
+
   const handleChange = (event) => {
     setSearchTerm(event.target.value);
+  };
+
+  const handleAbilityChange = (event) => {
+    setModelAbility(event.target.value);
   };
 
   const filter = (registration) => {
@@ -31,6 +44,11 @@ const LaunchModel = () => {
       !modelDescription.includes(searchTerm.toLowerCase())
     ) {
       return false;
+    }
+    if (modelAbility && modelAbility !== "all") {
+      if (registration.model_ability.indexOf(modelAbility) < 0) {
+        return false;
+      }
     }
     return true;
   };
@@ -90,7 +108,7 @@ const LaunchModel = () => {
       <FormControl
         variant="outlined"
         margin="normal"
-        sx={{ width: "100%", paddingBottom: "30px" }}
+        sx={{ width: "100%", paddingBottom: "10px" }}
       >
         <TextField
           id="search"
@@ -99,8 +117,28 @@ const LaunchModel = () => {
           value={searchTerm}
           onChange={handleChange}
           size="small"
-          sx={{ width: "95%", paddingBottom: "30px" }}
+          sx={{ width: "95%" }}
         />
+      </FormControl>
+      <FormControl
+        variant="outlined"
+        margin="normal"
+        sx={{ width: "100%", paddingBottom: "30px" }}
+      >
+        <InputLabel id="ability-select-label">Model Ability</InputLabel>
+        <Select
+          id="ability"
+          labelId="ability-select-label"
+          label="Model Ability"
+          onChange={handleAbilityChange}
+          value={modelAbility}
+          size="small"
+          sx={{ width: "200px" }}
+        >
+          <MenuItem value="all">all</MenuItem>
+          <MenuItem value="generate">generate</MenuItem>
+          <MenuItem value="chat">chat</MenuItem>
+        </Select>
       </FormControl>
       <div style={style}>
         {registrationData
