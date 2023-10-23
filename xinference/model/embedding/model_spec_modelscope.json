@@ -44,8 +44,8 @@
     "dimensions": 1024,
     "max_tokens": 512,
     "language": ["zh"],
-    "model_id": "AI-ModelScope/bge-large-zh",
-    "model_revision": "v1.0.0"
+    "model_id": "Xorbits/bge-large-zh",
+    "model_revision": "v0.0.1"
   },
   {
     "model_name": "bge-large-zh-noinstruct",
@@ -61,7 +61,7 @@
     "max_tokens": 512,
     "language": ["zh"],
     "model_id": "Xorbits/bge-base-zh",
-    "model_revision": "v0.0.1"
+    "model_revision": "v0.0.2"
   },
   {
     "model_name": "multilingual-e5-large",
