@@ -8,7 +8,6 @@
       "zh"
     ],
     "model_ability": [
-      "embed",
       "generate"
     ],
     "model_description": "Baichuan is an open-source Transformer based LLM that is trained on both Chinese and English data.",
@@ -68,7 +67,6 @@
       "zh"
     ],
     "model_ability": [
-      "embed",
       "chat"
     ],
     "model_description": "Baichuan-chat is a fine-tuned version of the Baichuan LLM, specializing in chatting.",
@@ -108,7 +106,6 @@
       "en"
     ],
     "model_ability": [
-      "embed",
       "chat"
     ],
     "model_description": "WizardLM is an open-source LLM trained by fine-tuning LLaMA with Evol-Instruct.",
@@ -176,7 +173,6 @@
       "en"
     ],
     "model_ability": [
-      "embed",
       "chat"
     ],
     "model_description": "Vicuna is an open-source LLM trained by fine-tuning LLaMA on data collected from ShareGPT.",
@@ -300,7 +296,6 @@
       "en"
     ],
     "model_ability": [
-      "embed",
       "chat"
     ],
     "model_description": "Orca is an LLM trained by fine-tuning LLaMA on explanation traces obtained from GPT-4.",
@@ -364,7 +359,6 @@
       "zh"
     ],
     "model_ability": [
-      "embed",
       "chat"
     ],
     "model_description": "ChatGLM is an open-source General Language Model (GLM) based LLM trained on both Chinese and English data.",
@@ -413,7 +407,6 @@
       "zh"
     ],
     "model_ability": [
-      "embed",
       "chat"
     ],
     "model_description": "ChatGLM2 is the second generation of ChatGLM, still open-source and trained on Chinese and English data.",
@@ -462,7 +455,6 @@
       "zh"
     ],
     "model_ability": [
-      "embed",
       "chat"
     ],
     "model_description": "ChatGLM2-32k is a special version of ChatGLM2, with a context window of 32k tokens instead of 8k.",
@@ -497,7 +489,6 @@
       "en"
     ],
     "model_ability": [
-      "embed",
       "chat"
     ],
     "model_description": "Llama-2-Chat is a fine-tuned version of the Llama-2 LLM, specializing in chatting.",
@@ -624,7 +615,6 @@
       "en"
     ],
     "model_ability": [
-      "embed",
       "generate"
     ],
     "model_description": "Llama-2 is the second generation of Llama, open-source and trained on a larger amount of data.",
@@ -738,7 +728,6 @@
       "en"
     ],
     "model_ability": [
-      "embed",
       "generate"
     ],
     "model_description": "Opt is an open-source, decoder-only, Transformer based LLM that was designed to replicate GPT-3.",
@@ -764,7 +753,6 @@
       "en"
     ],
     "model_ability": [
-      "embed",
       "generate"
     ],
     "model_description": "Falcon is an open-source Transformer based LLM trained on the RefinedWeb dataset.",
@@ -801,7 +789,6 @@
       "en"
     ],
     "model_ability": [
-      "embed",
       "chat"
     ],
     "model_description": "Falcon-instruct is a fine-tuned version of the Falcon LLM, specializing in chatting.",
@@ -865,7 +852,6 @@
       "en"
     ],
     "model_ability": [
-      "embed",
       "generate"
     ],
     "model_description": "Starcoderplus is an open-source LLM trained by fine-tuning Starcoder on RedefinedWeb and StarCoderData datasets.",
@@ -892,7 +878,6 @@
       "en"
     ],
     "model_ability": [
-      "embed",
       "chat"
     ],
     "model_description": "Starchat-beta is a fine-tuned version of the Starcoderplus LLM, specializing in coding assistance.",
@@ -932,7 +917,6 @@
       "zh"
     ],
     "model_ability": [
-      "embed",
       "chat"
     ],
     "model_description": "Qwen-chat is a fine-tuned version of the Qwen LLM trained with alignment techniques, specializing in chatting.",
@@ -1021,7 +1005,6 @@
       "zh"
     ],
     "model_ability": [
-      "embed",
       "generate"
     ],
     "model_description": "InternLM is a Transformer-based LLM that is trained on both Chinese and English data, focusing on practical scenarios.",
@@ -1048,7 +1031,6 @@
       "zh"
     ],
     "model_ability": [
-      "embed",
       "chat"
     ],
     "model_description": "Internlm-chat is a fine-tuned version of the Internlm LLM, specializing in chatting.",
@@ -1092,7 +1074,6 @@
       "zh"
     ],
     "model_ability": [
-      "embed",
       "generate"
     ],
     "model_description": "Pre-trained on over 2.3T Tokens containing high-quality English, Chinese, and code data.",
@@ -1119,7 +1100,6 @@
       "zh"
     ],
     "model_ability": [
-      "embed",
       "chat"
     ],
     "model_description": "Pre-trained on over 2.3T Tokens containing high-quality English, Chinese, and code data. The Chat version has undergone SFT and RLHF training.",
@@ -1162,7 +1142,6 @@
       "en"
     ],
     "model_ability": [
-      "embed",
       "chat"
     ],
     "model_description": "Vicuna is an open-source LLM trained by fine-tuning LLaMA on data collected from ShareGPT.",
@@ -1209,7 +1188,6 @@
       "en"
     ],
     "model_ability": [
-      "embed",
       "chat"
     ],
     "model_description": "Vicuna-v1.5-16k is a special version of Vicuna-v1.5, with a context window of 16k tokens instead of 4k.",
@@ -1256,7 +1234,6 @@
       "en"
     ],
     "model_ability": [
-      "embed",
       "chat"
     ],
     "model_description": "WizardMath is an open-source LLM trained by fine-tuning Llama2 with Evol-Instruct, specializing in math.",
@@ -1648,7 +1625,6 @@
       "zh"
     ],
     "model_ability": [
-      "embed",
       "chat"
     ],
     "model_description": "Baichuan2-chat is a fine-tuned version of the Baichuan LLM, specializing in chatting.",
@@ -1700,7 +1676,6 @@
       "zh"
     ],
     "model_ability": [
-      "embed",
       "generate"
     ],
     "model_description": "Baichuan2 is an open-source Transformer based LLM that is trained on both Chinese and English data.",
@@ -1958,7 +1933,6 @@
       "en"
     ],
     "model_ability": [
-      "generate",
       "chat"
     ],
     "model_specs": [
