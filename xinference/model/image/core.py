@@ -32,7 +32,7 @@ class ImageModelFamilyV1(BaseModel):
     model_name: str
     model_id: str
     model_revision: str
-    controlnet: List["ImageModelFamilyV1"]
+    controlnet: Optional[List["ImageModelFamilyV1"]]
 
 
 class ImageModelDescription(ModelDescription):
@@ -109,6 +109,7 @@ def create_image_model_instance(
             raise ValueError(f"Model {model_name} has empty controlnet list.")
 
         controlnet_model_paths = []
+        assert model_spec.controlnet is not None
         for name in controlnet:
             for cn_model_spec in model_spec.controlnet:
                 if cn_model_spec.model_name == name:
