@@ -88,7 +88,7 @@ const LaunchEmbedding = () => {
         <TextField
           id="search"
           type="search"
-          label="Search for model name and description"
+          label="Search for embedding model name"
           value={searchTerm}
           onChange={handleChange}
           size="small"
