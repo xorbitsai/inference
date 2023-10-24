@@ -50,28 +50,37 @@ def test_model():
 def test_restful_api_for_image(setup):
     endpoint, _ = setup
     from ....client import Client
+
     client = Client(endpoint)
 
-    model_uid = client.launch_model(model_uid="my_controlnet", model_name="stable-diffusion-xl-base-1.0",
-                                    model_type="image",
-                                    controlnet="canny")
+    model_uid = client.launch_model(
+        model_uid="my_controlnet",
+        model_name="stable-diffusion-xl-base-1.0",
+        model_type="image",
+        controlnet="canny",
+    )
     model = client.get_model(model_uid)
-
 
     import cv2
     import numpy as np
     from diffusers.utils import load_image
     from PIL import Image
 
-    image = load_image("/Users/po/Work/inference/hf-logo.png")
+    image = load_image(
+        "https://huggingface.co/datasets/hf-internal-testing/diffusers-images/resolve/main/sd_controlnet/hf-logo.png"
+    )
     image = np.array(image)
     image = cv2.Canny(image, 100, 200)
     image = image[:, :, None]
     image = np.concatenate([image, image, image], axis=2)
     image = Image.fromarray(image)
     prompt = "aerial view, a futuristic research complex in a bright foggy jungle, hard lighting"
-    negative_prompt = 'low quality, bad quality, sketches'
+    negative_prompt = "low quality, bad quality, sketches"
     bio = io.BytesIO()
     image.save(bio, format="png")
-    model.image_to_image(image=bio.getvalue(), prompt=prompt, negative_prompt=negative_prompt,
-                         controlnet_conditioning_scale=0.5)
+    model.image_to_image(
+        image=bio.getvalue(),
+        prompt=prompt,
+        negative_prompt=negative_prompt,
+        controlnet_conditioning_scale=0.5,
+    )
