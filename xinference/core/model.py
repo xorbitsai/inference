@@ -34,6 +34,7 @@ import xoscar as xo
 if TYPE_CHECKING:
     from ..model.llm.core import LLM
     from ..types import ChatCompletionChunk, CompletionChunk
+    import PIL
 
 import logging
 

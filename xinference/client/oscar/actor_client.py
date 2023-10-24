@@ -24,6 +24,8 @@ from ...isolation import Isolation
 from ..restful.restful_client import Client
 
 if TYPE_CHECKING:
+    import PIL
+
     from ...types import (
         ChatCompletion,
         ChatCompletionChunk,

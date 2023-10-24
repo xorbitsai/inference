@@ -16,7 +16,6 @@ import io
 import os.path
 from io import BytesIO
 
-import requests
 from PIL import Image
 
 from ..core import ImageModelFamilyV1, cache
