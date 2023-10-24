@@ -16,6 +16,18 @@
         "model_family": "controlnet",
         "model_id": "diffusers/controlnet-canny-sdxl-1.0",
         "model_revision": "eb115a19a10d14909256db740ed109532ab1483c"
+      },
+      {
+        "model_name":"depth",
+        "model_family": "controlnet",
+        "model_id": "diffusers/controlnet-depth-sdxl-1.0",
+        "model_revision": "cb2e660019b26f7d2379e26922b5b2c87253dcf7"
+      },
+      {
+        "model_name":"zoe-depth",
+        "model_family": "controlnet",
+        "model_id": "diffusers/controlnet-zoe-depth-sdxl-1.0",
+        "model_revision": "62134b9d8e703b5d6f74f1534457287a8bba77ef"
       }
     ]
   }
