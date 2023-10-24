@@ -8,6 +8,7 @@ import {
   Select,
   MenuItem,
   InputLabel,
+  Tabs, Tab
 } from "@mui/material";
 import { ApiContext } from "../../components/apiContext";
 
@@ -21,6 +22,11 @@ const LaunchModel = () => {
   const [searchTerm, setSearchTerm] = useState("");
 
   const [modelAbility, setModelAbility] = useState("all");
+  const [tabValue, setTabValue] = React.useState(0);
+
+  const handleTabChange = (event, newValue) => {
+    setTabValue(newValue);
+  };
 
   const handleChange = (event) => {
     setSearchTerm(event.target.value);
@@ -102,44 +108,54 @@ const LaunchModel = () => {
     gridGap: "2rem 0rem",
   };
 
+  function a11yProps(index) {
+    return {
+      id: `simple-tab-${index}`,
+      'aria-controls': `simple-tabpanel-${index}`,
+    };
+  }
+
   return (
     <Box m="20px">
       <Title title="Launch Model" />
-      <FormControl
-        variant="outlined"
-        margin="normal"
-        sx={{ width: "100%", paddingBottom: "10px" }}
-      >
-        <TextField
-          id="search"
-          type="search"
-          label="Search for model name and description"
-          value={searchTerm}
-          onChange={handleChange}
-          size="small"
-          sx={{ width: "95%" }}
-        />
-      </FormControl>
-      <FormControl
-        variant="outlined"
-        margin="normal"
-        sx={{ width: "100%", paddingBottom: "30px" }}
-      >
-        <InputLabel id="ability-select-label">Model Ability</InputLabel>
-        <Select
-          id="ability"
-          labelId="ability-select-label"
-          label="Model Ability"
-          onChange={handleAbilityChange}
-          value={modelAbility}
-          size="small"
-          sx={{ width: "200px" }}
+      <Tabs value={tabValue} onChange={handleTabChange} aria-label="basic tabs example">
+        <Tab label="LLMs" {...a11yProps(0)} />
+        <Tab label="Embeddings" {...a11yProps(0)} />
+      </Tabs>
+      <div style={{display: "grid", gridTemplateColumns: "150px 1fr", columnGap: "20px", margin: "30px 2rem"}}>
+        <FormControl
+          variant="outlined"
+          margin="normal"
         >
-          <MenuItem value="all">all</MenuItem>
-          <MenuItem value="generate">generate</MenuItem>
-          <MenuItem value="chat">chat</MenuItem>
-        </Select>
-      </FormControl>
+          <InputLabel id="ability-select-label">Model Ability</InputLabel>
+          <Select
+            id="ability"
+            labelId="ability-select-label"
+            label="Model Ability"
+            onChange={handleAbilityChange}
+            value={modelAbility}
+            size="small"
+            sx={{ width: "150px" }}
+          >
+            <MenuItem value="all">all</MenuItem>
+            <MenuItem value="generate">generate</MenuItem>
+            <MenuItem value="chat">chat</MenuItem>
+          </Select>
+        </FormControl>
+        <FormControl
+          variant="outlined"
+          margin="normal"
+        >
+          <TextField
+            id="search"
+            type="search"
+            label="Search for model name and description"
+            value={searchTerm}
+            onChange={handleChange}
+            size="small"
+          />
+        </FormControl>
+      </div>
       <div style={style}>
         {registrationData
           .filter((registration) => filter(registration))
