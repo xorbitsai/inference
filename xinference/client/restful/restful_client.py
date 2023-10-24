@@ -138,8 +138,19 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
 
         Parameters
         ----------
+        image: `Union[str, bytes]`
+            The ControlNet input condition to provide guidance to the `unet` for generation. If the type is
+            specified as `torch.FloatTensor`, it is passed to ControlNet as is. `PIL.Image.Image` can also be
+            accepted as an image. The dimensions of the output image defaults to `image`'s dimensions. If height
+            and/or width are passed, `image` is resized accordingly. If multiple ControlNets are specified in
+            `init`, images must be passed as a list such that each element of the list can be correctly batched for
+            input to a single ControlNet.
         prompt: `str` or `List[str]`
             The prompt or prompts to guide image generation. If not defined, you need to pass `prompt_embeds`.
+        negative_prompt (`str` or `List[str]`, *optional*):
+            The prompt or prompts not to guide the image generation. If not defined, one has to pass
+            `negative_prompt_embeds` instead. Ignored when not using guidance (i.e., ignored if `guidance_scale` is
+            less than `1`).
         n: `int`, defaults to 1
             The number of images to generate per prompt. Must be between 1 and 10.
         size: `str`, defaults to `1024*1024`
@@ -150,6 +161,8 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
         -------
         ImageList
             A list of image objects.
+            :param prompt:
+            :param image:
         """
         url = f"{self._base_url}/v1/images/variations"
         params = {

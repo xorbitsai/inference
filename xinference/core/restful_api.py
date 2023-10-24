@@ -662,7 +662,7 @@ class RESTfulAPIActor(xo.Actor):
     ):
         model_uid = model
         try:
-            model = await self._supervisor_ref.get_model(model_uid)
+            model_ref = await self._supervisor_ref.get_model(model_uid)
         except ValueError as ve:
             logger.error(str(ve), exc_info=True)
             raise HTTPException(status_code=400, detail=str(ve))
@@ -673,7 +673,7 @@ class RESTfulAPIActor(xo.Actor):
         try:
             if kwargs is not None:
                 kwargs = json.loads(kwargs)
-            image_list = await model.image_to_image(
+            image_list = await model_ref.image_to_image(
                 image=Image.open(image.file),
                 prompt=prompt,
                 negative_prompt=negative_prompt,

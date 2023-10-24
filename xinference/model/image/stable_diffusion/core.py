@@ -63,19 +63,21 @@ class DiffusionModel:
         # Recommended if your computer has < 64 GB of RAM
         self._model.enable_attention_slicing()
 
-    def text_to_image(
+    def _call_model(
         self,
-        prompt: str,
-        n: int = 1,
-        size: str = "1024*1024",
-        response_format: str = "url",
+        height: int,
+        width: int,
+        num_images_per_prompt: int,
+        response_format: str,
         **kwargs,
     ):
-        width, height = map(int, size.split("*"))
-        assert callable(self._model)
         logger.debug("stable diffusion kwargs: %s", kwargs)
+        assert callable(self._model)
         images = self._model(
-            prompt, height=height, width=width, num_images_per_prompt=n, **kwargs
+            height=height,
+            width=width,
+            num_images_per_prompt=num_images_per_prompt,
+            **kwargs,
         ).images
         if response_format == "url":
             os.makedirs(XINFERENCE_IMAGE_DIR, exist_ok=True)
@@ -100,22 +102,42 @@ class DiffusionModel:
         else:
             raise ValueError(f"Unsupported response format: {response_format}")
 
+    def text_to_image(
+        self,
+        prompt: str,
+        n: int = 1,
+        size: str = "1024*1024",
+        response_format: str = "url",
+        **kwargs,
+    ):
+        width, height = map(int, size.split("*"))
+        return self._call_model(
+            prompt=prompt,
+            height=height,
+            width=width,
+            num_images_per_prompt=n,
+            response_format=response_format,
+            **kwargs,
+        )
+
     def image_to_image(
         self,
         image: bytes,
-        prompt: Union[str, List[str]] = None,
+        prompt: Optional[Union[str, List[str]]] = None,
         negative_prompt: Optional[Union[str, List[str]]] = None,
         n: int = 1,
         size: str = "1024*1024",
         response_format: str = "url",
         **kwargs,
     ):
-        return self.text_to_image(
-            prompt=prompt,
-            n=n,
-            size=size,
-            response_format=response_format,
+        width, height = map(int, size.split("*"))
+        return self._call_model(
             image=image,
+            prompt=prompt,
             negative_prompt=negative_prompt,
+            height=height,
+            width=width,
+            num_images_per_prompt=n,
+            response_format=response_format,
             **kwargs,
         )
