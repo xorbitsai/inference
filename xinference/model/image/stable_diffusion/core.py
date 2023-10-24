@@ -13,16 +13,20 @@
 # limitations under the License.
 
 import base64
+import logging
 import os
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 from io import BytesIO
-from typing import Optional
+from typing import List, Optional, Union
 
 from ....constants import XINFERENCE_IMAGE_DIR
 from ....types import Image, ImageList
+
+
+logger = logging.getLogger(__name__)
 
 
 class DiffusionModel:
@@ -38,6 +42,13 @@ class DiffusionModel:
     def load(self):
         import torch
         from diffusers import AutoPipelineForText2Image
+
+        controlnet = self._kwargs.get("controlnet")
+        if controlnet is not None:
+            from diffusers import ControlNetModel
+
+            logger.debug("Loading controlnet %s", controlnet)
+            self._kwargs["controlnet"] = ControlNetModel.from_pretrained(controlnet)
 
         self._model = AutoPipelineForText2Image.from_pretrained(
             self._model_path,
@@ -88,3 +99,23 @@ class DiffusionModel:
             return ImageList(created=int(time.time()), data=image_list)
         else:
             raise ValueError(f"Unsupported response format: {response_format}")
+
+    def image_to_image(
+        self,
+        image: bytes,
+        prompt: Union[str, List[str]] = None,
+        negative_prompt: Optional[Union[str, List[str]]] = None,
+        n: int = 1,
+        size: str = "1024*1024",
+        response_format: str = "url",
+        **kwargs,
+    ):
+        return self.text_to_image(
+            prompt=prompt,
+            n=n,
+            size=size,
+            response_format=response_format,
+            image=image,
+            negative_prompt=negative_prompt,
+            **kwargs,
+        )

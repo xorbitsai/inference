@@ -9,6 +9,14 @@
     "model_name": "stable-diffusion-xl-base-1.0",
     "model_family": "stable_diffusion",
     "model_id": "stabilityai/stable-diffusion-xl-base-1.0",
-    "model_revision": "f898a3e026e802f68796b95e9702464bac78d76f"
+    "model_revision": "f898a3e026e802f68796b95e9702464bac78d76f",
+    "controlnet": [
+      {
+        "model_name":"canny",
+        "model_family": "controlnet",
+        "model_id": "diffusers/controlnet-canny-sdxl-1.0",
+        "model_revision": "eb115a19a10d14909256db740ed109532ab1483c"
+      }
+    ]
   }
 ]

@@ -11,10 +11,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import collections.abc
 import logging
 import os
-from typing import Tuple
+from typing import List, Optional, Tuple
 
 from pydantic import BaseModel
 
@@ -32,6 +32,7 @@ class ImageModelFamilyV1(BaseModel):
     model_name: str
     model_id: str
     model_revision: str
+    controlnet: Optional[List["ImageModelFamilyV1"]]
 
 
 class ImageModelDescription(ModelDescription):
@@ -44,6 +45,7 @@ class ImageModelDescription(ModelDescription):
             "model_name": self._model_spec.model_name,
             "model_family": self._model_spec.model_family,
             "model_revision": self._model_spec.model_revision,
+            "controlnet": self._model_spec.controlnet,
         }
 
 
@@ -94,6 +96,31 @@ def create_image_model_instance(
     model_uid: str, model_name: str, **kwargs
 ) -> Tuple[DiffusionModel, ImageModelDescription]:
     model_spec = match_diffusion(model_name)
+    controlnet = kwargs.get("controlnet")
+    # Handle controlnet
+    if controlnet is not None:
+        if isinstance(controlnet, str):
+            controlnet = [controlnet]
+        elif not isinstance(controlnet, collections.abc.Sequence):
+            raise ValueError("controlnet should be a str or a list of str.")
+        elif set(controlnet) != len(controlnet):
+            raise ValueError("controlnet should be a list of unique str.")
+
+        controlnet_model_paths = []
+        for name in controlnet:
+            for cn_model_spec in model_spec.controlnet:
+                if cn_model_spec.model_name == name:
+                    model_path = cache(cn_model_spec)
+                    controlnet_model_paths.append(model_path)
+                    break
+            else:
+                raise ValueError(
+                    f"controlnet `{name}` is not supported for model `{model_name}`."
+                )
+        if len(controlnet_model_paths) == 1:
+            kwargs["controlnet"] = controlnet_model_paths[0]
+        else:
+            kwargs["controlnet"] = controlnet_model_paths
     model_path = cache(model_spec)
     model = DiffusionModel(model_uid, model_path, **kwargs)
     model_description = ImageModelDescription(model_spec)

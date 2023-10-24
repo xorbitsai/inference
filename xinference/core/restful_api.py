@@ -23,11 +23,12 @@ from typing import Any, Dict, List, Literal, Optional, Union
 
 import gradio as gr
 import xoscar as xo
-from fastapi import APIRouter, FastAPI, HTTPException, Request
+from fastapi import APIRouter, FastAPI, File, HTTPException, Request, UploadFile, Depends, Form, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
+from fastapi.encoders import jsonable_encoder
 from starlette.responses import RedirectResponse
 from typing_extensions import NotRequired, TypedDict
 from uvicorn import Config, Server
@@ -180,6 +181,28 @@ class TextToImageRequest(BaseModel):
     user: Optional[str] = None
 
 
+class ImageToImageRequest(BaseModel):
+    model: str
+    prompt: Optional[Union[str, List[str]]] = None
+    negative_prompt: Optional[Union[str, List[str]]] = None
+    n: Optional[int] = 1
+    response_format: Optional[str] = "url"
+    size: Optional[str] = "1024*1024"
+    user: Optional[str] = None
+
+
+def checker(data: str = Form(...)):
+    try:
+        model = ImageToImageRequest.parse_raw(data)
+    except ValidationError as e:
+        raise HTTPException(
+            detail=jsonable_encoder(e.errors()),
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        )
+
+    return model
+
+
 class ChatCompletionRequestMessage(TypedDict):
     role: Literal["assistant", "user", "system"]
     content: str
@@ -286,6 +309,12 @@ class RESTfulAPIActor(xo.Actor):
         self._router.add_api_route(
             "/v1/images/generations",
             self.create_images,
+            methods=["POST"],
+            response_model=ImageList,
+        )
+        self._router.add_api_route(
+            "/v1/images/variations",
+            self.create_variations,
             methods=["POST"],
             response_model=ImageList,
         )
@@ -633,6 +662,40 @@ class RESTfulAPIActor(xo.Actor):
         try:
             image_list = await model.text_to_image(
                 request.prompt, request.n, request.size, request.response_format
+            )
+            return image_list
+        except RuntimeError as re:
+            logger.error(re, exc_info=True)
+            raise HTTPException(status_code=400, detail=str(re))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def create_variations(
+        self,
+        request: ImageToImageRequest = Depends(checker),
+        image: UploadFile = File(media_type="application/octet-stream"),
+    ):
+        print("create_variations", image)
+        print("create_variations", image.filename)
+        model_uid = request.model
+        try:
+            model = await self._supervisor_ref.get_model(model_uid)
+        except ValueError as ve:
+            logger.error(str(ve), exc_info=True)
+            raise HTTPException(status_code=400, detail=str(ve))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
+        try:
+            image_list = await model.image_to_image(
+                image=image,
+                prompt=request.prompt,
+                negative_prompt=request.negative_prompt,
+                n=request.n,
+                size=request.size,
+                response_format=request.response_format,
             )
             return image_list
         except RuntimeError as re:

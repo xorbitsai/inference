@@ -123,6 +123,57 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
         response_data = response.json()
         return response_data
 
+    def image_to_image(
+        self,
+        image: str,
+        prompt: str,
+        negative_prompt: str,
+        n: int = 1,
+        size: str = "1024*1024",
+        response_format: str = "url",
+            **kwargs
+    ) -> "ImageList":
+        """
+        Creates an image by the input text.
+
+        Parameters
+        ----------
+        prompt: `str` or `List[str]`
+            The prompt or prompts to guide image generation. If not defined, you need to pass `prompt_embeds`.
+        n: `int`, defaults to 1
+            The number of images to generate per prompt. Must be between 1 and 10.
+        size: `str`, defaults to `1024*1024`
+            The width*height in pixels of the generated image. Must be one of 256x256, 512x512, or 1024x1024.
+        response_format: `str`, defaults to `url`
+            The format in which the generated images are returned. Must be one of url or b64_json.
+        Returns
+        -------
+        ImageList
+            A list of image objects.
+        """
+        url = f"{self._base_url}/v1/images/variations"
+        request_body = {
+            "model": self._model_uid,
+            "prompt": prompt,
+            "negative_prompt": negative_prompt,
+            "n": n,
+            "size": size,
+            "response_format": response_format,
+            **kwargs,
+        }
+        response = requests.post(
+            url,
+            json=request_body,
+            files=(("image", ("image", image, "application/octet-stream")),),
+        )
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to variants the images, detail: {response.json()['detail']}"
+            )
+
+        response_data = response.json()
+        return response_data
+
 
 class RESTfulGenerateModelHandle(RESTfulEmbeddingModelHandle):
     def generate(
