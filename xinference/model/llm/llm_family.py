@@ -445,7 +445,9 @@ def _generate_meta_file(
     llm_spec: "LLMSpecV1",
     quantization: Optional[str] = None,
 ):
-    assert not os.path.exists(meta_path), f"meta path {meta_path} should not exists"
+    assert not valid_model_revision(
+        meta_path, llm_spec.model_revision
+    ), f"meta file {meta_path} should not be valid"
     with open(meta_path, "w") as f:
         import json
 
