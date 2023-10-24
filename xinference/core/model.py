@@ -219,6 +219,36 @@ class ModelActor(xo.StatelessActor):
 
         return await self._call_wrapper(_wrapper)
 
+    async def image_to_image(
+        self,
+        image: "PIL.Image",
+        prompt: str,
+        negative_prompt: str,
+        n: int = 1,
+        size: str = "1024*1024",
+        response_format: str = "url",
+        *args,
+        **kwargs,
+    ):
+        if not hasattr(self._model, "image_to_image"):
+            raise AttributeError(
+                f"Model {self._model.model_spec} is not for creating image."
+            )
+
+        async def _wrapper():
+            return getattr(self._model, "image_to_image")(
+                image,
+                prompt,
+                negative_prompt,
+                n,
+                size,
+                response_format,
+                *args,
+                **kwargs,
+            )
+
+        return await self._call_wrapper(_wrapper)
+
     @log_async(logger=logger)
     async def next(
         self, generator_uid: str

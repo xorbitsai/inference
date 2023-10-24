@@ -25,7 +25,6 @@ from typing import List, Optional, Union
 from ....constants import XINFERENCE_IMAGE_DIR
 from ....types import Image, ImageList
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -74,6 +73,7 @@ class DiffusionModel:
     ):
         width, height = map(int, size.split("*"))
         assert callable(self._model)
+        logger.debug("stable diffusion kwargs: %s", kwargs)
         images = self._model(
             prompt, height=height, width=width, num_images_per_prompt=n, **kwargs
         ).images

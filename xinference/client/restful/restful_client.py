@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import json
 import uuid
 import warnings
 from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Union
@@ -125,13 +125,13 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
 
     def image_to_image(
         self,
-        image: str,
+        image: Union[str, bytes],
         prompt: str,
         negative_prompt: str,
         n: int = 1,
         size: str = "1024*1024",
         response_format: str = "url",
-            **kwargs
+        **kwargs,
     ) -> "ImageList":
         """
         Creates an image by the input text.
@@ -152,19 +152,22 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
             A list of image objects.
         """
         url = f"{self._base_url}/v1/images/variations"
-        request_body = {
+        params = {
             "model": self._model_uid,
             "prompt": prompt,
             "negative_prompt": negative_prompt,
             "n": n,
             "size": size,
             "response_format": response_format,
-            **kwargs,
+            "kwargs": json.dumps(kwargs),
         }
+        files: List[Any] = []
+        for key, value in params.items():
+            files.append((key, (None, value)))
+        files.append(("image", ("image", image, "application/octet-stream")))
         response = requests.post(
             url,
-            json=request_body,
-            files=(("image", ("image", image, "application/octet-stream")),),
+            files=files,
         )
         if response.status_code != 200:
             raise RuntimeError(

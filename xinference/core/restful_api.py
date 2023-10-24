@@ -23,12 +23,12 @@ from typing import Any, Dict, List, Literal, Optional, Union
 
 import gradio as gr
 import xoscar as xo
-from fastapi import APIRouter, FastAPI, File, HTTPException, Request, UploadFile, Depends, Form, status
+from fastapi import APIRouter, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field, ValidationError
-from fastapi.encoders import jsonable_encoder
+from PIL import Image
+from pydantic import BaseModel, Field
 from starlette.responses import RedirectResponse
 from typing_extensions import NotRequired, TypedDict
 from uvicorn import Config, Server
@@ -179,28 +179,6 @@ class TextToImageRequest(BaseModel):
     response_format: Optional[str] = "url"
     size: Optional[str] = "1024*1024"
     user: Optional[str] = None
-
-
-class ImageToImageRequest(BaseModel):
-    model: str
-    prompt: Optional[Union[str, List[str]]] = None
-    negative_prompt: Optional[Union[str, List[str]]] = None
-    n: Optional[int] = 1
-    response_format: Optional[str] = "url"
-    size: Optional[str] = "1024*1024"
-    user: Optional[str] = None
-
-
-def checker(data: str = Form(...)):
-    try:
-        model = ImageToImageRequest.parse_raw(data)
-    except ValidationError as e:
-        raise HTTPException(
-            detail=jsonable_encoder(e.errors()),
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        )
-
-    return model
 
 
 class ChatCompletionRequestMessage(TypedDict):
@@ -673,12 +651,16 @@ class RESTfulAPIActor(xo.Actor):
 
     async def create_variations(
         self,
-        request: ImageToImageRequest = Depends(checker),
+        model: str = Form(...),
         image: UploadFile = File(media_type="application/octet-stream"),
+        prompt: Optional[Union[str, List[str]]] = Form(None),
+        negative_prompt: Optional[Union[str, List[str]]] = Form(None),
+        n: Optional[int] = Form(1),
+        response_format: Optional[str] = Form("url"),
+        size: Optional[str] = Form("1024*1024"),
+        kwargs: Optional[str] = Form(None),
     ):
-        print("create_variations", image)
-        print("create_variations", image.filename)
-        model_uid = request.model
+        model_uid = model
         try:
             model = await self._supervisor_ref.get_model(model_uid)
         except ValueError as ve:
@@ -689,13 +671,16 @@ class RESTfulAPIActor(xo.Actor):
             raise HTTPException(status_code=500, detail=str(e))
 
         try:
+            if kwargs is not None:
+                kwargs = json.loads(kwargs)
             image_list = await model.image_to_image(
-                image=image,
-                prompt=request.prompt,
-                negative_prompt=request.negative_prompt,
-                n=request.n,
-                size=request.size,
-                response_format=request.response_format,
+                image=Image.open(image.file),
+                prompt=prompt,
+                negative_prompt=negative_prompt,
+                n=n,
+                size=size,
+                response_format=response_format,
+                **kwargs,
             )
             return image_list
         except RuntimeError as re:

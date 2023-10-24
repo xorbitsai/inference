@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import base64
+import io
 import os.path
 from io import BytesIO
 
@@ -47,40 +48,30 @@ def test_model():
 
 
 def test_restful_api_for_image(setup):
-    model_name = "stable-diffusion-v1.5"
-
     endpoint, _ = setup
-    url = f"{endpoint}/v1/models"
+    from ....client import Client
+    client = Client(endpoint)
 
-    # list
-    response = requests.get(url)
-    response_data = response.json()
-    assert len(response_data) == 0
+    model_uid = client.launch_model(model_uid="my_controlnet", model_name="stable-diffusion-xl-base-1.0",
+                                    model_type="image",
+                                    controlnet="canny")
+    model = client.get_model(model_uid)
 
-    # launch
-    payload = {
-        "model_uid": "test_stable_diffusion",
-        "model_name": model_name,
-        "model_type": "image",
-    }
 
-    response = requests.post(url, json=payload)
-    response_data = response.json()
-    model_uid_res = response_data["model_uid"]
-    assert model_uid_res == "test_stable_diffusion"
+    import cv2
+    import numpy as np
+    from diffusers.utils import load_image
+    from PIL import Image
 
-    response = requests.get(url)
-    response_data = response.json()
-    assert len(response_data) == 1
-
-    # test embedding
-    url = f"{endpoint}/v1/images/generations"
-    payload = {
-        "model": "test_stable_diffusion",
-        "prompt": "an apple",
-        "size": "256*256",
-    }
-    response = requests.post(url, json=payload)
-    r = response.json()
-    assert len(r["data"]) == 1
-    assert os.path.exists(r["data"][0]["url"])
+    image = load_image("/Users/po/Work/inference/hf-logo.png")
+    image = np.array(image)
+    image = cv2.Canny(image, 100, 200)
+    image = image[:, :, None]
+    image = np.concatenate([image, image, image], axis=2)
+    image = Image.fromarray(image)
+    prompt = "aerial view, a futuristic research complex in a bright foggy jungle, hard lighting"
+    negative_prompt = 'low quality, bad quality, sketches'
+    bio = io.BytesIO()
+    image.save(bio, format="png")
+    model.image_to_image(image=bio.getvalue(), prompt=prompt, negative_prompt=negative_prompt,
+                         controlnet_conditioning_scale=0.5)
