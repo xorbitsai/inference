@@ -23,7 +23,12 @@ from pydantic import BaseModel, Field
 from typing_extensions import Annotated, Literal
 
 from ...constants import XINFERENCE_CACHE_DIR, XINFERENCE_MODEL_DIR
-from ..utils import download_from_modelscope, retry_download, symlink_local_file
+from ..utils import (
+    download_from_modelscope,
+    retry_download,
+    symlink_local_file,
+    valid_model_revision,
+)
 from . import LLM
 
 logger = logging.getLogger(__name__)
@@ -403,6 +408,7 @@ def _skip_download(
     cache_dir: str,
     model_format: str,
     model_hub: str,
+    model_revision: Optional[str],
     quantization: Optional[str] = None,
 ) -> bool:
     if model_format == "pytorch":
@@ -414,7 +420,7 @@ def _skip_download(
                 cache_dir, model_format, "modelscope", quantization
             ),
         }
-        if os.path.exists(model_hub_to_meta_path[model_hub]):
+        if valid_model_revision(model_hub_to_meta_path[model_hub], model_revision):
             logger.info(f"Cache {cache_dir} exists")
             return True
         else:
@@ -462,7 +468,11 @@ def cache_from_modelscope(
 
     cache_dir = _get_cache_dir(llm_family, llm_spec)
     if _skip_download(
-        cache_dir, llm_spec.model_format, llm_spec.model_hub, quantization
+        cache_dir,
+        llm_spec.model_format,
+        llm_spec.model_hub,
+        llm_spec.model_revision,
+        quantization,
     ):
         return cache_dir
 
@@ -519,7 +529,11 @@ def cache_from_huggingface(
 
     cache_dir = _get_cache_dir(llm_family, llm_spec)
     if _skip_download(
-        cache_dir, llm_spec.model_format, llm_spec.model_hub, quantization
+        cache_dir,
+        llm_spec.model_format,
+        llm_spec.model_hub,
+        llm_spec.model_revision,
+        quantization,
     ):
         return cache_dir
 

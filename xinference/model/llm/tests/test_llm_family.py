@@ -709,10 +709,18 @@ def test_skip_download_pytorch():
     assert os.path.exists(hf_meta_path)
     try:
         assert _skip_download(
-            cache_dir, hf_spec.model_format, hf_spec.model_hub, quantization=None
+            cache_dir,
+            hf_spec.model_format,
+            hf_spec.model_hub,
+            hf_spec.model_revision,
+            quantization=None,
         )
         assert _skip_download(
-            cache_dir, ms_spec.model_format, ms_spec.model_hub, quantization=None
+            cache_dir,
+            ms_spec.model_format,
+            ms_spec.model_hub,
+            ms_spec.model_revision,
+            quantization=None,
         )
     finally:
         os.remove(hf_meta_path)
@@ -723,10 +731,18 @@ def test_skip_download_pytorch():
     assert os.path.exists(ms_meta_path)
     try:
         assert _skip_download(
-            cache_dir, hf_spec.model_format, hf_spec.model_hub, quantization=None
+            cache_dir,
+            hf_spec.model_format,
+            hf_spec.model_hub,
+            hf_spec.model_revision,
+            quantization=None,
         )
         assert _skip_download(
-            cache_dir, ms_spec.model_format, ms_spec.model_hub, quantization=None
+            cache_dir,
+            ms_spec.model_format,
+            ms_spec.model_hub,
+            ms_spec.model_revision,
+            quantization=None,
         )
     finally:
         os.remove(ms_meta_path)
@@ -786,10 +802,18 @@ def test_skip_download_ggml():
     assert os.path.exists(hf_meta_path)
     try:
         assert _skip_download(
-            cache_dir, hf_spec.model_format, hf_spec.model_hub, quantization="q4_0"
+            cache_dir,
+            hf_spec.model_format,
+            hf_spec.model_hub,
+            hf_spec.model_revision,
+            quantization="q4_0",
         )
         assert not _skip_download(
-            cache_dir, ms_spec.model_format, ms_spec.model_hub, quantization="q4_0"
+            cache_dir,
+            ms_spec.model_format,
+            ms_spec.model_hub,
+            ms_spec.model_revision,
+            quantization="q4_0",
         )
     finally:
         os.remove(hf_meta_path)
@@ -800,10 +824,18 @@ def test_skip_download_ggml():
     assert os.path.exists(ms_meta_path)
     try:
         assert not _skip_download(
-            cache_dir, hf_spec.model_format, hf_spec.model_hub, quantization="q4_0"
+            cache_dir,
+            hf_spec.model_format,
+            hf_spec.model_hub,
+            hf_spec.model_revision,
+            quantization="q4_0",
         )
         assert _skip_download(
-            cache_dir, ms_spec.model_format, ms_spec.model_hub, quantization="q4_0"
+            cache_dir,
+            ms_spec.model_format,
+            ms_spec.model_hub,
+            ms_spec.model_revision,
+            quantization="q4_0",
         )
     finally:
         os.remove(ms_meta_path)

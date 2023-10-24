@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import datetime
 import logging
 import os
 from typing import List, Optional, Tuple, Union, no_type_check
@@ -23,6 +22,7 @@ from pydantic import BaseModel
 from ...constants import XINFERENCE_CACHE_DIR
 from ...types import Embedding, EmbeddingData, EmbeddingUsage
 from ..core import ModelDescription
+from ..utils import valid_model_revision
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +34,21 @@ class EmbeddingModelSpec(BaseModel):
     language: List[str]
     model_id: str
     model_revision: str
+
+
+class EmbeddingModelDescription(ModelDescription):
+    def __init__(self, model_spec: EmbeddingModelSpec):
+        self._model_spec = model_spec
+
+    def to_dict(self):
+        return {
+            "model_type": "embedding",
+            "model_name": self._model_spec.model_name,
+            "dimensions": self._model_spec.dimensions,
+            "max_tokens": self._model_spec.max_tokens,
+            "language": self._model_spec.language,
+            "model_revision": self._model_spec.model_revision,
+        }
 
 
 def cache(model_spec: EmbeddingModelSpec):
@@ -49,7 +64,7 @@ def cache(model_spec: EmbeddingModelSpec):
     if not os.path.exists(cache_dir):
         os.makedirs(cache_dir, exist_ok=True)
     meta_path = os.path.join(cache_dir, "__valid_download")
-    if os.path.exists(meta_path):
+    if valid_model_revision(meta_path, model_spec.model_revision):
         return cache_dir
 
     from_modelscope: bool = model_spec.model_id.startswith("Xorbits/")
@@ -75,8 +90,11 @@ def cache(model_spec: EmbeddingModelSpec):
             local_dir=cache_dir,
             local_dir_use_symlinks=True,
         )
-        with open(meta_path, "w") as f:
-            f.write(str(datetime.datetime.now()))
+    with open(meta_path, "w") as f:
+        import json
+
+        desc = EmbeddingModelDescription(model_spec)
+        json.dump(desc.to_dict(), f)
     return cache_dir
 
 
@@ -258,21 +276,6 @@ class EmbeddingModel:
             data=embedding_list,
             usage=usage,
         )
-
-
-class EmbeddingModelDescription(ModelDescription):
-    def __init__(self, model_spec: EmbeddingModelSpec):
-        self._model_spec = model_spec
-
-    def to_dict(self):
-        return {
-            "model_type": "embedding",
-            "model_name": self._model_spec.model_name,
-            "dimensions": self._model_spec.dimensions,
-            "max_tokens": self._model_spec.max_tokens,
-            "language": self._model_spec.language,
-            "model_revision": self._model_spec.model_revision,
-        }
 
 
 def match_embedding(model_name: str) -> EmbeddingModelSpec:
