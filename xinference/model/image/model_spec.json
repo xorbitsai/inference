@@ -3,7 +3,51 @@
     "model_name": "stable-diffusion-v1.5",
     "model_family": "stable_diffusion",
     "model_id": "runwayml/stable-diffusion-v1-5",
-    "model_revision": "1d0c4ebf6ff58a5caecab40fa1406526bca4b5b9"
+    "model_revision": "1d0c4ebf6ff58a5caecab40fa1406526bca4b5b9",
+    "controlnet": [
+      {
+        "model_name":"canny",
+        "model_family": "controlnet",
+        "model_id": "lllyasviel/sd-controlnet-canny",
+        "model_revision": "7f2f69197050967007f6bbd23ab5e52f0384162a"
+      },
+      {
+        "model_name":"mlsd",
+        "model_family": "controlnet",
+        "model_id": "lllyasviel/sd-controlnet-mlsd",
+        "model_revision": "456fc1af4dc8f7d5fa6c949c5040d3828a24e3ad"
+      },
+      {
+        "model_name":"hed",
+        "model_family": "controlnet",
+        "model_id": "lllyasviel/sd-controlnet-hed",
+        "model_revision": "04473d9334ab44908daa66107bbfb6f710aa056d"
+      },
+      {
+        "model_name":"scribble",
+        "model_family": "controlnet",
+        "model_id": "lllyasviel/sd-controlnet-scribble",
+        "model_revision": "864edcd5ccc6ee2695eeebea5b4512100c83e7b3"
+      },
+      {
+        "model_name":"openpose",
+        "model_family": "controlnet",
+        "model_id": "lllyasviel/sd-controlnet-openpose",
+        "model_revision": "df796456519d1ac5dbe674caa0653fcc9673bca8"
+      },
+      {
+        "model_name":"normal",
+        "model_family": "controlnet",
+        "model_id": "lllyasviel/sd-controlnet-normal",
+        "model_revision": "1cbed9b3ca84422e4a2f23c14b9f5a114742b31d"
+      },
+      {
+        "model_name":"seg",
+        "model_family": "controlnet",
+        "model_id": "lllyasviel/sd-controlnet-seg",
+        "model_revision": "ecdcb5645b5099c9a7500a504fb9ab3f743c4d96"
+      }
+    ]
   },
   {
     "model_name": "stable-diffusion-xl-base-1.0",
