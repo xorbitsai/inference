@@ -17,35 +17,15 @@ import asyncio
 import logging
 import random
 import time
-from typing import AsyncGenerator, List, Tuple
+from typing import List, Tuple
 
 import numpy as np
-
-from utils import sample_requests, get_tokenizer, send_request
-
+from utils import get_tokenizer, sample_requests, send_request
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-
 REQUEST_LATENCY: List[Tuple[int, int, float]] = []
-
-
-async def get_request(
-    input_requests: List[Tuple[str, int, int]],
-    request_rate: float,
-) -> AsyncGenerator[Tuple[str, int, int], None]:
-    it = iter(input_requests)
-    for request in it:
-        yield request
-
-        if request_rate == float("inf"):
-            # If the request rate is infinity, then we don't need to wait.
-            continue
-        # Sample the request interval from the exponential distribution.
-        interval = np.random.exponential(1.0 / request_rate)
-        # The next request will be sent after the interval.
-        await asyncio.sleep(interval)
 
 
 async def benchmark(
@@ -53,24 +33,12 @@ async def benchmark(
     model_uid: str,
     input_requests: List[Tuple[str, int, int]],
     best_of: int,
-    request_rate: float,
 ) -> None:
-    tasks: List[asyncio.Task] = []
-    async for request in get_request(input_requests, request_rate):
+    for request in input_requests:
         prompt, prompt_len, output_len = request
-        task = asyncio.create_task(
-            send_request(
-                api_url,
-                model_uid,
-                prompt,
-                prompt_len,
-                output_len,
-                best_of,
-                REQUEST_LATENCY,
-            )
+        await send_request(
+            api_url, model_uid, prompt, prompt_len, output_len, best_of, REQUEST_LATENCY
         )
-        tasks.append(task)
-    await asyncio.gather(*tasks)
 
 
 def main(args: argparse.Namespace):
@@ -87,19 +55,20 @@ def main(args: argparse.Namespace):
 
     logger.info("Benchmark starts.")
     benchmark_start_time = time.time()
+
     asyncio.run(
         benchmark(
             api_url,
             model_uid,
             input_requests,
             args.best_of,
-            args.request_rate,
         )
     )
+
     benchmark_end_time = time.time()
     benchmark_time = benchmark_end_time - benchmark_start_time
     print(f"Total time: {benchmark_time:.2f} s")
-    print(f"Throughput: {args.num_prompts / benchmark_time:.2f} requests/s")
+    print(f"Throughput: {len(REQUEST_LATENCY) / benchmark_time:.2f} requests/s")
 
     # Compute the latency statistics.
     avg_latency = np.mean([latency for _, _, latency in REQUEST_LATENCY])
@@ -115,15 +84,11 @@ def main(args: argparse.Namespace):
         [latency / output_len for _, output_len, latency in REQUEST_LATENCY]
     )
     print("Average latency per output token: " f"{avg_per_output_token_latency:.2f} s")
-    throughput = (
-        sum([output_len for _, output_len, _ in REQUEST_LATENCY]) / benchmark_time
-    )
-    print(f"Throughput: {throughput} tokens/s")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Benchmark the online serving throughput."
+        description="Benchmark the latency of processing a single batch of requests."
     )
     parser.add_argument("--host", type=str, default="localhost")
     parser.add_argument("--port", type=int, default=9997)
@@ -142,15 +107,6 @@ if __name__ == "__main__":
     parser.add_argument(
         "--num-prompts", type=int, default=100, help="Number of prompts to process."
     )
-    parser.add_argument(
-        "--request-rate",
-        type=float,
-        default=float("inf"),
-        help="Number of requests per second. If this is inf, "
-        "then all the requests are sent at time 0. "
-        "Otherwise, we use Poisson process to synthesize "
-        "the request arrival times.",
-    )
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument(
         "--trust-remote-code",
@@ -158,5 +114,6 @@ if __name__ == "__main__":
         help="Trust remote code from huggingface.",
     )
     parser.add_argument("--model-uid", type=str, help="Xinference model UID.")
+
     args = parser.parse_args()
     main(args)
