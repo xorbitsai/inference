@@ -21,7 +21,7 @@ from unittest.mock import MagicMock, Mock, patch
 import pytest
 
 from ....constants import XINFERENCE_ENV_MODEL_SRC
-from ...utils import is_locale_chinese_simplified
+from ...utils import is_locale_chinese_simplified, valid_model_revision
 from ..llm_family import (
     AWSRegion,
     GgmlLLMSpecV1,
@@ -262,6 +262,32 @@ def test_cache_from_uri_local():
     assert os.path.exists(os.path.join(cache_dir, "model.bin"))
     os.remove(cache_dir)
     os.remove("model.bin")
+
+
+def test_meta_file():
+    from ..llm_family import cache_from_huggingface
+
+    spec = PytorchLLMSpecV1(
+        model_format="pytorch",
+        model_size_in_billions=1,
+        quantizations=["4-bit", "8-bit", "none"],
+        model_id="facebook/opt-125m",
+        model_revision="3d2b5f275bdf882b8775f902e1bfdb790e2cfc32",
+    )
+    family = LLMFamilyV1(
+        version=1,
+        context_length=2048,
+        model_type="LLM",
+        model_name="opt",
+        model_lang=["en"],
+        model_ability=["embed", "generate"],
+        model_specs=[spec],
+        prompt_style=None,
+    )
+
+    cache_dir = cache_from_huggingface(family, spec, quantization=None)
+    meta_path = _get_meta_path(cache_dir, spec.model_format, spec.model_hub, None)
+    assert valid_model_revision(meta_path, "3d2b5f275bdf882b8775f902e1bfdb790e2cfc32")
 
 
 def test_parse_uri():

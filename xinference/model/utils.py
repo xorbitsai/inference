@@ -14,6 +14,7 @@
 import json
 import logging
 import os
+from json import JSONDecodeError
 from pathlib import Path
 from typing import Callable, Dict, Optional
 
@@ -111,7 +112,12 @@ def valid_model_revision(
     if not os.path.exists(meta_path):
         return False
     with open(meta_path, "r") as f:
-        meta_data = json.load(f)
+        try:
+            meta_data = json.load(f)
+        except JSONDecodeError:  # legacy meta file for embedding models
+            logger.debug("Legacy meta file detected.")
+            return True
+
         if "model_revision" in meta_data:  # embedding
             real_revision = meta_data["model_revision"]
         elif "revision" in meta_data:  # llm
