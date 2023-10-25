@@ -1,7 +1,7 @@
 import React, { useState, useContext, useEffect } from "react";
 import { v1 as uuidv1 } from "uuid";
 import { ApiContext } from "../../components/apiContext";
-import { Box } from "@mui/material";
+import { Box, Chip } from "@mui/material";
 import { CircularProgress } from "@mui/material";
 import {
   UndoOutlined,
@@ -176,20 +176,6 @@ const EmbeddingCard = ({ url, modelData }) => {
     },
     langRow: {
       margin: "2px 5px 40px 5px"
-    },
-    langTag: {
-      margin: "0px 10px 0px 0px",
-      padding: "2px 10px",
-      borderRadius: "50px",
-      fontSize: "0.8em"
-    },
-    langEn: {
-      border: "1px solid #0099CC",
-      backgroundColor: "#CCFFFF"
-    },
-    langZh: {
-      border: "1px solid #FF6666",
-      backgroundColor: "#FFCCCC"
     }
   };
 
@@ -213,14 +199,14 @@ const EmbeddingCard = ({ url, modelData }) => {
             {(() => {
               if (modelData.language.includes("en")) {
                 return (
-                  <span style={{ ...styles.langTag, ...styles.langEn }}>EN</span>
+                  <Chip label="EN" variant="outlined" size="small" sx={{ marginRight: "10px" }} />
                 );
               }
             })()}
             {(() => {
               if (modelData.language.includes("zh")) {
                 return (
-                  <span style={{ ...styles.langTag, ...styles.langZh }}>ZH</span>
+                  <Chip label="ZH" variant="outlined" size="small" />
                 );
               }
             })()}

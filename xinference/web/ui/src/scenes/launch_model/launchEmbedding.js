@@ -1,6 +1,5 @@
 import React, { useContext, useState, useEffect } from "react";
 import EmbeddingCard from "./embeddingCard";
-import Title from "../../components/Title";
 import { Box, TextField, FormControl } from "@mui/material";
 import { ApiContext } from "../../components/apiContext";
 
@@ -79,22 +78,21 @@ const LaunchEmbedding = () => {
 
   return (
     <Box m="20px">
-      <Title title="Launch Embedding" />
-      <FormControl
-        variant="outlined"
-        margin="normal"
-        sx={{ width: "100%", paddingBottom: "30px" }}
-      >
-        <TextField
-          id="search"
-          type="search"
-          label="Search for embedding model name"
-          value={searchTerm}
-          onChange={handleChange}
-          size="small"
-          sx={{ width: "95%", paddingBottom: "30px" }}
-        />
-      </FormControl>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr", margin: "30px 2rem" }}>
+        <FormControl
+          variant="outlined"
+          margin="normal"
+        >
+          <TextField
+            id="search"
+            type="search"
+            label="Search for embedding model name"
+            value={searchTerm}
+            onChange={handleChange}
+            size="small"
+          />
+        </FormControl>
+      </div>
       <div style={style}>
         {registrationData
           .filter((registration) => filter(registration))

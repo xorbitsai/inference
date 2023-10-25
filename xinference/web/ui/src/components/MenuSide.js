@@ -27,10 +27,6 @@ const navItems = [
     icon: <RocketLaunchOutlined />,
   },
   {
-    text: "Launch Embedding",
-    icon: <LibraryBooksOutlined />,
-  },
-  {
     text: "Running Models",
     icon: <SmartToyOutlined />,
   },
