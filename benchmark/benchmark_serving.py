@@ -21,7 +21,8 @@ from typing import AsyncGenerator, List, Tuple
 
 import numpy as np
 
-from .utils import get_tokenizer, sample_requests, send_request
+from utils import sample_requests, get_tokenizer, send_request
+
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -77,7 +78,7 @@ def main(args: argparse.Namespace):
     random.seed(args.seed)
     np.random.seed(args.seed)
 
-    api_url = f"http://{args.host}:{args.port}/v1/completions"
+    api_url = f"http://{args.host}:{args.port}/v1/chat/completions"
     model_uid = args.model_uid
 
     logger.info("Preparing for benchmark.")

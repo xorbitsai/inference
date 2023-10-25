@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import aiohttp
 import json
 import logging
 import random
@@ -149,25 +150,26 @@ async def send_request(
     request_start_time = time.time()
 
     pload = {
+        "model": model_uid,
         "n": 1,
         "best_of": best_of,
         "temperature": 1.0,
         "top_p": 1.0,
         "max_tokens": output_len,
         "stream": False,
+        "messages": [{"role": "user", "content": prompt}]
     }
 
-    openai.api_base = api_url
-    openai.api_key = ""
+    headers = {"User-Agent": "Benchmark Client"}
 
-    try:
-        resp = openai.ChatCompletion.create(
-            model=model_uid, messages=[{"role": "user", "content": prompt}], **pload
-        )
-        completion_tokens = resp["usage"]["completion_tokens"]
-        request_end_time = time.time()
-        request_latency = request_end_time - request_start_time
-
-        stats.append((prompt_len, completion_tokens, request_latency))
-    except:
-        logger.error("Failed to create chat completion", exc_info=True)
+    timeout = aiohttp.ClientTimeout(total=3 * 3600)
+    async with aiohttp.ClientSession(timeout=timeout) as session:
+        async with session.post(api_url, headers=headers, json=pload) as response:
+            resp = await response.json()
+            if response.status == 200:
+                completion_tokens = resp['usage']['completion_tokens']
+                request_end_time = time.time()
+                request_latency = request_end_time - request_start_time
+                stats.append((prompt_len, completion_tokens, request_latency))
+            else:
+                logger.error(f"Failed to create chat completion: {resp}")
