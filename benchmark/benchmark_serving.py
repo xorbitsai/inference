@@ -21,8 +21,7 @@ from typing import AsyncGenerator, List, Tuple
 
 import numpy as np
 
-from .utils import sample_requests, get_tokenizer, send_request
-
+from .utils import get_tokenizer, sample_requests, send_request
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -35,8 +34,8 @@ async def get_request(
     input_requests: List[Tuple[str, int, int]],
     request_rate: float,
 ) -> AsyncGenerator[Tuple[str, int, int], None]:
-    input_requests = iter(input_requests)
-    for request in input_requests:
+    it = iter(input_requests)
+    for request in it:
         yield request
 
         if request_rate == float("inf"):
@@ -66,7 +65,7 @@ async def benchmark(
                 prompt_len,
                 output_len,
                 best_of,
-                REQUEST_LATENCY
+                REQUEST_LATENCY,
             )
         )
         tasks.append(task)
@@ -115,6 +114,10 @@ def main(args: argparse.Namespace):
         [latency / output_len for _, output_len, latency in REQUEST_LATENCY]
     )
     print("Average latency per output token: " f"{avg_per_output_token_latency:.2f} s")
+    throughput = (
+        sum([output_len for _, output_len, _ in REQUEST_LATENCY]) / benchmark_time
+    )
+    print(f"Throughput: {throughput} tokens/s")
 
 
 if __name__ == "__main__":

@@ -144,7 +144,7 @@ async def send_request(
     prompt_len: int,
     output_len: int,
     best_of: int,
-    stats: List[Tuple[int, int, float]]  # output.
+    stats: List[Tuple[int, int, float]],  # output.
 ) -> None:
     request_start_time = time.time()
 
@@ -162,11 +162,9 @@ async def send_request(
 
     try:
         resp = openai.ChatCompletion.create(
-            model=model_uid,
-            messages=[{"role": "user", "content": prompt}],
-            **pload
+            model=model_uid, messages=[{"role": "user", "content": prompt}], **pload
         )
-        completion_tokens = resp['usage']['completion_tokens']
+        completion_tokens = resp["usage"]["completion_tokens"]
         request_end_time = time.time()
         request_latency = request_end_time - request_start_time
 

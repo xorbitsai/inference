@@ -17,9 +17,9 @@ import asyncio
 import logging
 import random
 import time
-import numpy as np
 from typing import List, Tuple
 
+import numpy as np
 from utils import get_tokenizer, sample_requests, send_request
 
 logging.basicConfig(level=logging.INFO)
@@ -37,13 +37,7 @@ async def benchmark(
     for request in input_requests:
         prompt, prompt_len, output_len = request
         await send_request(
-            api_url,
-            model_uid,
-            prompt,
-            prompt_len,
-            output_len,
-            best_of,
-            REQUEST_LATENCY
+            api_url, model_uid, prompt, prompt_len, output_len, best_of, REQUEST_LATENCY
         )
 
 
@@ -92,7 +86,7 @@ def main(args: argparse.Namespace):
     print("Average latency per output token: " f"{avg_per_output_token_latency:.2f} s")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Benchmark the latency of processing a single batch of requests."
     )
