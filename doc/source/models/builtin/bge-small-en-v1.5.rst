@@ -1,8 +1,8 @@
 .. _models_builtin_bge_small_en_v1.5:
 
-============
+=================
 bge-small-en-v1.5
-============
+=================
 
 - **Model Name:** bge-small-en-v1.5
 - **Languages:** en

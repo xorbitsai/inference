@@ -1,8 +1,8 @@
 .. _models_builtin_bge_base_en_v1.5:
 
-============
+================
 bge-base-en-v1.5
-============
+================
 
 - **Model Name:** bge-base-en-v1.5
 - **Languages:** en

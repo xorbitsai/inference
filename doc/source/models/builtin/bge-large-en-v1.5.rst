@@ -1,8 +1,8 @@
 .. _models_builtin_bge_large_en_v1.5:
 
-============
+=================
 bge-large-en-v1.5
-============
+=================
 
 - **Model Name:** bge-large-en-v1.5
 - **Languages:** en
