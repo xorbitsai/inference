@@ -24,21 +24,13 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 ## 🔥 近期热点
 ### 框架增强
 - 支持指定 grammar 输出: [#525](https://github.com/xorbitsai/inference/pull/525)
+- 投机采样: [#509](https://github.com/xorbitsai/inference/pull/509)
 - 引入 vLLM: [#445](https://github.com/xorbitsai/inference/pull/445)
-- Embedding 模型支持: [#418](https://github.com/xorbitsai/inference/pull/418)
-- LoRA 支持: [#271](https://github.com/xorbitsai/inference/issues/271)
-- PyTorch 模型多 GPU 支持: [#226](https://github.com/xorbitsai/inference/issues/226)
-- Xinference 仪表盘: [#93](https://github.com/xorbitsai/inference/issues/93)
 ### 新模型
-- 内置 [internlm-20b](https://huggingface.co/internlm/internlm-20b/commits/main): [#486](https://github.com/xorbitsai/inference/pull/486)
-- 内置 [internlm-chat-20b](https://huggingface.co/internlm/internlm-chat-20b): [#486](https://github.com/xorbitsai/inference/pull/486)
-- 内置 [CodeLLama](https://github.com/facebookresearch/codellama): [#414](https://github.com/xorbitsai/inference/pull/414) [#402](https://github.com/xorbitsai/inference/pull/402)
+- 内置 [mistral-v0.1](https://huggingface.co/mistralai/Mistral-7B-v0.1) 与 [mistral-instruct-v0.1](https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.1): [#510](https://github.com/xorbitsai/inference/pull/510)
 ### 集成
 - [Dify](https://docs.dify.ai/advanced/model-configuration/xinference): 一个涵盖了大型语言模型开发、部署、维护和优化的 LLMOps 平台。
 - [Chatbox](https://chatboxai.app/): 一个支持前沿大语言模型的桌面客户端，支持 Windows，Mac，以及 Linux。
-
-
-
 
 ## 主要功能
 🌟 **模型推理，轻而易举**：大语言模型，语音识别模型，多模态模型的部署流程被大大简化。一个命令即可完成模型的部署工作。 
