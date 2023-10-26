@@ -436,6 +436,8 @@ class SupervisorActor(xo.Actor):
     async def report_worker_status(
         self, worker_address: str, status: Dict[str, ResourceStatus]
     ):
+        if worker_address not in self._worker_status:
+            logger.debug("Worker %s resources: %s", worker_address, status)
         self._worker_status[worker_address] = WorkerStatus(
             update_time=time.time(), status=status
         )

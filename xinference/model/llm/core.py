@@ -14,6 +14,7 @@
 
 import abc
 import logging
+import os
 import platform
 from abc import abstractmethod
 from typing import TYPE_CHECKING, Optional, Tuple
@@ -68,7 +69,14 @@ class LLM(abc.ABC):
     def _get_cuda_count():
         from xorbits._mars.resource import cuda_count
 
-        return cuda_count()
+        cuda_visible_devices = os.getenv("CUDA_VISIBLE_DEVICES", None)
+        if cuda_visible_devices is None:
+            return cuda_count()
+
+        if cuda_visible_devices == "-1":
+            return 0
+        else:
+            return len(cuda_visible_devices.split(","))
 
     @abstractmethod
     def load(self):
