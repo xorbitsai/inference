@@ -14,11 +14,17 @@
 
 import logging
 import os
-from typing import Dict, Generator, List
+from typing import Generator, List
 
 import gradio as gr
 from gradio.components import Markdown, Textbox
 from gradio.layouts import Accordion, Column, Row
+
+from ..client.restful.restful_client import (
+    RESTfulChatModelHandle,
+    RESTfulGenerateModelHandle,
+)
+from ..types import ChatCompletionMessage
 
 logger = logging.getLogger(__name__)
 
@@ -76,16 +82,11 @@ class LLMInterface:
                 flat_list += row
             return flat_list
 
-        def to_chat(lst: List[str]) -> List[Dict[str, str]]:
+        def to_chat(lst: List[str]) -> List[ChatCompletionMessage]:
             res = []
             for i in range(len(lst)):
                 role = "assistant" if i % 2 == 1 else "user"
-                res.append(
-                    {
-                        "role": role,
-                        "content": lst[i],
-                    }
-                )
+                res.append(ChatCompletionMessage(role=role, content=lst[i]))
             return res
 
         def generate_wrapper(
@@ -98,6 +99,7 @@ class LLMInterface:
 
             client = RESTfulClient(self.endpoint)
             model = client.get_model(self.model_uid)
+            assert isinstance(model, RESTfulChatModelHandle)
 
             response_content = ""
             for chunk in model.chat(
@@ -109,6 +111,7 @@ class LLMInterface:
                     "stream": True,
                 },
             ):
+                assert isinstance(chunk, dict)
                 delta = chunk["choices"][0]["delta"]
                 if "content" not in delta:
                     continue
@@ -190,6 +193,7 @@ class LLMInterface:
 
             client = RESTfulClient(self.endpoint)
             model = client.get_model(self.model_uid)
+            assert isinstance(model, RESTfulGenerateModelHandle)
 
             if len(hist) == 0 or (len(hist) > 0 and text != hist[-1]):
                 hist.append(text)
@@ -203,6 +207,7 @@ class LLMInterface:
                     "stream": True,
                 },
             ):
+                assert isinstance(chunk, dict)
                 choice = chunk["choices"][0]
                 if "text" not in choice:
                     continue
@@ -224,6 +229,7 @@ class LLMInterface:
 
             client = RESTfulClient(self.endpoint)
             model = client.get_model(self.model_uid)
+            assert isinstance(model, RESTfulGenerateModelHandle)
 
             if len(hist) == 0 or (len(hist) > 0 and text != hist[-1]):
                 hist.append(text)
@@ -238,6 +244,7 @@ class LLMInterface:
                     "stream": True,
                 },
             ):
+                assert isinstance(chunk, dict)
                 choice = chunk["choices"][0]
                 if "text" not in choice:
                     continue

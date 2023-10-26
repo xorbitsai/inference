@@ -420,6 +420,7 @@ class RESTfulAPI:
             )
 
         try:
+            assert self._supervisor_ref is not None
             model_uid = await self._supervisor_ref.launch_speculative_llm(
                 model_uid=model_uid,
                 model_name=model_name,
