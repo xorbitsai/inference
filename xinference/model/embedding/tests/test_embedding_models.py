@@ -11,7 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import os
 
+from ...utils import valid_model_revision
 from ..core import EmbeddingModel, EmbeddingModelSpec, cache
 
 TEST_MODEL_SPEC = EmbeddingModelSpec(
@@ -21,6 +23,15 @@ TEST_MODEL_SPEC = EmbeddingModelSpec(
     language=["en"],
     model_id="thenlper/gte-small",
     model_revision="d8e2604cadbeeda029847d19759d219e0ce2e6d8",
+)
+
+TEST_MODEL_SPEC2 = EmbeddingModelSpec(
+    model_name="gte-small",
+    dimensions=384,
+    max_tokens=512,
+    language=["en"],
+    model_id="thenlper/gte-small",
+    model_revision="c20abe89ac0cdf484944ebdc26ecaaa1bfc9cf89",
 )
 
 TEST_MODEL_SPEC_FROM_MODELSCOPE = EmbeddingModelSpec(
@@ -68,3 +79,24 @@ def test_model_from_modelscope():
     assert len(r["data"]) == 1
     for d in r["data"]:
         assert len(d["embedding"]) == 512
+
+
+def test_meta_file():
+    cache_dir = cache(TEST_MODEL_SPEC)
+    meta_path = os.path.join(cache_dir, "__valid_download")
+    assert valid_model_revision(meta_path, TEST_MODEL_SPEC.model_revision)
+
+    # test another version of the same model
+    assert not valid_model_revision(meta_path, TEST_MODEL_SPEC2.model_revision)
+    cache_dir = cache(TEST_MODEL_SPEC2)
+    meta_path = os.path.join(cache_dir, "__valid_download")
+    assert valid_model_revision(meta_path, TEST_MODEL_SPEC2.model_revision)
+
+    # test functionality of the new version model
+    model = EmbeddingModel("mock", cache_dir)
+    input_text = "I can do this all day."
+    model.load()
+    r = model.create_embedding(input_text)
+    assert len(r["data"]) == 1
+    for d in r["data"]:
+        assert len(d["embedding"]) == 384
