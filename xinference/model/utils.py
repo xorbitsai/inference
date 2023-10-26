@@ -11,8 +11,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import json
 import logging
 import os
+from json import JSONDecodeError
 from pathlib import Path
 from typing import Callable, Dict, Optional
 
@@ -102,3 +104,27 @@ def retry_download(
             raise RuntimeError(
                 f"Failed to download model '{model_name}' after multiple retries"
             )
+
+
+def valid_model_revision(
+    meta_path: str, expected_model_revision: Optional[str]
+) -> bool:
+    if not os.path.exists(meta_path):
+        return False
+    with open(meta_path, "r") as f:
+        try:
+            meta_data = json.load(f)
+        except JSONDecodeError:  # legacy meta file for embedding models
+            logger.debug("Legacy meta file detected.")
+            return True
+
+        if "model_revision" in meta_data:  # embedding
+            real_revision = meta_data["model_revision"]
+        elif "revision" in meta_data:  # llm
+            real_revision = meta_data["revision"]
+        else:
+            logger.warning(
+                f"No `revision` information in the `__valid_download` file. "
+            )
+            return False
+        return real_revision == expected_model_revision

@@ -88,7 +88,7 @@ class VLLMModel(LLM):
         model_config: Optional[VLLMModelConfig],
     ):
         super().__init__(model_uid, model_family, model_spec, quantization, model_path)
-        self._model_config = self._sanitize_model_config(model_config)
+        self._model_config = model_config
         self._engine = None
 
     def load(self):
@@ -103,6 +103,11 @@ class VLLMModel(LLM):
             ]
 
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
+
+        self._model_config = self._sanitize_model_config(self._model_config)
+        logger.info(
+            f"Loading {self.model_uid} with following model config: {self._model_config}"
+        )
 
         engine_args = AsyncEngineArgs(model=self.model_path, **self._model_config)
         self._engine = AsyncLLMEngine.from_engine_args(engine_args)
@@ -121,8 +126,6 @@ class VLLMModel(LLM):
         model_config.setdefault("block_size", 16)
         model_config.setdefault("swap_space", 4)
         model_config.setdefault("gpu_memory_utilization", 0.90)
-        # TODO: remove
-        model_config.setdefault("max_num_batched_tokens", 2560)
         model_config.setdefault("max_num_seqs", 256)
 
         return model_config
