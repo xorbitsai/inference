@@ -1,76 +1,26 @@
 import React, { useState, useContext, useEffect } from "react";
 import { v1 as uuidv1 } from "uuid";
 import { ApiContext } from "../../components/apiContext";
-import { FormControl, InputLabel, Select, MenuItem, Box, Chip } from "@mui/material";
+import { Box, Chip } from "@mui/material";
 import { CircularProgress } from "@mui/material";
 import {
-  ChatOutlined,
-  EditNoteOutlined,
-  HelpCenterOutlined,
   UndoOutlined,
   RocketLaunchOutlined,
 } from "@mui/icons-material";
 
-const CARD_HEIGHT = 350;
+const CARD_HEIGHT = 270;
 const CARD_WIDTH = 270;
 
-const ModelCard = ({ url, modelData }) => {
+const EmbeddingCard = ({ url, modelData }) => {
   const [hover, setHover] = useState(false);
   const [selected, setSelected] = useState(false);
   const { isCallingApi, setIsCallingApi } = useContext(ApiContext);
   const { isUpdatingModel } = useContext(ApiContext);
 
-  // Model parameter selections
-  const [modelFormat, setModelFormat] = useState("");
-  const [modelSize, setModelSize] = useState("");
-  const [quantization, setQuantization] = useState("");
-
-  const [formatOptions, setFormatOptions] = useState([]);
-  const [sizeOptions, setSizeOptions] = useState([]);
-  const [quantizationOptions, setQuantizationOptions] = useState([]);
-
   // UseEffects for parameter selection, change options based on previous selections
   useEffect(() => {
-    if (modelData) {
-      const modelFamily = modelData.model_specs;
-      const formats = [
-        ...new Set(modelFamily.map((spec) => spec.model_format)),
-      ];
-      setFormatOptions(formats);
-    }
+    return;
   }, [modelData]);
-
-  useEffect(() => {
-    if (modelFormat && modelData) {
-      const modelFamily = modelData.model_specs;
-      const sizes = [
-        ...new Set(
-          modelFamily
-            .filter((spec) => spec.model_format === modelFormat)
-            .map((spec) => spec.model_size_in_billions),
-        ),
-      ];
-      setSizeOptions(sizes);
-    }
-  }, [modelFormat, modelData]);
-
-  useEffect(() => {
-    if (modelFormat && modelSize && modelData) {
-      const modelFamily = modelData.model_specs;
-      const quants = [
-        ...new Set(
-          modelFamily
-            .filter(
-              (spec) =>
-                spec.model_format === modelFormat &&
-                spec.model_size_in_billions === parseFloat(modelSize),
-            )
-            .flatMap((spec) => spec.quantizations),
-        ),
-      ];
-      setQuantizationOptions(quants);
-    }
-  }, [modelFormat, modelSize, modelData]);
 
   const launchModel = (url) => {
     if (isCallingApi || isUpdatingModel) {
@@ -83,9 +33,7 @@ const ModelCard = ({ url, modelData }) => {
     const modelDataWithID = {
       model_uid: uuid,
       model_name: modelData.model_name,
-      model_format: modelFormat,
-      model_size_in_billions: modelSize,
-      quantization: quantization,
+      model_type: "embedding"
     };
 
     // First fetch request to initiate the model
@@ -97,23 +45,6 @@ const ModelCard = ({ url, modelData }) => {
       body: JSON.stringify(modelDataWithID),
     })
       .then((response) => {
-        response.json();
-      })
-      .then(() => {
-        // Second fetch request to build the gradio page
-        return fetch(url + "/v1/ui/" + uuid, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(modelDataWithID),
-        });
-      })
-      .then((response) => {
-        response.json();
-      })
-      .then(() => {
-        window.open(url + "/" + uuid, "_blank", "noreferrer");
         setIsCallingApi(false);
       })
       .catch((error) => {
@@ -174,19 +105,17 @@ const ModelCard = ({ url, modelData }) => {
       objectFit: "cover",
       borderRadius: "10px",
     },
+    titleContainer: {
+      minHeight: "120px",
+    },
     h2: {
       margin: "10px 10px",
       fontSize: "20px",
     },
-    p: {
-      minHeight: "140px",
-      fontSize: "14px",
-      padding: "0px 10px 15px 10px",
-    },
     buttonsContainer: {
       display: "flex",
       margin: "0 auto",
-      marginTop: "30px",
+      marginTop: "120px",
       border: "none",
       justifyContent: "space-between",
       alignItems: "center",
@@ -246,7 +175,7 @@ const ModelCard = ({ url, modelData }) => {
       fontSize: "0.8em",
     },
     langRow: {
-      margin: "2px 5px"
+      margin: "2px 5px 40px 5px"
     }
   };
 
@@ -264,56 +193,38 @@ const ModelCard = ({ url, modelData }) => {
     >
       {/* First state: show description page */}
       <Box style={styles.descriptionCard}>
-        <h2 style={styles.h2}>{modelData.model_name}</h2>
-        <div style={styles.langRow}>
-          {(()=> {
-            if ( modelData.model_lang.includes("en")) {
-              return (
-                <Chip label="EN" variant="outlined" size="small" sx={{marginRight: "10px"}}/>
-              );
-            }
-          })()}
-          {(()=> {
-            if ( modelData.model_lang.includes("zh")) {
-              return (
-                <Chip label="ZH" variant="outlined" size="small"/>
-              )
-            }
-          })()}
+        <div style={styles.titleContainer}>
+          <h2 style={styles.h2}>{modelData.model_name}</h2>
+          <div style={styles.langRow}>
+            {(() => {
+              if (modelData.language.includes("en")) {
+                return (
+                  <Chip label="EN" variant="outlined" size="small" sx={{ marginRight: "10px" }} />
+                );
+              }
+            })()}
+            {(() => {
+              if (modelData.language.includes("zh")) {
+                return (
+                  <Chip label="ZH" variant="outlined" size="small" />
+                );
+              }
+            })()}
+          </div>
         </div>
-        <p style={styles.p}>{modelData.model_description}</p>
-
         <div style={styles.iconRow}>
           <div style={styles.iconItem}>
             <span style={styles.boldIconText}>
-              {Math.floor(modelData.context_length / 1000)}K
+              {modelData.dimensions}
             </span>
-            <small style={styles.smallText}>context length</small>
+            <small style={styles.smallText}>dimensions</small>
           </div>
-          {(() => {
-            if (modelData.model_ability.includes("chat")) {
-              return (
-                <div style={styles.iconItem}>
-                  <ChatOutlined style={styles.muiIcon} />
-                  <small style={styles.smallText}>chat model</small>
-                </div>
-              );
-            } else if (modelData.model_ability.includes("generate")) {
-              return (
-                <div style={styles.iconItem}>
-                  <EditNoteOutlined style={styles.muiIcon} />
-                  <small style={styles.smallText}>generate model</small>
-                </div>
-              );
-            } else {
-              return (
-                <div style={styles.iconItem}>
-                  <HelpCenterOutlined style={styles.muiIcon} />
-                  <small style={styles.smallText}>other model</small>
-                </div>
-              );
-            }
-          })()}
+          <div style={styles.iconItem}>
+            <span style={styles.boldIconText}>
+              {modelData.max_tokens}
+            </span>
+            <small style={styles.smallText}>max tokens</small>
+          </div>
         </div>
         {hover ? (
           <p style={styles.instructionText}>
@@ -332,79 +243,16 @@ const ModelCard = ({ url, modelData }) => {
         }
       >
         <h2 style={styles.h2}>{modelData.model_name}</h2>
-        <Box display="flex" flexDirection="column" width="80%" mx="auto">
-          <FormControl variant="outlined" margin="normal" size="small">
-            <InputLabel id="modelFormat-label">Model Format</InputLabel>
-            <Select
-              labelId="modelFormat-label"
-              value={modelFormat}
-              onChange={(e) => setModelFormat(e.target.value)}
-              label="Model Format"
-            >
-              {formatOptions.map((format) => (
-                <MenuItem key={format} value={format}>
-                  {format}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <FormControl
-            variant="outlined"
-            margin="normal"
-            size="small"
-            disabled={!modelFormat}
-          >
-            <InputLabel id="modelSize-label">Model Size</InputLabel>
-            <Select
-              labelId="modelSize-label"
-              value={modelSize}
-              onChange={(e) => setModelSize(e.target.value)}
-              label="Model Size"
-            >
-              {sizeOptions.map((size) => (
-                <MenuItem key={size} value={size}>
-                  {size}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          {(modelData.is_builtin || modelFormat === "pytorch") && (
-            <FormControl
-              variant="outlined"
-              margin="normal"
-              size="small"
-              disabled={!modelFormat || !modelSize}
-            >
-              <InputLabel id="quantization-label">Quantization</InputLabel>
-              <Select
-                labelId="quantization-label"
-                value={quantization}
-                onChange={(e) => setQuantization(e.target.value)}
-                label="Quantization"
-              >
-                {quantizationOptions.map((quant) => (
-                  <MenuItem key={quant} value={quant}>
-                    {quant}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          )}
-        </Box>
         <Box style={styles.buttonsContainer}>
           <button
-            title="Launch Web UI"
+            title="Launch Embedding"
             style={styles.buttonContainer}
             onClick={() => launchModel(url, modelData)}
             disabled={
               isCallingApi ||
               isUpdatingModel ||
               !(
-                modelFormat &&
-                modelSize &&
-                modelData &&
-                (quantization ||
-                  (!modelData.is_builtin && modelFormat !== "pytorch"))
+                modelData
               )
             }
           >
@@ -424,11 +272,7 @@ const ModelCard = ({ url, modelData }) => {
                 );
               } else if (
                 !(
-                  modelFormat &&
-                  modelSize &&
-                  modelData &&
-                  (quantization ||
-                    (!modelData.is_builtin && modelFormat !== "pytorch"))
+                  modelData
                 )
               ) {
                 return (
@@ -448,7 +292,7 @@ const ModelCard = ({ url, modelData }) => {
             })()}
           </button>
           <button
-            title="Launch Web UI"
+            title="Launch Embedding"
             style={styles.buttonContainer}
             onClick={() => setSelected(false)}
           >
@@ -462,4 +306,4 @@ const ModelCard = ({ url, modelData }) => {
   );
 };
 
-export default ModelCard;
+export default EmbeddingCard;
