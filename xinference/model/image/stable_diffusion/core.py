@@ -23,6 +23,7 @@ from typing import Optional
 
 from ....constants import XINFERENCE_IMAGE_DIR
 from ....types import Image, ImageList
+from ...llm.utils import select_device
 
 
 class DiffusionModel:
@@ -36,8 +37,17 @@ class DiffusionModel:
         self._kwargs = kwargs
 
     def load(self):
-        import torch
-        from diffusers import AutoPipelineForText2Image
+        try:
+            from diffusers import AutoPipelineForText2Image
+        except ImportError:
+            raise ImportError(
+                f"Failed to import module 'diffusers'. Please make sure 'diffusers' is installed.\n\n"
+            )
+
+        device = self._kwargs.get("device", "auto")
+        self._kwargs["device"] = select_device(device)
+        if self._kwargs["device"] == "cuda":
+            self._kwargs.setdefault("device_map", "auto")
 
         self._model = AutoPipelineForText2Image.from_pretrained(
             self._model_path,
@@ -46,9 +56,7 @@ class DiffusionModel:
             # torch_dtype=torch.float16,
             # use_safetensors=True,
         )
-        if torch.cuda.is_available():
-            self._model = self._model.to("cuda")
-        elif torch.backends.mps.is_available():
+        if self._kwargs["device"] == "mps":
             self._model = self._model.to("mps")
         # Recommended if your computer has < 64 GB of RAM
         self._model.enable_attention_slicing()

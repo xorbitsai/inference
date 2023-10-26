@@ -268,3 +268,31 @@ def is_valid_model_name(model_name: str) -> bool:
     import re
 
     return re.match(r"^[A-Za-z0-9][A-Za-z0-9_\-]*$", model_name) is not None
+
+
+def select_device(device: str) -> str:
+    try:
+        import torch
+    except ImportError:
+        raise ImportError(
+            f"Failed to import module 'torch'. Please make sure 'torch' is installed.\n\n"
+        )
+
+    if device == "auto":
+        # When env CUDA_VISIBLE_DEVICES=-1, torch.cuda.is_available() return False
+        if torch.cuda.is_available():
+            return "cuda"
+        elif torch.backends.mps.is_available():
+            return "mps"
+        return "cpu"
+    elif device == "cuda":
+        if not torch.cuda.is_available():
+            raise ValueError("cuda is unavailable in your environment")
+    elif device == "mps":
+        if not torch.backends.mps.is_available():
+            raise ValueError("mps is unavailable in your environment")
+    elif device == "cpu":
+        pass
+    else:
+        raise ValueError(f"Device {device} is not supported in temporary")
+    return device
