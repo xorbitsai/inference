@@ -14,20 +14,26 @@
 
 import asyncio
 import logging
+import multiprocessing
+import signal
+import sys
 from typing import Dict, Optional
 
 import xoscar as xo
+from xoscar.utils import get_next_port
 
 from ..core.supervisor import SupervisorActor
 
-logger = logging.getLogger("xinference")
+logger = logging.getLogger(__name__)
 
 
 async def _start_supervisor(address: str, logging_conf: Optional[Dict] = None):
+    logging.config.dictConfig(logging_conf)  # type: ignore
+
     pool = None
     try:
         pool = await xo.create_actor_pool(
-            address=address, n_process=0, logging_conf=logging_conf
+            address=address, n_process=0, logging_conf={"dict": logging_conf}
         )
         await xo.create_actor(
             SupervisorActor, address=address, uid=SupervisorActor.uid()
@@ -38,17 +44,40 @@ async def _start_supervisor(address: str, logging_conf: Optional[Dict] = None):
             await pool.stop()
 
 
-def main(address: str, host: str, port: int, logging_conf: Optional[Dict] = None):
+def run(address: str, logging_conf: Optional[Dict] = None):
+    def sigterm_handler(signum, frame):
+        sys.exit(0)
+
+    signal.signal(signal.SIGTERM, sigterm_handler)
+
     loop = asyncio.get_event_loop()
     task = loop.create_task(
         _start_supervisor(address=address, logging_conf=logging_conf)
     )
+    loop.run_until_complete(task)
+
+
+def run_in_subprocess(
+    address: str, logging_conf: Optional[Dict] = None
+) -> multiprocessing.Process:
+    p = multiprocessing.Process(target=run, args=(address, logging_conf))
+    p.start()
+    return p
+
+
+def main(host: str, port: int, logging_conf: Optional[Dict] = None):
+    supervisor_address = f"{host}:{get_next_port()}"
+    local_cluster = run_in_subprocess(supervisor_address, logging_conf)
+    # TODO: supervisor health check
 
     try:
-        # TODO: run RESTful API.
-        loop.run_until_complete(task)
-    except KeyboardInterrupt:
-        task.cancel()
-        loop.run_until_complete(task)
-        # avoid displaying exception-unhandled warnings
-        task.exception()
+        from ..api import restful_api
+
+        restful_api.run(
+            supervisor_address=supervisor_address,
+            host=host,
+            port=port,
+            logging_conf=logging_conf,
+        )
+    finally:
+        local_cluster.terminate()

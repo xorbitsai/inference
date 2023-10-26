@@ -33,12 +33,9 @@ from typing_extensions import NotRequired, TypedDict
 from uvicorn import Config, Server
 from xoscar.utils import get_next_port
 
-from xinference.constants import XINFERENCE_DEFAULT_ENDPOINT_PORT
-from xinference.core.supervisor import SupervisorActor
-from xinference.types import ChatCompletion, Completion, Embedding, ImageList
-
-logging.basicConfig(level=logging.DEBUG)
-
+from ..constants import XINFERENCE_DEFAULT_ENDPOINT_PORT
+from ..core.supervisor import SupervisorActor
+from ..types import ChatCompletion, Completion, Embedding, ImageList
 
 logger = logging.getLogger(__name__)
 
@@ -256,10 +253,6 @@ class RESTfulAPI:
         self._supervisor_ref = None
         self._router = APIRouter()
         self._app = FastAPI()
-
-    @classmethod
-    def uid(cls) -> str:
-        return "RESTfulAPI"
 
     async def _get_supervisor_ref(self):
         if self._supervisor_ref is None:
@@ -530,7 +523,7 @@ class RESTfulAPI:
                 )
                 asyncio.set_event_loop(asyncio.new_event_loop())
 
-        from xinference.core.chat_interface import LLMInterface
+        from ..core.chat_interface import LLMInterface
 
         try:
             internal_host = "localhost" if self._host == "0.0.0.0" else self._host

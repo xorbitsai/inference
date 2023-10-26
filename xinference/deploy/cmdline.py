@@ -164,9 +164,7 @@ def supervisor(
     )
     logging.config.dictConfig(dict_config)  # type: ignore
 
-    address = f"{host}:{get_next_port()}"
-
-    main(address=address, host=host, port=port, logging_conf={"dict": dict_config})
+    main(host=host, port=port, logging_conf=dict_config)
 
 
 @click.command(
