@@ -11,63 +11,71 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import configparser
+
 import logging
 import time
 
 import pytest_asyncio
 import xoscar as xo
 
-TEST_LOGGING_CONF = """[loggers]
-keys=root
+from xinference.core.supervisor import SupervisorActor
 
-[handlers]
-keys=stream_handler
-
-[formatters]
-keys=formatter
-
-[logger_root]
-level=DEBUG
-handlers=stream_handler
-
-[handler_stream_handler]
-class=StreamHandler
-formatter=formatter
-level=DEBUG
-args=(sys.stderr,)
-
-[formatter_formatter]
-format=%(asctime)s %(name)-12s %(process)d %(levelname)-8s %(message)s
-"""
+TEST_LOGGING_CONF = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "formatter": {
+            "format": "%(asctime)s %(name)-12s %(process)d %(levelname)-8s %(message)s",
+        },
+    },
+    "handlers": {
+        "stream_handler": {
+            "class": "logging.StreamHandler",
+            "formatter": "formatter",
+            "level": "DEBUG",
+            "stream": "ext://sys.stderr",
+        },
+    },
+    "root": {
+        "level": "DEBUG",
+        "handlers": ["stream_handler"],
+    },
+}
 
 
 @pytest_asyncio.fixture
 async def setup():
-    from .deploy.supervisor import start_supervisor_components
+    from .api.restful_api import run_in_subprocess as run_restful_api
     from .deploy.utils import create_worker_actor_pool
     from .deploy.worker import start_worker_components
 
-    logging_conf = configparser.RawConfigParser()
-    logging_conf.read_string(TEST_LOGGING_CONF)
-    logging.config.fileConfig(logging_conf)  # type: ignore
+    logging.config.dictConfig(TEST_LOGGING_CONF)  # type: ignore
 
     pool = await create_worker_actor_pool(
         address=f"test://127.0.0.1:{xo.utils.get_next_port()}",
-        logging_conf=logging_conf,
+        logging_conf=TEST_LOGGING_CONF,
     )
     print(f"Pool running on localhost:{pool.external_address}")
 
-    endpoint = await start_supervisor_components(
-        pool.external_address, "127.0.0.1", xo.utils.get_next_port()
+    await xo.create_actor(
+        SupervisorActor, address=pool.external_address, uid=SupervisorActor.uid()
     )
     await start_worker_components(
         address=pool.external_address,
         supervisor_address=pool.external_address,
         main_pool=pool,
     )
+    port = xo.utils.get_next_port()
+    restful_api_proc = run_restful_api(
+        pool.external_address,
+        host="localhost",
+        port=port,
+        logging_conf=TEST_LOGGING_CONF,
+    )
 
     # wait for the api.
     time.sleep(3)
     async with pool:
-        yield endpoint, pool.external_address
+        yield f"http://localhost:{port}", pool.external_address
+
+    restful_api_proc.terminate()

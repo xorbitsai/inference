@@ -15,6 +15,7 @@
 import asyncio
 import json
 import logging
+import multiprocessing
 import os
 import sys
 import warnings
@@ -896,3 +897,14 @@ def run(
             api.serve(logging_conf=logging_conf)
         else:
             raise
+
+
+def run_in_subprocess(
+    supervisor_address: str, host: str, port: int, logging_conf: Optional[dict] = None
+) -> multiprocessing.Process:
+    p = multiprocessing.Process(
+        target=run, args=(supervisor_address, host, port, logging_conf)
+    )
+    p.daemon = True
+    p.start()
+    return p
