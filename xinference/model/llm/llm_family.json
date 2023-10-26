@@ -613,6 +613,9 @@
       "inter_message_sep": " </s><s>",
       "stop_token_ids": [
         2
+      ],
+      "stop": [
+        "</s>"
       ]
     }
   },
@@ -1636,6 +1639,9 @@
       "inter_message_sep": " </s><s>",
       "stop_token_ids": [
         2
+      ],
+      "stop": [
+        "</s>"
       ]
     }
   },
@@ -1947,6 +1953,9 @@
       "inter_message_sep": " </s><s>",
       "stop_token_ids": [
         2
+      ],
+      "stop": [
+        "</s>"
       ]
     }
   },
