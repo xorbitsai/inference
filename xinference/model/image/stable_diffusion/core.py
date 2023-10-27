@@ -110,6 +110,8 @@ class DiffusionModel:
         response_format: str = "url",
         **kwargs,
     ):
+        # References:
+        # https://huggingface.co/docs/diffusers/main/en/api/pipelines/controlnet_sdxl
         width, height = map(int, size.split("*"))
         return self._call_model(
             prompt=prompt,
