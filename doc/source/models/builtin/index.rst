@@ -14,6 +14,7 @@ Text Generation Models
 - :ref:`Baichuan-2 <models_builtin_baichuan_2>`
 - :ref:`Falcon <models_builtin_falcon>`
 - :ref:`InternLM <models_builtin_internlm>`
+- :ref:`InternLM 20B <models_builtin_internlm_20b>`
 - :ref:`Llama-2 <models_builtin_llama_2>`
 - :ref:`OPT <models_builtin_opt>`
 
@@ -29,6 +30,7 @@ Chat & Instruction-following Models
 - :ref:`CodeLlama-Instruct <models_builtin_code_llama_instruct>`
 - :ref:`Falcon Instruct <models_builtin_falcon_instruct>`
 - :ref:`InternLM Chat <models_builtin_internlm_chat>`
+- :ref:`InternLM Chat 20B <models_builtin_internlm_chat_20b>`
 - :ref:`InternLM Chat 8K <models_builtin_internlm_chat_8k>`
 - :ref:`Llama-2 Chat <models_builtin_llama_2_chat>`
 - :ref:`Orca Mini <models_builtin_orca_mini>`
@@ -73,8 +75,10 @@ Code Assistant Models
    falcon-instruct
    falcon
    internlm
+   internlm-20b
    internlm-chat
    internlm-chat-8k
+   internlm-chat-20b
    llama-2-chat
    llama-2
    openbuddy

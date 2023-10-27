@@ -43,15 +43,14 @@ with popular third-party libraries like `LangChain <https://python.langchain.com
 
 Framework Enhancements
 ~~~~~~~~~~~~~~~~~~~~~~
+- Speculative decoding: `#509 <https://github.com/xorbitsai/inference/pull/509>`_
+- Support grammar-based sampling for ggml models: `#525 <https://github.com/xorbitsai/inference/pull/525>`_
 - Incorporate vLLM: `#445 <https://github.com/xorbitsai/inference/pull/445>`_
-- Embedding model support: `#418 <https://github.com/xorbitsai/inference/pull/418>`_
-- LoRA support: `#271 <https://github.com/xorbitsai/inference/issues/271>`_
-- Multi-GPU support for PyTorch models: `#226 <https://github.com/xorbitsai/inference/issues/226>`_
-- Xinference dashboard: `#93 <https://github.com/xorbitsai/inference/issues/93>`_
+
 
 New Models
 ~~~~~~~~~~
-- Built-in support for `CodeLLama <https://github.com/facebookresearch/codellama>`_: `#414 <https://github.com/xorbitsai/inference/pull/414>`_ `#402 <https://github.com/xorbitsai/inference/pull/402>`_
+- Built-in support for `mistral-v0.1 <https://huggingface.co/mistralai/Mistral-7B-v0.1>`_ and `mistral-instruct-v0.1 <https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.1>`_: `#510 <https://github.com/xorbitsai/inference/pull/510>`_
 
 
 Integrations
