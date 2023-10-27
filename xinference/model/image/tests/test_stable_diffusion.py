@@ -50,7 +50,7 @@ def test_model():
     assert img.size == (256, 256)
 
 
-@pytest.skip
+@pytest.skip("Stable diffusion xl requires too many GRAM.")
 def test_restful_api_for_image_with_canny_controlnet(setup):
     endpoint, _ = setup
     from ....client import Client
@@ -92,7 +92,6 @@ def test_restful_api_for_image_with_canny_controlnet(setup):
     logger.info("test result %s", r)
 
 
-@pytest.skip
 def test_restful_api_for_image_with_mlsd_controlnet(setup):
     endpoint, _ = setup
     from ....client import Client
