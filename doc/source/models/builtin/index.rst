@@ -27,6 +27,8 @@ Chat & Instruction-following Models
 - :ref:`ChatGLM <models_builtin_chatglm>`
 - :ref:`ChatGLM2 <models_builtin_chatglm2>`
 - :ref:`ChatGLM2-32k <models_builtin_chatglm2_32k>`
+- :ref:`ChatGLM3 <models_builtin_chatglm3>`
+- :ref:`ChatGLM3-32k <models_builtin_chatglm3_32k>`
 - :ref:`CodeLlama-Instruct <models_builtin_code_llama_instruct>`
 - :ref:`Falcon Instruct <models_builtin_falcon_instruct>`
 - :ref:`InternLM Chat <models_builtin_internlm_chat>`
@@ -69,6 +71,8 @@ Code Assistant Models
    chatglm
    chatglm2-32k
    chatglm2
+   chatglm3-32k
+   chatglm3
    code-llama
    code-llama-instruct
    code-llama-python
