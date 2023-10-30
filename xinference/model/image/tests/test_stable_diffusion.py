@@ -111,7 +111,10 @@ def test_restful_api_for_image_with_mlsd_controlnet(setup):
 
     mlsd = MLSDdetector.from_pretrained("lllyasviel/ControlNet")
 
-    image = load_image("draft.png")
+    # Replace the image path for your test.
+    image_path = os.path.expanduser("~/draft.png")
+    logger.info("Image path: %s", image_path)
+    image = load_image(image_path)
     image = mlsd(image)
     prompt = (
         "a modern house, use glass window, best quality, 8K wallpaper,(realistic:1.3), "
