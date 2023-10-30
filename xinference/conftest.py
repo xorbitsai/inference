@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import logging
-import time
 
 import pytest_asyncio
 import xoscar as xo
@@ -43,6 +42,30 @@ TEST_LOGGING_CONF = {
 }
 
 
+def health_check(endpoint: str, max_attempts: int, sleep_interval: int = 3):
+    import time
+
+    import requests
+
+    attempts = 0
+    while attempts < max_attempts:
+        time.sleep(sleep_interval)
+        try:
+            response = requests.get(f"{endpoint}/status")
+            if response.status_code == 200:
+                return True
+        except requests.RequestException as e:
+            print(f"Error while checking endpoint: {e}")
+
+        attempts += 1
+        if attempts < max_attempts:
+            print(
+                f"Endpoint not available, will try {max_attempts - attempts} more times"
+            )
+
+    return False
+
+
 @pytest_asyncio.fixture
 async def setup():
     from .api.restful_api import run_in_subprocess as run_restful_api
@@ -65,6 +88,8 @@ async def setup():
         supervisor_address=pool.external_address,
         main_pool=pool,
     )
+    print("Supervisor and worker has been started successfully")
+
     port = xo.utils.get_next_port()
     restful_api_proc = run_restful_api(
         pool.external_address,
@@ -72,9 +97,10 @@ async def setup():
         port=port,
         logging_conf=TEST_LOGGING_CONF,
     )
+    endpoint = f"http://localhost:{port}"
+    if not health_check(endpoint, max_attempts=3, sleep_interval=3):
+        raise RuntimeError("Endpoint is not available after multiple attempts")
 
-    # wait for the api.
-    time.sleep(3)
     async with pool:
         yield f"http://localhost:{port}", pool.external_address
 

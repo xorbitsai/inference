@@ -71,6 +71,7 @@ class SupervisorActor(xo.StatelessActor):
             str, xo.ActorRefType["WorkerActor"]
         ] = {}
         self._model_uid_to_replica_info: Dict[str, ReplicaInfo] = {}
+        self._uptime = None
         self._lock = asyncio.Lock()
 
     @classmethod
@@ -78,6 +79,7 @@ class SupervisorActor(xo.StatelessActor):
         return "supervisor"
 
     async def __post_create__(self):
+        self._uptime = time.time()
         self._check_dead_nodes_task = asyncio.create_task(self._check_dead_nodes())
         logger.info(f"Xinference supervisor {self.address} started")
 
@@ -104,6 +106,13 @@ class SupervisorActor(xo.StatelessActor):
             return target_worker
 
         raise RuntimeError("No available worker found")
+
+    @log_sync(logger=logger)
+    def get_status(self) -> Dict:
+        return {
+            "uptime": int(time.time() - self._uptime),
+            "workers": self._worker_status,
+        }
 
     @log_sync(logger=logger)
     def list_model_registrations(self, model_type: str) -> List[Dict[str, Any]]:

@@ -270,6 +270,7 @@ class RESTfulAPI:
             allow_methods=["*"],
             allow_headers=["*"],
         )
+        self._router.add_api_route("/status", self.get_status, methods=["GET"])
         self._router.add_api_route("/v1/models", self.list_models, methods=["GET"])
         self._router.add_api_route(
             "/v1/models/{model_uid}", self.describe_model, methods=["GET"]
@@ -383,6 +384,13 @@ class RESTfulAPI:
         )
         server = Server(config)
         server.run()
+
+    async def get_status(self) -> Dict[str, Any]:
+        try:
+            return await (await self._get_supervisor_ref()).get_status()
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
 
     async def list_models(self) -> Dict[str, Dict[str, Any]]:
         try:

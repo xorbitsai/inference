@@ -23,6 +23,7 @@ import xoscar as xo
 from xoscar.utils import get_next_port
 
 from ..core.supervisor import SupervisorActor
+from .utils import health_check
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +69,9 @@ def run_in_subprocess(
 def main(host: str, port: int, logging_conf: Optional[Dict] = None):
     supervisor_address = f"{host}:{get_next_port()}"
     local_cluster = run_in_subprocess(supervisor_address, logging_conf)
-    # TODO: supervisor health check
+
+    if not health_check(address=supervisor_address, max_attempts=3, sleep_interval=1):
+        raise RuntimeError("Supervisor is not available after multiple attempts")
 
     try:
         from ..api import restful_api
