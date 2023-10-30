@@ -106,19 +106,25 @@ Embedding Models
 Language: English
 ++++++++++++++++++++++
 - :ref:`bge-large-en <models_builtin_bge_large_en>`
+- :ref:`bge-large-en-v1.5 <models_builtin_bge_large_en_v1.5>`
 - :ref:`bge-base-en <models_builtin_bge_base_en>`
+- :ref:`bge-base-en-v1.5 <models_builtin_bge_base_en_v1.5>`
 - :ref:`gte-large <models_builtin_gte_large>`
 - :ref:`gte-base <models_builtin_gte_base>`
 - :ref:`e5-large-v2 <models_builtin_e5_large_v2>`
+- :ref:`bge-small-en-v1.5 <models_builtin_bge_small_en_v1.5>`
 
 
 Language: Chinese
 +++++++++++++++++++++
 - :ref:`bge-large-zh <models_builtin_bge_large_zh>`
 - :ref:`bge-large-zh-noinstruct <models_builtin_bge_large_zh_noinstruct>`
+- :ref:`bge-large-zh-v1.5 <models_builtin_bge_large_zh_v1.5>`
 - :ref:`bge-base-zh <models_builtin_bge_base_zh>`
+- :ref:`bge-base-zh-v1.5 <models_builtin_bge_base_zh_v1.5>`
 - :ref:`multilingual-e5-large <models_builtin_multilingual_e5_large>`
 - :ref:`bge-small-zh <models_builtin_bge_small_zh>`
+- :ref:`bge-small-zh-v1.5 <models_builtin_bge_small_zh_v1.5>`
 
 
 
@@ -127,12 +133,18 @@ Language: Chinese
    :hidden:
 
    bge-large-en
+   bge-large-en-v1.5
    bge-base-en
+   bge-base-en-v1.5
+   bge-small-en-v1.5
    gte-large
    gte-base
    e5-large-v2
    bge-large-zh
    bge-large-zh-noinstruct
+   bge-large-zh-v1.5
    bge-base-zh
+   bge-base-zh-v1.5
    multilingual-e5-large
    bge-small-zh
+   bge-small-zh-v1.5
