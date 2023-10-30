@@ -20,6 +20,7 @@ from click.testing import CliRunner
 
 from ...client import Client
 from ..cmdline import (
+    get_log_file,
     list_model_registrations,
     model_chat,
     model_generate,
@@ -142,6 +143,13 @@ def test_cmdline(setup, stream, model_uid):
     )
     assert result.exit_code == 0
     assert model_uid not in result.stdout
+
+    # test logs
+    log_file = get_log_file()
+    assert os.path.exists(log_file)
+    with open(log_file, "r") as f:
+        content = f.read()
+        assert len(content) > 0
 
 
 def test_cmdline_of_custom_model(setup):
