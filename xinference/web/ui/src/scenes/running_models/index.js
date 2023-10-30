@@ -24,7 +24,6 @@ const RunningModels = () => {
       })
         .then((response) => response.json())
         .then((data) => {
-          console.log(data);
           const newModelData = [];
           Object.entries(data).forEach(([key, value]) => {
             let newValue = {
@@ -198,7 +197,6 @@ const RunningModels = () => {
                     response.json();
                   })
                   .then((data) => {
-                    console.log(data);
                     setIsCallingApi(false);
                   })
                   .catch((error) => {
