@@ -215,6 +215,20 @@
     "model_description": "ChatGLM2 is the second generation of ChatGLM, still open-source and trained on Chinese and English data.",
     "model_specs": [
       {
+        "model_format": "ggmlv3",
+        "model_size_in_billions": 6,
+        "quantizations": [
+          "q4_0",
+          "q4_1",
+          "q5_0",
+          "q5_1",
+          "q8_0"
+        ],
+        "model_id": "Xorbits/chatglm2-6B-GGML",
+        "model_revision": "v1.0.0",
+        "model_file_name_template": "chatglm2-ggml-{quantization}.bin"
+      },
+      {
         "model_format": "pytorch",
         "model_size_in_billions": 6,
         "quantizations": [
@@ -729,6 +743,258 @@
         "model_revision": "v1.0.1"
       }
     ]
+  },
+  {
+    "version": 1,
+    "context_length": 8192,
+    "model_name": "mistral-v0.1",
+    "model_lang": [
+      "en"
+    ],
+    "model_ability": [
+      "generate"
+    ],
+    "model_description": "Mistral-7B is a unmoderated Transformer based LLM claiming to outperform Llama2 on all benchmarks.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "mistralai/Mistral-7B-v0.1",
+        "model_revision": "ae9d75c6b4eb39515def78c685fb4d71d49fc2cf"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "Q2_K",
+          "Q3_K_S",
+          "Q3_K_M",
+          "Q3_K_L",
+          "Q4_0",
+          "Q4_K_S",
+          "Q4_K_M",
+          "Q5_0",
+          "Q5_K_S",
+          "Q5_K_M",
+          "Q6_K",
+          "Q8_0"
+        ],
+        "model_hub": "modelscope",
+        "model_id": "Xorbits/Mistral-7B-v0.1-GGUF",
+        "model_file_name_template": "mistral-7b-v0.1.{quantization}.gguf",
+        "model_revision": "v1.0.0"
+      }
+    ]
+  },
+  {
+    "version": 1,
+    "context_length": 100000,
+    "model_name": "code-llama-python",
+    "model_lang": [
+      "en"
+    ],
+    "model_ability": [
+      "generate"
+    ],
+    "model_description": "Code-Llama-Python is a fine-tuned version of the Code-Llama LLM, specializing in Python.",
+    "model_specs": [
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "Q2_K",
+          "Q3_K_L",
+          "Q3_K_M",
+          "Q3_K_S",
+          "Q4_0",
+          "Q4_K_M",
+          "Q4_K_S",
+          "Q5_0",
+          "Q5_K_M",
+          "Q5_K_S",
+          "Q6_K",
+          "Q8_0"
+        ],
+        "model_id": "Xorbits/CodeLlama-7B-Python-GGUF",
+        "model_hub": "modelscope",
+        "model_revision": "v1.0.0",
+        "model_file_name_template": "codellama-7b-python.{quantization}.gguf"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 13,
+        "quantizations": [
+          "Q2_K",
+          "Q3_K_L",
+          "Q3_K_M",
+          "Q3_K_S",
+          "Q4_0",
+          "Q4_K_M",
+          "Q4_K_S",
+          "Q5_0",
+          "Q5_K_M",
+          "Q5_K_S",
+          "Q6_K",
+          "Q8_0"
+        ],
+        "model_hub": "modelscope",
+        "model_id": "TheBloke/CodeLlama-13B-Python-GGUF",
+        "model_file_name_template": "codellama-13b-python.{quantization}.gguf"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 34,
+        "quantizations": [
+          "Q2_K",
+          "Q3_K_L",
+          "Q3_K_M",
+          "Q3_K_S",
+          "Q4_0",
+          "Q4_K_M",
+          "Q4_K_S",
+          "Q5_0",
+          "Q5_K_M",
+          "Q5_K_S",
+          "Q6_K",
+          "Q8_0"
+        ],
+        "model_hub": "modelscope",
+        "model_id": "TheBloke/CodeLlama-34B-Python-GGUF",
+        "model_file_name_template": "codellama-34b-python.{quantization}.gguf"
+      }
+    ]
+  },
+  {
+    "version": 1,
+    "context_length": 2048,
+    "model_name": "wizardmath-v1.0",
+    "model_lang": [
+      "en"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "WizardMath is an open-source LLM trained by fine-tuning Llama2 with Evol-Instruct, specializing in math.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_hub": "modelscope",
+        "model_id": "Xorbits/WizardMath-7B-V1.0",
+        "model_revision": "v1.0.0"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "ADD_COLON_SINGLE_COT",
+      "system_prompt": "Below is an instruction that describes a task. Write a response that appropriately completes the request.",
+      "roles": [
+        "Instruction",
+        "Response"
+      ],
+      "intra_message_sep": "\n\n### "
+    }
+  },
+  {
+    "version": 1,
+    "context_length": 8192,
+    "model_name": "mistral-instruct-v0.1",
+    "model_lang": [
+      "en"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "Mistral-7B-Instruct is a fine-tuned version of the Mistral-7B LLM on public datasets, specializing in chatting.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_hub": "modelscope",
+        "model_id": "Xorbits/Mistral-7B-Instruct-v0.1",
+        "model_revision": "v1.0.0"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "NO_COLON_TWO",
+      "system_prompt": "<s>[INST] <<SYS>>\nAn informative and inspiring conversation\n<</SYS>>\n\n",
+      "roles": [
+        "[INST]",
+        "[/INST]"
+      ],
+      "intra_message_sep": " ",
+      "inter_message_sep": " </s><s>",
+      "stop_token_ids": [
+        2
+      ]
+    }
+  },
+  {
+    "version": 1,
+    "context_length": 2048,
+    "model_name": "falcon-instruct",
+    "model_lang": [
+      "en"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "Falcon-instruct is a fine-tuned version of the Falcon LLM, specializing in chatting.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_hub": "modelscope",
+        "model_id": "Xorbits/falcon-7b-instruct",
+        "model_revision": "v1.0.0"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "FALCON",
+      "system_prompt": "",
+      "roles": [
+        "User",
+        "Assistant"
+      ],
+      "intra_message_sep": "\n",
+      "inter_message_sep": "<|endoftext|>",
+      "stop": [
+        "\nUser"
+      ],
+      "stop_token_ids": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ]
+    }
   },
   {
     "version": 1,
