@@ -74,7 +74,7 @@ async def setup():
 
     supervisor_addr = f"localhost:{xo.utils.get_next_port()}"
     local_cluster_proc = run_local_cluster(supervisor_addr, TEST_LOGGING_CONF)
-    if not cluster_health_check(supervisor_addr, max_attempts=3, sleep_interval=3):
+    if not cluster_health_check(supervisor_addr, max_attempts=5, sleep_interval=5):
         raise RuntimeError("Cluster is not available after multiple attempts")
 
     port = xo.utils.get_next_port()
@@ -85,7 +85,7 @@ async def setup():
         logging_conf=TEST_LOGGING_CONF,
     )
     endpoint = f"http://localhost:{port}"
-    if not api_health_check(endpoint, max_attempts=3, sleep_interval=3):
+    if not api_health_check(endpoint, max_attempts=3, sleep_interval=5):
         raise RuntimeError("Endpoint is not available after multiple attempts")
 
     yield f"http://localhost:{port}", supervisor_addr
