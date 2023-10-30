@@ -33,7 +33,7 @@ Your credential to access huggingface can be found online at `https://huggingfac
 You can set the token as an environmental variable, with ``export HUGGING_FACE_HUB_TOKEN=your_token_here``.
 
 Download models from ModelScope
--------------------------------
+===============================
 
 When the network connection to HuggingFace is blocked, you can also choose to download models from ModelScope, especially for Chinese users.
 For a detailed list of supported models and settings, please refer to :ref:`models_download`.

@@ -1,8 +1,8 @@
 .. _models_download:
 
-===============
-Download Source
-===============
+================
+Download Sources
+================
 
 Xinference supports downloading various models from different sources.
 
