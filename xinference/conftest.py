@@ -14,7 +14,7 @@
 
 import logging
 
-import pytest_asyncio
+import pytest
 import xoscar as xo
 
 TEST_LOGGING_CONF = {
@@ -64,8 +64,8 @@ def api_health_check(endpoint: str, max_attempts: int, sleep_interval: int = 3):
     return False
 
 
-@pytest_asyncio.fixture
-async def setup():
+@pytest.fixture
+def setup():
     from .api.restful_api import run_in_subprocess as run_restful_api
     from .deploy.local import run_in_subprocess as run_local_cluster
     from .deploy.utils import health_check as cluster_health_check
