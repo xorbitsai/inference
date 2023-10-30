@@ -40,7 +40,7 @@ TEST_LOGGING_CONF = {
 }
 
 
-def health_check(endpoint: str, max_attempts: int, sleep_interval: int = 3):
+def api_health_check(endpoint: str, max_attempts: int, sleep_interval: int = 3):
     import time
 
     import requests
@@ -68,11 +68,14 @@ def health_check(endpoint: str, max_attempts: int, sleep_interval: int = 3):
 async def setup():
     from .api.restful_api import run_in_subprocess as run_restful_api
     from .deploy.local import run_in_subprocess as run_local_cluster
+    from .deploy.utils import health_check as cluster_health_check
 
     logging.config.dictConfig(TEST_LOGGING_CONF)  # type: ignore
 
     supervisor_addr = f"localhost:{xo.utils.get_next_port()}"
     local_cluster_proc = run_local_cluster(supervisor_addr, TEST_LOGGING_CONF)
+    if not cluster_health_check(supervisor_addr, max_attempts=3, sleep_interval=3):
+        raise RuntimeError("Cluster is not available after multiple attempts")
 
     port = xo.utils.get_next_port()
     restful_api_proc = run_restful_api(
@@ -82,7 +85,7 @@ async def setup():
         logging_conf=TEST_LOGGING_CONF,
     )
     endpoint = f"http://localhost:{port}"
-    if not health_check(endpoint, max_attempts=3, sleep_interval=3):
+    if not api_health_check(endpoint, max_attempts=3, sleep_interval=3):
         raise RuntimeError("Endpoint is not available after multiple attempts")
 
     yield f"http://localhost:{port}", supervisor_addr
