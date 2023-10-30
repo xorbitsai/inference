@@ -17,8 +17,6 @@ import logging
 import pytest_asyncio
 import xoscar as xo
 
-from xinference.core.supervisor import SupervisorActor
-
 TEST_LOGGING_CONF = {
     "version": 1,
     "disable_existing_loggers": False,
@@ -69,30 +67,16 @@ def health_check(endpoint: str, max_attempts: int, sleep_interval: int = 3):
 @pytest_asyncio.fixture
 async def setup():
     from .api.restful_api import run_in_subprocess as run_restful_api
-    from .deploy.utils import create_worker_actor_pool
-    from .deploy.worker import start_worker_components
+    from .deploy.local import run_in_subprocess as run_local_cluster
 
     logging.config.dictConfig(TEST_LOGGING_CONF)  # type: ignore
 
-    pool = await create_worker_actor_pool(
-        address=f"test://127.0.0.1:{xo.utils.get_next_port()}",
-        logging_conf=TEST_LOGGING_CONF,
-    )
-    print(f"Pool running on localhost:{pool.external_address}")
-
-    await xo.create_actor(
-        SupervisorActor, address=pool.external_address, uid=SupervisorActor.uid()
-    )
-    await start_worker_components(
-        address=pool.external_address,
-        supervisor_address=pool.external_address,
-        main_pool=pool,
-    )
-    print("Supervisor and worker has been started successfully")
+    supervisor_addr = f"localhost:{xo.utils.get_next_port()}"
+    local_cluster_proc = run_local_cluster(supervisor_addr, TEST_LOGGING_CONF)
 
     port = xo.utils.get_next_port()
     restful_api_proc = run_restful_api(
-        pool.external_address,
+        supervisor_addr,
         host="localhost",
         port=port,
         logging_conf=TEST_LOGGING_CONF,
@@ -101,7 +85,7 @@ async def setup():
     if not health_check(endpoint, max_attempts=3, sleep_interval=3):
         raise RuntimeError("Endpoint is not available after multiple attempts")
 
-    async with pool:
-        yield f"http://localhost:{port}", pool.external_address
+    yield f"http://localhost:{port}", supervisor_addr
 
+    local_cluster_proc.terminate()
     restful_api_proc.terminate()
