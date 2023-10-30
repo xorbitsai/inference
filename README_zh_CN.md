@@ -27,6 +27,7 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 - 投机采样: [#509](https://github.com/xorbitsai/inference/pull/509)
 - 引入 vLLM: [#445](https://github.com/xorbitsai/inference/pull/445)
 ### 新模型
+- 内置 [chatglm3](https://huggingface.co/THUDM/chatglm3-6b)
 - 内置 [mistral-v0.1](https://huggingface.co/mistralai/Mistral-7B-v0.1) 与 [mistral-instruct-v0.1](https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.1): [#510](https://github.com/xorbitsai/inference/pull/510)
 ### 集成
 - [Dify](https://docs.dify.ai/advanced/model-configuration/xinference): 一个涵盖了大型语言模型开发、部署、维护和优化的 LLMOps 平台。
