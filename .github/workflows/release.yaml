@@ -28,7 +28,7 @@ jobs:
         run: >-
           python3 -m
           pip install
-          build
+          build setuptools
           --user
       - name: Build web
         run: >-
