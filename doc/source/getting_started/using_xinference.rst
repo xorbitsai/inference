@@ -54,3 +54,11 @@ On each of the other servers where you want to run Xinference workers, run the f
   xinference-worker -e "http://${supervisor_host}:9997"
 
 Once Xinference is running, an endpoint will be accessible for model management via CLI or Xinference client.
+
+
+Logging in Xinference
+=====================
+Xinference supports log rotation of log files. By default, logs rotate when they reach 100MB (maxBytes),
+and up to 30 backup files (backupCount) are kept.
+
+All the logs are stored in the ``<XINFERENCE_HOME>/logs`` directory, where ``<XINFERENCE_HOME>`` can be configured as above.
