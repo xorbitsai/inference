@@ -161,7 +161,11 @@ class ModelActor(xo.StatelessActor):
         return (
             self._model.model_uid
             if hasattr(self._model, "model_uid")
-            else self._model._model_uid
+            else (
+                self._model._model_uid
+                if hasattr(self._model, "_model_uid")
+                else None  # return None for UT
+            )
         )
 
     async def _wrap_generator(self, ret: Any):
