@@ -478,6 +478,7 @@ class Client:
         quantization: Optional[str] = None,
         replica: int = 1,
         n_gpu: Optional[Union[int, str]] = "auto",
+        request_limits: Optional[int] = None,
         **kwargs,
     ) -> str:
         """
@@ -502,6 +503,9 @@ class Client:
         n_gpu: Optional[Union[int, str]],
             The number of GPUs used by the model, default is "auto".
             ``n_gpu=None`` means cpu only, ``n_gpu=auto`` lets the system automatically determine the best number of GPUs to use.
+        request_limits: Optional[int]
+            The number of request limits for this model， default is None.
+            ``request_limits=None`` means no limits for this model.
         **kwargs:
             Any other parameters been specified.
 
@@ -526,6 +530,7 @@ class Client:
             "quantization": quantization,
             "replica": replica,
             "n_gpu": n_gpu,
+            "request_limits": request_limits,
         }
 
         for key, value in kwargs.items():

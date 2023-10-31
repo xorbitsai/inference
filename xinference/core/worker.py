@@ -215,6 +215,7 @@ class WorkerActor(xo.StatelessActor):
         quantization: Optional[str],
         model_type: str = "LLM",
         n_gpu: Optional[Union[int, str]] = "auto",
+        request_limits: Optional[int] = None,
         **kwargs,
     ) -> xo.ActorRefType["ModelActor"]:
         if n_gpu is not None:
@@ -246,7 +247,11 @@ class WorkerActor(xo.StatelessActor):
         subpool_address, devices = await self._create_subpool(model_uid, n_gpu=n_gpu)
         try:
             model_ref = await xo.create_actor(
-                ModelActor, address=subpool_address, uid=model_uid, model=model
+                ModelActor,
+                address=subpool_address,
+                uid=model_uid,
+                model=model,
+                request_limits=request_limits,
             )
             await model_ref.load()
         except:

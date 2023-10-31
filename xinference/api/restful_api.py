@@ -256,6 +256,11 @@ class RESTfulAPI:
         self._router = APIRouter()
         self._app = FastAPI()
 
+    @staticmethod
+    def handle_request_limit_error(e: Exception):
+        if "Rate limit reached" in str(e):
+            raise HTTPException(status_code=429, detail=str(e))
+
     async def _get_supervisor_ref(self) -> xo.ActorRefType[SupervisorActor]:
         if self._supervisor_ref is None:
             self._supervisor_ref = await xo.actor_ref(
@@ -464,6 +469,7 @@ class RESTfulAPI:
         model_type = payload.get("model_type")
         replica = payload.get("replica", 1)
         n_gpu = payload.get("n_gpu", "auto")
+        request_limits = payload.get("request_limits", None)
 
         exclude_keys = {
             "model_uid",
@@ -474,6 +480,7 @@ class RESTfulAPI:
             "model_type",
             "replica",
             "n_gpu",
+            "request_limits",
         }
 
         kwargs = {
@@ -496,6 +503,7 @@ class RESTfulAPI:
                 model_type=model_type,
                 replica=replica,
                 n_gpu=n_gpu,
+                request_limits=request_limits,
                 **kwargs,
             )
 
@@ -617,7 +625,10 @@ class RESTfulAPI:
             async def stream_results():
                 iterator = None
                 try:
-                    iterator = await model.generate(body.prompt, kwargs)
+                    try:
+                        iterator = await model.generate(body.prompt, kwargs)
+                    except RuntimeError as re:
+                        self.handle_request_limit_error(re)
                     async for item in iterator:
                         yield dict(data=json.dumps(item))
                 except Exception as ex:
@@ -633,6 +644,7 @@ class RESTfulAPI:
                 return await model.generate(body.prompt, kwargs)
             except Exception as e:
                 logger.error(e, exc_info=True)
+                self.handle_request_limit_error(e)
                 raise HTTPException(status_code=500, detail=str(e))
 
     async def create_embedding(self, request: CreateEmbeddingRequest):
@@ -652,6 +664,7 @@ class RESTfulAPI:
             return embedding
         except RuntimeError as re:
             logger.error(re, exc_info=True)
+            self.handle_request_limit_error(re)
             raise HTTPException(status_code=400, detail=str(re))
         except Exception as e:
             logger.error(e, exc_info=True)
@@ -675,6 +688,7 @@ class RESTfulAPI:
             return image_list
         except RuntimeError as re:
             logger.error(re, exc_info=True)
+            self.handle_request_limit_error(re)
             raise HTTPException(status_code=400, detail=str(re))
         except Exception as e:
             logger.error(e, exc_info=True)
@@ -807,12 +821,15 @@ class RESTfulAPI:
             async def stream_results():
                 iterator = None
                 try:
-                    if is_chatglm_ggml:
-                        iterator = await model.chat(prompt, chat_history, kwargs)
-                    else:
-                        iterator = await model.chat(
-                            prompt, system_prompt, chat_history, kwargs
-                        )
+                    try:
+                        if is_chatglm_ggml:
+                            iterator = await model.chat(prompt, chat_history, kwargs)
+                        else:
+                            iterator = await model.chat(
+                                prompt, system_prompt, chat_history, kwargs
+                            )
+                    except RuntimeError as re:
+                        self.handle_request_limit_error(re)
                     async for item in iterator:
                         yield dict(data=json.dumps(item))
                 except Exception as ex:
@@ -831,6 +848,7 @@ class RESTfulAPI:
                     return await model.chat(prompt, system_prompt, chat_history, kwargs)
             except Exception as e:
                 logger.error(e, exc_info=True)
+                self.handle_request_limit_error(e)
                 raise HTTPException(status_code=500, detail=str(e))
 
     async def register_model(self, model_type: str, request: RegisterModelRequest):

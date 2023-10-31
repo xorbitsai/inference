@@ -273,6 +273,7 @@ class SupervisorActor(xo.StatelessActor):
         model_type: Optional[str],
         replica: int = 1,
         n_gpu: Optional[Union[int, str]] = "auto",
+        request_limits: Optional[int] = None,
         **kwargs,
     ) -> str:
         logger.debug(
@@ -306,6 +307,7 @@ class SupervisorActor(xo.StatelessActor):
                 quantization=quantization,
                 model_type=model_type,
                 n_gpu=n_gpu,
+                request_limits=request_limits,
                 **kwargs,
             )
             self._replica_model_uid_to_worker[_replica_model_uid] = worker_ref
@@ -313,6 +315,11 @@ class SupervisorActor(xo.StatelessActor):
         if not is_valid_model_uid(model_uid):
             raise ValueError(
                 "The model UID is invalid. Please specify the model UID by a-z or A-Z, 0 < length <= 100."
+            )
+
+        if request_limits is not None and request_limits < 0:
+            raise ValueError(
+                "The `request_limits` parameter must be greater or equal than 0."
             )
 
         if model_uid in self._model_uid_to_replica_info:
