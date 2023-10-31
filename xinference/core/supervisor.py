@@ -47,7 +47,7 @@ if TYPE_CHECKING:
 logger = getLogger(__name__)
 
 
-DEFAULT_NODE_TIMEOUT = 30
+DEFAULT_NODE_TIMEOUT = 60
 
 
 @dataclass
