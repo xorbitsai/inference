@@ -669,13 +669,27 @@ class RESTfulAPIActor(xo.Actor):
                 status_code=400, detail="Invalid input. Please specify the prompt."
             )
 
-        prompt = body.messages[-1]["content"]
+        system_messages = []
+        non_system_messages = []
+        for msg in body.messages:
+            if msg["role"] == "system":
+                system_messages.append(msg)
+            else:
+                non_system_messages.append(msg)
 
-        system_prompt = next(
-            (msg["content"] for msg in body.messages if msg["role"] == "system"), None
-        )
+        if len(system_messages) > 1:
+            raise HTTPException(
+                status_code=400, detail="Multiple system messages are not supported."
+            )
+        if len(system_messages) == 1 and body.messages[0]["role"] != "system":
+            raise HTTPException(
+                status_code=400, detail="System message should be the first one."
+            )
+        assert non_system_messages
 
-        chat_history = body.messages[:-1]  # exclude the prompt
+        prompt = non_system_messages[-1]["content"]
+        system_prompt = system_messages[0]["content"] if system_messages else None
+        chat_history = non_system_messages[:-1]  # exclude the prompt
 
         model_uid = body.model
 
