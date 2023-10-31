@@ -11,11 +11,19 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import asyncio
 import logging
+import multiprocessing
+import signal
+import sys
+from typing import Dict, Optional
 
 import pytest
 import xoscar as xo
+
+from xinference.core.supervisor import SupervisorActor
+from xinference.deploy.utils import create_worker_actor_pool
+from xinference.deploy.worker import start_worker_components
 
 TEST_LOGGING_CONF = {
     "version": 1,
@@ -64,16 +72,61 @@ def api_health_check(endpoint: str, max_attempts: int, sleep_interval: int = 3):
     return False
 
 
+async def _start_test_cluster(
+    address: str,
+    logging_conf: Optional[Dict] = None,
+):
+    logging.config.dictConfig(logging_conf)  # type: ignore
+
+    pool = None
+    try:
+        pool = await create_worker_actor_pool(
+            address=f"test://{address}", logging_conf=logging_conf
+        )
+        await xo.create_actor(
+            SupervisorActor, address=address, uid=SupervisorActor.uid()
+        )
+        await start_worker_components(
+            address=address, supervisor_address=address, main_pool=pool
+        )
+        await pool.join()
+    except asyncio.CancelledError:
+        if pool is not None:
+            await pool.stop()
+
+
+def run_test_cluster(address: str, logging_conf: Optional[Dict] = None):
+    def sigterm_handler(signum, frame):
+        sys.exit(0)
+
+    signal.signal(signal.SIGTERM, sigterm_handler)
+
+    loop = asyncio.get_event_loop()
+    task = loop.create_task(
+        _start_test_cluster(address=address, logging_conf=logging_conf)
+    )
+    loop.run_until_complete(task)
+
+
+def run_test_cluster_in_subprocess(
+    address: str, logging_conf: Optional[Dict] = None
+) -> multiprocessing.Process:
+    p = multiprocessing.Process(target=run_test_cluster, args=(address, logging_conf))
+    p.start()
+    return p
+
+
 @pytest.fixture
 def setup():
     from .api.restful_api import run_in_subprocess as run_restful_api
-    from .deploy.local import run_in_subprocess as run_local_cluster
     from .deploy.utils import health_check as cluster_health_check
 
     logging.config.dictConfig(TEST_LOGGING_CONF)  # type: ignore
 
     supervisor_addr = f"localhost:{xo.utils.get_next_port()}"
-    local_cluster_proc = run_local_cluster(supervisor_addr, TEST_LOGGING_CONF)
+    local_cluster_proc = run_test_cluster_in_subprocess(
+        supervisor_addr, TEST_LOGGING_CONF
+    )
     if not cluster_health_check(supervisor_addr, max_attempts=3, sleep_interval=3):
         raise RuntimeError("Cluster is not available after multiple attempts")
 
