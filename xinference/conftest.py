@@ -111,6 +111,7 @@ def run_test_cluster(address: str, logging_conf: Optional[Dict] = None):
 def run_test_cluster_in_subprocess(
     address: str, logging_conf: Optional[Dict] = None
 ) -> multiprocessing.Process:
+    multiprocessing.set_start_method("spawn")
     p = multiprocessing.Process(target=run_test_cluster, args=(address, logging_conf))
     p.start()
     return p
