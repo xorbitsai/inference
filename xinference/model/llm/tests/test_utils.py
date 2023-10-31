@@ -350,6 +350,40 @@ def test_prompt_style_add_colon_single_cot():
     )
 
 
+def test_prompt_style_zephyr():
+    prompt_style = PromptStyleV1(
+        style_name="NO_COLON_TWO",
+        system_prompt=(
+            "<|system|>\nYou are a friendly chatbot who always responds in the style of a pirate.</s>\n"
+        ),
+        roles=["<|user|>\n", "<|assistant|>\n"],
+        intra_message_sep="</s>\n",
+        inter_message_sep="</s>\n",
+        stop_token_ids=[2, 195],
+        stop=["</s>"],
+    )
+
+    chat_history = [
+        ChatCompletionMessage(role=prompt_style.roles[0], content="Hi there."),
+        ChatCompletionMessage(
+            role=prompt_style.roles[1], content="Hello, how may I help you?"
+        ),
+    ]
+    expected = (
+        "<|system|>\n"
+        "You are a friendly chatbot who always responds in the style of a pirate.</s>\n"
+        "<|user|>\n"
+        "Hi there.</s>\n"
+        "<|assistant|>\n"
+        "Hello, how may I help you?</s>\n"
+        "<|user|>\n"
+        "Write a poem.</s>\n"
+        "<|assistant|>\n"
+    )
+    actual = ChatModelMixin.get_prompt("Write a poem.", chat_history, prompt_style)
+    assert expected == actual
+
+
 def test_is_valid_model_name():
     from ..utils import is_valid_model_name
 
