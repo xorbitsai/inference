@@ -16,6 +16,7 @@ import {
   SmartToyOutlined,
   AddBoxOutlined,
   GitHub,
+  LibraryBooksOutlined,
 } from "@mui/icons-material";
 import icon from "../media/icon.webp";
 import { useLocation, useNavigate } from "react-router-dom";

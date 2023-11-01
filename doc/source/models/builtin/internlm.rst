@@ -19,7 +19,7 @@ Model Spec (pytorch, 7 Billion)
 - **Quantizations:** 4-bit, 8-bit, none
 - **Model ID:** internlm/internlm-7b
 
-Execute the following command to launch the model, remember to replace `${quantization}` with your chosen quantization method from the options listed above::
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your chosen quantization method from the options listed above::
 
    xinference launch --model-name internlm --size-in-billions 7 --model-format pytorch --quantization ${quantization}
 

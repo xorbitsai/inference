@@ -22,7 +22,7 @@ Model Spec 1 (pytorch, 7 Billion)
 - **Model ID:** baichuan-inc/Baichuan2-7B-Chat
 - **Model Revision:** 2ce891951e000c36c65442608a0b95fd09b405dc
 
-Execute the following command to launch the model, remember to replace `${quantization}` with your
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
 
    xinference launch --model-name baichuan-2-chat --size-in-billions 7 --model-format pytorch --quantization ${quantization}
@@ -41,7 +41,7 @@ Model Spec 2 (pytorch, 13 Billion)
 - **Model ID:** baichuan-inc/Baichuan2-13B-Chat
 - **Model Revision:** a56c793eb7a721ab6c270f779024e0375e8afd4a
 
-Execute the following command to launch the model, remember to replace `${quantization}` with your
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
 
    xinference launch --model-name baichuan-2-chat --size-in-billions 13 --model-format pytorch --quantization ${quantization}

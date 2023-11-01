@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-10-16 10:33+0800\n"
+"POT-Creation-Date: 2023-11-01 10:48+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -20,7 +20,7 @@ msgstr ""
 "Generated-By: Babel 2.12.1\n"
 
 #: ../../source/examples/chatbot.rst:5
-msgid "Example: chatbot 🤖️"
+msgid "Example: CLI chatbot 🤖️"
 msgstr ""
 
 #: ../../source/examples/chatbot.rst:7
@@ -30,7 +30,7 @@ msgstr ""
 #: ../../source/examples/chatbot.rst:9
 msgid ""
 "Demonstrate how to interact with Xinference to play with LLM chat "
-"functionality with an AI agent 💻"
+"functionality with an AI agent in command line💻"
 msgstr ""
 
 #: ../../source/examples/chatbot.rst:11
@@ -95,4 +95,13 @@ msgid ""
 "`chat "
 "<https://github.com/RayJi01/Xprobe_inference/blob/main/examples/chat.py>`_"
 msgstr ""
+
+#~ msgid "Example: chatbot 🤖️"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "Demonstrate how to interact with "
+#~ "Xinference to play with LLM chat "
+#~ "functionality with an AI agent 💻"
+#~ msgstr ""
 

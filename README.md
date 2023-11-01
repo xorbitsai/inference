@@ -26,16 +26,13 @@ potential of cutting-edge AI models.
 
 ## 🔥 Hot Topics
 ### Framework Enhancements
+- Speculative decoding: [#509](https://github.com/xorbitsai/inference/pull/509)
 - Support grammar-based sampling for ggml models: [#525](https://github.com/xorbitsai/inference/pull/525)
 - Incorporate vLLM: [#445](https://github.com/xorbitsai/inference/pull/445)
-- Embedding model support: [#418](https://github.com/xorbitsai/inference/pull/418)
-- LoRA support: [#271](https://github.com/xorbitsai/inference/issues/271)
-- Multi-GPU support for PyTorch models: [#226](https://github.com/xorbitsai/inference/issues/226)
-- Xinference dashboard: [#93](https://github.com/xorbitsai/inference/issues/93)
 ### New Models
-- Built-in support for [internlm-20b](https://huggingface.co/internlm/internlm-20b/commits/main): [#486](https://github.com/xorbitsai/inference/pull/486)
-- Built-in support for [internlm-chat-20b](https://huggingface.co/internlm/internlm-chat-20b): [#486](https://github.com/xorbitsai/inference/pull/486)
-- Built-in support for [CodeLLama](https://github.com/facebookresearch/codellama): [#414](https://github.com/xorbitsai/inference/pull/414) [#402](https://github.com/xorbitsai/inference/pull/402)
+- Built-in support for [zephyr-7b-alpha](https://huggingface.co/HuggingFaceH4/zephyr-7b-alpha) and [zephyr-7b-beta](https://huggingface.co/HuggingFaceH4/zephyr-7b-beta): [#597](https://github.com/xorbitsai/inference/pull/597) 
+- Built-in support for [chatglm3](https://huggingface.co/THUDM/chatglm3-6b): [#587](https://github.com/xorbitsai/inference/pull/587)
+- Built-in support for [mistral-v0.1](https://huggingface.co/mistralai/Mistral-7B-v0.1) and [mistral-instruct-v0.1](https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.1): [#510](https://github.com/xorbitsai/inference/pull/510)
 ### Integrations
 - [Dify](https://docs.dify.ai/advanced/model-configuration/xinference): an LLMOps platform that enables developers (and even non-developers) to quickly build useful applications based on large language models, ensuring they are visual, operable, and improvable.
 - [Chatbox](https://chatboxai.app/): a desktop client for multiple cutting-edge LLM models, available on Windows, Mac and Linux.

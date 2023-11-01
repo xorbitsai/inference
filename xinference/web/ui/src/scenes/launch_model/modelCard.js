@@ -1,7 +1,7 @@
 import React, { useState, useContext, useEffect } from "react";
 import { v1 as uuidv1 } from "uuid";
 import { ApiContext } from "../../components/apiContext";
-import { FormControl, InputLabel, Select, MenuItem, Box } from "@mui/material";
+import { FormControl, InputLabel, Select, MenuItem, Box, Chip } from "@mui/material";
 import { CircularProgress } from "@mui/material";
 import {
   ChatOutlined,
@@ -247,20 +247,6 @@ const ModelCard = ({ url, modelData }) => {
     },
     langRow: {
       margin: "2px 5px"
-    },
-    langTag: {
-      margin: "0px 10px 0px 0px",
-      padding: "2px 10px",
-      borderRadius: "50px",
-      fontSize: "0.8em"
-    },
-    langEn: {
-      border: "1px solid #e5e7eb",
-      backgroundColor: "transparent"
-    },
-    langZh: {
-      border: "1px solid #e5e7eb",
-      backgroundColor: "transparent"
     }
   };
 
@@ -283,14 +269,14 @@ const ModelCard = ({ url, modelData }) => {
           {(()=> {
             if ( modelData.model_lang.includes("en")) {
               return (
-                <span style={{...styles.langTag, ...styles.langEn}}>EN</span>
+                <Chip label="EN" variant="outlined" size="small" sx={{marginRight: "10px"}}/>
               );
             }
           })()}
           {(()=> {
             if ( modelData.model_lang.includes("zh")) {
               return (
-                <span style={{...styles.langTag, ...styles.langZh}}>ZH</span>
+                <Chip label="ZH" variant="outlined" size="small"/>
               )
             }
           })()}

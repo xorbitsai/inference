@@ -152,6 +152,33 @@ async def test_restful_api(setup):
     response = requests.post(url, json=payload)
     assert response.status_code == 400
 
+    # Duplicate system messages
+    payload = {
+        "model": model_uid_res,
+        "messages": [
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "system", "content": "You are not a helpful assistant."},
+            {"role": "user", "content": "Hello!"},
+            {"role": "assistant", "content": "Hi what can I help you?"},
+            {"role": "user", "content": "What is the capital of France?"},
+        ],
+    }
+    response = requests.post(url, json=payload)
+    assert response.status_code == 400
+
+    # System message should be the first one.
+    payload = {
+        "model": model_uid_res,
+        "messages": [
+            {"role": "user", "content": "Hello!"},
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "assistant", "content": "Hi what can I help you?"},
+            {"role": "user", "content": "What is the capital of France?"},
+        ],
+    }
+    response = requests.post(url, json=payload)
+    assert response.status_code == 400
+
     # delete
     url = f"{endpoint}/v1/models/test_restful_api"
     response = requests.delete(url)

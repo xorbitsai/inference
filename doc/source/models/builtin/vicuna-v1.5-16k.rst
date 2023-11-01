@@ -19,7 +19,7 @@ Model Spec 1 (pytorch, 7 Billion)
 - **Quantizations:** 4-bit, 8-bit, none
 - **Model ID:** lmsys/vicuna-7b-v1.5-16k
 
-Execute the following command to launch the model, remember to replace `${quantization}` with your
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
 
    xinference launch --model-name vicuna-v1.5-16k --size-in-billions 7 --model-format pytorch --quantization ${quantization}
@@ -36,7 +36,7 @@ Model Spec 2 (pytorch, 13 Billion)
 - **Quantizations:** 4-bit, 8-bit, none
 - **Model ID:** lmsys/vicuna-13b-v1.5-16k
 
-Execute the following command to launch the model, remember to replace `${quantization}` with your
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
 
    xinference launch --model-name vicuna-v1.5-16k --size-in-billions 13 --model-format pytorch --quantization ${quantization}
