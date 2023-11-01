@@ -1,0 +1,95 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2023-11-01 10:48+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: ja_JP\n"
+"Language-Team: ja_JP <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.12.1\n"
+
+#: ../../source/examples/pdf_chatbot.rst:5
+msgid "Example: PDF Chatbot📚"
+msgstr ""
+
+#: ../../source/examples/pdf_chatbot.rst:7
+msgid "**Description**:"
+msgstr ""
+
+#: ../../source/examples/pdf_chatbot.rst:9
+msgid ""
+"This example showcases how to build a PDF chatbot with local LLM and "
+"Embedding models"
+msgstr ""
+
+#: ../../source/examples/pdf_chatbot.rst:11
+msgid "**Used Technology**:"
+msgstr ""
+
+#: ../../source/examples/pdf_chatbot.rst:13
+msgid ""
+"@ `Xinference <https://github.com/xorbitsai/inference>`_ as a LLM model "
+"hosting service"
+msgstr ""
+
+#: ../../source/examples/pdf_chatbot.rst:15
+msgid ""
+"@ `LlamaIndex <https://github.com/run-llama/llama_index>`_ for "
+"orchestrating the entire RAG pipeline"
+msgstr ""
+
+#: ../../source/examples/pdf_chatbot.rst:17
+msgid "@ `Streamlit <https://streamlit.io/>`_ for interactive UI"
+msgstr ""
+
+#: ../../source/examples/pdf_chatbot.rst:19
+msgid "**Detailed Explanation on the Demo Functionality** :"
+msgstr ""
+
+#: ../../source/examples/pdf_chatbot.rst:21
+msgid ""
+"Crafted a Dockerfile to simplify the process and ensure easy "
+"reproducibility."
+msgstr ""
+
+#: ../../source/examples/pdf_chatbot.rst:23
+msgid "Set up models with Xinference and expose two ports for accessing them."
+msgstr ""
+
+#: ../../source/examples/pdf_chatbot.rst:25
+msgid ""
+"Leverage Streamlit for seamless file uploads and interactive "
+"communication with the chat engine."
+msgstr ""
+
+#: ../../source/examples/pdf_chatbot.rst:27
+msgid "5x faster doc embedding than OpenAI's API."
+msgstr ""
+
+#: ../../source/examples/pdf_chatbot.rst:29
+msgid ""
+"Leveraging the power of GGML to offload models to the GPU, ensuring swift"
+" acceleration. Less long waits for returns."
+msgstr ""
+
+#: ../../source/examples/pdf_chatbot.rst:31
+msgid "**Source Code** :"
+msgstr ""
+
+#: ../../source/examples/pdf_chatbot.rst:32
+msgid ""
+"`PDF Chatbot <https://github.com/onesuper/PDF-Chatbot-Local-LLM-"
+"Embeddings>`_"
+msgstr ""
+

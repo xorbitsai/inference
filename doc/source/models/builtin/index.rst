@@ -35,6 +35,7 @@ Chat & Instruction-following Models
 - :ref:`InternLM Chat 20B <models_builtin_internlm_chat_20b>`
 - :ref:`InternLM Chat 8K <models_builtin_internlm_chat_8k>`
 - :ref:`Llama-2 Chat <models_builtin_llama_2_chat>`
+- :ref:`OpenBuddy v11.1 <models_builtin_openbuddy_v11.1>`
 - :ref:`Orca Mini <models_builtin_orca_mini>`
 - :ref:`Qwen Chat <models_builtin_qwen_chat>`
 - :ref:`Vicuna v1.3 <models_builtin_vicuna_v1_3>`
@@ -42,7 +43,8 @@ Chat & Instruction-following Models
 - :ref:`Vicuna v1.5 16k <models_builtin_vicuna_v1_5_16k>`
 - :ref:`WizardLM v1.0 <models_builtin_wizardlm_v1_0>`
 - :ref:`WizardMath v1.0 <models_builtin_wizardmath_v1_0>`
-- :ref:`OpenBuddy v11.1 <models_builtin_openbuddy_v11.1>`
+- :ref:`Zephyr-7B-α <models_builtin_zephyr_7b_alpha>`
+- :ref:`Zephyr-7B-β <models_builtin_zephyr_7b_beta>`
 
 
 Code Generation Models
@@ -98,6 +100,8 @@ Code Assistant Models
    wizardlm-v1.0
    wizardmath-v1.0
    wizardcoder-python-v1.0
+   zephyr-7b-alpha
+   zephyr-7b-beta
 
 
 Embedding Models

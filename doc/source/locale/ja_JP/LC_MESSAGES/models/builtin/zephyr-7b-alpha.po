@@ -1,0 +1,82 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2023-11-01 10:48+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: ja_JP\n"
+"Language-Team: ja_JP <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.12.1\n"
+
+#: ../../source/models/builtin/zephyr-7b-alpha.rst:5
+msgid "Zephyr-7B-alpha"
+msgstr ""
+
+#: ../../source/models/builtin/zephyr-7b-alpha.rst:7
+msgid "**Context Length:** 8192"
+msgstr ""
+
+#: ../../source/models/builtin/zephyr-7b-alpha.rst:8
+msgid "**Model Name:** zephyr-7b-alpha"
+msgstr ""
+
+#: ../../source/models/builtin/zephyr-7b-alpha.rst:9
+msgid "**Languages:** en"
+msgstr ""
+
+#: ../../source/models/builtin/zephyr-7b-alpha.rst:10
+msgid "**Abilities:** chat"
+msgstr ""
+
+#: ../../source/models/builtin/zephyr-7b-alpha.rst:11
+msgid ""
+"**Description:** Zephyr-7B-α is the first model in the series, and is a "
+"fine-tuned version of mistralai/Mistral-7B-v0.1."
+msgstr ""
+
+#: ../../source/models/builtin/zephyr-7b-alpha.rst:14
+msgid "Specifications"
+msgstr ""
+
+#: ../../source/models/builtin/zephyr-7b-alpha.rst:17
+msgid "Model Spec (pytorch, 7 Billion)"
+msgstr ""
+
+#: ../../source/models/builtin/zephyr-7b-alpha.rst:19
+msgid "**Model Format:** pytorch"
+msgstr ""
+
+#: ../../source/models/builtin/zephyr-7b-alpha.rst:20
+msgid "**Model Size (in billions):** 7"
+msgstr ""
+
+#: ../../source/models/builtin/zephyr-7b-alpha.rst:21
+msgid "**Quantizations:** 4-bit, 8-bit, none"
+msgstr ""
+
+#: ../../source/models/builtin/zephyr-7b-alpha.rst:22
+msgid "**Model ID:** HuggingFaceH4/zephyr-7b-alpha"
+msgstr ""
+
+#: ../../source/models/builtin/zephyr-7b-alpha.rst:24
+msgid ""
+"Execute the following command to launch the model, remember to replace "
+"``${quantization}`` with your chosen quantization method from the options"
+" listed above::"
+msgstr ""
+
+#: ../../source/models/builtin/zephyr-7b-alpha.rst:31
+msgid "4-bit quantization is not supported on macOS."
+msgstr ""
+
