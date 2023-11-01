@@ -17,16 +17,7 @@ import itertools
 import time
 from dataclasses import dataclass
 from logging import getLogger
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    AsyncGenerator,
-    Dict,
-    Iterator,
-    List,
-    Optional,
-    Union,
-)
+from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Union
 
 import xoscar as xo
 
@@ -226,7 +217,7 @@ class SupervisorActor(xo.StatelessActor):
         draft_model_size_in_billions: Optional[int],
         draft_quantization: Optional[str],
         n_gpu: Optional[Union[int, str]] = "auto",
-    ) -> AsyncGenerator:
+    ) -> str:
         logger.debug(
             (
                 f"Enter launch_speculative_llm, model_uid: %s, model_name: %s, model_size: %s, "
@@ -256,7 +247,7 @@ class SupervisorActor(xo.StatelessActor):
 
         try:
             rep_model_uid = f"{model_uid}-{1}-{0}"
-            yield worker_ref.launch_speculative_model(
+            await worker_ref.launch_speculative_model(
                 model_uid=rep_model_uid,
                 model_name=model_name,
                 model_size_in_billions=model_size_in_billions,
@@ -272,7 +263,7 @@ class SupervisorActor(xo.StatelessActor):
             # terminate_model will remove the replica info.
             await self.terminate_model(model_uid, suppress_exception=True)
             raise
-        raise xo.Return(model_uid)
+        return model_uid
 
     async def launch_builtin_model(
         self,
@@ -285,7 +276,7 @@ class SupervisorActor(xo.StatelessActor):
         replica: int = 1,
         n_gpu: Optional[Union[int, str]] = "auto",
         **kwargs,
-    ) -> AsyncGenerator:
+    ) -> str:
         logger.debug(
             (
                 f"Enter launch_builtin_model, model_uid: %s, model_name: %s, model_size: %s, "
@@ -309,7 +300,7 @@ class SupervisorActor(xo.StatelessActor):
             worker_ref = await self._choose_worker()
             # LLM as default for compatibility
             model_type = model_type or "LLM"
-            yield worker_ref.launch_builtin_model(
+            await worker_ref.launch_builtin_model(
                 model_uid=_replica_model_uid,
                 model_name=model_name,
                 model_size_in_billions=model_size_in_billions,
@@ -319,7 +310,6 @@ class SupervisorActor(xo.StatelessActor):
                 n_gpu=n_gpu,
                 **kwargs,
             )
-            # TODO: not protected.
             self._replica_model_uid_to_worker[_replica_model_uid] = worker_ref
 
         if not is_valid_model_uid(model_uid):
@@ -335,12 +325,12 @@ class SupervisorActor(xo.StatelessActor):
         )
         try:
             for rep_model_uid in iter_replica_model_uid(model_uid, replica):
-                yield _launch_one_model(rep_model_uid)
+                await _launch_one_model(rep_model_uid)
         except Exception:
             # terminate_model will remove the replica info.
             await self.terminate_model(model_uid, suppress_exception=True)
             raise
-        raise xo.Return(model_uid)
+        return model_uid
 
     async def _check_dead_nodes(self):
         while True:
