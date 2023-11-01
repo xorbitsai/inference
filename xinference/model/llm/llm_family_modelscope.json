@@ -132,7 +132,7 @@
         ],
         "model_id": "baichuan-inc/Baichuan2-7B-Chat",
         "model_hub": "modelscope",
-        "model_revision": "v1.0.1"
+        "model_revision": "v1.0.4"
       },
       {
         "model_format": "pytorch",
@@ -142,9 +142,9 @@
           "8-bit",
           "none"
         ],
-        "model_id": "baichuan-inc/Baichuan2-7B-Chat",
+        "model_id": "baichuan-inc/Baichuan2-13B-Chat",
         "model_hub": "modelscope",
-        "model_revision": "v1.0.1"
+        "model_revision": "v1.0.3"
       }
     ],
     "prompt_style": {
@@ -184,7 +184,7 @@
           "none"
         ],
         "model_id": "baichuan-inc/Baichuan2-7B-Base",
-        "model_revision": "v1.0.1",
+        "model_revision": "v1.0.2",
         "model_hub": "modelscope"
       },
       {
@@ -196,7 +196,7 @@
           "none"
         ],
         "model_id": "baichuan-inc/Baichuan2-13B-Base",
-        "model_revision": "v1.0.1",
+        "model_revision": "v1.0.3",
         "model_hub": "modelscope"
       }
     ]
@@ -224,7 +224,7 @@
         ],
         "model_hub": "modelscope",
         "model_id": "ZhipuAI/chatglm2-6b",
-        "model_revision": "v1.0.11"
+        "model_revision": "v1.0.12"
       }
     ],
     "prompt_style": {
@@ -260,7 +260,7 @@
         ],
         "model_hub": "modelscope",
         "model_id": "ZhipuAI/chatglm2-6b-32k",
-        "model_revision": "v1.0.1"
+        "model_revision": "v1.0.2"
       }
     ],
     "prompt_style": {
@@ -366,7 +366,7 @@
         ],
         "model_id": "Shanghai_AI_Laboratory/internlm-7b",
         "model_hub": "modelscope",
-        "model_revision": "v1.0.0"
+        "model_revision": "v1.0.1"
       }
     ]
   },
@@ -393,7 +393,7 @@
         ],
         "model_id": "Shanghai_AI_Laboratory/internlm-chat-7b",
         "model_hub": "modelscope",
-        "model_revision": "v1.0.0"
+        "model_revision": "v1.0.1"
       }
     ],
     "prompt_style": {
@@ -437,7 +437,7 @@
         ],
         "model_id": "Shanghai_AI_Laboratory/internlm-20b",
         "model_hub": "modelscope",
-        "model_revision": "v1.0.0"
+        "model_revision": "v1.0.1"
       }
     ]
   },
@@ -464,7 +464,7 @@
         ],
         "model_id": "Shanghai_AI_Laboratory/internlm-chat-20b",
         "model_hub": "modelscope",
-        "model_revision": "v1.0.0"
+        "model_revision": "v1.0.1"
       }
     ],
     "prompt_style": {

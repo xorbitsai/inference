@@ -433,7 +433,7 @@
           "none"
         ],
         "model_id": "THUDM/chatglm2-6b",
-        "model_revision": "b1502f4f75c71499a3d566b14463edd62620ce9f"
+        "model_revision": "7fabe56db91e085c9c027f56f1c654d137bdba40"
       }
     ],
     "prompt_style": {
@@ -468,7 +468,7 @@
           "none"
         ],
         "model_id": "THUDM/chatglm2-6b-32k",
-        "model_revision": "455746d4706479a1cbbd07179db39eb2741dc692"
+        "model_revision": "a2065f5dc8253f036a209e642d7220a942d92765"
       }
     ],
     "prompt_style": {
@@ -1089,7 +1089,7 @@
           "none"
         ],
         "model_id": "internlm/internlm-7b",
-        "model_revision": "ab8633378889e2d7b7720703cc72caf52e1c9c44"
+        "model_revision": "592b0efc83be3eb1cba8990c4caf41ce604b958c"
       }
     ]
   },
@@ -1115,7 +1115,7 @@
           "none"
         ],
         "model_id": "internlm/internlm-chat-7b",
-        "model_revision": "ed5e35564ac836710817c51e8e8d0a5d4ff03102"
+        "model_revision": "d4fa2dbcbd2fa4edfa6735aa2ba0f0577fed6a62"
       }
     ],
     "prompt_style": {
@@ -1158,7 +1158,7 @@
           "none"
         ],
         "model_id": "internlm/internlm-20b",
-        "model_revision": "f0433b0db933a9adfa169f756ab8547f67ccef1d"
+        "model_revision": "c56a72957239b490ea206ea857e86611b3f65f3a"
       }
     ]
   },
@@ -1184,7 +1184,7 @@
           "none"
         ],
         "model_id": "internlm/internlm-chat-20b",
-        "model_revision": "84969e0447c3807207e9acdd92c9302309ec64fc"
+        "model_revision": "c67e80e42c4950ebae18a955c9fe138c5ceb5b10"
       }
     ],
     "prompt_style": {
