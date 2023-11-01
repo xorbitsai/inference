@@ -83,21 +83,19 @@ class WorkerActor(xo.StatelessActor):
         devices: List[int] = [
             dev for dev in self._total_cuda_devices if dev not in self._gpu_to_model_uid
         ][:n_gpu]
-        async with self._lock:
-            for dev in devices:
-                self._gpu_to_model_uid[int(dev)] = model_uid
+        for dev in devices:
+            self._gpu_to_model_uid[int(dev)] = model_uid
 
         return sorted(devices)
 
     async def release_devices(self, model_uid: str):
-        async with self._lock:
-            devices = [
-                dev
-                for dev in self._gpu_to_model_uid
-                if self._gpu_to_model_uid[dev] == model_uid
-            ]
-            for dev in devices:
-                del self._gpu_to_model_uid[dev]
+        devices = [
+            dev
+            for dev in self._gpu_to_model_uid
+            if self._gpu_to_model_uid[dev] == model_uid
+        ]
+        for dev in devices:
+            del self._gpu_to_model_uid[dev]
 
     async def _create_subpool(
         self,
@@ -284,9 +282,8 @@ class WorkerActor(xo.StatelessActor):
     @log_async(logger=logger)
     async def list_models(self) -> Dict[str, Dict[str, Any]]:
         ret = {}
-        async with self._lock:
-            items = list(self._model_uid_to_model_spec.items())
 
+        items = list(self._model_uid_to_model_spec.items())
         for k, v in items:
             ret[k] = v.to_dict()
         return ret

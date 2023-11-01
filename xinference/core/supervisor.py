@@ -90,9 +90,8 @@ class SupervisorActor(xo.StatelessActor):
         # TODO: better allocation strategy.
         min_running_model_count = None
         target_worker = None
-        async with self._lock:
-            workers = list(self._worker_address_to_worker.values())
 
+        workers = list(self._worker_address_to_worker.values())
         for worker in workers:
             running_model_count = await worker.get_model_count()
             if (
@@ -193,15 +192,13 @@ class SupervisorActor(xo.StatelessActor):
         if model_type == "LLM":
             from ..model.llm import LLMFamilyV1, register_llm
 
-            llm_family = LLMFamilyV1.parse_raw(model)
-            register_llm(llm_family, persist)
-
             if not self.is_local_deployment:
-                async with self._lock:
-                    workers = list(self._worker_address_to_worker.values())
-
+                workers = list(self._worker_address_to_worker.values())
                 for worker in workers:
                     await worker.register_model(model_type, model, persist)
+
+            llm_family = LLMFamilyV1.parse_raw(model)
+            register_llm(llm_family, persist)
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
 
@@ -213,9 +210,7 @@ class SupervisorActor(xo.StatelessActor):
             unregister_llm(model_name)
 
             if not self.is_local_deployment:
-                async with self._lock:
-                    workers = list(self._worker_address_to_worker.values())
-
+                workers = list(self._worker_address_to_worker.values())
                 for worker in workers:
                     await worker.unregister_model(model_name)
         else:
@@ -350,26 +345,25 @@ class SupervisorActor(xo.StatelessActor):
     async def _check_dead_nodes(self):
         while True:
             dead_nodes = []
-            async with self._lock:
-                for address, status in self._worker_status.items():
-                    if time.time() - status.update_time > DEFAULT_NODE_TIMEOUT:
-                        dead_models = []
-                        for model_uid in self._replica_model_uid_to_worker:
-                            if (
-                                self._replica_model_uid_to_worker[model_uid].address
-                                == address
-                            ):
-                                dead_models.append(model_uid)
-                        logger.error(
-                            "Worker timeout. address: %s, influenced models: %s",
-                            address,
-                            dead_models,
-                        )
-                        dead_nodes.append(address)
+            for address, status in self._worker_status.items():
+                if time.time() - status.update_time > DEFAULT_NODE_TIMEOUT:
+                    dead_models = []
+                    for model_uid in self._replica_model_uid_to_worker:
+                        if (
+                            self._replica_model_uid_to_worker[model_uid].address
+                            == address
+                        ):
+                            dead_models.append(model_uid)
+                    logger.error(
+                        "Worker timeout. address: %s, influenced models: %s",
+                        address,
+                        dead_models,
+                    )
+                    dead_nodes.append(address)
 
-                for address in dead_nodes:
-                    self._worker_status.pop(address)
-                    self._worker_address_to_worker.pop(address)
+            for address in dead_nodes:
+                self._worker_status.pop(address)
+                self._worker_address_to_worker.pop(address)
             await asyncio.sleep(5)
 
     @log_async(logger=logger)
@@ -433,9 +427,8 @@ class SupervisorActor(xo.StatelessActor):
     @log_async(logger=logger)
     async def list_models(self) -> Dict[str, Dict[str, Any]]:
         ret = {}
-        async with self._lock:
-            workers = list(self._worker_address_to_worker.values())
 
+        workers = list(self._worker_address_to_worker.values())
         for worker in workers:
             ret.update(await worker.list_models())
         return {parse_replica_model_uid(k)[0]: v for k, v in ret.items()}
