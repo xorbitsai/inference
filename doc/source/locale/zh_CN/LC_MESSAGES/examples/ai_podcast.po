@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-10-16 10:33+0800\n"
+"POT-Creation-Date: 2023-11-01 10:48+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -163,6 +163,12 @@ msgid ""
 msgstr ""
 
 #: ../../source/examples/ai_podcast.rst:79
-msgid "AI_Podcast_ZH (Chinese Version)"
+msgid ""
+"`AI_Podcast_ZH "
+"<https://github.com/xorbitsai/inference/blob/main/examples/AI_podcast_ZH.py>`"
+" (Chinese Version)"
 msgstr ""
+
+#~ msgid "AI_Podcast_ZH (Chinese Version)"
+#~ msgstr ""
 

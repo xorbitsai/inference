@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-10-16 10:33+0800\n"
+"POT-Creation-Date: 2023-11-01 10:48+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: ja_JP\n"
@@ -19,7 +19,107 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.12.1\n"
 
-#: ../../source/examples/index.rst:5
+#: ../../source/examples/index.rst:5 ../../source/examples/index.rst:19
 msgid "Examples"
+msgstr ""
+
+#: ../../source/examples/index.rst:16
+msgid ""
+"Here you can find examples and resources to learn about how to use "
+"Xinference."
+msgstr ""
+
+#: ../../source/examples/index.rst:21
+msgid "End-to-end examples of using Xinference for various tasks:"
+msgstr ""
+
+#: ../../source/examples/index.rst:23
+msgid "`Voice Conversations with AI Agents on M2 Max <ai_podcast.html>`_"
+msgstr ""
+
+#: ../../source/examples/index.rst:25
+msgid "`Interacting with LLM Models: A Command-Line Example <chatbot.html>`_"
+msgstr ""
+
+#: ../../source/examples/index.rst:27
+msgid ""
+"`Interacting with LLM Models: A Gradio ChatInterface Example "
+"<gradio_chatinterface.html>`_"
+msgstr ""
+
+#: ../../source/examples/index.rst:29
+msgid "`PDF Chatbot with Local LLM and Embeddings <pdf_chatbot.html>`_"
+msgstr ""
+
+#: ../../source/examples/index.rst:31
+msgid ""
+"If you come across other examples in your own workflows we encourage you "
+"to contribute a `PR <https://github.com/xorbitsai/inference/pulls>`_!"
+msgstr ""
+
+#: ../../source/examples/index.rst:35
+msgid "Tutorials"
+msgstr ""
+
+#: ../../source/examples/index.rst:37
+msgid ""
+"The following tutorials cover the basics of using Xinference in different"
+" scenarios:"
+msgstr ""
+
+#: ../../source/examples/index.rst:39
+msgid ""
+"`Build a QA Application with Xinference and LangChain "
+"<https://github.com/RayJi01/Xprobe_inference/blob/main/examples/LangChain_QA.ipynb>`_"
+msgstr ""
+
+#: ../../source/examples/index.rst:41
+msgid ""
+"`Using Xinference local LLMs within LlamaIndex <https://gpt-"
+"index.readthedocs.io/en/stable/examples/llm/XinferenceLocalDeployment.html>`_"
+msgstr ""
+
+#: ../../source/examples/index.rst:43
+msgid ""
+"`[Chinese] 如何让 Chatbox 接入开源大模型，实现免费聊天 "
+"<https://twitter.com/benn_huang/status/1701420060240490785>`_"
+msgstr ""
+
+#: ../../source/examples/index.rst:45
+msgid ""
+"`[Chinese] 摆脱 OpenAI 依赖，8 分钟教你用开源生态构建全栈 AI 应用 "
+"<https://mp.weixin.qq.com/s/cXBC0dikldNiGwOwPuJfUQ>`_"
+msgstr ""
+
+#: ../../source/examples/index.rst:47
+msgid ""
+"`[Chinese] 使用全套开源工具构建 LLM 应用实战 "
+"<https://mp.weixin.qq.com/s/regqYkF0cNDQIdOkOeyeXQ>`_"
+msgstr ""
+
+#: ../../source/examples/index.rst:51
+msgid "Third-Party Library Integrations"
+msgstr ""
+
+#: ../../source/examples/index.rst:53
+msgid ""
+"Xinference is designed to seamlessly integrate and deploy open-sourced AI"
+" models, so we want to incorporate support for mainstream toolkits in the"
+" AI landscape. Xinference can be used with the following third-party "
+"libraries:"
+msgstr ""
+
+#: ../../source/examples/index.rst:56
+msgid ""
+"LangChain `Text Embedding Models "
+"<https://python.langchain.com/docs/integrations/text_embedding/xinference>`_"
+" and `LLMs "
+"<https://python.langchain.com/docs/integrations/llms/xinference>`_"
+msgstr ""
+
+#: ../../source/examples/index.rst:58
+msgid ""
+"`LlamaIndex Xinference LLM "
+"<https://docs.llamaindex.ai/en/stable/api_reference/llms/xinference.html>`_"
 msgstr ""
 

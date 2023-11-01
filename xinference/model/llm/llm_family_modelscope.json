@@ -729,5 +729,89 @@
         "model_revision": "v1.0.1"
       }
     ]
+  },
+  {
+    "version": 1,
+    "context_length": 8192,
+    "model_name": "zephyr-7b-alpha",
+    "model_lang": [
+      "en"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "Zephyr-7B-α is the first model in the series, and is a fine-tuned version of mistralai/Mistral-7B-v0.1.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_hub": "modelscope",
+        "model_id": "keepitsimple/zephyr-7b-alpha",
+        "model_revision": "v1.0-1"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "NO_COLON_TWO",
+      "system_prompt": "<|system|>\nYou are a friendly chatbot.</s>\n",
+      "roles": [
+        "<|user|>\n",
+        "<|assistant|>\n"
+      ],
+      "intra_message_sep": "</s>\n",
+      "inter_message_sep": "</s>\n",
+      "stop_token_ids": [
+        2
+      ],
+      "stop": [
+        "</s>"
+      ]
+    }
+  },
+  {
+    "version": 1,
+    "context_length": 8192,
+    "model_name": "zephyr-7b-beta",
+    "model_lang": [
+      "en"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "Zephyr-7B-β is the second model in the series, and is a fine-tuned version of mistralai/Mistral-7B-v0.1",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_hub": "modelscope",
+        "model_id": "modelscope/zephyr-7b-beta",
+        "model_revision": "master"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "NO_COLON_TWO",
+      "system_prompt": "<|system|>\nYou are a friendly chatbot.</s>\n",
+      "roles": [
+        "<|user|>\n",
+        "<|assistant|>\n"
+      ],
+      "intra_message_sep": "</s>\n",
+      "inter_message_sep": "</s>\n",
+      "stop_token_ids": [
+        2
+      ],
+      "stop": [
+        "</s>"
+      ]
+    }
   }
 ]
