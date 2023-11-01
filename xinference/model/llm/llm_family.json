@@ -2146,7 +2146,7 @@
     ],
     "prompt_style": {
       "style_name": "NO_COLON_TWO",
-      "system_prompt": "<|system|>\nYou are a friendly chatbot who always responds in the style of a pirate.</s>\n",
+      "system_prompt": "<|system|>\nYou are a friendly chatbot.</s>\n",
       "roles": [
         "<|user|>\n",
         "<|assistant|>\n"
@@ -2187,7 +2187,7 @@
     ],
     "prompt_style": {
       "style_name": "NO_COLON_TWO",
-      "system_prompt": "<|system|>\nYou are a friendly chatbot who always responds in the style of a pirate.</s>\n",
+      "system_prompt": "<|system|>\nYou are a friendly chatbot.</s>\n",
       "roles": [
         "<|user|>\n",
         "<|assistant|>\n"
