@@ -54,6 +54,8 @@ except ImportError:
 def get_config_string(
     log_level: str, log_file_path: str, log_backup_count: int, log_max_bytes: int
 ) -> str:
+    # for windows, path should be raw string
+    log_file_path = rf"{log_file_path}" if os.name == "nt" else log_file_path
     return f"""[loggers]
 keys=root
 
