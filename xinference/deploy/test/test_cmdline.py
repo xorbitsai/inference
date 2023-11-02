@@ -240,8 +240,8 @@ def test_cmdline_of_custom_model(setup):
     assert "custom_model" not in result.stdout
 
 
-def test_rotate_logs(setup_with_real_logging_conf):
-    endpoint, _ = setup_with_real_logging_conf
+def test_rotate_logs(setup_with_file_logging):
+    endpoint, _ = setup_with_file_logging
     client = Client(endpoint)
     runner = CliRunner()
     replica = 1 if os.name == "nt" else 2
