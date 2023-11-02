@@ -275,7 +275,6 @@ def test_RESTful_client(setup):
         )
         if stream:
             for chunk in completion:
-                print(chunk)
                 assert "text" in chunk["choices"][0]
                 assert (
                     chunk["choices"][0]["text"] or chunk["choices"][0]["finish_reason"]
