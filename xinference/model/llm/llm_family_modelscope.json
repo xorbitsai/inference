@@ -224,6 +224,7 @@
           "q5_1",
           "q8_0"
         ],
+        "model_hub": "modelscope",
         "model_id": "Xorbits/chatglm2-6B-GGML",
         "model_revision": "v1.0.0",
         "model_file_name_template": "chatglm2-ggml-{quantization}.bin"
@@ -764,7 +765,8 @@
           "8-bit",
           "none"
         ],
-        "model_id": "mistralai/Mistral-7B-v0.1",
+        "model_hub": "modelscope",
+        "model_id": "Xorbits/Mistral-7B-v0.1",
         "model_revision": "ae9d75c6b4eb39515def78c685fb4d71d49fc2cf"
       },
       {
@@ -843,29 +845,31 @@
           "Q8_0"
         ],
         "model_hub": "modelscope",
-        "model_id": "TheBloke/CodeLlama-13B-Python-GGUF",
+        "model_id": "Xorbits/CodeLlama-13B-Python-GGUF",
         "model_file_name_template": "codellama-13b-python.{quantization}.gguf"
       },
       {
-        "model_format": "ggufv2",
-        "model_size_in_billions": 34,
+        "model_format": "pytorch",
+        "model_size_in_billions": 13,
         "quantizations": [
-          "Q2_K",
-          "Q3_K_L",
-          "Q3_K_M",
-          "Q3_K_S",
-          "Q4_0",
-          "Q4_K_M",
-          "Q4_K_S",
-          "Q5_0",
-          "Q5_K_M",
-          "Q5_K_S",
-          "Q6_K",
-          "Q8_0"
+          "4-bit",
+          "8-bit",
+          "none"
         ],
         "model_hub": "modelscope",
-        "model_id": "TheBloke/CodeLlama-34B-Python-GGUF",
-        "model_file_name_template": "codellama-34b-python.{quantization}.gguf"
+        "model_id": "Xorbits/CodeLlama-13B-Python-fp16",
+        "model_revision": "v1.0.0"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "Xorbits/CodeLlama-7B-Python-fp16",
+        "model_revision": "v1.0.0"
       }
     ]
   },
@@ -1125,6 +1129,45 @@
       ],
       "intra_message_sep": "",
       "inter_message_sep": ""
+    }
+  },
+  {
+    "version": 1,
+    "context_length": 2048,
+    "model_name": "qwen-chat",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "Qwen-chat is a fine-tuned version of the Qwen LLM trained with alignment techniques, specializing in chatting.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_hub": "modelscope",
+        "model_id": "qwen/Qwen-7B-Chat",
+        "model_revision": "v1.1.6"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "QWEN",
+      "system_prompt": "You are a helpful assistant.",
+      "roles": [
+        "user",
+        "assistant"
+      ],
+      "intra_message_sep": "\n",
+      "stop_token_ids": [
+        151643
+      ]
     }
   }
 ]
