@@ -130,7 +130,7 @@ class LLMInterface:
                 gr.Slider(
                     minimum=1,
                     maximum=self.context_length,
-                    value=128,
+                    value=512,
                     step=1,
                     label="Max Tokens",
                 ),
