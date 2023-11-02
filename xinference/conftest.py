@@ -11,9 +11,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import asyncio
 import logging
 import multiprocessing
+import os
 import signal
 import sys
 from typing import Dict, Optional
@@ -21,9 +23,14 @@ from typing import Dict, Optional
 import pytest
 import xoscar as xo
 
-from xinference.core.supervisor import SupervisorActor
-from xinference.deploy.utils import create_worker_actor_pool
-from xinference.deploy.worker import start_worker_components
+from .constants import (
+    XINFERENCE_DEFAULT_LOG_FILE_NAME,
+    XINFERENCE_LOG_BACKUP_COUNT,
+    XINFERENCE_LOG_MAX_BYTES,
+)
+from .core.supervisor import SupervisorActor
+from .deploy.utils import create_worker_actor_pool
+from .deploy.worker import start_worker_components
 
 TEST_LOGGING_CONF = {
     "version": 1,
@@ -44,6 +51,45 @@ TEST_LOGGING_CONF = {
     "root": {
         "level": "DEBUG",
         "handlers": ["stream_handler"],
+    },
+}
+
+TEST_LOG_FILE_PATH = (
+    XINFERENCE_DEFAULT_LOG_FILE_NAME.encode("unicode-escape").decode()
+    if os.name == "nt"
+    else XINFERENCE_DEFAULT_LOG_FILE_NAME
+)
+
+
+TEST_FILE_LOGGING_CONF = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "formatter": {
+            "format": "%(asctime)s %(name)-12s %(process)d %(levelname)-8s %(message)s"
+        },
+    },
+    "handlers": {
+        "stream_handler": {
+            "class": "logging.StreamHandler",
+            "formatter": "formatter",
+            "level": "DEBUG",
+            "stream": "ext://sys.stderr",
+        },
+        "file_handler": {
+            "class": "logging.handlers.RotatingFileHandler",
+            "formatter": "formatter",
+            "level": "DEBUG",
+            "filename": TEST_LOG_FILE_PATH,
+            "mode": "a",
+            "maxBytes": XINFERENCE_LOG_MAX_BYTES,
+            "backupCount": XINFERENCE_LOG_BACKUP_COUNT,
+            "encoding": "utf8",
+        },
+    },
+    "root": {
+        "level": "DEBUG",
+        "handlers": ["stream_handler", "file_handler"],
     },
 }
 
@@ -139,6 +185,37 @@ def setup():
         host="localhost",
         port=port,
         logging_conf=TEST_LOGGING_CONF,
+    )
+    endpoint = f"http://localhost:{port}"
+    if not api_health_check(endpoint, max_attempts=3, sleep_interval=5):
+        raise RuntimeError("Endpoint is not available after multiple attempts")
+
+    yield f"http://localhost:{port}", supervisor_addr
+
+    local_cluster_proc.terminate()
+    restful_api_proc.terminate()
+
+
+@pytest.fixture
+def setup_with_file_logging():
+    from .api.restful_api import run_in_subprocess as run_restful_api
+    from .deploy.utils import health_check as cluster_health_check
+
+    logging.config.dictConfig(TEST_FILE_LOGGING_CONF)  # type: ignore
+
+    supervisor_addr = f"localhost:{xo.utils.get_next_port()}"
+    local_cluster_proc = run_test_cluster_in_subprocess(
+        supervisor_addr, TEST_FILE_LOGGING_CONF
+    )
+    if not cluster_health_check(supervisor_addr, max_attempts=3, sleep_interval=3):
+        raise RuntimeError("Cluster is not available after multiple attempts")
+
+    port = xo.utils.get_next_port()
+    restful_api_proc = run_restful_api(
+        supervisor_addr,
+        host="localhost",
+        port=port,
+        logging_conf=TEST_FILE_LOGGING_CONF,
     )
     endpoint = f"http://localhost:{port}"
     if not api_health_check(endpoint, max_attempts=3, sleep_interval=5):
