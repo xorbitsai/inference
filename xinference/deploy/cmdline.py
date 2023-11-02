@@ -21,8 +21,6 @@ from typing import List, Optional, Union
 import click
 from xoscar.utils import get_next_port
 
-from xinference.deploy.utils import get_dict_config
-
 from .. import __version__
 from ..client import RESTfulClient
 from ..client.oscar.actor_client import ActorClient
@@ -43,6 +41,7 @@ from ..constants import (
 )
 from ..isolation import Isolation
 from ..types import ChatCompletionMessage
+from .utils import get_config_dict
 
 try:
     # provide elaborate line editing and history features.
@@ -113,7 +112,7 @@ def cli(
     if ctx.invoked_subcommand is None:
         from .local import main
 
-        dict_config = get_dict_config(
+        dict_config = get_config_dict(
             log_level,
             get_log_file(),
             XINFERENCE_LOG_BACKUP_COUNT,
@@ -159,7 +158,7 @@ def supervisor(
 ):
     from ..deploy.supervisor import main
 
-    dict_config = get_dict_config(
+    dict_config = get_config_dict(
         log_level, get_log_file(), XINFERENCE_LOG_BACKUP_COUNT, XINFERENCE_LOG_MAX_BYTES
     )
     logging.config.dictConfig(dict_config)  # type: ignore
@@ -188,7 +187,7 @@ def supervisor(
 def worker(log_level: str, endpoint: Optional[str], host: str):
     from ..deploy.worker import main
 
-    dict_config = get_dict_config(
+    dict_config = get_config_dict(
         log_level, get_log_file(), XINFERENCE_LOG_BACKUP_COUNT, XINFERENCE_LOG_MAX_BYTES
     )
     logging.config.dictConfig(dict_config)  # type: ignore
