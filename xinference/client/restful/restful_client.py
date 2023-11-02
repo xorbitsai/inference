@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import json
 import uuid
 import warnings
 from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Union
@@ -118,6 +118,73 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
         if response.status_code != 200:
             raise RuntimeError(
                 f"Failed to create the images, detail: {response.json()['detail']}"
+            )
+
+        response_data = response.json()
+        return response_data
+
+    def image_to_image(
+        self,
+        image: Union[str, bytes],
+        prompt: str,
+        negative_prompt: str,
+        n: int = 1,
+        size: str = "1024*1024",
+        response_format: str = "url",
+        **kwargs,
+    ) -> "ImageList":
+        """
+        Creates an image by the input text.
+
+        Parameters
+        ----------
+        image: `Union[str, bytes]`
+            The ControlNet input condition to provide guidance to the `unet` for generation. If the type is
+            specified as `torch.FloatTensor`, it is passed to ControlNet as is. `PIL.Image.Image` can also be
+            accepted as an image. The dimensions of the output image defaults to `image`'s dimensions. If height
+            and/or width are passed, `image` is resized accordingly. If multiple ControlNets are specified in
+            `init`, images must be passed as a list such that each element of the list can be correctly batched for
+            input to a single ControlNet.
+        prompt: `str` or `List[str]`
+            The prompt or prompts to guide image generation. If not defined, you need to pass `prompt_embeds`.
+        negative_prompt (`str` or `List[str]`, *optional*):
+            The prompt or prompts not to guide the image generation. If not defined, one has to pass
+            `negative_prompt_embeds` instead. Ignored when not using guidance (i.e., ignored if `guidance_scale` is
+            less than `1`).
+        n: `int`, defaults to 1
+            The number of images to generate per prompt. Must be between 1 and 10.
+        size: `str`, defaults to `1024*1024`
+            The width*height in pixels of the generated image. Must be one of 256x256, 512x512, or 1024x1024.
+        response_format: `str`, defaults to `url`
+            The format in which the generated images are returned. Must be one of url or b64_json.
+        Returns
+        -------
+        ImageList
+            A list of image objects.
+            :param prompt:
+            :param image:
+        """
+        url = f"{self._base_url}/v1/images/variations"
+        params = {
+            "model": self._model_uid,
+            "prompt": prompt,
+            "negative_prompt": negative_prompt,
+            "n": n,
+            "size": size,
+            "response_format": response_format,
+            "kwargs": json.dumps(kwargs),
+        }
+        files: List[Any] = []
+        for key, value in params.items():
+            files.append((key, (None, value)))
+        files.append(("image", ("image", image, "application/octet-stream")))
+        response = requests.post(
+            url,
+            files=files,
+        )
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to variants the images, detail: {response.json()['detail']}"
             )
 
         response_data = response.json()

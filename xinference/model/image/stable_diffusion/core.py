@@ -13,16 +13,19 @@
 # limitations under the License.
 
 import base64
+import logging
 import os
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 from io import BytesIO
-from typing import Optional
+from typing import List, Optional, Union
 
 from ....constants import XINFERENCE_IMAGE_DIR
 from ....types import Image, ImageList
+
+logger = logging.getLogger(__name__)
 
 
 class DiffusionModel:
@@ -39,6 +42,13 @@ class DiffusionModel:
         import torch
         from diffusers import AutoPipelineForText2Image
 
+        controlnet = self._kwargs.get("controlnet")
+        if controlnet is not None:
+            from diffusers import ControlNetModel
+
+            logger.debug("Loading controlnet %s", controlnet)
+            self._kwargs["controlnet"] = ControlNetModel.from_pretrained(controlnet)
+
         self._model = AutoPipelineForText2Image.from_pretrained(
             self._model_path,
             **self._kwargs,
@@ -53,18 +63,21 @@ class DiffusionModel:
         # Recommended if your computer has < 64 GB of RAM
         self._model.enable_attention_slicing()
 
-    def text_to_image(
+    def _call_model(
         self,
-        prompt: str,
-        n: int = 1,
-        size: str = "1024*1024",
-        response_format: str = "url",
+        height: int,
+        width: int,
+        num_images_per_prompt: int,
+        response_format: str,
         **kwargs,
     ):
-        width, height = map(int, size.split("*"))
+        logger.debug("stable diffusion kwargs: %s", kwargs)
         assert callable(self._model)
         images = self._model(
-            prompt, height=height, width=width, num_images_per_prompt=n, **kwargs
+            height=height,
+            width=width,
+            num_images_per_prompt=num_images_per_prompt,
+            **kwargs,
         ).images
         if response_format == "url":
             os.makedirs(XINFERENCE_IMAGE_DIR, exist_ok=True)
@@ -88,3 +101,45 @@ class DiffusionModel:
             return ImageList(created=int(time.time()), data=image_list)
         else:
             raise ValueError(f"Unsupported response format: {response_format}")
+
+    def text_to_image(
+        self,
+        prompt: str,
+        n: int = 1,
+        size: str = "1024*1024",
+        response_format: str = "url",
+        **kwargs,
+    ):
+        # References:
+        # https://huggingface.co/docs/diffusers/main/en/api/pipelines/controlnet_sdxl
+        width, height = map(int, size.split("*"))
+        return self._call_model(
+            prompt=prompt,
+            height=height,
+            width=width,
+            num_images_per_prompt=n,
+            response_format=response_format,
+            **kwargs,
+        )
+
+    def image_to_image(
+        self,
+        image: bytes,
+        prompt: Optional[Union[str, List[str]]] = None,
+        negative_prompt: Optional[Union[str, List[str]]] = None,
+        n: int = 1,
+        size: str = "1024*1024",
+        response_format: str = "url",
+        **kwargs,
+    ):
+        width, height = map(int, size.split("*"))
+        return self._call_model(
+            image=image,
+            prompt=prompt,
+            negative_prompt=negative_prompt,
+            height=height,
+            width=width,
+            num_images_per_prompt=n,
+            response_format=response_format,
+            **kwargs,
+        )

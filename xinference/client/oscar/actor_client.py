@@ -24,6 +24,8 @@ from ...isolation import Isolation
 from ..restful.restful_client import Client
 
 if TYPE_CHECKING:
+    import PIL
+
     from ...types import (
         ChatCompletion,
         ChatCompletionChunk,
@@ -210,6 +212,51 @@ class ImageModelHandle(ModelHandle):
         """
 
         coro = self._model_ref.text_to_image(prompt, n, size, response_format, **kwargs)
+        return self._isolation.call(coro)
+
+    def image_to_image(
+        self,
+        image: "PIL.Image",
+        prompt: str,
+        negative_prompt: str,
+        n: int = 1,
+        size: str = "1024*1024",
+        response_format: str = "url",
+        **kwargs,
+    ) -> "ImageList":
+        """
+        Creates an image by the input text.
+
+        Parameters
+        ----------
+        image (`PIL.Image`):
+            The ControlNet input condition to provide guidance to the `unet` for generation. If the type is
+            specified as `torch.FloatTensor`, it is passed to ControlNet as is. `PIL.Image.Image` can also be
+            accepted as an image. The dimensions of the output image defaults to `image`'s dimensions. If height
+            and/or width are passed, `image` is resized accordingly. If multiple ControlNets are specified in
+            `init`, images must be passed as a list such that each element of the list can be correctly batched for
+            input to a single ControlNet.
+        prompt (`str` or `List[str]`, *optional*):
+            The prompt or prompts to guide image generation. If not defined, you need to pass `prompt_embeds`.
+        negative_prompt (`str` or `List[str]`, *optional*):
+            The prompt or prompts not to guide the image generation. If not defined, one has to pass
+            `negative_prompt_embeds` instead. Ignored when not using guidance (i.e., ignored if `guidance_scale` is
+            less than `1`).
+        n (`int`, *optional*, defaults to 1):
+            The number of images to generate per prompt. Must be between 1 and 10.
+        size (`str`, *optional*, defaults to `1024*1024`):
+            The width*height in pixels of the generated image. Must be one of 256x256, 512x512, or 1024x1024.
+        response_format (`str`, *optional*, defaults to `url`):
+            The format in which the generated images are returned. Must be one of url or b64_json.
+        Returns
+        -------
+        ImageList
+            A list of image objects.
+        """
+
+        coro = self._model_ref.image_to_image(
+            image, prompt, negative_prompt, n, size, response_format, **kwargs
+        )
         return self._isolation.call(coro)
 
 

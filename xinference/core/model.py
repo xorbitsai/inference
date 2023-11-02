@@ -34,6 +34,7 @@ import xoscar as xo
 if TYPE_CHECKING:
     from ..model.llm.core import LLM
     from ..types import ChatCompletionChunk, CompletionChunk
+    import PIL
 
 import logging
 
@@ -215,6 +216,36 @@ class ModelActor(xo.StatelessActor):
         async def _wrapper():
             return getattr(self._model, "text_to_image")(
                 prompt, n, size, response_format, *args, **kwargs
+            )
+
+        return await self._call_wrapper(_wrapper)
+
+    async def image_to_image(
+        self,
+        image: "PIL.Image",
+        prompt: str,
+        negative_prompt: str,
+        n: int = 1,
+        size: str = "1024*1024",
+        response_format: str = "url",
+        *args,
+        **kwargs,
+    ):
+        if not hasattr(self._model, "image_to_image"):
+            raise AttributeError(
+                f"Model {self._model.model_spec} is not for creating image."
+            )
+
+        async def _wrapper():
+            return getattr(self._model, "image_to_image")(
+                image,
+                prompt,
+                negative_prompt,
+                n,
+                size,
+                response_format,
+                *args,
+                **kwargs,
             )
 
         return await self._call_wrapper(_wrapper)

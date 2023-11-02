@@ -23,10 +23,11 @@ from typing import Any, Dict, List, Literal, Optional, Union
 
 import gradio as gr
 import xoscar as xo
-from fastapi import APIRouter, FastAPI, HTTPException, Request
+from fastapi import APIRouter, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
+from PIL import Image
 from pydantic import BaseModel, Field
 from starlette.responses import RedirectResponse
 from typing_extensions import NotRequired, TypedDict
@@ -286,6 +287,12 @@ class RESTfulAPIActor(xo.Actor):
         self._router.add_api_route(
             "/v1/images/generations",
             self.create_images,
+            methods=["POST"],
+            response_model=ImageList,
+        )
+        self._router.add_api_route(
+            "/v1/images/variations",
+            self.create_variations,
             methods=["POST"],
             response_model=ImageList,
         )
@@ -633,6 +640,47 @@ class RESTfulAPIActor(xo.Actor):
         try:
             image_list = await model.text_to_image(
                 request.prompt, request.n, request.size, request.response_format
+            )
+            return image_list
+        except RuntimeError as re:
+            logger.error(re, exc_info=True)
+            raise HTTPException(status_code=400, detail=str(re))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def create_variations(
+        self,
+        model: str = Form(...),
+        image: UploadFile = File(media_type="application/octet-stream"),
+        prompt: Optional[Union[str, List[str]]] = Form(None),
+        negative_prompt: Optional[Union[str, List[str]]] = Form(None),
+        n: Optional[int] = Form(1),
+        response_format: Optional[str] = Form("url"),
+        size: Optional[str] = Form("1024*1024"),
+        kwargs: Optional[str] = Form(None),
+    ):
+        model_uid = model
+        try:
+            model_ref = await self._supervisor_ref.get_model(model_uid)
+        except ValueError as ve:
+            logger.error(str(ve), exc_info=True)
+            raise HTTPException(status_code=400, detail=str(ve))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
+        try:
+            if kwargs is not None:
+                kwargs = json.loads(kwargs)
+            image_list = await model_ref.image_to_image(
+                image=Image.open(image.file),
+                prompt=prompt,
+                negative_prompt=negative_prompt,
+                n=n,
+                size=size,
+                response_format=response_format,
+                **kwargs,
             )
             return image_list
         except RuntimeError as re:
