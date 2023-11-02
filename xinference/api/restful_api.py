@@ -255,7 +255,7 @@ class RESTfulAPI:
         self._router = APIRouter()
         self._app = FastAPI()
 
-    async def _get_supervisor_ref(self):
+    async def _get_supervisor_ref(self) -> xo.ActorRefType[SupervisorActor]:
         if self._supervisor_ref is None:
             self._supervisor_ref = await xo.actor_ref(
                 address=self._supervisor_address, uid=SupervisorActor.uid()
@@ -691,7 +691,7 @@ class RESTfulAPI:
     ):
         model_uid = model
         try:
-            model_ref = await self._supervisor_ref.get_model(model_uid)
+            model_ref = await (await self._get_supervisor_ref()).get_model(model_uid)
         except ValueError as ve:
             logger.error(str(ve), exc_info=True)
             raise HTTPException(status_code=400, detail=str(ve))
