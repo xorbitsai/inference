@@ -33,15 +33,13 @@ from ..constants import (
     XINFERENCE_DEFAULT_DISTRIBUTED_HOST,
     XINFERENCE_DEFAULT_ENDPOINT_PORT,
     XINFERENCE_DEFAULT_LOCAL_HOST,
-    XINFERENCE_DEFAULT_LOG_FILE_NAME,
     XINFERENCE_ENV_ENDPOINT,
     XINFERENCE_LOG_BACKUP_COUNT,
-    XINFERENCE_LOG_DIR,
     XINFERENCE_LOG_MAX_BYTES,
 )
 from ..isolation import Isolation
 from ..types import ChatCompletionMessage
-from .utils import get_config_dict
+from .utils import get_config_dict, get_log_file
 
 try:
     # provide elaborate line editing and history features.
@@ -49,13 +47,6 @@ try:
     import readline  # noqa: F401
 except ImportError:
     pass
-
-
-def get_log_file():
-    log_dir = XINFERENCE_LOG_DIR
-    if not os.path.exists(log_dir):
-        os.makedirs(log_dir, exist_ok=True)
-    return os.path.join(log_dir, XINFERENCE_DEFAULT_LOG_FILE_NAME)
 
 
 def get_endpoint(endpoint: Optional[str]) -> str:

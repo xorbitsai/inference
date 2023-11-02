@@ -23,13 +23,9 @@ from typing import Dict, Optional
 import pytest
 import xoscar as xo
 
-from .constants import (
-    XINFERENCE_DEFAULT_LOG_FILE_NAME,
-    XINFERENCE_LOG_BACKUP_COUNT,
-    XINFERENCE_LOG_MAX_BYTES,
-)
+from .constants import XINFERENCE_LOG_BACKUP_COUNT, XINFERENCE_LOG_MAX_BYTES
 from .core.supervisor import SupervisorActor
-from .deploy.utils import create_worker_actor_pool
+from .deploy.utils import create_worker_actor_pool, get_log_file
 from .deploy.worker import start_worker_components
 
 TEST_LOGGING_CONF = {
@@ -54,11 +50,9 @@ TEST_LOGGING_CONF = {
     },
 }
 
-TEST_LOG_FILE_PATH = (
-    XINFERENCE_DEFAULT_LOG_FILE_NAME.encode("unicode-escape").decode()
-    if os.name == "nt"
-    else XINFERENCE_DEFAULT_LOG_FILE_NAME
-)
+TEST_LOG_FILE_PATH = get_log_file()
+if os.name == "nt":
+    TEST_LOG_FILE_PATH = TEST_LOG_FILE_PATH.encode("unicode-escape").decode()
 
 
 TEST_FILE_LOGGING_CONF = {

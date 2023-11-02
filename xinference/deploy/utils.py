@@ -18,6 +18,8 @@ from typing import TYPE_CHECKING, Optional
 
 import xoscar as xo
 
+from ..constants import XINFERENCE_DEFAULT_LOG_FILE_NAME, XINFERENCE_LOG_DIR
+
 if TYPE_CHECKING:
     from xoscar.backends.pool import MainActorPoolType
 
@@ -30,6 +32,12 @@ class LoggerNameFilter(logging.Filter):
             record.name.startswith("uvicorn.error")
             and record.getMessage().startswith("Uvicorn running on")
         )
+
+
+def get_log_file():
+    if not os.path.exists(XINFERENCE_LOG_DIR):
+        os.makedirs(XINFERENCE_LOG_DIR, exist_ok=True)
+    return os.path.join(XINFERENCE_LOG_DIR, XINFERENCE_DEFAULT_LOG_FILE_NAME)
 
 
 def get_config_dict(
