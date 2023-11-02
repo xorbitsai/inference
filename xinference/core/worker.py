@@ -30,7 +30,7 @@ from .utils import log_async, log_sync
 logger = getLogger(__name__)
 
 
-DEFAULT_NODE_HEARTBEAT_INTERVAL = 1
+DEFAULT_NODE_HEARTBEAT_INTERVAL = 5
 
 
 class WorkerActor(xo.Actor):
