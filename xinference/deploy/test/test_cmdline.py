@@ -11,15 +11,22 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import configparser
+import logging
 import os
 import tempfile
+import time
 
 import pytest
+import pytest_asyncio
+import xoscar as xo
 from click.testing import CliRunner
 
 from ...client import Client
+from ...constants import XINFERENCE_LOG_BACKUP_COUNT, XINFERENCE_LOG_MAX_BYTES
 from ..cmdline import (
+    get_config_string,
+    get_log_file,
     list_model_registrations,
     model_chat,
     model_generate,
@@ -28,6 +35,41 @@ from ..cmdline import (
     register_model,
     unregister_model,
 )
+
+
+@pytest_asyncio.fixture
+async def setup_with_real_logging_conf():
+    from ..supervisor import start_supervisor_components
+    from ..utils import create_worker_actor_pool
+    from ..worker import start_worker_components
+
+    logging_conf = configparser.RawConfigParser()
+    log_file = get_log_file()
+    logger_config_string = get_config_string(
+        "DEBUG", log_file, XINFERENCE_LOG_BACKUP_COUNT, XINFERENCE_LOG_MAX_BYTES
+    )
+    logging_conf.read_string(logger_config_string)
+    logging.config.fileConfig(logging_conf)
+
+    pool = await create_worker_actor_pool(
+        address=f"test://127.0.0.1:{xo.utils.get_next_port()}",
+        logging_conf=logging_conf,
+    )
+    print(f"Pool running on localhost:{pool.external_address}")
+
+    endpoint = await start_supervisor_components(
+        pool.external_address, "127.0.0.1", xo.utils.get_next_port()
+    )
+    await start_worker_components(
+        address=pool.external_address,
+        supervisor_address=pool.external_address,
+        main_pool=pool,
+    )
+
+    # wait for the api.
+    time.sleep(3)
+    async with pool:
+        yield endpoint, pool.external_address
 
 
 @pytest.mark.parametrize("stream", [True, False])
@@ -238,3 +280,42 @@ def test_cmdline_of_custom_model(setup):
     )
     assert result.exit_code == 0
     assert "custom_model" not in result.stdout
+
+
+def test_rotate_logs(setup_with_real_logging_conf):
+    endpoint, _ = setup_with_real_logging_conf
+    client = Client(endpoint)
+    runner = CliRunner()
+    replica = 1 if os.name == "nt" else 2
+    model_uid = client.launch_model(
+        model_name="orca",
+        model_uid=None,
+        model_size_in_billions=3,
+        quantization="q4_0",
+        replica=replica,
+    )
+    assert model_uid is not None
+    assert len(model_uid) != 0
+
+    # model generate
+    result = runner.invoke(
+        model_generate,
+        [
+            "--endpoint",
+            endpoint,
+            "--model-uid",
+            model_uid,
+            "--stream",
+            False,
+        ],
+        input="Once upon a time, there was a very old computer.\n\n",
+    )
+    assert result.exit_code == 0
+    assert len(result.stdout) != 0
+
+    # test logs
+    log_file = get_log_file()
+    assert os.path.exists(log_file)
+    with open(log_file, "r") as f:
+        content = f.read()
+        assert len(content) > 0
