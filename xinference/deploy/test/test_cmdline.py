@@ -44,13 +44,13 @@ def test_cmdline(setup, stream, model_uid):
             "--endpoint",
             endpoint,
             "--model-name",
-            "orca",
+            "tiny-llama",
             "--size-in-billions",
-            3,
+            1,
             "--model-format",
-            "ggmlv3",
+            "ggufv2",
             "--quantization",
-            "q4_0",
+            "Q2_K",
         ],
     )
     assert result.exit_code == 0
