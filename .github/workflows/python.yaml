@@ -90,7 +90,7 @@ jobs:
           MODULE: ${{ matrix.module }}
         if: ${{ matrix.module != 'gpu' }}
         run: |
-          pip install llama-cpp-python>=0.2.0
+          pip install "llama-cpp-python>=0.2.0,<0.2.12"
           pip install transformers
           pip install torch
           pip install accelerate
