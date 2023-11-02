@@ -86,13 +86,13 @@ def test_cmdline(setup, stream, model_uid):
             "--endpoint",
             endpoint,
             "--model-name",
-            "orca",
+            "tiny-llama",
             "--size-in-billions",
-            3,
+            1,
             "--model-format",
-            "ggmlv3",
+            "ggufv2",
             "--quantization",
-            "q4_0",
+            "Q2_K",
         ],
     )
     assert result.exit_code == 0
@@ -103,8 +103,8 @@ def test_cmdline(setup, stream, model_uid):
     # if use `model_launch` command to launch model, CI will fail.
     # So use client to launch model in temporary
     client = Client(endpoint)
-    # Windows CI has limited resources, use replica 1
-    replica = 1 if os.name == "nt" else 2
+    # CI has limited resources, use replica 1
+    replica = 1
     original_model_uid = model_uid
     model_uid = client.launch_model(
         model_name="orca",
