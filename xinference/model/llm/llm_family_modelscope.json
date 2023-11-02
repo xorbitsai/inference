@@ -697,56 +697,6 @@
   },
   {
     "version": 1,
-    "context_length": 100000,
-    "model_name": "code-llama-python",
-    "model_lang": [
-      "en"
-    ],
-    "model_ability": [
-      "generate"
-    ],
-    "model_description": "Code-Llama-Python is a fine-tuned version of the Code-Llama LLM, specializing in Python.",
-    "model_specs": [
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": 7,
-        "quantizations": [
-          "4-bit",
-          "8-bit",
-          "none"
-        ],
-        "model_hub": "modelscope",
-        "model_id": "AI-ModelScope/CodeLlama-7b-Python-hf",
-        "model_revision": "v1.0.1"
-      },
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": 13,
-        "quantizations": [
-          "4-bit",
-          "8-bit",
-          "none"
-        ],
-        "model_hub": "modelscope",
-        "model_id": "AI-ModelScope/CodeLlama-13b-Python-hf",
-        "model_revision": "v1.0.1"
-      },
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": 34,
-        "quantizations": [
-          "4-bit",
-          "8-bit",
-          "none"
-        ],
-        "model_hub": "modelscope",
-        "model_id": "AI-ModelScope/CodeLlama-34b-Python-hf",
-        "model_revision": "v1.0.1"
-      }
-    ]
-  },
-  {
-    "version": 1,
     "context_length": 8192,
     "model_name": "mistral-v0.1",
     "model_lang": [
@@ -767,7 +717,7 @@
         ],
         "model_hub": "modelscope",
         "model_id": "Xorbits/Mistral-7B-v0.1",
-        "model_revision": "ae9d75c6b4eb39515def78c685fb4d71d49fc2cf"
+        "model_revision": "v1.0.0"
       },
       {
         "model_format": "ggufv2",
@@ -868,8 +818,21 @@
           "8-bit",
           "none"
         ],
+        "model_hub": "modelscope",
         "model_id": "Xorbits/CodeLlama-7B-Python-fp16",
         "model_revision": "v1.0.0"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 13,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_hub": "modelscope",
+        "model_id": "AI-ModelScope/CodeLlama-13b-Python-hf",
+        "model_revision": "v1.0.1"
       }
     ]
   },

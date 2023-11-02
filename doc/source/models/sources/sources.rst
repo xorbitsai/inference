@@ -28,6 +28,17 @@ Xinference supports downloading the following models from ModelScope:
     * internlm-20b
     * internlm-chat-20b
     * wizardcoder-python-v1.0
+    * code-llama
+    * code-llama-instruct
+    * code-llama-python
+    * mistral-v0.1
+    * wizardmath-v1.0
+    * mistral-instruct-v0.1
+    * falcon-instruct
+    * zephyr-7b-alpha
+    * zephyr-7b-beta
+    * OpenBuddy
+    * qwen-chat
 
 * Embedding Models
     * bge-large-en
