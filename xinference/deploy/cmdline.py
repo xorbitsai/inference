@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import asyncio
-import configparser
 import logging
 import os
 import sys
@@ -34,14 +33,13 @@ from ..constants import (
     XINFERENCE_DEFAULT_DISTRIBUTED_HOST,
     XINFERENCE_DEFAULT_ENDPOINT_PORT,
     XINFERENCE_DEFAULT_LOCAL_HOST,
-    XINFERENCE_DEFAULT_LOG_FILE_NAME,
     XINFERENCE_ENV_ENDPOINT,
     XINFERENCE_LOG_BACKUP_COUNT,
-    XINFERENCE_LOG_DIR,
     XINFERENCE_LOG_MAX_BYTES,
 )
 from ..isolation import Isolation
 from ..types import ChatCompletionMessage
+from .utils import get_config_dict, get_log_file
 
 try:
     # provide elaborate line editing and history features.
@@ -49,52 +47,6 @@ try:
     import readline  # noqa: F401
 except ImportError:
     pass
-
-
-def get_config_string(
-    log_level: str, log_file_path: str, log_backup_count: int, log_max_bytes: int
-) -> str:
-    # for windows, path should be raw string
-    log_file_path = (
-        log_file_path.encode("unicode-escape").decode()
-        if os.name == "nt"
-        else log_file_path
-    )
-    return f"""[loggers]
-keys=root
-
-[handlers]
-keys=stream_handler,file_handler
-
-[formatters]
-keys=formatter
-
-[logger_root]
-level={log_level.upper()}
-handlers=stream_handler,file_handler
-
-[handler_stream_handler]
-class=StreamHandler
-formatter=formatter
-level={log_level.upper()}
-args=(sys.stderr,)
-
-[handler_file_handler]
-class=logging.handlers.RotatingFileHandler
-formatter=formatter
-level={log_level.upper()}
-args=('{log_file_path}', 'a', {log_max_bytes}, {log_backup_count}, 'utf8')
-
-[formatter_formatter]
-format=%(asctime)s %(name)-12s %(process)d %(levelname)-8s %(message)s
-"""
-
-
-def get_log_file():
-    log_dir = XINFERENCE_LOG_DIR
-    if not os.path.exists(log_dir):
-        os.makedirs(log_dir, exist_ok=True)
-    return os.path.join(log_dir, XINFERENCE_DEFAULT_LOG_FILE_NAME)
 
 
 def get_endpoint(endpoint: Optional[str]) -> str:
@@ -146,26 +98,23 @@ def cli(
     ctx,
     log_level: str,
     host: str,
-    port: str,
+    port: int,
 ):
     if ctx.invoked_subcommand is None:
         from .local import main
 
-        logging_conf = configparser.RawConfigParser()
-        log_file = get_log_file()
-        logger_config_string = get_config_string(
-            log_level, log_file, XINFERENCE_LOG_BACKUP_COUNT, XINFERENCE_LOG_MAX_BYTES
+        dict_config = get_config_dict(
+            log_level,
+            get_log_file(),
+            XINFERENCE_LOG_BACKUP_COUNT,
+            XINFERENCE_LOG_MAX_BYTES,
         )
-        logging_conf.read_string(logger_config_string)
-        logging.config.fileConfig(logging_conf)  # type: ignore
-
-        address = f"{host}:{get_next_port()}"
+        logging.config.dictConfig(dict_config)  # type: ignore
 
         main(
-            address=address,
             host=host,
             port=port,
-            logging_conf=logging_conf,
+            logging_conf=dict_config,
         )
 
 
@@ -196,17 +145,16 @@ def cli(
 def supervisor(
     log_level: str,
     host: str,
-    port: str,
+    port: int,
 ):
     from ..deploy.supervisor import main
 
-    if log_level:
-        logging.basicConfig(level=logging.getLevelName(log_level.upper()))
-    logging_conf = dict(level=log_level.upper())
+    dict_config = get_config_dict(
+        log_level, get_log_file(), XINFERENCE_LOG_BACKUP_COUNT, XINFERENCE_LOG_MAX_BYTES
+    )
+    logging.config.dictConfig(dict_config)  # type: ignore
 
-    address = f"{host}:{get_next_port()}"
-
-    main(address=address, host=host, port=port, logging_conf=logging_conf)
+    main(host=host, port=port, logging_conf=dict_config)
 
 
 @click.command(
@@ -230,13 +178,10 @@ def supervisor(
 def worker(log_level: str, endpoint: Optional[str], host: str):
     from ..deploy.worker import main
 
-    logging_conf = configparser.RawConfigParser()
-    log_file = get_log_file()
-    logger_config_string = get_config_string(
-        log_level, log_file, XINFERENCE_LOG_BACKUP_COUNT, XINFERENCE_LOG_MAX_BYTES
+    dict_config = get_config_dict(
+        log_level, get_log_file(), XINFERENCE_LOG_BACKUP_COUNT, XINFERENCE_LOG_MAX_BYTES
     )
-    logging_conf.read_string(logger_config_string)
-    logging.config.fileConfig(logging_conf)  # type: ignore
+    logging.config.dictConfig(dict_config)  # type: ignore
 
     endpoint = get_endpoint(endpoint)
 
@@ -247,7 +192,7 @@ def worker(log_level: str, endpoint: Optional[str], host: str):
     main(
         address=address,
         supervisor_address=supervisor_internal_addr,
-        logging_conf=logging_conf,
+        logging_conf=dict_config,
     )
 
 

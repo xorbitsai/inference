@@ -97,23 +97,20 @@ const ModelCard = ({ url, modelData }) => {
       body: JSON.stringify(modelDataWithID),
     })
       .then((response) => {
-        response.json();
+        if (!response.ok) {
+          // Assuming the server returns error details in JSON format
+          return response.json().then((errorData) => {
+            throw new Error(
+              `Server error: ${response.status} - ${
+                errorData.detail || "Unknown error"
+              }`,
+            );
+          });
+        }
+        return response.json(); // Also return the promise from response.json() for successful responses
       })
       .then(() => {
-        // Second fetch request to build the gradio page
-        return fetch(url + "/v1/ui/" + uuid, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(modelDataWithID),
-        });
-      })
-      .then((response) => {
-        response.json();
-      })
-      .then(() => {
-        window.open(url + "/" + uuid, "_blank", "noreferrer");
+        window.open(url + "/ui/#/running_models", "_blank", "noreferrer");
         setIsCallingApi(false);
       })
       .catch((error) => {
@@ -393,7 +390,7 @@ const ModelCard = ({ url, modelData }) => {
         </Box>
         <Box style={styles.buttonsContainer}>
           <button
-            title="Launch Web UI"
+            title="Launch"
             style={styles.buttonContainer}
             onClick={() => launchModel(url, modelData)}
             disabled={
@@ -448,7 +445,7 @@ const ModelCard = ({ url, modelData }) => {
             })()}
           </button>
           <button
-            title="Launch Web UI"
+            title="Go Back"
             style={styles.buttonContainer}
             onClick={() => setSelected(false)}
           >

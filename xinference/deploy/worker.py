@@ -15,7 +15,7 @@
 import asyncio
 import logging
 import os
-from typing import Any
+from typing import Any, Optional
 
 import xoscar as xo
 from xorbits._mars.resource import cuda_count
@@ -44,7 +44,6 @@ async def start_worker_components(
         main_pool=main_pool,
         cuda_devices=cuda_device_indices,
     )
-    logger.info(f"Xinference worker successfully started.")
 
 
 async def _start_worker(
@@ -59,7 +58,7 @@ async def _start_worker(
     await pool.join()
 
 
-def main(address: str, supervisor_address: str, logging_conf: Any = None):
+def main(address: str, supervisor_address: str, logging_conf: Optional[dict] = None):
     loop = asyncio.get_event_loop()
     task = loop.create_task(_start_worker(address, supervisor_address, logging_conf))
 

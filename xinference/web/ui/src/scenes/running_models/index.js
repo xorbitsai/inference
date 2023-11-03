@@ -125,6 +125,17 @@ const RunningModels = () => {
                         headers: {
                           "Content-Type": "application/json",
                         },
+                        body: JSON.stringify({
+                          model_type: row.model_type,
+                          model_name: row.model_name,
+                          model_size_in_billions: row.model_size_in_billions,
+                          model_format: row.model_format,
+                          quantization: row.quantization,
+                          context_length: row.context_length,
+                          model_ability: row.model_ability,
+                          model_description: row.model_description,
+                          model_lang: row.model_lang,
+                        }),
                       })
                         .then((response) => response.json())
                         .then(() =>
@@ -186,7 +197,6 @@ const RunningModels = () => {
                     response.json();
                   })
                   .then((data) => {
-                    console.log(data);
                     setIsCallingApi(false);
                   })
                   .catch((error) => {
