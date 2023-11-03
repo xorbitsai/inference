@@ -78,8 +78,8 @@ top_k_field = Field(
     + "Top-k sampling is a text generation method that selects the next token only from the top k most likely tokens predicted by the model. It helps reduce the risk of generating low-probability or nonsensical tokens, but it may also limit the diversity of the output. A higher value for top_k (e.g., 100) will consider more tokens and lead to more diverse text, while a lower value (e.g., 10) will focus on the most probable tokens and generate more conservative text.",
 )
 
-repetition_penalty_field = Field(
-    default=1.0,
+repeat_penalty_field = Field(
+    default=1.1,
     ge=0.0,
     description="A penalty applied to each token that is already generated. This helps prevent the model from repeating itself.\n\n"
     + "Repeat penalty is a hyperparameter used to penalize the repetition of token sequences during text generation. It helps prevent the model from generating repetitive or monotonous text. A higher value (e.g., 1.5) will penalize repetitions more strongly, while a lower value (e.g., 0.9) will be more lenient.",
@@ -149,7 +149,7 @@ class CreateCompletionRequest(BaseModel):
 
     # llama.cpp specific parameters
     top_k: int = top_k_field
-    repetition_penalty: float = repetition_penalty_field
+    repeat_penalty: float = repeat_penalty_field
     logit_bias_type: Optional[Literal["input_ids", "tokens"]] = Field(None)
     grammar: Optional[str] = Field(None)
 
@@ -212,7 +212,7 @@ class CreateChatCompletionRequest(BaseModel):
 
     # llama.cpp specific parameters
     top_k: int = top_k_field
-    repetition_penalty: float = repetition_penalty_field
+    repeat_penalty: Optional[float] = repeat_penalty_field
     logit_bias_type: Optional[Literal["input_ids", "tokens"]] = Field(None)
     grammar: Optional[str] = Field(None)
 
