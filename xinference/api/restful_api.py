@@ -739,7 +739,7 @@ class RESTfulAPI:
 
         if (
             not body.messages
-            or body.messages[-1].get("role") != "user"
+            or (body.messages[-1].get("role") != "user" and body.messages[-1].get("role") != "system")
             or not body.messages[-1].get("content")
         ):
             raise HTTPException(
