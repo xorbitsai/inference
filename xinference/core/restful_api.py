@@ -431,6 +431,7 @@ class RESTfulAPIActor(xo.Actor):
 
         return JSONResponse(content={"model_uid": model_uid})
 
+
     async def launch_model(self, request: Request) -> JSONResponse:
         payload = await request.json()
         model_uid = payload.get("model_uid")
@@ -785,3 +786,4 @@ class RESTfulAPIActor(xo.Actor):
         except Exception as e:
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
+
