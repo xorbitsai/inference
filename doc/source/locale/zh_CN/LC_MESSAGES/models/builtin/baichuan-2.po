@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-10-16 10:33+0800\n"
+"POT-Creation-Date: 2023-11-01 10:48+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -75,8 +75,8 @@ msgstr ""
 #: ../../source/models/builtin/baichuan-2.rst:41
 msgid ""
 "Execute the following command to launch the model, remember to replace "
-"`${quantization}` with your chosen quantization method from the options "
-"listed above::"
+"``${quantization}`` with your chosen quantization method from the options"
+" listed above::"
 msgstr ""
 
 #: ../../source/models/builtin/baichuan-2.rst:31
@@ -95,4 +95,12 @@ msgstr ""
 #: ../../source/models/builtin/baichuan-2.rst:39
 msgid "**Model ID:** baichuan-inc/Baichuan2-13B-Base"
 msgstr ""
+
+#~ msgid ""
+#~ "Execute the following command to launch"
+#~ " the model, remember to replace "
+#~ "`${quantization}` with your chosen "
+#~ "quantization method from the options "
+#~ "listed above::"
+#~ msgstr ""
 

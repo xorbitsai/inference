@@ -1,7 +1,7 @@
 import React, { useState, useContext, useEffect } from "react";
 import { v1 as uuidv1 } from "uuid";
 import { ApiContext } from "../../components/apiContext";
-import { FormControl, InputLabel, Select, MenuItem, Box } from "@mui/material";
+import { FormControl, InputLabel, Select, MenuItem, Box, Chip } from "@mui/material";
 import { CircularProgress } from "@mui/material";
 import {
   ChatOutlined,
@@ -97,23 +97,20 @@ const ModelCard = ({ url, modelData }) => {
       body: JSON.stringify(modelDataWithID),
     })
       .then((response) => {
-        response.json();
+        if (!response.ok) {
+          // Assuming the server returns error details in JSON format
+          return response.json().then((errorData) => {
+            throw new Error(
+              `Server error: ${response.status} - ${
+                errorData.detail || "Unknown error"
+              }`,
+            );
+          });
+        }
+        return response.json(); // Also return the promise from response.json() for successful responses
       })
       .then(() => {
-        // Second fetch request to build the gradio page
-        return fetch(url + "/v1/ui/" + uuid, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(modelDataWithID),
-        });
-      })
-      .then((response) => {
-        response.json();
-      })
-      .then(() => {
-        window.open(url + "/" + uuid, "_blank", "noreferrer");
+        window.open(url + "/ui/#/running_models", "_blank", "noreferrer");
         setIsCallingApi(false);
       })
       .catch((error) => {
@@ -247,20 +244,6 @@ const ModelCard = ({ url, modelData }) => {
     },
     langRow: {
       margin: "2px 5px"
-    },
-    langTag: {
-      margin: "0px 10px 0px 0px",
-      padding: "2px 10px",
-      borderRadius: "50px",
-      fontSize: "0.8em"
-    },
-    langEn: {
-      border: "1px solid #e5e7eb",
-      backgroundColor: "transparent"
-    },
-    langZh: {
-      border: "1px solid #e5e7eb",
-      backgroundColor: "transparent"
     }
   };
 
@@ -283,14 +266,14 @@ const ModelCard = ({ url, modelData }) => {
           {(()=> {
             if ( modelData.model_lang.includes("en")) {
               return (
-                <span style={{...styles.langTag, ...styles.langEn}}>EN</span>
+                <Chip label="EN" variant="outlined" size="small" sx={{marginRight: "10px"}}/>
               );
             }
           })()}
           {(()=> {
             if ( modelData.model_lang.includes("zh")) {
               return (
-                <span style={{...styles.langTag, ...styles.langZh}}>ZH</span>
+                <Chip label="ZH" variant="outlined" size="small"/>
               )
             }
           })()}
@@ -407,7 +390,7 @@ const ModelCard = ({ url, modelData }) => {
         </Box>
         <Box style={styles.buttonsContainer}>
           <button
-            title="Launch Web UI"
+            title="Launch"
             style={styles.buttonContainer}
             onClick={() => launchModel(url, modelData)}
             disabled={
@@ -462,7 +445,7 @@ const ModelCard = ({ url, modelData }) => {
             })()}
           </button>
           <button
-            title="Launch Web UI"
+            title="Go Back"
             style={styles.buttonContainer}
             onClick={() => setSelected(false)}
           >

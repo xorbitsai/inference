@@ -30,10 +30,10 @@ from .utils import log_async, log_sync
 logger = getLogger(__name__)
 
 
-DEFAULT_NODE_HEARTBEAT_INTERVAL = 1
+DEFAULT_NODE_HEARTBEAT_INTERVAL = 5
 
 
-class WorkerActor(xo.Actor):
+class WorkerActor(xo.StatelessActor):
     def __init__(
         self,
         supervisor_address: str,
@@ -41,18 +41,19 @@ class WorkerActor(xo.Actor):
         cuda_devices: List[int],
     ):
         super().__init__()
+        # static attrs.
         self._total_cuda_devices = cuda_devices
         self._supervisor_address = supervisor_address
         self._supervisor_ref = None
+        self._main_pool = main_pool
+
+        # internal states.
         self._model_uid_to_model: Dict[str, xo.ActorRefType["ModelActor"]] = {}
         self._model_uid_to_model_spec: Dict[str, ModelDescription] = {}
-
         self._gpu_to_model_uid: Dict[int, str] = {}
         self._model_uid_to_addr: Dict[str, str] = {}
-        self._main_pool = main_pool
-        logger.debug(
-            f"Worker actor initialized with main pool: {self._main_pool.external_address}"
-        )
+
+        self._lock = asyncio.Lock()
 
     @classmethod
     def uid(cls) -> str:
@@ -66,6 +67,7 @@ class WorkerActor(xo.Actor):
         )
         await self._supervisor_ref.add_worker(self.address)
         self._upload_task = asyncio.create_task(self._periodical_report_status())
+        logger.info(f"Xinference worker {self.address} started")
 
     async def __pre_destroy__(self):
         self._upload_task.cancel()
@@ -74,16 +76,26 @@ class WorkerActor(xo.Actor):
     def get_model_count(self) -> int:
         return len(self._model_uid_to_model)
 
-    def allocate_devices(self, n_gpu: int) -> List[int]:
-        """
-        Allocate GPUs to the model based on the form-filling method to achieve a balanced GPU load as much as possible.
-        """
+    async def allocate_devices(self, model_uid: str, n_gpu: int) -> List[int]:
         if n_gpu > len(self._total_cuda_devices) - len(self._gpu_to_model_uid):
             raise RuntimeError("No available slot found for the model")
+
         devices: List[int] = [
             dev for dev in self._total_cuda_devices if dev not in self._gpu_to_model_uid
         ][:n_gpu]
+        for dev in devices:
+            self._gpu_to_model_uid[int(dev)] = model_uid
+
         return sorted(devices)
+
+    async def release_devices(self, model_uid: str):
+        devices = [
+            dev
+            for dev in self._gpu_to_model_uid
+            if self._gpu_to_model_uid[dev] == model_uid
+        ]
+        for dev in devices:
+            del self._gpu_to_model_uid[dev]
 
     async def _create_subpool(
         self,
@@ -95,7 +107,7 @@ class WorkerActor(xo.Actor):
         if isinstance(n_gpu, int) or (n_gpu == "auto" and cuda_count() > 0):
             # Currently, n_gpu=auto means using 1 GPU
             gpu_cnt = n_gpu if isinstance(n_gpu, int) else 1
-            devices = self.allocate_devices(gpu_cnt)
+            devices = await self.allocate_devices(model_uid=model_uid, n_gpu=gpu_cnt)
             env["CUDA_VISIBLE_DEVICES"] = ",".join([str(dev) for dev in devices])
             logger.debug(f"GPU selected: {devices} for model {model_uid}")
         if n_gpu is None:
@@ -238,6 +250,7 @@ class WorkerActor(xo.Actor):
             await model_ref.load()
         except:
             logger.error(f"Failed to load model {model_uid}", exc_info=True)
+            await self.release_devices(model_uid=model_uid)
             await self._main_pool.remove_sub_pool(subpool_address)
             raise
 
@@ -250,10 +263,9 @@ class WorkerActor(xo.Actor):
 
     @log_async(logger=logger)
     async def terminate_model(self, model_uid: str):
-        if model_uid not in self._model_uid_to_model:
+        model_ref = self._model_uid_to_model.get(model_uid, None)
+        if model_ref is None:
             raise ValueError(f"Model not found in the model list, uid: {model_uid}")
-
-        model_ref = self._model_uid_to_model[model_uid]
 
         await xo.destroy_actor(model_ref)
         del self._model_uid_to_model[model_uid]
@@ -267,26 +279,28 @@ class WorkerActor(xo.Actor):
         await self._main_pool.remove_sub_pool(subpool_address)
         del self._model_uid_to_addr[model_uid]
 
-    @log_sync(logger=logger)
-    def list_models(self) -> Dict[str, Dict[str, Any]]:
+    @log_async(logger=logger)
+    async def list_models(self) -> Dict[str, Dict[str, Any]]:
         ret = {}
-        for k, v in self._model_uid_to_model_spec.items():
+
+        items = list(self._model_uid_to_model_spec.items())
+        for k, v in items:
             ret[k] = v.to_dict()
         return ret
 
     @log_sync(logger=logger)
     def get_model(self, model_uid: str) -> xo.ActorRefType["ModelActor"]:
-        if model_uid not in self._model_uid_to_model:
+        model_ref = self._model_uid_to_model.get(model_uid, None)
+        if model_ref is None:
             raise ValueError(f"Model not found in the model list, uid: {model_uid}")
-
-        return self._model_uid_to_model[model_uid]
+        return model_ref
 
     @log_sync(logger=logger)
     def describe_model(self, model_uid: str) -> Dict[str, Any]:
-        if model_uid not in self._model_uid_to_model:
+        model_desc = self._model_uid_to_model_spec.get(model_uid, None)
+        if model_desc is None:
             raise ValueError(f"Model not found in the model list, uid: {model_uid}")
-
-        return self._model_uid_to_model_spec[model_uid].to_dict()
+        return model_desc.to_dict()
 
     async def report_status(self):
         status = await asyncio.to_thread(gather_node_info)

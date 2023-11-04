@@ -1,0 +1,89 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2023-11-01 10:48+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: ja_JP\n"
+"Language-Team: ja_JP <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.12.1\n"
+
+#: ../../source/user_guide/client_api.rst:5
+msgid "Client API"
+msgstr ""
+
+#: ../../source/user_guide/client_api.rst:7
+msgid "Complete Client API Reference: :ref:`reference_index`"
+msgstr ""
+
+#: ../../source/user_guide/client_api.rst:9
+msgid ""
+"To utilize the Client API, initiate the xinference server using the "
+"command below:"
+msgstr ""
+
+#: ../../source/user_guide/client_api.rst:18
+msgid ""
+"Based on the log above, the endpoint is `http://127.0.0.1:9997`. Users "
+"can connect to the xinference server through this endpoint using the "
+"Client."
+msgstr ""
+
+#: ../../source/user_guide/client_api.rst:20
+msgid ""
+"Models are categorized into LLM, embedding, image, etc. We plan to "
+"introduce more model types in the future."
+msgstr ""
+
+#: ../../source/user_guide/client_api.rst:23
+msgid "LLM"
+msgstr ""
+
+#: ../../source/user_guide/client_api.rst:25
+msgid "To list the available built-in LLM models:"
+msgstr ""
+
+#: ../../source/user_guide/client_api.rst:38
+msgid "To initialize an LLM and chat:"
+msgstr ""
+
+#: ../../source/user_guide/client_api.rst:63
+msgid "Embedding"
+msgstr ""
+
+#: ../../source/user_guide/client_api.rst:65
+msgid "To list the available built-in embedding models:"
+msgstr ""
+
+#: ../../source/user_guide/client_api.rst:78
+msgid "To launch an embedding model and embed text:"
+msgstr ""
+
+#: ../../source/user_guide/client_api.rst:92
+#: ../../source/user_guide/client_api.rst:138
+msgid "Output:"
+msgstr ""
+
+#: ../../source/user_guide/client_api.rst:110
+msgid "Image"
+msgstr ""
+
+#: ../../source/user_guide/client_api.rst:112
+msgid "To list the available built-in image models:"
+msgstr ""
+
+#: ../../source/user_guide/client_api.rst:123
+msgid "To initiate an image model and generate an image using a text prompt:"
+msgstr ""
+

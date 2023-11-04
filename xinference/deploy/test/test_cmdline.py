@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 import os
 import tempfile
 
@@ -20,6 +19,7 @@ from click.testing import CliRunner
 
 from ...client import Client
 from ..cmdline import (
+    get_log_file,
     list_model_registrations,
     model_chat,
     model_generate,
@@ -44,13 +44,13 @@ def test_cmdline(setup, stream, model_uid):
             "--endpoint",
             endpoint,
             "--model-name",
-            "orca",
+            "tiny-llama",
             "--size-in-billions",
-            3,
+            1,
             "--model-format",
-            "ggmlv3",
+            "ggufv2",
             "--quantization",
-            "q4_0",
+            "Q2_K",
         ],
     )
     assert result.exit_code == 0
@@ -61,8 +61,8 @@ def test_cmdline(setup, stream, model_uid):
     # if use `model_launch` command to launch model, CI will fail.
     # So use client to launch model in temporary
     client = Client(endpoint)
-    # Windows CI has limited resources, use replica 1
-    replica = 1 if os.name == "nt" else 2
+    # CI has limited resources, use replica 1
+    replica = 1
     original_model_uid = model_uid
     model_uid = client.launch_model(
         model_name="orca",
@@ -238,3 +238,42 @@ def test_cmdline_of_custom_model(setup):
     )
     assert result.exit_code == 0
     assert "custom_model" not in result.stdout
+
+
+def test_rotate_logs(setup_with_file_logging):
+    endpoint, _ = setup_with_file_logging
+    client = Client(endpoint)
+    runner = CliRunner()
+    replica = 1 if os.name == "nt" else 2
+    model_uid = client.launch_model(
+        model_name="orca",
+        model_uid=None,
+        model_size_in_billions=3,
+        quantization="q4_0",
+        replica=replica,
+    )
+    assert model_uid is not None
+    assert len(model_uid) != 0
+
+    # model generate
+    result = runner.invoke(
+        model_generate,
+        [
+            "--endpoint",
+            endpoint,
+            "--model-uid",
+            model_uid,
+            "--stream",
+            False,
+        ],
+        input="Once upon a time, there was a very old computer.\n\n",
+    )
+    assert result.exit_code == 0
+    assert len(result.stdout) != 0
+
+    # test logs
+    log_file = get_log_file()
+    assert os.path.exists(log_file)
+    with open(log_file, "r") as f:
+        content = f.read()
+        assert len(content) > 0

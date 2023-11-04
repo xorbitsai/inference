@@ -433,7 +433,7 @@
           "none"
         ],
         "model_id": "THUDM/chatglm2-6b",
-        "model_revision": "b1502f4f75c71499a3d566b14463edd62620ce9f"
+        "model_revision": "7fabe56db91e085c9c027f56f1c654d137bdba40"
       }
     ],
     "prompt_style": {
@@ -468,7 +468,7 @@
           "none"
         ],
         "model_id": "THUDM/chatglm2-6b-32k",
-        "model_revision": "455746d4706479a1cbbd07179db39eb2741dc692"
+        "model_revision": "a2065f5dc8253f036a209e642d7220a942d92765"
       }
     ],
     "prompt_style": {
@@ -479,6 +479,74 @@
         "答"
       ],
       "intra_message_sep": "\n\n"
+    }
+  },
+  {
+    "version": 1,
+    "context_length": 8192,
+    "model_name": "chatglm3",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "ChatGLM3 is the third generation of ChatGLM, still open-source and trained on Chinese and English data.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 6,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "THUDM/chatglm3-6b",
+        "model_revision": "fc3235f807ef5527af598c05f04f2ffd17f48bab"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "CHATGLM3",
+      "system_prompt": "",
+      "roles": [
+        "user",
+        "assistant"
+      ]
+    }
+  },
+  {
+    "version": 1,
+    "context_length": 32768,
+    "model_name": "chatglm3-32k",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "ChatGLM3 is the third generation of ChatGLM, still open-source and trained on Chinese and English data.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 6,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "THUDM/chatglm3-6b-32k",
+        "model_revision": "339f17ff464d47b5077527c2b34e80a7719ede3e"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "CHATGLM3",
+      "system_prompt": "",
+      "roles": [
+        "user",
+        "assistant"
+      ]
     }
   },
   {
@@ -1021,7 +1089,7 @@
           "none"
         ],
         "model_id": "internlm/internlm-7b",
-        "model_revision": "ab8633378889e2d7b7720703cc72caf52e1c9c44"
+        "model_revision": "592b0efc83be3eb1cba8990c4caf41ce604b958c"
       }
     ]
   },
@@ -1047,7 +1115,7 @@
           "none"
         ],
         "model_id": "internlm/internlm-chat-7b",
-        "model_revision": "ed5e35564ac836710817c51e8e8d0a5d4ff03102"
+        "model_revision": "d4fa2dbcbd2fa4edfa6735aa2ba0f0577fed6a62"
       }
     ],
     "prompt_style": {
@@ -1090,7 +1158,7 @@
           "none"
         ],
         "model_id": "internlm/internlm-20b",
-        "model_revision": "f0433b0db933a9adfa169f756ab8547f67ccef1d"
+        "model_revision": "c56a72957239b490ea206ea857e86611b3f65f3a"
       }
     ]
   },
@@ -1116,7 +1184,7 @@
           "none"
         ],
         "model_id": "internlm/internlm-chat-20b",
-        "model_revision": "84969e0447c3807207e9acdd92c9302309ec64fc"
+        "model_revision": "c67e80e42c4950ebae18a955c9fe138c5ceb5b10"
       }
     ],
     "prompt_style": {
@@ -2047,6 +2115,88 @@
         "Response"
       ],
       "intra_message_sep": "\n\n### ",
+      "stop": [
+        "</s>"
+      ]
+    }
+  },
+  {
+    "version": 1,
+    "context_length": 8192,
+    "model_name": "zephyr-7b-alpha",
+    "model_lang": [
+      "en"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "Zephyr-7B-α is the first model in the series, and is a fine-tuned version of mistralai/Mistral-7B-v0.1.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "HuggingFaceH4/zephyr-7b-alpha",
+        "model_revision": "f28e1c0e5a1af475bcd7bdf6554e69abc6c0c7ee"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "NO_COLON_TWO",
+      "system_prompt": "<|system|>\nYou are a friendly chatbot.</s>\n",
+      "roles": [
+        "<|user|>\n",
+        "<|assistant|>\n"
+      ],
+      "intra_message_sep": "</s>\n",
+      "inter_message_sep": "</s>\n",
+      "stop_token_ids": [
+        2
+      ],
+      "stop": [
+        "</s>"
+      ]
+    }
+  },
+  {
+    "version": 1,
+    "context_length": 8192,
+    "model_name": "zephyr-7b-beta",
+    "model_lang": [
+      "en"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "Zephyr-7B-β is the second model in the series, and is a fine-tuned version of mistralai/Mistral-7B-v0.1",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "HuggingFaceH4/zephyr-7b-beta",
+        "model_revision": "3bac358730f8806e5c3dc7c7e19eb36e045bf720"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "NO_COLON_TWO",
+      "system_prompt": "<|system|>\nYou are a friendly chatbot.</s>\n",
+      "roles": [
+        "<|user|>\n",
+        "<|assistant|>\n"
+      ],
+      "intra_message_sep": "</s>\n",
+      "inter_message_sep": "</s>\n",
+      "stop_token_ids": [
+        2
+      ],
       "stop": [
         "</s>"
       ]

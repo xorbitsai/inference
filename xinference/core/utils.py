@@ -26,7 +26,7 @@ def log_async(logger):
             start = time.time()
             ret = await func(*args, **kwargs)
             logger.debug(
-                f"Leave {func.__name__}, elapsed time: {int(time.time() - start)} ms"
+                f"Leave {func.__name__}, elapsed time: {int(time.time() - start)} s"
             )
             return ret
 
@@ -46,7 +46,7 @@ def log_sync(logger):
             start = time.time()
             ret = func(*args, **kwargs)
             logger.debug(
-                f"Leave {func.__name__}, elapsed time: {int(time.time() - start)} ms"
+                f"Leave {func.__name__}, elapsed time: {int(time.time() - start)} s"
             )
             return ret
 
