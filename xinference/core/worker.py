@@ -15,8 +15,9 @@
 import asyncio
 import os
 import platform
+from collections import defaultdict
 from logging import getLogger
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 import xoscar as xo
 from xorbits._mars.resource import cuda_count
@@ -51,6 +52,7 @@ class WorkerActor(xo.StatelessActor):
         self._model_uid_to_model: Dict[str, xo.ActorRefType["ModelActor"]] = {}
         self._model_uid_to_model_spec: Dict[str, ModelDescription] = {}
         self._gpu_to_model_uid: Dict[int, str] = {}
+        self._gpu_to_embedding_model_uids: Dict[int, Set[str]] = defaultdict(set)
         self._model_uid_to_addr: Dict[str, str] = {}
 
         self._lock = asyncio.Lock()
@@ -76,6 +78,42 @@ class WorkerActor(xo.StatelessActor):
     def get_model_count(self) -> int:
         return len(self._model_uid_to_model)
 
+    async def is_model_vllm_backend(self, model_uid: str) -> bool:
+        assert self._supervisor_ref is not None
+        model_ref = await self._supervisor_ref.get_model(model_uid)
+        return await model_ref.is_vllm_backend()
+
+    async def allocate_devices_for_embedding(self, model_uid: str) -> int:
+        """
+        we assume that embedding model only takes 1 GPU slot.
+        """
+        candidates = []
+        for _dev in self._total_cuda_devices:
+            if _dev not in self._gpu_to_model_uid:
+                candidates.append(_dev)
+            else:
+                existing_model_uid = self._gpu_to_model_uid[_dev]
+                is_vllm_model = await self.is_model_vllm_backend(existing_model_uid)
+                if not is_vllm_model:
+                    candidates.append(_dev)
+
+        if len(candidates) == 0:
+            raise RuntimeError(
+                "No available slot found for the embedding model. "
+                "We recommend to launch the embedding model first, and then launch the LLM models."
+            )
+
+        chosen_one = [-1, -1]  # dev, count
+        # Pick the device with the fewest existing models among all the candidate devices.
+        for _dev in candidates:
+            existing_cnt = len(self._gpu_to_embedding_model_uids[_dev])
+            if chosen_one[1] == -1 or existing_cnt < chosen_one[1]:
+                chosen_one[0], chosen_one[1] = _dev, existing_cnt
+
+        device = chosen_one[0]
+        self._gpu_to_embedding_model_uids[device].add(model_uid)
+        return device
+
     async def allocate_devices(self, model_uid: str, n_gpu: int) -> List[int]:
         if n_gpu > len(self._total_cuda_devices) - len(self._gpu_to_model_uid):
             raise RuntimeError("No available slot found for the model")
@@ -97,9 +135,15 @@ class WorkerActor(xo.StatelessActor):
         for dev in devices:
             del self._gpu_to_model_uid[dev]
 
+        # check embedding
+        for dev in self._gpu_to_embedding_model_uids:
+            if model_uid in self._gpu_to_embedding_model_uids[dev]:
+                self._gpu_to_embedding_model_uids[dev].remove(model_uid)
+
     async def _create_subpool(
         self,
         model_uid: str,
+        model_type: Optional[str] = None,
         n_gpu: Optional[Union[int, str]] = "auto",
     ) -> Tuple[str, List[str]]:
         env = {}
@@ -107,7 +151,11 @@ class WorkerActor(xo.StatelessActor):
         if isinstance(n_gpu, int) or (n_gpu == "auto" and cuda_count() > 0):
             # Currently, n_gpu=auto means using 1 GPU
             gpu_cnt = n_gpu if isinstance(n_gpu, int) else 1
-            devices = await self.allocate_devices(model_uid=model_uid, n_gpu=gpu_cnt)
+            devices = (
+                [await self.allocate_devices_for_embedding(model_uid)]
+                if model_type == "embedding"
+                else await self.allocate_devices(model_uid=model_uid, n_gpu=gpu_cnt)
+            )
             env["CUDA_VISIBLE_DEVICES"] = ",".join([str(dev) for dev in devices])
             logger.debug(f"GPU selected: {devices} for model {model_uid}")
         if n_gpu is None:
@@ -243,7 +291,9 @@ class WorkerActor(xo.StatelessActor):
             **kwargs,
         )
 
-        subpool_address, devices = await self._create_subpool(model_uid, n_gpu=n_gpu)
+        subpool_address, devices = await self._create_subpool(
+            model_uid, model_type, n_gpu=n_gpu
+        )
         try:
             model_ref = await xo.create_actor(
                 ModelActor, address=subpool_address, uid=model_uid, model=model
@@ -257,8 +307,6 @@ class WorkerActor(xo.StatelessActor):
 
         self._model_uid_to_model[model_uid] = model_ref
         self._model_uid_to_model_spec[model_uid] = model_description
-        for dev in devices:
-            self._gpu_to_model_uid[int(dev)] = model_uid
         self._model_uid_to_addr[model_uid] = subpool_address
         return model_ref
 
@@ -272,9 +320,7 @@ class WorkerActor(xo.StatelessActor):
         del self._model_uid_to_model[model_uid]
         del self._model_uid_to_model_spec[model_uid]
 
-        devs = [dev for dev, uid in self._gpu_to_model_uid.items() if uid == model_uid]
-        for dev in devs:
-            del self._gpu_to_model_uid[dev]
+        await self.release_devices(model_uid)
 
         subpool_address = self._model_uid_to_addr[model_uid]
         await self._main_pool.remove_sub_pool(subpool_address)

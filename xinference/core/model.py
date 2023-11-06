@@ -124,6 +124,11 @@ class ModelActor(xo.StatelessActor):
             else asyncio.locks.Lock()
         )
 
+    def is_vllm_backend(self) -> bool:
+        from ..model.llm.vllm.core import VLLMModel
+
+        return isinstance(self._model, VLLMModel)
+
     def load(self):
         self._model.load()
 
@@ -274,7 +279,7 @@ class ModelActor(xo.StatelessActor):
 
         async def _async_wrapper():
             try:
-                return await anext(gen)
+                return await anext(gen)  # noqa: F821
             except StopAsyncIteration:
                 return stop
 
