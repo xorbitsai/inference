@@ -231,7 +231,8 @@ class WorkerActor(xo.StatelessActor):
         assert self._supervisor_ref is not None
         is_local_deployment = await self._supervisor_ref.is_local_deployment()
 
-        model, model_description = create_model_instance(
+        model, model_description = await asyncio.to_thread(
+            create_model_instance,
             model_uid,
             model_type,
             model_name,
