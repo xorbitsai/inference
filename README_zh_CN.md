@@ -114,7 +114,7 @@ pip install ctransformers
 #### 本地部署
 运行下面的命令在本地部署 Xinference：
 ```bash
-$ xinference
+$ xinference-local
 ```
 
 #### 分布式部署

@@ -16,6 +16,7 @@ import asyncio
 import logging
 import os
 import sys
+import warnings
 from typing import List, Optional, Union
 
 import click
@@ -61,6 +62,28 @@ def get_endpoint(endpoint: Optional[str]) -> str:
         return endpoint
 
 
+def start_local_cluster(
+    log_level: str,
+    host: str,
+    port: int,
+):
+    from .local import main
+
+    dict_config = get_config_dict(
+        log_level,
+        get_log_file(),
+        XINFERENCE_LOG_BACKUP_COUNT,
+        XINFERENCE_LOG_MAX_BYTES,
+    )
+    logging.config.dictConfig(dict_config)  # type: ignore
+
+    main(
+        host=host,
+        port=port,
+        logging_conf=dict_config,
+    )
+
+
 @click.group(
     invoke_without_command=True,
     name="xinference",
@@ -101,21 +124,47 @@ def cli(
     port: int,
 ):
     if ctx.invoked_subcommand is None:
-        from .local import main
+        # Save the current state of the warning filter.
+        with warnings.catch_warnings():
+            warnings.simplefilter("always", DeprecationWarning)
+            warnings.warn(
+                "Starting a local 'xinference' cluster via the 'xinference' command line is "
+                "deprecated and will be removed in a future release. Please use the new "
+                "'xinference-local' command.",
+                category=DeprecationWarning,
+            )
 
-        dict_config = get_config_dict(
-            log_level,
-            get_log_file(),
-            XINFERENCE_LOG_BACKUP_COUNT,
-            XINFERENCE_LOG_MAX_BYTES,
-        )
-        logging.config.dictConfig(dict_config)  # type: ignore
+        start_local_cluster(log_level=log_level, host=host, port=port)
 
-        main(
-            host=host,
-            port=port,
-            logging_conf=dict_config,
-        )
+
+@click.command(help="Starts an Xinference local cluster.")
+@click.option(
+    "--log-level",
+    default="INFO",
+    type=str,
+    help="""Set the logger level. Options listed from most log to least log are:
+              DEBUG > INFO > WARNING > ERROR > CRITICAL (Default level is INFO)""",
+)
+@click.option(
+    "--host",
+    "-H",
+    default=XINFERENCE_DEFAULT_LOCAL_HOST,
+    type=str,
+    help="Specify the host address for the Xinference server.",
+)
+@click.option(
+    "--port",
+    "-p",
+    default=XINFERENCE_DEFAULT_ENDPOINT_PORT,
+    type=int,
+    help="Specify the port number for the Xinference server.",
+)
+def local(
+    log_level: str,
+    host: str,
+    port: int,
+):
+    start_local_cluster(log_level=log_level, host=host, port=port)
 
 
 @click.command(

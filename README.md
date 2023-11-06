@@ -132,7 +132,7 @@ You can deploy Xinference locally with a single command or deploy it in a distri
 #### Local
 To start a local instance of Xinference, run the following command:
 ```bash
-$ xinference
+$ xinference-local
 ```
 
 #### Distributed
