@@ -33,7 +33,11 @@ from .utils import (
 )
 
 if TYPE_CHECKING:
+    from ..model.embedding import EmbeddingModelSpec
+    from ..model.image import ImageModelFamilyV1
+    from ..model.llm import LLMFamilyV1
     from .worker import WorkerActor
+
 
 logger = getLogger(__name__)
 
@@ -102,8 +106,35 @@ class SupervisorActor(xo.StatelessActor):
             "workers": self._worker_status,
         }
 
+    @staticmethod
+    def _to_llm_reg(llm_family: "LLMFamilyV1", is_builtin: bool) -> Dict[str, Any]:
+        from ..model.llm import get_cache_status
+
+        specs = []
+        for spec in llm_family.model_specs:
+            cache_status = get_cache_status(llm_family, spec)
+            specs.append({**spec, "cache_status": cache_status})
+
+        return {**llm_family, "is_builtin": is_builtin, "model_specs": specs}
+
+    @staticmethod
+    def _to_embedding_model_reg(model_spec: "EmbeddingModelSpec") -> Dict[str, Any]:
+        from ..model.embedding import get_cache_status
+
+        cache_status = get_cache_status(model_spec)
+        return {**model_spec, "cache_status": cache_status}
+
+    @staticmethod
+    def _to_image_model_reg(model_family: "ImageModelFamilyV1") -> Dict[str, Any]:
+        from ..model.image import get_cache_status
+
+        cache_status = get_cache_status(model_family)
+        return {**model_family, "cache_status": cache_status}
+
     @log_sync(logger=logger)
-    def list_model_registrations(self, model_type: str) -> List[Dict[str, Any]]:
+    def list_model_registrations(
+        self, model_type: str, detailed: bool = False
+    ) -> List[Dict[str, Any]]:
         def sort_helper(item):
             assert isinstance(item["model_name"], str)
             return item.get("model_name").lower()
@@ -111,37 +142,43 @@ class SupervisorActor(xo.StatelessActor):
         if model_type == "LLM":
             from ..model.llm import BUILTIN_LLM_FAMILIES, get_user_defined_llm_families
 
-            ret = [
-                {"model_name": f.model_name, "is_builtin": True}
-                for f in BUILTIN_LLM_FAMILIES
-            ]
-            user_defined_llm_families = get_user_defined_llm_families()
-            ret.extend(
-                [
-                    {"model_name": f.model_name, "is_builtin": False}
-                    for f in user_defined_llm_families
-                ]
-            )
+            ret = []
+            for family in BUILTIN_LLM_FAMILIES:
+                if detailed:
+                    ret.append(self._to_llm_reg(family, True))
+                else:
+                    ret.append({"model_name": family.model_name, "is_builtin": True})
+
+            for family in get_user_defined_llm_families():
+                if detailed:
+                    ret.append(self._to_llm_reg(family, False))
+                else:
+                    ret.append({"model_name": family.model_name, "is_builtin": False})
 
             ret.sort(key=sort_helper)
-
             return ret
         elif model_type == "embedding":
             from ..model.embedding import BUILTIN_EMBEDDING_MODELS
 
-            ret = [
-                {"model_name": model_name, "is_builtin": True}
-                for model_name in BUILTIN_EMBEDDING_MODELS
-            ]
+            ret = []
+            for family in BUILTIN_EMBEDDING_MODELS:
+                if detailed:
+                    ret.append(self._to_embedding_model_reg(family))
+                else:
+                    ret.append({"model_name": family.model_name, "is_builtin": True})
+
             ret.sort(key=sort_helper)
             return ret
         elif model_type == "image":
             from ..model.image import BUILTIN_IMAGE_MODELS
 
-            ret = [
-                {"model_name": model_name, "is_builtin": True}
-                for model_name in BUILTIN_IMAGE_MODELS
-            ]
+            ret = []
+            for family in BUILTIN_IMAGE_MODELS:
+                if detailed:
+                    ret.append(self._to_image_model_reg(family))
+                else:
+                    ret.append({"model_name": family.model_name, "is_builtin": True})
+
             ret.sort(key=sort_helper)
             return ret
         else:

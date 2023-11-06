@@ -16,7 +16,7 @@ import codecs
 import json
 import os
 
-from .core import ImageModelFamilyV1
+from .core import ImageModelFamilyV1, get_cache_status
 
 _model_spec_json = os.path.join(os.path.dirname(__file__), "model_spec.json")
 BUILTIN_IMAGE_MODELS = dict(
