@@ -183,10 +183,10 @@ class ModelActor(xo.StatelessActor):
                 await getattr(self._model, "async_chat")(prompt, *args, **kwargs)
             )
 
-        if hasattr(self._model, "generate"):
-            return await self._call_wrapper(_wrapper)
-        else:
+        if hasattr(self._model, "async_chat"):
             return await self._call_async_wrapper(_async_wrapper)
+        else:
+            return await self._call_wrapper(_wrapper)
 
     async def create_embedding(self, input: Union[str, List[str]], *args, **kwargs):
         if not hasattr(self._model, "create_embedding"):
