@@ -164,21 +164,7 @@ def local(
     host: str,
     port: int,
 ):
-    from .local import main
-
-    dict_config = get_config_dict(
-        log_level,
-        get_log_file(),
-        XINFERENCE_LOG_BACKUP_COUNT,
-        XINFERENCE_LOG_MAX_BYTES,
-    )
-    logging.config.dictConfig(dict_config)  # type: ignore
-
-    main(
-        host=host,
-        port=port,
-        logging_conf=dict_config,
-    )
+    start_local_cluster(log_level=log_level, host=host, port=port)
 
 
 @click.command(
