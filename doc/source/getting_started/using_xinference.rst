@@ -24,7 +24,7 @@ To start a local instance of Xinference, run the following command:
 
 .. code-block:: bash
 
-  xinference --host 0.0.0.0 --port 9997
+  xinference-local --host 0.0.0.0 --port 9997
 
 
 Using Xinference In a Cluster

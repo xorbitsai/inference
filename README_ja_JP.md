@@ -81,7 +81,7 @@ Xinference は、1 つのコマンドでローカルにデプロイすること�
 #### ローカル
 Xinference のローカルインスタンスを起動するには、以下のコマンドを実行します:
 ```bash
-$ xinference
+$ xinference-local
 ```
 
 #### 配布
