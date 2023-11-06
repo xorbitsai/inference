@@ -71,11 +71,9 @@ class SupervisorActor(xo.StatelessActor):
 
     async def __post_create__(self):
         self._uptime = time.time()
-        self._check_dead_nodes_task = asyncio.create_task(self._check_dead_nodes())
+        # comment this line to avoid worker lost
+        # self._check_dead_nodes_task = asyncio.create_task(self._check_dead_nodes())
         logger.info(f"Xinference supervisor {self.address} started")
-
-    async def __pre_destroy__(self):
-        self._check_dead_nodes_task.cancel()
 
     async def _choose_worker(self) -> xo.ActorRefType["WorkerActor"]:
         # TODO: better allocation strategy.
