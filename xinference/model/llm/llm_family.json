@@ -500,8 +500,8 @@
         "quantizations": [
           "q4_0"
         ],
-        "model_id": "Xorbits/chatglm2-6B-GGML",
-        "model_file_name_template": "chatglm2-ggml-{quantization}.bin"
+        "model_id": "Xorbits/chatglm3-6B-GGML",
+        "model_file_name_template": "chatglm3-ggml-{quantization}.bin"
       },
       {
         "model_format": "pytorch",
