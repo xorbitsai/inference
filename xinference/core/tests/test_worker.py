@@ -176,6 +176,8 @@ async def test_launch_embedding_model(setup_pool):
     await worker.launch_builtin_model(
         "model_model_1", "mock_model_name", None, None, None, n_gpu=3
     )
+    embedding_info = await worker.get_gpu_to_embedding_model_uids()
+    assert len(embedding_info) == 0
 
     await worker.launch_builtin_model(
         "model_model_2", "mock_model_name", None, None, None, "embedding", n_gpu=1
@@ -186,9 +188,21 @@ async def test_launch_embedding_model(setup_pool):
     assert len(embedding_info[3]) == 1
     assert "model_model_2" in embedding_info[3]
 
-    await worker.terminate_model("model_model_2")
-    assert len(embedding_info[3]) == 0
+    # test terminate LLM model, then launch embedding model
     await worker.terminate_model("model_model_1")
+    await worker.launch_builtin_model(
+        "model_model_3", "mock_model_name", None, None, None, "embedding", n_gpu=1
+    )
+    embedding_info = await worker.get_gpu_to_embedding_model_uids()
+    assert 0 in embedding_info
+    assert len(embedding_info[0]) == 1
+    assert "model_model_3" in embedding_info[0]
+
+    await worker.terminate_model("model_model_2")
+    await worker.terminate_model("model_model_3")
+    embedding_info = await worker.get_gpu_to_embedding_model_uids()
+    assert len(embedding_info[0]) == 0
+    assert len(embedding_info[3]) == 0
 
     # test embedding device candidates 2
     await worker.launch_builtin_model(

@@ -107,6 +107,8 @@ class WorkerActor(xo.StatelessActor):
         # Pick the device with the fewest existing models among all the candidate devices.
         for _dev in candidates:
             existing_cnt = len(self._gpu_to_embedding_model_uids[_dev])
+            if _dev in self._gpu_to_model_uid:
+                existing_cnt += 1
             if chosen_one[1] == -1 or existing_cnt < chosen_one[1]:
                 chosen_one[0], chosen_one[1] = _dev, existing_cnt
 
