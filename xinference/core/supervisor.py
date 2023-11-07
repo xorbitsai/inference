@@ -118,18 +118,30 @@ class SupervisorActor(xo.StatelessActor):
         return {**llm_family.dict(), "is_builtin": is_builtin, "model_specs": specs}
 
     @staticmethod
-    def _to_embedding_model_reg(model_spec: "EmbeddingModelSpec") -> Dict[str, Any]:
+    def _to_embedding_model_reg(
+        model_spec: "EmbeddingModelSpec", is_builtin: bool
+    ) -> Dict[str, Any]:
         from ..model.embedding import get_cache_status
 
         cache_status = get_cache_status(model_spec)
-        return {**model_spec.dict(), "cache_status": cache_status}
+        return {
+            **model_spec.dict(),
+            "cache_status": cache_status,
+            "is_builtin": is_builtin,
+        }
 
     @staticmethod
-    def _to_image_model_reg(model_family: "ImageModelFamilyV1") -> Dict[str, Any]:
+    def _to_image_model_reg(
+        model_family: "ImageModelFamilyV1", is_builtin: bool
+    ) -> Dict[str, Any]:
         from ..model.image import get_cache_status
 
         cache_status = get_cache_status(model_family)
-        return {**model_family.dict(), "cache_status": cache_status}
+        return {
+            **model_family.dict(),
+            "cache_status": cache_status,
+            "is_builtin": is_builtin,
+        }
 
     @log_sync(logger=logger)
     def list_model_registrations(
@@ -161,11 +173,11 @@ class SupervisorActor(xo.StatelessActor):
             from ..model.embedding import BUILTIN_EMBEDDING_MODELS
 
             ret = []
-            for family in BUILTIN_EMBEDDING_MODELS:
+            for model_name, family in BUILTIN_EMBEDDING_MODELS.items():
                 if detailed:
-                    ret.append(self._to_embedding_model_reg(family))
+                    ret.append(self._to_embedding_model_reg(family, is_builtin=True))
                 else:
-                    ret.append({"model_name": family.model_name, "is_builtin": True})
+                    ret.append({"model_name": model_name, "is_builtin": True})
 
             ret.sort(key=sort_helper)
             return ret
@@ -173,11 +185,11 @@ class SupervisorActor(xo.StatelessActor):
             from ..model.image import BUILTIN_IMAGE_MODELS
 
             ret = []
-            for family in BUILTIN_IMAGE_MODELS:
+            for model_name, family in BUILTIN_IMAGE_MODELS.items():
                 if detailed:
-                    ret.append(self._to_image_model_reg(family))
+                    ret.append(self._to_image_model_reg(family, is_builtin=True))
                 else:
-                    ret.append({"model_name": family.model_name, "is_builtin": True})
+                    ret.append({"model_name": model_name, "is_builtin": True})
 
             ret.sort(key=sort_helper)
             return ret
