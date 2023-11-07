@@ -16,6 +16,8 @@ from pydantic import Field
 
 none_field = Field(None)
 
+stream_interval_field = Field(default=2)
+
 echo_field = Field(
     default=False,
     description="Whether to echo the prompt in the generated text. Useful for chatbots.",

@@ -56,6 +56,7 @@ from ..types import (
     CreateCompletionCTransformers,
     CreateCompletionLlamaCpp,
     CreateCompletionOpenAI,
+    CreateCompletionTorch,
     Embedding,
     ImageList,
 )
@@ -65,6 +66,7 @@ logger = logging.getLogger(__name__)
 
 class CreateCompletionRequest(
     CreateCompletionOpenAI,
+    CreateCompletionTorch,
     CreateCompletionLlamaCpp,
     CreateCompletionCTransformers,
 ):
@@ -510,9 +512,6 @@ class RESTfulAPI:
             "user",
         }
         kwargs = body.dict(exclude=exclude)
-
-        if body.logit_bias is not None:
-            raise HTTPException(status_code=501, detail="Not implemented")
 
         model_uid = body.model
 

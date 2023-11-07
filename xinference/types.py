@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, Callable, Dict, List, Optional, Type, Union
+from typing import Any, Callable, Dict, Iterable, List, Optional, Union
 
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, create_model, validate_arguments, validator
 from typing_extensions import Literal, NotRequired, TypedDict
 
 from .fields import (
@@ -24,12 +24,14 @@ from .fields import (
     max_tokens_field,
     none_field,
     presence_penalty_field,
+    repeat_penalty_field,
     stop_field,
     stream_field,
+    stream_interval_field,
     temperature_field,
+    top_k_field,
     top_p_field,
 )
-from .utils import get_pydantic_model_from_method
 
 
 class Image(TypedDict):
@@ -238,6 +240,30 @@ class PytorchModelConfig(TypedDict, total=False):
     trust_remote_code: bool
 
 
+def get_pydantic_model_from_method(
+    meth,
+    exclude_fields: Iterable[str] = None,
+    include_fields: Dict[str, Any] = None,
+):
+    f = validate_arguments(meth, config={"arbitrary_types_allowed": True})
+    model = f.model
+    model.__fields__.pop("self", None)
+    model.__fields__.pop("args", None)
+    model.__fields__.pop("kwargs", None)
+    pydantic_private_keys = [
+        key for key in model.__fields__.keys() if key.startswith("v__")
+    ]
+    for key in pydantic_private_keys:
+        model.__fields__.pop(key)
+    if exclude_fields is not None:
+        for key in exclude_fields:
+            model.__fields__.pop(key)
+    if include_fields is not None:
+        dummy_model = create_model("DummyModel", **include_fields)
+        model.__fields__.update(dummy_model.__fields__)
+    return model
+
+
 class CreateCompletionOpenAI(BaseModel):
     # OpenAI's create completion request body, we define it by pydantic
     # model to verify the input params.
@@ -260,10 +286,23 @@ class CreateCompletionOpenAI(BaseModel):
     top_p: float = top_p_field
     user: Optional[str] = none_field
 
-    @validator("seed", "logit_bias")
-    def check_not_implemented(cls, v):
-        if v is not None:
+    @validator("seed", "logit_bias", "n")
+    def check_not_implemented(cls, v, field):
+        if field.default != v:
             raise NotImplementedError("Not implemented.")
+
+
+class CreateCompletionTorch(BaseModel):
+    temperature: float = temperature_field
+    repetition_penalty: float = repeat_penalty_field
+    top_p: float = top_p_field
+    top_k: int = top_k_field
+    stream: bool = stream_field
+    max_tokens: int = max_tokens_field
+    echo: bool = echo_field
+    stop: Optional[Union[str, List[str]]] = stop_field
+    stop_token_ids: Optional[Union[int, List[int]]] = none_field
+    stream_interval: int = stream_interval_field
 
 
 try:
@@ -278,7 +317,9 @@ try:
     from ctransformers.llm import LLM
 
     CreateCompletionCTransformers = get_pydantic_model_from_method(
-        LLM.generate, exclude_fields=["tokens"]
+        LLM.generate,
+        exclude_fields=["tokens"],
+        include_fields={"max_tokens": (int, max_tokens_field)},
     )
 except ImportError:
     CreateCompletionCTransformers = object

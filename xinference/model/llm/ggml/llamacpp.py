@@ -23,6 +23,7 @@ from ....types import (
     ChatCompletionMessage,
     Completion,
     CompletionChunk,
+    CreateCompletionLlamaCpp,
     Embedding,
     LlamaCppGenerateConfig,
     LlamaCppModelConfig,
@@ -105,6 +106,12 @@ class LlamaCppModel(LLM):
     ) -> LlamaCppGenerateConfig:
         if generate_config is None:
             generate_config = LlamaCppGenerateConfig()
+        else:
+            generate_config = {
+                k: generate_config[k]
+                for k in CreateCompletionLlamaCpp.__fields__.keys()
+                if k in generate_config
+            }
         generate_config["model"] = self.model_uid
         return generate_config
 
