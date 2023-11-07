@@ -14,6 +14,7 @@
 
 import logging
 import os
+from logging.handlers import RotatingFileHandler
 from typing import TYPE_CHECKING, Optional
 
 import xoscar as xo
@@ -82,12 +83,32 @@ def get_config_dict(
                 "encoding": "utf8",
             },
         },
+        "loggers": {
+            "xinference": {
+                "handlers": ["stream_handler", "file_handler"],
+                "level": log_level,
+                "propagate": False,
+            }
+        },
         "root": {
-            "level": log_level,
+            "level": "WARN",
             "handlers": ["stream_handler", "file_handler"],
         },
     }
     return config_dict
+
+
+def rollover_log_file(logger_input: logging.Logger, prompt: str):
+    for handler in logger_input.root.handlers:
+        if (
+            isinstance(handler, RotatingFileHandler)
+            and handler.baseFilename == get_log_file()
+        ):
+            with open(handler.baseFilename, "r") as f:
+                content = f.read()
+            # This is the previous log, we should do rollover to create a new file
+            if prompt in content:
+                handler.doRollover()
 
 
 async def create_worker_actor_pool(

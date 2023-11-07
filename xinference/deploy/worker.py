@@ -22,8 +22,22 @@ from xorbits._mars.resource import cuda_count
 from xoscar import MainActorPoolType
 
 from ..core.worker import WorkerActor
+from ..deploy.utils import rollover_log_file
 
 logger = logging.getLogger(__name__)
+
+
+def _config_logging(address: str, supervisor_address: str):
+    worker_host = address.split(":")[0]
+    supervisor_host = supervisor_address.split(":")[0]
+    # Local deployment, worker not do rollover
+    if (
+        worker_host == "127.0.0.1"
+        or worker_host == "0.0.0.0"
+        or worker_host == supervisor_host
+    ):
+        return
+    rollover_log_file(logger, "Xinference worker ")
 
 
 async def start_worker_components(
@@ -59,6 +73,7 @@ async def _start_worker(
 
 
 def main(address: str, supervisor_address: str, logging_conf: Optional[dict] = None):
+    _config_logging(address, supervisor_address)
     loop = asyncio.get_event_loop()
     task = loop.create_task(_start_worker(address, supervisor_address, logging_conf))
 
