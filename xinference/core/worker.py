@@ -149,7 +149,6 @@ class WorkerActor(xo.StatelessActor):
         model_type: Optional[str] = None,
         n_gpu: Optional[Union[int, str]] = "auto",
     ) -> Tuple[str, List[str]]:
-        logger.debug(f"Enter _create_subpool: {model_uid}")
         env = {}
         devices = []
         if isinstance(n_gpu, int) or (n_gpu == "auto" and cuda_count() > 0):
