@@ -38,13 +38,13 @@ The following tutorials cover the basics of using Xinference in different scenar
 
 * `Build a QA Application with Xinference and LangChain <https://github.com/RayJi01/Xprobe_inference/blob/main/examples/LangChain_QA.ipynb>`_
 
-* `Using Xinference local LLMs within LlamaIndex <https://gpt-index.readthedocs.io/en/stable/examples/llm/XinferenceLocalDeployment.html>`_
+* `Using Xinference local LLMs within LlamaIndex <https://docs.llamaindex.ai/en/stable/examples/llm/xinference_local_deployment.html>`_
 
-* `[Chinese] 如何让 Chatbox 接入开源大模型，实现免费聊天 <https://twitter.com/benn_huang/status/1701420060240490785>`_
+* `[Chinese] 如何让 Chatbox 接入开源大模型，实现免费聊天 <https://zhuanlan.zhihu.com/p/655765551>`_
 
 * `[Chinese] 摆脱 OpenAI 依赖，8 分钟教你用开源生态构建全栈 AI 应用 <https://mp.weixin.qq.com/s/cXBC0dikldNiGwOwPuJfUQ>`_
 
-* `[Chinese] 使用全套开源工具构建 LLM 应用实战 <https://mp.weixin.qq.com/s/regqYkF0cNDQIdOkOeyeXQ>`_
+* `[Chinese] 使用全套开源工具构建 LLM 应用实战： 在 Dify 调用 Baichuan 开源模型能力 <https://mp.weixin.qq.com/s/JWYWyJxS3ludMpMDZKw_Dw>`_
 
 
 Third-Party Library Integrations
