@@ -113,23 +113,23 @@ class SupervisorActor(xo.StatelessActor):
         specs = []
         for spec in llm_family.model_specs:
             cache_status = get_cache_status(llm_family, spec)
-            specs.append({**spec, "cache_status": cache_status})
+            specs.append({**spec.dict(), "cache_status": cache_status})
 
-        return {**llm_family, "is_builtin": is_builtin, "model_specs": specs}
+        return {**llm_family.dict(), "is_builtin": is_builtin, "model_specs": specs}
 
     @staticmethod
     def _to_embedding_model_reg(model_spec: "EmbeddingModelSpec") -> Dict[str, Any]:
         from ..model.embedding import get_cache_status
 
         cache_status = get_cache_status(model_spec)
-        return {**model_spec, "cache_status": cache_status}
+        return {**model_spec.dict(), "cache_status": cache_status}
 
     @staticmethod
     def _to_image_model_reg(model_family: "ImageModelFamilyV1") -> Dict[str, Any]:
         from ..model.image import get_cache_status
 
         cache_status = get_cache_status(model_family)
-        return {**model_family, "cache_status": cache_status}
+        return {**model_family.dict(), "cache_status": cache_status}
 
     @log_sync(logger=logger)
     def list_model_registrations(
