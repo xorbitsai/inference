@@ -622,7 +622,7 @@ class RESTfulAPI:
                         yield dict(data=json.dumps(item))
                 except Exception as ex:
                     if iterator is not None:
-                        await iterator.destory()
+                        await iterator.destroy()
                     logger.exception("Completion stream got an error: %s", ex)
                     # https://github.com/openai/openai-python/blob/e0aafc6c1a45334ac889fe3e54957d309c3af93f/src/openai/_streaming.py#L107
                     yield dict(data=json.dumps({"error": str(ex)}))
@@ -817,7 +817,7 @@ class RESTfulAPI:
                         yield dict(data=json.dumps(item))
                 except Exception as ex:
                     if iterator is not None:
-                        await iterator.destory()
+                        await iterator.destroy()
                     logger.exception("Chat completion stream got an error: %s", ex)
                     # https://github.com/openai/openai-python/blob/e0aafc6c1a45334ac889fe3e54957d309c3af93f/src/openai/_streaming.py#L107
                     yield dict(data=json.dumps({"error": str(ex)}))

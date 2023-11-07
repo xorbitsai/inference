@@ -52,7 +52,7 @@ class IteratorWrapper(Generic[T]):
         self._model_actor_uid = model_actor_uid
         self._model_actor_ref: Optional[xo.ActorRefType["ModelActor"]] = None
 
-    async def destory(self):
+    async def destroy(self):
         if self._model_actor_ref is None:
             self._model_actor_ref = await xo.actor_ref(
                 address=self._model_actor_addr, uid=self._model_actor_uid
@@ -295,5 +295,5 @@ class ModelActor(xo.StatelessActor):
             return r
 
     @log_async(logger=logger)
-    def destroy_generator(self, generator_uid: str):
+    async def destroy_generator(self, generator_uid: str):
         self._generators.pop(generator_uid, None)
