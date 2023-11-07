@@ -24,7 +24,8 @@ from ..restful.restful_client import RESTfulChatModelHandle, RESTfulEmbeddingMod
 
 
 @pytest.mark.skipif(os.name == "nt", reason="Skip windows")
-def test_client(setup):
+@pytest.mark.asyncio
+async def test_client(setup):
     endpoint, _ = setup
     client = ActorClient(endpoint)
     assert len(client.list_models()) == 0
@@ -39,6 +40,14 @@ def test_client(setup):
 
     completion = model.chat("write a poem.")
     assert "content" in completion["choices"][0]["message"]
+
+    completion = model.chat("write a poem.", generate_config={"stream": True})
+    with pytest.raises(Exception, match="Parallel generation"):
+        model.chat("write a poem.", generate_config={"stream": True})
+    await completion.destroy()
+    completion = model.chat("write a poem.", generate_config={"stream": True})
+    async for chunk in completion:
+        assert chunk
 
     client.terminate_model(model_uid=model_uid)
     assert len(client.list_models()) == 0

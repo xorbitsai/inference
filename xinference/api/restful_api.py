@@ -25,10 +25,11 @@ import gradio as gr
 import xoscar as xo
 from fastapi import APIRouter, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from PIL import Image
 from pydantic import BaseModel, Field
+from sse_starlette.sse import EventSourceResponse
 from starlette.responses import RedirectResponse
 from typing_extensions import NotRequired, TypedDict
 from uvicorn import Config, Server
@@ -614,18 +615,19 @@ class RESTfulAPI:
         if body.stream:
 
             async def stream_results():
+                iterator = None
                 try:
                     iterator = await model.generate(body.prompt, kwargs)
                     async for item in iterator:
-                        yield f"data: {json.dumps(item)}\n"
+                        yield dict(data=json.dumps(item))
                 except Exception as ex:
+                    if iterator is not None:
+                        await iterator.destroy()
                     logger.exception("Completion stream got an error: %s", ex)
-                    yield f"error: {ex}"
+                    # https://github.com/openai/openai-python/blob/e0aafc6c1a45334ac889fe3e54957d309c3af93f/src/openai/_streaming.py#L107
+                    yield dict(data=json.dumps({"error": str(ex)}))
 
-            # The Content-Type: text/event-stream header is required for openai stream.
-            return StreamingResponse(
-                stream_results(), headers={"Content-Type": "text/event-stream"}
-            )
+            return EventSourceResponse(stream_results())
         else:
             try:
                 return await model.generate(body.prompt, kwargs)
@@ -803,6 +805,7 @@ class RESTfulAPI:
         if body.stream:
 
             async def stream_results():
+                iterator = None
                 try:
                     if is_chatglm_ggml:
                         iterator = await model.chat(prompt, chat_history, kwargs)
@@ -811,15 +814,15 @@ class RESTfulAPI:
                             prompt, system_prompt, chat_history, kwargs
                         )
                     async for item in iterator:
-                        yield f"data: {json.dumps(item)}\n"
+                        yield dict(data=json.dumps(item))
                 except Exception as ex:
+                    if iterator is not None:
+                        await iterator.destroy()
                     logger.exception("Chat completion stream got an error: %s", ex)
-                    yield f"error: {ex}"
+                    # https://github.com/openai/openai-python/blob/e0aafc6c1a45334ac889fe3e54957d309c3af93f/src/openai/_streaming.py#L107
+                    yield dict(data=json.dumps({"error": str(ex)}))
 
-            # The Content-Type: text/event-stream header is required for openai stream.
-            return StreamingResponse(
-                stream_results(), headers={"Content-Type": "text/event-stream"}
-            )
+            return EventSourceResponse(stream_results())
         else:
             try:
                 if is_chatglm_ggml:
