@@ -454,8 +454,8 @@ def test_lang_chain(setup):
     from langchain.chat_models import ChatOpenAI
     from langchain.prompts.chat import (
         ChatPromptTemplate,
-        SystemMessagePromptTemplate,
         HumanMessagePromptTemplate,
+        SystemMessagePromptTemplate,
     )
     from langchain.schema import AIMessage, HumanMessage, SystemMessage
 
@@ -501,4 +501,3 @@ def test_lang_chain(setup):
     )
     assert type(r) == AIMessage
     assert r.content
-

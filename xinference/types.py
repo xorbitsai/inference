@@ -12,9 +12,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Type, Union
 
+from pydantic import BaseModel, validator
 from typing_extensions import Literal, NotRequired, TypedDict
+
+from .fields import (
+    echo_field,
+    frequency_penalty_field,
+    logprobs_field,
+    max_tokens_field,
+    none_field,
+    presence_penalty_field,
+    stop_field,
+    stream_field,
+    temperature_field,
+    top_p_field,
+)
+from .utils import get_pydantic_model_from_method
 
 
 class Image(TypedDict):
@@ -221,3 +236,49 @@ class PytorchModelConfig(TypedDict, total=False):
     gptq_groupsize: int
     gptq_act_order: bool
     trust_remote_code: bool
+
+
+class CreateCompletionOpenAI(BaseModel):
+    # OpenAI's create completion request body, we define it by pydantic
+    # model to verify the input params.
+    # https://platform.openai.com/docs/api-reference/completions/object
+    model: str
+    prompt: str
+    best_of: Optional[int] = 1
+    echo: bool = echo_field
+    frequency_penalty: Optional[float] = frequency_penalty_field
+    logit_bias: Optional[Dict[str, float]] = none_field
+    logprobs: Optional[int] = logprobs_field
+    max_tokens: int = max_tokens_field
+    n: Optional[int] = 1
+    presence_penalty: Optional[float] = presence_penalty_field
+    seed: Optional[int] = none_field
+    stop: Optional[Union[str, List[str]]] = stop_field
+    stream: bool = stream_field
+    suffix: Optional[str] = none_field
+    temperature: float = temperature_field
+    top_p: float = top_p_field
+    user: Optional[str] = none_field
+
+    @validator("seed", "logit_bias")
+    def check_not_implemented(cls, v):
+        if v is not None:
+            raise NotImplementedError("Not implemented.")
+
+
+try:
+    from llama_cpp import Llama
+
+    CreateCompletionLlamaCpp = get_pydantic_model_from_method(Llama.create_completion)
+except ImportError:
+    CreateCompletionLlamaCpp = object
+
+
+try:
+    from ctransformers.llm import LLM
+
+    CreateCompletionCTransformers = get_pydantic_model_from_method(
+        LLM.generate, exclude_fields=["tokens"]
+    )
+except ImportError:
+    CreateCompletionCTransformers = object
