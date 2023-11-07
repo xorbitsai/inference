@@ -615,11 +615,14 @@ class RESTfulAPI:
         if body.stream:
 
             async def stream_results():
+                iterator = None
                 try:
                     iterator = await model.generate(body.prompt, kwargs)
                     async for item in iterator:
                         yield dict(data=json.dumps(item))
                 except Exception as ex:
+                    if iterator is not None:
+                        await iterator.destory()
                     logger.exception("Completion stream got an error: %s", ex)
                     # https://github.com/openai/openai-python/blob/e0aafc6c1a45334ac889fe3e54957d309c3af93f/src/openai/_streaming.py#L107
                     yield dict(data=json.dumps({"error": str(ex)}))
@@ -802,6 +805,7 @@ class RESTfulAPI:
         if body.stream:
 
             async def stream_results():
+                iterator = None
                 try:
                     if is_chatglm_ggml:
                         iterator = await model.chat(prompt, chat_history, kwargs)
@@ -812,6 +816,8 @@ class RESTfulAPI:
                     async for item in iterator:
                         yield dict(data=json.dumps(item))
                 except Exception as ex:
+                    if iterator is not None:
+                        await iterator.destory()
                     logger.exception("Chat completion stream got an error: %s", ex)
                     # https://github.com/openai/openai-python/blob/e0aafc6c1a45334ac889fe3e54957d309c3af93f/src/openai/_streaming.py#L107
                     yield dict(data=json.dumps({"error": str(ex)}))
