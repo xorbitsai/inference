@@ -104,16 +104,15 @@ class WorkerActor(xo.StatelessActor):
                 "We recommend to launch the embedding model first, and then launch the LLM models."
             )
 
-        chosen_one = [-1, -1]  # dev, count
+        device, min_cnt = -1, -1
         # Pick the device with the fewest existing models among all the candidate devices.
         for _dev in candidates:
             existing_cnt = len(self._gpu_to_embedding_model_uids[_dev])
             if _dev in self._gpu_to_model_uid:
                 existing_cnt += 1
-            if chosen_one[1] == -1 or existing_cnt < chosen_one[1]:
-                chosen_one[0], chosen_one[1] = _dev, existing_cnt
+            if min_cnt == -1 or existing_cnt < min_cnt:
+                device, min_cnt = _dev, existing_cnt
 
-        device = chosen_one[0]
         self._gpu_to_embedding_model_uids[device].add(model_uid)
         return device
 
