@@ -26,7 +26,7 @@ from xoscar import MainActorPoolType
 from ..core import ModelActor
 from ..model.core import ModelDescription, create_model_instance
 from .resource import gather_node_info
-from .utils import log_async, log_sync
+from .utils import log_async, log_sync, parse_replica_model_uid
 
 logger = getLogger(__name__)
 
@@ -80,7 +80,8 @@ class WorkerActor(xo.StatelessActor):
 
     async def is_model_vllm_backend(self, model_uid: str) -> bool:
         assert self._supervisor_ref is not None
-        model_ref = await self._supervisor_ref.get_model(model_uid)
+        _model_uid, _, _ = parse_replica_model_uid(model_uid)
+        model_ref = await self._supervisor_ref.get_model(_model_uid)
         return await model_ref.is_vllm_backend()
 
     async def allocate_devices_for_embedding(self, model_uid: str) -> int:
