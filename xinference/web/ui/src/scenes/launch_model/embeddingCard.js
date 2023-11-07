@@ -3,10 +3,7 @@ import { v1 as uuidv1 } from "uuid";
 import { ApiContext } from "../../components/apiContext";
 import { Box, Chip } from "@mui/material";
 import { CircularProgress } from "@mui/material";
-import {
-  UndoOutlined,
-  RocketLaunchOutlined,
-} from "@mui/icons-material";
+import { UndoOutlined, RocketLaunchOutlined } from "@mui/icons-material";
 
 const CARD_HEIGHT = 270;
 const CARD_WIDTH = 270;
@@ -33,7 +30,7 @@ const EmbeddingCard = ({ url, modelData }) => {
     const modelDataWithID = {
       model_uid: uuid,
       model_name: modelData.model_name,
-      model_type: "embedding"
+      model_type: "embedding",
     };
 
     // First fetch request to initiate the model
@@ -175,8 +172,8 @@ const EmbeddingCard = ({ url, modelData }) => {
       fontSize: "0.8em",
     },
     langRow: {
-      margin: "2px 5px 40px 5px"
-    }
+      margin: "2px 5px 40px 5px",
+    },
   };
 
   // Set two different states based on mouse hover
@@ -199,30 +196,29 @@ const EmbeddingCard = ({ url, modelData }) => {
             {(() => {
               if (modelData.language.includes("en")) {
                 return (
-                  <Chip label="EN" variant="outlined" size="small" sx={{ marginRight: "10px" }} />
+                  <Chip
+                    label="EN"
+                    variant="outlined"
+                    size="small"
+                    sx={{ marginRight: "10px" }}
+                  />
                 );
               }
             })()}
             {(() => {
               if (modelData.language.includes("zh")) {
-                return (
-                  <Chip label="ZH" variant="outlined" size="small" />
-                );
+                return <Chip label="ZH" variant="outlined" size="small" />;
               }
             })()}
           </div>
         </div>
         <div style={styles.iconRow}>
           <div style={styles.iconItem}>
-            <span style={styles.boldIconText}>
-              {modelData.dimensions}
-            </span>
+            <span style={styles.boldIconText}>{modelData.dimensions}</span>
             <small style={styles.smallText}>dimensions</small>
           </div>
           <div style={styles.iconItem}>
-            <span style={styles.boldIconText}>
-              {modelData.max_tokens}
-            </span>
+            <span style={styles.boldIconText}>{modelData.max_tokens}</span>
             <small style={styles.smallText}>max tokens</small>
           </div>
         </div>
@@ -248,13 +244,7 @@ const EmbeddingCard = ({ url, modelData }) => {
             title="Launch Embedding"
             style={styles.buttonContainer}
             onClick={() => launchModel(url, modelData)}
-            disabled={
-              isCallingApi ||
-              isUpdatingModel ||
-              !(
-                modelData
-              )
-            }
+            disabled={isCallingApi || isUpdatingModel || !modelData}
           >
             {(() => {
               if (isCallingApi || isUpdatingModel) {
@@ -270,11 +260,7 @@ const EmbeddingCard = ({ url, modelData }) => {
                     />
                   </Box>
                 );
-              } else if (
-                !(
-                  modelData
-                )
-              ) {
+              } else if (!modelData) {
                 return (
                   <Box
                     style={{ ...styles.buttonItem, backgroundColor: "#f2f2f2" }}

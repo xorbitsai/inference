@@ -8,7 +8,8 @@ import {
   Select,
   MenuItem,
   InputLabel,
-  Tabs, Tab
+  Tabs,
+  Tab,
 } from "@mui/material";
 import { ApiContext } from "../../components/apiContext";
 
@@ -65,30 +66,16 @@ const LaunchLLM = () => {
     try {
       setIsCallingApi(true);
 
-      const response = await fetch(`${endPoint}/v1/model_registrations/LLM`, {
-        method: "GET",
-      });
+      const response = await fetch(
+        `${endPoint}/v1/model_registrations/LLM?detailed=true`,
+        {
+          method: "GET",
+        },
+      );
 
       const registrations = await response.json();
 
-      const newRegistrationData = await Promise.all(
-        registrations.map(async (registration) => {
-          const desc = await fetch(
-            `${endPoint}/v1/model_registrations/LLM/${registration.model_name}`,
-            {
-              method: "GET",
-            },
-          );
-
-          return {
-            ...(await desc.json()),
-            is_builtin: registration.is_builtin,
-          };
-        }),
-      );
-
-      setRegistrationData(newRegistrationData);
-      console.log(newRegistrationData);
+      setRegistrationData(registrations);
     } catch (error) {
       console.error("Error:", error);
     } finally {
@@ -111,17 +98,21 @@ const LaunchLLM = () => {
   function a11yProps(index) {
     return {
       id: `simple-tab-${index}`,
-      'aria-controls': `simple-tabpanel-${index}`,
+      "aria-controls": `simple-tabpanel-${index}`,
     };
   }
 
   return (
     <Box m="20px">
-      <div style={{ display: "grid", gridTemplateColumns: "150px 1fr", columnGap: "20px", margin: "30px 2rem" }}>
-        <FormControl
-          variant="outlined"
-          margin="normal"
-        >
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "150px 1fr",
+          columnGap: "20px",
+          margin: "30px 2rem",
+        }}
+      >
+        <FormControl variant="outlined" margin="normal">
           <InputLabel id="ability-select-label">Model Ability</InputLabel>
           <Select
             id="ability"
@@ -137,10 +128,7 @@ const LaunchLLM = () => {
             <MenuItem value="chat">chat</MenuItem>
           </Select>
         </FormControl>
-        <FormControl
-          variant="outlined"
-          margin="normal"
-        >
+        <FormControl variant="outlined" margin="normal">
           <TextField
             id="search"
             type="search"
@@ -158,7 +146,7 @@ const LaunchLLM = () => {
             <ModelCard url={endPoint} modelData={filteredRegistration} />
           ))}
       </div>
-    </Box >
+    </Box>
   );
 };
 
