@@ -17,6 +17,7 @@ import sys
 import openai
 import pytest
 import requests
+from packaging import version
 
 from ...model.embedding import BUILTIN_EMBEDDING_MODELS
 
@@ -401,9 +402,6 @@ async def test_openai(setup):
     model_uid_res = response_data["model_uid"]
     assert model_uid_res == "test_restful_api"
 
-    openai.api_key = ""
-    openai.api_base = f"{endpoint}/v1"
-
     # chat
     messages = [
         {"role": "system", "content": "You are a helpful assistant."},
@@ -413,21 +411,32 @@ async def test_openai(setup):
     ]
 
     result = []
-    async for chunk in await openai.ChatCompletion.acreate(
+    if version.parse(openai.__version__) < version.parse("1.0"):
+        openai.api_key = ""
+        openai.api_base = f"{endpoint}/v1"
+        openai_chat_completion = openai.ChatCompletion.acreate
+        stream_chunk_type_name = "OpenAIObject"
+        response_type_name = "OpenAIObject"
+    else:
+        client = openai.AsyncClient(api_key="not empty", base_url=f"{endpoint}/v1")
+        openai_chat_completion = client.chat.completions.create
+        stream_chunk_type_name = "ChatCompletionChunk"
+        response_type_name = "ChatCompletion"
+    async for chunk in await openai_chat_completion(
         messages=messages, stream=True, model=model_uid_res
     ):
         if not hasattr(chunk, "choices") or len(chunk.choices) == 0:
             continue
         result.append(chunk)
     assert result
-    assert type(result[0]).__name__ == "OpenAIObject"
+    assert type(result[0]).__name__ == stream_chunk_type_name
 
-    result = await openai.ChatCompletion.acreate(
+    result = await openai_chat_completion(
         messages=messages, stream=False, model=model_uid_res
     )
 
     assert result
-    assert type(result).__name__ == "OpenAIObject"
+    assert type(result).__name__ == response_type_name
 
 
 def test_lang_chain(setup):

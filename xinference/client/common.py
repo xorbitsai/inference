@@ -42,9 +42,9 @@ def streaming_response_iterator(
     for line in response_lines:
         line = line.strip()
         if line.startswith(b"data:"):
-            data = line[len(b"data:") :].strip()
-            data = json.loads(data.decode("utf-8"))
+            json_str = line[len(b"data:") :].strip()
+            data = json.loads(json_str.decode("utf-8"))
+            error = data.get("error")
+            if error is not None:
+                raise Exception(str(error))
             yield data
-        elif line.startswith(b"error:"):
-            error = line[len(b"error:") :].strip()
-            raise Exception(error.decode("utf-8"))
