@@ -71,7 +71,7 @@ class PytorchModel(LLM):
         generate_config: Optional[PytorchGenerateConfig],
     ) -> PytorchGenerateConfig:
         if generate_config is None:
-            generate_config = PytorchGenerateConfig()
+            generate_config = PytorchGenerateConfig(**CreateCompletionTorch().dict())
         else:
             # Validate generate_config and fill default values to the generate config.
             generate_config = PytorchGenerateConfig(

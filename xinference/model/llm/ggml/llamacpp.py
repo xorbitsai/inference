@@ -105,7 +105,9 @@ class LlamaCppModel(LLM):
         self, generate_config: Optional[LlamaCppGenerateConfig]
     ) -> LlamaCppGenerateConfig:
         if generate_config is None:
-            generate_config = LlamaCppGenerateConfig()
+            generate_config = LlamaCppGenerateConfig(
+                **CreateCompletionLlamaCpp().dict()
+            )
         else:
             # Validate generate_config and fill default values to the generate config.
             generate_config = LlamaCppGenerateConfig(

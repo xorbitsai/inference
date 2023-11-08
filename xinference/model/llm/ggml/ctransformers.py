@@ -150,7 +150,9 @@ class CtransformersModel(LLM):
     ) -> CtransformersGenerateConfig:
         # if the input config is not None, we try to copy the selected attributes to the ctransformersGenerateConfig.
         if generate_config is None:
-            generate_config = CtransformersGenerateConfig()
+            generate_config = CtransformersGenerateConfig(
+                **CreateCompletionCTransformers().dict()
+            )
         else:
             # Validate generate_config and fill default values to the generate config.
             generate_config = CtransformersGenerateConfig(
