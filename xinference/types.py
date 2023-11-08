@@ -14,16 +14,18 @@
 
 from typing import Any, Callable, Dict, Iterable, List, Optional, Union
 
-from pydantic import BaseModel, create_model, validate_arguments, validator
+from pydantic import (
+    BaseModel,
+    create_model,
+    validate_arguments,
+    create_model_from_typeddict,
+)
 from typing_extensions import Literal, NotRequired, TypedDict
 
 from .fields import (
     echo_field,
-    frequency_penalty_field,
-    logprobs_field,
     max_tokens_field,
     none_field,
-    presence_penalty_field,
     repeat_penalty_field,
     stop_field,
     stream_field,
@@ -264,35 +266,9 @@ def get_pydantic_model_from_method(
     return model
 
 
-class CreateCompletionOpenAI(BaseModel):
-    # OpenAI's create completion request body, we define it by pydantic
-    # model to verify the input params.
-    # https://platform.openai.com/docs/api-reference/completions/object
+class CreateCompletionTorch(BaseModel):
     model: str
     prompt: str
-    best_of: Optional[int] = 1
-    echo: bool = echo_field
-    frequency_penalty: Optional[float] = frequency_penalty_field
-    logit_bias: Optional[Dict[str, float]] = none_field
-    logprobs: Optional[int] = logprobs_field
-    max_tokens: int = max_tokens_field
-    n: Optional[int] = 1
-    presence_penalty: Optional[float] = presence_penalty_field
-    seed: Optional[int] = none_field
-    stop: Optional[Union[str, List[str]]] = stop_field
-    stream: bool = stream_field
-    suffix: Optional[str] = none_field
-    temperature: float = temperature_field
-    top_p: float = top_p_field
-    user: Optional[str] = none_field
-
-    @validator("seed", "logit_bias", "n")
-    def check_not_implemented(cls, v, field):
-        if field.default != v:
-            raise NotImplementedError("Not implemented.")
-
-
-class CreateCompletionTorch(BaseModel):
     echo: bool = echo_field
     max_tokens: int = max_tokens_field
     repetition_penalty: float = repeat_penalty_field
@@ -325,3 +301,22 @@ try:
     )
 except ImportError:
     CreateCompletionCTransformers = object
+
+
+try:
+    from openai.types.completion_create_params import CompletionCreateParamsNonStreaming
+
+    CreateCompletionOpenAI = create_model_from_typeddict(
+        CompletionCreateParamsNonStreaming,
+    )
+except ImportError:
+    CreateCompletionOpenAI = object
+
+
+class CreateCompletion(
+    CreateCompletionTorch,
+    CreateCompletionLlamaCpp,
+    CreateCompletionCTransformers,
+    CreateCompletionOpenAI,
+):
+    pass

@@ -12,28 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
-import pytest
-from openai.types.completion_create_params import CompletionCreateParamsNonStreaming
-from pydantic import create_model_from_typeddict
-
 from ...types import (
     CreateCompletionCTransformers,
     CreateCompletionLlamaCpp,
-    CreateCompletionOpenAI,
     CreateCompletionTorch,
 )
 
 
 def test_create_completion_types():
-    openai_model = create_model_from_typeddict(CompletionCreateParamsNonStreaming)
-    assert CreateCompletionOpenAI.__fields__.keys() == openai_model.__fields__.keys()
-    CreateCompletionOpenAI(model="abc", prompt="hello", n=1)
-    with pytest.raises(NotImplementedError):
-        CreateCompletionOpenAI(model="abc", prompt="hello", n=2)
-    with pytest.raises(NotImplementedError):
-        CreateCompletionOpenAI(model="abc", prompt="hello", seed=1)
-
     def check_fields(a, b):
         both = a.__fields__.keys() & b.__fields__.keys()
         for f in both:
