@@ -116,7 +116,7 @@ class WorkerActor(xo.StatelessActor):
         self._gpu_to_embedding_model_uids[device].add(model_uid)
         return device
 
-    async def allocate_devices(self, model_uid: str, n_gpu: int) -> List[int]:
+    def allocate_devices(self, model_uid: str, n_gpu: int) -> List[int]:
         if n_gpu > len(self._total_cuda_devices) - len(self._gpu_to_model_uid):
             raise RuntimeError("No available slot found for the model")
 
@@ -128,7 +128,7 @@ class WorkerActor(xo.StatelessActor):
 
         return sorted(devices)
 
-    async def release_devices(self, model_uid: str):
+    def release_devices(self, model_uid: str):
         devices = [
             dev
             for dev in self._gpu_to_model_uid
@@ -156,7 +156,7 @@ class WorkerActor(xo.StatelessActor):
             devices = (
                 [await self.allocate_devices_for_embedding(model_uid)]
                 if model_type == "embedding"
-                else await self.allocate_devices(model_uid=model_uid, n_gpu=gpu_cnt)
+                else self.allocate_devices(model_uid=model_uid, n_gpu=gpu_cnt)
             )
             env["CUDA_VISIBLE_DEVICES"] = ",".join([str(dev) for dev in devices])
             logger.debug(f"GPU selected: {devices} for model {model_uid}")
@@ -226,7 +226,12 @@ class WorkerActor(xo.StatelessActor):
 
         from ..model.llm.core import create_speculative_llm_model_instance
 
-        model, model_description = create_speculative_llm_model_instance(
+        subpool_address, devices = await self._create_subpool(model_uid, n_gpu=n_gpu)
+
+        model, model_description = await asyncio.to_thread(
+            create_speculative_llm_model_instance,
+            subpool_addr=subpool_address,
+            devices=devices,
             model_uid=model_uid,
             model_name=model_name,
             model_size_in_billions=model_size_in_billions,
@@ -237,7 +242,6 @@ class WorkerActor(xo.StatelessActor):
             is_local_deployment=True,
         )
 
-        subpool_address, devices = await self._create_subpool(model_uid, n_gpu=n_gpu)
         try:
             model_ref = await xo.create_actor(
                 ModelActor, address=subpool_address, uid=model_uid, model=model
@@ -245,6 +249,7 @@ class WorkerActor(xo.StatelessActor):
             await model_ref.load()
         except:
             logger.error(f"Failed to load model {model_uid}", exc_info=True)
+            self.release_devices(model_uid=model_uid)
             await self._main_pool.remove_sub_pool(subpool_address)
             raise
 
@@ -282,8 +287,14 @@ class WorkerActor(xo.StatelessActor):
         assert self._supervisor_ref is not None
         is_local_deployment = await self._supervisor_ref.is_local_deployment()
 
+        subpool_address, devices = await self._create_subpool(
+            model_uid, model_type, n_gpu=n_gpu
+        )
+
         model, model_description = await asyncio.to_thread(
             create_model_instance,
+            subpool_address,
+            devices,
             model_uid,
             model_type,
             model_name,
@@ -294,9 +305,6 @@ class WorkerActor(xo.StatelessActor):
             **kwargs,
         )
 
-        subpool_address, devices = await self._create_subpool(
-            model_uid, model_type, n_gpu=n_gpu
-        )
         try:
             model_ref = await xo.create_actor(
                 ModelActor,
@@ -308,7 +316,7 @@ class WorkerActor(xo.StatelessActor):
             await model_ref.load()
         except:
             logger.error(f"Failed to load model {model_uid}", exc_info=True)
-            await self.release_devices(model_uid=model_uid)
+            self.release_devices(model_uid=model_uid)
             await self._main_pool.remove_sub_pool(subpool_address)
             raise
 

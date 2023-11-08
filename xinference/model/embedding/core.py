@@ -37,12 +37,20 @@ class EmbeddingModelSpec(BaseModel):
 
 
 class EmbeddingModelDescription(ModelDescription):
-    def __init__(self, model_spec: EmbeddingModelSpec):
+    def __init__(
+        self,
+        address: Optional[str],
+        devices: Optional[List[str]],
+        model_spec: EmbeddingModelSpec,
+    ):
+        super().__init__(address, devices)
         self._model_spec = model_spec
 
     def to_dict(self):
         return {
             "model_type": "embedding",
+            "address": self.address,
+            "accelerators": self.devices,
             "model_name": self._model_spec.model_name,
             "dimensions": self._model_spec.dimensions,
             "max_tokens": self._model_spec.max_tokens,
@@ -93,7 +101,7 @@ def cache(model_spec: EmbeddingModelSpec):
     with open(meta_path, "w") as f:
         import json
 
-        desc = EmbeddingModelDescription(model_spec)
+        desc = EmbeddingModelDescription(None, None, model_spec)
         json.dump(desc.to_dict(), f)
     return cache_dir
 
@@ -314,10 +322,10 @@ def match_embedding(model_name: str) -> EmbeddingModelSpec:
 
 
 def create_embedding_model_instance(
-    model_uid: str, model_name: str, **kwargs
+    subpool_addr: str, devices: List[str], model_uid: str, model_name: str, **kwargs
 ) -> Tuple[EmbeddingModel, EmbeddingModelDescription]:
     model_spec = match_embedding(model_name)
     model_path = cache(model_spec)
     model = EmbeddingModel(model_uid, model_path, **kwargs)
-    model_description = EmbeddingModelDescription(model_spec)
+    model_description = EmbeddingModelDescription(subpool_addr, devices, model_spec)
     return model, model_description

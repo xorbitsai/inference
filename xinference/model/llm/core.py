@@ -17,7 +17,7 @@ import logging
 import os
 import platform
 from abc import abstractmethod
-from typing import TYPE_CHECKING, Optional, Tuple
+from typing import TYPE_CHECKING, List, Optional, Tuple
 
 from ...core.utils import parse_replica_model_uid
 from ..core import ModelDescription
@@ -92,10 +92,13 @@ class LLM(abc.ABC):
 class LLMDescription(ModelDescription):
     def __init__(
         self,
+        address: Optional[str],
+        devices: Optional[List[str]],
         llm_family: "LLMFamilyV1",
         llm_spec: "LLMSpecV1",
         quantization: Optional[str],
     ):
+        super().__init__(address, devices)
         self._llm_family = llm_family
         self._llm_spec = llm_spec
         self._quantization = quantization
@@ -103,6 +106,8 @@ class LLMDescription(ModelDescription):
     def to_dict(self):
         return {
             "model_type": "LLM",
+            "address": self.address,
+            "accelerators": self.devices,
             "model_name": self._llm_family.model_name,
             "model_lang": self._llm_family.model_lang,
             "model_ability": self._llm_family.model_ability,
@@ -117,6 +122,8 @@ class LLMDescription(ModelDescription):
 
 
 def create_llm_model_instance(
+    subpool_addr: str,
+    devices: List[str],
     model_uid: str,
     model_name: str,
     model_format: Optional[str] = None,
@@ -154,10 +161,14 @@ def create_llm_model_instance(
     logger.debug(f"Launching {model_uid} with {llm_cls.__name__}")
 
     model = llm_cls(model_uid, llm_family, llm_spec, quantization, save_path, kwargs)
-    return model, LLMDescription(llm_family, llm_spec, quantization)
+    return model, LLMDescription(
+        subpool_addr, devices, llm_family, llm_spec, quantization
+    )
 
 
 def create_speculative_llm_model_instance(
+    subpool_addr: str,
+    devices: List[str],
     model_uid: str,
     model_name: str,
     model_size_in_billions: Optional[int],
@@ -218,4 +229,6 @@ def create_speculative_llm_model_instance(
         draft_model_path=draft_save_path,
     )
 
-    return model, LLMDescription(llm_family, llm_spec, quantization)
+    return model, LLMDescription(
+        subpool_addr, devices, llm_family, llm_spec, quantization
+    )

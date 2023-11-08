@@ -125,6 +125,8 @@ def test_replica_model(setup):
 
     client2 = RESTfulClient(endpoint)
     info = client2.describe_model(model_uid=model_uid)
+    assert "address" in info
+    assert "accelerators" in info
     assert info["replica"] == replica
 
     client.terminate_model(model_uid=model_uid)
