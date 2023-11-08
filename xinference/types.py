@@ -269,9 +269,12 @@ def get_pydantic_model_from_method(
     return model
 
 
-class CreateCompletionTorch(BaseModel):
+class ModelAndPrompt(BaseModel):
     model: str
     prompt: str
+
+
+class CreateCompletionTorch(BaseModel):
     echo: bool = echo_field
     max_tokens: int = max_tokens_field
     repetition_penalty: float = repeat_penalty_field
@@ -289,7 +292,7 @@ try:
     from llama_cpp import Llama
 
     CreateCompletionLlamaCpp = get_pydantic_model_from_method(
-        Llama.create_completion, exclude_fields=["model"]
+        Llama.create_completion, exclude_fields=["model", "prompt"]
     )
 except ImportError:
     CreateCompletionLlamaCpp = create_model("CreateCompletionLlamaCpp")
@@ -307,6 +310,7 @@ except ImportError:
     CreateCompletionCTransformers = create_model("CreateCompletionCTransformers")
 
 
+# This type is for openai API compatibility
 CreateCompletionOpenAI: BaseModel
 try:
     # For openai > 1
@@ -343,6 +347,7 @@ except ImportError:
 
 
 class CreateCompletion(
+    ModelAndPrompt,
     CreateCompletionTorch,
     CreateCompletionLlamaCpp,
     CreateCompletionCTransformers,

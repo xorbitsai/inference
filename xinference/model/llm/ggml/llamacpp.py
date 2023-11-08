@@ -107,12 +107,9 @@ class LlamaCppModel(LLM):
         if generate_config is None:
             generate_config = LlamaCppGenerateConfig()
         else:
+            # Validate generate_config and fill default values to the generate config.
             generate_config = LlamaCppGenerateConfig(
-                **{
-                    k: generate_config[k]
-                    for k in CreateCompletionLlamaCpp.__fields__.keys()
-                    if k in generate_config
-                }
+                **CreateCompletionLlamaCpp(**generate_config).dict()
             )
         generate_config["model"] = self.model_uid
         return generate_config

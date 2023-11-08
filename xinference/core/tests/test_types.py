@@ -55,6 +55,10 @@ def test_create_completion_types():
         CreateCompletionLlamaCpp,
         CreateCompletionCTransformers,
     ]
+    for t in types:
+        t()
+        assert "model" not in t.__fields__
+        assert "prompt" not in t.__fields__
     for i in range(len(types)):
         for j in range(i + 1, len(types)):
             check_fields(types[i], types[j])

@@ -498,7 +498,7 @@ class RESTfulAPI:
             "logit_bias_type",
             "user",
         }
-        kwargs = body.dict(exclude=exclude)
+        kwargs = body.dict(exclude_unset=True, exclude=exclude)
 
         if body.logit_bias is not None:
             raise HTTPException(status_code=501, detail="Not implemented")
