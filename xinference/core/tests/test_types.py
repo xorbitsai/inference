@@ -11,11 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import pydantic
+import pytest
 from openai.types.completion_create_params import CompletionCreateParamsNonStreaming
 from pydantic import create_model_from_typeddict
 
 from ...types import (
+    CreateCompletion,
     CreateCompletionCTransformers,
     CreateCompletionLlamaCpp,
     CreateCompletionTorch,
@@ -29,6 +31,14 @@ def test_create_completion_types():
         _CreateCompletionOpenAIFallback.__fields__.keys()
         == openai_model.__fields__.keys()
     )
+
+    with pytest.raises(pydantic.ValidationError):
+        CreateCompletion()
+
+    with pytest.raises(pydantic.ValidationError):
+        CreateCompletion(model="abc", prompt="def", not_exist="jdk")
+
+    CreateCompletion(model="abc", prompt="def")
 
     def check_fields(a, b):
         both = a.__fields__.keys() & b.__fields__.keys()
