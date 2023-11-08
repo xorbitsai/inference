@@ -36,6 +36,14 @@ const ModelCard = ({ url, modelData }) => {
   const [sizeOptions, setSizeOptions] = useState([]);
   const [quantizationOptions, setQuantizationOptions] = useState([]);
 
+  const isCached = (spec) => {
+    if (spec.model_format === "pytorch") {
+      return spec.cache_status && spec.cache_status === true;
+    } else {
+      return spec.cache_status && spec.cache_status.some((cs) => cs);
+    }
+  };
+
   // UseEffects for parameter selection, change options based on previous selections
   useEffect(() => {
     if (modelData) {
@@ -288,13 +296,7 @@ const ModelCard = ({ url, modelData }) => {
             }
           })()}
           {(() => {
-            if (
-              modelData.model_specs.some((spec) =>
-                spec.model_format === "pytorch"
-                  ? spec.cache_status
-                  : spec.cache_status.some((cs) => cs),
-              )
-            ) {
+            if (modelData.model_specs.some((spec) => isCached(spec))) {
               return (
                 <Chip
                   label="Cached"
@@ -370,10 +372,7 @@ const ModelCard = ({ url, modelData }) => {
                 const specs = modelData.model_specs.filter(
                   (spec) => spec.model_format === format,
                 );
-                const cached =
-                  format === "pytorch"
-                    ? specs.some((spec) => spec.cache_status)
-                    : specs.some((spec) => spec.cache_status.some((cs) => cs));
+                const cached = specs.some((spec) => isCached(spec));
                 const displayedFormat = cached ? format + " (cached)" : format;
 
                 return (
@@ -401,10 +400,7 @@ const ModelCard = ({ url, modelData }) => {
                 const specs = modelData.model_specs
                   .filter((spec) => spec.model_format === modelFormat)
                   .filter((spec) => spec.model_size_in_billions === size);
-                const cached =
-                  modelFormat === "pytorch"
-                    ? specs.some((spec) => spec.cache_status)
-                    : specs.some((spec) => spec.cache_status.some((cs) => cs));
+                const cached = specs.some((spec) => isCached(spec));
                 const displayedSize = cached ? size + " (cached)" : size;
 
                 return (
@@ -438,8 +434,9 @@ const ModelCard = ({ url, modelData }) => {
 
                   const cached =
                     modelFormat === "pytorch"
-                      ? specs[0].cache_status
-                      : specs[0].cache_status[index];
+                      ? specs[0].cache_status && specs[0].cache_status === true
+                      : specs[0].cache_status &&
+                        specs[0].cache_status[index] === true;
                   const displayedQuant = cached ? quant + " (cached)" : quant;
 
                   return (
