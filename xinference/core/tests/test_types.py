@@ -12,14 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from openai.types.completion_create_params import CompletionCreateParamsNonStreaming
+from pydantic import create_model_from_typeddict
+
 from ...types import (
     CreateCompletionCTransformers,
     CreateCompletionLlamaCpp,
+    CreateCompletionOpenAI,
     CreateCompletionTorch,
 )
 
 
 def test_create_completion_types():
+    openai_model = create_model_from_typeddict(CompletionCreateParamsNonStreaming)
+    assert CreateCompletionOpenAI.__fields__.keys() == openai_model.__fields__.keys()
+
     def check_fields(a, b):
         both = a.__fields__.keys() & b.__fields__.keys()
         for f in both:
