@@ -17,8 +17,8 @@ from typing import Any, Callable, Dict, Iterable, List, Optional, Union
 from pydantic import (
     BaseModel,
     create_model,
-    validate_arguments,
     create_model_from_typeddict,
+    validate_arguments,
 )
 from typing_extensions import Literal, NotRequired, TypedDict
 

@@ -51,13 +51,7 @@ from ..fields import (
     top_k_field,
     top_p_field,
 )
-from ..types import (
-    ChatCompletion,
-    Completion,
-    CreateCompletion,
-    Embedding,
-    ImageList,
-)
+from ..types import ChatCompletion, Completion, CreateCompletion, Embedding, ImageList
 
 logger = logging.getLogger(__name__)
 
