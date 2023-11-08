@@ -293,22 +293,24 @@ class CreateCompletionOpenAI(BaseModel):
 
 
 class CreateCompletionTorch(BaseModel):
-    temperature: float = temperature_field
-    repetition_penalty: float = repeat_penalty_field
-    top_p: float = top_p_field
-    top_k: int = top_k_field
-    stream: bool = stream_field
-    max_tokens: int = max_tokens_field
     echo: bool = echo_field
+    max_tokens: int = max_tokens_field
+    repetition_penalty: float = repeat_penalty_field
     stop: Optional[Union[str, List[str]]] = stop_field
     stop_token_ids: Optional[Union[int, List[int]]] = none_field
+    stream: bool = stream_field
     stream_interval: int = stream_interval_field
+    temperature: float = temperature_field
+    top_p: float = top_p_field
+    top_k: int = top_k_field
 
 
 try:
     from llama_cpp import Llama
 
-    CreateCompletionLlamaCpp = get_pydantic_model_from_method(Llama.create_completion)
+    CreateCompletionLlamaCpp = get_pydantic_model_from_method(
+        Llama.create_completion, exclude_fields=["model"]
+    )
 except ImportError:
     CreateCompletionLlamaCpp = object
 

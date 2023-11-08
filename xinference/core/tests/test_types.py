@@ -17,7 +17,12 @@ import pytest
 from openai.types.completion_create_params import CompletionCreateParamsNonStreaming
 from pydantic import create_model_from_typeddict
 
-from ...types import CreateCompletionOpenAI
+from ...types import (
+    CreateCompletionCTransformers,
+    CreateCompletionLlamaCpp,
+    CreateCompletionOpenAI,
+    CreateCompletionTorch,
+)
 
 
 def test_create_completion_types():
@@ -28,3 +33,42 @@ def test_create_completion_types():
         CreateCompletionOpenAI(model="abc", prompt="hello", n=2)
     with pytest.raises(NotImplementedError):
         CreateCompletionOpenAI(model="abc", prompt="hello", seed=1)
+
+    def check_fields(a, b):
+        both = a.__fields__.keys() & b.__fields__.keys()
+        for f in both:
+            fa = a.__fields__[f]
+            fb = b.__fields__[f]
+            print(a, b, f)
+            if fa.allow_none and not fb.allow_none:
+                raise Exception(
+                    f"The field '{f}' allow none of {a} and {b} are not valid:\n"
+                    f"    {fa.allow_none} != {fb.allow_none}"
+                )
+            if not fa.required and fb.required:
+                raise Exception(
+                    f"The field '{f}' required of {a} and {b} are not valid:\n"
+                    f"    {fa.required} != {fb.required}"
+                )
+            if (
+                fa.default != fb.default
+                and fa.default is None
+                and fb.default is not None
+            ):
+                raise Exception(
+                    f"The field '{f}' default value of {a} and {b} are not equal:\n"
+                    f"    {fa.default} != {fb.default}"
+                )
+
+            # if str(fa.annotation) != str(fb.annotation):
+            #     raise Exception(f"The field '{f}' annotation of {a} and {b} are not equal:\n"
+            #                     f"    {fa.annotation} != {fb.annotation}")
+
+    types = [
+        CreateCompletionTorch,
+        CreateCompletionLlamaCpp,
+        CreateCompletionCTransformers,
+    ]
+    for i in range(len(types)):
+        for j in range(i + 1, len(types)):
+            check_fields(types[i], types[j])

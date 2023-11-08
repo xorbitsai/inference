@@ -63,7 +63,7 @@ top_p_field = Field(
 )
 
 stop_field = Field(
-    default=None,
+    default=[],
     description="A list of tokens at which to stop generation. If None, no stop tokens are used.",
 )
 
