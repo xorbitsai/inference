@@ -312,6 +312,31 @@ except ImportError:
 
 # This type is for openai API compatibility
 CreateCompletionOpenAI: BaseModel
+
+
+class _CreateCompletionOpenAIFallback(BaseModel):
+    # OpenAI's create completion request body, we define it by pydantic
+    # model to verify the input params.
+    # https://platform.openai.com/docs/api-reference/completions/object
+    model: str
+    prompt: str
+    best_of: Optional[int] = 1
+    echo: bool = echo_field
+    frequency_penalty: Optional[float] = frequency_penalty_field
+    logit_bias: Optional[Dict[str, float]] = none_field
+    logprobs: Optional[int] = logprobs_field
+    max_tokens: int = max_tokens_field
+    n: Optional[int] = 1
+    presence_penalty: Optional[float] = presence_penalty_field
+    seed: Optional[int] = none_field
+    stop: Optional[Union[str, List[str]]] = stop_field
+    stream: bool = stream_field
+    suffix: Optional[str] = none_field
+    temperature: float = temperature_field
+    top_p: float = top_p_field
+    user: Optional[str] = none_field
+
+
 try:
     # For openai > 1
     from openai.types.completion_create_params import CompletionCreateParamsNonStreaming
@@ -321,29 +346,7 @@ try:
     )
 except ImportError:
     # TODO(codingl2k1): Remove it if openai < 1 is dropped.
-    class CreateCompletionOpenAIFallback(BaseModel):
-        # OpenAI's create completion request body, we define it by pydantic
-        # model to verify the input params.
-        # https://platform.openai.com/docs/api-reference/completions/object
-        model: str
-        prompt: str
-        best_of: Optional[int] = 1
-        echo: bool = echo_field
-        frequency_penalty: Optional[float] = frequency_penalty_field
-        logit_bias: Optional[Dict[str, float]] = none_field
-        logprobs: Optional[int] = logprobs_field
-        max_tokens: int = max_tokens_field
-        n: Optional[int] = 1
-        presence_penalty: Optional[float] = presence_penalty_field
-        seed: Optional[int] = none_field
-        stop: Optional[Union[str, List[str]]] = stop_field
-        stream: bool = stream_field
-        suffix: Optional[str] = none_field
-        temperature: float = temperature_field
-        top_p: float = top_p_field
-        user: Optional[str] = none_field
-
-    CreateCompletionOpenAI = CreateCompletionOpenAIFallback
+    CreateCompletionOpenAI = _CreateCompletionOpenAIFallback
 
 
 class CreateCompletion(

@@ -18,14 +18,17 @@ from pydantic import create_model_from_typeddict
 from ...types import (
     CreateCompletionCTransformers,
     CreateCompletionLlamaCpp,
-    CreateCompletionOpenAI,
     CreateCompletionTorch,
+    _CreateCompletionOpenAIFallback,
 )
 
 
 def test_create_completion_types():
     openai_model = create_model_from_typeddict(CompletionCreateParamsNonStreaming)
-    assert CreateCompletionOpenAI.__fields__.keys() == openai_model.__fields__.keys()
+    assert (
+        _CreateCompletionOpenAIFallback.__fields__.keys()
+        == openai_model.__fields__.keys()
+    )
 
     def check_fields(a, b):
         both = a.__fields__.keys() & b.__fields__.keys()
