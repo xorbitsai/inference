@@ -46,24 +46,28 @@ T = TypeVar("T")
 
 
 def request_limit(fn):
+    """
+    Used by ModelActor.
+    As a decorator, added to a ModelActor method to control
+    how many requests are accessing that method at the same time.
+    """
+
     async def wrapped_func(self, *args, **kwargs):
         logger.debug(
             f"Request {fn.__name__}, current serve request count: {self._serve_count}, request limit: {self._request_limits} for the model {self.model_uid()}"
         )
         if self._request_limits is not None:
-            async with self._limit_lock:
-                if 1 + self._serve_count <= self._request_limits:
-                    self._serve_count += 1
-                else:
-                    raise RuntimeError(
-                        f"Rate limit reached for the model. Request limit {self._request_limits} for the model: {self.model_uid()}"
-                    )
+            if 1 + self._serve_count <= self._request_limits:
+                self._serve_count += 1
+            else:
+                raise RuntimeError(
+                    f"Rate limit reached for the model. Request limit {self._request_limits} for the model: {self.model_uid()}"
+                )
         try:
             ret = await fn(self, *args, **kwargs)
         finally:
             if self._request_limits is not None:
-                async with self._limit_lock:
-                    self._serve_count -= 1
+                self._serve_count -= 1
             logger.debug(
                 f"After request {fn.__name__}, current serve request count: {self._serve_count} for the model {self.model_uid()}"
             )
@@ -152,7 +156,6 @@ class ModelActor(xo.StatelessActor):
             else asyncio.locks.Lock()
         )
         self._serve_count = 0
-        self._limit_lock = asyncio.locks.Lock()
 
     def load(self):
         self._model.load()
