@@ -152,11 +152,13 @@ class CtransformersModel(LLM):
         if generate_config is None:
             generate_config = CtransformersGenerateConfig()
         else:
-            generate_config = {
-                k: generate_config[k]
-                for k in CreateCompletionCTransformers.__fields__.keys()
-                if k in generate_config
-            }
+            generate_config = CtransformersGenerateConfig(
+                **{
+                    k: generate_config[k]
+                    for k in CreateCompletionCTransformers.__fields__.keys()
+                    if k in generate_config
+                }
+            )
 
         # for our system, the threads will have to be set to 4
         # all other parameters, if not specified, will be set to default when generate.

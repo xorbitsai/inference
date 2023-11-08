@@ -244,9 +244,9 @@ class PytorchModelConfig(TypedDict, total=False):
 
 def get_pydantic_model_from_method(
     meth,
-    exclude_fields: Iterable[str] = None,
-    include_fields: Dict[str, Any] = None,
-):
+    exclude_fields: Optional[Iterable[str]] = None,
+    include_fields: Optional[Dict[str, Any]] = None,
+) -> BaseModel:
     f = validate_arguments(meth, config={"arbitrary_types_allowed": True})
     model = f.model
     model.__fields__.pop("self", None)
@@ -281,6 +281,7 @@ class CreateCompletionTorch(BaseModel):
     top_k: int = top_k_field
 
 
+CreateCompletionLlamaCpp: BaseModel
 try:
     from llama_cpp import Llama
 
@@ -288,9 +289,9 @@ try:
         Llama.create_completion, exclude_fields=["model"]
     )
 except ImportError:
-    CreateCompletionLlamaCpp = object
+    CreateCompletionLlamaCpp = create_model("CreateCompletionLlamaCpp")
 
-
+CreateCompletionCTransformers: BaseModel
 try:
     from ctransformers.llm import LLM
 
@@ -300,9 +301,10 @@ try:
         include_fields={"max_tokens": (int, max_tokens_field)},
     )
 except ImportError:
-    CreateCompletionCTransformers = object
+    CreateCompletionCTransformers = create_model("CreateCompletionCTransformers")
 
 
+CreateCompletionOpenAI: BaseModel
 try:
     from openai.types.completion_create_params import CompletionCreateParamsNonStreaming
 
@@ -310,7 +312,7 @@ try:
         CompletionCreateParamsNonStreaming,
     )
 except ImportError:
-    CreateCompletionOpenAI = object
+    CreateCompletionOpenAI = create_model("CreateCompletionOpenAI")
 
 
 class CreateCompletion(

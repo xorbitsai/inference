@@ -73,11 +73,13 @@ class PytorchModel(LLM):
         if generate_config is None:
             generate_config = PytorchGenerateConfig()
         else:
-            generate_config = {
-                k: generate_config[k]
-                for k in CreateCompletionTorch.__fields__.keys()
-                if k in generate_config
-            }
+            generate_config = PytorchGenerateConfig(
+                **{
+                    k: generate_config[k]
+                    for k in CreateCompletionTorch.__fields__.keys()
+                    if k in generate_config
+                }
+            )
         generate_config["model"] = self.model_uid
         return generate_config
 
