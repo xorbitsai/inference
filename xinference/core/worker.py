@@ -133,7 +133,7 @@ class WorkerActor(xo.StatelessActor):
                 raise ValueError(f"{model_name} model can't run on Darwin system.")
 
     @log_sync(logger=logger)
-    async def register_model(self, model_type: str, model: str, persist: bool):
+    def register_model(self, model_type: str, model: str, persist: bool):
         # TODO: centralized model registrations
         if model_type == "LLM":
             from ..model.llm import LLMFamilyV1, register_llm
@@ -144,7 +144,7 @@ class WorkerActor(xo.StatelessActor):
             raise ValueError(f"Unsupported model type: {model_type}")
 
     @log_sync(logger=logger)
-    async def unregister_model(self, model_type: str, model_name: str):
+    def unregister_model(self, model_type: str, model_name: str):
         # TODO: centralized model registrations
         if model_type == "LLM":
             from ..model.llm import unregister_llm

@@ -1,13 +1,9 @@
-import React, { } from "react";
+import React from "react";
 import Title from "../../components/Title";
 import LaunchLLM from "./launchLLM";
 import LaunchEmbedding from "./launchEmbedding";
-import {
-  Box,
-  Tab
-} from "@mui/material";
-import { TabContext, TabList, TabPanel } from "@mui/lab"
-
+import { Box, Tab } from "@mui/material";
+import { TabContext, TabList, TabPanel } from "@mui/lab";
 
 const LaunchModel = () => {
   const [value, setValue] = React.useState("1");
@@ -26,14 +22,14 @@ const LaunchModel = () => {
             <Tab label="Embedding Models" value="2" />
           </TabList>
         </Box>
-        <TabPanel value="1" sx={{padding: 0}}>
+        <TabPanel value="1" sx={{ padding: 0 }}>
           <LaunchLLM />
         </TabPanel>
-        <TabPanel value="2" sx={{padding: 0}}>
+        <TabPanel value="2" sx={{ padding: 0 }}>
           <LaunchEmbedding />
         </TabPanel>
       </TabContext>
-    </Box >
+    </Box>
   );
 };
 

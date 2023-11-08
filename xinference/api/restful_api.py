@@ -23,7 +23,16 @@ from typing import Any, Dict, List, Literal, Optional, Union
 
 import gradio as gr
 import xoscar as xo
-from fastapi import APIRouter, FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi import (
+    APIRouter,
+    FastAPI,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    Request,
+    UploadFile,
+)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -860,10 +869,12 @@ class RESTfulAPI:
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
 
-    async def list_model_registrations(self, model_type: str) -> List[Dict[str, Any]]:
+    async def list_model_registrations(
+        self, model_type: str, detailed: bool = Query(False)
+    ) -> List[Dict[str, Any]]:
         try:
             return await (await self._get_supervisor_ref()).list_model_registrations(
-                model_type
+                model_type, detailed=detailed
             )
         except ValueError as re:
             logger.error(re, exc_info=True)

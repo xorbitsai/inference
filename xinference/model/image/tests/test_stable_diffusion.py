@@ -15,6 +15,7 @@ import base64
 import io
 import logging
 import os.path
+import shutil
 from io import BytesIO
 
 import pytest
@@ -34,20 +35,25 @@ logger = logging.getLogger(__name__)
 
 
 def test_model():
-    model_path = cache(TEST_MODEL_SPEC)
-    model = DiffusionModel("mock", model_path)
-    # input is a string
-    input_text = "an apple"
-    model.load()
-    r = model.text_to_image(input_text, size="256*256")
-    assert len(r["data"]) == 1
-    assert os.path.exists(r["data"][0]["url"])
-    r = model.text_to_image(input_text, size="256*256", response_format="b64_json")
-    assert len(r["data"]) == 1
-    b64_json = r["data"][0]["b64_json"]
-    image_bytes = base64.decodebytes(b64_json)
-    img = Image.open(BytesIO(image_bytes))
-    assert img.size == (256, 256)
+    model_path = None
+    try:
+        model_path = cache(TEST_MODEL_SPEC)
+        model = DiffusionModel("mock", model_path)
+        # input is a string
+        input_text = "an apple"
+        model.load()
+        r = model.text_to_image(input_text, size="256*256")
+        assert len(r["data"]) == 1
+        assert os.path.exists(r["data"][0]["url"])
+        r = model.text_to_image(input_text, size="256*256", response_format="b64_json")
+        assert len(r["data"]) == 1
+        b64_json = r["data"][0]["b64_json"]
+        image_bytes = base64.decodebytes(b64_json)
+        img = Image.open(BytesIO(image_bytes))
+        assert img.size == (256, 256)
+    finally:
+        if model_path is not None:
+            shutil.rmtree(model_path)
 
 
 @pytest.mark.skip(reason="Stable diffusion controlnet requires too many GRAM.")
@@ -136,3 +142,16 @@ def test_restful_api_for_image_with_mlsd_controlnet(setup):
         num_inference_steps=20,
     )
     logger.info("test result %s", r)
+
+
+def test_get_cache_status():
+    from ..core import get_cache_status
+
+    model_path = None
+    try:
+        assert get_cache_status(TEST_MODEL_SPEC) is False
+        model_path = cache(TEST_MODEL_SPEC)
+        assert get_cache_status(TEST_MODEL_SPEC) is True
+    finally:
+        if model_path is not None:
+            shutil.rmtree(model_path)

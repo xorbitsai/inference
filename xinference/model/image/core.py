@@ -20,6 +20,7 @@ from pydantic import BaseModel
 
 from ...constants import XINFERENCE_CACHE_DIR
 from ..core import ModelDescription
+from ..utils import valid_model_revision
 from .stable_diffusion.core import DiffusionModel
 
 MAX_ATTEMPTS = 3
@@ -70,6 +71,11 @@ def cache(model_spec: ImageModelFamilyV1):
     )
     if not os.path.exists(cache_dir):
         os.makedirs(cache_dir, exist_ok=True)
+
+    meta_path = os.path.join(cache_dir, "__valid_download")
+    if valid_model_revision(meta_path, model_spec.model_revision):
+        return cache_dir
+
     for current_attempt in range(1, MAX_ATTEMPTS + 1):
         try:
             huggingface_hub.snapshot_download(
@@ -89,7 +95,26 @@ def cache(model_spec: ImageModelFamilyV1):
         raise RuntimeError(
             f"Failed to download model '{model_spec.model_name}' after {MAX_ATTEMPTS} attempts"
         )
+
+    with open(meta_path, "w") as f:
+        import json
+
+        desc = ImageModelDescription(model_spec)
+        json.dump(desc.to_dict(), f)
+
     return cache_dir
+
+
+def get_cache_status(
+    model_spec: ImageModelFamilyV1,
+) -> bool:
+    cache_dir = os.path.realpath(
+        os.path.join(XINFERENCE_CACHE_DIR, model_spec.model_name)
+    )
+    if not os.path.exists(cache_dir):
+        os.makedirs(cache_dir, exist_ok=True)
+    meta_path = os.path.join(cache_dir, "__valid_download")
+    return valid_model_revision(meta_path, model_spec.model_revision)
 
 
 def create_image_model_instance(

@@ -866,3 +866,75 @@ def test_skip_download_ggml():
     finally:
         os.remove(ms_meta_path)
         assert not os.path.exists(ms_meta_path)
+
+
+def test_get_cache_status_pytorch():
+    from ..llm_family import cache_from_huggingface, get_cache_status
+
+    spec = PytorchLLMSpecV1(
+        model_format="pytorch",
+        model_size_in_billions=1,
+        quantizations=["4-bit", "8-bit", "none"],
+        model_id="facebook/opt-125m",
+    )
+    family = LLMFamilyV1(
+        version=1,
+        context_length=2048,
+        model_type="LLM",
+        model_name="opt",
+        model_lang=["en"],
+        model_ability=["embed", "generate"],
+        model_specs=[spec],
+        prompt_style=None,
+    )
+
+    cache_status = get_cache_status(llm_family=family, llm_spec=spec)
+    assert not isinstance(cache_status, list)
+    assert not cache_status
+
+    cache_dir = cache_from_huggingface(family, spec, quantization=None)
+    cache_status = get_cache_status(llm_family=family, llm_spec=spec)
+    assert not isinstance(cache_status, list)
+    assert cache_status
+
+    assert os.path.exists(cache_dir)
+    assert os.path.exists(os.path.join(cache_dir, "README.md"))
+    assert os.path.islink(os.path.join(cache_dir, "README.md"))
+    shutil.rmtree(cache_dir)
+
+
+def test_get_cache_status_ggml():
+    from ..llm_family import cache_from_huggingface, get_cache_status
+
+    spec = GgmlLLMSpecV1(
+        model_format="ggmlv3",
+        model_size_in_billions=3,
+        model_id="TheBloke/orca_mini_3B-GGML",
+        quantizations=["q4_0", "q5_0"],
+        model_file_name_template="README.md",
+    )
+    family = LLMFamilyV1(
+        version=1,
+        context_length=2048,
+        model_type="LLM",
+        model_name="orca",
+        model_lang=["en"],
+        model_ability=["embed", "chat"],
+        model_specs=[spec],
+        prompt_style=None,
+    )
+
+    cache_status = get_cache_status(llm_family=family, llm_spec=spec)
+    assert isinstance(cache_status, list)
+    assert not any(cache_status)
+
+    cache_dir = cache_from_huggingface(family, spec, quantization="q4_0")
+    cache_status = get_cache_status(llm_family=family, llm_spec=spec)
+    assert isinstance(cache_status, list)
+    assert len(cache_status) == 2
+    assert cache_status[0] and not cache_status[1]
+
+    assert os.path.exists(cache_dir)
+    assert os.path.exists(os.path.join(cache_dir, "README.md"))
+    assert os.path.islink(os.path.join(cache_dir, "README.md"))
+    shutil.rmtree(cache_dir)

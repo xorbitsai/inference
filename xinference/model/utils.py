@@ -118,7 +118,7 @@ def valid_model_revision(
             logger.debug("Legacy meta file detected.")
             return True
 
-        if "model_revision" in meta_data:  # embedding
+        if "model_revision" in meta_data:  # embedding, image
             real_revision = meta_data["model_revision"]
         elif "revision" in meta_data:  # llm
             real_revision = meta_data["revision"]

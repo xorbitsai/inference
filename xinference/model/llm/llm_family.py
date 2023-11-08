@@ -581,6 +581,36 @@ def cache_from_huggingface(
     return cache_dir
 
 
+def get_cache_status(
+    llm_family: LLMFamilyV1,
+    llm_spec: "LLMSpecV1",
+) -> Union[bool, List[bool]]:
+    cache_dir = _get_cache_dir(llm_family, llm_spec)
+    if llm_spec.model_format == "pytorch":
+        return _skip_download(
+            cache_dir,
+            llm_spec.model_format,
+            llm_spec.model_hub,
+            llm_spec.model_revision,
+            "none",
+        )
+    elif llm_spec.model_format in ["ggmlv3", "ggufv2"]:
+        ret = []
+        for q in llm_spec.quantizations:
+            ret.append(
+                _skip_download(
+                    cache_dir,
+                    llm_spec.model_format,
+                    llm_spec.model_hub,
+                    llm_spec.model_revision,
+                    q,
+                )
+            )
+        return ret
+    else:
+        raise ValueError(f"Unsupported model format: {llm_spec.model_format}")
+
+
 def _is_linux():
     return platform.system() == "Linux"
 

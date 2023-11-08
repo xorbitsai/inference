@@ -98,6 +98,18 @@ def cache(model_spec: EmbeddingModelSpec):
     return cache_dir
 
 
+def get_cache_status(
+    model_spec: EmbeddingModelSpec,
+) -> bool:
+    cache_dir = os.path.realpath(
+        os.path.join(XINFERENCE_CACHE_DIR, model_spec.model_name)
+    )
+    if not os.path.exists(cache_dir):
+        os.makedirs(cache_dir, exist_ok=True)
+    meta_path = os.path.join(cache_dir, "__valid_download")
+    return valid_model_revision(meta_path, model_spec.model_revision)
+
+
 class EmbeddingModel:
     def __init__(self, model_uid: str, model_path: str, device: Optional[str] = None):
         self._model_uid = model_uid

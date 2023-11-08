@@ -21,9 +21,7 @@ const LaunchEmbedding = () => {
     const modelName = registration.model_name
       ? registration.model_name.toLowerCase()
       : "";
-    if (
-      !modelName.includes(searchTerm.toLowerCase())
-    ) {
+    if (!modelName.includes(searchTerm.toLowerCase())) {
       return false;
     }
     return true;
@@ -35,9 +33,12 @@ const LaunchEmbedding = () => {
     try {
       setIsCallingApi(true);
 
-      const response = await fetch(`${endPoint}/v1/model_registrations/embedding`, {
-        method: "GET",
-      });
+      const response = await fetch(
+        `${endPoint}/v1/model_registrations/embedding`,
+        {
+          method: "GET",
+        },
+      );
 
       const registrations = await response.json();
       const newRegistrationData = await Promise.all(
@@ -78,11 +79,14 @@ const LaunchEmbedding = () => {
 
   return (
     <Box m="20px">
-      <div style={{ display: "grid", gridTemplateColumns: "1fr", margin: "30px 2rem" }}>
-        <FormControl
-          variant="outlined"
-          margin="normal"
-        >
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr",
+          margin: "30px 2rem",
+        }}
+      >
+        <FormControl variant="outlined" margin="normal">
           <TextField
             id="search"
             type="search"

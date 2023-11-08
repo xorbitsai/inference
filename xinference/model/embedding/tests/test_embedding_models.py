@@ -11,7 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import os
+import shutil
 
 from ...utils import valid_model_revision
 from ..core import EmbeddingModel, EmbeddingModelSpec, cache
@@ -45,28 +47,33 @@ TEST_MODEL_SPEC_FROM_MODELSCOPE = EmbeddingModelSpec(
 
 
 def test_model():
-    model_path = cache(TEST_MODEL_SPEC)
-    model = EmbeddingModel("mock", model_path)
-    # input is a string
-    input_text = "what is the capital of China?"
-    model.load()
-    r = model.create_embedding(input_text)
-    assert len(r["data"]) == 1
-    for d in r["data"]:
-        assert len(d["embedding"]) == 384
+    model_path = None
+    try:
+        model_path = cache(TEST_MODEL_SPEC)
+        model = EmbeddingModel("mock", model_path)
+        # input is a string
+        input_text = "what is the capital of China?"
+        model.load()
+        r = model.create_embedding(input_text)
+        assert len(r["data"]) == 1
+        for d in r["data"]:
+            assert len(d["embedding"]) == 384
 
-    # input is a lit
-    input_texts = [
-        "what is the capital of China?",
-        "how to implement quick sort in python?",
-        "Beijing",
-        "sorting algorithms",
-    ]
-    model.load()
-    r = model.create_embedding(input_texts)
-    assert len(r["data"]) == 4
-    for d in r["data"]:
-        assert len(d["embedding"]) == 384
+        # input is a lit
+        input_texts = [
+            "what is the capital of China?",
+            "how to implement quick sort in python?",
+            "Beijing",
+            "sorting algorithms",
+        ]
+        model.load()
+        r = model.create_embedding(input_texts)
+        assert len(r["data"]) == 4
+        for d in r["data"]:
+            assert len(d["embedding"]) == 384
+    finally:
+        if model_path is not None:
+            shutil.rmtree(model_path, ignore_errors=True)
 
 
 def test_model_from_modelscope():
@@ -82,21 +89,38 @@ def test_model_from_modelscope():
 
 
 def test_meta_file():
-    cache_dir = cache(TEST_MODEL_SPEC)
-    meta_path = os.path.join(cache_dir, "__valid_download")
-    assert valid_model_revision(meta_path, TEST_MODEL_SPEC.model_revision)
+    cache_dir = None
+    try:
+        cache_dir = cache(TEST_MODEL_SPEC)
+        meta_path = os.path.join(cache_dir, "__valid_download")
+        assert valid_model_revision(meta_path, TEST_MODEL_SPEC.model_revision)
 
-    # test another version of the same model
-    assert not valid_model_revision(meta_path, TEST_MODEL_SPEC2.model_revision)
-    cache_dir = cache(TEST_MODEL_SPEC2)
-    meta_path = os.path.join(cache_dir, "__valid_download")
-    assert valid_model_revision(meta_path, TEST_MODEL_SPEC2.model_revision)
+        # test another version of the same model
+        assert not valid_model_revision(meta_path, TEST_MODEL_SPEC2.model_revision)
+        cache_dir = cache(TEST_MODEL_SPEC2)
+        meta_path = os.path.join(cache_dir, "__valid_download")
+        assert valid_model_revision(meta_path, TEST_MODEL_SPEC2.model_revision)
 
-    # test functionality of the new version model
-    model = EmbeddingModel("mock", cache_dir)
-    input_text = "I can do this all day."
-    model.load()
-    r = model.create_embedding(input_text)
-    assert len(r["data"]) == 1
-    for d in r["data"]:
-        assert len(d["embedding"]) == 384
+        # test functionality of the new version model
+        model = EmbeddingModel("mock", cache_dir)
+        input_text = "I can do this all day."
+        model.load()
+        r = model.create_embedding(input_text)
+        assert len(r["data"]) == 1
+        for d in r["data"]:
+            assert len(d["embedding"]) == 384
+    finally:
+        shutil.rmtree(cache_dir, ignore_errors=True)
+
+
+def test_get_cache_status():
+    from ..core import get_cache_status
+
+    model_path = None
+    try:
+        assert get_cache_status(TEST_MODEL_SPEC) is False
+        model_path = cache(TEST_MODEL_SPEC)
+        assert get_cache_status(TEST_MODEL_SPEC) is True
+    finally:
+        if model_path is not None:
+            shutil.rmtree(model_path, ignore_errors=True)
