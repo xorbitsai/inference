@@ -106,42 +106,58 @@ class SupervisorActor(xo.StatelessActor):
             "workers": self._worker_status,
         }
 
-    @staticmethod
-    def _to_llm_reg(llm_family: "LLMFamilyV1", is_builtin: bool) -> Dict[str, Any]:
+    def _to_llm_reg(
+        self, llm_family: "LLMFamilyV1", is_builtin: bool
+    ) -> Dict[str, Any]:
         from ..model.llm import get_cache_status
 
-        specs = []
-        for spec in llm_family.model_specs:
-            cache_status = get_cache_status(llm_family, spec)
-            specs.append({**spec.dict(), "cache_status": cache_status})
+        if self.is_local_deployment():
+            specs = []
+            # TODO: does not work when the supervisor and worker are running on separate nodes.
+            for spec in llm_family.model_specs:
+                cache_status = get_cache_status(llm_family, spec)
+                specs.append({**spec.dict(), "cache_status": cache_status})
+            return {**llm_family.dict(), "is_builtin": is_builtin, "model_specs": specs}
+        else:
+            return {**llm_family.dict(), "is_builtin": is_builtin}
 
-        return {**llm_family.dict(), "is_builtin": is_builtin, "model_specs": specs}
-
-    @staticmethod
     def _to_embedding_model_reg(
-        model_spec: "EmbeddingModelSpec", is_builtin: bool
+        self, model_spec: "EmbeddingModelSpec", is_builtin: bool
     ) -> Dict[str, Any]:
         from ..model.embedding import get_cache_status
 
-        cache_status = get_cache_status(model_spec)
-        return {
-            **model_spec.dict(),
-            "cache_status": cache_status,
-            "is_builtin": is_builtin,
-        }
+        if self.is_local_deployment():
+            # TODO: does not work when the supervisor and worker are running on separate nodes.
+            cache_status = get_cache_status(model_spec)
+            return {
+                **model_spec.dict(),
+                "cache_status": cache_status,
+                "is_builtin": is_builtin,
+            }
+        else:
+            return {
+                **model_spec.dict(),
+                "is_builtin": is_builtin,
+            }
 
-    @staticmethod
     def _to_image_model_reg(
-        model_family: "ImageModelFamilyV1", is_builtin: bool
+        self, model_family: "ImageModelFamilyV1", is_builtin: bool
     ) -> Dict[str, Any]:
         from ..model.image import get_cache_status
 
-        cache_status = get_cache_status(model_family)
-        return {
-            **model_family.dict(),
-            "cache_status": cache_status,
-            "is_builtin": is_builtin,
-        }
+        if self.is_local_deployment():
+            # TODO: does not work when the supervisor and worker are running on separate nodes.
+            cache_status = get_cache_status(model_family)
+            return {
+                **model_family.dict(),
+                "cache_status": cache_status,
+                "is_builtin": is_builtin,
+            }
+        else:
+            return {
+                **model_family.dict(),
+                "is_builtin": is_builtin,
+            }
 
     @log_sync(logger=logger)
     def list_model_registrations(
@@ -230,7 +246,7 @@ class SupervisorActor(xo.StatelessActor):
         if model_type == "LLM":
             from ..model.llm import LLMFamilyV1, register_llm
 
-            if not self.is_local_deployment:
+            if not self.is_local_deployment():
                 workers = list(self._worker_address_to_worker.values())
                 for worker in workers:
                     await worker.register_model(model_type, model, persist)
@@ -247,7 +263,7 @@ class SupervisorActor(xo.StatelessActor):
 
             unregister_llm(model_name)
 
-            if not self.is_local_deployment:
+            if not self.is_local_deployment():
                 workers = list(self._worker_address_to_worker.values())
                 for worker in workers:
                     await worker.unregister_model(model_name)
@@ -470,7 +486,6 @@ class SupervisorActor(xo.StatelessActor):
             ret.update(await worker.list_models())
         return {parse_replica_model_uid(k)[0]: v for k, v in ret.items()}
 
-    @log_sync(logger=logger)
     def is_local_deployment(self) -> bool:
         # TODO: temporary.
         return (
