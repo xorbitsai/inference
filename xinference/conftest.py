@@ -25,7 +25,7 @@ import xoscar as xo
 
 from .constants import XINFERENCE_LOG_BACKUP_COUNT, XINFERENCE_LOG_MAX_BYTES
 from .core.supervisor import SupervisorActor
-from .deploy.utils import create_worker_actor_pool, get_log_file
+from .deploy.utils import create_worker_actor_pool, get_log_file, get_timestamp_ms
 from .deploy.worker import start_worker_components
 
 TEST_LOGGING_CONF = {
@@ -50,7 +50,7 @@ TEST_LOGGING_CONF = {
     },
 }
 
-TEST_LOG_FILE_PATH = get_log_file()
+TEST_LOG_FILE_PATH = get_log_file(f"test_{get_timestamp_ms()}")
 if os.name == "nt":
     TEST_LOG_FILE_PATH = TEST_LOG_FILE_PATH.encode("unicode-escape").decode()
 
@@ -215,7 +215,7 @@ def setup_with_file_logging():
     if not api_health_check(endpoint, max_attempts=3, sleep_interval=5):
         raise RuntimeError("Endpoint is not available after multiple attempts")
 
-    yield f"http://localhost:{port}", supervisor_addr
+    yield f"http://localhost:{port}", supervisor_addr, TEST_LOG_FILE_PATH
 
     local_cluster_proc.terminate()
     restful_api_proc.terminate()

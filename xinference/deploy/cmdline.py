@@ -40,7 +40,7 @@ from ..constants import (
 )
 from ..isolation import Isolation
 from ..types import ChatCompletionMessage
-from .utils import get_config_dict, get_log_file
+from .utils import get_config_dict, get_log_file, get_timestamp_ms
 
 try:
     # provide elaborate line editing and history features.
@@ -71,7 +71,7 @@ def start_local_cluster(
 
     dict_config = get_config_dict(
         log_level,
-        get_log_file(),
+        get_log_file(f"local_{get_timestamp_ms()}"),
         XINFERENCE_LOG_BACKUP_COUNT,
         XINFERENCE_LOG_MAX_BYTES,
     )
@@ -199,7 +199,10 @@ def supervisor(
     from ..deploy.supervisor import main
 
     dict_config = get_config_dict(
-        log_level, get_log_file(), XINFERENCE_LOG_BACKUP_COUNT, XINFERENCE_LOG_MAX_BYTES
+        log_level,
+        get_log_file(f"supervisor_{get_timestamp_ms()}"),
+        XINFERENCE_LOG_BACKUP_COUNT,
+        XINFERENCE_LOG_MAX_BYTES,
     )
     logging.config.dictConfig(dict_config)  # type: ignore
 
@@ -228,7 +231,10 @@ def worker(log_level: str, endpoint: Optional[str], host: str):
     from ..deploy.worker import main
 
     dict_config = get_config_dict(
-        log_level, get_log_file(), XINFERENCE_LOG_BACKUP_COUNT, XINFERENCE_LOG_MAX_BYTES
+        log_level,
+        get_log_file(f"worker_{get_timestamp_ms()}"),
+        XINFERENCE_LOG_BACKUP_COUNT,
+        XINFERENCE_LOG_MAX_BYTES,
     )
     logging.config.dictConfig(dict_config)  # type: ignore
 
