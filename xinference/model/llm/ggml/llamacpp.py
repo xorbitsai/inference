@@ -23,6 +23,7 @@ from ....types import (
     ChatCompletionMessage,
     Completion,
     CompletionChunk,
+    CreateCompletionLlamaCpp,
     Embedding,
     LlamaCppGenerateConfig,
     LlamaCppModelConfig,
@@ -104,8 +105,21 @@ class LlamaCppModel(LLM):
         self, generate_config: Optional[LlamaCppGenerateConfig]
     ) -> LlamaCppGenerateConfig:
         if generate_config is None:
-            generate_config = LlamaCppGenerateConfig()
-        generate_config["model"] = self.model_uid
+            generate_config = LlamaCppGenerateConfig(
+                **CreateCompletionLlamaCpp().dict()
+            )
+        else:
+            from llama_cpp import LlamaGrammar
+
+            grammar = generate_config.get("grammar")
+            if grammar is not None and not isinstance(grammar, LlamaGrammar):
+                generate_config["grammar"] = LlamaGrammar.from_string(
+                    generate_config["grammar"]
+                )
+            # Validate generate_config and fill default values to the generate config.
+            generate_config = LlamaCppGenerateConfig(
+                **CreateCompletionLlamaCpp(**generate_config).dict()
+            )
         return generate_config
 
     def _convert_ggml_to_gguf(self, model_path: str) -> str:
@@ -201,13 +215,10 @@ class LlamaCppModel(LLM):
     ) -> Union[Completion, Iterator[CompletionChunk]]:
         def generator_wrapper(
             _prompt: str,
-            repeat_penalty: float,
             _generate_config: LlamaCppGenerateConfig,
         ) -> Iterator[CompletionChunk]:
             assert self._llm is not None
-            for _completion_chunk in self._llm(
-                prompt=_prompt, repeat_penalty=repeat_penalty, **_generate_config
-            ):
+            for _completion_chunk in self._llm(prompt=_prompt, **_generate_config):
                 yield _completion_chunk
 
         logger.debug(
@@ -216,27 +227,15 @@ class LlamaCppModel(LLM):
 
         generate_config = self._sanitize_generate_config(generate_config)
 
-        repeat_penalty = 1.1
-        if "repetition_penalty" in generate_config:
-            repeat_penalty = generate_config["repetition_penalty"]
-            generate_config.pop("repetition_penalty")
-
         stream = generate_config.get("stream", False)
-        if generate_config.get("grammar", None) is not None:
-            from llama_cpp import LlamaGrammar
 
-            generate_config["grammar"] = LlamaGrammar.from_string(
-                generate_config["grammar"]
-            )
         if not stream:
             assert self._llm is not None
-            completion = self._llm(
-                prompt=prompt, repeat_penalty=repeat_penalty, **generate_config
-            )
+            completion = self._llm(prompt=prompt, **generate_config)
 
             return completion
         else:
-            return generator_wrapper(prompt, repeat_penalty, generate_config)
+            return generator_wrapper(prompt, generate_config)
 
     def create_embedding(self, input: Union[str, List[str]]) -> Embedding:
         assert self._llm is not None

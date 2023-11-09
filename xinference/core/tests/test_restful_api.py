@@ -497,3 +497,76 @@ async def test_openai(setup):
 
     assert result
     assert type(result).__name__ == response_type_name
+
+
+def test_lang_chain(setup):
+    endpoint, _ = setup
+    url = f"{endpoint}/v1/models"
+
+    # list
+    response = requests.get(url)
+    response_data = response.json()
+    assert len(response_data) == 0
+
+    # launch
+    payload = {
+        "model_uid": "test_restful_api",
+        "model_name": "orca",
+        "quantization": "q4_0",
+    }
+
+    response = requests.post(url, json=payload)
+    response_data = response.json()
+    model_uid_res = response_data["model_uid"]
+    assert model_uid_res == "test_restful_api"
+
+    from langchain.chat_models import ChatOpenAI
+    from langchain.prompts.chat import (
+        ChatPromptTemplate,
+        HumanMessagePromptTemplate,
+        SystemMessagePromptTemplate,
+    )
+    from langchain.schema import AIMessage, HumanMessage, SystemMessage
+
+    inference_server_url = f"{endpoint}/v1"
+
+    chat = ChatOpenAI(
+        model=model_uid_res,
+        openai_api_key="EMPTY",
+        openai_api_base=inference_server_url,
+        max_tokens=5,
+        temperature=0,
+    )
+
+    messages = [
+        SystemMessage(
+            content="You are a helpful assistant that translates English to Italian."
+        ),
+        HumanMessage(
+            content="Translate the following sentence from English to Italian: I love programming."
+        ),
+    ]
+    r = chat(messages)
+    assert type(r) == AIMessage
+    assert r.content
+    assert "amo" in r.content.lower()
+
+    template = "You are a helpful assistant that translates {input_language} to {output_language}."
+    system_message_prompt = SystemMessagePromptTemplate.from_template(template)
+    human_template = "{text}"
+    human_message_prompt = HumanMessagePromptTemplate.from_template(human_template)
+
+    chat_prompt = ChatPromptTemplate.from_messages(
+        [system_message_prompt, human_message_prompt]
+    )
+
+    # get a chat completion from the formatted messages
+    r = chat(
+        chat_prompt.format_prompt(
+            input_language="English",
+            output_language="Italian",
+            text="I love programming.",
+        ).to_messages()
+    )
+    assert type(r) == AIMessage
+    assert r.content

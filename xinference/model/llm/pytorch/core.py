@@ -22,6 +22,7 @@ from ....types import (
     ChatCompletionMessage,
     Completion,
     CompletionChunk,
+    CreateCompletionTorch,
     Embedding,
     EmbeddingData,
     EmbeddingUsage,
@@ -67,16 +68,17 @@ class PytorchModel(LLM):
 
     def _sanitize_generate_config(
         self,
-        pytorch_generate_config: Optional[PytorchGenerateConfig],
+        generate_config: Optional[PytorchGenerateConfig],
     ) -> PytorchGenerateConfig:
-        if pytorch_generate_config is None:
-            pytorch_generate_config = PytorchGenerateConfig()
-        pytorch_generate_config.setdefault("temperature", 0.7)
-        pytorch_generate_config.setdefault("repetition_penalty", 1.0)
-        pytorch_generate_config.setdefault("max_tokens", 512)
-        pytorch_generate_config.setdefault("stream_interval", 2)
-        pytorch_generate_config["model"] = self.model_uid
-        return pytorch_generate_config
+        if generate_config is None:
+            generate_config = PytorchGenerateConfig(**CreateCompletionTorch().dict())
+        else:
+            # Validate generate_config and fill default values to the generate config.
+            generate_config = PytorchGenerateConfig(
+                **CreateCompletionTorch(**generate_config).dict()
+            )
+        generate_config["model"] = self.model_uid
+        return generate_config
 
     def _load_model(self, **kwargs):
         try:
@@ -246,17 +248,32 @@ class PytorchModel(LLM):
         ) -> Iterator[CompletionChunk]:
             if "falcon" in self.model_family.model_name:
                 for completion_chunk, _ in generate_stream_falcon(
-                    self._model, self._tokenizer, prompt, self._device, generate_config
+                    self.model_uid,
+                    self._model,
+                    self._tokenizer,
+                    prompt,
+                    self._device,
+                    generate_config,
                 ):
                     yield completion_chunk
             elif "chatglm" in self.model_family.model_name:
                 for completion_chunk, _ in generate_stream_chatglm(
-                    self._model, self._tokenizer, prompt, self._device, generate_config
+                    self.model_uid,
+                    self._model,
+                    self._tokenizer,
+                    prompt,
+                    self._device,
+                    generate_config,
                 ):
                     yield completion_chunk
             else:
                 for completion_chunk, _ in generate_stream(
-                    self._model, self._tokenizer, prompt, self._device, generate_config
+                    self.model_uid,
+                    self._model,
+                    self._tokenizer,
+                    prompt,
+                    self._device,
+                    generate_config,
                 ):
                     yield completion_chunk
 
@@ -273,17 +290,32 @@ class PytorchModel(LLM):
         if not stream:
             if "falcon" in self.model_family.model_name:
                 for completion_chunk, completion_usage in generate_stream_falcon(
-                    self._model, self._tokenizer, prompt, self._device, generate_config
+                    self.model_uid,
+                    self._model,
+                    self._tokenizer,
+                    prompt,
+                    self._device,
+                    generate_config,
                 ):
                     pass
             elif "chatglm" in self.model_family.model_name:
                 for completion_chunk, completion_usage in generate_stream_chatglm(
-                    self._model, self._tokenizer, prompt, self._device, generate_config
+                    self.model_uid,
+                    self._model,
+                    self._tokenizer,
+                    prompt,
+                    self._device,
+                    generate_config,
                 ):
                     pass
             else:
                 for completion_chunk, completion_usage in generate_stream(
-                    self._model, self._tokenizer, prompt, self._device, generate_config
+                    self.model_uid,
+                    self._model,
+                    self._tokenizer,
+                    prompt,
+                    self._device,
+                    generate_config,
                 ):
                     pass
             completion = Completion(
@@ -396,27 +428,25 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
 
     def _sanitize_generate_config(
         self,
-        pytorch_generate_config: Optional[PytorchGenerateConfig],
+        generate_config: Optional[PytorchGenerateConfig],
     ) -> PytorchGenerateConfig:
-        pytorch_generate_config = super()._sanitize_generate_config(
-            pytorch_generate_config
-        )
+        generate_config = super()._sanitize_generate_config(generate_config)
         if (
-            pytorch_generate_config.get("stop", None) is None
+            generate_config.get("stop", None) is None
             and self.model_family.prompt_style
             and self.model_family.prompt_style.stop
         ):
-            pytorch_generate_config["stop"] = self.model_family.prompt_style.stop.copy()
+            generate_config["stop"] = self.model_family.prompt_style.stop.copy()
         if (
-            pytorch_generate_config.get("stop_token_ids", None) is None
+            generate_config.get("stop_token_ids", None) is None
             and self.model_family.prompt_style
             and self.model_family.prompt_style.stop_token_ids
         ):
-            pytorch_generate_config[
+            generate_config[
                 "stop_token_ids"
             ] = self.model_family.prompt_style.stop_token_ids.copy()
 
-        return pytorch_generate_config
+        return generate_config
 
     @classmethod
     def match(

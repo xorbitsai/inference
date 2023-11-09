@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING, Iterator, Optional, Sequence, TypedDict, Union
 if TYPE_CHECKING:
     from ctransformers import AutoConfig
 
-from ....types import Completion, CompletionChunk
+from ....types import Completion, CompletionChunk, CreateCompletionCTransformers
 from ..core import LLM
 from ..llm_family import LLMFamilyV1, LLMSpecV1
 from .ctransformers_util import generate_stream
@@ -146,17 +146,24 @@ class CtransformersModel(LLM):
 
     def _sanitize_generate_config(
         self,
-        ctransformers_generate_config: Optional[CtransformersGenerateConfig],
+        generate_config: Optional[CtransformersGenerateConfig],
     ) -> CtransformersGenerateConfig:
         # if the input config is not None, we try to copy the selected attributes to the ctransformersGenerateConfig.
-        if ctransformers_generate_config is None:
-            ctransformers_generate_config = CtransformersGenerateConfig()
+        if generate_config is None:
+            generate_config = CtransformersGenerateConfig(
+                **CreateCompletionCTransformers().dict()
+            )
+        else:
+            # Validate generate_config and fill default values to the generate config.
+            generate_config = CtransformersGenerateConfig(
+                **CreateCompletionCTransformers(**generate_config).dict()
+            )
 
         # for our system, the threads will have to be set to 4
         # all other parameters, if not specified, will be set to default when generate.
-        ctransformers_generate_config.setdefault("threads", 4)
+        generate_config.setdefault("threads", 4)
 
-        return ctransformers_generate_config
+        return generate_config
 
     def load(self):
         try:

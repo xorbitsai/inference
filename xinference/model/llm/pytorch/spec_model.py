@@ -137,6 +137,7 @@ class SpeculativeModel(PytorchChatModel):
             _prompt: str, _generate_config: PytorchGenerateConfig
         ) -> Iterator[CompletionChunk]:
             for _completion_chunk, _completion_usage in speculative_generate_stream(
+                model_uid=self.model_uid,
                 draft_model=self._draft_model,
                 model=self._model,
                 tokenizer=self._tokenizer,
@@ -156,6 +157,7 @@ class SpeculativeModel(PytorchChatModel):
         stream = generate_config.get("stream", False)
         if not stream:
             for completion_chunk, completion_usage in speculative_generate_stream(
+                model_uid=self.model_uid,
                 draft_model=self._draft_model,
                 model=self._model,
                 tokenizer=self._tokenizer,

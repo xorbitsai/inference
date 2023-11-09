@@ -86,6 +86,7 @@ def prepare_logits_processor(
 
 @torch.inference_mode()
 def generate_stream(
+    model_uid,
     model,
     tokenizer,
     prompt,
@@ -271,7 +272,7 @@ def generate_stream(
                     id=str(uuid.uuid1()),
                     object="text_completion",
                     created=int(time.time()),
-                    model=generate_config["model"],
+                    model=model_uid,
                     choices=[completion_choice],
                 )
                 completion_usage = CompletionUsage(
@@ -309,7 +310,7 @@ def generate_stream(
         id=str(uuid.uuid1()),
         object="text_completion",
         created=int(time.time()),
-        model=generate_config["model"],
+        model=model_uid,
         choices=[completion_choice],
     )
     completion_usage = CompletionUsage(
@@ -328,6 +329,7 @@ def generate_stream(
 
 @torch.inference_mode()
 def generate_stream_falcon(
+    model_uid,
     model,
     tokenizer,
     prompt,
@@ -435,7 +437,7 @@ def generate_stream_falcon(
                     id=str(uuid.uuid1()),
                     object="text_completion",
                     created=int(time.time()),
-                    model=generate_config["model"],
+                    model=model_uid,
                     choices=[completion_choice],
                 )
                 completion_usage = CompletionUsage(
@@ -462,7 +464,7 @@ def generate_stream_falcon(
         id=str(uuid.uuid1()),
         object="text_completion",
         created=int(time.time()),
-        model=generate_config["model"],
+        model=model_uid,
         choices=[completion_choice],
     )
     completion_usage = CompletionUsage(
@@ -509,6 +511,7 @@ def process_response(response):
 
 @torch.inference_mode()
 def generate_stream_chatglm(
+    model_uid,
     model,
     tokenizer,
     prompt,
@@ -560,7 +563,7 @@ def generate_stream_chatglm(
             id=str(uuid.uuid1()),
             object="text_completion",
             created=int(time.time()),
-            model=generate_config["model"],
+            model=model_uid,
             choices=[completion_choice],
         )
         completion_usage = CompletionUsage(
@@ -583,7 +586,7 @@ def generate_stream_chatglm(
         id=str(uuid.uuid1()),
         object="text_completion",
         created=int(time.time()),
-        model=generate_config["model"],
+        model=model_uid,
         choices=[completion_choice],
     )
     completion_usage = CompletionUsage(
