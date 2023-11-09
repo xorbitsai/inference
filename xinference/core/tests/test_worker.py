@@ -65,7 +65,7 @@ class MockWorkerActor(WorkerActor):
         self._model_uid_to_addr[model_uid] = subpool_address
 
     async def terminate_model(self, model_uid: str):
-        await self.release_devices(model_uid)
+        self.release_devices(model_uid)
 
         sub_pool_addr = self._model_uid_to_addr[model_uid]
         await self._main_pool.remove_sub_pool(sub_pool_addr)
