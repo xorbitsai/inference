@@ -37,12 +37,20 @@ class ImageModelFamilyV1(BaseModel):
 
 
 class ImageModelDescription(ModelDescription):
-    def __init__(self, model_spec: ImageModelFamilyV1):
+    def __init__(
+        self,
+        address: Optional[str],
+        devices: Optional[List[str]],
+        model_spec: ImageModelFamilyV1,
+    ):
+        super().__init__(address, devices)
         self._model_spec = model_spec
 
     def to_dict(self):
         return {
             "model_type": "image",
+            "address": self.address,
+            "accelerators": self.devices,
             "model_name": self._model_spec.model_name,
             "model_family": self._model_spec.model_family,
             "model_revision": self._model_spec.model_revision,
@@ -99,7 +107,7 @@ def cache(model_spec: ImageModelFamilyV1):
     with open(meta_path, "w") as f:
         import json
 
-        desc = ImageModelDescription(model_spec)
+        desc = ImageModelDescription(None, None, model_spec)
         json.dump(desc.to_dict(), f)
 
     return cache_dir
@@ -118,7 +126,7 @@ def get_cache_status(
 
 
 def create_image_model_instance(
-    model_uid: str, model_name: str, **kwargs
+    subpool_addr: str, devices: List[str], model_uid: str, model_name: str, **kwargs
 ) -> Tuple[DiffusionModel, ImageModelDescription]:
     model_spec = match_diffusion(model_name)
     controlnet = kwargs.get("controlnet")
@@ -151,5 +159,5 @@ def create_image_model_instance(
             kwargs["controlnet"] = controlnet_model_paths
     model_path = cache(model_spec)
     model = DiffusionModel(model_uid, model_path, **kwargs)
-    model_description = ImageModelDescription(model_spec)
+    model_description = ImageModelDescription(subpool_addr, devices, model_spec)
     return model, model_description

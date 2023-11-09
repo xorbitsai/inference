@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useContext } from "react";
-import { Box, Stack } from "@mui/material";
+import { Box, Stack, Typography } from "@mui/material";
 import { ApiContext } from "../../components/apiContext";
 import { DataGrid } from "@mui/x-data-grid";
 import Title from "../../components/Title";
@@ -7,33 +7,51 @@ import OpenInBrowserOutlinedIcon from "@mui/icons-material/OpenInBrowserOutlined
 import DeleteOutlineOutlinedIcon from "@mui/icons-material/DeleteOutlineOutlined";
 
 const RunningModels = () => {
-  const [modelData, setModelData] = useState([]);
+  const [llmData, setLlmData] = useState([]);
+  const [embeddingModelData, setEmbeddingModelData] = useState([]);
+  const [imageModelData, setImageModelData] = useState([]);
   const { isCallingApi, setIsCallingApi } = useContext(ApiContext);
   const { isUpdatingModel, setIsUpdatingModel } = useContext(ApiContext);
   const endPoint = useContext(ApiContext).endPoint;
 
   const update = (isCallingApi) => {
     if (isCallingApi) {
-      setModelData([
+      setLlmData([
+        { id: "Loading, do not refresh page...", url: "IS_LOADING" },
+      ]);
+      setEmbeddingModelData([
+        { id: "Loading, do not refresh page...", url: "IS_LOADING" },
+      ]);
+      setImageModelData([
         { id: "Loading, do not refresh page...", url: "IS_LOADING" },
       ]);
     } else {
       setIsUpdatingModel(true);
-      fetch(`${endPoint}/v1/models`, {
+      fetch(`${endPoint}/v1/models/`, {
         method: "GET",
       })
         .then((response) => response.json())
         .then((data) => {
-          const newModelData = [];
+          const newLlmData = [];
+          const newEmbeddingModelData = [];
+          const newImageModelData = [];
           Object.entries(data).forEach(([key, value]) => {
             let newValue = {
               ...value,
               id: key,
               url: key,
             };
-            newModelData.push(newValue);
+            if (newValue.model_type === "LLM") {
+              newLlmData.push(newValue);
+            } else if (newValue.model_type === "embedding") {
+              newEmbeddingModelData.push(newValue);
+            } else if (newValue.model_type === "image") {
+              newImageModelData.push(newValue);
+            }
           });
-          setModelData(newModelData);
+          setLlmData(newLlmData);
+          setEmbeddingModelData(newEmbeddingModelData);
+          setImageModelData(newImageModelData);
           setIsUpdatingModel(false);
         })
         .catch((error) => {
@@ -48,7 +66,7 @@ const RunningModels = () => {
     // eslint-disable-next-line
   }, [isCallingApi]);
 
-  const columns = [
+  const llmColumns = [
     {
       field: "id",
       headerName: "ID",
@@ -58,6 +76,16 @@ const RunningModels = () => {
     {
       field: "model_name",
       headerName: "Name",
+      flex: 1,
+    },
+    {
+      field: "address",
+      headerName: "Address",
+      flex: 1,
+    },
+    {
+      field: "accelerators",
+      headerName: "GPU Indexes",
       flex: 1,
     },
     {
@@ -227,13 +255,217 @@ const RunningModels = () => {
     },
   ];
 
+  const embeddingModelColumns = [
+    {
+      field: "id",
+      headerName: "ID",
+      flex: 1,
+      minWidth: 250,
+    },
+    {
+      field: "model_name",
+      headerName: "Name",
+      flex: 1,
+    },
+    {
+      field: "address",
+      headerName: "Address",
+      flex: 1,
+    },
+    {
+      field: "accelerators",
+      headerName: "GPU Indexes",
+      flex: 1,
+    },
+    {
+      field: "url",
+      headerName: "Actions",
+      flex: 1,
+      minWidth: 200,
+      sortable: false,
+      filterable: false,
+      disableColumnMenu: true,
+      renderCell: ({ row }) => {
+        const url = row.url;
+        const closeUrl = `${endPoint}/v1/models/` + url;
+
+        if (url === "IS_LOADING") {
+          return <div></div>;
+        }
+
+        return (
+          <Box
+            style={{
+              width: "100%",
+              display: "flex",
+              justifyContent: "left",
+              alignItems: "left",
+            }}
+          >
+            <button
+              title="Terminate Model"
+              style={{
+                borderWidth: "0px",
+                backgroundColor: "transparent",
+                paddingLeft: "0px",
+                paddingRight: "10px",
+              }}
+              onClick={() => {
+                if (isCallingApi || isUpdatingModel) {
+                  return;
+                }
+                setIsCallingApi(true);
+                fetch(closeUrl, {
+                  method: "DELETE",
+                })
+                  .then((response) => {
+                    response.json();
+                  })
+                  .then((data) => {
+                    setIsCallingApi(false);
+                  })
+                  .catch((error) => {
+                    console.error("Error:", error);
+                    setIsCallingApi(false);
+                  });
+              }}
+            >
+              <Box
+                width="40px"
+                m="0 auto"
+                p="5px"
+                display="flex"
+                justifyContent="center"
+                borderRadius="4px"
+                style={{
+                  border: "1px solid #e5e7eb",
+                  borderWidth: "1px",
+                  borderColor: "#e5e7eb",
+                }}
+              >
+                <DeleteOutlineOutlinedIcon />
+              </Box>
+            </button>
+          </Box>
+        );
+      },
+    },
+  ];
+
+  const imageModelColumns = embeddingModelColumns;
+
   return (
     <Box m="20px">
       <Title title="Running Models" />
-      <Box m="40px 0 0 0" height="75vh">
+      <Box m="40px 0 0 0" height="30vh">
+        <Typography variant="h5" gutterBottom>
+          Language Models
+        </Typography>
         <DataGrid
-          rows={modelData}
-          columns={columns}
+          rows={llmData}
+          columns={llmColumns}
+          sx={{
+            "& .MuiDataGrid-main": {
+              width: "95% !important",
+              overflow: "visible",
+            },
+            "& .MuiDataGrid-row": {
+              background: "white",
+              margin: "10px 0px",
+            },
+            "& .MuiDataGrid-cell": {
+              borderBottom: "none",
+            },
+            "& .CustomWide-cell": {
+              minWidth: "250px !important",
+            },
+            "& .MuiDataGrid-columnHeaders": {
+              borderBottom: "none",
+            },
+            "& .MuiDataGrid-columnHeaderTitle": {
+              fontWeight: "bold",
+            },
+            "& .MuiDataGrid-virtualScroller": {
+              overflowX: "visible !important",
+              overflow: "visible",
+            },
+            "& .MuiDataGrid-footerContainer": {
+              borderTop: "none",
+            },
+            "border-width": "0px",
+          }}
+          slots={{
+            noRowsOverlay: () => (
+              <Stack height="100%" alignItems="center" justifyContent="center">
+                No Running Models
+              </Stack>
+            ),
+            noResultsOverlay: () => (
+              <Stack height="100%" alignItems="center" justifyContent="center">
+                No Running Models Matches
+              </Stack>
+            ),
+          }}
+        />
+      </Box>
+      <Box m="40px 0 0 0" height="30vh">
+        <Typography variant="h5" gutterBottom>
+          Embedding models
+        </Typography>
+        <DataGrid
+          rows={embeddingModelData}
+          columns={embeddingModelColumns}
+          sx={{
+            "& .MuiDataGrid-main": {
+              width: "95% !important",
+              overflow: "visible",
+            },
+            "& .MuiDataGrid-row": {
+              background: "white",
+              margin: "10px 0px",
+            },
+            "& .MuiDataGrid-cell": {
+              borderBottom: "none",
+            },
+            "& .CustomWide-cell": {
+              minWidth: "250px !important",
+            },
+            "& .MuiDataGrid-columnHeaders": {
+              borderBottom: "none",
+            },
+            "& .MuiDataGrid-columnHeaderTitle": {
+              fontWeight: "bold",
+            },
+            "& .MuiDataGrid-virtualScroller": {
+              overflowX: "visible !important",
+              overflow: "visible",
+            },
+            "& .MuiDataGrid-footerContainer": {
+              borderTop: "none",
+            },
+            "border-width": "0px",
+          }}
+          slots={{
+            noRowsOverlay: () => (
+              <Stack height="100%" alignItems="center" justifyContent="center">
+                No Running Models
+              </Stack>
+            ),
+            noResultsOverlay: () => (
+              <Stack height="100%" alignItems="center" justifyContent="center">
+                No Running Models Matches
+              </Stack>
+            ),
+          }}
+        />
+      </Box>
+      <Box m="40px 0 0 0" height="30vh">
+        <Typography variant="h5" gutterBottom>
+          Image models
+        </Typography>
+        <DataGrid
+          rows={imageModelData}
+          columns={imageModelColumns}
           sx={{
             "& .MuiDataGrid-main": {
               width: "95% !important",
