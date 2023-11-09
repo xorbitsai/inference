@@ -157,6 +157,11 @@ class ModelActor(xo.StatelessActor):
         )
         self._serve_count = 0
 
+    def is_vllm_backend(self) -> bool:
+        from ..model.llm.vllm.core import VLLMModel
+
+        return isinstance(self._model, VLLMModel)
+
     def load(self):
         self._model.load()
 
