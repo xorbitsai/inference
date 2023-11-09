@@ -85,7 +85,7 @@ const RunningModels = () => {
     },
     {
       field: "accelerators",
-      headerName: "Accelerators",
+      headerName: "GPU Indexes",
       flex: 1,
     },
     {
@@ -274,7 +274,7 @@ const RunningModels = () => {
     },
     {
       field: "accelerators",
-      headerName: "Accelerators",
+      headerName: "GPU Indexes",
       flex: 1,
     },
     {
