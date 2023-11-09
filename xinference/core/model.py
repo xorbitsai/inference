@@ -45,6 +45,37 @@ from .utils import log_async
 T = TypeVar("T")
 
 
+def request_limit(fn):
+    """
+    Used by ModelActor.
+    As a decorator, added to a ModelActor method to control
+    how many requests are accessing that method at the same time.
+    """
+
+    async def wrapped_func(self, *args, **kwargs):
+        logger.debug(
+            f"Request {fn.__name__}, current serve request count: {self._serve_count}, request limit: {self._request_limits} for the model {self.model_uid()}"
+        )
+        if self._request_limits is not None:
+            if 1 + self._serve_count <= self._request_limits:
+                self._serve_count += 1
+            else:
+                raise RuntimeError(
+                    f"Rate limit reached for the model. Request limit {self._request_limits} for the model: {self.model_uid()}"
+                )
+        try:
+            ret = await fn(self, *args, **kwargs)
+        finally:
+            if self._request_limits is not None:
+                self._serve_count -= 1
+            logger.debug(
+                f"After request {fn.__name__}, current serve request count: {self._serve_count} for the model {self.model_uid()}"
+            )
+        return ret
+
+    return wrapped_func
+
+
 class IteratorWrapper(Generic[T]):
     def __init__(self, uid: str, model_actor_addr: str, model_actor_uid: str):
         self._uid = uid
@@ -109,13 +140,14 @@ class ModelActor(xo.StatelessActor):
             gc.collect()
             torch.cuda.empty_cache()
 
-    def __init__(self, model: "LLM"):
+    def __init__(self, model: "LLM", request_limits: Optional[int] = None):
         super().__init__()
         from ..model.llm.pytorch.core import PytorchModel
         from ..model.llm.pytorch.spec_model import SpeculativeModel
         from ..model.llm.vllm.core import VLLMModel
 
         self._model = model
+        self._request_limits = request_limits
 
         self._generators: Dict[str, Union[Iterator, AsyncGenerator]] = {}
         self._lock = (
@@ -123,9 +155,21 @@ class ModelActor(xo.StatelessActor):
             if isinstance(self._model, (PytorchModel, SpeculativeModel, VLLMModel))
             else asyncio.locks.Lock()
         )
+        self._serve_count = 0
 
     def load(self):
         self._model.load()
+
+    def model_uid(self):
+        return (
+            self._model.model_uid
+            if hasattr(self._model, "model_uid")
+            else (
+                self._model._model_uid
+                if hasattr(self._model, "_model_uid")
+                else None  # return None for UT
+            )
+        )
 
     async def _wrap_generator(self, ret: Any):
         if inspect.isgenerator(ret) or inspect.isasyncgen(ret):
@@ -153,6 +197,7 @@ class ModelActor(xo.StatelessActor):
         return await asyncio.create_task(_wrapper())
 
     @log_async(logger=logger)
+    @request_limit
     async def generate(self, prompt: str, *args, **kwargs):
         if not hasattr(self._model, "generate") and not hasattr(
             self._model, "async_generate"
@@ -176,6 +221,7 @@ class ModelActor(xo.StatelessActor):
             return await self._call_async_wrapper(_async_wrapper)
 
     @log_async(logger=logger)
+    @request_limit
     async def chat(self, prompt: str, *args, **kwargs):
         if not hasattr(self._model, "chat") and not hasattr(self._model, "async_chat"):
             raise AttributeError(f"Model {self._model.model_spec} is not for chat.")
@@ -196,6 +242,8 @@ class ModelActor(xo.StatelessActor):
         else:
             return await self._call_wrapper(_wrapper)
 
+    @log_async(logger=logger)
+    @request_limit
     async def create_embedding(self, input: Union[str, List[str]], *args, **kwargs):
         if not hasattr(self._model, "create_embedding"):
             raise AttributeError(
@@ -207,6 +255,8 @@ class ModelActor(xo.StatelessActor):
 
         return await self._call_wrapper(_wrapper)
 
+    @log_async(logger=logger)
+    @request_limit
     async def text_to_image(
         self,
         prompt: str,
@@ -274,7 +324,7 @@ class ModelActor(xo.StatelessActor):
 
         async def _async_wrapper():
             try:
-                return await anext(gen)
+                return await anext(gen)  # noqa: F821
             except StopAsyncIteration:
                 return stop
 
