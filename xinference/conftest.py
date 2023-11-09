@@ -44,8 +44,15 @@ TEST_LOGGING_CONF = {
             "stream": "ext://sys.stderr",
         },
     },
+    "loggers": {
+        "xinference": {
+            "handlers": ["stream_handler"],
+            "level": "DEBUG",
+            "propagate": False,
+        }
+    },
     "root": {
-        "level": "DEBUG",
+        "level": "WARN",
         "handlers": ["stream_handler"],
     },
 }
@@ -81,8 +88,15 @@ TEST_FILE_LOGGING_CONF = {
             "encoding": "utf8",
         },
     },
+    "loggers": {
+        "xinference": {
+            "handlers": ["stream_handler", "file_handler"],
+            "level": "DEBUG",
+            "propagate": False,
+        }
+    },
     "root": {
-        "level": "DEBUG",
+        "level": "WARN",
         "handlers": ["stream_handler", "file_handler"],
     },
 }
