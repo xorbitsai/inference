@@ -10,6 +10,7 @@ Getting Started
 
    installation
    using_xinference
+   logging
    launching_models
    accessing_models
    troubleshooting
