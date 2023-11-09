@@ -66,10 +66,6 @@ def test_create_completion_types():
                     f"    {fa.default} != {fb.default}"
                 )
 
-            # if str(fa.annotation) != str(fb.annotation):
-            #     raise Exception(f"The field '{f}' annotation of {a} and {b} are not equal:\n"
-            #                     f"    {fa.annotation} != {fb.annotation}")
-
     types = [
         CreateCompletionTorch,
         CreateCompletionLlamaCpp,
