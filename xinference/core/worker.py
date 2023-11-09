@@ -335,7 +335,7 @@ class WorkerActor(xo.StatelessActor):
         del self._model_uid_to_model[model_uid]
         del self._model_uid_to_model_spec[model_uid]
 
-        await self.release_devices(model_uid)
+        self.release_devices(model_uid)
 
         subpool_address = self._model_uid_to_addr[model_uid]
         await self._main_pool.remove_sub_pool(subpool_address)
