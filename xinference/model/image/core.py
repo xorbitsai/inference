@@ -107,7 +107,7 @@ def cache(model_spec: ImageModelFamilyV1):
     with open(meta_path, "w") as f:
         import json
 
-        desc = ImageModelDescription(model_spec)
+        desc = ImageModelDescription(None, None, model_spec)
         json.dump(desc.to_dict(), f)
 
     return cache_dir
