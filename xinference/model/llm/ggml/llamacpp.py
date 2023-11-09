@@ -104,18 +104,18 @@ class LlamaCppModel(LLM):
     def _sanitize_generate_config(
         self, generate_config: Optional[LlamaCppGenerateConfig]
     ) -> LlamaCppGenerateConfig:
-        from llama_cpp import LlamaGrammar
-
-        grammar = generate_config.get("grammar")
-        if grammar is not None and not isinstance(grammar, LlamaGrammar):
-            generate_config["grammar"] = LlamaGrammar.from_string(
-                generate_config["grammar"]
-            )
         if generate_config is None:
             generate_config = LlamaCppGenerateConfig(
                 **CreateCompletionLlamaCpp().dict()
             )
         else:
+            from llama_cpp import LlamaGrammar
+
+            grammar = generate_config.get("grammar")
+            if grammar is not None and not isinstance(grammar, LlamaGrammar):
+                generate_config["grammar"] = LlamaGrammar.from_string(
+                    generate_config["grammar"]
+                )
             # Validate generate_config and fill default values to the generate config.
             generate_config = LlamaCppGenerateConfig(
                 **CreateCompletionLlamaCpp(**generate_config).dict()
