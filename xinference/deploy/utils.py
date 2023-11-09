@@ -14,6 +14,7 @@
 
 import logging
 import os
+import time
 from typing import TYPE_CHECKING, Optional
 
 import xoscar as xo
@@ -34,10 +35,14 @@ class LoggerNameFilter(logging.Filter):
         )
 
 
-def get_log_file():
-    if not os.path.exists(XINFERENCE_LOG_DIR):
-        os.makedirs(XINFERENCE_LOG_DIR, exist_ok=True)
-    return os.path.join(XINFERENCE_LOG_DIR, XINFERENCE_DEFAULT_LOG_FILE_NAME)
+def get_log_file(sub_dir: str):
+    """
+    sub_dir should contain a timestamp.
+    """
+    log_dir = os.path.join(XINFERENCE_LOG_DIR, sub_dir)
+    # Here should be creating a new directory each time, so `exist_ok=False`
+    os.makedirs(log_dir, exist_ok=False)
+    return os.path.join(log_dir, XINFERENCE_DEFAULT_LOG_FILE_NAME)
 
 
 def get_config_dict(
@@ -82,8 +87,15 @@ def get_config_dict(
                 "encoding": "utf8",
             },
         },
+        "loggers": {
+            "xinference": {
+                "handlers": ["stream_handler", "file_handler"],
+                "level": log_level,
+                "propagate": False,
+            }
+        },
         "root": {
-            "level": log_level,
+            "level": "WARN",
             "handlers": ["stream_handler", "file_handler"],
         },
     }
@@ -139,3 +151,8 @@ def health_check(address: str, max_attempts: int, sleep_interval: int = 3) -> bo
     available = isolation.call(health_check_internal())
     isolation.stop()
     return available
+
+
+def get_timestamp_ms():
+    t = time.time()
+    return int(round(t * 1000))

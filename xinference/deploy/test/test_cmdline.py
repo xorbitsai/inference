@@ -19,7 +19,6 @@ from click.testing import CliRunner
 
 from ...client import Client
 from ..cmdline import (
-    get_log_file,
     list_model_registrations,
     model_chat,
     model_generate,
@@ -241,7 +240,7 @@ def test_cmdline_of_custom_model(setup):
 
 
 def test_rotate_logs(setup_with_file_logging):
-    endpoint, _ = setup_with_file_logging
+    endpoint, _, log_file = setup_with_file_logging
     client = Client(endpoint)
     runner = CliRunner()
     replica = 1 if os.name == "nt" else 2
@@ -272,7 +271,6 @@ def test_rotate_logs(setup_with_file_logging):
     assert len(result.stdout) != 0
 
     # test logs
-    log_file = get_log_file()
     assert os.path.exists(log_file)
     with open(log_file, "r") as f:
         content = f.read()
