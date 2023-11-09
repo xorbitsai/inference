@@ -104,6 +104,13 @@ class LlamaCppModel(LLM):
     def _sanitize_generate_config(
         self, generate_config: Optional[LlamaCppGenerateConfig]
     ) -> LlamaCppGenerateConfig:
+        from llama_cpp import LlamaGrammar
+
+        grammar = generate_config.get("grammar")
+        if grammar is not None and not isinstance(grammar, LlamaGrammar):
+            generate_config["grammar"] = LlamaGrammar.from_string(
+                generate_config["grammar"]
+            )
         if generate_config is None:
             generate_config = LlamaCppGenerateConfig(
                 **CreateCompletionLlamaCpp().dict()
@@ -221,12 +228,7 @@ class LlamaCppModel(LLM):
         generate_config = self._sanitize_generate_config(generate_config)
 
         stream = generate_config.get("stream", False)
-        if generate_config.get("grammar", None) is not None:
-            from llama_cpp import LlamaGrammar
 
-            generate_config["grammar"] = LlamaGrammar.from_string(
-                generate_config["grammar"]
-            )
         if not stream:
             assert self._llm is not None
             completion = self._llm(prompt=prompt, **generate_config)
