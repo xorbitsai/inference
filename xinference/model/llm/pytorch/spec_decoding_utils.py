@@ -246,6 +246,7 @@ def draft(
 
 @torch.inference_mode()
 def speculative_generate_stream(
+    model_uid: str,
     draft_model: "PreTrainedModel",
     model: "PreTrainedModel",
     tokenizer: "PreTrainedTokenizer",
@@ -469,7 +470,7 @@ def speculative_generate_stream(
                     id=request_id,
                     object="text_completion",
                     created=int(time.time()),
-                    model=generate_config["model"],
+                    model=model_uid,
                     choices=[completion_choice],
                 )
                 completion_usage = CompletionUsage(
@@ -510,7 +511,7 @@ def speculative_generate_stream(
         id=request_id,
         object="text_completion",
         created=int(time.time()),
-        model=generate_config["model"],
+        model=model_uid,
         choices=[completion_choice],
     )
     completion_usage = CompletionUsage(

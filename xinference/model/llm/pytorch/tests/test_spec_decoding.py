@@ -42,6 +42,7 @@ def test_spec_decoding():
     formatted_prompt = f"<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n"
 
     for completion_chunk, completion_usage in speculative_generate_stream(
+        model_uid=model_id,
         draft_model=draft_model,
         model=draft_model,
         tokenizer=tokenizer,

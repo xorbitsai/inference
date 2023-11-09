@@ -630,8 +630,9 @@ class RESTfulAPI:
         body: CreateChatCompletionRequest,
     ):
         exclude = {
-            "n",
+            "prompt",
             "model",
+            "n",
             "messages",
             "logit_bias",
             "logit_bias_type",

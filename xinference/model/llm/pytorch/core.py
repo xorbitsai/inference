@@ -248,17 +248,32 @@ class PytorchModel(LLM):
         ) -> Iterator[CompletionChunk]:
             if "falcon" in self.model_family.model_name:
                 for completion_chunk, _ in generate_stream_falcon(
-                    self._model, self._tokenizer, prompt, self._device, generate_config
+                    self.model_uid,
+                    self._model,
+                    self._tokenizer,
+                    prompt,
+                    self._device,
+                    generate_config,
                 ):
                     yield completion_chunk
             elif "chatglm" in self.model_family.model_name:
                 for completion_chunk, _ in generate_stream_chatglm(
-                    self._model, self._tokenizer, prompt, self._device, generate_config
+                    self.model_uid,
+                    self._model,
+                    self._tokenizer,
+                    prompt,
+                    self._device,
+                    generate_config,
                 ):
                     yield completion_chunk
             else:
                 for completion_chunk, _ in generate_stream(
-                    self._model, self._tokenizer, prompt, self._device, generate_config
+                    self.model_uid,
+                    self._model,
+                    self._tokenizer,
+                    prompt,
+                    self._device,
+                    generate_config,
                 ):
                     yield completion_chunk
 
@@ -275,17 +290,32 @@ class PytorchModel(LLM):
         if not stream:
             if "falcon" in self.model_family.model_name:
                 for completion_chunk, completion_usage in generate_stream_falcon(
-                    self._model, self._tokenizer, prompt, self._device, generate_config
+                    self.model_uid,
+                    self._model,
+                    self._tokenizer,
+                    prompt,
+                    self._device,
+                    generate_config,
                 ):
                     pass
             elif "chatglm" in self.model_family.model_name:
                 for completion_chunk, completion_usage in generate_stream_chatglm(
-                    self._model, self._tokenizer, prompt, self._device, generate_config
+                    self.model_uid,
+                    self._model,
+                    self._tokenizer,
+                    prompt,
+                    self._device,
+                    generate_config,
                 ):
                     pass
             else:
                 for completion_chunk, completion_usage in generate_stream(
-                    self._model, self._tokenizer, prompt, self._device, generate_config
+                    self.model_uid,
+                    self._model,
+                    self._tokenizer,
+                    prompt,
+                    self._device,
+                    generate_config,
                 ):
                     pass
             completion = Completion(

@@ -113,7 +113,6 @@ class LlamaCppModel(LLM):
             generate_config = LlamaCppGenerateConfig(
                 **CreateCompletionLlamaCpp(**generate_config).dict()
             )
-        generate_config["model"] = self.model_uid
         return generate_config
 
     def _convert_ggml_to_gguf(self, model_path: str) -> str:
