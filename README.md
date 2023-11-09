@@ -30,6 +30,7 @@ potential of cutting-edge AI models.
 - Support grammar-based sampling for ggml models: [#525](https://github.com/xorbitsai/inference/pull/525)
 - Incorporate vLLM: [#445](https://github.com/xorbitsai/inference/pull/445)
 ### New Models
+- Built-in support for [Yi](https://huggingface.co/01-ai): [#629](https://github.com/xorbitsai/inference/pull/629)
 - Built-in support for [zephyr-7b-alpha](https://huggingface.co/HuggingFaceH4/zephyr-7b-alpha) and [zephyr-7b-beta](https://huggingface.co/HuggingFaceH4/zephyr-7b-beta): [#597](https://github.com/xorbitsai/inference/pull/597) 
 - Built-in support for [chatglm3](https://huggingface.co/THUDM/chatglm3-6b): [#587](https://github.com/xorbitsai/inference/pull/587)
 - Built-in support for [mistral-v0.1](https://huggingface.co/mistralai/Mistral-7B-v0.1) and [mistral-instruct-v0.1](https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.1): [#510](https://github.com/xorbitsai/inference/pull/510)

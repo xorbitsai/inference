@@ -17,6 +17,8 @@ Text Generation Models
 - :ref:`InternLM 20B <models_builtin_internlm_20b>`
 - :ref:`Llama-2 <models_builtin_llama_2>`
 - :ref:`OPT <models_builtin_opt>`
+- :ref:`Yi <models_builtin_Yi>`
+- :ref:`Yi-200k <models_builtin_Yi_200k>`
 
 
 Chat & Instruction-following Models
@@ -102,6 +104,8 @@ Code Assistant Models
    wizardcoder-python-v1.0
    zephyr-7b-alpha
    zephyr-7b-beta
+   Yi
+   Yi-200k
 
 
 Embedding Models
