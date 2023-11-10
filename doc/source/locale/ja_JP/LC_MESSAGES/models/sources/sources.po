@@ -1,0 +1,184 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2023-11-01 10:48+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: ja_JP\n"
+"Language-Team: ja_JP <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.12.1\n"
+
+#: ../../source/models/sources/sources.rst:5
+msgid "Download Sources"
+msgstr ""
+
+#: ../../source/models/sources/sources.rst:7
+msgid "Xinference supports downloading various models from different sources."
+msgstr ""
+
+#: ../../source/models/sources/sources.rst:10
+msgid "HuggingFace"
+msgstr ""
+
+#: ../../source/models/sources/sources.rst:11
+msgid ""
+"Xinference directly downloads the required models from the official "
+"`Hugging Face model repository <https://huggingface.co/models>`_ by "
+"default."
+msgstr ""
+
+#: ../../source/models/sources/sources.rst:14
+msgid "ModelScope"
+msgstr ""
+
+#: ../../source/models/sources/sources.rst:15
+msgid ""
+"Users can choose to download models from the `ModelScope model repository"
+" <https://modelscope.cn/models>`_."
+msgstr ""
+
+#: ../../source/models/sources/sources.rst:17
+msgid "Xinference supports downloading the following models from ModelScope:"
+msgstr ""
+
+#: ../../source/models/sources/sources.rst:30
+msgid "LLM Models"
+msgstr ""
+
+#: ../../source/models/sources/sources.rst:20
+msgid "llama-2-chat"
+msgstr ""
+
+#: ../../source/models/sources/sources.rst:21
+msgid "tiny-llama"
+msgstr ""
+
+#: ../../source/models/sources/sources.rst:22
+msgid "baichuan-2-chat"
+msgstr ""
+
+#: ../../source/models/sources/sources.rst:23
+msgid "baichuan-2"
+msgstr ""
+
+#: ../../source/models/sources/sources.rst:24
+msgid "chatglm2"
+msgstr ""
+
+#: ../../source/models/sources/sources.rst:25
+msgid "chatglm2-32k"
+msgstr ""
+
+#: ../../source/models/sources/sources.rst:26
+msgid "internlm-7b"
+msgstr ""
+
+#: ../../source/models/sources/sources.rst:27
+msgid "internlm-chat-7b"
+msgstr ""
+
+#: ../../source/models/sources/sources.rst:28
+msgid "internlm-20b"
+msgstr ""
+
+#: ../../source/models/sources/sources.rst:29
+msgid "internlm-chat-20b"
+msgstr ""
+
+#: ../../source/models/sources/sources.rst:30
+msgid "wizardcoder-python-v1.0"
+msgstr ""
+
+#: ../../source/models/sources/sources.rst:49
+msgid "Embedding Models"
+msgstr ""
+
+#: ../../source/models/sources/sources.rst:33
+msgid "bge-large-en"
+msgstr ""
+
+#: ../../source/models/sources/sources.rst:34
+msgid "bge-base-en"
+msgstr ""
+
+#: ../../source/models/sources/sources.rst:35
+msgid "gte-large"
+msgstr ""
+
+#: ../../source/models/sources/sources.rst:36
+msgid "gte-base"
+msgstr ""
+
+#: ../../source/models/sources/sources.rst:37
+msgid "e5-large-v2"
+msgstr ""
+
+#: ../../source/models/sources/sources.rst:38
+msgid "bge-large-zh"
+msgstr ""
+
+#: ../../source/models/sources/sources.rst:39
+msgid "bge-large-zh-noinstruct"
+msgstr ""
+
+#: ../../source/models/sources/sources.rst:40
+msgid "bge-base-zh"
+msgstr ""
+
+#: ../../source/models/sources/sources.rst:41
+msgid "multilingual-e5-large"
+msgstr ""
+
+#: ../../source/models/sources/sources.rst:42
+msgid "bge-small-zh"
+msgstr ""
+
+#: ../../source/models/sources/sources.rst:43
+msgid "bge-small-zh-v1.5"
+msgstr ""
+
+#: ../../source/models/sources/sources.rst:44
+msgid "bge-base-zh-v1.5"
+msgstr ""
+
+#: ../../source/models/sources/sources.rst:45
+msgid "bge-large-zh-v1.5"
+msgstr ""
+
+#: ../../source/models/sources/sources.rst:46
+msgid "bge-small-en-v1.5"
+msgstr ""
+
+#: ../../source/models/sources/sources.rst:47
+msgid "bge-base-en-v1.5"
+msgstr ""
+
+#: ../../source/models/sources/sources.rst:48
+msgid "bge-large-en-v1.5"
+msgstr ""
+
+#: ../../source/models/sources/sources.rst:51
+msgid ""
+"One of the following settings will make Xinference download models from "
+"ModelScope:"
+msgstr ""
+
+#: ../../source/models/sources/sources.rst:53
+msgid "The operating system's language is set to Simplified Chinese (zh_CN)."
+msgstr ""
+
+#: ../../source/models/sources/sources.rst:54
+msgid "Set the environment variable ``XINFERENCE_MODEL_SRC=modelscope``."
+msgstr ""
+

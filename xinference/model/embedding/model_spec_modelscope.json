@@ -1,0 +1,130 @@
+[
+  {
+    "model_name": "bge-large-en",
+    "dimensions": 1024,
+    "max_tokens": 512,
+    "language": ["en"],
+    "model_id": "Xorbits/bge-large-en",
+    "model_revision": "v0.0.1"
+  },
+  {
+    "model_name": "bge-base-en",
+    "dimensions": 768,
+    "max_tokens": 512,
+    "language": ["en"],
+    "model_id": "Xorbits/bge-base-en",
+    "model_revision": "v0.0.1"
+  },
+  {
+    "model_name": "gte-large",
+    "dimensions": 1024,
+    "max_tokens": 512,
+    "language": ["en"],
+    "model_id": "Xorbits/gte-large",
+    "model_revision": "v0.0.1"
+  },
+  {
+    "model_name": "gte-base",
+    "dimensions": 768,
+    "max_tokens": 512,
+    "language": ["en"],
+    "model_id": "Xorbits/gte-base",
+    "model_revision": "v0.0.1"
+  },
+  {
+    "model_name": "e5-large-v2",
+    "dimensions": 1024,
+    "max_tokens": 512,
+    "language": ["en"],
+    "model_id": "Xorbits/e5-large-v2",
+    "model_revision": "v0.0.1"
+  },
+  {
+    "model_name": "bge-large-zh",
+    "dimensions": 1024,
+    "max_tokens": 512,
+    "language": ["zh"],
+    "model_id": "Xorbits/bge-large-zh",
+    "model_revision": "v0.0.1"
+  },
+  {
+    "model_name": "bge-large-zh-noinstruct",
+    "dimensions": 1024,
+    "max_tokens": 512,
+    "language": ["zh"],
+    "model_id": "Xorbits/bge-large-zh-noinstruct",
+    "model_revision": "v0.0.1"
+  },
+  {
+    "model_name": "bge-base-zh",
+    "dimensions": 768,
+    "max_tokens": 512,
+    "language": ["zh"],
+    "model_id": "Xorbits/bge-base-zh",
+    "model_revision": "v0.0.2"
+  },
+  {
+    "model_name": "multilingual-e5-large",
+    "dimensions": 1024,
+    "max_tokens": 514,
+    "language": ["zh"],
+    "model_id": "Xorbits/multilingual-e5-large",
+    "model_revision": "v0.0.1"
+  },
+  {
+    "model_name": "bge-small-zh",
+    "dimensions": 512,
+    "max_tokens": 512,
+    "language": ["zh"],
+    "model_id": "Xorbits/bge-small-zh",
+    "model_revision": "v0.0.1"
+  },
+  {
+    "model_name": "bge-small-zh-v1.5",
+    "dimensions": 512,
+    "max_tokens": 512,
+    "language": ["zh"],
+    "model_id": "Xorbits/bge-small-zh-v1.5",
+    "model_revision": "v0.0.2"
+  },
+  {
+    "model_name": "bge-base-zh-v1.5",
+    "dimensions": 768,
+    "max_tokens": 512,
+    "language": ["zh"],
+    "model_id": "Xorbits/bge-base-zh-v1.5",
+    "model_revision": "v0.0.1"
+  },
+  {
+    "model_name": "bge-large-zh-v1.5",
+    "dimensions": 1024,
+    "max_tokens": 512,
+    "language": ["zh"],
+    "model_id": "Xorbits/bge-large-zh-v1.5",
+    "model_revision": "v0.0.1"
+  },
+  {
+    "model_name": "bge-small-en-v1.5",
+    "dimensions": 384,
+    "max_tokens": 512,
+    "language": ["en"],
+    "model_id": "Xorbits/bge-small-en-v1.5",
+    "model_revision": "v0.0.2"
+  },
+  {
+    "model_name": "bge-base-en-v1.5",
+    "dimensions": 768,
+    "max_tokens": 512,
+    "language": ["en"],
+    "model_id": "Xorbits/bge-base-en-v1.5",
+    "model_revision": "v0.0.1"
+  },
+  {
+    "model_name": "bge-large-en-v1.5",
+    "dimensions": 1024,
+    "max_tokens": 512,
+    "language": ["en"],
+    "model_id": "Xorbits/bge-large-en-v1.5",
+    "model_revision": "v0.0.1"
+  }
+]

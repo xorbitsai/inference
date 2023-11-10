@@ -1,0 +1,90 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2023-11-01 10:48+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: ja_JP\n"
+"Language-Team: ja_JP <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.12.1\n"
+
+#: ../../source/getting_started/using_xinference.rst:5
+msgid "Using Xinference"
+msgstr ""
+
+#: ../../source/getting_started/using_xinference.rst:8
+msgid "Configure Xinference Home Path"
+msgstr ""
+
+#: ../../source/getting_started/using_xinference.rst:9
+msgid ""
+"By default, Xinference uses ``<HOME>/.xinference`` as home path to store "
+"necessary files such as logs and models, where ``<HOME>`` is the home "
+"path of current user."
+msgstr ""
+
+#: ../../source/getting_started/using_xinference.rst:12
+msgid ""
+"You can change this directory by configuring the environment variable "
+"``XINFERENCE_HOME``. For example:"
+msgstr ""
+
+#: ../../source/getting_started/using_xinference.rst:21
+msgid "Using Xinference Locally"
+msgstr ""
+
+#: ../../source/getting_started/using_xinference.rst:23
+msgid "To start a local instance of Xinference, run the following command:"
+msgstr ""
+
+#: ../../source/getting_started/using_xinference.rst:31
+msgid "Using Xinference In a Cluster"
+msgstr ""
+
+#: ../../source/getting_started/using_xinference.rst:34
+msgid ""
+"To deploy Xinference in a cluster, you need to start a Xinference "
+"supervisor on one server and Xinference workers on the other servers. "
+"Follow the steps below:"
+msgstr ""
+
+#: ../../source/getting_started/using_xinference.rst:38
+msgid "Starting the Supervisor"
+msgstr ""
+
+#: ../../source/getting_started/using_xinference.rst:39
+msgid ""
+"On the server where you want to run the Xinference supervisor, run the "
+"following command:"
+msgstr ""
+
+#: ../../source/getting_started/using_xinference.rst:45
+msgid "Replace ${supervisor_host} with the actual host of your supervisor server."
+msgstr ""
+
+#: ../../source/getting_started/using_xinference.rst:48
+msgid "Starting the Workers"
+msgstr ""
+
+#: ../../source/getting_started/using_xinference.rst:50
+msgid ""
+"On each of the other servers where you want to run Xinference workers, "
+"run the following command:"
+msgstr ""
+
+#: ../../source/getting_started/using_xinference.rst:56
+msgid ""
+"Once Xinference is running, an endpoint will be accessible for model "
+"management via CLI or Xinference client."
+msgstr ""

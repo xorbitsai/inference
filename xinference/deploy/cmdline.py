@@ -13,21 +13,21 @@
 # limitations under the License.
 
 import asyncio
-import configparser
 import logging
 import os
 import sys
+import warnings
 from typing import List, Optional, Union
 
 import click
 from xoscar.utils import get_next_port
 
 from .. import __version__
-from ..client import (
-    Client,
+from ..client import RESTfulClient
+from ..client.oscar.actor_client import ActorClient
+from ..client.restful.restful_client import (
     RESTfulChatglmCppChatModelHandle,
     RESTfulChatModelHandle,
-    RESTfulClient,
     RESTfulGenerateModelHandle,
 )
 from ..constants import (
@@ -35,9 +35,12 @@ from ..constants import (
     XINFERENCE_DEFAULT_ENDPOINT_PORT,
     XINFERENCE_DEFAULT_LOCAL_HOST,
     XINFERENCE_ENV_ENDPOINT,
+    XINFERENCE_LOG_BACKUP_COUNT,
+    XINFERENCE_LOG_MAX_BYTES,
 )
 from ..isolation import Isolation
 from ..types import ChatCompletionMessage
+from .utils import get_config_dict, get_log_file, get_timestamp_ms
 
 try:
     # provide elaborate line editing and history features.
@@ -45,31 +48,6 @@ try:
     import readline  # noqa: F401
 except ImportError:
     pass
-
-
-def get_config_string(log_level: str) -> str:
-    return f"""[loggers]
-keys=root
-
-[handlers]
-keys=stream_handler
-
-[formatters]
-keys=formatter
-
-[logger_root]
-level={log_level.upper()}
-handlers=stream_handler
-
-[handler_stream_handler]
-class=StreamHandler
-formatter=formatter
-level={log_level.upper()}
-args=(sys.stderr,)
-
-[formatter_formatter]
-format=%(asctime)s %(name)-12s %(process)d %(levelname)-8s %(message)s
-"""
 
 
 def get_endpoint(endpoint: Optional[str]) -> str:
@@ -82,6 +60,28 @@ def get_endpoint(endpoint: Optional[str]) -> str:
             return default_endpoint
     else:
         return endpoint
+
+
+def start_local_cluster(
+    log_level: str,
+    host: str,
+    port: int,
+):
+    from .local import main
+
+    dict_config = get_config_dict(
+        log_level,
+        get_log_file(f"local_{get_timestamp_ms()}"),
+        XINFERENCE_LOG_BACKUP_COUNT,
+        XINFERENCE_LOG_MAX_BYTES,
+    )
+    logging.config.dictConfig(dict_config)  # type: ignore
+
+    main(
+        host=host,
+        port=port,
+        logging_conf=dict_config,
+    )
 
 
 @click.group(
@@ -121,24 +121,50 @@ def cli(
     ctx,
     log_level: str,
     host: str,
-    port: str,
+    port: int,
 ):
     if ctx.invoked_subcommand is None:
-        from .local import main
+        # Save the current state of the warning filter.
+        with warnings.catch_warnings():
+            warnings.simplefilter("always", DeprecationWarning)
+            warnings.warn(
+                "Starting a local 'xinference' cluster via the 'xinference' command line is "
+                "deprecated and will be removed in a future release. Please use the new "
+                "'xinference-local' command.",
+                category=DeprecationWarning,
+            )
 
-        logging_conf = configparser.RawConfigParser()
-        logger_config_string = get_config_string(log_level)
-        logging_conf.read_string(logger_config_string)
-        logging.config.fileConfig(logging_conf)  # type: ignore
+        start_local_cluster(log_level=log_level, host=host, port=port)
 
-        address = f"{host}:{get_next_port()}"
 
-        main(
-            address=address,
-            host=host,
-            port=port,
-            logging_conf=logging_conf,
-        )
+@click.command(help="Starts an Xinference local cluster.")
+@click.option(
+    "--log-level",
+    default="INFO",
+    type=str,
+    help="""Set the logger level. Options listed from most log to least log are:
+              DEBUG > INFO > WARNING > ERROR > CRITICAL (Default level is INFO)""",
+)
+@click.option(
+    "--host",
+    "-H",
+    default=XINFERENCE_DEFAULT_LOCAL_HOST,
+    type=str,
+    help="Specify the host address for the Xinference server.",
+)
+@click.option(
+    "--port",
+    "-p",
+    default=XINFERENCE_DEFAULT_ENDPOINT_PORT,
+    type=int,
+    help="Specify the port number for the Xinference server.",
+)
+def local(
+    log_level: str,
+    host: str,
+    port: int,
+):
+    start_local_cluster(log_level=log_level, host=host, port=port)
 
 
 @click.command(
@@ -168,17 +194,19 @@ def cli(
 def supervisor(
     log_level: str,
     host: str,
-    port: str,
+    port: int,
 ):
     from ..deploy.supervisor import main
 
-    if log_level:
-        logging.basicConfig(level=logging.getLevelName(log_level.upper()))
-    logging_conf = dict(level=log_level.upper())
+    dict_config = get_config_dict(
+        log_level,
+        get_log_file(f"supervisor_{get_timestamp_ms()}"),
+        XINFERENCE_LOG_BACKUP_COUNT,
+        XINFERENCE_LOG_MAX_BYTES,
+    )
+    logging.config.dictConfig(dict_config)  # type: ignore
 
-    address = f"{host}:{get_next_port()}"
-
-    main(address=address, host=host, port=port, logging_conf=logging_conf)
+    main(host=host, port=port, logging_conf=dict_config)
 
 
 @click.command(
@@ -202,10 +230,13 @@ def supervisor(
 def worker(log_level: str, endpoint: Optional[str], host: str):
     from ..deploy.worker import main
 
-    logging_conf = configparser.RawConfigParser()
-    logger_config_string = get_config_string(log_level)
-    logging_conf.read_string(logger_config_string)
-    logging.config.fileConfig(logging_conf)  # type: ignore
+    dict_config = get_config_dict(
+        log_level,
+        get_log_file(f"worker_{get_timestamp_ms()}"),
+        XINFERENCE_LOG_BACKUP_COUNT,
+        XINFERENCE_LOG_MAX_BYTES,
+    )
+    logging.config.dictConfig(dict_config)  # type: ignore
 
     endpoint = get_endpoint(endpoint)
 
@@ -216,7 +247,7 @@ def worker(log_level: str, endpoint: Optional[str], host: str):
     main(
         address=address,
         supervisor_address=supervisor_internal_addr,
-        logging_conf=logging_conf,
+        logging_conf=dict_config,
     )
 
 
@@ -307,22 +338,62 @@ def list_model_registrations(
     registrations = client.list_model_registrations(model_type=model_type)
 
     table = []
-    for registration in registrations:
-        model_name = registration["model_name"]
-        model_family = client.get_model_registration(model_type, model_name)
-        table.append(
-            [
-                model_type,
-                model_family["model_name"],
-                model_family["model_lang"],
-                model_family["model_ability"],
-                registration["is_builtin"],
-            ]
+    if model_type == "LLM":
+        for registration in registrations:
+            model_name = registration["model_name"]
+            model_family = client.get_model_registration(model_type, model_name)
+            table.append(
+                [
+                    model_type,
+                    model_family["model_name"],
+                    model_family["model_lang"],
+                    model_family["model_ability"],
+                    registration["is_builtin"],
+                ]
+            )
+        print(
+            tabulate(
+                table, headers=["Type", "Name", "Language", "Ability", "Is-built-in"]
+            ),
+            file=sys.stderr,
         )
-    print(
-        tabulate(table, headers=["Type", "Name", "Language", "Ability", "Is-built-in"]),
-        file=sys.stderr,
-    )
+    elif model_type == "embedding":
+        for registration in registrations:
+            model_name = registration["model_name"]
+            model_family = client.get_model_registration(model_type, model_name)
+            table.append(
+                [
+                    model_type,
+                    model_family["model_name"],
+                    model_family["language"],
+                    model_family["dimensions"],
+                    registration["is_builtin"],
+                ]
+            )
+        print(
+            tabulate(
+                table, headers=["Type", "Name", "Language", "Dimensions", "Is-built-in"]
+            ),
+            file=sys.stderr,
+        )
+    elif model_type == "image":
+        for registration in registrations:
+            model_name = registration["model_name"]
+            model_family = client.get_model_registration(model_type, model_name)
+            table.append(
+                [
+                    model_type,
+                    model_family["model_name"],
+                    model_family["model_family"],
+                    registration["is_builtin"],
+                ]
+            )
+        print(
+            tabulate(table, headers=["Type", "Name", "Family", "Is-built-in"]),
+            file=sys.stderr,
+        )
+    else:
+        raise NotImplementedError(f"List {model_type} is not implemented.")
 
 
 @cli.command(
@@ -348,6 +419,13 @@ def list_model_registrations(
     type=str,
     default="LLM",
     help="Specify type of model, LLM as default.",
+)
+@click.option(
+    "--model-uid",
+    "-u",
+    type=str,
+    default=None,
+    help="Specify UID of model, default is None.",
 )
 @click.option(
     "--size-in-billions",
@@ -393,6 +471,7 @@ def model_launch(
     endpoint: Optional[str],
     model_name: str,
     model_type: str,
+    model_uid: str,
     size_in_billions: int,
     model_format: str,
     quantization: str,
@@ -413,6 +492,7 @@ def model_launch(
     model_uid = client.launch_model(
         model_name=model_name,
         model_type=model_type,
+        model_uid=model_uid,
         model_size_in_billions=size_in_billions,
         model_format=model_format,
         quantization=quantization,
@@ -569,7 +649,7 @@ def model_generate(
                         print(choice["text"], end="", flush=True, file=sys.stdout)
                 print("", file=sys.stdout)
 
-        client = Client(endpoint=endpoint)
+        client = ActorClient(endpoint=endpoint)
         model = client.get_model(model_uid=model_uid)
 
         loop = asyncio.get_event_loop()
@@ -664,7 +744,7 @@ def model_chat(
                     ChatCompletionMessage(role="assistant", content=response_content)
                 )
 
-        client = Client(endpoint=endpoint)
+        client = ActorClient(endpoint=endpoint)
         model = client.get_model(model_uid=model_uid)
 
         loop = asyncio.get_event_loop()

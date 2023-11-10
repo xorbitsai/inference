@@ -34,13 +34,46 @@ import xoscar as xo
 if TYPE_CHECKING:
     from ..model.llm.core import LLM
     from ..types import ChatCompletionChunk, CompletionChunk
+    import PIL
 
 import logging
 
 logger = logging.getLogger(__name__)
 
+from .utils import log_async
 
 T = TypeVar("T")
+
+
+def request_limit(fn):
+    """
+    Used by ModelActor.
+    As a decorator, added to a ModelActor method to control
+    how many requests are accessing that method at the same time.
+    """
+
+    async def wrapped_func(self, *args, **kwargs):
+        logger.debug(
+            f"Request {fn.__name__}, current serve request count: {self._serve_count}, request limit: {self._request_limits} for the model {self.model_uid()}"
+        )
+        if self._request_limits is not None:
+            if 1 + self._serve_count <= self._request_limits:
+                self._serve_count += 1
+            else:
+                raise RuntimeError(
+                    f"Rate limit reached for the model. Request limit {self._request_limits} for the model: {self.model_uid()}"
+                )
+        try:
+            ret = await fn(self, *args, **kwargs)
+        finally:
+            if self._request_limits is not None:
+                self._serve_count -= 1
+            logger.debug(
+                f"After request {fn.__name__}, current serve request count: {self._serve_count} for the model {self.model_uid()}"
+            )
+        return ret
+
+    return wrapped_func
 
 
 class IteratorWrapper(Generic[T]):
@@ -49,6 +82,14 @@ class IteratorWrapper(Generic[T]):
         self._model_actor_addr = model_actor_addr
         self._model_actor_uid = model_actor_uid
         self._model_actor_ref: Optional[xo.ActorRefType["ModelActor"]] = None
+
+    async def destroy(self):
+        if self._model_actor_ref is None:
+            self._model_actor_ref = await xo.actor_ref(
+                address=self._model_actor_addr, uid=self._model_actor_uid
+            )
+        assert self._model_actor_ref is not None
+        return await self._model_actor_ref.destroy_generator(self._uid)
 
     def __aiter__(self):
         return self
@@ -99,22 +140,41 @@ class ModelActor(xo.StatelessActor):
             gc.collect()
             torch.cuda.empty_cache()
 
-    def __init__(self, model: "LLM"):
+    def __init__(self, model: "LLM", request_limits: Optional[int] = None):
         super().__init__()
         from ..model.llm.pytorch.core import PytorchModel
+        from ..model.llm.pytorch.spec_model import SpeculativeModel
         from ..model.llm.vllm.core import VLLMModel
 
         self._model = model
+        self._request_limits = request_limits
 
         self._generators: Dict[str, Union[Iterator, AsyncGenerator]] = {}
         self._lock = (
             None
-            if isinstance(self._model, (PytorchModel, VLLMModel))
+            if isinstance(self._model, (PytorchModel, SpeculativeModel, VLLMModel))
             else asyncio.locks.Lock()
         )
+        self._serve_count = 0
+
+    def is_vllm_backend(self) -> bool:
+        from ..model.llm.vllm.core import VLLMModel
+
+        return isinstance(self._model, VLLMModel)
 
     def load(self):
         self._model.load()
+
+    def model_uid(self):
+        return (
+            self._model.model_uid
+            if hasattr(self._model, "model_uid")
+            else (
+                self._model._model_uid
+                if hasattr(self._model, "_model_uid")
+                else None  # return None for UT
+            )
+        )
 
     async def _wrap_generator(self, ret: Any):
         if inspect.isgenerator(ret) or inspect.isasyncgen(ret):
@@ -141,6 +201,8 @@ class ModelActor(xo.StatelessActor):
     async def _call_async_wrapper(self, _wrapper: Callable):
         return await asyncio.create_task(_wrapper())
 
+    @log_async(logger=logger)
+    @request_limit
     async def generate(self, prompt: str, *args, **kwargs):
         if not hasattr(self._model, "generate") and not hasattr(
             self._model, "async_generate"
@@ -163,6 +225,8 @@ class ModelActor(xo.StatelessActor):
         else:
             return await self._call_async_wrapper(_async_wrapper)
 
+    @log_async(logger=logger)
+    @request_limit
     async def chat(self, prompt: str, *args, **kwargs):
         if not hasattr(self._model, "chat") and not hasattr(self._model, "async_chat"):
             raise AttributeError(f"Model {self._model.model_spec} is not for chat.")
@@ -178,11 +242,13 @@ class ModelActor(xo.StatelessActor):
                 await getattr(self._model, "async_chat")(prompt, *args, **kwargs)
             )
 
-        if hasattr(self._model, "generate"):
-            return await self._call_wrapper(_wrapper)
-        else:
+        if hasattr(self._model, "async_chat"):
             return await self._call_async_wrapper(_async_wrapper)
+        else:
+            return await self._call_wrapper(_wrapper)
 
+    @log_async(logger=logger)
+    @request_limit
     async def create_embedding(self, input: Union[str, List[str]], *args, **kwargs):
         if not hasattr(self._model, "create_embedding"):
             raise AttributeError(
@@ -194,6 +260,60 @@ class ModelActor(xo.StatelessActor):
 
         return await self._call_wrapper(_wrapper)
 
+    @log_async(logger=logger)
+    @request_limit
+    async def text_to_image(
+        self,
+        prompt: str,
+        n: int = 1,
+        size: str = "1024*1024",
+        response_format: str = "url",
+        *args,
+        **kwargs,
+    ):
+        if not hasattr(self._model, "text_to_image"):
+            raise AttributeError(
+                f"Model {self._model.model_spec} is not for creating image."
+            )
+
+        async def _wrapper():
+            return getattr(self._model, "text_to_image")(
+                prompt, n, size, response_format, *args, **kwargs
+            )
+
+        return await self._call_wrapper(_wrapper)
+
+    async def image_to_image(
+        self,
+        image: "PIL.Image",
+        prompt: str,
+        negative_prompt: str,
+        n: int = 1,
+        size: str = "1024*1024",
+        response_format: str = "url",
+        *args,
+        **kwargs,
+    ):
+        if not hasattr(self._model, "image_to_image"):
+            raise AttributeError(
+                f"Model {self._model.model_spec} is not for creating image."
+            )
+
+        async def _wrapper():
+            return getattr(self._model, "image_to_image")(
+                image,
+                prompt,
+                negative_prompt,
+                n,
+                size,
+                response_format,
+                *args,
+                **kwargs,
+            )
+
+        return await self._call_wrapper(_wrapper)
+
+    @log_async(logger=logger)
     async def next(
         self, generator_uid: str
     ) -> Union["ChatCompletionChunk", "CompletionChunk"]:
@@ -209,7 +329,7 @@ class ModelActor(xo.StatelessActor):
 
         async def _async_wrapper():
             try:
-                return await anext(gen)
+                return await anext(gen)  # noqa: F821
             except StopAsyncIteration:
                 return stop
 
@@ -228,3 +348,7 @@ class ModelActor(xo.StatelessActor):
             raise Exception("StopIteration")
         else:
             return r
+
+    @log_async(logger=logger)
+    async def destroy_generator(self, generator_uid: str):
+        self._generators.pop(generator_uid, None)

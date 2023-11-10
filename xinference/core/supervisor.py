@@ -17,16 +17,7 @@ import itertools
 import time
 from dataclasses import dataclass
 from logging import getLogger
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    AsyncGenerator,
-    Dict,
-    Iterator,
-    List,
-    Optional,
-    Union,
-)
+from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Union
 
 import xoscar as xo
 
@@ -34,6 +25,7 @@ from ..core import ModelActor
 from .resource import ResourceStatus
 from .utils import (
     build_replica_model_uid,
+    is_valid_model_uid,
     iter_replica_model_uid,
     log_async,
     log_sync,
@@ -41,12 +33,16 @@ from .utils import (
 )
 
 if TYPE_CHECKING:
+    from ..model.embedding import EmbeddingModelSpec
+    from ..model.image import ImageModelFamilyV1
+    from ..model.llm import LLMFamilyV1
     from .worker import WorkerActor
+
 
 logger = getLogger(__name__)
 
 
-DEFAULT_NODE_TIMEOUT = 30
+DEFAULT_NODE_TIMEOUT = 60
 
 
 @dataclass
@@ -61,31 +57,35 @@ class ReplicaInfo:
     scheduler: Iterator
 
 
-class SupervisorActor(xo.Actor):
+class SupervisorActor(xo.StatelessActor):
     def __init__(self):
         super().__init__()
         self._worker_address_to_worker: Dict[str, xo.ActorRefType["WorkerActor"]] = {}
+        self._worker_status: Dict[str, WorkerStatus] = {}
         self._replica_model_uid_to_worker: Dict[
             str, xo.ActorRefType["WorkerActor"]
         ] = {}
         self._model_uid_to_replica_info: Dict[str, ReplicaInfo] = {}
-        self._worker_status: Dict[str, WorkerStatus] = {}
+        self._uptime = None
+        self._lock = asyncio.Lock()
 
     @classmethod
     def uid(cls) -> str:
         return "supervisor"
 
     async def __post_create__(self):
-        self._check_dead_nodes_task = asyncio.create_task(self._check_dead_nodes())
-
-    async def __pre_destroy__(self):
-        self._check_dead_nodes_task.cancel()
+        self._uptime = time.time()
+        # comment this line to avoid worker lost
+        # self._check_dead_nodes_task = asyncio.create_task(self._check_dead_nodes())
+        logger.info(f"Xinference supervisor {self.address} started")
 
     async def _choose_worker(self) -> xo.ActorRefType["WorkerActor"]:
         # TODO: better allocation strategy.
         min_running_model_count = None
         target_worker = None
-        for worker in self._worker_address_to_worker.values():
+
+        workers = list(self._worker_address_to_worker.values())
+        for worker in workers:
             running_model_count = await worker.get_model_count()
             if (
                 min_running_model_count is None
@@ -100,28 +100,114 @@ class SupervisorActor(xo.Actor):
         raise RuntimeError("No available worker found")
 
     @log_sync(logger=logger)
-    def list_model_registrations(self, model_type: str) -> List[Dict[str, Any]]:
+    def get_status(self) -> Dict:
+        return {
+            "uptime": int(time.time() - self._uptime),
+            "workers": self._worker_status,
+        }
+
+    def _to_llm_reg(
+        self, llm_family: "LLMFamilyV1", is_builtin: bool
+    ) -> Dict[str, Any]:
+        from ..model.llm import get_cache_status
+
+        if self.is_local_deployment():
+            specs = []
+            # TODO: does not work when the supervisor and worker are running on separate nodes.
+            for spec in llm_family.model_specs:
+                cache_status = get_cache_status(llm_family, spec)
+                specs.append({**spec.dict(), "cache_status": cache_status})
+            return {**llm_family.dict(), "is_builtin": is_builtin, "model_specs": specs}
+        else:
+            return {**llm_family.dict(), "is_builtin": is_builtin}
+
+    def _to_embedding_model_reg(
+        self, model_spec: "EmbeddingModelSpec", is_builtin: bool
+    ) -> Dict[str, Any]:
+        from ..model.embedding import get_cache_status
+
+        if self.is_local_deployment():
+            # TODO: does not work when the supervisor and worker are running on separate nodes.
+            cache_status = get_cache_status(model_spec)
+            return {
+                **model_spec.dict(),
+                "cache_status": cache_status,
+                "is_builtin": is_builtin,
+            }
+        else:
+            return {
+                **model_spec.dict(),
+                "is_builtin": is_builtin,
+            }
+
+    def _to_image_model_reg(
+        self, model_family: "ImageModelFamilyV1", is_builtin: bool
+    ) -> Dict[str, Any]:
+        from ..model.image import get_cache_status
+
+        if self.is_local_deployment():
+            # TODO: does not work when the supervisor and worker are running on separate nodes.
+            cache_status = get_cache_status(model_family)
+            return {
+                **model_family.dict(),
+                "cache_status": cache_status,
+                "is_builtin": is_builtin,
+            }
+        else:
+            return {
+                **model_family.dict(),
+                "is_builtin": is_builtin,
+            }
+
+    @log_sync(logger=logger)
+    def list_model_registrations(
+        self, model_type: str, detailed: bool = False
+    ) -> List[Dict[str, Any]]:
+        def sort_helper(item):
+            assert isinstance(item["model_name"], str)
+            return item.get("model_name").lower()
+
         if model_type == "LLM":
             from ..model.llm import BUILTIN_LLM_FAMILIES, get_user_defined_llm_families
 
-            ret = [
-                {"model_name": f.model_name, "is_builtin": True}
-                for f in BUILTIN_LLM_FAMILIES
-            ]
-            user_defined_llm_families = get_user_defined_llm_families()
-            ret.extend(
-                [
-                    {"model_name": f.model_name, "is_builtin": False}
-                    for f in user_defined_llm_families
-                ]
-            )
+            ret = []
+            for family in BUILTIN_LLM_FAMILIES:
+                if detailed:
+                    ret.append(self._to_llm_reg(family, True))
+                else:
+                    ret.append({"model_name": family.model_name, "is_builtin": True})
 
-            def sort_helper(item):
-                assert isinstance(item["model_name"], str)
-                return item.get("model_name").lower()
+            for family in get_user_defined_llm_families():
+                if detailed:
+                    ret.append(self._to_llm_reg(family, False))
+                else:
+                    ret.append({"model_name": family.model_name, "is_builtin": False})
 
             ret.sort(key=sort_helper)
+            return ret
+        elif model_type == "embedding":
+            from ..model.embedding import BUILTIN_EMBEDDING_MODELS
 
+            ret = []
+            for model_name, family in BUILTIN_EMBEDDING_MODELS.items():
+                if detailed:
+                    ret.append(self._to_embedding_model_reg(family, is_builtin=True))
+                else:
+                    ret.append({"model_name": model_name, "is_builtin": True})
+
+            ret.sort(key=sort_helper)
+            return ret
+        elif model_type == "image":
+            from ..model.image import BUILTIN_IMAGE_MODELS
+
+            ret = []
+            for model_name, family in BUILTIN_IMAGE_MODELS.items():
+                if detailed:
+                    ret.append(self._to_image_model_reg(family, is_builtin=True))
+                else:
+                    ret.append({"model_name": model_name, "is_builtin": True})
+
+            ret.sort(key=sort_helper)
             return ret
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
@@ -138,6 +224,20 @@ class SupervisorActor(xo.Actor):
                     return f
 
             raise ValueError(f"Model {model_name} not found")
+        if model_type == "embedding":
+            from ..model.embedding import BUILTIN_EMBEDDING_MODELS
+
+            for f in BUILTIN_EMBEDDING_MODELS.values():
+                if f.model_name == model_name:
+                    return f
+            raise ValueError(f"Model {model_name} not found")
+        if model_type == "image":
+            from ..model.image import BUILTIN_IMAGE_MODELS
+
+            for f in BUILTIN_IMAGE_MODELS.values():
+                if f.model_name == model_name:
+                    return f
+            raise ValueError(f"Model {model_name} not found")
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
 
@@ -146,12 +246,13 @@ class SupervisorActor(xo.Actor):
         if model_type == "LLM":
             from ..model.llm import LLMFamilyV1, register_llm
 
+            if not self.is_local_deployment():
+                workers = list(self._worker_address_to_worker.values())
+                for worker in workers:
+                    await worker.register_model(model_type, model, persist)
+
             llm_family = LLMFamilyV1.parse_raw(model)
             register_llm(llm_family, persist)
-
-            if not self.is_local_deployment:
-                for worker in self._worker_address_to_worker.values():
-                    await worker.register_model(model_type, model, persist)
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
 
@@ -162,11 +263,70 @@ class SupervisorActor(xo.Actor):
 
             unregister_llm(model_name)
 
-            if not self.is_local_deployment:
-                for worker in self._worker_address_to_worker.values():
+            if not self.is_local_deployment():
+                workers = list(self._worker_address_to_worker.values())
+                for worker in workers:
                     await worker.unregister_model(model_name)
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
+
+    async def launch_speculative_llm(
+        self,
+        model_uid: str,
+        model_name: str,
+        model_size_in_billions: Optional[int],
+        quantization: Optional[str],
+        draft_model_name: str,
+        draft_model_size_in_billions: Optional[int],
+        draft_quantization: Optional[str],
+        n_gpu: Optional[Union[int, str]] = "auto",
+    ) -> str:
+        logger.debug(
+            (
+                f"Enter launch_speculative_llm, model_uid: %s, model_name: %s, model_size: %s, "
+                f"draft_model_name: %s, draft_model_size: %s"
+            ),
+            model_uid,
+            model_name,
+            str(model_size_in_billions) if model_size_in_billions else "",
+            draft_model_name,
+            draft_model_size_in_billions,
+        )
+
+        # TODO: the draft and target model must be on the same worker.
+        if not self.is_local_deployment():
+            raise ValueError(
+                "Speculative model is not supported in distributed deployment yet."
+            )
+
+        if model_uid in self._model_uid_to_replica_info:
+            raise ValueError(f"Model is already in the model list, uid: {model_uid}")
+
+        worker_ref = await self._choose_worker()
+        replica = 1
+        self._model_uid_to_replica_info[model_uid] = ReplicaInfo(
+            replica=replica, scheduler=itertools.cycle(range(replica))
+        )
+
+        try:
+            rep_model_uid = f"{model_uid}-{1}-{0}"
+            await worker_ref.launch_speculative_model(
+                model_uid=rep_model_uid,
+                model_name=model_name,
+                model_size_in_billions=model_size_in_billions,
+                quantization=quantization,
+                draft_model_name=draft_model_name,
+                draft_model_size_in_billions=draft_model_size_in_billions,
+                draft_quantization=draft_quantization,
+                n_gpu=n_gpu,
+            )
+            self._replica_model_uid_to_worker[rep_model_uid] = worker_ref
+
+        except Exception:
+            # terminate_model will remove the replica info.
+            await self.terminate_model(model_uid, suppress_exception=True)
+            raise
+        return model_uid
 
     async def launch_builtin_model(
         self,
@@ -178,8 +338,9 @@ class SupervisorActor(xo.Actor):
         model_type: Optional[str],
         replica: int = 1,
         n_gpu: Optional[Union[int, str]] = "auto",
+        request_limits: Optional[int] = None,
         **kwargs,
-    ) -> AsyncGenerator:
+    ) -> str:
         logger.debug(
             (
                 f"Enter launch_builtin_model, model_uid: %s, model_name: %s, model_size: %s, "
@@ -203,7 +364,7 @@ class SupervisorActor(xo.Actor):
             worker_ref = await self._choose_worker()
             # LLM as default for compatibility
             model_type = model_type or "LLM"
-            yield worker_ref.launch_builtin_model(
+            await worker_ref.launch_builtin_model(
                 model_uid=_replica_model_uid,
                 model_name=model_name,
                 model_size_in_billions=model_size_in_billions,
@@ -211,10 +372,20 @@ class SupervisorActor(xo.Actor):
                 quantization=quantization,
                 model_type=model_type,
                 n_gpu=n_gpu,
+                request_limits=request_limits,
                 **kwargs,
             )
-            # TODO: not protected.
             self._replica_model_uid_to_worker[_replica_model_uid] = worker_ref
+
+        if not is_valid_model_uid(model_uid):
+            raise ValueError(
+                "The model UID is invalid. Please specify the model UID by a-z or A-Z, 0 < length <= 100."
+            )
+
+        if request_limits is not None and request_limits < 0:
+            raise ValueError(
+                "The `request_limits` parameter must be greater or equal than 0."
+            )
 
         if model_uid in self._model_uid_to_replica_info:
             raise ValueError(f"Model is already in the model list, uid: {model_uid}")
@@ -224,12 +395,12 @@ class SupervisorActor(xo.Actor):
         )
         try:
             for rep_model_uid in iter_replica_model_uid(model_uid, replica):
-                yield _launch_one_model(rep_model_uid)
+                await _launch_one_model(rep_model_uid)
         except Exception:
             # terminate_model will remove the replica info.
             await self.terminate_model(model_uid, suppress_exception=True)
             raise
-        raise xo.Return(model_uid)
+        return model_uid
 
     async def _check_dead_nodes(self):
         while True:
@@ -258,18 +429,19 @@ class SupervisorActor(xo.Actor):
     @log_async(logger=logger)
     async def terminate_model(self, model_uid: str, suppress_exception=False):
         async def _terminate_one_model(_replica_model_uid):
-            if _replica_model_uid not in self._replica_model_uid_to_worker:
+            worker_ref = self._replica_model_uid_to_worker.get(_replica_model_uid, None)
+
+            if worker_ref is None:
                 raise ValueError(
                     f"Model not found in the model list, uid: {_replica_model_uid}"
                 )
-
-            worker_ref = self._replica_model_uid_to_worker[_replica_model_uid]
             await worker_ref.terminate_model(model_uid=_replica_model_uid)
             del self._replica_model_uid_to_worker[_replica_model_uid]
 
-        if model_uid not in self._model_uid_to_replica_info:
+        replica_info = self._model_uid_to_replica_info.get(model_uid, None)
+        if replica_info is None:
             raise ValueError(f"Model not found in the model list, uid: {model_uid}")
-        replica_info = self._model_uid_to_replica_info[model_uid]
+
         for rep_model_uid in iter_replica_model_uid(model_uid, replica_info.replica):
             try:
                 await _terminate_one_model(rep_model_uid)
@@ -280,34 +452,34 @@ class SupervisorActor(xo.Actor):
 
     @log_async(logger=logger)
     async def get_model(self, model_uid: str) -> xo.ActorRefType["ModelActor"]:
-        if model_uid not in self._model_uid_to_replica_info:
+        replica_info = self._model_uid_to_replica_info.get(model_uid, None)
+        if replica_info is None:
             raise ValueError(f"Model not found in the model list, uid: {model_uid}")
-        replica_info = self._model_uid_to_replica_info[model_uid]
+
         replica_model_uid = build_replica_model_uid(
             model_uid, replica_info.replica, next(replica_info.scheduler)
         )
-        if replica_model_uid not in self._replica_model_uid_to_worker:
+
+        worker_ref = self._replica_model_uid_to_worker.get(replica_model_uid, None)
+        if worker_ref is None:
             raise ValueError(
                 f"Model not found in the model list, uid: {replica_model_uid}"
             )
-
-        worker_ref = self._replica_model_uid_to_worker[replica_model_uid]
         return await worker_ref.get_model(model_uid=replica_model_uid)
 
     @log_async(logger=logger)
     async def describe_model(self, model_uid: str) -> Dict[str, Any]:
-        if model_uid not in self._model_uid_to_replica_info:
+        replica_info = self._model_uid_to_replica_info.get(model_uid, None)
+        if replica_info is None:
             raise ValueError(f"Model not found in the model list, uid: {model_uid}")
-        replica_info = self._model_uid_to_replica_info[model_uid]
         # Use rep id 0 to instead of next(replica_info.scheduler) to avoid
         # consuming the generator.
         replica_model_uid = build_replica_model_uid(model_uid, replica_info.replica, 0)
-        if replica_model_uid not in self._replica_model_uid_to_worker:
+        worker_ref = self._replica_model_uid_to_worker.get(replica_model_uid, None)
+        if worker_ref is None:
             raise ValueError(
                 f"Model not found in the model list, uid: {replica_model_uid}"
             )
-
-        worker_ref = self._replica_model_uid_to_worker[replica_model_uid]
         info = await worker_ref.describe_model(model_uid=replica_model_uid)
         info["replica"] = replica_info.replica
         return info
@@ -315,11 +487,12 @@ class SupervisorActor(xo.Actor):
     @log_async(logger=logger)
     async def list_models(self) -> Dict[str, Dict[str, Any]]:
         ret = {}
-        for worker in self._worker_address_to_worker.values():
+
+        workers = list(self._worker_address_to_worker.values())
+        for worker in workers:
             ret.update(await worker.list_models())
         return {parse_replica_model_uid(k)[0]: v for k, v in ret.items()}
 
-    @log_sync(logger=logger)
     def is_local_deployment(self) -> bool:
         # TODO: temporary.
         return (
@@ -331,15 +504,19 @@ class SupervisorActor(xo.Actor):
     async def add_worker(self, worker_address: str):
         from .worker import WorkerActor
 
-        assert worker_address not in self._worker_address_to_worker
+        assert (
+            worker_address not in self._worker_address_to_worker
+        ), f"Worker {worker_address} exists"
 
         worker_ref = await xo.actor_ref(address=worker_address, uid=WorkerActor.uid())
         self._worker_address_to_worker[worker_address] = worker_ref
-        logger.info("Worker %s has been added successfully", worker_address)
+        logger.debug("Worker %s has been added successfully", worker_address)
 
     async def report_worker_status(
         self, worker_address: str, status: Dict[str, ResourceStatus]
     ):
+        if worker_address not in self._worker_status:
+            logger.debug("Worker %s resources: %s", worker_address, status)
         self._worker_status[worker_address] = WorkerStatus(
             update_time=time.time(), status=status
         )

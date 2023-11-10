@@ -38,7 +38,7 @@ class BaichuanPytorchChatModel(PytorchChatModel):
         )
         self._use_fast_tokenizer = False
 
-    def _load_model(self, kwargs: dict):
+    def _load_model(self, **kwargs):
         try:
             from transformers import AutoModelForCausalLM, AutoTokenizer
             from transformers.generation.utils import GenerationConfig

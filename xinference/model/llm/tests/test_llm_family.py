@@ -21,13 +21,17 @@ from unittest.mock import MagicMock, Mock, patch
 import pytest
 
 from ....constants import XINFERENCE_ENV_MODEL_SRC
+from ...utils import is_locale_chinese_simplified, valid_model_revision
 from ..llm_family import (
     AWSRegion,
     GgmlLLMSpecV1,
     LLMFamilyV1,
     PromptStyleV1,
     PytorchLLMSpecV1,
-    is_locale_chinese_simplified,
+    _generate_meta_file,
+    _get_cache_dir,
+    _get_meta_path,
+    _skip_download,
     is_self_hosted,
     is_valid_model_uri,
     match_llm,
@@ -216,7 +220,10 @@ def test_cache_from_huggingface_ggml():
         prompt_style=None,
     )
 
-    cache_dir = cache_from_huggingface(family, spec, quantization=None)
+    cache_dir = _get_cache_dir(family, spec)
+    shutil.rmtree(cache_dir)
+
+    cache_dir = cache_from_huggingface(family, spec, quantization="q4_0")
 
     assert os.path.exists(cache_dir)
     assert os.path.exists(os.path.join(cache_dir, "README.md"))
@@ -255,6 +262,32 @@ def test_cache_from_uri_local():
     assert os.path.exists(os.path.join(cache_dir, "model.bin"))
     os.remove(cache_dir)
     os.remove("model.bin")
+
+
+def test_meta_file():
+    from ..llm_family import cache_from_huggingface
+
+    spec = PytorchLLMSpecV1(
+        model_format="pytorch",
+        model_size_in_billions=1,
+        quantizations=["4-bit", "8-bit", "none"],
+        model_id="facebook/opt-125m",
+        model_revision="3d2b5f275bdf882b8775f902e1bfdb790e2cfc32",
+    )
+    family = LLMFamilyV1(
+        version=1,
+        context_length=2048,
+        model_type="LLM",
+        model_name="opt",
+        model_lang=["en"],
+        model_ability=["embed", "generate"],
+        model_specs=[spec],
+        prompt_style=None,
+    )
+
+    cache_dir = cache_from_huggingface(family, spec, quantization=None)
+    meta_path = _get_meta_path(cache_dir, spec.model_format, spec.model_hub, None)
+    assert valid_model_revision(meta_path, "3d2b5f275bdf882b8775f902e1bfdb790e2cfc32")
 
 
 def test_parse_uri():
@@ -649,3 +682,259 @@ def test_is_valid_file_uri():
     with tempfile.NamedTemporaryFile() as tmp_file:
         assert is_valid_model_uri(f"file://{tmp_file.name}") is True
     assert is_valid_model_uri(f"file://{tmp_file.name}") is False
+
+
+def test_skip_download_pytorch():
+    hf_spec = PytorchLLMSpecV1(
+        model_format="pytorch",
+        model_size_in_billions=3,
+        quantizations=["int8", "int4", "none"],
+        model_id="example/TestModel",
+        model_hub="huggingface",
+        model_revision="456",
+    )
+    ms_spec = PytorchLLMSpecV1(
+        model_format="pytorch",
+        model_size_in_billions=3,
+        quantizations=["int8", "int4", "none"],
+        model_id="example/TestModel",
+        model_hub="modelscope",
+        model_revision="456",
+    )
+    prompt_style = PromptStyleV1(
+        style_name="ADD_COLON_SINGLE",
+        system_prompt=(
+            "A chat between a curious human and an artificial intelligence assistant. The "
+            "assistant gives helpful, detailed, and polite answers to the human's questions."
+        ),
+        roles=["user", "assistant"],
+        intra_message_sep="\n### ",
+        inter_message_sep="\n### ",
+    )
+    llm_family = LLMFamilyV1(
+        version=1,
+        model_type="LLM",
+        model_name="test_skip_download_pytorch",
+        model_lang=["en"],
+        model_ability=["embed", "generate"],
+        model_specs=[hf_spec, ms_spec],
+        prompt_style=prompt_style,
+    )
+
+    cache_dir = _get_cache_dir(llm_family, hf_spec)
+
+    hf_meta_path = _get_meta_path(
+        cache_dir, hf_spec.model_format, hf_spec.model_hub, quantization=None
+    )
+    ms_meta_path = _get_meta_path(
+        cache_dir, ms_spec.model_format, ms_spec.model_hub, quantization=None
+    )
+
+    # since huggingface meta file exists, skip for both.
+    _generate_meta_file(hf_meta_path, llm_family, hf_spec, quantization=None)
+    assert os.path.exists(hf_meta_path)
+    try:
+        assert _skip_download(
+            cache_dir,
+            hf_spec.model_format,
+            hf_spec.model_hub,
+            hf_spec.model_revision,
+            quantization=None,
+        )
+        assert _skip_download(
+            cache_dir,
+            ms_spec.model_format,
+            ms_spec.model_hub,
+            ms_spec.model_revision,
+            quantization=None,
+        )
+    finally:
+        os.remove(hf_meta_path)
+        assert not os.path.exists(hf_meta_path)
+
+    # since modelscope meta file exists, skip for both.
+    _generate_meta_file(ms_meta_path, llm_family, ms_spec, quantization=None)
+    assert os.path.exists(ms_meta_path)
+    try:
+        assert _skip_download(
+            cache_dir,
+            hf_spec.model_format,
+            hf_spec.model_hub,
+            hf_spec.model_revision,
+            quantization=None,
+        )
+        assert _skip_download(
+            cache_dir,
+            ms_spec.model_format,
+            ms_spec.model_hub,
+            ms_spec.model_revision,
+            quantization=None,
+        )
+    finally:
+        os.remove(ms_meta_path)
+        assert not os.path.exists(ms_meta_path)
+
+
+def test_skip_download_ggml():
+    hf_spec = GgmlLLMSpecV1(
+        model_format="ggmlv3",
+        model_size_in_billions=2,
+        quantizations=["q4_0", "q4_1"],
+        model_id="example/TestModel",
+        model_hub="huggingface",
+        model_revision="123",
+        model_file_name_template="TestModel.{quantization}.ggmlv3.bin",
+    )
+    ms_spec = GgmlLLMSpecV1(
+        model_format="ggmlv3",
+        model_size_in_billions=2,
+        quantizations=["q4_0", "q4_1"],
+        model_id="example/TestModel",
+        model_hub="modelscope",
+        model_revision="123",
+        model_file_name_template="TestModel.{quantization}.ggmlv3.bin",
+    )
+    prompt_style = PromptStyleV1(
+        style_name="ADD_COLON_SINGLE",
+        system_prompt=(
+            "A chat between a curious human and an artificial intelligence assistant. The "
+            "assistant gives helpful, detailed, and polite answers to the human's questions."
+        ),
+        roles=["user", "assistant"],
+        intra_message_sep="\n### ",
+        inter_message_sep="\n### ",
+    )
+    llm_family = LLMFamilyV1(
+        version=1,
+        model_type="LLM",
+        model_name="test_skip_download_ggml",
+        model_lang=["en"],
+        model_ability=["embed", "generate"],
+        model_specs=[hf_spec, ms_spec],
+        prompt_style=prompt_style,
+    )
+
+    cache_dir = _get_cache_dir(llm_family, hf_spec)
+
+    hf_meta_path = _get_meta_path(
+        cache_dir, hf_spec.model_format, hf_spec.model_hub, quantization="q4_0"
+    )
+    ms_meta_path = _get_meta_path(
+        cache_dir, ms_spec.model_format, ms_spec.model_hub, quantization="q4_0"
+    )
+
+    # since huggingface meta file exists, only skip when model hub is huggingface.
+    _generate_meta_file(hf_meta_path, llm_family, hf_spec, quantization="q4_0")
+    assert os.path.exists(hf_meta_path)
+    try:
+        assert _skip_download(
+            cache_dir,
+            hf_spec.model_format,
+            hf_spec.model_hub,
+            hf_spec.model_revision,
+            quantization="q4_0",
+        )
+        assert not _skip_download(
+            cache_dir,
+            ms_spec.model_format,
+            ms_spec.model_hub,
+            ms_spec.model_revision,
+            quantization="q4_0",
+        )
+    finally:
+        os.remove(hf_meta_path)
+        assert not os.path.exists(hf_meta_path)
+
+    # since modelscope meta file exists, only skip when model hub is modelscope.
+    _generate_meta_file(ms_meta_path, llm_family, ms_spec, quantization="q4_0")
+    assert os.path.exists(ms_meta_path)
+    try:
+        assert not _skip_download(
+            cache_dir,
+            hf_spec.model_format,
+            hf_spec.model_hub,
+            hf_spec.model_revision,
+            quantization="q4_0",
+        )
+        assert _skip_download(
+            cache_dir,
+            ms_spec.model_format,
+            ms_spec.model_hub,
+            ms_spec.model_revision,
+            quantization="q4_0",
+        )
+    finally:
+        os.remove(ms_meta_path)
+        assert not os.path.exists(ms_meta_path)
+
+
+def test_get_cache_status_pytorch():
+    from ..llm_family import cache_from_huggingface, get_cache_status
+
+    spec = PytorchLLMSpecV1(
+        model_format="pytorch",
+        model_size_in_billions=1,
+        quantizations=["4-bit", "8-bit", "none"],
+        model_id="facebook/opt-125m",
+    )
+    family = LLMFamilyV1(
+        version=1,
+        context_length=2048,
+        model_type="LLM",
+        model_name="opt",
+        model_lang=["en"],
+        model_ability=["embed", "generate"],
+        model_specs=[spec],
+        prompt_style=None,
+    )
+
+    cache_status = get_cache_status(llm_family=family, llm_spec=spec)
+    assert not isinstance(cache_status, list)
+    assert not cache_status
+
+    cache_dir = cache_from_huggingface(family, spec, quantization=None)
+    cache_status = get_cache_status(llm_family=family, llm_spec=spec)
+    assert not isinstance(cache_status, list)
+    assert cache_status
+
+    assert os.path.exists(cache_dir)
+    assert os.path.exists(os.path.join(cache_dir, "README.md"))
+    assert os.path.islink(os.path.join(cache_dir, "README.md"))
+    shutil.rmtree(cache_dir)
+
+
+def test_get_cache_status_ggml():
+    from ..llm_family import cache_from_huggingface, get_cache_status
+
+    spec = GgmlLLMSpecV1(
+        model_format="ggmlv3",
+        model_size_in_billions=3,
+        model_id="TheBloke/orca_mini_3B-GGML",
+        quantizations=["q4_0", "q5_0"],
+        model_file_name_template="README.md",
+    )
+    family = LLMFamilyV1(
+        version=1,
+        context_length=2048,
+        model_type="LLM",
+        model_name="orca",
+        model_lang=["en"],
+        model_ability=["embed", "chat"],
+        model_specs=[spec],
+        prompt_style=None,
+    )
+
+    cache_status = get_cache_status(llm_family=family, llm_spec=spec)
+    assert isinstance(cache_status, list)
+    assert not any(cache_status)
+
+    cache_dir = cache_from_huggingface(family, spec, quantization="q4_0")
+    cache_status = get_cache_status(llm_family=family, llm_spec=spec)
+    assert isinstance(cache_status, list)
+    assert len(cache_status) == 2
+    assert cache_status[0] and not cache_status[1]
+
+    assert os.path.exists(cache_dir)
+    assert os.path.exists(os.path.join(cache_dir, "README.md"))
+    assert os.path.islink(os.path.join(cache_dir, "README.md"))
+    shutil.rmtree(cache_dir)

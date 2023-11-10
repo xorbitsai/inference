@@ -65,7 +65,7 @@ $ pip install "xinference[ggml]"
 #### PyTorch でのインストール
 PyTorch のモデルを提供するには、以下の依存関係をインストールする必要があります:
 ```bash
-$ pip install "xinference[pytorch]"
+$ pip install "xinference[transformers]"
 ```
 
 #### すべての依存関係を含むインストール
@@ -81,7 +81,7 @@ Xinference は、1 つのコマンドでローカルにデプロイすること�
 #### ローカル
 Xinference のローカルインスタンスを起動するには、以下のコマンドを実行します:
 ```bash
-$ xinference
+$ xinference-local
 ```
 
 #### 配布

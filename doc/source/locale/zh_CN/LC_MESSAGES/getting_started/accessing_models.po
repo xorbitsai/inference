@@ -1,0 +1,80 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2023-10-16 10:33+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: zh_CN\n"
+"Language-Team: zh_CN <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.12.1\n"
+
+#: ../../source/getting_started/accessing_models.rst:5
+msgid "Accessing Models"
+msgstr ""
+
+#: ../../source/getting_started/accessing_models.rst:8
+msgid ""
+"Suppose you have started the Xinference server endpoint at "
+"``http://127.0.0.1:9997``."
+msgstr ""
+
+#: ../../source/getting_started/accessing_models.rst:10
+msgid ""
+"Please refer to :ref:`Launching Models <launching_models>` guide to get "
+"your model running."
+msgstr ""
+
+#: ../../source/getting_started/accessing_models.rst:13
+msgid "Using Xinference Client"
+msgstr ""
+
+#: ../../source/getting_started/accessing_models.rst:17
+msgid "Large Language Model"
+msgstr ""
+
+#: ../../source/getting_started/accessing_models.rst:18
+msgid ""
+"When the abilities of the LLM include \"chat,\" we can converse with it "
+"using the model's chat interface:"
+msgstr ""
+
+#: ../../source/getting_started/accessing_models.rst:34
+msgid "The response will look like:"
+msgstr ""
+
+#: ../../source/getting_started/accessing_models.rst:61
+msgid "Embedding Model"
+msgstr ""
+
+#: ../../source/getting_started/accessing_models.rst:63
+msgid ""
+"To interact with Xinference's embedding model, i.e., inputting a text and"
+" getting an embedding from ``RESTfulClient``:"
+msgstr ""
+
+#: ../../source/getting_started/accessing_models.rst:72
+msgid "The response will be:"
+msgstr ""
+
+#: ../../source/getting_started/accessing_models.rst:93
+msgid "Using OpenAI Python SDK"
+msgstr ""
+
+#: ../../source/getting_started/accessing_models.rst:95
+msgid ""
+"Xinference provides an OpenAI-compatible RESTful interface. Thus, you can"
+" also use the OpenAI Python SDK to chat with the model via the service's "
+"endpoint:"
+msgstr ""
+

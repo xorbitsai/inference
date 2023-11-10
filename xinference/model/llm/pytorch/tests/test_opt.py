@@ -22,7 +22,8 @@ from typing import Union
 import pytest
 import xoscar
 
-from .....client import Client, GenerateModelHandle
+from .....client import Client
+from .....client.restful.restful_client import RESTfulGenerateModelHandle
 from .....core.model import ModelActor
 from ... import BUILTIN_LLM_FAMILIES
 from ..core import PytorchModel
@@ -71,7 +72,7 @@ async def test_opt_pytorch_model(setup, quantization):
         assert len(client.list_models()) == 1
 
         model = client.get_model(model_uid=model_uid)
-        assert isinstance(model, GenerateModelHandle)
+        assert isinstance(model, RESTfulGenerateModelHandle)
 
         # Test concurrent generate is OK.
         def _check():

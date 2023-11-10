@@ -12,17 +12,98 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 import os
-from typing import TYPE_CHECKING, Any
+import time
+from typing import TYPE_CHECKING, Optional
 
 import xoscar as xo
+
+from ..constants import XINFERENCE_DEFAULT_LOG_FILE_NAME, XINFERENCE_LOG_DIR
 
 if TYPE_CHECKING:
     from xoscar.backends.pool import MainActorPoolType
 
+logger = logging.getLogger(__name__)
+
+
+class LoggerNameFilter(logging.Filter):
+    def filter(self, record):
+        return record.name.startswith("xinference") or (
+            record.name.startswith("uvicorn.error")
+            and record.getMessage().startswith("Uvicorn running on")
+        )
+
+
+def get_log_file(sub_dir: str):
+    """
+    sub_dir should contain a timestamp.
+    """
+    log_dir = os.path.join(XINFERENCE_LOG_DIR, sub_dir)
+    # Here should be creating a new directory each time, so `exist_ok=False`
+    os.makedirs(log_dir, exist_ok=False)
+    return os.path.join(log_dir, XINFERENCE_DEFAULT_LOG_FILE_NAME)
+
+
+def get_config_dict(
+    log_level: str, log_file_path: str, log_backup_count: int, log_max_bytes: int
+) -> dict:
+    # for windows, the path should be a raw string.
+    log_file_path = (
+        log_file_path.encode("unicode-escape").decode()
+        if os.name == "nt"
+        else log_file_path
+    )
+    log_level = log_level.upper()
+    config_dict = {
+        "version": 1,
+        "disable_existing_loggers": False,
+        "formatters": {
+            "formatter": {
+                "format": "%(asctime)s %(name)-12s %(process)d %(levelname)-8s %(message)s"
+            },
+        },
+        "filters": {
+            "logger_name_filter": {
+                "()": __name__ + ".LoggerNameFilter",
+            },
+        },
+        "handlers": {
+            "stream_handler": {
+                "class": "logging.StreamHandler",
+                "formatter": "formatter",
+                "level": log_level,
+                "stream": "ext://sys.stderr",
+                "filters": ["logger_name_filter"],
+            },
+            "file_handler": {
+                "class": "logging.handlers.RotatingFileHandler",
+                "formatter": "formatter",
+                "level": log_level,
+                "filename": log_file_path,
+                "mode": "a",
+                "maxBytes": log_max_bytes,
+                "backupCount": log_backup_count,
+                "encoding": "utf8",
+            },
+        },
+        "loggers": {
+            "xinference": {
+                "handlers": ["stream_handler", "file_handler"],
+                "level": log_level,
+                "propagate": False,
+            }
+        },
+        "root": {
+            "level": "WARN",
+            "handlers": ["stream_handler", "file_handler"],
+        },
+    }
+    return config_dict
+
 
 async def create_worker_actor_pool(
-    address: str, logging_conf: Any = None
+    address: str, logging_conf: Optional[dict] = None
 ) -> "MainActorPoolType":
     subprocess_start_method = "forkserver" if os.name != "nt" else "spawn"
 
@@ -30,5 +111,48 @@ async def create_worker_actor_pool(
         address=address,
         n_process=0,
         subprocess_start_method=subprocess_start_method,
-        logging_conf=logging_conf,
+        logging_conf={"dict": logging_conf},
     )
+
+
+def health_check(address: str, max_attempts: int, sleep_interval: int = 3) -> bool:
+    async def health_check_internal():
+        import time
+
+        attempts = 0
+        while attempts < max_attempts:
+            time.sleep(sleep_interval)
+            try:
+                from xinference.core.supervisor import SupervisorActor
+
+                supervisor_ref: xo.ActorRefType[SupervisorActor] = await xo.actor_ref(
+                    address=address, uid=SupervisorActor.uid()
+                )
+
+                await supervisor_ref.get_status()
+                return True
+            except Exception as e:
+                logger.debug(f"Error while checking cluster: {e}")
+
+            attempts += 1
+            if attempts < max_attempts:
+                logger.debug(
+                    f"Cluster not available, will try {max_attempts - attempts} more times"
+                )
+
+        return False
+
+    import asyncio
+
+    from ..isolation import Isolation
+
+    isolation = Isolation(asyncio.new_event_loop(), threaded=True)
+    isolation.start()
+    available = isolation.call(health_check_internal())
+    isolation.stop()
+    return available
+
+
+def get_timestamp_ms():
+    t = time.time()
+    return int(round(t * 1000))

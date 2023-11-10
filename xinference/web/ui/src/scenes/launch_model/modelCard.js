@@ -1,7 +1,14 @@
 import React, { useState, useContext, useEffect } from "react";
 import { v1 as uuidv1 } from "uuid";
 import { ApiContext } from "../../components/apiContext";
-import { FormControl, InputLabel, Select, MenuItem, Box } from "@mui/material";
+import {
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Box,
+  Chip,
+} from "@mui/material";
 import { CircularProgress } from "@mui/material";
 import {
   ChatOutlined,
@@ -28,6 +35,14 @@ const ModelCard = ({ url, modelData }) => {
   const [formatOptions, setFormatOptions] = useState([]);
   const [sizeOptions, setSizeOptions] = useState([]);
   const [quantizationOptions, setQuantizationOptions] = useState([]);
+
+  const isCached = (spec) => {
+    if (spec.model_format === "pytorch") {
+      return spec.cache_status && spec.cache_status === true;
+    } else {
+      return spec.cache_status && spec.cache_status.some((cs) => cs);
+    }
+  };
 
   // UseEffects for parameter selection, change options based on previous selections
   useEffect(() => {
@@ -97,23 +112,20 @@ const ModelCard = ({ url, modelData }) => {
       body: JSON.stringify(modelDataWithID),
     })
       .then((response) => {
-        response.json();
+        if (!response.ok) {
+          // Assuming the server returns error details in JSON format
+          return response.json().then((errorData) => {
+            throw new Error(
+              `Server error: ${response.status} - ${
+                errorData.detail || "Unknown error"
+              }`,
+            );
+          });
+        }
+        return response.json(); // Also return the promise from response.json() for successful responses
       })
       .then(() => {
-        // Second fetch request to build the gradio page
-        return fetch(url + "/v1/ui/" + uuid, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(modelDataWithID),
-        });
-      })
-      .then((response) => {
-        response.json();
-      })
-      .then(() => {
-        window.open(url + "/" + uuid, "_blank", "noreferrer");
+        window.open(url + "/ui/#/running_models", "_blank", "noreferrer");
         setIsCallingApi(false);
       })
       .catch((error) => {
@@ -245,6 +257,9 @@ const ModelCard = ({ url, modelData }) => {
     smallText: {
       fontSize: "0.8em",
     },
+    tagRow: {
+      margin: "2px 5px",
+    },
   };
 
   // Set two different states based on mouse hover
@@ -262,6 +277,37 @@ const ModelCard = ({ url, modelData }) => {
       {/* First state: show description page */}
       <Box style={styles.descriptionCard}>
         <h2 style={styles.h2}>{modelData.model_name}</h2>
+        <div style={styles.tagRow}>
+          {(() => {
+            if (modelData.model_lang.includes("en")) {
+              return <Chip label="EN" variant="outlined" size="small" />;
+            }
+          })()}
+          {(() => {
+            if (modelData.model_lang.includes("zh")) {
+              return (
+                <Chip
+                  label="ZH"
+                  variant="outlined"
+                  size="small"
+                  sx={{ marginLeft: "10px" }}
+                />
+              );
+            }
+          })()}
+          {(() => {
+            if (modelData.model_specs.some((spec) => isCached(spec))) {
+              return (
+                <Chip
+                  label="Cached"
+                  variant="outlined"
+                  size="small"
+                  sx={{ marginLeft: "10px" }}
+                />
+              );
+            }
+          })()}
+        </div>
         <p style={styles.p}>{modelData.model_description}</p>
 
         <div style={styles.iconRow}>
@@ -322,11 +368,19 @@ const ModelCard = ({ url, modelData }) => {
               onChange={(e) => setModelFormat(e.target.value)}
               label="Model Format"
             >
-              {formatOptions.map((format) => (
-                <MenuItem key={format} value={format}>
-                  {format}
-                </MenuItem>
-              ))}
+              {formatOptions.map((format) => {
+                const specs = modelData.model_specs.filter(
+                  (spec) => spec.model_format === format,
+                );
+                const cached = specs.some((spec) => isCached(spec));
+                const displayedFormat = cached ? format + " (cached)" : format;
+
+                return (
+                  <MenuItem key={format} value={format}>
+                    {displayedFormat}
+                  </MenuItem>
+                );
+              })}
             </Select>
           </FormControl>
           <FormControl
@@ -342,11 +396,19 @@ const ModelCard = ({ url, modelData }) => {
               onChange={(e) => setModelSize(e.target.value)}
               label="Model Size"
             >
-              {sizeOptions.map((size) => (
-                <MenuItem key={size} value={size}>
-                  {size}
-                </MenuItem>
-              ))}
+              {sizeOptions.map((size) => {
+                const specs = modelData.model_specs
+                  .filter((spec) => spec.model_format === modelFormat)
+                  .filter((spec) => spec.model_size_in_billions === size);
+                const cached = specs.some((spec) => isCached(spec));
+                const displayedSize = cached ? size + " (cached)" : size;
+
+                return (
+                  <MenuItem key={size} value={size}>
+                    {displayedSize}
+                  </MenuItem>
+                );
+              })}
             </Select>
           </FormControl>
           {(modelData.is_builtin || modelFormat === "pytorch") && (
@@ -363,18 +425,33 @@ const ModelCard = ({ url, modelData }) => {
                 onChange={(e) => setQuantization(e.target.value)}
                 label="Quantization"
               >
-                {quantizationOptions.map((quant) => (
-                  <MenuItem key={quant} value={quant}>
-                    {quant}
-                  </MenuItem>
-                ))}
+                {quantizationOptions.map((quant, index) => {
+                  const specs = modelData.model_specs
+                    .filter((spec) => spec.model_format === modelFormat)
+                    .filter(
+                      (spec) => spec.model_size_in_billions === modelSize,
+                    );
+
+                  const cached =
+                    modelFormat === "pytorch"
+                      ? specs[0].cache_status && specs[0].cache_status === true
+                      : specs[0].cache_status &&
+                        specs[0].cache_status[index] === true;
+                  const displayedQuant = cached ? quant + " (cached)" : quant;
+
+                  return (
+                    <MenuItem key={quant} value={quant}>
+                      {displayedQuant}
+                    </MenuItem>
+                  );
+                })}
               </Select>
             </FormControl>
           )}
         </Box>
         <Box style={styles.buttonsContainer}>
           <button
-            title="Launch Web UI"
+            title="Launch"
             style={styles.buttonContainer}
             onClick={() => launchModel(url, modelData)}
             disabled={
@@ -429,7 +506,7 @@ const ModelCard = ({ url, modelData }) => {
             })()}
           </button>
           <button
-            title="Launch Web UI"
+            title="Go Back"
             style={styles.buttonContainer}
             onClick={() => setSelected(false)}
           >

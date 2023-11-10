@@ -14,7 +14,7 @@ if __name__ == "__main__":
             """\
              instructions to run:
                  1. Install Xinference and Llama-cpp-python
-                 2. Run 'xinference --host "localhost" --port 9997' in terminal
+                 2. Run 'xinference-local --host "localhost" --port 9997' in terminal
                  3. Run this python file in new terminal window
 
                  e.g. (feel free to copy)

@@ -14,81 +14,73 @@
 
 import asyncio
 import logging
-import socket
+import multiprocessing
+import signal
+import sys
 from typing import Dict, Optional
 
 import xoscar as xo
 from xoscar.utils import get_next_port
 
-from ..constants import XINFERENCE_DEFAULT_ENDPOINT_PORT
-from ..core.restful_api import RESTfulAPIActor
 from ..core.supervisor import SupervisorActor
+from .utils import health_check
 
-logger = logging.getLogger("xinference")
-
-
-async def start_supervisor_components(address: str, host: str, port: int):
-    await xo.create_actor(SupervisorActor, address=address, uid=SupervisorActor.uid())
-    # create a socket for RESTful API
-    try:
-        sockets = []
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.bind((host, port))
-        sockets.append(sock)
-    except OSError:
-        # compare the reference to differentiate between the cases where the user specify the
-        # default port and the user does not specify the port.
-        if port is XINFERENCE_DEFAULT_ENDPOINT_PORT:
-            while True:
-                try:
-                    sockets = []
-                    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                    port = get_next_port()
-                    sock.bind((host, port))
-                    sockets.append(sock)
-                    break
-                except OSError:
-                    logger.warning("Failed to create socket with port %d", port)
-        else:
-            raise
-
-    internal_host = "localhost" if host == "0.0.0.0" else host
-    restful_actor = await xo.create_actor(
-        RESTfulAPIActor,
-        address=address,
-        uid=RESTfulAPIActor.uid(),
-        sockets=sockets,
-        internal_endpoint=f"http://{internal_host}:{port}",
-    )
-    await restful_actor.serve()
-    url = f"http://{host}:{port}"
-    logger.info(f"Xinference successfully started. Endpoint: {url}")
-    return url
+logger = logging.getLogger(__name__)
 
 
-async def _start_supervisor(
-    address: str, host: str, port: int, logging_conf: Optional[Dict] = None
-):
+async def _start_supervisor(address: str, logging_conf: Optional[Dict] = None):
+    logging.config.dictConfig(logging_conf)  # type: ignore
+
     pool = None
     try:
         pool = await xo.create_actor_pool(
-            address=address, n_process=0, logging_conf=logging_conf
+            address=address, n_process=0, logging_conf={"dict": logging_conf}
         )
-        await start_supervisor_components(address=address, host=host, port=port)
+        await xo.create_actor(
+            SupervisorActor, address=address, uid=SupervisorActor.uid()
+        )
         await pool.join()
     except asyncio.exceptions.CancelledError:
         if pool is not None:
             await pool.stop()
 
 
-def main(*args, **kwargs):
+def run(address: str, logging_conf: Optional[Dict] = None):
+    def sigterm_handler(signum, frame):
+        sys.exit(0)
+
+    signal.signal(signal.SIGTERM, sigterm_handler)
+
     loop = asyncio.get_event_loop()
-    task = loop.create_task(_start_supervisor(*args, **kwargs))
+    task = loop.create_task(
+        _start_supervisor(address=address, logging_conf=logging_conf)
+    )
+    loop.run_until_complete(task)
+
+
+def run_in_subprocess(
+    address: str, logging_conf: Optional[Dict] = None
+) -> multiprocessing.Process:
+    p = multiprocessing.Process(target=run, args=(address, logging_conf))
+    p.start()
+    return p
+
+
+def main(host: str, port: int, logging_conf: Optional[Dict] = None):
+    supervisor_address = f"{host}:{get_next_port()}"
+    local_cluster = run_in_subprocess(supervisor_address, logging_conf)
+
+    if not health_check(address=supervisor_address, max_attempts=3, sleep_interval=1):
+        raise RuntimeError("Supervisor is not available after multiple attempts")
 
     try:
-        loop.run_until_complete(task)
-    except KeyboardInterrupt:
-        task.cancel()
-        loop.run_until_complete(task)
-        # avoid displaying exception-unhandled warnings
-        task.exception()
+        from ..api import restful_api
+
+        restful_api.run(
+            supervisor_address=supervisor_address,
+            host=host,
+            port=port,
+            logging_conf=logging_conf,
+        )
+    finally:
+        local_cluster.terminate()

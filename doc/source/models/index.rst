@@ -10,3 +10,4 @@ Models
 
    builtin/index
    custom
+   sources/sources

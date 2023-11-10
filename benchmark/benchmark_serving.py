@@ -14,137 +14,29 @@
 
 import argparse
 import asyncio
-import json
 import logging
 import random
 import time
 from typing import AsyncGenerator, List, Tuple
 
-import aiohttp
 import numpy as np
-from transformers import AutoTokenizer, PreTrainedTokenizerBase, PreTrainedTokenizerFast
+
+from utils import sample_requests, get_tokenizer, send_request
+
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
 REQUEST_LATENCY: List[Tuple[int, int, float]] = []
-# A fast LLaMA tokenizer with the pre-processed `tokenizer.json` file.
-_FAST_LLAMA_TOKENIZER = "hf-internal-testing/llama-tokenizer"
-
-
-def get_tokenizer(
-    tokenizer_name: str,
-    *args,
-    tokenizer_mode: str = "auto",
-    trust_remote_code: bool = False,
-    **kwargs,
-) -> PreTrainedTokenizerBase:
-    """Gets a tokenizer for the given model name via Huggingface."""
-    if tokenizer_mode == "slow":
-        if kwargs.get("use_fast", False):
-            raise ValueError("Cannot use the fast tokenizer in slow tokenizer mode.")
-        kwargs["use_fast"] = False
-
-    if (
-        "llama" in tokenizer_name.lower()
-        and kwargs.get("use_fast", True)
-        and tokenizer_name != _FAST_LLAMA_TOKENIZER
-    ):
-        logger.info(
-            "For some LLaMA-based models, initializing the fast tokenizer may "
-            "take a long time. To eliminate the initialization time, consider "
-            f"using '{_FAST_LLAMA_TOKENIZER}' instead of the original "
-            "tokenizer."
-        )
-    try:
-        tokenizer = AutoTokenizer.from_pretrained(
-            tokenizer_name, *args, trust_remote_code=trust_remote_code, **kwargs
-        )
-    except TypeError as e:
-        # The LLaMA tokenizer causes a protobuf error in some environments.
-        err_msg = (
-            "Failed to load the tokenizer. If you are using a LLaMA-based "
-            f"model, use '{_FAST_LLAMA_TOKENIZER}' instead of the original "
-            "tokenizer."
-        )
-        raise RuntimeError(err_msg) from e
-    except ValueError as e:
-        # If the error pertains to the tokenizer class not existing or not
-        # currently being imported, suggest using the --trust-remote-code flag.
-        if not trust_remote_code and (
-            "does not exist or is not currently imported." in str(e)
-            or "requires you to execute the tokenizer file" in str(e)
-        ):
-            err_msg = (
-                "Failed to load the tokenizer. If the tokenizer is a custom "
-                "tokenizer not yet available in the HuggingFace transformers "
-                "library, consider setting `trust_remote_code=True` in LLM "
-                "or using the `--trust-remote-code` flag in the CLI."
-            )
-            raise RuntimeError(err_msg) from e
-        else:
-            raise e
-
-    if not isinstance(tokenizer, PreTrainedTokenizerFast):
-        logger.warning(
-            "Using a slow tokenizer. This might cause a significant "
-            "slowdown. Consider using a fast tokenizer instead."
-        )
-    return tokenizer
-
-
-def sample_requests(
-    dataset_path: str,
-    num_requests: int,
-    tokenizer: PreTrainedTokenizerBase,
-) -> List[Tuple[str, int, int]]:
-    # Load the dataset.
-    with open(dataset_path) as f:
-        dataset = json.load(f)
-    # Filter out the conversations with less than 2 turns.
-    dataset = [data for data in dataset if len(data["conversations"]) >= 2]
-    # Only keep the first two turns of each conversation.
-    dataset = [
-        (data["conversations"][0]["value"], data["conversations"][1]["value"])
-        for data in dataset
-    ]
-
-    # Tokenize the prompts and completions.
-    prompts = [prompt for prompt, _ in dataset]
-    prompt_token_ids = tokenizer(prompts).input_ids
-    completions = [completion for _, completion in dataset]
-    completion_token_ids = tokenizer(completions).input_ids
-    tokenized_dataset = []
-    for i in range(len(dataset)):
-        output_len = len(completion_token_ids[i])
-        tokenized_dataset.append((prompts[i], prompt_token_ids[i], output_len))
-
-    # Filter out too long sequences.
-    filtered_dataset: List[Tuple[str, int, int]] = []
-    for prompt, prompt_token_ids, output_len in tokenized_dataset:
-        prompt_len = len(prompt_token_ids)
-        if prompt_len < 4 or output_len < 4:
-            # Prune too short sequences.
-            # This is because TGI causes errors when the input or output length
-            # is too short.
-            continue
-        if prompt_len > 1024 or prompt_len + output_len > 2048:
-            # Prune too long sequences.
-            continue
-        filtered_dataset.append((prompt, prompt_len, output_len))
-
-    # Sample the requests.
-    sampled_requests = random.sample(filtered_dataset, num_requests)
-    return sampled_requests
 
 
 async def get_request(
     input_requests: List[Tuple[str, int, int]],
     request_rate: float,
 ) -> AsyncGenerator[Tuple[str, int, int], None]:
-    input_requests = iter(input_requests)
-    for request in input_requests:
+    it = iter(input_requests)
+    for request in it:
         yield request
 
         if request_rate == float("inf"):
@@ -154,48 +46,6 @@ async def get_request(
         interval = np.random.exponential(1.0 / request_rate)
         # The next request will be sent after the interval.
         await asyncio.sleep(interval)
-
-
-async def send_request(
-    api_url: str,
-    model_uid: str,
-    prompt: str,
-    prompt_len: int,
-    output_len: int,
-    best_of: int,
-) -> None:
-    request_start_time = time.time()
-
-    headers = {"User-Agent": "Benchmark Client"}
-
-    pload = {
-        "prompt": prompt,
-        "n": 1,
-        "best_of": best_of,
-        "temperature": 1.0,
-        "top_p": 1.0,
-        "max_tokens": output_len,
-        "stream": False,
-        "model": model_uid,
-    }
-
-    timeout = aiohttp.ClientTimeout(total=3 * 3600)
-    async with aiohttp.ClientSession(timeout=timeout) as session:
-        while True:
-            async with session.post(api_url, headers=headers, json=pload) as response:
-                chunks = []
-                async for chunk, _ in response.content.iter_chunks():
-                    chunks.append(chunk)
-            output = b"".join(chunks).decode("utf-8")
-            output = json.loads(output)
-
-            # Re-send the request if it failed.
-            if "error" not in output:
-                break
-
-    request_end_time = time.time()
-    request_latency = request_end_time - request_start_time
-    REQUEST_LATENCY.append((prompt_len, output_len, request_latency))
 
 
 async def benchmark(
@@ -216,6 +66,7 @@ async def benchmark(
                 prompt_len,
                 output_len,
                 best_of,
+                REQUEST_LATENCY,
             )
         )
         tasks.append(task)
@@ -227,7 +78,7 @@ def main(args: argparse.Namespace):
     random.seed(args.seed)
     np.random.seed(args.seed)
 
-    api_url = f"http://{args.host}:{args.port}/v1/completions"
+    api_url = f"http://{args.host}:{args.port}/v1/chat/completions"
     model_uid = args.model_uid
 
     logger.info("Preparing for benchmark.")
@@ -264,6 +115,10 @@ def main(args: argparse.Namespace):
         [latency / output_len for _, output_len, latency in REQUEST_LATENCY]
     )
     print("Average latency per output token: " f"{avg_per_output_token_latency:.2f} s")
+    throughput = (
+        sum([output_len for _, output_len, _ in REQUEST_LATENCY]) / benchmark_time
+    )
+    print(f"Throughput: {throughput} tokens/s")
 
 
 if __name__ == "__main__":

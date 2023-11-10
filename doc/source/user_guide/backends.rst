@@ -26,10 +26,9 @@ according to the hardware to achieve the best inference efficiency. Please refer
 `ctransformers installation guide <https://github.com/marella/ctransformers#gpu>`_.
 
 
-PyTorch
-~~~~~~~
-The PyTorch backend can support the inference of most PyTorch format models. It is the default
-implementation for models in PyTorch format.
+transformers
+~~~~~~~~~~~~
+Transformers supports the inference of most state-of-art models. It is the default backend for models in PyTorch format.
 
 vLLM
 ~~~~
@@ -43,9 +42,9 @@ vLLM is fast with:
 
 When the following conditions are met, Xinference will choose vLLM as the inference engine:
 
-- The model format is pytorch
+- The model format is PyTorch
 - The quantization method is none
-- The system is Linux and has a CUDA device
+- The system is Linux and has at least one CUDA device
 - The model is within the list of models supported by vLLM.
 
 Currently, supported model includes:

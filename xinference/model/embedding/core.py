@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import datetime
 import logging
 import os
 from typing import List, Optional, Tuple, Union, no_type_check
@@ -23,8 +22,7 @@ from pydantic import BaseModel
 from ...constants import XINFERENCE_CACHE_DIR
 from ...types import Embedding, EmbeddingData, EmbeddingUsage
 from ..core import ModelDescription
-
-MAX_ATTEMPTS = 3
+from ..utils import valid_model_revision
 
 logger = logging.getLogger(__name__)
 
@@ -38,9 +36,35 @@ class EmbeddingModelSpec(BaseModel):
     model_revision: str
 
 
+class EmbeddingModelDescription(ModelDescription):
+    def __init__(
+        self,
+        address: Optional[str],
+        devices: Optional[List[str]],
+        model_spec: EmbeddingModelSpec,
+    ):
+        super().__init__(address, devices)
+        self._model_spec = model_spec
+
+    def to_dict(self):
+        return {
+            "model_type": "embedding",
+            "address": self.address,
+            "accelerators": self.devices,
+            "model_name": self._model_spec.model_name,
+            "dimensions": self._model_spec.dimensions,
+            "max_tokens": self._model_spec.max_tokens,
+            "language": self._model_spec.language,
+            "model_revision": self._model_spec.model_revision,
+        }
+
+
 def cache(model_spec: EmbeddingModelSpec):
     # TODO: cache from uri
-    import huggingface_hub
+    from huggingface_hub import snapshot_download as hf_download
+    from modelscope.hub.snapshot_download import snapshot_download as ms_download
+
+    from ..utils import retry_download, symlink_local_file
 
     cache_dir = os.path.realpath(
         os.path.join(XINFERENCE_CACHE_DIR, model_spec.model_name)
@@ -48,29 +72,50 @@ def cache(model_spec: EmbeddingModelSpec):
     if not os.path.exists(cache_dir):
         os.makedirs(cache_dir, exist_ok=True)
     meta_path = os.path.join(cache_dir, "__valid_download")
-    if os.path.exists(meta_path):
+    if valid_model_revision(meta_path, model_spec.model_revision):
         return cache_dir
-    for current_attempt in range(1, MAX_ATTEMPTS + 1):
-        try:
-            huggingface_hub.snapshot_download(
-                model_spec.model_id,
-                revision=model_spec.model_revision,
-                local_dir=cache_dir,
-                local_dir_use_symlinks=True,
-            )
-            with open(meta_path, "w") as f:
-                f.write(str(datetime.datetime.now()))
-            break
-        except:
-            remaining_attempts = MAX_ATTEMPTS - current_attempt
-            logger.warning(
-                f"Attempt {current_attempt} failed. Remaining attempts: {remaining_attempts}"
-            )
-    else:
-        raise RuntimeError(
-            f"Failed to download model '{model_spec.model_name}' after {MAX_ATTEMPTS} attempts"
+
+    from_modelscope: bool = model_spec.model_id.startswith("Xorbits/")
+    if from_modelscope:
+        download_dir = retry_download(
+            ms_download,
+            model_spec.model_name,
+            None,
+            model_spec.model_id,
+            revision=model_spec.model_revision,
         )
+        for subdir, dirs, files in os.walk(download_dir):
+            for file in files:
+                relpath = os.path.relpath(os.path.join(subdir, file), download_dir)
+                symlink_local_file(os.path.join(subdir, file), cache_dir, relpath)
+    else:
+        retry_download(
+            hf_download,
+            model_spec.model_name,
+            None,
+            model_spec.model_id,
+            revision=model_spec.model_revision,
+            local_dir=cache_dir,
+            local_dir_use_symlinks=True,
+        )
+    with open(meta_path, "w") as f:
+        import json
+
+        desc = EmbeddingModelDescription(None, None, model_spec)
+        json.dump(desc.to_dict(), f)
     return cache_dir
+
+
+def get_cache_status(
+    model_spec: EmbeddingModelSpec,
+) -> bool:
+    cache_dir = os.path.realpath(
+        os.path.join(XINFERENCE_CACHE_DIR, model_spec.model_name)
+    )
+    if not os.path.exists(cache_dir):
+        os.makedirs(cache_dir, exist_ok=True)
+    meta_path = os.path.join(cache_dir, "__valid_download")
+    return valid_model_revision(meta_path, model_spec.model_revision)
 
 
 class EmbeddingModel:
@@ -253,23 +298,19 @@ class EmbeddingModel:
         )
 
 
-class EmbeddingModelDescription(ModelDescription):
-    def __init__(self, model_spec: EmbeddingModelSpec):
-        self._model_spec = model_spec
-
-    def to_dict(self):
-        return {
-            "model_type": "embedding",
-            "model_name": self._model_spec.model_name,
-            "dimensions": self._model_spec.dimensions,
-            "max_tokens": self._model_spec.max_tokens,
-            "language": self._model_spec.language,
-            "model_revision": self._model_spec.model_revision,
-        }
-
-
 def match_embedding(model_name: str) -> EmbeddingModelSpec:
-    from . import BUILTIN_EMBEDDING_MODELS
+    from ..utils import download_from_modelscope
+    from . import BUILTIN_EMBEDDING_MODELS, MODELSCOPE_EMBEDDING_MODELS
+
+    if download_from_modelscope():
+        if model_name in MODELSCOPE_EMBEDDING_MODELS:
+            logger.debug(f"Embedding model {model_name} found in ModelScope.")
+            return MODELSCOPE_EMBEDDING_MODELS[model_name]
+        else:
+            logger.debug(
+                f"Embedding model {model_name} not found in ModelScope, "
+                f"now try to load it via builtin way."
+            )
 
     if model_name in BUILTIN_EMBEDDING_MODELS:
         return BUILTIN_EMBEDDING_MODELS[model_name]
@@ -281,10 +322,10 @@ def match_embedding(model_name: str) -> EmbeddingModelSpec:
 
 
 def create_embedding_model_instance(
-    model_uid: str, model_name: str, **kwargs
+    subpool_addr: str, devices: List[str], model_uid: str, model_name: str, **kwargs
 ) -> Tuple[EmbeddingModel, EmbeddingModelDescription]:
     model_spec = match_embedding(model_name)
     model_path = cache(model_spec)
     model = EmbeddingModel(model_uid, model_path, **kwargs)
-    model_description = EmbeddingModelDescription(model_spec)
+    model_description = EmbeddingModelDescription(subpool_addr, devices, model_spec)
     return model, model_description

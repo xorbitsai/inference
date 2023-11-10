@@ -12,8 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import sys
+
+import openai
 import pytest
 import requests
+from packaging import version
 
 from ...model.embedding import BUILTIN_EMBEDDING_MODELS
 
@@ -144,6 +148,33 @@ async def test_restful_api(setup):
             {"role": "system", "content": "You are a helpful assistant."},
             {"role": "user", "content": "Hello!"},
             {"role": "assistant", "content": "Hi what can I help you?"},
+        ],
+    }
+    response = requests.post(url, json=payload)
+    assert response.status_code == 400
+
+    # Duplicate system messages
+    payload = {
+        "model": model_uid_res,
+        "messages": [
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "system", "content": "You are not a helpful assistant."},
+            {"role": "user", "content": "Hello!"},
+            {"role": "assistant", "content": "Hi what can I help you?"},
+            {"role": "user", "content": "What is the capital of France?"},
+        ],
+    }
+    response = requests.post(url, json=payload)
+    assert response.status_code == 400
+
+    # System message should be the first one.
+    payload = {
+        "model": model_uid_res,
+        "messages": [
+            {"role": "user", "content": "Hello!"},
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "assistant", "content": "Hi what can I help you?"},
+            {"role": "user", "content": "What is the capital of France?"},
         ],
     }
     response = requests.post(url, json=payload)
@@ -344,3 +375,198 @@ def test_restful_api_for_embedding(setup):
     response = requests.get(f"{endpoint}/v1/models")
     response_data = response.json()
     assert len(response_data) == 0
+
+
+def test_restful_api_with_request_limits(setup):
+    model_name = "gte-base"
+
+    endpoint, _ = setup
+    url = f"{endpoint}/v1/models"
+
+    # test embedding
+    # launch
+    payload = {
+        "model_uid": "test_embedding",
+        "model_name": model_name,
+        "model_type": "embedding",
+        "request_limits": 0,
+    }
+
+    response = requests.post(url, json=payload)
+    response_data = response.json()
+    model_uid_res = response_data["model_uid"]
+    assert model_uid_res == "test_embedding"
+
+    # test embedding
+    url = f"{endpoint}/v1/embeddings"
+    payload = {
+        "model": "test_embedding",
+        "input": "The food was delicious and the waiter...",
+    }
+    response = requests.post(url, json=payload)
+    assert response.status_code == 429
+    assert "Rate limit reached" in response.json()["detail"]
+
+    # delete model
+    url = f"{endpoint}/v1/models/test_embedding"
+    response = requests.delete(url)
+    assert response.status_code == 200
+
+    # test llm
+    url = f"{endpoint}/v1/models"
+    payload = {
+        "model_uid": "test_restful_api",
+        "model_name": "orca",
+        "quantization": "q4_0",
+        "request_limits": 0,
+    }
+
+    response = requests.post(url, json=payload)
+    response_data = response.json()
+    model_uid_res = response_data["model_uid"]
+    assert model_uid_res == "test_restful_api"
+
+    # generate
+    url = f"{endpoint}/v1/completions"
+    payload = {
+        "model": model_uid_res,
+        "prompt": "Once upon a time, there was a very old computer.",
+    }
+    response = requests.post(url, json=payload)
+    assert response.status_code == 429
+    assert "Rate limit reached" in response.json()["detail"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.skipif(
+    sys.platform == "win32", reason="Window CI hangs after run this case."
+)
+async def test_openai(setup):
+    endpoint, _ = setup
+    url = f"{endpoint}/v1/models"
+
+    # list
+    response = requests.get(url)
+    response_data = response.json()
+    assert len(response_data) == 0
+
+    # launch
+    payload = {
+        "model_uid": "test_restful_api",
+        "model_name": "orca",
+        "quantization": "q4_0",
+    }
+
+    response = requests.post(url, json=payload)
+    response_data = response.json()
+    model_uid_res = response_data["model_uid"]
+    assert model_uid_res == "test_restful_api"
+
+    # chat
+    messages = [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "Hello!"},
+        {"role": "assistant", "content": "Hi what can I help you?"},
+        {"role": "user", "content": "What is the capital of France?"},
+    ]
+
+    result = []
+    if version.parse(openai.__version__) < version.parse("1.0"):
+        openai.api_key = ""
+        openai.api_base = f"{endpoint}/v1"
+        openai_chat_completion = openai.ChatCompletion.acreate
+        stream_chunk_type_name = "OpenAIObject"
+        response_type_name = "OpenAIObject"
+    else:
+        client = openai.AsyncClient(api_key="not empty", base_url=f"{endpoint}/v1")
+        openai_chat_completion = client.chat.completions.create
+        stream_chunk_type_name = "ChatCompletionChunk"
+        response_type_name = "ChatCompletion"
+    async for chunk in await openai_chat_completion(
+        messages=messages, stream=True, model=model_uid_res
+    ):
+        if not hasattr(chunk, "choices") or len(chunk.choices) == 0:
+            continue
+        result.append(chunk)
+    assert result
+    assert type(result[0]).__name__ == stream_chunk_type_name
+
+    result = await openai_chat_completion(
+        messages=messages, stream=False, model=model_uid_res
+    )
+
+    assert result
+    assert type(result).__name__ == response_type_name
+
+
+def test_lang_chain(setup):
+    endpoint, _ = setup
+    url = f"{endpoint}/v1/models"
+
+    # list
+    response = requests.get(url)
+    response_data = response.json()
+    assert len(response_data) == 0
+
+    # launch
+    payload = {
+        "model_uid": "test_restful_api",
+        "model_name": "orca",
+        "quantization": "q4_0",
+    }
+
+    response = requests.post(url, json=payload)
+    response_data = response.json()
+    model_uid_res = response_data["model_uid"]
+    assert model_uid_res == "test_restful_api"
+
+    from langchain.chat_models import ChatOpenAI
+    from langchain.prompts.chat import (
+        ChatPromptTemplate,
+        HumanMessagePromptTemplate,
+        SystemMessagePromptTemplate,
+    )
+    from langchain.schema import AIMessage, HumanMessage, SystemMessage
+
+    inference_server_url = f"{endpoint}/v1"
+
+    chat = ChatOpenAI(
+        model=model_uid_res,
+        openai_api_key="EMPTY",
+        openai_api_base=inference_server_url,
+        max_tokens=5,
+        temperature=0,
+    )
+
+    messages = [
+        SystemMessage(
+            content="You are a helpful assistant that translates English to Italian."
+        ),
+        HumanMessage(
+            content="Translate the following sentence from English to Italian: I love programming."
+        ),
+    ]
+    r = chat(messages)
+    assert type(r) == AIMessage
+    assert r.content
+    assert "amo" in r.content.lower()
+
+    template = "You are a helpful assistant that translates {input_language} to {output_language}."
+    system_message_prompt = SystemMessagePromptTemplate.from_template(template)
+    human_template = "{text}"
+    human_message_prompt = HumanMessagePromptTemplate.from_template(human_template)
+
+    chat_prompt = ChatPromptTemplate.from_messages(
+        [system_message_prompt, human_message_prompt]
+    )
+
+    # get a chat completion from the formatted messages
+    r = chat(
+        chat_prompt.format_prompt(
+            input_language="English",
+            output_language="Italian",
+            text="I love programming.",
+        ).to_messages()
+    )
+    assert type(r) == AIMessage
+    assert r.content

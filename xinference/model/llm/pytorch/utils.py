@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import gc
+import logging
 import re
 import time
 import uuid
@@ -31,6 +32,8 @@ from transformers.generation.logits_process import (
 )
 
 from ....types import CompletionChoice, CompletionChunk, CompletionUsage
+
+logger = logging.getLogger(__name__)
 
 
 def is_sentence_complete(output: str):
@@ -83,6 +86,7 @@ def prepare_logits_processor(
 
 @torch.inference_mode()
 def generate_stream(
+    model_uid,
     model,
     tokenizer,
     prompt,
@@ -135,6 +139,7 @@ def generate_stream(
             device=device,
         )
 
+    start = time.time()
     past_key_values = out = None
     sent_interrupt = False
     token = None
@@ -267,7 +272,7 @@ def generate_stream(
                     id=str(uuid.uuid1()),
                     object="text_completion",
                     created=int(time.time()),
-                    model=generate_config["model"],
+                    model=model_uid,
                     choices=[completion_choice],
                 )
                 completion_usage = CompletionUsage(
@@ -280,6 +285,9 @@ def generate_stream(
 
         if stopped:
             break
+
+    elapsed_time = time.time() - start
+    logger.info(f"Average generation speed: {i / elapsed_time:.2f} tokens/s.")
 
     # finish stream event, which contains finish reason
     if stopped:
@@ -302,7 +310,7 @@ def generate_stream(
         id=str(uuid.uuid1()),
         object="text_completion",
         created=int(time.time()),
-        model=generate_config["model"],
+        model=model_uid,
         choices=[completion_choice],
     )
     completion_usage = CompletionUsage(
@@ -321,6 +329,7 @@ def generate_stream(
 
 @torch.inference_mode()
 def generate_stream_falcon(
+    model_uid,
     model,
     tokenizer,
     prompt,
@@ -428,7 +437,7 @@ def generate_stream_falcon(
                     id=str(uuid.uuid1()),
                     object="text_completion",
                     created=int(time.time()),
-                    model=generate_config["model"],
+                    model=model_uid,
                     choices=[completion_choice],
                 )
                 completion_usage = CompletionUsage(
@@ -455,7 +464,7 @@ def generate_stream_falcon(
         id=str(uuid.uuid1()),
         object="text_completion",
         created=int(time.time()),
-        model=generate_config["model"],
+        model=model_uid,
         choices=[completion_choice],
     )
     completion_usage = CompletionUsage(
@@ -502,6 +511,7 @@ def process_response(response):
 
 @torch.inference_mode()
 def generate_stream_chatglm(
+    model_uid,
     model,
     tokenizer,
     prompt,
@@ -553,7 +563,7 @@ def generate_stream_chatglm(
             id=str(uuid.uuid1()),
             object="text_completion",
             created=int(time.time()),
-            model=generate_config["model"],
+            model=model_uid,
             choices=[completion_choice],
         )
         completion_usage = CompletionUsage(
@@ -576,7 +586,7 @@ def generate_stream_chatglm(
         id=str(uuid.uuid1()),
         object="text_completion",
         created=int(time.time()),
-        model=generate_config["model"],
+        model=model_uid,
         choices=[completion_choice],
     )
     completion_usage = CompletionUsage(

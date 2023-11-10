@@ -53,6 +53,7 @@ jobs:
     needs: lint
     env:
       CONDA_ENV: test
+      SELF_HOST_PYTHON: /root/miniconda3/envs/inference_test/bin/python
     defaults:
       run:
         shell: bash -l {0}
@@ -67,6 +68,8 @@ jobs:
           - { os: macos-latest, python-version: 3.10 }
           - { os: windows-latest, python-version: 3.9 }
           - { os: windows-latest, python-version: 3.10 }
+        include:
+          - { os: self-hosted, module: gpu, python-version: 3.9}
 
     steps:
       - name: Check out code
@@ -77,6 +80,7 @@ jobs:
 
       - name: Set up conda ${{ matrix.python-version }}
         uses: conda-incubator/setup-miniconda@v2
+        if: ${{ matrix.module != 'gpu' }}
         with:
           python-version: ${{ matrix.python-version }}
           activate-environment: ${{ env.CONDA_ENV }}
@@ -84,8 +88,9 @@ jobs:
       - name: Install dependencies
         env:
           MODULE: ${{ matrix.module }}
+        if: ${{ matrix.module != 'gpu' }}
         run: |
-          pip install llama-cpp-python>=0.2.0
+          pip install "llama-cpp-python>=0.2.0,<0.2.12"
           pip install transformers
           pip install torch
           pip install accelerate
@@ -96,6 +101,7 @@ jobs:
           pip install sentence-transformers
           pip install s3fs
           pip install modelscope
+          pip install diffusers
           pip install -e ".[dev]"
         working-directory: .
 
@@ -103,10 +109,17 @@ jobs:
         env:
           MODULE: ${{ matrix.module }}
         run: |
-          pytest --timeout=1500 \
-            -W ignore::PendingDeprecationWarning \
-            --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/tests/test_client.py
-          pytest --timeout=1500 \
-            -W ignore::PendingDeprecationWarning \
-            --cov-config=setup.cfg --cov-report=xml --cov=xinference --ignore xinference/tests/test_client.py xinference
+          if [ "$MODULE" == "gpu" ]; then
+            ${{ env.SELF_HOST_PYTHON }} -m pip install -U modelscope
+            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=1500 \
+              -W ignore::PendingDeprecationWarning \
+              --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/image/tests/test_stable_diffusion.py
+          else
+            pytest --timeout=1500 \
+              -W ignore::PendingDeprecationWarning \
+              --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/client/tests/test_client.py
+            pytest --timeout=1500 \
+              -W ignore::PendingDeprecationWarning \
+              --cov-config=setup.cfg --cov-report=xml --cov=xinference --ignore xinference/client/tests/test_client.py --ignore xinference/model/image/tests/test_stable_diffusion.py xinference
+          fi
         working-directory: .

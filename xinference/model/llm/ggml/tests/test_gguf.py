@@ -31,6 +31,22 @@ def test_load_ggmlv3(setup):
     assert "content" in completion["choices"][0]["message"]
     assert len(completion["choices"][0]["message"]["content"]) != 0
 
+    # test grammar
+    grammar = r"""
+    root ::= answer
+    answer ::= ("Apple" | "Banana" | "Orange")
+    """
+    completion = model.chat(
+        "Tell me a random fruit name.",
+        generate_config={"max_tokens": 10, "grammar": grammar},
+    )
+    assert "content" in completion["choices"][0]["message"]
+    assert completion["choices"][0]["message"]["content"] in [
+        "Apple",
+        "Banana",
+        "Orange",
+    ]
+
 
 def test_gguf(setup):
     endpoint, _ = setup
@@ -40,7 +56,7 @@ def test_gguf(setup):
         model_name="tiny-llama",
         model_size_in_billions=1,
         model_format="ggufv2",
-        quantization="Q2_K",
+        quantization="q2_K",
     )
     assert len(client.list_models()) == 1
     model = client.get_model(model_uid)

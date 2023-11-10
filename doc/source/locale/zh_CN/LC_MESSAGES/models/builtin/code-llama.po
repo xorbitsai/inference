@@ -1,0 +1,116 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2023-11-01 10:48+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: zh_CN\n"
+"Language-Team: zh_CN <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.12.1\n"
+
+#: ../../source/models/builtin/code-llama.rst:5
+msgid "Code-Llama"
+msgstr ""
+
+#: ../../source/models/builtin/code-llama.rst:7
+msgid "**Context Length:** 100000"
+msgstr ""
+
+#: ../../source/models/builtin/code-llama.rst:8
+msgid "**Model Name:** code-llama"
+msgstr ""
+
+#: ../../source/models/builtin/code-llama.rst:9
+msgid "**Languages:** en"
+msgstr ""
+
+#: ../../source/models/builtin/code-llama.rst:10
+msgid "**Abilities:** generate"
+msgstr ""
+
+#: ../../source/models/builtin/code-llama.rst:13
+msgid "Specifications"
+msgstr ""
+
+#: ../../source/models/builtin/code-llama.rst:16
+msgid "Model Spec 1 (pytorch, 7 Billion)"
+msgstr ""
+
+#: ../../source/models/builtin/code-llama.rst:18
+#: ../../source/models/builtin/code-llama.rst:35
+#: ../../source/models/builtin/code-llama.rst:52
+msgid "**Model Format:** pytorch"
+msgstr ""
+
+#: ../../source/models/builtin/code-llama.rst:19
+msgid "**Model Size (in billions):** 7"
+msgstr ""
+
+#: ../../source/models/builtin/code-llama.rst:20
+#: ../../source/models/builtin/code-llama.rst:37
+#: ../../source/models/builtin/code-llama.rst:54
+msgid "**Quantizations:** 4-bit, 8-bit, none"
+msgstr ""
+
+#: ../../source/models/builtin/code-llama.rst:21
+msgid "**Model ID:** TheBloke/CodeLlama-7B-fp16"
+msgstr ""
+
+#: ../../source/models/builtin/code-llama.rst:23
+#: ../../source/models/builtin/code-llama.rst:40
+#: ../../source/models/builtin/code-llama.rst:57
+msgid ""
+"Execute the following command to launch the model, remember to replace "
+"``${quantization}`` with your chosen quantization method from the options"
+" listed above::"
+msgstr ""
+
+#: ../../source/models/builtin/code-llama.rst:30
+#: ../../source/models/builtin/code-llama.rst:47
+#: ../../source/models/builtin/code-llama.rst:64
+msgid "4-bit quantization is not supported on macOS."
+msgstr ""
+
+#: ../../source/models/builtin/code-llama.rst:33
+msgid "Model Spec 2 (pytorch, 13 Billion)"
+msgstr ""
+
+#: ../../source/models/builtin/code-llama.rst:36
+msgid "**Model Size (in billions):** 13"
+msgstr ""
+
+#: ../../source/models/builtin/code-llama.rst:38
+msgid "**Model ID:** TheBloke/CodeLlama-13B-fp16"
+msgstr ""
+
+#: ../../source/models/builtin/code-llama.rst:50
+msgid "Model Spec 3 (pytorch, 34 Billion)"
+msgstr ""
+
+#: ../../source/models/builtin/code-llama.rst:53
+msgid "**Model Size (in billions):** 34"
+msgstr ""
+
+#: ../../source/models/builtin/code-llama.rst:55
+msgid "**Model ID:** TheBloke/CodeLlama-34B-fp16"
+msgstr ""
+
+#~ msgid ""
+#~ "Execute the following command to launch"
+#~ " the model, remember to replace "
+#~ "`${quantization}` with your chosen "
+#~ "quantization method from the options "
+#~ "listed above::"
+#~ msgstr ""
+

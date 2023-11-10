@@ -37,7 +37,7 @@ class FalconPytorchModel(PytorchModel):
             pytorch_model_config=pytorch_model_config,
         )
 
-    def _load_model(self, kwargs: dict):
+    def _load_model(self, **kwargs):
         try:
             from transformers import AutoModelForCausalLM, AutoTokenizer
         except ImportError:
@@ -94,7 +94,7 @@ class FalconPytorchChatModel(PytorchChatModel):
             pytorch_model_config=pytorch_model_config,
         )
 
-    def _load_model(self, kwargs: dict):
+    def _load_model(self, **kwargs):
         try:
             from transformers import AutoModelForCausalLM, AutoTokenizer
         except ImportError:
@@ -108,12 +108,12 @@ class FalconPytorchChatModel(PytorchChatModel):
 
         tokenizer = AutoTokenizer.from_pretrained(
             self.model_path,
+            trust_remote_code=kwargs["trust_remote_code"],
             revision=kwargs["revision"],
         )
         model = AutoModelForCausalLM.from_pretrained(
             self.model_path,
             low_cpu_mem_usage=True,
-            trust_remote_code=True,
             **kwargs,
         )
         tokenizer.pad_token_id = 9

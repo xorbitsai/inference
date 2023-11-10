@@ -26,7 +26,7 @@ def log_async(logger):
             start = time.time()
             ret = await func(*args, **kwargs)
             logger.debug(
-                f"Leave {func.__name__}, elapsed time: {int(time.time() - start)} ms"
+                f"Leave {func.__name__}, elapsed time: {int(time.time() - start)} s"
             )
             return ret
 
@@ -46,7 +46,7 @@ def log_sync(logger):
             start = time.time()
             ret = func(*args, **kwargs)
             logger.debug(
-                f"Leave {func.__name__}, elapsed time: {int(time.time() - start)} ms"
+                f"Leave {func.__name__}, elapsed time: {int(time.time() - start)} s"
             )
             return ret
 
@@ -82,3 +82,12 @@ def parse_replica_model_uid(replica_model_uid: str) -> Tuple[str, int, int]:
     replica = int(parts.pop())
     model_uid = "-".join(parts)
     return model_uid, replica, rep_id
+
+
+def is_valid_model_uid(model_uid: str) -> bool:
+    if not model_uid or len(model_uid) > 100:
+        return False
+
+    import re
+
+    return re.match(r"^[A-Za-z0-9][A-Za-z0-9_\-]*$", model_uid) is not None

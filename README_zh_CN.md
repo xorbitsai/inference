@@ -23,21 +23,17 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 
 ## 🔥 近期热点
 ### 框架增强
+- 支持指定 grammar 输出: [#525](https://github.com/xorbitsai/inference/pull/525)
+- 投机采样: [#509](https://github.com/xorbitsai/inference/pull/509)
 - 引入 vLLM: [#445](https://github.com/xorbitsai/inference/pull/445)
-- Embedding 模型支持: [#418](https://github.com/xorbitsai/inference/pull/418)
-- LoRA 支持: [#271](https://github.com/xorbitsai/inference/issues/271)
-- PyTorch 模型多 GPU 支持: [#226](https://github.com/xorbitsai/inference/issues/226)
-- Xinference 仪表盘: [#93](https://github.com/xorbitsai/inference/issues/93)
 ### 新模型
-- 内置 [internlm-20b](https://huggingface.co/internlm/internlm-20b/commits/main): [#486](https://github.com/xorbitsai/inference/pull/486)
-- 内置 [internlm-chat-20b](https://huggingface.co/internlm/internlm-chat-20b): [#486](https://github.com/xorbitsai/inference/pull/486)
-- 内置 [CodeLLama](https://github.com/facebookresearch/codellama): [#414](https://github.com/xorbitsai/inference/pull/414) [#402](https://github.com/xorbitsai/inference/pull/402)
+- 内置 [Yi](https://huggingface.co/01-ai): [#629](https://github.com/xorbitsai/inference/pull/629)
+- 内置 [zephyr-7b-alpha](https://huggingface.co/HuggingFaceH4/zephyr-7b-alpha) 与 [zephyr-7b-beta](https://huggingface.co/HuggingFaceH4/zephyr-7b-beta): [#597](https://github.com/xorbitsai/inference/pull/597)
+- 内置 [chatglm3](https://huggingface.co/THUDM/chatglm3-6b): [#587](https://github.com/xorbitsai/inference/pull/587)
+- 内置 [mistral-v0.1](https://huggingface.co/mistralai/Mistral-7B-v0.1) 与 [mistral-instruct-v0.1](https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.1): [#510](https://github.com/xorbitsai/inference/pull/510)
 ### 集成
 - [Dify](https://docs.dify.ai/advanced/model-configuration/xinference): 一个涵盖了大型语言模型开发、部署、维护和优化的 LLMOps 平台。
 - [Chatbox](https://chatboxai.app/): 一个支持前沿大语言模型的桌面客户端，支持 Windows，Mac，以及 Linux。
-
-
-
 
 ## 主要功能
 🌟 **模型推理，轻而易举**：大语言模型，语音识别模型，多模态模型的部署流程被大大简化。一个命令即可完成模型的部署工作。 
@@ -53,35 +49,65 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 🔌 **开放生态，无缝对接**: 与流行的三方库无缝对接，包括 [LangChain](https://python.langchain.com/docs/integrations/providers/xinference)，[LlamaIndex](https://gpt-index.readthedocs.io/en/stable/examples/llm/XinferenceLocalDeployment.html#i-run-pip-install-xinference-all-in-a-terminal-window)，[Dify](https://docs.dify.ai/advanced/model-configuration/xinference)，以及 [Chatbox](https://chatboxai.app/)。
 
 ## 快速入门
-Xinference 可以通过 pip 从 PyPI 安装。我们非常推荐在安装前创建一个新的虚拟环境以避免依赖冲突。
-
 ### 安装
-```bash
-$ pip install "xinference"
-```
-`xinference` 将会安装所有用于推理的基础依赖。
+Xinference 可以通过 `pip` 从 PyPI 安装。我们非常推荐在安装前创建一个新的虚拟环境以避免依赖冲突。
 
-#### 支持 ggml 推理
-想要利用 ggml 推理，可以用以下命令：
+使用 Xinference 前，您需要安装与模型类型相对应的后端。如果想要推理所有支持的模型，可以安装所有后端：
 ```bash
-$ pip install "xinference[ggml]"
-```
-如果你想要获得更高效的加速，请查看下列依赖的安装文档：
-- [llama-cpp-python](https://github.com/abetlen/llama-cpp-python#installation-from-pypi-recommended) 用于 `baichuan`, `wizardlm-v1.0`, `vicuna-v1.3` 及 `orca`.
-- [chatglm-cpp-python](https://github.com/li-plus/chatglm.cpp#getting-started) 用于 `chatglm` 及 `chatglm2`.
-
-#### 支持 PyTorch 推理
-想要利用 PyTorch 推理，可以使用以下命令：
-```bash
-$ pip install "xinference[pytorch]"
+pip install "xinference[all]"
 ```
 
-#### 支持所有类型
-如果想要支持推理所有支持的模型，可以安装所有的依赖：
+**注意**：推理 GGML 格式的模型前，我们强烈建议**手动安装 GGML 依赖**，以在不同硬件上达到加速效果，请参考 [GGML 后端](#ggml-backend)。
+
+#### Transformers 后端
+Transformers 后端支持绝大多数前沿模型，它是 PyTorch 格式模型的默认后端：
 ```bash
-$ pip install "xinference[all]"
+pip install "xinference[transformers]"
 ```
 
+#### vLLM 后端
+vLLM 后端能够提供高效的推理能力。当满足以下条件时，Xinference 会选择 vLLM 作为后端以达到更好的吞吐量：
+
+- 模型格式为 PyTorch
+- 模型在下面的支持列表中
+- 量化选择 `none`（AWQ 量化将会在近期支持）
+- Linux 系统，并有 CUDA 设备
+
+目前, 支持的模型包括：
+
+- ``llama-2``, ``llama-2-chat``
+- ``baichuan``, ``baichuan-chat``
+- ``internlm``, ``internlm-20b``, ``internlm-chat``, ``internlm-chat-20b``
+- ``vicuna-v1.3``, ``vicuna-v1.5``
+
+```bash
+pip install "xinference[vllm]"
+```
+
+#### GGML 后端
+我们强烈建议**手动安装 GGML 依赖**，以在不同硬件上达到加速效果。
+
+初始安装：
+```bash
+pip install xinference
+pip install ctransformers
+```
+
+根据硬件，选择性安装：
+- 苹果芯片（M1，M2）:
+```bash
+    CMAKE_ARGS="-DLLAMA_METAL=on" pip install llama-cpp-python
+```
+
+- 英伟达 GPU:
+```bash
+    CMAKE_ARGS="-DLLAMA_CUBLAS=on" pip install llama-cpp-python
+```
+
+- AMD GPU:
+```bash
+    CMAKE_ARGS="-DLLAMA_HIPBLAS=on" pip install llama-cpp-python
+```
 
 ### 部署
 你可以一键进行本地部署，或按照下面的步骤将 Xinference 部署在计算集群。 
@@ -89,7 +115,7 @@ $ pip install "xinference[all]"
 #### 本地部署
 运行下面的命令在本地部署 Xinference：
 ```bash
-$ xinference
+$ xinference-local
 ```
 
 #### 分布式部署
