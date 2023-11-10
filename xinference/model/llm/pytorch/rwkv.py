@@ -37,7 +37,7 @@ class RWKVPilePytorchModel(PytorchModel):
             pytorch_model_config=pytorch_model_config,
         )
 
-    def _load_model(self, kwargs: dict):
+    def _load_model(self, **kwargs):
         try:
             from transformers import AutoTokenizer, RwkvForCausalLM
         except ImportError:
