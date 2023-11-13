@@ -33,13 +33,12 @@ Model Spec 2 (pytorch, 14 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 14
-- **Quantizations:** 4-bit, 8-bit, none
+- **Quantizations:** none
 - **Model ID:** Qwen/Qwen-14B-Chat
 
-Execute the following command to launch the model, remember to replace `${quantization}` with your
-chosen quantization method from the options listed above::
+Execute the following command to launch the model::
 
-   xinference launch --model-name qwen-chat --size-in-billions 14 --model-format pytorch --quantization ${quantization}
+   xinference launch --model-name qwen-chat --size-in-billions 14 --model-format pytorch
 
 .. note::
 
