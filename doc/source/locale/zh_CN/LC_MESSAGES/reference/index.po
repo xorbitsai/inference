@@ -21,7 +21,7 @@ msgstr ""
 
 #: ../../source/reference/index.rst:5
 msgid "API Reference"
-msgstr "API 参考"
+msgstr "API 指南"
 
 #: ../../source/reference/index.rst:9
 msgid "Client"
