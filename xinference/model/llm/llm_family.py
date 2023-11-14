@@ -478,7 +478,7 @@ def cache_from_modelscope(
     ):
         return cache_dir
 
-    if llm_spec.model_format == "pytorch":
+    if llm_spec.model_format in ["pytorch", "gptq"]:
         download_dir = retry_download(
             snapshot_download,
             llm_family.model_name,
