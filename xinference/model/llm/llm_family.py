@@ -650,6 +650,11 @@ def match_llm(
             if q.lower() == quant.lower():
                 return quant
 
+    def _apply_format_to_model_id(spec: LLMSpecV1, q: str) -> LLMSpecV1:
+        if "{" in spec.model_id:
+            spec.model_id = spec.model_id.format(quantization=q)
+        return spec
+
     if download_from_modelscope():
         all_families = (
             BUILTIN_MODELSCOPE_LLM_FAMILIES
@@ -674,7 +679,11 @@ def match_llm(
             ):
                 continue
             if quantization:
-                return family, spec, matched_quantization
+                return (
+                    family,
+                    _apply_format_to_model_id(spec, matched_quantization),
+                    matched_quantization,
+                )
             else:
                 # by default, choose the most coarse-grained quantization.
                 # TODO: too hacky.
@@ -691,7 +700,7 @@ def match_llm(
                             q,
                         )
                         continue
-                    return family, spec, q
+                    return family, _apply_format_to_model_id(spec, q), q
     return None
 
 
