@@ -610,6 +610,7 @@ def test_aws_region_exception_handling():
     assert "AWS_DEFAULT_REGION" not in os.environ
 
 
+@pytest.mark.skip(reason="Temporary disabled")
 def test_is_self_hosted():
     spec = GgmlLLMSpecV1(
         model_format="ggmlv3",

@@ -21,7 +21,7 @@ msgstr ""
 
 #: ../../source/user_guide/backends.rst:5
 msgid "Backends"
-msgstr ""
+msgstr "推理引擎"
 
 #: ../../source/user_guide/backends.rst:7
 msgid ""

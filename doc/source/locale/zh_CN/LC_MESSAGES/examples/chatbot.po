@@ -21,7 +21,7 @@ msgstr ""
 
 #: ../../source/examples/chatbot.rst:5
 msgid "Example: CLI chatbot 🤖️"
-msgstr ""
+msgstr "示例：命令行聊天机器人 🤖️"
 
 #: ../../source/examples/chatbot.rst:7
 msgid "**Description**:"

@@ -21,7 +21,7 @@ msgstr ""
 
 #: ../../source/getting_started/installation.rst:5
 msgid "Installation"
-msgstr ""
+msgstr "安装"
 
 #: ../../source/getting_started/installation.rst:6
 msgid ""

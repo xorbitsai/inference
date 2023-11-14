@@ -21,7 +21,7 @@ msgstr ""
 
 #: ../../source/getting_started/using_xinference.rst:5
 msgid "Using Xinference"
-msgstr ""
+msgstr "使用"
 
 #: ../../source/getting_started/using_xinference.rst:8
 msgid "Configure Xinference Home Path"
