@@ -21,5 +21,5 @@ msgstr ""
 
 #: ../../source/models/index.rst:5
 msgid "Models"
-msgstr ""
+msgstr "模型"
 

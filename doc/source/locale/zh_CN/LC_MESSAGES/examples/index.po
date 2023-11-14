@@ -21,7 +21,7 @@ msgstr ""
 
 #: ../../source/examples/index.rst:5 ../../source/examples/index.rst:19
 msgid "Examples"
-msgstr ""
+msgstr "示例"
 
 #: ../../source/examples/index.rst:16
 msgid ""
