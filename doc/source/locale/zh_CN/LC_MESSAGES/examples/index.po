@@ -122,23 +122,3 @@ msgid ""
 "`LlamaIndex Xinference LLM "
 "<https://docs.llamaindex.ai/en/stable/api_reference/llms/xinference.html>`_"
 msgstr ""
-
-#~ msgid ""
-#~ "`Using Xinference local LLMs within "
-#~ "LlamaIndex <https://gpt-"
-#~ "index.readthedocs.io/en/stable/examples/llm/XinferenceLocalDeployment.html>`_"
-#~ msgstr ""
-
-#~ msgid ""
-#~ "`[Chinese] 如何让 Chatbox 接入开源"
-#~ "大模型，实现免费聊天 <https://"
-#~ "twitter.com/benn_huang/status/"
-#~ "1701420060240490785>`_"
-#~ msgstr ""
-
-#~ msgid ""
-#~ "`[Chinese] 使用全套开源工具构建 LLM"
-#~ " 应用实战 <https://mp.weixin.qq"
-#~ ".com/s/regqYkF0cNDQIdOkOeyeXQ>`_"
-#~ msgstr ""
-
