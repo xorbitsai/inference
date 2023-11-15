@@ -605,6 +605,23 @@ class RESTfulChatglmCppGenerateModelHandle(RESTfulChatglmCppChatModelHandle):
 class Client:
     def __init__(self, base_url):
         self.base_url = base_url
+        self._access_token = None
+
+    def login(self, username: str, password: str):
+        url = f"{self.base_url}/token"
+
+        payload = {"username": username, "password": password}
+
+        response = requests.post(url, data=payload)
+        # TODO handle login failed
+        if response.status_code != 200:
+            raise RuntimeError(f"Failed to login, detail: {response.json()['detail']}")
+
+        response_data = response.json()
+        # Only bearer token for now
+        access_token = response_data["access_token"]
+        self._access_token = access_token
+        return response_data
 
     def list_models(self) -> Dict[str, Dict[str, Any]]:
         """
@@ -619,7 +636,11 @@ class Client:
 
         url = f"{self.base_url}/v1/models"
 
-        response = requests.get(url)
+        headers = {
+            "Authorization": f"Bearer {self._access_token}",
+        }
+
+        response = requests.get(url, headers=headers)
         if response.status_code != 200:
             raise RuntimeError(
                 f"Failed to list model, detail: {_get_error_string(response)}"

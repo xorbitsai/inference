@@ -21,12 +21,14 @@ import os
 import pprint
 import sys
 import warnings
-from typing import Any, List, Optional, Union
+from datetime import timedelta
+from typing import Any, Dict, List, Literal, Optional, Union
 
 import gradio as gr
 import xoscar as xo
 from fastapi import (
     APIRouter,
+    Depends,
     FastAPI,
     File,
     Form,
@@ -35,8 +37,11 @@ from fastapi import (
     Request,
     Response,
     UploadFile,
+    status,
 )
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.staticfiles import StaticFiles
 from PIL import Image
 from pydantic import BaseModel, Field
@@ -57,6 +62,11 @@ from ..types import (
     CreateCompletion,
     ImageList,
 )
+
+from ..types import ChatCompletion, Completion, CreateCompletion, Embedding, ImageList
+from .oauth2.common import ACCESS_TOKEN_EXPIRE_MINUTES
+from .oauth2.core import OAuth2Middleware, Token, User, fake_users_db, get_user
+from .oauth2.utils import create_access_token, verify_password
 
 logger = logging.getLogger(__name__)
 
@@ -125,6 +135,15 @@ class BuildGradioInterfaceRequest(BaseModel):
     model_lang: List[str]
 
 
+def authenticate_user(fake_db, username: str, password: str):
+    user = get_user(fake_db, username)
+    if not user:
+        return False
+    if not verify_password(password, user.hashed_password):
+        return False
+    return user
+
+
 class RESTfulAPI:
     def __init__(self, supervisor_address: str, host: str, port: int):
         super().__init__()
@@ -147,13 +166,36 @@ class RESTfulAPI:
             )
         return self._supervisor_ref
 
+    @staticmethod
+    async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
+        user = authenticate_user(fake_users_db, form_data.username, form_data.password)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect username or password",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        assert user is not None and isinstance(user, User)
+        access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        access_token = create_access_token(
+            data={"sub": user.username}, expires_delta=access_token_expires
+        )
+        return {"access_token": access_token, "token_type": "bearer"}
+
     def serve(self, logging_conf: Optional[dict] = None):
+        self._app.add_middleware(OAuth2Middleware)
         self._app.add_middleware(
             CORSMiddleware,
             allow_origins=["*"],
             allow_credentials=True,
             allow_methods=["*"],
             allow_headers=["*"],
+        )
+        self._router.add_api_route(
+            "/token",
+            self.login_for_access_token,
+            methods=["POST"],
+            response_model=Token,
         )
         self._router.add_api_route("/status", self.get_status, methods=["GET"])
         self._router.add_api_route("/v1/models", self.list_models, methods=["GET"])
