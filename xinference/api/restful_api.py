@@ -31,6 +31,7 @@ from fastapi import (
     HTTPException,
     Query,
     Request,
+    Response,
     UploadFile,
 )
 from fastapi.middleware.cors import CORSMiddleware
@@ -213,7 +214,6 @@ class RESTfulAPI:
             "/v1/embeddings",
             self.create_embedding,
             methods=["POST"],
-            response_model=Embedding,
         )
         self._router.add_api_route(
             "/v1/images/generations",
@@ -572,7 +572,7 @@ class RESTfulAPI:
 
         try:
             embedding = await model.create_embedding(request.input)
-            return embedding
+            return Response(embedding, media_type="application/json")
         except RuntimeError as re:
             logger.error(re, exc_info=True)
             self.handle_request_limit_error(re)

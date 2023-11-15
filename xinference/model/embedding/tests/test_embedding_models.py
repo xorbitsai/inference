@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import os
 import shutil
 
@@ -55,6 +56,7 @@ def test_model():
         input_text = "what is the capital of China?"
         model.load()
         r = model.create_embedding(input_text)
+        r = json.loads(r)
         assert len(r["data"]) == 1
         for d in r["data"]:
             assert len(d["embedding"]) == 384
@@ -68,6 +70,7 @@ def test_model():
         ]
         model.load()
         r = model.create_embedding(input_texts)
+        r = json.loads(r)
         assert len(r["data"]) == 4
         for d in r["data"]:
             assert len(d["embedding"]) == 384
@@ -83,6 +86,7 @@ def test_model_from_modelscope():
     input_text = "乱条犹未变初黄，倚得东风势便狂。解把飞花蒙日月，不知天地有清霜。"
     model.load()
     r = model.create_embedding(input_text)
+    r = json.loads(r)
     assert len(r["data"]) == 1
     for d in r["data"]:
         assert len(d["embedding"]) == 512
@@ -106,6 +110,7 @@ def test_meta_file():
         input_text = "I can do this all day."
         model.load()
         r = model.create_embedding(input_text)
+        r = json.loads(r)
         assert len(r["data"]) == 1
         for d in r["data"]:
             assert len(d["embedding"]) == 384
