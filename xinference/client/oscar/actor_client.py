@@ -33,7 +33,6 @@ if TYPE_CHECKING:
         ChatglmCppGenerateConfig,
         Completion,
         CompletionChunk,
-        Embedding,
         ImageList,
         LlamaCppGenerateConfig,
         PytorchGenerateConfig,
