@@ -61,6 +61,17 @@ allowing the seamless distribution of model inference across multiple devices or
 🔌 **Built-in Integration with Third-Party Libraries**: Xorbits Inference seamlessly integrates
 with popular third-party libraries including [LangChain](https://python.langchain.com/docs/integrations/providers/xinference), [LlamaIndex](https://gpt-index.readthedocs.io/en/stable/examples/llm/XinferenceLocalDeployment.html#i-run-pip-install-xinference-all-in-a-terminal-window), [Dify](https://docs.dify.ai/advanced/model-configuration/xinference), and [Chatbox](https://chatboxai.app/).
 
+## Why Xinference
+| Feature | Xinference | FastChat | OpenLLM | RayLLM |
+|---------|------------|----------|---------|--------|
+| OpenAI-Compatible Restful API | ✅ | ✅ | ✅ | ✅ |
+| vLLM Integrations | ✅ | ✅ | ✅ | ✅ |
+| More Inference Engines (GGML, TensorRT) | ✅ | ❌ | ✅ | ✅ |
+| More Platforms (CPU, Metal) | ✅ | ✅ | ❌ | ❌ |
+| Multi-node Cluster Deployment | ✅ | ❌ | ❌ | ✅ |
+| Multimodal Models (Text-to-Image) | ✅ | ✅ | ❌ | ❌ |
+| Text Embedding Models | ✅ | ❌ | ❌ | ❌ |
+
 ## Getting Started
 ### Installation
 Xinference can be installed with `pip` on Linux, Windows, and macOS. It is highly recommended to create a new virtual environment to avoid conflicts.
