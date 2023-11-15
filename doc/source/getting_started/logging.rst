@@ -29,7 +29,7 @@ The name of the subdirectory corresponds to the Xinference cluster startup time 
 
 Local deployment
 ================
-In a local deployment, the logs of Xinference supervisor and Xorbits workers are combined into a single file. An example of the log directory structure is shown below::
+In a local deployment, the logs of Xinference supervisor and Xinference workers are combined into a single file. An example of the log directory structure is shown below::
 
     <XINFERENCE_HOME>/logs
         └── local_1699503558105

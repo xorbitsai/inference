@@ -8,34 +8,34 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-11-16 11:20+0800\n"
+"POT-Creation-Date: 2023-11-15 19:32+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
-"Language: zh_CN\n"
-"Language-Team: zh_CN <LL@li.org>\n"
-"Plural-Forms: nplurals=1; plural=0;\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Generated-By: Babel 2.12.1\n"
+"Generated-By: Babel 2.11.0\n"
 
 #: ../../source/getting_started/logging.rst:5
 msgid "Logging in Xinference"
-msgstr ""
+msgstr "日志"
 
 #: ../../source/getting_started/logging.rst:8
 msgid "Configure Log Level"
-msgstr ""
+msgstr "日志等级"
 
 #: ../../source/getting_started/logging.rst:9
 msgid ""
 "You can configure the log level with the ``--log-level`` option. For "
 "example, starting a local cluster with ``DEBUG`` log level:"
 msgstr ""
+"你可以通过 ``--log-level`` 选项来配置 Xinference 集群的日志等级。例如，以"
+" ``DEBUG`` 日志等级启动 Xinference 本地集群："
 
 #: ../../source/getting_started/logging.rst:18
 msgid "Log Files"
-msgstr ""
+msgstr "日志文件"
 
 #: ../../source/getting_started/logging.rst:19
 msgid ""
@@ -44,10 +44,13 @@ msgid ""
 " are kept. Note that the log level configured above takes effect in both "
 "the command line logs and the log files."
 msgstr ""
+"Xinference 支持滚动日志文件。默认情况下，当单个日志文件达到 100MB 时会"
+"生成新的日志备份文件，系统会保留最近的30份日志备份。上述配置日志等级的"
+"方式会同时影响命令行日志和日志文件。"
 
 #: ../../source/getting_started/logging.rst:24
 msgid "Log Directory Structure"
-msgstr ""
+msgstr "日志目录结构"
 
 #: ../../source/getting_started/logging.rst:25
 msgid ""
@@ -55,6 +58,8 @@ msgid ""
 "where ``<XINFERENCE_HOME>`` can be configured as mentioned in "
 ":ref:`using_xinference`."
 msgstr ""
+"首先，所有的日志存储在 ``<XINFERENCE_HOME>/logs`` 目录中，其中 ``<"
+"XINFERENCE_HOME>`` 的配置方式请参考 :ref:`using_xinference` 。"
 
 #: ../../source/getting_started/logging.rst:27
 msgid ""
@@ -62,17 +67,21 @@ msgid ""
 "``<XINFERENCE_HOME>/logs``. The name of the subdirectory corresponds to "
 "the Xinference cluster startup time in milliseconds."
 msgstr ""
+"其次，Xinference 在日志目录 ``<XINFERENCE_HOME>/logs`` 下创建一个子目录。"
+"子目录的名称对应于 Xinference 集群启动的时间（以毫秒为单位）。"
 
 #: ../../source/getting_started/logging.rst:31
 msgid "Local deployment"
-msgstr ""
+msgstr "本地部署"
 
 #: ../../source/getting_started/logging.rst:32
 msgid ""
-"In a local deployment, the logs of Xinference supervisor and Xorbits "
+"In a local deployment, the logs of Xinference supervisor and Xinference "
 "workers are combined into a single file. An example of the log directory "
 "structure is shown below::"
 msgstr ""
+"在本地部署中，Xinference supervisor 和 Xinference workers 的日志被合并到"
+"一个文件中。日志目录结构如下所示："
 
 #: ../../source/getting_started/logging.rst:38
 msgid ""
@@ -80,10 +89,12 @@ msgid ""
 "created. Therefore, when you create a cluster locally multiple times, you"
 " can look for the corresponding logs based on this timestamp."
 msgstr ""
+"其中，``1699503558105`` 是 Xinference 集群创建时的时间戳。因此，当你在"
+"本地多次创建集群时，可以根据此时间戳查找相应的日志。"
 
 #: ../../source/getting_started/logging.rst:42
 msgid "Distributed deployment"
-msgstr ""
+msgstr "分布式部署"
 
 #: ../../source/getting_started/logging.rst:43
 msgid ""
@@ -93,4 +104,7 @@ msgid ""
 "time in milliseconds. An example of the log directory structure is shown "
 "below::"
 msgstr ""
+"在分布式部署中，Xinference supervisor 和 Xinference workers 分别在日志"
+"目录下创建自己的子目录。子目录的名称以集群角色名称开头，然后是启动时间（"
+"以毫秒为单位）。如下所示："
 

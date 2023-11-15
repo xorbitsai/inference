@@ -21,11 +21,11 @@ msgstr ""
 
 #: ../../source/models/sources/sources.rst:5
 msgid "Download Sources"
-msgstr ""
+msgstr "模型来源"
 
 #: ../../source/models/sources/sources.rst:7
 msgid "Xinference supports downloading various models from different sources."
-msgstr ""
+msgstr "Xinference 支持从不同的来源下载各种模型。"
 
 #: ../../source/models/sources/sources.rst:10
 msgid "HuggingFace"
@@ -37,6 +37,7 @@ msgid ""
 "`Hugging Face model repository <https://huggingface.co/models>`_ by "
 "default."
 msgstr ""
+"Xinference 默认直接从 `Hugging Face 官方模型仓库 <https://huggingface.co/models>`_ 下载所需的模型。"
 
 #: ../../source/models/sources/sources.rst:14
 msgid "ModelScope"
@@ -46,11 +47,11 @@ msgstr ""
 msgid ""
 "Users can choose to download models from the `ModelScope model repository"
 " <https://modelscope.cn/models>`_."
-msgstr ""
+msgstr "用户可以选择从 `ModelScope 模型仓库 <https://modelscope.cn/models>`_ 下载模型。"
 
 #: ../../source/models/sources/sources.rst:17
 msgid "Xinference supports downloading the following models from ModelScope:"
-msgstr ""
+msgstr "Xinference 支持从 ModelScope 下载以下模型："
 
 #: ../../source/models/sources/sources.rst:41
 msgid "LLM Models"
@@ -226,3 +227,38 @@ msgstr ""
 msgid "Set the environment variable ``XINFERENCE_MODEL_SRC=modelscope``."
 msgstr ""
 
+#: ../../source/models/sources/sources.rst:55
+msgid "bge-base-zh-v1.5"
+msgstr ""
+
+#: ../../source/models/sources/sources.rst:56
+msgid "bge-large-zh-v1.5"
+msgstr ""
+
+#: ../../source/models/sources/sources.rst:57
+msgid "bge-small-en-v1.5"
+msgstr ""
+
+#: ../../source/models/sources/sources.rst:58
+msgid "bge-base-en-v1.5"
+msgstr ""
+
+#: ../../source/models/sources/sources.rst:59
+msgid "bge-large-en-v1.5"
+msgstr ""
+
+#: ../../source/models/sources/sources.rst:62
+msgid ""
+"One of the following settings will make Xinference download models from "
+"ModelScope:"
+msgstr "以下设置之一将使 Xinference 从 ModelScope 下载模型："
+
+#: ../../source/models/sources/sources.rst:64
+msgid "The operating system's language is set to Simplified Chinese (zh_CN)."
+msgstr ""
+"操作系统的语言设置为简体中文（zh_CN）。"
+
+#: ../../source/models/sources/sources.rst:65
+msgid "Set the environment variable ``XINFERENCE_MODEL_SRC=modelscope``."
+msgstr ""
+"设置环境变量 ``XINFERENCE_MODEL_SRC=modelscope``。"
