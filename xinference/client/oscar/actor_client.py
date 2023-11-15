@@ -52,7 +52,7 @@ class ModelHandle:
 
 
 class EmbeddingModelHandle(ModelHandle):
-    def create_embedding(self, input: Union[str, List[str]]) -> "Embedding":
+    def create_embedding(self, input: Union[str, List[str]]) -> bytes:
         """
         Creates an embedding vector representing the input text.
 
@@ -64,9 +64,9 @@ class EmbeddingModelHandle(ModelHandle):
 
         Returns
         -------
-        Embedding
-            The resulted Embedding vector that can be easily consumed by machine learning models and algorithms.
-
+        bytes
+            A json bytes of Embedding. The resulted Embedding vector that can be easily consumed by
+            machine learning models and algorithms.
         """
 
         coro = self._model_ref.create_embedding(input)
