@@ -13,10 +13,12 @@
 # limitations under the License.
 
 import asyncio
+import inspect
 import json
 import logging
 import multiprocessing
 import os
+import pprint
 import sys
 import warnings
 from typing import Any, Dict, List, Literal, Optional, Union
@@ -35,7 +37,6 @@ from fastapi import (
     UploadFile,
 )
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from PIL import Image
 from pydantic import BaseModel, Field
@@ -47,6 +48,7 @@ from xoscar.utils import get_next_port
 
 from ..constants import XINFERENCE_DEFAULT_ENDPOINT_PORT
 from ..core.supervisor import SupervisorActor
+from ..core.utils import json_dumps
 from ..fields import (
     frequency_penalty_field,
     max_tokens_field,
@@ -61,9 +63,26 @@ from ..fields import (
     top_k_field,
     top_p_field,
 )
-from ..types import ChatCompletion, Completion, CreateCompletion, Embedding, ImageList
+from ..types import ChatCompletion, Completion, CreateCompletion, ImageList
 
 logger = logging.getLogger(__name__)
+
+
+class JSONResponse(Response):
+    media_type = "application/json"
+
+    def __init__(
+        self,
+        content: Any,
+        status_code: int = 200,
+        headers: Optional[Dict[str, str]] = None,
+        media_type: Optional[str] = None,
+        **kwargs,
+    ) -> None:
+        super().__init__(content, status_code, headers, media_type, **kwargs)
+
+    def render(self, content: Any) -> bytes:
+        return json_dumps(content)
 
 
 class CreateCompletionRequest(CreateCompletion):
@@ -262,6 +281,27 @@ class RESTfulAPI:
 
         self._app.include_router(self._router)
 
+        # Check all the routes returns Response.
+        # This is to avoid `jsonable_encoder` performance issue:
+        # https://github.com/xorbitsai/inference/issues/647
+        invalid_routes = []
+        try:
+            for router in self._router.routes:
+                return_annotation = router.endpoint.__annotations__.get("return")
+                if not inspect.isclass(return_annotation) or not issubclass(
+                    return_annotation, Response
+                ):
+                    invalid_routes.append(
+                        (router.path, router.endpoint, return_annotation)
+                    )
+        except Exception:
+            pass  # In case that some Python version does not have __annotations__
+        if invalid_routes:
+            raise Exception(
+                f"The return value type of the following routes is not Response:\n"
+                f"{pprint.pformat(invalid_routes)}"
+            )
+
         class SPAStaticFiles(StaticFiles):
             async def get_response(self, path: str, scope):
                 response = await super().get_response(path, scope)
@@ -303,24 +343,26 @@ class RESTfulAPI:
         server = Server(config)
         server.run()
 
-    async def get_status(self) -> Dict[str, Any]:
+    async def get_status(self) -> JSONResponse:
         try:
-            return await (await self._get_supervisor_ref()).get_status()
+            data = await (await self._get_supervisor_ref()).get_status()
+            return JSONResponse(content=data)
         except Exception as e:
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
 
-    async def list_models(self) -> Dict[str, Dict[str, Any]]:
+    async def list_models(self) -> JSONResponse:
         try:
-            return await (await self._get_supervisor_ref()).list_models()
+            data = await (await self._get_supervisor_ref()).list_models()
+            return JSONResponse(content=data)
         except Exception as e:
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
 
-    async def describe_model(self, model_uid: str) -> Dict[str, Any]:
+    async def describe_model(self, model_uid: str) -> JSONResponse:
         try:
-            return await (await self._get_supervisor_ref()).describe_model(model_uid)
-
+            data = await (await self._get_supervisor_ref()).describe_model(model_uid)
+            return JSONResponse(content=data)
         except ValueError as ve:
             logger.error(str(ve), exc_info=True)
             raise HTTPException(status_code=400, detail=str(ve))
@@ -432,7 +474,7 @@ class RESTfulAPI:
 
     async def build_gradio_interface(
         self, model_uid: str, body: BuildGradioInterfaceRequest
-    ):
+    ) -> JSONResponse:
         """
         Separate build_interface with launch_model
         build_interface requires RESTful Client for API calls
@@ -480,7 +522,7 @@ class RESTfulAPI:
 
         return JSONResponse(content={"model_uid": model_uid})
 
-    async def terminate_model(self, model_uid: str):
+    async def terminate_model(self, model_uid: str) -> JSONResponse:
         try:
             assert self._app is not None
             await (await self._get_supervisor_ref()).terminate_model(model_uid)
@@ -496,15 +538,17 @@ class RESTfulAPI:
         except ValueError as ve:
             logger.error(str(ve), exc_info=True)
             raise HTTPException(status_code=400, detail=str(ve))
-
         except Exception as e:
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
+        return JSONResponse(content=None)
 
-    async def get_address(self):
-        return self._supervisor_address
+    async def get_address(self) -> JSONResponse:
+        return JSONResponse(content=self._supervisor_address)
 
-    async def create_completion(self, request: Request, body: CreateCompletionRequest):
+    async def create_completion(
+        self, request: Request, body: CreateCompletionRequest
+    ) -> Response:
         exclude = {
             "prompt",
             "model",
@@ -552,13 +596,14 @@ class RESTfulAPI:
             return EventSourceResponse(stream_results())
         else:
             try:
-                return await model.generate(body.prompt, kwargs)
+                data = await model.generate(body.prompt, kwargs)
+                return JSONResponse(content=data)
             except Exception as e:
                 logger.error(e, exc_info=True)
                 self.handle_request_limit_error(e)
                 raise HTTPException(status_code=500, detail=str(e))
 
-    async def create_embedding(self, request: CreateEmbeddingRequest):
+    async def create_embedding(self, request: CreateEmbeddingRequest) -> Response:
         model_uid = request.model
 
         try:
@@ -581,7 +626,7 @@ class RESTfulAPI:
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
 
-    async def create_images(self, request: TextToImageRequest):
+    async def create_images(self, request: TextToImageRequest) -> JSONResponse:
         model_uid = request.model
         try:
             model = await (await self._get_supervisor_ref()).get_model(model_uid)
@@ -596,7 +641,7 @@ class RESTfulAPI:
             image_list = await model.text_to_image(
                 request.prompt, request.n, request.size, request.response_format
             )
-            return image_list
+            return JSONResponse(content=image_list)
         except RuntimeError as re:
             logger.error(re, exc_info=True)
             self.handle_request_limit_error(re)
@@ -615,7 +660,7 @@ class RESTfulAPI:
         response_format: Optional[str] = Form("url"),
         size: Optional[str] = Form("1024*1024"),
         kwargs: Optional[str] = Form(None),
-    ):
+    ) -> JSONResponse:
         model_uid = model
         try:
             model_ref = await (await self._get_supervisor_ref()).get_model(model_uid)
@@ -638,7 +683,7 @@ class RESTfulAPI:
                 response_format=response_format,
                 **kwargs,
             )
-            return image_list
+            return JSONResponse(content=image_list)
         except RuntimeError as re:
             logger.error(re, exc_info=True)
             raise HTTPException(status_code=400, detail=str(re))
@@ -650,7 +695,7 @@ class RESTfulAPI:
         self,
         request: Request,
         body: CreateChatCompletionRequest,
-    ):
+    ) -> Response:
         exclude = {
             "prompt",
             "model",
@@ -700,7 +745,6 @@ class RESTfulAPI:
 
         try:
             model = await (await self._get_supervisor_ref()).get_model(model_uid)
-
         except ValueError as ve:
             logger.error(str(ve), exc_info=True)
             raise HTTPException(status_code=400, detail=str(ve))
@@ -710,11 +754,9 @@ class RESTfulAPI:
 
         try:
             desc = await (await self._get_supervisor_ref()).describe_model(model_uid)
-
         except ValueError as ve:
             logger.error(str(ve), exc_info=True)
             raise HTTPException(status_code=400, detail=str(ve))
-
         except Exception as e:
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
@@ -755,15 +797,18 @@ class RESTfulAPI:
         else:
             try:
                 if is_chatglm_ggml:
-                    return await model.chat(prompt, chat_history, kwargs)
+                    data = await model.chat(prompt, chat_history, kwargs)
                 else:
-                    return await model.chat(prompt, system_prompt, chat_history, kwargs)
+                    data = await model.chat(prompt, system_prompt, chat_history, kwargs)
+                return JSONResponse(content=data)
             except Exception as e:
                 logger.error(e, exc_info=True)
                 self.handle_request_limit_error(e)
                 raise HTTPException(status_code=500, detail=str(e))
 
-    async def register_model(self, model_type: str, request: RegisterModelRequest):
+    async def register_model(
+        self, model_type: str, request: RegisterModelRequest
+    ) -> JSONResponse:
         model = request.model
         persist = request.persist
 
@@ -777,8 +822,9 @@ class RESTfulAPI:
         except Exception as e:
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
+        return JSONResponse(content=None)
 
-    async def unregister_model(self, model_type: str, model_name: str):
+    async def unregister_model(self, model_type: str, model_name: str) -> JSONResponse:
         try:
             await (await self._get_supervisor_ref()).unregister_model(
                 model_type, model_name
@@ -789,14 +835,16 @@ class RESTfulAPI:
         except Exception as e:
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
+        return JSONResponse(content=None)
 
     async def list_model_registrations(
         self, model_type: str, detailed: bool = Query(False)
-    ) -> List[Dict[str, Any]]:
+    ) -> JSONResponse:
         try:
-            return await (await self._get_supervisor_ref()).list_model_registrations(
+            data = await (await self._get_supervisor_ref()).list_model_registrations(
                 model_type, detailed=detailed
             )
+            return JSONResponse(content=data)
         except ValueError as re:
             logger.error(re, exc_info=True)
             raise HTTPException(status_code=400, detail=str(re))
@@ -806,11 +854,12 @@ class RESTfulAPI:
 
     async def get_model_registrations(
         self, model_type: str, model_name: str
-    ) -> Dict[str, Any]:
+    ) -> JSONResponse:
         try:
-            return await (await self._get_supervisor_ref()).get_model_registration(
+            data = await (await self._get_supervisor_ref()).get_model_registration(
                 model_type, model_name
             )
+            return JSONResponse(content=data)
         except ValueError as re:
             logger.error(re, exc_info=True)
             raise HTTPException(status_code=400, detail=str(re))

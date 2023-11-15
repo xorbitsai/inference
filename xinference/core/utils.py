@@ -14,6 +14,9 @@
 
 from typing import Generator, Tuple
 
+import orjson
+from pydantic import BaseModel
+
 
 def log_async(logger):
     import time
@@ -91,3 +94,12 @@ def is_valid_model_uid(model_uid: str) -> bool:
     import re
 
     return re.match(r"^[A-Za-z0-9][A-Za-z0-9_\-]*$", model_uid) is not None
+
+
+def json_dumps(o):
+    def _default(obj):
+        if isinstance(obj, BaseModel):
+            return obj.dict()
+        raise TypeError
+
+    return orjson.dumps(o, default=_default)

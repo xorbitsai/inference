@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import json
+
 import logging
 import os
 from typing import List, Optional, Tuple, Union, no_type_check
@@ -290,13 +290,11 @@ class EmbeddingModel:
         usage = EmbeddingUsage(
             prompt_tokens=all_token_nums, total_tokens=all_token_nums
         )
-        return json.dumps(
-            Embedding(
-                object="list",
-                model=self._model_uid,
-                data=embedding_list,
-                usage=usage,
-            )
+        return Embedding(
+            object="list",
+            model=self._model_uid,
+            data=embedding_list,
+            usage=usage,
         )
 
 

@@ -40,7 +40,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-from .utils import log_async
+from .utils import json_dumps, log_async
 
 T = TypeVar("T")
 
@@ -192,6 +192,10 @@ class ModelActor(xo.StatelessActor):
             return ret
 
     async def _call_wrapper(self, _wrapper: Callable):
+        assert not (
+            inspect.iscoroutinefunction(_wrapper)
+            or inspect.isasyncgenfunction(_wrapper)
+        )
         if self._lock is None:
             return await asyncio.to_thread(_wrapper)
         else:
@@ -255,8 +259,9 @@ class ModelActor(xo.StatelessActor):
                 f"Model {self._model.model_spec} is not for creating embedding."
             )
 
-        async def _wrapper():
-            return getattr(self._model, "create_embedding")(input, *args, **kwargs)
+        def _wrapper():
+            data = getattr(self._model, "create_embedding")(input, *args, **kwargs)
+            return json_dumps(data)
 
         return await self._call_wrapper(_wrapper)
 
@@ -276,7 +281,7 @@ class ModelActor(xo.StatelessActor):
                 f"Model {self._model.model_spec} is not for creating image."
             )
 
-        async def _wrapper():
+        def _wrapper():
             return getattr(self._model, "text_to_image")(
                 prompt, n, size, response_format, *args, **kwargs
             )
@@ -299,7 +304,7 @@ class ModelActor(xo.StatelessActor):
                 f"Model {self._model.model_spec} is not for creating image."
             )
 
-        async def _wrapper():
+        def _wrapper():
             return getattr(self._model, "image_to_image")(
                 image,
                 prompt,
