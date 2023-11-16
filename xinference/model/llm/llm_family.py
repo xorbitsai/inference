@@ -48,7 +48,7 @@ class GgmlLLMSpecV1(BaseModel):
 
 
 class PytorchLLMSpecV1(BaseModel):
-    model_format: Literal["pytorch"]
+    model_format: Literal["pytorch", "gptq"]
     model_size_in_billions: int
     quantizations: List[str]
     model_id: str
@@ -392,7 +392,7 @@ def _get_meta_path(
             return os.path.join(cache_dir, "__valid_download")
         else:
             return os.path.join(cache_dir, f"__valid_download_{model_hub}")
-    elif model_format in ["ggmlv3", "ggufv2"]:
+    elif model_format in ["ggmlv3", "ggufv2", "gptq"]:
         assert quantization is not None
         if model_hub == "huggingface":
             return os.path.join(cache_dir, f"__valid_download_{quantization}")
@@ -430,7 +430,7 @@ def _skip_download(
                     logger.warning(f"Cache {cache_dir} exists, but it was from {hub}")
                     return True
             return False
-    elif model_format in ["ggmlv3", "ggufv2"]:
+    elif model_format in ["ggmlv3", "ggufv2", "gptq"]:
         assert quantization is not None
         return os.path.exists(
             _get_meta_path(cache_dir, model_format, model_hub, quantization)
@@ -478,7 +478,7 @@ def cache_from_modelscope(
     ):
         return cache_dir
 
-    if llm_spec.model_format == "pytorch":
+    if llm_spec.model_format in ["pytorch", "gptq"]:
         download_dir = retry_download(
             snapshot_download,
             llm_family.model_name,
@@ -539,7 +539,7 @@ def cache_from_huggingface(
     ):
         return cache_dir
 
-    if llm_spec.model_format == "pytorch":
+    if llm_spec.model_format in ["pytorch", "gptq"]:
         assert isinstance(llm_spec, PytorchLLMSpecV1)
         retry_download(
             huggingface_hub.snapshot_download,
@@ -594,7 +594,7 @@ def get_cache_status(
             llm_spec.model_revision,
             "none",
         )
-    elif llm_spec.model_format in ["ggmlv3", "ggufv2"]:
+    elif llm_spec.model_format in ["ggmlv3", "ggufv2", "gptq"]:
         ret = []
         for q in llm_spec.quantizations:
             ret.append(
@@ -650,6 +650,13 @@ def match_llm(
             if q.lower() == quant.lower():
                 return quant
 
+    def _apply_format_to_model_id(spec: LLMSpecV1, q: str) -> LLMSpecV1:
+        # Different quantized versions of some models use different model ids,
+        # Here we check the `{}` in the model id to format the id.
+        if "{" in spec.model_id:
+            spec.model_id = spec.model_id.format(quantization=q)
+        return spec
+
     if download_from_modelscope():
         all_families = (
             BUILTIN_MODELSCOPE_LLM_FAMILIES
@@ -674,7 +681,11 @@ def match_llm(
             ):
                 continue
             if quantization:
-                return family, spec, matched_quantization
+                return (
+                    family,
+                    _apply_format_to_model_id(spec, matched_quantization),
+                    matched_quantization,
+                )
             else:
                 # by default, choose the most coarse-grained quantization.
                 # TODO: too hacky.
@@ -691,7 +702,7 @@ def match_llm(
                             q,
                         )
                         continue
-                    return family, spec, q
+                    return family, _apply_format_to_model_id(spec, q), q
     return None
 
 

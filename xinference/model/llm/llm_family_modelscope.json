@@ -1206,7 +1206,7 @@
         ],
         "model_hub": "modelscope",
         "model_id": "qwen/Qwen-7B-Chat",
-        "model_revision": "v1.1.6"
+        "model_revision": "v1.1.7"
       },
       {
         "model_format": "pytorch",
@@ -1215,6 +1215,28 @@
           "none"
         ],
         "model_id": "qwen/Qwen-14B-Chat",
+        "model_hub": "modelscope",
+        "model_revision": "v1.0.7"
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "Int4",
+          "Int8"
+        ],
+        "model_id": "qwen/Qwen-7B-Chat-{quantization}",
+        "model_hub": "modelscope",
+        "model_revision": "v1.1.7"
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 14,
+        "quantizations": [
+          "Int4",
+          "Int8"
+        ],
+        "model_id": "qwen/Qwen-14B-Chat-{quantization}",
         "model_hub": "modelscope",
         "model_revision": "v1.0.7"
       }

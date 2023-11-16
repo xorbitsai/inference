@@ -140,8 +140,8 @@ class PytorchModel(LLM):
         kwargs["trust_remote_code"] = self._pytorch_model_config.get(
             "trust_remote_code"
         )
-
-        if quantization != "none":
+        model_format = self.model_spec.model_format
+        if quantization != "none" and model_format == "pytorch":
             if self._device == "cuda" and self._is_linux():
                 kwargs["device_map"] = "auto"
                 if quantization == "4-bit":
@@ -216,7 +216,7 @@ class PytorchModel(LLM):
     def match(
         cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
-        if llm_spec.model_format != "pytorch":
+        if llm_spec.model_format not in ["pytorch", "gptq"]:
             return False
         if llm_family.model_name in [
             "baichuan-chat",
@@ -452,7 +452,7 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
     def match(
         cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
-        if llm_spec.model_format != "pytorch":
+        if llm_spec.model_format not in ["pytorch", "gptq"]:
             return False
         if llm_family.model_name in [
             "baichuan-chat",
