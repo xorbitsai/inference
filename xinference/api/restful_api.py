@@ -41,7 +41,8 @@ from fastapi.staticfiles import StaticFiles
 from PIL import Image
 from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
-from starlette.responses import RedirectResponse, JSONResponse as StarletteJSONResponse
+from starlette.responses import JSONResponse as StarletteJSONResponse
+from starlette.responses import RedirectResponse
 from typing_extensions import NotRequired, TypedDict
 from uvicorn import Config, Server
 from xoscar.utils import get_next_port
