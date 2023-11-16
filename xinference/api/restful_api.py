@@ -41,7 +41,7 @@ from fastapi.staticfiles import StaticFiles
 from PIL import Image
 from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
-from starlette.responses import RedirectResponse
+from starlette.responses import RedirectResponse, JSONResponse as StarletteJSONResponse
 from typing_extensions import NotRequired, TypedDict
 from uvicorn import Config, Server
 from xoscar.utils import get_next_port
@@ -68,19 +68,7 @@ from ..types import ChatCompletion, Completion, CreateCompletion, ImageList
 logger = logging.getLogger(__name__)
 
 
-class JSONResponse(Response):
-    media_type = "application/json"
-
-    def __init__(
-        self,
-        content: Any,
-        status_code: int = 200,
-        headers: Optional[Dict[str, str]] = None,
-        media_type: Optional[str] = None,
-        **kwargs,
-    ) -> None:
-        super().__init__(content, status_code, headers, media_type, **kwargs)
-
+class JSONResponse(StarletteJSONResponse):
     def render(self, content: Any) -> bytes:
         return json_dumps(content)
 
