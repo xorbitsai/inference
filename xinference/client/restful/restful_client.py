@@ -38,7 +38,7 @@ if TYPE_CHECKING:
 def _get_error_string(response: requests.Response) -> str:
     try:
         if response.content:
-            return _get_error_string(response)
+            return response.json()["detail"]
     except Exception:
         pass
     try:

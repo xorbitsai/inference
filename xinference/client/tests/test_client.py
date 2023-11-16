@@ -17,11 +17,16 @@ import os
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest
+import requests
 
 from ...constants import XINFERENCE_ENV_MODEL_SRC
 from ..oscar.actor_client import ActorClient, ChatModelHandle, EmbeddingModelHandle
 from ..restful.restful_client import Client as RESTfulClient
-from ..restful.restful_client import RESTfulChatModelHandle, RESTfulEmbeddingModelHandle
+from ..restful.restful_client import (
+    RESTfulChatModelHandle,
+    RESTfulEmbeddingModelHandle,
+    _get_error_string,
+)
 
 
 @pytest.mark.skipif(os.name == "nt", reason="Skip windows")
@@ -433,3 +438,15 @@ def test_client_from_modelscope(setup):
         assert len(completion["choices"][0]["text"]) > 0
     finally:
         os.environ.pop(XINFERENCE_ENV_MODEL_SRC)
+
+
+def test_client_error():
+    r = requests.Response()
+    r.url = "0.0.0.0:1234"
+    r.status_code = 502
+    r.reason = "Bad Gateway"
+    err = _get_error_string(r)
+    assert "502 Server Error: Bad Gateway for url: 0.0.0.0:1234" == err
+    r._content = json.dumps({"detail": "Test error"}).encode("utf-8")
+    err = _get_error_string(r)
+    assert "Test error" == err
