@@ -46,7 +46,6 @@ To start a local instance of Xinference, run the following command:
 
     XINFERENCE_HOME=/tmp/xinference xinference-local --host 0.0.0.0 --port 9997
 
-
 Congrats! You now have Xinference running on your local machine. Once Xinference is running, there are multiple ways
 we can try it: via the web UI, via cURL, via the command line, or via the Xinference's python client. 
 
@@ -92,7 +91,6 @@ The command line tool is ``xinference``. You can list the commands that can be u
         terminate
         unregister
 
-
 Run Llama-2
 -----------
 
@@ -109,10 +107,8 @@ We cache the model files locally, so there's no need to redownload them for subs
 
     export XINFERENCE_MODEL_SRC=modelscope xinference-local --host 0.0.0.0 --port 9997
 
-
 We can specify the model's UID using the ``--model-uid`` or ``-u`` flag. If not specified, Xinference will generate a random ID.
 This create a new model instance with unique ID ``my-llama-2``:
-
 
 .. tabs::
 
@@ -149,8 +145,6 @@ This create a new model instance with unique ID ``my-llama-2``:
 
     Model uid: my-llama-2
 
-
-
 Congrats! You now have ``llama-2-chat`` running by Xinference. Once the model is running, we can try it out either command line, via cURL, 
 or via Xinference's python client:
 
@@ -180,7 +174,6 @@ or via Xinference's python client:
             }
         ]
       }'
-
 
   .. code-tab:: python
 
@@ -233,9 +226,7 @@ Xinference provides OpenAI-compatible APIs for its supported models, so you can 
   )
   print(response)
 
-
 The following OpenAI APIs are supported:
-
 
 - Chat Completions: `https://platform.openai.com/docs/api-reference/chat <https://platform.openai.com/docs/api-reference/chat>`_
 
@@ -243,13 +234,11 @@ The following OpenAI APIs are supported:
 
 - Embeddings: `https://platform.openai.com/docs/api-reference/embeddings <https://platform.openai.com/docs/api-reference/embeddings>`_
 
-
 Manage Models
 -------------
 
 In addition to launching models, Xinference offers various ways to manage the entire lifecycle of models.
 You can manage models in Xinference through the command line, cURL, or Xinference's python client.
-
 
 You can list all models of a certain type that are available to launch in Xinference:
 
@@ -305,7 +294,6 @@ When you no longer need a model that is currently running, you can remove it in 
     client = RESTfulClient("http://127.0.0.1:9997")
     client.terminate_model(model_uid="my-llama-2")
 
-
 Deploy Xinference In a Cluster
 ==============================
 
@@ -347,16 +335,12 @@ On each of the other servers where you want to run Xinference workers, run the f
 
       xinference launch -n llama-2-chat -s 13 -f pytorch -e "http://${supervisor_host}:9997"
 
-
-
 What's Next?
 ============
 
 Congratulations on getting started with Xinference! To help you navigate and make the most out of this
 powerful tool, here are some resources and guides:
 
-
 * :ref:`How to Use Client APIs for Different Types of Models <user_guide_client_api>`
 
 * :ref:`Choosing the Right Backends for Your Needs <user_guide_backends>`
-
