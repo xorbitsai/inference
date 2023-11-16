@@ -48,6 +48,17 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 
 🔌 **开放生态，无缝对接**: 与流行的三方库无缝对接，包括 [LangChain](https://python.langchain.com/docs/integrations/providers/xinference)，[LlamaIndex](https://gpt-index.readthedocs.io/en/stable/examples/llm/XinferenceLocalDeployment.html#i-run-pip-install-xinference-all-in-a-terminal-window)，[Dify](https://docs.dify.ai/advanced/model-configuration/xinference)，以及 [Chatbox](https://chatboxai.app/)。
 
+## 为什么选择 Xinference
+| 功能特点 | Xinference | FastChat | OpenLLM | RayLLM |
+|---------|------------|----------|---------|--------|
+| 兼容 OpenAI 的 Restful API | ✅ | ✅ | ✅ | ✅ |
+| vLLM 集成 | ✅ | ✅ | ✅ | ✅ |
+| 更多推理引擎（GGML、TensorRT） | ✅ | ❌ | ✅ | ✅ |
+| 更多平台支持（CPU、Metal） | ✅ | ✅ | ❌ | ❌ |
+| 分布式集群部署 | ✅ | ❌ | ❌ | ✅ |
+| 多模态模型（文生图） | ✅ | ✅ | ❌ | ❌ |
+| 文本嵌入模型 | ✅ | ❌ | ❌ | ❌ |
+
 ## 快速入门
 ### 安装
 Xinference 可以通过 `pip` 从 PyPI 安装。我们非常推荐在安装前创建一个新的虚拟环境以避免依赖冲突。
