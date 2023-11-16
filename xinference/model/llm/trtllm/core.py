@@ -349,8 +349,9 @@ class TRTChatModel(TRTModel, ChatModelMixin):
         chat_history: Optional[List[ChatCompletionMessage]] = None,
         generate_config: Optional[Dict] = None,
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
-        assert self.model_family.prompt_style is not None
-        prompt_style = MODEL_NAME_TO_FAMILY[self._model_name].prompt_style.copy()
+        model_family = MODEL_NAME_TO_FAMILY[self._model_name]
+        assert model_family.prompt_style is not None
+        prompt_style = model_family.prompt_style.copy()
         if system_prompt:
             prompt_style.system_prompt = system_prompt
         chat_history = chat_history or []
