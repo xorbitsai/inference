@@ -651,6 +651,8 @@ def match_llm(
                 return quant
 
     def _apply_format_to_model_id(spec: LLMSpecV1, q: str) -> LLMSpecV1:
+        # Different quantized versions of some models use different model ids,
+        # Here we check the `{}` in the model id to format the id.
         if "{" in spec.model_id:
             spec.model_id = spec.model_id.format(quantization=q)
         return spec
