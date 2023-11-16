@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-11-01 10:48+0800\n"
+"POT-Creation-Date: 2023-11-16 11:22+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: ja_JP\n"
@@ -75,14 +75,14 @@ msgstr ""
 
 #: ../../source/examples/index.rst:41
 msgid ""
-"`Using Xinference local LLMs within LlamaIndex <https://gpt-"
-"index.readthedocs.io/en/stable/examples/llm/XinferenceLocalDeployment.html>`_"
+"`Using Xinference local LLMs within LlamaIndex "
+"<https://docs.llamaindex.ai/en/stable/examples/llm/xinference_local_deployment.html>`_"
 msgstr ""
 
 #: ../../source/examples/index.rst:43
 msgid ""
 "`[Chinese] 如何让 Chatbox 接入开源大模型，实现免费聊天 "
-"<https://twitter.com/benn_huang/status/1701420060240490785>`_"
+"<https://zhuanlan.zhihu.com/p/655765551>`_"
 msgstr ""
 
 #: ../../source/examples/index.rst:45
@@ -93,8 +93,8 @@ msgstr ""
 
 #: ../../source/examples/index.rst:47
 msgid ""
-"`[Chinese] 使用全套开源工具构建 LLM 应用实战 "
-"<https://mp.weixin.qq.com/s/regqYkF0cNDQIdOkOeyeXQ>`_"
+"`[Chinese] 使用全套开源工具构建 LLM 应用实战： 在 Dify 调用 Baichuan 开源模型能力 "
+"<https://mp.weixin.qq.com/s/JWYWyJxS3ludMpMDZKw_Dw>`_"
 msgstr ""
 
 #: ../../source/examples/index.rst:51
@@ -122,4 +122,20 @@ msgid ""
 "`LlamaIndex Xinference LLM "
 "<https://docs.llamaindex.ai/en/stable/api_reference/llms/xinference.html>`_"
 msgstr ""
+
+#~ msgid ""
+#~ "`Using Xinference local LLMs within "
+#~ "LlamaIndex <https://gpt-"
+#~ "index.readthedocs.io/en/stable/examples/llm/XinferenceLocalDeployment.html>`_"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "`[Chinese] 如何让 Chatbox 接入开源大模型，实现免费聊天 "
+#~ "<https://twitter.com/benn_huang/status/1701420060240490785>`_"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "`[Chinese] 使用全套开源工具构建 LLM 应用实战 "
+#~ "<https://mp.weixin.qq.com/s/regqYkF0cNDQIdOkOeyeXQ>`_"
+#~ msgstr ""
 
