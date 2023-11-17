@@ -69,11 +69,6 @@ class TRTGenerateConfig(TypedDict, total=False):
     presence_penalty: float
     use_beam_hyps: bool
 
-    beam_search_diversity_rate: float
-    random_seed: int
-    output_cum_log_probs: bool
-    output_log_probs: bool
-
     stream: bool
     stream_interval: int
 
@@ -178,11 +173,11 @@ class TRTModel(LLM):
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
         self._tokenizer = PreTrainedTokenizerFast.from_pretrained(self._tokenizer_path)
-        engine_dir = Path(self.model_path)
+        engine_dir = Path(self._model_path)
         config_path = engine_dir / "config.json"
         model_config, tp_size, pp_size, dtype = read_config(config_path)
         logger.info(
-            f"Loading {self.model_uid} with following model config: {model_config}"
+            f"Loading {self._model_uid} with following model config: {model_config}"
         )
         # TODO: support multiple GPUs
         runtime_mapping = tensorrt_llm.Mapping(1, 0, tp_size=tp_size, pp_size=pp_size)
@@ -195,14 +190,19 @@ class TRTModel(LLM):
             model_config, engine_buffer, runtime_mapping
         )
 
-    @staticmethod
     def _sanitize_generate_config(
+        self,
         generate_config: Optional[Dict] = None,
     ) -> TRTGenerateConfig:
         if not generate_config:
             generate_config = {}
 
         sanitized = TRTGenerateConfig()
+        default_eos_token = MODEL_SPECIAL_TOKENS[self._model_name]["EOS_TOKEN"]
+        default_pad_token = MODEL_SPECIAL_TOKENS[self._model_name]["PAD_TOKEN"]
+        sanitized.setdefault("end_id", generate_config.get("end_id", default_eos_token))
+        sanitized.setdefault("pad_id", generate_config.get("pad_id", default_pad_token))
+
         sanitized.setdefault("max_tokens", generate_config.get("max_tokens", 512))
         sanitized.setdefault("num_beams", generate_config.get("num_beams", 1))
         sanitized.setdefault("temperature", generate_config.get("temperature", 1.0))
@@ -220,17 +220,6 @@ class TRTModel(LLM):
         )
         sanitized.setdefault(
             "use_beam_hyps", generate_config.get("use_beam_hyps", True)
-        )
-        sanitized.setdefault(
-            "beam_search_diversity_rate",
-            generate_config.get("beam_search_diversity_rate", None),
-        )
-        sanitized.setdefault("random_seed", generate_config.get("random_seed", None))
-        sanitized.setdefault(
-            "output_cum_log_probs", generate_config.get("output_cum_log_probs", False)
-        )
-        sanitized.setdefault(
-            "output_log_probs", generate_config.get("output_log_probs", False)
         )
         sanitized.setdefault("stream", generate_config.get("stream", None))
         sanitized.setdefault(
@@ -261,18 +250,14 @@ class TRTModel(LLM):
     def generate(
         self, prompt: str, generate_config: Optional[Dict] = None
     ) -> Union[Completion, Iterator[CompletionChunk]]:
-        default_eos_token = MODEL_SPECIAL_TOKENS[self._model_name]["EOS_TOKEN"]
-        default_pad_token = MODEL_SPECIAL_TOKENS[self._model_name]["PAD_TOKEN"]
         if generate_config is None:
             generate_config = dict()
-        generate_config["end_id"] = generate_config.get("end_id", default_eos_token)
-        generate_config["pad_id"] = generate_config.get("pad_id", default_pad_token)
         sanitized_generate_config = self._sanitize_generate_config(generate_config)
-        sampling_config = SamplingConfig(**sanitized_generate_config)
+        max_tokens = sanitized_generate_config.pop("max_tokens")
         stream = sanitized_generate_config.pop("stream")
         stream_interval = sanitized_generate_config.pop("stream_interval")
-        max_tokens = sampling_config.pop("max_tokens")
-        num_beams = sampling_config["num_beams"]
+        num_beams = sanitized_generate_config.pop("num_beams")
+        sampling_config = SamplingConfig(**sanitized_generate_config)
 
         input_tokens = [self._tokenizer.encode(prompt, add_special_tokens=False)]
         input_lengths = torch.tensor(
@@ -342,7 +327,7 @@ class TRTModel(LLM):
 
 
 class TRTChatModel(TRTModel, ChatModelMixin):
-    async def chat(
+    def chat(
         self,
         prompt: str,
         system_prompt: Optional[str] = None,
