@@ -424,6 +424,7 @@ def generate_stream_falcon(
                     raise ValueError("Invalid stop field type.")
 
             if stream:
+                output = output.strip("�")
                 tmp_output_length = len(output)
                 output = output[last_output_length:]
                 last_output_length = tmp_output_length
