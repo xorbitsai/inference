@@ -11,13 +11,19 @@ fake_users_db = {
         "full_name": "lichengjie",
         "email": "lichengjie@xprobe.io",
         "hashed_password": "$2b$12$VyoOP0H1gg42R.Raw4aPiOseVJS/RZNASluUEZdRpObV8iqvsWd96",
-        "disabled": False,
+        "permissions": [
+            "models:read",
+            "models:launch",
+            "models:list",
+            "models:delete",
+            "admin",
+        ],
     },
     "hekaisheng": {
         "username": "hekaisheng",
         "full_name": "hekaisheng",
         "email": "hekaisheng@xprobe.io",
         "hashed_password": "$2b$12$T7b13uszQVXey9tk9JI.d.hwuTbB/cNszBC/7wk5RjgIg/dC..neK",
-        "disabled": True,
+        "permissions": ["models:read"],
     },
 }
