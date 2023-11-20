@@ -36,6 +36,7 @@ from fastapi import (
     Query,
     Request,
     Response,
+    Security,
     UploadFile,
     status,
 )
@@ -62,16 +63,15 @@ from ..types import (
     CreateCompletion,
     ImageList,
 )
-
-from ..types import ChatCompletion, Completion, CreateCompletion, Embedding, ImageList
+from ..types import ChatCompletion, Completion, CreateCompletion, ImageList
 from .oauth2.common import ACCESS_TOKEN_EXPIRE_MINUTES
-from .oauth2.core import OAuth2Middleware, Token, User, fake_users_db, get_user
+from .oauth2.core import User, fake_users_db, get_user, verify_token
 from .oauth2.utils import create_access_token, verify_password
 
 logger = logging.getLogger(__name__)
 
 
-class JSONResponse(StarletteJSONResponse):
+class JSONResponse(StarletteJSONResponse):  # type: ignore # noqa: F811
     def render(self, content: Any) -> bytes:
         return json_dumps(content)
 
@@ -167,7 +167,9 @@ class RESTfulAPI:
         return self._supervisor_ref
 
     @staticmethod
-    async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
+    async def login_for_access_token(
+        form_data: OAuth2PasswordRequestForm = Depends(),
+    ) -> JSONResponse:
         user = authenticate_user(fake_users_db, form_data.username, form_data.password)
         if not user:
             raise HTTPException(
@@ -178,12 +180,15 @@ class RESTfulAPI:
         assert user is not None and isinstance(user, User)
         access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
         access_token = create_access_token(
-            data={"sub": user.username}, expires_delta=access_token_expires
+            data={"sub": user.username, "scopes": user.permissions},
+            expires_delta=access_token_expires,
         )
-        return {"access_token": access_token, "token_type": "bearer"}
+        return JSONResponse(
+            content={"access_token": access_token, "token_type": "bearer"}
+        )
 
     def serve(self, logging_conf: Optional[dict] = None):
-        self._app.add_middleware(OAuth2Middleware)
+        # self._app.add_middleware(OAuth2Middleware)
         self._app.add_middleware(
             CORSMiddleware,
             allow_origins=["*"],
@@ -192,13 +197,15 @@ class RESTfulAPI:
             allow_headers=["*"],
         )
         self._router.add_api_route(
-            "/token",
-            self.login_for_access_token,
-            methods=["POST"],
-            response_model=Token,
+            "/token", self.login_for_access_token, methods=["POST"]
         )
         self._router.add_api_route("/status", self.get_status, methods=["GET"])
-        self._router.add_api_route("/v1/models", self.list_models, methods=["GET"])
+        self._router.add_api_route(
+            "/v1/models",
+            self.list_models,
+            methods=["GET"],
+            dependencies=[Security(verify_token, scopes=["models:list"])],
+        )
         self._router.add_api_route(
             "/v1/models/prompts", self._get_builtin_prompts, methods=["GET"]
         )
