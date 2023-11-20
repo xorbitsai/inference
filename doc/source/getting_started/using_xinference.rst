@@ -91,6 +91,14 @@ The command line tool is ``xinference``. You can list the commands that can be u
         terminate
         unregister
 
+
+You can install the Xinference Python client with minimal dependencies using the following command.
+Please ensure that the version of the client matches the version of the Xinference server.
+
+.. code-block:: bash
+
+   pip install xinference-client==${SERVER_VERSION}
+
 Run Llama-2
 -----------
 
