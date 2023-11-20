@@ -308,9 +308,11 @@ class TRTModel(LLM):
             choices = completion["choices"]
             completion_tokens = 0
             for beam in range(num_beams):
-                completion_tokens += (
-                    output_gen_ids[0][beam] == generate_config["end_id"]
-                ).nonzero(as_tuple=True)[0]
+                completion_tokens += int(
+                    (
+                        output_gen_ids[0][beam] == sanitized_generate_config["end_id"]
+                    ).nonzero(as_tuple=True)[0][0]
+                )
             usage = CompletionUsage(
                 prompt_tokens=len(input_lengths),
                 completion_tokens=completion_tokens,
