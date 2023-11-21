@@ -97,6 +97,15 @@ class CreateEmbeddingRequest(BaseModel):
         }
 
 
+class RerankRequest(BaseModel):
+    model: str
+    query: str
+    documents: List[str]
+    top_n: Optional[int] = None
+    return_documents: Optional[bool] = False
+    max_chunks_per_doc: Optional[int] = None
+
+
 class TextToImageRequest(BaseModel):
     model: str
     prompt: Union[str, List[str]] = Field(description="The input to embed.")
@@ -221,6 +230,11 @@ class RESTfulAPI:
         self._router.add_api_route(
             "/v1/embeddings",
             self.create_embedding,
+            methods=["POST"],
+        )
+        self._router.add_api_route(
+            "/v1/rerank",
+            self.rerank,
             methods=["POST"],
         )
         self._router.add_api_route(
@@ -607,6 +621,34 @@ class RESTfulAPI:
         try:
             embedding = await model.create_embedding(request.input)
             return Response(embedding, media_type="application/json")
+        except RuntimeError as re:
+            logger.error(re, exc_info=True)
+            self.handle_request_limit_error(re)
+            raise HTTPException(status_code=400, detail=str(re))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def rerank(self, request: RerankRequest) -> Response:
+        model_uid = request.model
+        try:
+            model = await (await self._get_supervisor_ref()).get_model(model_uid)
+        except ValueError as ve:
+            logger.error(str(ve), exc_info=True)
+            raise HTTPException(status_code=400, detail=str(ve))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
+        try:
+            scores = await model.rerank(
+                request.documents,
+                request.query,
+                top_n=request.top_n,
+                max_chunks_per_doc=request.max_chunks_per_doc,
+                return_documents=request.return_documents,
+            )
+            return Response(scores, media_type="application/json")
         except RuntimeError as re:
             logger.error(re, exc_info=True)
             self.handle_request_limit_error(re)

@@ -72,6 +72,45 @@ class EmbeddingModelHandle(ModelHandle):
         return self._isolation.call(coro)
 
 
+class RerankModelHandle(ModelHandle):
+    def rerank(
+        self,
+        documents: List[str],
+        query: str,
+        top_n: Optional[int],
+        max_chunks_per_doc: Optional[int],
+        return_documents: Optional[bool],
+    ):
+        """
+        Returns an ordered list of documents ordered by their relevance to the provided query.
+
+        Parameters
+        ----------
+        query: str
+            The search query
+        documents: List[str]
+            The documents to rerank
+        top_n: int
+            The number of results to return, defaults to returning all results
+        max_chunks_per_doc: int
+            The maximum number of chunks derived from a document
+        return_documents: bool
+            if return documents
+        Returns
+        -------
+        Scores
+           The scores of documents ordered by their relevance to the provided query
+
+        """
+        coro = self._model_ref.rerank(
+            documents, query, top_n, max_chunks_per_doc, return_documents
+        )
+        results = self._isolation.call(coro)
+        for r in results["results"]:
+            r["document"] = documents[r["index"]]
+        return results
+
+
 class GenerateModelHandle(EmbeddingModelHandle):
     def generate(
         self,
@@ -465,6 +504,8 @@ class ActorClient:
             return EmbeddingModelHandle(model_ref, self._isolation)
         elif desc["model_type"] == "image":
             return ImageModelHandle(model_ref, self._isolation)
+        elif desc["model_type"] == "rerank":
+            return RerankModelHandle(model_ref, self._isolation)
         else:
             raise ValueError(f"Unknown model type:{desc['model_type']}")
 

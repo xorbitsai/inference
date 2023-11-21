@@ -1,0 +1,9 @@
+[
+  {
+    "model_name": "bge-reranker-large",
+    "language": ["en", "zh"],
+    "model_id": "hekaisheng/bge-reranker-base",
+    "model_revision": "v0.0.1",
+    "model_hub": "modelscope"
+  }
+]

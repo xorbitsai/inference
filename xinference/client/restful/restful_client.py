@@ -93,6 +93,60 @@ class RESTfulEmbeddingModelHandle(RESTfulModelHandle):
         return response_data
 
 
+class RESTfulRerankModelHandle(RESTfulModelHandle):
+    def rerank(
+        self,
+        documents: List[str],
+        query: str,
+        top_n: Optional[int] = None,
+        max_chunks_per_doc: Optional[int] = None,
+        return_documents: Optional[bool] = None,
+    ):
+        """
+        Returns an ordered list of documents ordered by their relevance to the provided query.
+
+        Parameters
+        ----------
+        query: str
+            The search query
+        documents: List[str]
+            The documents to rerank
+        top_n: int
+            The number of results to return, defaults to returning all results
+        max_chunks_per_doc: int
+            The maximum number of chunks derived from a document
+        return_documents: bool
+            if return documents
+        Returns
+        -------
+        Scores
+           The scores of documents ordered by their relevance to the provided query
+
+        Raises
+        ------
+        RuntimeError
+            Report the failure of rerank and provide the error message.
+        """
+        url = f"{self._base_url}/v1/rerank"
+        request_body = {
+            "model": self._model_uid,
+            "documents": documents,
+            "query": query,
+            "top_n": top_n,
+            "max_chunks_per_doc": max_chunks_per_doc,
+            "return_documents": return_documents,
+        }
+        response = requests.post(url, json=request_body)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to rerank documents, detail: {response.json()['detail']}"
+            )
+        response_data = response.json()
+        for r in response_data["results"]:
+            r["document"] = documents[r["index"]]
+        return response_data
+
+
 class RESTfulImageModelHandle(RESTfulModelHandle):
     def text_to_image(
         self,
@@ -688,6 +742,8 @@ class Client:
             return RESTfulEmbeddingModelHandle(model_uid, self.base_url)
         elif desc["model_type"] == "image":
             return RESTfulImageModelHandle(model_uid, self.base_url)
+        elif desc["model_type"] == "rerank":
+            return RESTfulRerankModelHandle(model_uid, self.base_url)
         else:
             raise ValueError(f"Unknown model type:{desc['model_type']}")
 
