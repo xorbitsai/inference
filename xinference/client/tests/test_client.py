@@ -450,3 +450,36 @@ def test_client_error():
     r._content = json.dumps({"detail": "Test error"}).encode("utf-8")
     err = _get_error_string(r)
     assert "Test error" == err
+
+
+def test_client_custom_embedding_model(setup):
+    endpoint, _ = setup
+    client = RESTfulClient(endpoint)
+
+    model_regs = client.list_model_registrations(model_type="embedding")
+    assert len(model_regs) > 0
+    for model_reg in model_regs:
+        assert model_reg["is_builtin"]
+
+    model = """{
+  "model_name": "custom-bge-small-en",
+  "dimensions": 1024,
+  "max_tokens": 512,
+  "language": ["en"],
+  "model_id": "Xorbits/bge-small-en"
+}"""
+    client.register_model(model_type="embedding", model=model, persist=False)
+
+    data = client.get_model_registration(
+        model_type="embedding", model_name="custom-bge-small-en"
+    )
+    assert "custom-bge-small-en" in data["model_name"]
+
+    new_model_regs = client.list_model_registrations(model_type="embedding")
+    assert len(new_model_regs) == len(model_regs) + 1
+    custom_model_reg = None
+    for model_reg in new_model_regs:
+        if model_reg["model_name"] == "custom-bge-small-en":
+            custom_model_reg = model_reg
+    assert custom_model_reg is not None
+    assert not custom_model_reg["is_builtin"]
