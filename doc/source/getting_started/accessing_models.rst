@@ -27,7 +27,7 @@ When the abilities of the LLM include "chat," we can converse with it using the 
    prompt = "What is the largest animal?"
    model.chat(
        prompt,
-       chat_history,
+       chat_history=chat_history,
        generate_config={"max_tokens": 1024}
    )
 

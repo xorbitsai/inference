@@ -55,7 +55,7 @@ To initialize an LLM and chat:
     # model.generate API.
     model.chat(
         prompt,
-        chat_history,
+        chat_history=chat_history,
         generate_config={"max_tokens": 1024}
     )
 
