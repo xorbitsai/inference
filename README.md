@@ -198,7 +198,7 @@ chat_history = []
 prompt = "What is the largest animal?"
 model.chat(
     prompt,
-    chat_history,
+    chat_history=chat_history,
     generate_config={"max_tokens": 1024}
 )
 ```
