@@ -25,6 +25,8 @@ from ....types import (
     ChatCompletionMessage,
     ChatglmCppGenerateConfig,
     ChatglmCppModelConfig,
+    Completion,
+    CompletionChunk,
 )
 from .. import LLMFamilyV1, LLMSpecV1
 from ..core import LLM
@@ -187,6 +189,7 @@ class ChatglmCppChatModel(LLM):
             "top_k": generate_config.get("top_k"),
             "top_p": generate_config.get("top_p"),
             "temperature": generate_config.get("temperature"),
+            "stream": generate_config.get("stream", False),
         }
 
         # Remove None values to exclude missing keys from params
@@ -195,7 +198,7 @@ class ChatglmCppChatModel(LLM):
         assert self._llm is not None
 
         if generate_config["stream"]:
-            it = self._llm.stream_chat(
+            it = self._llm.chat(
                 chat_history_list,
                 **params,
             )
@@ -208,3 +211,73 @@ class ChatglmCppChatModel(LLM):
             )
             assert not isinstance(c, Iterator)
             return self._convert_raw_text_completion_to_chat(c, self.model_uid)
+
+    @staticmethod
+    def _convert_str_to_completion(data: str, model_name: str) -> Completion:
+        return {
+            "id": "generate" + f"-{str(uuid.uuid4())}",
+            "model": model_name,
+            "object": "text_completion",
+            "created": int(time.time()),
+            "choices": [
+                {"index": 0, "text": data, "finish_reason": None, "logprobs": None}
+            ],
+            "usage": {
+                "prompt_tokens": -1,
+                "completion_tokens": -1,
+                "total_tokens": -1,
+            },
+        }
+
+    @staticmethod
+    def _convert_str_to_completion_chunk(
+        tokens: Iterator[str], model_name: str
+    ) -> Iterator[CompletionChunk]:
+        for token in tokens:
+            yield {
+                "id": "generate" + f"-{str(uuid.uuid4())}",
+                "model": model_name,
+                "object": "text_completion",
+                "created": int(time.time()),
+                "choices": [
+                    {"index": 0, "text": token, "finish_reason": None, "logprobs": None}
+                ],
+            }
+
+    def generate(
+        self,
+        prompt: str,
+        generate_config: Optional[ChatglmCppGenerateConfig] = None,
+    ) -> Union[Completion, Iterator[CompletionChunk]]:
+        logger.debug(f"Prompt for generate:\n{prompt}")
+
+        generate_config = self._sanitize_generate_config(generate_config)
+
+        params = {
+            "max_length": generate_config.get("max_tokens"),
+            "max_context_length": generate_config.get("max_tokens"),
+            "top_k": generate_config.get("top_k"),
+            "top_p": generate_config.get("top_p"),
+            "temperature": generate_config.get("temperature"),
+            "stream": generate_config.get("stream", False),
+        }
+
+        # Remove None values to exclude missing keys from params
+        params = {k: v for k, v in params.items() if v is not None}
+
+        assert self._llm is not None
+
+        if generate_config["stream"]:
+            it = self._llm.generate(
+                prompt,
+                **params,
+            )
+            assert not isinstance(it, str)
+            return self._convert_str_to_completion_chunk(it, self.model_uid)
+        else:
+            c = self._llm.generate(
+                prompt,
+                **params,
+            )
+            assert not isinstance(c, Iterator)
+            return self._convert_str_to_completion(c, self.model_uid)
