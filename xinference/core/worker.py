@@ -188,11 +188,19 @@ class WorkerActor(xo.StatelessActor):
     @log_sync(logger=logger)
     def register_model(self, model_type: str, model: str, persist: bool):
         # TODO: centralized model registrations
-        if model_type == "LLM":
+        if model_type == "LLM" or model_type == "embedding":
+            from ..model.embedding import CustomEmbeddingModelSpec, register_embedding
             from ..model.llm import LLMFamilyV1, register_llm
 
-            llm_family = LLMFamilyV1.parse_raw(model)
-            register_llm(llm_family, persist)
+            model_spec = (
+                CustomEmbeddingModelSpec.parse_raw(model)
+                if model_type == "embedding"
+                else LLMFamilyV1.parse_raw(model)
+            )
+            register_fn = (
+                register_embedding if model_type == "embedding" else register_llm
+            )
+            register_fn(model_spec, persist)
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
 

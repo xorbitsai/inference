@@ -385,7 +385,7 @@ def test_prompt_style_zephyr():
 
 
 def test_is_valid_model_name():
-    from ..utils import is_valid_model_name
+    from ...utils import is_valid_model_name
 
     assert is_valid_model_name("foo")
     assert is_valid_model_name("foo-bar")
