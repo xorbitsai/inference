@@ -16,6 +16,7 @@ import os
 from threading import Lock
 from typing import List, Optional
 
+from ...constants import XINFERENCE_CACHE_DIR, XINFERENCE_MODEL_DIR
 from .core import EmbeddingModelSpec
 
 logger = logging.getLogger(__name__)
@@ -72,3 +73,35 @@ def register_embedding(model_spec: CustomEmbeddingModelSpec, persist: bool):
         os.makedirs(os.path.dirname(persist_path), exist_ok=True)
         with open(persist_path, mode="w") as fd:
             fd.write(model_spec.json())
+
+
+def unregister_embedding(model_name: str):
+    with UD_EMBEDDING_LOCK:
+        model_spec = None
+        for i, f in enumerate(UD_EMBEDDINGS):
+            if f.model_name == model_name:
+                model_spec = f
+                break
+        if model_spec:
+            UD_EMBEDDINGS.remove(model_spec)
+
+            persist_path = os.path.join(
+                XINFERENCE_MODEL_DIR, "embedding", f"{model_spec.model_name}.json"
+            )
+            if os.path.exists(persist_path):
+                os.remove(persist_path)
+
+            cache_dir = os.path.join(XINFERENCE_CACHE_DIR, model_spec.model_name)
+            if os.path.exists(cache_dir):
+                logger.warning(
+                    f"Remove the cache of user-defined model {model_spec.model_name}. "
+                    f"Cache directory: {cache_dir}"
+                )
+                if os.path.islink(cache_dir):
+                    os.remove(cache_dir)
+                else:
+                    logger.warning(
+                        f"Cache directory is not a soft link, please remove it manually."
+                    )
+        else:
+            raise ValueError(f"Model {model_name} not found")

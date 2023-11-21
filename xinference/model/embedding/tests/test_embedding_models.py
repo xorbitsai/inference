@@ -154,7 +154,11 @@ def test_from_local_uri():
 def test_register_custom_embedding():
     from ....constants import XINFERENCE_CACHE_DIR
     from ..core import cache_from_uri
-    from ..custom import CustomEmbeddingModelSpec, register_embedding
+    from ..custom import (
+        CustomEmbeddingModelSpec,
+        register_embedding,
+        unregister_embedding,
+    )
 
     tmp_dir = tempfile.mkdtemp()
 
@@ -211,5 +215,11 @@ def test_register_custom_embedding():
     register_embedding(model_spec, False)
     with pytest.raises(ValueError):
         register_embedding(model_spec, False)
+
+    # unregister
+    unregister_embedding("custom_test_b")
+    unregister_embedding("custom_test_c")
+    with pytest.raises(ValueError):
+        unregister_embedding("custom_test_d")
 
     shutil.rmtree(tmp_dir, ignore_errors=True)

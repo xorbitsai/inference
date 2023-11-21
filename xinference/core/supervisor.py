@@ -278,10 +278,14 @@ class SupervisorActor(xo.StatelessActor):
 
     @log_async(logger=logger)
     async def unregister_model(self, model_type: str, model_name: str):
-        if model_type == "LLM":
+        if model_type == "LLM" or model_type == "embedding":
+            from ..model.embedding import unregister_embedding
             from ..model.llm import unregister_llm
 
-            unregister_llm(model_name)
+            unregister_fn = (
+                unregister_llm if model_type == "LLM" else unregister_embedding
+            )
+            unregister_fn(model_name)
 
             if not self.is_local_deployment():
                 workers = list(self._worker_address_to_worker.values())

@@ -207,10 +207,14 @@ class WorkerActor(xo.StatelessActor):
     @log_sync(logger=logger)
     def unregister_model(self, model_type: str, model_name: str):
         # TODO: centralized model registrations
-        if model_type == "LLM":
+        if model_type == "LLM" or model_type == "embedding":
+            from ..model.embedding import unregister_embedding
             from ..model.llm import unregister_llm
 
-            unregister_llm(model_name)
+            unregister_fn = (
+                unregister_llm if model_type == "LLM" else unregister_embedding
+            )
+            unregister_fn(model_name)
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
 

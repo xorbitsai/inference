@@ -483,3 +483,13 @@ def test_client_custom_embedding_model(setup):
             custom_model_reg = model_reg
     assert custom_model_reg is not None
     assert not custom_model_reg["is_builtin"]
+
+    # unregister
+    client.unregister_model(model_type="embedding", model_name="custom-bge-small-en")
+    new_model_regs = client.list_model_registrations(model_type="embedding")
+    assert len(new_model_regs) == len(model_regs)
+    custom_model_reg = None
+    for model_reg in new_model_regs:
+        if model_reg["model_name"] == "custom-bge-small-en":
+            custom_model_reg = model_reg
+    assert custom_model_reg is None

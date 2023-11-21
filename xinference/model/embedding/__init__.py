@@ -17,7 +17,7 @@ import json
 import os
 
 from .core import EmbeddingModelSpec, get_cache_status
-from .custom import CustomEmbeddingModelSpec, register_embedding
+from .custom import CustomEmbeddingModelSpec, register_embedding, unregister_embedding
 
 _model_spec_json = os.path.join(os.path.dirname(__file__), "model_spec.json")
 _model_spec_modelscope_json = os.path.join(
