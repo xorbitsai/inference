@@ -18,7 +18,6 @@ from typing import Generator, Tuple
 import orjson
 from pydantic import BaseModel
 
-
 logger = logging.getLogger(__name__)
 
 
