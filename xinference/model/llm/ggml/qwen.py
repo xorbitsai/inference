@@ -57,7 +57,7 @@ class QWenModel(LLM):
         self, prompt: str, max_context_length: int
     ) -> List[int]:
         assert self._llm is not None
-        return self._llm.tokenizer.encode_history(prompt, max_context_length)  # type: ignore
+        return self._llm.tokenizer.encode_history([prompt], max_context_length)  # type: ignore
 
     @classmethod
     def _sanitize_generate_config(
