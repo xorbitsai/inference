@@ -14,7 +14,7 @@
 
 import random
 import string
-from typing import Iterator
+from typing import Iterator, Union
 
 import pytest
 
@@ -26,13 +26,21 @@ class MockPipeline:
     def __init__(self) -> None:
         pass
 
-    def stream_chat(self, *args, **kwargs) -> Iterator[str]:
-        res = [f"chatglm_test_stream_{i}" for i in range(5)]
-        return iter(res)
+    def chat(self, *args, **kwargs) -> Union[str, Iterator[str]]:
+        stream = kwargs.get("stream", False)
+        return (
+            iter([f"chatglm_test_stream_{i}" for i in range(5)])
+            if stream
+            else "chatglm_test_chat"
+        )
 
-    def chat(self, *args, **kwargs) -> str:
-        res = "chatglm_test_chat"
-        return res
+    def generate(self, *args, **kwargs) -> Union[str, Iterator[str]]:
+        stream = kwargs.get("stream", False)
+        return (
+            "chatglm_test_generate"
+            if not stream
+            else iter([f"chatglm_test_stream_generate_{i}" for i in range(5)])
+        )
 
 
 class MockChatglmCppChatModel(ChatglmCppChatModel):
@@ -182,3 +190,35 @@ def test_model_chat(model_spec, model_family):
         "role": "assistant",
         "content": "chatglm_test_chat",
     }
+
+
+@pytest.mark.parametrize(
+    "model_spec, model_family", [(mock_model_spec, mock_model_family)]
+)
+def test_model_generate(model_spec, model_family):
+    quantization = "q2_k"
+    uid = "".join(random.choice(string.digits) for i in range(100))
+    path = "".join(
+        random.choice(string.ascii_letters + string.punctuation) for i in range(100)
+    )
+    model = MockChatglmCppChatModel(
+        model_uid=uid,
+        model_family=model_family,
+        model_spec=model_spec,
+        quantization=quantization,
+        model_path=path,
+    )
+    assert model._llm is None
+
+    model.load()
+    assert isinstance(model._llm, MockPipeline)
+
+    responses_stream = list(model.generate("Hello", generate_config={"stream": True}))
+    for i in range(5):
+        assert (
+            responses_stream[i]["choices"][0]["text"]
+            == f"chatglm_test_stream_generate_{i}"
+        )
+
+    responses_non_stream = model.generate("Hello", generate_config={"stream": False})
+    assert responses_non_stream["choices"][0]["text"] == "chatglm_test_generate"

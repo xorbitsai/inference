@@ -402,6 +402,58 @@ class RESTfulChatglmCppChatModelHandle(RESTfulEmbeddingModelHandle):
         return response_data
 
 
+class RESTfulChatglmCppGenerateModelHandle(RESTfulChatglmCppChatModelHandle):
+    def generate(
+        self,
+        prompt: str,
+        generate_config: Optional["ChatglmCppGenerateConfig"] = None,
+    ) -> Union["Completion", Iterator["CompletionChunk"]]:
+        """
+        Given a prompt, the ChatGLM model will generate a response via RESTful APIs.
+
+        Parameters
+        ----------
+        prompt: str
+            The user's input.
+        generate_config: Optional["ChatglmCppGenerateConfig"]
+            Additional configuration for ChatGLM chat generation.
+
+        Returns
+        -------
+        Union["Completion", Iterator["CompletionChunk"]]
+            Stream is a parameter in generate_config.
+            When stream is set to True, the function will return Iterator["CompletionChunk"].
+            When stream is set to False, the function will return "Completion".
+
+        Raises
+        ------
+        RuntimeError
+            Report the failure to generate the content from the server. Detailed information provided in error message.
+
+        """
+
+        url = f"{self._base_url}/v1/completions"
+
+        request_body: Dict[str, Any] = {"model": self._model_uid, "prompt": prompt}
+        if generate_config is not None:
+            for key, value in generate_config.items():
+                request_body[key] = value
+
+        stream = bool(generate_config and generate_config.get("stream"))
+
+        response = requests.post(url, json=request_body, stream=stream)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to generate completion, detail: {response.json()['detail']}"
+            )
+
+        if stream:
+            return streaming_response_iterator(response.iter_lines())
+
+        response_data = response.json()
+        return response_data
+
+
 class Client:
     def __init__(self, base_url):
         self.base_url = base_url
@@ -625,7 +677,7 @@ class Client:
 
         if desc["model_type"] == "LLM":
             if desc["model_format"] == "ggmlv3" and "chatglm" in desc["model_name"]:
-                return RESTfulChatglmCppChatModelHandle(model_uid, self.base_url)
+                return RESTfulChatglmCppGenerateModelHandle(model_uid, self.base_url)
             elif "chat" in desc["model_ability"]:
                 return RESTfulChatModelHandle(model_uid, self.base_url)
             elif "generate" in desc["model_ability"]:
