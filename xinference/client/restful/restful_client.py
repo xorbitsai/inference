@@ -35,6 +35,19 @@ if TYPE_CHECKING:
     )
 
 
+def _get_error_string(response: requests.Response) -> str:
+    try:
+        if response.content:
+            return response.json()["detail"]
+    except Exception:
+        pass
+    try:
+        response.raise_for_status()
+    except requests.HTTPError as e:
+        return str(e)
+    return "Unknown error"
+
+
 class RESTfulModelHandle:
     """
     A sync model interface (for RESTful client) which provides type hints that makes it much easier to use xinference
@@ -73,7 +86,7 @@ class RESTfulEmbeddingModelHandle(RESTfulModelHandle):
         response = requests.post(url, json=request_body)
         if response.status_code != 200:
             raise RuntimeError(
-                f"Failed to create the embeddings, detail: {response.json()['detail']}"
+                f"Failed to create the embeddings, detail: {_get_error_string(response)}"
             )
 
         response_data = response.json()
@@ -117,7 +130,7 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
         response = requests.post(url, json=request_body)
         if response.status_code != 200:
             raise RuntimeError(
-                f"Failed to create the images, detail: {response.json()['detail']}"
+                f"Failed to create the images, detail: {_get_error_string(response)}"
             )
 
         response_data = response.json()
@@ -184,7 +197,7 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
         )
         if response.status_code != 200:
             raise RuntimeError(
-                f"Failed to variants the images, detail: {response.json()['detail']}"
+                f"Failed to variants the images, detail: {_get_error_string(response)}"
             )
 
         response_data = response.json()
@@ -237,7 +250,7 @@ class RESTfulGenerateModelHandle(RESTfulEmbeddingModelHandle):
         response = requests.post(url, json=request_body, stream=stream)
         if response.status_code != 200:
             raise RuntimeError(
-                f"Failed to generate completion, detail: {response.json()['detail']}"
+                f"Failed to generate completion, detail: {_get_error_string(response)}"
             )
 
         if stream:
@@ -315,7 +328,7 @@ class RESTfulChatModelHandle(RESTfulGenerateModelHandle):
 
         if response.status_code != 200:
             raise RuntimeError(
-                f"Failed to generate chat completion, detail: {response.json()['detail']}"
+                f"Failed to generate chat completion, detail: {_get_error_string(response)}"
             )
 
         if stream:
@@ -379,7 +392,7 @@ class RESTfulChatglmCppChatModelHandle(RESTfulEmbeddingModelHandle):
 
         if response.status_code != 200:
             raise RuntimeError(
-                f"Failed to generate chat completion, detail: {response.json()['detail']}"
+                f"Failed to generate chat completion, detail: {_get_error_string(response)}"
             )
 
         if stream:
@@ -414,7 +427,7 @@ class Client:
         response = requests.get(url)
         if response.status_code != 200:
             raise RuntimeError(
-                f"Failed to list model, detail: {response.json()['detail']}"
+                f"Failed to list model, detail: {_get_error_string(response)}"
             )
 
         response_data = response.json()
@@ -461,7 +474,7 @@ class Client:
         response = requests.post(url, json=payload)
         if response.status_code != 200:
             raise RuntimeError(
-                f"Failed to launch model, detail: {response.json()['detail']}"
+                f"Failed to launch model, detail: {_get_error_string(response)}"
             )
 
         response_data = response.json()
@@ -539,7 +552,7 @@ class Client:
         response = requests.post(url, json=payload)
         if response.status_code != 200:
             raise RuntimeError(
-                f"Failed to launch model, detail: {response.json()['detail']}"
+                f"Failed to launch model, detail: {_get_error_string(response)}"
             )
 
         response_data = response.json()
@@ -566,7 +579,7 @@ class Client:
         response = requests.delete(url)
         if response.status_code != 200:
             raise RuntimeError(
-                f"Failed to terminate model, detail: {response.json()['detail']}"
+                f"Failed to terminate model, detail: {_get_error_string(response)}"
             )
 
     def _get_supervisor_internal_address(self):
@@ -606,7 +619,7 @@ class Client:
         response = requests.get(url)
         if response.status_code != 200:
             raise RuntimeError(
-                f"Failed to get the model description, detail: {response.json()['detail']}"
+                f"Failed to get the model description, detail: {_get_error_string(response)}"
             )
         desc = response.json()
 
@@ -672,7 +685,7 @@ class Client:
         response = requests.get(url)
         if response.status_code != 200:
             raise RuntimeError(
-                f"Failed to get the model description, detail: {response.json()['detail']}"
+                f"Failed to get the model description, detail: {_get_error_string(response)}"
             )
         return response.json()
 
@@ -699,7 +712,7 @@ class Client:
         response = requests.post(url, json=request_body)
         if response.status_code != 200:
             raise RuntimeError(
-                f"Failed to register model, detail: {response.json()['detail']}"
+                f"Failed to register model, detail: {_get_error_string(response)}"
             )
 
         response_data = response.json()
@@ -725,7 +738,7 @@ class Client:
         response = requests.delete(url)
         if response.status_code != 200:
             raise RuntimeError(
-                f"Failed to register model, detail: {response.json()['detail']}"
+                f"Failed to register model, detail: {_get_error_string(response)}"
             )
 
         response_data = response.json()
@@ -755,7 +768,7 @@ class Client:
         response = requests.get(url)
         if response.status_code != 200:
             raise RuntimeError(
-                f"Failed to list model registration, detail: {response.json()['detail']}"
+                f"Failed to list model registration, detail: {_get_error_string(response)}"
             )
 
         response_data = response.json()
@@ -783,7 +796,7 @@ class Client:
         response = requests.get(url)
         if response.status_code != 200:
             raise RuntimeError(
-                f"Failed to list model registration, detail: {response.json()['detail']}"
+                f"Failed to list model registration, detail: {_get_error_string(response)}"
             )
 
         response_data = response.json()
