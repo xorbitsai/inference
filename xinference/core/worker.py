@@ -25,8 +25,9 @@ from xoscar import MainActorPoolType
 
 from ..core import ModelActor
 from ..model.core import ModelDescription, create_model_instance
+from ..constants import XINFERENCE_CACHE_DIR
 from .resource import gather_node_info
-from .utils import log_async, log_sync, parse_replica_model_uid
+from .utils import log_async, log_sync, parse_replica_model_uid, purge_dir
 
 logger = getLogger(__name__)
 
@@ -70,6 +71,8 @@ class WorkerActor(xo.StatelessActor):
         await self._supervisor_ref.add_worker(self.address)
         self._upload_task = asyncio.create_task(self._periodical_report_status())
         logger.info(f"Xinference worker {self.address} started")
+        logger.info("Purge cache directory: %s", XINFERENCE_CACHE_DIR)
+        purge_dir(XINFERENCE_CACHE_DIR)
 
     async def __pre_destroy__(self):
         self._upload_task.cancel()

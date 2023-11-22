@@ -11,11 +11,15 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import logging
+import os
 from typing import Generator, Tuple
 
 import orjson
 from pydantic import BaseModel
+
+
+logger = logging.getLogger(__name__)
 
 
 def log_async(logger):
@@ -103,3 +107,18 @@ def json_dumps(o):
         raise TypeError
 
     return orjson.dumps(o, default=_default)
+
+
+def purge_dir(d):
+    if not os.path.exists(d) or not os.path.isdir(d):
+        return
+    for name in os.listdir(d):
+        subdir = os.path.join(d, name)
+        try:
+            if (os.path.islink(subdir) and not os.path.exists(subdir)) or (
+                len(os.listdir(subdir)) == 0
+            ):
+                logger.info("Remove empty directory: %s", subdir)
+                os.rmdir(subdir)
+        except Exception:
+            pass
