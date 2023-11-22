@@ -560,6 +560,101 @@
   },
   {
     "version": 1,
+    "context_length": 2048,
+    "model_name": "xverse-chat",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "XVERSEB-Chat is the aligned version of model XVERSE.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "xverse/XVERSE-7B-Chat",
+        "model_revision": "60acc8c453c067b54df88be98bfdf60585ab5441"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 13,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "xverse/XVERSE-13B-Chat",
+        "model_revision": "1e4944aaa1d8c8d0cdca28bb8e3a003303d0781b"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "XVERSE",
+      "system_prompt": "",
+      "roles": [
+        "Human:",
+        "Assistant:"
+      ]
+    }
+  },
+
+  {
+    "version": 1,
+    "context_length": 2048,
+    "model_name": "xverse",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "generate"
+    ],
+    "model_description": "XVERSE is a multilingual large language model, independently developed by Shenzhen Yuanxiang Technology.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "xverse/XVERSE-7B",
+        "model_revision": "3778b254def675586e9218ccb15b78d6ef66a3a7"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "xverse/XVERSE-13B",
+        "model_revision": "11ac840dda17af81046614229fdd0c658afff747"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "xverse/XVERSE-65B",
+        "model_revision": "7f1b7394f74c630f50612a19ba90bd021c373989"
+      }
+    ]
+  }
+ ,
+  {
+    "version": 1,
     "context_length": 4096,
     "model_name": "llama-2-chat",
     "model_lang": [
