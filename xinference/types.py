@@ -155,6 +155,17 @@ class ChatglmCppGenerateConfig(TypedDict, total=False):
     stream: bool
 
 
+class QWenCppModelConfig(TypedDict, total=False):
+    pass
+
+
+class QWenCppGenerateConfig(TypedDict, total=False):
+    max_tokens: int
+    top_p: float
+    temperature: float
+    stream: bool
+
+
 StoppingCriteria = Callable[[List[int], List[float]], bool]
 
 
