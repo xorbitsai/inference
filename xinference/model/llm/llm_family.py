@@ -370,13 +370,14 @@ def cache_from_uri(
 def _get_cache_dir(
     llm_family: LLMFamilyV1,
     llm_spec: "LLMSpecV1",
+    create_if_not_exist=True,
 ):
     cache_dir_name = (
         f"{llm_family.model_name}-{llm_spec.model_format}"
         f"-{llm_spec.model_size_in_billions}b"
     )
     cache_dir = os.path.realpath(os.path.join(XINFERENCE_CACHE_DIR, cache_dir_name))
-    if not os.path.exists(cache_dir):
+    if create_if_not_exist and not os.path.exists(cache_dir):
         os.makedirs(cache_dir, exist_ok=True)
     return cache_dir
 
@@ -585,7 +586,7 @@ def get_cache_status(
     llm_family: LLMFamilyV1,
     llm_spec: "LLMSpecV1",
 ) -> Union[bool, List[bool]]:
-    cache_dir = _get_cache_dir(llm_family, llm_spec)
+    cache_dir = _get_cache_dir(llm_family, llm_spec, create_if_not_exist=False)
     if llm_spec.model_format == "pytorch":
         return _skip_download(
             cache_dir,
