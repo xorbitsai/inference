@@ -19,9 +19,7 @@ def test_oscar_api(setup):
     endpoint, _ = setup
     client = Client(endpoint)
 
-    model_uid = client.launch_model(
-        model_name="bge-reranker-large", model_type="rerank"
-    )
+    model_uid = client.launch_model(model_name="bge-reranker-base", model_type="rerank")
     assert len(client.list_models()) == 1
     model = client.get_model(model_uid)
     # We want to compute the similarity between the query sentence

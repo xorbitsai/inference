@@ -2,7 +2,7 @@
   {
     "model_name": "bge-reranker-large",
     "language": ["en", "zh"],
-    "model_id": "BAAI/bge-large-en",
+    "model_id": "BAAI/bge-reranker-large",
     "model_revision": "27c9168d479987529781de8474dff94d69beca11"
   },
   {

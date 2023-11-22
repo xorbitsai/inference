@@ -152,6 +152,9 @@ def cache(model_spec: RerankModelSpec):
         return cache_dir
 
     if model_spec.model_hub == "modelscope":
+        logger.info(
+            f"Download {model_spec.model_name} from modelscope {model_spec.model_id}"
+        )
         download_dir = retry_download(
             ms_download,
             model_spec.model_name,
@@ -164,6 +167,9 @@ def cache(model_spec: RerankModelSpec):
                 relpath = os.path.relpath(os.path.join(subdir, file), download_dir)
                 symlink_local_file(os.path.join(subdir, file), cache_dir, relpath)
     else:
+        logger.info(
+            f"Download {model_spec.model_name} from huggingface {model_spec.model_id}"
+        )
         retry_download(
             hf_download,
             model_spec.model_name,

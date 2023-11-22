@@ -156,3 +156,10 @@ Language: Chinese
    multilingual-e5-large
    bge-small-zh
    bge-small-zh-v1.5
+
+
+Rerank Models
+++++++++++++++++++++++
+- :ref:`bge_rerank_base <models_builtin_bge_rerank_base>`
+- :ref:`bge_rerank_large <models_builtin_bge_rerank_large>`
+
