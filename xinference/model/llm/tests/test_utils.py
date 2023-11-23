@@ -238,6 +238,7 @@ def test_prompt_style_chatglm_v3():
         "Write a poem.", chat_history, prompt_style
     )
 
+
 def test_prompt_style_xverse():
     prompt_style = PromptStyleV1(
         style_name="XVERSE",
