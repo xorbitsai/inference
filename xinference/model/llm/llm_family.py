@@ -17,7 +17,7 @@ import os
 import platform
 import shutil
 from threading import Lock
-from typing import List, Optional, Tuple, Type, Union
+from typing import Dict, List, Optional, Tuple, Type, Union
 
 from pydantic import BaseModel, Field, Protocol, ValidationError
 from pydantic.error_wrappers import ErrorWrapper
@@ -40,6 +40,7 @@ from . import LLM
 logger = logging.getLogger(__name__)
 
 DEFAULT_CONTEXT_LENGTH = 2048
+BUILTIN_LLM_PROMPT_STYLE: Dict[str, "PromptStyleV1"] = {}
 
 
 class GgmlLLMSpecV1(BaseModel):
@@ -81,7 +82,7 @@ class LLMFamilyV1(BaseModel):
     model_ability: List[Literal["embed", "generate", "chat"]]
     model_description: Optional[str]
     model_specs: List["LLMSpecV1"]
-    prompt_style: Optional["PromptStyleV1"]
+    prompt_style: Optional[Union["PromptStyleV1", str]]
 
     @classmethod
     def parse_raw(  # type: ignore
@@ -93,7 +94,7 @@ class LLMFamilyV1(BaseModel):
         proto: Protocol = None,
         allow_pickle: bool = False,
     ) -> "LLMFamilyV1":
-        # See
+        # See source code of BaseModel.parse_raw
         try:
             obj = load_str_bytes(
                 b,
@@ -106,6 +107,16 @@ class LLMFamilyV1(BaseModel):
         except (ValueError, TypeError, UnicodeDecodeError) as e:
             raise ValidationError([ErrorWrapper(e, loc=ROOT_KEY)], cls)
         llm_spec = cls.parse_obj(obj)
+
+        # handle prompt style when user choose existing style
+        if llm_spec.prompt_style is not None and isinstance(llm_spec.prompt_style, str):
+            prompt_style_name = llm_spec.prompt_style
+            if prompt_style_name not in BUILTIN_LLM_PROMPT_STYLE:
+                raise ValueError(
+                    f"Xinference does not support the prompt style name: {prompt_style_name}"
+                )
+            llm_spec.prompt_style = BUILTIN_LLM_PROMPT_STYLE[prompt_style_name]
+
         return llm_spec
 
 

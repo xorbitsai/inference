@@ -939,3 +939,57 @@ def test_get_cache_status_ggml():
     assert os.path.exists(os.path.join(cache_dir, "README.md"))
     assert os.path.islink(os.path.join(cache_dir, "README.md"))
     shutil.rmtree(cache_dir)
+
+
+def test_parse_prompt_style():
+    from ..llm_family import BUILTIN_LLM_PROMPT_STYLE
+
+    assert len(BUILTIN_LLM_PROMPT_STYLE) > 0
+    # take some examples to assert
+    assert "qwen-chat" in BUILTIN_LLM_PROMPT_STYLE
+    assert "chatglm3" in BUILTIN_LLM_PROMPT_STYLE
+    assert "baichuan-chat" in BUILTIN_LLM_PROMPT_STYLE
+
+    hf_spec = GgmlLLMSpecV1(
+        model_format="ggmlv3",
+        model_size_in_billions=2,
+        quantizations=["q4_0", "q4_1"],
+        model_id="example/TestModel",
+        model_hub="huggingface",
+        model_revision="123",
+        model_file_name_template="TestModel.{quantization}.ggmlv3.bin",
+    )
+    ms_spec = GgmlLLMSpecV1(
+        model_format="ggmlv3",
+        model_size_in_billions=2,
+        quantizations=["q4_0", "q4_1"],
+        model_id="example/TestModel",
+        model_hub="modelscope",
+        model_revision="123",
+        model_file_name_template="TestModel.{quantization}.ggmlv3.bin",
+    )
+
+    llm_family = LLMFamilyV1(
+        version=1,
+        model_type="LLM",
+        model_name="test_LLM",
+        model_lang=["en"],
+        model_ability=["chat", "generate"],
+        model_specs=[hf_spec, ms_spec],
+        prompt_style="chatglm3",
+    )
+    model_spec = LLMFamilyV1.parse_raw(bytes(llm_family.json(), "utf8"))
+    assert model_spec.model_name == llm_family.model_name
+
+    # error
+    llm_family = LLMFamilyV1(
+        version=1,
+        model_type="LLM",
+        model_name="test_LLM",
+        model_lang=["en"],
+        model_ability=["chat", "generate"],
+        model_specs=[hf_spec, ms_spec],
+        prompt_style="test_xyz",
+    )
+    with pytest.raises(ValueError):
+        LLMFamilyV1.parse_raw(bytes(llm_family.json(), "utf8"))
