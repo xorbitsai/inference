@@ -393,7 +393,7 @@
         ],
         "model_hub": "modelscope",
         "model_id": "xverse/XVERSE-7B-Chat",
-        "model_revision": "v1.0.0"
+        "model_revision": "master"
       },
       {
         "model_format": "pytorch",
@@ -405,7 +405,7 @@
         ],
         "model_hub": "modelscope",
         "model_id": "xverse/XVERSE-13B-Chat",
-        "model_revision": "v1.0.0"
+        "model_revision": "master"
       }
     ],
     "prompt_style": {
@@ -440,7 +440,7 @@
         ],
         "model_id": "xverse/XVERSE-7B",
         "model_hub": "modelscope",
-        "model_revision": "v1.0.0"
+        "model_revision": "master"
       },
       {
         "model_format": "pytorch",
@@ -452,7 +452,7 @@
         ],
         "model_id": "xverse/XVERSE-13B",
         "model_hub": "modelscope",
-        "model_revision": "v1.0.0"
+        "model_revision": "master"
       },
       {
         "model_format": "pytorch",
@@ -464,7 +464,7 @@
         ],
         "model_id": "xverse/XVERSE-65B",
         "model_hub": "modelscope",
-        "model_revision": "v1.0.0"
+        "model_revision": "master"
       }
     ]
   },
