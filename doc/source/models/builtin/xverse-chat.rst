@@ -21,7 +21,7 @@ Model Specs (pytorch, Billions)
 - **Quantizations:** 4-bit, 8-bit, none
 
 XVERSE-Chat Model Variants
----------------------------
+--------------------------
 
 1. XVERSE-7B-Chat
     - **Model ID:** xverse/XVERSE-7B-Chat
@@ -39,7 +39,7 @@ To launch a specific XVERSE-Chat model, use the following command and replace `$
    4-bit quantization is not supported on macOS.
 
 Model Details
-^^^^^^^^^^^^
+^^^^^^^^^^^^^
 
 - **Version:** 1
 - **Context Length:** 2048
