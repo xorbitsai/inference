@@ -412,8 +412,8 @@
       "style_name": "XVERSE",
       "system_prompt": "",
       "roles": [
-        "Human",
-        "Assistant"
+        "user",
+        "assistant"
       ]
     }
   },
