@@ -1205,7 +1205,7 @@
         "model_hub": "modelscope",
         "model_id": "Xorbits/qwen-chat-7B-ggml",
         "model_file_name_template": "qwen7b-ggml-{quantization}.bin",
-        "model_revision": "v0.0.3"
+        "model_revision": "v0.0.4"
       },
       {
         "model_format": "ggmlv3",
@@ -1216,7 +1216,7 @@
         "model_hub": "modelscope",
         "model_id": "Xorbits/qwen-chat-14B-ggml",
         "model_file_name_template": "qwen14b-ggml-{quantization}.bin",
-        "model_revision": "v0.0.1"
+        "model_revision": "v0.0.2"
       },
       {
         "model_format": "pytorch",
