@@ -243,7 +243,7 @@ def test_prompt_style_xverse():
     prompt_style = PromptStyleV1(
         style_name="XVERSE",
         system_prompt="",
-        roles=["Human", "Assistant"],
+        roles=["user", "assistant"],
     )
     chat_history = [
         ChatCompletionMessage(role=prompt_style.roles[0], content="Hi there."),
@@ -252,10 +252,10 @@ def test_prompt_style_xverse():
         ),
     ]
     expected = (
-        "<|Human|> \n Hi there."
-        "<|Assistant|> \n Hello, how may I help you?"
-        "<|Human|> \n Write a poem."
-        "<|Assistant|>"
+        "<|user|> \n Hi there."
+        "<|assistant|> \n Hello, how may I help you?"
+        "<|user|> \n Write a poem."
+        "<|assistant|>"
     )
     assert expected == ChatModelMixin.get_prompt(
         "Write a poem.", chat_history, prompt_style
