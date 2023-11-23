@@ -15,7 +15,7 @@
 from ....client import Client
 
 
-def test_oscar_api(setup):
+def test_restful_api(setup):
     endpoint, _ = setup
     client = Client(endpoint)
 
