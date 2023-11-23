@@ -19,7 +19,11 @@ import shutil
 from threading import Lock
 from typing import List, Optional, Tuple, Type, Union
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, Protocol, ValidationError
+from pydantic.error_wrappers import ErrorWrapper
+from pydantic.parse import load_str_bytes
+from pydantic.types import StrBytes
+from pydantic.utils import ROOT_KEY
 from typing_extensions import Annotated, Literal
 
 from ...constants import XINFERENCE_CACHE_DIR, XINFERENCE_MODEL_DIR
@@ -78,6 +82,31 @@ class LLMFamilyV1(BaseModel):
     model_description: Optional[str]
     model_specs: List["LLMSpecV1"]
     prompt_style: Optional["PromptStyleV1"]
+
+    @classmethod
+    def parse_raw(  # type: ignore
+        cls: "LLMFamilyV1",
+        b: StrBytes,
+        *,
+        content_type: Optional[str] = None,
+        encoding: str = "utf8",
+        proto: Protocol = None,
+        allow_pickle: bool = False,
+    ) -> "LLMFamilyV1":
+        # See
+        try:
+            obj = load_str_bytes(
+                b,
+                proto=proto,
+                content_type=content_type,
+                encoding=encoding,
+                allow_pickle=allow_pickle,
+                json_loads=cls.__config__.json_loads,
+            )
+        except (ValueError, TypeError, UnicodeDecodeError) as e:
+            raise ValidationError([ErrorWrapper(e, loc=ROOT_KEY)], cls)
+        llm_spec = cls.parse_obj(obj)
+        return llm_spec
 
 
 LLMSpecV1 = Annotated[
