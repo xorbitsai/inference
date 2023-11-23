@@ -1,8 +1,8 @@
 _models_builtin_xverse_chat:
 
-=========================
+===========
 XVERSE-Chat
-=========================
+===========
 
 - **Context Length:** 2048
 - **Model Name:** xverse-chat
