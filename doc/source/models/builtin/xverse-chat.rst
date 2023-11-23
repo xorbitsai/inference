@@ -53,4 +53,4 @@ Prompt Style
 
 - **Style Name:** XVERSE
 - **System Prompt:** N/A
-- **Roles:** [Human, Assistant]
+- **Roles:** [user, assistant]
