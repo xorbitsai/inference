@@ -1,8 +1,8 @@
 _models_builtin_xverse:
 
-============
+======
 XVERSE
-============
+======
 
 - **Context Length:** 2048
 - **Model Name:** xverse
@@ -36,14 +36,16 @@ XVERSE Model Variants
     - **Model Revision:** 7f1b7394f74c630f50612a19ba90bd021c373989
 
 To launch a specific XVERSE model, use the following command and replace `${quantization}` with your chosen quantization method:
+chosen quantization method from the options listed above and the size::
 
+   xinference launch --model-name xverse --size-in-billions 7 --model-format pytorch --quantization ${quantization}
 
 .. note::
 
    4-bit quantization is not supported on macOS.
 
 Model Details
-^^^^^^^^^^^^
+^^^^^^^^^^^^^
 
 - **Version:** 1
 - **Context Length:** 2048
