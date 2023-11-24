@@ -1,4 +1,4 @@
-_models_builtin_xverse:
+.. _models_builtin_xverse:
 
 ======
 XVERSE

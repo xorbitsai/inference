@@ -146,6 +146,7 @@ Output:
 Rerank
 ~~~~~~
 To launch a rerank model and compute the similarity scores:
+
 .. code-block::
 
     from xinference.client import Client

@@ -165,3 +165,9 @@ Rerank Models
 - :ref:`bge_rerank_base <models_builtin_bge_rerank_base>`
 - :ref:`bge_rerank_large <models_builtin_bge_rerank_large>`
 
+.. toctree::
+   :maxdepth: 2
+   :hidden:
+
+   bge_rerank_base
+   bge_rerank_large

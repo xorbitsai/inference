@@ -1,4 +1,4 @@
-_models_builtin_xverse_chat:
+.. _models_builtin_xverse_chat:
 
 ===========
 XVERSE-Chat
