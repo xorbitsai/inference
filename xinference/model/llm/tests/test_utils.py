@@ -239,6 +239,29 @@ def test_prompt_style_chatglm_v3():
     )
 
 
+def test_prompt_style_xverse():
+    prompt_style = PromptStyleV1(
+        style_name="XVERSE",
+        system_prompt="",
+        roles=["user", "assistant"],
+    )
+    chat_history = [
+        ChatCompletionMessage(role=prompt_style.roles[0], content="Hi there."),
+        ChatCompletionMessage(
+            role=prompt_style.roles[1], content="Hello, how may I help you?"
+        ),
+    ]
+    expected = (
+        "<|user|> \n Hi there."
+        "<|assistant|> \n Hello, how may I help you?"
+        "<|user|> \n Write a poem."
+        "<|assistant|>"
+    )
+    assert expected == ChatModelMixin.get_prompt(
+        "Write a poem.", chat_history, prompt_style
+    )
+
+
 def test_prompt_style_qwen():
     prompt_style = PromptStyleV1(
         style_name="QWEN",
