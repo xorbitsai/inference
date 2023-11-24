@@ -17,7 +17,7 @@ import os
 import platform
 import shutil
 from threading import Lock
-from typing import Dict, List, Optional, Tuple, Type, Union
+from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 from pydantic import BaseModel, Field, Protocol, ValidationError
 from pydantic.error_wrappers import ErrorWrapper
@@ -82,18 +82,22 @@ class LLMFamilyV1(BaseModel):
     model_ability: List[Literal["embed", "generate", "chat"]]
     model_description: Optional[str]
     model_specs: List["LLMSpecV1"]
-    prompt_style: Optional[Union["PromptStyleV1", str]]
+    prompt_style: Optional["PromptStyleV1"]
+
+
+class CustomLLMFamilyV1(LLMFamilyV1):
+    prompt_style: Optional[Union["PromptStyleV1", str]]  # type: ignore
 
     @classmethod
-    def parse_raw(  # type: ignore
-        cls: "LLMFamilyV1",
+    def parse_raw(
+        cls: Any,
         b: StrBytes,
         *,
         content_type: Optional[str] = None,
         encoding: str = "utf8",
         proto: Protocol = None,
         allow_pickle: bool = False,
-    ) -> "LLMFamilyV1":
+    ) -> LLMFamilyV1:
         # See source code of BaseModel.parse_raw
         try:
             obj = load_str_bytes(
@@ -126,6 +130,7 @@ LLMSpecV1 = Annotated[
 ]
 
 LLMFamilyV1.update_forward_refs()
+CustomLLMFamilyV1.update_forward_refs()
 
 
 LLM_CLASSES: List[Type[LLM]] = []

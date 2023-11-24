@@ -24,6 +24,7 @@ from ....constants import XINFERENCE_ENV_MODEL_SRC
 from ...utils import is_locale_chinese_simplified, valid_model_revision
 from ..llm_family import (
     AWSRegion,
+    CustomLLMFamilyV1,
     GgmlLLMSpecV1,
     LLMFamilyV1,
     PromptStyleV1,
@@ -969,7 +970,7 @@ def test_parse_prompt_style():
         model_file_name_template="TestModel.{quantization}.ggmlv3.bin",
     )
 
-    llm_family = LLMFamilyV1(
+    llm_family = CustomLLMFamilyV1(
         version=1,
         model_type="LLM",
         model_name="test_LLM",
@@ -978,11 +979,11 @@ def test_parse_prompt_style():
         model_specs=[hf_spec, ms_spec],
         prompt_style="chatglm3",
     )
-    model_spec = LLMFamilyV1.parse_raw(bytes(llm_family.json(), "utf8"))
+    model_spec = CustomLLMFamilyV1.parse_raw(bytes(llm_family.json(), "utf8"))
     assert model_spec.model_name == llm_family.model_name
 
     # error
-    llm_family = LLMFamilyV1(
+    llm_family = CustomLLMFamilyV1(
         version=1,
         model_type="LLM",
         model_name="test_LLM",
@@ -992,4 +993,4 @@ def test_parse_prompt_style():
         prompt_style="test_xyz",
     )
     with pytest.raises(ValueError):
-        LLMFamilyV1.parse_raw(bytes(llm_family.json(), "utf8"))
+        CustomLLMFamilyV1.parse_raw(bytes(llm_family.json(), "utf8"))
