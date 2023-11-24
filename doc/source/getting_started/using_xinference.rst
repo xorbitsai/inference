@@ -44,8 +44,7 @@ To start a local instance of Xinference, run the following command:
 
   .. code-block:: bash
 
-    export XINFERENCE_HOME=/tmp/xinference 
-    xinference-local --host 0.0.0.0 --port 9997
+    XINFERENCE_HOME=/tmp/xinference xinference-local --host 0.0.0.0 --port 9997
 
 Congrats! You now have Xinference running on your local machine. Once Xinference is running, there are multiple ways
 we can try it: via the web UI, via cURL, via the command line, or via the Xinference's python client. 
@@ -114,8 +113,7 @@ We cache the model files locally, so there's no need to redownload them for subs
 
   .. code-block:: bash
 
-    export XINFERENCE_MODEL_SRC=modelscope 
-    xinference-local --host 0.0.0.0 --port 9997
+    XINFERENCE_MODEL_SRC=modelscope xinference-local --host 0.0.0.0 --port 9997 
 
 We can specify the model's UID using the ``--model-uid`` or ``-u`` flag. If not specified, Xinference will generate a random ID.
 This create a new model instance with unique ID ``my-llama-2``:
