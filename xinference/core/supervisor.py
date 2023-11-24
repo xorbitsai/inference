@@ -17,7 +17,7 @@ import itertools
 import time
 from dataclasses import dataclass
 from logging import getLogger
-from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Tuple, Union
 
 import xoscar as xo
 
@@ -78,6 +78,22 @@ class SupervisorActor(xo.StatelessActor):
         # comment this line to avoid worker lost
         # self._check_dead_nodes_task = asyncio.create_task(self._check_dead_nodes())
         logger.info(f"Xinference supervisor {self.address} started")
+
+        from ..model.embedding import (
+            CustomEmbeddingModelSpec,
+            register_embedding,
+            unregister_embedding,
+        )
+        from ..model.llm import LLMFamilyV1, register_llm, unregister_llm
+
+        self._custom_register_type_to_cls: Dict[str, Tuple] = {
+            "LLM": (LLMFamilyV1, register_llm, unregister_llm),
+            "embedding": (
+                CustomEmbeddingModelSpec,
+                register_embedding,
+                unregister_embedding,
+            ),
+        }
 
     async def _choose_worker(self) -> xo.ActorRefType["WorkerActor"]:
         # TODO: better allocation strategy.
@@ -187,6 +203,7 @@ class SupervisorActor(xo.StatelessActor):
             return ret
         elif model_type == "embedding":
             from ..model.embedding import BUILTIN_EMBEDDING_MODELS
+            from ..model.embedding.custom import get_user_defined_embeddings
 
             ret = []
             for model_name, family in BUILTIN_EMBEDDING_MODELS.items():
@@ -194,6 +211,16 @@ class SupervisorActor(xo.StatelessActor):
                     ret.append(self._to_embedding_model_reg(family, is_builtin=True))
                 else:
                     ret.append({"model_name": model_name, "is_builtin": True})
+
+            for model_spec in get_user_defined_embeddings():
+                if detailed:
+                    ret.append(
+                        self._to_embedding_model_reg(model_spec, is_builtin=False)
+                    )
+                else:
+                    ret.append(
+                        {"model_name": model_spec.model_name, "is_builtin": False}
+                    )
 
             ret.sort(key=sort_helper)
             return ret
@@ -213,9 +240,7 @@ class SupervisorActor(xo.StatelessActor):
             raise ValueError(f"Unsupported model type: {model_type}")
 
     @log_sync(logger=logger)
-    def get_model_registration(
-        self, model_type: str, model_name: str
-    ) -> Dict[str, Any]:
+    def get_model_registration(self, model_type: str, model_name: str) -> Any:
         if model_type == "LLM":
             from ..model.llm import BUILTIN_LLM_FAMILIES, get_user_defined_llm_families
 
@@ -226,8 +251,11 @@ class SupervisorActor(xo.StatelessActor):
             raise ValueError(f"Model {model_name} not found")
         if model_type == "embedding":
             from ..model.embedding import BUILTIN_EMBEDDING_MODELS
+            from ..model.embedding.custom import get_user_defined_embeddings
 
-            for f in BUILTIN_EMBEDDING_MODELS.values():
+            for f in (
+                list(BUILTIN_EMBEDDING_MODELS.values()) + get_user_defined_embeddings()
+            ):
                 if f.model_name == model_name:
                     return f
             raise ValueError(f"Model {model_name} not found")
@@ -243,25 +271,26 @@ class SupervisorActor(xo.StatelessActor):
 
     @log_async(logger=logger)
     async def register_model(self, model_type: str, model: str, persist: bool):
-        if model_type == "LLM":
-            from ..model.llm import LLMFamilyV1, register_llm
+        if model_type in self._custom_register_type_to_cls:
+            model_spec_cls, register_fn, _ = self._custom_register_type_to_cls[
+                model_type
+            ]
 
             if not self.is_local_deployment():
                 workers = list(self._worker_address_to_worker.values())
                 for worker in workers:
                     await worker.register_model(model_type, model, persist)
 
-            llm_family = LLMFamilyV1.parse_raw(model)
-            register_llm(llm_family, persist)
+            model_spec = model_spec_cls.parse_raw(model)
+            register_fn(model_spec, persist)
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
 
     @log_async(logger=logger)
     async def unregister_model(self, model_type: str, model_name: str):
-        if model_type == "LLM":
-            from ..model.llm import unregister_llm
-
-            unregister_llm(model_name)
+        if model_type in self._custom_register_type_to_cls:
+            _, _, unregister_fn = self._custom_register_type_to_cls[model_type]
+            unregister_fn(model_name)
 
             if not self.is_local_deployment():
                 workers = list(self._worker_address_to_worker.values())

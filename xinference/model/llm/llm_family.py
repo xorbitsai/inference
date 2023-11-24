@@ -25,6 +25,8 @@ from typing_extensions import Annotated, Literal
 from ...constants import XINFERENCE_CACHE_DIR, XINFERENCE_MODEL_DIR
 from ..utils import (
     download_from_modelscope,
+    is_valid_model_uri,
+    parse_uri,
     retry_download,
     symlink_local_file,
     valid_model_revision,
@@ -144,36 +146,6 @@ def cache(
                 raise ValueError(f"Unknown model hub: {llm_spec.model_hub}")
 
 
-def parse_uri(uri: str) -> Tuple[str, str]:
-    import glob
-    from urllib.parse import urlparse
-
-    if os.path.exists(uri) or glob.glob(uri):
-        return "file", uri
-    else:
-        parsed = urlparse(uri)
-        scheme = parsed.scheme
-        path = parsed.netloc + parsed.path
-        if parsed.scheme == "" or len(parsed.scheme) == 1:  # len == 1 for windows
-            scheme = "file"
-        return scheme, path
-
-
-def is_valid_model_uri(model_uri: Optional[str]) -> bool:
-    if not model_uri:
-        return False
-
-    src_scheme, src_root = parse_uri(model_uri)
-
-    if src_scheme == "file":
-        if not os.path.isabs(src_root):
-            raise ValueError(f"Model URI cannot be a relative path: {model_uri}")
-        return os.path.exists(src_root)
-    else:
-        # TODO: handle other schemes.
-        return True
-
-
 SUPPORTED_SCHEMES = ["s3"]
 
 
@@ -234,49 +206,7 @@ def cache_from_uri(
 ) -> str:
     from fsspec import AbstractFileSystem, filesystem
 
-    def copy(
-        _src_fs: "AbstractFileSystem",
-        _src_path: str,
-        dst_fs: "AbstractFileSystem",
-        dst_path: str,
-        max_attempt: int = 3,
-    ):
-        from tqdm import tqdm
-
-        for attempt in range(max_attempt):
-            logger.info(f"Copy from {_src_path} to {dst_path}, attempt: {attempt}")
-            try:
-                with _src_fs.open(_src_path, "rb") as src_file:
-                    file_size = _src_fs.info(src_path)["size"]
-
-                    dst_fs.makedirs(os.path.dirname(dst_path), exist_ok=True)
-                    with dst_fs.open(dst_path, "wb") as dst_file:
-                        chunk_size = 1024 * 1024  # 1 MB
-
-                        with tqdm(
-                            total=file_size,
-                            unit="B",
-                            unit_scale=True,
-                            unit_divisor=1024,
-                            desc=_src_path,
-                        ) as pbar:
-                            while True:
-                                chunk = src_file.read(chunk_size)
-                                if not chunk:
-                                    break
-                                dst_file.write(chunk)
-                                pbar.update(len(chunk))
-                logger.info(
-                    f"Copy from {_src_path} to {dst_path} finished, attempt: {attempt}"
-                )
-                break
-            except:
-                logger.error(
-                    f"Failed to copy from {_src_path} to {dst_path} on attempt {attempt + 1}",
-                    exc_info=True,
-                )
-                if attempt + 1 == max_attempt:
-                    raise
+    from ..utils import copy_from_src_to_dst
 
     cache_dir_name = (
         f"{llm_family.model_name}-{llm_spec.model_format}"
@@ -341,7 +271,9 @@ def cache_from_uri(
             futures = [
                 (
                     src_path,
-                    executor.submit(copy, src_fs, src_path, local_fs, local_path),
+                    executor.submit(
+                        copy_from_src_to_dst, src_fs, src_path, local_fs, local_path
+                    ),
                 )
                 for src_path, local_path in files_to_download
             ]
@@ -708,7 +640,7 @@ def match_llm(
 
 
 def register_llm(llm_family: LLMFamilyV1, persist: bool):
-    from .utils import is_valid_model_name
+    from ..utils import is_valid_model_name
 
     if not is_valid_model_name(llm_family.model_name):
         raise ValueError(
