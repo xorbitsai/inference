@@ -36,6 +36,7 @@ if TYPE_CHECKING:
     from ..model.embedding import EmbeddingModelSpec
     from ..model.image import ImageModelFamilyV1
     from ..model.llm import LLMFamilyV1
+    from ..model.rerank import RerankModelSpec
     from .worker import WorkerActor
 
 
@@ -156,6 +157,25 @@ class SupervisorActor(xo.StatelessActor):
                 "is_builtin": is_builtin,
             }
 
+    def _to_rerank_model_reg(
+        self, model_spec: "RerankModelSpec", is_builtin: bool
+    ) -> Dict[str, Any]:
+        from ..model.rerank import get_cache_status
+
+        if self.is_local_deployment():
+            # TODO: does not work when the supervisor and worker are running on separate nodes.
+            cache_status = get_cache_status(model_spec)
+            return {
+                **model_spec.dict(),
+                "cache_status": cache_status,
+                "is_builtin": is_builtin,
+            }
+        else:
+            return {
+                **model_spec.dict(),
+                "is_builtin": is_builtin,
+            }
+
     def _to_image_model_reg(
         self, model_family: "ImageModelFamilyV1", is_builtin: bool
     ) -> Dict[str, Any]:
@@ -236,6 +256,18 @@ class SupervisorActor(xo.StatelessActor):
 
             ret.sort(key=sort_helper)
             return ret
+        elif model_type == "rerank":
+            from ..model.rerank import BUILTIN_RERANK_MODELS
+
+            ret = []
+            for model_name, family in BUILTIN_RERANK_MODELS.items():
+                if detailed:
+                    ret.append(self._to_rerank_model_reg(family, is_builtin=True))
+                else:
+                    ret.append({"model_name": model_name, "is_builtin": True})
+
+            ret.sort(key=sort_helper)
+            return ret
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
 
@@ -249,7 +281,7 @@ class SupervisorActor(xo.StatelessActor):
                     return f
 
             raise ValueError(f"Model {model_name} not found")
-        if model_type == "embedding":
+        elif model_type == "embedding":
             from ..model.embedding import BUILTIN_EMBEDDING_MODELS
             from ..model.embedding.custom import get_user_defined_embeddings
 
@@ -259,10 +291,17 @@ class SupervisorActor(xo.StatelessActor):
                 if f.model_name == model_name:
                     return f
             raise ValueError(f"Model {model_name} not found")
-        if model_type == "image":
+        elif model_type == "image":
             from ..model.image import BUILTIN_IMAGE_MODELS
 
             for f in BUILTIN_IMAGE_MODELS.values():
+                if f.model_name == model_name:
+                    return f
+            raise ValueError(f"Model {model_name} not found")
+        elif model_type == "rerank":
+            from ..model.rerank import BUILTIN_RERANK_MODELS
+
+            for f in BUILTIN_RERANK_MODELS.values():
                 if f.model_name == model_name:
                     return f
             raise ValueError(f"Model {model_name} not found")
