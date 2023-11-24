@@ -421,6 +421,63 @@ def test_RESTful_client_custom_model(setup):
             custom_model_reg = model_reg
     assert custom_model_reg is None
 
+    # test register with string prompt style name
+    model_with_prompt = """{
+  "version": 1,
+  "context_length":2048,
+  "model_name": "custom_model",
+  "model_lang": [
+    "en", "zh"
+  ],
+  "model_ability": [
+    "embed",
+    "chat"
+  ],
+  "model_specs": [
+    {
+      "model_format": "pytorch",
+      "model_size_in_billions": 7,
+      "quantizations": [
+        "4-bit",
+        "8-bit",
+        "none"
+      ],
+      "model_id": "ziqingyang/chinese-alpaca-2-7b"
+    }
+  ],
+  "prompt_style": "qwen-chat"
+}"""
+    client.register_model(model_type="LLM", model=model_with_prompt, persist=False)
+    client.unregister_model(model_type="LLM", model_name="custom_model")
+
+    model_with_prompt2 = """{
+      "version": 1,
+      "context_length":2048,
+      "model_name": "custom_model",
+      "model_lang": [
+        "en", "zh"
+      ],
+      "model_ability": [
+        "embed",
+        "chat"
+      ],
+      "model_specs": [
+        {
+          "model_format": "pytorch",
+          "model_size_in_billions": 7,
+          "quantizations": [
+            "4-bit",
+            "8-bit",
+            "none"
+          ],
+          "model_id": "ziqingyang/chinese-alpaca-2-7b"
+        }
+      ],
+      "prompt_style": "xyz123"
+    }"""
+    with pytest.raises(RuntimeError):
+        client.register_model(model_type="LLM", model=model_with_prompt2, persist=False)
+
 
 def test_client_from_modelscope(setup):
     try:
