@@ -12,13 +12,14 @@ Examples
    chatbot
    gradio_chatinterface
    pdf_chatbot
+   langchain_streamlit_doc_chat
 
 Here you can find examples and resources to learn about how to use Xinference.
 
-Examples
-========
+Demos
+=====
 
-End-to-end examples of using Xinference for various tasks:
+End-to-end applications of using Xinference:
 
 * `Voice Conversations with AI Agents on M2 Max <ai_podcast.html>`_
 
@@ -26,7 +27,9 @@ End-to-end examples of using Xinference for various tasks:
 
 * `Interacting with LLM Models: A Gradio ChatInterface Example <gradio_chatinterface.html>`_
 
-* `PDF Chatbot with Local LLM and Embeddings <pdf_chatbot.html>`_ 
+* `PDF Chatbot with Local LLM and Embeddings <pdf_chatbot.html>`_
+
+* `Local Doc Conversations with LangChain and Streamlit <langchain_streamlit_doc_chat.html>`_
 
 If you come across other examples in your own workflows we encourage you to contribute a `PR <https://github.com/xorbitsai/inference/pulls>`_!
 
@@ -36,7 +39,7 @@ Tutorials
 
 The following tutorials cover the basics of using Xinference in different scenarios:
 
-* `Build a QA Application with Xinference and LangChain <https://github.com/RayJi01/Xprobe_inference/blob/main/examples/LangChain_QA.ipynb>`_
+* `[Notebook] Question-answering(QA) Application with Xinference, Milvus and LangChain <https://github.com/RayJi01/Xprobe_inference/blob/main/examples/LangChain_QA.ipynb>`_
 
 * `Using Xinference local LLMs within LlamaIndex <https://docs.llamaindex.ai/en/stable/examples/llm/xinference_local_deployment.html>`_
 
