@@ -198,8 +198,6 @@ def get_cache_status(
     cache_dir = os.path.realpath(
         os.path.join(XINFERENCE_CACHE_DIR, model_spec.model_name)
     )
-    if not os.path.exists(cache_dir):
-        os.makedirs(cache_dir, exist_ok=True)
     meta_path = os.path.join(cache_dir, "__valid_download")
     return valid_model_revision(meta_path, model_spec.model_revision)
 

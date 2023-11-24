@@ -67,6 +67,21 @@ class Embedding(TypedDict):
     usage: EmbeddingUsage
 
 
+class Document(TypedDict):
+    text: str
+
+
+class DocumentObj(TypedDict):
+    index: int
+    relevance_score: float
+    document: Optional[Document]
+
+
+class Rerank(TypedDict):
+    id: str
+    results: List[DocumentObj]
+
+
 class CompletionLogprobs(TypedDict):
     text_offset: List[int]
     token_logprobs: List[Optional[float]]
