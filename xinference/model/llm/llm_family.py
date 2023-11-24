@@ -441,6 +441,20 @@ def cache_from_modelscope(
             revision=llm_spec.model_revision,
         )
         symlink_local_file(download_path, cache_dir, filename)
+        # need to download another file named "qwen.tiktoken" for qwen model
+        if "qwen" in llm_family.model_name:
+            tiktoken_path = retry_download(
+                model_file_download,
+                llm_family.model_name,
+                {
+                    "model_size": llm_spec.model_size_in_billions,
+                    "model_format": llm_spec.model_format,
+                },
+                llm_spec.model_id,
+                "qwen.tiktoken",
+                revision=llm_spec.model_revision,
+            )
+            symlink_local_file(tiktoken_path, cache_dir, "qwen.tiktoken")
     else:
         raise ValueError(f"Unsupported format: {llm_spec.model_format}")
 
@@ -503,6 +517,21 @@ def cache_from_huggingface(
             local_dir=cache_dir,
             local_dir_use_symlinks=True,
         )
+        # need to download another file named "qwen.tiktoken" for qwen model
+        if "qwen" in llm_family.model_name:
+            retry_download(
+                huggingface_hub.hf_hub_download,
+                llm_family.model_name,
+                {
+                    "model_size": llm_spec.model_size_in_billions,
+                    "model_format": llm_spec.model_format,
+                },
+                llm_spec.model_id,
+                revision=llm_spec.model_revision,
+                filename="qwen.tiktoken",
+                local_dir=cache_dir,
+                local_dir_use_symlinks=True,
+            )
     else:
         raise ValueError(f"Unsupported model format: {llm_spec.model_format}")
 

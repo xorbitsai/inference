@@ -754,7 +754,11 @@ class RESTfulAPI:
             "model_format"
         ) == "ggmlv3" and "chatglm" in desc.get("model_name", "")
 
-        if is_chatglm_ggml and system_prompt is not None:
+        is_qwen = desc.get("model_format") == "ggmlv3" and "qwen" in desc.get(
+            "model_name", ""
+        )
+
+        if (is_chatglm_ggml or is_qwen) and system_prompt is not None:
             raise HTTPException(
                 status_code=400, detail="ChatGLM ggml does not have system prompt"
             )
@@ -765,7 +769,7 @@ class RESTfulAPI:
                 iterator = None
                 try:
                     try:
-                        if is_chatglm_ggml:
+                        if is_chatglm_ggml or is_qwen:
                             iterator = await model.chat(prompt, chat_history, kwargs)
                         else:
                             iterator = await model.chat(
@@ -785,7 +789,7 @@ class RESTfulAPI:
             return EventSourceResponse(stream_results())
         else:
             try:
-                if is_chatglm_ggml:
+                if is_chatglm_ggml or is_qwen:
                     data = await model.chat(prompt, chat_history, kwargs)
                 else:
                     data = await model.chat(prompt, system_prompt, chat_history, kwargs)
