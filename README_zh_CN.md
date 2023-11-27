@@ -261,7 +261,7 @@ $ xinference registrations
   - chatglm2-32k
   - internlm-chat-20b
   - ...
-  更多的支持的模型在[文档](https://inference.readthedocs.io/en/latest/models/sources/sources.html#modelscope)中列出了。
+  更多的支持的模型在[文档](https://inference.readthedocs.io/zh-cn/latest/models/sources/sources.html#modelscope)中列出了。
 
 ## 自定义模型
 请参考 [自定义模型](https://inference.readthedocs.io/en/latest/models/custom.html)。
