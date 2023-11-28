@@ -66,8 +66,13 @@ def run_in_subprocess(
     return p
 
 
-def main(host: str, port: int, logging_conf: Optional[Dict] = None):
-    supervisor_address = f"{host}:{get_next_port()}"
+def main(
+    host: str,
+    port: int,
+    supervisor_port: Optional[int],
+    logging_conf: Optional[Dict] = None,
+):
+    supervisor_address = f"{host}:{supervisor_port or get_next_port()}"
     local_cluster = run_in_subprocess(supervisor_address, logging_conf)
 
     if not health_check(address=supervisor_address, max_attempts=3, sleep_interval=1):
