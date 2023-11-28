@@ -61,7 +61,6 @@ class WorkerActor(xo.StatelessActor):
         self._lock = asyncio.Lock()
 
     async def recover_sub_pool(self, address):
-        print(address)
         logger.warning("Process %s is down, create model.", address)
         for model_uid, addr in self._model_uid_to_addr.items():
             if addr == address:

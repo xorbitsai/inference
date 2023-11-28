@@ -19,7 +19,6 @@ from concurrent.futures import ThreadPoolExecutor
 
 import psutil
 import pytest
-import pytest_asyncio
 import requests
 
 from ...constants import XINFERENCE_ENV_MODEL_SRC
@@ -498,8 +497,8 @@ def test_client_custom_embedding_model(setup):
     assert custom_model_reg is None
 
 
-@pytest_asyncio.fixture
-async def setup_cluster():
+@pytest.fixture
+def setup_cluster():
     import xoscar as xo
 
     from ...api.restful_api import run_in_subprocess as restful_api_run_in_subprocess
@@ -534,7 +533,6 @@ async def setup_cluster():
 def test_auto_recover(setup_cluster):
     endpoint, _ = setup_cluster
     current_proc = psutil.Process()
-    print(current_proc.pid)
     chilren_proc = set(current_proc.children(recursive=True))
     client = RESTfulClient(endpoint)
 
@@ -543,7 +541,6 @@ def test_auto_recover(setup_cluster):
     )
     new_children_proc = set(current_proc.children(recursive=True))
     model_proc = next(iter(new_children_proc - chilren_proc))
-    print(model_proc)
     assert len(client.list_models()) == 1
 
     model = client.get_model(model_uid=model_uid)
@@ -552,7 +549,6 @@ def test_auto_recover(setup_cluster):
     completion = model.generate("Once upon a time, there was a very old computer")
     assert "text" in completion["choices"][0]
 
-    print(f"kill pid {model_proc.pid}")
     model_proc.kill()
 
     for _ in range(10):
