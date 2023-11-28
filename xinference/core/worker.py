@@ -48,6 +48,7 @@ class WorkerActor(xo.StatelessActor):
         self._supervisor_address = supervisor_address
         self._supervisor_ref = None
         self._main_pool = main_pool
+        self._main_pool.recover_sub_pool = self.recover_sub_pool
 
         # internal states.
         self._model_uid_to_model: Dict[str, xo.ActorRefType["ModelActor"]] = {}
@@ -55,8 +56,22 @@ class WorkerActor(xo.StatelessActor):
         self._gpu_to_model_uid: Dict[int, str] = {}
         self._gpu_to_embedding_model_uids: Dict[int, Set[str]] = defaultdict(set)
         self._model_uid_to_addr: Dict[str, str] = {}
+        self._model_uid_to_launch_args: Dict[str, Dict] = {}
 
         self._lock = asyncio.Lock()
+
+    async def recover_sub_pool(self, address):
+        print(address)
+        logger.warning("Process %s is down, create model.", address)
+        for model_uid, addr in self._model_uid_to_addr.items():
+            if addr == address:
+                launch_args = self._model_uid_to_launch_args.get(model_uid)
+                try:
+                    await self.terminate_model(model_uid)
+                except Exception:
+                    pass
+                await self.launch_builtin_model(**launch_args)
+                break
 
     @classmethod
     def uid(cls) -> str:
@@ -277,7 +292,6 @@ class WorkerActor(xo.StatelessActor):
         for dev in devices:
             self._gpu_to_model_uid[int(dev)] = model_uid
         self._model_uid_to_addr[model_uid] = subpool_address
-        return model_ref
 
     @log_async(logger=logger)
     async def launch_builtin_model(
@@ -291,7 +305,9 @@ class WorkerActor(xo.StatelessActor):
         n_gpu: Optional[Union[int, str]] = "auto",
         request_limits: Optional[int] = None,
         **kwargs,
-    ) -> xo.ActorRefType["ModelActor"]:
+    ):
+        launch_args = locals()
+        launch_args.pop("self")
         if n_gpu is not None:
             if isinstance(n_gpu, int) and (n_gpu <= 0 or n_gpu > cuda_count()):
                 raise ValueError(
@@ -342,7 +358,7 @@ class WorkerActor(xo.StatelessActor):
         self._model_uid_to_model[model_uid] = model_ref
         self._model_uid_to_model_spec[model_uid] = model_description
         self._model_uid_to_addr[model_uid] = subpool_address
-        return model_ref
+        self._model_uid_to_launch_args[model_uid] = launch_args
 
     @log_async(logger=logger)
     async def terminate_model(self, model_uid: str):
@@ -350,15 +366,19 @@ class WorkerActor(xo.StatelessActor):
         if model_ref is None:
             raise ValueError(f"Model not found in the model list, uid: {model_uid}")
 
-        await xo.destroy_actor(model_ref)
-        del self._model_uid_to_model[model_uid]
-        del self._model_uid_to_model_spec[model_uid]
-
-        self.release_devices(model_uid)
-
-        subpool_address = self._model_uid_to_addr[model_uid]
-        await self._main_pool.remove_sub_pool(subpool_address)
-        del self._model_uid_to_addr[model_uid]
+        try:
+            await xo.destroy_actor(model_ref)
+        except Exception:
+            pass
+        try:
+            subpool_address = self._model_uid_to_addr[model_uid]
+            await self._main_pool.remove_sub_pool(subpool_address)
+        finally:
+            del self._model_uid_to_model[model_uid]
+            del self._model_uid_to_model_spec[model_uid]
+            self.release_devices(model_uid)
+            del self._model_uid_to_addr[model_uid]
+            del self._model_uid_to_launch_args[model_uid]
 
     @log_async(logger=logger)
     async def list_models(self) -> Dict[str, Dict[str, Any]]:

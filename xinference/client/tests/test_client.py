@@ -14,9 +14,12 @@
 
 import json
 import os
+import time
 from concurrent.futures import ThreadPoolExecutor
 
+import psutil
 import pytest
+import pytest_asyncio
 import requests
 
 from ...constants import XINFERENCE_ENV_MODEL_SRC
@@ -493,3 +496,73 @@ def test_client_custom_embedding_model(setup):
         if model_reg["model_name"] == "custom-bge-small-en":
             custom_model_reg = model_reg
     assert custom_model_reg is None
+
+
+@pytest_asyncio.fixture
+async def setup_cluster():
+    import xoscar as xo
+
+    from ...api.restful_api import run_in_subprocess as restful_api_run_in_subprocess
+    from ...conftest import TEST_FILE_LOGGING_CONF, TEST_LOGGING_CONF, api_health_check
+    from ...deploy.local import health_check
+    from ...deploy.local import run_in_subprocess as supervisor_run_in_subprocess
+
+    supervisor_address = f"localhost:{xo.utils.get_next_port()}"
+    local_cluster = supervisor_run_in_subprocess(supervisor_address, TEST_LOGGING_CONF)
+
+    if not health_check(address=supervisor_address, max_attempts=3, sleep_interval=1):
+        raise RuntimeError("Supervisor is not available after multiple attempts")
+
+    try:
+        port = xo.utils.get_next_port()
+        restful_api_proc = restful_api_run_in_subprocess(
+            supervisor_address,
+            host="localhost",
+            port=port,
+            logging_conf=TEST_FILE_LOGGING_CONF,
+        )
+        endpoint = f"http://localhost:{port}"
+        if not api_health_check(endpoint, max_attempts=3, sleep_interval=5):
+            raise RuntimeError("Endpoint is not available after multiple attempts")
+
+        yield f"http://localhost:{port}", supervisor_address
+        restful_api_proc.terminate()
+    finally:
+        local_cluster.terminate()
+
+
+def test_auto_recover(setup_cluster):
+    endpoint, _ = setup_cluster
+    current_proc = psutil.Process()
+    print(current_proc.pid)
+    chilren_proc = set(current_proc.children(recursive=True))
+    client = RESTfulClient(endpoint)
+
+    model_uid = client.launch_model(
+        model_name="orca", model_size_in_billions=3, quantization="q4_0"
+    )
+    new_children_proc = set(current_proc.children(recursive=True))
+    model_proc = next(iter(new_children_proc - chilren_proc))
+    print(model_proc)
+    assert len(client.list_models()) == 1
+
+    model = client.get_model(model_uid=model_uid)
+    assert isinstance(model, RESTfulChatModelHandle)
+
+    completion = model.generate("Once upon a time, there was a very old computer")
+    assert "text" in completion["choices"][0]
+
+    print(f"kill pid {model_proc.pid}")
+    model_proc.kill()
+
+    for _ in range(10):
+        try:
+            completion = model.generate(
+                "Once upon a time, there was a very old computer", {"max_tokens": 64}
+            )
+            assert "text" in completion["choices"][0]
+            break
+        except Exception:
+            time.sleep(1)
+    else:
+        assert False

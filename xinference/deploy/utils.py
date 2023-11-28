@@ -110,6 +110,7 @@ async def create_worker_actor_pool(
     return await xo.create_actor_pool(
         address=address,
         n_process=0,
+        auto_recover="process",
         subprocess_start_method=subprocess_start_method,
         logging_conf={"dict": logging_conf},
     )
