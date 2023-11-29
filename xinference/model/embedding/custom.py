@@ -49,10 +49,6 @@ def register_embedding(model_spec: CustomEmbeddingModelSpec, persist: bool):
             f" or a digit, and can only contain letters, digits, underscores, or dashes."
         )
 
-    model_uri = model_spec.model_uri
-    if model_uri and not is_valid_model_uri(model_uri):
-        raise ValueError(f"Invalid model URI {model_uri}.")
-
     with UD_EMBEDDING_LOCK:
         for model_name in (
             list(BUILTIN_EMBEDDING_MODELS.keys())
@@ -67,6 +63,11 @@ def register_embedding(model_spec: CustomEmbeddingModelSpec, persist: bool):
         UD_EMBEDDINGS.append(model_spec)
 
     if persist:
+        # We only validate model URL when persist is True.
+        model_uri = model_spec.model_uri
+        if model_uri and not is_valid_model_uri(model_uri):
+            raise ValueError(f"Invalid model URI {model_uri}.")
+
         persist_path = os.path.join(
             XINFERENCE_MODEL_DIR, "embedding", f"{model_spec.model_name}.json"
         )
