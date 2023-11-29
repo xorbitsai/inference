@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-11-01 10:48+0800\n"
+"POT-Creation-Date: 2023-11-16 11:22+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: ja_JP\n"
@@ -52,7 +52,7 @@ msgstr ""
 msgid "Xinference supports downloading the following models from ModelScope:"
 msgstr ""
 
-#: ../../source/models/sources/sources.rst:30
+#: ../../source/models/sources/sources.rst:41
 msgid "LLM Models"
 msgstr ""
 
@@ -100,85 +100,129 @@ msgstr ""
 msgid "wizardcoder-python-v1.0"
 msgstr ""
 
-#: ../../source/models/sources/sources.rst:49
-msgid "Embedding Models"
+#: ../../source/models/sources/sources.rst:31
+msgid "code-llama"
+msgstr ""
+
+#: ../../source/models/sources/sources.rst:32
+msgid "code-llama-instruct"
 msgstr ""
 
 #: ../../source/models/sources/sources.rst:33
-msgid "bge-large-en"
+msgid "code-llama-python"
 msgstr ""
 
 #: ../../source/models/sources/sources.rst:34
-msgid "bge-base-en"
+msgid "mistral-v0.1"
 msgstr ""
 
 #: ../../source/models/sources/sources.rst:35
-msgid "gte-large"
+msgid "wizardmath-v1.0"
 msgstr ""
 
 #: ../../source/models/sources/sources.rst:36
-msgid "gte-base"
+msgid "mistral-instruct-v0.1"
 msgstr ""
 
 #: ../../source/models/sources/sources.rst:37
-msgid "e5-large-v2"
+msgid "falcon-instruct"
 msgstr ""
 
 #: ../../source/models/sources/sources.rst:38
-msgid "bge-large-zh"
+msgid "zephyr-7b-alpha"
 msgstr ""
 
 #: ../../source/models/sources/sources.rst:39
-msgid "bge-large-zh-noinstruct"
+msgid "zephyr-7b-beta"
 msgstr ""
 
 #: ../../source/models/sources/sources.rst:40
-msgid "bge-base-zh"
+msgid "OpenBuddy"
 msgstr ""
 
 #: ../../source/models/sources/sources.rst:41
-msgid "multilingual-e5-large"
+msgid "qwen-chat"
 msgstr ""
 
-#: ../../source/models/sources/sources.rst:42
-msgid "bge-small-zh"
-msgstr ""
-
-#: ../../source/models/sources/sources.rst:43
-msgid "bge-small-zh-v1.5"
+#: ../../source/models/sources/sources.rst:60
+msgid "Embedding Models"
 msgstr ""
 
 #: ../../source/models/sources/sources.rst:44
-msgid "bge-base-zh-v1.5"
+msgid "bge-large-en"
 msgstr ""
 
 #: ../../source/models/sources/sources.rst:45
-msgid "bge-large-zh-v1.5"
+msgid "bge-base-en"
 msgstr ""
 
 #: ../../source/models/sources/sources.rst:46
-msgid "bge-small-en-v1.5"
+msgid "gte-large"
 msgstr ""
 
 #: ../../source/models/sources/sources.rst:47
-msgid "bge-base-en-v1.5"
+msgid "gte-base"
 msgstr ""
 
 #: ../../source/models/sources/sources.rst:48
-msgid "bge-large-en-v1.5"
+msgid "e5-large-v2"
+msgstr ""
+
+#: ../../source/models/sources/sources.rst:49
+msgid "bge-large-zh"
+msgstr ""
+
+#: ../../source/models/sources/sources.rst:50
+msgid "bge-large-zh-noinstruct"
 msgstr ""
 
 #: ../../source/models/sources/sources.rst:51
+msgid "bge-base-zh"
+msgstr ""
+
+#: ../../source/models/sources/sources.rst:52
+msgid "multilingual-e5-large"
+msgstr ""
+
+#: ../../source/models/sources/sources.rst:53
+msgid "bge-small-zh"
+msgstr ""
+
+#: ../../source/models/sources/sources.rst:54
+msgid "bge-small-zh-v1.5"
+msgstr ""
+
+#: ../../source/models/sources/sources.rst:55
+msgid "bge-base-zh-v1.5"
+msgstr ""
+
+#: ../../source/models/sources/sources.rst:56
+msgid "bge-large-zh-v1.5"
+msgstr ""
+
+#: ../../source/models/sources/sources.rst:57
+msgid "bge-small-en-v1.5"
+msgstr ""
+
+#: ../../source/models/sources/sources.rst:58
+msgid "bge-base-en-v1.5"
+msgstr ""
+
+#: ../../source/models/sources/sources.rst:59
+msgid "bge-large-en-v1.5"
+msgstr ""
+
+#: ../../source/models/sources/sources.rst:62
 msgid ""
 "One of the following settings will make Xinference download models from "
 "ModelScope:"
 msgstr ""
 
-#: ../../source/models/sources/sources.rst:53
+#: ../../source/models/sources/sources.rst:64
 msgid "The operating system's language is set to Simplified Chinese (zh_CN)."
 msgstr ""
 
-#: ../../source/models/sources/sources.rst:54
+#: ../../source/models/sources/sources.rst:65
 msgid "Set the environment variable ``XINFERENCE_MODEL_SRC=modelscope``."
 msgstr ""
 

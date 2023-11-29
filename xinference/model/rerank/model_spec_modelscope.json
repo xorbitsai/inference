@@ -1,0 +1,16 @@
+[
+  {
+    "model_name": "bge-reranker-base",
+    "language": ["en", "zh"],
+    "model_id": "Xorbits/bge-reranker-base",
+    "model_revision": "v0.0.1",
+    "model_hub": "modelscope"
+  },
+  {
+    "model_name": "bge-reranker-large",
+    "language": ["en", "zh"],
+    "model_id": "Xorbits/bge-reranker-large",
+    "model_revision": "v0.0.1",
+    "model_hub": "modelscope"
+  }
+]

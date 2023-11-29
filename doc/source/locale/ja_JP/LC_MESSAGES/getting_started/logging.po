@@ -1,0 +1,96 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2023-11-16 11:20+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: ja_JP\n"
+"Language-Team: ja_JP <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.12.1\n"
+
+#: ../../source/getting_started/logging.rst:5
+msgid "Logging in Xinference"
+msgstr ""
+
+#: ../../source/getting_started/logging.rst:8
+msgid "Configure Log Level"
+msgstr ""
+
+#: ../../source/getting_started/logging.rst:9
+msgid ""
+"You can configure the log level with the ``--log-level`` option. For "
+"example, starting a local cluster with ``DEBUG`` log level:"
+msgstr ""
+
+#: ../../source/getting_started/logging.rst:18
+msgid "Log Files"
+msgstr ""
+
+#: ../../source/getting_started/logging.rst:19
+msgid ""
+"Xinference supports log rotation of log files. By default, logs rotate "
+"when they reach 100MB (maxBytes), and up to 30 backup files (backupCount)"
+" are kept. Note that the log level configured above takes effect in both "
+"the command line logs and the log files."
+msgstr ""
+
+#: ../../source/getting_started/logging.rst:24
+msgid "Log Directory Structure"
+msgstr ""
+
+#: ../../source/getting_started/logging.rst:25
+msgid ""
+"All the logs are stored in the ``<XINFERENCE_HOME>/logs`` directory, "
+"where ``<XINFERENCE_HOME>`` can be configured as mentioned in "
+":ref:`using_xinference`."
+msgstr ""
+
+#: ../../source/getting_started/logging.rst:27
+msgid ""
+"Xinference creates a subdirectory under the log directory "
+"``<XINFERENCE_HOME>/logs``. The name of the subdirectory corresponds to "
+"the Xinference cluster startup time in milliseconds."
+msgstr ""
+
+#: ../../source/getting_started/logging.rst:31
+msgid "Local deployment"
+msgstr ""
+
+#: ../../source/getting_started/logging.rst:32
+msgid ""
+"In a local deployment, the logs of Xinference supervisor and Xorbits "
+"workers are combined into a single file. An example of the log directory "
+"structure is shown below::"
+msgstr ""
+
+#: ../../source/getting_started/logging.rst:38
+msgid ""
+"where ``1699503558105`` is the timestamp when the Xinference cluster was "
+"created. Therefore, when you create a cluster locally multiple times, you"
+" can look for the corresponding logs based on this timestamp."
+msgstr ""
+
+#: ../../source/getting_started/logging.rst:42
+msgid "Distributed deployment"
+msgstr ""
+
+#: ../../source/getting_started/logging.rst:43
+msgid ""
+"In a distributed deployment, Xinference supervisor and Xinference workers"
+" each create their own subdirectory under the log directory. The name of "
+"the subdirectory starts with the role name, followed by the role startup "
+"time in milliseconds. An example of the log directory structure is shown "
+"below::"
+msgstr ""
+

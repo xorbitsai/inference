@@ -189,13 +189,14 @@ def local(
     "-p",
     default=XINFERENCE_DEFAULT_ENDPOINT_PORT,
     type=int,
-    help="Specify the port number for the supervisor.",
+    help="Specify the port number for the Xinference web ui and service.",
 )
-def supervisor(
-    log_level: str,
-    host: str,
-    port: int,
-):
+@click.option(
+    "--supervisor-port",
+    type=int,
+    help="Specify the port number for the Xinference supervisor.",
+)
+def supervisor(log_level: str, host: str, port: int, supervisor_port: Optional[int]):
     from ..deploy.supervisor import main
 
     dict_config = get_config_dict(
@@ -206,7 +207,9 @@ def supervisor(
     )
     logging.config.dictConfig(dict_config)  # type: ignore
 
-    main(host=host, port=port, logging_conf=dict_config)
+    main(
+        host=host, port=port, supervisor_port=supervisor_port, logging_conf=dict_config
+    )
 
 
 @click.command(
@@ -227,7 +230,14 @@ def supervisor(
     type=str,
     help="Specify the host address for the worker.",
 )
-def worker(log_level: str, endpoint: Optional[str], host: str):
+@click.option(
+    "--worker-port",
+    type=int,
+    help="Specify the port number for the Xinference worker.",
+)
+def worker(
+    log_level: str, endpoint: Optional[str], host: str, worker_port: Optional[int]
+):
     from ..deploy.worker import main
 
     dict_config = get_config_dict(
@@ -243,7 +253,7 @@ def worker(log_level: str, endpoint: Optional[str], host: str):
     client = RESTfulClient(base_url=endpoint)
     supervisor_internal_addr = client._get_supervisor_internal_address()
 
-    address = f"{host}:{get_next_port()}"
+    address = f"{host}:{worker_port or get_next_port()}"
     main(
         address=address,
         supervisor_address=supervisor_internal_addr,

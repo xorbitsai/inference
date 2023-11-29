@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-11-01 10:48+0800\n"
+"POT-Creation-Date: 2023-11-16 11:22+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -17,7 +17,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Generated-By: Babel 2.11.0\n"
+"Generated-By: Babel 2.12.1\n"
 
 #: ../../source/models/builtin/index.rst:5
 msgid "Built-in Models"
@@ -59,208 +59,216 @@ msgstr ""
 msgid ":ref:`OPT <models_builtin_opt>`"
 msgstr ""
 
-#: ../../source/models/builtin/index.rst:23
-msgid "Chat & Instruction-following Models"
+#: ../../source/models/builtin/index.rst:20
+msgid ":ref:`Yi <models_builtin_Yi>`"
+msgstr ""
+
+#: ../../source/models/builtin/index.rst:21
+msgid ":ref:`Yi-200k <models_builtin_Yi_200k>`"
 msgstr ""
 
 #: ../../source/models/builtin/index.rst:25
-msgid ":ref:`Baichuan Chat <models_builtin_baichuan_chat>`"
-msgstr ""
-
-#: ../../source/models/builtin/index.rst:26
-msgid ":ref:`Baichuan-2 Chat <models_builtin_baichuan_2_chat>`"
+msgid "Chat & Instruction-following Models"
 msgstr ""
 
 #: ../../source/models/builtin/index.rst:27
-msgid ":ref:`ChatGLM <models_builtin_chatglm>`"
+msgid ":ref:`Baichuan Chat <models_builtin_baichuan_chat>`"
 msgstr ""
 
 #: ../../source/models/builtin/index.rst:28
-msgid ":ref:`ChatGLM2 <models_builtin_chatglm2>`"
+msgid ":ref:`Baichuan-2 Chat <models_builtin_baichuan_2_chat>`"
 msgstr ""
 
 #: ../../source/models/builtin/index.rst:29
-msgid ":ref:`ChatGLM2-32k <models_builtin_chatglm2_32k>`"
+msgid ":ref:`ChatGLM <models_builtin_chatglm>`"
 msgstr ""
 
 #: ../../source/models/builtin/index.rst:30
-msgid ":ref:`ChatGLM3 <models_builtin_chatglm3>`"
+msgid ":ref:`ChatGLM2 <models_builtin_chatglm2>`"
 msgstr ""
 
 #: ../../source/models/builtin/index.rst:31
-msgid ":ref:`ChatGLM3-32k <models_builtin_chatglm3_32k>`"
+msgid ":ref:`ChatGLM2-32k <models_builtin_chatglm2_32k>`"
 msgstr ""
 
 #: ../../source/models/builtin/index.rst:32
-#: ../../source/models/builtin/index.rst:55
-msgid ":ref:`CodeLlama-Instruct <models_builtin_code_llama_instruct>`"
+msgid ":ref:`ChatGLM3 <models_builtin_chatglm3>`"
 msgstr ""
 
 #: ../../source/models/builtin/index.rst:33
-msgid ":ref:`Falcon Instruct <models_builtin_falcon_instruct>`"
+msgid ":ref:`ChatGLM3-32k <models_builtin_chatglm3_32k>`"
 msgstr ""
 
 #: ../../source/models/builtin/index.rst:34
-msgid ":ref:`InternLM Chat <models_builtin_internlm_chat>`"
+#: ../../source/models/builtin/index.rst:57
+msgid ":ref:`CodeLlama-Instruct <models_builtin_code_llama_instruct>`"
 msgstr ""
 
 #: ../../source/models/builtin/index.rst:35
-msgid ":ref:`InternLM Chat 20B <models_builtin_internlm_chat_20b>`"
+msgid ":ref:`Falcon Instruct <models_builtin_falcon_instruct>`"
 msgstr ""
 
 #: ../../source/models/builtin/index.rst:36
-msgid ":ref:`InternLM Chat 8K <models_builtin_internlm_chat_8k>`"
+msgid ":ref:`InternLM Chat <models_builtin_internlm_chat>`"
 msgstr ""
 
 #: ../../source/models/builtin/index.rst:37
-msgid ":ref:`Llama-2 Chat <models_builtin_llama_2_chat>`"
+msgid ":ref:`InternLM Chat 20B <models_builtin_internlm_chat_20b>`"
 msgstr ""
 
 #: ../../source/models/builtin/index.rst:38
-msgid ":ref:`OpenBuddy v11.1 <models_builtin_openbuddy_v11.1>`"
+msgid ":ref:`InternLM Chat 8K <models_builtin_internlm_chat_8k>`"
 msgstr ""
 
 #: ../../source/models/builtin/index.rst:39
-msgid ":ref:`Orca Mini <models_builtin_orca_mini>`"
+msgid ":ref:`Llama-2 Chat <models_builtin_llama_2_chat>`"
 msgstr ""
 
 #: ../../source/models/builtin/index.rst:40
-msgid ":ref:`Qwen Chat <models_builtin_qwen_chat>`"
+msgid ":ref:`OpenBuddy v11.1 <models_builtin_openbuddy_v11.1>`"
 msgstr ""
 
 #: ../../source/models/builtin/index.rst:41
-msgid ":ref:`Vicuna v1.3 <models_builtin_vicuna_v1_3>`"
+msgid ":ref:`Orca Mini <models_builtin_orca_mini>`"
 msgstr ""
 
 #: ../../source/models/builtin/index.rst:42
-msgid ":ref:`Vicuna v1.5 <models_builtin_vicuna_v1_5>`"
+msgid ":ref:`Qwen Chat <models_builtin_qwen_chat>`"
 msgstr ""
 
 #: ../../source/models/builtin/index.rst:43
-msgid ":ref:`Vicuna v1.5 16k <models_builtin_vicuna_v1_5_16k>`"
+msgid ":ref:`Vicuna v1.3 <models_builtin_vicuna_v1_3>`"
 msgstr ""
 
 #: ../../source/models/builtin/index.rst:44
-msgid ":ref:`WizardLM v1.0 <models_builtin_wizardlm_v1_0>`"
+msgid ":ref:`Vicuna v1.5 <models_builtin_vicuna_v1_5>`"
 msgstr ""
 
 #: ../../source/models/builtin/index.rst:45
-msgid ":ref:`WizardMath v1.0 <models_builtin_wizardmath_v1_0>`"
+msgid ":ref:`Vicuna v1.5 16k <models_builtin_vicuna_v1_5_16k>`"
 msgstr ""
 
 #: ../../source/models/builtin/index.rst:46
-msgid ":ref:`Zephyr-7B-α <models_builtin_zephyr_7b_alpha>`"
+msgid ":ref:`WizardLM v1.0 <models_builtin_wizardlm_v1_0>`"
 msgstr ""
 
 #: ../../source/models/builtin/index.rst:47
+msgid ":ref:`WizardMath v1.0 <models_builtin_wizardmath_v1_0>`"
+msgstr ""
+
+#: ../../source/models/builtin/index.rst:48
+msgid ":ref:`Zephyr-7B-α <models_builtin_zephyr_7b_alpha>`"
+msgstr ""
+
+#: ../../source/models/builtin/index.rst:49
 msgid ":ref:`Zephyr-7B-β <models_builtin_zephyr_7b_beta>`"
 msgstr ""
 
-#: ../../source/models/builtin/index.rst:51
+#: ../../source/models/builtin/index.rst:53
 msgid "Code Generation Models"
 msgstr ""
 
-#: ../../source/models/builtin/index.rst:52
+#: ../../source/models/builtin/index.rst:54
 msgid ":ref:`Starcoder <models_builtin_starcoder>`"
 msgstr ""
 
-#: ../../source/models/builtin/index.rst:53
+#: ../../source/models/builtin/index.rst:55
 msgid ":ref:`StarCoderPlus <models_builtin_starcoderplus>`"
 msgstr ""
 
-#: ../../source/models/builtin/index.rst:54
+#: ../../source/models/builtin/index.rst:56
 msgid ":ref:`Code-Llama <models_builtin_code_llama>`"
 msgstr ""
 
-#: ../../source/models/builtin/index.rst:56
+#: ../../source/models/builtin/index.rst:58
 msgid ":ref:`Code-Llama-Python <models_builtin_code_llama_python>`"
 msgstr ""
 
-#: ../../source/models/builtin/index.rst:57
+#: ../../source/models/builtin/index.rst:59
 msgid ":ref:`WizardCoder-Python-v1.0 <models_builtin_wizardcoder_python_v1_0>`"
 msgstr ""
 
-#: ../../source/models/builtin/index.rst:61
+#: ../../source/models/builtin/index.rst:63
 msgid "Code Assistant Models"
 msgstr ""
 
-#: ../../source/models/builtin/index.rst:62
+#: ../../source/models/builtin/index.rst:64
 msgid ":ref:`Starchat-beta <models_builtin_starchat_beta>`"
 msgstr ""
 
-#: ../../source/models/builtin/index.rst:108
+#: ../../source/models/builtin/index.rst:112
 msgid "Embedding Models"
 msgstr ""
 
-#: ../../source/models/builtin/index.rst:111
+#: ../../source/models/builtin/index.rst:115
 msgid "Language: English"
 msgstr ""
 
-#: ../../source/models/builtin/index.rst:112
+#: ../../source/models/builtin/index.rst:116
 msgid ":ref:`bge-large-en <models_builtin_bge_large_en>`"
 msgstr ""
 
-#: ../../source/models/builtin/index.rst:113
+#: ../../source/models/builtin/index.rst:117
 msgid ":ref:`bge-large-en-v1.5 <models_builtin_bge_large_en_v1.5>`"
 msgstr ""
 
-#: ../../source/models/builtin/index.rst:114
+#: ../../source/models/builtin/index.rst:118
 msgid ":ref:`bge-base-en <models_builtin_bge_base_en>`"
 msgstr ""
 
-#: ../../source/models/builtin/index.rst:115
+#: ../../source/models/builtin/index.rst:119
 msgid ":ref:`bge-base-en-v1.5 <models_builtin_bge_base_en_v1.5>`"
 msgstr ""
 
-#: ../../source/models/builtin/index.rst:116
+#: ../../source/models/builtin/index.rst:120
 msgid ":ref:`gte-large <models_builtin_gte_large>`"
 msgstr ""
 
-#: ../../source/models/builtin/index.rst:117
+#: ../../source/models/builtin/index.rst:121
 msgid ":ref:`gte-base <models_builtin_gte_base>`"
 msgstr ""
 
-#: ../../source/models/builtin/index.rst:118
+#: ../../source/models/builtin/index.rst:122
 msgid ":ref:`e5-large-v2 <models_builtin_e5_large_v2>`"
 msgstr ""
 
-#: ../../source/models/builtin/index.rst:119
+#: ../../source/models/builtin/index.rst:123
 msgid ":ref:`bge-small-en-v1.5 <models_builtin_bge_small_en_v1.5>`"
 msgstr ""
 
-#: ../../source/models/builtin/index.rst:123
+#: ../../source/models/builtin/index.rst:127
 msgid "Language: Chinese"
 msgstr ""
 
-#: ../../source/models/builtin/index.rst:124
+#: ../../source/models/builtin/index.rst:128
 msgid ":ref:`bge-large-zh <models_builtin_bge_large_zh>`"
 msgstr ""
 
-#: ../../source/models/builtin/index.rst:125
+#: ../../source/models/builtin/index.rst:129
 msgid ":ref:`bge-large-zh-noinstruct <models_builtin_bge_large_zh_noinstruct>`"
 msgstr ""
 
-#: ../../source/models/builtin/index.rst:126
+#: ../../source/models/builtin/index.rst:130
 msgid ":ref:`bge-large-zh-v1.5 <models_builtin_bge_large_zh_v1.5>`"
 msgstr ""
 
-#: ../../source/models/builtin/index.rst:127
+#: ../../source/models/builtin/index.rst:131
 msgid ":ref:`bge-base-zh <models_builtin_bge_base_zh>`"
 msgstr ""
 
-#: ../../source/models/builtin/index.rst:128
+#: ../../source/models/builtin/index.rst:132
 msgid ":ref:`bge-base-zh-v1.5 <models_builtin_bge_base_zh_v1.5>`"
 msgstr ""
 
-#: ../../source/models/builtin/index.rst:129
+#: ../../source/models/builtin/index.rst:133
 msgid ":ref:`multilingual-e5-large <models_builtin_multilingual_e5_large>`"
 msgstr ""
 
-#: ../../source/models/builtin/index.rst:130
+#: ../../source/models/builtin/index.rst:134
 msgid ":ref:`bge-small-zh <models_builtin_bge_small_zh>`"
 msgstr ""
 
-#: ../../source/models/builtin/index.rst:131
+#: ../../source/models/builtin/index.rst:135
 msgid ":ref:`bge-small-zh-v1.5 <models_builtin_bge_small_zh_v1.5>`"
 msgstr ""
 

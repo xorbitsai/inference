@@ -267,6 +267,37 @@ class ModelActor(xo.StatelessActor):
 
     @log_async(logger=logger)
     @request_limit
+    async def rerank(
+        self,
+        documents: List[str],
+        query: str,
+        top_n: Optional[int],
+        max_chunks_per_doc: Optional[int],
+        return_documents: Optional[bool],
+        *args,
+        **kwargs,
+    ):
+        if not hasattr(self._model, "rerank"):
+            raise AttributeError(
+                f"Model {self._model.model_spec} is not for reranking."
+            )
+
+        def _wrapper():
+            data = getattr(self._model, "rerank")(
+                documents,
+                query,
+                top_n,
+                max_chunks_per_doc,
+                return_documents,
+                *args,
+                **kwargs,
+            )
+            return json_dumps(data)
+
+        return await self._call_wrapper(_wrapper)
+
+    @log_async(logger=logger)
+    @request_limit
     async def text_to_image(
         self,
         prompt: str,

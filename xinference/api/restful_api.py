@@ -97,6 +97,15 @@ class CreateEmbeddingRequest(BaseModel):
         }
 
 
+class RerankRequest(BaseModel):
+    model: str
+    query: str
+    documents: List[str]
+    top_n: Optional[int] = None
+    return_documents: Optional[bool] = False
+    max_chunks_per_doc: Optional[int] = None
+
+
 class TextToImageRequest(BaseModel):
     model: str
     prompt: Union[str, List[str]] = Field(description="The input to embed.")
@@ -221,6 +230,11 @@ class RESTfulAPI:
         self._router.add_api_route(
             "/v1/embeddings",
             self.create_embedding,
+            methods=["POST"],
+        )
+        self._router.add_api_route(
+            "/v1/rerank",
+            self.rerank,
             methods=["POST"],
         )
         self._router.add_api_route(
@@ -615,6 +629,34 @@ class RESTfulAPI:
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
 
+    async def rerank(self, request: RerankRequest) -> Response:
+        model_uid = request.model
+        try:
+            model = await (await self._get_supervisor_ref()).get_model(model_uid)
+        except ValueError as ve:
+            logger.error(str(ve), exc_info=True)
+            raise HTTPException(status_code=400, detail=str(ve))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
+        try:
+            scores = await model.rerank(
+                request.documents,
+                request.query,
+                top_n=request.top_n,
+                max_chunks_per_doc=request.max_chunks_per_doc,
+                return_documents=request.return_documents,
+            )
+            return Response(scores, media_type="application/json")
+        except RuntimeError as re:
+            logger.error(re, exc_info=True)
+            self.handle_request_limit_error(re)
+            raise HTTPException(status_code=400, detail=str(re))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
     async def create_images(self, request: TextToImageRequest) -> JSONResponse:
         model_uid = request.model
         try:
@@ -754,7 +796,11 @@ class RESTfulAPI:
             "model_format"
         ) == "ggmlv3" and "chatglm" in desc.get("model_name", "")
 
-        if is_chatglm_ggml and system_prompt is not None:
+        is_qwen = desc.get("model_format") == "ggmlv3" and "qwen" in desc.get(
+            "model_name", ""
+        )
+
+        if (is_chatglm_ggml or is_qwen) and system_prompt is not None:
             raise HTTPException(
                 status_code=400, detail="ChatGLM ggml does not have system prompt"
             )
@@ -765,7 +811,7 @@ class RESTfulAPI:
                 iterator = None
                 try:
                     try:
-                        if is_chatglm_ggml:
+                        if is_chatglm_ggml or is_qwen:
                             iterator = await model.chat(prompt, chat_history, kwargs)
                         else:
                             iterator = await model.chat(
@@ -785,7 +831,7 @@ class RESTfulAPI:
             return EventSourceResponse(stream_results())
         else:
             try:
-                if is_chatglm_ggml:
+                if is_chatglm_ggml or is_qwen:
                     data = await model.chat(prompt, chat_history, kwargs)
                 else:
                     data = await model.chat(prompt, system_prompt, chat_history, kwargs)

@@ -26,6 +26,7 @@ potential of cutting-edge AI models.
 
 ## 🔥 Hot Topics
 ### Framework Enhancements
+- Support rerank model: [#672](https://github.com/xorbitsai/inference/pull/672)
 - Speculative decoding: [#509](https://github.com/xorbitsai/inference/pull/509)
 - Support grammar-based sampling for ggml models: [#525](https://github.com/xorbitsai/inference/pull/525)
 - Incorporate vLLM: [#445](https://github.com/xorbitsai/inference/pull/445)
@@ -60,6 +61,17 @@ allowing the seamless distribution of model inference across multiple devices or
 
 🔌 **Built-in Integration with Third-Party Libraries**: Xorbits Inference seamlessly integrates
 with popular third-party libraries including [LangChain](https://python.langchain.com/docs/integrations/providers/xinference), [LlamaIndex](https://gpt-index.readthedocs.io/en/stable/examples/llm/XinferenceLocalDeployment.html#i-run-pip-install-xinference-all-in-a-terminal-window), [Dify](https://docs.dify.ai/advanced/model-configuration/xinference), and [Chatbox](https://chatboxai.app/).
+
+## Why Xinference
+| Feature | Xinference | FastChat | OpenLLM | RayLLM |
+|---------|------------|----------|---------|--------|
+| OpenAI-Compatible Restful API | ✅ | ✅ | ✅ | ✅ |
+| vLLM Integrations | ✅ | ✅ | ✅ | ✅ |
+| More Inference Engines (GGML, TensorRT) | ✅ | ❌ | ✅ | ✅ |
+| More Platforms (CPU, Metal) | ✅ | ✅ | ❌ | ❌ |
+| Multi-node Cluster Deployment | ✅ | ❌ | ❌ | ✅ |
+| Multimodal Models (Text-to-Image) | ✅ | ✅ | ❌ | ❌ |
+| Text Embedding Models | ✅ | ❌ | ❌ | ❌ |
 
 ## Getting Started
 ### Installation
@@ -187,7 +199,7 @@ chat_history = []
 prompt = "What is the largest animal?"
 model.chat(
     prompt,
-    chat_history,
+    chat_history=chat_history,
     generate_config={"max_tokens": 1024}
 )
 ```
@@ -272,6 +284,8 @@ For in-depth details on the built-in models, please refer to [built-in models](h
   - chatglm2
   - chatglm2-32k
   - internlm-chat-20b
+  - ...
+  More supported models can be found in the [documentation](https://inference.readthedocs.io/en/latest/models/sources/sources.html#modelscope)
 
 ## Custom models
 Please refer to [custom models](https://inference.readthedocs.io/en/latest/models/custom.html).

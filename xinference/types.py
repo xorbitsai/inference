@@ -67,6 +67,21 @@ class Embedding(TypedDict):
     usage: EmbeddingUsage
 
 
+class Document(TypedDict):
+    text: str
+
+
+class DocumentObj(TypedDict):
+    index: int
+    relevance_score: float
+    document: Optional[Document]
+
+
+class Rerank(TypedDict):
+    id: str
+    results: List[DocumentObj]
+
+
 class CompletionLogprobs(TypedDict):
     text_offset: List[int]
     token_logprobs: List[Optional[float]]
@@ -149,6 +164,17 @@ class ChatglmCppModelConfig(TypedDict, total=False):
 
 
 class ChatglmCppGenerateConfig(TypedDict, total=False):
+    max_tokens: int
+    top_p: float
+    temperature: float
+    stream: bool
+
+
+class QWenCppModelConfig(TypedDict, total=False):
+    pass
+
+
+class QWenCppGenerateConfig(TypedDict, total=False):
     max_tokens: int
     top_p: float
     temperature: float

@@ -102,7 +102,9 @@ jobs:
           pip install s3fs
           pip install modelscope
           pip install diffusers
+          pip install protobuf
           pip install -e ".[dev]"
+          pip install "jinja2==3.1.2"
         working-directory: .
 
       - name: Test with pytest

@@ -23,10 +23,11 @@ import xoscar as xo
 from xorbits._mars.resource import cuda_count
 from xoscar import MainActorPoolType
 
+from ..constants import XINFERENCE_CACHE_DIR
 from ..core import ModelActor
 from ..model.core import ModelDescription, create_model_instance
 from .resource import gather_node_info
-from .utils import log_async, log_sync, parse_replica_model_uid
+from .utils import log_async, log_sync, parse_replica_model_uid, purge_dir
 
 logger = getLogger(__name__)
 
@@ -70,6 +71,24 @@ class WorkerActor(xo.StatelessActor):
         await self._supervisor_ref.add_worker(self.address)
         self._upload_task = asyncio.create_task(self._periodical_report_status())
         logger.info(f"Xinference worker {self.address} started")
+        logger.info("Purge cache directory: %s", XINFERENCE_CACHE_DIR)
+        purge_dir(XINFERENCE_CACHE_DIR)
+
+        from ..model.embedding import (
+            CustomEmbeddingModelSpec,
+            register_embedding,
+            unregister_embedding,
+        )
+        from ..model.llm import LLMFamilyV1, register_llm, unregister_llm
+
+        self._custom_register_type_to_cls: Dict[str, Tuple] = {
+            "LLM": (LLMFamilyV1, register_llm, unregister_llm),
+            "embedding": (
+                CustomEmbeddingModelSpec,
+                register_embedding,
+                unregister_embedding,
+            ),
+        }
 
     async def __pre_destroy__(self):
         self._upload_task.cancel()
@@ -185,21 +204,21 @@ class WorkerActor(xo.StatelessActor):
     @log_sync(logger=logger)
     def register_model(self, model_type: str, model: str, persist: bool):
         # TODO: centralized model registrations
-        if model_type == "LLM":
-            from ..model.llm import LLMFamilyV1, register_llm
-
-            llm_family = LLMFamilyV1.parse_raw(model)
-            register_llm(llm_family, persist)
+        if model_type in self._custom_register_type_to_cls:
+            model_spec_cls, register_fn, _ = self._custom_register_type_to_cls[
+                model_type
+            ]
+            model_spec = model_spec_cls.parse_raw(model)
+            register_fn(model_spec, persist)
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
 
     @log_sync(logger=logger)
     def unregister_model(self, model_type: str, model_name: str):
         # TODO: centralized model registrations
-        if model_type == "LLM":
-            from ..model.llm import unregister_llm
-
-            unregister_llm(model_name)
+        if model_type in self._custom_register_type_to_cls:
+            _, _, unregister_fn = self._custom_register_type_to_cls[model_type]
+            unregister_fn(model_name)
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
 

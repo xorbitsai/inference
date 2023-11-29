@@ -43,6 +43,17 @@ RESTful API（OpenAI API と互換性あり）、CLI、WebUI をサポートし�
 や [LlamaIndex](https://gpt-index.readthedocs.io/en/stable/examples/llm/XinferenceLocalDeployment.html#i-run-pip-install-xinference-all-in-a-terminal-window) のような人気のあるサードパーティライブラリと
 シームレスに統合されています。
 
+## なぜ Xinference を選ぶのか
+| 機能 | Xinference | FastChat | OpenLLM | RayLLM |
+|------|------------|----------|---------|--------|
+| OpenAI 互換の Restful API | ✅ | ✅ | ✅ | ✅ |
+| vLLM 統合 | ✅ | ✅ | ✅ | ✅ |
+| その他の推論エンジン（GGML、TensorRT） | ✅ | ❌ | ✅ | ✅ |
+| その他のプラットフォーム（CPU、Metal） | ✅ | ✅ | ❌ | ❌ |
+| マルチノードクラスター展開 | ✅ | ❌ | ❌ | ✅ |
+| マルチモーダルモデル（テキストから画像へ） | ✅ | ✅ | ❌ | ❌ |
+| テキスト埋め込みモデル | ✅ | ❌ | ❌ | ❌ |
+
 ## はじめに
 Xinference は PyPI から pip 経由でインストールできます。コンフリクトを避けるため、新しい仮想環境を作成することを強く推奨します。
 

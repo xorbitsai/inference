@@ -23,6 +23,7 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 
 ## 🔥 近期热点
 ### 框架增强
+- 支持 rerank 模型: [#672](https://github.com/xorbitsai/inference/pull/672)
 - 支持指定 grammar 输出: [#525](https://github.com/xorbitsai/inference/pull/525)
 - 投机采样: [#509](https://github.com/xorbitsai/inference/pull/509)
 - 引入 vLLM: [#445](https://github.com/xorbitsai/inference/pull/445)
@@ -47,6 +48,17 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 🌐 **集群计算，分布协同**: 支持分布式部署，通过内置的资源调度器，让不同大小的模型按需调度到不同机器，充分使用集群资源。
 
 🔌 **开放生态，无缝对接**: 与流行的三方库无缝对接，包括 [LangChain](https://python.langchain.com/docs/integrations/providers/xinference)，[LlamaIndex](https://gpt-index.readthedocs.io/en/stable/examples/llm/XinferenceLocalDeployment.html#i-run-pip-install-xinference-all-in-a-terminal-window)，[Dify](https://docs.dify.ai/advanced/model-configuration/xinference)，以及 [Chatbox](https://chatboxai.app/)。
+
+## 为什么选择 Xinference
+| 功能特点 | Xinference | FastChat | OpenLLM | RayLLM |
+|---------|------------|----------|---------|--------|
+| 兼容 OpenAI 的 Restful API | ✅ | ✅ | ✅ | ✅ |
+| vLLM 集成 | ✅ | ✅ | ✅ | ✅ |
+| 更多推理引擎（GGML、TensorRT） | ✅ | ❌ | ✅ | ✅ |
+| 更多平台支持（CPU、Metal） | ✅ | ✅ | ❌ | ❌ |
+| 分布式集群部署 | ✅ | ❌ | ❌ | ✅ |
+| 多模态模型（文生图） | ✅ | ✅ | ❌ | ❌ |
+| 文本嵌入模型 | ✅ | ❌ | ❌ | ❌ |
 
 ## 快速入门
 ### 安装
@@ -248,6 +260,8 @@ $ xinference registrations
   - chatglm2
   - chatglm2-32k
   - internlm-chat-20b
+  - ...
+  更多的支持的模型在[文档](https://inference.readthedocs.io/zh-cn/latest/models/sources/sources.html#modelscope)中列出了。
 
 ## 自定义模型
 请参考 [自定义模型](https://inference.readthedocs.io/en/latest/models/custom.html)。
