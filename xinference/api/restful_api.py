@@ -43,7 +43,7 @@ from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
 from starlette.responses import JSONResponse as StarletteJSONResponse
 from starlette.responses import RedirectResponse
-from typing_extensions import NotRequired, TypedDict
+from typing_extensions import TypedDict
 from uvicorn import Config, Server
 from xoscar.utils import get_next_port
 
@@ -64,7 +64,13 @@ from ..fields import (
     top_k_field,
     top_p_field,
 )
-from ..types import ChatCompletion, Completion, CreateCompletion, ImageList
+from ..types import (
+    ChatCompletion,
+    Completion,
+    CreateCompletion,
+    CreateChatCompletion,
+    ImageList,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -113,50 +119,6 @@ class TextToImageRequest(BaseModel):
     response_format: Optional[str] = "url"
     size: Optional[str] = "1024*1024"
     user: Optional[str] = None
-
-
-class ChatCompletionRequestMessage(TypedDict):
-    role: Literal["assistant", "user", "system"]
-    content: str
-    user: NotRequired[str]
-
-
-class CreateChatCompletionRequest(BaseModel):
-    messages: List[ChatCompletionRequestMessage] = Field(
-        default=[], description="A list of messages to generate completions for."
-    )
-    max_tokens: int = max_tokens_field
-    temperature: float = temperature_field
-    top_p: float = top_p_field
-    mirostat_mode: int = mirostat_mode_field
-    mirostat_tau: float = mirostat_tau_field
-    mirostat_eta: float = mirostat_eta_field
-    stop: Optional[Union[str, List[str]]] = stop_field
-    stream: bool = stream_field
-    presence_penalty: Optional[float] = presence_penalty_field
-    frequency_penalty: Optional[float] = frequency_penalty_field
-    logit_bias: Optional[Dict[str, float]] = Field(None)
-
-    model: str
-    n: Optional[int] = 1
-    user: Optional[str] = Field(None)
-
-    # llama.cpp specific parameters
-    top_k: int = top_k_field
-    repeat_penalty: Optional[float] = repeat_penalty_field
-    logit_bias_type: Optional[Literal["input_ids", "tokens"]] = Field(None)
-    grammar: Optional[str] = Field(None)
-
-    class Config:
-        schema_extra = {
-            "example": {
-                "messages": [
-                    {"role": "system", "content": "you are a helpful AI assistant"},
-                    {"role": "user", "content": "Hello!"},
-                    {"role": "assistant", "content": "Hi what can I help you?"},
-                ]
-            }
-        }
 
 
 class RegisterModelRequest(BaseModel):
@@ -725,7 +687,7 @@ class RESTfulAPI:
     async def create_chat_completion(
         self,
         request: Request,
-        body: CreateChatCompletionRequest,
+        body: CreateChatCompletion,
     ) -> Response:
         exclude = {
             "prompt",

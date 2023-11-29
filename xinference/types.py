@@ -383,3 +383,47 @@ class CreateCompletion(
     CreateCompletionOpenAI,
 ):
     pass
+
+
+class CreateChatModel(BaseModel):
+    model: str
+
+
+CreateChatCompletionTorch = CreateCompletionTorch
+
+
+CreateChatCompletionLlamaCpp: BaseModel
+try:
+    from llama_cpp import Llama
+
+    CreateChatCompletionLlamaCpp = get_pydantic_model_from_method(
+        Llama.create_chat_completion, exclude_fields=["model", "messages"]
+    )
+except ImportError:
+    CreateChatCompletionLlamaCpp = create_model("CreateChatCompletionLlamaCpp")
+
+CreateChatCompletionCTransformers = CreateCompletionCTransformers
+
+
+# This type is for openai API compatibility
+CreateCompletionOpenAI: BaseModel
+
+
+# Only support openai > 1
+from openai.types.chat.completion_create_params import (
+    CompletionCreateParamsNonStreaming,
+)
+
+CreateChatCompletionOpenAI = create_model_from_typeddict(
+    CompletionCreateParamsNonStreaming,
+)
+
+
+class CreateChatCompletion(
+    CreateChatModel,
+    CreateChatCompletionTorch,
+    CreateChatCompletionLlamaCpp,
+    CreateChatCompletionCTransformers,
+    CreateChatCompletionOpenAI,
+):
+    pass
