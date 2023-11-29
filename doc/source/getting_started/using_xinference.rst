@@ -334,6 +334,7 @@ On each of the other servers where you want to run Xinference workers, run the f
 
   xinference-worker -e "http://${supervisor_host}:9997"
 
+
 .. note::
   Note that if you need to interact with the Xinference in a cluster via the command line,
   you should include the ``-e`` or ``--endpoint`` flag to specify the supervisor server's endpoint. For example:
