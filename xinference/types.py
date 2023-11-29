@@ -389,19 +389,9 @@ class CreateChatModel(BaseModel):
     model: str
 
 
+# Currently, chat calls generates, so the params share the same one.
 CreateChatCompletionTorch = CreateCompletionTorch
-
-
-CreateChatCompletionLlamaCpp: BaseModel
-try:
-    from llama_cpp import Llama
-
-    CreateChatCompletionLlamaCpp = get_pydantic_model_from_method(
-        Llama.create_chat_completion, exclude_fields=["model", "messages"]
-    )
-except ImportError:
-    CreateChatCompletionLlamaCpp = create_model("CreateChatCompletionLlamaCpp")
-
+CreateChatCompletionLlamaCpp = CreateCompletionLlamaCpp
 CreateChatCompletionCTransformers = CreateCompletionCTransformers
 
 
