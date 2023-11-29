@@ -97,6 +97,15 @@ class SupervisorActor(xo.StatelessActor):
             ),
         }
 
+    @staticmethod
+    async def get_builtin_prompts() -> Dict[str, Any]:
+        from ..model.llm.llm_family import BUILTIN_LLM_PROMPT_STYLE
+
+        data = {}
+        for k, v in BUILTIN_LLM_PROMPT_STYLE.items():
+            data[k] = v.dict()
+        return data
+
     async def _choose_worker(self) -> xo.ActorRefType["WorkerActor"]:
         # TODO: better allocation strategy.
         min_running_model_count = None
