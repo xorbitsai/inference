@@ -17,6 +17,7 @@ import time
 import uuid
 from typing import TYPE_CHECKING, AsyncGenerator, Dict, List, Optional, TypedDict, Union
 
+from ....constants import XINFERENCE_DISABLE_VLLM
 from ....types import (
     ChatCompletion,
     ChatCompletionChunk,
@@ -44,6 +45,7 @@ class VLLMModelConfig(TypedDict, total=False):
     gpu_memory_utilization: float
     max_num_batched_tokens: int
     max_num_seqs: int
+    quantization: Optional[str]
 
 
 class VLLMGenerateConfig(TypedDict, total=False):
@@ -65,7 +67,7 @@ try:
 except ImportError:
     VLLM_INSTALLED = False
 
-VLLM_SUPPORTED_MODELS = ["llama-2", "baichuan", "internlm-16k"]
+VLLM_SUPPORTED_MODELS = ["llama-2", "baichuan", "internlm-16k", "mistral-v0.1"]
 VLLM_SUPPORTED_CHAT_MODELS = [
     "llama-2-chat",
     "vicuna-v1.3",
@@ -74,6 +76,10 @@ VLLM_SUPPORTED_CHAT_MODELS = [
     "internlm-chat-7b",
     "internlm-chat-8k",
     "internlm-chat-20b",
+    "qwen-chat",
+    "Yi",
+    "mistral-instruct-v0.1",
+    "chatglm3",
 ]
 
 
@@ -158,6 +164,8 @@ class VLLMModel(LLM):
     def match(
         cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
+        if XINFERENCE_DISABLE_VLLM:
+            return False
         if not cls._has_cuda_device():
             return False
         if not cls._is_linux():
