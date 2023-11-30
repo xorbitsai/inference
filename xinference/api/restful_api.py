@@ -757,6 +757,7 @@ class RESTfulAPI:
         is_chatglm_ggml = desc.get(
             "model_format"
         ) == "ggmlv3" and "chatglm" in desc.get("model_name", "")
+        is_chatglm3 = "chatglm3" == desc.get("model_name", "")
 
         is_qwen = desc.get("model_format") == "ggmlv3" and "qwen" in desc.get(
             "model_name", ""
@@ -766,9 +767,13 @@ class RESTfulAPI:
             raise HTTPException(
                 status_code=400, detail="ChatGLM ggml does not have system prompt"
             )
-        if is_chatglm_ggml and body.tools and body.stream:
+        if is_chatglm3 and body.tools and body.stream:
             raise HTTPException(
-                status_code=400, detail="ChatGLM tool does not support stream"
+                status_code=400, detail="ChatGLM3 tool calls does not support stream"
+            )
+        if body.tools and not is_chatglm3:
+            raise HTTPException(
+                status_code=400, detail="Only ChatGLM3 support tool calls"
             )
 
         if body.stream:
