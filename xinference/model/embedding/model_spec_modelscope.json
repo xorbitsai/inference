@@ -126,5 +126,21 @@
     "language": ["en"],
     "model_id": "Xorbits/bge-large-en-v1.5",
     "model_revision": "v0.0.1"
+  },
+    {
+    "model_name": "jina-embeddings-v2-small-en",
+    "dimensions": 512,
+    "max_tokens": 8192,
+    "language": ["en"],
+    "model_id": "Xorbits/jina-embeddings-v2-small-en",
+    "model_revision": "v0.0.1"
+  },
+  {
+    "model_name": "jina-embeddings-v2-base-en",
+    "dimensions": 512,
+    "max_tokens": 8192,
+    "language": ["en"],
+    "model_id": "Xorbits/jina-embeddings-v2-base-en",
+    "model_revision": "v0.0.1"
   }
 ]

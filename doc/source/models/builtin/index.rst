@@ -137,7 +137,8 @@ Language: Chinese
 - :ref:`multilingual-e5-large <models_builtin_multilingual_e5_large>`
 - :ref:`bge-small-zh <models_builtin_bge_small_zh>`
 - :ref:`bge-small-zh-v1.5 <models_builtin_bge_small_zh_v1.5>`
-
+- :ref:`jina-embeddings-v2-small-en <models_builtin_jina_embeddings_v2_small_en>`
+- :ref:`jina-embeddings-v2-base-en <models_builtin_jina_embeddings_base_en>`
 
 
 .. toctree::
@@ -160,6 +161,8 @@ Language: Chinese
    multilingual-e5-large
    bge-small-zh
    bge-small-zh-v1.5
+   jina-embeddings-v2-small-en
+   jina-embeddings-v2-base-en
 
 
 Rerank Models
