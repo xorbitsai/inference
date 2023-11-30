@@ -133,6 +133,7 @@ class VLLMModel(LLM):
         model_config.setdefault("swap_space", 4)
         model_config.setdefault("gpu_memory_utilization", 0.90)
         model_config.setdefault("max_num_seqs", 256)
+        model_config.setdefault("quantization", None)
 
         return model_config
 
