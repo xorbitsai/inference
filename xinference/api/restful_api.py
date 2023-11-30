@@ -21,7 +21,7 @@ import os
 import pprint
 import sys
 import warnings
-from typing import Any, Dict, List, Literal, Optional, Union
+from typing import Any, List, Optional, Union
 
 import gradio as gr
 import xoscar as xo
@@ -43,27 +43,12 @@ from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
 from starlette.responses import JSONResponse as StarletteJSONResponse
 from starlette.responses import RedirectResponse
-from typing_extensions import TypedDict
 from uvicorn import Config, Server
 from xoscar.utils import get_next_port
 
 from ..constants import XINFERENCE_DEFAULT_ENDPOINT_PORT
 from ..core.supervisor import SupervisorActor
 from ..core.utils import json_dumps
-from ..fields import (
-    frequency_penalty_field,
-    max_tokens_field,
-    mirostat_eta_field,
-    mirostat_mode_field,
-    mirostat_tau_field,
-    presence_penalty_field,
-    repeat_penalty_field,
-    stop_field,
-    stream_field,
-    temperature_field,
-    top_k_field,
-    top_p_field,
-)
 from ..types import (
     ChatCompletion,
     Completion,
