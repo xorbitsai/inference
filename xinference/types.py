@@ -121,8 +121,9 @@ class Completion(TypedDict):
 
 class ChatCompletionMessage(TypedDict):
     role: str
-    content: str
+    content: Optional[str]
     user: NotRequired[str]
+    tool_calls: NotRequired[List]
 
 
 class ChatCompletionChoice(TypedDict):
@@ -391,12 +392,12 @@ class CreateChatModel(BaseModel):
 
 # Currently, chat calls generates, so the params share the same one.
 CreateChatCompletionTorch = CreateCompletionTorch
-CreateChatCompletionLlamaCpp = CreateCompletionLlamaCpp
-CreateChatCompletionCTransformers = CreateCompletionCTransformers
+CreateChatCompletionLlamaCpp: BaseModel = CreateCompletionLlamaCpp
+CreateChatCompletionCTransformers: BaseModel = CreateCompletionCTransformers
 
 
 # This type is for openai API compatibility
-CreateCompletionOpenAI: BaseModel
+CreateChatCompletionOpenAI: BaseModel
 
 
 # Only support openai > 1

@@ -175,7 +175,7 @@ class ChatglmCppChatModel(LLM):
             return "tool_calls" if msg.tool_calls else "stop"
 
     @staticmethod
-    def _message_to_json_string(_id, msg) -> dict:
+    def _message_to_json_string(_id, msg) -> ChatCompletionMessage:
         if isinstance(msg, str):
             return {
                 "role": "assistant",

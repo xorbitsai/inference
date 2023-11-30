@@ -81,7 +81,7 @@ class ChatglmPytorchChatModel(PytorchChatModel):
         return True
 
     @staticmethod
-    def _handle_tools(generate_config) -> Optional[ChatCompletionMessage]:
+    def _handle_tools(generate_config) -> Optional[dict]:
         """Convert openai tools to ChatGLM tools."""
         if generate_config is None:
             return None
@@ -99,7 +99,7 @@ class ChatglmPytorchChatModel(PytorchChatModel):
         }
 
     @staticmethod
-    def _tool_calls_completion(msg, model_name) -> dict:
+    def _tool_calls_completion(msg, model_name) -> ChatCompletion:
         _id = str(uuid.uuid4())
         return {
             "id": "chat" + f"cmpl-{_id}",
@@ -140,10 +140,11 @@ class ChatglmPytorchChatModel(PytorchChatModel):
         chat_history: Optional[List[ChatCompletionMessage]] = None,
         generate_config: Optional[PytorchGenerateConfig] = None,
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
-        system_prompt = self._handle_tools(generate_config)
-        if system_prompt:
+        tools = self._handle_tools(generate_config)
+        if tools:
             # Tool calls only works for non stream, so we call chat directly.
             kwargs = {}
+            generate_config = generate_config or {}
             temperature = generate_config.get("temperature")
             if temperature is not None:
                 kwargs["temperature"] = float(temperature)
@@ -153,7 +154,7 @@ class ChatglmPytorchChatModel(PytorchChatModel):
             max_length = generate_config.get("max_tokens")
             if max_length is not None:
                 kwargs["max_length"] = int(max_length)
-            msg = self._model.chat(self._tokenizer, prompt, [system_prompt], **kwargs)
+            msg = self._model.chat(self._tokenizer, prompt, [tools], **kwargs)
             return self._tool_calls_completion(msg[0], self.model_uid)
         else:
             return super().chat(
