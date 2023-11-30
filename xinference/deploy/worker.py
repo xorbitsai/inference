@@ -18,10 +18,10 @@ import os
 from typing import Any, Optional
 
 import xoscar as xo
-from xorbits._mars.resource import cuda_count
 from xoscar import MainActorPoolType
 
 from ..core.worker import WorkerActor
+from ..utils import cuda_count
 
 logger = logging.getLogger(__name__)
 

@@ -580,7 +580,7 @@ def _is_linux():
 def _has_cuda_device():
     # `cuda_count` method already contains the logic for the
     # number of GPUs specified by `CUDA_VISIBLE_DEVICES`.
-    from xorbits._mars.resource import cuda_count
+    from ...utils import cuda_count
 
     return cuda_count() > 0
 
