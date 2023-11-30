@@ -123,18 +123,19 @@ class ChatModelMixin:
             return ret
         elif prompt_style.style_name == "CHATGLM3":
             ret = (
-                f"<|system|> \n {prompt_style.system_prompt}"
+                [f"<|system|>\n{prompt_style.system_prompt}"]
                 if prompt_style.system_prompt
-                else ""
+                else []
             )
+
             for i, message in enumerate(chat_history):
                 role = message["role"]
                 content = message["content"]
                 if content:
-                    ret += f"<|{role}|> \n {content}"
+                    ret.append(f"<|{role}|>\n{content}")
                 else:
-                    ret += f"<|{role}|>"
-            return ret
+                    ret.append(f"<|{role}|>")
+            return "\n".join(ret)
         elif prompt_style.style_name == "XVERSE":
             ret = (
                 f"<|system|> \n {prompt_style.system_prompt}"

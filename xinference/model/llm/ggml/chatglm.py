@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import json
 import logging
 import os
 import time
@@ -212,7 +213,7 @@ class ChatglmCppChatModel(LLM):
         return {
             "role": "system",
             "content": f"Answer the following questions as best as you can. You have access to the following tools:\n"
-            f"{chatglm_tools}",
+            f"{json.dumps(chatglm_tools, indent=4, ensure_ascii=False)}",
         }
 
     def chat(
