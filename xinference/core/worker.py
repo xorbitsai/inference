@@ -20,12 +20,12 @@ from logging import getLogger
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 import xoscar as xo
-from xorbits._mars.resource import cuda_count
 from xoscar import MainActorPoolType
 
 from ..constants import XINFERENCE_CACHE_DIR
 from ..core import ModelActor
 from ..model.core import ModelDescription, create_model_instance
+from ..utils import cuda_count
 from .resource import gather_node_info
 from .utils import log_async, log_sync, parse_replica_model_uid, purge_dir
 
