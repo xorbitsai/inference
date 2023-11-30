@@ -1363,13 +1363,13 @@
       }
     ],
     "prompt_style": {
-      "style_name": "CHATML",
+      "style_name": "QWEN",
       "system_prompt": "You are a helpful assistant.",
       "roles": [
-        "<|im_start|>user",
-        "<|im_start|>assistant"
+        "user",
+        "assistant"
       ],
-      "intra_message_sep": "<|im_end|>",
+      "intra_message_sep": "\n",
       "stop_token_ids": [
         151643,
         151644,
