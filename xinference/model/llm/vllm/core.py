@@ -296,6 +296,8 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
     def match(
         cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
+        if XINFERENCE_DISABLE_VLLM:
+            return False
         if quantization != "none":
             return False
         if llm_spec.model_format != "pytorch":
