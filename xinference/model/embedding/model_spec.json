@@ -128,38 +128,6 @@
     "model_revision": "5888da4a3a013e65d33dd6f612ecd4625eb87a7d"
   },
   {
-    "model_name": "jina-embedding-t-en-v1",
-    "dimensions": 312,
-    "max_tokens": 512,
-    "language": ["en"],
-    "model_id": "jinaai/jina-embedding-t-en-v1",
-    "model_revision": "3a396c9f89cf17924f1ad9cce7b21a1988438ded"
-  },
-  {
-    "model_name": "jina-embedding-s-en-v1",
-    "dimensions": 512,
-    "max_tokens": 512,
-    "language": ["en"],
-    "model_id": "jinaai/jina-embedding-s-en-v1",
-    "model_revision": "c1fed70aa4823a640f1a7150a276e4d3b08dce08"
-  },
-  {
-    "model_name": "jina-embedding-l-en-v1",
-    "dimensions": 1024,
-    "max_tokens": 512,
-    "language": ["en"],
-    "model_id": "jinaai/jina-embedding-l-en-v1",
-    "model_revision": "672f44526b4a7caa23c1e8582a8f06a0b80b4fa8"
-  },
-  {
-    "model_name": "jina-embedding-b-en-v1",
-    "dimensions": 768,
-    "max_tokens": 512,
-    "language": ["en"],
-    "model_id": "jinaai/jina-embedding-b-en-v1",
-    "model_revision": "aa0645035294a8c0607ce5bb700aba982cdff32c"
-  },
-  {
     "model_name": "jina-embeddings-v2-small-en",
     "dimensions": 512,
     "max_tokens": 8192,
