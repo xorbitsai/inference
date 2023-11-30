@@ -56,6 +56,7 @@ class VLLMGenerateConfig(TypedDict, total=False):
     temperature: float
     top_p: float
     max_tokens: int
+    stop_token_ids: Optional[List[int]]
     stop: Optional[Union[str, List[str]]]
     stream: bool  # non-sampling param, should not be passed to the engine.
 
@@ -157,6 +158,9 @@ class VLLMModel(LLM):
         sanitized.setdefault("top_p", generate_config.get("top_p", 1.0))
         sanitized.setdefault("max_tokens", generate_config.get("max_tokens", 16))
         sanitized.setdefault("stop", generate_config.get("stop", None))
+        sanitized.setdefault(
+            "stop_token_ids", generate_config.get("stop_token_ids", None)
+        )
         sanitized.setdefault("stream", generate_config.get("stream", None))
 
         return sanitized
@@ -315,9 +319,15 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
         if not generate_config:
             generate_config = {}
         if self.model_family.prompt_style and self.model_family.prompt_style.stop:
-            generate_config.setdefault(
-                "stop", self.model_family.prompt_style.stop.copy()
-            )
+            if self.model_family.prompt_style.stop:
+                generate_config.setdefault(
+                    "stop", self.model_family.prompt_style.stop.copy()
+                )
+            if self.model_family.prompt_style.stop_token_ids:
+                generate_config.setdefault(
+                    "stop_token_ids",
+                    self.model_family.prompt_style.stop_token_ids.copy(),
+                )
         return generate_config
 
     async def async_chat(
