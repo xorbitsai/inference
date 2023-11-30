@@ -19,6 +19,7 @@ Text Generation Models
 - :ref:`OPT <models_builtin_opt>`
 - :ref:`Yi <models_builtin_Yi>`
 - :ref:`Yi-200k <models_builtin_Yi_200k>`
+- :ref:`Yi-chat <models_builtin_Yi_chat>`
 - :ref:`xverse <models_builtin_xverse>`
 
 
@@ -110,6 +111,7 @@ Code Assistant Models
    Yi-200k
    xverse
    xverse-chat
+   Yi-chat
 
 
 Embedding Models
