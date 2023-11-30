@@ -67,8 +67,8 @@ from ..fields import (
 from ..types import (
     ChatCompletion,
     Completion,
-    CreateCompletion,
     CreateChatCompletion,
+    CreateCompletion,
     ImageList,
 )
 
@@ -765,6 +765,10 @@ class RESTfulAPI:
         if (is_chatglm_ggml or is_qwen) and system_prompt is not None:
             raise HTTPException(
                 status_code=400, detail="ChatGLM ggml does not have system prompt"
+            )
+        if is_chatglm_ggml and body.tools and body.stream:
+            raise HTTPException(
+                status_code=400, detail="ChatGLM tool does not support stream"
             )
 
         if body.stream:

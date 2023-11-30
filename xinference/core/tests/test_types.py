@@ -16,15 +16,15 @@ import pytest
 from pydantic import create_model_from_typeddict
 
 from ...types import (
+    CreateChatCompletion,
+    CreateChatCompletionCTransformers,
+    CreateChatCompletionLlamaCpp,
+    CreateChatCompletionTorch,
     CreateCompletion,
     CreateCompletionCTransformers,
     CreateCompletionLlamaCpp,
     CreateCompletionTorch,
     _CreateCompletionOpenAIFallback,
-    CreateChatCompletion,
-    CreateChatCompletionCTransformers,
-    CreateChatCompletionLlamaCpp,
-    CreateChatCompletionTorch,
 )
 
 
