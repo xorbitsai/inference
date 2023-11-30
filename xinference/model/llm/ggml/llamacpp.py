@@ -187,7 +187,6 @@ class LlamaCppModel(LLM):
             model_path = self._convert_ggml_to_gguf(model_path)
 
         try:
-            print(self._llamacpp_model_config)
             self._llm = Llama(
                 model_path=model_path,
                 verbose=True,
