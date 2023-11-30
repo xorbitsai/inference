@@ -457,6 +457,10 @@ def test_restful_api_for_tool_calls(setup, model_format, quantization):
         "track"
         == completion["choices"][0]["message"]["tool_calls"][0]["function"]["name"]
     )
+    assert (
+        "10111"
+        in completion["choices"][0]["message"]["tool_calls"][0]["function"]["arguments"]
+    )
 
 
 def test_restful_api_with_request_limits(setup):

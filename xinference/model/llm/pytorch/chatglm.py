@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import json
 import time
 import uuid
 from typing import Iterator, List, Optional, Union
@@ -116,7 +116,10 @@ class ChatglmPytorchChatModel(PytorchChatModel):
                             {
                                 "id": f"call_{_id}",
                                 "type": "function",
-                                "function": msg,
+                                "function": {
+                                    "name": msg["name"],
+                                    "arguments": json.dumps(msg["parameters"]),
+                                },
                             }
                         ],
                     },
