@@ -1,8 +1,8 @@
 .. _models_builtin_bge_rerank_large:
 
-=================
+==================
 bge-reranker-large
-=================
+==================
 
 - **Model Name:** bge-reranker-large
 - **Languages:** [zh, en]
