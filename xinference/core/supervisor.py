@@ -85,16 +85,26 @@ class SupervisorActor(xo.StatelessActor):
             register_embedding,
             unregister_embedding,
         )
-        from ..model.llm import LLMFamilyV1, register_llm, unregister_llm
+        from ..model.llm import register_llm, unregister_llm
+        from ..model.llm.llm_family import CustomLLMFamilyV1
 
         self._custom_register_type_to_cls: Dict[str, Tuple] = {
-            "LLM": (LLMFamilyV1, register_llm, unregister_llm),
+            "LLM": (CustomLLMFamilyV1, register_llm, unregister_llm),
             "embedding": (
                 CustomEmbeddingModelSpec,
                 register_embedding,
                 unregister_embedding,
             ),
         }
+
+    @staticmethod
+    async def get_builtin_prompts() -> Dict[str, Any]:
+        from ..model.llm.llm_family import BUILTIN_LLM_PROMPT_STYLE
+
+        data = {}
+        for k, v in BUILTIN_LLM_PROMPT_STYLE.items():
+            data[k] = v.dict()
+        return data
 
     async def _choose_worker(self) -> xo.ActorRefType["WorkerActor"]:
         # TODO: better allocation strategy.

@@ -17,9 +17,13 @@ import os
 import platform
 import shutil
 from threading import Lock
-from typing import List, Optional, Tuple, Type, Union
+from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, Protocol, ValidationError
+from pydantic.error_wrappers import ErrorWrapper
+from pydantic.parse import load_str_bytes
+from pydantic.types import StrBytes
+from pydantic.utils import ROOT_KEY
 from typing_extensions import Annotated, Literal
 
 from ...constants import XINFERENCE_CACHE_DIR, XINFERENCE_MODEL_DIR
@@ -36,6 +40,7 @@ from . import LLM
 logger = logging.getLogger(__name__)
 
 DEFAULT_CONTEXT_LENGTH = 2048
+BUILTIN_LLM_PROMPT_STYLE: Dict[str, "PromptStyleV1"] = {}
 
 
 class GgmlLLMSpecV1(BaseModel):
@@ -80,12 +85,52 @@ class LLMFamilyV1(BaseModel):
     prompt_style: Optional["PromptStyleV1"]
 
 
+class CustomLLMFamilyV1(LLMFamilyV1):
+    prompt_style: Optional[Union["PromptStyleV1", str]]  # type: ignore
+
+    @classmethod
+    def parse_raw(
+        cls: Any,
+        b: StrBytes,
+        *,
+        content_type: Optional[str] = None,
+        encoding: str = "utf8",
+        proto: Protocol = None,
+        allow_pickle: bool = False,
+    ) -> LLMFamilyV1:
+        # See source code of BaseModel.parse_raw
+        try:
+            obj = load_str_bytes(
+                b,
+                proto=proto,
+                content_type=content_type,
+                encoding=encoding,
+                allow_pickle=allow_pickle,
+                json_loads=cls.__config__.json_loads,
+            )
+        except (ValueError, TypeError, UnicodeDecodeError) as e:
+            raise ValidationError([ErrorWrapper(e, loc=ROOT_KEY)], cls)
+        llm_spec = cls.parse_obj(obj)
+
+        # handle prompt style when user choose existing style
+        if llm_spec.prompt_style is not None and isinstance(llm_spec.prompt_style, str):
+            prompt_style_name = llm_spec.prompt_style
+            if prompt_style_name not in BUILTIN_LLM_PROMPT_STYLE:
+                raise ValueError(
+                    f"Xinference does not support the prompt style name: {prompt_style_name}"
+                )
+            llm_spec.prompt_style = BUILTIN_LLM_PROMPT_STYLE[prompt_style_name]
+
+        return llm_spec
+
+
 LLMSpecV1 = Annotated[
     Union[GgmlLLMSpecV1, PytorchLLMSpecV1],
     Field(discriminator="model_format"),
 ]
 
 LLMFamilyV1.update_forward_refs()
+CustomLLMFamilyV1.update_forward_refs()
 
 
 LLM_CLASSES: List[Type[LLM]] = []

@@ -79,10 +79,11 @@ class WorkerActor(xo.StatelessActor):
             register_embedding,
             unregister_embedding,
         )
-        from ..model.llm import LLMFamilyV1, register_llm, unregister_llm
+        from ..model.llm import register_llm, unregister_llm
+        from ..model.llm.llm_family import CustomLLMFamilyV1
 
         self._custom_register_type_to_cls: Dict[str, Tuple] = {
-            "LLM": (LLMFamilyV1, register_llm, unregister_llm),
+            "LLM": (CustomLLMFamilyV1, register_llm, unregister_llm),
             "embedding": (
                 CustomEmbeddingModelSpec,
                 register_embedding,
