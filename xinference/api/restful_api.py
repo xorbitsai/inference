@@ -252,6 +252,9 @@ class RESTfulAPI:
                 f"{pprint.pformat(invalid_routes)}"
             )
 
+        for tp in [CreateChatCompletion, CreateCompletion]:
+            logger.debug("Dump request model fields:\n%s", tp.__fields__)
+
         class SPAStaticFiles(StaticFiles):
             async def get_response(self, path: str, scope):
                 response = await super().get_response(path, scope)
