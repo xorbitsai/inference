@@ -1,4 +1,4 @@
-import React, { useState, useContext } from "react";
+import React, {useState, useContext, useEffect} from "react";
 import TextField from "@mui/material/TextField";
 import Button from "@mui/material/Button";
 import { ApiContext } from "../../components/apiContext";
@@ -38,65 +38,7 @@ const RegisterModel = () => {
     prompt_style: undefined,
   });
   const [promptStyleLabel, setPromptStyleLabel] = useState("vicuna");
-  const promptStyles = [
-    {
-      name: "vicuna",
-      style_name: "ADD_COLON_TWO",
-      system_prompt:
-        "A chat between a curious human and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the human's questions.",
-      roles: ["USER", "ASSISTANT"],
-      intra_message_sep: " ",
-      inter_message_sep: "</s>",
-    },
-    {
-      name: "llama-2-chat",
-      style_name: "LLAMA2",
-      system_prompt:
-        "<s>[INST] <<SYS>>\nYou are a helpful AI assistant.\n<</SYS>>\n\n",
-      roles: ["[INST]", "[/INST]"],
-      intra_message_sep: " ",
-      inter_message_sep: " </s><s>",
-      stop_token_ids: [2],
-    },
-    {
-      name: "falcon-instruct",
-      style_name: "FALCON",
-      system_prompt: "",
-      roles: ["User", "Assistant"],
-      intra_message_sep: "\n",
-      inter_message_sep: "<|endoftext|>",
-      stop: ["\nUser"],
-      stop_token_ids: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
-    },
-    {
-      name: "baichuan-chat",
-      style_name: "NO_COLON_TWO",
-      system_prompt: "",
-      roles: [" <reserved_102> ", " <reserved_103> "],
-      intra_message_sep: "",
-      inter_message_sep: "</s>",
-      stop_token_ids: [2, 195],
-    },
-    {
-      name: "baichuan-2-chat",
-      style_name: "NO_COLON_TWO",
-      system_prompt: "",
-      roles: ["<reserved_106>", "<reserved_107>"],
-      intra_message_sep: "",
-      inter_message_sep: "</s>",
-      stop_token_ids: [2, 195],
-    },
-    {
-      name: "internlm-chat",
-      style_name: "INTERNLM",
-      system_prompt: "",
-      roles: ["<|User|>", "<|Bot|>"],
-      intra_message_sep: "<eoh>\n",
-      inter_message_sep: "<eoa>\n",
-      stop_token_ids: [1, 103028],
-      stop: ["<eoa>"],
-    },
-  ];
+  const [promptStyles, setPromptStyles] = useState([]);
 
   // model name must be
   // 1. Starts with an alphanumeric character (a letter or a digit).
@@ -128,6 +70,35 @@ const RegisterModel = () => {
     errorLanguage ||
     errorAbility ||
     errorModelSize;
+
+  useEffect( () => {
+    const getBuiltInPromptStyles = async () => {
+      const response = await fetch(endPoint + "/v1/models/prompts", {
+          method: "GET",
+          headers: {
+              "Content-Type": "application/json",
+          },
+      });
+      if (!response.ok) {
+          const errorData = await response.json(); // Assuming the server returns error details in JSON format
+          throw new Error(
+              `Server error: ${response.status} - ${
+                  errorData.detail || "Unknown error"
+              }`,
+          );
+      } else {
+          const data = await response.json()
+          let res = []
+          for (const key in data) {
+              let v = data[key]
+              v["name"] = key
+              res.push(v)
+          }
+          setPromptStyles(res)
+      }
+    };
+    getBuiltInPromptStyles().catch(console.error);
+  });
 
   const isModelFormatPytorch = () => {
     return modelFormat === "pytorch";

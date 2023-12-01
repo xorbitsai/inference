@@ -229,6 +229,29 @@ def test_prompt_style_chatglm_v3():
         ),
     ]
     expected = (
+        "<|user|>\nHi there.\n"
+        "<|assistant|>\nHello, how may I help you?\n"
+        "<|user|>\nWrite a poem.\n"
+        "<|assistant|>"
+    )
+    assert expected == ChatModelMixin.get_prompt(
+        "Write a poem.", chat_history, prompt_style
+    )
+
+
+def test_prompt_style_xverse():
+    prompt_style = PromptStyleV1(
+        style_name="XVERSE",
+        system_prompt="",
+        roles=["user", "assistant"],
+    )
+    chat_history = [
+        ChatCompletionMessage(role=prompt_style.roles[0], content="Hi there."),
+        ChatCompletionMessage(
+            role=prompt_style.roles[1], content="Hello, how may I help you?"
+        ),
+    ]
+    expected = (
         "<|user|> \n Hi there."
         "<|assistant|> \n Hello, how may I help you?"
         "<|user|> \n Write a poem."
@@ -385,7 +408,7 @@ def test_prompt_style_zephyr():
 
 
 def test_is_valid_model_name():
-    from ..utils import is_valid_model_name
+    from ...utils import is_valid_model_name
 
     assert is_valid_model_name("foo")
     assert is_valid_model_name("foo-bar")

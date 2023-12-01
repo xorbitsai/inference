@@ -17,14 +17,20 @@ import os
 import platform
 import shutil
 from threading import Lock
-from typing import List, Optional, Tuple, Type, Union
+from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, Protocol, ValidationError
+from pydantic.error_wrappers import ErrorWrapper
+from pydantic.parse import load_str_bytes
+from pydantic.types import StrBytes
+from pydantic.utils import ROOT_KEY
 from typing_extensions import Annotated, Literal
 
 from ...constants import XINFERENCE_CACHE_DIR, XINFERENCE_MODEL_DIR
 from ..utils import (
     download_from_modelscope,
+    is_valid_model_uri,
+    parse_uri,
     retry_download,
     symlink_local_file,
     valid_model_revision,
@@ -34,6 +40,7 @@ from . import LLM
 logger = logging.getLogger(__name__)
 
 DEFAULT_CONTEXT_LENGTH = 2048
+BUILTIN_LLM_PROMPT_STYLE: Dict[str, "PromptStyleV1"] = {}
 
 
 class GgmlLLMSpecV1(BaseModel):
@@ -78,12 +85,52 @@ class LLMFamilyV1(BaseModel):
     prompt_style: Optional["PromptStyleV1"]
 
 
+class CustomLLMFamilyV1(LLMFamilyV1):
+    prompt_style: Optional[Union["PromptStyleV1", str]]  # type: ignore
+
+    @classmethod
+    def parse_raw(
+        cls: Any,
+        b: StrBytes,
+        *,
+        content_type: Optional[str] = None,
+        encoding: str = "utf8",
+        proto: Protocol = None,
+        allow_pickle: bool = False,
+    ) -> LLMFamilyV1:
+        # See source code of BaseModel.parse_raw
+        try:
+            obj = load_str_bytes(
+                b,
+                proto=proto,
+                content_type=content_type,
+                encoding=encoding,
+                allow_pickle=allow_pickle,
+                json_loads=cls.__config__.json_loads,
+            )
+        except (ValueError, TypeError, UnicodeDecodeError) as e:
+            raise ValidationError([ErrorWrapper(e, loc=ROOT_KEY)], cls)
+        llm_spec = cls.parse_obj(obj)
+
+        # handle prompt style when user choose existing style
+        if llm_spec.prompt_style is not None and isinstance(llm_spec.prompt_style, str):
+            prompt_style_name = llm_spec.prompt_style
+            if prompt_style_name not in BUILTIN_LLM_PROMPT_STYLE:
+                raise ValueError(
+                    f"Xinference does not support the prompt style name: {prompt_style_name}"
+                )
+            llm_spec.prompt_style = BUILTIN_LLM_PROMPT_STYLE[prompt_style_name]
+
+        return llm_spec
+
+
 LLMSpecV1 = Annotated[
     Union[GgmlLLMSpecV1, PytorchLLMSpecV1],
     Field(discriminator="model_format"),
 ]
 
 LLMFamilyV1.update_forward_refs()
+CustomLLMFamilyV1.update_forward_refs()
 
 
 LLM_CLASSES: List[Type[LLM]] = []
@@ -142,36 +189,6 @@ def cache(
                 return cache_from_modelscope(llm_family, llm_spec, quantization)
             else:
                 raise ValueError(f"Unknown model hub: {llm_spec.model_hub}")
-
-
-def parse_uri(uri: str) -> Tuple[str, str]:
-    import glob
-    from urllib.parse import urlparse
-
-    if os.path.exists(uri) or glob.glob(uri):
-        return "file", uri
-    else:
-        parsed = urlparse(uri)
-        scheme = parsed.scheme
-        path = parsed.netloc + parsed.path
-        if parsed.scheme == "" or len(parsed.scheme) == 1:  # len == 1 for windows
-            scheme = "file"
-        return scheme, path
-
-
-def is_valid_model_uri(model_uri: Optional[str]) -> bool:
-    if not model_uri:
-        return False
-
-    src_scheme, src_root = parse_uri(model_uri)
-
-    if src_scheme == "file":
-        if not os.path.isabs(src_root):
-            raise ValueError(f"Model URI cannot be a relative path: {model_uri}")
-        return os.path.exists(src_root)
-    else:
-        # TODO: handle other schemes.
-        return True
 
 
 SUPPORTED_SCHEMES = ["s3"]
@@ -234,49 +251,7 @@ def cache_from_uri(
 ) -> str:
     from fsspec import AbstractFileSystem, filesystem
 
-    def copy(
-        _src_fs: "AbstractFileSystem",
-        _src_path: str,
-        dst_fs: "AbstractFileSystem",
-        dst_path: str,
-        max_attempt: int = 3,
-    ):
-        from tqdm import tqdm
-
-        for attempt in range(max_attempt):
-            logger.info(f"Copy from {_src_path} to {dst_path}, attempt: {attempt}")
-            try:
-                with _src_fs.open(_src_path, "rb") as src_file:
-                    file_size = _src_fs.info(src_path)["size"]
-
-                    dst_fs.makedirs(os.path.dirname(dst_path), exist_ok=True)
-                    with dst_fs.open(dst_path, "wb") as dst_file:
-                        chunk_size = 1024 * 1024  # 1 MB
-
-                        with tqdm(
-                            total=file_size,
-                            unit="B",
-                            unit_scale=True,
-                            unit_divisor=1024,
-                            desc=_src_path,
-                        ) as pbar:
-                            while True:
-                                chunk = src_file.read(chunk_size)
-                                if not chunk:
-                                    break
-                                dst_file.write(chunk)
-                                pbar.update(len(chunk))
-                logger.info(
-                    f"Copy from {_src_path} to {dst_path} finished, attempt: {attempt}"
-                )
-                break
-            except:
-                logger.error(
-                    f"Failed to copy from {_src_path} to {dst_path} on attempt {attempt + 1}",
-                    exc_info=True,
-                )
-                if attempt + 1 == max_attempt:
-                    raise
+    from ..utils import copy_from_src_to_dst
 
     cache_dir_name = (
         f"{llm_family.model_name}-{llm_spec.model_format}"
@@ -341,7 +316,9 @@ def cache_from_uri(
             futures = [
                 (
                     src_path,
-                    executor.submit(copy, src_fs, src_path, local_fs, local_path),
+                    executor.submit(
+                        copy_from_src_to_dst, src_fs, src_path, local_fs, local_path
+                    ),
                 )
                 for src_path, local_path in files_to_download
             ]
@@ -370,13 +347,14 @@ def cache_from_uri(
 def _get_cache_dir(
     llm_family: LLMFamilyV1,
     llm_spec: "LLMSpecV1",
+    create_if_not_exist=True,
 ):
     cache_dir_name = (
         f"{llm_family.model_name}-{llm_spec.model_format}"
         f"-{llm_spec.model_size_in_billions}b"
     )
     cache_dir = os.path.realpath(os.path.join(XINFERENCE_CACHE_DIR, cache_dir_name))
-    if not os.path.exists(cache_dir):
+    if create_if_not_exist and not os.path.exists(cache_dir):
         os.makedirs(cache_dir, exist_ok=True)
     return cache_dir
 
@@ -508,6 +486,20 @@ def cache_from_modelscope(
             revision=llm_spec.model_revision,
         )
         symlink_local_file(download_path, cache_dir, filename)
+        # need to download another file named "qwen.tiktoken" for qwen model
+        if "qwen" in llm_family.model_name:
+            tiktoken_path = retry_download(
+                model_file_download,
+                llm_family.model_name,
+                {
+                    "model_size": llm_spec.model_size_in_billions,
+                    "model_format": llm_spec.model_format,
+                },
+                llm_spec.model_id,
+                "qwen.tiktoken",
+                revision=llm_spec.model_revision,
+            )
+            symlink_local_file(tiktoken_path, cache_dir, "qwen.tiktoken")
     else:
         raise ValueError(f"Unsupported format: {llm_spec.model_format}")
 
@@ -570,6 +562,21 @@ def cache_from_huggingface(
             local_dir=cache_dir,
             local_dir_use_symlinks=True,
         )
+        # need to download another file named "qwen.tiktoken" for qwen model
+        if "qwen" in llm_family.model_name:
+            retry_download(
+                huggingface_hub.hf_hub_download,
+                llm_family.model_name,
+                {
+                    "model_size": llm_spec.model_size_in_billions,
+                    "model_format": llm_spec.model_format,
+                },
+                llm_spec.model_id,
+                revision=llm_spec.model_revision,
+                filename="qwen.tiktoken",
+                local_dir=cache_dir,
+                local_dir_use_symlinks=True,
+            )
     else:
         raise ValueError(f"Unsupported model format: {llm_spec.model_format}")
 
@@ -585,7 +592,7 @@ def get_cache_status(
     llm_family: LLMFamilyV1,
     llm_spec: "LLMSpecV1",
 ) -> Union[bool, List[bool]]:
-    cache_dir = _get_cache_dir(llm_family, llm_spec)
+    cache_dir = _get_cache_dir(llm_family, llm_spec, create_if_not_exist=False)
     if llm_spec.model_format == "pytorch":
         return _skip_download(
             cache_dir,
@@ -618,7 +625,7 @@ def _is_linux():
 def _has_cuda_device():
     # `cuda_count` method already contains the logic for the
     # number of GPUs specified by `CUDA_VISIBLE_DEVICES`.
-    from xorbits._mars.resource import cuda_count
+    from ...utils import cuda_count
 
     return cuda_count() > 0
 
@@ -707,18 +714,13 @@ def match_llm(
 
 
 def register_llm(llm_family: LLMFamilyV1, persist: bool):
-    from .utils import is_valid_model_name
+    from ..utils import is_valid_model_name
 
     if not is_valid_model_name(llm_family.model_name):
         raise ValueError(
             f"Invalid model name {llm_family.model_name}. The model name must start with a letter"
             f" or a digit, and can only contain letters, digits, underscores, or dashes."
         )
-
-    for spec in llm_family.model_specs:
-        model_uri = spec.model_uri
-        if model_uri and not is_valid_model_uri(model_uri):
-            raise ValueError(f"Invalid model URI {model_uri}.")
 
     with UD_LLM_FAMILIES_LOCK:
         for family in BUILTIN_LLM_FAMILIES + UD_LLM_FAMILIES:
@@ -730,6 +732,12 @@ def register_llm(llm_family: LLMFamilyV1, persist: bool):
         UD_LLM_FAMILIES.append(llm_family)
 
     if persist:
+        # We only validate model URL when persist is True.
+        for spec in llm_family.model_specs:
+            model_uri = spec.model_uri
+            if model_uri and not is_valid_model_uri(model_uri):
+                raise ValueError(f"Invalid model URI {model_uri}.")
+
         persist_path = os.path.join(
             XINFERENCE_MODEL_DIR, "llm", f"{llm_family.model_name}.json"
         )

@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import sys
 
 import openai
@@ -375,6 +376,128 @@ def test_restful_api_for_embedding(setup):
     response = requests.get(f"{endpoint}/v1/models")
     response_data = response.json()
     assert len(response_data) == 0
+
+
+@pytest.mark.parametrize(
+    "model_format, quantization", [("ggmlv3", "q4_0"), ("pytorch", None)]
+)
+@pytest.mark.skip(reason="Cost too many resources.")
+def test_restful_api_for_tool_calls(setup, model_format, quantization):
+    model_name = "chatglm3"
+
+    endpoint, _ = setup
+    url = f"{endpoint}/v1/models"
+
+    # list
+    response = requests.get(url)
+    response_data = response.json()
+    assert len(response_data) == 0
+
+    # launch
+    payload = {
+        "model_uid": "test_tool",
+        "model_name": model_name,
+        "model_size_in_billions": 6,
+        "model_format": model_format,
+        "quantization": quantization,
+    }
+
+    response = requests.post(url, json=payload)
+    response_data = response.json()
+    model_uid_res = response_data["model_uid"]
+    assert model_uid_res == "test_tool"
+
+    response = requests.get(url)
+    response_data = response.json()
+    assert len(response_data) == 1
+
+    # tool
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "track",
+                "description": "追踪指定股票的实时价格",
+                "parameters": {
+                    "type": "object",
+                    "properties": {"symbol": {"description": "需要追踪的股票代码"}},
+                    "required": ["symbol"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "text-to-speech",
+                "description": "将文本转换为语音",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "text": {"description": "需要转换成语音的文本"},
+                        "voice": {"description": "要使用的语音类型（男声、女声等）"},
+                        "speed": {"description": "语音的速度（快、中等、慢等）"},
+                    },
+                    "required": ["text"],
+                },
+            },
+        },
+    ]
+    url = f"{endpoint}/v1/chat/completions"
+    payload = {
+        "model": model_uid_res,
+        "messages": [
+            {"role": "user", "content": "帮我查询股票10111的价格"},
+        ],
+        "tools": tools,
+        "stop": ["\n"],
+    }
+    response = requests.post(url, json=payload)
+    completion = response.json()
+
+    assert "content" in completion["choices"][0]["message"]
+    assert "tool_calls" == completion["choices"][0]["finish_reason"]
+    assert (
+        "track"
+        == completion["choices"][0]["message"]["tool_calls"][0]["function"]["name"]
+    )
+    arguments = completion["choices"][0]["message"]["tool_calls"][0]["function"][
+        "arguments"
+    ]
+    arg = json.loads(arguments)
+    assert arg == {"symbol": "10111"}
+
+    # Restful client
+    from ...client import RESTfulClient
+
+    client = RESTfulClient(endpoint)
+    model = client.get_model(model_uid_res)
+    completion = model.chat("帮我查询股票10111的价格", tools=tools)
+    assert "content" in completion["choices"][0]["message"]
+    assert "tool_calls" == completion["choices"][0]["finish_reason"]
+    assert (
+        "track"
+        == completion["choices"][0]["message"]["tool_calls"][0]["function"]["name"]
+    )
+    arguments = completion["choices"][0]["message"]["tool_calls"][0]["function"][
+        "arguments"
+    ]
+    arg = json.loads(arguments)
+    assert arg == {"symbol": "10111"}
+
+    # openai client
+    import openai
+
+    client = openai.Client(api_key="not empty", base_url=f"{endpoint}/v1")
+    completion = client.chat.completions.create(
+        model=model_uid_res,
+        messages=[{"role": "user", "content": "帮我查询股票10111的价格"}],
+        tools=tools,
+    )
+    assert "tool_calls" == completion.choices[0].finish_reason
+    assert "track" == completion.choices[0].message.tool_calls[0].function.name
+    arguments = completion.choices[0].message.tool_calls[0].function.arguments
+    arg = json.loads(arguments)
+    assert arg == {"symbol": "10111"}
 
 
 def test_restful_api_with_request_limits(setup):

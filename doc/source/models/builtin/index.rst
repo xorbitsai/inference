@@ -19,6 +19,8 @@ Text Generation Models
 - :ref:`OPT <models_builtin_opt>`
 - :ref:`Yi <models_builtin_Yi>`
 - :ref:`Yi-200k <models_builtin_Yi_200k>`
+- :ref:`Yi-chat <models_builtin_Yi_chat>`
+- :ref:`xverse <models_builtin_xverse>`
 
 
 Chat & Instruction-following Models
@@ -47,6 +49,7 @@ Chat & Instruction-following Models
 - :ref:`WizardMath v1.0 <models_builtin_wizardmath_v1_0>`
 - :ref:`Zephyr-7B-α <models_builtin_zephyr_7b_alpha>`
 - :ref:`Zephyr-7B-β <models_builtin_zephyr_7b_beta>`
+- :ref:`xverse-chat <models_builtin_xverse_chat>`
 
 
 Code Generation Models
@@ -106,6 +109,9 @@ Code Assistant Models
    zephyr-7b-beta
    Yi
    Yi-200k
+   xverse
+   xverse-chat
+   Yi-chat
 
 
 Embedding Models
@@ -133,7 +139,8 @@ Language: Chinese
 - :ref:`multilingual-e5-large <models_builtin_multilingual_e5_large>`
 - :ref:`bge-small-zh <models_builtin_bge_small_zh>`
 - :ref:`bge-small-zh-v1.5 <models_builtin_bge_small_zh_v1.5>`
-
+- :ref:`jina-embeddings-v2-small-en <models_builtin_jina_embeddings_v2_small_en>`
+- :ref:`jina-embeddings-v2-base-en <models_builtin_jina_embeddings_base_en>`
 
 
 .. toctree::
@@ -156,3 +163,18 @@ Language: Chinese
    multilingual-e5-large
    bge-small-zh
    bge-small-zh-v1.5
+   jina-embeddings-v2-small-en
+   jina-embeddings-v2-base-en
+
+
+Rerank Models
+++++++++++++++++++++++
+- :ref:`bge-reranker-base <models_builtin_bge_rerank_base>`
+- :ref:`bge-reranker-large <models_builtin_bge_rerank_large>`
+
+.. toctree::
+   :maxdepth: 2
+   :hidden:
+
+   bge-reranker-base
+   bge-reranker-large

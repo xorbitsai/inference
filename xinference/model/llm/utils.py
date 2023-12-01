@@ -122,6 +122,21 @@ class ChatModelMixin:
                     ret += role + "："
             return ret
         elif prompt_style.style_name == "CHATGLM3":
+            prompts = (
+                [f"<|system|>\n{prompt_style.system_prompt}"]
+                if prompt_style.system_prompt
+                else []
+            )
+
+            for i, message in enumerate(chat_history):
+                role = message["role"]
+                content = message["content"]
+                if content:
+                    prompts.append(f"<|{role}|>\n{content}")
+                else:
+                    prompts.append(f"<|{role}|>")
+            return "\n".join(prompts)
+        elif prompt_style.style_name == "XVERSE":
             ret = (
                 f"<|system|> \n {prompt_style.system_prompt}"
                 if prompt_style.system_prompt
@@ -170,11 +185,14 @@ class ChatModelMixin:
                     ret += "<s>"
                 role = message["role"]
                 content = message["content"]
-                ret += role + ":" + content + seps[i % 2]
+                ret += role + ":" + str(content) + seps[i % 2]
             if len(ret) == 0:
                 ret += "<s>"
             ret += (
-                chat_history[-2]["role"] + ":" + chat_history[-2]["content"] + seps[0]
+                chat_history[-2]["role"]
+                + ":"
+                + str(chat_history[-2]["content"])
+                + seps[0]
             )
             ret += chat_history[-1]["role"] + ":"
             return ret
@@ -276,9 +294,3 @@ class ChatModelMixin:
             ],
             "usage": completion["usage"],
         }
-
-
-def is_valid_model_name(model_name: str) -> bool:
-    import re
-
-    return re.match(r"^[A-Za-z0-9][A-Za-z0-9_\-]*$", model_name) is not None

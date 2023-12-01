@@ -35,6 +35,19 @@ if TYPE_CHECKING:
     )
 
 
+def _get_error_string(response: requests.Response) -> str:
+    try:
+        if response.content:
+            return response.json()["detail"]
+    except Exception:
+        pass
+    try:
+        response.raise_for_status()
+    except requests.HTTPError as e:
+        return str(e)
+    return "Unknown error"
+
+
 class RESTfulModelHandle:
     """
     A sync model interface (for RESTful client) which provides type hints that makes it much easier to use xinference
@@ -73,10 +86,64 @@ class RESTfulEmbeddingModelHandle(RESTfulModelHandle):
         response = requests.post(url, json=request_body)
         if response.status_code != 200:
             raise RuntimeError(
-                f"Failed to create the embeddings, detail: {response.json()['detail']}"
+                f"Failed to create the embeddings, detail: {_get_error_string(response)}"
             )
 
         response_data = response.json()
+        return response_data
+
+
+class RESTfulRerankModelHandle(RESTfulModelHandle):
+    def rerank(
+        self,
+        documents: List[str],
+        query: str,
+        top_n: Optional[int] = None,
+        max_chunks_per_doc: Optional[int] = None,
+        return_documents: Optional[bool] = None,
+    ):
+        """
+        Returns an ordered list of documents ordered by their relevance to the provided query.
+
+        Parameters
+        ----------
+        query: str
+            The search query
+        documents: List[str]
+            The documents to rerank
+        top_n: int
+            The number of results to return, defaults to returning all results
+        max_chunks_per_doc: int
+            The maximum number of chunks derived from a document
+        return_documents: bool
+            if return documents
+        Returns
+        -------
+        Scores
+           The scores of documents ordered by their relevance to the provided query
+
+        Raises
+        ------
+        RuntimeError
+            Report the failure of rerank and provide the error message.
+        """
+        url = f"{self._base_url}/v1/rerank"
+        request_body = {
+            "model": self._model_uid,
+            "documents": documents,
+            "query": query,
+            "top_n": top_n,
+            "max_chunks_per_doc": max_chunks_per_doc,
+            "return_documents": return_documents,
+        }
+        response = requests.post(url, json=request_body)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to rerank documents, detail: {response.json()['detail']}"
+            )
+        response_data = response.json()
+        for r in response_data["results"]:
+            r["document"] = documents[r["index"]]
         return response_data
 
 
@@ -117,7 +184,7 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
         response = requests.post(url, json=request_body)
         if response.status_code != 200:
             raise RuntimeError(
-                f"Failed to create the images, detail: {response.json()['detail']}"
+                f"Failed to create the images, detail: {_get_error_string(response)}"
             )
 
         response_data = response.json()
@@ -184,7 +251,7 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
         )
         if response.status_code != 200:
             raise RuntimeError(
-                f"Failed to variants the images, detail: {response.json()['detail']}"
+                f"Failed to variants the images, detail: {_get_error_string(response)}"
             )
 
         response_data = response.json()
@@ -237,7 +304,7 @@ class RESTfulGenerateModelHandle(RESTfulEmbeddingModelHandle):
         response = requests.post(url, json=request_body, stream=stream)
         if response.status_code != 200:
             raise RuntimeError(
-                f"Failed to generate completion, detail: {response.json()['detail']}"
+                f"Failed to generate completion, detail: {_get_error_string(response)}"
             )
 
         if stream:
@@ -253,6 +320,7 @@ class RESTfulChatModelHandle(RESTfulGenerateModelHandle):
         prompt: str,
         system_prompt: Optional[str] = None,
         chat_history: Optional[List["ChatCompletionMessage"]] = None,
+        tools: Optional[List[Dict]] = None,
         generate_config: Optional[
             Union["LlamaCppGenerateConfig", "PytorchGenerateConfig"]
         ] = None,
@@ -268,6 +336,8 @@ class RESTfulChatModelHandle(RESTfulGenerateModelHandle):
             The system context provide to Model prior to any chats.
         chat_history: Optional[List["ChatCompletionMessage"]]
             A list of messages comprising the conversation so far.
+        tools: Optional[List[Dict]]
+            A tool list.
         generate_config: Optional[Union["LlamaCppGenerateConfig", "PytorchGenerateConfig"]]
             Additional configuration for the chat generation.
             "LlamaCppGenerateConfig" -> configuration for ggml model
@@ -306,6 +376,8 @@ class RESTfulChatModelHandle(RESTfulGenerateModelHandle):
             "model": self._model_uid,
             "messages": chat_history,
         }
+        if tools is not None:
+            request_body["tools"] = tools
         if generate_config is not None:
             for key, value in generate_config.items():
                 request_body[key] = value
@@ -315,7 +387,7 @@ class RESTfulChatModelHandle(RESTfulGenerateModelHandle):
 
         if response.status_code != 200:
             raise RuntimeError(
-                f"Failed to generate chat completion, detail: {response.json()['detail']}"
+                f"Failed to generate chat completion, detail: {_get_error_string(response)}"
             )
 
         if stream:
@@ -330,6 +402,7 @@ class RESTfulChatglmCppChatModelHandle(RESTfulEmbeddingModelHandle):
         self,
         prompt: str,
         chat_history: Optional[List["ChatCompletionMessage"]] = None,
+        tools: Optional[List[Dict]] = None,
         generate_config: Optional["ChatglmCppGenerateConfig"] = None,
     ) -> Union["ChatCompletion", Iterator["ChatCompletionChunk"]]:
         """
@@ -341,6 +414,8 @@ class RESTfulChatglmCppChatModelHandle(RESTfulEmbeddingModelHandle):
             The user's input.
         chat_history: Optional[List["ChatCompletionMessage"]]
             A list of messages comprising the conversation so far.
+        tools: Optional[List[Dict]]
+            A tool list.
         generate_config: Optional["ChatglmCppGenerateConfig"]
             Additional configuration for ChatGLM chat generation.
 
@@ -369,7 +444,8 @@ class RESTfulChatglmCppChatModelHandle(RESTfulEmbeddingModelHandle):
             "model": self._model_uid,
             "messages": chat_history,
         }
-
+        if tools is not None:
+            request_body["tools"] = tools
         if generate_config is not None:
             for key, value in generate_config.items():
                 request_body[key] = value
@@ -379,7 +455,59 @@ class RESTfulChatglmCppChatModelHandle(RESTfulEmbeddingModelHandle):
 
         if response.status_code != 200:
             raise RuntimeError(
-                f"Failed to generate chat completion, detail: {response.json()['detail']}"
+                f"Failed to generate chat completion, detail: {_get_error_string(response)}"
+            )
+
+        if stream:
+            return streaming_response_iterator(response.iter_lines())
+
+        response_data = response.json()
+        return response_data
+
+
+class RESTfulChatglmCppGenerateModelHandle(RESTfulChatglmCppChatModelHandle):
+    def generate(
+        self,
+        prompt: str,
+        generate_config: Optional["ChatglmCppGenerateConfig"] = None,
+    ) -> Union["Completion", Iterator["CompletionChunk"]]:
+        """
+        Given a prompt, the ChatGLM model will generate a response via RESTful APIs.
+
+        Parameters
+        ----------
+        prompt: str
+            The user's input.
+        generate_config: Optional["ChatglmCppGenerateConfig"]
+            Additional configuration for ChatGLM chat generation.
+
+        Returns
+        -------
+        Union["Completion", Iterator["CompletionChunk"]]
+            Stream is a parameter in generate_config.
+            When stream is set to True, the function will return Iterator["CompletionChunk"].
+            When stream is set to False, the function will return "Completion".
+
+        Raises
+        ------
+        RuntimeError
+            Report the failure to generate the content from the server. Detailed information provided in error message.
+
+        """
+
+        url = f"{self._base_url}/v1/completions"
+
+        request_body: Dict[str, Any] = {"model": self._model_uid, "prompt": prompt}
+        if generate_config is not None:
+            for key, value in generate_config.items():
+                request_body[key] = value
+
+        stream = bool(generate_config and generate_config.get("stream"))
+
+        response = requests.post(url, json=request_body, stream=stream)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to generate completion, detail: {response.json()['detail']}"
             )
 
         if stream:
@@ -414,7 +542,7 @@ class Client:
         response = requests.get(url)
         if response.status_code != 200:
             raise RuntimeError(
-                f"Failed to list model, detail: {response.json()['detail']}"
+                f"Failed to list model, detail: {_get_error_string(response)}"
             )
 
         response_data = response.json()
@@ -461,7 +589,7 @@ class Client:
         response = requests.post(url, json=payload)
         if response.status_code != 200:
             raise RuntimeError(
-                f"Failed to launch model, detail: {response.json()['detail']}"
+                f"Failed to launch model, detail: {_get_error_string(response)}"
             )
 
         response_data = response.json()
@@ -539,7 +667,7 @@ class Client:
         response = requests.post(url, json=payload)
         if response.status_code != 200:
             raise RuntimeError(
-                f"Failed to launch model, detail: {response.json()['detail']}"
+                f"Failed to launch model, detail: {_get_error_string(response)}"
             )
 
         response_data = response.json()
@@ -566,7 +694,7 @@ class Client:
         response = requests.delete(url)
         if response.status_code != 200:
             raise RuntimeError(
-                f"Failed to terminate model, detail: {response.json()['detail']}"
+                f"Failed to terminate model, detail: {_get_error_string(response)}"
             )
 
     def _get_supervisor_internal_address(self):
@@ -606,13 +734,13 @@ class Client:
         response = requests.get(url)
         if response.status_code != 200:
             raise RuntimeError(
-                f"Failed to get the model description, detail: {response.json()['detail']}"
+                f"Failed to get the model description, detail: {_get_error_string(response)}"
             )
         desc = response.json()
 
         if desc["model_type"] == "LLM":
             if desc["model_format"] == "ggmlv3" and "chatglm" in desc["model_name"]:
-                return RESTfulChatglmCppChatModelHandle(model_uid, self.base_url)
+                return RESTfulChatglmCppGenerateModelHandle(model_uid, self.base_url)
             elif "chat" in desc["model_ability"]:
                 return RESTfulChatModelHandle(model_uid, self.base_url)
             elif "generate" in desc["model_ability"]:
@@ -623,6 +751,8 @@ class Client:
             return RESTfulEmbeddingModelHandle(model_uid, self.base_url)
         elif desc["model_type"] == "image":
             return RESTfulImageModelHandle(model_uid, self.base_url)
+        elif desc["model_type"] == "rerank":
+            return RESTfulRerankModelHandle(model_uid, self.base_url)
         else:
             raise ValueError(f"Unknown model type:{desc['model_type']}")
 
@@ -672,7 +802,7 @@ class Client:
         response = requests.get(url)
         if response.status_code != 200:
             raise RuntimeError(
-                f"Failed to get the model description, detail: {response.json()['detail']}"
+                f"Failed to get the model description, detail: {_get_error_string(response)}"
             )
         return response.json()
 
@@ -699,7 +829,7 @@ class Client:
         response = requests.post(url, json=request_body)
         if response.status_code != 200:
             raise RuntimeError(
-                f"Failed to register model, detail: {response.json()['detail']}"
+                f"Failed to register model, detail: {_get_error_string(response)}"
             )
 
         response_data = response.json()
@@ -725,7 +855,7 @@ class Client:
         response = requests.delete(url)
         if response.status_code != 200:
             raise RuntimeError(
-                f"Failed to register model, detail: {response.json()['detail']}"
+                f"Failed to register model, detail: {_get_error_string(response)}"
             )
 
         response_data = response.json()
@@ -755,7 +885,7 @@ class Client:
         response = requests.get(url)
         if response.status_code != 200:
             raise RuntimeError(
-                f"Failed to list model registration, detail: {response.json()['detail']}"
+                f"Failed to list model registration, detail: {_get_error_string(response)}"
             )
 
         response_data = response.json()
@@ -783,7 +913,7 @@ class Client:
         response = requests.get(url)
         if response.status_code != 200:
             raise RuntimeError(
-                f"Failed to list model registration, detail: {response.json()['detail']}"
+                f"Failed to list model registration, detail: {_get_error_string(response)}"
             )
 
         response_data = response.json()

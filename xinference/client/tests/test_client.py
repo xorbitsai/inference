@@ -17,11 +17,16 @@ import os
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest
+import requests
 
 from ...constants import XINFERENCE_ENV_MODEL_SRC
 from ..oscar.actor_client import ActorClient, ChatModelHandle, EmbeddingModelHandle
 from ..restful.restful_client import Client as RESTfulClient
-from ..restful.restful_client import RESTfulChatModelHandle, RESTfulEmbeddingModelHandle
+from ..restful.restful_client import (
+    RESTfulChatModelHandle,
+    RESTfulEmbeddingModelHandle,
+    _get_error_string,
+)
 
 
 @pytest.mark.skipif(os.name == "nt", reason="Skip windows")
@@ -416,6 +421,63 @@ def test_RESTful_client_custom_model(setup):
             custom_model_reg = model_reg
     assert custom_model_reg is None
 
+    # test register with string prompt style name
+    model_with_prompt = """{
+  "version": 1,
+  "context_length":2048,
+  "model_name": "custom_model",
+  "model_lang": [
+    "en", "zh"
+  ],
+  "model_ability": [
+    "embed",
+    "chat"
+  ],
+  "model_specs": [
+    {
+      "model_format": "pytorch",
+      "model_size_in_billions": 7,
+      "quantizations": [
+        "4-bit",
+        "8-bit",
+        "none"
+      ],
+      "model_id": "ziqingyang/chinese-alpaca-2-7b"
+    }
+  ],
+  "prompt_style": "qwen-chat"
+}"""
+    client.register_model(model_type="LLM", model=model_with_prompt, persist=False)
+    client.unregister_model(model_type="LLM", model_name="custom_model")
+
+    model_with_prompt2 = """{
+      "version": 1,
+      "context_length":2048,
+      "model_name": "custom_model",
+      "model_lang": [
+        "en", "zh"
+      ],
+      "model_ability": [
+        "embed",
+        "chat"
+      ],
+      "model_specs": [
+        {
+          "model_format": "pytorch",
+          "model_size_in_billions": 7,
+          "quantizations": [
+            "4-bit",
+            "8-bit",
+            "none"
+          ],
+          "model_id": "ziqingyang/chinese-alpaca-2-7b"
+        }
+      ],
+      "prompt_style": "xyz123"
+    }"""
+    with pytest.raises(RuntimeError):
+        client.register_model(model_type="LLM", model=model_with_prompt2, persist=False)
+
 
 def test_client_from_modelscope(setup):
     try:
@@ -433,3 +495,58 @@ def test_client_from_modelscope(setup):
         assert len(completion["choices"][0]["text"]) > 0
     finally:
         os.environ.pop(XINFERENCE_ENV_MODEL_SRC)
+
+
+def test_client_error():
+    r = requests.Response()
+    r.url = "0.0.0.0:1234"
+    r.status_code = 502
+    r.reason = "Bad Gateway"
+    err = _get_error_string(r)
+    assert "502 Server Error: Bad Gateway for url: 0.0.0.0:1234" == err
+    r._content = json.dumps({"detail": "Test error"}).encode("utf-8")
+    err = _get_error_string(r)
+    assert "Test error" == err
+
+
+def test_client_custom_embedding_model(setup):
+    endpoint, _ = setup
+    client = RESTfulClient(endpoint)
+
+    model_regs = client.list_model_registrations(model_type="embedding")
+    assert len(model_regs) > 0
+    for model_reg in model_regs:
+        assert model_reg["is_builtin"]
+
+    model = """{
+  "model_name": "custom-bge-small-en",
+  "dimensions": 1024,
+  "max_tokens": 512,
+  "language": ["en"],
+  "model_id": "Xorbits/bge-small-en"
+}"""
+    client.register_model(model_type="embedding", model=model, persist=False)
+
+    data = client.get_model_registration(
+        model_type="embedding", model_name="custom-bge-small-en"
+    )
+    assert "custom-bge-small-en" in data["model_name"]
+
+    new_model_regs = client.list_model_registrations(model_type="embedding")
+    assert len(new_model_regs) == len(model_regs) + 1
+    custom_model_reg = None
+    for model_reg in new_model_regs:
+        if model_reg["model_name"] == "custom-bge-small-en":
+            custom_model_reg = model_reg
+    assert custom_model_reg is not None
+    assert not custom_model_reg["is_builtin"]
+
+    # unregister
+    client.unregister_model(model_type="embedding", model_name="custom-bge-small-en")
+    new_model_regs = client.list_model_registrations(model_type="embedding")
+    assert len(new_model_regs) == len(model_regs)
+    custom_model_reg = None
+    for model_reg in new_model_regs:
+        if model_reg["model_name"] == "custom-bge-small-en":
+            custom_model_reg = model_reg
+    assert custom_model_reg is None

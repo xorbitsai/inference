@@ -16,7 +16,9 @@ import logging
 import os
 from json import JSONDecodeError
 from pathlib import Path
-from typing import Callable, Dict, Optional
+from typing import Callable, Dict, Optional, Tuple
+
+from fsspec import AbstractFileSystem
 
 from ..constants import XINFERENCE_ENV_MODEL_SRC
 
@@ -128,3 +130,84 @@ def valid_model_revision(
             )
             return False
         return real_revision == expected_model_revision
+
+
+def is_valid_model_name(model_name: str) -> bool:
+    import re
+
+    return re.match(r"^[A-Za-z0-9][A-Za-z0-9_\-]*$", model_name) is not None
+
+
+def parse_uri(uri: str) -> Tuple[str, str]:
+    import glob
+    from urllib.parse import urlparse
+
+    if os.path.exists(uri) or glob.glob(uri):
+        return "file", uri
+    else:
+        parsed = urlparse(uri)
+        scheme = parsed.scheme
+        path = parsed.netloc + parsed.path
+        if parsed.scheme == "" or len(parsed.scheme) == 1:  # len == 1 for windows
+            scheme = "file"
+        return scheme, path
+
+
+def is_valid_model_uri(model_uri: Optional[str]) -> bool:
+    if not model_uri:
+        return False
+
+    src_scheme, src_root = parse_uri(model_uri)
+
+    if src_scheme == "file":
+        if not os.path.isabs(src_root):
+            raise ValueError(f"Model URI cannot be a relative path: {model_uri}")
+        return os.path.exists(src_root)
+    else:
+        # TODO: handle other schemes.
+        return True
+
+
+def copy_from_src_to_dst(
+    _src_fs: "AbstractFileSystem",
+    _src_path: str,
+    dst_fs: "AbstractFileSystem",
+    dst_path: str,
+    max_attempt: int = 3,
+):
+    from tqdm import tqdm
+
+    for attempt in range(max_attempt):
+        logger.info(f"Copy from {_src_path} to {dst_path}, attempt: {attempt}")
+        try:
+            with _src_fs.open(_src_path, "rb") as src_file:
+                file_size = _src_fs.info(_src_path)["size"]
+
+                dst_fs.makedirs(os.path.dirname(dst_path), exist_ok=True)
+                with dst_fs.open(dst_path, "wb") as dst_file:
+                    chunk_size = 1024 * 1024  # 1 MB
+
+                    with tqdm(
+                        total=file_size,
+                        unit="B",
+                        unit_scale=True,
+                        unit_divisor=1024,
+                        desc=_src_path,
+                    ) as pbar:
+                        while True:
+                            chunk = src_file.read(chunk_size)
+                            if not chunk:
+                                break
+                            dst_file.write(chunk)
+                            pbar.update(len(chunk))
+            logger.info(
+                f"Copy from {_src_path} to {dst_path} finished, attempt: {attempt}"
+            )
+            break
+        except:
+            logger.error(
+                f"Failed to copy from {_src_path} to {dst_path} on attempt {attempt + 1}",
+                exc_info=True,
+            )
+            if attempt + 1 == max_attempt:
+                raise

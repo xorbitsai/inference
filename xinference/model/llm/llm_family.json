@@ -512,7 +512,7 @@
           "none"
         ],
         "model_id": "THUDM/chatglm3-6b",
-        "model_revision": "fc3235f807ef5527af598c05f04f2ffd17f48bab"
+        "model_revision": "e46a14881eae613281abbd266ee918e93a56018f"
       }
     ],
     "prompt_style": {
@@ -558,6 +558,101 @@
       ]
     }
   },
+  {
+    "version": 1,
+    "context_length": 2048,
+    "model_name": "xverse-chat",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "XVERSEB-Chat is the aligned version of model XVERSE.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "xverse/XVERSE-7B-Chat",
+        "model_revision": "60acc8c453c067b54df88be98bfdf60585ab5441"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 13,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "xverse/XVERSE-13B-Chat",
+        "model_revision": "1e4944aaa1d8c8d0cdca28bb8e3a003303d0781b"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "XVERSE",
+      "system_prompt": "",
+      "roles": [
+        "user",
+        "assistant"
+      ]
+    }
+  },
+
+  {
+    "version": 1,
+    "context_length": 2048,
+    "model_name": "xverse",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "generate"
+    ],
+    "model_description": "XVERSE is a multilingual large language model, independently developed by Shenzhen Yuanxiang Technology.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "xverse/XVERSE-7B",
+        "model_revision": "3778b254def675586e9218ccb15b78d6ef66a3a7"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 13,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "xverse/XVERSE-13B",
+        "model_revision": "11ac840dda17af81046614229fdd0c658afff747"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 65,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "xverse/XVERSE-65B",
+        "model_revision": "7f1b7394f74c630f50612a19ba90bd021c373989"
+      }
+    ]
+  }
+ ,
   {
     "version": 1,
     "context_length": 4096,
@@ -1002,6 +1097,26 @@
     "model_description": "Qwen-chat is a fine-tuned version of the Qwen LLM trained with alignment techniques, specializing in chatting.",
     "model_specs": [
       {
+        "model_format": "ggmlv3",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "q4_0"
+        ],
+        "model_id": "Xorbits/qwen-chat-7B-ggml",
+        "model_file_name_template": "qwen7b-ggml-{quantization}.bin",
+        "model_revision": "19f87d09e5ad58333aeeb7daf4b83b055c7a309e"
+      },
+      {
+        "model_format": "ggmlv3",
+        "model_size_in_billions": 14,
+        "quantizations": [
+          "q4_0"
+        ],
+        "model_id": "Xorbits/qwen-chat-14B-ggml",
+        "model_file_name_template": "qwen14b-ggml-{quantization}.bin",
+        "model_revision": "11efca556af372b6f3c730322a4962e9900a2990"
+      },
+      {
         "model_format": "pytorch",
         "model_size_in_billions": 7,
         "quantizations": [
@@ -1022,6 +1137,17 @@
         "model_revision": "fab8385c8f7e7980ef61944729fe134ccbbca263"
       },
       {
+        "model_format": "pytorch",
+        "model_size_in_billions": 72,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "Qwen/Qwen-72B-Chat",
+        "model_revision": "2cd9f76279337941ec1a4abeec6f8eb3c38d0f55"
+      },
+      {
         "model_format": "gptq",
         "model_size_in_billions": 7,
         "quantizations": [
@@ -1038,6 +1164,15 @@
           "Int8"
         ],
         "model_id": "Qwen/Qwen-14B-Chat-{quantization}"
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 72,
+        "quantizations": [
+          "Int4",
+          "Int8"
+        ],
+        "model_id": "Qwen/Qwen-72B-Chat-{quantization}"
       }
     ],
     "prompt_style": {
@@ -1049,7 +1184,14 @@
       ],
       "intra_message_sep": "\n",
       "stop_token_ids": [
-        151643
+        151643,
+        151644,
+        151645
+      ],
+      "stop": [
+        "<|endoftext|>",
+        "<|im_start|>",
+        "<|im_end|>"
       ]
     }
   },
@@ -1962,7 +2104,7 @@
     "model_ability": [
       "generate"
     ],
-    "model_description": "The Yi series models are large language models trained from scratch by developers at 01.AI. The first public release contains two bilingual (English/Chinese) base models with the parameter sizes of 6B and 34B. Both of them are trained with 4K sequence length and can be extended to 32K during inference time.",
+    "model_description": "The Yi series models are large language models trained from scratch by developers at 01.AI.",
     "model_specs": [
       {
         "model_format": "ggufv2",
@@ -2019,7 +2161,7 @@
     "model_ability": [
       "generate"
     ],
-    "model_description": "The Yi series models are large language models trained from scratch by developers at 01.AI. The first public release contains two bilingual (English/Chinese) base models with the parameter sizes of 6B and 34B. Both of them are trained with 4K sequence length and can be extended to 32K during inference time.",
+    "model_description": "The Yi series models are large language models trained from scratch by developers at 01.AI.",
     "model_specs": [
       {
         "model_format": "pytorch",
@@ -2044,6 +2186,74 @@
         "model_revision": "591ae83b8f9c269700ef27f9dbd548934d800302"
       }
     ]
+  },
+  {
+    "version": 1,
+    "context_length": 204800,
+    "model_name": "Yi-chat",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "The Yi series models are large language models trained from scratch by developers at 01.AI.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 34,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "01-ai/Yi-34B-Chat",
+        "model_revision": "a99ec35331cbfc9da596af7d4538fe2efecff03c"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 34,
+        "quantizations": [
+          "Q2_K",
+          "Q3_K_L",
+          "Q3_K_M",
+          "Q3_K_S",
+          "Q4_0",
+          "Q4_K_M",
+          "Q4_K_S",
+          "Q5_0",
+          "Q5_K_M",
+          "Q5_K_S",
+          "Q6_K",
+          "Q8_0"
+        ],
+        "model_id": "TheBloke/Yi-34B-Chat-GGUF",
+        "model_file_name_template": "yi-34b-chat.{quantization}.gguf"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "CHATML",
+      "system_prompt": "",
+      "roles": [
+        "<|im_start|>user",
+        "<|im_start|>assistant"
+      ],
+      "intra_message_sep": "<|im_end|>",
+      "inter_message_sep": "",
+      "stop_token_ids": [
+        2,
+        6,
+        7,
+        8
+      ],
+      "stop": [
+        "<|endoftext|>",
+        "<|im_start|>",
+        "<|im_end|>",
+        "<|im_sep|>"
+      ]
+    }
   },
   {
     "version": 1,

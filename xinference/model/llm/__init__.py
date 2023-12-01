@@ -19,6 +19,7 @@ import os
 from .core import LLM
 from .llm_family import (
     BUILTIN_LLM_FAMILIES,
+    BUILTIN_LLM_PROMPT_STYLE,
     BUILTIN_MODELSCOPE_LLM_FAMILIES,
     LLM_CLASSES,
     GgmlLLMSpecV1,
@@ -39,6 +40,7 @@ def _install():
     from .ggml.chatglm import ChatglmCppChatModel
     from .ggml.ctransformers import CtransformersModel
     from .ggml.llamacpp import LlamaCppChatModel, LlamaCppModel
+    from .ggml.qwen import QWenModel
     from .pytorch.baichuan import BaichuanPytorchChatModel
     from .pytorch.chatglm import ChatglmPytorchChatModel
     from .pytorch.core import PytorchChatModel, PytorchModel
@@ -57,6 +59,11 @@ def _install():
     LLM_CLASSES.extend(
         [
             ChatglmCppChatModel,
+        ]
+    )
+    LLM_CLASSES.extend(
+        [
+            QWenModel,
         ]
     )
     LLM_CLASSES.extend(
@@ -83,13 +90,32 @@ def _install():
         os.path.dirname(os.path.abspath(__file__)), "llm_family.json"
     )
     for json_obj in json.load(codecs.open(json_path, "r", encoding="utf-8")):
-        BUILTIN_LLM_FAMILIES.append(LLMFamilyV1.parse_obj(json_obj))
+        model_spec = LLMFamilyV1.parse_obj(json_obj)
+        BUILTIN_LLM_FAMILIES.append(model_spec)
+
+        # register prompt style
+        if "chat" in model_spec.model_ability and isinstance(
+            model_spec.prompt_style, PromptStyleV1
+        ):
+            # note that the key is the model name,
+            # since there are multiple representations of the same prompt style name in json.
+            BUILTIN_LLM_PROMPT_STYLE[model_spec.model_name] = model_spec.prompt_style
 
     modelscope_json_path = os.path.join(
         os.path.dirname(os.path.abspath(__file__)), "llm_family_modelscope.json"
     )
     for json_obj in json.load(codecs.open(modelscope_json_path, "r", encoding="utf-8")):
-        BUILTIN_MODELSCOPE_LLM_FAMILIES.append(LLMFamilyV1.parse_obj(json_obj))
+        model_spec = LLMFamilyV1.parse_obj(json_obj)
+        BUILTIN_MODELSCOPE_LLM_FAMILIES.append(model_spec)
+
+        # register prompt style, in case that we have something missed
+        # if duplicated with huggingface json, keep it as the huggingface style
+        if (
+            "chat" in model_spec.model_ability
+            and isinstance(model_spec.prompt_style, PromptStyleV1)
+            and model_spec.model_name not in BUILTIN_LLM_PROMPT_STYLE
+        ):
+            BUILTIN_LLM_PROMPT_STYLE[model_spec.model_name] = model_spec.prompt_style
 
     from ...constants import XINFERENCE_MODEL_DIR
 

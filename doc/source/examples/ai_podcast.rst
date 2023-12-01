@@ -76,4 +76,4 @@ Chinese (AI_Podcast_ZH.py)
 
     * `AI_Podcast <https://github.com/xorbitsai/inference/blob/main/examples/AI_podcast.py>`_ (English Version)
 
-    * `AI_Podcast_ZH <https://github.com/xorbitsai/inference/blob/main/examples/AI_podcast_ZH.py>` (Chinese Version)
+    * `AI_Podcast_ZH <https://github.com/xorbitsai/inference/blob/main/examples/AI_podcast_ZH.py>`_ (Chinese Version)

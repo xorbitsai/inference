@@ -68,7 +68,7 @@ class LlamaCppModel(LLM):
         self._llm = None
 
     def _can_apply_metal(self):
-        return self.quantization in ["q4_0", "q4_1"]
+        return self.quantization.lower() in ["q4_0", "q4_1", "q4_k_s", "q4_k_m"]
 
     def _can_apply_cublas(self):
         # TODO: figure out the quantizations supported.
@@ -189,7 +189,7 @@ class LlamaCppModel(LLM):
         try:
             self._llm = Llama(
                 model_path=model_path,
-                verbose=False,
+                verbose=True,
                 **self._llamacpp_model_config,
             )
         except AssertionError:
@@ -203,6 +203,7 @@ class LlamaCppModel(LLM):
             return False
         if (
             "chatglm" in llm_family.model_name
+            or "qwen" in llm_family.model_name
             or llm_family.model_name in CTRANSFORMERS_SUPPORTED_MODEL
         ):
             return False
@@ -270,6 +271,7 @@ class LlamaCppChatModel(LlamaCppModel, ChatModelMixin):
             return False
         if (
             "chatglm" in llm_family.model_name
+            or "qwen" in llm_family.model_name
             or llm_family.model_name in CTRANSFORMERS_SUPPORTED_MODEL
         ):
             return False

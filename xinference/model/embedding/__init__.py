@@ -17,6 +17,7 @@ import json
 import os
 
 from .core import EmbeddingModelSpec, get_cache_status
+from .custom import CustomEmbeddingModelSpec, register_embedding, unregister_embedding
 
 _model_spec_json = os.path.join(os.path.dirname(__file__), "model_spec.json")
 _model_spec_modelscope_json = os.path.join(
@@ -32,5 +33,15 @@ MODELSCOPE_EMBEDDING_MODELS = dict(
         codecs.open(_model_spec_modelscope_json, "r", encoding="utf-8")
     )
 )
+
+from ...constants import XINFERENCE_MODEL_DIR
+
+user_defined_llm_dir = os.path.join(XINFERENCE_MODEL_DIR, "embedding")
+if os.path.isdir(user_defined_llm_dir):
+    for f in os.listdir(user_defined_llm_dir):
+        with codecs.open(os.path.join(user_defined_llm_dir, f), encoding="utf-8") as fd:
+            user_defined_llm_family = CustomEmbeddingModelSpec.parse_obj(json.load(fd))
+            register_embedding(user_defined_llm_family, persist=False)
+
 del _model_spec_json
 del _model_spec_modelscope_json
