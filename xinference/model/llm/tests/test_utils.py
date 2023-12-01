@@ -229,9 +229,9 @@ def test_prompt_style_chatglm_v3():
         ),
     ]
     expected = (
-        "<|user|> \n Hi there."
-        "<|assistant|> \n Hello, how may I help you?"
-        "<|user|> \n Write a poem."
+        "<|user|>\nHi there.\n"
+        "<|assistant|>\nHello, how may I help you?\n"
+        "<|user|>\nWrite a poem.\n"
         "<|assistant|>"
     )
     assert expected == ChatModelMixin.get_prompt(
