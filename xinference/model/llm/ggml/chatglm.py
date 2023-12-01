@@ -175,7 +175,17 @@ class ChatglmCppChatModel(LLM):
             return "tool_calls" if msg.tool_calls else "stop"
 
     @staticmethod
-    def _message_to_json_string(_id, msg) -> ChatCompletionMessage:
+    def _eval_arguments(arguments):
+        def tool_call(**kwargs):
+            return kwargs
+
+        try:
+            return json.dumps(eval(arguments, dict(tool_call=tool_call)))
+        except Exception:
+            return f"Invalid arguments {arguments}"
+
+    @classmethod
+    def _message_to_json_string(cls, _id, msg) -> ChatCompletionMessage:
         if isinstance(msg, str):
             return {
                 "role": "assistant",
@@ -191,7 +201,7 @@ class ChatglmCppChatModel(LLM):
                         "type": tc.type,
                         "function": {
                             "name": tc.function.name,
-                            "arguments": tc.function.arguments,
+                            "arguments": cls._eval_arguments(tc.function.arguments),
                         },
                     }
                     for tc in msg.tool_calls

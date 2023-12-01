@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import sys
 
 import openai
@@ -451,16 +452,18 @@ def test_restful_api_for_tool_calls(setup, model_format, quantization):
     }
     response = requests.post(url, json=payload)
     completion = response.json()
+
     assert "content" in completion["choices"][0]["message"]
     assert "tool_calls" == completion["choices"][0]["finish_reason"]
     assert (
         "track"
         == completion["choices"][0]["message"]["tool_calls"][0]["function"]["name"]
     )
-    assert (
-        "10111"
-        in completion["choices"][0]["message"]["tool_calls"][0]["function"]["arguments"]
-    )
+    arguments = completion["choices"][0]["message"]["tool_calls"][0]["function"][
+        "arguments"
+    ]
+    arg = json.loads(arguments)
+    assert arg == {"symbol": "10111"}
 
 
 def test_restful_api_with_request_limits(setup):
