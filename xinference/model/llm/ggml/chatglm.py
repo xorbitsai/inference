@@ -214,12 +214,13 @@ class ChatglmCppChatModel(LLM):
         if generate_config is None:
             return None
         tools = generate_config.pop("tools", None)
+        if tools is None:
+            return None
         chatglm_tools = []
-        if tools is not None:
-            for elem in tools:
-                if elem.get("type") != "function" or "function" not in elem:
-                    raise ValueError("ChatGLM tools only support function type.")
-                chatglm_tools.append(elem["function"])
+        for elem in tools:
+            if elem.get("type") != "function" or "function" not in elem:
+                raise ValueError("ChatGLM tools only support function type.")
+            chatglm_tools.append(elem["function"])
         return {
             "role": "system",
             "content": f"Answer the following questions as best as you can. You have access to the following tools:\n"
