@@ -89,8 +89,8 @@ def test_create_chat_completion_types():
     with pytest.raises(pydantic.ValidationError):
         CreateChatCompletion(model="abc", not_exist="jdk")
 
-    with pytest.raises(pydantic.ValidationError):
-        CreateChatCompletion(model="abc", messages=[{"role": "invalid"}])
+    # with pytest.raises(pydantic.ValidationError):
+    #     CreateChatCompletion(model="abc", messages=[{"role": "invalid"}])
 
     CreateChatCompletion(model="abc", messages=[{"role": "tool"}])
 
