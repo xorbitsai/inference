@@ -320,6 +320,7 @@ class RESTfulChatModelHandle(RESTfulGenerateModelHandle):
         prompt: str,
         system_prompt: Optional[str] = None,
         chat_history: Optional[List["ChatCompletionMessage"]] = None,
+        tools: Optional[List[Dict]] = None,
         generate_config: Optional[
             Union["LlamaCppGenerateConfig", "PytorchGenerateConfig"]
         ] = None,
@@ -335,6 +336,8 @@ class RESTfulChatModelHandle(RESTfulGenerateModelHandle):
             The system context provide to Model prior to any chats.
         chat_history: Optional[List["ChatCompletionMessage"]]
             A list of messages comprising the conversation so far.
+        tools: Optional[List[Dict]]
+            A tool list.
         generate_config: Optional[Union["LlamaCppGenerateConfig", "PytorchGenerateConfig"]]
             Additional configuration for the chat generation.
             "LlamaCppGenerateConfig" -> configuration for ggml model
@@ -373,6 +376,8 @@ class RESTfulChatModelHandle(RESTfulGenerateModelHandle):
             "model": self._model_uid,
             "messages": chat_history,
         }
+        if tools is not None:
+            request_body["tools"] = tools
         if generate_config is not None:
             for key, value in generate_config.items():
                 request_body[key] = value
@@ -397,6 +402,7 @@ class RESTfulChatglmCppChatModelHandle(RESTfulEmbeddingModelHandle):
         self,
         prompt: str,
         chat_history: Optional[List["ChatCompletionMessage"]] = None,
+        tools: Optional[List[Dict]] = None,
         generate_config: Optional["ChatglmCppGenerateConfig"] = None,
     ) -> Union["ChatCompletion", Iterator["ChatCompletionChunk"]]:
         """
@@ -408,6 +414,8 @@ class RESTfulChatglmCppChatModelHandle(RESTfulEmbeddingModelHandle):
             The user's input.
         chat_history: Optional[List["ChatCompletionMessage"]]
             A list of messages comprising the conversation so far.
+        tools: Optional[List[Dict]]
+            A tool list.
         generate_config: Optional["ChatglmCppGenerateConfig"]
             Additional configuration for ChatGLM chat generation.
 
@@ -436,7 +444,8 @@ class RESTfulChatglmCppChatModelHandle(RESTfulEmbeddingModelHandle):
             "model": self._model_uid,
             "messages": chat_history,
         }
-
+        if tools is not None:
+            request_body["tools"] = tools
         if generate_config is not None:
             for key, value in generate_config.items():
                 request_body[key] = value

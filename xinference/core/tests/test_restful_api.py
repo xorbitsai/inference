@@ -465,6 +465,39 @@ def test_restful_api_for_tool_calls(setup, model_format, quantization):
     arg = json.loads(arguments)
     assert arg == {"symbol": "10111"}
 
+    # Restful client
+    from ...client import RESTfulClient
+
+    client = RESTfulClient(endpoint)
+    model = client.get_model(model_uid_res)
+    completion = model.chat("帮我查询股票10111的价格", tools=tools)
+    assert "content" in completion["choices"][0]["message"]
+    assert "tool_calls" == completion["choices"][0]["finish_reason"]
+    assert (
+        "track"
+        == completion["choices"][0]["message"]["tool_calls"][0]["function"]["name"]
+    )
+    arguments = completion["choices"][0]["message"]["tool_calls"][0]["function"][
+        "arguments"
+    ]
+    arg = json.loads(arguments)
+    assert arg == {"symbol": "10111"}
+
+    # openai client
+    import openai
+
+    client = openai.Client(api_key="not empty", base_url=f"{endpoint}/v1")
+    completion = client.chat.completions.create(
+        model=model_uid_res,
+        messages=[{"role": "user", "content": "帮我查询股票10111的价格"}],
+        tools=tools,
+    )
+    assert "tool_calls" == completion.choices[0].finish_reason
+    assert "track" == completion.choices[0].message.tool_calls[0].function.name
+    arguments = completion.choices[0].message.tool_calls[0].function.arguments
+    arg = json.loads(arguments)
+    assert arg == {"symbol": "10111"}
+
 
 def test_restful_api_with_request_limits(setup):
     model_name = "gte-base"
