@@ -319,7 +319,9 @@ try:
     from llama_cpp import Llama
 
     CreateCompletionLlamaCpp = get_pydantic_model_from_method(
-        Llama.create_completion, exclude_fields=["model", "prompt"]
+        Llama.create_completion,
+        exclude_fields=["model", "prompt", "grammar"],
+        include_fields={"grammar": (Optional[Any], None)},
     )
 except ImportError:
     CreateCompletionLlamaCpp = create_model("CreateCompletionLlamaCpp")
