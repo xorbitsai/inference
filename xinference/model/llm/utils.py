@@ -122,19 +122,20 @@ class ChatModelMixin:
                     ret += role + "："
             return ret
         elif prompt_style.style_name == "CHATGLM3":
-            ret = (
-                f"<|system|> \n {prompt_style.system_prompt}"
+            prompts = (
+                [f"<|system|>\n{prompt_style.system_prompt}"]
                 if prompt_style.system_prompt
-                else ""
+                else []
             )
+
             for i, message in enumerate(chat_history):
                 role = message["role"]
                 content = message["content"]
                 if content:
-                    ret += f"<|{role}|> \n {content}"
+                    prompts.append(f"<|{role}|>\n{content}")
                 else:
-                    ret += f"<|{role}|>"
-            return ret
+                    prompts.append(f"<|{role}|>")
+            return "\n".join(prompts)
         elif prompt_style.style_name == "XVERSE":
             ret = (
                 f"<|system|> \n {prompt_style.system_prompt}"
@@ -184,11 +185,14 @@ class ChatModelMixin:
                     ret += "<s>"
                 role = message["role"]
                 content = message["content"]
-                ret += role + ":" + content + seps[i % 2]
+                ret += role + ":" + str(content) + seps[i % 2]
             if len(ret) == 0:
                 ret += "<s>"
             ret += (
-                chat_history[-2]["role"] + ":" + chat_history[-2]["content"] + seps[0]
+                chat_history[-2]["role"]
+                + ":"
+                + str(chat_history[-2]["content"])
+                + seps[0]
             )
             ret += chat_history[-1]["role"] + ":"
             return ret

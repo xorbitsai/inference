@@ -112,6 +112,7 @@ jobs:
           MODULE: ${{ matrix.module }}
         run: |
           if [ "$MODULE" == "gpu" ]; then
+            ${{ env.SELF_HOST_PYTHON }} -m pip install "openai>1"
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U modelscope
             ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=1500 \
               -W ignore::PendingDeprecationWarning \
