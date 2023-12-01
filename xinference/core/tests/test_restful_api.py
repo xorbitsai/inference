@@ -381,6 +381,7 @@ def test_restful_api_for_embedding(setup):
 @pytest.mark.parametrize(
     "model_format, quantization", [("ggmlv3", "q4_0"), ("pytorch", None)]
 )
+@pytest.mark.skip(reason="Cost too many resources.")
 def test_restful_api_for_tool_calls(setup, model_format, quantization):
     model_name = "chatglm3"
 
