@@ -83,6 +83,7 @@ def prepare_logits_processor(
         processor_list.append(TopKLogitsWarper(top_k))
     return processor_list
 
+CHAR_UNK = b"\xef\xbf\xbd".decode()
 
 @torch.inference_mode()
 def generate_stream(
@@ -144,6 +145,10 @@ def generate_stream(
     sent_interrupt = False
     token = None
     last_output_length = 0
+
+    # 记录连续的未知字符用于尝试生成有效字符，以解决中文字符被切分的问题
+    unk_tokens = []   
+
     for i in range(max_new_tokens):
         if i == 0:
             if model.config.is_encoder_decoder:
@@ -204,6 +209,17 @@ def generate_stream(
             tokens = [int(token) for token in indices.tolist()]
         token = tokens[0]
         output_ids.append(token)
+
+        # 尝试将连续的未知字符转换为中文字符
+        if _token == CHAR_UNK:
+            unk_tokens.append(token)
+            _token = tokenizer.decode(unk_tokens)
+            if len(_token) == 1 and _token != CHAR_UNK:
+                unk_tokens.clear()
+            else:
+                continue
+        else:
+            unk_tokens.clear()
 
         if token in stop_token_ids:
             stopped = True
