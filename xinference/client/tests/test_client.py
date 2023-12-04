@@ -92,7 +92,9 @@ def test_client_for_embedding(setup):
     client = ActorClient(endpoint)
     assert len(client.list_models()) == 0
 
-    model_uid = client.launch_model(model_name="gte-base", model_type="embedding")
+    model_uid = client.launch_model(
+        model_name="jina-embeddings-v2-small-en", model_type="embedding"
+    )
     assert len(client.list_models()) == 1
 
     model = client.get_model(model_uid=model_uid)
@@ -100,7 +102,7 @@ def test_client_for_embedding(setup):
 
     completion = model.create_embedding("write a poem.")
     completion = json.loads(completion)
-    assert len(completion["data"][0]["embedding"]) == 768
+    assert len(completion["data"][0]["embedding"]) == 512
 
     client.terminate_model(model_uid=model_uid)
     assert len(client.list_models()) == 0
