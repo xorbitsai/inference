@@ -220,16 +220,10 @@ class EmbeddingModel:
             ]
 
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
-        try:
-            self._model = SentenceTransformer(self._model_path, device=self._device)
-        except Exception as ex:
-            if "trust_remote_code" in str(ex):
-                from ..utils import patch_trust_remote_code
+        from ..utils import patch_trust_remote_code
 
-                patch_trust_remote_code()
-                self._model = SentenceTransformer(self._model_path, device=self._device)
-            else:
-                raise
+        patch_trust_remote_code()
+        self._model = SentenceTransformer(self._model_path, device=self._device)
 
     def create_embedding(self, sentences: Union[str, List[str]], **kwargs):
         from sentence_transformers import SentenceTransformer
