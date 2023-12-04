@@ -5,7 +5,6 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, SecurityScopes
 from jose import JWTError, jwt
 from pydantic import BaseModel, ValidationError
-from starlette.responses import JSONResponse
 
 from .common import ALGORITHM, SECRET_KEY, fake_users_db
 
@@ -35,9 +34,9 @@ def get_user(db, username: str):
         return UserInDB(**user_dict)
 
 
-class Token(BaseModel):
-    access_token: str
-    token_type: str
+# class Token(BaseModel):
+#     access_token: str
+#     token_type: str
 
 
 class TokenData(BaseModel):
@@ -45,17 +44,20 @@ class TokenData(BaseModel):
     scopes: list[str] = []
 
 
-def error_response(error_msg: str, status_code: int) -> JSONResponse:
-    logger.error(error_msg)
-    return JSONResponse(
-        content={"detail": error_msg},
-        status_code=status_code,
-    )
+# def error_response(error_msg: str, status_code: int) -> JSONResponse:
+#     logger.error(error_msg)
+#     return JSONResponse(
+#         content={"detail": error_msg},
+#         status_code=status_code,
+#     )
 
 
 def verify_token(
     security_scopes: SecurityScopes, token: Annotated[str, Depends(oauth2_scheme)]
 ):
+    # if True:
+    #     return None
+
     if security_scopes.scopes:
         authenticate_value = f'Bearer scope="{security_scopes.scope_str}"'
     else:
