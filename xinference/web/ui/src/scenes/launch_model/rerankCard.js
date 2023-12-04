@@ -210,16 +210,6 @@ const RerankCard = ({ url, modelData }) => {
             })()}
           </div>
         </div>
-        {/*<div style={styles.iconRow}>*/}
-        {/*  <div style={styles.iconItem}>*/}
-        {/*    <span style={styles.boldIconText}>{modelData.dimensions}</span>*/}
-        {/*    <small style={styles.smallText}>dimensions</small>*/}
-        {/*  </div>*/}
-        {/*  <div style={styles.iconItem}>*/}
-        {/*    <span style={styles.boldIconText}>{modelData.max_tokens}</span>*/}
-        {/*    <small style={styles.smallText}>max tokens</small>*/}
-        {/*  </div>*/}
-        {/*</div>*/}
         {hover ? (
           <p style={styles.instructionText}>
             Click with mouse to launch the model
