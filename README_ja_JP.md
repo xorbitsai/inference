@@ -182,41 +182,50 @@ model.chat(
 $ xinference registrations
 ```
 
-| Type | Name                | Language     | Ability               |
-|------|---------------------|--------------|-----------------------|
-| LLM  | baichuan            | ['en', 'zh'] | ['embed', 'generate'] |
-| LLM  | baichuan-2          | ['en', 'zh'] | ['embed', 'generate'] |
-| LLM  | baichuan-chat       | ['en', 'zh'] | ['embed', 'chat']     |
-| LLM  | baichuan-2-chat     | ['en', 'zh'] | ['embed', 'chat']     |
-| LLM  | chatglm             | ['en', 'zh'] | ['embed', 'chat']     |
-| LLM  | chatglm2            | ['en', 'zh'] | ['embed', 'chat']     |
-| LLM  | chatglm2-32k        | ['en', 'zh'] | ['embed', 'chat']     |
-| LLM  | code-llama          | ['en']       | ['generate']          |
-| LLM  | code-llama-instruct | ['en']       | ['chat']              |
-| LLM  | code-llama-python   | ['en']       | ['generate']          |
-| LLM  | falcon              | ['en']       | ['embed', 'generate'] |
-| LLM  | falcon-instruct     | ['en']       | ['embed', 'chat']     |
-| LLM  | glaive-coder        | ['en']       | ['chat']              |
-| LLM  | gpt-2               | ['en']       | ['generate']          |
-| LLM  | internlm            | ['en', 'zh'] | ['embed', 'generate'] |
-| LLM  | internlm-16k        | ['en', 'zh'] | ['embed', 'generate'] |
-| LLM  | internlm-chat       | ['en', 'zh'] | ['embed', 'chat']     |
-| LLM  | internlm-chat-8k    | ['en', 'zh'] | ['embed', 'chat']     |
-| LLM  | internlm-chat-16k   | ['en', 'zh'] | ['embed', 'chat']     |
-| LLM  | llama-2             | ['en']       | ['embed', 'generate'] |
-| LLM  | llama-2-chat        | ['en']       | ['embed', 'chat']     |
-| LLM  | opt                 | ['en']       | ['embed', 'generate'] |
-| LLM  | orca                | ['en']       | ['embed', 'chat']     |
-| LLM  | qwen-chat           | ['en', 'zh'] | ['embed', 'chat']     |
-| LLM  | starchat-beta       | ['en']       | ['embed', 'chat']     |
-| LLM  | starcoder           | ['en']       | ['generate']          |
-| LLM  | starcoderplus       | ['en']       | ['embed', 'generate'] |
-| LLM  | vicuna-v1.3         | ['en']       | ['embed', 'chat']     |
-| LLM  | vicuna-v1.5         | ['en']       | ['embed', 'chat']     |
-| LLM  | vicuna-v1.5-16k     | ['en']       | ['embed', 'chat']     |
-| LLM  | wizardlm-v1.0       | ['en']       | ['embed', 'chat']     |
-| LLM  | wizardmath-v1.0     | ['en']       | ['embed', 'chat']     |
-| LLM  | OpenBuddy           | ['en', 'zh'] | ['embed', 'chat']     |
+| Type  | Name                    | Language     | Ability      |
+|-------|-------------------------|--------------|--------------|
+| LLM   | baichuan                | ['en', 'zh'] | ['generate'] |
+| LLM   | baichuan-2              | ['en', 'zh'] | ['generate'] |
+| LLM   | baichuan-2-chat         | ['en', 'zh'] | ['chat']     |
+| LLM   | baichuan-chat           | ['en', 'zh'] | ['chat']     |
+| LLM   | chatglm                 | ['en', 'zh'] | ['chat']     |
+| LLM   | chatglm2                | ['en', 'zh'] | ['chat']     |
+| LLM   | chatglm2-32k            | ['en', 'zh'] | ['chat']     |
+| LLM   | chatglm3                | ['en', 'zh'] | ['chat']     |
+| LLM   | chatglm3-32k            | ['en', 'zh'] | ['chat']     |
+| LLM   | code-llama              | ['en']       | ['generate'] |
+| LLM   | code-llama-instruct     | ['en']       | ['chat']     |
+| LLM   | code-llama-python       | ['en']       | ['generate'] |
+| LLM   | falcon                  | ['en']       | ['generate'] |
+| LLM   | falcon-instruct         | ['en']       | ['chat']     |
+| LLM   | glaive-coder            | ['en']       | ['chat']     |
+| LLM   | gpt-2                   | ['en']       | ['generate'] |
+| LLM   | internlm-20b            | ['en', 'zh'] | ['generate'] |
+| LLM   | internlm-7b             | ['en', 'zh'] | ['generate'] |
+| LLM   | internlm-chat-20b       | ['en', 'zh'] | ['chat']     |
+| LLM   | internlm-chat-7b        | ['en', 'zh'] | ['chat']     |
+| LLM   | llama-2                 | ['en']       | ['generate'] |
+| LLM   | llama-2-chat            | ['en']       | ['chat']     |
+| LLM   | mistral-instruct-v0.1   | ['en']       | ['chat']     |
+| LLM   | mistral-v0.1            | ['en']       | ['generate'] |
+| LLM   | OpenBuddy               | ['en']       | ['chat']     |
+| LLM   | opt                     | ['en']       | ['generate'] |
+| LLM   | orca                    | ['en']       | ['chat']     |
+| LLM   | qwen-chat               | ['en', 'zh'] | ['chat']     |
+| LLM   | starchat-beta           | ['en']       | ['chat']     |
+| LLM   | starcoder               | ['en']       | ['generate'] |
+| LLM   | starcoderplus           | ['en']       | ['generate'] |
+| LLM   | tiny-llama              | ['en']       | ['generate'] |
+| LLM   | vicuna-v1.3             | ['en']       | ['chat']     |
+| LLM   | vicuna-v1.5             | ['en']       | ['chat']     |
+| LLM   | vicuna-v1.5-16k         | ['en']       | ['chat']     |
+| LLM   | wizardcoder-python-v1.0 | ['en']       | ['chat']     |
+| LLM   | wizardlm-v1.0           | ['en']       | ['chat']     |
+| LLM   | wizardmath-v1.0         | ['en']       | ['chat']     |
+| LLM   | Yi                      | ['en', 'zh'] | ['generate'] |
+| LLM   | Yi-200k                 | ['en', 'zh'] | ['generate'] |
+| LLM   | zephyr-7b-alpha         | ['en']       | ['chat']     |
+| LLM   | zephyr-7b-beta          | ['en']       | ['chat']     |
 
 **注**:
 - Xinference は自動的にモデルをダウンロードし、デフォルトでは `${USER}/.xinference/cache` の下に保存されます。
