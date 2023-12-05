@@ -32,6 +32,8 @@ from setuptools.command.sdist import sdist
 # the version that python was built for. This may be overridden by setting
 # MACOSX_DEPLOYMENT_TARGET before calling setup.py
 if sys.platform == "darwin":
+    os.environ["LLAMA_METAL"] = "on"
+    os.environ["GGML_METAL"] = "ON"
     if "MACOSX_DEPLOYMENT_TARGET" not in os.environ:
         current_system = platform.mac_ver()[0]
         python_target = get_config_vars().get(
@@ -72,6 +74,7 @@ class CustomDevelop(ExtraCommandMixin, develop):
 
 class CustomSDist(ExtraCommandMixin, sdist):
     pass
+
 
 class BuildWeb(Command):
     """build_web command"""
