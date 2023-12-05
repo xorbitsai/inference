@@ -12,6 +12,7 @@ const RunningModels = () => {
   const [llmData, setLlmData] = useState([]);
   const [embeddingModelData, setEmbeddingModelData] = useState([]);
   const [imageModelData, setImageModelData] = useState([]);
+  const [rerankModelData, setRerankModelData] = useState([]);
   const {isCallingApi, setIsCallingApi} = useContext(ApiContext);
   const {isUpdatingModel, setIsUpdatingModel} = useContext(ApiContext);
   const endPoint = useContext(ApiContext).endPoint;
@@ -31,6 +32,9 @@ const RunningModels = () => {
       setImageModelData([
         {id: "Loading, do not refresh page...", url: "IS_LOADING"},
       ]);
+      setRerankModelData([
+        {id: "Loading, do not refresh page...", url: "IS_LOADING"},
+      ]);
     } else {
       setIsUpdatingModel(true);
       fetch(`${endPoint}/v1/models/`, {
@@ -41,6 +45,7 @@ const RunningModels = () => {
           const newLlmData = [];
           const newEmbeddingModelData = [];
           const newImageModelData = [];
+          const newRerankModelData = [];
           Object.entries(data).forEach(([key, value]) => {
             let newValue = {
               ...value,
@@ -53,11 +58,14 @@ const RunningModels = () => {
               newEmbeddingModelData.push(newValue);
             } else if (newValue.model_type === "image") {
               newImageModelData.push(newValue);
+            } else if (newValue.model_type === "rerank") {
+              newRerankModelData.push(newValue);
             }
           });
           setLlmData(newLlmData);
           setEmbeddingModelData(newEmbeddingModelData);
           setImageModelData(newImageModelData);
+          setRerankModelData(newRerankModelData);
           setIsUpdatingModel(false);
         })
         .catch((error) => {
@@ -359,6 +367,7 @@ const RunningModels = () => {
   ];
 
   const imageModelColumns = embeddingModelColumns;
+  const rerankModelColumns = embeddingModelColumns;
 
   return (
     <Box m="20px">
@@ -369,6 +378,7 @@ const RunningModels = () => {
             <Tab label="Language Models" value="1"/>
             <Tab label="Embedding Models" value="2"/>
             <Tab label="Image models" value="3"/>
+            <Tab label="Rerank models" value="4"/>
           </TabList>
         </Box>
         <TabPanel value="1" sx={{padding: 0}}>
@@ -476,6 +486,56 @@ const RunningModels = () => {
             <DataGrid
               rows={imageModelData}
               columns={imageModelColumns}
+              sx={{
+                "& .MuiDataGrid-main": {
+                  width: "95% !important",
+                  overflow: "visible",
+                },
+                "& .MuiDataGrid-row": {
+                  background: "white",
+                  margin: "10px 0px",
+                },
+                "& .MuiDataGrid-cell": {
+                  borderBottom: "none",
+                },
+                "& .CustomWide-cell": {
+                  minWidth: "250px !important",
+                },
+                "& .MuiDataGrid-columnHeaders": {
+                  borderBottom: "none",
+                },
+                "& .MuiDataGrid-columnHeaderTitle": {
+                  fontWeight: "bold",
+                },
+                "& .MuiDataGrid-virtualScroller": {
+                  overflowX: "visible !important",
+                  overflow: "visible",
+                },
+                "& .MuiDataGrid-footerContainer": {
+                  borderTop: "none",
+                },
+                "border-width": "0px",
+              }}
+              slots={{
+                noRowsOverlay: () => (
+                  <Stack height="100%" alignItems="center" justifyContent="center">
+                    No Running Models
+                  </Stack>
+                ),
+                noResultsOverlay: () => (
+                  <Stack height="100%" alignItems="center" justifyContent="center">
+                    No Running Models Matches
+                  </Stack>
+                ),
+              }}
+            />
+          </Box>
+        </TabPanel>
+        <TabPanel value="4" sx={{padding: 0}}>
+          <Box m="40px 0 0 0" height="30vh">
+            <DataGrid
+              rows={rerankModelData}
+              columns={rerankModelColumns}
               sx={{
                 "& .MuiDataGrid-main": {
                   width: "95% !important",

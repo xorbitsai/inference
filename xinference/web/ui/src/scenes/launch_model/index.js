@@ -2,6 +2,7 @@ import React from "react";
 import Title from "../../components/Title";
 import LaunchLLM from "./launchLLM";
 import LaunchEmbedding from "./launchEmbedding";
+import LaunchRerank from "./launchRerank";
 import { Box, Tab } from "@mui/material";
 import { TabContext, TabList, TabPanel } from "@mui/lab";
 
@@ -20,6 +21,7 @@ const LaunchModel = () => {
           <TabList value={value} onChange={handleTabChange} aria-label="tabs">
             <Tab label="Language Models" value="1" />
             <Tab label="Embedding Models" value="2" />
+            <Tab label="Rerank Models" value="3" />
           </TabList>
         </Box>
         <TabPanel value="1" sx={{ padding: 0 }}>
@@ -27,6 +29,9 @@ const LaunchModel = () => {
         </TabPanel>
         <TabPanel value="2" sx={{ padding: 0 }}>
           <LaunchEmbedding />
+        </TabPanel>
+        <TabPanel value="3" sx={{ padding: 0 }}>
+          <LaunchRerank />
         </TabPanel>
       </TabContext>
     </Box>
