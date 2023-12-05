@@ -1,23 +1,24 @@
-import React from "react";
-import Title from "../../components/Title";
-import LaunchLLM from "./launchLLM";
-import LaunchEmbedding from "./launchEmbedding";
-import LaunchRerank from "./launchRerank";
-import { Box, Tab } from "@mui/material";
-import { TabContext, TabList, TabPanel } from "@mui/lab";
+import { TabContext, TabList, TabPanel } from '@mui/lab'
+import { Box, Tab } from '@mui/material'
+import React from 'react'
+
+import Title from '../../components/Title'
+import LaunchEmbedding from './launchEmbedding'
+import LaunchLLM from './launchLLM'
+import LaunchRerank from './launchRerank'
 
 const LaunchModel = () => {
-  const [value, setValue] = React.useState("1");
+  const [value, setValue] = React.useState('1')
 
   const handleTabChange = (event, newValue) => {
-    setValue(newValue);
-  };
+    setValue(newValue)
+  }
 
   return (
     <Box m="20px">
       <Title title="Launch Model" />
       <TabContext value={value}>
-        <Box sx={{ borderBottom: 1, borderColor: "divider" }}>
+        <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
           <TabList value={value} onChange={handleTabChange} aria-label="tabs">
             <Tab label="Language Models" value="1" />
             <Tab label="Embedding Models" value="2" />
@@ -35,7 +36,7 @@ const LaunchModel = () => {
         </TabPanel>
       </TabContext>
     </Box>
-  );
-};
+  )
+}
 
-export default LaunchModel;
+export default LaunchModel
