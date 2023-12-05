@@ -13,13 +13,14 @@ import {
   InputLabel,
   MenuItem,
   Select,
+  TextField,
 } from '@mui/material'
 import React, { useContext, useEffect, useState } from 'react'
 import { v1 as uuidv1 } from 'uuid'
 
 import { ApiContext } from '../../components/apiContext'
 
-const CARD_HEIGHT = 350
+const CARD_HEIGHT = 450
 const CARD_WIDTH = 270
 
 const ModelCard = ({ url, modelData }) => {
@@ -33,6 +34,7 @@ const ModelCard = ({ url, modelData }) => {
   const [modelFormat, setModelFormat] = useState('')
   const [modelSize, setModelSize] = useState('')
   const [quantization, setQuantization] = useState('')
+  const [nGPU, setNGPU] = useState(0)
 
   const [formatOptions, setFormatOptions] = useState([])
   const [sizeOptions, setSizeOptions] = useState([])
@@ -101,6 +103,7 @@ const ModelCard = ({ url, modelData }) => {
       model_format: modelFormat,
       model_size_in_billions: modelSize,
       quantization: quantization,
+      n_gpu: nGPU === 0 ? null : nGPU,
     }
 
     // First fetch request to initiate the model
@@ -444,6 +447,26 @@ const ModelCard = ({ url, modelData }) => {
               </Select>
             </FormControl>
           )}
+          <FormControl
+            variant="outlined"
+            margin="normal"
+            size="small"
+            disabled={!modelFormat || !modelSize || !quantization}
+          >
+            <TextField
+              type="number"
+              InputProps={{
+                inputProps: {
+                  min: 0,
+                  max: modelFormat !== 'pytorch' ? 1 : 10000000,
+                },
+              }}
+              label="The number of GPU"
+              value={nGPU}
+              onChange={(event) => setNGPU(parseInt(event.target.value, 10))}
+              disabled={!modelFormat || !modelSize || !quantization}
+            ></TextField>
+          </FormControl>
         </Box>
         <Box style={styles.buttonsContainer}>
           <button
