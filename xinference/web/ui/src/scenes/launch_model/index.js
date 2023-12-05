@@ -6,6 +6,7 @@ import ErrorMessageSnackBar from '../../components/errorMessageSnackBar'
 import Title from '../../components/Title'
 import LaunchEmbedding from './launchEmbedding'
 import LaunchLLM from './launchLLM'
+import LaunchRerank from './launchRerank'
 
 const LaunchModel = () => {
   const [value, setValue] = React.useState('1')
