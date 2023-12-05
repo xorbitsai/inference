@@ -7,11 +7,14 @@ import {
   Radio,
   RadioGroup,
 } from '@mui/material'
+import Alert from '@mui/material/Alert'
+import AlertTitle from '@mui/material/AlertTitle'
 import Button from '@mui/material/Button'
 import TextField from '@mui/material/TextField'
 import React, { useContext, useEffect, useState } from 'react'
 
 import { ApiContext } from '../../components/apiContext'
+import ErrorMessageSnackBar from '../../components/errorMessageSnackBar'
 import Title from '../../components/Title'
 import { useMode } from '../../theme'
 
@@ -24,7 +27,8 @@ const SUPPORTED_LANGUAGES = Object.keys(SUPPORTED_LANGUAGES_DICT)
 const RegisterModel = () => {
   const ERROR_COLOR = useMode()
   const endPoint = useContext(ApiContext).endPoint
-  const [errorMessage, setErrorMessage] = useState('')
+  const { setErrorMsg } = useContext(ApiContext)
+  const [successMsg, setSuccessMsg] = useState('')
   const [modelFormat, setModelFormat] = useState('pytorch')
   const [modelSize, setModelSize] = useState(7)
   const [modelUri, setModelUri] = useState('/path/to/llama-2')
@@ -82,7 +86,7 @@ const RegisterModel = () => {
       })
       if (!response.ok) {
         const errorData = await response.json() // Assuming the server returns error details in JSON format
-        throw new Error(
+        setErrorMsg(
           `Server error: ${response.status} - ${
             errorData.detail || 'Unknown error'
           }`
@@ -98,7 +102,16 @@ const RegisterModel = () => {
         setPromptStyles(res)
       }
     }
-    getBuiltInPromptStyles().catch(console.error)
+    // avoid keep requesting backend to get prompts
+    if (promptStyles.length === 0) {
+      getBuiltInPromptStyles().catch((error) => {
+        setErrorMsg(
+          error.message ||
+            'An unexpected error occurred when getting builtin prompt styles.'
+        )
+        console.error('Error: ', error)
+      })
+    }
   })
 
   const isModelFormatPytorch = () => {
@@ -139,17 +152,21 @@ const RegisterModel = () => {
       ]
     }
 
-    const ps = promptStyles.find((item) => item.name === promptStyleLabel)
-    formData.prompt_style = {
-      style_name: ps.style_name,
-      system_prompt: ps.system_prompt,
-      roles: ps.roles,
-      intra_message_sep: ps.intra_message_sep,
-      inter_message_sep: ps.inter_message_sep,
+    if (formData.model_ability.includes('chat')) {
+      const ps = promptStyles.find((item) => item.name === promptStyleLabel)
+      if (ps) {
+        formData.prompt_style = {
+          style_name: ps.style_name,
+          system_prompt: ps.system_prompt,
+          roles: ps.roles,
+          intra_message_sep: ps.intra_message_sep,
+          inter_message_sep: ps.inter_message_sep,
+        }
+      }
     }
 
     if (errorAny) {
-      setErrorMessage('Please fill in valid value for all fields')
+      setErrorMsg('Please fill in valid value for all fields')
       return
     }
 
@@ -166,19 +183,19 @@ const RegisterModel = () => {
       })
       if (!response.ok) {
         const errorData = await response.json() // Assuming the server returns error details in JSON format
-        throw new Error(
+        setErrorMsg(
           `Server error: ${response.status} - ${
             errorData.detail || 'Unknown error'
           }`
         )
+      } else {
+        setSuccessMsg(
+          'Model has been registered successfully! Navigate to launch model page to proceed.'
+        )
       }
-
-      setErrorMessage(
-        'Model has been registered successfully! Navigate to launch model page to proceed.'
-      )
     } catch (error) {
       console.error('There was a problem with the fetch operation:', error)
-      setErrorMessage(error.message || 'An unexpected error occurred.')
+      setErrorMsg(error.message || 'An unexpected error occurred.')
     }
   }
 
@@ -213,6 +230,7 @@ const RegisterModel = () => {
   return (
     <Box m="20px">
       <Title title="Register Model" />
+      <ErrorMessageSnackBar />
       <Box padding="20px"></Box>
 
       {/* Base Information */}
@@ -454,9 +472,12 @@ const RegisterModel = () => {
       )}
 
       <Box width={'100%'}>
-        <div style={{ ...styles.error, color: ERROR_COLOR }}>
-          {errorMessage}
-        </div>
+        {successMsg !== '' && (
+          <Alert severity="success">
+            <AlertTitle>Success</AlertTitle>
+            {successMsg}
+          </Alert>
+        )}
         <Button
           variant="contained"
           color="primary"

@@ -27,6 +27,7 @@ const ModelCard = ({ url, modelData }) => {
   const [selected, setSelected] = useState(false)
   const { isCallingApi, setIsCallingApi } = useContext(ApiContext)
   const { isUpdatingModel } = useContext(ApiContext)
+  const { setErrorMsg } = useContext(ApiContext)
 
   // Model parameter selections
   const [modelFormat, setModelFormat] = useState('')
@@ -113,18 +114,16 @@ const ModelCard = ({ url, modelData }) => {
       .then((response) => {
         if (!response.ok) {
           // Assuming the server returns error details in JSON format
-          return response.json().then((errorData) => {
-            throw new Error(
+          response.json().then((errorData) => {
+            setErrorMsg(
               `Server error: ${response.status} - ${
                 errorData.detail || 'Unknown error'
               }`
             )
           })
+        } else {
+          window.open(url + '/ui/#/running_models', '_blank', 'noreferrer')
         }
-        return response.json() // Also return the promise from response.json() for successful responses
-      })
-      .then(() => {
-        window.open(url + '/ui/#/running_models', '_blank', 'noreferrer')
         setIsCallingApi(false)
       })
       .catch((error) => {

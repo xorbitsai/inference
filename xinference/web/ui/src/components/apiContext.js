@@ -5,6 +5,7 @@ export const ApiContext = createContext()
 export const ApiContextProvider = ({ children }) => {
   const [isCallingApi, setIsCallingApi] = useState(false)
   const [isUpdatingModel, setIsUpdatingModel] = useState(false)
+  const [errorMsg, setErrorMsg] = useState('')
   let endPoint = ''
   if (!process.env.NODE_ENV || process.env.NODE_ENV === 'development') {
     endPoint = 'http://127.0.0.1:9997'
@@ -21,6 +22,8 @@ export const ApiContextProvider = ({ children }) => {
         isUpdatingModel,
         setIsUpdatingModel,
         endPoint,
+        errorMsg,
+        setErrorMsg,
       }}
     >
       {children}
