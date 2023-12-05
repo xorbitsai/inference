@@ -1,0 +1,9 @@
+trailingComma: 'es5'
+tabWidth: 2
+semi: false
+singleQuote: true
+printWidth: 80
+bracketSpacing: true
+bracketSameLine: false
+arrowParens: 'always'
+quoteProps: 'consistent'

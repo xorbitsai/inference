@@ -1,113 +1,112 @@
-import React, { useState, useContext, useEffect } from "react";
-import { v1 as uuidv1 } from "uuid";
-import { ApiContext } from "../../components/apiContext";
-import {
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Box,
-  Chip,
-} from "@mui/material";
-import { CircularProgress } from "@mui/material";
 import {
   ChatOutlined,
   EditNoteOutlined,
   HelpCenterOutlined,
-  UndoOutlined,
   RocketLaunchOutlined,
-} from "@mui/icons-material";
+  UndoOutlined,
+} from '@mui/icons-material'
+import {
+  Box,
+  Chip,
+  CircularProgress,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Select,
+} from '@mui/material'
+import React, { useContext, useEffect, useState } from 'react'
+import { v1 as uuidv1 } from 'uuid'
 
-const CARD_HEIGHT = 350;
-const CARD_WIDTH = 270;
+import { ApiContext } from '../../components/apiContext'
+
+const CARD_HEIGHT = 350
+const CARD_WIDTH = 270
 
 const ModelCard = ({ url, modelData }) => {
-  const [hover, setHover] = useState(false);
-  const [selected, setSelected] = useState(false);
-  const { isCallingApi, setIsCallingApi } = useContext(ApiContext);
-  const { isUpdatingModel } = useContext(ApiContext);
+  const [hover, setHover] = useState(false)
+  const [selected, setSelected] = useState(false)
+  const { isCallingApi, setIsCallingApi } = useContext(ApiContext)
+  const { isUpdatingModel } = useContext(ApiContext)
 
   // Model parameter selections
-  const [modelFormat, setModelFormat] = useState("");
-  const [modelSize, setModelSize] = useState("");
-  const [quantization, setQuantization] = useState("");
+  const [modelFormat, setModelFormat] = useState('')
+  const [modelSize, setModelSize] = useState('')
+  const [quantization, setQuantization] = useState('')
 
-  const [formatOptions, setFormatOptions] = useState([]);
-  const [sizeOptions, setSizeOptions] = useState([]);
-  const [quantizationOptions, setQuantizationOptions] = useState([]);
+  const [formatOptions, setFormatOptions] = useState([])
+  const [sizeOptions, setSizeOptions] = useState([])
+  const [quantizationOptions, setQuantizationOptions] = useState([])
 
   const isCached = (spec) => {
-    if (spec.model_format === "pytorch") {
-      return spec.cache_status && spec.cache_status === true;
+    if (spec.model_format === 'pytorch') {
+      return spec.cache_status && spec.cache_status === true
     } else {
-      return spec.cache_status && spec.cache_status.some((cs) => cs);
+      return spec.cache_status && spec.cache_status.some((cs) => cs)
     }
-  };
+  }
 
   // UseEffects for parameter selection, change options based on previous selections
   useEffect(() => {
     if (modelData) {
-      const modelFamily = modelData.model_specs;
-      const formats = [
-        ...new Set(modelFamily.map((spec) => spec.model_format)),
-      ];
-      setFormatOptions(formats);
+      const modelFamily = modelData.model_specs
+      const formats = [...new Set(modelFamily.map((spec) => spec.model_format))]
+      setFormatOptions(formats)
     }
-  }, [modelData]);
+  }, [modelData])
 
   useEffect(() => {
     if (modelFormat && modelData) {
-      const modelFamily = modelData.model_specs;
+      const modelFamily = modelData.model_specs
       const sizes = [
         ...new Set(
           modelFamily
             .filter((spec) => spec.model_format === modelFormat)
-            .map((spec) => spec.model_size_in_billions),
+            .map((spec) => spec.model_size_in_billions)
         ),
-      ];
-      setSizeOptions(sizes);
+      ]
+      setSizeOptions(sizes)
     }
-  }, [modelFormat, modelData]);
+  }, [modelFormat, modelData])
 
   useEffect(() => {
     if (modelFormat && modelSize && modelData) {
-      const modelFamily = modelData.model_specs;
+      const modelFamily = modelData.model_specs
       const quants = [
         ...new Set(
           modelFamily
             .filter(
               (spec) =>
                 spec.model_format === modelFormat &&
-                spec.model_size_in_billions === parseFloat(modelSize),
+                spec.model_size_in_billions === parseFloat(modelSize)
             )
-            .flatMap((spec) => spec.quantizations),
+            .flatMap((spec) => spec.quantizations)
         ),
-      ];
-      setQuantizationOptions(quants);
+      ]
+      setQuantizationOptions(quants)
     }
-  }, [modelFormat, modelSize, modelData]);
+  }, [modelFormat, modelSize, modelData])
 
   const launchModel = (url) => {
     if (isCallingApi || isUpdatingModel) {
-      return;
+      return
     }
 
-    setIsCallingApi(true);
+    setIsCallingApi(true)
 
-    const uuid = uuidv1();
+    const uuid = uuidv1()
     const modelDataWithID = {
       model_uid: uuid,
       model_name: modelData.model_name,
       model_format: modelFormat,
       model_size_in_billions: modelSize,
       quantization: quantization,
-    };
+    }
 
     // First fetch request to initiate the model
-    fetch(url + "/v1/models", {
-      method: "POST",
+    fetch(url + '/v1/models', {
+      method: 'POST',
       headers: {
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify(modelDataWithID),
     })
@@ -117,150 +116,150 @@ const ModelCard = ({ url, modelData }) => {
           return response.json().then((errorData) => {
             throw new Error(
               `Server error: ${response.status} - ${
-                errorData.detail || "Unknown error"
-              }`,
-            );
-          });
+                errorData.detail || 'Unknown error'
+              }`
+            )
+          })
         }
-        return response.json(); // Also return the promise from response.json() for successful responses
+        return response.json() // Also return the promise from response.json() for successful responses
       })
       .then(() => {
-        window.open(url + "/ui/#/running_models", "_blank", "noreferrer");
-        setIsCallingApi(false);
+        window.open(url + '/ui/#/running_models', '_blank', 'noreferrer')
+        setIsCallingApi(false)
       })
       .catch((error) => {
-        console.error("Error:", error);
-        setIsCallingApi(false);
-      });
-  };
+        console.error('Error:', error)
+        setIsCallingApi(false)
+      })
+  }
 
   const styles = {
     container: {
-      display: "block",
-      position: "relative",
+      display: 'block',
+      position: 'relative',
       width: `${CARD_WIDTH}px`,
       height: `${CARD_HEIGHT}px`,
-      border: "1px solid #ddd",
-      borderRadius: "20px",
-      background: "white",
-      overflow: "hidden",
+      border: '1px solid #ddd',
+      borderRadius: '20px',
+      background: 'white',
+      overflow: 'hidden',
     },
     containerSelected: {
-      display: "block",
-      position: "relative",
+      display: 'block',
+      position: 'relative',
       width: `${CARD_WIDTH}px`,
       height: `${CARD_HEIGHT}px`,
-      border: "1px solid #ddd",
-      borderRadius: "20px",
-      background: "white",
-      overflow: "hidden",
-      boxShadow: "0 0 2px #00000099",
+      border: '1px solid #ddd',
+      borderRadius: '20px',
+      background: 'white',
+      overflow: 'hidden',
+      boxShadow: '0 0 2px #00000099',
     },
     descriptionCard: {
-      position: "relative",
-      top: "-1px",
-      left: "-1px",
+      position: 'relative',
+      top: '-1px',
+      left: '-1px',
       width: `${CARD_WIDTH}px`,
       height: `${CARD_HEIGHT}px`,
-      border: "1px solid #ddd",
-      padding: "20px",
-      borderRadius: "20px",
-      background: "white",
+      border: '1px solid #ddd',
+      padding: '20px',
+      borderRadius: '20px',
+      background: 'white',
     },
     parameterCard: {
-      position: "relative",
+      position: 'relative',
       top: `-${CARD_HEIGHT + 1}px`,
-      left: "-1px",
+      left: '-1px',
       width: `${CARD_WIDTH}px`,
       height: `${CARD_HEIGHT}px`,
-      border: "1px solid #ddd",
-      padding: "20px",
-      borderRadius: "20px",
-      background: "white",
+      border: '1px solid #ddd',
+      padding: '20px',
+      borderRadius: '20px',
+      background: 'white',
     },
     img: {
-      display: "block",
-      margin: "0 auto",
-      width: "180px",
-      height: "180px",
-      objectFit: "cover",
-      borderRadius: "10px",
+      display: 'block',
+      margin: '0 auto',
+      width: '180px',
+      height: '180px',
+      objectFit: 'cover',
+      borderRadius: '10px',
     },
     h2: {
-      margin: "10px 10px",
-      fontSize: "20px",
+      margin: '10px 10px',
+      fontSize: '20px',
     },
     p: {
-      minHeight: "140px",
-      fontSize: "14px",
-      padding: "0px 10px 15px 10px",
+      minHeight: '140px',
+      fontSize: '14px',
+      padding: '0px 10px 15px 10px',
     },
     buttonsContainer: {
-      display: "flex",
-      margin: "0 auto",
-      marginTop: "30px",
-      border: "none",
-      justifyContent: "space-between",
-      alignItems: "center",
+      display: 'flex',
+      margin: '0 auto',
+      marginTop: '30px',
+      border: 'none',
+      justifyContent: 'space-between',
+      alignItems: 'center',
     },
     buttonContainer: {
-      width: "45%",
-      borderWidth: "0px",
-      backgroundColor: "transparent",
-      paddingLeft: "0px",
-      paddingRight: "0px",
+      width: '45%',
+      borderWidth: '0px',
+      backgroundColor: 'transparent',
+      paddingLeft: '0px',
+      paddingRight: '0px',
     },
     buttonItem: {
-      width: "100%",
-      margin: "0 auto",
-      padding: "5px",
-      display: "flex",
-      justifyContent: "center",
-      borderRadius: "4px",
-      border: "1px solid #e5e7eb",
-      borderWidth: "1px",
-      borderColor: "#e5e7eb",
+      width: '100%',
+      margin: '0 auto',
+      padding: '5px',
+      display: 'flex',
+      justifyContent: 'center',
+      borderRadius: '4px',
+      border: '1px solid #e5e7eb',
+      borderWidth: '1px',
+      borderColor: '#e5e7eb',
     },
     instructionText: {
-      fontSize: "12px",
-      color: "#666666",
-      fontStyle: "italic",
-      margin: "10px 0",
-      textAlign: "center",
+      fontSize: '12px',
+      color: '#666666',
+      fontStyle: 'italic',
+      margin: '10px 0',
+      textAlign: 'center',
     },
     slideIn: {
-      transform: "translateX(0%)",
-      transition: "transform 0.2s ease-in-out",
+      transform: 'translateX(0%)',
+      transition: 'transform 0.2s ease-in-out',
     },
     slideOut: {
-      transform: "translateX(100%)",
-      transition: "transform 0.2s ease-in-out",
+      transform: 'translateX(100%)',
+      transition: 'transform 0.2s ease-in-out',
     },
     iconRow: {
-      display: "flex",
-      justifyContent: "space-between",
-      alignItems: "center",
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
     },
     iconItem: {
-      display: "flex",
-      flexDirection: "column",
-      alignItems: "center",
-      margin: "20px",
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      margin: '20px',
     },
     boldIconText: {
-      fontWeight: "bold",
-      fontSize: "1.2em",
+      fontWeight: 'bold',
+      fontSize: '1.2em',
     },
     muiIcon: {
-      fontSize: "1.5em",
+      fontSize: '1.5em',
     },
     smallText: {
-      fontSize: "0.8em",
+      fontSize: '0.8em',
     },
     tagRow: {
-      margin: "2px 5px",
+      margin: '2px 5px',
     },
-  };
+  }
 
   // Set two different states based on mouse hover
   return (
@@ -270,7 +269,7 @@ const ModelCard = ({ url, modelData }) => {
       onMouseLeave={() => setHover(false)}
       onClick={() => {
         if (!selected) {
-          setSelected(true);
+          setSelected(true)
         }
       }}
     >
@@ -279,20 +278,20 @@ const ModelCard = ({ url, modelData }) => {
         <h2 style={styles.h2}>{modelData.model_name}</h2>
         <div style={styles.tagRow}>
           {(() => {
-            if (modelData.model_lang.includes("en")) {
-              return <Chip label="EN" variant="outlined" size="small" />;
+            if (modelData.model_lang.includes('en')) {
+              return <Chip label="EN" variant="outlined" size="small" />
             }
           })()}
           {(() => {
-            if (modelData.model_lang.includes("zh")) {
+            if (modelData.model_lang.includes('zh')) {
               return (
                 <Chip
                   label="ZH"
                   variant="outlined"
                   size="small"
-                  sx={{ marginLeft: "10px" }}
+                  sx={{ marginLeft: '10px' }}
                 />
-              );
+              )
             }
           })()}
           {(() => {
@@ -302,9 +301,9 @@ const ModelCard = ({ url, modelData }) => {
                   label="Cached"
                   variant="outlined"
                   size="small"
-                  sx={{ marginLeft: "10px" }}
+                  sx={{ marginLeft: '10px' }}
                 />
-              );
+              )
             }
           })()}
         </div>
@@ -318,27 +317,27 @@ const ModelCard = ({ url, modelData }) => {
             <small style={styles.smallText}>context length</small>
           </div>
           {(() => {
-            if (modelData.model_ability.includes("chat")) {
+            if (modelData.model_ability.includes('chat')) {
               return (
                 <div style={styles.iconItem}>
                   <ChatOutlined style={styles.muiIcon} />
                   <small style={styles.smallText}>chat model</small>
                 </div>
-              );
-            } else if (modelData.model_ability.includes("generate")) {
+              )
+            } else if (modelData.model_ability.includes('generate')) {
               return (
                 <div style={styles.iconItem}>
                   <EditNoteOutlined style={styles.muiIcon} />
                   <small style={styles.smallText}>generate model</small>
                 </div>
-              );
+              )
             } else {
               return (
                 <div style={styles.iconItem}>
                   <HelpCenterOutlined style={styles.muiIcon} />
                   <small style={styles.smallText}>other model</small>
                 </div>
-              );
+              )
             }
           })()}
         </div>
@@ -370,16 +369,16 @@ const ModelCard = ({ url, modelData }) => {
             >
               {formatOptions.map((format) => {
                 const specs = modelData.model_specs.filter(
-                  (spec) => spec.model_format === format,
-                );
-                const cached = specs.some((spec) => isCached(spec));
-                const displayedFormat = cached ? format + " (cached)" : format;
+                  (spec) => spec.model_format === format
+                )
+                const cached = specs.some((spec) => isCached(spec))
+                const displayedFormat = cached ? format + ' (cached)' : format
 
                 return (
                   <MenuItem key={format} value={format}>
                     {displayedFormat}
                   </MenuItem>
-                );
+                )
               })}
             </Select>
           </FormControl>
@@ -399,19 +398,19 @@ const ModelCard = ({ url, modelData }) => {
               {sizeOptions.map((size) => {
                 const specs = modelData.model_specs
                   .filter((spec) => spec.model_format === modelFormat)
-                  .filter((spec) => spec.model_size_in_billions === size);
-                const cached = specs.some((spec) => isCached(spec));
-                const displayedSize = cached ? size + " (cached)" : size;
+                  .filter((spec) => spec.model_size_in_billions === size)
+                const cached = specs.some((spec) => isCached(spec))
+                const displayedSize = cached ? size + ' (cached)' : size
 
                 return (
                   <MenuItem key={size} value={size}>
                     {displayedSize}
                   </MenuItem>
-                );
+                )
               })}
             </Select>
           </FormControl>
-          {(modelData.is_builtin || modelFormat === "pytorch") && (
+          {(modelData.is_builtin || modelFormat === 'pytorch') && (
             <FormControl
               variant="outlined"
               margin="normal"
@@ -428,22 +427,20 @@ const ModelCard = ({ url, modelData }) => {
                 {quantizationOptions.map((quant, index) => {
                   const specs = modelData.model_specs
                     .filter((spec) => spec.model_format === modelFormat)
-                    .filter(
-                      (spec) => spec.model_size_in_billions === modelSize,
-                    );
+                    .filter((spec) => spec.model_size_in_billions === modelSize)
 
                   const cached =
-                    modelFormat === "pytorch"
+                    modelFormat === 'pytorch'
                       ? specs[0].cache_status && specs[0].cache_status === true
                       : specs[0].cache_status &&
-                        specs[0].cache_status[index] === true;
-                  const displayedQuant = cached ? quant + " (cached)" : quant;
+                        specs[0].cache_status[index] === true
+                  const displayedQuant = cached ? quant + ' (cached)' : quant
 
                   return (
                     <MenuItem key={quant} value={quant}>
                       {displayedQuant}
                     </MenuItem>
-                  );
+                  )
                 })}
               </Select>
             </FormControl>
@@ -462,7 +459,7 @@ const ModelCard = ({ url, modelData }) => {
                 modelSize &&
                 modelData &&
                 (quantization ||
-                  (!modelData.is_builtin && modelFormat !== "pytorch"))
+                  (!modelData.is_builtin && modelFormat !== 'pytorch'))
               )
             }
           >
@@ -470,38 +467,38 @@ const ModelCard = ({ url, modelData }) => {
               if (isCallingApi || isUpdatingModel) {
                 return (
                   <Box
-                    style={{ ...styles.buttonItem, backgroundColor: "#f2f2f2" }}
+                    style={{ ...styles.buttonItem, backgroundColor: '#f2f2f2' }}
                   >
                     <CircularProgress
                       size="20px"
                       sx={{
-                        color: "#000000",
+                        color: '#000000',
                       }}
                     />
                   </Box>
-                );
+                )
               } else if (
                 !(
                   modelFormat &&
                   modelSize &&
                   modelData &&
                   (quantization ||
-                    (!modelData.is_builtin && modelFormat !== "pytorch"))
+                    (!modelData.is_builtin && modelFormat !== 'pytorch'))
                 )
               ) {
                 return (
                   <Box
-                    style={{ ...styles.buttonItem, backgroundColor: "#f2f2f2" }}
+                    style={{ ...styles.buttonItem, backgroundColor: '#f2f2f2' }}
                   >
                     <RocketLaunchOutlined size="20px" />
                   </Box>
-                );
+                )
               } else {
                 return (
                   <Box style={styles.buttonItem}>
                     <RocketLaunchOutlined color="#000000" size="20px" />
                   </Box>
-                );
+                )
               }
             })()}
           </button>
@@ -517,7 +514,7 @@ const ModelCard = ({ url, modelData }) => {
         </Box>
       </Box>
     </Box>
-  );
-};
+  )
+}
 
-export default ModelCard;
+export default ModelCard

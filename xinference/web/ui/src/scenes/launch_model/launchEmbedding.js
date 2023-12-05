@@ -1,89 +1,90 @@
-import React, { useContext, useState, useEffect } from "react";
-import EmbeddingCard from "./embeddingCard";
-import { Box, TextField, FormControl } from "@mui/material";
-import { ApiContext } from "../../components/apiContext";
+import { Box, FormControl, TextField } from '@mui/material'
+import React, { useContext, useEffect, useState } from 'react'
+
+import { ApiContext } from '../../components/apiContext'
+import EmbeddingCard from './embeddingCard'
 
 const LaunchEmbedding = () => {
-  let endPoint = useContext(ApiContext).endPoint;
-  const [registrationData, setRegistrationData] = useState([]);
-  const { isCallingApi, setIsCallingApi } = useContext(ApiContext);
-  const { isUpdatingModel } = useContext(ApiContext);
+  let endPoint = useContext(ApiContext).endPoint
+  const [registrationData, setRegistrationData] = useState([])
+  const { isCallingApi, setIsCallingApi } = useContext(ApiContext)
+  const { isUpdatingModel } = useContext(ApiContext)
 
   // States used for filtering
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm, setSearchTerm] = useState('')
 
   const handleChange = (event) => {
-    setSearchTerm(event.target.value);
-  };
+    setSearchTerm(event.target.value)
+  }
 
   const filter = (registration) => {
-    if (!registration || typeof searchTerm !== "string") return false;
+    if (!registration || typeof searchTerm !== 'string') return false
     const modelName = registration.model_name
       ? registration.model_name.toLowerCase()
-      : "";
+      : ''
     if (!modelName.includes(searchTerm.toLowerCase())) {
-      return false;
+      return false
     }
-    return true;
-  };
+    return true
+  }
 
   const update = async () => {
-    if (isCallingApi || isUpdatingModel) return;
+    if (isCallingApi || isUpdatingModel) return
 
     try {
-      setIsCallingApi(true);
+      setIsCallingApi(true)
 
       const response = await fetch(
         `${endPoint}/v1/model_registrations/embedding`,
         {
-          method: "GET",
-        },
-      );
+          method: 'GET',
+        }
+      )
 
-      const registrations = await response.json();
+      const registrations = await response.json()
       const newRegistrationData = await Promise.all(
         registrations.map(async (registration) => {
           const desc = await fetch(
             `${endPoint}/v1/model_registrations/embedding/${registration.model_name}`,
             {
-              method: "GET",
-            },
-          );
+              method: 'GET',
+            }
+          )
 
           return {
             ...(await desc.json()),
             is_builtin: registration.is_builtin,
-          };
-        }),
-      );
+          }
+        })
+      )
 
-      setRegistrationData(newRegistrationData);
+      setRegistrationData(newRegistrationData)
     } catch (error) {
-      console.error("Error:", error);
+      console.error('Error:', error)
     } finally {
-      setIsCallingApi(false);
+      setIsCallingApi(false)
     }
-  };
+  }
 
   useEffect(() => {
-    update();
+    update()
     // eslint-disable-next-line
-  }, []);
+  }, [])
 
   const style = {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
-    paddingLeft: "2rem",
-    gridGap: "2rem 0rem",
-  };
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+    paddingLeft: '2rem',
+    gridGap: '2rem 0rem',
+  }
 
   return (
     <Box m="20px">
       <div
         style={{
-          display: "grid",
-          gridTemplateColumns: "1fr",
-          margin: "30px 2rem",
+          display: 'grid',
+          gridTemplateColumns: '1fr',
+          margin: '30px 2rem',
         }}
       >
         <FormControl variant="outlined" margin="normal">
@@ -105,7 +106,7 @@ const LaunchEmbedding = () => {
           ))}
       </div>
     </Box>
-  );
-};
+  )
+}
 
-export default LaunchEmbedding;
+export default LaunchEmbedding
