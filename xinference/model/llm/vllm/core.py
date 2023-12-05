@@ -319,7 +319,9 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
         if not generate_config:
             generate_config = {}
         if self.model_family.prompt_style:
-            if (not generate_config["stop"]) and self.model_family.prompt_style.stop:
+            if (
+                not generate_config.get("stop")
+            ) and self.model_family.prompt_style.stop:
                 generate_config["stop"] = self.model_family.prompt_style.stop.copy()
             if self.model_family.prompt_style.stop_token_ids:
                 generate_config.setdefault(
