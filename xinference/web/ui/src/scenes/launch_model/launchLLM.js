@@ -9,6 +9,7 @@ import {
 import React, { useContext, useEffect, useState } from 'react'
 
 import { ApiContext } from '../../components/apiContext'
+import fetcher from '../../components/fetcher'
 import ModelCard from './modelCard'
 
 const LaunchLLM = () => {
@@ -59,7 +60,7 @@ const LaunchLLM = () => {
     try {
       setIsCallingApi(true)
 
-      const response = await fetch(
+      const response = await fetcher(
         `${endPoint}/v1/model_registrations/LLM?detailed=true`,
         {
           method: 'GET',

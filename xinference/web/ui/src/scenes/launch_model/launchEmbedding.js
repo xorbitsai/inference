@@ -2,6 +2,7 @@ import { Box, FormControl, TextField } from '@mui/material'
 import React, { useContext, useEffect, useState } from 'react'
 
 import { ApiContext } from '../../components/apiContext'
+import fetcher from '../../components/fetcher'
 import EmbeddingCard from './embeddingCard'
 
 const LaunchEmbedding = () => {
@@ -34,7 +35,7 @@ const LaunchEmbedding = () => {
     try {
       setIsCallingApi(true)
 
-      const response = await fetch(
+      const response = await fetcher(
         `${endPoint}/v1/model_registrations/embedding`,
         {
           method: 'GET',
@@ -44,7 +45,7 @@ const LaunchEmbedding = () => {
       const registrations = await response.json()
       const newRegistrationData = await Promise.all(
         registrations.map(async (registration) => {
-          const desc = await fetch(
+          const desc = await fetcher(
             `${endPoint}/v1/model_registrations/embedding/${registration.model_name}`,
             {
               method: 'GET',

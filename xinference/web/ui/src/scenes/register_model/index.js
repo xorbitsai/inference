@@ -15,6 +15,7 @@ import React, { useContext, useEffect, useState } from 'react'
 
 import { ApiContext } from '../../components/apiContext'
 import ErrorMessageSnackBar from '../../components/errorMessageSnackBar'
+import fetcher from '../../components/fetcher'
 import Title from '../../components/Title'
 import { useMode } from '../../theme'
 
@@ -78,7 +79,7 @@ const RegisterModel = () => {
 
   useEffect(() => {
     const getBuiltInPromptStyles = async () => {
-      const response = await fetch(endPoint + '/v1/models/prompts', {
+      const response = await fetcher(endPoint + '/v1/models/prompts', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -171,7 +172,7 @@ const RegisterModel = () => {
     }
 
     try {
-      const response = await fetch(endPoint + '/v1/model_registrations/LLM', {
+      const response = await fetcher(endPoint + '/v1/model_registrations/LLM', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

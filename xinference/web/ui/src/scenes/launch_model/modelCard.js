@@ -18,6 +18,7 @@ import React, { useContext, useEffect, useState } from 'react'
 import { v1 as uuidv1 } from 'uuid'
 
 import { ApiContext } from '../../components/apiContext'
+import fetcher from '../../components/fetcher'
 
 const CARD_HEIGHT = 350
 const CARD_WIDTH = 270
@@ -104,7 +105,7 @@ const ModelCard = ({ url, modelData }) => {
     }
 
     // First fetch request to initiate the model
-    fetch(url + '/v1/models', {
+    fetcher(url + '/v1/models', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

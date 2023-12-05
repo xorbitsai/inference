@@ -6,6 +6,7 @@ import { DataGrid } from '@mui/x-data-grid'
 import React, { useContext, useEffect, useState } from 'react'
 
 import { ApiContext } from '../../components/apiContext'
+import fetcher from '../../components/fetcher'
 import Title from '../../components/Title'
 
 const RunningModels = () => {
@@ -36,7 +37,7 @@ const RunningModels = () => {
       ])
     } else {
       setIsUpdatingModel(true)
-      fetch(`${endPoint}/v1/models/`, {
+      fetcher(`${endPoint}/v1/models/`, {
         method: 'GET',
       })
         .then((response) => response.json())
@@ -153,15 +154,14 @@ const RunningModels = () => {
                 }
 
                 setIsCallingApi(true)
-
-                fetch(openUrl, {
+                fetcher(openUrl, {
                   method: 'HEAD',
                 })
                   .then((response) => {
                     if (response.status === 404) {
                       // If web UI doesn't exist (404 Not Found)
                       console.log('UI does not exist, creating new...')
-                      return fetch(gradioUrl, {
+                      return fetcher(gradioUrl, {
                         method: 'POST',
                         headers: {
                           'Content-Type': 'application/json',
@@ -231,7 +231,7 @@ const RunningModels = () => {
                   return
                 }
                 setIsCallingApi(true)
-                fetch(closeUrl, {
+                fetcher(closeUrl, {
                   method: 'DELETE',
                 })
                   .then((response) => {
@@ -328,7 +328,7 @@ const RunningModels = () => {
                   return
                 }
                 setIsCallingApi(true)
-                fetch(closeUrl, {
+                fetcher(closeUrl, {
                   method: 'DELETE',
                 })
                   .then((response) => {
