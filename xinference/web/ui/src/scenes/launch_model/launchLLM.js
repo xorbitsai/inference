@@ -16,11 +16,13 @@ const LaunchLLM = () => {
   const [registrationData, setRegistrationData] = useState([])
   const { isCallingApi, setIsCallingApi } = useContext(ApiContext)
   const { isUpdatingModel } = useContext(ApiContext)
+  const { setErrorMsg } = useContext(ApiContext)
 
   // States used for filtering
   const [searchTerm, setSearchTerm] = useState('')
 
   const [modelAbility, setModelAbility] = useState('all')
+  const [gpuAvailable, setGPUAvailable] = useState(-1)
 
   const handleChange = (event) => {
     setSearchTerm(event.target.value)
@@ -78,7 +80,33 @@ const LaunchLLM = () => {
 
   useEffect(() => {
     update()
-    // eslint-disable-next-line
+  }, [])
+
+  useEffect(() => {
+    if (gpuAvailable === -1) {
+      fetch(endPoint + '/v1/cluster/devices', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }).then((res) => {
+        if (!res.ok) {
+          // Usually, if some errors happen here, check if the cluster is available
+          res.json().then((errorData) => {
+            setErrorMsg(
+              `Server error: ${res.status} - ${
+                errorData.detail || 'Unknown error'
+              }`
+            )
+          })
+        } else {
+          res.json().then((data) => {
+            console.log('Data: ' + data)
+            setGPUAvailable(parseInt(data, 10))
+          })
+        }
+      })
+    }
   }, [])
 
   const style = {
@@ -129,7 +157,11 @@ const LaunchLLM = () => {
         {registrationData
           .filter((registration) => filter(registration))
           .map((filteredRegistration) => (
-            <ModelCard url={endPoint} modelData={filteredRegistration} />
+            <ModelCard
+              url={endPoint}
+              modelData={filteredRegistration}
+              gpuAvailable={gpuAvailable}
+            />
           ))}
       </div>
     </Box>

@@ -10,20 +10,20 @@ import {
   Chip,
   CircularProgress,
   FormControl,
+  Grid,
   InputLabel,
   MenuItem,
   Select,
-  TextField,
 } from '@mui/material'
 import React, { useContext, useEffect, useState } from 'react'
 import { v1 as uuidv1 } from 'uuid'
 
 import { ApiContext } from '../../components/apiContext'
 
-const CARD_HEIGHT = 450
-const CARD_WIDTH = 270
+const CARD_HEIGHT = 350
+const CARD_WIDTH = 300
 
-const ModelCard = ({ url, modelData }) => {
+const ModelCard = ({ url, modelData, gpuAvailable }) => {
   const [hover, setHover] = useState(false)
   const [selected, setSelected] = useState(false)
   const { isCallingApi, setIsCallingApi } = useContext(ApiContext)
@@ -39,6 +39,10 @@ const ModelCard = ({ url, modelData }) => {
   const [formatOptions, setFormatOptions] = useState([])
   const [sizeOptions, setSizeOptions] = useState([])
   const [quantizationOptions, setQuantizationOptions] = useState([])
+
+  const range = (start, end) => {
+    return new Array(end - start + 1).fill(undefined).map((_, i) => i + start)
+  }
 
   const isCached = (spec) => {
     if (spec.model_format === 'pytorch') {
@@ -360,113 +364,134 @@ const ModelCard = ({ url, modelData }) => {
         }
       >
         <h2 style={styles.h2}>{modelData.model_name}</h2>
-        <Box display="flex" flexDirection="column" width="80%" mx="auto">
-          <FormControl variant="outlined" margin="normal" size="small">
-            <InputLabel id="modelFormat-label">Model Format</InputLabel>
-            <Select
-              labelId="modelFormat-label"
-              value={modelFormat}
-              onChange={(e) => setModelFormat(e.target.value)}
-              label="Model Format"
-            >
-              {formatOptions.map((format) => {
-                const specs = modelData.model_specs.filter(
-                  (spec) => spec.model_format === format
-                )
-                const cached = specs.some((spec) => isCached(spec))
-                const displayedFormat = cached ? format + ' (cached)' : format
+        <Box display="flex" flexDirection="column" width="100%" mx="auto">
+          <Grid container spacing={1}>
+            <Grid item xs={6}>
+              <FormControl variant="outlined" margin="normal" fullWidth>
+                <InputLabel id="modelFormat-label">Model Format</InputLabel>
+                <Select
+                  labelId="modelFormat-label"
+                  value={modelFormat}
+                  onChange={(e) => setModelFormat(e.target.value)}
+                  label="Model Format"
+                >
+                  {formatOptions.map((format) => {
+                    const specs = modelData.model_specs.filter(
+                      (spec) => spec.model_format === format
+                    )
+                    const cached = specs.some((spec) => isCached(spec))
+                    const displayedFormat = cached
+                      ? format + ' (cached)'
+                      : format
 
-                return (
-                  <MenuItem key={format} value={format}>
-                    {displayedFormat}
-                  </MenuItem>
-                )
-              })}
-            </Select>
-          </FormControl>
-          <FormControl
-            variant="outlined"
-            margin="normal"
-            size="small"
-            disabled={!modelFormat}
-          >
-            <InputLabel id="modelSize-label">Model Size</InputLabel>
-            <Select
-              labelId="modelSize-label"
-              value={modelSize}
-              onChange={(e) => setModelSize(e.target.value)}
-              label="Model Size"
-            >
-              {sizeOptions.map((size) => {
-                const specs = modelData.model_specs
-                  .filter((spec) => spec.model_format === modelFormat)
-                  .filter((spec) => spec.model_size_in_billions === size)
-                const cached = specs.some((spec) => isCached(spec))
-                const displayedSize = cached ? size + ' (cached)' : size
-
-                return (
-                  <MenuItem key={size} value={size}>
-                    {displayedSize}
-                  </MenuItem>
-                )
-              })}
-            </Select>
-          </FormControl>
-          {(modelData.is_builtin || modelFormat === 'pytorch') && (
-            <FormControl
-              variant="outlined"
-              margin="normal"
-              size="small"
-              disabled={!modelFormat || !modelSize}
-            >
-              <InputLabel id="quantization-label">Quantization</InputLabel>
-              <Select
-                labelId="quantization-label"
-                value={quantization}
-                onChange={(e) => setQuantization(e.target.value)}
-                label="Quantization"
+                    return (
+                      <MenuItem key={format} value={format}>
+                        {displayedFormat}
+                      </MenuItem>
+                    )
+                  })}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={6}>
+              <FormControl
+                variant="outlined"
+                margin="normal"
+                fullWidth
+                disabled={!modelFormat}
               >
-                {quantizationOptions.map((quant, index) => {
-                  const specs = modelData.model_specs
-                    .filter((spec) => spec.model_format === modelFormat)
-                    .filter((spec) => spec.model_size_in_billions === modelSize)
+                <InputLabel id="modelSize-label">Model Size</InputLabel>
+                <Select
+                  labelId="modelSize-label"
+                  value={modelSize}
+                  onChange={(e) => setModelSize(e.target.value)}
+                  label="Model Size"
+                >
+                  {sizeOptions.map((size) => {
+                    const specs = modelData.model_specs
+                      .filter((spec) => spec.model_format === modelFormat)
+                      .filter((spec) => spec.model_size_in_billions === size)
+                    const cached = specs.some((spec) => isCached(spec))
+                    const displayedSize = cached ? size + ' (cached)' : size
 
-                  const cached =
-                    modelFormat === 'pytorch'
-                      ? specs[0].cache_status && specs[0].cache_status === true
-                      : specs[0].cache_status &&
-                        specs[0].cache_status[index] === true
-                  const displayedQuant = cached ? quant + ' (cached)' : quant
+                    return (
+                      <MenuItem key={size} value={size}>
+                        {displayedSize}
+                      </MenuItem>
+                    )
+                  })}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={6}>
+              {(modelData.is_builtin || modelFormat === 'pytorch') && (
+                <FormControl
+                  variant="outlined"
+                  margin="normal"
+                  fullWidth
+                  disabled={!modelFormat || !modelSize}
+                >
+                  <InputLabel id="quantization-label">Quantization</InputLabel>
+                  <Select
+                    labelId="quantization-label"
+                    value={quantization}
+                    onChange={(e) => setQuantization(e.target.value)}
+                    label="Quantization"
+                  >
+                    {quantizationOptions.map((quant, index) => {
+                      const specs = modelData.model_specs
+                        .filter((spec) => spec.model_format === modelFormat)
+                        .filter(
+                          (spec) => spec.model_size_in_billions === modelSize
+                        )
 
-                  return (
-                    <MenuItem key={quant} value={quant}>
-                      {displayedQuant}
-                    </MenuItem>
-                  )
-                })}
-              </Select>
-            </FormControl>
-          )}
-          <FormControl
-            variant="outlined"
-            margin="normal"
-            size="small"
-            disabled={!modelFormat || !modelSize || !quantization}
-          >
-            <TextField
-              type="number"
-              InputProps={{
-                inputProps: {
-                  min: 0,
-                  max: modelFormat !== 'pytorch' ? 1 : 10000000,
-                },
-              }}
-              label="The number of GPU"
-              value={nGPU}
-              onChange={(event) => setNGPU(parseInt(event.target.value, 10))}
-              disabled={!modelFormat || !modelSize || !quantization}
-            ></TextField>
-          </FormControl>
+                      const cached =
+                        modelFormat === 'pytorch'
+                          ? specs[0].cache_status &&
+                            specs[0].cache_status === true
+                          : specs[0].cache_status &&
+                            specs[0].cache_status[index] === true
+                      const displayedQuant = cached
+                        ? quant + ' (cached)'
+                        : quant
+
+                      return (
+                        <MenuItem key={quant} value={quant}>
+                          {displayedQuant}
+                        </MenuItem>
+                      )
+                    })}
+                  </Select>
+                </FormControl>
+              )}
+            </Grid>
+            <Grid item xs={6}>
+              <FormControl
+                variant="outlined"
+                margin="normal"
+                fullWidth
+                disabled={!modelFormat || !modelSize || !quantization}
+              >
+                <InputLabel id="n-gpu-label">N-GPU</InputLabel>
+                <Select
+                  labelId="n-gpu-label"
+                  value={nGPU}
+                  onChange={(e) => setNGPU(parseInt(e.target.value, 10))}
+                  label="N-GPU"
+                >
+                  {range(0, modelFormat !== 'pytorch' ? 1 : gpuAvailable).map(
+                    (v) => {
+                      return (
+                        <MenuItem key={v} value={v}>
+                          {v}
+                        </MenuItem>
+                      )
+                    }
+                  )}
+                </Select>
+              </FormControl>
+            </Grid>
+          </Grid>
         </Box>
         <Box style={styles.buttonsContainer}>
           <button

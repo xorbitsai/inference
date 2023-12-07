@@ -94,6 +94,12 @@ class WorkerActor(xo.StatelessActor):
     async def __pre_destroy__(self):
         self._upload_task.cancel()
 
+    @staticmethod
+    def get_devices_count():
+        from ..utils import cuda_count
+
+        return cuda_count()
+
     @log_sync(logger=logger)
     def get_model_count(self) -> int:
         return len(self._model_uid_to_model)
