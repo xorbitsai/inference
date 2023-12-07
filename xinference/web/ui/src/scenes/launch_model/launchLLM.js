@@ -101,7 +101,6 @@ const LaunchLLM = () => {
           })
         } else {
           res.json().then((data) => {
-            console.log('Data: ' + data)
             setGPUAvailable(parseInt(data, 10))
           })
         }
