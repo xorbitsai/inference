@@ -4,6 +4,7 @@ import React from 'react'
 
 import ErrorMessageSnackBar from '../../components/errorMessageSnackBar'
 import Title from '../../components/Title'
+import LaunchCustom from './launchCustom'
 import LaunchEmbedding from './launchEmbedding'
 import LaunchLLM from './launchLLM'
 import LaunchRerank from './launchRerank'
@@ -25,6 +26,7 @@ const LaunchModel = () => {
             <Tab label="Language Models" value="1" />
             <Tab label="Embedding Models" value="2" />
             <Tab label="Rerank Models" value="3" />
+            <Tab label="Custom Models" value="4" />
           </TabList>
         </Box>
         <TabPanel value="1" sx={{ padding: 0 }}>
@@ -35,6 +37,9 @@ const LaunchModel = () => {
         </TabPanel>
         <TabPanel value="3" sx={{ padding: 0 }}>
           <LaunchRerank />
+        </TabPanel>
+        <TabPanel value="4" sx={{ padding: 0 }}>
+          <LaunchCustom />
         </TabPanel>
       </TabContext>
     </Box>

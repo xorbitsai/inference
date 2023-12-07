@@ -1,5 +1,7 @@
 import { RocketLaunchOutlined, UndoOutlined } from '@mui/icons-material'
-import { Box, Chip, CircularProgress } from '@mui/material'
+import DeleteIcon from '@mui/icons-material/Delete'
+import { Box, Chip, CircularProgress, Stack } from '@mui/material'
+import IconButton from '@mui/material/IconButton'
 import React, { useContext, useEffect, useState } from 'react'
 import { v1 as uuidv1 } from 'uuid'
 
@@ -8,9 +10,15 @@ import { ApiContext } from '../../components/apiContext'
 const CARD_HEIGHT = 270
 const CARD_WIDTH = 270
 
-const EmbeddingCard = ({ url, modelData }) => {
+const EmbeddingCard = ({
+  url,
+  modelData,
+  cardHeight = CARD_HEIGHT,
+  is_custom = false,
+}) => {
   const [hover, setHover] = useState(false)
   const [selected, setSelected] = useState(false)
+  const [customDeleted, setCustomDeleted] = useState(false)
   const { isCallingApi, setIsCallingApi } = useContext(ApiContext)
   const { isUpdatingModel } = useContext(ApiContext)
   const { setErrorMsg } = useContext(ApiContext)
@@ -67,7 +75,7 @@ const EmbeddingCard = ({ url, modelData }) => {
       display: 'block',
       position: 'relative',
       width: `${CARD_WIDTH}px`,
-      height: `${CARD_HEIGHT}px`,
+      height: `${cardHeight}px`,
       border: '1px solid #ddd',
       borderRadius: '20px',
       background: 'white',
@@ -77,7 +85,7 @@ const EmbeddingCard = ({ url, modelData }) => {
       display: 'block',
       position: 'relative',
       width: `${CARD_WIDTH}px`,
-      height: `${CARD_HEIGHT}px`,
+      height: `${cardHeight}px`,
       border: '1px solid #ddd',
       borderRadius: '20px',
       background: 'white',
@@ -89,7 +97,7 @@ const EmbeddingCard = ({ url, modelData }) => {
       top: '-1px',
       left: '-1px',
       width: `${CARD_WIDTH}px`,
-      height: `${CARD_HEIGHT}px`,
+      height: `${cardHeight}px`,
       border: '1px solid #ddd',
       padding: '20px',
       borderRadius: '20px',
@@ -97,10 +105,10 @@ const EmbeddingCard = ({ url, modelData }) => {
     },
     parameterCard: {
       position: 'relative',
-      top: `-${CARD_HEIGHT + 1}px`,
+      top: `-${cardHeight + 1}px`,
       left: '-1px',
       width: `${CARD_WIDTH}px`,
-      height: `${CARD_HEIGHT}px`,
+      height: `${cardHeight}px`,
       border: '1px solid #ddd',
       padding: '20px',
       borderRadius: '20px',
@@ -188,6 +196,18 @@ const EmbeddingCard = ({ url, modelData }) => {
     },
   }
 
+  const handeCustomDelete = (e) => {
+    e.stopPropagation()
+    fetch(url + `/v1/model_registrations/embedding/${modelData.model_name}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+      .then(() => setCustomDeleted(true))
+      .catch(console.error)
+  }
+
   // Set two different states based on mouse hover
   return (
     <Box
@@ -195,7 +215,7 @@ const EmbeddingCard = ({ url, modelData }) => {
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       onClick={() => {
-        if (!selected) {
+        if (!selected && !customDeleted) {
           setSelected(true)
         }
       }}
@@ -203,7 +223,24 @@ const EmbeddingCard = ({ url, modelData }) => {
       {/* First state: show description page */}
       <Box style={styles.descriptionCard}>
         <div style={styles.titleContainer}>
-          <h2 style={styles.h2}>{modelData.model_name}</h2>
+          {is_custom && (
+            <Stack
+              direction="row"
+              justifyContent="space-evenly"
+              alignItems="center"
+              spacing={1}
+            >
+              <h2 style={styles.h2}>{modelData.model_name}</h2>
+              <IconButton
+                aria-label="delete"
+                onClick={handeCustomDelete}
+                disabled={customDeleted}
+              >
+                <DeleteIcon />
+              </IconButton>
+            </Stack>
+          )}
+          {!is_custom && <h2 style={styles.h2}>{modelData.model_name}</h2>}
           <div style={styles.langRow}>
             {(() => {
               if (modelData.language.includes('en')) {
@@ -220,6 +257,18 @@ const EmbeddingCard = ({ url, modelData }) => {
             {(() => {
               if (modelData.language.includes('zh')) {
                 return <Chip label="ZH" variant="outlined" size="small" />
+              }
+            })()}
+            {(() => {
+              if (is_custom && customDeleted) {
+                return (
+                  <Chip
+                    label="Deleted"
+                    variant="outlined"
+                    size="small"
+                    sx={{ marginLeft: '10px' }}
+                  />
+                )
               }
             })()}
           </div>

@@ -69,8 +69,9 @@ const LaunchLLM = () => {
       )
 
       const registrations = await response.json()
+      const builtinRegistrations = registrations.filter((v) => v.is_builtin)
 
-      setRegistrationData(registrations)
+      setRegistrationData(builtinRegistrations)
     } catch (error) {
       console.error('Error:', error)
     } finally {

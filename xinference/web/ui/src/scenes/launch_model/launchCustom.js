@@ -3,8 +3,9 @@ import React, { useContext, useEffect, useState } from 'react'
 
 import { ApiContext } from '../../components/apiContext'
 import EmbeddingCard from './embeddingCard'
+import ModelCard from './modelCard'
 
-const LaunchEmbedding = () => {
+const LaunchCustom = () => {
   let endPoint = useContext(ApiContext).endPoint
   const [registrationData, setRegistrationData] = useState([])
   const { isCallingApi, setIsCallingApi } = useContext(ApiContext)
@@ -22,10 +23,7 @@ const LaunchEmbedding = () => {
     const modelName = registration.model_name
       ? registration.model_name.toLowerCase()
       : ''
-    if (!modelName.includes(searchTerm.toLowerCase())) {
-      return false
-    }
-    return true
+    return modelName.includes(searchTerm.toLowerCase())
   }
 
   const update = async () => {
@@ -34,16 +32,31 @@ const LaunchEmbedding = () => {
     try {
       setIsCallingApi(true)
 
-      const response = await fetch(
+      const embeddingResponse = await fetch(
         `${endPoint}/v1/model_registrations/embedding`,
         {
           method: 'GET',
         }
       )
 
-      const registrations = await response.json()
-      const newRegistrationData = await Promise.all(
-        registrations.map(async (registration) => {
+      const embeddingRegistrations = await embeddingResponse.json()
+      const customEmbeddingRegistrations = embeddingRegistrations.filter(
+        (data) => !data.is_builtin
+      )
+
+      const llmResponse = await fetch(
+        `${endPoint}/v1/model_registrations/LLM`,
+        {
+          method: 'GET',
+        }
+      )
+      const llmRegistrations = await llmResponse.json()
+      const customLLMRegistrations = llmRegistrations.filter(
+        (data) => !data.is_builtin
+      )
+
+      const newEmbeddingData = await Promise.all(
+        customEmbeddingRegistrations.map(async (registration) => {
           const desc = await fetch(
             `${endPoint}/v1/model_registrations/embedding/${registration.model_name}`,
             {
@@ -58,10 +71,23 @@ const LaunchEmbedding = () => {
         })
       )
 
-      const builtinRegistrations = newRegistrationData.filter(
-        (v) => v.is_builtin
+      const newLLMData = await Promise.all(
+        customLLMRegistrations.map(async (registration) => {
+          const desc = await fetch(
+            `${endPoint}/v1/model_registrations/LLM/${registration.model_name}`,
+            {
+              method: 'GET',
+            }
+          )
+
+          return {
+            ...(await desc.json()),
+            is_builtin: registration.is_builtin,
+          }
+        })
       )
-      setRegistrationData(builtinRegistrations)
+
+      setRegistrationData(newLLMData.concat(newEmbeddingData))
     } catch (error) {
       console.error('Error:', error)
     } finally {
@@ -71,7 +97,6 @@ const LaunchEmbedding = () => {
 
   useEffect(() => {
     update()
-    // eslint-disable-next-line
   }, [])
 
   const style = {
@@ -94,7 +119,7 @@ const LaunchEmbedding = () => {
           <TextField
             id="search"
             type="search"
-            label="Search for embedding model name"
+            label="Search for custom model name"
             value={searchTerm}
             onChange={handleChange}
             size="small"
@@ -104,12 +129,32 @@ const LaunchEmbedding = () => {
       <div style={style}>
         {registrationData
           .filter((registration) => filter(registration))
-          .map((filteredRegistration) => (
-            <EmbeddingCard url={endPoint} modelData={filteredRegistration} />
-          ))}
+          .map((filteredRegistration) => {
+            if (
+              filteredRegistration.max_tokens &&
+              filteredRegistration.dimensions
+            ) {
+              return (
+                <EmbeddingCard
+                  url={endPoint}
+                  modelData={filteredRegistration}
+                  cardHeight={350}
+                  is_custom={true}
+                />
+              )
+            } else {
+              return (
+                <ModelCard
+                  url={endPoint}
+                  modelData={filteredRegistration}
+                  is_custom={true}
+                />
+              )
+            }
+          })}
       </div>
     </Box>
   )
 }
 
-export default LaunchEmbedding
+export default LaunchCustom
