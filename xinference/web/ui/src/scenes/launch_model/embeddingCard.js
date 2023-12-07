@@ -13,11 +13,10 @@ const EmbeddingCard = ({ url, modelData }) => {
   const [selected, setSelected] = useState(false)
   const { isCallingApi, setIsCallingApi } = useContext(ApiContext)
   const { isUpdatingModel } = useContext(ApiContext)
+  const { setErrorMsg } = useContext(ApiContext)
 
   // UseEffects for parameter selection, change options based on previous selections
-  useEffect(() => {
-    return
-  }, [modelData])
+  useEffect(() => {}, [modelData])
 
   const launchModel = (url) => {
     if (isCallingApi || isUpdatingModel) {
@@ -41,7 +40,20 @@ const EmbeddingCard = ({ url, modelData }) => {
       },
       body: JSON.stringify(modelDataWithID),
     })
-      .then(() => {
+      .then((res) => {
+        if (!res.ok) {
+          res
+            .json()
+            .then((errData) =>
+              setErrorMsg(
+                `Server error: ${res.status} - ${
+                  errData.detail || 'Unknown error'
+                }`
+              )
+            )
+        } else {
+          window.open(url + '/ui/#/running_models', '_blank', 'noreferrer')
+        }
         setIsCallingApi(false)
       })
       .catch((error) => {
