@@ -14,6 +14,7 @@
 
 import asyncio
 import inspect
+import sys
 import uuid
 from typing import (
     TYPE_CHECKING,
@@ -357,9 +358,23 @@ class ModelActor(xo.StatelessActor):
         stop = object()
         gen = self._generators[generator_uid]
 
+        try:
+            from torch.cuda import OutOfMemoryError
+        except ImportError:
+
+            class _OutOfMemoryError(Exception):
+                pass
+
+            OutOfMemoryError = _OutOfMemoryError
+
         def _wrapper():
             try:
                 return next(gen)
+            except OutOfMemoryError:
+                logger.exception(
+                    "Model actor is out of memory, model id: %s", self.model_uid()
+                )
+                sys.exit(1)
             except StopIteration:
                 return stop
 
