@@ -106,6 +106,16 @@ class SupervisorActor(xo.StatelessActor):
             data[k] = v.dict()
         return data
 
+    async def get_devices_count(self) -> int:
+        from ..utils import cuda_count
+
+        if self.is_local_deployment():
+            return cuda_count()
+        # distributed deployment, choose a worker and return its cuda_count.
+        # Assume that each worker has the same count of cards.
+        worker_ref = await self._choose_worker()
+        return await worker_ref.get_devices_count()
+
     async def _choose_worker(self) -> xo.ActorRefType["WorkerActor"]:
         # TODO: better allocation strategy.
         min_running_model_count = None
