@@ -307,10 +307,10 @@ def fix_forward_ref(model):
         if isinstance(field.annotation, ForwardRef):
             exclude_fields.append(key)
             include_fields[key] = (Optional[Any], None)
-    if exclude_fields is not None:
+    if exclude_fields:
         for key in exclude_fields:
-            model.__fields__.pop(key)
-    if include_fields is not None:
+            model.__fields__.pop(key, None)
+    if include_fields:
         dummy_model = create_model("DummyModel", **include_fields)
         model.__fields__.update(dummy_model.__fields__)
     return model
