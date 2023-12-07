@@ -14,7 +14,7 @@
 
 import asyncio
 import inspect
-import sys
+import os
 import uuid
 from typing import (
     TYPE_CHECKING,
@@ -374,7 +374,7 @@ class ModelActor(xo.StatelessActor):
                 logger.exception(
                     "Model actor is out of memory, model id: %s", self.model_uid()
                 )
-                sys.exit(1)
+                os._exit(1)
             except StopIteration:
                 return stop
 

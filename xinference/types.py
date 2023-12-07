@@ -289,7 +289,7 @@ def get_pydantic_model_from_method(
         model.__fields__.pop(key)
     if exclude_fields is not None:
         for key in exclude_fields:
-            model.__fields__.pop(key)
+            model.__fields__.pop(key, None)
     if include_fields is not None:
         dummy_model = create_model("DummyModel", **include_fields)
         model.__fields__.update(dummy_model.__fields__)
