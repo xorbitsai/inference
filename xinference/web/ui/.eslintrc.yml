@@ -1,0 +1,30 @@
+env:
+  browser: true
+  es2021: true
+  node: true
+extends:
+  - 'eslint:recommended'
+  - 'plugin:react/recommended'
+  - 'prettier'
+parserOptions:
+  parser: '@babel/eslint-parser'
+  requireConfigFile: false
+  ecmaFeatures:
+    jsx: true
+  ecmaVersion: 12
+  sourceType: module
+plugins:
+  - react
+  - simple-import-sort
+rules:
+  new-cap: 'error'
+  no-var: 'error'
+  simple-import-sort/imports: 'error'
+  simple-import-sort/exports: 'error'
+  quote-props: ['error', 'consistent']
+  'react/react-in-jsx-scope': 'off'
+  'react/prop-types': 'off'
+  'react/jsx-key': 'off'
+settings:
+  react:
+    version: 'detect'

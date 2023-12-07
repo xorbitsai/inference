@@ -957,7 +957,7 @@
     "model_ability": [
       "generate"
     ],
-    "model_description": "The Yi series models are large language models trained from scratch by developers at 01.AI. The first public release contains two bilingual (English/Chinese) base models with the parameter sizes of 6B and 34B. Both of them are trained with 4K sequence length and can be extended to 32K during inference time.",
+    "model_description": "The Yi series models are large language models trained from scratch by developers at 01.AI.",
     "model_specs": [
       {
         "model_format": "pytorch",
@@ -1023,6 +1023,55 @@
         "model_revision": "master"
       }
     ]
+  },
+  {
+    "version": 1,
+    "context_length": 204800,
+    "model_name": "Yi-chat",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "The Yi series models are large language models trained from scratch by developers at 01.AI.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 34,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_hub": "modelscope",
+        "model_id": "01ai/Yi-34B-Chat",
+        "model_revision": "master"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "CHATML",
+      "system_prompt": "",
+      "roles": [
+        "<|im_start|>user",
+        "<|im_start|>assistant"
+      ],
+      "intra_message_sep": "<|im_end|>",
+      "inter_message_sep": "",
+      "stop_token_ids": [
+        2,
+        6,
+        7,
+        8
+      ],
+      "stop": [
+        "<|endoftext|>",
+        "<|im_start|>",
+        "<|im_end|>",
+        "<|im_sep|>"
+      ]
+    }
   },
   {
     "version": 1,
@@ -1331,6 +1380,18 @@
       },
       {
         "model_format": "pytorch",
+        "model_size_in_billions": 72,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_hub": "modelscope",
+        "model_id": "qwen/Qwen-72B-Chat",
+        "model_revision": "master"
+      },
+      {
+        "model_format": "pytorch",
         "model_size_in_billions": 14,
         "quantizations": [
           "none"
@@ -1360,6 +1421,17 @@
         "model_id": "qwen/Qwen-14B-Chat-{quantization}",
         "model_hub": "modelscope",
         "model_revision": "v1.0.7"
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 72,
+        "quantizations": [
+          "Int4",
+          "Int8"
+        ],
+        "model_id": "qwen/Qwen-72B-Chat-{quantization}",
+        "model_hub": "modelscope",
+        "model_revision": "master"
       }
     ],
     "prompt_style": {
@@ -1371,7 +1443,14 @@
       ],
       "intra_message_sep": "\n",
       "stop_token_ids": [
-        151643
+        151643,
+        151644,
+        151645
+      ],
+      "stop": [
+        "<|endoftext|>",
+        "<|im_start|>",
+        "<|im_end|>"
       ]
     }
   }

@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, Callable, Dict, Iterable, List, Optional, Union
+from typing import Any, Callable, Dict, ForwardRef, Iterable, List, Optional, Union
 
 from pydantic import (
     BaseModel,
@@ -121,8 +121,9 @@ class Completion(TypedDict):
 
 class ChatCompletionMessage(TypedDict):
     role: str
-    content: str
+    content: Optional[str]
     user: NotRequired[str]
+    tool_calls: NotRequired[List]
 
 
 class ChatCompletionChoice(TypedDict):
@@ -295,6 +296,26 @@ def get_pydantic_model_from_method(
     return model
 
 
+def fix_forward_ref(model):
+    """
+    pydantic in Python 3.8 generates ForwardRef field, we replace them
+    by the Optional[Any]
+    """
+    exclude_fields = []
+    include_fields = {}
+    for key, field in model.__fields__.items():
+        if isinstance(field.annotation, ForwardRef):
+            exclude_fields.append(key)
+            include_fields[key] = (Optional[Any], None)
+    if exclude_fields is not None:
+        for key in exclude_fields:
+            model.__fields__.pop(key)
+    if include_fields is not None:
+        dummy_model = create_model("DummyModel", **include_fields)
+        model.__fields__.update(dummy_model.__fields__)
+    return model
+
+
 class ModelAndPrompt(BaseModel):
     model: str
     prompt: str
@@ -318,7 +339,9 @@ try:
     from llama_cpp import Llama
 
     CreateCompletionLlamaCpp = get_pydantic_model_from_method(
-        Llama.create_completion, exclude_fields=["model", "prompt"]
+        Llama.create_completion,
+        exclude_fields=["model", "prompt", "grammar"],
+        include_fields={"grammar": (Optional[Any], None)},
     )
 except ImportError:
     CreateCompletionLlamaCpp = create_model("CreateCompletionLlamaCpp")
@@ -330,7 +353,7 @@ try:
     CreateCompletionCTransformers = get_pydantic_model_from_method(
         LLM.generate,
         exclude_fields=["tokens"],
-        include_fields={"max_tokens": (int, max_tokens_field)},
+        include_fields={"max_tokens": (Optional[int], max_tokens_field)},
     )
 except ImportError:
     CreateCompletionCTransformers = create_model("CreateCompletionCTransformers")
@@ -370,6 +393,7 @@ try:
     CreateCompletionOpenAI = create_model_from_typeddict(
         CompletionCreateParamsNonStreaming,
     )
+    CreateCompletionOpenAI = fix_forward_ref(CreateCompletionOpenAI)
 except ImportError:
     # TODO(codingl2k1): Remove it if openai < 1 is dropped.
     CreateCompletionOpenAI = _CreateCompletionOpenAIFallback
@@ -381,5 +405,40 @@ class CreateCompletion(
     CreateCompletionLlamaCpp,
     CreateCompletionCTransformers,
     CreateCompletionOpenAI,
+):
+    pass
+
+
+class CreateChatModel(BaseModel):
+    model: str
+
+
+# Currently, chat calls generates, so the params share the same one.
+CreateChatCompletionTorch = CreateCompletionTorch
+CreateChatCompletionLlamaCpp: BaseModel = CreateCompletionLlamaCpp
+CreateChatCompletionCTransformers: BaseModel = CreateCompletionCTransformers
+
+
+# This type is for openai API compatibility
+CreateChatCompletionOpenAI: BaseModel
+
+
+# Only support openai > 1
+from openai.types.chat.completion_create_params import (
+    CompletionCreateParamsNonStreaming,
+)
+
+CreateChatCompletionOpenAI = create_model_from_typeddict(
+    CompletionCreateParamsNonStreaming,
+)
+CreateChatCompletionOpenAI = fix_forward_ref(CreateChatCompletionOpenAI)
+
+
+class CreateChatCompletion(
+    CreateChatModel,
+    CreateChatCompletionTorch,
+    CreateChatCompletionLlamaCpp,
+    CreateChatCompletionCTransformers,
+    CreateChatCompletionOpenAI,
 ):
     pass

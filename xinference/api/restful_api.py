@@ -21,7 +21,7 @@ import os
 import pprint
 import sys
 import warnings
-from typing import Any, Dict, List, Literal, Optional, Union
+from typing import Any, List, Optional, Union
 
 import gradio as gr
 import xoscar as xo
@@ -43,28 +43,19 @@ from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
 from starlette.responses import JSONResponse as StarletteJSONResponse
 from starlette.responses import RedirectResponse
-from typing_extensions import NotRequired, TypedDict
 from uvicorn import Config, Server
 from xoscar.utils import get_next_port
 
 from ..constants import XINFERENCE_DEFAULT_ENDPOINT_PORT
 from ..core.supervisor import SupervisorActor
 from ..core.utils import json_dumps
-from ..fields import (
-    frequency_penalty_field,
-    max_tokens_field,
-    mirostat_eta_field,
-    mirostat_mode_field,
-    mirostat_tau_field,
-    presence_penalty_field,
-    repeat_penalty_field,
-    stop_field,
-    stream_field,
-    temperature_field,
-    top_k_field,
-    top_p_field,
+from ..types import (
+    ChatCompletion,
+    Completion,
+    CreateChatCompletion,
+    CreateCompletion,
+    ImageList,
 )
-from ..types import ChatCompletion, Completion, CreateCompletion, ImageList
 
 logger = logging.getLogger(__name__)
 
@@ -113,50 +104,6 @@ class TextToImageRequest(BaseModel):
     response_format: Optional[str] = "url"
     size: Optional[str] = "1024*1024"
     user: Optional[str] = None
-
-
-class ChatCompletionRequestMessage(TypedDict):
-    role: Literal["assistant", "user", "system"]
-    content: str
-    user: NotRequired[str]
-
-
-class CreateChatCompletionRequest(BaseModel):
-    messages: List[ChatCompletionRequestMessage] = Field(
-        default=[], description="A list of messages to generate completions for."
-    )
-    max_tokens: int = max_tokens_field
-    temperature: float = temperature_field
-    top_p: float = top_p_field
-    mirostat_mode: int = mirostat_mode_field
-    mirostat_tau: float = mirostat_tau_field
-    mirostat_eta: float = mirostat_eta_field
-    stop: Optional[Union[str, List[str]]] = stop_field
-    stream: bool = stream_field
-    presence_penalty: Optional[float] = presence_penalty_field
-    frequency_penalty: Optional[float] = frequency_penalty_field
-    logit_bias: Optional[Dict[str, float]] = Field(None)
-
-    model: str
-    n: Optional[int] = 1
-    user: Optional[str] = Field(None)
-
-    # llama.cpp specific parameters
-    top_k: int = top_k_field
-    repeat_penalty: Optional[float] = repeat_penalty_field
-    logit_bias_type: Optional[Literal["input_ids", "tokens"]] = Field(None)
-    grammar: Optional[str] = Field(None)
-
-    class Config:
-        schema_extra = {
-            "example": {
-                "messages": [
-                    {"role": "system", "content": "you are a helpful AI assistant"},
-                    {"role": "user", "content": "Hello!"},
-                    {"role": "assistant", "content": "Hi what can I help you?"},
-                ]
-            }
-        }
 
 
 class RegisterModelRequest(BaseModel):
@@ -208,6 +155,9 @@ class RESTfulAPI:
         )
         self._router.add_api_route("/status", self.get_status, methods=["GET"])
         self._router.add_api_route("/v1/models", self.list_models, methods=["GET"])
+        self._router.add_api_route(
+            "/v1/models/prompts", self._get_builtin_prompts, methods=["GET"]
+        )
         self._router.add_api_route(
             "/v1/models/{model_uid}", self.describe_model, methods=["GET"]
         )
@@ -305,6 +255,9 @@ class RESTfulAPI:
                 f"{pprint.pformat(invalid_routes)}"
             )
 
+        for tp in [CreateChatCompletion, CreateCompletion]:
+            logger.debug("Dump request model fields:\n%s", tp.__fields__)
+
         class SPAStaticFiles(StaticFiles):
             async def get_response(self, path: str, scope):
                 response = await super().get_response(path, scope)
@@ -345,6 +298,17 @@ class RESTfulAPI:
         )
         server = Server(config)
         server.run()
+
+    async def _get_builtin_prompts(self) -> JSONResponse:
+        """
+        For internal usage
+        """
+        try:
+            data = await (await self._get_supervisor_ref()).get_builtin_prompts()
+            return JSONResponse(content=data)
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
 
     async def get_status(self) -> JSONResponse:
         try:
@@ -725,7 +689,7 @@ class RESTfulAPI:
     async def create_chat_completion(
         self,
         request: Request,
-        body: CreateChatCompletionRequest,
+        body: CreateChatCompletion,
     ) -> Response:
         exclude = {
             "prompt",
@@ -736,7 +700,7 @@ class RESTfulAPI:
             "logit_bias_type",
             "user",
         }
-        kwargs = body.dict(exclude=exclude)
+        kwargs = body.dict(exclude_unset=True, exclude=exclude)
 
         if body.logit_bias is not None:
             raise HTTPException(status_code=501, detail="Not implemented")
@@ -795,6 +759,7 @@ class RESTfulAPI:
         is_chatglm_ggml = desc.get(
             "model_format"
         ) == "ggmlv3" and "chatglm" in desc.get("model_name", "")
+        is_chatglm3 = "chatglm3" == desc.get("model_name", "")
 
         is_qwen = desc.get("model_format") == "ggmlv3" and "qwen" in desc.get(
             "model_name", ""
@@ -803,6 +768,14 @@ class RESTfulAPI:
         if (is_chatglm_ggml or is_qwen) and system_prompt is not None:
             raise HTTPException(
                 status_code=400, detail="ChatGLM ggml does not have system prompt"
+            )
+        if is_chatglm3 and body.tools and body.stream:
+            raise HTTPException(
+                status_code=400, detail="ChatGLM3 tool calls does not support stream"
+            )
+        if body.tools and not is_chatglm3:
+            raise HTTPException(
+                status_code=400, detail="Only ChatGLM3 support tool calls"
             )
 
         if body.stream:

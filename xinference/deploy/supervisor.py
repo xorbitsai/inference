@@ -22,6 +22,10 @@ from typing import Dict, Optional
 import xoscar as xo
 from xoscar.utils import get_next_port
 
+from ..constants import (
+    XINFERENCE_HEALTH_CHECK_ATTEMPTS,
+    XINFERENCE_HEALTH_CHECK_INTERVAL,
+)
 from ..core.supervisor import SupervisorActor
 from .utils import health_check
 
@@ -66,11 +70,20 @@ def run_in_subprocess(
     return p
 
 
-def main(host: str, port: int, logging_conf: Optional[Dict] = None):
-    supervisor_address = f"{host}:{get_next_port()}"
+def main(
+    host: str,
+    port: int,
+    supervisor_port: Optional[int],
+    logging_conf: Optional[Dict] = None,
+):
+    supervisor_address = f"{host}:{supervisor_port or get_next_port()}"
     local_cluster = run_in_subprocess(supervisor_address, logging_conf)
 
-    if not health_check(address=supervisor_address, max_attempts=3, sleep_interval=1):
+    if not health_check(
+        address=supervisor_address,
+        max_attempts=XINFERENCE_HEALTH_CHECK_ATTEMPTS,
+        sleep_interval=XINFERENCE_HEALTH_CHECK_INTERVAL,
+    ):
         raise RuntimeError("Supervisor is not available after multiple attempts")
 
     try:

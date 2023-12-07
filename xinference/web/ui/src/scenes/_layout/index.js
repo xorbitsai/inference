@@ -1,7 +1,8 @@
-import React from "react";
-import { Box } from "@mui/material";
-import { Outlet } from "react-router-dom";
-import MenuSide from "../../components/MenuSide";
+import { Box } from '@mui/material'
+import React from 'react'
+import { Outlet } from 'react-router-dom'
+
+import MenuSide from '../../components/MenuSide'
 
 const Layout = () => {
   return (
@@ -11,7 +12,7 @@ const Layout = () => {
         <Outlet />
       </Box>
     </Box>
-  );
-};
+  )
+}
 
-export default Layout;
+export default Layout

@@ -58,8 +58,106 @@ Define a custom LLM model based on the following template:
    * model_id: A string representing the model ID, possibly referring to an identifier used by Hugging Face.
    * model_uri: A string representing the URI where the model can be loaded from, such as "file:///path/to/llama-2-7b". If model URI is absent, Xinference will try to download the model from Hugging Face with the model ID.
    * model_file_name_template: Required by ggml models. An f-string template used for defining the model file name based on the quantization.
-* prompt_style: An optional field that could be required by chat models to define the style of prompts. The given example has this set to None, but additional details could be found in a referenced file xinference/model/llm/tests/test_utils.py.
+* prompt_style: An optional field that could be required by chat models to define the style of prompts. The given example has this set to None, but additional details could be found in a referenced file xinference/model/llm/tests/test_utils.py. You can also specify this field as a string, which will use the builtin prompt style in Xinference. For example:
 
+.. code-block:: json
+
+    {
+        "model_specs": [...],
+        "prompt_style": "chatglm3"
+    }
+
+Xinference supports these builtin prompt styles in common usage:
+
+.. tabs::
+
+   .. tab:: baichuan-chat
+
+      .. code-block:: json
+
+        {
+          "style_name": "NO_COLON_TWO",
+          "system_prompt": "",
+          "roles": [
+            " <reserved_102> ",
+            " <reserved_103> "
+          ],
+          "intra_message_sep": "",
+          "inter_message_sep": "</s>",
+          "stop_token_ids": [
+            2,
+            195
+          ]
+        }
+
+   .. tab:: chatglm3
+
+      .. code-block:: json
+
+        {
+          "style_name": "CHATGLM3",
+          "system_prompt": "",
+          "roles": [
+            "user",
+            "assistant"
+          ]
+        }
+
+   .. tab:: qwen-chat
+
+      .. code-block:: json
+
+        {
+          "style_name": "QWEN",
+          "system_prompt": "You are a helpful assistant.",
+          "roles": [
+            "user",
+            "assistant"
+          ],
+          "intra_message_sep": "\n",
+          "stop_token_ids": [
+            151643
+          ]
+        }
+
+   .. tab:: llama-2-chat
+
+      .. code-block:: json
+
+        {
+          "style_name": "LLAMA2",
+          "system_prompt": "<s>[INST] <<SYS>>\nYou are a helpful AI assistant.\n<</SYS>>\n\n",
+          "roles": [
+            "[INST]",
+            "[/INST]"
+          ],
+          "intra_message_sep": " ",
+          "inter_message_sep": " </s><s>",
+          "stop_token_ids": [
+            2
+          ],
+          "stop": [
+            "</s>"
+          ]
+        }
+
+   .. tab:: vicuna-v1.5
+
+      .. code-block:: json
+
+        {
+          "style_name": "ADD_COLON_TWO",
+          "system_prompt": "A chat between a curious human and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the human's questions.",
+          "roles": [
+            "USER",
+            "ASSISTANT"
+          ],
+          "intra_message_sep": " ",
+          "inter_message_sep": "</s>"
+        }
+
+The above lists some commonly used built-in prompt styles.
+The full list of supported prompt styles can be found on the Xinference web UI.
 
 Define a custom embedding model
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

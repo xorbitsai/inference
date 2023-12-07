@@ -365,7 +365,8 @@ class ModelActor(xo.StatelessActor):
 
         async def _async_wrapper():
             try:
-                return await anext(gen)  # noqa: F821
+                # anext is only available for Python >= 3.10
+                return await gen.__anext__()  # noqa: F821
             except StopAsyncIteration:
                 return stop
 

@@ -20,12 +20,12 @@ from logging import getLogger
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 import xoscar as xo
-from xorbits._mars.resource import cuda_count
 from xoscar import MainActorPoolType
 
 from ..constants import XINFERENCE_CACHE_DIR
 from ..core import ModelActor
 from ..model.core import ModelDescription, create_model_instance
+from ..utils import cuda_count
 from .resource import gather_node_info
 from .utils import log_async, log_sync, parse_replica_model_uid, purge_dir
 
@@ -93,10 +93,11 @@ class WorkerActor(xo.StatelessActor):
             register_embedding,
             unregister_embedding,
         )
-        from ..model.llm import LLMFamilyV1, register_llm, unregister_llm
+        from ..model.llm import register_llm, unregister_llm
+        from ..model.llm.llm_family import CustomLLMFamilyV1
 
         self._custom_register_type_to_cls: Dict[str, Tuple] = {
-            "LLM": (LLMFamilyV1, register_llm, unregister_llm),
+            "LLM": (CustomLLMFamilyV1, register_llm, unregister_llm),
             "embedding": (
                 CustomEmbeddingModelSpec,
                 register_embedding,

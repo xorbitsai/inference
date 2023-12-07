@@ -47,6 +47,17 @@ jobs:
         run: pip install mypy && mypy --install-types --non-interactive xinference
       - name: codespell
         run: pip install codespell && codespell xinference
+      - name: Set up Node.js
+        uses: actions/setup-node@v1
+        with:
+          node-version: 16
+      # ESLint and Prettier must be in `package.json`
+      - name: Install Node.js dependencies
+        run: cd xinference/web/ui && npm ci
+      - name: ESLint Check
+        run: cd xinference/web/ui && npx eslint .
+      - name: Prettier Check
+        run: cd xinference/web/ui && ./node_modules/.bin/prettier --check .
 
   build_test_job:
     runs-on: ${{ matrix.os }}
@@ -112,6 +123,7 @@ jobs:
           MODULE: ${{ matrix.module }}
         run: |
           if [ "$MODULE" == "gpu" ]; then
+            ${{ env.SELF_HOST_PYTHON }} -m pip install "openai>1"
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U modelscope
             ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=1500 \
               -W ignore::PendingDeprecationWarning \

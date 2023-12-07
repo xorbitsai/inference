@@ -2,9 +2,9 @@ import { Box, FormControl, TextField } from '@mui/material'
 import React, { useContext, useEffect, useState } from 'react'
 
 import { ApiContext } from '../../components/apiContext'
-import EmbeddingCard from './embeddingCard'
+import RerankCard from './rerankCard'
 
-const LaunchEmbedding = () => {
+const LaunchRerank = () => {
   let endPoint = useContext(ApiContext).endPoint
   const [registrationData, setRegistrationData] = useState([])
   const { isCallingApi, setIsCallingApi } = useContext(ApiContext)
@@ -22,10 +22,7 @@ const LaunchEmbedding = () => {
     const modelName = registration.model_name
       ? registration.model_name.toLowerCase()
       : ''
-    if (!modelName.includes(searchTerm.toLowerCase())) {
-      return false
-    }
-    return true
+    return modelName.includes(searchTerm.toLowerCase())
   }
 
   const update = async () => {
@@ -35,7 +32,7 @@ const LaunchEmbedding = () => {
       setIsCallingApi(true)
 
       const response = await fetch(
-        `${endPoint}/v1/model_registrations/embedding`,
+        `${endPoint}/v1/model_registrations/rerank`,
         {
           method: 'GET',
         }
@@ -45,7 +42,7 @@ const LaunchEmbedding = () => {
       const newRegistrationData = await Promise.all(
         registrations.map(async (registration) => {
           const desc = await fetch(
-            `${endPoint}/v1/model_registrations/embedding/${registration.model_name}`,
+            `${endPoint}/v1/model_registrations/rerank/${registration.model_name}`,
             {
               method: 'GET',
             }
@@ -91,7 +88,7 @@ const LaunchEmbedding = () => {
           <TextField
             id="search"
             type="search"
-            label="Search for embedding model name"
+            label="Search for rerank model name"
             value={searchTerm}
             onChange={handleChange}
             size="small"
@@ -102,11 +99,11 @@ const LaunchEmbedding = () => {
         {registrationData
           .filter((registration) => filter(registration))
           .map((filteredRegistration) => (
-            <EmbeddingCard url={endPoint} modelData={filteredRegistration} />
+            <RerankCard url={endPoint} modelData={filteredRegistration} />
           ))}
       </div>
     </Box>
   )
 }
 
-export default LaunchEmbedding
+export default LaunchRerank

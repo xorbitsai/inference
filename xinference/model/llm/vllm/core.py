@@ -17,6 +17,7 @@ import time
 import uuid
 from typing import TYPE_CHECKING, AsyncGenerator, Dict, List, Optional, TypedDict, Union
 
+from ....constants import XINFERENCE_DISABLE_VLLM
 from ....types import (
     ChatCompletion,
     ChatCompletionChunk,
@@ -44,6 +45,7 @@ class VLLMModelConfig(TypedDict, total=False):
     gpu_memory_utilization: float
     max_num_batched_tokens: int
     max_num_seqs: int
+    quantization: Optional[str]
 
 
 class VLLMGenerateConfig(TypedDict, total=False):
@@ -54,6 +56,7 @@ class VLLMGenerateConfig(TypedDict, total=False):
     temperature: float
     top_p: float
     max_tokens: int
+    stop_token_ids: Optional[List[int]]
     stop: Optional[Union[str, List[str]]]
     stream: bool  # non-sampling param, should not be passed to the engine.
 
@@ -65,7 +68,7 @@ try:
 except ImportError:
     VLLM_INSTALLED = False
 
-VLLM_SUPPORTED_MODELS = ["llama-2", "baichuan", "internlm-16k"]
+VLLM_SUPPORTED_MODELS = ["llama-2", "baichuan", "internlm-16k", "mistral-v0.1"]
 VLLM_SUPPORTED_CHAT_MODELS = [
     "llama-2-chat",
     "vicuna-v1.3",
@@ -74,6 +77,10 @@ VLLM_SUPPORTED_CHAT_MODELS = [
     "internlm-chat-7b",
     "internlm-chat-8k",
     "internlm-chat-20b",
+    "qwen-chat",
+    "Yi",
+    "mistral-instruct-v0.1",
+    "chatglm3",
 ]
 
 
@@ -127,6 +134,7 @@ class VLLMModel(LLM):
         model_config.setdefault("swap_space", 4)
         model_config.setdefault("gpu_memory_utilization", 0.90)
         model_config.setdefault("max_num_seqs", 256)
+        model_config.setdefault("quantization", None)
 
         return model_config
 
@@ -150,6 +158,9 @@ class VLLMModel(LLM):
         sanitized.setdefault("top_p", generate_config.get("top_p", 1.0))
         sanitized.setdefault("max_tokens", generate_config.get("max_tokens", 16))
         sanitized.setdefault("stop", generate_config.get("stop", None))
+        sanitized.setdefault(
+            "stop_token_ids", generate_config.get("stop_token_ids", None)
+        )
         sanitized.setdefault("stream", generate_config.get("stream", None))
 
         return sanitized
@@ -158,6 +169,8 @@ class VLLMModel(LLM):
     def match(
         cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
+        if XINFERENCE_DISABLE_VLLM:
+            return False
         if not cls._has_cuda_device():
             return False
         if not cls._is_linux():
@@ -287,6 +300,8 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
     def match(
         cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
+        if XINFERENCE_DISABLE_VLLM:
+            return False
         if quantization != "none":
             return False
         if llm_spec.model_format != "pytorch":
@@ -303,10 +318,16 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
     ) -> Dict:
         if not generate_config:
             generate_config = {}
-        if self.model_family.prompt_style and self.model_family.prompt_style.stop:
-            generate_config.setdefault(
-                "stop", self.model_family.prompt_style.stop.copy()
-            )
+        if self.model_family.prompt_style:
+            if (
+                not generate_config.get("stop")
+            ) and self.model_family.prompt_style.stop:
+                generate_config["stop"] = self.model_family.prompt_style.stop.copy()
+            if self.model_family.prompt_style.stop_token_ids:
+                generate_config.setdefault(
+                    "stop_token_ids",
+                    self.model_family.prompt_style.stop_token_ids.copy(),
+                )
         return generate_config
 
     async def async_chat(

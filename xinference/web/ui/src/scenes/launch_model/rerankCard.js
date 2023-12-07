@@ -8,12 +8,11 @@ import { ApiContext } from '../../components/apiContext'
 const CARD_HEIGHT = 270
 const CARD_WIDTH = 270
 
-const EmbeddingCard = ({ url, modelData }) => {
+const RerankCard = ({ url, modelData }) => {
   const [hover, setHover] = useState(false)
   const [selected, setSelected] = useState(false)
   const { isCallingApi, setIsCallingApi } = useContext(ApiContext)
   const { isUpdatingModel } = useContext(ApiContext)
-  const { setErrorMsg } = useContext(ApiContext)
 
   // UseEffects for parameter selection, change options based on previous selections
   useEffect(() => {}, [modelData])
@@ -29,7 +28,7 @@ const EmbeddingCard = ({ url, modelData }) => {
     const modelDataWithID = {
       model_uid: uuid,
       model_name: modelData.model_name,
-      model_type: 'embedding',
+      model_type: 'rerank',
     }
 
     // First fetch request to initiate the model
@@ -40,20 +39,7 @@ const EmbeddingCard = ({ url, modelData }) => {
       },
       body: JSON.stringify(modelDataWithID),
     })
-      .then((res) => {
-        if (!res.ok) {
-          res
-            .json()
-            .then((errData) =>
-              setErrorMsg(
-                `Server error: ${res.status} - ${
-                  errData.detail || 'Unknown error'
-                }`
-              )
-            )
-        } else {
-          window.open(url + '/ui/#/running_models', '_blank', 'noreferrer')
-        }
+      .then(() => {
         setIsCallingApi(false)
       })
       .catch((error) => {
@@ -224,16 +210,6 @@ const EmbeddingCard = ({ url, modelData }) => {
             })()}
           </div>
         </div>
-        <div style={styles.iconRow}>
-          <div style={styles.iconItem}>
-            <span style={styles.boldIconText}>{modelData.dimensions}</span>
-            <small style={styles.smallText}>dimensions</small>
-          </div>
-          <div style={styles.iconItem}>
-            <span style={styles.boldIconText}>{modelData.max_tokens}</span>
-            <small style={styles.smallText}>max tokens</small>
-          </div>
-        </div>
         {hover ? (
           <p style={styles.instructionText}>
             Click with mouse to launch the model
@@ -253,7 +229,7 @@ const EmbeddingCard = ({ url, modelData }) => {
         <h2 style={styles.h2}>{modelData.model_name}</h2>
         <Box style={styles.buttonsContainer}>
           <button
-            title="Launch Embedding"
+            title="Launch Rerank"
             style={styles.buttonContainer}
             onClick={() => launchModel(url, modelData)}
             disabled={isCallingApi || isUpdatingModel || !modelData}
@@ -290,7 +266,7 @@ const EmbeddingCard = ({ url, modelData }) => {
             })()}
           </button>
           <button
-            title="Launch Embedding"
+            title="Launch Rerank"
             style={styles.buttonContainer}
             onClick={() => setSelected(false)}
           >
@@ -304,4 +280,4 @@ const EmbeddingCard = ({ url, modelData }) => {
   )
 }
 
-export default EmbeddingCard
+export default RerankCard

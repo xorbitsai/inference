@@ -61,13 +61,13 @@ class LLM(abc.ABC):
 
     @staticmethod
     def _has_cuda_device():
-        from xorbits._mars.resource import cuda_count
+        from ...utils import cuda_count
 
         return cuda_count() > 0
 
     @staticmethod
     def _get_cuda_count():
-        from xorbits._mars.resource import cuda_count
+        from ...utils import cuda_count
 
         cuda_visible_devices = os.getenv("CUDA_VISIBLE_DEVICES", None)
         if cuda_visible_devices is None:

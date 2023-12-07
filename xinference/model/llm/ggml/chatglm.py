@@ -11,13 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import json
 import logging
 import os
 import time
 import uuid
 from pathlib import Path
-from typing import TYPE_CHECKING, Iterator, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Iterator, List, Optional, Union
 
 from ....types import (
     ChatCompletion,
@@ -107,7 +107,7 @@ class ChatglmCppChatModel(LLM):
 
     @staticmethod
     def _convert_raw_text_chunks_to_chat(
-        tokens: Iterator[str], model_name: str
+        tokens: Iterator[Any], model_name: str
     ) -> Iterator[ChatCompletionChunk]:
         yield {
             "id": "chat" + f"cmpl-{str(uuid.uuid4())}",
@@ -124,7 +124,7 @@ class ChatglmCppChatModel(LLM):
                 }
             ],
         }
-        for token in enumerate(tokens):
+        for token in tokens:
             yield {
                 "id": "chat" + f"cmpl-{str(uuid.uuid4())}",
                 "model": model_name,
@@ -134,30 +134,30 @@ class ChatglmCppChatModel(LLM):
                     {
                         "index": 0,
                         "delta": {
-                            "content": token[1],
+                            "content": token
+                            if isinstance(token, str)
+                            else token.content,
                         },
                         "finish_reason": None,
                     }
                 ],
             }
 
-    @staticmethod
+    @classmethod
     def _convert_raw_text_completion_to_chat(
-        text: str, model_name: str
+        cls, text: Any, model_name: str
     ) -> ChatCompletion:
+        _id = str(uuid.uuid4())
         return {
-            "id": "chat" + f"cmpl-{str(uuid.uuid4())}",
+            "id": "chat" + f"cmpl-{_id}",
             "model": model_name,
             "object": "chat.completion",
             "created": int(time.time()),
             "choices": [
                 {
                     "index": 0,
-                    "message": {
-                        "role": "assistant",
-                        "content": text,
-                    },
-                    "finish_reason": None,
+                    "message": cls._message_to_json_string(_id, text),
+                    "finish_reason": cls._finish_reason_from_msg(text),
                 }
             ],
             "usage": {
@@ -167,6 +167,66 @@ class ChatglmCppChatModel(LLM):
             },
         }
 
+    @staticmethod
+    def _finish_reason_from_msg(msg):
+        if isinstance(msg, str):
+            return None
+        else:
+            return "tool_calls" if msg.tool_calls else "stop"
+
+    @staticmethod
+    def _eval_arguments(arguments):
+        def tool_call(**kwargs):
+            return kwargs
+
+        try:
+            return json.dumps(eval(arguments, dict(tool_call=tool_call)))
+        except Exception:
+            return f"Invalid arguments {arguments}"
+
+    @classmethod
+    def _message_to_json_string(cls, _id, msg) -> ChatCompletionMessage:
+        if isinstance(msg, str):
+            return {
+                "role": "assistant",
+                "content": msg,
+            }
+        else:
+            return {
+                "role": msg.role,
+                "content": msg.content,
+                "tool_calls": [
+                    {
+                        "id": f"call_{_id}",
+                        "type": tc.type,
+                        "function": {
+                            "name": tc.function.name,
+                            "arguments": cls._eval_arguments(tc.function.arguments),
+                        },
+                    }
+                    for tc in msg.tool_calls
+                ],
+            }
+
+    @staticmethod
+    def _handle_tools(generate_config) -> Optional[ChatCompletionMessage]:
+        """Convert openai tools to ChatGLM tools."""
+        if generate_config is None:
+            return None
+        tools = generate_config.pop("tools", None)
+        if tools is None:
+            return None
+        chatglm_tools = []
+        for elem in tools:
+            if elem.get("type") != "function" or "function" not in elem:
+                raise ValueError("ChatGLM tools only support function type.")
+            chatglm_tools.append(elem["function"])
+        return {
+            "role": "system",
+            "content": f"Answer the following questions as best as you can. You have access to the following tools:\n"
+            f"{json.dumps(chatglm_tools, indent=4, ensure_ascii=False)}",
+        }
+
     def chat(
         self,
         prompt: str,
@@ -174,11 +234,15 @@ class ChatglmCppChatModel(LLM):
         generate_config: Optional[ChatglmCppGenerateConfig] = None,
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
         if chat_history is not None:
-            chat_history_list = [message["content"] for message in chat_history]
+            chat_history_list = chat_history
         else:
             chat_history_list = []
 
-        chat_history_list.append(prompt)
+        tool_message = self._handle_tools(generate_config)
+        if tool_message is not None:
+            chat_history_list.insert(0, tool_message)
+
+        chat_history_list.append({"role": "user", "content": prompt})
         logger.debug("Full conversation history:\n%s", str(chat_history_list))
 
         generate_config = self._sanitize_generate_config(generate_config)
