@@ -345,7 +345,7 @@ class PytorchModel(LLM):
             inputs = input
 
         tokenizer = self._tokenizer
-        tokenizer.pad_token=tokenizer.eos_token
+        tokenizer.pad_token = tokenizer.eos_token
         is_llama = "llama" in str(type(self._model))  # llama supports batch inference
         is_chatglm = "chatglm" in str(type(self._model))
         if is_llama:
