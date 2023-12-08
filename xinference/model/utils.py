@@ -211,3 +211,28 @@ def copy_from_src_to_dst(
             )
             if attempt + 1 == max_attempt:
                 raise
+
+
+def patch_trust_remote_code():
+    """sentence-transformers calls transformers without the trust_remote_code=True, some embedding
+    models will fail to load, e.g. jina-embeddings-v2-base-en
+
+    :return:
+    """
+    try:
+        from transformers.dynamic_module_utils import resolve_trust_remote_code
+    except ImportError:
+        logger.error("Patch transformers trust_remote_code failed.")
+    else:
+
+        def _patched_resolve_trust_remote_code(*args, **kwargs):
+            logger.info("Patched resolve_trust_remote_code: %s %s", args, kwargs)
+            return True
+
+        if (
+            resolve_trust_remote_code.__code__
+            != _patched_resolve_trust_remote_code.__code__
+        ):
+            resolve_trust_remote_code.__code__ = (
+                _patched_resolve_trust_remote_code.__code__
+            )

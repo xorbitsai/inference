@@ -1,4 +1,4 @@
-import { Typography, Box } from "@mui/material";
+import { Box, Typography } from '@mui/material'
 
 const Title = ({ title, subtitle }) => {
   return (
@@ -7,7 +7,7 @@ const Title = ({ title, subtitle }) => {
         variant="h2"
         color="#141414"
         fontWeight="bold"
-        sx={{ m: "0 0 5px 0" }}
+        sx={{ m: '0 0 5px 0' }}
       >
         {title}
       </Typography>
@@ -15,7 +15,7 @@ const Title = ({ title, subtitle }) => {
         {subtitle}
       </Typography>
     </Box>
-  );
-};
+  )
+}
 
-export default Title;
+export default Title

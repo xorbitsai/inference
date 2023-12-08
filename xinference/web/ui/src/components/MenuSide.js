@@ -1,4 +1,10 @@
-import { useEffect, useState } from "react";
+import {
+  AddBoxOutlined,
+  ChevronRightOutlined,
+  GitHub,
+  RocketLaunchOutlined,
+  SmartToyOutlined,
+} from '@mui/icons-material'
 import {
   Box,
   Drawer,
@@ -9,70 +15,64 @@ import {
   ListItemText,
   Typography,
   useTheme,
-} from "@mui/material";
-import {
-  ChevronRightOutlined,
-  RocketLaunchOutlined,
-  SmartToyOutlined,
-  AddBoxOutlined,
-  GitHub,
-  LibraryBooksOutlined,
-} from "@mui/icons-material";
-import icon from "../media/icon.webp";
-import { useLocation, useNavigate } from "react-router-dom";
+} from '@mui/material'
+import { useEffect, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
+
+import icon from '../media/icon.webp'
 
 const navItems = [
   {
-    text: "Launch Model",
+    text: 'Launch Model',
     icon: <RocketLaunchOutlined />,
   },
   {
-    text: "Running Models",
+    text: 'Running Models',
     icon: <SmartToyOutlined />,
   },
   {
-    text: "Register Model",
+    text: 'Register Model',
     icon: <AddBoxOutlined />,
   },
   {
-    text: "Contact Us",
+    text: 'Contact Us',
     icon: <GitHub />,
   },
-];
+]
 
 const MenuSide = () => {
-  const theme = useTheme();
-  const { pathname } = useLocation();
-  const [active, setActive] = useState("");
-  const navigate = useNavigate();
+  const theme = useTheme()
+  const { pathname } = useLocation()
+  const [active, setActive] = useState('')
+  const navigate = useNavigate()
   const [drawerWidth, setDrawerWidth] = useState(
-    `${Math.min(Math.max(window.innerWidth * 0.2, 287), 320)}px`,
-  );
+    `${Math.min(Math.max(window.innerWidth * 0.2, 287), 320)}px`
+  )
 
   useEffect(() => {
-    setActive(pathname.substring(1));
-  }, [pathname]);
+    setActive(pathname.substring(1))
+  }, [pathname])
 
   useEffect(() => {
-    const screenWidth = window.innerWidth;
-    const maxDrawerWidth = Math.min(Math.max(screenWidth * 0.2, 287), 320);
-    setDrawerWidth(`${maxDrawerWidth}px`);
+    const screenWidth = window.innerWidth
+    const maxDrawerWidth = Math.min(Math.max(screenWidth * 0.2, 287), 320)
+    setDrawerWidth(`${maxDrawerWidth}px`)
 
     // Update the drawer width on window resize
     const handleResize = () => {
-      const newScreenWidth = window.innerWidth;
+      const newScreenWidth = window.innerWidth
       const newMaxDrawerWidth = Math.min(
         Math.max(newScreenWidth * 0.2, 287),
-        320,
-      );
-      setDrawerWidth(`${newMaxDrawerWidth}px`);
-    };
+        320
+      )
+      setDrawerWidth(`${newMaxDrawerWidth}px`)
+    }
 
-    window.addEventListener("resize", handleResize);
+    window.addEventListener('resize', handleResize)
     return () => {
-      window.removeEventListener("resize", handleResize);
-    };
-  }, []);
+      window.removeEventListener('resize', handleResize)
+    }
+  }, [])
 
   return (
     <Drawer
@@ -83,7 +83,7 @@ const MenuSide = () => {
         flexShrink: 0,
         [`& .MuiDrawer-paper`]: {
           width: drawerWidth,
-          boxSizing: "border-box",
+          boxSizing: 'border-box',
         },
       }}
     >
@@ -108,11 +108,11 @@ const MenuSide = () => {
               height="60px"
               width="60px"
               borderRadius="50%"
-              sx={{ objectFit: "cover", mr: 1.5 }}
+              sx={{ objectFit: 'cover', mr: 1.5 }}
             />
             <Box textAlign="left">
               <Typography fontWeight="bold" fontSize="1.7rem">
-                {"Xinference"}
+                {'Xinference'}
               </Typography>
             </Box>
           </Box>
@@ -126,54 +126,54 @@ const MenuSide = () => {
             {navItems.map(({ text, icon }) => {
               if (!icon) {
                 return (
-                  <Typography key={text} sx={{ m: "2.25rem 0 1rem 3rem" }}>
+                  <Typography key={text} sx={{ m: '2.25rem 0 1rem 3rem' }}>
                     {text}
                   </Typography>
-                );
+                )
               }
 
-              const link = text.toLowerCase().replace(" ", "_");
-              console.log(link);
+              const link = text.toLowerCase().replace(' ', '_')
+              console.log(link)
 
               return (
                 <ListItem key={text}>
                   <ListItemButton
                     onClick={() => {
-                      if (link === "contact_us") {
+                      if (link === 'contact_us') {
                         window.open(
-                          "https://github.com/xorbitsai/inference",
-                          "_blank",
-                          "noreferrer",
-                        );
-                      } else if (link === "launch_model") {
-                        navigate(`/`);
-                        setActive(link);
-                        console.log(active);
+                          'https://github.com/xorbitsai/inference',
+                          '_blank',
+                          'noreferrer'
+                        )
+                      } else if (link === 'launch_model') {
+                        navigate(`/`)
+                        setActive(link)
+                        console.log(active)
                       } else {
-                        navigate(`/${link}`);
-                        setActive(link);
-                        console.log(active);
+                        navigate(`/${link}`)
+                        setActive(link)
+                        console.log(active)
                       }
                     }}
                   >
                     <ListItemIcon
                       sx={{
-                        ml: "2rem",
+                        ml: '2rem',
                       }}
                     >
                       {icon}
                     </ListItemIcon>
                     <ListItemText primary={text} />
-                    <ChevronRightOutlined sx={{ ml: "auto" }} />
+                    <ChevronRightOutlined sx={{ ml: 'auto' }} />
                   </ListItemButton>
                 </ListItem>
-              );
+              )
             })}
           </List>
         </Box>
       </Box>
     </Drawer>
-  );
-};
+  )
+}
 
-export default MenuSide;
+export default MenuSide

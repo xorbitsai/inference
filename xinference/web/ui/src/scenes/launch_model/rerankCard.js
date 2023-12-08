@@ -1,7 +1,5 @@
 import { RocketLaunchOutlined, UndoOutlined } from '@mui/icons-material'
-import DeleteIcon from '@mui/icons-material/Delete'
-import { Box, Chip, CircularProgress, Stack } from '@mui/material'
-import IconButton from '@mui/material/IconButton'
+import { Box, Chip, CircularProgress } from '@mui/material'
 import React, { useContext, useEffect, useState } from 'react'
 import { v1 as uuidv1 } from 'uuid'
 
@@ -10,18 +8,11 @@ import { ApiContext } from '../../components/apiContext'
 const CARD_HEIGHT = 270
 const CARD_WIDTH = 270
 
-const EmbeddingCard = ({
-  url,
-  modelData,
-  cardHeight = CARD_HEIGHT,
-  is_custom = false,
-}) => {
+const RerankCard = ({ url, modelData }) => {
   const [hover, setHover] = useState(false)
   const [selected, setSelected] = useState(false)
-  const [customDeleted, setCustomDeleted] = useState(false)
   const { isCallingApi, setIsCallingApi } = useContext(ApiContext)
   const { isUpdatingModel } = useContext(ApiContext)
-  const { setErrorMsg } = useContext(ApiContext)
 
   // UseEffects for parameter selection, change options based on previous selections
   useEffect(() => {}, [modelData])
@@ -37,7 +28,7 @@ const EmbeddingCard = ({
     const modelDataWithID = {
       model_uid: uuid,
       model_name: modelData.model_name,
-      model_type: 'embedding',
+      model_type: 'rerank',
     }
 
     // First fetch request to initiate the model
@@ -48,20 +39,7 @@ const EmbeddingCard = ({
       },
       body: JSON.stringify(modelDataWithID),
     })
-      .then((res) => {
-        if (!res.ok) {
-          res
-            .json()
-            .then((errData) =>
-              setErrorMsg(
-                `Server error: ${res.status} - ${
-                  errData.detail || 'Unknown error'
-                }`
-              )
-            )
-        } else {
-          window.open(url + '/ui/#/running_models', '_blank', 'noreferrer')
-        }
+      .then(() => {
         setIsCallingApi(false)
       })
       .catch((error) => {
@@ -75,7 +53,7 @@ const EmbeddingCard = ({
       display: 'block',
       position: 'relative',
       width: `${CARD_WIDTH}px`,
-      height: `${cardHeight}px`,
+      height: `${CARD_HEIGHT}px`,
       border: '1px solid #ddd',
       borderRadius: '20px',
       background: 'white',
@@ -85,7 +63,7 @@ const EmbeddingCard = ({
       display: 'block',
       position: 'relative',
       width: `${CARD_WIDTH}px`,
-      height: `${cardHeight}px`,
+      height: `${CARD_HEIGHT}px`,
       border: '1px solid #ddd',
       borderRadius: '20px',
       background: 'white',
@@ -97,7 +75,7 @@ const EmbeddingCard = ({
       top: '-1px',
       left: '-1px',
       width: `${CARD_WIDTH}px`,
-      height: `${cardHeight}px`,
+      height: `${CARD_HEIGHT}px`,
       border: '1px solid #ddd',
       padding: '20px',
       borderRadius: '20px',
@@ -105,10 +83,10 @@ const EmbeddingCard = ({
     },
     parameterCard: {
       position: 'relative',
-      top: `-${cardHeight + 1}px`,
+      top: `-${CARD_HEIGHT + 1}px`,
       left: '-1px',
       width: `${CARD_WIDTH}px`,
-      height: `${cardHeight}px`,
+      height: `${CARD_HEIGHT}px`,
       border: '1px solid #ddd',
       padding: '20px',
       borderRadius: '20px',
@@ -196,18 +174,6 @@ const EmbeddingCard = ({
     },
   }
 
-  const handeCustomDelete = (e) => {
-    e.stopPropagation()
-    fetch(url + `/v1/model_registrations/embedding/${modelData.model_name}`, {
-      method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    })
-      .then(() => setCustomDeleted(true))
-      .catch(console.error)
-  }
-
   // Set two different states based on mouse hover
   return (
     <Box
@@ -215,7 +181,7 @@ const EmbeddingCard = ({
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       onClick={() => {
-        if (!selected && !customDeleted) {
+        if (!selected) {
           setSelected(true)
         }
       }}
@@ -223,24 +189,7 @@ const EmbeddingCard = ({
       {/* First state: show description page */}
       <Box style={styles.descriptionCard}>
         <div style={styles.titleContainer}>
-          {is_custom && (
-            <Stack
-              direction="row"
-              justifyContent="space-evenly"
-              alignItems="center"
-              spacing={1}
-            >
-              <h2 style={styles.h2}>{modelData.model_name}</h2>
-              <IconButton
-                aria-label="delete"
-                onClick={handeCustomDelete}
-                disabled={customDeleted}
-              >
-                <DeleteIcon />
-              </IconButton>
-            </Stack>
-          )}
-          {!is_custom && <h2 style={styles.h2}>{modelData.model_name}</h2>}
+          <h2 style={styles.h2}>{modelData.model_name}</h2>
           <div style={styles.langRow}>
             {(() => {
               if (modelData.language.includes('en')) {
@@ -259,28 +208,6 @@ const EmbeddingCard = ({
                 return <Chip label="ZH" variant="outlined" size="small" />
               }
             })()}
-            {(() => {
-              if (is_custom && customDeleted) {
-                return (
-                  <Chip
-                    label="Deleted"
-                    variant="outlined"
-                    size="small"
-                    sx={{ marginLeft: '10px' }}
-                  />
-                )
-              }
-            })()}
-          </div>
-        </div>
-        <div style={styles.iconRow}>
-          <div style={styles.iconItem}>
-            <span style={styles.boldIconText}>{modelData.dimensions}</span>
-            <small style={styles.smallText}>dimensions</small>
-          </div>
-          <div style={styles.iconItem}>
-            <span style={styles.boldIconText}>{modelData.max_tokens}</span>
-            <small style={styles.smallText}>max tokens</small>
           </div>
         </div>
         {hover ? (
@@ -302,7 +229,7 @@ const EmbeddingCard = ({
         <h2 style={styles.h2}>{modelData.model_name}</h2>
         <Box style={styles.buttonsContainer}>
           <button
-            title="Launch Embedding"
+            title="Launch Rerank"
             style={styles.buttonContainer}
             onClick={() => launchModel(url, modelData)}
             disabled={isCallingApi || isUpdatingModel || !modelData}
@@ -339,7 +266,7 @@ const EmbeddingCard = ({
             })()}
           </button>
           <button
-            title="Launch Embedding"
+            title="Launch Rerank"
             style={styles.buttonContainer}
             onClick={() => setSelected(false)}
           >
@@ -353,4 +280,4 @@ const EmbeddingCard = ({
   )
 }
 
-export default EmbeddingCard
+export default RerankCard
