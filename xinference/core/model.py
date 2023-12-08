@@ -14,6 +14,7 @@
 
 import asyncio
 import inspect
+import os
 import uuid
 from typing import (
     TYPE_CHECKING,
@@ -43,6 +44,15 @@ logger = logging.getLogger(__name__)
 from .utils import json_dumps, log_async
 
 T = TypeVar("T")
+
+try:
+    from torch.cuda import OutOfMemoryError
+except ImportError:
+
+    class _OutOfMemoryError(Exception):
+        pass
+
+    OutOfMemoryError = _OutOfMemoryError
 
 
 def request_limit(fn):
@@ -192,18 +202,30 @@ class ModelActor(xo.StatelessActor):
             return ret
 
     async def _call_wrapper(self, _wrapper: Callable):
-        assert not (
-            inspect.iscoroutinefunction(_wrapper)
-            or inspect.isasyncgenfunction(_wrapper)
-        )
-        if self._lock is None:
-            return await asyncio.to_thread(_wrapper)
-        else:
-            async with self._lock:
+        try:
+            assert not (
+                inspect.iscoroutinefunction(_wrapper)
+                or inspect.isasyncgenfunction(_wrapper)
+            )
+            if self._lock is None:
                 return await asyncio.to_thread(_wrapper)
+            else:
+                async with self._lock:
+                    return await asyncio.to_thread(_wrapper)
+        except OutOfMemoryError:
+            logger.exception(
+                "Model actor is out of memory, model id: %s", self.model_uid()
+            )
+            os._exit(1)
 
     async def _call_async_wrapper(self, _wrapper: Callable):
-        return await asyncio.create_task(_wrapper())
+        try:
+            return await asyncio.create_task(_wrapper())
+        except OutOfMemoryError:
+            logger.exception(
+                "Model actor is out of memory, model id: %s", self.model_uid()
+            )
+            os._exit(1)
 
     @log_async(logger=logger)
     @request_limit
