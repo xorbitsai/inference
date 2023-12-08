@@ -34,7 +34,7 @@ const ModelCard = ({ url, modelData, gpuAvailable }) => {
   const [modelFormat, setModelFormat] = useState('')
   const [modelSize, setModelSize] = useState('')
   const [quantization, setQuantization] = useState('')
-  const [nGPU, setNGPU] = useState(0)
+  const [nGPU, setNGPU] = useState('auto')
 
   const [formatOptions, setFormatOptions] = useState([])
   const [sizeOptions, setSizeOptions] = useState([])
@@ -107,7 +107,8 @@ const ModelCard = ({ url, modelData, gpuAvailable }) => {
       model_format: modelFormat,
       model_size_in_billions: modelSize,
       quantization: quantization,
-      n_gpu: nGPU === 0 ? null : nGPU,
+      n_gpu:
+        nGPU === '0' ? null : nGPU === 'auto' ? 'auto' : parseInt(nGPU, 10),
     }
 
     // First fetch request to initiate the model
@@ -476,18 +477,20 @@ const ModelCard = ({ url, modelData, gpuAvailable }) => {
                 <Select
                   labelId="n-gpu-label"
                   value={nGPU}
-                  onChange={(e) => setNGPU(parseInt(e.target.value, 10))}
+                  onChange={(e) => setNGPU(e.target.value)}
                   label="N-GPU"
                 >
-                  {range(0, modelFormat !== 'pytorch' ? 1 : gpuAvailable).map(
-                    (v) => {
+                  {['auto']
+                    .concat(
+                      range(0, modelFormat !== 'pytorch' ? 1 : gpuAvailable)
+                    )
+                    .map((v) => {
                       return (
                         <MenuItem key={v} value={v}>
                           {v}
                         </MenuItem>
                       )
-                    }
-                  )}
+                    })}
                 </Select>
               </FormControl>
             </Grid>
