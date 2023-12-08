@@ -26,9 +26,10 @@ potential of cutting-edge AI models.
 
 ## 🔥 Hot Topics
 ### Framework Enhancements
+- Auto recover: [#694](https://github.com/xorbitsai/inference/pull/694)
+- Function calling API: [#701](https://github.com/xorbitsai/inference/pull/701), here's example: https://github.com/xorbitsai/inference/blob/main/examples/FunctionCall.ipynb
 - Support rerank model: [#672](https://github.com/xorbitsai/inference/pull/672)
 - Speculative decoding: [#509](https://github.com/xorbitsai/inference/pull/509)
-- Support grammar-based sampling for ggml models: [#525](https://github.com/xorbitsai/inference/pull/525)
 - Incorporate vLLM: [#445](https://github.com/xorbitsai/inference/pull/445)
 ### New Models
 - Built-in support for [Yi](https://huggingface.co/01-ai): [#629](https://github.com/xorbitsai/inference/pull/629)
@@ -296,6 +297,7 @@ For in-depth details on the built-in models, please refer to [built-in models](h
   - chatglm2-32k
   - internlm-chat-20b
   - ...
+  
   More supported models can be found in the [documentation](https://inference.readthedocs.io/en/latest/models/sources/sources.html#modelscope)
 
 ## Custom models
