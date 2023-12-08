@@ -181,7 +181,7 @@ class WorkerActor(xo.StatelessActor):
             gpu_cnt = n_gpu if isinstance(n_gpu, int) else 1
             devices = (
                 [await self.allocate_devices_for_embedding(model_uid)]
-                if model_type == "embedding"
+                if model_type in ["embedding", "rerank"]
                 else self.allocate_devices(model_uid=model_uid, n_gpu=gpu_cnt)
             )
             env["CUDA_VISIBLE_DEVICES"] = ",".join([str(dev) for dev in devices])
