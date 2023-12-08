@@ -1,6 +1,13 @@
 import { RocketLaunchOutlined, UndoOutlined } from '@mui/icons-material'
 import DeleteIcon from '@mui/icons-material/Delete'
-import { Box, Chip, CircularProgress, Stack } from '@mui/material'
+import {
+  Box,
+  Chip,
+  CircularProgress,
+  FormControl,
+  Stack,
+  TextField,
+} from '@mui/material'
 import IconButton from '@mui/material/IconButton'
 import React, { useContext, useEffect, useState } from 'react'
 import { v1 as uuidv1 } from 'uuid'
@@ -16,6 +23,7 @@ const EmbeddingCard = ({
   cardHeight = CARD_HEIGHT,
   is_custom = false,
 }) => {
+  const [modelUID, setModelUID] = useState('')
   const [hover, setHover] = useState(false)
   const [selected, setSelected] = useState(false)
   const [customDeleted, setCustomDeleted] = useState(false)
@@ -33,9 +41,8 @@ const EmbeddingCard = ({
 
     setIsCallingApi(true)
 
-    const uuid = uuidv1()
     const modelDataWithID = {
-      model_uid: uuid,
+      model_uid: modelUID.trim() === '' ? uuidv1() : modelUID.trim(),
       model_name: modelData.model_name,
       model_type: 'embedding',
     }
@@ -132,7 +139,7 @@ const EmbeddingCard = ({
     buttonsContainer: {
       display: 'flex',
       margin: '0 auto',
-      marginTop: '120px',
+      marginTop: '60px',
       border: 'none',
       justifyContent: 'space-between',
       alignItems: 'center',
@@ -300,6 +307,14 @@ const EmbeddingCard = ({
         }
       >
         <h2 style={styles.h2}>{modelData.model_name}</h2>
+        <FormControl variant="outlined" margin="normal" fullWidth>
+          <TextField
+            variant="outlined"
+            value={modelUID}
+            label="(Optional) Model UID, uuid by default"
+            onChange={(e) => setModelUID(e.target.value)}
+          />
+        </FormControl>
         <Box style={styles.buttonsContainer}>
           <button
             title="Launch Embedding"

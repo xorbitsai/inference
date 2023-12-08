@@ -16,6 +16,7 @@ import {
   MenuItem,
   Select,
   Stack,
+  TextField,
 } from '@mui/material'
 import IconButton from '@mui/material/IconButton'
 import Typography from '@mui/material/Typography'
@@ -24,7 +25,7 @@ import { v1 as uuidv1 } from 'uuid'
 
 import { ApiContext } from '../../components/apiContext'
 
-const CARD_HEIGHT = 350
+const CARD_HEIGHT = 380
 const CARD_WIDTH = 300
 
 const ModelCard = ({ url, modelData, gpuAvailable, is_custom = false }) => {
@@ -35,6 +36,7 @@ const ModelCard = ({ url, modelData, gpuAvailable, is_custom = false }) => {
   const { setErrorMsg } = useContext(ApiContext)
 
   // Model parameter selections
+  const [modelUID, setModelUID] = useState('')
   const [modelFormat, setModelFormat] = useState('')
   const [modelSize, setModelSize] = useState('')
   const [quantization, setQuantization] = useState('')
@@ -105,9 +107,8 @@ const ModelCard = ({ url, modelData, gpuAvailable, is_custom = false }) => {
 
     setIsCallingApi(true)
 
-    const uuid = uuidv1()
     const modelDataWithID = {
-      model_uid: uuid,
+      model_uid: modelUID.trim() === '' ? uuidv1() : modelUID.trim(),
       model_name: modelData.model_name,
       model_format: modelFormat,
       model_size_in_billions: modelSize,
@@ -209,7 +210,7 @@ const ModelCard = ({ url, modelData, gpuAvailable, is_custom = false }) => {
     buttonsContainer: {
       display: 'flex',
       margin: '0 auto',
-      marginTop: '30px',
+      marginTop: '15px',
       border: 'none',
       justifyContent: 'space-between',
       alignItems: 'center',
@@ -407,7 +408,17 @@ const ModelCard = ({ url, modelData, gpuAvailable, is_custom = false }) => {
       >
         <h2 style={styles.h2}>{modelData.model_name}</h2>
         <Box display="flex" flexDirection="column" width="100%" mx="auto">
-          <Grid container spacing={1}>
+          <Grid container rowSpacing={0} columnSpacing={1}>
+            <Grid item xs={12}>
+              <FormControl variant="outlined" margin="normal" fullWidth>
+                <TextField
+                  variant="outlined"
+                  value={modelUID}
+                  label="(Optional) Model UID, uuid by default"
+                  onChange={(e) => setModelUID(e.target.value)}
+                />
+              </FormControl>
+            </Grid>
             <Grid item xs={6}>
               <FormControl variant="outlined" margin="normal" fullWidth>
                 <InputLabel id="modelFormat-label">Model Format</InputLabel>
@@ -466,46 +477,42 @@ const ModelCard = ({ url, modelData, gpuAvailable, is_custom = false }) => {
               </FormControl>
             </Grid>
             <Grid item xs={6}>
-              {(modelData.is_builtin || modelFormat === 'pytorch') && (
-                <FormControl
-                  variant="outlined"
-                  margin="normal"
-                  fullWidth
-                  disabled={!modelFormat || !modelSize}
+              <FormControl
+                variant="outlined"
+                margin="normal"
+                fullWidth
+                disabled={!modelFormat || !modelSize}
+              >
+                <InputLabel id="quantization-label">Quantization</InputLabel>
+                <Select
+                  labelId="quantization-label"
+                  value={quantization}
+                  onChange={(e) => setQuantization(e.target.value)}
+                  label="Quantization"
                 >
-                  <InputLabel id="quantization-label">Quantization</InputLabel>
-                  <Select
-                    labelId="quantization-label"
-                    value={quantization}
-                    onChange={(e) => setQuantization(e.target.value)}
-                    label="Quantization"
-                  >
-                    {quantizationOptions.map((quant, index) => {
-                      const specs = modelData.model_specs
-                        .filter((spec) => spec.model_format === modelFormat)
-                        .filter(
-                          (spec) => spec.model_size_in_billions === modelSize
-                        )
-
-                      const cached =
-                        modelFormat === 'pytorch'
-                          ? specs[0].cache_status &&
-                            specs[0].cache_status === true
-                          : specs[0].cache_status &&
-                            specs[0].cache_status[index] === true
-                      const displayedQuant = cached
-                        ? quant + ' (cached)'
-                        : quant
-
-                      return (
-                        <MenuItem key={quant} value={quant}>
-                          {displayedQuant}
-                        </MenuItem>
+                  {quantizationOptions.map((quant, index) => {
+                    const specs = modelData.model_specs
+                      .filter((spec) => spec.model_format === modelFormat)
+                      .filter(
+                        (spec) => spec.model_size_in_billions === modelSize
                       )
-                    })}
-                  </Select>
-                </FormControl>
-              )}
+
+                    const cached =
+                      modelFormat === 'pytorch'
+                        ? specs[0].cache_status &&
+                          specs[0].cache_status === true
+                        : specs[0].cache_status &&
+                          specs[0].cache_status[index] === true
+                    const displayedQuant = cached ? quant + ' (cached)' : quant
+
+                    return (
+                      <MenuItem key={quant} value={quant}>
+                        {displayedQuant}
+                      </MenuItem>
+                    )
+                  })}
+                </Select>
+              </FormControl>
             </Grid>
             <Grid item xs={6}>
               <FormControl
