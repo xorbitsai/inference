@@ -5,6 +5,7 @@ import {
   RocketLaunchOutlined,
   UndoOutlined,
 } from '@mui/icons-material'
+import DeleteIcon from '@mui/icons-material/Delete'
 import {
   Box,
   Chip,
@@ -14,7 +15,10 @@ import {
   InputLabel,
   MenuItem,
   Select,
+  Stack,
 } from '@mui/material'
+import IconButton from '@mui/material/IconButton'
+import Typography from '@mui/material/Typography'
 import React, { useContext, useEffect, useState } from 'react'
 import { v1 as uuidv1 } from 'uuid'
 
@@ -23,7 +27,7 @@ import { ApiContext } from '../../components/apiContext'
 const CARD_HEIGHT = 350
 const CARD_WIDTH = 300
 
-const ModelCard = ({ url, modelData, gpuAvailable }) => {
+const ModelCard = ({ url, modelData, gpuAvailable, is_custom = false }) => {
   const [hover, setHover] = useState(false)
   const [selected, setSelected] = useState(false)
   const { isCallingApi, setIsCallingApi } = useContext(ApiContext)
@@ -39,6 +43,7 @@ const ModelCard = ({ url, modelData, gpuAvailable }) => {
   const [formatOptions, setFormatOptions] = useState([])
   const [sizeOptions, setSizeOptions] = useState([])
   const [quantizationOptions, setQuantizationOptions] = useState([])
+  const [customDeleted, setCustomDeleted] = useState(false)
 
   const range = (start, end) => {
     return new Array(end - start + 1).fill(undefined).map((_, i) => i + start)
@@ -268,6 +273,18 @@ const ModelCard = ({ url, modelData, gpuAvailable }) => {
     },
   }
 
+  const handeCustomDelete = (e) => {
+    e.stopPropagation()
+    fetch(url + `/v1/model_registrations/LLM/${modelData.model_name}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+      .then(() => setCustomDeleted(true))
+      .catch(console.error)
+  }
+
   // Set two different states based on mouse hover
   return (
     <Box
@@ -275,14 +292,33 @@ const ModelCard = ({ url, modelData, gpuAvailable }) => {
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       onClick={() => {
-        if (!selected) {
+        if (!selected && !customDeleted) {
           setSelected(true)
         }
       }}
     >
       {/* First state: show description page */}
       <Box style={styles.descriptionCard}>
-        <h2 style={styles.h2}>{modelData.model_name}</h2>
+        {is_custom && (
+          <Stack
+            direction="row"
+            justifyContent="space-evenly"
+            alignItems="center"
+            spacing={1}
+          >
+            <Typography variant="h4" gutterBottom noWrap>
+              {modelData.model_name}
+            </Typography>
+            <IconButton
+              aria-label="delete"
+              onClick={handeCustomDelete}
+              disabled={customDeleted}
+            >
+              <DeleteIcon />
+            </IconButton>
+          </Stack>
+        )}
+        {!is_custom && <h2 style={styles.h2}>{modelData.model_name}</h2>}
         <div style={styles.tagRow}>
           {(() => {
             if (modelData.model_lang.includes('en')) {
@@ -306,6 +342,18 @@ const ModelCard = ({ url, modelData, gpuAvailable }) => {
               return (
                 <Chip
                   label="Cached"
+                  variant="outlined"
+                  size="small"
+                  sx={{ marginLeft: '10px' }}
+                />
+              )
+            }
+          })()}
+          {(() => {
+            if (is_custom && customDeleted) {
+              return (
+                <Chip
+                  label="Deleted"
                   variant="outlined"
                   size="small"
                   sx={{ marginLeft: '10px' }}
@@ -348,13 +396,6 @@ const ModelCard = ({ url, modelData, gpuAvailable }) => {
             }
           })()}
         </div>
-        {hover ? (
-          <p style={styles.instructionText}>
-            Click with mouse to launch the model
-          </p>
-        ) : (
-          <p style={styles.instructionText}></p>
-        )}
       </Box>
       {/* Second state: show parameter selection page */}
       <Box
