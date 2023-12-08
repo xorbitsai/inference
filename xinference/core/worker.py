@@ -368,8 +368,10 @@ class WorkerActor(xo.StatelessActor):
 
         try:
             await xo.destroy_actor(model_ref)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(
+                "Destroy model actor failed, model uid: %s, error: %s", model_uid, e
+            )
         try:
             subpool_address = self._model_uid_to_addr[model_uid]
             await self._main_pool.remove_sub_pool(subpool_address)
