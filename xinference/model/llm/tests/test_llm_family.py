@@ -878,6 +878,7 @@ def test_get_cache_status_pytorch():
         model_size_in_billions=1,
         quantizations=["4-bit", "8-bit", "none"],
         model_id="facebook/opt-125m",
+        model_revision="3d2b5f275bdf882b8775f902e1bfdb790e2cfc32",
     )
     family = LLMFamilyV1(
         version=1,
