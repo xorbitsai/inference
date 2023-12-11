@@ -409,16 +409,6 @@ const ModelCard = ({ url, modelData, gpuAvailable, is_custom = false }) => {
         <h2 style={styles.h2}>{modelData.model_name}</h2>
         <Box display="flex" flexDirection="column" width="100%" mx="auto">
           <Grid container rowSpacing={0} columnSpacing={1}>
-            <Grid item xs={12}>
-              <FormControl variant="outlined" margin="normal" fullWidth>
-                <TextField
-                  variant="outlined"
-                  value={modelUID}
-                  label="(Optional) Model UID, uuid by default"
-                  onChange={(e) => setModelUID(e.target.value)}
-                />
-              </FormControl>
-            </Grid>
             <Grid item xs={6}>
               <FormControl variant="outlined" margin="normal" fullWidth>
                 <InputLabel id="modelFormat-label">Model Format</InputLabel>
@@ -540,6 +530,16 @@ const ModelCard = ({ url, modelData, gpuAvailable, is_custom = false }) => {
                       )
                     })}
                 </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12}>
+              <FormControl variant="outlined" margin="normal" fullWidth>
+                <TextField
+                  variant="outlined"
+                  value={modelUID}
+                  label="(Optional) Model UID, uuid by default"
+                  onChange={(e) => setModelUID(e.target.value)}
+                />
               </FormControl>
             </Grid>
           </Grid>
