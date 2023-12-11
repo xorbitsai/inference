@@ -588,31 +588,57 @@ def cache_from_huggingface(
     return cache_dir
 
 
+def _check_revision(
+    llm_family: LLMFamilyV1,
+    llm_spec: "LLMSpecV1",
+    builtin: list,
+    meta_path: str,
+) -> bool:
+    for family in builtin:
+        if llm_family.model_name == family.model_name:
+            specs = family.model_specs
+            for spec in specs:
+                if (
+                    spec.model_format == "pytorch"
+                    and spec.model_size_in_billions == llm_spec.model_size_in_billions
+                ):
+                    return valid_model_revision(meta_path, spec.model_revision)
+    return False
+
+
 def get_cache_status(
     llm_family: LLMFamilyV1,
     llm_spec: "LLMSpecV1",
 ) -> Union[bool, List[bool]]:
+    """
+    When calling this function from above, `llm_family` is constructed only from BUILTIN_LLM_FAMILIES,
+    so we should check both huggingface and modelscope cache files.
+    """
     cache_dir = _get_cache_dir(llm_family, llm_spec, create_if_not_exist=False)
+    # check revision for pytorch model
     if llm_spec.model_format == "pytorch":
-        return _skip_download(
-            cache_dir,
-            llm_spec.model_format,
-            llm_spec.model_hub,
-            llm_spec.model_revision,
-            "none",
-        )
+        hf_meta_path = _get_meta_path(cache_dir, "pytorch", "huggingface", "none")
+        ms_meta_path = _get_meta_path(cache_dir, "pytorch", "modelscope", "none")
+        revisions = [
+            _check_revision(llm_family, llm_spec, BUILTIN_LLM_FAMILIES, hf_meta_path),
+            _check_revision(
+                llm_family, llm_spec, BUILTIN_MODELSCOPE_LLM_FAMILIES, ms_meta_path
+            ),
+        ]
+        return any(revisions)
+    # just check meta file for ggml and gptq model
     elif llm_spec.model_format in ["ggmlv3", "ggufv2", "gptq"]:
         ret = []
         for q in llm_spec.quantizations:
-            ret.append(
-                _skip_download(
-                    cache_dir,
-                    llm_spec.model_format,
-                    llm_spec.model_hub,
-                    llm_spec.model_revision,
-                    q,
-                )
+            assert q is not None
+            hf_meta_path = _get_meta_path(
+                cache_dir, llm_spec.model_format, "huggingface", q
             )
+            ms_meta_path = _get_meta_path(
+                cache_dir, llm_spec.model_format, "modelscope", q
+            )
+            results = [os.path.exists(hf_meta_path), os.path.exists(ms_meta_path)]
+            ret.append(any(results))
         return ret
     else:
         raise ValueError(f"Unsupported model format: {llm_spec.model_format}")
