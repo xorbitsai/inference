@@ -368,8 +368,44 @@ const RunningModels = () => {
   const imageModelColumns = embeddingModelColumns
   const rerankModelColumns = embeddingModelColumns
 
+  const dataGridStyle = {
+    '& .MuiDataGrid-cell': {
+      borderBottom: 'none',
+    },
+    '& .MuiDataGrid-columnHeaders': {
+      borderBottom: 'none',
+    },
+    '& .MuiDataGrid-columnHeaderTitle': {
+      fontWeight: 'bold',
+    },
+    '& .MuiDataGrid-virtualScroller': {
+      overflowX: 'visible !important',
+      overflow: 'visible',
+    },
+    '& .MuiDataGrid-footerContainer': {
+      borderTop: 'none',
+    },
+    'border-width': '0px',
+  }
+
+  const noRowsOverlay = () => {
+    return (
+      <Stack height="100%" alignItems="center" justifyContent="center">
+        No Running Models
+      </Stack>
+    )
+  }
+
+  const noResultsOverlay = () => {
+    return (
+      <Stack height="100%" alignItems="center" justifyContent="center">
+        No Running Models Matches
+      </Stack>
+    )
+  }
+
   return (
-    <Box m="20px">
+    <Box sx={{ height: '100%', width: '100%' }}>
       <Title title="Running Models" />
       <TabContext value={tabValue}>
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
@@ -385,233 +421,57 @@ const RunningModels = () => {
           </TabList>
         </Box>
         <TabPanel value="1" sx={{ padding: 0 }}>
-          <Box m="40px 0 0 0" height="30vh">
+          <Box sx={{ height: '100%', width: '100%' }}>
             <DataGrid
               rows={llmData}
               columns={llmColumns}
-              sx={{
-                '& .MuiDataGrid-main': {
-                  width: '95% !important',
-                  overflow: 'visible',
-                },
-                '& .MuiDataGrid-row': {
-                  background: 'white',
-                  margin: '10px 0px',
-                },
-                '& .MuiDataGrid-cell': {
-                  borderBottom: 'none',
-                },
-                '& .CustomWide-cell': {
-                  minWidth: '250px !important',
-                },
-                '& .MuiDataGrid-columnHeaders': {
-                  borderBottom: 'none',
-                },
-                '& .MuiDataGrid-columnHeaderTitle': {
-                  fontWeight: 'bold',
-                },
-                '& .MuiDataGrid-virtualScroller': {
-                  overflowX: 'visible !important',
-                  overflow: 'visible',
-                },
-                '& .MuiDataGrid-footerContainer': {
-                  borderTop: 'none',
-                },
-                'border-width': '0px',
-              }}
+              autoHeight={true}
+              sx={dataGridStyle}
               slots={{
-                noRowsOverlay: () => (
-                  <Stack
-                    height="100%"
-                    alignItems="center"
-                    justifyContent="center"
-                  >
-                    No Running Models
-                  </Stack>
-                ),
-                noResultsOverlay: () => (
-                  <Stack
-                    height="100%"
-                    alignItems="center"
-                    justifyContent="center"
-                  >
-                    No Running Models Matches
-                  </Stack>
-                ),
+                noRowsOverlay: noRowsOverlay,
+                noResultsOverlay: noResultsOverlay,
               }}
             />
           </Box>
         </TabPanel>
         <TabPanel value="2" sx={{ padding: 0 }}>
-          <Box m="40px 0 0 0" height="30vh">
+          <Box sx={{ height: '100%', width: '100%' }}>
             <DataGrid
               rows={embeddingModelData}
               columns={embeddingModelColumns}
-              sx={{
-                '& .MuiDataGrid-main': {
-                  width: '95% !important',
-                  overflow: 'visible',
-                },
-                '& .MuiDataGrid-row': {
-                  background: 'white',
-                  margin: '10px 0px',
-                },
-                '& .MuiDataGrid-cell': {
-                  borderBottom: 'none',
-                },
-                '& .CustomWide-cell': {
-                  minWidth: '250px !important',
-                },
-                '& .MuiDataGrid-columnHeaders': {
-                  borderBottom: 'none',
-                },
-                '& .MuiDataGrid-columnHeaderTitle': {
-                  fontWeight: 'bold',
-                },
-                '& .MuiDataGrid-virtualScroller': {
-                  overflowX: 'visible !important',
-                  overflow: 'visible',
-                },
-                '& .MuiDataGrid-footerContainer': {
-                  borderTop: 'none',
-                },
-                'border-width': '0px',
-              }}
+              autoHeight={true}
+              sx={dataGridStyle}
               slots={{
-                noRowsOverlay: () => (
-                  <Stack
-                    height="100%"
-                    alignItems="center"
-                    justifyContent="center"
-                  >
-                    No Running Models
-                  </Stack>
-                ),
-                noResultsOverlay: () => (
-                  <Stack
-                    height="100%"
-                    alignItems="center"
-                    justifyContent="center"
-                  >
-                    No Running Models Matches
-                  </Stack>
-                ),
+                noRowsOverlay: noRowsOverlay,
+                noResultsOverlay: noResultsOverlay,
               }}
             />
           </Box>
         </TabPanel>
         <TabPanel value="3" sx={{ padding: 0 }}>
-          <Box m="40px 0 0 0" height="30vh">
+          <Box sx={{ height: '100%', width: '100%' }}>
             <DataGrid
               rows={imageModelData}
               columns={imageModelColumns}
-              sx={{
-                '& .MuiDataGrid-main': {
-                  width: '95% !important',
-                  overflow: 'visible',
-                },
-                '& .MuiDataGrid-row': {
-                  background: 'white',
-                  margin: '10px 0px',
-                },
-                '& .MuiDataGrid-cell': {
-                  borderBottom: 'none',
-                },
-                '& .CustomWide-cell': {
-                  minWidth: '250px !important',
-                },
-                '& .MuiDataGrid-columnHeaders': {
-                  borderBottom: 'none',
-                },
-                '& .MuiDataGrid-columnHeaderTitle': {
-                  fontWeight: 'bold',
-                },
-                '& .MuiDataGrid-virtualScroller': {
-                  overflowX: 'visible !important',
-                  overflow: 'visible',
-                },
-                '& .MuiDataGrid-footerContainer': {
-                  borderTop: 'none',
-                },
-                'border-width': '0px',
-              }}
+              autoHeight={true}
+              sx={dataGridStyle}
               slots={{
-                noRowsOverlay: () => (
-                  <Stack
-                    height="100%"
-                    alignItems="center"
-                    justifyContent="center"
-                  >
-                    No Running Models
-                  </Stack>
-                ),
-                noResultsOverlay: () => (
-                  <Stack
-                    height="100%"
-                    alignItems="center"
-                    justifyContent="center"
-                  >
-                    No Running Models Matches
-                  </Stack>
-                ),
+                noRowsOverlay: noRowsOverlay,
+                noResultsOverlay: noResultsOverlay,
               }}
             />
           </Box>
         </TabPanel>
         <TabPanel value="4" sx={{ padding: 0 }}>
-          <Box m="40px 0 0 0" height="30vh">
+          <Box sx={{ height: '100%', width: '100%' }}>
             <DataGrid
               rows={rerankModelData}
               columns={rerankModelColumns}
-              sx={{
-                '& .MuiDataGrid-main': {
-                  width: '95% !important',
-                  overflow: 'visible',
-                },
-                '& .MuiDataGrid-row': {
-                  background: 'white',
-                  margin: '10px 0px',
-                },
-                '& .MuiDataGrid-cell': {
-                  borderBottom: 'none',
-                },
-                '& .CustomWide-cell': {
-                  minWidth: '250px !important',
-                },
-                '& .MuiDataGrid-columnHeaders': {
-                  borderBottom: 'none',
-                },
-                '& .MuiDataGrid-columnHeaderTitle': {
-                  fontWeight: 'bold',
-                },
-                '& .MuiDataGrid-virtualScroller': {
-                  overflowX: 'visible !important',
-                  overflow: 'visible',
-                },
-                '& .MuiDataGrid-footerContainer': {
-                  borderTop: 'none',
-                },
-                'border-width': '0px',
-              }}
+              autoHeight={true}
+              sx={dataGridStyle}
               slots={{
-                noRowsOverlay: () => (
-                  <Stack
-                    height="100%"
-                    alignItems="center"
-                    justifyContent="center"
-                  >
-                    No Running Models
-                  </Stack>
-                ),
-                noResultsOverlay: () => (
-                  <Stack
-                    height="100%"
-                    alignItems="center"
-                    justifyContent="center"
-                  >
-                    No Running Models Matches
-                  </Stack>
-                ),
+                noRowsOverlay: noRowsOverlay,
+                noResultsOverlay: noResultsOverlay,
               }}
             />
           </Box>
