@@ -16,7 +16,7 @@ import codecs
 import json
 import os
 
-from .core import RerankModelSpec, get_cache_status
+from .core import MODEL_NAME_TO_REVISION, RerankModelSpec, get_cache_status
 
 _model_spec_json = os.path.join(os.path.dirname(__file__), "model_spec.json")
 _model_spec_modelscope_json = os.path.join(
@@ -26,11 +26,15 @@ BUILTIN_RERANK_MODELS = dict(
     (spec["model_name"], RerankModelSpec(**spec))
     for spec in json.load(codecs.open(_model_spec_json, "r", encoding="utf-8"))
 )
+for model_name, model_spec in BUILTIN_RERANK_MODELS.items():
+    MODEL_NAME_TO_REVISION[model_name].append(model_spec.model_revision)
 MODELSCOPE_RERANK_MODELS = dict(
     (spec["model_name"], RerankModelSpec(**spec))
     for spec in json.load(
         codecs.open(_model_spec_modelscope_json, "r", encoding="utf-8")
     )
 )
+for model_name, model_spec in MODELSCOPE_RERANK_MODELS.items():
+    MODEL_NAME_TO_REVISION[model_name].append(model_spec.model_revision)
 del _model_spec_json
 del _model_spec_modelscope_json

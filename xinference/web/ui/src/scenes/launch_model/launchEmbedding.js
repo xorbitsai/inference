@@ -22,10 +22,7 @@ const LaunchEmbedding = () => {
     const modelName = registration.model_name
       ? registration.model_name.toLowerCase()
       : ''
-    if (!modelName.includes(searchTerm.toLowerCase())) {
-      return false
-    }
-    return true
+    return modelName.includes(searchTerm.toLowerCase())
   }
 
   const update = async () => {
@@ -35,7 +32,7 @@ const LaunchEmbedding = () => {
       setIsCallingApi(true)
 
       const response = await fetch(
-        `${endPoint}/v1/model_registrations/embedding`,
+        `${endPoint}/v1/model_registrations/embedding?detailed=true`,
         {
           method: 'GET',
         }
@@ -54,6 +51,7 @@ const LaunchEmbedding = () => {
           return {
             ...(await desc.json()),
             is_builtin: registration.is_builtin,
+            is_cached: registration.cache_status,
           }
         })
       )

@@ -5,7 +5,7 @@ import { ApiContext } from '../../components/apiContext'
 import EmbeddingCard from './embeddingCard'
 import ModelCard from './modelCard'
 
-const LaunchCustom = () => {
+const LaunchCustom = ({ gpuAvailable }) => {
   let endPoint = useContext(ApiContext).endPoint
   const [registrationData, setRegistrationData] = useState([])
   const { isCallingApi, setIsCallingApi } = useContext(ApiContext)
@@ -138,7 +138,7 @@ const LaunchCustom = () => {
                 <EmbeddingCard
                   url={endPoint}
                   modelData={filteredRegistration}
-                  cardHeight={350}
+                  cardHeight={380}
                   is_custom={true}
                 />
               )
@@ -147,6 +147,7 @@ const LaunchCustom = () => {
                 <ModelCard
                   url={endPoint}
                   modelData={filteredRegistration}
+                  gpuAvailable={gpuAvailable}
                   is_custom={true}
                 />
               )

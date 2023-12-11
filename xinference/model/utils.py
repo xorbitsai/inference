@@ -16,11 +16,11 @@ import logging
 import os
 from json import JSONDecodeError
 from pathlib import Path
-from typing import Callable, Dict, Optional, Tuple
+from typing import Any, Callable, Dict, Optional, Tuple
 
 from fsspec import AbstractFileSystem
 
-from ..constants import XINFERENCE_ENV_MODEL_SRC
+from ..constants import XINFERENCE_CACHE_DIR, XINFERENCE_ENV_MODEL_SRC
 
 logger = logging.getLogger(__name__)
 MAX_ATTEMPTS = 3
@@ -130,6 +130,17 @@ def valid_model_revision(
             )
             return False
         return real_revision == expected_model_revision
+
+
+def is_model_cached(model_spec: Any, name_to_revisions_mapping: Dict):
+    cache_dir = os.path.realpath(
+        os.path.join(XINFERENCE_CACHE_DIR, model_spec.model_name)
+    )
+    meta_path = os.path.join(cache_dir, "__valid_download")
+    revisions = name_to_revisions_mapping[model_spec.model_name]
+    if model_spec.model_revision not in revisions:  # Usually for UT
+        revisions.append(model_spec.model_revision)
+    return any([valid_model_revision(meta_path, revision) for revision in revisions])
 
 
 def is_valid_model_name(model_name: str) -> bool:

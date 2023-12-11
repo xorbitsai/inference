@@ -32,7 +32,7 @@ const LaunchRerank = () => {
       setIsCallingApi(true)
 
       const response = await fetch(
-        `${endPoint}/v1/model_registrations/rerank`,
+        `${endPoint}/v1/model_registrations/rerank?detailed=true`,
         {
           method: 'GET',
         }
@@ -51,6 +51,7 @@ const LaunchRerank = () => {
           return {
             ...(await desc.json()),
             is_builtin: registration.is_builtin,
+            is_cached: registration.cache_status,
           }
         })
       )

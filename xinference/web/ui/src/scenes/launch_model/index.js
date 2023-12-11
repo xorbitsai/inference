@@ -1,7 +1,8 @@
 import { TabContext, TabList, TabPanel } from '@mui/lab'
 import { Box, Tab } from '@mui/material'
-import React from 'react'
+import React, { useContext, useEffect, useState } from 'react'
 
+import { ApiContext } from '../../components/apiContext'
 import ErrorMessageSnackBar from '../../components/errorMessageSnackBar'
 import Title from '../../components/Title'
 import LaunchCustom from './launchCustom'
@@ -10,11 +11,41 @@ import LaunchLLM from './launchLLM'
 import LaunchRerank from './launchRerank'
 
 const LaunchModel = () => {
+  let endPoint = useContext(ApiContext).endPoint
   const [value, setValue] = React.useState('1')
+  const [gpuAvailable, setGPUAvailable] = useState(-1)
+
+  const { setErrorMsg } = useContext(ApiContext)
 
   const handleTabChange = (event, newValue) => {
     setValue(newValue)
   }
+
+  useEffect(() => {
+    if (gpuAvailable === -1) {
+      fetch(endPoint + '/v1/cluster/devices', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }).then((res) => {
+        if (!res.ok) {
+          // Usually, if some errors happen here, check if the cluster is available
+          res.json().then((errorData) => {
+            setErrorMsg(
+              `Server error: ${res.status} - ${
+                errorData.detail || 'Unknown error'
+              }`
+            )
+          })
+        } else {
+          res.json().then((data) => {
+            setGPUAvailable(parseInt(data, 10))
+          })
+        }
+      })
+    }
+  }, [])
 
   return (
     <Box m="20px">
@@ -30,7 +61,7 @@ const LaunchModel = () => {
           </TabList>
         </Box>
         <TabPanel value="1" sx={{ padding: 0 }}>
-          <LaunchLLM />
+          <LaunchLLM gpuAvailable={gpuAvailable} />
         </TabPanel>
         <TabPanel value="2" sx={{ padding: 0 }}>
           <LaunchEmbedding />
@@ -39,7 +70,7 @@ const LaunchModel = () => {
           <LaunchRerank />
         </TabPanel>
         <TabPanel value="4" sx={{ padding: 0 }}>
-          <LaunchCustom />
+          <LaunchCustom gpuAvailable={gpuAvailable} />
         </TabPanel>
       </TabContext>
     </Box>
