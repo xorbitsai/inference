@@ -59,7 +59,9 @@ class LlamaCppModel(LLM):
 
         closest_size = min(
             SIZE_TO_GPU_LAYERS.keys(),
-            key=lambda x: abs(x - model_spec.model_size_in_billions),
+            key=lambda x: abs(
+                x - self.handle_model_size(model_spec.model_size_in_billions)
+            ),
         )
         self._gpu_layers = SIZE_TO_GPU_LAYERS[closest_size]
         self._llamacpp_model_config: LlamaCppModelConfig = self._sanitize_model_config(

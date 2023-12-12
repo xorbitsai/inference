@@ -20,7 +20,7 @@ repos:
       - id: isort
         args: [--sp, setup.cfg]
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.4.1
+    rev: v1.7.1
     hooks:
       - id: mypy
         additional_dependencies: ["tokenize-rt==3.2.0", "types-requests", "types-tabulate"]

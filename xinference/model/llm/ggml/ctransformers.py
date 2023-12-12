@@ -93,7 +93,9 @@ class CtransformersModel(LLM):
         self._model_type = None
         closest_size = min(
             SIZE_TO_GPU_LAYERS.keys(),
-            key=lambda x: abs(x - model_spec.model_size_in_billions),
+            key=lambda x: abs(
+                x - self.handle_model_size(model_spec.model_size_in_billions)
+            ),
         )
 
         self._model_family = model_family
