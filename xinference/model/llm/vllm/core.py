@@ -349,7 +349,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
         full_prompt = self.get_prompt(prompt, chat_history, prompt_style)
 
         sanitized = self._sanitize_chat_config(generate_config)
-        stream = sanitized["stream"]
+        stream = sanitized.get("stream", None)
 
         if stream:
             agen = await self.async_generate(full_prompt, sanitized)
