@@ -19,7 +19,7 @@ import shutil
 from threading import Lock
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
-from pydantic import BaseModel, Field, Protocol, ValidationError
+from pydantic import BaseModel, Field, Protocol, ValidationError, validator
 from pydantic.error_wrappers import ErrorWrapper
 from pydantic.parse import load_str_bytes
 from pydantic.types import StrBytes
@@ -45,7 +45,8 @@ BUILTIN_LLM_PROMPT_STYLE: Dict[str, "PromptStyleV1"] = {}
 
 class GgmlLLMSpecV1(BaseModel):
     model_format: Literal["ggmlv3", "ggufv2"]
-    model_size_in_billions: int
+    # Must in order that `str` first, then `int`
+    model_size_in_billions: Union[str, int]
     quantizations: List[str]
     model_id: str
     model_file_name_template: str
@@ -53,15 +54,38 @@ class GgmlLLMSpecV1(BaseModel):
     model_uri: Optional[str]
     model_revision: Optional[str]
 
+    @validator("model_size_in_billions", pre=False)
+    def validate_model_size_with_radix(cls, v: object) -> object:
+        if isinstance(v, str):
+            if (
+                "_" in v
+            ):  # for example, "1_8" just returns "1_8", otherwise int("1_8") returns 18
+                return v
+            else:
+                return int(v)
+        return v
+
 
 class PytorchLLMSpecV1(BaseModel):
     model_format: Literal["pytorch", "gptq"]
-    model_size_in_billions: int
+    # Must in order that `str` first, then `int`
+    model_size_in_billions: Union[str, int]
     quantizations: List[str]
     model_id: str
     model_hub: str = "huggingface"
     model_uri: Optional[str]
     model_revision: Optional[str]
+
+    @validator("model_size_in_billions", pre=False)
+    def validate_model_size_with_radix(cls, v: object) -> object:
+        if isinstance(v, str):
+            if (
+                "_" in v
+            ):  # for example, "1_8" just returns "1_8", otherwise int("1_8") returns 18
+                return v
+            else:
+                return int(v)
+        return v
 
 
 class PromptStyleV1(BaseModel):
@@ -152,7 +176,7 @@ def download_from_self_hosted_storage() -> bool:
 def get_legacy_cache_path(
     model_name: str,
     model_format: str,
-    model_size_in_billions: Optional[int] = None,
+    model_size_in_billions: Optional[Union[str, int]] = None,
     quantization: Optional[str] = None,
 ) -> str:
     full_name = f"{model_name}-{model_format}-{model_size_in_billions}b-{quantization}"
