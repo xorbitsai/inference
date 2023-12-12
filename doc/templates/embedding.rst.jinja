@@ -1,0 +1,20 @@
+.. _models_builtin_{{ model_name|lower }}:
+
+{{ "=" * model_name|length }}
+{{ model_name }}
+{{ "=" * model_name|length }}
+
+- **Model Name:** {{ model_name }}
+- **Languages:** {{ ', '.join(language) }}
+- **Abilities:** embed
+
+Specifications
+^^^^^^^^^^^^^^
+
+- **Dimensions:** {{ dimensions }}
+- **Max Tokens:** {{ max_tokens }}
+- **Model ID:** {{ model_id }}
+
+Execute the following command to launch the model::
+
+   xinference launch --model-name {{ model_name }} --model-type embedding

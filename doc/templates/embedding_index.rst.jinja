@@ -1,0 +1,15 @@
+.. _models_embedding_index:
+
+================
+Embedding Models
+================
+
+The following is a list of built-in embedding models in Xinference:
+
+
+.. toctree::
+   :maxdepth: 1
+
+  {% for model in models %}
+   {{ model.model_name|lower }}
+  {% endfor %}
