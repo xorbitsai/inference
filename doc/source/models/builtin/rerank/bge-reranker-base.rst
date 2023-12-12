@@ -6,7 +6,7 @@ bge-reranker-base
 
 - **Model Name:** bge-reranker-base
 - **Languages:** en, zh
-- **Abilities:** embed
+- **Abilities:** rerank
 
 Specifications
 ^^^^^^^^^^^^^^
