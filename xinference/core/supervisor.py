@@ -63,9 +63,9 @@ class SupervisorActor(xo.StatelessActor):
         super().__init__()
         self._worker_address_to_worker: Dict[str, xo.ActorRefType["WorkerActor"]] = {}
         self._worker_status: Dict[str, WorkerStatus] = {}
-        self._replica_model_uid_to_worker: Dict[str, xo.ActorRefType["WorkerActor"]] = (
-            {}
-        )
+        self._replica_model_uid_to_worker: Dict[
+            str, xo.ActorRefType["WorkerActor"]
+        ] = {}
         self._model_uid_to_replica_info: Dict[str, ReplicaInfo] = {}
         self._uptime = None
         self._lock = asyncio.Lock()
