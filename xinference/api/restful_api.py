@@ -285,11 +285,13 @@ class RESTfulAPI:
                 SPAStaticFiles(directory=ui_location, html=True),
             )
         else:
-            warnings.warn(f"""
+            warnings.warn(
+                f"""
             Xinference ui is not built at expected directory: {ui_location}
             To resolve this warning, navigate to {os.path.join(lib_location, "web/ui/")}
             And build the Xinference ui by running "npm run build"
-            """)
+            """
+            )
 
         config = Config(
             app=self._app, host=self._host, port=self._port, log_config=logging_conf

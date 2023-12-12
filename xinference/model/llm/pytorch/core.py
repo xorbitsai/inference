@@ -442,9 +442,9 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
             and self.model_family.prompt_style
             and self.model_family.prompt_style.stop_token_ids
         ):
-            generate_config["stop_token_ids"] = (
-                self.model_family.prompt_style.stop_token_ids.copy()
-            )
+            generate_config[
+                "stop_token_ids"
+            ] = self.model_family.prompt_style.stop_token_ids.copy()
 
         return generate_config
 
