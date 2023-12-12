@@ -1,0 +1,30 @@
+.. _models_llm_{{ model_name|lower }}:
+
+{{ "=" * 40 }}
+{{ model_name }}
+{{ "=" * 40 }}
+
+- **Context Length:** {{ context_length }}
+- **Model Name:** {{ model_name }}
+- **Languages:** {{ model_lang | join(', ') }}
+- **Abilities:** {{ model_ability | join(', ') }}
+- **Description:** {{ model_description }}
+
+Specifications
+^^^^^^^^^^^^^^
+
+{% for spec in model_specs %}
+Model Spec {{ loop.index }} ({{ spec.model_format }}, {{ spec.model_size_in_billions }} Billion)
+{{ "+" * 40 }}
+
+- **Model Format:** {{ spec.model_format }}
+- **Model Size (in billions):** {{ spec.model_size_in_billions }}
+- **Quantizations:** {{ spec.quantizations | join(', ') }}
+- **Model ID:** {{ spec.model_id }}
+
+Execute the following command to launch the model, remember to replace ``${{ '{' }}quantization{{ '}' }}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-name {{ model_name }} --size-in-billions {{ spec.model_size_in_billions }} --model-format {{ spec.model_format }} --quantization ${{ '{' }}quantization{{ '}' }}
+
+{% endfor %}

@@ -1,0 +1,15 @@
+.. _models_llm_index:
+
+=====================
+Large language Models
+=====================
+
+The following is a list of built-in LLM in Xinference:
+
+
+.. toctree::
+   :maxdepth: 3
+
+  {% for model in models %}
+   {{ model.model_name|lower }}
+  {% endfor %}
