@@ -267,6 +267,18 @@ const EmbeddingCard = ({
               }
             })()}
             {(() => {
+              if (modelData.is_cached) {
+                return (
+                  <Chip
+                    label="Cached"
+                    variant="outlined"
+                    size="small"
+                    sx={{ marginLeft: '10px' }}
+                  />
+                )
+              }
+            })()}
+            {(() => {
               if (is_custom && customDeleted) {
                 return (
                   <Chip

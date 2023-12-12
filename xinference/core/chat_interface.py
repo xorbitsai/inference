@@ -282,13 +282,10 @@ class LLMInterface:
         ) as generate_interface:
             history = gr.State([])
 
-            Markdown(
-                f"""
+            Markdown(f"""
                 <h1 style='text-align: center; margin-bottom: 1rem'>🚀 Xinference Generate Bot : {self.model_name} 🚀</h1>
-                """
-            )
-            Markdown(
-                f"""
+                """)
+            Markdown(f"""
                 <div class="center">
                 Model ID: {self.model_uid}
                 </div>
@@ -301,8 +298,7 @@ class LLMInterface:
                 <div class="center">
                 Model Quantization: {self.quantization}
                 </div>
-                """
-            )
+                """)
 
             with Column(variant="panel"):
                 textbox = Textbox(

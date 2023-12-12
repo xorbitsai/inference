@@ -134,9 +134,9 @@ class ChatglmCppChatModel(LLM):
                     {
                         "index": 0,
                         "delta": {
-                            "content": token
-                            if isinstance(token, str)
-                            else token.content,
+                            "content": (
+                                token if isinstance(token, str) else token.content
+                            ),
                         },
                         "finish_reason": None,
                     }
@@ -223,8 +223,10 @@ class ChatglmCppChatModel(LLM):
             chatglm_tools.append(elem["function"])
         return {
             "role": "system",
-            "content": f"Answer the following questions as best as you can. You have access to the following tools:\n"
-            f"{json.dumps(chatglm_tools, indent=4, ensure_ascii=False)}",
+            "content": (
+                f"Answer the following questions as best as you can. You have access to the following tools:\n"
+                f"{json.dumps(chatglm_tools, indent=4, ensure_ascii=False)}"
+            ),
         }
 
     def chat(

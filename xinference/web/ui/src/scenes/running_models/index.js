@@ -405,7 +405,14 @@ const RunningModels = () => {
   }
 
   return (
-    <Box sx={{ height: '100%', width: '100%' }}>
+    <Box
+      sx={{
+        height: '100%',
+        width: '100%',
+        paddingLeft: '20px',
+        paddingTop: '20px',
+      }}
+    >
       <Title title="Running Models" />
       <TabContext value={tabValue}>
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>

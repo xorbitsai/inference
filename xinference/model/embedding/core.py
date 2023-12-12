@@ -15,7 +15,8 @@
 import logging
 import os
 import shutil
-from typing import List, Optional, Tuple, Union, no_type_check
+from collections import defaultdict
+from typing import Dict, List, Optional, Tuple, Union, no_type_check
 
 import numpy as np
 from pydantic import BaseModel
@@ -23,11 +24,14 @@ from pydantic import BaseModel
 from ...constants import XINFERENCE_CACHE_DIR
 from ...types import Embedding, EmbeddingData, EmbeddingUsage
 from ..core import ModelDescription
-from ..utils import valid_model_revision
+from ..utils import is_model_cached, valid_model_revision
 
 logger = logging.getLogger(__name__)
 
 SUPPORTED_SCHEMES = ["s3"]
+# Used for check whether the model is cached.
+# Init when registering all the builtin models.
+MODEL_NAME_TO_REVISION: Dict[str, List[str]] = defaultdict(list)
 
 
 class EmbeddingModelSpec(BaseModel):
@@ -195,11 +199,7 @@ def cache(model_spec: EmbeddingModelSpec):
 def get_cache_status(
     model_spec: EmbeddingModelSpec,
 ) -> bool:
-    cache_dir = os.path.realpath(
-        os.path.join(XINFERENCE_CACHE_DIR, model_spec.model_name)
-    )
-    meta_path = os.path.join(cache_dir, "__valid_download")
-    return valid_model_revision(meta_path, model_spec.model_revision)
+    return is_model_cached(model_spec, MODEL_NAME_TO_REVISION)
 
 
 class EmbeddingModel:

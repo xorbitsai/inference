@@ -16,7 +16,7 @@ import codecs
 import json
 import os
 
-from .core import EmbeddingModelSpec, get_cache_status
+from .core import MODEL_NAME_TO_REVISION, EmbeddingModelSpec, get_cache_status
 from .custom import CustomEmbeddingModelSpec, register_embedding, unregister_embedding
 
 _model_spec_json = os.path.join(os.path.dirname(__file__), "model_spec.json")
@@ -27,12 +27,16 @@ BUILTIN_EMBEDDING_MODELS = dict(
     (spec["model_name"], EmbeddingModelSpec(**spec))
     for spec in json.load(codecs.open(_model_spec_json, "r", encoding="utf-8"))
 )
+for model_name, model_spec in BUILTIN_EMBEDDING_MODELS.items():
+    MODEL_NAME_TO_REVISION[model_name].append(model_spec.model_revision)
 MODELSCOPE_EMBEDDING_MODELS = dict(
     (spec["model_name"], EmbeddingModelSpec(**spec))
     for spec in json.load(
         codecs.open(_model_spec_modelscope_json, "r", encoding="utf-8")
     )
 )
+for model_name, model_spec in MODELSCOPE_EMBEDDING_MODELS.items():
+    MODEL_NAME_TO_REVISION[model_name].append(model_spec.model_revision)
 
 from ...constants import XINFERENCE_MODEL_DIR
 

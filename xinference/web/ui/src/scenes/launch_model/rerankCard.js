@@ -214,6 +214,18 @@ const RerankCard = ({ url, modelData }) => {
                 return <Chip label="ZH" variant="outlined" size="small" />
               }
             })()}
+            {(() => {
+              if (modelData.is_cached) {
+                return (
+                  <Chip
+                    label="Cached"
+                    variant="outlined"
+                    size="small"
+                    sx={{ marginLeft: '10px' }}
+                  />
+                )
+              }
+            })()}
           </div>
         </div>
         {hover ? (

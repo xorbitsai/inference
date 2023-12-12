@@ -60,7 +60,9 @@ def get_config_dict(
         "disable_existing_loggers": False,
         "formatters": {
             "formatter": {
-                "format": "%(asctime)s %(name)-12s %(process)d %(levelname)-8s %(message)s"
+                "format": (
+                    "%(asctime)s %(name)-12s %(process)d %(levelname)-8s %(message)s"
+                )
             },
         },
         "filters": {

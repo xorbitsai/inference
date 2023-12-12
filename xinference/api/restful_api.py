@@ -258,9 +258,6 @@ class RESTfulAPI:
                 f"{pprint.pformat(invalid_routes)}"
             )
 
-        for tp in [CreateChatCompletion, CreateCompletion]:
-            logger.debug("Dump request model fields:\n%s", tp.__fields__)
-
         class SPAStaticFiles(StaticFiles):
             async def get_response(self, path: str, scope):
                 response = await super().get_response(path, scope)
@@ -288,13 +285,11 @@ class RESTfulAPI:
                 SPAStaticFiles(directory=ui_location, html=True),
             )
         else:
-            warnings.warn(
-                f"""
+            warnings.warn(f"""
             Xinference ui is not built at expected directory: {ui_location}
             To resolve this warning, navigate to {os.path.join(lib_location, "web/ui/")}
             And build the Xinference ui by running "npm run build"
-            """
-            )
+            """)
 
         config = Config(
             app=self._app, host=self._host, port=self._port, log_config=logging_conf

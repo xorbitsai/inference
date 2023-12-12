@@ -161,6 +161,8 @@ const RegisterModel = () => {
           roles: ps.roles,
           intra_message_sep: ps.intra_message_sep,
           inter_message_sep: ps.inter_message_sep,
+          stop: ps.stop ?? null,
+          stop_token_ids: ps.stop_token_ids ?? null,
         }
       }
     }
