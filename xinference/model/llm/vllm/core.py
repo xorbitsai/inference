@@ -79,6 +79,11 @@ VLLM_SUPPORTED_CHAT_MODELS = [
     "internlm-chat-20b",
     "qwen-chat",
     "Yi",
+    "Yi-chat",
+    "code-llama",
+    "code-llama-python",
+    "code-llama-instruct",
+    "mistral-instruct-v0.1",
     "mistral-instruct-v0.1",
     "chatglm3",
 ]
