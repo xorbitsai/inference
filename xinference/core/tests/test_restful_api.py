@@ -601,7 +601,7 @@ def test_restful_api_for_gorilla_openfunctions_tool_calls(
         ("pytorch", None),
     ],
 )
-# @pytest.mark.skip(reason="Cost too many resources.")
+@pytest.mark.skip(reason="Cost too many resources.")
 def test_restful_api_for_qwen_tool_calls(setup, model_format, quantization):
     model_name = "qwen-chat"
 
