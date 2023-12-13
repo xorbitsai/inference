@@ -304,7 +304,7 @@ class LlamaCppChatModel(LlamaCppModel, ChatModelMixin):
 
         chat_history = chat_history or []
         assert prompt_style is not None
-        tools = generate_config.pop("tools", [])
+        tools = generate_config.pop("tools", []) if generate_config else None
         full_prompt = self.get_prompt(prompt, chat_history, prompt_style, tools=tools)
 
         generate_config = self._sanitize_generate_config(generate_config)

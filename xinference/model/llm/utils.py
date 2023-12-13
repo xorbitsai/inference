@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import json
-from typing import AsyncGenerator, Dict, Iterator, List
+from typing import AsyncGenerator, Dict, Iterator, List, Optional
 
 from xinference.model.llm.llm_family import PromptStyleV1
 
@@ -31,7 +31,7 @@ class ChatModelMixin:
         prompt: str,
         chat_history: List[ChatCompletionMessage],
         prompt_style: PromptStyleV1,
-        tools: List[Dict] = None,
+        tools: Optional[List[Dict]] = None,
     ) -> str:
         """
         Inspired by FastChat. Format chat history into a prompt according to the prompty style of
