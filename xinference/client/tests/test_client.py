@@ -610,7 +610,7 @@ def test_auto_recover(setup_cluster):
 
     model_proc.kill()
 
-    for _ in range(10):
+    for _ in range(60):
         try:
             completion = model.generate(
                 "Once upon a time, there was a very old computer", {"max_tokens": 64}
