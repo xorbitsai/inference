@@ -43,6 +43,7 @@ Define a custom LLM model based on the following template:
          ],
          "model_id": "TheBloke/Llama-2-7B-GGML",
          "model_file_name_template": "llama-2-7b.ggmlv3.{quantization}.bin"
+         "model_uri": "file:///path/to/ggml-file"
        }
      ]
    }
@@ -55,9 +56,9 @@ Define a custom LLM model based on the following template:
    * model_format: A string that defines the model format, could be "pytorch" or "ggmlv3".
    * model_size_in_billions: An integer defining the size of the model in billions of parameters.
    * quantizations: A list of strings defining the available quantizations for the model. For PyTorch models, it could be "4-bit", "8-bit", or "none". For ggmlv3 models, the quantizations should correspond to values that work with the ``model_file_name_template``.
-   * model_id: A string representing the model ID, possibly referring to an identifier used by Hugging Face.
-   * model_uri: A string representing the URI where the model can be loaded from, such as "file:///path/to/llama-2-7b". If model URI is absent, Xinference will try to download the model from Hugging Face with the model ID.
-   * model_file_name_template: Required by ggml models. An f-string template used for defining the model file name based on the quantization.
+   * model_id: A string representing the model ID, possibly referring to an identifier used by Hugging Face. **If model_uri is missing, Xinference will try to download the model from the huggingface repository specified here.**.
+   * model_uri: A string representing the URI where the model can be loaded from, such as "file:///path/to/llama-2-7b". **When the model format is ggmlv3 or ggufv2, model_uri must be the specific file path. When the model format is pytorch, model_uri must be the path to the directory containing the model files.** If model URI is absent, Xinference will try to download the model from Hugging Face with the model ID.
+   * model_file_name_template: Required by ggml/gguf models. An f-string template used for defining the model file name based on the quantization. **Note that this field is just a template for the format of the ggmlv3/ggufv2 model file, do not fill in the specific path of the model file.**
 * prompt_style: An optional field that could be required by chat models to define the style of prompts. The given example has this set to None, but additional details could be found in a referenced file xinference/model/llm/tests/test_utils.py. You can also specify this field as a string, which will use the builtin prompt style in Xinference. For example:
 
 .. code-block:: json
