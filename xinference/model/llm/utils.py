@@ -402,7 +402,7 @@ Begin!"""
     @staticmethod
     def _eval_qwen_chat_arguments(c, tools):
         print(f">>>>>>>>>>>> {c}")
-        text = c["choices"][0]["message"]["content"]
+        text = c["choices"][0]["text"]
         i = text.rfind("\nAction:")
         j = text.rfind("\nAction Input:")
         k = text.rfind("\nObservation:")
@@ -415,7 +415,7 @@ Begin!"""
         if 0 <= i < j < k:
             plugin_name = text[i + len("\nAction:") : j].strip()
             plugin_args = text[j + len("\nAction Input:") : k].strip()
-            return plugin_name, plugin_args
+            return plugin_name, json.loads(plugin_args)
         return "", ""
 
     @classmethod
