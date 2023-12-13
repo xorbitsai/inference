@@ -211,7 +211,8 @@ Begin!"""
                     tools_text=tools_text,
                     tools_name_text=tools_name_text,
                 )
-                return tool_system + f"\n\nQuestion: {prompt}"
+                new_query = tool_system + f"\n\nQuestion: {prompt}"
+                chat_history[-2]["content"] = new_query
 
             ret = f"<|im_start|>system\n{prompt_style.system_prompt}<|im_end|>"
             for message in chat_history:
