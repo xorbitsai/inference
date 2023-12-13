@@ -501,10 +501,7 @@ def test_restful_api_for_tool_calls(setup, model_format, quantization):
 
 
 @pytest.mark.parametrize(
-    "model_format, quantization",
-    [
-        ("ggufv2", "Q4_K_S"),
-    ],  # ("pytorch", None)]
+    "model_format, quantization", [("ggufv2", "Q4_K_S"), ("pytorch", None)]
 )
 @pytest.mark.skip(reason="Cost too many resources.")
 def test_restful_api_for_gorilla_openfunctions_tool_calls(

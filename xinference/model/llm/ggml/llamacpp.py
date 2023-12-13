@@ -12,12 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import datetime
-import functools
-import json
 import logging
 import os
-import time
-import uuid
 from typing import Iterator, List, Optional, Union
 
 from ....types import (
@@ -318,55 +314,5 @@ class LlamaCppChatModel(LlamaCppModel, ChatModelMixin):
             c = self.generate(full_prompt, generate_config)
             assert not isinstance(c, Iterator)
             if tools:
-                return self._tool_calls_completion(c, tools)
+                return self._tool_calls_completion(self.model_uid, c, tools)
             return self._to_chat_completion(c)
-
-    @staticmethod
-    def _eval_arguments(tool_names, arguments):
-        def tool_call(n, **kwargs):
-            return n, kwargs
-
-        try:
-            return eval(
-                arguments, {n: functools.partial(tool_call, n) for n in tool_names}
-            )
-        except Exception as e:
-            logger.error("Eval tool calls completion failed: %s", e)
-            return arguments, arguments
-
-    def _tool_calls_completion(self, c, tools):
-        _id = str(uuid.uuid4())
-        tools_candidates = [tool["function"]["name"] for tool in tools]
-        func, args = self._eval_arguments(tools_candidates, c["choices"][0]["text"])
-
-        return {
-            "id": "chat" + f"cmpl-{_id}",
-            "model": self.model_uid,
-            "object": "chat.completion",
-            "created": int(time.time()),
-            "choices": [
-                {
-                    "index": 0,
-                    "message": {
-                        "role": "assistant",
-                        "content": None,
-                        "tool_calls": [
-                            {
-                                "id": f"call_{_id}",
-                                "type": "function",
-                                "function": {
-                                    "name": func,
-                                    "arguments": json.dumps(args),
-                                },
-                            }
-                        ],
-                    },
-                    "finish_reason": "tool_calls",
-                }
-            ],
-            "usage": {
-                "prompt_tokens": -1,
-                "completion_tokens": -1,
-                "total_tokens": -1,
-            },
-        }

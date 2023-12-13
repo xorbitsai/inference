@@ -11,7 +11,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import functools
 import json
+import logging
+import time
+import uuid
 from typing import AsyncGenerator, Dict, Iterator, List, Optional
 
 from xinference.model.llm.llm_family import PromptStyleV1
@@ -23,6 +27,8 @@ from ...types import (
     Completion,
     CompletionChunk,
 )
+
+logger = logging.getLogger()
 
 
 class ChatModelMixin:
@@ -315,4 +321,57 @@ class ChatModelMixin:
                 for i, choice in enumerate(completion["choices"])
             ],
             "usage": completion["usage"],
+        }
+
+    @staticmethod
+    def _eval_gorilla_openfunctions_arguments(c, tools):
+        tool_names = [tool["function"]["name"] for tool in tools]
+        arguments = c["choices"][0]["text"]
+
+        def tool_call(n, **kwargs):
+            return n, kwargs
+
+        try:
+            return eval(
+                arguments, {n: functools.partial(tool_call, n) for n in tool_names}
+            )
+        except Exception as e:
+            logger.error("Eval tool calls completion failed: %s", e)
+            return arguments, arguments
+
+    @classmethod
+    def _tool_calls_completion(cls, model_uid, c, tools):
+        _id = str(uuid.uuid4())
+        func, args = cls._eval_gorilla_openfunctions_arguments(c, tools)
+
+        return {
+            "id": "chat" + f"cmpl-{_id}",
+            "model": model_uid,
+            "object": "chat.completion",
+            "created": int(time.time()),
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {
+                        "role": "assistant",
+                        "content": None,
+                        "tool_calls": [
+                            {
+                                "id": f"call_{_id}",
+                                "type": "function",
+                                "function": {
+                                    "name": func,
+                                    "arguments": json.dumps(args),
+                                },
+                            }
+                        ],
+                    },
+                    "finish_reason": "tool_calls",
+                }
+            ],
+            "usage": {
+                "prompt_tokens": -1,
+                "completion_tokens": -1,
+                "total_tokens": -1,
+            },
         }
