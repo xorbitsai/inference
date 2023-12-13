@@ -99,12 +99,11 @@ class ChatglmPytorchChatModel(PytorchChatModel):
             "tools": chatglm_tools,
         }
 
-    @staticmethod
-    def _tool_calls_completion(msg, model_name) -> ChatCompletion:
+    def _tool_calls_completion(self, msg) -> ChatCompletion:
         _id = str(uuid.uuid4())
         return {
             "id": "chat" + f"cmpl-{_id}",
-            "model": model_name,
+            "model": self.model_uid,
             "object": "chat.completion",
             "created": int(time.time()),
             "choices": [
@@ -156,7 +155,7 @@ class ChatglmPytorchChatModel(PytorchChatModel):
             if max_length is not None:
                 kwargs["max_length"] = int(max_length)
             msg = self._model.chat(self._tokenizer, prompt, [tools], **kwargs)
-            return self._tool_calls_completion(msg[0], self.model_uid)
+            return self._tool_calls_completion(msg[0])
         else:
             return super().chat(
                 prompt=prompt,
