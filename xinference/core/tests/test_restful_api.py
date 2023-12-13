@@ -695,7 +695,7 @@ def test_restful_api_for_qwen_tool_calls(setup, model_format, quantization):
         "arguments"
     ]
     arg = json.loads(arguments)
-    assert arg == {"loc": 94704, "time": 10, "type": "plus"}
+    assert arg == {"search_query": "周杰伦"}
 
 
 def test_restful_api_with_request_limits(setup):
