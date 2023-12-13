@@ -211,10 +211,9 @@ Begin!"""
                     tools_text=tools_text,
                     tools_name_text=tools_name_text,
                 )
-            else:
-                tool_system = ""
+                return tool_system + f"\n\n{prompt}"
 
-            ret = f"<|im_start|>system\n{prompt_style.system_prompt}{tool_system}<|im_end|>"
+            ret = f"<|im_start|>system\n{prompt_style.system_prompt}<|im_end|>"
             for message in chat_history:
                 role = message["role"]
                 content = message["content"]
