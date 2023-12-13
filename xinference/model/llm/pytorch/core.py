@@ -497,5 +497,7 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
             c = self.generate(full_prompt, generate_config)
             assert not isinstance(c, Iterator)
             if tools:
-                return self._tool_calls_completion(self.model_uid, c, tools)
+                return self._tool_calls_completion(
+                    self.model_family.model_name, self.model_uid, c, tools
+                )
             return self._to_chat_completion(c)
