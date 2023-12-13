@@ -215,7 +215,7 @@ class ChatModelMixin:
             else:
                 tool_system = ""
 
-            ret = f"<|im_start|>system{tool_system}\n{prompt_style.system_prompt}<|im_end|>"
+            ret = f"<|im_start|>system\n{prompt_style.system_prompt}{tool_system}<|im_end|>"
             for message in chat_history:
                 role = message["role"]
                 content = message["content"]
