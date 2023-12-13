@@ -185,7 +185,9 @@ class ChatModelMixin:
                     required_parameters = func_info["function"]["parameters"].get(
                         "required", []
                     )
-                    for name, p in tool["function"]["parameters"]["properties"].items():
+                    for name, p in func_info["function"]["parameters"][
+                        "properties"
+                    ].items():
                         param = dict({"name": name}, **p)
                         if name in required_parameters:
                             param["required"] = True
