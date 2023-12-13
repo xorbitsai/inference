@@ -211,7 +211,7 @@ Begin!"""
                     tools_text=tools_text,
                     tools_name_text=tools_name_text,
                 )
-                return tool_system + f"\n\n{prompt}"
+                return tool_system + f"\n\nQuestion: {prompt}"
 
             ret = f"<|im_start|>system\n{prompt_style.system_prompt}<|im_end|>"
             for message in chat_history:
