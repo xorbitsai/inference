@@ -595,6 +595,109 @@ def test_restful_api_for_gorilla_openfunctions_tool_calls(
     assert arg == {"loc": 94704, "time": 10, "type": "plus"}
 
 
+@pytest.mark.parametrize(
+    "model_format, quantization",
+    [
+        ("pytorch", None),
+    ],
+)
+# @pytest.mark.skip(reason="Cost too many resources.")
+def test_restful_api_for_qwen_tool_calls(setup, model_format, quantization):
+    model_name = "qwen-chat"
+
+    endpoint, _ = setup
+    url = f"{endpoint}/v1/models"
+
+    # list
+    response = requests.get(url)
+    response_data = response.json()
+    assert len(response_data) == 0
+
+    # launch
+    payload = {
+        "model_uid": "test_tool",
+        "model_name": model_name,
+        "model_size_in_billions": 7,
+        "model_format": model_format,
+        "quantization": quantization,
+    }
+
+    response = requests.post(url, json=payload)
+    response_data = response.json()
+    model_uid_res = response_data["model_uid"]
+    assert model_uid_res == "test_tool"
+
+    response = requests.get(url)
+    response_data = response.json()
+    assert len(response_data) == 1
+
+    # tool
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "google_search",
+                "description": "谷歌搜索是一个通用搜索引擎，可用于访问互联网、查询百科知识、了解时事新闻等。",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "search_query": {
+                            "type": "string",
+                            "description": "搜索关键词或短语",
+                        },
+                    },
+                    "required": ["search_query"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "image_gen",
+                "description": "文生图是一个AI绘画（图像生成）服务，输入文本描述，返回根据文本作画得到的图片的URL。",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "prompt": {
+                            "type": "string",
+                            "description": "英文关键词，描述了希望图像具有什么内容",
+                        },
+                    },
+                    "required": ["prompt"],
+                },
+            },
+        },
+    ]
+    url = f"{endpoint}/v1/chat/completions"
+    payload = {
+        "model": model_uid_res,
+        "messages": [
+            {
+                "role": "user",
+                "content": "我应该使用Google搜索查找谁是周杰伦。",
+            },
+        ],
+        "tools": tools,
+        "stop": ["\n"],
+        "max_tokens": 200,
+        "temperature": 0,
+    }
+    response = requests.post(url, json=payload)
+    completion = response.json()
+
+    assert "content" in completion["choices"][0]["message"]
+    assert "tool_calls" == completion["choices"][0]["finish_reason"]
+    assert (
+        "uber_ride"
+        == completion["choices"][0]["message"]["tool_calls"][0]["function"]["name"]
+    )
+    arguments = completion["choices"][0]["message"]["tool_calls"][0]["function"][
+        "arguments"
+    ]
+    arg = json.loads(arguments)
+    assert arg == {"loc": 94704, "time": 10, "type": "plus"}
+
+
 def test_restful_api_with_request_limits(setup):
     model_name = "gte-base"
 

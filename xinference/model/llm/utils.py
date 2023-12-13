@@ -158,7 +158,62 @@ class ChatModelMixin:
                     ret += f"<|{role}|>"
             return ret
         elif prompt_style.style_name == "QWEN":
-            ret = f"<|im_start|>system\n{prompt_style.system_prompt}<|im_end|>"
+            if tools:
+                tool_desc = """{name_for_model}: Call this tool to interact with the {name_for_human} API. 
+                What is the {name_for_human} API useful for? {description_for_model} Parameters: {parameters}"""
+
+                react_instruction = """Answer the following questions as best you can. You have access to the following APIs:
+
+                {tools_text}
+
+                Use the following format:
+
+                Question: the input question you must answer
+                Thought: you should always think about what to do
+                Action: the action to take, should be one of [{tools_name_text}]
+                Action Input: the input to the action
+                Observation: the result of the action
+                ... (this Thought/Action/Action Input/Observation can be repeated zero or more times)
+                Thought: I now know the final answer
+                Final Answer: the final answer to the original input question
+
+                Begin!"""
+                tools_text = []
+                tools_name_text = []
+                for func_info in tools:
+                    parameters = []
+                    required_parameters = func_info["function"]["parameters"].get(
+                        "required", []
+                    )
+                    for name, p in tool["function"]["parameters"]["properties"].items():
+                        param = dict({"name": name}, **p)
+                        if name in required_parameters:
+                            param["required"] = True
+                        parameters.append(param)
+
+                    name = func_info["function"]["name"]
+                    desc = func_info["function"]["description"]
+                    tool = tool_desc.format(
+                        name_for_model=name,
+                        name_for_human=name,
+                        # Hint: You can add the following format requirements in description:
+                        #   "Format the arguments as a JSON object."
+                        #   "Enclose the code within triple backticks (`) at the beginning and end of the code."
+                        description_for_model=desc,
+                        parameters=json.dumps(parameters, ensure_ascii=False),
+                    )
+                    tools_text.append(tool)
+                    tools_name_text.append(name)
+                tools_text = "\n\n".join(tools_text)
+                tools_name_text = ", ".join(tools_name_text)
+                tool_system = "\n\n" + react_instruction.format(
+                    tools_text=tools_text,
+                    tools_name_text=tools_name_text,
+                )
+            else:
+                tool_system = ""
+
+            ret = f"<|im_start|>system{tool_system}\n{prompt_style.system_prompt}<|im_end|>"
             for message in chat_history:
                 role = message["role"]
                 content = message["content"]
