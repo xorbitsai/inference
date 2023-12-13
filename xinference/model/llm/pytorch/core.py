@@ -486,6 +486,8 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
         chat_history = chat_history or []
         tools = generate_config.pop("tools", []) if generate_config else None
         full_prompt = self.get_prompt(prompt, chat_history, prompt_style, tools=tools)
+        if tools and self.model_family.model_name == "qwen-chat":
+            generate_config["stop"] = "Observation:"
 
         generate_config = self._sanitize_generate_config(generate_config)
 
