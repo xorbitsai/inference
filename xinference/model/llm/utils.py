@@ -159,8 +159,7 @@ class ChatModelMixin:
             return ret
         elif prompt_style.style_name == "QWEN":
             if tools:
-                tool_desc = """{name_for_model}: Call this tool to interact with the {name_for_human} API. 
-What is the {name_for_human} API useful for? {description_for_model} Parameters: {parameters}"""
+                tool_desc = """{name_for_model}: Call this tool to interact with the {name_for_human} API. What is the {name_for_human} API useful for? {description_for_model} Parameters: {parameters}"""
 
                 react_instruction = """Answer the following questions as best you can. You have access to the following APIs:
 
