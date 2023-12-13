@@ -399,6 +399,25 @@ Begin!"""
     def _eval_chatglm3_arguments(c, tools):
         return c[0]["name"], c[0]["parameters"]
 
+    @staticmethod
+    def _eval_qwen_chat_arguments(c, tools):
+        print(f">>>>>>>>>>>> {c}")
+        text = c["choices"][0]["message"]["content"]
+        i = text.rfind("\nAction:")
+        j = text.rfind("\nAction Input:")
+        k = text.rfind("\nObservation:")
+        if 0 <= i < j:  # If the text has `Action` and `Action input`,
+            if k < j:  # but does not contain `Observation`,
+                # then it is likely that `Observation` is ommited by the LLM,
+                # because the output text may have discarded the stop word.
+                text = text.rstrip() + "\nObservation:"  # Add it back.
+                k = text.rfind("\nObservation:")
+        if 0 <= i < j < k:
+            plugin_name = text[i + len("\nAction:") : j].strip()
+            plugin_args = text[j + len("\nAction Input:") : k].strip()
+            return plugin_name, plugin_args
+        return "", ""
+
     @classmethod
     def _tool_calls_completion(cls, model_name, model_uid, c, tools):
         _id = str(uuid.uuid4())
@@ -406,6 +425,8 @@ Begin!"""
             func, args = cls._eval_gorilla_openfunctions_arguments(c, tools)
         elif model_name == "chatglm3":
             func, args = cls._eval_chatglm3_arguments(c, tools)
+        elif model_name == "qwen-chat":
+            func, args = cls._eval_qwen_chat_arguments(c, tools)
         else:
             raise Exception(f"Model {model_name} is not support tool calls.")
 
