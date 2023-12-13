@@ -401,22 +401,24 @@ Begin!"""
 
     @staticmethod
     def _eval_qwen_chat_arguments(c, tools):
-        print(f">>>>>>>>>>>> {c}")
         text = c["choices"][0]["text"]
-        i = text.rfind("\nAction:")
-        j = text.rfind("\nAction Input:")
-        k = text.rfind("\nObservation:")
-        if 0 <= i < j:  # If the text has `Action` and `Action input`,
-            if k < j:  # but does not contain `Observation`,
-                # then it is likely that `Observation` is ommited by the LLM,
-                # because the output text may have discarded the stop word.
-                text = text.rstrip() + "\nObservation:"  # Add it back.
-                k = text.rfind("\nObservation:")
-        if 0 <= i < j < k:
-            plugin_name = text[i + len("\nAction:") : j].strip()
-            plugin_args = text[j + len("\nAction Input:") : k].strip()
-            return plugin_name, json.loads(plugin_args)
-        return "", ""
+        try:
+            i = text.rfind("\nAction:")
+            j = text.rfind("\nAction Input:")
+            k = text.rfind("\nObservation:")
+            if 0 <= i < j:  # If the text has `Action` and `Action input`,
+                if k < j:  # but does not contain `Observation`,
+                    # then it is likely that `Observation` is ommited by the LLM,
+                    # because the output text may have discarded the stop word.
+                    text = text.rstrip() + "\nObservation:"  # Add it back.
+                    k = text.rfind("\nObservation:")
+            if 0 <= i < j < k:
+                plugin_name = text[i + len("\nAction:") : j].strip()
+                plugin_args = text[j + len("\nAction Input:") : k].strip()
+                return plugin_name, json.loads(plugin_args)
+        except Exception as e:
+            logger.error("Eval tool calls completion failed: %s", e)
+            return text, text
 
     @classmethod
     def _tool_calls_completion(cls, model_name, model_uid, c, tools):

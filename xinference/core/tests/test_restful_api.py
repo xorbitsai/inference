@@ -674,7 +674,7 @@ def test_restful_api_for_qwen_tool_calls(setup, model_format, quantization):
         "messages": [
             {
                 "role": "user",
-                "content": "我应该使用Google搜索查找谁是周杰伦。",
+                "content": "谁是周杰伦？",
             },
         ],
         "tools": tools,
@@ -688,7 +688,7 @@ def test_restful_api_for_qwen_tool_calls(setup, model_format, quantization):
     assert "content" in completion["choices"][0]["message"]
     assert "tool_calls" == completion["choices"][0]["finish_reason"]
     assert (
-        "uber_ride"
+        "google_search"
         == completion["choices"][0]["message"]["tool_calls"][0]["function"]["name"]
     )
     arguments = completion["choices"][0]["message"]["tool_calls"][0]["function"][
