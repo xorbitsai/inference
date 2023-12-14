@@ -78,7 +78,7 @@ const LaunchLLM = ({ gpuAvailable }) => {
   }
 
   useEffect(() => {
-    update()
+    update().catch(console.error)
   }, [])
 
   const style = {
