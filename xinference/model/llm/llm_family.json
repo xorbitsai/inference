@@ -1136,7 +1136,7 @@
           "none"
         ],
         "model_id": "Qwen/Qwen-7B-Chat",
-        "model_revision": "03752a6cef673d523b433c110f7eaab7788ddbee"
+        "model_revision": "218aa3240fd5a5d1e80bb6c47d5d774361913706"
       },
       {
         "model_format": "pytorch",
