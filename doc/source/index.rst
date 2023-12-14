@@ -43,6 +43,9 @@ with popular third-party libraries like `LangChain <https://python.langchain.com
 
 Framework Enhancements
 ~~~~~~~~~~~~~~~~~~~~~~
+- Auto recover: `#694 <https://github.com/xorbitsai/inference/pull/694>`_
+- Function calling API: `#701 <https://github.com/xorbitsai/inference/pull/701>`_ , here's example: https://github.com/xorbitsai/inference/blob/main/examples/FunctionCall.ipynb
+- Support rerank model: `#672 <https://github.com/xorbitsai/inference/pull/672>`_
 - Speculative decoding: `#509 <https://github.com/xorbitsai/inference/pull/509>`_
 - Support grammar-based sampling for ggml models: `#525 <https://github.com/xorbitsai/inference/pull/525>`_
 - Incorporate vLLM: `#445 <https://github.com/xorbitsai/inference/pull/445>`_
@@ -50,6 +53,9 @@ Framework Enhancements
 
 New Models
 ~~~~~~~~~~
+- Built-in support for `Yi <https://huggingface.co/01-ai>`_: `#629 <https://github.com/xorbitsai/inference/pull/629>`_
+- Built-in support for `zephyr-7b-alpha <https://huggingface.co/HuggingFaceH4/zephyr-7b-alpha>`_ and `zephyr-7b-beta <https://huggingface.co/HuggingFaceH4/zephyr-7b-beta>`_: `#597 <https://github.com/xorbitsai/inference/pull/597>`_
+- Built-in support for `chatglm3 <https://huggingface.co/THUDM/chatglm3-6b): [#587](https://github.com/xorbitsai/inference/pull/587>`_
 - Built-in support for `mistral-v0.1 <https://huggingface.co/mistralai/Mistral-7B-v0.1>`_ and `mistral-instruct-v0.1 <https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.1>`_: `#510 <https://github.com/xorbitsai/inference/pull/510>`_
 
 
