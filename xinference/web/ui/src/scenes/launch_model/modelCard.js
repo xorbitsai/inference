@@ -91,7 +91,8 @@ const ModelCard = ({ url, modelData, gpuAvailable, is_custom = false }) => {
             .filter(
               (spec) =>
                 spec.model_format === modelFormat &&
-                spec.model_size_in_billions === parseFloat(modelSize)
+                spec.model_size_in_billions ===
+                  (modelSize.includes('_') ? modelSize : parseFloat(modelSize))
             )
             .flatMap((spec) => spec.quantizations)
         ),

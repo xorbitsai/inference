@@ -6,7 +6,7 @@ bge-reranker-large
 
 - **Model Name:** bge-reranker-large
 - **Languages:** en, zh
-- **Abilities:** embed
+- **Abilities:** rerank
 
 Specifications
 ^^^^^^^^^^^^^^

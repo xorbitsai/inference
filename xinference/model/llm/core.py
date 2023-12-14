@@ -17,7 +17,7 @@ import logging
 import os
 import platform
 from abc import abstractmethod
-from typing import TYPE_CHECKING, List, Optional, Tuple
+from typing import TYPE_CHECKING, List, Optional, Tuple, Union
 
 from ...core.utils import parse_replica_model_uid
 from ..core import ModelDescription
@@ -50,6 +50,16 @@ class LLM(abc.ABC):
             raise ValueError(f"Unrecognized positional arguments: {args}")
         if kwargs:
             raise ValueError(f"Unrecognized keyword arguments: {kwargs}")
+
+    @staticmethod
+    def handle_model_size(model_size_in_billions: Union[str, int]) -> Union[int, float]:
+        if isinstance(model_size_in_billions, str):
+            if "_" in model_size_in_billions:
+                ms = model_size_in_billions.replace("_", ".")
+                return float(ms)
+            else:
+                raise ValueError("Invalid format for `model_size_in_billions`")
+        return model_size_in_billions
 
     @staticmethod
     def _is_darwin_and_apple_silicon():

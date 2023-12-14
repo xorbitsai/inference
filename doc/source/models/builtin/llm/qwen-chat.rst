@@ -42,7 +42,21 @@ chosen quantization method from the options listed above::
    xinference launch --model-name qwen-chat --size-in-billions 14 --model-format ggmlv3 --quantization ${quantization}
 
 
-Model Spec 3 (pytorch, 7 Billion)
+Model Spec 3 (pytorch, 1_8 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** pytorch
+- **Model Size (in billions):** 1_8
+- **Quantizations:** 4-bit, 8-bit, none
+- **Model ID:** Qwen/Qwen-1_8B-Chat
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-name qwen-chat --size-in-billions 1_8 --model-format pytorch --quantization ${quantization}
+
+
+Model Spec 4 (pytorch, 7 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** pytorch
@@ -56,7 +70,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-name qwen-chat --size-in-billions 7 --model-format pytorch --quantization ${quantization}
 
 
-Model Spec 4 (pytorch, 14 Billion)
+Model Spec 5 (pytorch, 14 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** pytorch
@@ -70,7 +84,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-name qwen-chat --size-in-billions 14 --model-format pytorch --quantization ${quantization}
 
 
-Model Spec 5 (pytorch, 72 Billion)
+Model Spec 6 (pytorch, 72 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** pytorch
@@ -84,7 +98,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-name qwen-chat --size-in-billions 72 --model-format pytorch --quantization ${quantization}
 
 
-Model Spec 6 (gptq, 7 Billion)
+Model Spec 7 (gptq, 7 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** gptq
@@ -98,7 +112,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-name qwen-chat --size-in-billions 7 --model-format gptq --quantization ${quantization}
 
 
-Model Spec 7 (gptq, 14 Billion)
+Model Spec 8 (gptq, 14 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** gptq
@@ -112,7 +126,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-name qwen-chat --size-in-billions 14 --model-format gptq --quantization ${quantization}
 
 
-Model Spec 8 (gptq, 72 Billion)
+Model Spec 9 (gptq, 72 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** gptq
