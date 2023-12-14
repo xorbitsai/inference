@@ -194,7 +194,7 @@ Begin!"""
 
                     name = func_info["function"]["name"]
                     desc = func_info["function"]["description"]
-                    tool = tool_desc.format(
+                    tool_string = tool_desc.format(
                         name_for_model=name,
                         name_for_human=name,
                         # Hint: You can add the following format requirements in description:
@@ -203,13 +203,13 @@ Begin!"""
                         description_for_model=desc,
                         parameters=json.dumps(parameters, ensure_ascii=False),
                     )
-                    tools_text.append(tool)
+                    tools_text.append(tool_string)
                     tools_name_text.append(name)
-                tools_text = "\n\n".join(tools_text)
-                tools_name_text = ", ".join(tools_name_text)
+                tools_text_string = "\n\n".join(tools_text)
+                tools_name_text_string = ", ".join(tools_name_text)
                 tool_system = "\n\n" + react_instruction.format(
-                    tools_text=tools_text,
-                    tools_name_text=tools_name_text,
+                    tools_text=tools_text_string,
+                    tools_name_text=tools_name_text_string,
                 )
                 new_query = tool_system + f"\n\nQuestion: {prompt}"
                 chat_history[-2]["content"] = new_query
