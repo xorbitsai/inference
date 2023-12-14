@@ -678,7 +678,6 @@ def test_restful_api_for_qwen_tool_calls(setup, model_format, quantization):
             },
         ],
         "tools": tools,
-        "stop": ["\n"],
         "max_tokens": 200,
         "temperature": 0,
     }
