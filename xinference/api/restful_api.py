@@ -773,7 +773,7 @@ class RESTfulAPI:
         is_chatglm_ggml = desc.get(
             "model_format"
         ) == "ggmlv3" and "chatglm" in desc.get("model_name", "")
-        is_chatglm3 = "chatglm3" == desc.get("model_name", "")
+        function_call_models = ["chatglm3", "gorilla-openfunctions-v1"]
 
         is_qwen = desc.get("model_format") == "ggmlv3" and "qwen" in desc.get(
             "model_name", ""
@@ -783,13 +783,14 @@ class RESTfulAPI:
             raise HTTPException(
                 status_code=400, detail="ChatGLM ggml does not have system prompt"
             )
-        if is_chatglm3 and body.tools and body.stream:
+        if body.tools and desc.get("model_name", "") not in function_call_models:
             raise HTTPException(
-                status_code=400, detail="ChatGLM3 tool calls does not support stream"
+                status_code=400,
+                detail=f"Only {function_call_models} support tool calls",
             )
-        if body.tools and not is_chatglm3:
+        if body.tools and body.stream:
             raise HTTPException(
-                status_code=400, detail="Only ChatGLM3 support tool calls"
+                status_code=400, detail="Tool calls does not support stream"
             )
 
         if body.stream:

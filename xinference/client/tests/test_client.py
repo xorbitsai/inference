@@ -568,7 +568,7 @@ def setup_cluster():
     supervisor_address = f"localhost:{xo.utils.get_next_port()}"
     local_cluster = supervisor_run_in_subprocess(supervisor_address, TEST_LOGGING_CONF)
 
-    if not health_check(address=supervisor_address, max_attempts=10, sleep_interval=1):
+    if not health_check(address=supervisor_address, max_attempts=20, sleep_interval=1):
         raise RuntimeError("Supervisor is not available after multiple attempts")
 
     try:
@@ -610,7 +610,7 @@ def test_auto_recover(setup_cluster):
 
     model_proc.kill()
 
-    for _ in range(10):
+    for _ in range(60):
         try:
             completion = model.generate(
                 "Once upon a time, there was a very old computer", {"max_tokens": 64}

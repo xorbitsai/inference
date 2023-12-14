@@ -221,6 +221,7 @@ class LlamaCppGenerateConfig(TypedDict, total=False):
     grammar: Optional[Any]
     stopping_criteria: Optional["StoppingCriteriaList"]
     logits_processor: Optional["LogitsProcessorList"]
+    tools: Optional[List[Dict]]
 
 
 class LlamaCppModelConfig(TypedDict, total=False):
@@ -257,6 +258,7 @@ class PytorchGenerateConfig(TypedDict, total=False):
     stop_token_ids: Optional[Union[int, List[int]]]
     stream_interval: int
     model: Optional[str]
+    tools: Optional[List[Dict]]
 
 
 class PytorchModelConfig(TypedDict, total=False):

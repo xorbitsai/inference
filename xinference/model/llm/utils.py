@@ -11,8 +11,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-from typing import AsyncGenerator, Iterator, List
+import functools
+import json
+import logging
+import time
+import uuid
+from typing import AsyncGenerator, Dict, Iterator, List, Optional
 
 from xinference.model.llm.llm_family import PromptStyleV1
 
@@ -24,6 +28,8 @@ from ...types import (
     CompletionChunk,
 )
 
+logger = logging.getLogger()
+
 
 class ChatModelMixin:
     @staticmethod
@@ -31,6 +37,7 @@ class ChatModelMixin:
         prompt: str,
         chat_history: List[ChatCompletionMessage],
         prompt_style: PromptStyleV1,
+        tools: Optional[List[Dict]] = None,
     ) -> str:
         """
         Inspired by FastChat. Format chat history into a prompt according to the prompty style of
@@ -209,6 +216,27 @@ class ChatModelMixin:
         elif prompt_style.style_name == "INSTRUCTION":
             message = chat_history[-2]
             return prompt_style.system_prompt.format(message["content"])
+        elif prompt_style.style_name == "GORILLA_OPENFUNCTIONS":
+            if tools:
+                gorilla_functions = []
+                for tool in tools:
+                    gorilla_functions.append(
+                        {
+                            "name": tool["function"]["name"],
+                            "api_name": tool["function"]["name"],
+                            "description": tool["function"]["description"],
+                            "parameters": [
+                                dict({"name": name}, **p)
+                                for name, p in tool["function"]["parameters"][
+                                    "properties"
+                                ].items()
+                            ],
+                        }
+                    )
+                tools_string = json.dumps(gorilla_functions)
+                return f"USER: <<question>> {prompt} <<function>> {tools_string}\nASSISTANT: "
+            else:
+                return f"USER: <<question>> {prompt}\nASSISTANT: "
         else:
             raise ValueError(f"Invalid prompt style: {prompt_style.style_name}")
 
@@ -293,4 +321,66 @@ class ChatModelMixin:
                 for i, choice in enumerate(completion["choices"])
             ],
             "usage": completion["usage"],
+        }
+
+    @staticmethod
+    def _eval_gorilla_openfunctions_arguments(c, tools):
+        tool_names = [tool["function"]["name"] for tool in tools]
+        arguments = c["choices"][0]["text"]
+
+        def tool_call(n, **kwargs):
+            return n, kwargs
+
+        try:
+            return eval(
+                arguments, {n: functools.partial(tool_call, n) for n in tool_names}
+            )
+        except Exception as e:
+            logger.error("Eval tool calls completion failed: %s", e)
+            return arguments, arguments
+
+    @staticmethod
+    def _eval_chatglm3_arguments(c, tools):
+        return c[0]["name"], c[0]["parameters"]
+
+    @classmethod
+    def _tool_calls_completion(cls, model_name, model_uid, c, tools):
+        _id = str(uuid.uuid4())
+        if model_name == "gorilla-openfunctions-v1":
+            func, args = cls._eval_gorilla_openfunctions_arguments(c, tools)
+        elif model_name == "chatglm3":
+            func, args = cls._eval_chatglm3_arguments(c, tools)
+        else:
+            raise Exception(f"Model {model_name} is not support tool calls.")
+
+        return {
+            "id": "chat" + f"cmpl-{_id}",
+            "model": model_uid,
+            "object": "chat.completion",
+            "created": int(time.time()),
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {
+                        "role": "assistant",
+                        "content": None,
+                        "tool_calls": [
+                            {
+                                "id": f"call_{_id}",
+                                "type": "function",
+                                "function": {
+                                    "name": func,
+                                    "arguments": json.dumps(args),
+                                },
+                            }
+                        ],
+                    },
+                    "finish_reason": "tool_calls",
+                }
+            ],
+            "usage": {
+                "prompt_tokens": -1,
+                "completion_tokens": -1,
+                "total_tokens": -1,
+            },
         }

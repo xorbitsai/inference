@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 import datetime
 import logging
 import os
@@ -303,7 +302,8 @@ class LlamaCppChatModel(LlamaCppModel, ChatModelMixin):
 
         chat_history = chat_history or []
         assert prompt_style is not None
-        full_prompt = self.get_prompt(prompt, chat_history, prompt_style)
+        tools = generate_config.pop("tools", []) if generate_config else None
+        full_prompt = self.get_prompt(prompt, chat_history, prompt_style, tools=tools)
 
         generate_config = self._sanitize_generate_config(generate_config)
 
@@ -315,4 +315,8 @@ class LlamaCppChatModel(LlamaCppModel, ChatModelMixin):
         else:
             c = self.generate(full_prompt, generate_config)
             assert not isinstance(c, Iterator)
+            if tools:
+                return self._tool_calls_completion(
+                    self.model_family.model_name, self.model_uid, c, tools
+                )
             return self._to_chat_completion(c)

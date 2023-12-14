@@ -484,7 +484,8 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
         if system_prompt:
             prompt_style.system_prompt = system_prompt
         chat_history = chat_history or []
-        full_prompt = self.get_prompt(prompt, chat_history, prompt_style)
+        tools = generate_config.pop("tools", []) if generate_config else None
+        full_prompt = self.get_prompt(prompt, chat_history, prompt_style, tools=tools)
 
         generate_config = self._sanitize_generate_config(generate_config)
 
@@ -496,4 +497,8 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
         else:
             c = self.generate(full_prompt, generate_config)
             assert not isinstance(c, Iterator)
+            if tools:
+                return self._tool_calls_completion(
+                    self.model_family.model_name, self.model_uid, c, tools
+                )
             return self._to_chat_completion(c)

@@ -500,6 +500,101 @@ def test_restful_api_for_tool_calls(setup, model_format, quantization):
     assert arg == {"symbol": "10111"}
 
 
+@pytest.mark.parametrize(
+    "model_format, quantization", [("ggufv2", "Q4_K_S"), ("pytorch", None)]
+)
+@pytest.mark.skip(reason="Cost too many resources.")
+def test_restful_api_for_gorilla_openfunctions_tool_calls(
+    setup, model_format, quantization
+):
+    model_name = "gorilla-openfunctions-v1"
+
+    endpoint, _ = setup
+    url = f"{endpoint}/v1/models"
+
+    # list
+    response = requests.get(url)
+    response_data = response.json()
+    assert len(response_data) == 0
+
+    # launch
+    payload = {
+        "model_uid": "test_tool",
+        "model_name": model_name,
+        "model_size_in_billions": 7,
+        "model_format": model_format,
+        "quantization": quantization,
+    }
+
+    response = requests.post(url, json=payload)
+    response_data = response.json()
+    model_uid_res = response_data["model_uid"]
+    assert model_uid_res == "test_tool"
+
+    response = requests.get(url)
+    response_data = response.json()
+    assert len(response_data) == 1
+
+    # tool
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "uber_ride",
+                "description": "Find suitable ride for customers given the location, "
+                "type of ride, and the amount of time the customer is "
+                "willing to wait as parameters",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "loc": {
+                            "type": "int",
+                            "description": "Location of the starting place of the Uber ride",
+                        },
+                        "type": {
+                            "type": "string",
+                            "enum": ["plus", "comfort", "black"],
+                            "description": "Types of Uber ride user is ordering",
+                        },
+                        "time": {
+                            "type": "int",
+                            "description": "The amount of time in minutes the customer is willing to wait",
+                        },
+                    },
+                },
+            },
+        }
+    ]
+    url = f"{endpoint}/v1/chat/completions"
+    payload = {
+        "model": model_uid_res,
+        "messages": [
+            {
+                "role": "user",
+                "content": 'Call me an Uber ride type "Plus" in Berkeley at zipcode 94704 in 10 minutes',
+            },
+        ],
+        "tools": tools,
+        "stop": ["\n"],
+        "max_tokens": 200,
+        "temperature": 0,
+    }
+    response = requests.post(url, json=payload)
+    completion = response.json()
+
+    assert "content" in completion["choices"][0]["message"]
+    assert "tool_calls" == completion["choices"][0]["finish_reason"]
+    assert (
+        "uber_ride"
+        == completion["choices"][0]["message"]["tool_calls"][0]["function"]["name"]
+    )
+    arguments = completion["choices"][0]["message"]["tool_calls"][0]["function"][
+        "arguments"
+    ]
+    arg = json.loads(arguments)
+    assert arg == {"loc": 94704, "time": 10, "type": "plus"}
+
+
 def test_restful_api_with_request_limits(setup):
     model_name = "gte-base"
 

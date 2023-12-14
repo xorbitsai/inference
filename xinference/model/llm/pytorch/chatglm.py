@@ -11,9 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import json
-import time
-import uuid
 from typing import Iterator, List, Optional, Union
 
 from ....types import (
@@ -99,41 +96,6 @@ class ChatglmPytorchChatModel(PytorchChatModel):
             "tools": chatglm_tools,
         }
 
-    @staticmethod
-    def _tool_calls_completion(msg, model_name) -> ChatCompletion:
-        _id = str(uuid.uuid4())
-        return {
-            "id": "chat" + f"cmpl-{_id}",
-            "model": model_name,
-            "object": "chat.completion",
-            "created": int(time.time()),
-            "choices": [
-                {
-                    "index": 0,
-                    "message": {
-                        "role": "assistant",
-                        "content": None,
-                        "tool_calls": [
-                            {
-                                "id": f"call_{_id}",
-                                "type": "function",
-                                "function": {
-                                    "name": msg["name"],
-                                    "arguments": json.dumps(msg["parameters"]),
-                                },
-                            }
-                        ],
-                    },
-                    "finish_reason": "tool_calls",
-                }
-            ],
-            "usage": {
-                "prompt_tokens": -1,
-                "completion_tokens": -1,
-                "total_tokens": -1,
-            },
-        }
-
     def chat(
         self,
         prompt: str,
@@ -156,7 +118,9 @@ class ChatglmPytorchChatModel(PytorchChatModel):
             if max_length is not None:
                 kwargs["max_length"] = int(max_length)
             msg = self._model.chat(self._tokenizer, prompt, [tools], **kwargs)
-            return self._tool_calls_completion(msg[0], self.model_uid)
+            return self._tool_calls_completion(
+                self.model_family.model_name, self.model_uid, msg, tools
+            )
         else:
             return super().chat(
                 prompt=prompt,
