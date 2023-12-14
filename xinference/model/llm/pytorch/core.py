@@ -494,7 +494,8 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
             if isinstance(stop, str):
                 generate_config["stop"] = [stop, "Observation:"]
             elif isinstance(stop, Iterable):
-                generate_config["stop"].append("Observation:")
+                assert not isinstance(stop, str)
+                generate_config["stop"] = stop + ["Observation:"]
             else:
                 generate_config["stop"] = "Observation:"
 

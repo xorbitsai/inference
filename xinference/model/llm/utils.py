@@ -403,6 +403,7 @@ Begin!"""
     def _eval_qwen_chat_arguments(c, tools):
         text = c["choices"][0]["text"]
         try:
+            # Refer to: https://github.com/QwenLM/Qwen/blob/main/examples/react_prompt.md
             i = text.rfind("\nAction:")
             j = text.rfind("\nAction Input:")
             k = text.rfind("\nObservation:")
