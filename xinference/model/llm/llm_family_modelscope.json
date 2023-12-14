@@ -1388,7 +1388,7 @@
         ],
         "model_hub": "modelscope",
         "model_id": "qwen/Qwen-7B-Chat",
-        "model_revision": "v1.1.7"
+        "model_revision": "v1.1.9"
       },
       {
         "model_format": "pytorch",
