@@ -417,9 +417,10 @@ Begin!"""
                 plugin_name = text[i + len("\nAction:") : j].strip()
                 plugin_args = text[j + len("\nAction Input:") : k].strip()
                 return plugin_name, json.loads(plugin_args)
+            logger.error("No ReAct response detected, please check your stop.")
         except Exception as e:
             logger.error("Eval tool calls completion failed: %s", e)
-            return text, text
+        return text, text
 
     @classmethod
     def _tool_calls_completion(cls, model_name, model_uid, c, tools):
