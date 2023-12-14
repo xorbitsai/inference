@@ -59,6 +59,11 @@ const ModelCard = ({ url, modelData, gpuAvailable, is_custom = false }) => {
     }
   }
 
+  // model size can be int or string. For string style, "1_8" means 1.8 as an example.
+  const convertModelSize = (size) => {
+    return size.toString().includes('_') ? size : parseInt(size, 10)
+  }
+
   // UseEffects for parameter selection, change options based on previous selections
   useEffect(() => {
     if (modelData) {
@@ -91,8 +96,7 @@ const ModelCard = ({ url, modelData, gpuAvailable, is_custom = false }) => {
             .filter(
               (spec) =>
                 spec.model_format === modelFormat &&
-                spec.model_size_in_billions ===
-                  (modelSize.includes('_') ? modelSize : parseFloat(modelSize))
+                spec.model_size_in_billions === convertModelSize(modelSize)
             )
             .flatMap((spec) => spec.quantizations)
         ),
@@ -112,7 +116,7 @@ const ModelCard = ({ url, modelData, gpuAvailable, is_custom = false }) => {
       model_uid: modelUID.trim() === '' ? uuidv1() : modelUID.trim(),
       model_name: modelData.model_name,
       model_format: modelFormat,
-      model_size_in_billions: modelSize,
+      model_size_in_billions: convertModelSize(modelSize),
       quantization: quantization,
       n_gpu:
         nGPU === '0' ? null : nGPU === 'auto' ? 'auto' : parseInt(nGPU, 10),
@@ -485,7 +489,9 @@ const ModelCard = ({ url, modelData, gpuAvailable, is_custom = false }) => {
                     const specs = modelData.model_specs
                       .filter((spec) => spec.model_format === modelFormat)
                       .filter(
-                        (spec) => spec.model_size_in_billions === modelSize
+                        (spec) =>
+                          spec.model_size_in_billions ===
+                          convertModelSize(modelSize)
                       )
 
                     const cached =
