@@ -409,7 +409,7 @@ Begin!"""
             k = text.rfind("\nObservation:")
             if 0 <= i < j:  # If the text has `Action` and `Action input`,
                 if k < j:  # but does not contain `Observation`,
-                    # then it is likely that `Observation` is ommited by the LLM,
+                    # then it is likely that `Observation` is omitted by the LLM,
                     # because the output text may have discarded the stop word.
                     text = text.rstrip() + "\nObservation:"  # Add it back.
                     k = text.rfind("\nObservation:")
