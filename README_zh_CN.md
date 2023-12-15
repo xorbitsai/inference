@@ -23,6 +23,8 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 
 ## 🔥 近期热点
 ### 框架增强
+- 模型自动恢复: [#694](https://github.com/xorbitsai/inference/pull/694)
+- 函数调用接口: [#701](https://github.com/xorbitsai/inference/pull/701)，示例代码：https://github.com/xorbitsai/inference/blob/main/examples/FunctionCall.ipynb
 - 支持 rerank 模型: [#672](https://github.com/xorbitsai/inference/pull/672)
 - 支持指定 grammar 输出: [#525](https://github.com/xorbitsai/inference/pull/525)
 - 投机采样: [#509](https://github.com/xorbitsai/inference/pull/509)
@@ -272,6 +274,7 @@ $ xinference registrations
   - chatglm2-32k
   - internlm-chat-20b
   - ...
+  
   更多的支持的模型在[文档](https://inference.readthedocs.io/zh-cn/latest/models/sources/sources.html#modelscope)中列出了。
 
 ## 自定义模型
