@@ -28,7 +28,7 @@ from ...types import (
     CompletionChunk,
 )
 
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 
 class ChatModelMixin:
@@ -158,6 +158,62 @@ class ChatModelMixin:
                     ret += f"<|{role}|>"
             return ret
         elif prompt_style.style_name == "QWEN":
+            if tools:
+                tool_desc = """{name_for_model}: Call this tool to interact with the {name_for_human} API. What is the {name_for_human} API useful for? {description_for_model} Parameters: {parameters} Format the arguments as a JSON object."""
+
+                react_instruction = """Answer the following questions as best you can. You have access to the following APIs:
+
+{tools_text}
+
+Use the following format:
+
+Question: the input question you must answer
+Thought: you should always think about what to do
+Action: the action to take, should be one of [{tools_name_text}]
+Action Input: the input to the action
+Observation: the result of the action
+... (this Thought/Action/Action Input/Observation can be repeated zero or more times)
+Thought: I now know the final answer
+Final Answer: the final answer to the original input question
+
+Begin!"""
+                tools_text = []
+                tools_name_text = []
+                for func_info in tools:
+                    parameters = []
+                    required_parameters = func_info["function"]["parameters"].get(
+                        "required", []
+                    )
+                    for name, p in func_info["function"]["parameters"][
+                        "properties"
+                    ].items():
+                        param = dict({"name": name}, **p)
+                        if name in required_parameters:
+                            param["required"] = True
+                        parameters.append(param)
+
+                    name = func_info["function"]["name"]
+                    desc = func_info["function"]["description"]
+                    tool_string = tool_desc.format(
+                        name_for_model=name,
+                        name_for_human=name,
+                        # Hint: You can add the following format requirements in description:
+                        #   "Format the arguments as a JSON object."
+                        #   "Enclose the code within triple backticks (`) at the beginning and end of the code."
+                        description_for_model=desc,
+                        parameters=json.dumps(parameters, ensure_ascii=False),
+                    )
+                    tools_text.append(tool_string)
+                    tools_name_text.append(name)
+                tools_text_string = "\n\n".join(tools_text)
+                tools_name_text_string = ", ".join(tools_name_text)
+                tool_system = "\n\n" + react_instruction.format(
+                    tools_text=tools_text_string,
+                    tools_name_text=tools_name_text_string,
+                )
+                new_query = tool_system + f"\n\nQuestion: {prompt}"
+                chat_history[-2]["content"] = new_query
+
             ret = f"<|im_start|>system\n{prompt_style.system_prompt}<|im_end|>"
             for message in chat_history:
                 role = message["role"]
@@ -343,6 +399,29 @@ class ChatModelMixin:
     def _eval_chatglm3_arguments(c, tools):
         return c[0]["name"], c[0]["parameters"]
 
+    @staticmethod
+    def _eval_qwen_chat_arguments(c, tools):
+        text = c["choices"][0]["text"]
+        try:
+            # Refer to: https://github.com/QwenLM/Qwen/blob/main/examples/react_prompt.md
+            i = text.rfind("\nAction:")
+            j = text.rfind("\nAction Input:")
+            k = text.rfind("\nObservation:")
+            if 0 <= i < j:  # If the text has `Action` and `Action input`,
+                if k < j:  # but does not contain `Observation`,
+                    # then it is likely that `Observation` is omitted by the LLM,
+                    # because the output text may have discarded the stop word.
+                    text = text.rstrip() + "\nObservation:"  # Add it back.
+                    k = text.rfind("\nObservation:")
+            if 0 <= i < j < k:
+                plugin_name = text[i + len("\nAction:") : j].strip()
+                plugin_args = text[j + len("\nAction Input:") : k].strip()
+                return plugin_name, json.loads(plugin_args)
+            logger.error("No ReAct response detected, please check your stop.")
+        except Exception as e:
+            logger.error("Eval tool calls completion failed: %s", e)
+        return text, text
+
     @classmethod
     def _tool_calls_completion(cls, model_name, model_uid, c, tools):
         _id = str(uuid.uuid4())
@@ -350,6 +429,8 @@ class ChatModelMixin:
             func, args = cls._eval_gorilla_openfunctions_arguments(c, tools)
         elif model_name == "chatglm3":
             func, args = cls._eval_chatglm3_arguments(c, tools)
+        elif model_name == "qwen-chat":
+            func, args = cls._eval_qwen_chat_arguments(c, tools)
         else:
             raise Exception(f"Model {model_name} is not support tool calls.")
 

@@ -773,7 +773,7 @@ class RESTfulAPI:
         is_chatglm_ggml = desc.get(
             "model_format"
         ) == "ggmlv3" and "chatglm" in desc.get("model_name", "")
-        function_call_models = ["chatglm3", "gorilla-openfunctions-v1"]
+        function_call_models = ["chatglm3", "gorilla-openfunctions-v1", "qwen-chat"]
 
         is_qwen = desc.get("model_format") == "ggmlv3" and "qwen" in desc.get(
             "model_name", ""

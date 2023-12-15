@@ -14,7 +14,7 @@
 
 import logging
 import os
-from typing import Iterator, List, Optional, Union
+from typing import Iterable, Iterator, List, Optional, Union
 
 from ....types import (
     ChatCompletion,
@@ -488,6 +488,16 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
         full_prompt = self.get_prompt(prompt, chat_history, prompt_style, tools=tools)
 
         generate_config = self._sanitize_generate_config(generate_config)
+        # TODO(codingl2k1): qwen hacky to set stop for function call.
+        if tools and self.model_family.model_name == "qwen-chat":
+            stop = generate_config.get("stop")
+            if isinstance(stop, str):
+                generate_config["stop"] = [stop, "Observation:"]
+            elif isinstance(stop, Iterable):
+                assert not isinstance(stop, str)
+                generate_config["stop"] = stop + ["Observation:"]
+            else:
+                generate_config["stop"] = "Observation:"
 
         stream = generate_config.get("stream", False)
         if stream:
