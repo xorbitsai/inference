@@ -378,6 +378,52 @@ def test_restful_api_for_embedding(setup):
     assert len(response_data) == 0
 
 
+def _check_invalid_tool_calls(endpoint, model_uid_res):
+    import openai
+
+    client = openai.Client(api_key="not empty", base_url=f"{endpoint}/v1")
+
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "get_exchange_rate",
+                "description": "Get the exchange rate between two currencies",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "base_currency": {
+                            "type": "string",
+                            "description": "The currency to convert from",
+                        },
+                        "target_currency": {
+                            "type": "string",
+                            "description": "The currency to convert to",
+                        },
+                    },
+                    "required": ["base_currency", "target_currency"],
+                },
+            },
+        }
+    ]
+
+    completion = client.chat.completions.create(
+        model=model_uid_res,
+        messages=[
+            {
+                "content": "Can you book a flight for me from New York to London?",
+                "role": "user",
+            }
+        ],
+        tools=tools,
+        max_tokens=200,
+        temperature=0.1,
+    )
+    assert "stop" == completion.choices[0].finish_reason
+    assert completion.choices[0].message.content
+    assert len(completion.choices[0].message.tool_calls) == 0
+
+
 @pytest.mark.parametrize(
     "model_format, quantization", [("ggmlv3", "q4_0"), ("pytorch", None)]
 )
@@ -499,6 +545,8 @@ def test_restful_api_for_tool_calls(setup, model_format, quantization):
     arg = json.loads(arguments)
     assert arg == {"symbol": "10111"}
 
+    _check_invalid_tool_calls(endpoint, model_uid_res)
+
 
 @pytest.mark.parametrize(
     "model_format, quantization", [("ggufv2", "Q4_K_S"), ("pytorch", None)]
@@ -593,6 +641,8 @@ def test_restful_api_for_gorilla_openfunctions_tool_calls(
     ]
     arg = json.loads(arguments)
     assert arg == {"loc": 94704, "time": 10, "type": "plus"}
+
+    _check_invalid_tool_calls(endpoint, model_uid_res)
 
 
 @pytest.mark.parametrize(
@@ -695,6 +745,8 @@ def test_restful_api_for_qwen_tool_calls(setup, model_format, quantization):
     ]
     arg = json.loads(arguments)
     assert arg == {"search_query": "周杰伦"}
+
+    _check_invalid_tool_calls(endpoint, model_uid_res)
 
 
 def test_restful_api_with_request_limits(setup):
