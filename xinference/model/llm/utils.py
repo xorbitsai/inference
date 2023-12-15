@@ -385,7 +385,7 @@ Begin!"""
         arguments = c["choices"][0]["text"]
 
         def tool_call(n, **kwargs):
-            return n, kwargs
+            return None, n, kwargs
 
         try:
             return eval(
@@ -393,11 +393,13 @@ Begin!"""
             )
         except Exception as e:
             logger.error("Eval tool calls completion failed: %s", e)
-            return arguments, arguments
+            return arguments, None, None
 
     @staticmethod
     def _eval_chatglm3_arguments(c, tools):
-        return c[0]["name"], c[0]["parameters"]
+        if isinstance(c[0], str):
+            return c[0], None, None
+        return None, c[0]["name"], c[0]["parameters"]
 
     @staticmethod
     def _eval_qwen_chat_arguments(c, tools):
@@ -416,23 +418,43 @@ Begin!"""
             if 0 <= i < j < k:
                 plugin_name = text[i + len("\nAction:") : j].strip()
                 plugin_args = text[j + len("\nAction Input:") : k].strip()
-                return plugin_name, json.loads(plugin_args)
+                return None, plugin_name, json.loads(plugin_args)
             logger.error("No ReAct response detected, please check your stop.")
         except Exception as e:
             logger.error("Eval tool calls completion failed: %s", e)
-        return text, text
+        return text, None, None
 
     @classmethod
     def _tool_calls_completion(cls, model_name, model_uid, c, tools):
         _id = str(uuid.uuid4())
         if model_name == "gorilla-openfunctions-v1":
-            func, args = cls._eval_gorilla_openfunctions_arguments(c, tools)
+            content, func, args = cls._eval_gorilla_openfunctions_arguments(c, tools)
         elif model_name == "chatglm3":
-            func, args = cls._eval_chatglm3_arguments(c, tools)
+            content, func, args = cls._eval_chatglm3_arguments(c, tools)
         elif model_name == "qwen-chat":
-            func, args = cls._eval_qwen_chat_arguments(c, tools)
+            content, func, args = cls._eval_qwen_chat_arguments(c, tools)
         else:
             raise Exception(f"Model {model_name} is not support tool calls.")
+
+        if content:
+            m = {"role": "assistant", "content": content, "tool_calls": []}
+            finish_reason = "stop"
+        else:
+            m = {
+                "role": "assistant",
+                "content": None,
+                "tool_calls": [
+                    {
+                        "id": f"call_{_id}",
+                        "type": "function",
+                        "function": {
+                            "name": func,
+                            "arguments": json.dumps(args),
+                        },
+                    }
+                ],
+            }
+            finish_reason = "tool_calls"
 
         return {
             "id": "chat" + f"cmpl-{_id}",
@@ -442,21 +464,8 @@ Begin!"""
             "choices": [
                 {
                     "index": 0,
-                    "message": {
-                        "role": "assistant",
-                        "content": None,
-                        "tool_calls": [
-                            {
-                                "id": f"call_{_id}",
-                                "type": "function",
-                                "function": {
-                                    "name": func,
-                                    "arguments": json.dumps(args),
-                                },
-                            }
-                        ],
-                    },
-                    "finish_reason": "tool_calls",
+                    "message": m,
+                    "finish_reason": finish_reason,
                 }
             ],
             "usage": {
