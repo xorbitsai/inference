@@ -61,6 +61,8 @@ The following is a list of built-in LLM in Xinference:
   
    openbuddy
   
+   openhermes-2.5
+  
    opt
   
    orca
