@@ -21,8 +21,10 @@ import {
 import IconButton from '@mui/material/IconButton'
 import Typography from '@mui/material/Typography'
 import React, { useContext, useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 import { ApiContext } from '../../components/apiContext'
+import fetcher from '../../components/fetcher'
 
 const CARD_HEIGHT = 380
 const CARD_WIDTH = 300
@@ -33,6 +35,7 @@ const ModelCard = ({ url, modelData, gpuAvailable, is_custom = false }) => {
   const { isCallingApi, setIsCallingApi } = useContext(ApiContext)
   const { isUpdatingModel } = useContext(ApiContext)
   const { setErrorMsg } = useContext(ApiContext)
+  const navigate = useNavigate()
 
   // Model parameter selections
   const [modelUID, setModelUID] = useState('')
@@ -122,8 +125,8 @@ const ModelCard = ({ url, modelData, gpuAvailable, is_custom = false }) => {
         nGPU === '0' ? null : nGPU === 'auto' ? 'auto' : parseInt(nGPU, 10),
     }
 
-    // First fetch request to initiate the model
-    fetch(url + '/v1/models', {
+    // First fetcher request to initiate the model
+    fetcher(url + '/v1/models', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -141,7 +144,7 @@ const ModelCard = ({ url, modelData, gpuAvailable, is_custom = false }) => {
             )
           })
         } else {
-          window.open(url + '/ui/#/running_models', '_blank', 'noreferrer')
+          navigate('/running_models')
         }
         setIsCallingApi(false)
       })
@@ -281,7 +284,7 @@ const ModelCard = ({ url, modelData, gpuAvailable, is_custom = false }) => {
 
   const handeCustomDelete = (e) => {
     e.stopPropagation()
-    fetch(url + `/v1/model_registrations/LLM/${modelData.model_name}`, {
+    fetcher(url + `/v1/model_registrations/LLM/${modelData.model_name}`, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',

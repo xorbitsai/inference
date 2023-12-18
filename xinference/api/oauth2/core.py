@@ -1,42 +1,46 @@
+# Copyright 2022-2023 XProbe Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 import logging
-from typing import Annotated, List, Union
+import os
+from typing import Annotated, List, Optional, Union
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, SecurityScopes
 from jose import JWTError, jwt
 from pydantic import BaseModel, ValidationError
 
-from .common import ALGORITHM, SECRET_KEY, fake_users_db
+from .common import XINFERENCE_AUTH_STARTUP_CONFIG_ENV_KEY
+from .types import AuthStartupConfig, User
 
 logger = logging.getLogger(__name__)
 
 
-oauth2_scheme = OAuth2PasswordBearer(
-    tokenUrl="token",
-    scopes={"me": "Read information about the current user.", "items": "Read items."},
-)
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 
-class User(BaseModel):
-    username: str
-    email: Union[str, None] = None
-    full_name: Union[str, None] = None
-    permissions: Union[List[str], None] = None
+def get_db():
+    # TODO: database here
+    # read from os env
+    env_str = os.environ.get(XINFERENCE_AUTH_STARTUP_CONFIG_ENV_KEY, None)
+    yield None if env_str is None else AuthStartupConfig.parse_raw(env_str)
 
 
-class UserInDB(User):
-    hashed_password: str
-
-
-def get_user(db, username: str):
-    if username in db:
-        user_dict = db[username]
-        return UserInDB(**user_dict)
-
-
-# class Token(BaseModel):
-#     access_token: str
-#     token_type: str
+def get_user(db_users: List[User], username: str) -> Optional[User]:
+    for user in db_users:
+        if user.username == username:
+            return user
+    return None
 
 
 class TokenData(BaseModel):
@@ -44,19 +48,14 @@ class TokenData(BaseModel):
     scopes: list[str] = []
 
 
-# def error_response(error_msg: str, status_code: int) -> JSONResponse:
-#     logger.error(error_msg)
-#     return JSONResponse(
-#         content={"detail": error_msg},
-#         status_code=status_code,
-#     )
-
-
 def verify_token(
-    security_scopes: SecurityScopes, token: Annotated[str, Depends(oauth2_scheme)]
+    security_scopes: SecurityScopes,
+    token: Annotated[str, Depends(oauth2_scheme)],
+    config: Optional[AuthStartupConfig] = Depends(get_db),
 ):
-    # if True:
-    #     return None
+    # no auth situation
+    if config is None and token == "no_auth":
+        return None
 
     if security_scopes.scopes:
         authenticate_value = f'Bearer scope="{security_scopes.scope_str}"'
@@ -69,7 +68,12 @@ def verify_token(
     )
 
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        assert config is not None
+        payload = jwt.decode(
+            token,
+            config.auth_config.secret_key,
+            algorithms=[config.auth_config.algorithm],
+        )
         username: str = payload.get("sub")
         if username is None:
             raise credentials_exception
@@ -78,9 +82,11 @@ def verify_token(
         token_data = TokenData(scopes=token_scopes, username=username)
     except (JWTError, ValidationError):
         raise credentials_exception
-    user = get_user(fake_users_db, username=token_data.username)  # type: ignore
+    user = get_user(config.user_config, username=token_data.username)  # type: ignore
     if user is None:
         raise credentials_exception
+    if "admin" in token_data.scopes:
+        return user
     for scope in security_scopes.scopes:
         if scope not in token_data.scopes:
             raise HTTPException(
@@ -89,35 +95,3 @@ def verify_token(
                 headers={"WWW-Authenticate": authenticate_value},
             )
     return user
-
-
-# class OAuth2Middleware(BaseHTTPMiddleware):
-#     async def dispatch(
-#         self, request: Request, call_next: RequestResponseEndpoint
-#     ) -> Response:
-#         logger.debug(f"Request URL path: {request.url.path}")
-#         if not request.url.path.startswith("/token"):
-#             if "Authorization" not in request.headers:
-#                 return error_response("Could not validate credentials", 401)
-#             try:
-#                 token_header = request.headers["Authorization"]
-#                 if token_header.startswith("Bearer "):
-#                     token = token_header.split("Bearer ")[-1]
-#                 else:
-#                     return error_response("Token should begin with `Bearer`", 401)
-#
-#                 payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-#                 username: str = payload.get("sub")
-#                 if username is None:
-#                     return error_response("Invalid Bearer Token", 401)
-#                 # TODO: check expire
-#                 token_data = TokenData(username=username)
-#             except JWTError:
-#                 return error_response("Invalid Bearer Token", 401)
-#             user = get_user(fake_users_db, username=token_data.username)  # type: ignore
-#             if user is None:
-#                 return error_response("Invalid Bearer Token", 401)
-#             if user.disabled:
-#                 return error_response("Inactive user", 403)
-#         response = await call_next(request)
-#         return response
