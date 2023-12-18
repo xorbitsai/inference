@@ -7,19 +7,21 @@ import {
   TextField,
 } from '@mui/material'
 import React, { useContext, useEffect, useState } from 'react'
+import { useCookies } from 'react-cookie'
 
 import { ApiContext } from '../../components/apiContext'
+import fetcher from '../../components/fetcher'
 import ModelCard from './modelCard'
 
 const LaunchLLM = ({ gpuAvailable }) => {
   let endPoint = useContext(ApiContext).endPoint
-  const [registrationData, setRegistrationData] = useState([])
   const { isCallingApi, setIsCallingApi } = useContext(ApiContext)
   const { isUpdatingModel } = useContext(ApiContext)
+  const [cookie] = useCookies(['token'])
 
+  const [registrationData, setRegistrationData] = useState([])
   // States used for filtering
   const [searchTerm, setSearchTerm] = useState('')
-
   const [modelAbility, setModelAbility] = useState('all')
 
   const handleChange = (event) => {
@@ -54,12 +56,19 @@ const LaunchLLM = ({ gpuAvailable }) => {
   }
 
   const update = async () => {
-    if (isCallingApi || isUpdatingModel) return
+    if (
+      isCallingApi ||
+      isUpdatingModel ||
+      cookie.token === '' ||
+      cookie.token === undefined ||
+      cookie.token === 'need_auth'
+    )
+      return
 
     try {
       setIsCallingApi(true)
 
-      const response = await fetch(
+      const response = await fetcher(
         `${endPoint}/v1/model_registrations/LLM?detailed=true`,
         {
           method: 'GET',

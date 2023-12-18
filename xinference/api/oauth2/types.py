@@ -11,3 +11,26 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from typing import List
+
+from pydantic import BaseModel
+
+
+class LoginUserForm(BaseModel):
+    username: str
+    password: str
+
+
+class User(LoginUserForm):
+    permissions: List[str]
+
+
+class AuthConfig(BaseModel):
+    algorithm: str = "HS256"
+    secret_key: str
+    token_expire_in_minutes: int
+
+
+class AuthStartupConfig(BaseModel):
+    auth_config: AuthConfig
+    user_config: List[User]

@@ -22,13 +22,13 @@ import pprint
 import sys
 import warnings
 from datetime import timedelta
-from typing import Any, Dict, List, Literal, Optional, Union
+from typing import Any, List, Optional, Union
 
 import gradio as gr
+import pydantic
 import xoscar as xo
 from fastapi import (
     APIRouter,
-    Depends,
     FastAPI,
     File,
     Form,
@@ -42,7 +42,6 @@ from fastapi import (
 )
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.staticfiles import StaticFiles
 from PIL import Image
 from pydantic import BaseModel, Field
@@ -63,10 +62,10 @@ from ..types import (
     CreateCompletion,
     ImageList,
 )
-from ..types import ChatCompletion, Completion, CreateCompletion, ImageList
-from .oauth2.common import ACCESS_TOKEN_EXPIRE_MINUTES
-from .oauth2.core import User, fake_users_db, get_user, verify_token
-from .oauth2.utils import create_access_token, verify_password
+from .oauth2.common import XINFERENCE_AUTH_STARTUP_CONFIG_ENV_KEY
+from .oauth2.core import get_user, verify_token
+from .oauth2.types import AuthStartupConfig, LoginUserForm, User
+from .oauth2.utils import create_access_token, get_password_hash, verify_password
 
 logger = logging.getLogger(__name__)
 
@@ -135,24 +134,45 @@ class BuildGradioInterfaceRequest(BaseModel):
     model_lang: List[str]
 
 
-def authenticate_user(fake_db, username: str, password: str):
-    user = get_user(fake_db, username)
+def authenticate_user(db_users: List[User], username: str, password: str):
+    user = get_user(db_users, username)
     if not user:
         return False
-    if not verify_password(password, user.hashed_password):
+    if not verify_password(password, user.password):
         return False
     return user
 
 
 class RESTfulAPI:
-    def __init__(self, supervisor_address: str, host: str, port: int):
+    def __init__(
+        self,
+        supervisor_address: str,
+        host: str,
+        port: int,
+        auth_config_file: Optional[str] = None,
+    ):
         super().__init__()
         self._supervisor_address = supervisor_address
         self._host = host
         self._port = port
         self._supervisor_ref = None
+        self._auth_config: AuthStartupConfig = self.init_auth_config(auth_config_file)
         self._router = APIRouter()
         self._app = FastAPI()
+
+    @staticmethod
+    def init_auth_config(auth_config_file: Optional[str]):
+        if auth_config_file:
+            config: AuthStartupConfig = pydantic.parse_file_as(
+                path=auth_config_file, type_=AuthStartupConfig
+            )
+            for user in config.user_config:
+                user.password = get_password_hash(user.password)
+            os.environ[XINFERENCE_AUTH_STARTUP_CONFIG_ENV_KEY] = config.json()
+            return config
+
+    def is_authenticated(self):
+        return False if self._auth_config is None else True
 
     @staticmethod
     def handle_request_limit_error(e: Exception):
@@ -166,11 +186,10 @@ class RESTfulAPI:
             )
         return self._supervisor_ref
 
-    @staticmethod
-    async def login_for_access_token(
-        form_data: OAuth2PasswordRequestForm = Depends(),
-    ) -> JSONResponse:
-        user = authenticate_user(fake_users_db, form_data.username, form_data.password)
+    async def login_for_access_token(self, form_data: LoginUserForm) -> JSONResponse:
+        user = authenticate_user(
+            self._auth_config.user_config, form_data.username, form_data.password
+        )
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -178,17 +197,23 @@ class RESTfulAPI:
                 headers={"WWW-Authenticate": "Bearer"},
             )
         assert user is not None and isinstance(user, User)
-        access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        access_token_expires = timedelta(
+            minutes=self._auth_config.auth_config.token_expire_in_minutes
+        )
         access_token = create_access_token(
             data={"sub": user.username, "scopes": user.permissions},
+            secret_key=self._auth_config.auth_config.secret_key,
+            algorithm=self._auth_config.auth_config.algorithm,
             expires_delta=access_token_expires,
         )
         return JSONResponse(
             content={"access_token": access_token, "token_type": "bearer"}
         )
 
+    async def is_cluster_authenticated(self) -> JSONResponse:
+        return JSONResponse(content={"auth": self.is_authenticated()})
+
     def serve(self, logging_conf: Optional[dict] = None):
-        # self._app.add_middleware(OAuth2Middleware)
         self._app.add_middleware(
             CORSMiddleware,
             allow_origins=["*"],
@@ -196,16 +221,10 @@ class RESTfulAPI:
             allow_methods=["*"],
             allow_headers=["*"],
         )
-        self._router.add_api_route(
-            "/token", self.login_for_access_token, methods=["POST"]
-        )
+
+        # internal interface
         self._router.add_api_route("/status", self.get_status, methods=["GET"])
-        self._router.add_api_route(
-            "/v1/models",
-            self.list_models,
-            methods=["GET"],
-            dependencies=[Security(verify_token, scopes=["models:list"])],
-        )
+        # conflict with /v1/models/{model_uid} below, so register this first
         self._router.add_api_route(
             "/v1/models/prompts", self._get_builtin_prompts, methods=["GET"]
         )
@@ -215,52 +234,96 @@ class RESTfulAPI:
         self._router.add_api_route(
             "/v1/cluster/devices", self._get_devices_count, methods=["GET"]
         )
+
+        # user interface
         self._router.add_api_route(
-            "/v1/models/{model_uid}", self.describe_model, methods=["GET"]
+            "/v1/ui/{model_uid}",
+            self.build_gradio_interface,
+            methods=["POST"],
+            dependencies=[Security(verify_token, scopes=["models:read"])],
         )
-        self._router.add_api_route("/v1/models", self.launch_model, methods=["POST"])
+        self._router.add_api_route(
+            "/token", self.login_for_access_token, methods=["POST"]
+        )
+        self._router.add_api_route(
+            "/v1/cluster/auth", self.is_cluster_authenticated, methods=["GET"]
+        )
+        self._router.add_api_route(
+            "/v1/address",
+            self.get_address,
+            methods=["GET"],
+            dependencies=[Security(verify_token, scopes=["admin"])],
+        )
+        self._router.add_api_route(
+            "/v1/models",
+            self.list_models,
+            methods=["GET"],
+            dependencies=[Security(verify_token, scopes=["models:list"])],
+        )
+
+        self._router.add_api_route(
+            "/v1/models/{model_uid}",
+            self.describe_model,
+            methods=["GET"],
+            dependencies=[Security(verify_token, scopes=["models:read"])],
+        )
+        self._router.add_api_route(
+            "/v1/models",
+            self.launch_model,
+            methods=["POST"],
+            dependencies=[Security(verify_token, scopes=["models:launch"])],
+        )
         self._router.add_api_route(
             "/experimental/speculative_llms",
             self.launch_speculative_llm,
             methods=["POST"],
+            dependencies=[Security(verify_token, scopes=["models:launch"])],
         )
         self._router.add_api_route(
-            "/v1/models/{model_uid}", self.terminate_model, methods=["DELETE"]
+            "/v1/models/{model_uid}",
+            self.terminate_model,
+            methods=["DELETE"],
+            dependencies=[Security(verify_token, scopes=["models:delete"])],
         )
-        self._router.add_api_route("/v1/address", self.get_address, methods=["GET"])
         self._router.add_api_route(
             "/v1/completions",
             self.create_completion,
             methods=["POST"],
             response_model=Completion,
+            dependencies=[Security(verify_token, scopes=["models:read"])],
         )
         self._router.add_api_route(
             "/v1/embeddings",
             self.create_embedding,
             methods=["POST"],
+            dependencies=[Security(verify_token, scopes=["models:read"])],
         )
         self._router.add_api_route(
             "/v1/rerank",
             self.rerank,
             methods=["POST"],
+            dependencies=[Security(verify_token, scopes=["models:read"])],
         )
         self._router.add_api_route(
             "/v1/images/generations",
             self.create_images,
             methods=["POST"],
             response_model=ImageList,
+            dependencies=[Security(verify_token, scopes=["models:read"])],
         )
         self._router.add_api_route(
             "/v1/images/variations",
             self.create_variations,
             methods=["POST"],
             response_model=ImageList,
+            dependencies=[Security(verify_token, scopes=["models:read"])],
         )
         self._router.add_api_route(
             "/v1/chat/completions",
             self.create_chat_completion,
             methods=["POST"],
             response_model=ChatCompletion,
+            dependencies=[Security(verify_token, scopes=["models:read"])],
         )
 
         # for custom models
@@ -268,25 +331,25 @@ class RESTfulAPI:
             "/v1/model_registrations/{model_type}",
             self.register_model,
             methods=["POST"],
+            dependencies=[Security(verify_token, scopes=["models:launch"])],
         )
         self._router.add_api_route(
             "/v1/model_registrations/{model_type}/{model_name}",
             self.unregister_model,
             methods=["DELETE"],
+            dependencies=[Security(verify_token, scopes=["models:launch"])],
         )
         self._router.add_api_route(
             "/v1/model_registrations/{model_type}",
             self.list_model_registrations,
             methods=["GET"],
+            dependencies=[Security(verify_token, scopes=["models:list"])],
         )
         self._router.add_api_route(
             "/v1/model_registrations/{model_type}/{model_name}",
             self.get_model_registrations,
             methods=["GET"],
-        )
-
-        self._router.add_api_route(
-            "/v1/ui/{model_uid}", self.build_gradio_interface, methods=["POST"]
+            dependencies=[Security(verify_token, scopes=["models:read"])],
         )
 
         self._app.include_router(self._router)
@@ -516,7 +579,7 @@ class RESTfulAPI:
         return JSONResponse(content={"model_uid": model_uid})
 
     async def build_gradio_interface(
-        self, model_uid: str, body: BuildGradioInterfaceRequest
+        self, model_uid: str, body: BuildGradioInterfaceRequest, request: Request
     ) -> JSONResponse:
         """
         Separate build_interface with launch_model
@@ -541,6 +604,8 @@ class RESTfulAPI:
         from ..core.chat_interface import LLMInterface
 
         try:
+            access_token = request.headers.get("Authorization")
+            print(f"==================Access token in gradio interface: {access_token}")
             internal_host = "localhost" if self._host == "0.0.0.0" else self._host
             interface = LLMInterface(
                 endpoint=f"http://{internal_host}:{self._port}",
@@ -553,6 +618,7 @@ class RESTfulAPI:
                 model_ability=body.model_ability,
                 model_description=body.model_description,
                 model_lang=body.model_lang,
+                access_token=access_token,
             ).build()
             gr.mount_gradio_app(self._app, interface, f"/{model_uid}")
         except ValueError as ve:
@@ -970,11 +1036,20 @@ class RESTfulAPI:
 
 
 def run(
-    supervisor_address: str, host: str, port: int, logging_conf: Optional[dict] = None
+    supervisor_address: str,
+    host: str,
+    port: int,
+    logging_conf: Optional[dict] = None,
+    auth_config_file: Optional[str] = None,
 ):
     logger.info(f"Starting Xinference at endpoint: http://{host}:{port}")
     try:
-        api = RESTfulAPI(supervisor_address=supervisor_address, host=host, port=port)
+        api = RESTfulAPI(
+            supervisor_address=supervisor_address,
+            host=host,
+            port=port,
+            auth_config_file=auth_config_file,
+        )
         api.serve(logging_conf=logging_conf)
     except SystemExit:
         logger.warning("Failed to create socket with port %d", port)
@@ -985,7 +1060,10 @@ def run(
             logger.info(f"Found available port: {port}")
             logger.info(f"Starting Xinference at endpoint: http://{host}:{port}")
             api = RESTfulAPI(
-                supervisor_address=supervisor_address, host=host, port=port
+                supervisor_address=supervisor_address,
+                host=host,
+                port=port,
+                auth_config_file=auth_config_file,
             )
             api.serve(logging_conf=logging_conf)
         else:

@@ -63,9 +63,7 @@ def get_endpoint(endpoint: Optional[str]) -> str:
 
 
 def start_local_cluster(
-    log_level: str,
-    host: str,
-    port: int,
+    log_level: str, host: str, port: int, auth_config_file: Optional[str] = None
 ):
     from .local import main
 
@@ -81,6 +79,7 @@ def start_local_cluster(
         host=host,
         port=port,
         logging_conf=dict_config,
+        auth_config_file=auth_config_file,
     )
 
 
@@ -159,12 +158,15 @@ def cli(
     type=int,
     help="Specify the port number for the Xinference server.",
 )
-def local(
-    log_level: str,
-    host: str,
-    port: int,
-):
-    start_local_cluster(log_level=log_level, host=host, port=port)
+@click.option(
+    "--auth-config",
+    type=str,
+    help="Specify the auth config json file.",
+)
+def local(log_level: str, host: str, port: int, auth_config: Optional[str]):
+    start_local_cluster(
+        log_level=log_level, host=host, port=port, auth_config_file=auth_config
+    )
 
 
 @click.command(
@@ -196,7 +198,18 @@ def local(
     type=int,
     help="Specify the port number for the Xinference supervisor.",
 )
-def supervisor(log_level: str, host: str, port: int, supervisor_port: Optional[int]):
+@click.option(
+    "--auth-config",
+    type=str,
+    help="Specify the auth config json file.",
+)
+def supervisor(
+    log_level: str,
+    host: str,
+    port: int,
+    supervisor_port: Optional[int],
+    auth_config: Optional[str],
+):
     from ..deploy.supervisor import main
 
     dict_config = get_config_dict(
@@ -208,7 +221,11 @@ def supervisor(log_level: str, host: str, port: int, supervisor_port: Optional[i
     logging.config.dictConfig(dict_config)  # type: ignore
 
     main(
-        host=host, port=port, supervisor_port=supervisor_port, logging_conf=dict_config
+        host=host,
+        port=port,
+        supervisor_port=supervisor_port,
+        logging_conf=dict_config,
+        auth_config_file=auth_config,
     )
 
 

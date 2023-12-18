@@ -4,8 +4,12 @@ import { TabContext, TabList, TabPanel } from '@mui/lab'
 import { Box, Stack, Tab } from '@mui/material'
 import { DataGrid } from '@mui/x-data-grid'
 import React, { useContext, useEffect, useState } from 'react'
+import { useCookies } from 'react-cookie'
+import { useNavigate } from 'react-router-dom'
 
 import { ApiContext } from '../../components/apiContext'
+import ErrorMessageSnackBar from '../../components/errorMessageSnackBar'
+import fetcher from '../../components/fetcher'
 import Title from '../../components/Title'
 
 const RunningModels = () => {
@@ -16,6 +20,9 @@ const RunningModels = () => {
   const [rerankModelData, setRerankModelData] = useState([])
   const { isCallingApi, setIsCallingApi } = useContext(ApiContext)
   const { isUpdatingModel, setIsUpdatingModel } = useContext(ApiContext)
+  const { setErrorMsg } = useContext(ApiContext)
+  const [cookie] = useCookies(['token'])
+  const navigate = useNavigate()
   const endPoint = useContext(ApiContext).endPoint
 
   const handleTabChange = (event, newValue) => {
@@ -23,6 +30,13 @@ const RunningModels = () => {
   }
 
   const update = (isCallingApi) => {
+    if (cookie.token === '' || cookie.token === undefined) {
+      return
+    }
+    if (cookie.token === 'need_auth') {
+      navigate('/login')
+      return
+    }
     if (isCallingApi) {
       setLlmData([{ id: 'Loading, do not refresh page...', url: 'IS_LOADING' }])
       setEmbeddingModelData([
@@ -36,36 +50,47 @@ const RunningModels = () => {
       ])
     } else {
       setIsUpdatingModel(true)
-      fetch(`${endPoint}/v1/models/`, {
+      fetcher(`${endPoint}/v1/models/`, {
         method: 'GET',
       })
-        .then((response) => response.json())
-        .then((data) => {
-          const newLlmData = []
-          const newEmbeddingModelData = []
-          const newImageModelData = []
-          const newRerankModelData = []
-          Object.entries(data).forEach(([key, value]) => {
-            let newValue = {
-              ...value,
-              id: key,
-              url: key,
-            }
-            if (newValue.model_type === 'LLM') {
-              newLlmData.push(newValue)
-            } else if (newValue.model_type === 'embedding') {
-              newEmbeddingModelData.push(newValue)
-            } else if (newValue.model_type === 'image') {
-              newImageModelData.push(newValue)
-            } else if (newValue.model_type === 'rerank') {
-              newRerankModelData.push(newValue)
-            }
-          })
-          setLlmData(newLlmData)
-          setEmbeddingModelData(newEmbeddingModelData)
-          setImageModelData(newImageModelData)
-          setRerankModelData(newRerankModelData)
-          setIsUpdatingModel(false)
+        .then((response) => {
+          if (!response.ok) {
+            response.json().then((errorData) => {
+              setErrorMsg(
+                `Login failed: ${response.status} - ${
+                  errorData.detail || 'Unknown error'
+                }`
+              )
+            })
+          } else {
+            response.json().then((data) => {
+              const newLlmData = []
+              const newEmbeddingModelData = []
+              const newImageModelData = []
+              const newRerankModelData = []
+              Object.entries(data).forEach(([key, value]) => {
+                let newValue = {
+                  ...value,
+                  id: key,
+                  url: key,
+                }
+                if (newValue.model_type === 'LLM') {
+                  newLlmData.push(newValue)
+                } else if (newValue.model_type === 'embedding') {
+                  newEmbeddingModelData.push(newValue)
+                } else if (newValue.model_type === 'image') {
+                  newImageModelData.push(newValue)
+                } else if (newValue.model_type === 'rerank') {
+                  newRerankModelData.push(newValue)
+                }
+              })
+              setLlmData(newLlmData)
+              setEmbeddingModelData(newEmbeddingModelData)
+              setImageModelData(newImageModelData)
+              setRerankModelData(newRerankModelData)
+              setIsUpdatingModel(false)
+            })
+          }
         })
         .catch((error) => {
           console.error('Error:', error)
@@ -77,7 +102,7 @@ const RunningModels = () => {
   useEffect(() => {
     update(isCallingApi)
     // eslint-disable-next-line
-  }, [isCallingApi])
+  }, [isCallingApi, cookie.token])
 
   const llmColumns = [
     {
@@ -154,14 +179,14 @@ const RunningModels = () => {
 
                 setIsCallingApi(true)
 
-                fetch(openUrl, {
+                fetcher(openUrl, {
                   method: 'HEAD',
                 })
                   .then((response) => {
                     if (response.status === 404) {
                       // If web UI doesn't exist (404 Not Found)
                       console.log('UI does not exist, creating new...')
-                      return fetch(gradioUrl, {
+                      return fetcher(gradioUrl, {
                         method: 'POST',
                         headers: {
                           'Content-Type': 'application/json',
@@ -231,7 +256,7 @@ const RunningModels = () => {
                   return
                 }
                 setIsCallingApi(true)
-                fetch(closeUrl, {
+                fetcher(closeUrl, {
                   method: 'DELETE',
                 })
                   .then((response) => {
@@ -328,7 +353,7 @@ const RunningModels = () => {
                   return
                 }
                 setIsCallingApi(true)
-                fetch(closeUrl, {
+                fetcher(closeUrl, {
                   method: 'DELETE',
                 })
                   .then((response) => {
@@ -414,6 +439,7 @@ const RunningModels = () => {
       }}
     >
       <Title title="Running Models" />
+      <ErrorMessageSnackBar />
       <TabContext value={tabValue}>
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
           <TabList

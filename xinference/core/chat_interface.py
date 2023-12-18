@@ -43,6 +43,7 @@ class LLMInterface:
         model_ability: List[str],
         model_description: str,
         model_lang: List[str],
+        access_token: str,
     ):
         self.endpoint = endpoint
         self.model_uid = model_uid
@@ -54,6 +55,7 @@ class LLMInterface:
         self.model_ability = model_ability
         self.model_description = model_description
         self.model_lang = model_lang
+        self._access_token = access_token.replace("Bearer ", "")
 
     def build(self) -> "gr.Blocks":
         if "chat" in self.model_ability:
@@ -102,6 +104,7 @@ class LLMInterface:
             from ..client import RESTfulClient
 
             client = RESTfulClient(self.endpoint)
+            client._set_token(self._access_token)
             model = client.get_model(self.model_uid)
             assert isinstance(
                 model, (RESTfulChatModelHandle, RESTfulChatglmCppChatModelHandle)
@@ -198,6 +201,7 @@ class LLMInterface:
             from ..client import RESTfulClient
 
             client = RESTfulClient(self.endpoint)
+            client._set_token(self._access_token)
             model = client.get_model(self.model_uid)
             assert isinstance(model, RESTfulGenerateModelHandle)
 
@@ -234,6 +238,7 @@ class LLMInterface:
             from ..client import RESTfulClient
 
             client = RESTfulClient(self.endpoint)
+            client._set_token(self._access_token)
             model = client.get_model(self.model_uid)
             assert isinstance(model, RESTfulGenerateModelHandle)
 

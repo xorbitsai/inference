@@ -53,9 +53,10 @@ class RESTfulModelHandle:
     programmatically.
     """
 
-    def __init__(self, model_uid: str, base_url: str):
+    def __init__(self, model_uid: str, base_url: str, auth_headers: Dict):
         self._model_uid = model_uid
         self._base_url = base_url
+        self.auth_headers = auth_headers
 
 
 class RESTfulEmbeddingModelHandle(RESTfulModelHandle):
@@ -82,7 +83,7 @@ class RESTfulEmbeddingModelHandle(RESTfulModelHandle):
         """
         url = f"{self._base_url}/v1/embeddings"
         request_body = {"model": self._model_uid, "input": input}
-        response = requests.post(url, json=request_body)
+        response = requests.post(url, json=request_body, headers=self.auth_headers)
         if response.status_code != 200:
             raise RuntimeError(
                 f"Failed to create the embeddings, detail: {_get_error_string(response)}"
@@ -135,7 +136,7 @@ class RESTfulRerankModelHandle(RESTfulModelHandle):
             "max_chunks_per_doc": max_chunks_per_doc,
             "return_documents": return_documents,
         }
-        response = requests.post(url, json=request_body)
+        response = requests.post(url, json=request_body, headers=self.auth_headers)
         if response.status_code != 200:
             raise RuntimeError(
                 f"Failed to rerank documents, detail: {response.json()['detail']}"
@@ -182,7 +183,7 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
             "response_format": response_format,
             "kwargs": json.dumps(kwargs),
         }
-        response = requests.post(url, json=request_body)
+        response = requests.post(url, json=request_body, headers=self.auth_headers)
         if response.status_code != 200:
             raise RuntimeError(
                 f"Failed to create the images, detail: {_get_error_string(response)}"
@@ -246,10 +247,7 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
         for key, value in params.items():
             files.append((key, (None, value)))
         files.append(("image", ("image", image, "application/octet-stream")))
-        response = requests.post(
-            url,
-            files=files,
-        )
+        response = requests.post(url, files=files, headers=self.auth_headers)
         if response.status_code != 200:
             raise RuntimeError(
                 f"Failed to variants the images, detail: {_get_error_string(response)}"
@@ -302,7 +300,9 @@ class RESTfulGenerateModelHandle(RESTfulEmbeddingModelHandle):
 
         stream = bool(generate_config and generate_config.get("stream"))
 
-        response = requests.post(url, json=request_body, stream=stream)
+        response = requests.post(
+            url, json=request_body, stream=stream, headers=self.auth_headers
+        )
         if response.status_code != 200:
             raise RuntimeError(
                 f"Failed to generate completion, detail: {_get_error_string(response)}"
@@ -384,7 +384,9 @@ class RESTfulChatModelHandle(RESTfulGenerateModelHandle):
                 request_body[key] = value
 
         stream = bool(generate_config and generate_config.get("stream"))
-        response = requests.post(url, json=request_body, stream=stream)
+        response = requests.post(
+            url, json=request_body, stream=stream, headers=self.auth_headers
+        )
 
         if response.status_code != 200:
             raise RuntimeError(
@@ -536,7 +538,9 @@ class RESTfulChatglmCppChatModelHandle(RESTfulEmbeddingModelHandle):
                 request_body[key] = value
 
         stream = bool(generate_config and generate_config.get("stream"))
-        response = requests.post(url, json=request_body, stream=stream)
+        response = requests.post(
+            url, json=request_body, stream=stream, headers=self.auth_headers
+        )
 
         if response.status_code != 200:
             raise RuntimeError(
@@ -589,7 +593,9 @@ class RESTfulChatglmCppGenerateModelHandle(RESTfulChatglmCppChatModelHandle):
 
         stream = bool(generate_config and generate_config.get("stream"))
 
-        response = requests.post(url, json=request_body, stream=stream)
+        response = requests.post(
+            url, json=request_body, stream=stream, headers=self.auth_headers
+        )
         if response.status_code != 200:
             raise RuntimeError(
                 f"Failed to generate completion, detail: {response.json()['detail']}"
@@ -605,14 +611,32 @@ class RESTfulChatglmCppGenerateModelHandle(RESTfulChatglmCppChatModelHandle):
 class Client:
     def __init__(self, base_url):
         self.base_url = base_url
-        self._access_token = None
+        self._headers = {}
+        self._check_cluster_authenticated()
+
+    def _set_token(self, token: str):
+        self._headers["Authorization"] = f"Bearer {token}"
+
+    def _check_cluster_authenticated(self):
+        url = f"{self.base_url}/v1/cluster/auth"
+        response = requests.get(url)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to get cluster information, detail: {response.json()['detail']}"
+            )
+        response_data = response.json()
+        # even if there is no authentication, the header has to have bearer token
+        if not response_data["auth"]:
+            self._headers["Authorization"] = "Bearer no_auth"
 
     def login(self, username: str, password: str):
+        if "no_auth" in self._headers.get("Authorization", ""):
+            return
         url = f"{self.base_url}/token"
 
         payload = {"username": username, "password": password}
 
-        response = requests.post(url, data=payload)
+        response = requests.post(url, json=payload)
         # TODO handle login failed
         if response.status_code != 200:
             raise RuntimeError(f"Failed to login, detail: {response.json()['detail']}")
@@ -620,8 +644,7 @@ class Client:
         response_data = response.json()
         # Only bearer token for now
         access_token = response_data["access_token"]
-        self._access_token = access_token
-        return response_data
+        self._headers["Authorization"] = f"Bearer {access_token}"
 
     def list_models(self) -> Dict[str, Dict[str, Any]]:
         """
@@ -636,11 +659,7 @@ class Client:
 
         url = f"{self.base_url}/v1/models"
 
-        headers = {
-            "Authorization": f"Bearer {self._access_token}",
-        }
-
-        response = requests.get(url, headers=headers)
+        response = requests.get(url, headers=self._headers)
         if response.status_code != 200:
             raise RuntimeError(
                 f"Failed to list model, detail: {_get_error_string(response)}"
@@ -685,7 +704,7 @@ class Client:
         }
 
         url = f"{self.base_url}/experimental/speculative_llms"
-        response = requests.post(url, json=payload)
+        response = requests.post(url, json=payload, headers=self._headers)
         if response.status_code != 200:
             raise RuntimeError(
                 f"Failed to launch model, detail: {_get_error_string(response)}"
@@ -760,7 +779,7 @@ class Client:
         for key, value in kwargs.items():
             payload[str(key)] = value
 
-        response = requests.post(url, json=payload)
+        response = requests.post(url, json=payload, headers=self._headers)
         if response.status_code != 200:
             raise RuntimeError(
                 f"Failed to launch model, detail: {_get_error_string(response)}"
@@ -787,7 +806,7 @@ class Client:
 
         url = f"{self.base_url}/v1/models/{model_uid}"
 
-        response = requests.delete(url)
+        response = requests.delete(url, headers=self._headers)
         if response.status_code != 200:
             raise RuntimeError(
                 f"Failed to terminate model, detail: {_get_error_string(response)}"
@@ -795,7 +814,7 @@ class Client:
 
     def _get_supervisor_internal_address(self):
         url = f"{self.base_url}/v1/address"
-        response = requests.get(url)
+        response = requests.get(url, headers=self._headers)
         if response.status_code != 200:
             raise RuntimeError(f"Failed to get supervisor internal address")
         response_data = response.json()
@@ -827,7 +846,7 @@ class Client:
         """
 
         url = f"{self.base_url}/v1/models/{model_uid}"
-        response = requests.get(url)
+        response = requests.get(url, headers=self._headers)
         if response.status_code != 200:
             raise RuntimeError(
                 f"Failed to get the model description, detail: {_get_error_string(response)}"
@@ -836,17 +855,27 @@ class Client:
 
         if desc["model_type"] == "LLM":
             if desc["model_format"] == "ggmlv3" and "chatglm" in desc["model_name"]:
-                return RESTfulChatglmCppGenerateModelHandle(model_uid, self.base_url)
+                return RESTfulChatglmCppGenerateModelHandle(
+                    model_uid, self.base_url, auth_headers=self._headers
+                )
             elif "chat" in desc["model_ability"]:
-                return RESTfulChatModelHandle(model_uid, self.base_url)
+                return RESTfulChatModelHandle(
+                    model_uid, self.base_url, auth_headers=self._headers
+                )
             elif "generate" in desc["model_ability"]:
-                return RESTfulGenerateModelHandle(model_uid, self.base_url)
+                return RESTfulGenerateModelHandle(
+                    model_uid, self.base_url, auth_headers=self._headers
+                )
             else:
                 raise ValueError(f"Unrecognized model ability: {desc['model_ability']}")
         elif desc["model_type"] == "embedding":
-            return RESTfulEmbeddingModelHandle(model_uid, self.base_url)
+            return RESTfulEmbeddingModelHandle(
+                model_uid, self.base_url, auth_headers=self._headers
+            )
         elif desc["model_type"] == "image":
-            return RESTfulImageModelHandle(model_uid, self.base_url)
+            return RESTfulImageModelHandle(
+                model_uid, self.base_url, auth_headers=self._headers
+            )
         elif desc["model_type"] == "rerank":
             return RESTfulRerankModelHandle(model_uid, self.base_url)
         elif desc["model_type"] == "multimodal":
@@ -897,7 +926,7 @@ class Client:
         """
 
         url = f"{self.base_url}/v1/models/{model_uid}"
-        response = requests.get(url)
+        response = requests.get(url, headers=self._headers)
         if response.status_code != 200:
             raise RuntimeError(
                 f"Failed to get the model description, detail: {_get_error_string(response)}"
@@ -924,7 +953,7 @@ class Client:
         """
         url = f"{self.base_url}/v1/model_registrations/{model_type}"
         request_body = {"model": model, "persist": persist}
-        response = requests.post(url, json=request_body)
+        response = requests.post(url, json=request_body, headers=self._headers)
         if response.status_code != 200:
             raise RuntimeError(
                 f"Failed to register model, detail: {_get_error_string(response)}"
@@ -950,7 +979,7 @@ class Client:
             Report failure to unregister the custom model. Provide details of failure through error message.
         """
         url = f"{self.base_url}/v1/model_registrations/{model_type}/{model_name}"
-        response = requests.delete(url)
+        response = requests.delete(url, headers=self._headers)
         if response.status_code != 200:
             raise RuntimeError(
                 f"Failed to register model, detail: {_get_error_string(response)}"
@@ -980,7 +1009,7 @@ class Client:
 
         """
         url = f"{self.base_url}/v1/model_registrations/{model_type}"
-        response = requests.get(url)
+        response = requests.get(url, headers=self._headers)
         if response.status_code != 200:
             raise RuntimeError(
                 f"Failed to list model registration, detail: {_get_error_string(response)}"
@@ -1008,7 +1037,7 @@ class Client:
             The collection of registered models on the server.
         """
         url = f"{self.base_url}/v1/model_registrations/{model_type}/{model_name}"
-        response = requests.get(url)
+        response = requests.get(url, headers=self._headers)
         if response.status_code != 200:
             raise RuntimeError(
                 f"Failed to list model registration, detail: {_get_error_string(response)}"

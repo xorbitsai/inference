@@ -1,29 +1,14 @@
-# to get a string like this run:
-# openssl rand -hex 32
-SECRET_KEY = "09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
-
-
-fake_users_db = {
-    "lichengjie": {
-        "username": "lichengjie",
-        "full_name": "lichengjie",
-        "email": "lichengjie@xprobe.io",
-        "hashed_password": "$2b$12$VyoOP0H1gg42R.Raw4aPiOseVJS/RZNASluUEZdRpObV8iqvsWd96",
-        "permissions": [
-            "models:read",
-            "models:launch",
-            "models:list",
-            "models:delete",
-            "admin",
-        ],
-    },
-    "hekaisheng": {
-        "username": "hekaisheng",
-        "full_name": "hekaisheng",
-        "email": "hekaisheng@xprobe.io",
-        "hashed_password": "$2b$12$T7b13uszQVXey9tk9JI.d.hwuTbB/cNszBC/7wk5RjgIg/dC..neK",
-        "permissions": ["models:read"],
-    },
-}
+# Copyright 2022-2023 XProbe Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+XINFERENCE_AUTH_STARTUP_CONFIG_ENV_KEY = "XINFERENCE_AUTH_STARTUP_CONFIG"
