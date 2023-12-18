@@ -388,9 +388,10 @@ Begin!"""
             return None, n, kwargs
 
         try:
-            return eval(
+            a, b, c = eval(
                 arguments, {n: functools.partial(tool_call, n) for n in tool_names}
             )
+            return a, b, c
         except Exception as e:
             logger.error("Eval tool calls completion failed: %s", e)
             return arguments, None, None
