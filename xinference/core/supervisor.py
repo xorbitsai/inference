@@ -600,6 +600,16 @@ class SupervisorActor(xo.StatelessActor):
         self._worker_address_to_worker[worker_address] = worker_ref
         logger.debug("Worker %s has been added successfully", worker_address)
 
+    @log_async(logger=logger)
+    async def remove_worker(self, worker_address: str):
+        if worker_address in self._worker_address_to_worker:
+            del self._worker_address_to_worker[worker_address]
+            logger.debug("Worker %s has been removed successfully", worker_address)
+        else:
+            logger.warning(
+                f"Worker {worker_address} cannot be removed since it is not registered to supervisor."
+            )
+
     async def report_worker_status(
         self, worker_address: str, status: Dict[str, ResourceStatus]
     ):
