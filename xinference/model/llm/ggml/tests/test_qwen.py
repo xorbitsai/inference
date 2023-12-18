@@ -18,7 +18,7 @@ from typing import Any, List
 
 import pytest
 
-from ...ggml.qwen import QWenModel
+from ...ggml.llamacpp import LlamaCppChatModel
 from ...llm_family import GgmlLLMSpecV1, LLMFamilyV1
 
 
@@ -45,7 +45,7 @@ class MockPipeline:
         return res
 
 
-class MockChatglmCppChatModel(QWenModel):
+class MockChatglmCppChatModel(LlamaCppChatModel):
     def load(self):
         self._llm = MockPipeline()
 

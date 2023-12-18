@@ -272,7 +272,6 @@ class LlamaCppChatModel(LlamaCppModel, ChatModelMixin):
             return False
         if (
             "chatglm" in llm_family.model_name
-            or "qwen" in llm_family.model_name
             or llm_family.model_name in CTRANSFORMERS_SUPPORTED_MODEL
         ):
             return False
