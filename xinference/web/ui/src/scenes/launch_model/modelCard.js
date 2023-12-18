@@ -496,10 +496,8 @@ const ModelCard = ({ url, modelData, gpuAvailable, is_custom = false }) => {
 
                     const cached =
                       modelFormat === 'pytorch'
-                        ? specs[0].cache_status &&
-                          specs[0].cache_status === true
-                        : specs[0].cache_status &&
-                          specs[0].cache_status[index] === true
+                        ? specs[0]?.cache_status ?? false === true
+                        : specs[0]?.cache_status?.[index] ?? false === true
                     const displayedQuant = cached ? quant + ' (cached)' : quant
 
                     return (
