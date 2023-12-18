@@ -61,6 +61,8 @@ The following is a list of built-in LLM in Xinference:
   
    llama-2-chat
   
+   mistral-8x7b-instruct-v0.1
+  
    mistral-instruct-v0.1
   
    mistral-v0.1
