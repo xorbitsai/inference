@@ -30,6 +30,7 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 - 投机采样: [#509](https://github.com/xorbitsai/inference/pull/509)
 - 引入 vLLM: [#445](https://github.com/xorbitsai/inference/pull/445)
 ### 新模型
+- 内置 [OpenHermes 2.5](https://huggingface.co/teknium/OpenHermes-2.5-Mistral-7B): [#776](https://github.com/xorbitsai/inference/pull/776)
 - 内置 [Yi](https://huggingface.co/01-ai): [#629](https://github.com/xorbitsai/inference/pull/629)
 - 内置 [zephyr-7b-alpha](https://huggingface.co/HuggingFaceH4/zephyr-7b-alpha) 与 [zephyr-7b-beta](https://huggingface.co/HuggingFaceH4/zephyr-7b-beta): [#597](https://github.com/xorbitsai/inference/pull/597)
 - 内置 [chatglm3](https://huggingface.co/THUDM/chatglm3-6b): [#587](https://github.com/xorbitsai/inference/pull/587)
@@ -243,6 +244,7 @@ $ xinference registrations
 | LLM   | mistral-instruct-v0.1   | ['en']       | ['chat']     |
 | LLM   | mistral-v0.1            | ['en']       | ['generate'] |
 | LLM   | OpenBuddy               | ['en']       | ['chat']     |
+| LLM   | openhermes-2.5          | ['en']       | ['chat']     |
 | LLM   | opt                     | ['en']       | ['generate'] |
 | LLM   | orca                    | ['en']       | ['chat']     |
 | LLM   | qwen-chat               | ['en', 'zh'] | ['chat']     |

@@ -32,6 +32,7 @@ potential of cutting-edge AI models.
 - Speculative decoding: [#509](https://github.com/xorbitsai/inference/pull/509)
 - Incorporate vLLM: [#445](https://github.com/xorbitsai/inference/pull/445)
 ### New Models
+- Built-in support for [OpenHermes 2.5](https://huggingface.co/teknium/OpenHermes-2.5-Mistral-7B): [#776](https://github.com/xorbitsai/inference/pull/776)
 - Built-in support for [Yi](https://huggingface.co/01-ai): [#629](https://github.com/xorbitsai/inference/pull/629)
 - Built-in support for [zephyr-7b-alpha](https://huggingface.co/HuggingFaceH4/zephyr-7b-alpha) and [zephyr-7b-beta](https://huggingface.co/HuggingFaceH4/zephyr-7b-beta): [#597](https://github.com/xorbitsai/inference/pull/597) 
 - Built-in support for [chatglm3](https://huggingface.co/THUDM/chatglm3-6b): [#587](https://github.com/xorbitsai/inference/pull/587)
@@ -266,6 +267,7 @@ $ xinference registrations
 | LLM   | mistral-instruct-v0.1   | ['en']       | ['chat']     |
 | LLM   | mistral-v0.1            | ['en']       | ['generate'] |
 | LLM   | OpenBuddy               | ['en']       | ['chat']     |
+| LLM   | openhermes-2.5          | ['en']       | ['chat']     |
 | LLM   | opt                     | ['en']       | ['generate'] |
 | LLM   | orca                    | ['en']       | ['chat']     |
 | LLM   | qwen-chat               | ['en', 'zh'] | ['chat']     |
