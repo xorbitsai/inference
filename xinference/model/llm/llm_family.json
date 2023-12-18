@@ -2070,6 +2070,64 @@
   },
   {
     "version": 1,
+    "context_length": 32768,
+    "model_name": "mistral-8x7b-instruct-v0.1",
+    "model_lang": [
+      "en"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "Mistral-8x7B-Instruct is a fine-tuned version of the Mistral-8x7B LLM, specializing in chatting.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 12,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "mistralai/Mixtral-8x7B-Instruct-v0.1",
+        "model_revision": "125c431e2ff41a156b9f9076f744d2f35dd6e67a"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 12,
+        "quantizations": [
+          "Q2_K",
+          "Q3_K_S",
+          "Q3_K_M",
+          "Q3_K_L",
+          "Q4_0",
+          "Q4_K_S",
+          "Q4_K_M",
+          "Q5_0",
+          "Q5_K_S",
+          "Q5_K_M",
+          "Q6_K",
+          "Q8_0"
+        ],
+        "model_id": "TheBloke/Mixtral-8x7B-Instruct-v0.1-GGUF",
+        "model_file_name_template": "mixtral-8x7b-instruct-v0.1.{quantization}.gguf"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "NO_COLON_TWO",
+      "system_prompt": "<s>[INST] <<SYS>>\nAn informative and inspiring conversation\n<</SYS>>\n\n",
+      "roles": [
+        "[INST]",
+        "[/INST]"
+      ],
+      "intra_message_sep": " ",
+      "inter_message_sep": " </s><s>",
+      "stop_token_ids": [
+        2
+      ]
+    }
+  },
+  {
+    "version": 1,
     "context_length": 8192,
     "model_name": "openhermes-2.5",
     "model_lang": [
