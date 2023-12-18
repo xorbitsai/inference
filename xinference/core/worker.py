@@ -342,21 +342,20 @@ class WorkerActor(xo.StatelessActor):
             model_uid, model_type, n_gpu=n_gpu
         )
 
-        model, model_description = await asyncio.to_thread(
-            create_model_instance,
-            subpool_address,
-            devices,
-            model_uid,
-            model_type,
-            model_name,
-            model_format,
-            model_size_in_billions,
-            quantization,
-            is_local_deployment,
-            **kwargs,
-        )
-
         try:
+            model, model_description = await asyncio.to_thread(
+                create_model_instance,
+                subpool_address,
+                devices,
+                model_uid,
+                model_type,
+                model_name,
+                model_format,
+                model_size_in_billions,
+                quantization,
+                is_local_deployment,
+                **kwargs,
+            )
             model_ref = await xo.create_actor(
                 ModelActor,
                 address=subpool_address,

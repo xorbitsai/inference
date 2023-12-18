@@ -601,7 +601,7 @@ class Client:
         model_name: str,
         model_type: str = "LLM",
         model_uid: Optional[str] = None,
-        model_size_in_billions: Optional[int] = None,
+        model_size_in_billions: Optional[Union[int, str]] = None,
         model_format: Optional[str] = None,
         quantization: Optional[str] = None,
         replica: int = 1,
