@@ -23,8 +23,15 @@ XINFERENCE_ENV_HEALTH_CHECK_INTERVAL = "XINFERENCE_HEALTH_CHECK_INTERVAL"
 XINFERENCE_ENV_DISABLE_VLLM = "XINFERENCE_DISABLE_VLLM"
 
 
-def get_xinference_home():
-    return os.environ.get(XINFERENCE_ENV_HOME_PATH, str(Path.home() / ".xinference"))
+def get_xinference_home() -> str:
+    home_path = os.environ.get(XINFERENCE_ENV_HOME_PATH)
+    if home_path is None:
+        home_path = str(Path.home() / ".xinference")
+    else:
+        # if user has already set `XINFERENCE_HOME` env, change huggingface and modelscope default download path
+        os.environ["HUGGINGFACE_HUB_CACHE"] = os.path.join(home_path, "huggingface")
+        os.environ["MODELSCOPE_CACHE"] = os.path.join(home_path, "modelscope")
+    return home_path
 
 
 XINFERENCE_HOME = get_xinference_home()
