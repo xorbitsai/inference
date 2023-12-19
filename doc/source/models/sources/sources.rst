@@ -10,6 +10,10 @@ HuggingFace
 ^^^^^^^^^^^^^^
 Xinference directly downloads the required models from the official `Hugging Face model repository <https://huggingface.co/models>`_ by default.
 
+.. note::
+   If you have trouble connecting to Huggingface, you can use a mirror website to download with setting the environment variable ``HF_ENDPOINT=https://hf-mirror.com``.
+
+
 ModelScope
 ^^^^^^^^^^^^^^
 Users can choose to download models from the `ModelScope model repository <https://modelscope.cn/models>`_.
