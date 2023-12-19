@@ -209,6 +209,7 @@ $ xinference registrations
 | LLM   | mistral-instruct-v0.1   | ['en']       | ['chat']     |
 | LLM   | mistral-v0.1            | ['en']       | ['generate'] |
 | LLM   | OpenBuddy               | ['en']       | ['chat']     |
+| LLM   | openhermes-2.5          | ['en']       | ['chat']     |
 | LLM   | opt                     | ['en']       | ['generate'] |
 | LLM   | orca                    | ['en']       | ['chat']     |
 | LLM   | qwen-chat               | ['en', 'zh'] | ['chat']     |
