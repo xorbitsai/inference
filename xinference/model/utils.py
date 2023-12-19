@@ -85,7 +85,13 @@ def retry_download(
             return download_func(*args, **kwargs)
         except Exception as e:
             remaining_attempts = MAX_ATTEMPTS - current_attempt
-            logger.debug("Download failed: %s", e)
+            logger.debug(
+                "Download failed: %s, download func: %s, download args: %s, kwargs: %s",
+                e,
+                download_func,
+                args,
+                kwargs,
+            )
             logger.warning(
                 f"Attempt {current_attempt} failed. Remaining attempts: {remaining_attempts}"
             )
