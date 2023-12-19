@@ -35,11 +35,17 @@ The following is a list of built-in LLM in Xinference:
   
    code-llama-python
   
+   deepseek-chat
+  
+   deepseek-coder-instruct
+  
    falcon
   
    falcon-instruct
   
    glaive-coder
+  
+   gorilla-openfunctions-v1
   
    gpt-2
   

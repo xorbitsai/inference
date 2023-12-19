@@ -2672,5 +2672,214 @@
       "stop": [
       ]
     }
+  },
+  {
+    "version": 1,
+    "context_length": 4096,
+    "model_name": "deepseek-chat",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "DeepSeek LLM is an advanced language model comprising 67 billion parameters. It has been trained from scratch on a vast dataset of 2 trillion tokens in both English and Chinese.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "deepseek-ai/deepseek-llm-7b-chat",
+        "model_revision": "afbda8b347ec881666061fa67447046fc5164ec8"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 67,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "deepseek-ai/deepseek-llm-67b-chat",
+        "model_revision": "79648bef7658bb824e4630740f6e1484c1b0620b"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "Q2_K",
+          "Q3_K_L",
+          "Q3_K_M",
+          "Q3_K_S",
+          "Q4_0",
+          "Q4_K_M",
+          "Q4_K_S",
+          "Q5_0",
+          "Q5_K_M",
+          "Q5_K_S",
+          "Q6_K",
+          "Q8_0"
+        ],
+        "model_id": "TheBloke/deepseek-llm-7B-chat-GGUF",
+        "model_file_name_template": "deepseek-llm-7b-chat.{quantization}.gguf"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 67,
+        "quantizations": [
+          "Q2_K",
+          "Q3_K_L",
+          "Q3_K_M",
+          "Q3_K_S",
+          "Q4_0",
+          "Q4_K_M",
+          "Q4_K_S",
+          "Q5_0",
+          "Q5_K_M",
+          "Q5_K_S",
+          "Q6_K",
+          "Q8_0"
+        ],
+        "model_id": "TheBloke/deepseek-llm-67b-chat-GGUF",
+        "model_file_name_template": "deepseek-llm-67b-chat.{quantization}.gguf"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "DEEPSEEK_CHAT",
+      "system_prompt": "<｜begin▁of▁sentence｜>",
+      "roles": [
+        "User",
+        "Assistant"
+      ],
+      "intra_message_sep": "\n\n",
+      "inter_message_sep": "<｜end▁of▁sentence｜>",
+      "stop": [
+        "<｜end▁of▁sentence｜>"
+      ]
+    }
+  },
+  {
+    "version": 1,
+    "context_length": 4096,
+    "model_name": "deepseek-coder-instruct",
+    "model_lang": [
+      "en", "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "deepseek-coder-instruct is a model initialized from deepseek-coder-base and fine-tuned on 2B tokens of instruction data.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": "1_3",
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "deepseek-ai/deepseek-coder-1.3b-instruct",
+        "model_revision": "2df081ceaca101a867fef2844e44f4d6a4857039"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": "6_7",
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "deepseek-ai/deepseek-coder-6.7b-instruct",
+        "model_revision": "cbb77d7448ea3168d884758817e7f895e3828d1c"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 33,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "deepseek-ai/deepseek-coder-33b-instruct",
+        "model_revision": "ea15d17db84d1fc94ac5cba8e6fa97764c9549d3"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": "1_3",
+        "quantizations": [
+          "Q2_K",
+          "Q3_K_L",
+          "Q3_K_M",
+          "Q3_K_S",
+          "Q4_0",
+          "Q4_K_M",
+          "Q4_K_S",
+          "Q5_0",
+          "Q5_K_M",
+          "Q5_K_S",
+          "Q6_K",
+          "Q8_0"
+        ],
+        "model_id": "TheBloke/deepseek-coder-1.3b-instruct-GGUF",
+        "model_file_name_template": "deepseek-coder-1.3b-instruct.{quantization}.gguf"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": "6_7",
+        "quantizations": [
+          "Q2_K",
+          "Q3_K_L",
+          "Q3_K_M",
+          "Q3_K_S",
+          "Q4_0",
+          "Q4_K_M",
+          "Q4_K_S",
+          "Q5_0",
+          "Q5_K_M",
+          "Q5_K_S",
+          "Q6_K",
+          "Q8_0"
+        ],
+        "model_id": "TheBloke/deepseek-coder-6.7B-instruct-GGUF",
+        "model_file_name_template": "deepseek-coder-6.7b-instruct.{quantization}.gguf"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 33,
+        "quantizations": [
+          "Q2_K",
+          "Q3_K_L",
+          "Q3_K_M",
+          "Q3_K_S",
+          "Q4_0",
+          "Q4_K_M",
+          "Q4_K_S",
+          "Q5_0",
+          "Q5_K_M",
+          "Q5_K_S",
+          "Q6_K",
+          "Q8_0"
+        ],
+        "model_id": "TheBloke/deepseek-coder-33B-instruct-GGUF",
+        "model_file_name_template": "deepseek-coder-33b-instruct.{quantization}.gguf"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "DEEPSEEK_CODER",
+      "system_prompt": "You are an AI programming assistant, utilizing the DeepSeek Coder model, developed by DeepSeek Company, and you only answer questions related to computer science. For politically sensitive questions, security and privacy issues, and other non-computer science questions, you will refuse to answer.",
+      "roles": [
+        "### Instruction:",
+        "### Response:"
+      ],
+      "inter_message_sep": "\n",
+      "stop": [
+        "<|EOT|>"
+      ]
+    }
   }
 ]
