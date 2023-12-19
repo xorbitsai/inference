@@ -1106,14 +1106,13 @@
         "model_file_name_template": "Qwen-7B-Chat.{quantization}.gguf"
       },
       {
-        "model_format": "ggmlv3",
+        "model_format": "ggufv2",
         "model_size_in_billions": 14,
         "quantizations": [
-          "q4_0"
+          "Q4_K_M"
         ],
-        "model_id": "Xorbits/qwen-chat-14B-ggml",
-        "model_file_name_template": "qwen14b-ggml-{quantization}.bin",
-        "model_revision": "11efca556af372b6f3c730322a4962e9900a2990"
+        "model_id": "Xorbits/Qwen-14B-Chat-GGUF",
+        "model_file_name_template": "Qwen-14B-Chat.{quantization}.gguf",
       },
       {
         "model_format": "pytorch",
