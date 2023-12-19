@@ -248,49 +248,29 @@ const EmbeddingCard = ({
             </Stack>
           )}
           {!is_custom && <h2 style={styles.h2}>{modelData.model_name}</h2>}
-          <div style={styles.langRow}>
+          <Stack
+            spacing={1}
+            direction="row"
+            useFlexGap
+            flexWrap="wrap"
+            sx={{ marginLeft: 1 }}
+          >
             {(() => {
-              if (modelData.language.includes('en')) {
-                return (
-                  <Chip
-                    label="EN"
-                    variant="outlined"
-                    size="small"
-                    sx={{ marginRight: '10px' }}
-                  />
-                )
-              }
-            })()}
-            {(() => {
-              if (modelData.language.includes('zh')) {
-                return <Chip label="ZH" variant="outlined" size="small" />
-              }
+              return modelData.language.map((v) => {
+                return <Chip label={v} variant="outlined" size="small" />
+              })
             })()}
             {(() => {
               if (modelData.is_cached) {
-                return (
-                  <Chip
-                    label="Cached"
-                    variant="outlined"
-                    size="small"
-                    sx={{ marginLeft: '10px' }}
-                  />
-                )
+                return <Chip label="Cached" variant="outlined" size="small" />
               }
             })()}
             {(() => {
               if (is_custom && customDeleted) {
-                return (
-                  <Chip
-                    label="Deleted"
-                    variant="outlined"
-                    size="small"
-                    sx={{ marginLeft: '10px' }}
-                  />
-                )
+                return <Chip label="Deleted" variant="outlined" size="small" />
               }
             })()}
-          </div>
+          </Stack>
         </div>
         <div style={styles.iconRow}>
           <div style={styles.iconItem}>
