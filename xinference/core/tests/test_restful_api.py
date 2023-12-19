@@ -649,6 +649,7 @@ def test_restful_api_for_gorilla_openfunctions_tool_calls(
     "model_format, quantization",
     [
         ("pytorch", None),
+        ("ggufv2", "Q4_K_M"),
     ],
 )
 @pytest.mark.skip(reason="Cost too many resources.")
