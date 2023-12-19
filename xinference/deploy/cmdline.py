@@ -497,7 +497,9 @@ def model_launch(
         _n_gpu = int(n_gpu)
 
     endpoint = get_endpoint(endpoint)
-    model_size = size_in_billions if "_" in size_in_billions else int(size_in_billions)
+    model_size: Union[str, int] = (
+        size_in_billions if "_" in size_in_billions else int(size_in_billions)
+    )
 
     client = RESTfulClient(base_url=endpoint)
     model_uid = client.launch_model(
