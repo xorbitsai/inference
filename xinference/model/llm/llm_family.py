@@ -796,7 +796,7 @@ def register_llm(llm_family: LLMFamilyV1, persist: bool):
             fd.write(llm_family.json())
 
 
-def unregister_llm(model_name: str):
+def unregister_llm(model_name: str, raise_error: bool = True):
     with UD_LLM_FAMILIES_LOCK:
         llm_family = None
         for i, f in enumerate(UD_LLM_FAMILIES):
@@ -830,7 +830,10 @@ def unregister_llm(model_name: str):
                         f"Cache directory is not a soft link, please remove it manually."
                     )
         else:
-            raise ValueError(f"Model {model_name} not found")
+            if raise_error:
+                raise ValueError(f"Model {model_name} not found")
+            else:
+                logger.warning(f"Custom model {model_name} not found")
 
 
 def match_llm_cls(

@@ -331,9 +331,11 @@ class SupervisorActor(xo.StatelessActor):
     @log_async(logger=logger)
     async def register_model(self, model_type: str, model: str, persist: bool):
         if model_type in self._custom_register_type_to_cls:
-            model_spec_cls, register_fn, _ = self._custom_register_type_to_cls[
-                model_type
-            ]
+            (
+                model_spec_cls,
+                register_fn,
+                unregister_fn,
+            ) = self._custom_register_type_to_cls[model_type]
 
             if not self.is_local_deployment():
                 workers = list(self._worker_address_to_worker.values())
@@ -341,7 +343,11 @@ class SupervisorActor(xo.StatelessActor):
                     await worker.register_model(model_type, model, persist)
 
             model_spec = model_spec_cls.parse_raw(model)
-            register_fn(model_spec, persist)
+            try:
+                register_fn(model_spec, persist)
+            except Exception as e:
+                unregister_fn(model_spec.model_name, raise_error=False)
+                raise e
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
 

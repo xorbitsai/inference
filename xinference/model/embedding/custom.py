@@ -76,7 +76,7 @@ def register_embedding(model_spec: CustomEmbeddingModelSpec, persist: bool):
             fd.write(model_spec.json())
 
 
-def unregister_embedding(model_name: str):
+def unregister_embedding(model_name: str, raise_error: bool = True):
     with UD_EMBEDDING_LOCK:
         model_spec = None
         for i, f in enumerate(UD_EMBEDDINGS):
@@ -105,4 +105,7 @@ def unregister_embedding(model_name: str):
                         f"Cache directory is not a soft link, please remove it manually."
                     )
         else:
-            raise ValueError(f"Model {model_name} not found")
+            if raise_error:
+                raise ValueError(f"Model {model_name} not found")
+            else:
+                logger.warning(f"Custom embedding model {model_name} not found")

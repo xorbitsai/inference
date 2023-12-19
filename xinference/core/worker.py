@@ -226,11 +226,17 @@ class WorkerActor(xo.StatelessActor):
     def register_model(self, model_type: str, model: str, persist: bool):
         # TODO: centralized model registrations
         if model_type in self._custom_register_type_to_cls:
-            model_spec_cls, register_fn, _ = self._custom_register_type_to_cls[
-                model_type
-            ]
+            (
+                model_spec_cls,
+                register_fn,
+                unregister_fn,
+            ) = self._custom_register_type_to_cls[model_type]
             model_spec = model_spec_cls.parse_raw(model)
-            register_fn(model_spec, persist)
+            try:
+                register_fn(model_spec, persist)
+            except Exception as e:
+                unregister_fn(model_spec.model_name, raise_error=False)
+                raise e
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
 
