@@ -366,7 +366,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
                 generate_config["stop"] = [stop, "Observation:"]
             elif isinstance(stop, Iterable):
                 assert not isinstance(stop, str)
-                generate_config["stop"] = stop + ["Observation:"]
+                generate_config["stop"] = list(stop) + ["Observation:"]
             else:
                 generate_config["stop"] = "Observation:"
 
