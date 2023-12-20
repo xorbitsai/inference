@@ -28,7 +28,6 @@ function App() {
   useEffect(() => {
     const handleTabPageClose = (e) => {
       removeToken()
-      e.preventDefault()
       e.returnValue = ''
     }
     window.onbeforeunload = handleTabPageClose
