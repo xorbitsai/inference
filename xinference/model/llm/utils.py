@@ -21,6 +21,7 @@ from typing import AsyncGenerator, Dict, Iterator, List, Optional
 from xinference.model.llm.llm_family import PromptStyleV1
 
 from ...types import (
+    SPECIAL_TOOL_PROMPT,
     ChatCompletion,
     ChatCompletionChunk,
     ChatCompletionMessage,
@@ -44,9 +45,10 @@ class ChatModelMixin:
         different models.
         """
         assert prompt_style.roles is not None
-        chat_history.append(
-            ChatCompletionMessage(role=prompt_style.roles[0], content=prompt)
-        )
+        if prompt != SPECIAL_TOOL_PROMPT:
+            chat_history.append(
+                ChatCompletionMessage(role=prompt_style.roles[0], content=prompt)
+            )
         chat_history.append(
             ChatCompletionMessage(role=prompt_style.roles[1], content="")
         )
@@ -138,7 +140,12 @@ class ChatModelMixin:
             for i, message in enumerate(chat_history):
                 role = message["role"]
                 content = message["content"]
+                tool_calls = message.get("tool_calls")
+                if tool_calls:
+                    content = tool_calls[0]["function"]
                 if content:
+                    if role == "tool":
+                        role = "observation"
                     prompts.append(f"<|{role}|>\n{content}")
                 else:
                     prompts.append(f"<|{role}|>")

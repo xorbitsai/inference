@@ -50,6 +50,7 @@ from ..constants import XINFERENCE_DEFAULT_ENDPOINT_PORT
 from ..core.supervisor import SupervisorActor
 from ..core.utils import json_dumps
 from ..types import (
+    SPECIAL_TOOL_PROMPT,
     ChatCompletion,
     Completion,
     CreateChatCompletion,
@@ -743,9 +744,15 @@ class RESTfulAPI:
             )
         assert non_system_messages
 
-        prompt = non_system_messages[-1]["content"]
-        system_prompt = system_messages[0]["content"] if system_messages else None
-        chat_history = non_system_messages[:-1]  # exclude the prompt
+        has_tool_message = body.messages[-1].get("role") == "tool"
+        if has_tool_message:
+            prompt = SPECIAL_TOOL_PROMPT
+            system_prompt = system_messages[0]["content"] if system_messages else None
+            chat_history = non_system_messages  # exclude the prompt
+        else:
+            prompt = non_system_messages[-1]["content"]
+            system_prompt = system_messages[0]["content"] if system_messages else None
+            chat_history = non_system_messages[:-1]  # exclude the prompt
 
         model_uid = body.model
 
@@ -786,7 +793,7 @@ class RESTfulAPI:
                     status_code=400,
                     detail=f"Only {function_call_models} support tool calls",
                 )
-            if body.messages[-1].get("role") == "tool":
+            if has_tool_message:
                 raise HTTPException(
                     status_code=400,
                     detail=f"Only {function_call_models} support tool messages",

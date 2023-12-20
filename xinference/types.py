@@ -38,6 +38,8 @@ from .fields import (
     top_p_field,
 )
 
+SPECIAL_TOOL_PROMPT = "<TOOL>"
+
 
 class Image(TypedDict):
     url: Optional[str]
