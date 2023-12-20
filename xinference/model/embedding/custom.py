@@ -26,6 +26,7 @@ UD_EMBEDDING_LOCK = Lock()
 
 
 class CustomEmbeddingModelSpec(EmbeddingModelSpec):
+    model_id: Optional[str]  # type: ignore
     model_revision: Optional[str]  # type: ignore
     model_uri: Optional[str]
 
