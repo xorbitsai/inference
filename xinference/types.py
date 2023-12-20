@@ -355,7 +355,10 @@ try:
     CreateCompletionCTransformers = get_pydantic_model_from_method(
         LLM.generate,
         exclude_fields=["tokens"],
-        include_fields={"max_tokens": (Optional[int], max_tokens_field)},
+        include_fields={
+            "max_tokens": (Optional[int], max_tokens_field),
+            "stream": (Optional[bool], stream_field),
+        },
     )
 except ImportError:
     CreateCompletionCTransformers = create_model("CreateCompletionCTransformers")
