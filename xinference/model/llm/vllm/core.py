@@ -306,7 +306,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
     ) -> bool:
         if XINFERENCE_DISABLE_VLLM:
             return False
-        if quantization != "none":
+        if quantization != "none" and not (quantization is None):
             return False
         if llm_spec.model_format != "pytorch":
             return False
