@@ -244,6 +244,10 @@ class ChatglmCppChatModel(LLM):
         if tool_message is not None:
             chat_history_list.insert(0, tool_message)
 
+        for m in chat_history_list:
+            if m.get("tool_calls"):
+                raise Exception("ChatGLM3 cpp does not support tool message.")
+
         chat_history_list.append({"role": "user", "content": prompt})
         logger.debug("Full conversation history:\n%s", str(chat_history_list))
 

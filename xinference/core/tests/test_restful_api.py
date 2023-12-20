@@ -545,6 +545,25 @@ def test_restful_api_for_tool_calls(setup, model_format, quantization):
     arg = json.loads(arguments)
     assert arg == {"symbol": "10111"}
 
+    assistant_message = completion.choices[0].message.model_dump()
+    messages = [
+        {"role": "user", "content": "帮我查询股票10111的价格"},
+        assistant_message,
+        {
+            "role": "tool",
+            "tool_call_id": assistant_message["tool_calls"][0]["id"],
+            "name": assistant_message["tool_calls"][0]["function"]["name"],
+            "content": str({"symbol": "10111", "price": "12345"}),
+        },
+    ]
+    if model_format == "ggmlv3":
+        with pytest.raises(Exception, match="tool message"):
+            completion = client.chat.completions.create(
+                model=model_uid_res,
+                messages=messages,
+            )
+    print(completion)
+
     _check_invalid_tool_calls(endpoint, model_uid_res)
 
 

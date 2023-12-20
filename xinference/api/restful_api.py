@@ -718,10 +718,7 @@ class RESTfulAPI:
 
         if (
             not body.messages
-            or (
-                body.messages[-1].get("role") != "user"
-                and body.messages[-1].get("role") != "system"
-            )
+            or body.messages[-1].get("role") not in ["user", "system", "tool"]
             or not body.messages[-1].get("content")
         ):
             raise HTTPException(
@@ -783,11 +780,17 @@ class RESTfulAPI:
             raise HTTPException(
                 status_code=400, detail="ChatGLM ggml does not have system prompt"
             )
-        if body.tools and desc.get("model_name", "") not in function_call_models:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Only {function_call_models} support tool calls",
-            )
+        if desc.get("model_name", "") not in function_call_models:
+            if body.tools:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Only {function_call_models} support tool calls",
+                )
+            if body.messages[-1].get("role") == "tool":
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Only {function_call_models} support tool messages",
+                )
         if body.tools and body.stream:
             raise HTTPException(
                 status_code=400, detail="Tool calls does not support stream"
