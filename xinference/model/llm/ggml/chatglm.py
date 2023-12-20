@@ -247,15 +247,13 @@ class ChatglmCppChatModel(LLM):
         # We drop the message which contains tool calls to walkaround the issue:
         # https://github.com/li-plus/chatglm.cpp/issues/231
         chat_history_list = [m for m in chat_history_list if not m.get("tool_calls")]
-        for m in chat_history_list:
+        for idx, m in enumerate(chat_history_list):
             if m.get("role") == "tool":
                 # Reconstruct a simple tool message.
-                mm = {
+                chat_history_list[idx] = {
                     "content": m["content"],
                     "role": "observation",
                 }
-                m.clear()
-                m.update(mm)
                 break
 
         chat_history_list.append({"role": "user", "content": prompt})
