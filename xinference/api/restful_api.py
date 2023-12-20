@@ -234,6 +234,7 @@ class RESTfulAPI:
         self._router.add_api_route(
             "/v1/cluster/devices", self._get_devices_count, methods=["GET"]
         )
+        self._router.add_api_route("/v1/address", self.get_address, methods=["GET"])
 
         # user interface
         self._router.add_api_route(
@@ -247,12 +248,6 @@ class RESTfulAPI:
         )
         self._router.add_api_route(
             "/v1/cluster/auth", self.is_cluster_authenticated, methods=["GET"]
-        )
-        self._router.add_api_route(
-            "/v1/address",
-            self.get_address,
-            methods=["GET"],
-            dependencies=[Security(verify_token, scopes=["admin"])],
         )
         self._router.add_api_route(
             "/v1/models",

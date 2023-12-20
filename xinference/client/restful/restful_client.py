@@ -617,6 +617,13 @@ class Client:
     def _set_token(self, token: str):
         self._headers["Authorization"] = f"Bearer {token}"
 
+    def _get_token(self) -> Optional[str]:
+        return (
+            str(self._headers["Authorization"]).replace("Bearer ", "")
+            if "Authorization" in self._headers
+            else None
+        )
+
     def _check_cluster_authenticated(self):
         url = f"{self.base_url}/v1/cluster/auth"
         response = requests.get(url)
@@ -637,7 +644,6 @@ class Client:
         payload = {"username": username, "password": password}
 
         response = requests.post(url, json=payload)
-        # TODO handle login failed
         if response.status_code != 200:
             raise RuntimeError(f"Failed to login, detail: {response.json()['detail']}")
 
