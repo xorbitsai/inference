@@ -413,7 +413,10 @@ Begin!"""
     def _eval_qwen_chat_arguments(c, tools):
         text = c["choices"][0]["text"]
         try:
-            # Refer to: https://github.com/QwenLM/Qwen/blob/main/examples/react_prompt.md
+            # Refer to:
+            # https://github.com/QwenLM/Qwen/blob/main/examples/react_prompt.md
+            # https://github.com/QwenLM/Qwen/blob/main/openai_api.py#L297
+            func_name, func_args = "", ""
             i = text.rfind("\nAction:")
             j = text.rfind("\nAction Input:")
             k = text.rfind("\nObservation:")
@@ -424,10 +427,13 @@ Begin!"""
                     text = text.rstrip() + "\nObservation:"  # Add it back.
                     k = text.rfind("\nObservation:")
             if 0 <= i < j < k:
-                plugin_name = text[i + len("\nAction:") : j].strip()
-                plugin_args = text[j + len("\nAction Input:") : k].strip()
-                return None, plugin_name, json.loads(plugin_args)
-            logger.error("No ReAct response detected, please check your stop.")
+                func_name = text[i + len("\nAction:") : j].strip()
+                func_args = text[j + len("\nAction Input:") : k].strip()
+            if func_name:
+                return None, func_name, json.loads(func_args)
+            z = text.rfind("\nFinal Answer: ")
+            if z >= 0:
+                text = text[z + len("\nFinal Answer: ") :]
         except Exception as e:
             logger.error("Eval tool calls completion failed: %s", e)
         return text, None, None
