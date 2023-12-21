@@ -22,7 +22,7 @@ function App() {
   const endPoint = getEndpoint()
 
   const removeToken = () => {
-    removeCookie('token')
+    removeCookie('token', { path: '/' })
   }
 
   useEffect(() => {
@@ -51,13 +51,13 @@ function App() {
         res.json().then((data) => {
           if (data['auth'] === false) {
             if (cookie.token !== 'no_auth') {
-              setCookie('token', 'no_auth')
+              setCookie('token', 'no_auth', { path: '/' })
             }
           } else {
             // TODO: validate bearer token
             if (cookie.token === undefined || cookie.token.length < 10) {
               // not a bearer token, need a bearer token here
-              setCookie('token', 'need_auth')
+              setCookie('token', 'need_auth', { path: '/' })
             }
           }
         })
