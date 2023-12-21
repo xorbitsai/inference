@@ -1352,7 +1352,8 @@
         ],
         "model_hub": "modelscope",
         "model_id": "Xorbits/Qwen-7B-Chat-GGUF",
-        "model_file_name_template": "Qwen-7B-Chat.{quantization}.gguf"
+        "model_file_name_template": "Qwen-7B-Chat.{quantization}.gguf",
+        "model_revision": "v0.0.1"
       },
       {
         "model_format": "ggufv2",
@@ -1362,7 +1363,8 @@
         ],
         "model_hub": "modelscope",
         "model_id": "Xorbits/Qwen-14B-Chat-GGUF",
-        "model_file_name_template": "Qwen-14B-Chat.{quantization}.gguf"
+        "model_file_name_template": "Qwen-14B-Chat.{quantization}.gguf",
+        "model_revision": "v0.0.1"
       },
       {
         "model_format": "pytorch",
