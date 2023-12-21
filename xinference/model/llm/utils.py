@@ -214,12 +214,12 @@ Begin!"""
                     tools_name_text.append(name)
                 tools_text_string = "\n\n".join(tools_text)
                 tools_name_text_string = ", ".join(tools_name_text)
-                tool_system = "\n\n" + react_instruction.format(
+                tool_system = react_instruction.format(
                     tools_text=tools_text_string,
                     tools_name_text=tools_name_text_string,
                 )
-                new_query = tool_system + f"\n\nQuestion: {prompt}"
-                chat_history[-2]["content"] = new_query
+            else:
+                tool_system = ""
 
             ret = f"<|im_start|>system\n{prompt_style.system_prompt}<|im_end|>"
             for message in chat_history:
@@ -227,7 +227,31 @@ Begin!"""
                 content = message["content"]
 
                 ret += prompt_style.intra_message_sep
+                if tools:
+                    if role == "user":
+                        if tool_system:
+                            content = tool_system + f"\n\nQuestion: {content}"
+                            tool_system = ""
+                        else:
+                            content = f"Question: {content}"
+                    elif role == "assistant":
+                        tool_calls = message.get("tool_calls")
+                        if tool_calls:
+                            func_call = tool_calls[0]["function"]
+                            f_name, f_args = (
+                                func_call["name"],
+                                func_call["arguments"],
+                            )
+                            content = f"Thought: I can use {f_name}.\nAction: {f_name}\nAction Input: {f_args}"
+                        elif content:
+                            content = f"Thought: I now know the final answer.\nFinal answer: {content}"
+                    elif role == "tool":
+                        role = "function"
+                        content = f"Observation: {content}"
+                    else:
+                        raise Exception(f"Unsupported message role: {role}")
                 if content:
+                    content = content.lstrip("\n").rstrip()
                     ret += f"<|im_start|>{role}\n{content}<|im_end|>"
                 else:
                     ret += f"<|im_start|>{role}\n"

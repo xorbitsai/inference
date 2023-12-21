@@ -750,7 +750,7 @@ def test_restful_api_for_qwen_tool_calls(setup, model_format, quantization):
             },
         ],
         "tools": tools,
-        "max_tokens": 200,
+        "max_tokens": 2048,
         "temperature": 0,
     }
     response = requests.post(url, json=payload)
@@ -767,6 +767,63 @@ def test_restful_api_for_qwen_tool_calls(setup, model_format, quantization):
     ]
     arg = json.loads(arguments)
     assert arg == {"search_query": "周杰伦"}
+
+    # Check tool message.
+    payload = {
+        "model": model_uid_res,
+        "messages": [
+            {
+                "role": "user",
+                "content": "谁是周杰伦？",
+            },
+            completion["choices"][0]["message"],
+            {
+                "role": "tool",
+                "content": "Jay Chou is a Taiwanese singer, songwriter, record producer, rapper, actor, television personality, and businessman.",
+            },
+        ],
+        "tools": tools,
+        "max_tokens": 2048,
+        "temperature": 0,
+    }
+    response = requests.post(url, json=payload)
+    completion2 = response.json()
+    assert "stop" == completion2["choices"][0]["finish_reason"]
+    assert "周杰伦" in completion2["choices"][0]["message"]["content"]
+    assert "歌手" in completion2["choices"][0]["message"]["content"]
+
+    # Check continue tool call.
+    payload = {
+        "model": model_uid_res,
+        "messages": [
+            {
+                "role": "user",
+                "content": "谁是周杰伦？",
+            },
+            completion["choices"][0]["message"],
+            {
+                "role": "tool",
+                "content": "Jay Chou is a Taiwanese singer, songwriter, record producer, rapper, actor, television personality, and businessman.",
+            },
+            completion2["choices"][0]["message"],
+            {"role": "user", "content": "画一个他的卡通形象出来"},
+        ],
+        "tools": tools,
+        "max_tokens": 2048,
+        "temperature": 0,
+    }
+    response = requests.post(url, json=payload)
+    completion3 = response.json()
+    assert "tool_calls" == completion3["choices"][0]["finish_reason"]
+    assert (
+        "image_gen"
+        == completion3["choices"][0]["message"]["tool_calls"][0]["function"]["name"]
+    )
+    arguments = completion3["choices"][0]["message"]["tool_calls"][0]["function"][
+        "arguments"
+    ]
+    arg = json.loads(arguments)
+    assert arg == {"prompt": "Jay Chou"}
 
     _check_invalid_tool_calls(endpoint, model_uid_res)
 
