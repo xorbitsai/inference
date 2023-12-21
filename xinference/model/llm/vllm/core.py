@@ -15,7 +15,16 @@
 import logging
 import time
 import uuid
-from typing import TYPE_CHECKING, AsyncGenerator, Dict, List, Optional, TypedDict, Union
+from typing import (
+    TYPE_CHECKING,
+    AsyncGenerator,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    TypedDict,
+    Union,
+)
 
 from ....constants import XINFERENCE_DISABLE_VLLM
 from ....types import (
@@ -346,16 +355,32 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
         if system_prompt:
             prompt_style.system_prompt = system_prompt
         chat_history = chat_history or []
-        full_prompt = self.get_prompt(prompt, chat_history, prompt_style)
+        tools = generate_config.pop("tools", []) if generate_config else None
+        full_prompt = self.get_prompt(prompt, chat_history, prompt_style, tools=tools)
 
-        sanitized = self._sanitize_chat_config(generate_config)
-        stream = sanitized.get("stream", None)
+        generate_config = self._sanitize_chat_config(generate_config)
+        # TODO(codingl2k1): qwen hacky to set stop for function call.
+        if tools and self.model_family.model_name == "qwen-chat":
+            stop = generate_config.get("stop")
+            if isinstance(stop, str):
+                generate_config["stop"] = [stop, "Observation:"]
+            elif isinstance(stop, Iterable):
+                assert not isinstance(stop, str)
+                generate_config["stop"] = list(stop) + ["Observation:"]
+            else:
+                generate_config["stop"] = "Observation:"
+
+        stream = generate_config.get("stream", None)
 
         if stream:
-            agen = await self.async_generate(full_prompt, sanitized)
+            agen = await self.async_generate(full_prompt, generate_config)
             assert isinstance(agen, AsyncGenerator)
             return self._async_to_chat_completion_chunks(agen)
         else:
-            c = await self.async_generate(full_prompt, sanitized)
+            c = await self.async_generate(full_prompt, generate_config)
             assert not isinstance(c, AsyncGenerator)
+            if tools:
+                return self._tool_calls_completion(
+                    self.model_family.model_name, self.model_uid, c, tools
+                )
             return self._to_chat_completion(c)
