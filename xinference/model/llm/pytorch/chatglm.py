@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from typing import Iterator, List, Optional, Union
+from typing import Iterator, List, Optional, Union, Dict, Any
 
 from ....types import (
     SPECIAL_TOOL_PROMPT,
@@ -107,7 +107,7 @@ class ChatglmPytorchChatModel(PytorchChatModel):
         tools = self._handle_tools(generate_config)
         if tools:
             # Tool calls only works for non stream, so we call chat directly.
-            kwargs = {}
+            kwargs: Dict[str, Any] = {}
             generate_config = generate_config or {}
             temperature = generate_config.get("temperature")
             if temperature is not None:
@@ -118,11 +118,15 @@ class ChatglmPytorchChatModel(PytorchChatModel):
             max_length = generate_config.get("max_tokens")
             if max_length is not None:
                 kwargs["max_length"] = int(max_length)
-            if prompt == SPECIAL_TOOL_PROMPT:
+            if prompt == SPECIAL_TOOL_PROMPT and chat_history:
                 tool_message = chat_history.pop()
-                prompt = tool_message["content"]
+                content = tool_message.get("content")
+                assert content is not None
+                prompt = content
                 kwargs["role"] = "observation"
                 chat_history = [h for h in chat_history if not h.get("tool_calls")]
+            if not chat_history:
+                chat_history = []
             msg = self._model.chat(
                 self._tokenizer, prompt, [tools] + chat_history, **kwargs
             )
