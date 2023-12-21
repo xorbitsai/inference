@@ -80,11 +80,20 @@ def retry_download(
     *args,
     **kwargs,
 ):
+    last_ex = None
     for current_attempt in range(1, MAX_ATTEMPTS + 1):
         try:
             return download_func(*args, **kwargs)
-        except:
+        except Exception as e:
             remaining_attempts = MAX_ATTEMPTS - current_attempt
+            last_ex = e
+            logger.debug(
+                "Download failed: %s, download func: %s, download args: %s, kwargs: %s",
+                e,
+                download_func,
+                args,
+                kwargs,
+            )
             logger.warning(
                 f"Attempt {current_attempt} failed. Remaining attempts: {remaining_attempts}"
             )
@@ -101,11 +110,11 @@ def retry_download(
                 f"Failed to download model '{model_name}' "
                 f"(size: {model_size}, format: {model_format}) "
                 f"after multiple retries"
-            )
+            ) from last_ex
         else:  # Embedding models
             raise RuntimeError(
                 f"Failed to download model '{model_name}' after multiple retries"
-            )
+            ) from last_ex
 
 
 def valid_model_revision(

@@ -436,6 +436,7 @@ Begin!"""
             content, func, args = cls._eval_qwen_chat_arguments(c, tools)
         else:
             raise Exception(f"Model {model_name} is not support tool calls.")
+        logger.debug("Tool call content: %s, func: %s, args: %s", content, func, args)
 
         if content:
             m = {"role": "assistant", "content": content, "tool_calls": []}

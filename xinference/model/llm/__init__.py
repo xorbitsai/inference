@@ -40,7 +40,6 @@ def _install():
     from .ggml.chatglm import ChatglmCppChatModel
     from .ggml.ctransformers import CtransformersModel
     from .ggml.llamacpp import LlamaCppChatModel, LlamaCppModel
-    from .ggml.qwen import QWenModel
     from .pytorch.baichuan import BaichuanPytorchChatModel
     from .pytorch.chatglm import ChatglmPytorchChatModel
     from .pytorch.core import PytorchChatModel, PytorchModel
@@ -59,11 +58,6 @@ def _install():
     LLM_CLASSES.extend(
         [
             ChatglmCppChatModel,
-        ]
-    )
-    LLM_CLASSES.extend(
-        [
-            QWenModel,
         ]
     )
     LLM_CLASSES.extend(
