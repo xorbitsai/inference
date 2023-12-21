@@ -557,16 +557,14 @@ def test_restful_api_for_tool_calls(setup, model_format, quantization):
         },
     ]
 
-    completion = client.chat.completions.create(
-        model=model_uid_res,
-        messages=messages,
-    )
-    assert completion.choices
-    assert completion.choices[0].finish_reason == "stop"
-    assert "股票" in completion.choices[0].message.content
-    assert "价格" in completion.choices[0].message.content
-    assert "10111" in completion.choices[0].message.content
-    assert "12345" in completion.choices[0].message.content
+    for kwargs in [{"tools": tools}, {}]:
+        completion = client.chat.completions.create(
+            model=model_uid_res, messages=messages, **kwargs
+        )
+        assert completion.choices
+        assert completion.choices[0].finish_reason == "stop"
+        assert "10111" in completion.choices[0].message.content
+        assert "12345" in completion.choices[0].message.content
 
     _check_invalid_tool_calls(endpoint, model_uid_res)
 

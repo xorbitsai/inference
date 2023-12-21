@@ -14,6 +14,7 @@
 from typing import Iterator, List, Optional, Union
 
 from ....types import (
+    SPECIAL_TOOL_PROMPT,
     ChatCompletion,
     ChatCompletionChunk,
     ChatCompletionMessage,
@@ -117,7 +118,14 @@ class ChatglmPytorchChatModel(PytorchChatModel):
             max_length = generate_config.get("max_tokens")
             if max_length is not None:
                 kwargs["max_length"] = int(max_length)
-            msg = self._model.chat(self._tokenizer, prompt, [tools], **kwargs)
+            if prompt == SPECIAL_TOOL_PROMPT:
+                tool_message = chat_history.pop()
+                prompt = tool_message["content"]
+                kwargs["role"] = "observation"
+                chat_history = [h for h in chat_history if not h.get("tool_calls")]
+            msg = self._model.chat(
+                self._tokenizer, prompt, [tools] + chat_history, **kwargs
+            )
             return self._tool_calls_completion(
                 self.model_family.model_name, self.model_uid, msg, tools
             )

@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Iterator, List, Optional, Union
 
 from ....types import (
+    SPECIAL_TOOL_PROMPT,
     ChatCompletion,
     ChatCompletionChunk,
     ChatCompletionMessage,
@@ -256,7 +257,8 @@ class ChatglmCppChatModel(LLM):
                 }
                 break
 
-        chat_history_list.append({"role": "user", "content": prompt})
+        if prompt != SPECIAL_TOOL_PROMPT:
+            chat_history_list.append({"role": "user", "content": prompt})
         logger.debug("Full conversation history:\n%s", str(chat_history_list))
 
         generate_config = self._sanitize_generate_config(generate_config)
