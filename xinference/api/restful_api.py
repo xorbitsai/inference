@@ -729,6 +729,9 @@ class RESTfulAPI:
         system_messages = []
         non_system_messages = []
         for msg in body.messages:
+            assert (
+                msg.get("content") != SPECIAL_TOOL_PROMPT
+            ), f"Invalid message content {SPECIAL_TOOL_PROMPT}"
             if msg["role"] == "system":
                 system_messages.append(msg)
             else:

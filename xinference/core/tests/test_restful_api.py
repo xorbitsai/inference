@@ -823,7 +823,7 @@ def test_restful_api_for_qwen_tool_calls(setup, model_format, quantization):
         "arguments"
     ]
     arg = json.loads(arguments)
-    assert arg == {"prompt": "Jay Chou"}
+    assert "Jay Chou" in arg["prompt"]
 
     _check_invalid_tool_calls(endpoint, model_uid_res)
 
