@@ -272,6 +272,28 @@ Begin!"""
         elif prompt_style.style_name == "INSTRUCTION":
             message = chat_history[-2]
             return prompt_style.system_prompt.format(message["content"])
+        elif prompt_style.style_name == "DEEPSEEK_CHAT":
+            seps = [prompt_style.intra_message_sep, prompt_style.inter_message_sep]
+            ret = prompt_style.system_prompt
+            for i, message in enumerate(chat_history):
+                role = message["role"]
+                content = message["content"]
+                if content:
+                    ret += role + ": " + content + seps[i % 2]
+                else:
+                    ret += role + ":"
+            return ret
+        elif prompt_style.style_name == "DEEPSEEK_CODER":
+            sep = prompt_style.inter_message_sep
+            ret = prompt_style.system_prompt + sep
+            for i, message in enumerate(chat_history):
+                role = message["role"]
+                content = message["content"]
+                if content:
+                    ret += role + "\n" + content + sep
+                else:
+                    ret += role + "\n"
+            return ret
         elif prompt_style.style_name == "GORILLA_OPENFUNCTIONS":
             if tools:
                 gorilla_functions = []
