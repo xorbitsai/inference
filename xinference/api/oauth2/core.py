@@ -13,12 +13,13 @@
 # limitations under the License.
 import logging
 import os
-from typing import Annotated, List, Optional, Union
+from typing import List, Optional, Union
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, SecurityScopes
 from jose import JWTError, jwt
 from pydantic import BaseModel, ValidationError
+from typing_extensions import Annotated
 
 from .common import XINFERENCE_AUTH_STARTUP_CONFIG_ENV_KEY
 from .types import AuthStartupConfig, User
