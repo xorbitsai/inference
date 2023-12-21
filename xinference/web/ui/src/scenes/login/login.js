@@ -42,7 +42,7 @@ function Login() {
         })
       } else {
         res.json().then((data) => {
-          setCookie('token', data['access_token'])
+          setCookie('token', data['access_token'], { path: '/' })
           navigate('/')
         })
       }
