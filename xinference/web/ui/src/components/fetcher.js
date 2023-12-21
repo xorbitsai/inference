@@ -4,9 +4,11 @@ const cookies = new Cookies()
 
 const updateOptions = (url, options) => {
   const update = { ...options }
-  update.headers = {
-    ...update.headers,
-    Authorization: 'Bearer ' + cookies.get('token'),
+  if (cookies.get('token') !== 'no_auth') {
+    update.headers = {
+      ...update.headers,
+      Authorization: 'Bearer ' + cookies.get('token'),
+    }
   }
   return update
 }
