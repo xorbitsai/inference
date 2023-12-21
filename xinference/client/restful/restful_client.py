@@ -612,9 +612,12 @@ class Client:
     def __init__(self, base_url):
         self.base_url = base_url
         self._headers = {}
+        self._cluster_authed = False
         self._check_cluster_authenticated()
 
-    def _set_token(self, token: str):
+    def _set_token(self, token: Optional[str]):
+        if not self._cluster_authed or token is None:
+            return
         self._headers["Authorization"] = f"Bearer {token}"
 
     def _get_token(self) -> Optional[str]:
@@ -632,12 +635,10 @@ class Client:
                 f"Failed to get cluster information, detail: {response.json()['detail']}"
             )
         response_data = response.json()
-        # even if there is no authentication, the header has to have bearer token
-        if not response_data["auth"]:
-            self._headers["Authorization"] = "Bearer no_auth"
+        self._cluster_authed = bool(response_data["auth"])
 
     def login(self, username: str, password: str):
-        if "no_auth" in self._headers.get("Authorization", ""):
+        if not self._cluster_authed:
             return
         url = f"{self.base_url}/token"
 

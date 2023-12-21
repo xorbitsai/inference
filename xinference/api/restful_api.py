@@ -241,7 +241,9 @@ class RESTfulAPI:
             "/v1/ui/{model_uid}",
             self.build_gradio_interface,
             methods=["POST"],
-            dependencies=[Security(verify_token, scopes=["models:read"])],
+            dependencies=[Security(verify_token, scopes=["models:read"])]
+            if self.is_authenticated()
+            else None,
         )
         self._router.add_api_route(
             "/token", self.login_for_access_token, methods=["POST"]
@@ -253,72 +255,94 @@ class RESTfulAPI:
             "/v1/models",
             self.list_models,
             methods=["GET"],
-            dependencies=[Security(verify_token, scopes=["models:list"])],
+            dependencies=[Security(verify_token, scopes=["models:list"])]
+            if self.is_authenticated()
+            else None,
         )
 
         self._router.add_api_route(
             "/v1/models/{model_uid}",
             self.describe_model,
             methods=["GET"],
-            dependencies=[Security(verify_token, scopes=["models:read"])],
+            dependencies=[Security(verify_token, scopes=["models:read"])]
+            if self.is_authenticated()
+            else None,
         )
         self._router.add_api_route(
             "/v1/models",
             self.launch_model,
             methods=["POST"],
-            dependencies=[Security(verify_token, scopes=["models:launch"])],
+            dependencies=[Security(verify_token, scopes=["models:launch"])]
+            if self.is_authenticated()
+            else None,
         )
         self._router.add_api_route(
             "/experimental/speculative_llms",
             self.launch_speculative_llm,
             methods=["POST"],
-            dependencies=[Security(verify_token, scopes=["models:launch"])],
+            dependencies=[Security(verify_token, scopes=["models:launch"])]
+            if self.is_authenticated()
+            else None,
         )
         self._router.add_api_route(
             "/v1/models/{model_uid}",
             self.terminate_model,
             methods=["DELETE"],
-            dependencies=[Security(verify_token, scopes=["models:delete"])],
+            dependencies=[Security(verify_token, scopes=["models:delete"])]
+            if self.is_authenticated()
+            else None,
         )
         self._router.add_api_route(
             "/v1/completions",
             self.create_completion,
             methods=["POST"],
             response_model=Completion,
-            dependencies=[Security(verify_token, scopes=["models:read"])],
+            dependencies=[Security(verify_token, scopes=["models:read"])]
+            if self.is_authenticated()
+            else None,
         )
         self._router.add_api_route(
             "/v1/embeddings",
             self.create_embedding,
             methods=["POST"],
-            dependencies=[Security(verify_token, scopes=["models:read"])],
+            dependencies=[Security(verify_token, scopes=["models:read"])]
+            if self.is_authenticated()
+            else None,
         )
         self._router.add_api_route(
             "/v1/rerank",
             self.rerank,
             methods=["POST"],
-            dependencies=[Security(verify_token, scopes=["models:read"])],
+            dependencies=[Security(verify_token, scopes=["models:read"])]
+            if self.is_authenticated()
+            else None,
         )
         self._router.add_api_route(
             "/v1/images/generations",
             self.create_images,
             methods=["POST"],
             response_model=ImageList,
-            dependencies=[Security(verify_token, scopes=["models:read"])],
+            dependencies=[Security(verify_token, scopes=["models:read"])]
+            if self.is_authenticated()
+            else None,
         )
         self._router.add_api_route(
             "/v1/images/variations",
             self.create_variations,
             methods=["POST"],
             response_model=ImageList,
-            dependencies=[Security(verify_token, scopes=["models:read"])],
+            dependencies=[Security(verify_token, scopes=["models:read"])]
+            if self.is_authenticated()
+            else None,
         )
         self._router.add_api_route(
             "/v1/chat/completions",
             self.create_chat_completion,
             methods=["POST"],
             response_model=ChatCompletion,
-            dependencies=[Security(verify_token, scopes=["models:read"])],
+            dependencies=[Security(verify_token, scopes=["models:read"])]
+            if self.is_authenticated()
+            else None,
         )
 
         # for custom models
@@ -326,25 +350,33 @@ class RESTfulAPI:
             "/v1/model_registrations/{model_type}",
             self.register_model,
             methods=["POST"],
-            dependencies=[Security(verify_token, scopes=["models:launch"])],
+            dependencies=[Security(verify_token, scopes=["models:launch"])]
+            if self.is_authenticated()
+            else None,
         )
         self._router.add_api_route(
             "/v1/model_registrations/{model_type}/{model_name}",
             self.unregister_model,
             methods=["DELETE"],
-            dependencies=[Security(verify_token, scopes=["models:launch"])],
+            dependencies=[Security(verify_token, scopes=["models:launch"])]
+            if self.is_authenticated()
+            else None,
         )
         self._router.add_api_route(
             "/v1/model_registrations/{model_type}",
             self.list_model_registrations,
             methods=["GET"],
-            dependencies=[Security(verify_token, scopes=["models:list"])],
+            dependencies=[Security(verify_token, scopes=["models:list"])]
+            if self.is_authenticated()
+            else None,
         )
         self._router.add_api_route(
             "/v1/model_registrations/{model_type}/{model_name}",
             self.get_model_registrations,
             methods=["GET"],
-            dependencies=[Security(verify_token, scopes=["models:read"])],
+            dependencies=[Security(verify_token, scopes=["models:read"])]
+            if self.is_authenticated()
+            else None,
         )
 
         self._app.include_router(self._router)
@@ -600,7 +632,6 @@ class RESTfulAPI:
 
         try:
             access_token = request.headers.get("Authorization")
-            print(f"==================Access token in gradio interface: {access_token}")
             internal_host = "localhost" if self._host == "0.0.0.0" else self._host
             interface = LLMInterface(
                 endpoint=f"http://{internal_host}:{self._port}",

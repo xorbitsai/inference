@@ -70,11 +70,13 @@ def get_hash_endpoint(endpoint: str) -> str:
     return m.hexdigest()
 
 
-def get_stored_token(endpoint: str, client: Optional[RESTfulClient] = None) -> str:
+def get_stored_token(
+    endpoint: str, client: Optional[RESTfulClient] = None
+) -> Optional[str]:
     rest_client = RESTfulClient(endpoint) if client is None else client
-    access_token = rest_client._get_token()
-    if access_token == "no_auth":
-        return access_token
+    authed = rest_client._cluster_authed
+    if not authed:
+        return None
 
     token_path = os.path.join(XINFERENCE_AUTH_DIR, get_hash_endpoint(endpoint))
     if not os.path.exists(token_path):
@@ -715,7 +717,7 @@ def model_generate(
                 if prompt == "":
                     break
                 print(f"Completion: {prompt}", end="", file=sys.stdout)
-                async for chunk in model.generate(
+                for chunk in model.generate(
                     prompt=prompt,
                     generate_config={"stream": stream, "max_tokens": max_tokens},
                 ):
@@ -883,14 +885,14 @@ def cluster_login(
 ):
     endpoint = get_endpoint(endpoint)
     restful_client = RESTfulClient(base_url=endpoint)
-    restful_client.login(username, password)
-    access_token = restful_client._get_token()
-    assert access_token is not None
-
-    os.makedirs(XINFERENCE_AUTH_DIR, exist_ok=True)
-    hashed_ep = get_hash_endpoint(endpoint)
-    with open(os.path.join(XINFERENCE_AUTH_DIR, hashed_ep), "w") as f:
-        f.write(access_token)
+    if restful_client._cluster_authed:
+        restful_client.login(username, password)
+        access_token = restful_client._get_token()
+        assert access_token is not None
+        os.makedirs(XINFERENCE_AUTH_DIR, exist_ok=True)
+        hashed_ep = get_hash_endpoint(endpoint)
+        with open(os.path.join(XINFERENCE_AUTH_DIR, hashed_ep), "w") as f:
+            f.write(access_token)
 
 
 if __name__ == "__main__":

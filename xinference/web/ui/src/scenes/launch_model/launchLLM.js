@@ -88,7 +88,7 @@ const LaunchLLM = ({ gpuAvailable }) => {
 
   useEffect(() => {
     update().catch(console.error)
-  }, [])
+  }, [cookie.token])
 
   const style = {
     display: 'grid',
