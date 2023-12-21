@@ -46,7 +46,7 @@ def get_user(db_users: List[User], username: str) -> Optional[User]:
 
 class TokenData(BaseModel):
     username: Union[str, None] = None
-    scopes: list[str] = []
+    scopes: List[str] = []
 
 
 def verify_token(
