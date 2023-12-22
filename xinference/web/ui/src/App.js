@@ -26,12 +26,6 @@ function App() {
   }
 
   useEffect(() => {
-    const handleTabPageClose = (e) => {
-      removeToken()
-      e.returnValue = ''
-    }
-    window.onbeforeunload = handleTabPageClose
-
     // token possible value: no_auth / need_auth / <real bearer token>
     fetch(endPoint + '/v1/cluster/auth', {
       method: 'GET',
@@ -66,7 +60,6 @@ function App() {
     // return a function in useEffect means doing something on component unmount
     return () => {
       removeToken()
-      window.removeEventListener('beforeunload', handleTabPageClose)
     }
   }, [])
 
