@@ -1,3 +1,4 @@
+import { TabContext, TabList, TabPanel } from '@mui/lab'
 import {
   Box,
   Checkbox,
@@ -6,6 +7,7 @@ import {
   FormHelperText,
   Radio,
   RadioGroup,
+  Tab,
 } from '@mui/material'
 import Alert from '@mui/material/Alert'
 import AlertTitle from '@mui/material/AlertTitle'
@@ -17,6 +19,7 @@ import { ApiContext } from '../../components/apiContext'
 import ErrorMessageSnackBar from '../../components/errorMessageSnackBar'
 import Title from '../../components/Title'
 import { useMode } from '../../theme'
+import RegisterEmbeddingModel from './register_embedding'
 
 const SUPPORTED_LANGUAGES_DICT = { en: 'English', zh: 'Chinese' }
 const SUPPORTED_FEATURES = ['Generate', 'Chat']
@@ -44,6 +47,7 @@ const RegisterModel = () => {
   })
   const [promptStyleLabel, setPromptStyleLabel] = useState('vicuna')
   const [promptStyles, setPromptStyles] = useState([])
+  const [tabValue, setTabValue] = React.useState('1')
 
   // model name must be
   // 1. Starts with an alphanumeric character (a letter or a digit).
@@ -233,262 +237,283 @@ const RegisterModel = () => {
     <Box m="20px">
       <Title title="Register Model" />
       <ErrorMessageSnackBar />
-      <Box padding="20px"></Box>
-
-      {/* Base Information */}
-      <FormControl sx={styles.baseFormControl}>
-        <TextField
-          label="Model Name"
-          error={errorModelName}
-          defaultValue={formData.model_name}
-          size="small"
-          helperText="Alphanumeric characters with properly placed hyphens and underscores. Must not match any built-in model names."
-          onChange={(event) =>
-            setFormData({ ...formData, model_name: event.target.value })
-          }
-        />
-        <Box padding="15px"></Box>
-
-        <label
-          style={{
-            paddingLeft: 5,
-          }}
-        >
-          Model Format
-        </label>
-
-        <RadioGroup
-          value={modelFormat}
-          onChange={(e) => {
-            setModelFormat(e.target.value)
-          }}
-        >
-          <Box sx={styles.checkboxWrapper}>
-            <Box sx={{ marginLeft: '10px' }}>
-              <FormControlLabel
-                value="pytorch"
-                control={<Radio />}
-                label="PyTorch"
-              />
-            </Box>
-            <Box sx={{ marginLeft: '10px' }}>
-              <FormControlLabel
-                value="ggmlv3"
-                control={<Radio />}
-                label="GGML"
-              />
-            </Box>
-            <Box sx={{ marginLeft: '10px' }}>
-              <FormControlLabel
-                value="ggufv2"
-                control={<Radio />}
-                label="GGUF"
-              />
-            </Box>
-          </Box>
-        </RadioGroup>
-        <Box padding="15px"></Box>
-
-        <TextField
-          error={errorContextLength}
-          label="Context Length"
-          value={formData.context_length}
-          size="small"
-          onChange={(event) => {
-            let value = event.target.value
-            // Remove leading zeros
-            if (/^0+/.test(value)) {
-              value = value.replace(/^0+/, '') || '0'
-            }
-            // Ensure it's a positive integer, if not set it to the minimum
-            if (!/^\d+$/.test(value) || parseInt(value) < 0) {
-              value = '0'
-            }
-            // Update with the processed value
-            setFormData({
-              ...formData,
-              context_length: Number(value),
-            })
-          }}
-        />
-        <Box padding="15px"></Box>
-
-        <TextField
-          label="Model Size in Billions"
-          size="small"
-          error={errorModelSize}
-          value={modelSize}
-          onChange={(e) => {
-            let value = e.target.value
-            // Remove leading zeros
-            if (/^0+/.test(value)) {
-              value = value.replace(/^0+/, '') || '0'
-            }
-            // Ensure it's a positive integer, if not set it to the minimum
-            if (!/^\d+$/.test(value) || parseInt(value) < 0) {
-              value = '0'
-            }
-            setModelSize(Number(value))
-          }}
-        />
-        <Box padding="15px"></Box>
-
-        <TextField
-          label="Model Path"
-          size="small"
-          value={modelUri}
-          onChange={(e) => {
-            setModelUri(e.target.value)
-          }}
-          helperText="For PyTorch, provide the model directory. For GGML/GGUF, provide the model file path."
-        />
-        <Box padding="15px"></Box>
-
-        <TextField
-          label="Model Description (Optional)"
-          error={errorModelDescription}
-          defaultValue={formData.model_description}
-          size="small"
-          onChange={(event) =>
-            setFormData({ ...formData, model_description: event.target.value })
-          }
-        />
-        <Box padding="15px"></Box>
-
-        <label
-          style={{
-            paddingLeft: 5,
-            color: errorLanguage ? ERROR_COLOR : 'inherit',
-          }}
-        >
-          Model Languages
-        </label>
-        <Box sx={styles.checkboxWrapper}>
-          {SUPPORTED_LANGUAGES.map((lang) => (
-            <Box key={lang} sx={{ marginRight: '10px' }}>
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={formData.model_lang.includes(lang)}
-                    onChange={() => toggleLanguage(lang)}
-                    name={lang}
-                    sx={
-                      errorLanguage
-                        ? {
-                            'color': ERROR_COLOR,
-                            '&.Mui-checked': {
-                              color: ERROR_COLOR,
-                            },
-                          }
-                        : {}
-                    }
-                  />
-                }
-                label={SUPPORTED_LANGUAGES_DICT[lang]}
-                style={{
-                  paddingLeft: 10,
-                  color: errorLanguage ? ERROR_COLOR : 'inherit',
-                }}
-              />
-            </Box>
-          ))}
-        </Box>
-        <Box padding="15px"></Box>
-
-        <label
-          style={{
-            paddingLeft: 5,
-            color: errorAbility ? ERROR_COLOR : 'inherit',
-          }}
-        >
-          Model Abilities
-        </label>
-        <Box sx={styles.checkboxWrapper}>
-          {SUPPORTED_FEATURES.map((ability) => (
-            <Box key={ability} sx={{ marginRight: '10px' }}>
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={formData.model_ability.includes(
-                      ability.toLowerCase()
-                    )}
-                    onChange={() => toggleAbility(ability.toLowerCase())}
-                    name={ability}
-                    sx={
-                      errorAbility
-                        ? {
-                            'color': ERROR_COLOR,
-                            '&.Mui-checked': {
-                              color: ERROR_COLOR,
-                            },
-                          }
-                        : {}
-                    }
-                  />
-                }
-                label={ability}
-                style={{
-                  paddingLeft: 10,
-                  color: errorAbility ? ERROR_COLOR : 'inherit',
-                }}
-              />
-            </Box>
-          ))}
-        </Box>
-        <Box padding="15px"></Box>
-      </FormControl>
-
-      {formData.model_ability.includes('chat') && (
-        <FormControl sx={styles.baseFormControl}>
-          <label
-            style={{
-              paddingLeft: 5,
-              color: errorAbility ? ERROR_COLOR : 'inherit',
+      <TabContext value={tabValue}>
+        <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+          <TabList
+            value={tabValue}
+            onChange={(e, v) => {
+              setTabValue(v)
             }}
+            aria-label="tabs"
           >
-            Prompt styles
-          </label>
-          <FormHelperText>
-            Select a prompt style that aligns with the training data of your
-            model.
-          </FormHelperText>
-          <RadioGroup
-            value={promptStyleLabel}
-            onChange={(e) => {
-              setPromptStyleLabel(e.target.value)
-            }}
-          >
-            <Box sx={styles.checkboxWrapper}>
-              {promptStyles.map((p) => (
+            <Tab label="Language Model" value="1" />
+            <Tab label="Embedding Model" value="2" />
+          </TabList>
+        </Box>
+        <TabPanel value="1" sx={{ padding: 0 }}>
+          <Box padding="20px"></Box>
+          {/* Base Information */}
+          <FormControl sx={styles.baseFormControl}>
+            <TextField
+              label="Model Name"
+              error={errorModelName}
+              defaultValue={formData.model_name}
+              size="small"
+              helperText="Alphanumeric characters with properly placed hyphens and underscores. Must not match any built-in model names."
+              onChange={(event) =>
+                setFormData({ ...formData, model_name: event.target.value })
+              }
+            />
+            <Box padding="15px"></Box>
+
+            <label
+              style={{
+                paddingLeft: 5,
+              }}
+            >
+              Model Format
+            </label>
+
+            <RadioGroup
+              value={modelFormat}
+              onChange={(e) => {
+                setModelFormat(e.target.value)
+              }}
+            >
+              <Box sx={styles.checkboxWrapper}>
                 <Box sx={{ marginLeft: '10px' }}>
                   <FormControlLabel
-                    value={p.name}
+                    value="pytorch"
                     control={<Radio />}
-                    label={p.name}
+                    label="PyTorch"
+                  />
+                </Box>
+                <Box sx={{ marginLeft: '10px' }}>
+                  <FormControlLabel
+                    value="ggmlv3"
+                    control={<Radio />}
+                    label="GGML"
+                  />
+                </Box>
+                <Box sx={{ marginLeft: '10px' }}>
+                  <FormControlLabel
+                    value="ggufv2"
+                    control={<Radio />}
+                    label="GGUF"
+                  />
+                </Box>
+              </Box>
+            </RadioGroup>
+            <Box padding="15px"></Box>
+
+            <TextField
+              error={errorContextLength}
+              label="Context Length"
+              value={formData.context_length}
+              size="small"
+              onChange={(event) => {
+                let value = event.target.value
+                // Remove leading zeros
+                if (/^0+/.test(value)) {
+                  value = value.replace(/^0+/, '') || '0'
+                }
+                // Ensure it's a positive integer, if not set it to the minimum
+                if (!/^\d+$/.test(value) || parseInt(value) < 0) {
+                  value = '0'
+                }
+                // Update with the processed value
+                setFormData({
+                  ...formData,
+                  context_length: Number(value),
+                })
+              }}
+            />
+            <Box padding="15px"></Box>
+
+            <TextField
+              label="Model Size in Billions"
+              size="small"
+              error={errorModelSize}
+              value={modelSize}
+              onChange={(e) => {
+                let value = e.target.value
+                // Remove leading zeros
+                if (/^0+/.test(value)) {
+                  value = value.replace(/^0+/, '') || '0'
+                }
+                // Ensure it's a positive integer, if not set it to the minimum
+                if (!/^\d+$/.test(value) || parseInt(value) < 0) {
+                  value = '0'
+                }
+                setModelSize(Number(value))
+              }}
+            />
+            <Box padding="15px"></Box>
+
+            <TextField
+              label="Model Path"
+              size="small"
+              value={modelUri}
+              onChange={(e) => {
+                setModelUri(e.target.value)
+              }}
+              helperText="For PyTorch, provide the model directory. For GGML/GGUF, provide the model file path."
+            />
+            <Box padding="15px"></Box>
+
+            <TextField
+              label="Model Description (Optional)"
+              error={errorModelDescription}
+              defaultValue={formData.model_description}
+              size="small"
+              onChange={(event) =>
+                setFormData({
+                  ...formData,
+                  model_description: event.target.value,
+                })
+              }
+            />
+            <Box padding="15px"></Box>
+
+            <label
+              style={{
+                paddingLeft: 5,
+                color: errorLanguage ? ERROR_COLOR : 'inherit',
+              }}
+            >
+              Model Languages
+            </label>
+            <Box sx={styles.checkboxWrapper}>
+              {SUPPORTED_LANGUAGES.map((lang) => (
+                <Box key={lang} sx={{ marginRight: '10px' }}>
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={formData.model_lang.includes(lang)}
+                        onChange={() => toggleLanguage(lang)}
+                        name={lang}
+                        sx={
+                          errorLanguage
+                            ? {
+                                'color': ERROR_COLOR,
+                                '&.Mui-checked': {
+                                  color: ERROR_COLOR,
+                                },
+                              }
+                            : {}
+                        }
+                      />
+                    }
+                    label={SUPPORTED_LANGUAGES_DICT[lang]}
+                    style={{
+                      paddingLeft: 10,
+                      color: errorLanguage ? ERROR_COLOR : 'inherit',
+                    }}
                   />
                 </Box>
               ))}
             </Box>
-          </RadioGroup>
-        </FormControl>
-      )}
+            <Box padding="15px"></Box>
 
-      <Box width={'100%'}>
-        {successMsg !== '' && (
-          <Alert severity="success">
-            <AlertTitle>Success</AlertTitle>
-            {successMsg}
-          </Alert>
-        )}
-        <Button
-          variant="contained"
-          color="primary"
-          type="submit"
-          onClick={handleClick}
-        >
-          Register Model
-        </Button>
-      </Box>
+            <label
+              style={{
+                paddingLeft: 5,
+                color: errorAbility ? ERROR_COLOR : 'inherit',
+              }}
+            >
+              Model Abilities
+            </label>
+            <Box sx={styles.checkboxWrapper}>
+              {SUPPORTED_FEATURES.map((ability) => (
+                <Box key={ability} sx={{ marginRight: '10px' }}>
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={formData.model_ability.includes(
+                          ability.toLowerCase()
+                        )}
+                        onChange={() => toggleAbility(ability.toLowerCase())}
+                        name={ability}
+                        sx={
+                          errorAbility
+                            ? {
+                                'color': ERROR_COLOR,
+                                '&.Mui-checked': {
+                                  color: ERROR_COLOR,
+                                },
+                              }
+                            : {}
+                        }
+                      />
+                    }
+                    label={ability}
+                    style={{
+                      paddingLeft: 10,
+                      color: errorAbility ? ERROR_COLOR : 'inherit',
+                    }}
+                  />
+                </Box>
+              ))}
+            </Box>
+            <Box padding="15px"></Box>
+          </FormControl>
+
+          {formData.model_ability.includes('chat') && (
+            <FormControl sx={styles.baseFormControl}>
+              <label
+                style={{
+                  paddingLeft: 5,
+                  color: errorAbility ? ERROR_COLOR : 'inherit',
+                }}
+              >
+                Prompt styles
+              </label>
+              <FormHelperText>
+                Select a prompt style that aligns with the training data of your
+                model.
+              </FormHelperText>
+              <RadioGroup
+                value={promptStyleLabel}
+                onChange={(e) => {
+                  setPromptStyleLabel(e.target.value)
+                }}
+              >
+                <Box sx={styles.checkboxWrapper}>
+                  {promptStyles.map((p) => (
+                    <Box sx={{ marginLeft: '10px' }}>
+                      <FormControlLabel
+                        value={p.name}
+                        control={<Radio />}
+                        label={p.name}
+                      />
+                    </Box>
+                  ))}
+                </Box>
+              </RadioGroup>
+            </FormControl>
+          )}
+
+          <Box width={'100%'}>
+            {successMsg !== '' && (
+              <Alert severity="success">
+                <AlertTitle>Success</AlertTitle>
+                {successMsg}
+              </Alert>
+            )}
+            <Button
+              variant="contained"
+              color="primary"
+              type="submit"
+              onClick={handleClick}
+            >
+              Register Model
+            </Button>
+          </Box>
+        </TabPanel>
+        <TabPanel value="2" sx={{ padding: 0 }}>
+          <RegisterEmbeddingModel />
+        </TabPanel>
+      </TabContext>
     </Box>
   )
 }
