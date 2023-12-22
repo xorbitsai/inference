@@ -441,7 +441,7 @@ def list_model_registrations(
     "--size-in-billions",
     "-s",
     default=None,
-    type=int,
+    type=str,
     help="Specify the model size in billions of parameters.",
 )
 @click.option(
@@ -482,7 +482,7 @@ def model_launch(
     model_name: str,
     model_type: str,
     model_uid: str,
-    size_in_billions: int,
+    size_in_billions: str,
     model_format: str,
     quantization: str,
     replica: int,
@@ -497,13 +497,16 @@ def model_launch(
         _n_gpu = int(n_gpu)
 
     endpoint = get_endpoint(endpoint)
+    model_size: Union[str, int] = (
+        size_in_billions if "_" in size_in_billions else int(size_in_billions)
+    )
 
     client = RESTfulClient(base_url=endpoint)
     model_uid = client.launch_model(
         model_name=model_name,
         model_type=model_type,
         model_uid=model_uid,
-        model_size_in_billions=size_in_billions,
+        model_size_in_billions=model_size,
         model_format=model_format,
         quantization=quantization,
         replica=replica,

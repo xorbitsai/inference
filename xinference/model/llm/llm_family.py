@@ -102,7 +102,7 @@ class LLMFamilyV1(BaseModel):
     version: Literal[1]
     context_length: Optional[int] = DEFAULT_CONTEXT_LENGTH
     model_name: str
-    model_lang: List[Literal["en", "zh"]]
+    model_lang: List[str]
     model_ability: List[Literal["embed", "generate", "chat"]]
     model_description: Optional[str]
     model_specs: List["LLMSpecV1"]

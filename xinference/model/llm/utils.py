@@ -114,6 +114,15 @@ class ChatModelMixin:
                 else:
                     ret += role + ":"
             return ret
+        elif prompt_style.style_name == "MIXTRAL_V01":
+            ret = ""
+            for i, message in enumerate(chat_history):
+                content = message["content"]
+                if i % 2 == 0:  # user
+                    ret += f"<s> [INST] {content} [/INST]"
+                else:  # assistant
+                    ret += f"{content} </s>"
+            return ret
         elif prompt_style.style_name == "CHATGLM":
             round_add_n = 1 if prompt_style.intra_message_sep == "\n\n" else 0
             if prompt_style.system_prompt:

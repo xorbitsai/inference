@@ -325,49 +325,29 @@ const ModelCard = ({ url, modelData, gpuAvailable, is_custom = false }) => {
           </Stack>
         )}
         {!is_custom && <h2 style={styles.h2}>{modelData.model_name}</h2>}
-        <div style={styles.tagRow}>
+        <Stack
+          spacing={1}
+          direction="row"
+          useFlexGap
+          flexWrap="wrap"
+          sx={{ marginLeft: 1 }}
+        >
           {(() => {
-            if (modelData.model_lang.includes('en')) {
-              return <Chip label="EN" variant="outlined" size="small" />
-            }
-          })()}
-          {(() => {
-            if (modelData.model_lang.includes('zh')) {
-              return (
-                <Chip
-                  label="ZH"
-                  variant="outlined"
-                  size="small"
-                  sx={{ marginLeft: '10px' }}
-                />
-              )
-            }
+            return modelData.model_lang.map((v) => {
+              return <Chip label={v} variant="outlined" size="small" />
+            })
           })()}
           {(() => {
             if (modelData.model_specs.some((spec) => isCached(spec))) {
-              return (
-                <Chip
-                  label="Cached"
-                  variant="outlined"
-                  size="small"
-                  sx={{ marginLeft: '10px' }}
-                />
-              )
+              return <Chip label="Cached" variant="outlined" size="small" />
             }
           })()}
           {(() => {
             if (is_custom && customDeleted) {
-              return (
-                <Chip
-                  label="Deleted"
-                  variant="outlined"
-                  size="small"
-                  sx={{ marginLeft: '10px' }}
-                />
-              )
+              return <Chip label="Deleted" variant="outlined" size="small" />
             }
           })()}
-        </div>
+        </Stack>
         <p style={styles.p}>{modelData.model_description}</p>
 
         <div style={styles.iconRow}>
