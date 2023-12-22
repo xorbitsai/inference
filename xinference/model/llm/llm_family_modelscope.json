@@ -1211,6 +1211,54 @@
   },
   {
     "version": 1,
+    "context_length": 8192,
+    "model_name": "mistral-instruct-v0.2",
+    "model_lang": [
+      "en"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "The Mistral-7B-Instruct-v0.2 Large Language Model (LLM) is an improved instruct fine-tuned version of Mistral-7B-Instruct-v0.1.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_hub": "modelscope",
+        "model_id": "AI-ModelScope/Mistral-7B-Instruct-v0.2"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "Q4_K_M"
+        ],
+        "model_hub": "modelscope",
+        "model_id": "Xorbits/Mistral-7B-Instruct-v0.2-GGUF",
+        "model_file_name_template": "mistral-7b-instruct-v0.2.{quantization}.gguf"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "NO_COLON_TWO",
+      "system_prompt": "<s>[INST] <<SYS>>\nAn informative and inspiring conversation\n<</SYS>>\n\n",
+      "roles": [
+        "[INST]",
+        "[/INST]"
+      ],
+      "intra_message_sep": " ",
+      "inter_message_sep": " </s><s>",
+      "stop_token_ids": [
+        2
+      ]
+    }
+  },
+  {
+    "version": 1,
     "context_length": 2048,
     "model_name": "falcon-instruct",
     "model_lang": [
