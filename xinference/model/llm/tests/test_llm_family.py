@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import codecs
 import json
 import os
 import shutil
@@ -168,7 +168,7 @@ def test_builtin_llm_families():
     json_path = os.path.join(
         os.path.dirname(os.path.abspath(__file__)), "..", "llm_family.json"
     )
-    for json_obj in json.load(open(json_path)):
+    for json_obj in json.load(codecs.open(json_path, "r", encoding="utf-8")):
         LLMFamilyV1.parse_obj(json_obj)
 
 
