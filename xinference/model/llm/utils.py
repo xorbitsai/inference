@@ -21,6 +21,7 @@ from typing import AsyncGenerator, Dict, Iterator, List, Optional
 from xinference.model.llm.llm_family import PromptStyleV1
 
 from ...types import (
+    SPECIAL_TOOL_PROMPT,
     ChatCompletion,
     ChatCompletionChunk,
     ChatCompletionMessage,
@@ -44,9 +45,10 @@ class ChatModelMixin:
         different models.
         """
         assert prompt_style.roles is not None
-        chat_history.append(
-            ChatCompletionMessage(role=prompt_style.roles[0], content=prompt)
-        )
+        if prompt != SPECIAL_TOOL_PROMPT:
+            chat_history.append(
+                ChatCompletionMessage(role=prompt_style.roles[0], content=prompt)
+            )
         chat_history.append(
             ChatCompletionMessage(role=prompt_style.roles[1], content="")
         )
@@ -138,7 +140,12 @@ class ChatModelMixin:
             for i, message in enumerate(chat_history):
                 role = message["role"]
                 content = message["content"]
+                tool_calls = message.get("tool_calls")
+                if tool_calls:
+                    content = tool_calls[0]["function"]
                 if content:
+                    if role == "tool":
+                        role = "observation"
                     prompts.append(f"<|{role}|>\n{content}")
                 else:
                     prompts.append(f"<|{role}|>")
@@ -207,12 +214,12 @@ Begin!"""
                     tools_name_text.append(name)
                 tools_text_string = "\n\n".join(tools_text)
                 tools_name_text_string = ", ".join(tools_name_text)
-                tool_system = "\n\n" + react_instruction.format(
+                tool_system = react_instruction.format(
                     tools_text=tools_text_string,
                     tools_name_text=tools_name_text_string,
                 )
-                new_query = tool_system + f"\n\nQuestion: {prompt}"
-                chat_history[-2]["content"] = new_query
+            else:
+                tool_system = ""
 
             ret = f"<|im_start|>system\n{prompt_style.system_prompt}<|im_end|>"
             for message in chat_history:
@@ -220,7 +227,31 @@ Begin!"""
                 content = message["content"]
 
                 ret += prompt_style.intra_message_sep
+                if tools:
+                    if role == "user":
+                        if tool_system:
+                            content = tool_system + f"\n\nQuestion: {content}"
+                            tool_system = ""
+                        else:
+                            content = f"Question: {content}"
+                    elif role == "assistant":
+                        tool_calls = message.get("tool_calls")
+                        if tool_calls:
+                            func_call = tool_calls[0]["function"]
+                            f_name, f_args = (
+                                func_call["name"],
+                                func_call["arguments"],
+                            )
+                            content = f"Thought: I can use {f_name}.\nAction: {f_name}\nAction Input: {f_args}"
+                        elif content:
+                            content = f"Thought: I now know the final answer.\nFinal answer: {content}"
+                    elif role == "tool":
+                        role = "function"
+                        content = f"Observation: {content}"
+                    else:
+                        raise Exception(f"Unsupported message role: {role}")
                 if content:
+                    content = content.lstrip("\n").rstrip()
                     ret += f"<|im_start|>{role}\n{content}<|im_end|>"
                 else:
                     ret += f"<|im_start|>{role}\n"
@@ -428,7 +459,10 @@ Begin!"""
     def _eval_qwen_chat_arguments(c, tools):
         text = c["choices"][0]["text"]
         try:
-            # Refer to: https://github.com/QwenLM/Qwen/blob/main/examples/react_prompt.md
+            # Refer to:
+            # https://github.com/QwenLM/Qwen/blob/main/examples/react_prompt.md
+            # https://github.com/QwenLM/Qwen/blob/main/openai_api.py#L297
+            func_name, func_args = "", ""
             i = text.rfind("\nAction:")
             j = text.rfind("\nAction Input:")
             k = text.rfind("\nObservation:")
@@ -439,10 +473,13 @@ Begin!"""
                     text = text.rstrip() + "\nObservation:"  # Add it back.
                     k = text.rfind("\nObservation:")
             if 0 <= i < j < k:
-                plugin_name = text[i + len("\nAction:") : j].strip()
-                plugin_args = text[j + len("\nAction Input:") : k].strip()
-                return None, plugin_name, json.loads(plugin_args)
-            logger.error("No ReAct response detected, please check your stop.")
+                func_name = text[i + len("\nAction:") : j].strip()
+                func_args = text[j + len("\nAction Input:") : k].strip()
+            if func_name:
+                return None, func_name, json.loads(func_args)
+            z = text.rfind("\nFinal Answer: ")
+            if z >= 0:
+                text = text[z + len("\nFinal Answer: ") :]
         except Exception as e:
             logger.error("Eval tool calls completion failed: %s", e)
         return text, None, None

@@ -715,22 +715,25 @@ def match_llm(
                     matched_quantization,
                 )
             else:
-                # by default, choose the most coarse-grained quantization.
-                # TODO: too hacky.
-                quantizations = spec.quantizations
-                quantizations.sort()
-                for q in quantizations:
-                    if (
-                        is_local_deployment
-                        and not (_is_linux() and _has_cuda_device())
-                        and q == "4-bit"
-                    ):
-                        logger.warning(
-                            "Skipping %s for non-linux or non-cuda local deployment .",
-                            q,
-                        )
-                        continue
-                    return family, _apply_format_to_model_id(spec, q), q
+                if spec.model_format == "pytorch":
+                    return family, _apply_format_to_model_id(spec, "none"), "none"
+                else:
+                    # by default, choose the most coarse-grained quantization.
+                    # TODO: too hacky.
+                    quantizations = spec.quantizations
+                    quantizations.sort()
+                    for q in quantizations:
+                        if (
+                            is_local_deployment
+                            and not (_is_linux() and _has_cuda_device())
+                            and q == "4-bit"
+                        ):
+                            logger.warning(
+                                "Skipping %s for non-linux or non-cuda local deployment .",
+                                q,
+                            )
+                            continue
+                        return family, _apply_format_to_model_id(spec, q), q
     return None
 
 

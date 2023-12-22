@@ -670,7 +670,7 @@ def test_match_llm():
         family, spec, q = match_llm("baichuan-2-chat")
         assert family.model_name == "baichuan-2-chat"
         assert spec.model_hub == "modelscope"
-        assert q == "4-bit"
+        assert q == "none"
         assert spec.model_format == "pytorch"
     finally:
         os.environ.pop(XINFERENCE_ENV_MODEL_SRC)

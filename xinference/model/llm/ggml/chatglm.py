@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Iterator, List, Optional, Union
 
 from ....types import (
+    SPECIAL_TOOL_PROMPT,
     ChatCompletion,
     ChatCompletionChunk,
     ChatCompletionMessage,
@@ -244,7 +245,20 @@ class ChatglmCppChatModel(LLM):
         if tool_message is not None:
             chat_history_list.insert(0, tool_message)
 
-        chat_history_list.append({"role": "user", "content": prompt})
+        # We drop the message which contains tool calls to walkaround the issue:
+        # https://github.com/li-plus/chatglm.cpp/issues/231
+        chat_history_list = [m for m in chat_history_list if not m.get("tool_calls")]
+        for idx, m in enumerate(chat_history_list):
+            if m.get("role") == "tool":
+                # Reconstruct a simple tool message.
+                chat_history_list[idx] = {
+                    "content": m["content"],
+                    "role": "observation",
+                }
+                break
+
+        if prompt != SPECIAL_TOOL_PROMPT:
+            chat_history_list.append({"role": "user", "content": prompt})
         logger.debug("Full conversation history:\n%s", str(chat_history_list))
 
         generate_config = self._sanitize_generate_config(generate_config)
