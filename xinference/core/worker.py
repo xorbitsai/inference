@@ -106,14 +106,17 @@ class WorkerActor(xo.StatelessActor):
             ),
         }
 
-        async def singal_handler():
-            await self._supervisor_ref.remove_worker(self.address)
-            os._exit(0)
+        # Windows does not have signal handler
+        if os.name != "nt":
 
-        loop = asyncio.get_running_loop()
-        loop.add_signal_handler(
-            signal.SIGINT, lambda: asyncio.create_task(singal_handler())
-        )
+            async def signal_handler():
+                await self._supervisor_ref.remove_worker(self.address)
+                os._exit(0)
+
+            loop = asyncio.get_running_loop()
+            loop.add_signal_handler(
+                signal.SIGINT, lambda: asyncio.create_task(signal_handler())
+            )
 
     async def __pre_destroy__(self):
         self._upload_task.cancel()
