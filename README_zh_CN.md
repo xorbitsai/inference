@@ -30,12 +30,12 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 - 投机采样: [#509](https://github.com/xorbitsai/inference/pull/509)
 - 引入 vLLM: [#445](https://github.com/xorbitsai/inference/pull/445)
 ### 新模型
+- 内置 [mistral--instruct-v0.2](https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.2): [#796](https://github.com/xorbitsai/inference/pull/796)
+- 内置 [deepseek-llm](https://huggingface.co/deepseek-ai) 与 [deepseek-coder](https://huggingface.co/deepseek-ai): [#786](https://github.com/xorbitsai/inference/pull/786)
 - 内置 [Mixtral-8x7B-v0.1](https://huggingface.co/mistralai/Mixtral-8x7B-v0.1): [#782](https://github.com/xorbitsai/inference/pull/782)
 - 内置 [OpenHermes 2.5](https://huggingface.co/teknium/OpenHermes-2.5-Mistral-7B): [#776](https://github.com/xorbitsai/inference/pull/776)
 - 内置 [Yi](https://huggingface.co/01-ai): [#629](https://github.com/xorbitsai/inference/pull/629)
 - 内置 [zephyr-7b-alpha](https://huggingface.co/HuggingFaceH4/zephyr-7b-alpha) 与 [zephyr-7b-beta](https://huggingface.co/HuggingFaceH4/zephyr-7b-beta): [#597](https://github.com/xorbitsai/inference/pull/597)
-- 内置 [chatglm3](https://huggingface.co/THUDM/chatglm3-6b): [#587](https://github.com/xorbitsai/inference/pull/587)
-- 内置 [mistral-v0.1](https://huggingface.co/mistralai/Mistral-7B-v0.1) 与 [mistral-instruct-v0.1](https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.1): [#510](https://github.com/xorbitsai/inference/pull/510)
 ### 集成
 - [Dify](https://docs.dify.ai/advanced/model-configuration/xinference): 一个涵盖了大型语言模型开发、部署、维护和优化的 LLMOps 平台。
 - [Chatbox](https://chatboxai.app/): 一个支持前沿大语言模型的桌面客户端，支持 Windows，Mac，以及 Linux。

@@ -14,32 +14,32 @@ Specifications
 ^^^^^^^^^^^^^^
 
 
-Model Spec 1 (ggmlv3, 7 Billion)
+Model Spec 1 (ggufv2, 7 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
-- **Model Format:** ggmlv3
+- **Model Format:** ggufv2
 - **Model Size (in billions):** 7
-- **Quantizations:** q4_0
-- **Model ID:** Xorbits/qwen-chat-7B-ggml
+- **Quantizations:** Q4_K_M
+- **Model ID:** Xorbits/Qwen-7B-Chat-GGUF
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
 
-   xinference launch --model-name qwen-chat --size-in-billions 7 --model-format ggmlv3 --quantization ${quantization}
+   xinference launch --model-name qwen-chat --size-in-billions 7 --model-format ggufv2 --quantization ${quantization}
 
 
-Model Spec 2 (ggmlv3, 14 Billion)
+Model Spec 2 (ggufv2, 14 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
-- **Model Format:** ggmlv3
+- **Model Format:** ggufv2
 - **Model Size (in billions):** 14
-- **Quantizations:** q4_0
-- **Model ID:** Xorbits/qwen-chat-14B-ggml
+- **Quantizations:** Q4_K_M
+- **Model ID:** Xorbits/Qwen-14B-Chat-GGUF
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
 
-   xinference launch --model-name qwen-chat --size-in-billions 14 --model-format ggmlv3 --quantization ${quantization}
+   xinference launch --model-name qwen-chat --size-in-billions 14 --model-format ggufv2 --quantization ${quantization}
 
 
 Model Spec 3 (pytorch, 1_8 Billion)
@@ -47,7 +47,7 @@ Model Spec 3 (pytorch, 1_8 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 1_8
-- **Quantizations:** 4-bit, 8-bit, none
+- **Quantizations:** none
 - **Model ID:** Qwen/Qwen-1_8B-Chat
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
@@ -61,7 +61,7 @@ Model Spec 4 (pytorch, 7 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 7
-- **Quantizations:** 4-bit, 8-bit, none
+- **Quantizations:** none
 - **Model ID:** Qwen/Qwen-7B-Chat
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
@@ -89,7 +89,7 @@ Model Spec 6 (pytorch, 72 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 72
-- **Quantizations:** 4-bit, 8-bit, none
+- **Quantizations:** none
 - **Model ID:** Qwen/Qwen-72B-Chat
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your

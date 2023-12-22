@@ -46,7 +46,7 @@ The following is a list of built-in LLM in Xinference:
    glaive-coder
   
    gorilla-openfunctions-v1
-
+  
    gpt-2
   
    internlm-20b
@@ -62,6 +62,8 @@ The following is a list of built-in LLM in Xinference:
    llama-2-chat
   
    mistral-instruct-v0.1
+  
+   mistral-instruct-v0.2
   
    mistral-v0.1
   
