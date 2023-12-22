@@ -17,6 +17,7 @@ const LaunchLLM = ({ gpuAvailable }) => {
   let endPoint = useContext(ApiContext).endPoint
   const { isCallingApi, setIsCallingApi } = useContext(ApiContext)
   const { isUpdatingModel } = useContext(ApiContext)
+  const { setErrorMsg } = useContext(ApiContext)
   const [cookie] = useCookies(['token'])
 
   const [registrationData, setRegistrationData] = useState([])
@@ -55,7 +56,7 @@ const LaunchLLM = ({ gpuAvailable }) => {
     return true
   }
 
-  const update = async () => {
+  const update = () => {
     if (
       isCallingApi ||
       isUpdatingModel ||
@@ -68,17 +69,26 @@ const LaunchLLM = ({ gpuAvailable }) => {
     try {
       setIsCallingApi(true)
 
-      const response = await fetcher(
-        `${endPoint}/v1/model_registrations/LLM?detailed=true`,
-        {
-          method: 'GET',
+      fetcher(`${endPoint}/v1/model_registrations/LLM?detailed=true`, {
+        method: 'GET',
+      }).then((response) => {
+        if (!response.ok) {
+          response
+            .json()
+            .then((errData) =>
+              setErrorMsg(
+                `Server error: ${response.status} - ${
+                  errData.detail || 'Unknown error'
+                }`
+              )
+            )
+        } else {
+          response.json().then((data) => {
+            const builtinRegistrations = data.filter((v) => v.is_builtin)
+            setRegistrationData(builtinRegistrations)
+          })
         }
-      )
-
-      const registrations = await response.json()
-      const builtinRegistrations = registrations.filter((v) => v.is_builtin)
-
-      setRegistrationData(builtinRegistrations)
+      })
     } catch (error) {
       console.error('Error:', error)
     } finally {
@@ -87,7 +97,7 @@ const LaunchLLM = ({ gpuAvailable }) => {
   }
 
   useEffect(() => {
-    update().catch(console.error)
+    update()
   }, [cookie.token])
 
   const style = {

@@ -54,10 +54,6 @@ def verify_token(
     token: Annotated[str, Depends(oauth2_scheme)],
     config: Optional[AuthStartupConfig] = Depends(get_db),
 ):
-    # no auth situation
-    if config is None and token == "no_auth":
-        return None
-
     if security_scopes.scopes:
         authenticate_value = f'Bearer scope="{security_scopes.scope_str}"'
     else:
@@ -74,6 +70,7 @@ def verify_token(
             token,
             config.auth_config.secret_key,
             algorithms=[config.auth_config.algorithm],
+            options={"verify_exp": False},  # TODO: supports token expiration
         )
         username: str = payload.get("sub")
         if username is None:

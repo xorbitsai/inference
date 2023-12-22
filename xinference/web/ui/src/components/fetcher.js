@@ -14,5 +14,18 @@ const updateOptions = (url, options) => {
 }
 
 export default function fetcher(url, options) {
-  return fetch(url, updateOptions(url, options))
+  return fetch(url, updateOptions(url, options)).then((res) => {
+    // For the situation that server has already been restarted, the current token may become invalid,
+    // which leads to UI hangs.
+    if (
+      res.status === 401 &&
+      cookies.get('token') &&
+      cookies.get('token').length > 10 // TODO: more reasonable token check
+    ) {
+      cookies.remove('token', { path: '/' })
+      window.location.href = '/ui/#/login'
+    } else {
+      return res
+    }
+  })
 }
