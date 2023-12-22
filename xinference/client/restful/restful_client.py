@@ -154,6 +154,7 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
         n: int = 1,
         size: str = "1024*1024",
         response_format: str = "url",
+        **kwargs,
     ) -> "ImageList":
         """
         Creates an image by the input text.
@@ -180,6 +181,7 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
             "n": n,
             "size": size,
             "response_format": response_format,
+            "kwargs": json.dumps(kwargs),
         }
         response = requests.post(url, json=request_body)
         if response.status_code != 200:

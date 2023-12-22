@@ -104,6 +104,7 @@ class TextToImageRequest(BaseModel):
     n: Optional[int] = 1
     response_format: Optional[str] = "url"
     size: Optional[str] = "1024*1024"
+    kwargs: Optional[str] = None
     user: Optional[str] = None
 
 
@@ -645,8 +646,14 @@ class RESTfulAPI:
             raise HTTPException(status_code=500, detail=str(e))
 
         try:
+            if request.kwargs:
+                kwargs = json.loads(request.kwargs)
             image_list = await model.text_to_image(
-                request.prompt, request.n, request.size, request.response_format
+                prompt=request.prompt,
+                n=request.n,
+                size=request.size,
+                response_format=request.response_format,
+                **kwargs,
             )
             return JSONResponse(content=image_list)
         except RuntimeError as re:
