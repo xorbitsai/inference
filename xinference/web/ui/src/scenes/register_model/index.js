@@ -83,7 +83,7 @@ const RegisterModel = () => {
       return
     }
     if (cookie.token === 'need_auth') {
-      navigate('/login')
+      navigate('/login', { replace: true })
       return
     }
     const getBuiltInPromptStyles = async () => {

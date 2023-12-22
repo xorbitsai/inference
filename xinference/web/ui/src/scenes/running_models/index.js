@@ -34,7 +34,7 @@ const RunningModels = () => {
       return
     }
     if (cookie.token === 'need_auth') {
-      navigate('/login')
+      navigate('/login', { replace: true })
       return
     }
     if (isCallingApi) {
