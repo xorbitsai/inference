@@ -1230,7 +1230,7 @@
           "none"
         ],
         "model_hub": "modelscope",
-        "model_id": "AI-ModelScope/Mistral-7B-Instruct-v0.2",
+        "model_id": "AI-ModelScope/Mistral-7B-Instruct-v0.2"
       },
       {
         "model_format": "ggufv2",
