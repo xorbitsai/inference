@@ -159,7 +159,7 @@ def test_restful_api_for_sd_turbo(setup):
     model = client.get_model(model_uid)
 
     r = model.text_to_image(
-        prompt="A cinematic shot of a baby racoon wearing an intricate italian priest robe.",
+        prompt="A cinematic shot of a baby raccoon wearing an intricate italian priest robe.",
         size="512*512",
         num_inference_steps=10,
     )
