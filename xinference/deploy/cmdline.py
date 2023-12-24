@@ -497,7 +497,7 @@ def model_launch(
         _n_gpu = int(n_gpu)
 
     endpoint = get_endpoint(endpoint)
-    model_size: Union[str, int] = (
+    model_size: Optional[Union[str, int]] = (
         size_in_billions if size_in_billions is None or "_" in size_in_billions else int(size_in_billions)
     )
 
