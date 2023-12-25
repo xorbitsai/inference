@@ -144,7 +144,6 @@ def test_restful_api_for_image_with_mlsd_controlnet(setup):
     logger.info("test result %s", r)
 
 
-# @pytest.mark.skip(reason="Stable diffusion controlnet requires too many GRAM.")
 def test_restful_api_for_sd_turbo(setup):
     endpoint, _ = setup
     from ....client import Client
