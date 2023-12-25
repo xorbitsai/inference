@@ -1,0 +1,106 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2023-12-25 17:11+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.11.0\n"
+
+#: ../../source/models/builtin/llm/wizardmath-v1.0.rst:5
+msgid "wizardmath-v1.0"
+msgstr ""
+
+#: ../../source/models/builtin/llm/wizardmath-v1.0.rst:7
+msgid "**Context Length:** 2048"
+msgstr ""
+
+#: ../../source/models/builtin/llm/wizardmath-v1.0.rst:8
+msgid "**Model Name:** wizardmath-v1.0"
+msgstr ""
+
+#: ../../source/models/builtin/llm/wizardmath-v1.0.rst:9
+msgid "**Languages:** en"
+msgstr ""
+
+#: ../../source/models/builtin/llm/wizardmath-v1.0.rst:10
+msgid "**Abilities:** chat"
+msgstr ""
+
+#: ../../source/models/builtin/llm/wizardmath-v1.0.rst:11
+msgid ""
+"**Description:** WizardMath is an open-source LLM trained by fine-tuning "
+"Llama2 with Evol-Instruct, specializing in math."
+msgstr ""
+
+#: ../../source/models/builtin/llm/wizardmath-v1.0.rst:14
+msgid "Specifications"
+msgstr ""
+
+#: ../../source/models/builtin/llm/wizardmath-v1.0.rst:18
+msgid "Model Spec 1 (pytorch, 7 Billion)"
+msgstr ""
+
+#: ../../source/models/builtin/llm/wizardmath-v1.0.rst:20
+#: ../../source/models/builtin/llm/wizardmath-v1.0.rst:34
+#: ../../source/models/builtin/llm/wizardmath-v1.0.rst:48
+msgid "**Model Format:** pytorch"
+msgstr ""
+
+#: ../../source/models/builtin/llm/wizardmath-v1.0.rst:21
+msgid "**Model Size (in billions):** 7"
+msgstr ""
+
+#: ../../source/models/builtin/llm/wizardmath-v1.0.rst:22
+#: ../../source/models/builtin/llm/wizardmath-v1.0.rst:36
+#: ../../source/models/builtin/llm/wizardmath-v1.0.rst:50
+msgid "**Quantizations:** 4-bit, 8-bit, none"
+msgstr ""
+
+#: ../../source/models/builtin/llm/wizardmath-v1.0.rst:23
+msgid "**Model ID:** WizardLM/WizardMath-7B-V1.0"
+msgstr ""
+
+#: ../../source/models/builtin/llm/wizardmath-v1.0.rst:25
+#: ../../source/models/builtin/llm/wizardmath-v1.0.rst:39
+#: ../../source/models/builtin/llm/wizardmath-v1.0.rst:53
+msgid ""
+"Execute the following command to launch the model, remember to replace "
+"``${quantization}`` with your chosen quantization method from the options"
+" listed above::"
+msgstr ""
+
+#: ../../source/models/builtin/llm/wizardmath-v1.0.rst:32
+msgid "Model Spec 2 (pytorch, 13 Billion)"
+msgstr ""
+
+#: ../../source/models/builtin/llm/wizardmath-v1.0.rst:35
+msgid "**Model Size (in billions):** 13"
+msgstr ""
+
+#: ../../source/models/builtin/llm/wizardmath-v1.0.rst:37
+msgid "**Model ID:** WizardLM/WizardMath-13B-V1.0"
+msgstr ""
+
+#: ../../source/models/builtin/llm/wizardmath-v1.0.rst:46
+msgid "Model Spec 3 (pytorch, 70 Billion)"
+msgstr ""
+
+#: ../../source/models/builtin/llm/wizardmath-v1.0.rst:49
+msgid "**Model Size (in billions):** 70"
+msgstr ""
+
+#: ../../source/models/builtin/llm/wizardmath-v1.0.rst:51
+msgid "**Model ID:** WizardLM/WizardMath-70B-V1.0"
+msgstr ""
+

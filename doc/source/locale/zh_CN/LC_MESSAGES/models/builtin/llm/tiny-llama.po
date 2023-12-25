@@ -1,0 +1,78 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2023-12-25 17:11+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.11.0\n"
+
+#: ../../source/models/builtin/llm/tiny-llama.rst:5
+msgid "tiny-llama"
+msgstr ""
+
+#: ../../source/models/builtin/llm/tiny-llama.rst:7
+msgid "**Context Length:** 2048"
+msgstr ""
+
+#: ../../source/models/builtin/llm/tiny-llama.rst:8
+msgid "**Model Name:** tiny-llama"
+msgstr ""
+
+#: ../../source/models/builtin/llm/tiny-llama.rst:9
+msgid "**Languages:** en"
+msgstr ""
+
+#: ../../source/models/builtin/llm/tiny-llama.rst:10
+msgid "**Abilities:** generate"
+msgstr ""
+
+#: ../../source/models/builtin/llm/tiny-llama.rst:11
+msgid ""
+"**Description:** The TinyLlama project aims to pretrain a 1.1B Llama "
+"model on 3 trillion tokens."
+msgstr ""
+
+#: ../../source/models/builtin/llm/tiny-llama.rst:14
+msgid "Specifications"
+msgstr ""
+
+#: ../../source/models/builtin/llm/tiny-llama.rst:18
+msgid "Model Spec 1 (ggufv2, 1 Billion)"
+msgstr ""
+
+#: ../../source/models/builtin/llm/tiny-llama.rst:20
+msgid "**Model Format:** ggufv2"
+msgstr ""
+
+#: ../../source/models/builtin/llm/tiny-llama.rst:21
+msgid "**Model Size (in billions):** 1"
+msgstr ""
+
+#: ../../source/models/builtin/llm/tiny-llama.rst:22
+msgid ""
+"**Quantizations:** Q2_K, Q3_K_L, Q3_K_M, Q3_K_S, Q4_0, Q4_K_M, Q4_K_S, "
+"Q5_0, Q5_K_M, Q5_K_S, Q6_K, Q8_0"
+msgstr ""
+
+#: ../../source/models/builtin/llm/tiny-llama.rst:23
+msgid "**Model ID:** TheBloke/TinyLlama-1.1B-Chat-v0.3-GGUF"
+msgstr ""
+
+#: ../../source/models/builtin/llm/tiny-llama.rst:25
+msgid ""
+"Execute the following command to launch the model, remember to replace "
+"``${quantization}`` with your chosen quantization method from the options"
+" listed above::"
+msgstr ""
+

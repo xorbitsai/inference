@@ -1,0 +1,94 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2023-12-25 17:11+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.11.0\n"
+
+#: ../../source/models/builtin/llm/mixtral-instruct-v0.1.rst:5
+msgid "mixtral-instruct-v0.1"
+msgstr ""
+
+#: ../../source/models/builtin/llm/mixtral-instruct-v0.1.rst:7
+msgid "**Context Length:** 32768"
+msgstr ""
+
+#: ../../source/models/builtin/llm/mixtral-instruct-v0.1.rst:8
+msgid "**Model Name:** mixtral-instruct-v0.1"
+msgstr ""
+
+#: ../../source/models/builtin/llm/mixtral-instruct-v0.1.rst:9
+msgid "**Languages:** en, fr, it, de, es"
+msgstr ""
+
+#: ../../source/models/builtin/llm/mixtral-instruct-v0.1.rst:10
+msgid "**Abilities:** chat"
+msgstr ""
+
+#: ../../source/models/builtin/llm/mixtral-instruct-v0.1.rst:11
+msgid ""
+"**Description:** Mistral-8x7B-Instruct is a fine-tuned version of the "
+"Mistral-8x7B LLM, specializing in chatting."
+msgstr ""
+
+#: ../../source/models/builtin/llm/mixtral-instruct-v0.1.rst:14
+msgid "Specifications"
+msgstr ""
+
+#: ../../source/models/builtin/llm/mixtral-instruct-v0.1.rst:18
+msgid "Model Spec 1 (pytorch, 46_7 Billion)"
+msgstr ""
+
+#: ../../source/models/builtin/llm/mixtral-instruct-v0.1.rst:20
+msgid "**Model Format:** pytorch"
+msgstr ""
+
+#: ../../source/models/builtin/llm/mixtral-instruct-v0.1.rst:21
+#: ../../source/models/builtin/llm/mixtral-instruct-v0.1.rst:35
+msgid "**Model Size (in billions):** 46_7"
+msgstr ""
+
+#: ../../source/models/builtin/llm/mixtral-instruct-v0.1.rst:22
+msgid "**Quantizations:** 4-bit, 8-bit, none"
+msgstr ""
+
+#: ../../source/models/builtin/llm/mixtral-instruct-v0.1.rst:23
+msgid "**Model ID:** mistralai/Mixtral-8x7B-Instruct-v0.1"
+msgstr ""
+
+#: ../../source/models/builtin/llm/mixtral-instruct-v0.1.rst:25
+#: ../../source/models/builtin/llm/mixtral-instruct-v0.1.rst:39
+msgid ""
+"Execute the following command to launch the model, remember to replace "
+"``${quantization}`` with your chosen quantization method from the options"
+" listed above::"
+msgstr ""
+
+#: ../../source/models/builtin/llm/mixtral-instruct-v0.1.rst:32
+msgid "Model Spec 2 (ggufv2, 46_7 Billion)"
+msgstr ""
+
+#: ../../source/models/builtin/llm/mixtral-instruct-v0.1.rst:34
+msgid "**Model Format:** ggufv2"
+msgstr ""
+
+#: ../../source/models/builtin/llm/mixtral-instruct-v0.1.rst:36
+msgid "**Quantizations:** Q2_K, Q3_K_M, Q4_0, Q4_K_M, Q5_0, Q5_K_M, Q6_K, Q8_0"
+msgstr ""
+
+#: ../../source/models/builtin/llm/mixtral-instruct-v0.1.rst:37
+msgid "**Model ID:** TheBloke/Mixtral-8x7B-Instruct-v0.1-GGUF"
+msgstr ""
+
