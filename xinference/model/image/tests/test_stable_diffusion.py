@@ -144,7 +144,8 @@ def test_restful_api_for_image_with_mlsd_controlnet(setup):
     logger.info("test result %s", r)
 
 
-def test_restful_api_for_sd_turbo(setup):
+@pytest.mark.parametrize("model_name", ["sd-turbo", "sdxl-turbo"])
+def test_restful_api_for_sd_turbo(setup, model_name):
     endpoint, _ = setup
     from ....client import Client
 
@@ -152,7 +153,7 @@ def test_restful_api_for_sd_turbo(setup):
 
     model_uid = client.launch_model(
         model_uid="my_controlnet",
-        model_name="sd-turbo",
+        model_name=model_name,
         model_type="image",
     )
     model = client.get_model(model_uid)

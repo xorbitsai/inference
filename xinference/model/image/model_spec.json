@@ -6,6 +6,12 @@
     "model_revision": "1681ed09e0cff58eeb41e878a49893228b78b94c"
   },
   {
+    "model_name": "sdxl-turbo",
+    "model_family": "stable_diffusion",
+    "model_id": "stabilityai/sdxl-turbo",
+    "model_revision": "f4b0486b498f84668e828044de1d0c8ba486e05b"
+  },
+  {
     "model_name": "stable-diffusion-v1.5",
     "model_family": "stable_diffusion",
     "model_id": "runwayml/stable-diffusion-v1-5",
