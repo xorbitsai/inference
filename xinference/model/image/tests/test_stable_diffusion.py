@@ -146,6 +146,9 @@ def test_restful_api_for_image_with_mlsd_controlnet(setup):
 
 @pytest.mark.parametrize("model_name", ["sd-turbo", "sdxl-turbo"])
 def test_restful_api_for_sd_turbo(setup, model_name):
+    if model_name == "sdxl-turbo":
+        pytest.skip("sdxl-turbo cost too many resources.")
+
     endpoint, _ = setup
     from ....client import Client
 
