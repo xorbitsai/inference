@@ -71,7 +71,15 @@ class DiffusionModel:
         response_format: str,
         **kwargs,
     ):
-        logger.debug("stable diffusion kwargs: %s", kwargs)
+        logger.debug(
+            "stable diffusion args: %s",
+            dict(
+                kwargs,
+                height=height,
+                width=width,
+                num_images_per_prompt=num_images_per_prompt,
+            ),
+        )
         assert callable(self._model)
         images = self._model(
             height=height,

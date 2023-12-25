@@ -144,6 +144,32 @@ def test_restful_api_for_image_with_mlsd_controlnet(setup):
     logger.info("test result %s", r)
 
 
+def test_restful_api_for_sd_turbo(setup):
+    endpoint, _ = setup
+    from ....client import Client
+
+    client = Client(endpoint)
+
+    model_uid = client.launch_model(
+        model_uid="my_controlnet",
+        model_name="sd-turbo",
+        model_type="image",
+    )
+    model = client.get_model(model_uid)
+
+    r = model.text_to_image(
+        prompt="A cinematic shot of a baby raccoon wearing an intricate italian priest robe.",
+        size="512*512",
+        num_inference_steps=10,
+    )
+    logger.info("test result %s", r)
+    from PIL import Image
+
+    with open(r["data"][0]["url"], "rb") as f:
+        img = Image.open(f)
+        assert img.size == (512, 512)
+
+
 def test_get_cache_status():
     from ..core import get_cache_status
 

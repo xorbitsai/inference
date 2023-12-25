@@ -1,5 +1,11 @@
 [
   {
+    "model_name": "sd-turbo",
+    "model_family": "stable_diffusion",
+    "model_id": "stabilityai/sd-turbo",
+    "model_revision": "1681ed09e0cff58eeb41e878a49893228b78b94c"
+  },
+  {
     "model_name": "stable-diffusion-v1.5",
     "model_family": "stable_diffusion",
     "model_id": "runwayml/stable-diffusion-v1-5",
