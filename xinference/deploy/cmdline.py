@@ -497,8 +497,10 @@ def model_launch(
         _n_gpu = int(n_gpu)
 
     endpoint = get_endpoint(endpoint)
-    model_size: Union[str, int] = (
-        size_in_billions if "_" in size_in_billions else int(size_in_billions)
+    model_size: Optional[Union[str, int]] = (
+        (size_in_billions if "_" in size_in_billions else int(size_in_billions))
+        if size_in_billions is not None
+        else None
     )
 
     client = RESTfulClient(base_url=endpoint)
