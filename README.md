@@ -56,8 +56,8 @@ command. Inference provides access to state-of-the-art open-source models!
 hardware, including GPUs and CPUs, to accelerate your model inference tasks.
 
 ⚙️ **Flexible API and Interfaces**: Offer multiple interfaces for interacting
-with your models, supporting RPC, RESTful API(compatible with OpenAI API), CLI and WebUI
-for seamless management and monitoring.
+with your models, supporting OpenAI compatible RESTful API (including Function Calling API), RPC, CLI 
+and WebUI for seamless model management and interaction.
 
 🌐 **Distributed Deployment**: Excel in distributed deployment scenarios, 
 allowing the seamless distribution of model inference across multiple devices or machines.
@@ -68,13 +68,14 @@ with popular third-party libraries including [LangChain](https://python.langchai
 ## Why Xinference
 | Feature | Xinference | FastChat | OpenLLM | RayLLM |
 |---------|------------|----------|---------|--------|
-| OpenAI-Compatible Restful API | ✅ | ✅ | ✅ | ✅ |
+| OpenAI-Compatible RESTful API | ✅ | ✅ | ✅ | ✅ |
 | vLLM Integrations | ✅ | ✅ | ✅ | ✅ |
 | More Inference Engines (GGML, TensorRT) | ✅ | ❌ | ✅ | ✅ |
 | More Platforms (CPU, Metal) | ✅ | ✅ | ❌ | ❌ |
 | Multi-node Cluster Deployment | ✅ | ❌ | ❌ | ✅ |
-| Multimodal Models (Text-to-Image) | ✅ | ✅ | ❌ | ❌ |
+| Image Models (Text-to-Image) | ✅ | ✅ | ❌ | ❌ |
 | Text Embedding Models | ✅ | ❌ | ❌ | ❌ |
+| More OpenAI APIs (Function Calling) | ✅ | ❌ | ❌ | ❌ |
 
 ## Getting Started
 ### Installation

@@ -47,7 +47,7 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 
 🖥 **异构硬件，快如闪电**：通过 [ggml](https://github.com/ggerganov/ggml)，同时使用你的 GPU 与 CPU 进行推理，降低延迟，提高吞吐！
 
-⚙️ **接口调用，灵活多样**：提供多种使用模型的接口，包括 RPC，RESTful API，命令行，web UI 等等。方便模型的管理与监控。
+⚙️ **接口调用，灵活多样**：提供多种使用模型的接口，包括 OpenAI 兼容的 RESTful API（包括 Function Calling），RPC，命令行，web UI 等等。方便模型的管理与交互。
 
 🌐 **集群计算，分布协同**: 支持分布式部署，通过内置的资源调度器，让不同大小的模型按需调度到不同机器，充分使用集群资源。
 
@@ -56,13 +56,14 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 ## 为什么选择 Xinference
 | 功能特点 | Xinference | FastChat | OpenLLM | RayLLM |
 |---------|------------|----------|---------|--------|
-| 兼容 OpenAI 的 Restful API | ✅ | ✅ | ✅ | ✅ |
+| 兼容 OpenAI 的 RESTful API | ✅ | ✅ | ✅ | ✅ |
 | vLLM 集成 | ✅ | ✅ | ✅ | ✅ |
 | 更多推理引擎（GGML、TensorRT） | ✅ | ❌ | ✅ | ✅ |
 | 更多平台支持（CPU、Metal） | ✅ | ✅ | ❌ | ❌ |
 | 分布式集群部署 | ✅ | ❌ | ❌ | ✅ |
-| 多模态模型（文生图） | ✅ | ✅ | ❌ | ❌ |
+| 图像模型（文生图） | ✅ | ✅ | ❌ | ❌ |
 | 文本嵌入模型 | ✅ | ❌ | ❌ | ❌ |
+| 更多 OpenAI API (函数调用) | ✅ | ❌ | ❌ | ❌ |
 
 ## 快速入门
 ### 安装
