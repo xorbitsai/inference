@@ -1,4 +1,4 @@
-.. _models_llm_skywork:
+.. _models_llm_skywork-math:
 
 ========================================
 Skywork-Math
