@@ -498,7 +498,9 @@ def model_launch(
 
     endpoint = get_endpoint(endpoint)
     model_size: Optional[Union[str, int]] = (
-        size_in_billions if size_in_billions is None or "_" in size_in_billions else int(size_in_billions)
+        size_in_billions
+        if size_in_billions is None or "_" in size_in_billions
+        else int(size_in_billions)
     )
 
     client = RESTfulClient(base_url=endpoint)
