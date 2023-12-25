@@ -1,0 +1,76 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2023-12-25 17:11+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.11.0\n"
+
+#: ../../source/models/builtin/llm/starchat-beta.rst:5
+msgid "starchat-beta"
+msgstr ""
+
+#: ../../source/models/builtin/llm/starchat-beta.rst:7
+msgid "**Context Length:** 8192"
+msgstr ""
+
+#: ../../source/models/builtin/llm/starchat-beta.rst:8
+msgid "**Model Name:** starchat-beta"
+msgstr ""
+
+#: ../../source/models/builtin/llm/starchat-beta.rst:9
+msgid "**Languages:** en"
+msgstr ""
+
+#: ../../source/models/builtin/llm/starchat-beta.rst:10
+msgid "**Abilities:** chat"
+msgstr ""
+
+#: ../../source/models/builtin/llm/starchat-beta.rst:11
+msgid ""
+"**Description:** Starchat-beta is a fine-tuned version of the "
+"Starcoderplus LLM, specializing in coding assistance."
+msgstr ""
+
+#: ../../source/models/builtin/llm/starchat-beta.rst:14
+msgid "Specifications"
+msgstr ""
+
+#: ../../source/models/builtin/llm/starchat-beta.rst:18
+msgid "Model Spec 1 (pytorch, 16 Billion)"
+msgstr ""
+
+#: ../../source/models/builtin/llm/starchat-beta.rst:20
+msgid "**Model Format:** pytorch"
+msgstr ""
+
+#: ../../source/models/builtin/llm/starchat-beta.rst:21
+msgid "**Model Size (in billions):** 16"
+msgstr ""
+
+#: ../../source/models/builtin/llm/starchat-beta.rst:22
+msgid "**Quantizations:** 4-bit, 8-bit, none"
+msgstr ""
+
+#: ../../source/models/builtin/llm/starchat-beta.rst:23
+msgid "**Model ID:** HuggingFaceH4/starchat-beta"
+msgstr ""
+
+#: ../../source/models/builtin/llm/starchat-beta.rst:25
+msgid ""
+"Execute the following command to launch the model, remember to replace "
+"``${quantization}`` with your chosen quantization method from the options"
+" listed above::"
+msgstr ""
+

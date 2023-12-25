@@ -1,0 +1,76 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2023-12-25 17:11+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.11.0\n"
+
+#: ../../source/models/builtin/llm/starcoder.rst:5
+msgid "starcoder"
+msgstr ""
+
+#: ../../source/models/builtin/llm/starcoder.rst:7
+msgid "**Context Length:** 8192"
+msgstr ""
+
+#: ../../source/models/builtin/llm/starcoder.rst:8
+msgid "**Model Name:** starcoder"
+msgstr ""
+
+#: ../../source/models/builtin/llm/starcoder.rst:9
+msgid "**Languages:** en"
+msgstr ""
+
+#: ../../source/models/builtin/llm/starcoder.rst:10
+msgid "**Abilities:** generate"
+msgstr ""
+
+#: ../../source/models/builtin/llm/starcoder.rst:11
+msgid ""
+"**Description:** Starcoder is an open-source Transformer based LLM that "
+"is trained on permissively licensed data from GitHub."
+msgstr ""
+
+#: ../../source/models/builtin/llm/starcoder.rst:14
+msgid "Specifications"
+msgstr ""
+
+#: ../../source/models/builtin/llm/starcoder.rst:18
+msgid "Model Spec 1 (ggmlv3, 16 Billion)"
+msgstr ""
+
+#: ../../source/models/builtin/llm/starcoder.rst:20
+msgid "**Model Format:** ggmlv3"
+msgstr ""
+
+#: ../../source/models/builtin/llm/starcoder.rst:21
+msgid "**Model Size (in billions):** 16"
+msgstr ""
+
+#: ../../source/models/builtin/llm/starcoder.rst:22
+msgid "**Quantizations:** q4_0, q4_1, q5_0, q5_1, q8_0"
+msgstr ""
+
+#: ../../source/models/builtin/llm/starcoder.rst:23
+msgid "**Model ID:** TheBloke/starcoder-GGML"
+msgstr ""
+
+#: ../../source/models/builtin/llm/starcoder.rst:25
+msgid ""
+"Execute the following command to launch the model, remember to replace "
+"``${quantization}`` with your chosen quantization method from the options"
+" listed above::"
+msgstr ""
+

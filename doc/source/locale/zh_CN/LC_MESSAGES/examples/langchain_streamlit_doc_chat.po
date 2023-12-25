@@ -1,0 +1,99 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2023-12-25 17:11+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.11.0\n"
+
+#: ../../source/examples/langchain_streamlit_doc_chat.rst:5
+msgid "Example: LangChain Streamlit Doc Chat📄"
+msgstr ""
+
+#: ../../source/examples/langchain_streamlit_doc_chat.rst:7
+msgid "**Description**:"
+msgstr ""
+
+#: ../../source/examples/langchain_streamlit_doc_chat.rst:9
+msgid ""
+"This Streamlit-based application demonstrates a AI chatbot powered by "
+"local LLM and embedding models"
+msgstr ""
+
+#: ../../source/examples/langchain_streamlit_doc_chat.rst:11
+msgid "**Used Technology**:"
+msgstr ""
+
+#: ../../source/examples/langchain_streamlit_doc_chat.rst:13
+msgid ""
+"@ `Xinference <https://github.com/xorbitsai/inference>`_: as the LLM and "
+"embedding model hosting service"
+msgstr ""
+
+#: ../../source/examples/langchain_streamlit_doc_chat.rst:15
+msgid ""
+"@ `LangChain <https://github.com/run-llama/llama_index>`_: orchestrates "
+"the entire document processing and query answering pipeline"
+msgstr ""
+
+#: ../../source/examples/langchain_streamlit_doc_chat.rst:17
+msgid "@ `Streamlit <https://streamlit.io/>`_: for interactive user interface"
+msgstr ""
+
+#: ../../source/examples/langchain_streamlit_doc_chat.rst:19
+msgid "**Detailed Explanation on the Demo Functionality** :"
+msgstr ""
+
+#: ../../source/examples/langchain_streamlit_doc_chat.rst:21
+msgid "Streamlit UI for uploading text files, enhancing user interaction."
+msgstr ""
+
+#: ../../source/examples/langchain_streamlit_doc_chat.rst:23
+msgid ""
+"Texts are split into chunks and embedded using Xinference for efficient "
+"processing."
+msgstr ""
+
+#: ../../source/examples/langchain_streamlit_doc_chat.rst:25
+msgid ""
+"Executes similarity searches on embedded texts to pinpoint relevant "
+"sections for user queries."
+msgstr ""
+
+#: ../../source/examples/langchain_streamlit_doc_chat.rst:27
+msgid "Utilizes a structured prompt template for focused LLM interactions."
+msgstr ""
+
+#: ../../source/examples/langchain_streamlit_doc_chat.rst:29
+msgid ""
+"Xinference's LLM processes queries within the context of relevant "
+"document parts, providing accurate responses."
+msgstr ""
+
+#: ../../source/examples/langchain_streamlit_doc_chat.rst:31
+msgid ""
+"The system facilitates effective and context-sensitive document "
+"exploration, aiding users in information retrieval."
+msgstr ""
+
+#: ../../source/examples/langchain_streamlit_doc_chat.rst:33
+msgid "**Source Code** :"
+msgstr ""
+
+#: ../../source/examples/langchain_streamlit_doc_chat.rst:34
+msgid ""
+"`LangChain Streamlit Doc Chat "
+"<https://github.com/xorbitsai/inference/blob/main/examples/LangChain_Streamlit_Doc_Chat.py>`_"
+msgstr ""
+

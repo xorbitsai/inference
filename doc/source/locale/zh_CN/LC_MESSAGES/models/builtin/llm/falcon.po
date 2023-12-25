@@ -1,0 +1,91 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2023-12-25 17:11+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.11.0\n"
+
+#: ../../source/models/builtin/llm/falcon.rst:5
+msgid "falcon"
+msgstr ""
+
+#: ../../source/models/builtin/llm/falcon.rst:7
+msgid "**Context Length:** 2048"
+msgstr ""
+
+#: ../../source/models/builtin/llm/falcon.rst:8
+msgid "**Model Name:** falcon"
+msgstr ""
+
+#: ../../source/models/builtin/llm/falcon.rst:9
+msgid "**Languages:** en"
+msgstr ""
+
+#: ../../source/models/builtin/llm/falcon.rst:10
+msgid "**Abilities:** generate"
+msgstr ""
+
+#: ../../source/models/builtin/llm/falcon.rst:11
+msgid ""
+"**Description:** Falcon is an open-source Transformer based LLM trained "
+"on the RefinedWeb dataset."
+msgstr ""
+
+#: ../../source/models/builtin/llm/falcon.rst:14
+msgid "Specifications"
+msgstr ""
+
+#: ../../source/models/builtin/llm/falcon.rst:18
+msgid "Model Spec 1 (pytorch, 40 Billion)"
+msgstr ""
+
+#: ../../source/models/builtin/llm/falcon.rst:20
+#: ../../source/models/builtin/llm/falcon.rst:34
+msgid "**Model Format:** pytorch"
+msgstr ""
+
+#: ../../source/models/builtin/llm/falcon.rst:21
+msgid "**Model Size (in billions):** 40"
+msgstr ""
+
+#: ../../source/models/builtin/llm/falcon.rst:22
+#: ../../source/models/builtin/llm/falcon.rst:36
+msgid "**Quantizations:** 4-bit, 8-bit, none"
+msgstr ""
+
+#: ../../source/models/builtin/llm/falcon.rst:23
+msgid "**Model ID:** tiiuae/falcon-40b"
+msgstr ""
+
+#: ../../source/models/builtin/llm/falcon.rst:25
+#: ../../source/models/builtin/llm/falcon.rst:39
+msgid ""
+"Execute the following command to launch the model, remember to replace "
+"``${quantization}`` with your chosen quantization method from the options"
+" listed above::"
+msgstr ""
+
+#: ../../source/models/builtin/llm/falcon.rst:32
+msgid "Model Spec 2 (pytorch, 7 Billion)"
+msgstr ""
+
+#: ../../source/models/builtin/llm/falcon.rst:35
+msgid "**Model Size (in billions):** 7"
+msgstr ""
+
+#: ../../source/models/builtin/llm/falcon.rst:37
+msgid "**Model ID:** tiiuae/falcon-7b"
+msgstr ""
+
