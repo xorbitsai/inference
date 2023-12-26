@@ -14,7 +14,7 @@
 import logging
 import os
 from threading import Lock
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 from ...constants import XINFERENCE_CACHE_DIR, XINFERENCE_MODEL_DIR
 from .core import RerankModelSpec
@@ -29,6 +29,7 @@ class CustomRerankModelSpec(RerankModelSpec):
     model_id: Optional[str]  # type: ignore
     model_revision: Optional[str]  # type: ignore
     model_uri: Optional[str]
+    model_type: Literal["rerank"] = "rerank"  # for frontend
 
 
 UD_RERANKS: List[CustomRerankModelSpec] = []

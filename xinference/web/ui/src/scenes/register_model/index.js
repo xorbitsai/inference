@@ -20,6 +20,7 @@ import ErrorMessageSnackBar from '../../components/errorMessageSnackBar'
 import Title from '../../components/Title'
 import { useMode } from '../../theme'
 import RegisterEmbeddingModel from './register_embedding'
+import RegisterRerankModel from './register_rerank'
 
 const SUPPORTED_LANGUAGES_DICT = { en: 'English', zh: 'Chinese' }
 const SUPPORTED_FEATURES = ['Generate', 'Chat']
@@ -248,6 +249,7 @@ const RegisterModel = () => {
           >
             <Tab label="Language Model" value="1" />
             <Tab label="Embedding Model" value="2" />
+            <Tab label="Rerank Model" value="3" />
           </TabList>
         </Box>
         <TabPanel value="1" sx={{ padding: 0 }}>
@@ -512,6 +514,9 @@ const RegisterModel = () => {
         </TabPanel>
         <TabPanel value="2" sx={{ padding: 0 }}>
           <RegisterEmbeddingModel />
+        </TabPanel>
+        <TabPanel value="3" sx={{ padding: 0 }}>
+          <RegisterRerankModel />
         </TabPanel>
       </TabContext>
     </Box>
