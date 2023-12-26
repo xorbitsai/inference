@@ -1,0 +1,13 @@
+[
+  {
+    "name": "简体中文(Chinese)",
+    "version": "zh-cn",
+    "url": "https://inference.readthedocs.io/zh-cn/latest/"
+  },
+  {
+    "name": "English",
+    "version": "en",
+    "url": "https://inference.readthedocs.io/en/latest/",
+    "preferred": true
+  }
+]
