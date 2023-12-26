@@ -55,10 +55,7 @@ const RegisterModel = () => {
   const errorModelName = !/^[A-Za-z0-9][A-Za-z0-9_-]*$/.test(
     formData.model_name
   )
-  const errorModelDescription =
-    !/^[A-Za-z0-9\s!"#$%&'()*+,-./:;<=>?@[\]^_`{|}~]{0,500}$/.test(
-      formData.model_description
-    )
+  const errorModelDescription = formData.model_description.length < 0
   const errorContextLength = formData.context_length === 0
   const errorLanguage =
     formData.model_lang === undefined || formData.model_lang.length === 0
