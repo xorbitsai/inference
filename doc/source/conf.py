@@ -92,7 +92,7 @@ html_theme_options = {
 }
 
 
-if version_match != 'zh_cn':
+if version_match != 'zh-cn':
     html_theme_options['icon_links'].extend([{
         "name": "Slack",
         "url": "https://join.slack.com/t/xorbitsio/shared_invite/zt-1o3z9ucdh-RbfhbPVpx7prOVdM1CAuxg",
