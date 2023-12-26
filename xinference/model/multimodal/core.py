@@ -17,23 +17,99 @@ import logging
 import os
 import platform
 from abc import abstractmethod
-from typing import TYPE_CHECKING, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, List, Literal, Optional, Tuple, Union
+
+from pydantic import BaseModel, validator
 
 from ...core.utils import parse_replica_model_uid
 from ..core import ModelDescription
-
-if TYPE_CHECKING:
-    from .llm_family import LLMFamilyV1, LLMSpecV1
+from ..utils import download_from_modelscope
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_CONTEXT_LENGTH = 2048
 
-class LLM(abc.ABC):
+
+class LVLMSpecV1(BaseModel):
+    model_format: Literal["pytorch", "gptq"]
+    # Must in order that `str` first, then `int`
+    model_size_in_billions: Union[str, int]
+    quantizations: List[str]
+    model_id: str
+    model_hub: str = "huggingface"
+    model_uri: Optional[str]
+    model_revision: Optional[str]
+
+    @validator("model_size_in_billions", pre=False)
+    def validate_model_size_with_radix(cls, v: object) -> object:
+        if isinstance(v, str):
+            if (
+                "_" in v
+            ):  # for example, "1_8" just returns "1_8", otherwise int("1_8") returns 18
+                return v
+            else:
+                return int(v)
+        return v
+
+
+class LVLMPromptStyleV1(BaseModel):
+    style_name: str
+    system_prompt: str = ""
+    roles: List[str]
+    image_formatter: str = ""
+    text_formatter: str = ""
+    sep: str = ""
+
+
+class LVLMFamilyV1(BaseModel):
+    version: Literal[1]
+    context_length: Optional[int] = DEFAULT_CONTEXT_LENGTH
+    model_name: str
+    model_lang: List[str]
+    model_ability: List[Literal["chat"]]
+    model_description: Optional[str]
+    model_specs: List["LVLMSpecV1"]
+    prompt_style: Optional["LVLMPromptStyleV1"]
+
+
+class LVLMDescription(ModelDescription):
+    def __init__(
+        self,
+        address: Optional[str],
+        devices: Optional[List[str]],
+        llm_family: "LVLMFamilyV1",
+        llm_spec: "LVLMSpecV1",
+        quantization: Optional[str],
+    ):
+        super().__init__(address, devices)
+        self._llm_family = llm_family
+        self._llm_spec = llm_spec
+        self._quantization = quantization
+
+    def to_dict(self):
+        return {
+            "model_type": "LLM",
+            "address": self.address,
+            "accelerators": self.devices,
+            "model_name": self._llm_family.model_name,
+            "model_lang": self._llm_family.model_lang,
+            "model_ability": self._llm_family.model_ability,
+            "model_description": self._llm_family.model_description,
+            "model_format": self._llm_spec.model_format,
+            "model_size_in_billions": self._llm_spec.model_size_in_billions,
+            "quantization": self._quantization,
+            "model_hub": self._llm_spec.model_hub,
+            "revision": self._llm_spec.model_revision,
+            "context_length": self._llm_family.context_length,
+        }
+
+
+class LVLM(abc.ABC):
     def __init__(
         self,
         replica_model_uid: str,
-        model_family: "LLMFamilyV1",
-        model_spec: "LLMSpecV1",
+        model_family: "LVLMFamilyV1",
+        model_spec: "LVLMSpecV1",
         quantization: str,
         model_path: str,
         *args,
@@ -94,44 +170,73 @@ class LLM(abc.ABC):
 
     @classmethod
     def match(
-        cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
+        cls, llm_family: "LVLMFamilyV1", llm_spec: "LVLMSpecV1", quantization: str
     ) -> bool:
         raise NotImplementedError
 
 
-class LLMDescription(ModelDescription):
-    def __init__(
-        self,
-        address: Optional[str],
-        devices: Optional[List[str]],
-        llm_family: "LLMFamilyV1",
-        llm_spec: "LLMSpecV1",
-        quantization: Optional[str],
-    ):
-        super().__init__(address, devices)
-        self._llm_family = llm_family
-        self._llm_spec = llm_spec
-        self._quantization = quantization
-
-    def to_dict(self):
-        return {
-            "model_type": "LLM",
-            "address": self.address,
-            "accelerators": self.devices,
-            "model_name": self._llm_family.model_name,
-            "model_lang": self._llm_family.model_lang,
-            "model_ability": self._llm_family.model_ability,
-            "model_description": self._llm_family.model_description,
-            "model_format": self._llm_spec.model_format,
-            "model_size_in_billions": self._llm_spec.model_size_in_billions,
-            "quantization": self._quantization,
-            "model_hub": self._llm_spec.model_hub,
-            "revision": self._llm_spec.model_revision,
-            "context_length": self._llm_family.context_length,
-        }
+BUILTIN_LVLM_FAMILIES: List["LVLMFamilyV1"] = []
+BUILTIN_MODELSCOPE_LVLM_FAMILIES: List["LVLMFamilyV1"] = []
 
 
-def create_llm_model_instance(
+def match_multimodal(
+    model_name: str,
+    model_format: Optional[str] = None,
+    model_size_in_billions: Optional[int] = None,
+    quantization: Optional[str] = None,
+) -> Optional[Tuple[LVLMFamilyV1, LVLMSpecV1, str]]:
+    """
+    Find an LLM family, spec, and quantization that satisfy given criteria.
+    """
+
+    def _match_quantization(q: Union[str, None], quantizations: List[str]):
+        # Currently, the quantization name could include both uppercase and lowercase letters,
+        # so it is necessary to ensure that the case sensitivity does not
+        # affect the matching results.
+        if q is None:
+            return q
+        for quant in quantizations:
+            if q.lower() == quant.lower():
+                return quant
+
+    def _apply_format_to_model_id(spec: LVLMSpecV1, q: str) -> LVLMSpecV1:
+        # Different quantized versions of some models use different model ids,
+        # Here we check the `{}` in the model id to format the id.
+        if "{" in spec.model_id:
+            spec.model_id = spec.model_id.format(quantization=q)
+        return spec
+
+    if download_from_modelscope():
+        all_families = BUILTIN_MODELSCOPE_LVLM_FAMILIES
+    else:
+        all_families = BUILTIN_LVLM_FAMILIES
+
+    for family in all_families:
+        if model_name != family.model_name:
+            continue
+        for spec in family.model_specs:
+            matched_quantization = _match_quantization(quantization, spec.quantizations)
+            if (
+                model_format
+                and model_format != spec.model_format
+                or model_size_in_billions
+                and model_size_in_billions != spec.model_size_in_billions
+                or quantization
+                and matched_quantization is None
+            ):
+                continue
+            if quantization:
+                return (
+                    family,
+                    _apply_format_to_model_id(spec, matched_quantization),
+                    matched_quantization,
+                )
+            else:
+                return family, _apply_format_to_model_id(spec, "none"), "none"
+    return None
+
+
+def create_multimodal_model_instance(
     subpool_addr: str,
     devices: List[str],
     model_uid: str,
@@ -139,106 +244,29 @@ def create_llm_model_instance(
     model_format: Optional[str] = None,
     model_size_in_billions: Optional[int] = None,
     quantization: Optional[str] = None,
-    is_local_deployment: bool = False,
     **kwargs,
-) -> Tuple[LLM, LLMDescription]:
-    from . import match_llm, match_llm_cls
-    from .llm_family import cache
+) -> Tuple[LVLM, LVLMDescription]:
+    from ..llm.llm_family import cache
 
-    match_result = match_llm(
+    match_result = match_multimodal(
         model_name,
         model_format,
         model_size_in_billions,
         quantization,
-        is_local_deployment,
     )
     if not match_result:
         raise ValueError(
             f"Model not found, name: {model_name}, format: {model_format},"
             f" size: {model_size_in_billions}, quantization: {quantization}"
         )
-    llm_family, llm_spec, quantization = match_result
+    model_family, model_spec, quantization = match_result
 
     assert quantization is not None
-    save_path = cache(llm_family, llm_spec, quantization)
+    save_path = cache(model_family, model_spec, quantization)
 
-    llm_cls = match_llm_cls(llm_family, llm_spec, quantization)
-    if not llm_cls:
-        raise ValueError(
-            f"Model not supported, name: {model_name}, format: {model_format},"
-            f" size: {model_size_in_billions}, quantization: {quantization}"
-        )
-    logger.debug(f"Launching {model_uid} with {llm_cls.__name__}")
+    logger.debug(f"Launching {model_uid} with {LVLM.__name__}")
 
-    model = llm_cls(model_uid, llm_family, llm_spec, quantization, save_path, kwargs)
-    return model, LLMDescription(
-        subpool_addr, devices, llm_family, llm_spec, quantization
-    )
-
-
-def create_speculative_llm_model_instance(
-    subpool_addr: str,
-    devices: List[str],
-    model_uid: str,
-    model_name: str,
-    model_size_in_billions: Optional[int],
-    quantization: Optional[str],
-    draft_model_name: str,
-    draft_model_size_in_billions: Optional[int],
-    draft_quantization: Optional[str],
-    is_local_deployment: bool = False,
-) -> Tuple[LLM, LLMDescription]:
-    from . import match_llm
-    from .llm_family import cache
-
-    match_result = match_llm(
-        model_name,
-        "pytorch",
-        model_size_in_billions,
-        quantization,
-        is_local_deployment,
-    )
-
-    if not match_result:
-        raise ValueError(
-            f"Model not found, name: {model_name}, format: pytorch,"
-            f" size: {model_size_in_billions}, quantization: {quantization}"
-        )
-    llm_family, llm_spec, quantization = match_result
-    assert quantization is not None
-    save_path = cache(llm_family, llm_spec, quantization)
-
-    draft_match_result = match_llm(
-        draft_model_name,
-        "pytorch",
-        draft_model_size_in_billions,
-        draft_quantization,
-        is_local_deployment,
-    )
-
-    if not draft_match_result:
-        raise ValueError(
-            f"Model not found, name: {draft_model_name}, format: pytorch,"
-            f" size: {draft_model_size_in_billions}, quantization: {draft_quantization}"
-        )
-    draft_llm_family, draft_llm_spec, draft_quantization = draft_match_result
-    assert draft_quantization is not None
-    draft_save_path = cache(draft_llm_family, draft_llm_spec, draft_quantization)
-
-    from .pytorch.spec_model import SpeculativeModel
-
-    model = SpeculativeModel(
-        model_uid,
-        model_family=llm_family,
-        model_spec=llm_spec,
-        quantization=quantization,
-        model_path=save_path,
-        draft_model_family=draft_llm_family,
-        draft_model_spec=draft_llm_spec,
-        draft_quantization=draft_quantization,
-        draft_model_path=draft_save_path,
-    )
-
-    return model, LLMDescription(
-        subpool_addr, devices, llm_family, llm_spec, quantization
+    model = LVLM(model_uid, model_family, model_spec, quantization, save_path, kwargs)
+    return model, LVLMDescription(
+        subpool_addr, devices, model_family, model_spec, quantization
     )
