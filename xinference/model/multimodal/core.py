@@ -25,7 +25,13 @@ from pydantic import BaseModel, validator
 from ...constants import XINFERENCE_CACHE_DIR
 from ...core.utils import parse_replica_model_uid
 from ..core import ModelDescription
-from ..utils import download_from_modelscope, is_model_cached, valid_model_revision
+from ..utils import (
+    download_from_modelscope,
+    is_model_cached,
+    retry_download,
+    symlink_local_file,
+    valid_model_revision,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -82,13 +88,13 @@ class LVLMDescription(ModelDescription):
         self,
         address: Optional[str],
         devices: Optional[List[str]],
-        llm_family: "LVLMFamilyV1",
-        llm_spec: "LVLMSpecV1",
+        model_family: "LVLMFamilyV1",
+        model_spec: "LVLMSpecV1",
         quantization: Optional[str],
     ):
         super().__init__(address, devices)
-        self._llm_family = llm_family
-        self._llm_spec = llm_spec
+        self._model_family = model_family
+        self._model_spec = model_spec
         self._quantization = quantization
 
     def to_dict(self):
@@ -96,16 +102,16 @@ class LVLMDescription(ModelDescription):
             "model_type": "LLM",
             "address": self.address,
             "accelerators": self.devices,
-            "model_name": self._llm_family.model_name,
-            "model_lang": self._llm_family.model_lang,
-            "model_ability": self._llm_family.model_ability,
-            "model_description": self._llm_family.model_description,
-            "model_format": self._llm_spec.model_format,
-            "model_size_in_billions": self._llm_spec.model_size_in_billions,
+            "model_name": self._model_family.model_name,
+            "model_lang": self._model_family.model_lang,
+            "model_ability": self._model_family.model_ability,
+            "model_description": self._model_family.model_description,
+            "model_format": self._model_spec.model_format,
+            "model_size_in_billions": self._model_spec.model_size_in_billions,
             "quantization": self._quantization,
-            "model_hub": self._llm_spec.model_hub,
-            "revision": self._llm_spec.model_revision,
-            "context_length": self._llm_family.context_length,
+            "model_hub": self._model_spec.model_hub,
+            "revision": self._model_spec.model_revision,
+            "context_length": self._model_family.context_length,
         }
 
 
@@ -251,8 +257,6 @@ def create_multimodal_model_instance(
     quantization: Optional[str] = None,
     **kwargs,
 ) -> Tuple[LVLM, LVLMDescription]:
-    from ..llm.llm_family import cache
-
     match_result = match_multimodal(
         model_name,
         model_format,
@@ -275,6 +279,196 @@ def create_multimodal_model_instance(
     return model, LVLMDescription(
         subpool_addr, devices, model_family, model_spec, quantization
     )
+
+
+def _get_cache_dir(
+    model_family: LVLMFamilyV1,
+    model_spec: "LVLMSpecV1",
+    create_if_not_exist=True,
+):
+    cache_dir_name = (
+        f"{model_family.model_name}-{model_spec.model_format}"
+        f"-{model_spec.model_size_in_billions}b"
+    )
+    cache_dir = os.path.realpath(os.path.join(XINFERENCE_CACHE_DIR, cache_dir_name))
+    if create_if_not_exist and not os.path.exists(cache_dir):
+        os.makedirs(cache_dir, exist_ok=True)
+    return cache_dir
+
+
+def _get_meta_path(
+    cache_dir: str,
+    model_format: str,
+    model_hub: str,
+    quantization: Optional[str] = None,
+):
+    if model_format == "pytorch":
+        if model_hub == "huggingface":
+            return os.path.join(cache_dir, "__valid_download")
+        else:
+            return os.path.join(cache_dir, f"__valid_download_{model_hub}")
+    elif model_format in ["ggmlv3", "ggufv2", "gptq"]:
+        assert quantization is not None
+        if model_hub == "huggingface":
+            return os.path.join(cache_dir, f"__valid_download_{quantization}")
+        else:
+            return os.path.join(
+                cache_dir, f"__valid_download_{model_hub}_{quantization}"
+            )
+    else:
+        raise ValueError(f"Unsupported format: {model_format}")
+
+
+def _skip_download(
+    cache_dir: str,
+    model_format: str,
+    model_hub: str,
+    model_revision: Optional[str],
+    quantization: Optional[str] = None,
+) -> bool:
+    if model_format == "pytorch":
+        model_hub_to_meta_path = {
+            "huggingface": _get_meta_path(
+                cache_dir, model_format, "huggingface", quantization
+            ),
+            "modelscope": _get_meta_path(
+                cache_dir, model_format, "modelscope", quantization
+            ),
+        }
+        if valid_model_revision(model_hub_to_meta_path[model_hub], model_revision):
+            logger.info(f"Cache {cache_dir} exists")
+            return True
+        else:
+            for hub, meta_path in model_hub_to_meta_path.items():
+                if hub != model_hub and os.path.exists(meta_path):
+                    # PyTorch models from modelscope can also be loaded by transformers.
+                    logger.warning(f"Cache {cache_dir} exists, but it was from {hub}")
+                    return True
+            return False
+    else:
+        raise ValueError(f"Unsupported format: {model_format}")
+
+
+def _generate_meta_file(
+    meta_path: str,
+    model_family: "LVLMFamilyV1",
+    model_spec: "LVLMSpecV1",
+    quantization: Optional[str] = None,
+):
+    assert not valid_model_revision(
+        meta_path, model_spec.model_revision
+    ), f"meta file {meta_path} should not be valid"
+    with open(meta_path, "w") as f:
+        import json
+
+        desc = LVLMDescription(None, None, model_family, model_spec, quantization)
+        json.dump(desc.to_dict(), f)
+
+
+def cache_from_modelscope(
+    model_family: LVLMFamilyV1,
+    model_spec: "LVLMSpecV1",
+    quantization: Optional[str] = None,
+) -> str:
+    """
+    Cache model from Modelscope. Return the cache directory.
+    """
+    from modelscope.hub.snapshot_download import snapshot_download
+
+    cache_dir = _get_cache_dir(model_family, model_spec)
+    if _skip_download(
+        cache_dir,
+        model_spec.model_format,
+        model_spec.model_hub,
+        model_spec.model_revision,
+        quantization,
+    ):
+        return cache_dir
+
+    if model_spec.model_format in ["pytorch", "gptq"]:
+        download_dir = retry_download(
+            snapshot_download,
+            model_family.model_name,
+            {
+                "model_size": model_spec.model_size_in_billions,
+                "model_format": model_spec.model_format,
+            },
+            model_spec.model_id,
+            revision=model_spec.model_revision,
+        )
+        for subdir, dirs, files in os.walk(download_dir):
+            for file in files:
+                relpath = os.path.relpath(os.path.join(subdir, file), download_dir)
+                symlink_local_file(os.path.join(subdir, file), cache_dir, relpath)
+    else:
+        raise ValueError(f"Unsupported format: {model_spec.model_format}")
+
+    meta_path = _get_meta_path(
+        cache_dir, model_spec.model_format, model_spec.model_hub, quantization
+    )
+    _generate_meta_file(meta_path, model_family, model_spec, quantization)
+
+    return cache_dir
+
+
+def cache_from_huggingface(
+    model_family: LVLMFamilyV1,
+    model_spec: "LVLMSpecV1",
+    quantization: Optional[str] = None,
+) -> str:
+    """
+    Cache model from Hugging Face. Return the cache directory.
+    """
+    import huggingface_hub
+
+    cache_dir = _get_cache_dir(model_family, model_spec)
+    if _skip_download(
+        cache_dir,
+        model_spec.model_format,
+        model_spec.model_hub,
+        model_spec.model_revision,
+        quantization,
+    ):
+        return cache_dir
+
+    if model_spec.model_format in ["pytorch"]:
+        assert isinstance(model_spec, LVLMSpecV1)
+        retry_download(
+            huggingface_hub.snapshot_download,
+            model_family.model_name,
+            {
+                "model_size": model_spec.model_size_in_billions,
+                "model_format": model_spec.model_format,
+            },
+            model_spec.model_id,
+            revision=model_spec.model_revision,
+            local_dir=cache_dir,
+            local_dir_use_symlinks=True,
+        )
+    else:
+        raise ValueError(f"Unsupported model format: {model_spec.model_format}")
+
+    meta_path = _get_meta_path(
+        cache_dir, model_spec.model_format, model_spec.model_hub, quantization
+    )
+    _generate_meta_file(meta_path, model_family, model_spec, quantization)
+
+    return cache_dir
+
+
+def cache(
+    llm_family: LVLMFamilyV1,
+    llm_spec: "LVLMSpecV1",
+    quantization: Optional[str] = None,
+) -> str:
+    if llm_spec.model_hub == "huggingface":
+        logger.info(f"Caching from Hugging Face: {llm_spec.model_id}")
+        return cache_from_huggingface(llm_family, llm_spec, quantization)
+    elif llm_spec.model_hub == "modelscope":
+        logger.info(f"Caching from Modelscope: {llm_spec.model_id}")
+        return cache_from_modelscope(llm_family, llm_spec, quantization)
+    else:
+        raise ValueError(f"Unknown model hub: {llm_spec.model_hub}")
 
 
 def get_cache_status(
