@@ -74,6 +74,7 @@ if not version_match:
 
 html_theme_options = {
     "show_toc_level": 2,
+    "header_links_before_dropdown": 6,
     "icon_links": [
         {
             "name": "GitHub",
