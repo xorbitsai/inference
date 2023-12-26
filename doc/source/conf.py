@@ -81,18 +81,6 @@ html_theme_options = {
             "icon": "fa-brands fa-github",
             "type": "fontawesome",
         },
-        {
-            "name": "Slack",
-            "url": "https://join.slack.com/t/xorbitsio/shared_invite/zt-1o3z9ucdh-RbfhbPVpx7prOVdM1CAuxg",
-            "icon": "fa-brands fa-slack",
-            "type": "fontawesome",
-        },
-        {
-            "name": "Twitter",
-            "url": "https://twitter.com/xorbitsio",
-            "icon": "fa-brands fa-twitter",
-            "type": "fontawesome",
-        },
     ],
     "navbar_align": "content",  # [left, content, right] For testing that the navbar items align properly
     "navbar_start": ["navbar-logo", "version-switcher"],
@@ -102,5 +90,33 @@ html_theme_options = {
         "version_match": version_match,
     },
 }
+
+
+if version_match != 'zh_cn':
+    html_theme_options['icon_links'].extend([{
+        "name": "Slack",
+        "url": "https://join.slack.com/t/xorbitsio/shared_invite/zt-1o3z9ucdh-RbfhbPVpx7prOVdM1CAuxg",
+        "icon": "fa-brands fa-slack",
+        "type": "fontawesome",
+    },
+    {
+        "name": "Twitter",
+        "url": "https://twitter.com/xorbitsio",
+        "icon": "fa-brands fa-twitter",
+        "type": "fontawesome",
+    }])
+else:
+    html_theme_options['icon_links'].extend([{
+        "name": "WeChat",
+        "url": "https://xorbits.cn/assets/images/wechat_pr.png",
+        "icon": "fa-brands fa-weixin",
+        "type": "fontawesome",
+    },
+    {
+        "name": "Zhihu",
+        "url": "https://zhihu.com/org/xorbits",
+        "icon": "fa-brands fa-zhihu",
+        "type": "fontawesome",
+    }])
 
 html_favicon = "_static/favicon.svg"
