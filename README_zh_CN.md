@@ -6,8 +6,8 @@
 [![PyPI Latest Release](https://img.shields.io/pypi/v/xinference.svg?style=for-the-badge)](https://pypi.org/project/xinference/)
 [![License](https://img.shields.io/pypi/l/xinference.svg?style=for-the-badge)](https://github.com/xorbitsai/inference/blob/main/LICENSE)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/xorbitsai/inference/python.yaml?branch=main&style=for-the-badge&label=GITHUB%20ACTIONS&logo=github)](https://actions-badge.atrox.dev/xorbitsai/inference/goto?ref=main)
-[![Slack](https://img.shields.io/badge/join_Slack-781FF5.svg?logo=slack&style=for-the-badge)](https://join.slack.com/t/xorbitsio/shared_invite/zt-1o3z9ucdh-RbfhbPVpx7prOVdM1CAuxg)
-[![Twitter](https://img.shields.io/twitter/follow/xorbitsio?logo=twitter&style=for-the-badge)](https://twitter.com/xorbitsio)
+[![WeChat](https://img.shields.io/badge/添加微信小助手-07C160?style=for-the-badge&logo=wechat&logoColor=white)](https://xorbits.cn/assets/images/wechat_pr.png)
+[![Zhihu](https://img.shields.io/static/v1?style=for-the-badge&message=未来速度&color=0084FF&logo=Zhihu&logoColor=FFFFFF&label=)](https://www.zhihu.com/org/xorbits)
 
 [English](README.md) | 中文介绍 | [日本語](README_ja_JP.md)
 </div>
@@ -18,7 +18,7 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 
 
 <div align="center">
-<i><a href="https://join.slack.com/t/xorbitsio/shared_invite/zt-1z3zsm9ep-87yI9YZ_B79HLB2ccTq4WA">👉 立刻加入我们的 Slack 社区!</a></i>
+<i><a href="https://xorbits.cn/assets/images/wechat_pr.png">👉 添加微信小助手、加入Xinference社区!</a></i>
 </div>
 
 ## 🔥 近期热点
@@ -265,7 +265,7 @@ $ xinference registrations
 | LLM   | zephyr-7b-alpha         | ['en']       | ['chat']     |
 | LLM   | zephyr-7b-beta          | ['en']       | ['chat']     |
 
-更多信息请参考 [内置模型](https://inference.readthedocs.io/en/latest/models/builtin/index.html)。
+更多信息请参考 [内置模型](https://inference.readthedocs.io/zh-cn/latest/models/builtin/index.html)。
 
 **注意**:
 - Xinference 会自动为你下载模型，默认的模型存放路径为 `${USER}/.xinference/cache`。
@@ -282,4 +282,4 @@ $ xinference registrations
   更多的支持的模型在[文档](https://inference.readthedocs.io/zh-cn/latest/models/sources/sources.html#modelscope)中列出了。
 
 ## 自定义模型
-请参考 [自定义模型](https://inference.readthedocs.io/en/latest/models/custom.html)。
+请参考 [自定义模型](https://inference.readthedocs.io/zh-cn/latest/models/custom.html)。
