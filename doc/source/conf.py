@@ -10,7 +10,7 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-# import os
+import os
 # import sys
 # sys.path.insert(0, os.path.abspath('.'))
 
@@ -66,6 +66,12 @@ html_title = "Xinference"
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
 
+# Define the json_url for our version switcher.
+version_match = os.environ.get("READTHEDOCS_LANGUAGE")
+json_url = "https://inference.readthedocs.io/en/latest/_static/switcher.json"
+if not version_match:
+    version_match = 'en'
+
 html_theme_options = {
     "show_toc_level": 2,
     "icon_links": [
@@ -87,7 +93,14 @@ html_theme_options = {
             "icon": "fa-brands fa-twitter",
             "type": "fontawesome",
         },
-    ]
+    ],
+    "navbar_align": "content",  # [left, content, right] For testing that the navbar items align properly
+    "navbar_start": ["navbar-logo", "version-switcher"],
+    "navbar_center": ["navbar-nav"],
+    "switcher": {
+        "json_url": json_url,
+        "version_match": version_match,
+    },
 }
 
 html_favicon = "_static/favicon.svg"
