@@ -16,7 +16,9 @@ import codecs
 import json
 import os
 
+from ...constants import XINFERENCE_MODEL_DIR
 from .core import MODEL_NAME_TO_REVISION, RerankModelSpec, get_cache_status
+from .custom import CustomRerankModelSpec, register_rerank
 
 _model_spec_json = os.path.join(os.path.dirname(__file__), "model_spec.json")
 _model_spec_modelscope_json = os.path.join(
@@ -36,5 +38,16 @@ MODELSCOPE_RERANK_MODELS = dict(
 )
 for model_name, model_spec in MODELSCOPE_RERANK_MODELS.items():
     MODEL_NAME_TO_REVISION[model_name].append(model_spec.model_revision)
+
+# if persist=True, load them when init
+user_defined_rerank_dir = os.path.join(XINFERENCE_MODEL_DIR, "rerank")
+if os.path.isdir(user_defined_rerank_dir):
+    for f in os.listdir(user_defined_rerank_dir):
+        with codecs.open(
+            os.path.join(user_defined_rerank_dir, f), encoding="utf-8"
+        ) as fd:
+            user_defined_rerank_spec = CustomRerankModelSpec.parse_obj(json.load(fd))
+            register_rerank(user_defined_rerank_spec, persist=False)
+
 del _model_spec_json
 del _model_spec_modelscope_json
