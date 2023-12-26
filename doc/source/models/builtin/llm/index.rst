@@ -81,6 +81,10 @@ The following is a list of built-in LLM in Xinference:
   
    qwen-chat
   
+   skywork
+  
+   skywork-math
+  
    starchat-beta
   
    starcoder

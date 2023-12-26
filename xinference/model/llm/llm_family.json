@@ -3023,5 +3023,55 @@
         "<|EOT|>"
       ]
     }
+  },
+  {
+    "version": 1,
+    "context_length": 4096,
+    "model_name": "Skywork",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "generate"
+    ],
+    "model_description": "Skywork is a series of large models developed by the Kunlun Group · Skywork team.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 13,
+        "quantizations": [
+          "8-bit",
+          "none"
+        ],
+        "model_id": "skywork/Skywork-13B-base",
+        "model_revision": "bc35915066fbbf15b77a1a4a74e9b574ab167816"
+      }
+    ]
+  },
+  {
+    "version": 1,
+    "context_length": 4096,
+    "model_name": "Skywork-Math",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "generate"
+    ],
+    "model_description": "Skywork is a series of large models developed by the Kunlun Group · Skywork team.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 13,
+        "quantizations": [
+          "8-bit",
+          "none"
+        ],
+        "model_id": "skywork/Skywork-13B-Math",
+        "model_revision": "70d1740208c8ba39f9ba250b22117ec25311ab33"
+      }
+    ]
   }
 ]
