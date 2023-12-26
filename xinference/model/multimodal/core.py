@@ -17,17 +17,22 @@ import logging
 import os
 import platform
 from abc import abstractmethod
-from typing import TYPE_CHECKING, List, Literal, Optional, Tuple, Union
+from collections import defaultdict
+from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Tuple, Union
 
 from pydantic import BaseModel, validator
 
+from ...constants import XINFERENCE_CACHE_DIR
 from ...core.utils import parse_replica_model_uid
 from ..core import ModelDescription
-from ..utils import download_from_modelscope
+from ..utils import download_from_modelscope, is_model_cached, valid_model_revision
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_CONTEXT_LENGTH = 2048
+# Used for check whether the model is cached.
+# Init when registering all the builtin models.
+MODEL_NAME_TO_REVISION: Dict[str, List[str]] = defaultdict(list)
 
 
 class LVLMSpecV1(BaseModel):
@@ -207,7 +212,7 @@ def match_multimodal(
         return spec
 
     if download_from_modelscope():
-        all_families = BUILTIN_MODELSCOPE_LVLM_FAMILIES
+        all_families = BUILTIN_MODELSCOPE_LVLM_FAMILIES + BUILTIN_LVLM_FAMILIES
     else:
         all_families = BUILTIN_LVLM_FAMILIES
 
@@ -270,3 +275,9 @@ def create_multimodal_model_instance(
     return model, LVLMDescription(
         subpool_addr, devices, model_family, model_spec, quantization
     )
+
+
+def get_cache_status(
+    model_spec: LVLMSpecV1,
+) -> bool:
+    return is_model_cached(model_spec, MODEL_NAME_TO_REVISION)

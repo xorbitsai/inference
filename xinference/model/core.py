@@ -44,8 +44,8 @@ def create_model_instance(
     from .embedding.core import create_embedding_model_instance
     from .image.core import create_image_model_instance
     from .llm.core import create_llm_model_instance
-    from .rerank.core import create_rerank_model_instance
     from .multimodal.core import create_multimodal_model_instance
+    from .rerank.core import create_rerank_model_instance
 
     if model_type == "LLM":
         return create_llm_model_instance(
