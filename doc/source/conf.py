@@ -118,5 +118,8 @@ else:
         "icon": "fa-brands fa-zhihu",
         "type": "fontawesome",
     }])
+    html_theme_options["external_links"] = [
+        {"name": "产品官网", "url": "https://xorbits.cn/inference"},
+    ]
 
 html_favicon = "_static/favicon.svg"
