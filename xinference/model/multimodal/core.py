@@ -18,12 +18,13 @@ import os
 import platform
 from abc import abstractmethod
 from collections import defaultdict
-from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Tuple, Union
+from typing import Dict, Iterator, List, Literal, Optional, Tuple, Type, Union
 
 from pydantic import BaseModel, validator
 
 from ...constants import XINFERENCE_CACHE_DIR
 from ...core.utils import parse_replica_model_uid
+from ...types import ChatCompletion, ChatCompletionChunk
 from ..core import ModelDescription
 from ..utils import (
     download_from_modelscope,
@@ -179,9 +180,19 @@ class LVLM(abc.ABC):
     def load(self):
         raise NotImplementedError
 
+    @abstractmethod
+    def chat(
+        self,
+        prompt: str,
+        system_prompt: Optional[str] = None,
+        chat_history: Optional[List[Dict]] = None,
+        generate_config: Optional[Dict] = None,
+    ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
+        raise NotImplementedError
+
     @classmethod
     def match(
-        cls, llm_family: "LVLMFamilyV1", llm_spec: "LVLMSpecV1", quantization: str
+        cls, model_family: "LVLMFamilyV1", model_spec: "LVLMSpecV1", quantization: str
     ) -> bool:
         raise NotImplementedError
 
@@ -273,12 +284,28 @@ def create_multimodal_model_instance(
     assert quantization is not None
     save_path = cache(model_family, model_spec, quantization)
 
-    logger.debug(f"Launching {model_uid} with {LVLM.__name__}")
+    cls = match_cls(model_family, model_spec, quantization)
+    logger.debug(f"Launching {model_uid} with {cls.__name__}")
 
-    model = LVLM(model_uid, model_family, model_spec, quantization, save_path, kwargs)
+    model = cls(model_uid, model_family, model_spec, quantization, save_path, kwargs)
     return model, LVLMDescription(
         subpool_addr, devices, model_family, model_spec, quantization
     )
+
+
+MODEL_CLASSES: List[Type[LVLM]] = []
+
+
+def match_cls(
+    model_family: LVLMFamilyV1, model_spec: "LVLMSpecV1", quantization: str
+) -> Optional[Type[LVLM]]:
+    """
+    Find an LLM implementation for given LLM family and spec.
+    """
+    for cls in MODEL_CLASSES:
+        if cls.match(model_family, model_spec, quantization):
+            return cls
+    return None
 
 
 def _get_cache_dir(

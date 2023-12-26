@@ -19,11 +19,14 @@ import os
 from .core import (
     BUILTIN_LVLM_FAMILIES,
     BUILTIN_MODELSCOPE_LVLM_FAMILIES,
-    LVLM,
+    MODEL_CLASSES,
     MODEL_NAME_TO_REVISION,
     LVLMFamilyV1,
     LVLMPromptStyleV1,
 )
+from .qwen_vl import QwenVLChat
+
+MODEL_CLASSES.append(QwenVLChat)
 
 
 def _install():
