@@ -75,7 +75,7 @@ with popular third-party libraries including [LangChain](https://python.langchai
 | Multi-node Cluster Deployment | ✅ | ❌ | ❌ | ✅ |
 | Image Models (Text-to-Image) | ✅ | ✅ | ❌ | ❌ |
 | Text Embedding Models | ✅ | ❌ | ❌ | ❌ |
-| More OpenAI APIs (Function Calling) | ✅ | ❌ | ❌ | ❌ |
+| More OpenAI Functionalities (Function Calling) | ✅ | ❌ | ❌ | ❌ |
 
 ## Getting Started
 ### Installation
