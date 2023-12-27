@@ -784,20 +784,20 @@ class RESTfulAPI:
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
 
-        is_chatglm_ggml = desc.get(
-            "model_format"
-        ) == "ggmlv3" and "chatglm" in desc.get("model_name", "")
+        model_name = desc.get("model_name", "")
+        is_chatglm_ggml = (
+            desc.get("model_format") == "ggmlv3" and "chatglm" in model_name
+        )
         function_call_models = ["chatglm3", "gorilla-openfunctions-v1", "qwen-chat"]
 
-        is_qwen = desc.get("model_format") == "ggmlv3" and "qwen" in desc.get(
-            "model_name", ""
-        )
+        is_qwen = desc.get("model_format") == "ggmlv3" and "qwen" in model_name
 
         if (is_chatglm_ggml or is_qwen) and system_prompt is not None:
             raise HTTPException(
                 status_code=400, detail="ChatGLM ggml does not have system prompt"
             )
-        if desc.get("model_name", "") not in function_call_models:
+
+        if not any(name in model_name for name in function_call_models):
             if body.tools:
                 raise HTTPException(
                     status_code=400,
