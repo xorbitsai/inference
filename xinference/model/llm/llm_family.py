@@ -717,6 +717,8 @@ def match_llm(
                 and matched_quantization is None
             ):
                 continue
+            # Copy spec to avoid _apply_format_to_model_id modify the original spec.
+            spec = spec.copy()
             if quantization:
                 return (
                     family,
