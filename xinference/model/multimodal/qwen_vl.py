@@ -53,6 +53,18 @@ class QwenVLChat(LVLM):
             code_revision=self.model_spec.model_revision,
         )
 
+    def _message_content_to_qwen(self, content):
+        if not isinstance(content, str):
+            content = [
+                {"image": c["image_url"]["url"], "type": "image"}
+                if c.get("type") == "image_url"
+                else c
+                for c in content
+            ]
+            content = sorted(content, key=operator.itemgetter("type"))
+            return self._tokenizer.from_list_format(content)
+        return content
+
     def chat(
         self,
         prompt: Union[str, List[Dict]],
@@ -60,15 +72,9 @@ class QwenVLChat(LVLM):
         chat_history: Optional[List[Dict]] = None,
         generate_config: Optional[Dict] = None,
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
-        if not isinstance(prompt, str):
-            prompt = [
-                {"image": p["image_url"]["url"], "type": "image"}
-                if p.get("type") == "image_url"
-                else p
-                for p in prompt
-            ]
-            prompt = sorted(prompt, key=operator.itemgetter("type"))
-            prompt = self._tokenizer.from_list_format(prompt)
+        prompt = self._message_content_to_qwen(prompt)
+        for h in chat_history:
+            h["content"] = self._message_content_to_qwen(h)
         response, history = self._model.chat(
             self._tokenizer, query=prompt, history=chat_history
         )
