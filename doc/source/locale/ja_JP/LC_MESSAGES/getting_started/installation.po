@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-10-16 10:33+0800\n"
+"POT-Creation-Date: 2023-12-27 15:43+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: ja_JP\n"
@@ -107,37 +107,57 @@ msgstr ""
 msgid "``vicuna-v1.3``, ``vicuna-v1.5``"
 msgstr ""
 
+#: ../../source/getting_started/installation.rst:40
+msgid "``Yi``, ``Yi-chat``"
+msgstr ""
+
 #: ../../source/getting_started/installation.rst:41
+msgid "``qwen-chat``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:42
+msgid "``code-llama``, ``code-llama-python``, ``code-llama-instruct``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:43
+msgid "``mistral-instruct-v0.1``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:44
+msgid "``chatglm3``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:46
 msgid "To install Xinference and vLLM::"
 msgstr ""
 
-#: ../../source/getting_started/installation.rst:48
+#: ../../source/getting_started/installation.rst:53
 msgid "GGML Backend"
 msgstr ""
 
-#: ../../source/getting_started/installation.rst:49
+#: ../../source/getting_started/installation.rst:54
 msgid ""
 "It's advised to install the GGML dependencies manually based on your "
 "hardware specifications to enable acceleration."
 msgstr ""
 
-#: ../../source/getting_started/installation.rst:51
+#: ../../source/getting_started/installation.rst:56
 msgid "Initial setup::"
 msgstr ""
 
-#: ../../source/getting_started/installation.rst:56
+#: ../../source/getting_started/installation.rst:61
 msgid "Hardware-Specific installations:"
 msgstr ""
 
-#: ../../source/getting_started/installation.rst:58
+#: ../../source/getting_started/installation.rst:63
 msgid "Apple Silicon::"
 msgstr ""
 
-#: ../../source/getting_started/installation.rst:62
+#: ../../source/getting_started/installation.rst:67
 msgid "Nvidia cards::"
 msgstr ""
 
-#: ../../source/getting_started/installation.rst:66
+#: ../../source/getting_started/installation.rst:71
 msgid "AMD cards::"
 msgstr ""
 

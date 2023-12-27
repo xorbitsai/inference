@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-11-01 10:48+0800\n"
+"POT-Creation-Date: 2023-12-27 15:43+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: ja_JP\n"
@@ -72,6 +72,7 @@ msgstr ""
 
 #: ../../source/user_guide/client_api.rst:92
 #: ../../source/user_guide/client_api.rst:138
+#: ../../source/user_guide/client_api.rst:168
 msgid "Output:"
 msgstr ""
 
@@ -85,5 +86,13 @@ msgstr ""
 
 #: ../../source/user_guide/client_api.rst:123
 msgid "To initiate an image model and generate an image using a text prompt:"
+msgstr ""
+
+#: ../../source/user_guide/client_api.rst:147
+msgid "Rerank"
+msgstr ""
+
+#: ../../source/user_guide/client_api.rst:148
+msgid "To launch a rerank model and compute the similarity scores:"
 msgstr ""
 
