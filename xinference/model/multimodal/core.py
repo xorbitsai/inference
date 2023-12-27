@@ -295,14 +295,14 @@ MODEL_CLASSES: List[Type[LVLM]] = []
 
 def match_cls(
     model_family: LVLMFamilyV1, model_spec: "LVLMSpecV1", quantization: str
-) -> Optional[Type[LVLM]]:
+) -> Type[LVLM]:
     """
     Find an LLM implementation for given LLM family and spec.
     """
     for cls in MODEL_CLASSES:
         if cls.match(model_family, model_spec, quantization):
             return cls
-    return None
+    raise Exception(f"Model {model_family.model_name} is not supported")
 
 
 def _get_cache_dir(

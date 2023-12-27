@@ -13,7 +13,7 @@
 # limitations under the License.
 
 
-def test_restful_api_for_multimodal(setup):
+def test_restful_api_for_qwen_vl(setup):
     endpoint, _ = setup
     from ....client import Client
 
@@ -26,7 +26,6 @@ def test_restful_api_for_multimodal(setup):
         device="cpu",
     )
     model = client.get_model(model_uid)
-    print(model)
 
     # openai client
     import openai
@@ -49,7 +48,9 @@ def test_restful_api_for_multimodal(setup):
             }
         ],
     )
-    print(completion)
+    assert "grass" in completion.choices[0].message.content
+    assert "tree" in completion.choices[0].message.content
+    assert "sky" in completion.choices[0].message.content
     messages = [
         {
             "role": "user",
@@ -65,9 +66,12 @@ def test_restful_api_for_multimodal(setup):
         }
     ]
     completion = client.chat.completions.create(model=model_uid, messages=messages)
-    print(completion)
+    assert "女" in completion.choices[0].message.content
+    assert "狗" in completion.choices[0].message.content
+    assert "沙滩" in completion.choices[0].message.content
     messages.append(completion.choices[0].message.model_dump())
     messages.append({"role": "user", "content": "框出图中击掌的位置"})
-    print(messages)
     completion = client.chat.completions.create(model=model_uid, messages=messages)
-    print(completion)
+    assert "击掌" in completion.choices[0].message.content
+    assert "<ref>" in completion.choices[0].message.content
+    assert "<box>" in completion.choices[0].message.content

@@ -52,7 +52,7 @@ class QwenVLChat(LVLM):
             code_revision=self.model_spec.model_revision,
         )
 
-    def _message_content_to_qwen(self, content):
+    def _message_content_to_qwen(self, content) -> str:
         if not isinstance(content, str):
             content = [
                 {"image": c["image_url"]["url"], "type": "image"}
@@ -74,8 +74,8 @@ class QwenVLChat(LVLM):
         prompt = self._message_content_to_qwen(prompt)
         # Convert openai history to qwen vl history
         qwen_history = []
-        query_to_response = []
-        for h in chat_history:
+        query_to_response: List = []
+        for h in chat_history or []:
             role = h["role"]
             content = self._message_content_to_qwen(h["content"])
             if len(query_to_response) == 0 and role == "user":
