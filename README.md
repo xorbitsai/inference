@@ -81,6 +81,14 @@ with popular third-party libraries including [LangChain](https://python.langchai
 
 **Please give us a star before you begin, and you'll receive instant notifications for every new release on GitHub!**
 
+* [Docs](https://inference.readthedocs.io/en/latest/index.html)
+* [Built-in Models](https://inference.readthedocs.io/en/latest/models/builtin/index.html)
+* [Custom Models](https://inference.readthedocs.io/en/latest/models/custom.html)
+* [Deployment Docs](https://inference.readthedocs.io/en/latest/getting_started/using_xinference.html)
+* [Examples and Tutorials](https://inference.readthedocs.io/en/latest/examples/index.html)
+
+### Quick Start
+
 Install Xinference by using pip as follows. (For more options, see [Installation page](https://inference.readthedocs.io/en/latest/getting_started/installation.html).)
 
 ```bash
@@ -97,14 +105,6 @@ Once Xinference is running, there are multiple ways you can try it: via the web 
  via the command line, or via the Xinference’s python client. Check out our [docs]( https://inference.readthedocs.io/en/latest/getting_started/using_xinference.html#run-xinference-locally) for the guide.
 
 ![web UI](assets/index.jpg)
-
-## More Information
-
-* [Docs](https://inference.readthedocs.io/en/latest/index.html)
-* [Built-in Models](https://inference.readthedocs.io/en/latest/models/builtin/index.html)
-* [Custom Models](https://inference.readthedocs.io/en/latest/models/custom.html)
-* [Deployment Docs](https://inference.readthedocs.io/en/latest/getting_started/using_xinference.html)
-* [Examples and Tutorials](https://inference.readthedocs.io/en/latest/examples/index.html)
 
 ## Getting involved
 
