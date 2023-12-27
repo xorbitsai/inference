@@ -11,8 +11,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import pytest
 
 
+@pytest.mark.skip(reason="Cost too many resources.")
 def test_restful_api_for_qwen_vl(setup):
     endpoint, _ = setup
     from ....client import Client
