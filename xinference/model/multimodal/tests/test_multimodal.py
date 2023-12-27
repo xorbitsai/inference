@@ -50,3 +50,24 @@ def test_restful_api_for_multimodal(setup):
         ],
     )
     print(completion)
+    messages = [
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "这是什么?"},
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": "https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen-VL/assets/demo.jpeg",
+                    },
+                },
+            ],
+        }
+    ]
+    completion = client.chat.completions.create(model=model_uid, messages=messages)
+    print(completion)
+    messages.append(completion.choices[0].message.model_dump())
+    messages.append({"role": "user", "content": "框出图中击掌的位置"})
+    print(messages)
+    completion = client.chat.completions.create(model=model_uid, messages=messages)
+    print(completion)
