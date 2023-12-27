@@ -73,10 +73,21 @@ class QwenVLChat(LVLM):
         generate_config: Optional[Dict] = None,
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
         prompt = self._message_content_to_qwen(prompt)
+        # Convert openai history to qwen vl history
+        qwen_history = []
+        query_to_response = []
         for h in chat_history:
-            h["content"] = self._message_content_to_qwen(h["content"])
+            role = h["role"]
+            content = self._message_content_to_qwen(h["content"])
+            if len(query_to_response) == 0 and role == "user":
+                query_to_response.append(content)
+            if len(query_to_response) == 1 and role == "assistant":
+                query_to_response.append(content)
+            if len(query_to_response) == 2:
+                qwen_history.append(query_to_response)
+                query_to_response = []
         response, history = self._model.chat(
-            self._tokenizer, query=prompt, history=chat_history
+            self._tokenizer, query=prompt, history=qwen_history
         )
         if "<box>" in response:
             image = self._tokenizer.draw_bbox_on_latest_picture(response, history)
