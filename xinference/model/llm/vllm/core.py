@@ -190,7 +190,7 @@ class VLLMModel(LLM):
             return False
         if quantization != "none":
             return False
-        if llm_spec.model_format != "pytorch":
+        if llm_spec.model_format not in ["pytorch", "gptq"]:
             return False
         if llm_family.model_name not in VLLM_SUPPORTED_MODELS:
             return False
