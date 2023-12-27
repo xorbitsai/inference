@@ -25,13 +25,7 @@ const RegisterEmbeddingModel = () => {
     model_uri: '/path/to/embedding-model',
   })
 
-  // model name must be
-  // 1. Starts with an alphanumeric character (a letter or a digit).
-  // 2. Followed by any number of alphanumeric characters, underscores (_), or hyphens (-).
-  const errorModelName = !/^[A-Za-z0-9][A-Za-z0-9_-]*$/.test(
-    formData.model_name
-  )
-
+  const errorModelName = formData.model_name.trim().length <= 0
   const errorDimensions = formData.dimensions < 0
   const errorMaxTokens = formData.max_tokens < 0
   const errorLanguage =

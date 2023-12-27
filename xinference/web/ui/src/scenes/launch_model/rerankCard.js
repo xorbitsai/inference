@@ -10,7 +10,6 @@ import {
 } from '@mui/material'
 import IconButton from '@mui/material/IconButton'
 import React, { useContext, useEffect, useState } from 'react'
-import { v1 as uuidv1 } from 'uuid'
 
 import { ApiContext } from '../../components/apiContext'
 
@@ -41,7 +40,7 @@ const RerankCard = ({
     setIsCallingApi(true)
 
     const modelDataWithID = {
-      model_uid: modelUID.trim() === '' ? uuidv1() : modelUID.trim(),
+      model_uid: modelUID.trim() === '' ? null : modelUID.trim(),
       model_name: modelData.model_name,
       model_type: 'rerank',
     }
@@ -279,7 +278,7 @@ const RerankCard = ({
           <TextField
             variant="outlined"
             value={modelUID}
-            label="(Optional) Model UID, uuid by default"
+            label="(Optional) Model UID, model name by default"
             onChange={(e) => setModelUID(e.target.value)}
           />
         </FormControl>

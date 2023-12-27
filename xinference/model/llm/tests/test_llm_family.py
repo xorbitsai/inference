@@ -676,11 +676,6 @@ def test_match_llm():
         os.environ.pop(XINFERENCE_ENV_MODEL_SRC)
 
 
-def test_match_llm_cls():
-    # TODO: implement
-    pass
-
-
 def test_is_valid_file_uri():
     with tempfile.NamedTemporaryFile() as tmp_file:
         assert is_valid_model_uri(f"file://{tmp_file.name}") is True

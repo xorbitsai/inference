@@ -89,6 +89,29 @@ async def test_client(setup):
         )
 
 
+def test_client_for_model_uid(setup):
+    endpoint, _ = setup
+    client = ActorClient(endpoint)
+    assert len(client.list_models()) == 0
+
+    model_uid = client.launch_model(
+        model_name="orca", model_size_in_billions=3, quantization="q4_0"
+    )
+    assert len(client.list_models()) == 1
+    assert model_uid == "orca"
+
+    model_uid2 = client.launch_model(
+        model_name="orca", model_size_in_billions=3, quantization="q4_0"
+    )
+    assert len(client.list_models()) == 2
+    assert len(model_uid2) == len("orca") + 9
+    assert model_uid2.startswith("orca")
+
+    client.terminate_model(model_uid=model_uid)
+    client.terminate_model(model_uid=model_uid2)
+    assert len(client.list_models()) == 0
+
+
 def test_client_for_embedding(setup):
     endpoint, _ = setup
     client = ActorClient(endpoint)

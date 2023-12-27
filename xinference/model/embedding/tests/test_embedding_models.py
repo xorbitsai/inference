@@ -179,18 +179,6 @@ def test_register_custom_embedding():
     assert os.path.islink(model_cache_path)
     os.remove(model_cache_path)
 
-    # Invalid name
-    model_spec = CustomEmbeddingModelSpec(
-        model_name="custom_test_b-v1.5",
-        dimensions=1024,
-        max_tokens=2048,
-        language=["zh"],
-        model_id="test/custom_test_b",
-        model_uri=os.path.abspath(tmp_dir),
-    )
-    with pytest.raises(ValueError):
-        register_embedding(model_spec, False)
-
     # Invalid path
     model_spec = CustomEmbeddingModelSpec(
         model_name="custom_test_b-v15",
