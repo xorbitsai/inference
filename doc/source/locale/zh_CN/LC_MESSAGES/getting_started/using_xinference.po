@@ -298,7 +298,7 @@ msgid ""
 "the command line, you should include the ``-e`` or ``--endpoint`` flag to"
 " specify the supervisor server's endpoint. For example:"
 msgstr ""
-"需要注意的是，如果你需要通过命令行与集群交互，应该通过 ``-e`` 或者 ``--endpoint``"
+"需要注意的是，如果你需要通过命令行与集群交互，应该通过 ``-e`` 或者 ``--endpoint`` "
 "参数来指定 supervisor 的地址，比如："
 
 #: ../../source/getting_started/using_xinference.rst:346
