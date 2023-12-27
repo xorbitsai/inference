@@ -70,7 +70,7 @@ class QwenVLChat(LVLM):
             prompt = sorted(prompt, key=operator.itemgetter("type"))
             prompt = self._tokenizer.from_list_format(prompt)
         response, history = self._model.chat(
-            self._tokenizer, query=prompt, chat_history=chat_history
+            self._tokenizer, query=prompt, history=chat_history
         )
         if "<box>" in response:
             image = self._tokenizer.draw_bbox_on_latest_picture(response, history)
