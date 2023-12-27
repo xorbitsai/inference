@@ -301,8 +301,7 @@ msgstr ""
 "需要注意的是，如果你需要通过命令行与集群交互，应该通过 ``-e`` 或者 ``--endpoint``"
 "参数来指定 supervisor 的地址，比如："
 
-#: ../../source/getting_started/using_xinference.rst:347
-#, fuzzy
+#: ../../source/getting_started/using_xinference.rst:346
 msgid "Using Xinference With Docker"
 msgstr "使用 Docker 部署 Xinference"
 
@@ -318,8 +317,7 @@ msgstr "在拥有英伟达显卡的机器上运行"
 msgid "Run On CPU Only Host"
 msgstr "在只有 CPU 的机器上运行"
 
-#: ../../source/getting_started/using_xinference.rst:367
-#, fuzzy
+#: ../../source/getting_started/using_xinference.rst:366
 msgid "Using Xinference On Kubernetes"
 msgstr "在 Kubernetes 环境中运行 Xinference"
 
