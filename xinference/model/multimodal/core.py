@@ -164,7 +164,7 @@ def match_multimodal(
     quantization: Optional[str] = None,
 ) -> Optional[Tuple[LVLMFamilyV1, LVLMSpecV1, str]]:
     """
-    Find an LLM family, spec, and quantization that satisfy given criteria.
+    Find an multimodal family, spec, and quantization that satisfy given criteria.
     """
 
     def _match_quantization(q: Union[str, None], quantizations: List[str]):
@@ -256,7 +256,7 @@ def match_cls(
     model_family: LVLMFamilyV1, model_spec: "LVLMSpecV1", quantization: str
 ) -> Type[LVLM]:
     """
-    Find an LLM implementation for given LLM family and spec.
+    Find an multimodal implementation for given multimodal family and spec.
     """
     for cls in MODEL_CLASSES:
         if cls.match(model_family, model_spec, quantization):
@@ -440,18 +440,18 @@ def cache_from_huggingface(
 
 
 def cache(
-    llm_family: LVLMFamilyV1,
-    llm_spec: "LVLMSpecV1",
+    model_family: LVLMFamilyV1,
+    model_spec: "LVLMSpecV1",
     quantization: Optional[str] = None,
 ) -> str:
-    if llm_spec.model_hub == "huggingface":
-        logger.info(f"Caching from Hugging Face: {llm_spec.model_id}")
-        return cache_from_huggingface(llm_family, llm_spec, quantization)
-    elif llm_spec.model_hub == "modelscope":
-        logger.info(f"Caching from Modelscope: {llm_spec.model_id}")
-        return cache_from_modelscope(llm_family, llm_spec, quantization)
+    if model_spec.model_hub == "huggingface":
+        logger.info(f"Caching from Hugging Face: {model_spec.model_id}")
+        return cache_from_huggingface(model_family, model_spec, quantization)
+    elif model_spec.model_hub == "modelscope":
+        logger.info(f"Caching from Modelscope: {model_spec.model_id}")
+        return cache_from_modelscope(model_family, model_spec, quantization)
     else:
-        raise ValueError(f"Unknown model hub: {llm_spec.model_hub}")
+        raise ValueError(f"Unknown model hub: {model_spec.model_hub}")
 
 
 def get_cache_status(
