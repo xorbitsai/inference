@@ -28,10 +28,7 @@
       "roles": [
         "user",
         "assistant"
-      ],
-      "image_formatter": "Picture {idx}: <img>{image}</img>",
-      "text_formatter": "{text}",
-      "sep": "\n"
+      ]
     }
   }
 ]

@@ -26,6 +26,7 @@ def test_restful_api_for_qwen_vl(setup):
         device="cpu",
     )
     model = client.get_model(model_uid)
+    assert model
 
     # openai client
     import openai

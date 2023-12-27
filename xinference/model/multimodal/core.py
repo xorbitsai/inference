@@ -15,7 +15,6 @@
 import abc
 import logging
 import os
-import platform
 from abc import abstractmethod
 from collections import defaultdict
 from typing import Dict, Iterator, List, Literal, Optional, Tuple, Type, Union
@@ -68,9 +67,6 @@ class LVLMPromptStyleV1(BaseModel):
     style_name: str
     system_prompt: str = ""
     roles: List[str]
-    image_formatter: str = ""
-    text_formatter: str = ""
-    sep: str = ""
 
 
 class LVLMFamilyV1(BaseModel):
