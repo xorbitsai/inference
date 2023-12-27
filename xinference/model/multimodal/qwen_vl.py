@@ -74,7 +74,7 @@ class QwenVLChat(LVLM):
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
         prompt = self._message_content_to_qwen(prompt)
         for h in chat_history:
-            h["content"] = self._message_content_to_qwen(h)
+            h["content"] = self._message_content_to_qwen(h["content"])
         response, history = self._model.chat(
             self._tokenizer, query=prompt, history=chat_history
         )
