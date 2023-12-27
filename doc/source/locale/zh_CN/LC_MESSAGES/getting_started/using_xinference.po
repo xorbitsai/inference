@@ -52,7 +52,7 @@ msgid ""
 "instructions provided :ref:`here <installation>`. To start a local "
 "instance of Xinference, run the following command:"
 msgstr ""
-"首先，请根据这个 :ref:`文档 <installation>`的指导确保本地安装了 Xinference。"
+"首先，请根据这个 :ref:`文档 <installation>` 的指导确保本地安装了 Xinference。"
 "使用以下命令拉起本地的 Xinference 服务："
 
 #: ../../source/getting_started/using_xinference.rst:23
@@ -251,7 +251,7 @@ msgid ""
 "servers according to the instructions provided :ref:`here "
 "<installation>`. Then follow the steps below:"
 msgstr ""
-"首先，根据 :ref:`文档 <installation>`确保所有的服务器上都安装了 Xinference。接下来按照"
+"首先，根据 :ref:`文档 <installation>` 确保所有的服务器上都安装了 Xinference。接下来按照"
 "步骤："
 
 #: ../../source/getting_started/using_xinference.rst:315
@@ -279,7 +279,7 @@ msgid ""
 "<http://${supervisor_host}:9997/docs>`_ to inspect the API docs."
 msgstr ""
 "可以在 `http://${supervisor_host}:9997/ui "
-"<http://${supervisor_host}:9997/ui>`_ 访问 web UI，在`http://${supervisor_host}:9997/docs "
+"<http://${supervisor_host}:9997/ui>`_ 访问 web UI，在 `http://${supervisor_host}:9997/docs "
 "<http://${supervisor_host}:9997/docs>`_ 访问 API 文档。"
 
 #: ../../source/getting_started/using_xinference.rst:329
@@ -399,7 +399,7 @@ msgstr ""
 
 #: ../../source/getting_started/using_xinference.rst:411
 msgid ":ref:`Choosing the Right Backends for Your Needs <user_guide_backends>`"
-msgstr ":ref:`选择正确的推理引擎 <user_guide_backends>`"
+msgstr ":ref:`选择正确的推理引擎 <user_guide_backends>` "
 
 #~ msgid "Configure Xinference Home Path"
 #~ msgstr ""
