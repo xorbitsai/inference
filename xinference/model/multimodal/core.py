@@ -100,7 +100,7 @@ class LVLMDescription(ModelDescription):
 
     def to_dict(self):
         return {
-            "model_type": "LLM",
+            "model_type": "LVLM",
             "address": self.address,
             "accelerators": self.devices,
             "model_name": self._model_family.model_name,
@@ -135,43 +135,6 @@ class LVLM(abc.ABC):
         self.model_path = model_path
         self.kwargs = kwargs
         logger.info("Init model %s with kwargs: %s", self.model_uid, kwargs)
-
-    @staticmethod
-    def handle_model_size(model_size_in_billions: Union[str, int]) -> Union[int, float]:
-        if isinstance(model_size_in_billions, str):
-            if "_" in model_size_in_billions:
-                ms = model_size_in_billions.replace("_", ".")
-                return float(ms)
-            else:
-                raise ValueError("Invalid format for `model_size_in_billions`")
-        return model_size_in_billions
-
-    @staticmethod
-    def _is_darwin_and_apple_silicon():
-        return platform.system() == "Darwin" and platform.processor() == "arm"
-
-    @staticmethod
-    def _is_linux():
-        return platform.system() == "Linux"
-
-    @staticmethod
-    def _has_cuda_device():
-        from ...utils import cuda_count
-
-        return cuda_count() > 0
-
-    @staticmethod
-    def _get_cuda_count():
-        from ...utils import cuda_count
-
-        cuda_visible_devices = os.getenv("CUDA_VISIBLE_DEVICES", None)
-        if cuda_visible_devices is None:
-            return cuda_count()
-
-        if cuda_visible_devices == "-1":
-            return 0
-        else:
-            return len(cuda_visible_devices.split(","))
 
     @abstractmethod
     def load(self):
