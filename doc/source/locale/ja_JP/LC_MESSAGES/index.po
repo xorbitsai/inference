@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-11-01 10:48+0800\n"
+"POT-Creation-Date: 2023-12-27 15:43+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: ja_JP\n"
@@ -95,28 +95,66 @@ msgid "Framework Enhancements"
 msgstr ""
 
 #: ../../source/index.rst:46
+msgid "Auto recover: `#694 <https://github.com/xorbitsai/inference/pull/694>`_"
+msgstr ""
+
+#: ../../source/index.rst:47
+msgid ""
+"Function calling API: `#701 "
+"<https://github.com/xorbitsai/inference/pull/701>`_ , here's example: "
+"https://github.com/xorbitsai/inference/blob/main/examples/FunctionCall.ipynb"
+msgstr ""
+
+#: ../../source/index.rst:48
+msgid ""
+"Support rerank model: `#672 "
+"<https://github.com/xorbitsai/inference/pull/672>`_"
+msgstr ""
+
+#: ../../source/index.rst:49
 msgid ""
 "Speculative decoding: `#509 "
 "<https://github.com/xorbitsai/inference/pull/509>`_"
 msgstr ""
 
-#: ../../source/index.rst:47
+#: ../../source/index.rst:50
 msgid ""
 "Support grammar-based sampling for ggml models: `#525 "
 "<https://github.com/xorbitsai/inference/pull/525>`_"
 msgstr ""
 
-#: ../../source/index.rst:48
+#: ../../source/index.rst:51
 msgid ""
 "Incorporate vLLM: `#445 "
 "<https://github.com/xorbitsai/inference/pull/445>`_"
 msgstr ""
 
-#: ../../source/index.rst:52
+#: ../../source/index.rst:55
 msgid "New Models"
 msgstr ""
 
-#: ../../source/index.rst:53
+#: ../../source/index.rst:56
+msgid ""
+"Built-in support for `Yi <https://huggingface.co/01-ai>`_: `#629 "
+"<https://github.com/xorbitsai/inference/pull/629>`_"
+msgstr ""
+
+#: ../../source/index.rst:57
+msgid ""
+"Built-in support for `zephyr-7b-alpha "
+"<https://huggingface.co/HuggingFaceH4/zephyr-7b-alpha>`_ and `zephyr-7b-"
+"beta <https://huggingface.co/HuggingFaceH4/zephyr-7b-beta>`_: `#597 "
+"<https://github.com/xorbitsai/inference/pull/597>`_"
+msgstr ""
+
+#: ../../source/index.rst:58
+msgid ""
+"Built-in support for `chatglm3 "
+"<https://huggingface.co/THUDM/chatglm3-6b): "
+"[#587](https://github.com/xorbitsai/inference/pull/587>`_"
+msgstr ""
+
+#: ../../source/index.rst:59
 msgid ""
 "Built-in support for `mistral-v0.1 <https://huggingface.co/mistralai"
 "/Mistral-7B-v0.1>`_ and `mistral-instruct-v0.1 "
@@ -124,11 +162,11 @@ msgid ""
 "<https://github.com/xorbitsai/inference/pull/510>`_"
 msgstr ""
 
-#: ../../source/index.rst:57
+#: ../../source/index.rst:63
 msgid "Integrations"
 msgstr ""
 
-#: ../../source/index.rst:58
+#: ../../source/index.rst:64
 msgid ""
 "`Dify <https://docs.dify.ai/advanced/model-configuration/xinference>`_: "
 "an LLMOps platform that enables developers (and even non-developers) to "
@@ -136,17 +174,17 @@ msgid ""
 "ensuring they are visual, operable, and improvable."
 msgstr ""
 
-#: ../../source/index.rst:59
+#: ../../source/index.rst:65
 msgid ""
 "`Chatbox <https://chatboxai.app/>`_: a desktop client for multiple "
 "cutting-edge LLM models, available on Windows, Mac and Linux."
 msgstr ""
 
-#: ../../source/index.rst:63
+#: ../../source/index.rst:69
 msgid "License"
 msgstr ""
 
-#: ../../source/index.rst:64
+#: ../../source/index.rst:70
 msgid "`Apache 2 <https://github.com/xorbitsai/inference/blob/main/LICENSE>`_"
 msgstr ""
 
