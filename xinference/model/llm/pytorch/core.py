@@ -242,9 +242,7 @@ class PytorchModel(LLM):
             generate_stream_chatglm,
             generate_stream_falcon,
         )
-
         model_family_name = self.model_family.model_name.lower()
-        
         def generator_wrapper(
             prompt: str, generate_config: PytorchGenerateConfig
         ) -> Iterator[CompletionChunk]:
