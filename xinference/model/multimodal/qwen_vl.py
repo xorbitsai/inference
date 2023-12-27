@@ -1,5 +1,4 @@
 import operator
-import tempfile
 import time
 import uuid
 from typing import Dict, Iterator, List, Optional, Union
@@ -89,14 +88,6 @@ class QwenVLChat(LVLM):
         response, history = self._model.chat(
             self._tokenizer, query=prompt, history=qwen_history
         )
-        if "<box>" in response:
-            image = self._tokenizer.draw_bbox_on_latest_picture(response, history)
-            if image:
-                with tempfile.NamedTemporaryFile(
-                    suffix=".jpg", delete_on_close=False
-                ) as output:
-                    image.save(output)
-                response = output.name
         return ChatCompletion(
             id="chat" + str(uuid.uuid1()),
             object="chat.completion",
