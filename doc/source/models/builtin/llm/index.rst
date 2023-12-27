@@ -79,6 +79,8 @@ The following is a list of built-in LLM in Xinference:
   
    orca
   
+   phi-2
+  
    qwen-chat
   
    skywork

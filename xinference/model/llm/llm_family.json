@@ -353,6 +353,51 @@
   {
     "version": 1,
     "context_length": 2048,
+    "model_name": "phi-2",
+    "model_lang": [
+      "en"
+    ],
+    "model_ability": [
+      "generate"
+    ],
+    "model_description": "Phi-2 is a 2.7B Transformer based LLM used for research on model safety, trained with data similar to Phi-1.5 but augmented with synthetic texts and curated websites.",
+    "model_specs": [
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 2,
+        "quantizations": [
+          "Q2_K",
+          "Q3_K_S",
+          "Q3_K_M",
+          "Q3_K_L",
+          "Q4_0",
+          "Q4_K_S",
+          "Q4_K_M",
+          "Q5_0",
+          "Q5_K_S",
+          "Q5_K_M",
+          "Q6_K",
+          "Q8_0"
+        ],
+        "model_id": "TheBloke/phi-2-GGUF",
+        "model_file_name_template": "phi-2.{quantization}.gguf"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 2,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "microsoft/phi-2",
+        "model_revision": "d3186761bf5c4409f7679359284066c25ab668ee"
+      }
+    ]
+  },
+  {
+    "version": 1,
+    "context_length": 2048,
     "model_name": "chatglm",
     "model_lang": [
       "en",
