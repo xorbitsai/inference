@@ -1097,10 +1097,15 @@ def run(
 
 
 def run_in_subprocess(
-    supervisor_address: str, host: str, port: int, logging_conf: Optional[dict] = None
+    supervisor_address: str,
+    host: str,
+    port: int,
+    logging_conf: Optional[dict] = None,
+    auth_config_file: Optional[str] = None,
 ) -> multiprocessing.Process:
     p = multiprocessing.Process(
-        target=run, args=(supervisor_address, host, port, logging_conf)
+        target=run,
+        args=(supervisor_address, host, port, logging_conf, auth_config_file),
     )
     p.daemon = True
     p.start()
