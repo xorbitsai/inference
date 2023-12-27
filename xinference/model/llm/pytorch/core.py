@@ -29,6 +29,7 @@ from ....types import (
     PytorchGenerateConfig,
     PytorchModelConfig,
 )
+from ...utils import select_device
 from ..core import LLM
 from ..llm_family import LLMFamilyV1, LLMSpecV1
 from ..utils import ChatModelMixin
@@ -122,7 +123,7 @@ class PytorchModel(LLM):
         quantization = self.quantization
         num_gpus = len(cuda_visible_devices) if cuda_visible_devices_env != "-1" else 0
         device = self._pytorch_model_config.get("device", "auto")
-        self._pytorch_model_config["device"] = self._select_device(device)
+        self._pytorch_model_config["device"] = select_device(device)
         self._device = self._pytorch_model_config["device"]
 
         if self._device == "cpu":
@@ -184,33 +185,6 @@ class PytorchModel(LLM):
         if self._device == "mps":
             self._model.to(self._device)
         logger.debug(f"Model Memory: {self._model.get_memory_footprint()}")
-
-    def _select_device(self, device: str) -> str:
-        try:
-            import torch
-        except ImportError:
-            raise ImportError(
-                f"Failed to import module 'torch'. Please make sure 'torch' is installed.\n\n"
-            )
-
-        if device == "auto":
-            # When env CUDA_VISIBLE_DEVICES=-1, torch.cuda.is_available() return False
-            if torch.cuda.is_available():
-                return "cuda"
-            elif torch.backends.mps.is_available():
-                return "mps"
-            return "cpu"
-        elif device == "cuda":
-            if not torch.cuda.is_available():
-                raise ValueError("cuda is unavailable in your environment")
-        elif device == "mps":
-            if not torch.backends.mps.is_available():
-                raise ValueError("mps is unavailable in your environment")
-        elif device == "cpu":
-            pass
-        else:
-            raise ValueError(f"Device {device} is not supported in temporary")
-        return device
 
     @classmethod
     def match(

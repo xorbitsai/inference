@@ -23,6 +23,30 @@ def test_restful_api_for_multimodal(setup):
         model_uid="my_controlnet",
         model_name="qwen-vl-chat",
         model_type="multimodal",
+        device="cpu",
     )
     model = client.get_model(model_uid)
     print(model)
+
+    # openai client
+    import openai
+
+    client = openai.Client(api_key="not empty", base_url=f"{endpoint}/v1")
+    completion = client.chat.completions.create(
+        model=model_uid,
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "What’s in this image?"},
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg"
+                        },
+                    },
+                ],
+            }
+        ],
+    )
+    print(completion)

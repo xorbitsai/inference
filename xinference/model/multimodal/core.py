@@ -124,8 +124,7 @@ class LVLM(abc.ABC):
         model_spec: "LVLMSpecV1",
         quantization: str,
         model_path: str,
-        *args,
-        **kwargs,
+        kwargs: Dict,
     ):
         self.model_uid, self.replica, self.rep_id = parse_replica_model_uid(
             replica_model_uid
@@ -134,10 +133,8 @@ class LVLM(abc.ABC):
         self.model_spec = model_spec
         self.quantization = quantization
         self.model_path = model_path
-        if args:
-            raise ValueError(f"Unrecognized positional arguments: {args}")
-        if kwargs:
-            raise ValueError(f"Unrecognized keyword arguments: {kwargs}")
+        self.kwargs = kwargs
+        logger.info("Init model %s with kwargs: %s", self.model_uid, kwargs)
 
     @staticmethod
     def handle_model_size(model_size_in_billions: Union[str, int]) -> Union[int, float]:

@@ -1,10 +1,25 @@
+import operator
+import tempfile
+import time
+import uuid
 from typing import Dict, Iterator, List, Optional, Union
 
-from ...types import ChatCompletion, ChatCompletionChunk
+from ...types import (
+    ChatCompletion,
+    ChatCompletionChoice,
+    ChatCompletionChunk,
+    CompletionUsage,
+)
+from ..utils import select_device
 from .core import LVLM, LVLMFamilyV1, LVLMSpecV1
 
 
 class QwenVLChat(LVLM):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._tokenizer = None
+        self._model = None
+
     @classmethod
     def match(
         cls, model_family: "LVLMFamilyV1", model_spec: "LVLMSpecV1", quantization: str
@@ -14,13 +29,70 @@ class QwenVLChat(LVLM):
         return False
 
     def load(self):
-        raise NotImplementedError
+        from transformers import AutoModelForCausalLM, AutoTokenizer
+        from transformers.generation import GenerationConfig
+
+        device = self.kwargs.get("device", "auto")
+        device = select_device(device)
+
+        self._tokenizer = AutoTokenizer.from_pretrained(
+            self.model_path,
+            trust_remote_code=True,
+            code_revision=self.model_spec.model_revision,
+        )
+        self._model = AutoModelForCausalLM.from_pretrained(
+            self.model_path,
+            device_map=device,
+            trust_remote_code=True,
+            code_revision=self.model_spec.model_revision,
+        ).eval()
+        # Specify hyperparameters for generation
+        self._model.generation_config = GenerationConfig.from_pretrained(
+            self.model_path,
+            trust_remote_code=True,
+            code_revision=self.model_spec.model_revision,
+        )
 
     def chat(
         self,
-        prompt: str,
+        prompt: Union[str, List[Dict]],
         system_prompt: Optional[str] = None,
         chat_history: Optional[List[Dict]] = None,
         generate_config: Optional[Dict] = None,
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
-        raise NotImplementedError
+        if not isinstance(prompt, str):
+            prompt = [
+                {"image": p["image_url"]["url"], "type": "image"}
+                if p.get("type") == "image_url"
+                else p
+                for p in prompt
+            ]
+            prompt = sorted(prompt, key=operator.itemgetter("type"))
+            prompt = self._tokenizer.from_list_format(prompt)
+        response, history = self._model.chat(
+            self._tokenizer, query=prompt, chat_history=chat_history
+        )
+        if "<box>" in response:
+            image = self._tokenizer.draw_bbox_on_latest_picture(response, history)
+            if image:
+                with tempfile.NamedTemporaryFile(
+                    suffix=".jpg", delete_on_close=False
+                ) as output:
+                    image.save(output)
+                response = output.name
+        return ChatCompletion(
+            id="chat" + str(uuid.uuid1()),
+            object="chat.completion",
+            created=int(time.time()),
+            model=self.model_uid,
+            choices=[
+                ChatCompletionChoice(
+                    index=0,
+                    message={"role": "assistant", "content": response},
+                    finish_reason="stop",
+                )
+            ],
+            usage=CompletionUsage(
+                prompt_tokens=-1, completion_tokens=-1, total_tokens=-1
+            ),
+        )

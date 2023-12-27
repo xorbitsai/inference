@@ -19,7 +19,7 @@
           "none"
         ],
         "model_id": "Qwen/Qwen-VL-Chat",
-        "model_revision": "989c61aac20be61660684ab7400e2e383e67b3ef"
+        "model_revision": "6665c780ade5ff3f08853b4262dcb9c8f9598d42"
       }
     ],
     "prompt_style": {
