@@ -19,77 +19,79 @@ msgstr ""
 
 #: ../../source/examples/langchain_streamlit_doc_chat.rst:5
 msgid "Example: LangChain Streamlit Doc Chat📄"
-msgstr ""
+msgstr "示例：LangChain Streamlit 文档聊天📄"
 
 #: ../../source/examples/langchain_streamlit_doc_chat.rst:7
 msgid "**Description**:"
-msgstr ""
+msgstr "**描述**："
 
 #: ../../source/examples/langchain_streamlit_doc_chat.rst:9
 msgid ""
 "This Streamlit-based application demonstrates a AI chatbot powered by "
 "local LLM and embedding models"
-msgstr ""
+msgstr "这个基于 Streamlit 的应用演示了由本地 LLM 和 embedding 模型提供支持的 AI 聊天机器人。"
 
 #: ../../source/examples/langchain_streamlit_doc_chat.rst:11
 msgid "**Used Technology**:"
-msgstr ""
+msgstr "**涉及技术**："
 
 #: ../../source/examples/langchain_streamlit_doc_chat.rst:13
 msgid ""
 "@ `Xinference <https://github.com/xorbitsai/inference>`_: as the LLM and "
 "embedding model hosting service"
-msgstr ""
+msgstr "@ `Xinference <https://github.com/xorbitsai/inference>`_：作为 LLM 和 embedding 模型托管服务"
 
 #: ../../source/examples/langchain_streamlit_doc_chat.rst:15
 msgid ""
 "@ `LangChain <https://github.com/run-llama/llama_index>`_: orchestrates "
 "the entire document processing and query answering pipeline"
-msgstr ""
+msgstr "@ `LangChain <https://github.com/run-llama/llama_index>`_：编排整个文档处理和查询回答的管道"
 
 #: ../../source/examples/langchain_streamlit_doc_chat.rst:17
 msgid "@ `Streamlit <https://streamlit.io/>`_: for interactive user interface"
-msgstr ""
+msgstr "@ `Streamlit <https://streamlit.io/>`_：用于交互式用户界面"
 
 #: ../../source/examples/langchain_streamlit_doc_chat.rst:19
 msgid "**Detailed Explanation on the Demo Functionality** :"
-msgstr ""
+msgstr "**关于演示功能的详细说明**："
 
 #: ../../source/examples/langchain_streamlit_doc_chat.rst:21
 msgid "Streamlit UI for uploading text files, enhancing user interaction."
-msgstr ""
+msgstr "Streamlit 用户界面，用于上传文本文件，提升用户交互。"
 
 #: ../../source/examples/langchain_streamlit_doc_chat.rst:23
 msgid ""
 "Texts are split into chunks and embedded using Xinference for efficient "
 "processing."
-msgstr ""
+msgstr "文本被分割成块，并使用 Xinference 进行 embed 操作，以实现高效的处理。"
 
 #: ../../source/examples/langchain_streamlit_doc_chat.rst:25
 msgid ""
 "Executes similarity searches on embedded texts to pinpoint relevant "
 "sections for user queries."
-msgstr ""
+msgstr "对嵌入的文本执行相似性搜索，以精确定位用户查询的相关部分。"
 
 #: ../../source/examples/langchain_streamlit_doc_chat.rst:27
 msgid "Utilizes a structured prompt template for focused LLM interactions."
-msgstr ""
+msgstr "利用结构化的提示词模板与 LLM 模型进行交互。"
 
 #: ../../source/examples/langchain_streamlit_doc_chat.rst:29
 msgid ""
 "Xinference's LLM processes queries within the context of relevant "
 "document parts, providing accurate responses."
 msgstr ""
+"Xinference 的 LLM 在相关文档部分的上下文中处理查询，提供准确的响应。"
 
 #: ../../source/examples/langchain_streamlit_doc_chat.rst:31
 msgid ""
 "The system facilitates effective and context-sensitive document "
 "exploration, aiding users in information retrieval."
 msgstr ""
+"该系统实现了有效的、上下文敏感的文档搜索，帮助用户进行高效信息检索。"
 
 #: ../../source/examples/langchain_streamlit_doc_chat.rst:33
 msgid "**Source Code** :"
-msgstr ""
+msgstr "**源代码**："
 
 #: ../../source/examples/langchain_streamlit_doc_chat.rst:34
 msgid ""

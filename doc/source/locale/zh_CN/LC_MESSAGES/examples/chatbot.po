@@ -25,53 +25,60 @@ msgstr "示例：命令行聊天机器人 🤖️"
 
 #: ../../source/examples/chatbot.rst:7
 msgid "**Description**:"
-msgstr ""
+msgstr "**描述**："
 
 #: ../../source/examples/chatbot.rst:9
 msgid ""
 "Demonstrate how to interact with Xinference to play with LLM chat "
 "functionality with an AI agent in command line💻"
 msgstr ""
+"演示如何与 Xinference 交互，在命令行中基于 LLM 的聊天功能与 AI 代理互动。💻"
 
 #: ../../source/examples/chatbot.rst:11
 msgid "**Used Technology**:"
-msgstr ""
+msgstr "**涉及技术**："
 
 #: ../../source/examples/chatbot.rst:13
 msgid ""
 "@ `ggerganov <https://twitter.com/ggerganov>`_ 's `ggml "
 "<https://github.com/ggerganov/ggml>`_"
 msgstr ""
+"@ `ggerganov <https://twitter.com/ggerganov>`_ `ggml <https://github.com/ggerganov/ggml>`_"
 
 #: ../../source/examples/chatbot.rst:15
 msgid "@ `Xinference <https://github.com/xorbitsai/inference>`_ as a launcher"
 msgstr ""
+"@ `Xinference <https://github.com/xorbitsai/inference>`_ 作为平台"
 
 #: ../../source/examples/chatbot.rst:17
 msgid ""
 "@ All LLaMA and Chatglm models supported by `Xorbitsio inference "
 "<https://github.com/xorbitsai/inference>`_"
 msgstr ""
+"由 `Xinference 推理 <https://github.com/xorbitsai/inference>`_ 支持的所有 LLaMA 和 Chatglm 模型"
 
 #: ../../source/examples/chatbot.rst:19
 msgid "**Detailed Explanation on the Demo Functionality** :"
-msgstr ""
+msgstr "**关于演示功能的详细说明**："
 
 #: ../../source/examples/chatbot.rst:21
 msgid ""
 "Take the user command line input in the terminal and grab the required "
 "parameters for model launching."
 msgstr ""
+"在终端中接受用户的命令行输入，并获取启动模型所需的参数。"
 
 #: ../../source/examples/chatbot.rst:23
 msgid ""
 "Launch the Xinference frameworks and automatically deploy the model user "
 "demanded into the cluster."
 msgstr ""
+"启动 Xinference 框架，并自动将用户需求的模型部署到集群中。"
 
 #: ../../source/examples/chatbot.rst:25
 msgid "Initialize an empty chat history to store all the context in the chatroom."
 msgstr ""
+"初始化一个空的聊天历史，以存储聊天室中的所有上下文。"
 
 #: ../../source/examples/chatbot.rst:27
 msgid ""
@@ -79,29 +86,21 @@ msgid ""
 "response based on the prompt and the chat history. Show the Output of the"
 " response in the terminal."
 msgstr ""
+"递归地请求用户的输入作为提示词，让模型基于提示词和聊天历史生成响应。在终端中显示响应的输出。"
 
 #: ../../source/examples/chatbot.rst:30
 msgid ""
 "Store the user's input and agent's response into the chat history as "
 "context for the upcoming rounds."
 msgstr ""
+"将用户的输入和代理的响应存储到聊天历史中，作为即将到来的对话轮次的上下文。"
 
 #: ../../source/examples/chatbot.rst:32
 msgid "**Source Code** :"
-msgstr ""
+msgstr "**源代码**："
 
 #: ../../source/examples/chatbot.rst:33
 msgid ""
 "`chat "
 "<https://github.com/RayJi01/Xprobe_inference/blob/main/examples/chat.py>`_"
 msgstr ""
-
-#~ msgid "Example: chatbot 🤖️"
-#~ msgstr ""
-
-#~ msgid ""
-#~ "Demonstrate how to interact with "
-#~ "Xinference to play with LLM chat "
-#~ "functionality with an AI agent 💻"
-#~ msgstr ""
-
