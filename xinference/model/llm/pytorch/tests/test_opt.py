@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import asyncio
+import json
 import os
 import threading
 import time
@@ -146,4 +147,5 @@ async def test_concurrent_pytorch_model(setup):
         )
         coros.append(co)
     r = await asyncio.gather(*coros)
+    r = [json.loads(i) for i in r]
     assert not any(r)
