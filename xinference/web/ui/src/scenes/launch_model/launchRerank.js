@@ -56,7 +56,10 @@ const LaunchRerank = () => {
         })
       )
 
-      setRegistrationData(newRegistrationData)
+      const builtinRerankModels = newRegistrationData.filter((v) => {
+        return v.is_builtin
+      })
+      setRegistrationData(builtinRerankModels)
     } catch (error) {
       console.error('Error:', error)
     } finally {

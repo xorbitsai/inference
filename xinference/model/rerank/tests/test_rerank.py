@@ -11,6 +11,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import os
+import shutil
+import tempfile
+
+import pytest
 
 from ....client import Client
 
@@ -46,3 +51,79 @@ def test_restful_api(setup):
     assert len(scores["results"]) == 3
     assert scores["results"][0]["index"] == 0
     assert scores["results"][0]["document"] == corpus[0]
+
+
+def test_from_local_uri():
+    from ..core import cache_from_uri
+    from ..custom import CustomRerankModelSpec
+
+    tmp_dir = tempfile.mkdtemp()
+
+    model_spec = CustomRerankModelSpec(
+        model_name="custom_test_rerank_a",
+        language=["zh"],
+        model_uri=os.path.abspath(tmp_dir),
+    )
+
+    cache_dir = cache_from_uri(model_spec=model_spec)
+    assert os.path.exists(cache_dir)
+    assert os.path.islink(cache_dir)
+    os.remove(cache_dir)
+    shutil.rmtree(tmp_dir, ignore_errors=True)
+
+
+def test_register_custom_rerank():
+    from ....constants import XINFERENCE_CACHE_DIR
+    from ..core import cache_from_uri
+    from ..custom import CustomRerankModelSpec, register_rerank, unregister_rerank
+
+    tmp_dir = tempfile.mkdtemp()
+
+    # correct
+    model_spec = CustomRerankModelSpec(
+        model_name="custom_test_b",
+        language=["zh"],
+        model_uri=os.path.abspath(tmp_dir),
+    )
+
+    register_rerank(model_spec, False)
+    cache_from_uri(model_spec)
+    model_cache_path = os.path.join(XINFERENCE_CACHE_DIR, model_spec.model_name)
+    assert os.path.exists(model_cache_path)
+    assert os.path.islink(model_cache_path)
+    os.remove(model_cache_path)
+
+    # Invalid name
+    model_spec = CustomRerankModelSpec(
+        model_name="custom_test_b-v1.5",
+        language=["zh"],
+        model_uri=os.path.abspath(tmp_dir),
+    )
+    with pytest.raises(ValueError):
+        register_rerank(model_spec, False)
+
+    # Invalid path
+    model_spec = CustomRerankModelSpec(
+        model_name="custom_test_b-v15",
+        language=["zh"],
+        model_uri="file:///c/d",
+    )
+    register_rerank(model_spec, False)
+
+    # name conflict
+    model_spec = CustomRerankModelSpec(
+        model_name="custom_test_c",
+        language=["zh"],
+        model_uri=os.path.abspath(tmp_dir),
+    )
+    register_rerank(model_spec, False)
+    with pytest.raises(ValueError):
+        register_rerank(model_spec, False)
+
+    # unregister
+    unregister_rerank("custom_test_b")
+    unregister_rerank("custom_test_c")
+    with pytest.raises(ValueError):
+        unregister_rerank("custom_test_d")
+
+    shutil.rmtree(tmp_dir, ignore_errors=True)

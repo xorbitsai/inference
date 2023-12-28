@@ -96,6 +96,11 @@ class WorkerActor(xo.StatelessActor):
         )
         from ..model.llm import register_llm, unregister_llm
         from ..model.llm.llm_family import CustomLLMFamilyV1
+        from ..model.rerank.custom import (
+            CustomRerankModelSpec,
+            register_rerank,
+            unregister_rerank,
+        )
 
         self._custom_register_type_to_cls: Dict[str, Tuple] = {
             "LLM": (CustomLLMFamilyV1, register_llm, unregister_llm),
@@ -104,6 +109,7 @@ class WorkerActor(xo.StatelessActor):
                 register_embedding,
                 unregister_embedding,
             ),
+            "rerank": (CustomRerankModelSpec, register_rerank, unregister_rerank),
         }
 
         # Windows does not have signal handler
