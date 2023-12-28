@@ -106,9 +106,8 @@ class ClientIteratorWrapper(IteratorWrapper):
 
     @classmethod
     def wrap(cls, iterator_wrapper):
-        state = iterator_wrapper.__getstate__()
         c = cls.__new__(cls)
-        c.__dict__.update(state)
+        c.__dict__.update(iterator_wrapper.__dict__)
         return c
 
 
