@@ -102,3 +102,6 @@ $ xinference-local
 | [Slack](https://join.slack.com/t/xorbitsio/shared_invite/zt-1o3z9ucdh-RbfhbPVpx7prOVdM1CAuxg)   | 与其他 Xorbits 用户合作。                          |
 | [Twitter](https://twitter.com/xorbitsio)                                                     | 及时了解新功能。                                  |
 | [微信社群](https://xorbits.cn/assets/images/wechat_pr.png)                                     | 与其他 Xorbits 用户交流。                         |
+| [知乎](https://zhihu.com/org/xorbits)                                                         | 了解团队最新的进展。                                  |
+
+
