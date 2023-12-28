@@ -27,68 +27,69 @@ msgstr "示例"
 msgid ""
 "Here you can find examples and resources to learn about how to use "
 "Xinference."
-msgstr ""
+msgstr "在这里，你可以找到关于如何使用 Xinference 的示例和学习资源。"
 
 #: ../../source/examples/index.rst:20
 msgid "Demos"
-msgstr ""
+msgstr "示例"
 
 #: ../../source/examples/index.rst:22
 msgid "End-to-end applications of using Xinference:"
-msgstr ""
+msgstr "使用 Xinference 的端到端应用："
 
 #: ../../source/examples/index.rst:24
 msgid "`Voice Conversations with AI Agents on M2 Max <ai_podcast.html>`_"
-msgstr ""
+msgstr "`在M2 Max上与AI代理进行语音对话的播客 <ai_podcast.html>`_"
 
 #: ../../source/examples/index.rst:26
 msgid "`Interacting with LLM Models: A Command-Line Example <chatbot.html>`_"
-msgstr ""
+msgstr "`与 LLM 模型互动：命令行示例 <chatbot.html>`_"
 
 #: ../../source/examples/index.rst:28
 msgid ""
 "`Interacting with LLM Models: A Gradio ChatInterface Example "
 "<gradio_chatinterface.html>`_"
-msgstr ""
+msgstr "`与 LLM 模型互动：Gradio 聊天页面示例 <chatbot.html>`_"
 
 #: ../../source/examples/index.rst:30
 msgid "`PDF Chatbot with Local LLM and Embeddings <pdf_chatbot.html>`_"
-msgstr ""
+msgstr "`使用本地 LLM 和 embedding 模型的 PDF 聊天机器人 <pdf_chatbot.html>`_"
 
 #: ../../source/examples/index.rst:32
 msgid ""
 "`Local Doc Conversations with LangChain and Streamlit "
 "<langchain_streamlit_doc_chat.html>`_"
-msgstr ""
+msgstr "`使用 LangChain 和 Streamlit 进行本地文档对话 <langchain_streamlit_doc_chat.html>`_"
 
 #: ../../source/examples/index.rst:34
 msgid ""
 "If you come across other examples in your own workflows we encourage you "
 "to contribute a `PR <https://github.com/xorbitsai/inference/pulls>`_!"
-msgstr ""
+msgstr "如果在你自己的工作流中遇到其他示例，我们鼓励你贡献一个`PR <https://github.com/xorbitsai/inference/pulls>`_！"
 
 #: ../../source/examples/index.rst:38
 msgid "Tutorials"
-msgstr ""
+msgstr "教程"
 
 #: ../../source/examples/index.rst:40
 msgid ""
 "The following tutorials cover the basics of using Xinference in different"
 " scenarios:"
-msgstr ""
+msgstr "以下教程涵盖了在不同场景中使用 Xinference 的基础知识："
 
 #: ../../source/examples/index.rst:42
 msgid ""
 "`[Notebook] Question-answering(QA) Application with Xinference, Milvus "
 "and LangChain "
 "<https://github.com/RayJi01/Xprobe_inference/blob/main/examples/LangChain_QA.ipynb>`_"
-msgstr ""
+msgstr "`[Notebook] 使用Xinference、Milvus 和 LangChain 的问答（QA）应用 "
+"<https://github.com/RayJi01/Xprobe_inference/blob/main/examples/LangChain_QA.ipynb>`_"
 
 #: ../../source/examples/index.rst:44
 msgid ""
 "`Using Xinference local LLMs within LlamaIndex "
 "<https://docs.llamaindex.ai/en/stable/examples/llm/xinference_local_deployment.html>`_"
-msgstr ""
+msgstr "`在 LlamaIndex 中使用 Xinference 本地 LLMs <https://docs.llamaindex.ai/en/stable/examples/llm/xinference_local_deployment.html>`_"
 
 #: ../../source/examples/index.rst:46
 msgid ""
@@ -110,7 +111,7 @@ msgstr ""
 
 #: ../../source/examples/index.rst:54
 msgid "Third-Party Library Integrations"
-msgstr ""
+msgstr "第三方库集成"
 
 #: ../../source/examples/index.rst:56
 msgid ""
@@ -119,6 +120,7 @@ msgid ""
 " AI landscape. Xinference can be used with the following third-party "
 "libraries:"
 msgstr ""
+"Xinference 能够无缝集成和部署开源 AI 模型，因此支持 AI 领域主流工具包。Xinference 可以与以下第三方库一起使用："
 
 #: ../../source/examples/index.rst:59
 msgid ""
@@ -133,13 +135,3 @@ msgid ""
 "`LlamaIndex Xinference LLM "
 "<https://docs.llamaindex.ai/en/stable/api_reference/llms/xinference.html>`_"
 msgstr ""
-
-#~ msgid "End-to-end examples of using Xinference for various tasks:"
-#~ msgstr ""
-
-#~ msgid ""
-#~ "`Build a QA Application with Xinference"
-#~ " and LangChain "
-#~ "<https://github.com/RayJi01/Xprobe_inference/blob/main/examples/LangChain_QA.ipynb>`_"
-#~ msgstr ""
-

@@ -21,49 +21,54 @@ msgstr ""
 
 #: ../../source/examples/gradio_chatinterface.rst:5
 msgid "Example: Gradio ChatInterface🤗"
-msgstr ""
+msgstr "示例：Gradio 聊天界面🤗"
 
 #: ../../source/examples/gradio_chatinterface.rst:7
 msgid "**Description**:"
-msgstr ""
+msgstr "**描述**："
 
 #: ../../source/examples/gradio_chatinterface.rst:9
 msgid ""
 "This example showcases how to build a chatbot with 120 lines of code with"
 " Gradio ChatInterface and Xinference local LLM"
 msgstr ""
+"这个例子展示了如何使用Gradio ChatInterface 聊天界面接口和 Xinference 本地LLM构建一个只有120行代码的聊天机器人。"
 
 #: ../../source/examples/gradio_chatinterface.rst:11
 msgid "**Used Technology**:"
-msgstr ""
+msgstr "**涉及技术**："
 
 #: ../../source/examples/gradio_chatinterface.rst:13
 msgid ""
 "@ `Xinference <https://github.com/xorbitsai/inference>`_ as a LLM model "
 "hosting service"
 msgstr ""
+"@ `Xinference <https://github.com/xorbitsai/inference>`_ 作为 LLM 模型托管服务"
 
 #: ../../source/examples/gradio_chatinterface.rst:15
 msgid ""
 "@ `Gradio <https://github.com/gradio-app/gradio>`_ as a web interface for"
 " the chatbot"
 msgstr ""
+"@ `Gradio <https://github.com/gradio-app/gradio>`_ 作为聊天机器人的 Web 界面"
 
 #: ../../source/examples/gradio_chatinterface.rst:17
 msgid "**Detailed Explanation on the Demo Functionality** :"
-msgstr ""
+msgstr "**关于演示功能的详细说明**："
 
 #: ../../source/examples/gradio_chatinterface.rst:19
 msgid ""
 "Parse user-provided command line arguments to capture essential model "
 "parameters such as model name, size, format, and quantization."
 msgstr ""
+"解析用户提供的命令行参数，以捕获关键的模型参数，如模型名称、大小、格式和量化方式。"
 
 #: ../../source/examples/gradio_chatinterface.rst:21
 msgid ""
 "Establish a connection to the Xinference framework and deploy the "
 "specified model, ensuring it's ready for real-time interactions."
 msgstr ""
+"建立与 Xinference 框架的连接并部署指定的模型，确保它准备好进行实时交互。"
 
 #: ../../source/examples/gradio_chatinterface.rst:23
 msgid ""
@@ -71,26 +76,28 @@ msgid ""
 "and store chat interactions, ensuring the model has context for "
 "generating relevant responses."
 msgstr ""
+"实现辅助函数（flatten和to_chat），以高效处理和存储聊天交互，确保模型具有生成相关响应的上下文。"
 
 #: ../../source/examples/gradio_chatinterface.rst:25
 msgid ""
 "Set up an interactive chat interface using Gradio, allowing users to "
 "communicate with the model in a user-friendly environment."
 msgstr ""
+"使用 Gradio 设置交互式聊天界面，允许用户在用户友好的环境中与模型进行通信。"
 
 #: ../../source/examples/gradio_chatinterface.rst:27
 msgid ""
 "Activate the Gradio web interface, enabling users to start their chat "
 "sessions and receive model-generated responses based on their queries."
 msgstr ""
+"启动 Gradio Web 界面，使用户能够开始他们的聊天会话，并根据他们的查询接收模型生成的响应。"
 
 #: ../../source/examples/gradio_chatinterface.rst:29
 msgid "**Source Code** :"
-msgstr ""
+msgstr "**源代码**："
 
 #: ../../source/examples/gradio_chatinterface.rst:30
 msgid ""
 "`Gradio ChatInterface "
 "<https://github.com/xorbitsai/inference/blob/main/examples/gradio_chatinterface.py>`_"
 msgstr ""
-
