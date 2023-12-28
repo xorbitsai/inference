@@ -14,6 +14,7 @@
 
 import asyncio
 import inspect
+import json
 import os
 import uuid
 from typing import (
@@ -30,6 +31,7 @@ from typing import (
     Union,
 )
 
+import sse_starlette.sse
 import xoscar as xo
 
 if TYPE_CHECKING:
@@ -186,7 +188,7 @@ class ModelActor(xo.StatelessActor):
             )
         )
 
-    async def _wrap_generator(self, ret: Any):
+    def _wrap_generator(self, ret: Any):
         if inspect.isgenerator(ret) or inspect.isasyncgen(ret):
             if self._lock is not None and self._generators:
                 raise Exception("Parallel generation is not supported by ggml.")
@@ -199,7 +201,7 @@ class ModelActor(xo.StatelessActor):
                 model_actor_uid=self.uid,
             )
         else:
-            return ret
+            return json_dumps(ret)
 
     async def _call_wrapper(self, _wrapper: Callable):
         try:
@@ -335,9 +337,10 @@ class ModelActor(xo.StatelessActor):
             )
 
         def _wrapper():
-            return getattr(self._model, "text_to_image")(
+            r = getattr(self._model, "text_to_image")(
                 prompt, n, size, response_format, *args, **kwargs
             )
+            return json_dumps(r)
 
         return await self._call_wrapper(_wrapper)
 
@@ -358,7 +361,7 @@ class ModelActor(xo.StatelessActor):
             )
 
         def _wrapper():
-            return getattr(self._model, "image_to_image")(
+            r = getattr(self._model, "image_to_image")(
                 image,
                 prompt,
                 negative_prompt,
@@ -368,6 +371,7 @@ class ModelActor(xo.StatelessActor):
                 *args,
                 **kwargs,
             )
+            return json_dumps(r)
 
         return await self._call_wrapper(_wrapper)
 
@@ -381,14 +385,18 @@ class ModelActor(xo.StatelessActor):
 
         def _wrapper():
             try:
-                return next(gen)
+                v = dict(data=json.dumps(next(gen)))
+                return sse_starlette.sse.ensure_bytes(v, None)
             except StopIteration:
                 return stop
 
         async def _async_wrapper():
             try:
                 # anext is only available for Python >= 3.10
-                return await gen.__anext__()  # noqa: F821
+                v = await gen.__anext__()
+                v = await asyncio.to_thread(json.dumps, v)
+                v = dict(data=v)  # noqa: F821
+                return await asyncio.to_thread(sse_starlette.sse.ensure_bytes, v, None)
             except StopAsyncIteration:
                 return stop
 
