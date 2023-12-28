@@ -243,10 +243,12 @@ class PytorchModel(LLM):
             generate_stream_falcon,
         )
 
+        model_family_name = self.model_family.model_name.lower()
+
         def generator_wrapper(
             prompt: str, generate_config: PytorchGenerateConfig
         ) -> Iterator[CompletionChunk]:
-            if "falcon" in self.model_family.model_name:
+            if "falcon" in model_family_name:
                 for completion_chunk, _ in generate_stream_falcon(
                     self.model_uid,
                     self._model,
@@ -256,7 +258,7 @@ class PytorchModel(LLM):
                     generate_config,
                 ):
                     yield completion_chunk
-            elif "chatglm" in self.model_family.model_name:
+            elif "chatglm" in model_family_name:
                 for completion_chunk, _ in generate_stream_chatglm(
                     self.model_uid,
                     self._model,
@@ -288,7 +290,7 @@ class PytorchModel(LLM):
 
         stream = generate_config.get("stream", False)
         if not stream:
-            if "falcon" in self.model_family.model_name:
+            if "falcon" in model_family_name:
                 for completion_chunk, completion_usage in generate_stream_falcon(
                     self.model_uid,
                     self._model,
@@ -298,7 +300,7 @@ class PytorchModel(LLM):
                     generate_config,
                 ):
                     pass
-            elif "chatglm" in self.model_family.model_name:
+            elif "chatglm" in model_family_name:
                 for completion_chunk, completion_usage in generate_stream_chatglm(
                     self.model_uid,
                     self._model,
@@ -495,7 +497,7 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
                 generate_config["stop"] = [stop, "Observation:"]
             elif isinstance(stop, Iterable):
                 assert not isinstance(stop, str)
-                generate_config["stop"] = stop + ["Observation:"]
+                generate_config["stop"] = list(stop) + ["Observation:"]
             else:
                 generate_config["stop"] = "Observation:"
 
