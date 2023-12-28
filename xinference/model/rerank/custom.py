@@ -46,10 +46,7 @@ def register_rerank(model_spec: CustomRerankModelSpec, persist: bool):
     from . import BUILTIN_RERANK_MODELS, MODELSCOPE_RERANK_MODELS
 
     if not is_valid_model_name(model_spec.model_name):
-        raise ValueError(
-            f"Invalid model name {model_spec.model_name}. The model name must start with a letter"
-            f" or a digit, and can only contain letters, digits, underscores, or dashes."
-        )
+        raise ValueError(f"Invalid model name {model_spec.model_name}.")
 
     with UD_RERANK_LOCK:
         for model_name in (
