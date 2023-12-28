@@ -18,7 +18,6 @@ import uuid
 from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Union
 
 import orjson
-import sse_starlette.sse
 import xoscar as xo
 
 from ...core.model import IteratorWrapper, ModelActor
