@@ -17,6 +17,7 @@ import uuid
 from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Union
 
 import xoscar as xo
+import orjson
 
 from ...core.model import ModelActor
 from ...core.supervisor import SupervisorActor
@@ -69,7 +70,7 @@ class EmbeddingModelHandle(ModelHandle):
         """
 
         coro = self._model_ref.create_embedding(input)
-        return self._isolation.call(coro)
+        return orjson.loads(self._isolation.call(coro))
 
 
 class RerankModelHandle(ModelHandle):
@@ -105,7 +106,7 @@ class RerankModelHandle(ModelHandle):
         coro = self._model_ref.rerank(
             documents, query, top_n, max_chunks_per_doc, return_documents
         )
-        results = self._isolation.call(coro)
+        results = orjson.loads(self._isolation.call(coro))
         for r in results["results"]:
             r["document"] = documents[r["index"]]
         return results
@@ -141,7 +142,10 @@ class GenerateModelHandle(EmbeddingModelHandle):
         """
 
         coro = self._model_ref.generate(prompt, generate_config)
-        return self._isolation.call(coro)
+        r = self._isolation.call(coro)
+        if isinstance(r, bytes):
+            return orjson.loads(r)
+        return r
 
 
 class ChatModelHandle(GenerateModelHandle):
@@ -186,7 +190,10 @@ class ChatModelHandle(GenerateModelHandle):
         coro = self._model_ref.chat(
             prompt, system_prompt, chat_history, generate_config
         )
-        return self._isolation.call(coro)
+        r = self._isolation.call(coro)
+        if isinstance(r, bytes):
+            return orjson.loads(r)
+        return r
 
 
 class ChatglmCppChatModelHandle(EmbeddingModelHandle):
@@ -218,7 +225,10 @@ class ChatglmCppChatModelHandle(EmbeddingModelHandle):
         """
 
         coro = self._model_ref.chat(prompt, chat_history, generate_config)
-        return self._isolation.call(coro)
+        r = self._isolation.call(coro)
+        if isinstance(r, bytes):
+            return orjson.loads(r)
+        return r
 
 
 class ImageModelHandle(ModelHandle):
@@ -250,7 +260,7 @@ class ImageModelHandle(ModelHandle):
         """
 
         coro = self._model_ref.text_to_image(prompt, n, size, response_format, **kwargs)
-        return self._isolation.call(coro)
+        return orjson.loads(self._isolation.call(coro))
 
     def image_to_image(
         self,
@@ -295,7 +305,7 @@ class ImageModelHandle(ModelHandle):
         coro = self._model_ref.image_to_image(
             image, prompt, negative_prompt, n, size, response_format, **kwargs
         )
-        return self._isolation.call(coro)
+        return orjson.loads(self._isolation.call(coro))
 
 
 class ActorClient:

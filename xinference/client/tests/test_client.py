@@ -69,7 +69,6 @@ async def test_client(setup):
     model = client.get_model(model_uid=model_uid)
 
     embedding_res = model.create_embedding("The food was delicious and the waiter...")
-    embedding_res = json.loads(embedding_res)
     assert "embedding" in embedding_res["data"][0]
 
     client.terminate_model(model_uid=model_uid)
@@ -103,7 +102,6 @@ def test_client_for_embedding(setup):
     assert isinstance(model, EmbeddingModelHandle)
 
     completion = model.create_embedding("write a poem.")
-    completion = json.loads(completion)
     assert len(completion["data"][0]["embedding"]) == 512
 
     client.terminate_model(model_uid=model_uid)
@@ -133,7 +131,6 @@ def test_replica_model(setup):
         replica_uids.add(model._model_ref.uid)
 
     embedding_res = model.create_embedding("The food was delicious and the waiter...")
-    embedding_res = json.loads(embedding_res)
     assert "embedding" in embedding_res["data"][0]
 
     client2 = RESTfulClient(endpoint)
