@@ -242,7 +242,9 @@ class PytorchModel(LLM):
             generate_stream_chatglm,
             generate_stream_falcon,
         )
+
         model_family_name = self.model_family.model_name.lower()
+
         def generator_wrapper(
             prompt: str, generate_config: PytorchGenerateConfig
         ) -> Iterator[CompletionChunk]:
@@ -495,7 +497,7 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
                 generate_config["stop"] = [stop, "Observation:"]
             elif isinstance(stop, Iterable):
                 assert not isinstance(stop, str)
-                generate_config["stop"] = stop + ["Observation:"]
+                generate_config["stop"] = list(stop) + ["Observation:"]
             else:
                 generate_config["stop"] = "Observation:"
 
