@@ -13,13 +13,15 @@
 # limitations under the License.
 
 import asyncio
+import re
 import uuid
 from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Union
 
-import xoscar as xo
 import orjson
+import sse_starlette.sse
+import xoscar as xo
 
-from ...core.model import ModelActor
+from ...core.model import IteratorWrapper, ModelActor
 from ...core.supervisor import SupervisorActor
 from ...isolation import Isolation
 from ..restful.restful_client import Client
@@ -40,6 +42,52 @@ if TYPE_CHECKING:
     )
 
 
+class SSEEvent(object):
+    # https://github.com/btubbs/sseclient/blob/master/sseclient.py
+    sse_line_pattern = re.compile("(?P<name>[^:]*):?( ?(?P<value>.*))?")
+
+    def __init__(self, data="", event="message", id=None, retry=None):
+        self.data = data
+        self.event = event
+        self.id = id
+        self.retry = retry
+
+    @classmethod
+    def parse(cls, raw):
+        """
+        Given a possibly-multiline string representing an SSE message, parse it
+        and return a Event object.
+        """
+        msg = cls()
+        for line in raw.splitlines():
+            m = cls.sse_line_pattern.match(line)
+            if m is None:
+                # Malformed line.  Discard but warn.
+                continue
+
+            name = m.group("name")
+            if name == "":
+                # line began with a ":", so is a comment.  Ignore
+                continue
+            value = m.group("value")
+
+            if name == "data":
+                # If we already have some data, then join to it with a newline.
+                # Else this is it.
+                if msg.data:
+                    msg.data = "%s\n%s" % (msg.data, value)
+                else:
+                    msg.data = value
+            elif name == "event":
+                msg.event = value
+            elif name == "id":
+                msg.id = value
+            elif name == "retry":
+                msg.retry = int(value)
+
+        return msg
+
+
 class ModelHandle:
     """
     A sync model interface (for rpc client) which provides type hints that makes it much easier to use xinference
@@ -49,6 +97,20 @@ class ModelHandle:
     def __init__(self, model_ref: xo.ActorRefType["ModelActor"], isolation: Isolation):
         self._model_ref = model_ref
         self._isolation = isolation
+
+
+class ClientIteratorWrapper(IteratorWrapper):
+    async def __anext__(self):
+        r = await super().__anext__()
+        text = r.decode("utf-8")
+        return orjson.loads(SSEEvent.parse(text).data)
+
+    @classmethod
+    def wrap(cls, iterator_wrapper):
+        state = iterator_wrapper.__getstate__()
+        c = cls.__new__(cls)
+        c.__dict__.update(state)
+        return c
 
 
 class EmbeddingModelHandle(ModelHandle):
@@ -145,7 +207,7 @@ class GenerateModelHandle(EmbeddingModelHandle):
         r = self._isolation.call(coro)
         if isinstance(r, bytes):
             return orjson.loads(r)
-        return r
+        return ClientIteratorWrapper.wrap(r)
 
 
 class ChatModelHandle(GenerateModelHandle):
@@ -193,7 +255,7 @@ class ChatModelHandle(GenerateModelHandle):
         r = self._isolation.call(coro)
         if isinstance(r, bytes):
             return orjson.loads(r)
-        return r
+        return ClientIteratorWrapper.wrap(r)
 
 
 class ChatglmCppChatModelHandle(EmbeddingModelHandle):
@@ -228,7 +290,7 @@ class ChatglmCppChatModelHandle(EmbeddingModelHandle):
         r = self._isolation.call(coro)
         if isinstance(r, bytes):
             return orjson.loads(r)
-        return r
+        return ClientIteratorWrapper.wrap(r)
 
 
 class ImageModelHandle(ModelHandle):

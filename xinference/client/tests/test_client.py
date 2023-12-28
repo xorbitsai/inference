@@ -56,6 +56,7 @@ async def test_client(setup):
     completion = model.chat("write a poem.", generate_config={"stream": True})
     async for chunk in completion:
         assert chunk
+        assert isinstance(chunk, dict)
 
     client.terminate_model(model_uid=model_uid)
     assert len(client.list_models()) == 0
