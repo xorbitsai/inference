@@ -1,5 +1,7 @@
 import { Cookies } from 'react-cookie'
 
+import { isValidBearerToken } from './utils'
+
 const cookies = new Cookies()
 
 const updateOptions = (url, options) => {
@@ -17,13 +19,16 @@ export default function fetcher(url, options) {
   return fetch(url, updateOptions(url, options)).then((res) => {
     // For the situation that server has already been restarted, the current token may become invalid,
     // which leads to UI hangs.
-    if (
-      res.status === 401 &&
-      cookies.get('token') &&
-      cookies.get('token').length > 10 // TODO: more reasonable token check
-    ) {
-      cookies.remove('token', { path: '/' })
-      window.location.href = '/ui/#/login'
+    if (res.status === 401 && isValidBearerToken(cookies.get('token'))) {
+      if (localStorage.getItem('authStatus') !== '401') {
+        localStorage.setItem('authStatus', '401')
+        window.dispatchEvent(new Event('auth-status'))
+      }
+    } else if (res.status === 403 && isValidBearerToken(cookies.get('token'))) {
+      if (localStorage.getItem('authStatus') !== '403') {
+        localStorage.setItem('authStatus', '403')
+        window.dispatchEvent(new Event('auth-status'))
+      }
     } else {
       return res
     }

@@ -9,4 +9,10 @@ const getEndpoint = () => {
   return endPoint
 }
 
-export { getEndpoint }
+const isValidBearerToken = (token) => {
+  return (
+    token !== '' && token !== undefined && token !== null && token.length > 10
+  )
+}
+
+export { getEndpoint, isValidBearerToken }
