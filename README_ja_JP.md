@@ -81,7 +81,7 @@ $ xinference-local
 
 Xinferenceが実行されると、Web UI、cURL、コマンドライン、またはXinferenceのPythonクライアントを介して試すことができます。詳細は[ドキュメント](https://inference.readthedocs.io/en/latest/getting_started/using_xinference.html#run-xinference-locally)をご覧ください。
 
-![Web UI](assets/index.jpg)
+![Web UI](assets/screenshot.png)
 
 ## 関与する
 

@@ -104,7 +104,7 @@ $ xinference-local
 Once Xinference is running, there are multiple ways you can try it: via the web UI, via cURL,
  via the command line, or via the Xinference’s python client. Check out our [docs]( https://inference.readthedocs.io/en/latest/getting_started/using_xinference.html#run-xinference-locally) for the guide.
 
-![web UI](assets/index.jpg)
+![web UI](assets/screenshot.png)
 
 ## Getting involved
 

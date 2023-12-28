@@ -92,7 +92,7 @@ $ xinference-local
 
 一旦 Xinference 运行起来，你可以通过多种方式尝试它：通过网络界面、通过 cURL、通过命令行或通过 Xinference 的 Python 客户端。更多指南，请查看我们的[文档](https://inference.readthedocs.io/zh-cn/latest/getting_started/using_xinference.html#run-xinference-locally)。
 
-![网络界面](assets/index.jpg)
+![网络界面](assets/screenshot.png)
 
 ## 参与其中
 
