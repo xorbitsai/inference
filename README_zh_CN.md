@@ -65,221 +65,40 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 | 文本嵌入模型 | ✅ | ❌ | ❌ | ❌ |
 | 更多 OpenAI 功能 (函数调用) | ✅ | ❌ | ❌ | ❌ |
 
-## 快速入门
-### 安装
-Xinference 可以通过 `pip` 从 PyPI 安装。我们非常推荐在安装前创建一个新的虚拟环境以避免依赖冲突。
 
-使用 Xinference 前，您需要安装与模型类型相对应的后端。如果想要推理所有支持的模型，可以安装所有后端：
+## 入门指南
+
+**在开始之前，请给我们一个星标，这样你就可以在 GitHub 上及时收到每个新版本的通知！**
+
+* [文档](https://inference.readthedocs.io/zh-cn/latest/index.html)
+* [内置模型](https://inference.readthedocs.io/zh-cn/latest/models/builtin/index.html)
+* [自定义模型](https://inference.readthedocs.io/zh-cn/latest/models/custom.html)
+* [部署文档](https://inference.readthedocs.io/zh-cn/latest/getting_started/using_xinference.html)
+* [示例和教程](https://inference.readthedocs.io/zh-cn/latest/examples/index.html)
+
+### 快速开始
+
+使用 pip 安装 Xinference，操作如下。（更多选项，请参阅[安装页面](https://inference.readthedocs.io/zh-cn/latest/getting_started/installation.html)。）
+
 ```bash
 pip install "xinference[all]"
 ```
 
-**注意**：推理 GGML 格式的模型前，我们强烈建议**手动安装 GGML 依赖**，以在不同硬件上达到加速效果，请参考 [GGML 后端](#ggml-backend)。
+要启动一个本地的 Xinference 实例，请运行以下命令：
 
-#### Transformers 后端
-Transformers 后端支持绝大多数前沿模型，它是 PyTorch 格式模型的默认后端：
-```bash
-pip install "xinference[transformers]"
-```
-
-#### vLLM 后端
-vLLM 后端能够提供高效的推理能力。当满足以下条件时，Xinference 会选择 vLLM 作为后端以达到更好的吞吐量：
-
-- 模型格式为 PyTorch
-- 模型在下面的支持列表中
-- 量化选择 `none`（AWQ 量化将会在近期支持）
-- Linux 系统，并有 CUDA 设备
-
-目前, 支持的模型包括：
-
-- ``llama-2``, ``llama-2-chat``
-- ``baichuan``, ``baichuan-chat``
-- ``internlm``, ``internlm-20b``, ``internlm-chat``, ``internlm-chat-20b``
-- ``vicuna-v1.3``, ``vicuna-v1.5``
-
-```bash
-pip install "xinference[vllm]"
-```
-
-#### GGML 后端
-我们强烈建议**手动安装 GGML 依赖**，以在不同硬件上达到加速效果。
-
-初始安装：
-```bash
-pip install xinference
-pip install ctransformers
-```
-
-根据硬件，选择性安装：
-- 苹果芯片（M1，M2）:
-```bash
-    CMAKE_ARGS="-DLLAMA_METAL=on" pip install llama-cpp-python
-```
-
-- 英伟达 GPU:
-```bash
-    CMAKE_ARGS="-DLLAMA_CUBLAS=on" pip install llama-cpp-python
-```
-
-- AMD GPU:
-```bash
-    CMAKE_ARGS="-DLLAMA_HIPBLAS=on" pip install llama-cpp-python
-```
-
-### 部署
-你可以一键进行本地部署，或按照下面的步骤将 Xinference 部署在计算集群。 
-
-#### 本地部署
-运行下面的命令在本地部署 Xinference：
 ```bash
 $ xinference-local
 ```
 
-#### 分布式部署
-分布式场景下，你需要在一台服务器上部署一个 Xinference supervisor，并在其余服务器上分别部署一个 Xinference worker。 具体步骤如下：
+一旦 Xinference 运行起来，你可以通过多种方式尝试它：通过网络界面、通过 cURL、通过命令行或通过 Xinference 的 Python 客户端。更多指南，请查看我们的[文档](https://inference.readthedocs.io/zh-cn/latest/getting_started/using_xinference.html#run-xinference-locally)。
 
-**启动 supervisor**: 执行:
-```bash
-$ xinference-supervisor -H "${supervisor_host}"
-```
-替换 `${supervisor_host}` 为 supervisor 所在服务器的实际主机名或 IP 地址。
+![网络界面](assets/index.jpg)
 
-**启动 workers**: 在其余服务器上，执行：
-```bash
-$ xinference-worker -e "http://${supervisor_host}:9997"
-```
+## 参与其中
 
-Xinference 启动后，将会打印服务的 endpoint。这个 endpoint 用于通过命令行工具或编程接口进行模型的管理。
-
-- 本地部署下, endpoint 默认为 `http://localhost:9997`.
-- 集群部署下, endpoint 默认为 `http://${supervisor_host}:9997`。其中 `${supervisor_host}` 为supervisor 所在服务器的主机名或 IP 地址。
-
-你还可以通过 web UI 启动并管理模型，使用任意内置模型生成文本或对话。
-
-![web UI](assets/index.jpg)
-
-### Xinference 命令行
-Xinference 提供了命令行工具用于模型管理。支持的命令包括：
-
-- 启动一个模型 (将会返回一个模型 UID)：`xinference launch`
-- 查看所有运行中的模型：`xinference list`
-- 查看所有支持的模型：`xinference registrations`
-- 结束模型：`xinference terminate --model-uid ${model_uid}`
-
-### Xinference 编程接口
-Xinference 同样提供了编程接口：
-
-```python
-from xinference.client import Client
-
-client = Client("http://localhost:9997")
-model_uid = client.launch_model(model_name="chatglm2")
-model = client.get_model(model_uid)
-
-chat_history = []
-prompt = "What is the largest animal?"
-model.chat(
-    prompt,
-    chat_history,
-    generate_config={"max_tokens": 1024}
-)
-```
-
-返回值：
-```json
-{
-  "id": "chatcmpl-8d76b65a-bad0-42ef-912d-4a0533d90d61",
-  "model": "56f69622-1e73-11ee-a3bd-9af9f16816c6",
-  "object": "chat.completion",
-  "created": 1688919187,
-  "choices": [
-    {
-      "index": 0,
-      "message": {
-        "role": "assistant",
-        "content": "The largest animal that has been scientifically measured is the blue whale, which has a maximum length of around 23 meters (75 feet) for adult animals and can weigh up to 150,000 pounds (68,000 kg). However, it is important to note that this is just an estimate and that the largest animal known to science may be larger still. Some scientists believe that the largest animals may not have a clear \"size\" in the same way that humans do, as their size can vary depending on the environment and the stage of their life."
-      },
-      "finish_reason": "None"
-    }
-  ],
-  "usage": {
-    "prompt_tokens": -1,
-    "completion_tokens": -1,
-    "total_tokens": -1
-  }
-}
-```
-
-请参考 [更多案例](examples)。
-
-
-## 内置模型
-运行以下命令查看内置模型列表：
-```bash
-$ xinference registrations
-```
-
-| Type  | Name                    | Language     | Ability      |
-|-------|-------------------------|--------------|--------------|
-| LLM   | baichuan                | ['en', 'zh'] | ['generate'] |
-| LLM   | baichuan-2              | ['en', 'zh'] | ['generate'] |
-| LLM   | baichuan-2-chat         | ['en', 'zh'] | ['chat']     |
-| LLM   | baichuan-chat           | ['en', 'zh'] | ['chat']     |
-| LLM   | chatglm                 | ['en', 'zh'] | ['chat']     |
-| LLM   | chatglm2                | ['en', 'zh'] | ['chat']     |
-| LLM   | chatglm2-32k            | ['en', 'zh'] | ['chat']     |
-| LLM   | chatglm3                | ['en', 'zh'] | ['chat']     |
-| LLM   | chatglm3-32k            | ['en', 'zh'] | ['chat']     |
-| LLM   | code-llama              | ['en']       | ['generate'] |
-| LLM   | code-llama-instruct     | ['en']       | ['chat']     |
-| LLM   | code-llama-python       | ['en']       | ['generate'] |
-| LLM   | falcon                  | ['en']       | ['generate'] |
-| LLM   | falcon-instruct         | ['en']       | ['chat']     |
-| LLM   | glaive-coder            | ['en']       | ['chat']     |
-| LLM   | gpt-2                   | ['en']       | ['generate'] |
-| LLM   | internlm-20b            | ['en', 'zh'] | ['generate'] |
-| LLM   | internlm-7b             | ['en', 'zh'] | ['generate'] |
-| LLM   | internlm-chat-20b       | ['en', 'zh'] | ['chat']     |
-| LLM   | internlm-chat-7b        | ['en', 'zh'] | ['chat']     |
-| LLM   | llama-2                 | ['en']       | ['generate'] |
-| LLM   | llama-2-chat            | ['en']       | ['chat']     |
-| LLM   | mistral-instruct-v0.1   | ['en']       | ['chat']     |
-| LLM   | mistral-v0.1            | ['en']       | ['generate'] |
-| LLM   | OpenBuddy               | ['en']       | ['chat']     |
-| LLM   | openhermes-2.5          | ['en']       | ['chat']     |
-| LLM   | opt                     | ['en']       | ['generate'] |
-| LLM   | orca                    | ['en']       | ['chat']     |
-| LLM   | qwen-chat               | ['en', 'zh'] | ['chat']     |
-| LLM   | starchat-beta           | ['en']       | ['chat']     |
-| LLM   | starcoder               | ['en']       | ['generate'] |
-| LLM   | starcoderplus           | ['en']       | ['generate'] |
-| LLM   | tiny-llama              | ['en']       | ['generate'] |
-| LLM   | vicuna-v1.3             | ['en']       | ['chat']     |
-| LLM   | vicuna-v1.5             | ['en']       | ['chat']     |
-| LLM   | vicuna-v1.5-16k         | ['en']       | ['chat']     |
-| LLM   | wizardcoder-python-v1.0 | ['en']       | ['chat']     |
-| LLM   | wizardlm-v1.0           | ['en']       | ['chat']     |
-| LLM   | wizardmath-v1.0         | ['en']       | ['chat']     |
-| LLM   | Yi                      | ['en', 'zh'] | ['generate'] |
-| LLM   | Yi-200k                 | ['en', 'zh'] | ['generate'] |
-| LLM   | zephyr-7b-alpha         | ['en']       | ['chat']     |
-| LLM   | zephyr-7b-beta          | ['en']       | ['chat']     |
-
-更多信息请参考 [内置模型](https://inference.readthedocs.io/zh-cn/latest/models/builtin/index.html)。
-
-**注意**:
-- Xinference 会自动为你下载模型，默认的模型存放路径为 `${USER}/.xinference/cache`。
-- 如果您在Hugging Face下载模型时遇到问题，请运行 `export XINFERENCE_MODEL_SRC=modelscope`，默认优先从 modelscope 下载。目前 modelscope 支持的模型有：
-  - llama-2
-  - llama-2-chat
-  - baichuan-2
-  - baichuan-2-chat
-  - chatglm2
-  - chatglm2-32k
-  - internlm-chat-20b
-  - ...
-  
-  更多的支持的模型在[文档](https://inference.readthedocs.io/zh-cn/latest/models/sources/sources.html#modelscope)中列出了。
-
-## 自定义模型
-请参考 [自定义模型](https://inference.readthedocs.io/zh-cn/latest/models/custom.html)。
+| 平台                                                                                          | 目的                                              |
+|------------------------------------------------------------------------------------------------|--------------------------------------------------|
+| [Github 问题](https://github.com/xorbitsai/inference/issues)                                  | 报告错误和提交功能请求。                          |
+| [Slack](https://join.slack.com/t/xorbitsio/shared_invite/zt-1o3z9ucdh-RbfhbPVpx7prOVdM1CAuxg)   | 与其他 Xorbits 用户合作。                          |
+| [Twitter](https://twitter.com/xorbitsio)                                                     | 及时了解新功能。                                  |
+| [微信社群](https://xorbits.cn/assets/images/wechat_pr.png)                                     | 与其他 Xorbits 用户交流。                         |
