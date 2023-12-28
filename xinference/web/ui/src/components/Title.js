@@ -4,8 +4,10 @@ import Button from '@mui/material/Button'
 import { useCookies } from 'react-cookie'
 import { useNavigate } from 'react-router-dom'
 
+import { isValidBearerToken } from './utils'
+
 const Title = ({ title }) => {
-  const [, , removeCookie] = useCookies(['token'])
+  const [cookie, , removeCookie] = useCookies(['token'])
   const navigate = useNavigate()
 
   const handleLogout = () => {
@@ -24,14 +26,16 @@ const Title = ({ title }) => {
         >
           {title}
         </Typography>
-        <Button
-          variant="outlined"
-          size="large"
-          onClick={handleLogout}
-          startIcon={<ExitToAppIcon />}
-        >
-          LOG OUT
-        </Button>
+        {isValidBearerToken(cookie.token) && (
+          <Button
+            variant="outlined"
+            size="large"
+            onClick={handleLogout}
+            startIcon={<ExitToAppIcon />}
+          >
+            LOG OUT
+          </Button>
+        )}
       </Stack>
     </Box>
   )

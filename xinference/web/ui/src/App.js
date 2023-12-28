@@ -6,7 +6,8 @@ import { HashRouter, Route, Routes } from 'react-router-dom'
 
 import { Alert } from './components/alertComponent'
 import { ApiContextProvider } from './components/apiContext'
-import { getEndpoint } from './components/utils'
+import AuthAlertDialog from './components/authAlertDialog'
+import { getEndpoint, isValidBearerToken } from './components/utils'
 import Layout from './scenes/_layout'
 import LaunchModel from './scenes/launch_model'
 import Login from './scenes/login/login'
@@ -49,7 +50,10 @@ function App() {
             }
           } else {
             // TODO: validate bearer token
-            if (cookie.token === undefined || cookie.token.length < 10) {
+            if (
+              cookie.token === undefined ||
+              !isValidBearerToken(cookie.token)
+            ) {
               // not a bearer token, need a bearer token here
               setCookie('token', 'need_auth', { path: '/' })
             }
@@ -86,6 +90,7 @@ function App() {
         <ThemeProvider theme={theme}>
           <ApiContextProvider>
             <CssBaseline />
+            <AuthAlertDialog />
             <Routes>
               <Route path="/login" element={<Login />} />
               <Route element={<Layout />}>
