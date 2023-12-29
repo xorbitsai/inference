@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-12-27 15:43+0800\n"
+"POT-Creation-Date: 2023-12-29 16:06+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: ja_JP\n"
@@ -17,175 +17,99 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Generated-By: Babel 2.12.1\n"
+"Generated-By: Babel 2.13.1\n"
 
-#: ../../source/index.rst:4
-msgid "Xorbits Inference: Model Serving Made Easy🤖"
+#: ../../source/index.rst:5
+msgid "Welcome to Xinference!"
 msgstr ""
 
-#: ../../source/index.rst:6
+#: ../../source/index.rst:18
 msgid ""
-"Xorbits Inference(Xinference) is a powerful and versatile library "
-"designed to serve language, speech recognition, and multimodal models. "
-"With Xorbits Inference, you can effortlessly deploy and serve your or "
-"state-of-the-art built-in models using just a single command. Whether you"
-" are a researcher, developer, or data scientist, Xorbits Inference "
-"empowers you to unleash the full potential of cutting-edge AI models."
+"Xorbits Inference (Xinference) is an open-source platform to streamline "
+"the operation and integration of a wide array of AI models. With "
+"Xinference, you're empowered to run inference using any open-source LLMs,"
+" embedding models, and multimodal models either in the cloud or on your "
+"own premises, and create robust AI-driven applications."
 msgstr ""
 
-#: ../../source/index.rst:14
-msgid "Key Features"
+#: ../../source/index.rst:24
+msgid "Developing Real-world AI Applications with Xinference"
 msgstr ""
 
-#: ../../source/index.rst:16
-msgid ""
-"🌟 **Model Serving Made Easy**: Simplify the process of serving large "
-"language, speech recognition, and multimodal models. You can set up and "
-"deploy your models for experimentation and production with a single "
-"command."
+#: ../../source/index.rst:80
+msgid "Getting Started"
 msgstr ""
 
-#: ../../source/index.rst:20
-msgid ""
-"⚡️ **State-of-the-Art Models**: Experiment with cutting-edge built-in "
-"models using a single command. Inference provides access to state-of-the-"
-"art open-source models!"
+#: ../../source/index.rst:84
+msgid "Install Xinference"
 msgstr ""
 
-#: ../../source/index.rst:23
-msgid ""
-"🖥 **Heterogeneous Hardware Utilization**: Make the most of your hardware "
-"resources with `ggml <https://github.com/ggerganov/ggml>`_. Xorbits "
-"Inference intelligently utilizes heterogeneous hardware, including GPUs "
-"and CPUs, to accelerate your model inference tasks."
+#: ../../source/index.rst:88
+msgid "Install Xinference on Linux, Windows, and macOS."
 msgstr ""
 
-#: ../../source/index.rst:27
-msgid ""
-"⚙️ **Flexible API and Interfaces**: Offer multiple interfaces for "
-"interacting with your models, supporting RPC, RESTful API(compatible with"
-" OpenAI API), CLI and WebUI for seamless management and monitoring."
+#: ../../source/index.rst:90
+msgid "Try it out!"
 msgstr ""
 
-#: ../../source/index.rst:31
-msgid ""
-"🌐 **Distributed Deployment**: Excel in distributed deployment scenarios, "
-"allowing the seamless distribution of model inference across multiple "
-"devices or machines."
+#: ../../source/index.rst:94
+msgid "Start by running Xinference on a local machine."
 msgstr ""
 
-#: ../../source/index.rst:34
-msgid ""
-"🔌 **Built-in Integration with Third-Party Libraries**: Xorbits Inference "
-"seamlessly integrates with popular third-party libraries like `LangChain "
-"<https://python.langchain.com/docs/integrations/providers/xinference>`_ ,"
-" `LlamaIndex <https://gpt-"
-"index.readthedocs.io/en/stable/examples/llm/XinferenceLocalDeployment.html#i"
-"-run-pip-install-xinference-all-in-a-terminal-window>`_ , `Dify "
-"<https://docs.dify.ai/advanced/model-configuration/xinference>`_ , and "
-"`Chatbox <https://chatboxai.app/>`_."
+#: ../../source/index.rst:99
+msgid "Explore models"
 msgstr ""
 
-#: ../../source/index.rst:42
-msgid "🔥 Hot Topics"
+#: ../../source/index.rst:103
+msgid "Explore a wide range of models supported by Xinference."
 msgstr ""
 
-#: ../../source/index.rst:45
-msgid "Framework Enhancements"
+#: ../../source/index.rst:105
+msgid "Register your own model"
 msgstr ""
 
-#: ../../source/index.rst:46
-msgid "Auto recover: `#694 <https://github.com/xorbitsai/inference/pull/694>`_"
+#: ../../source/index.rst:109
+msgid "Register model weights and turn it into an API."
 msgstr ""
 
-#: ../../source/index.rst:47
-msgid ""
-"Function calling API: `#701 "
-"<https://github.com/xorbitsai/inference/pull/701>`_ , here's example: "
-"https://github.com/xorbitsai/inference/blob/main/examples/FunctionCall.ipynb"
+#: ../../source/index.rst:113
+msgid "Getting Involved"
 msgstr ""
 
-#: ../../source/index.rst:48
-msgid ""
-"Support rerank model: `#672 "
-"<https://github.com/xorbitsai/inference/pull/672>`_"
+#: ../../source/index.rst:122
+msgid "Get Latest News"
 msgstr ""
 
-#: ../../source/index.rst:49
-msgid ""
-"Speculative decoding: `#509 "
-"<https://github.com/xorbitsai/inference/pull/509>`_"
+#: ../../source/index.rst:130
+msgid ":fab:`twitter` Follow us on Twitter"
 msgstr ""
 
-#: ../../source/index.rst:50
-msgid ""
-"Support grammar-based sampling for ggml models: `#525 "
-"<https://github.com/xorbitsai/inference/pull/525>`_"
+#: ../../source/index.rst:135
+msgid ":fab:`zhihu` Read our blogs"
 msgstr ""
 
-#: ../../source/index.rst:51
-msgid ""
-"Incorporate vLLM: `#445 "
-"<https://github.com/xorbitsai/inference/pull/445>`_"
+#: ../../source/index.rst:142
+msgid "Get Support"
 msgstr ""
 
-#: ../../source/index.rst:55
-msgid "New Models"
+#: ../../source/index.rst:150
+msgid ":fab:`weixin` Find community on WeChat"
 msgstr ""
 
-#: ../../source/index.rst:56
-msgid ""
-"Built-in support for `Yi <https://huggingface.co/01-ai>`_: `#629 "
-"<https://github.com/xorbitsai/inference/pull/629>`_"
+#: ../../source/index.rst:155
+msgid ":fab:`slack` Find community on Slack"
 msgstr ""
 
-#: ../../source/index.rst:57
-msgid ""
-"Built-in support for `zephyr-7b-alpha "
-"<https://huggingface.co/HuggingFaceH4/zephyr-7b-alpha>`_ and `zephyr-7b-"
-"beta <https://huggingface.co/HuggingFaceH4/zephyr-7b-beta>`_: `#597 "
-"<https://github.com/xorbitsai/inference/pull/597>`_"
+#: ../../source/index.rst:160
+msgid ":fab:`github` Open an issue"
 msgstr ""
 
-#: ../../source/index.rst:58
-msgid ""
-"Built-in support for `chatglm3 "
-"<https://huggingface.co/THUDM/chatglm3-6b): "
-"[#587](https://github.com/xorbitsai/inference/pull/587>`_"
+#: ../../source/index.rst:167
+msgid "Contribute to Xinference"
 msgstr ""
 
-#: ../../source/index.rst:59
-msgid ""
-"Built-in support for `mistral-v0.1 <https://huggingface.co/mistralai"
-"/Mistral-7B-v0.1>`_ and `mistral-instruct-v0.1 "
-"<https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.1>`_: `#510 "
-"<https://github.com/xorbitsai/inference/pull/510>`_"
-msgstr ""
-
-#: ../../source/index.rst:63
-msgid "Integrations"
-msgstr ""
-
-#: ../../source/index.rst:64
-msgid ""
-"`Dify <https://docs.dify.ai/advanced/model-configuration/xinference>`_: "
-"an LLMOps platform that enables developers (and even non-developers) to "
-"quickly build useful applications based on large language models, "
-"ensuring they are visual, operable, and improvable."
-msgstr ""
-
-#: ../../source/index.rst:65
-msgid ""
-"`Chatbox <https://chatboxai.app/>`_: a desktop client for multiple "
-"cutting-edge LLM models, available on Windows, Mac and Linux."
-msgstr ""
-
-#: ../../source/index.rst:69
-msgid "License"
-msgstr ""
-
-#: ../../source/index.rst:70
-msgid "`Apache 2 <https://github.com/xorbitsai/inference/blob/main/LICENSE>`_"
+#: ../../source/index.rst:175
+msgid ":fab:`github` Create a pull request"
 msgstr ""
 
 #~ msgid ""
@@ -213,5 +137,178 @@ msgstr ""
 #~ "<https://github.com/facebookresearch/codellama>`_: `#414 "
 #~ "<https://github.com/xorbitsai/inference/pull/414>`_ `#402 "
 #~ "<https://github.com/xorbitsai/inference/pull/402>`_"
+#~ msgstr ""
+
+#~ msgid "Xorbits Inference: Model Serving Made Easy🤖"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "Xorbits Inference(Xinference) is a powerful"
+#~ " and versatile library designed to "
+#~ "serve language, speech recognition, and "
+#~ "multimodal models. With Xorbits Inference, "
+#~ "you can effortlessly deploy and serve"
+#~ " your or state-of-the-art "
+#~ "built-in models using just a single"
+#~ " command. Whether you are a "
+#~ "researcher, developer, or data scientist, "
+#~ "Xorbits Inference empowers you to "
+#~ "unleash the full potential of "
+#~ "cutting-edge AI models."
+#~ msgstr ""
+
+#~ msgid "Key Features"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "🌟 **Model Serving Made Easy**: Simplify"
+#~ " the process of serving large "
+#~ "language, speech recognition, and multimodal"
+#~ " models. You can set up and "
+#~ "deploy your models for experimentation "
+#~ "and production with a single command."
+#~ msgstr ""
+
+#~ msgid ""
+#~ "⚡️ **State-of-the-Art Models**: "
+#~ "Experiment with cutting-edge built-in"
+#~ " models using a single command. "
+#~ "Inference provides access to state-"
+#~ "of-the-art open-source models!"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "🖥 **Heterogeneous Hardware Utilization**: Make"
+#~ " the most of your hardware resources"
+#~ " with `ggml <https://github.com/ggerganov/ggml>`_. "
+#~ "Xorbits Inference intelligently utilizes "
+#~ "heterogeneous hardware, including GPUs and "
+#~ "CPUs, to accelerate your model inference"
+#~ " tasks."
+#~ msgstr ""
+
+#~ msgid ""
+#~ "⚙️ **Flexible API and Interfaces**: "
+#~ "Offer multiple interfaces for interacting "
+#~ "with your models, supporting RPC, "
+#~ "RESTful API(compatible with OpenAI API), "
+#~ "CLI and WebUI for seamless management"
+#~ " and monitoring."
+#~ msgstr ""
+
+#~ msgid ""
+#~ "🌐 **Distributed Deployment**: Excel in "
+#~ "distributed deployment scenarios, allowing the"
+#~ " seamless distribution of model inference"
+#~ " across multiple devices or machines."
+#~ msgstr ""
+
+#~ msgid ""
+#~ "🔌 **Built-in Integration with Third-"
+#~ "Party Libraries**: Xorbits Inference "
+#~ "seamlessly integrates with popular third-"
+#~ "party libraries like `LangChain "
+#~ "<https://python.langchain.com/docs/integrations/providers/xinference>`_"
+#~ " , `LlamaIndex <https://gpt-"
+#~ "index.readthedocs.io/en/stable/examples/llm/XinferenceLocalDeployment.html#i"
+#~ "-run-pip-install-xinference-all-in-a"
+#~ "-terminal-window>`_ , `Dify "
+#~ "<https://docs.dify.ai/advanced/model-configuration/xinference>`_"
+#~ " , and `Chatbox <https://chatboxai.app/>`_."
+#~ msgstr ""
+
+#~ msgid "🔥 Hot Topics"
+#~ msgstr ""
+
+#~ msgid "Framework Enhancements"
+#~ msgstr ""
+
+#~ msgid "Auto recover: `#694 <https://github.com/xorbitsai/inference/pull/694>`_"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "Function calling API: `#701 "
+#~ "<https://github.com/xorbitsai/inference/pull/701>`_ , "
+#~ "here's example: "
+#~ "https://github.com/xorbitsai/inference/blob/main/examples/FunctionCall.ipynb"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "Support rerank model: `#672 "
+#~ "<https://github.com/xorbitsai/inference/pull/672>`_"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "Speculative decoding: `#509 "
+#~ "<https://github.com/xorbitsai/inference/pull/509>`_"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "Support grammar-based sampling for ggml"
+#~ " models: `#525 "
+#~ "<https://github.com/xorbitsai/inference/pull/525>`_"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "Incorporate vLLM: `#445 "
+#~ "<https://github.com/xorbitsai/inference/pull/445>`_"
+#~ msgstr ""
+
+#~ msgid "New Models"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "Built-in support for `Yi "
+#~ "<https://huggingface.co/01-ai>`_: `#629 "
+#~ "<https://github.com/xorbitsai/inference/pull/629>`_"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "Built-in support for `zephyr-7b-"
+#~ "alpha <https://huggingface.co/HuggingFaceH4/zephyr-7b-"
+#~ "alpha>`_ and `zephyr-7b-beta "
+#~ "<https://huggingface.co/HuggingFaceH4/zephyr-7b-beta>`_:"
+#~ " `#597 <https://github.com/xorbitsai/inference/pull/597>`_"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "Built-in support for `chatglm3 "
+#~ "<https://huggingface.co/THUDM/chatglm3-6b): "
+#~ "[#587](https://github.com/xorbitsai/inference/pull/587>`_"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "Built-in support for `mistral-v0.1 "
+#~ "<https://huggingface.co/mistralai/Mistral-7B-v0.1>`_ and"
+#~ " `mistral-instruct-v0.1 "
+#~ "<https://huggingface.co/mistralai/Mistral-7B-"
+#~ "Instruct-v0.1>`_: `#510 "
+#~ "<https://github.com/xorbitsai/inference/pull/510>`_"
+#~ msgstr ""
+
+#~ msgid "Integrations"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "`Dify <https://docs.dify.ai/advanced/model-"
+#~ "configuration/xinference>`_: an LLMOps platform "
+#~ "that enables developers (and even "
+#~ "non-developers) to quickly build useful "
+#~ "applications based on large language "
+#~ "models, ensuring they are visual, "
+#~ "operable, and improvable."
+#~ msgstr ""
+
+#~ msgid ""
+#~ "`Chatbox <https://chatboxai.app/>`_: a desktop "
+#~ "client for multiple cutting-edge LLM "
+#~ "models, available on Windows, Mac and"
+#~ " Linux."
+#~ msgstr ""
+
+#~ msgid "License"
+#~ msgstr ""
+
+#~ msgid "`Apache 2 <https://github.com/xorbitsai/inference/blob/main/LICENSE>`_"
 #~ msgstr ""
 
