@@ -1,4 +1,5 @@
 import { RocketLaunchOutlined, UndoOutlined } from '@mui/icons-material'
+import DeleteIcon from '@mui/icons-material/Delete'
 import {
   Box,
   Chip,
@@ -7,6 +8,7 @@ import {
   Stack,
   TextField,
 } from '@mui/material'
+import IconButton from '@mui/material/IconButton'
 import React, { useContext, useEffect, useState } from 'react'
 import { v1 as uuidv1 } from 'uuid'
 
@@ -15,10 +17,16 @@ import { ApiContext } from '../../components/apiContext'
 const CARD_HEIGHT = 270
 const CARD_WIDTH = 270
 
-const RerankCard = ({ url, modelData }) => {
+const RerankCard = ({
+  url,
+  modelData,
+  cardHeight = CARD_HEIGHT,
+  is_custom = false,
+}) => {
   const [modelUID, setModelUID] = useState('')
   const [hover, setHover] = useState(false)
   const [selected, setSelected] = useState(false)
+  const [customDeleted, setCustomDeleted] = useState(false)
   const { isCallingApi, setIsCallingApi } = useContext(ApiContext)
   const { isUpdatingModel } = useContext(ApiContext)
 
@@ -60,7 +68,7 @@ const RerankCard = ({ url, modelData }) => {
       display: 'block',
       position: 'relative',
       width: `${CARD_WIDTH}px`,
-      height: `${CARD_HEIGHT}px`,
+      height: `${cardHeight}px`,
       border: '1px solid #ddd',
       borderRadius: '20px',
       background: 'white',
@@ -70,7 +78,7 @@ const RerankCard = ({ url, modelData }) => {
       display: 'block',
       position: 'relative',
       width: `${CARD_WIDTH}px`,
-      height: `${CARD_HEIGHT}px`,
+      height: `${cardHeight}px`,
       border: '1px solid #ddd',
       borderRadius: '20px',
       background: 'white',
@@ -82,7 +90,7 @@ const RerankCard = ({ url, modelData }) => {
       top: '-1px',
       left: '-1px',
       width: `${CARD_WIDTH}px`,
-      height: `${CARD_HEIGHT}px`,
+      height: `${cardHeight}px`,
       border: '1px solid #ddd',
       padding: '20px',
       borderRadius: '20px',
@@ -90,10 +98,10 @@ const RerankCard = ({ url, modelData }) => {
     },
     parameterCard: {
       position: 'relative',
-      top: `-${CARD_HEIGHT + 1}px`,
+      top: `-${cardHeight + 1}px`,
       left: '-1px',
       width: `${CARD_WIDTH}px`,
-      height: `${CARD_HEIGHT}px`,
+      height: `${cardHeight}px`,
       border: '1px solid #ddd',
       padding: '20px',
       borderRadius: '20px',
@@ -181,6 +189,18 @@ const RerankCard = ({ url, modelData }) => {
     },
   }
 
+  const handeCustomDelete = (e) => {
+    e.stopPropagation()
+    fetch(url + `/v1/model_registrations/rerank/${modelData.model_name}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+      .then(() => setCustomDeleted(true))
+      .catch(console.error)
+  }
+
   // Set two different states based on mouse hover
   return (
     <Box
@@ -188,7 +208,7 @@ const RerankCard = ({ url, modelData }) => {
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       onClick={() => {
-        if (!selected) {
+        if (!selected && !customDeleted) {
           setSelected(true)
         }
       }}
@@ -196,7 +216,24 @@ const RerankCard = ({ url, modelData }) => {
       {/* First state: show description page */}
       <Box style={styles.descriptionCard}>
         <div style={styles.titleContainer}>
-          <h2 style={styles.h2}>{modelData.model_name}</h2>
+          {is_custom && (
+            <Stack
+              direction="row"
+              justifyContent="space-evenly"
+              alignItems="center"
+              spacing={1}
+            >
+              <h2 style={styles.h2}>{modelData.model_name}</h2>
+              <IconButton
+                aria-label="delete"
+                onClick={handeCustomDelete}
+                disabled={customDeleted}
+              >
+                <DeleteIcon />
+              </IconButton>
+            </Stack>
+          )}
+          {!is_custom && <h2 style={styles.h2}>{modelData.model_name}</h2>}
           <Stack
             spacing={1}
             direction="row"
@@ -212,6 +249,11 @@ const RerankCard = ({ url, modelData }) => {
             {(() => {
               if (modelData.is_cached) {
                 return <Chip label="Cached" variant="outlined" size="small" />
+              }
+            })()}
+            {(() => {
+              if (is_custom && customDeleted) {
+                return <Chip label="Deleted" variant="outlined" size="small" />
               }
             })()}
           </Stack>

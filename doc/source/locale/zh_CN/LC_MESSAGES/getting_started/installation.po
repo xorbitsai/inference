@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-10-16 10:33+0800\n"
+"POT-Creation-Date: 2023-12-27 15:43+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -29,12 +29,14 @@ msgid ""
 " run models using Xinference, you will need to install the backend "
 "corresponding to the type of model you intend to serve."
 msgstr ""
+"Xinference 在 Linux, Windows, MacOS 上都可以通过 ``pip`` 来安装。如果需要使用 Xinference "
+"进行模型推理，可以根据不同的模型指定不同的引擎。"
 
 #: ../../source/getting_started/installation.rst:8
 msgid ""
 "If you aim to serve all supported models, you can install all the "
 "necessary dependencies with a single command::"
-msgstr ""
+msgstr "如果你希望能够推理所有支持的模型，可以用以下命令安装所有需要的依赖："
 
 #: ../../source/getting_started/installation.rst:13
 msgid ""
@@ -43,101 +45,124 @@ msgid ""
 "enable acceleration. For more details, see the :ref:`installation_ggml` "
 "section."
 msgstr ""
+"如果你想使用 GGML 格式的模型，建议根据当前使用的硬件手动安装所需要的依赖，以充分利用硬件的加速能力。更多细节可以参考 "
+":ref:`installation_ggml` 这一章节。"
 
 #: ../../source/getting_started/installation.rst:16
 msgid ""
 "If you want to install only the necessary backends, here's a breakdown of"
 " how to do it."
-msgstr ""
+msgstr "如果你只想安装必要的依赖，接下来是如何操作的详细步骤。"
 
 #: ../../source/getting_started/installation.rst:19
 msgid "Transformers Backend"
-msgstr ""
+msgstr "Transformers 引擎"
 
 #: ../../source/getting_started/installation.rst:20
 msgid ""
 "PyTorch (transformers) supports the inference of most state-of-art "
 "models. It is the default backend for models in PyTorch format::"
-msgstr ""
+msgstr "PyTorch(transformers) 引擎支持几乎有所的最新模型，这是 Pytorch 模型默认使用的引擎："
 
 #: ../../source/getting_started/installation.rst:26
 msgid "vLLM Backend"
-msgstr ""
+msgstr "vLLM 引擎"
 
 #: ../../source/getting_started/installation.rst:27
 msgid ""
 "vLLM is a fast and easy-to-use library for LLM inference and serving. "
 "Xinference will choose vLLM as the backend to achieve better throughput "
 "when the following conditions are met:"
-msgstr ""
+msgstr "vLLM 是一个支持高并发的高性能大模型推理引擎。当满足以下条件时，Xinference 会自动选择 vllm 作为引擎来达到更高的吞吐量："
 
 #: ../../source/getting_started/installation.rst:29
 msgid "The model format is PyTorch"
-msgstr ""
+msgstr "模型的格式必须是 PyTorch"
 
 #: ../../source/getting_started/installation.rst:30
 msgid "The quantization method is none"
-msgstr ""
+msgstr "量化方式必须是 none"
 
 #: ../../source/getting_started/installation.rst:31
 msgid "The system is Linux and has at least one CUDA device"
-msgstr ""
+msgstr "运行的操作系统必须是 Linux 且至少有一张支持 CUDA 的显卡"
 
 #: ../../source/getting_started/installation.rst:32
 msgid "The model is within the list of models supported by vLLM."
-msgstr ""
+msgstr "运行的模型必须在 vLLM 引擎的支持列表里"
 
 #: ../../source/getting_started/installation.rst:34
 msgid "Currently, supported models include:"
-msgstr ""
+msgstr "目前，支持的模型包括："
 
 #: ../../source/getting_started/installation.rst:36
 msgid "``llama-2``, ``llama-2-chat``"
-msgstr ""
+msgstr "``llama-2``, ``llama-2-chat``"
 
 #: ../../source/getting_started/installation.rst:37
 msgid "``baichuan``, ``baichuan-chat``"
-msgstr ""
+msgstr "``baichuan``, ``baichuan-chat``"
 
 #: ../../source/getting_started/installation.rst:38
 msgid "``internlm``, ``internlm-20b``, ``internlm-chat``, ``internlm-chat-20b``"
-msgstr ""
+msgstr "``internlm``, ``internlm-20b``, ``internlm-chat``, ``internlm-chat-20b``"
 
 #: ../../source/getting_started/installation.rst:39
 msgid "``vicuna-v1.3``, ``vicuna-v1.5``"
-msgstr ""
+msgstr "``vicuna-v1.3``, ``vicuna-v1.5``"
+
+#: ../../source/getting_started/installation.rst:40
+msgid "``Yi``, ``Yi-chat``"
+msgstr "``Yi``, ``Yi-chat``"
 
 #: ../../source/getting_started/installation.rst:41
+msgid "``qwen-chat``"
+msgstr "``qwen-chat``"
+
+#: ../../source/getting_started/installation.rst:42
+msgid "``code-llama``, ``code-llama-python``, ``code-llama-instruct``"
+msgstr "``code-llama``, ``code-llama-python``, ``code-llama-instruct``"
+
+#: ../../source/getting_started/installation.rst:43
+msgid "``mistral-instruct-v0.1``"
+msgstr "``mistral-instruct-v0.1``"
+
+#: ../../source/getting_started/installation.rst:44
+msgid "``chatglm3``"
+msgstr "``chatglm3``"
+
+#: ../../source/getting_started/installation.rst:46
 msgid "To install Xinference and vLLM::"
-msgstr ""
+msgstr "安装 xinference 和 vLLM："
 
-#: ../../source/getting_started/installation.rst:48
+#: ../../source/getting_started/installation.rst:53
 msgid "GGML Backend"
-msgstr ""
+msgstr "GGML 引擎"
 
-#: ../../source/getting_started/installation.rst:49
+#: ../../source/getting_started/installation.rst:54
 msgid ""
 "It's advised to install the GGML dependencies manually based on your "
 "hardware specifications to enable acceleration."
 msgstr ""
-
-#: ../../source/getting_started/installation.rst:51
-msgid "Initial setup::"
-msgstr ""
+"当使用 GGML 引擎时，建议根据当前使用的硬件手动安装依赖，从而获得最佳的加速效果。"
 
 #: ../../source/getting_started/installation.rst:56
+msgid "Initial setup::"
+msgstr "初始步骤："
+
+#: ../../source/getting_started/installation.rst:61
 msgid "Hardware-Specific installations:"
-msgstr ""
+msgstr "不同硬件的安装方式："
 
-#: ../../source/getting_started/installation.rst:58
+#: ../../source/getting_started/installation.rst:63
 msgid "Apple Silicon::"
-msgstr ""
+msgstr "Apple M系列"
 
-#: ../../source/getting_started/installation.rst:62
+#: ../../source/getting_started/installation.rst:67
 msgid "Nvidia cards::"
-msgstr ""
+msgstr "英伟达显卡："
 
-#: ../../source/getting_started/installation.rst:66
+#: ../../source/getting_started/installation.rst:71
 msgid "AMD cards::"
-msgstr ""
+msgstr "AMD 显卡："
 

@@ -87,6 +87,11 @@ class SupervisorActor(xo.StatelessActor):
         )
         from ..model.llm import register_llm, unregister_llm
         from ..model.llm.llm_family import CustomLLMFamilyV1
+        from ..model.rerank.custom import (
+            CustomRerankModelSpec,
+            register_rerank,
+            unregister_rerank,
+        )
 
         self._custom_register_type_to_cls: Dict[str, Tuple] = {
             "LLM": (CustomLLMFamilyV1, register_llm, unregister_llm),
@@ -95,6 +100,7 @@ class SupervisorActor(xo.StatelessActor):
                 register_embedding,
                 unregister_embedding,
             ),
+            "rerank": (CustomRerankModelSpec, register_rerank, unregister_rerank),
         }
 
     @staticmethod
@@ -278,6 +284,7 @@ class SupervisorActor(xo.StatelessActor):
             return ret
         elif model_type == "rerank":
             from ..model.rerank import BUILTIN_RERANK_MODELS
+            from ..model.rerank.custom import get_user_defined_reranks
 
             ret = []
             for model_name, family in BUILTIN_RERANK_MODELS.items():
@@ -285,6 +292,14 @@ class SupervisorActor(xo.StatelessActor):
                     ret.append(self._to_rerank_model_reg(family, is_builtin=True))
                 else:
                     ret.append({"model_name": model_name, "is_builtin": True})
+
+            for model_spec in get_user_defined_reranks():
+                if detailed:
+                    ret.append(self._to_rerank_model_reg(model_spec, is_builtin=False))
+                else:
+                    ret.append(
+                        {"model_name": model_spec.model_name, "is_builtin": False}
+                    )
 
             ret.sort(key=sort_helper)
             return ret
@@ -320,8 +335,9 @@ class SupervisorActor(xo.StatelessActor):
             raise ValueError(f"Model {model_name} not found")
         elif model_type == "rerank":
             from ..model.rerank import BUILTIN_RERANK_MODELS
+            from ..model.rerank.custom import get_user_defined_reranks
 
-            for f in BUILTIN_RERANK_MODELS.values():
+            for f in list(BUILTIN_RERANK_MODELS.values()) + get_user_defined_reranks():
                 if f.model_name == model_name:
                     return f
             raise ValueError(f"Model {model_name} not found")
