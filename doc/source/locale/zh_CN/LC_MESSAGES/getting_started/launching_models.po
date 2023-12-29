@@ -1,0 +1,61 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2023-10-18 15:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.11.0\n"
+
+#: ../../source/getting_started/launching_models.rst:5
+msgid "Launching Models"
+msgstr ""
+
+#: ../../source/getting_started/launching_models.rst:7
+msgid "You can launch models using Xinference's command line tool or client."
+msgstr ""
+
+#: ../../source/getting_started/launching_models.rst:9
+msgid "First, make sure you have installed the Xinference SDK:"
+msgstr ""
+
+#: ../../source/getting_started/launching_models.rst:16
+msgid "Launching models with CLI"
+msgstr ""
+
+#: ../../source/getting_started/launching_models.rst:18
+msgid ""
+"Suppose you have started the Xinference server endpoint at "
+"``http://127.0.0.1:9997``."
+msgstr ""
+
+#: ../../source/getting_started/launching_models.rst:21
+msgid "To launch an instance of Llama2 chat model:"
+msgstr ""
+
+#: ../../source/getting_started/launching_models.rst:30
+msgid "To launch an instance of General Text Embeddings (GTE) model:"
+msgstr ""
+
+#: ../../source/getting_started/launching_models.rst:40
+msgid "Launching models with client"
+msgstr ""
+
+#: ../../source/getting_started/launching_models.rst:49
+msgid ""
+"Once the model instance is launched, the system will return the model's "
+"UID. You will need to use this model's UID as a handle to interact with "
+"the model using the client. You can also list the running models using "
+"the ``list_models`` method:"
+msgstr ""
+

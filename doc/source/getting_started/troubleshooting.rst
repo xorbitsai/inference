@@ -56,7 +56,7 @@ If you are using a NVIDIA GPU, you may face the following error:
 This typically indicates that your CUDA driver version is not compatible with the PyTorch version you are using.
 
 Go to `https://pytorch.org <https://pytorch.org>`_ to install a PyTorch version that has been compiled with your
-version of the CUDA driver.
+version of the CUDA driver. **Do not install a cuda version smaller than 11.8, preferably between 11.8 and 12.1.**
 
 Say if your CUDA driver version is 11.8, then you can install PyTorch with the following command:
 
