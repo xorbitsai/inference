@@ -17,6 +17,7 @@ import os
 from typing import Iterator, List, Optional, Union
 
 from ....types import Completion, CompletionChunk, Embedding
+from ...utils import select_device
 from .. import LLMFamilyV1, LLMSpecV1
 from .core import PytorchChatModel, PytorchGenerateConfig, PytorchModelConfig
 
@@ -85,7 +86,7 @@ class SpeculativeModel(PytorchChatModel):
 
         num_gpus = len(cuda_visible_devices) if cuda_visible_devices_env != "-1" else 0
         device = self._pytorch_model_config.get("device", "auto")
-        self._pytorch_model_config["device"] = self._select_device(device)
+        self._pytorch_model_config["device"] = select_device(device)
         self._device = self._pytorch_model_config["device"]
 
         if self._device == "cpu":

@@ -255,3 +255,31 @@ def patch_trust_remote_code():
             resolve_trust_remote_code.__code__ = (
                 _patched_resolve_trust_remote_code.__code__
             )
+
+
+def select_device(device):
+    try:
+        import torch
+    except ImportError:
+        raise ImportError(
+            f"Failed to import module 'torch'. Please make sure 'torch' is installed.\n\n"
+        )
+
+    if device == "auto":
+        # When env CUDA_VISIBLE_DEVICES=-1, torch.cuda.is_available() return False
+        if torch.cuda.is_available():
+            return "cuda"
+        elif torch.backends.mps.is_available():
+            return "mps"
+        return "cpu"
+    elif device == "cuda":
+        if not torch.cuda.is_available():
+            raise ValueError("cuda is unavailable in your environment")
+    elif device == "mps":
+        if not torch.backends.mps.is_available():
+            raise ValueError("mps is unavailable in your environment")
+    elif device == "cpu":
+        pass
+    else:
+        raise ValueError(f"Device {device} is not supported in temporary")
+    return device

@@ -37,6 +37,7 @@ if TYPE_CHECKING:
     from ..model.embedding import EmbeddingModelSpec
     from ..model.image import ImageModelFamilyV1
     from ..model.llm import LLMFamilyV1
+    from ..model.multimodal import LVLMFamilyV1
     from ..model.rerank import RerankModelSpec
     from .worker import WorkerActor
 
@@ -222,6 +223,25 @@ class SupervisorActor(xo.StatelessActor):
                 "is_builtin": is_builtin,
             }
 
+    def _to_multimodal_reg(
+        self, model_family: "LVLMFamilyV1", is_builtin: bool
+    ) -> Dict[str, Any]:
+        from ..model.llm import get_cache_status
+
+        if self.is_local_deployment():
+            specs = []
+            # TODO: does not work when the supervisor and worker are running on separate nodes.
+            for spec in model_family.model_specs:
+                cache_status = get_cache_status(model_family, spec)
+                specs.append({**spec.dict(), "cache_status": cache_status})
+            return {
+                **model_family.dict(),
+                "is_builtin": is_builtin,
+                "model_specs": specs,
+            }
+        else:
+            return {**model_family.dict(), "is_builtin": is_builtin}
+
     @log_sync(logger=logger)
     def list_model_registrations(
         self, model_type: str, detailed: bool = False
@@ -304,6 +324,18 @@ class SupervisorActor(xo.StatelessActor):
 
             ret.sort(key=sort_helper)
             return ret
+        elif model_type == "multimodal":
+            from ..model.multimodal import BUILTIN_LVLM_FAMILIES
+
+            ret = []
+            for family in BUILTIN_LVLM_FAMILIES:
+                if detailed:
+                    ret.append(self._to_multimodal_reg(family, True))
+                else:
+                    ret.append({"model_name": family.model_name, "is_builtin": True})
+
+            ret.sort(key=sort_helper)
+            return ret
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
 
@@ -339,6 +371,13 @@ class SupervisorActor(xo.StatelessActor):
             from ..model.rerank.custom import get_user_defined_reranks
 
             for f in list(BUILTIN_RERANK_MODELS.values()) + get_user_defined_reranks():
+                if f.model_name == model_name:
+                    return f
+            raise ValueError(f"Model {model_name} not found")
+        elif model_type == "multimodal":
+            from ..model.multimodal import BUILTIN_LVLM_FAMILIES
+
+            for f in BUILTIN_LVLM_FAMILIES:
                 if f.model_name == model_name:
                     return f
             raise ValueError(f"Model {model_name} not found")
