@@ -93,15 +93,6 @@ def test_register_custom_rerank():
     assert os.path.islink(model_cache_path)
     os.remove(model_cache_path)
 
-    # Invalid name
-    model_spec = CustomRerankModelSpec(
-        model_name="custom_test_b-v1.5",
-        language=["zh"],
-        model_uri=os.path.abspath(tmp_dir),
-    )
-    with pytest.raises(ValueError):
-        register_rerank(model_spec, False)
-
     # Invalid path
     model_spec = CustomRerankModelSpec(
         model_name="custom_test_b-v15",

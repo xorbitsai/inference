@@ -362,10 +362,10 @@ class RESTfulAPI:
         draft_quantization = payload.get("draft_quantization")
         n_gpu = payload.get("n_gpu", "auto")
 
-        if not (model_uid and model_name):
+        if not model_name:
             raise HTTPException(
                 status_code=400,
-                detail="Invalid input. Please specify the model UID and the model name",
+                detail="Invalid input. Please specify the model name",
             )
 
         try:
@@ -420,10 +420,10 @@ class RESTfulAPI:
             key: value for key, value in payload.items() if key not in exclude_keys
         }
 
-        if not (model_uid and model_name):
+        if not model_name:
             raise HTTPException(
                 status_code=400,
-                detail="Invalid input. Please specify the model UID and the model name",
+                detail="Invalid input. Please specify the model name",
             )
 
         try:

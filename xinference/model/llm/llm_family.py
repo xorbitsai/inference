@@ -752,10 +752,7 @@ def register_llm(llm_family: LLMFamilyV1, persist: bool):
     from ..utils import is_valid_model_name
 
     if not is_valid_model_name(llm_family.model_name):
-        raise ValueError(
-            f"Invalid model name {llm_family.model_name}. The model name must start with a letter"
-            f" or a digit, and can only contain letters, digits, underscores, or dashes."
-        )
+        raise ValueError(f"Invalid model name {llm_family.model_name}.")
 
     with UD_LLM_FAMILIES_LOCK:
         for family in BUILTIN_LLM_FAMILIES + UD_LLM_FAMILIES:

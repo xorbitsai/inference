@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import json
-import uuid
 import warnings
 from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Union
 
@@ -523,11 +522,6 @@ class Client:
     def __init__(self, base_url):
         self.base_url = base_url
 
-    @classmethod
-    def _gen_model_uid(cls) -> str:
-        # generate a time-based uuid.
-        return str(uuid.uuid1())
-
     def list_models(self) -> Dict[str, Dict[str, Any]]:
         """
         Retrieve the model specifications from the Server.
@@ -574,10 +568,8 @@ class Client:
             "`launch_speculative_llm` is an experimental feature and the API may change in the future."
         )
 
-        model_uid = self._gen_model_uid()
-
         payload = {
-            "model_uid": model_uid,
+            "model_uid": None,
             "model_name": model_name,
             "model_size_in_billions": model_size_in_billions,
             "quantization": quantization,
@@ -647,9 +639,6 @@ class Client:
         """
 
         url = f"{self.base_url}/v1/models"
-
-        if model_uid is None:
-            model_uid = self._gen_model_uid()
 
         payload = {
             "model_uid": model_uid,

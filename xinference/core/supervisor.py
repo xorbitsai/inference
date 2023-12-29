@@ -25,6 +25,7 @@ from ..core import ModelActor
 from .resource import ResourceStatus
 from .utils import (
     build_replica_model_uid,
+    gen_random_string,
     is_valid_model_uid,
     iter_replica_model_uid,
     log_async,
@@ -380,9 +381,17 @@ class SupervisorActor(xo.StatelessActor):
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
 
+    def _gen_model_uid(self, model_name: str) -> str:
+        if model_name not in self._model_uid_to_replica_info:
+            return model_name
+        logger.debug(
+            f"{model_name} exists in xinference. Generate suffix to {model_name} for model_uid."
+        )
+        return f"{model_name}-{gen_random_string(8)}"
+
     async def launch_speculative_llm(
         self,
-        model_uid: str,
+        model_uid: Optional[str],
         model_name: str,
         model_size_in_billions: Optional[int],
         quantization: Optional[str],
@@ -391,6 +400,8 @@ class SupervisorActor(xo.StatelessActor):
         draft_quantization: Optional[str],
         n_gpu: Optional[Union[int, str]] = "auto",
     ) -> str:
+        if model_uid is None:
+            model_uid = self._gen_model_uid(model_name)
         logger.debug(
             (
                 f"Enter launch_speculative_llm, model_uid: %s, model_name: %s, model_size: %s, "
@@ -440,7 +451,7 @@ class SupervisorActor(xo.StatelessActor):
 
     async def launch_builtin_model(
         self,
-        model_uid: str,
+        model_uid: Optional[str],
         model_name: str,
         model_size_in_billions: Optional[int],
         model_format: Optional[str],
@@ -451,6 +462,9 @@ class SupervisorActor(xo.StatelessActor):
         request_limits: Optional[int] = None,
         **kwargs,
     ) -> str:
+        if model_uid is None:
+            model_uid = self._gen_model_uid(model_name)
+
         logger.debug(
             (
                 f"Enter launch_builtin_model, model_uid: %s, model_name: %s, model_size: %s, "
@@ -489,7 +503,7 @@ class SupervisorActor(xo.StatelessActor):
 
         if not is_valid_model_uid(model_uid):
             raise ValueError(
-                "The model UID is invalid. Please specify the model UID by a-z or A-Z, 0 < length <= 100."
+                "The model UID is invalid. Please specify the model UID by 0 < length <= 100."
             )
 
         if request_limits is not None and request_limits < 0:

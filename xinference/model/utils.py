@@ -153,9 +153,8 @@ def is_model_cached(model_spec: Any, name_to_revisions_mapping: Dict):
 
 
 def is_valid_model_name(model_name: str) -> bool:
-    import re
-
-    return re.match(r"^[A-Za-z0-9][A-Za-z0-9_\-]*$", model_name) is not None
+    model_name = model_name.strip()
+    return 0 < len(model_name) <= 100
 
 
 def parse_uri(uri: str) -> Tuple[str, str]:

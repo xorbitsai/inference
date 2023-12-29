@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import asyncio
-import uuid
 from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Union
 
 import xoscar as xo
@@ -308,11 +307,6 @@ class ActorClient:
             xo.actor_ref(address=self._supervisor_address, uid=SupervisorActor.uid())
         )
 
-    @classmethod
-    def _gen_model_uid(cls) -> str:
-        # generate a time-based uuid.
-        return str(uuid.uuid1())
-
     def register_model(self, model_type: str, model: str, persist: bool):
         """
         Register a custom model.
@@ -424,10 +418,9 @@ class ActorClient:
             The unique model_uid for the launched model.
 
         """
-        model_uid = self._gen_model_uid()
 
         coro = self._supervisor_ref.launch_builtin_model(
-            model_uid=model_uid,
+            model_uid=None,
             model_name=model_name,
             model_type=model_type,
             model_size_in_billions=model_size_in_billions,

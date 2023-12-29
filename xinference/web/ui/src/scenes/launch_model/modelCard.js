@@ -21,7 +21,6 @@ import {
 import IconButton from '@mui/material/IconButton'
 import Typography from '@mui/material/Typography'
 import React, { useContext, useEffect, useState } from 'react'
-import { v1 as uuidv1 } from 'uuid'
 
 import { ApiContext } from '../../components/apiContext'
 
@@ -113,7 +112,8 @@ const ModelCard = ({ url, modelData, gpuAvailable, is_custom = false }) => {
     setIsCallingApi(true)
 
     const modelDataWithID = {
-      model_uid: modelUID.trim() === '' ? uuidv1() : modelUID.trim(),
+      // If user does not fill model_uid, pass null (None) to server and server generates it.
+      model_uid: modelUID.trim() === '' ? null : modelUID.trim(),
       model_name: modelData.model_name,
       model_format: modelFormat,
       model_size_in_billions: convertModelSize(modelSize),
@@ -522,7 +522,7 @@ const ModelCard = ({ url, modelData, gpuAvailable, is_custom = false }) => {
                 <TextField
                   variant="outlined"
                   value={modelUID}
-                  label="(Optional) Model UID, uuid by default"
+                  label="(Optional) Model UID, model name by default"
                   onChange={(e) => setModelUID(e.target.value)}
                 />
               </FormControl>

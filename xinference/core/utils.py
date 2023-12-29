@@ -13,6 +13,8 @@
 # limitations under the License.
 import logging
 import os
+import random
+import string
 from typing import Generator, Tuple
 
 import orjson
@@ -91,12 +93,14 @@ def parse_replica_model_uid(replica_model_uid: str) -> Tuple[str, int, int]:
 
 
 def is_valid_model_uid(model_uid: str) -> bool:
+    model_uid = model_uid.strip()
     if not model_uid or len(model_uid) > 100:
         return False
+    return True
 
-    import re
 
-    return re.match(r"^[A-Za-z0-9][A-Za-z0-9_\-]*$", model_uid) is not None
+def gen_random_string(length: int) -> str:
+    return "".join(random.sample(string.ascii_letters + string.digits, length))
 
 
 def json_dumps(o):

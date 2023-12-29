@@ -45,10 +45,7 @@ def register_embedding(model_spec: CustomEmbeddingModelSpec, persist: bool):
     from . import BUILTIN_EMBEDDING_MODELS, MODELSCOPE_EMBEDDING_MODELS
 
     if not is_valid_model_name(model_spec.model_name):
-        raise ValueError(
-            f"Invalid model name {model_spec.model_name}. The model name must start with a letter"
-            f" or a digit, and can only contain letters, digits, underscores, or dashes."
-        )
+        raise ValueError(f"Invalid model name {model_spec.model_name}.")
 
     with UD_EMBEDDING_LOCK:
         for model_name in (
