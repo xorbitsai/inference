@@ -90,9 +90,7 @@ class QwenVLChat(LVLM):
                 data = data[len("base64,") :]
                 data = base64.b64decode(data.encode("utf-8"))
 
-                with tempfile.NamedTemporaryFile(
-                    suffix=f".{ext}", delete=False, delete_on_close=False
-                ) as f:
+                with tempfile.NamedTemporaryFile(suffix=f".{ext}", delete=False) as f:
                     f.write(data)
                 logging.info("Dump base64 data to %s", f.name)
                 return f.name
