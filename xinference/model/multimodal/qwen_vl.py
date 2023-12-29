@@ -11,11 +11,15 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import base64
+import concurrent.futures
+import logging
 import operator
+import tempfile
 import time
 import uuid
 from typing import Dict, Iterator, List, Optional, Union
+from urllib.parse import urlparse
 
 from ...types import (
     ChatCompletion,
@@ -25,6 +29,8 @@ from ...types import (
 )
 from ..utils import select_device
 from .core import LVLM, LVLMFamilyV1, LVLMSpecV1
+
+logger = logging.getLogger(__name__)
 
 
 class QwenVLChat(LVLM):
@@ -67,9 +73,30 @@ class QwenVLChat(LVLM):
         )
 
     def _message_content_to_qwen(self, content) -> str:
+        def _ensure_url(_url):
+            try:
+                urlparse(_url)
+                return _url
+            except Exception:
+                logging.info("Parse url by base64 decoder.")
+                # https://platform.openai.com/docs/guides/vision/uploading-base-64-encoded-images
+                # e.g. f"data:image/jpeg;base64,{base64_image}"
+                _type, data = _url.split(";")
+                _, ext = _type.split("/")
+                data = data[len("base64,") :]
+                data = base64.b64decode(data.encode("utf-8"))
+
+                with tempfile.NamedTemporaryFile(
+                    suffix=f".{ext}", delete=False, delete_on_close=False
+                ) as f:
+                    f.write(data)
+                logging.info("Dump base64 data to %s", f.name)
+                return f.name
+
         if not isinstance(content, str):
+            # TODO(codingl2k1): Optimize _ensure_url
             content = [
-                {"image": c["image_url"]["url"], "type": "image"}
+                {"image": _ensure_url(c["image_url"]["url"]), "type": "image"}
                 if c.get("type") == "image_url"
                 else c
                 for c in content
@@ -85,6 +112,10 @@ class QwenVLChat(LVLM):
         chat_history: Optional[List[Dict]] = None,
         generate_config: Optional[Dict] = None,
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
+        if generate_config.get("stream"):
+            raise Exception(
+                f"Chat with model {self.model_family.model_name} does not support stream."
+            )
         prompt = self._message_content_to_qwen(prompt)
         # Convert openai history to qwen vl history
         qwen_history = []

@@ -398,6 +398,90 @@ class RESTfulChatModelHandle(RESTfulGenerateModelHandle):
         return response_data
 
 
+class RESTfulMultimodalModelHandle(RESTfulModelHandle):
+    def chat(
+        self,
+        prompt: Union[str, List[Dict]],
+        system_prompt: Optional[str] = None,
+        chat_history: Optional[List["ChatCompletionMessage"]] = None,
+        tools: Optional[List[Dict]] = None,
+        generate_config: Optional[
+            Union["LlamaCppGenerateConfig", "PytorchGenerateConfig"]
+        ] = None,
+    ) -> Union["ChatCompletion", Iterator["ChatCompletionChunk"]]:
+        """
+        Given a list of messages comprising a conversation, the model will return a response via RESTful APIs.
+
+        Parameters
+        ----------
+        prompt: str
+            The user's input.
+        system_prompt: Optional[str]
+            The system context provide to Model prior to any chats.
+        chat_history: Optional[List["ChatCompletionMessage"]]
+            A list of messages comprising the conversation so far.
+        tools: Optional[List[Dict]]
+            A tool list.
+        generate_config: Optional[Union["LlamaCppGenerateConfig", "PytorchGenerateConfig"]]
+            Additional configuration for the chat generation.
+            "LlamaCppGenerateConfig" -> configuration for ggml model
+            "PytorchGenerateConfig" -> configuration for pytorch model
+
+        Returns
+        -------
+        Union["ChatCompletion", Iterator["ChatCompletionChunk"]]
+            Stream is a parameter in generate_config.
+            When stream is set to True, the function will return Iterator["ChatCompletionChunk"].
+            When stream is set to False, the function will return "ChatCompletion".
+
+        Raises
+        ------
+        RuntimeError
+            Report the failure to generate the chat from the server. Detailed information provided in error message.
+
+        """
+
+        url = f"{self._base_url}/v1/chat/completions"
+
+        if chat_history is None:
+            chat_history = []
+
+        if chat_history and chat_history[0]["role"] == "system":
+            if system_prompt is not None:
+                chat_history[0]["content"] = system_prompt
+
+        else:
+            if system_prompt is not None:
+                chat_history.insert(0, {"role": "system", "content": system_prompt})
+
+        chat_history.append({"role": "user", "content": prompt})
+
+        request_body: Dict[str, Any] = {
+            "model": self._model_uid,
+            "messages": chat_history,
+        }
+        if tools is not None:
+            raise RuntimeError("Multimodal does not support function call.")
+
+        if generate_config is not None:
+            for key, value in generate_config.items():
+                request_body[key] = value
+
+        stream = bool(generate_config and generate_config.get("stream"))
+        response = requests.post(url, json=request_body, stream=stream)
+
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to generate chat completion, detail: {_get_error_string(response)}"
+            )
+
+        if stream:
+            return streaming_response_iterator(response.iter_lines())
+
+        response_data = response.json()
+        return response_data
+
+
 class RESTfulChatglmCppChatModelHandle(RESTfulEmbeddingModelHandle):
     def chat(
         self,
@@ -744,6 +828,8 @@ class Client:
             return RESTfulImageModelHandle(model_uid, self.base_url)
         elif desc["model_type"] == "rerank":
             return RESTfulRerankModelHandle(model_uid, self.base_url)
+        elif desc["model_type"] == "multimodal":
+            return RESTfulMultimodalModelHandle(model_uid, self.base_url)
         else:
             raise ValueError(f"Unknown model type:{desc['model_type']}")
 

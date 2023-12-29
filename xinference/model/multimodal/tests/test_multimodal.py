@@ -25,10 +25,18 @@ def test_restful_api_for_qwen_vl(setup):
         model_uid="my_controlnet",
         model_name="qwen-vl-chat",
         model_type="multimodal",
-        device="cpu",
     )
     model = client.get_model(model_uid)
-    assert model
+    prompt = [
+        {"type": "text", "text": "What’s in this image?"},
+        {
+            "type": "image_url",
+            "image_url": {
+                "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg"
+            },
+        },
+    ]
+    response = model.chat(prompt=prompt)
 
     # openai client
     import openai
