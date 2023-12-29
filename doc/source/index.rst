@@ -52,6 +52,7 @@ Developing Real-world AI Applications with Xinference
   .. code-tab:: python Images
 
     from xinference.client import Client
+
     client = Client("http://localhost:9997")
     model = client.get_model("MODEL_UID")
 
@@ -82,13 +83,13 @@ Getting Started
 .. grid:: 2
 
     .. grid-item-card::  Install Xinference
-      :link: models_builtin_index
+      :link: installation
       :link-type: ref
 
       Install Xinference on Linux, Windows, and macOS.
 
     .. grid-item-card::  Try it out!
-      :link: models_builtin_index
+      :link: using_xinference
       :link-type: ref
 
       Start by running Xinference on a local machine.
