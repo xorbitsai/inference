@@ -37,6 +37,9 @@ def test_restful_api_for_qwen_vl(setup):
         },
     ]
     response = model.chat(prompt=prompt)
+    assert "grass" in response["choices"][0]["message"]["content"]
+    assert "tree" in response["choices"][0]["message"]["content"]
+    assert "sky" in response["choices"][0]["message"]["content"]
 
     # openai client
     import openai
