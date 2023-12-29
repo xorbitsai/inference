@@ -357,6 +357,13 @@ class SupervisorActor(xo.StatelessActor):
                 if f.model_name == model_name:
                     return f
             raise ValueError(f"Model {model_name} not found")
+        elif model_type == "multimodal":
+            from ..model.multimodal import BUILTIN_LVLM_FAMILIES
+
+            for f in BUILTIN_LVLM_FAMILIES:
+                if f.model_name == model_name:
+                    return f
+            raise ValueError(f"Model {model_name} not found")
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
 
