@@ -30,11 +30,11 @@ msgid ""
 "Xinference, you're empowered to run inference using any open-source LLMs,"
 " embedding models, and multimodal models either in the cloud or on your "
 "own premises, and create robust AI-driven applications."
-msgstr "Xorbits Inference (Xinference) 是一个开源平台，用于简化各种人工智能模型的操作和集成。借助 Xinference，您可以使用任何开源 LLM、嵌入模型和多模态模型在云端或您自己的场所运行推理，并创建强大的 AI 驱动应用程序。"
+msgstr "Xorbits Inference (Xinference) 是一个开源平台，用于简化各种人工智能模型的操作和集成。借助 Xinference，您可以使用任何开源 LLM、嵌入模型和多模态模型在云端或在自己的环境中运行推理，并创建强大的 AI 应用程序。"
 
 #: ../../source/index.rst:24
 msgid "Developing Real-world AI Applications with Xinference"
-msgstr "使用 Xinference 开发真实世界的人工智能应用程序"
+msgstr "使用 Xinference 开发真实场景的 AI 应用"
 
 #: ../../source/index.rst:80
 msgid "Getting Started"
@@ -90,7 +90,7 @@ msgstr "阅读知乎博客"
 
 #: ../../source/index.rst:142
 msgid "Get Support"
-msgstr "得到支持"
+msgstr "寻求帮助"
 
 #: ../../source/index.rst:150
 msgid ":fab:`weixin` Find community on WeChat"
