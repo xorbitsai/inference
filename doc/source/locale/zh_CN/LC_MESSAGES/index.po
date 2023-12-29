@@ -86,7 +86,7 @@ msgstr "在 Twitter 上关注我们"
 
 #: ../../source/index.rst:135
 msgid ":fab:`zhihu` Read our blogs"
-msgstr "阅读我们的知乎上的博客"
+msgstr "阅读知乎博客"
 
 #: ../../source/index.rst:142
 msgid "Get Support"
