@@ -55,15 +55,12 @@ async def test_restful_api(setup):
     response = requests.post(url, json=payload)
     assert response.status_code == 400
 
+    # same model uid
     payload = {
         "model_uid": "test_restful_api",
         "model_name": "orca",
         "quantization": "q4_0",
     }
-    response = requests.post(url, json=payload)
-    assert response.status_code == 400
-
-    payload = {"model_name": "orca", "quantization": "q4_0"}
     response = requests.post(url, json=payload)
     assert response.status_code == 400
 

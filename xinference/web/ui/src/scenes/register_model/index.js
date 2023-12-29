@@ -20,6 +20,7 @@ import ErrorMessageSnackBar from '../../components/errorMessageSnackBar'
 import Title from '../../components/Title'
 import { useMode } from '../../theme'
 import RegisterEmbeddingModel from './register_embedding'
+import RegisterRerankModel from './register_rerank'
 
 const SUPPORTED_LANGUAGES_DICT = { en: 'English', zh: 'Chinese' }
 const SUPPORTED_FEATURES = ['Generate', 'Chat']
@@ -49,12 +50,7 @@ const RegisterModel = () => {
   const [promptStyles, setPromptStyles] = useState([])
   const [tabValue, setTabValue] = React.useState('1')
 
-  // model name must be
-  // 1. Starts with an alphanumeric character (a letter or a digit).
-  // 2. Followed by any number of alphanumeric characters, underscores (_), or hyphens (-).
-  const errorModelName = !/^[A-Za-z0-9][A-Za-z0-9_-]*$/.test(
-    formData.model_name
-  )
+  const errorModelName = formData.model_name.trim().length <= 0
   const errorModelDescription = formData.model_description.length < 0
   const errorContextLength = formData.context_length === 0
   const errorLanguage =
@@ -245,6 +241,7 @@ const RegisterModel = () => {
           >
             <Tab label="Language Model" value="1" />
             <Tab label="Embedding Model" value="2" />
+            <Tab label="Rerank Model" value="3" />
           </TabList>
         </Box>
         <TabPanel value="1" sx={{ padding: 0 }}>
@@ -509,6 +506,9 @@ const RegisterModel = () => {
         </TabPanel>
         <TabPanel value="2" sx={{ padding: 0 }}>
           <RegisterEmbeddingModel />
+        </TabPanel>
+        <TabPanel value="3" sx={{ padding: 0 }}>
+          <RegisterRerankModel />
         </TabPanel>
       </TabContext>
     </Box>

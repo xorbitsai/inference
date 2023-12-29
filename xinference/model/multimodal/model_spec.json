@@ -1,0 +1,34 @@
+[
+  {
+    "version": 1,
+    "context_length": 4096,
+    "model_name": "qwen-vl-chat",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "Qwen-VL-Chat supports more flexible interaction, such as multiple image inputs, multi-round question answering, and creative capabilities.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "Qwen/Qwen-VL-Chat",
+        "model_revision": "6665c780ade5ff3f08853b4262dcb9c8f9598d42"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "QWEN",
+      "system_prompt": "You are a helpful assistant.",
+      "roles": [
+        "user",
+        "assistant"
+      ]
+    }
+  }
+]

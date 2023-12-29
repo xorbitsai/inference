@@ -25,59 +25,63 @@ msgstr "示例：智能播客 🎙"
 
 #: ../../source/examples/ai_podcast.rst:7
 msgid "**Description**:"
-msgstr ""
+msgstr "描述"
 
 #: ../../source/examples/ai_podcast.rst:9
 msgid "🎙️AI Podcast - Voice Conversations with Multiple Agents on M2 Max 💻"
-msgstr ""
+msgstr "🎙️AI播客 - 在M2 Max芯片上进行多智能体语音对话"
 
 #: ../../source/examples/ai_podcast.rst:11
 msgid "**Support Language** :"
-msgstr ""
+msgstr "**支持语言**："
 
 #: ../../source/examples/ai_podcast.rst:13
 msgid "English (AI_Podcast.py)"
-msgstr ""
+msgstr "英文对应代码文件：AI_Podcast.py"
 
 #: ../../source/examples/ai_podcast.rst:15
 msgid "Chinese (AI_Podcast_ZH.py)"
-msgstr ""
+msgstr "中文对应代码文件：AI_Podcast_ZH.py"
 
 #: ../../source/examples/ai_podcast.rst:17
 msgid "**Used Technology (EN version)** :"
-msgstr ""
+msgstr "英文版本涉及技术："
 
 #: ../../source/examples/ai_podcast.rst:19
 msgid ""
 "@ `OpenAI <https://twitter.com/OpenAI>`_ 's `whisper "
 "<https://pypi.org/project/openai-whisper/>`_"
 msgstr ""
+"@ `OpenAI <https://twitter.com/OpenAI>`_ `whisper <https://pypi.org/project/openai-whisper/>`_"
 
 #: ../../source/examples/ai_podcast.rst:21
 msgid ""
 "@ `ggerganov <https://twitter.com/ggerganov>`_ 's `ggml "
 "<https://github.com/ggerganov/ggml>`_"
 msgstr ""
+"@ `ggerganov <https://twitter.com/ggerganov>`_ `ggml <https://github.com/ggerganov/ggml>`_"
 
 #: ../../source/examples/ai_podcast.rst:23
 msgid ""
 "@ `WizardLM_AI <https://twitter.com/WizardLM_AI>`_ 's `wizardlm v1.0 "
 "<https://huggingface.co/WizardLM>`_"
 msgstr ""
+"@ `WizardLM_AI <https://twitter.com/WizardLM_AI>`_ `wizardlm v1.0 <https://huggingface.co/WizardLM>`_"
 
-#: ../../source/examples/ai_podcast.rst:25
+#: ../../source/examples/ai_podcast.rst:25/
 msgid ""
 "@ `lmsysorg <https://twitter.com/lmsysorg>`_ 's `vicuna v1.3 "
 "<https://huggingface.co/lmsys/vicuna-7b-v1.3>`_"
 msgstr ""
+"@ `lmsysorg <https://twitter.com/lmsysorg>`_ `vicuna v1.3 <https://huggingface.co/lmsys/vicuna-7b-v1.3>`_"
 
 #: ../../source/examples/ai_podcast.rst:27
 msgid "@ `Xinference <https://github.com/xorbitsai/inference>`_ as a launcher"
-msgstr ""
+msgstr "`Xinference <https://github.com/xorbitsai/inference>`_ 作为平台"
 
 #: ../../source/examples/ai_podcast.rst:29
 msgid "**Detailed Explanation on the Demo Functionality** :"
-msgstr ""
+msgstr "**关于演示功能的详细说明**："
 
 #: ../../source/examples/ai_podcast.rst:31
 msgid ""
@@ -87,12 +91,15 @@ msgid ""
 "\"username\", where \"username\" is given by user's input. Initialize a "
 "empty chat history for the chatroom."
 msgstr ""
+"启动 XInference, 部署 Wizardlm 模型和 Vicuna 模型。"
+"通过为两个模型指定名称并告诉它们有一个名为“username”的人类用户来启动聊天室，其中“username”是由用户输入提供的。然后为聊天室初始化一个空的聊天历史。"
 
 #: ../../source/examples/ai_podcast.rst:35
 msgid ""
 "Use Audio device to store recording into file, and transcribe the file "
 "using OpenAI's Whisper to receive a human readable text as string."
 msgstr ""
+"使用音频设备将录音存储到文件中，然后使用OpenAI的Whisper将文件转录为人类可读的文本字符串。"
 
 #: ../../source/examples/ai_podcast.rst:37
 msgid ""
@@ -100,12 +107,14 @@ msgid ""
 "to talk to. Call the target agents and parse in the input string and chat"
 " history for the model to generate."
 msgstr ""
+"基于输入的消息字符串，确定用户想要与哪些代理（模型）进行对话。调用这些目标代理并将用户输入字符串和聊天历史作为输入让模型去生成对应的内容。"
 
 #: ../../source/examples/ai_podcast.rst:40
 msgid ""
 "When the responses are ready, use Macos's \"Say\" Command to produce "
 "audio through speaker. Each agents have their own voice while speaking."
 msgstr ""
+"当模型的输出准备好时，使用MacOS的“Say”命令通过扬声器生成音频。每个代理在说话时都有自己的声音。"
 
 #: ../../source/examples/ai_podcast.rst:43
 msgid ""
@@ -113,10 +122,11 @@ msgid ""
 "recursively looping the program until user explicitly says words like "
 "\"see you\" in their responses."
 msgstr ""
+"将用户输入和代理响应存储到聊天历史中，并循环递归程序，直到用户明确在其响应中说出“再见”之类的话语。"
 
 #: ../../source/examples/ai_podcast.rst:46
 msgid "**Highlight Features with Xinference** :"
-msgstr ""
+msgstr "**Xinference的突出特性**："
 
 #: ../../source/examples/ai_podcast.rst:48
 msgid ""
@@ -125,6 +135,8 @@ msgid ""
 "resources, the framework can deploy any amount of models you like at the "
 "same time."
 msgstr ""
+"借助 Xinference 的分布式系统，我们可以轻松在同一会话和同一“聊天室”中部署两个不同的模型。"
+"在足够的资源情况下，该框架可以同时部署任意数量的模型。"
 
 #: ../../source/examples/ai_podcast.rst:51
 msgid ""
@@ -132,6 +144,7 @@ msgid ""
 "lines of code. For examples, for launching the vicuna model in the demo, "
 "just by::"
 msgstr ""
+"使用 Xinference，只需添加几行代码就可以轻松部署模型。例如，在演示中启动vicuna模型，只需："
 
 #: ../../source/examples/ai_podcast.rst:68
 msgid ""
@@ -140,20 +153,22 @@ msgid ""
 "the service at selected endpoint. \" You are now ready to play with your "
 "llm model."
 msgstr ""
+"然后，Xinference 客户端将处理“目标模型的下载和缓存”、“为模型设置环境和进程”以及“在选择的端点运行服务”。你现在已经准备好与你的 llm 模型交互。"
 
 #: ../../source/examples/ai_podcast.rst:71
 msgid "**Original Demo Video** :"
-msgstr ""
+msgstr "**原始演示视频**"
 
 #: ../../source/examples/ai_podcast.rst:73
 msgid ""
 "`🎙️AI Podcast - Voice Conversations with Multiple Agents on M2 Max💻🔥🤖 <"
 "https://twitter.com/yichaocheng/status/1679129417778442240>`_"
 msgstr ""
+"`🎙️AI播客 - 在M2 Max芯片上进行多智能体语音对话💻🔥🤖 <https://twitter.com/yichaocheng/status/1679129417778442240>`_"
 
 #: ../../source/examples/ai_podcast.rst:75
 msgid "**Source Code** :"
-msgstr ""
+msgstr "**源代码**："
 
 #: ../../source/examples/ai_podcast.rst:77
 msgid ""
@@ -161,6 +176,7 @@ msgid ""
 "<https://github.com/xorbitsai/inference/blob/main/examples/AI_podcast.py>`_"
 " (English Version)"
 msgstr ""
+"`AI播客 <https://github.com/xorbitsai/inference/blob/main/examples/AI_podcast.py>`_（英文版）"
 
 #: ../../source/examples/ai_podcast.rst:79
 msgid ""
@@ -168,13 +184,4 @@ msgid ""
 "<https://github.com/xorbitsai/inference/blob/main/examples/AI_podcast_ZH.py>`_"
 " (Chinese Version)"
 msgstr ""
-
-#~ msgid "AI_Podcast_ZH (Chinese Version)"
-#~ msgstr ""
-
-#~ msgid ""
-#~ "`AI_Podcast_ZH "
-#~ "<https://github.com/xorbitsai/inference/blob/main/examples/AI_podcast_ZH.py>`"
-#~ " (Chinese Version)"
-#~ msgstr ""
-
+"`AI播客 <https://github.com/xorbitsai/inference/blob/main/examples/AI_podcast_ZH.py>`_（中文版）"

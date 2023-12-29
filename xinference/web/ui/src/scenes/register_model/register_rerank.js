@@ -12,28 +12,23 @@ const SUPPORTED_LANGUAGES_DICT = { en: 'English', zh: 'Chinese' }
 // Convert dictionary of supported languages into list
 const SUPPORTED_LANGUAGES = Object.keys(SUPPORTED_LANGUAGES_DICT)
 
-const RegisterEmbeddingModel = () => {
+const RegisterRerankModel = () => {
   const ERROR_COLOR = useMode()
   const endPoint = useContext(ApiContext).endPoint
   const { setErrorMsg } = useContext(ApiContext)
   const [successMsg, setSuccessMsg] = useState('')
   const [formData, setFormData] = useState({
-    model_name: 'custom-embedding',
-    dimensions: 768,
-    max_tokens: 512,
+    model_name: 'custom-rerank',
     language: ['en'],
-    model_uri: '/path/to/embedding-model',
+    model_uri: '/path/to/rerank-model',
   })
 
   const errorModelName = formData.model_name.trim().length <= 0
-  const errorDimensions = formData.dimensions < 0
-  const errorMaxTokens = formData.max_tokens < 0
   const errorLanguage =
     formData.language === undefined || formData.language.length === 0
 
   const handleClick = async () => {
-    const errorAny =
-      errorModelName || errorDimensions || errorMaxTokens || errorLanguage
+    const errorAny = errorModelName || errorLanguage
 
     if (errorAny) {
       setErrorMsg('Please fill in valid value for all fields')
@@ -42,7 +37,7 @@ const RegisterEmbeddingModel = () => {
 
     try {
       const response = await fetch(
-        endPoint + '/v1/model_registrations/embedding',
+        endPoint + '/v1/model_registrations/rerank',
         {
           method: 'POST',
           headers: {
@@ -100,34 +95,6 @@ const RegisterEmbeddingModel = () => {
           onChange={(event) =>
             setFormData({ ...formData, model_name: event.target.value })
           }
-        />
-        <Box padding="15px"></Box>
-
-        <TextField
-          error={errorDimensions}
-          label="Dimensions"
-          value={formData.dimensions}
-          size="small"
-          onChange={(event) => {
-            setFormData({
-              ...formData,
-              dimensions: parseInt(event.target.value, 10),
-            })
-          }}
-        />
-        <Box padding="15px"></Box>
-
-        <TextField
-          error={errorMaxTokens}
-          label="Max Tokens"
-          value={formData.max_tokens}
-          size="small"
-          onChange={(event) => {
-            setFormData({
-              ...formData,
-              max_tokens: parseInt(event.target.value, 10),
-            })
-          }}
         />
         <Box padding="15px"></Box>
 
@@ -206,7 +173,7 @@ const RegisterEmbeddingModel = () => {
   )
 }
 
-export default RegisterEmbeddingModel
+export default RegisterRerankModel
 
 const styles = {
   baseFormControl: {

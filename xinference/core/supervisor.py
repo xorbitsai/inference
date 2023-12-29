@@ -25,6 +25,7 @@ from ..core import ModelActor
 from .resource import ResourceStatus
 from .utils import (
     build_replica_model_uid,
+    gen_random_string,
     is_valid_model_uid,
     iter_replica_model_uid,
     log_async,
@@ -36,6 +37,7 @@ if TYPE_CHECKING:
     from ..model.embedding import EmbeddingModelSpec
     from ..model.image import ImageModelFamilyV1
     from ..model.llm import LLMFamilyV1
+    from ..model.multimodal import LVLMFamilyV1
     from ..model.rerank import RerankModelSpec
     from .worker import WorkerActor
 
@@ -87,6 +89,11 @@ class SupervisorActor(xo.StatelessActor):
         )
         from ..model.llm import register_llm, unregister_llm
         from ..model.llm.llm_family import CustomLLMFamilyV1
+        from ..model.rerank.custom import (
+            CustomRerankModelSpec,
+            register_rerank,
+            unregister_rerank,
+        )
 
         self._custom_register_type_to_cls: Dict[str, Tuple] = {
             "LLM": (CustomLLMFamilyV1, register_llm, unregister_llm),
@@ -95,6 +102,7 @@ class SupervisorActor(xo.StatelessActor):
                 register_embedding,
                 unregister_embedding,
             ),
+            "rerank": (CustomRerankModelSpec, register_rerank, unregister_rerank),
         }
 
     @staticmethod
@@ -215,6 +223,25 @@ class SupervisorActor(xo.StatelessActor):
                 "is_builtin": is_builtin,
             }
 
+    def _to_multimodal_reg(
+        self, model_family: "LVLMFamilyV1", is_builtin: bool
+    ) -> Dict[str, Any]:
+        from ..model.llm import get_cache_status
+
+        if self.is_local_deployment():
+            specs = []
+            # TODO: does not work when the supervisor and worker are running on separate nodes.
+            for spec in model_family.model_specs:
+                cache_status = get_cache_status(model_family, spec)
+                specs.append({**spec.dict(), "cache_status": cache_status})
+            return {
+                **model_family.dict(),
+                "is_builtin": is_builtin,
+                "model_specs": specs,
+            }
+        else:
+            return {**model_family.dict(), "is_builtin": is_builtin}
+
     @log_sync(logger=logger)
     def list_model_registrations(
         self, model_type: str, detailed: bool = False
@@ -278,6 +305,7 @@ class SupervisorActor(xo.StatelessActor):
             return ret
         elif model_type == "rerank":
             from ..model.rerank import BUILTIN_RERANK_MODELS
+            from ..model.rerank.custom import get_user_defined_reranks
 
             ret = []
             for model_name, family in BUILTIN_RERANK_MODELS.items():
@@ -285,6 +313,26 @@ class SupervisorActor(xo.StatelessActor):
                     ret.append(self._to_rerank_model_reg(family, is_builtin=True))
                 else:
                     ret.append({"model_name": model_name, "is_builtin": True})
+
+            for model_spec in get_user_defined_reranks():
+                if detailed:
+                    ret.append(self._to_rerank_model_reg(model_spec, is_builtin=False))
+                else:
+                    ret.append(
+                        {"model_name": model_spec.model_name, "is_builtin": False}
+                    )
+
+            ret.sort(key=sort_helper)
+            return ret
+        elif model_type == "multimodal":
+            from ..model.multimodal import BUILTIN_LVLM_FAMILIES
+
+            ret = []
+            for family in BUILTIN_LVLM_FAMILIES:
+                if detailed:
+                    ret.append(self._to_multimodal_reg(family, True))
+                else:
+                    ret.append({"model_name": family.model_name, "is_builtin": True})
 
             ret.sort(key=sort_helper)
             return ret
@@ -320,8 +368,16 @@ class SupervisorActor(xo.StatelessActor):
             raise ValueError(f"Model {model_name} not found")
         elif model_type == "rerank":
             from ..model.rerank import BUILTIN_RERANK_MODELS
+            from ..model.rerank.custom import get_user_defined_reranks
 
-            for f in BUILTIN_RERANK_MODELS.values():
+            for f in list(BUILTIN_RERANK_MODELS.values()) + get_user_defined_reranks():
+                if f.model_name == model_name:
+                    return f
+            raise ValueError(f"Model {model_name} not found")
+        elif model_type == "multimodal":
+            from ..model.multimodal import BUILTIN_LVLM_FAMILIES
+
+            for f in BUILTIN_LVLM_FAMILIES:
                 if f.model_name == model_name:
                     return f
             raise ValueError(f"Model {model_name} not found")
@@ -364,9 +420,17 @@ class SupervisorActor(xo.StatelessActor):
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
 
+    def _gen_model_uid(self, model_name: str) -> str:
+        if model_name not in self._model_uid_to_replica_info:
+            return model_name
+        logger.debug(
+            f"{model_name} exists in xinference. Generate suffix to {model_name} for model_uid."
+        )
+        return f"{model_name}-{gen_random_string(8)}"
+
     async def launch_speculative_llm(
         self,
-        model_uid: str,
+        model_uid: Optional[str],
         model_name: str,
         model_size_in_billions: Optional[int],
         quantization: Optional[str],
@@ -375,6 +439,8 @@ class SupervisorActor(xo.StatelessActor):
         draft_quantization: Optional[str],
         n_gpu: Optional[Union[int, str]] = "auto",
     ) -> str:
+        if model_uid is None:
+            model_uid = self._gen_model_uid(model_name)
         logger.debug(
             (
                 f"Enter launch_speculative_llm, model_uid: %s, model_name: %s, model_size: %s, "
@@ -424,7 +490,7 @@ class SupervisorActor(xo.StatelessActor):
 
     async def launch_builtin_model(
         self,
-        model_uid: str,
+        model_uid: Optional[str],
         model_name: str,
         model_size_in_billions: Optional[int],
         model_format: Optional[str],
@@ -435,6 +501,9 @@ class SupervisorActor(xo.StatelessActor):
         request_limits: Optional[int] = None,
         **kwargs,
     ) -> str:
+        if model_uid is None:
+            model_uid = self._gen_model_uid(model_name)
+
         logger.debug(
             (
                 f"Enter launch_builtin_model, model_uid: %s, model_name: %s, model_size: %s, "
@@ -473,7 +542,7 @@ class SupervisorActor(xo.StatelessActor):
 
         if not is_valid_model_uid(model_uid):
             raise ValueError(
-                "The model UID is invalid. Please specify the model UID by a-z or A-Z, 0 < length <= 100."
+                "The model UID is invalid. Please specify the model UID by 0 < length <= 100."
             )
 
         if request_limits is not None and request_limits < 0:

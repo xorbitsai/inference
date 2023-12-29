@@ -153,9 +153,8 @@ def is_model_cached(model_spec: Any, name_to_revisions_mapping: Dict):
 
 
 def is_valid_model_name(model_name: str) -> bool:
-    import re
-
-    return re.match(r"^[A-Za-z0-9][A-Za-z0-9_\-]*$", model_name) is not None
+    model_name = model_name.strip()
+    return 0 < len(model_name) <= 100
 
 
 def parse_uri(uri: str) -> Tuple[str, str]:
@@ -256,3 +255,31 @@ def patch_trust_remote_code():
             resolve_trust_remote_code.__code__ = (
                 _patched_resolve_trust_remote_code.__code__
             )
+
+
+def select_device(device):
+    try:
+        import torch
+    except ImportError:
+        raise ImportError(
+            f"Failed to import module 'torch'. Please make sure 'torch' is installed.\n\n"
+        )
+
+    if device == "auto":
+        # When env CUDA_VISIBLE_DEVICES=-1, torch.cuda.is_available() return False
+        if torch.cuda.is_available():
+            return "cuda"
+        elif torch.backends.mps.is_available():
+            return "mps"
+        return "cpu"
+    elif device == "cuda":
+        if not torch.cuda.is_available():
+            raise ValueError("cuda is unavailable in your environment")
+    elif device == "mps":
+        if not torch.backends.mps.is_available():
+            raise ValueError("mps is unavailable in your environment")
+    elif device == "cpu":
+        pass
+    else:
+        raise ValueError(f"Device {device} is not supported in temporary")
+    return device

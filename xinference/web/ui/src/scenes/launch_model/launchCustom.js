@@ -4,6 +4,7 @@ import React, { useContext, useEffect, useState } from 'react'
 import { ApiContext } from '../../components/apiContext'
 import EmbeddingCard from './embeddingCard'
 import ModelCard from './modelCard'
+import RerankCard from './rerankCard'
 
 const LaunchCustom = ({ gpuAvailable }) => {
   let endPoint = useContext(ApiContext).endPoint
@@ -31,6 +32,17 @@ const LaunchCustom = ({ gpuAvailable }) => {
 
     try {
       setIsCallingApi(true)
+
+      const rerankResponse = await fetch(
+        `${endPoint}/v1/model_registrations/rerank`,
+        {
+          method: 'GET',
+        }
+      )
+      const rerankRegistrations = await rerankResponse.json()
+      const customRerankRegistrations = rerankRegistrations.filter(
+        (data) => !data.is_builtin
+      )
 
       const embeddingResponse = await fetch(
         `${endPoint}/v1/model_registrations/embedding`,
@@ -87,7 +99,25 @@ const LaunchCustom = ({ gpuAvailable }) => {
         })
       )
 
-      setRegistrationData(newLLMData.concat(newEmbeddingData))
+      const newRerankData = await Promise.all(
+        customRerankRegistrations.map(async (registration) => {
+          const desc = await fetch(
+            `${endPoint}/v1/model_registrations/rerank/${registration.model_name}`,
+            {
+              method: 'GET',
+            }
+          )
+
+          return {
+            ...(await desc.json()),
+            is_builtin: registration.is_builtin,
+          }
+        })
+      )
+
+      setRegistrationData(
+        newLLMData.concat(newEmbeddingData).concat(newRerankData)
+      )
     } catch (error) {
       console.error('Error:', error)
     } finally {
@@ -136,6 +166,18 @@ const LaunchCustom = ({ gpuAvailable }) => {
             ) {
               return (
                 <EmbeddingCard
+                  url={endPoint}
+                  modelData={filteredRegistration}
+                  cardHeight={380}
+                  is_custom={true}
+                />
+              )
+            } else if (
+              filteredRegistration.model_type &&
+              filteredRegistration.model_type === 'rerank'
+            ) {
+              return (
+                <RerankCard
                   url={endPoint}
                   modelData={filteredRegistration}
                   cardHeight={380}
