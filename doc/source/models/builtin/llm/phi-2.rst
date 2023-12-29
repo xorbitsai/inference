@@ -27,3 +27,17 @@ chosen quantization method from the options listed above::
 
    xinference launch --model-name phi-2 --size-in-billions 2 --model-format ggufv2 --quantization ${quantization}
 
+
+Model Spec 2 (pytorch, 2 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** pytorch
+- **Model Size (in billions):** 2
+- **Quantizations:** 4-bit, 8-bit, none
+- **Model ID:** microsoft/phi-2
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-name phi-2 --size-in-billions 2 --model-format pytorch --quantization ${quantization}
+
