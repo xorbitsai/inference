@@ -96,7 +96,7 @@ class LVLMDescription(ModelDescription):
 
     def to_dict(self):
         return {
-            "model_type": "LVLM",
+            "model_type": "multimodal",
             "address": self.address,
             "accelerators": self.devices,
             "model_name": self._model_family.model_name,
