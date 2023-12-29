@@ -32,6 +32,7 @@ potential of cutting-edge AI models.
 - Speculative decoding: [#509](https://github.com/xorbitsai/inference/pull/509)
 - Incorporate vLLM: [#445](https://github.com/xorbitsai/inference/pull/445)
 ### New Models
+- Built-in support for [phi-2](https://huggingface.co/microsoft/phi-2): [#828](https://github.com/xorbitsai/inference/pull/828)
 - Built-in support for [mistral-instruct-v0.2](https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.2): [#796](https://github.com/xorbitsai/inference/pull/796)
 - Built-in support for [deepseek-llm](https://huggingface.co/deepseek-ai) and [deepseek-coder](https://huggingface.co/deepseek-ai): [#786](https://github.com/xorbitsai/inference/pull/786)
 - Built-in support for [Mixtral-8x7B-v0.1](https://huggingface.co/mistralai/Mixtral-8x7B-v0.1): [#782](https://github.com/xorbitsai/inference/pull/782)

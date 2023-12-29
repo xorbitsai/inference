@@ -26,3 +26,4 @@ Execute the following command to launch the model, remember to replace ``${quant
 chosen quantization method from the options listed above::
 
    xinference launch --model-name Skywork --size-in-billions 13 --model-format pytorch --quantization ${quantization}
+
