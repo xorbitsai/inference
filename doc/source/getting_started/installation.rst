@@ -26,8 +26,8 @@ vLLM Backend
 ~~~~~~~~~~~~
 vLLM is a fast and easy-to-use library for LLM inference and serving. Xinference will choose vLLM as the backend to achieve better throughput when the following conditions are met:
 
-- The model format is PyTorch
-- The quantization method is none
+- The model format is PyTorch or GPTQ
+- The quantization method is GPTQ 4 bit or none
 - The system is Linux and has at least one CUDA device
 - The model is within the list of models supported by vLLM.
 
