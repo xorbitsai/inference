@@ -46,7 +46,6 @@ Developing Real-world AI Applications with Xinference
     client = Client("http://localhost:9997")
     model = client.get_model("MODEL_UID")
 
-    input_text = "What is the capital of China?"
     model.create_embedding("What is the capital of China?")
 
   .. code-tab:: python Images
