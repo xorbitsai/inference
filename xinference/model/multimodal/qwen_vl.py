@@ -113,7 +113,7 @@ class QwenVLChat(LVLM):
         chat_history: Optional[List[Dict]] = None,
         generate_config: Optional[Dict] = None,
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
-        if generate_config.get("stream"):
+        if generate_config and generate_config.get("stream"):
             raise Exception(
                 f"Chat with model {self.model_family.model_name} does not support stream."
             )

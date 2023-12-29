@@ -401,7 +401,7 @@ class RESTfulChatModelHandle(RESTfulGenerateModelHandle):
 class RESTfulMultimodalModelHandle(RESTfulModelHandle):
     def chat(
         self,
-        prompt: Union[str, List[Dict]],
+        prompt: Any,
         system_prompt: Optional[str] = None,
         chat_history: Optional[List["ChatCompletionMessage"]] = None,
         tools: Optional[List[Dict]] = None,
