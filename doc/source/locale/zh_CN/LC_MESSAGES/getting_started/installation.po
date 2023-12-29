@@ -3,12 +3,11 @@
 # This file is distributed under the same license as the Xinference package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
 #
-#, fuzzy
 msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-12-27 15:43+0800\n"
+"POT-Creation-Date: 2023-12-29 11:05+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -17,7 +16,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Generated-By: Babel 2.12.1\n"
+"Generated-By: Babel 2.13.0\n"
 
 #: ../../source/getting_started/installation.rst:5
 msgid "Installation"
@@ -29,8 +28,8 @@ msgid ""
 " run models using Xinference, you will need to install the backend "
 "corresponding to the type of model you intend to serve."
 msgstr ""
-"Xinference 在 Linux, Windows, MacOS 上都可以通过 ``pip`` 来安装。如果需要使用 Xinference "
-"进行模型推理，可以根据不同的模型指定不同的引擎。"
+"Xinference 在 Linux, Windows, MacOS 上都可以通过 ``pip`` 来安装。如果需要"
+"使用 Xinference 进行模型推理，可以根据不同的模型指定不同的引擎。"
 
 #: ../../source/getting_started/installation.rst:8
 msgid ""
@@ -45,8 +44,9 @@ msgid ""
 "enable acceleration. For more details, see the :ref:`installation_ggml` "
 "section."
 msgstr ""
-"如果你想使用 GGML 格式的模型，建议根据当前使用的硬件手动安装所需要的依赖，以充分利用硬件的加速能力。更多细节可以参考 "
-":ref:`installation_ggml` 这一章节。"
+"如果你想使用 GGML 格式的模型，建议根据当前使用的硬件手动安装所需要的依赖"
+"，以充分利用硬件的加速能力。更多细节可以参考 :ref:`installation_ggml` "
+"这一章节。"
 
 #: ../../source/getting_started/installation.rst:16
 msgid ""
@@ -62,7 +62,9 @@ msgstr "Transformers 引擎"
 msgid ""
 "PyTorch (transformers) supports the inference of most state-of-art "
 "models. It is the default backend for models in PyTorch format::"
-msgstr "PyTorch(transformers) 引擎支持几乎有所的最新模型，这是 Pytorch 模型默认使用的引擎："
+msgstr ""
+"PyTorch(transformers) 引擎支持几乎有所的最新模型，这是 Pytorch 模型默认"
+"使用的引擎："
 
 #: ../../source/getting_started/installation.rst:26
 msgid "vLLM Backend"
@@ -73,15 +75,17 @@ msgid ""
 "vLLM is a fast and easy-to-use library for LLM inference and serving. "
 "Xinference will choose vLLM as the backend to achieve better throughput "
 "when the following conditions are met:"
-msgstr "vLLM 是一个支持高并发的高性能大模型推理引擎。当满足以下条件时，Xinference 会自动选择 vllm 作为引擎来达到更高的吞吐量："
+msgstr ""
+"vLLM 是一个支持高并发的高性能大模型推理引擎。当满足以下条件时，Xinference"
+" 会自动选择 vllm 作为引擎来达到更高的吞吐量："
 
 #: ../../source/getting_started/installation.rst:29
-msgid "The model format is PyTorch"
-msgstr "模型的格式必须是 PyTorch"
+msgid "The model format is PyTorch or GPTQ"
+msgstr "模型的格式必须是 PyTorch 或者 GPTQ"
 
 #: ../../source/getting_started/installation.rst:30
-msgid "The quantization method is none"
-msgstr "量化方式必须是 none"
+msgid "The quantization method is GPTQ 4 bit or none"
+msgstr "量化方式必须是 GPTQ 4 bit 或者 none"
 
 #: ../../source/getting_started/installation.rst:31
 msgid "The system is Linux and has at least one CUDA device"
@@ -144,7 +148,8 @@ msgid ""
 "It's advised to install the GGML dependencies manually based on your "
 "hardware specifications to enable acceleration."
 msgstr ""
-"当使用 GGML 引擎时，建议根据当前使用的硬件手动安装依赖，从而获得最佳的加速效果。"
+"当使用 GGML 引擎时，建议根据当前使用的硬件手动安装依赖，从而获得最佳的"
+"加速效果。"
 
 #: ../../source/getting_started/installation.rst:56
 msgid "Initial setup::"
