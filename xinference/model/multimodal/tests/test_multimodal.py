@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import base64
-import tempfile
 
 import pytest
 import requests
@@ -103,7 +102,6 @@ def test_restful_api_for_qwen_vl(setup):
     # Function to encode the image
     b64_img = base64.b64encode(response.content).decode("utf-8")
 
-    client = openai.Client(api_key="not empty", base_url=f"{endpoint}/v1")
     completion = client.chat.completions.create(
         model=model_uid,
         messages=[
@@ -114,10 +112,11 @@ def test_restful_api_for_qwen_vl(setup):
                     {
                         "type": "image_url",
                         "image_url": {
-                            "url": b64_img,
+                            "url": f"data:image/jpeg;base64,{b64_img}",
                         },
                     },
                 ],
             }
         ],
     )
+    assert "四条" in completion.choices[0].message.content
