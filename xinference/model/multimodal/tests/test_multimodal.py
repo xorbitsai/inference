@@ -93,7 +93,7 @@ def test_restful_api_for_qwen_vl(setup):
     assert "<ref>" in completion.choices[0].message.content
     assert "<box>" in completion.choices[0].message.content
 
-    # Test base64 iamge
+    # Test base64 image
     response = requests.get(
         "http://i.epochtimes.com/assets/uploads/2020/07/shutterstock_675595789-600x400.jpg"
     )
