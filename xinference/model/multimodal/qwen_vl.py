@@ -75,6 +75,8 @@ class QwenVLChat(LVLM):
     def _message_content_to_qwen(self, content) -> str:
         def _ensure_url(_url):
             try:
+                if _url.startswith("data:"):
+                    raise "Not a valid url."
                 parsed = urlparse(_url)
                 if not parsed.scheme:
                     raise "Not a valid url."
