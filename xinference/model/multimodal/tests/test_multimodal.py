@@ -11,7 +11,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import base64
+import tempfile
+
 import pytest
+import requests
 
 
 @pytest.mark.skip(reason="Cost too many resources.")
@@ -89,3 +93,31 @@ def test_restful_api_for_qwen_vl(setup):
     assert "击掌" in completion.choices[0].message.content
     assert "<ref>" in completion.choices[0].message.content
     assert "<box>" in completion.choices[0].message.content
+
+    # Test base64 iamge
+    response = requests.get(
+        "http://i.epochtimes.com/assets/uploads/2020/07/shutterstock_675595789-600x400.jpg"
+    )
+
+    # https://platform.openai.com/docs/guides/vision/uploading-base-64-encoded-images
+    # Function to encode the image
+    b64_img = base64.b64encode(response.content).decode("utf-8")
+
+    client = openai.Client(api_key="not empty", base_url=f"{endpoint}/v1")
+    completion = client.chat.completions.create(
+        model=model_uid,
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "图中有几条鱼？"},
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": b64_img,
+                        },
+                    },
+                ],
+            }
+        ],
+    )

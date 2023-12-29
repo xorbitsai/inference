@@ -75,7 +75,9 @@ class QwenVLChat(LVLM):
     def _message_content_to_qwen(self, content) -> str:
         def _ensure_url(_url):
             try:
-                urlparse(_url)
+                parsed = urlparse(_url)
+                if not parsed.scheme:
+                    raise "Not a valid url."
                 return _url
             except Exception:
                 logging.info("Parse url by base64 decoder.")
