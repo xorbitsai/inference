@@ -11,7 +11,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import base64
+
 import pytest
+import requests
 
 
 @pytest.mark.skip(reason="Cost too many resources.")
@@ -25,10 +28,21 @@ def test_restful_api_for_qwen_vl(setup):
         model_uid="my_controlnet",
         model_name="qwen-vl-chat",
         model_type="multimodal",
-        device="cpu",
     )
     model = client.get_model(model_uid)
-    assert model
+    prompt = [
+        {"type": "text", "text": "What’s in this image?"},
+        {
+            "type": "image_url",
+            "image_url": {
+                "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg"
+            },
+        },
+    ]
+    response = model.chat(prompt=prompt)
+    assert "grass" in response["choices"][0]["message"]["content"]
+    assert "tree" in response["choices"][0]["message"]["content"]
+    assert "sky" in response["choices"][0]["message"]["content"]
 
     # openai client
     import openai
@@ -78,3 +92,31 @@ def test_restful_api_for_qwen_vl(setup):
     assert "击掌" in completion.choices[0].message.content
     assert "<ref>" in completion.choices[0].message.content
     assert "<box>" in completion.choices[0].message.content
+
+    # Test base64 image
+    response = requests.get(
+        "http://i.epochtimes.com/assets/uploads/2020/07/shutterstock_675595789-600x400.jpg"
+    )
+
+    # https://platform.openai.com/docs/guides/vision/uploading-base-64-encoded-images
+    # Function to encode the image
+    b64_img = base64.b64encode(response.content).decode("utf-8")
+
+    completion = client.chat.completions.create(
+        model=model_uid,
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "图中有几条鱼？"},
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:image/jpeg;base64,{b64_img}",
+                        },
+                    },
+                ],
+            }
+        ],
+    )
+    assert "四条" in completion.choices[0].message.content
