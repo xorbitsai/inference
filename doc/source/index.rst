@@ -33,9 +33,8 @@ Developing Real-world AI Applications with Xinference
     model = client.get_model("MODEL_UID")
 
     model.chat(
-       prompt = "What is the largest animal?",
-       system_prompt = "You are a helpful assistant",
-       chat_history=[],
+       prompt="What is the largest animal?",
+       system_prompt="You are a helpful assistant",
        generate_config={"max_tokens": 1024}
     )
 
@@ -47,7 +46,7 @@ Developing Real-world AI Applications with Xinference
     model = client.get_model("MODEL_UID")
 
     model.chat(
-       prompt=[
+       chat_history=[
          {
             "role": "user",
             "content": [
