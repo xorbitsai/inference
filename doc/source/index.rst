@@ -1,74 +1,8 @@
 .. _index:
 
-Xorbits Inference: Model Serving Made Easy🤖
-""""""""""""""""""""""""""""""""""""""""""""
-
-Xorbits Inference(Xinference) is a powerful and versatile library designed to serve language,
-speech recognition, and multimodal models. With Xorbits Inference, you can effortlessly deploy
-and serve your or state-of-the-art built-in models using just a single command. Whether you are a
-researcher, developer, or data scientist, Xorbits Inference empowers you to unleash the full
-potential of cutting-edge AI models.
-
-
-Key Features
-------------
-
-🌟 **Model Serving Made Easy**: Simplify the process of serving large language, speech
-recognition, and multimodal models. You can set up and deploy your models
-for experimentation and production with a single command.
-
-⚡️ **State-of-the-Art Models**: Experiment with cutting-edge built-in models using a single
-command. Inference provides access to state-of-the-art open-source models!
-
-🖥 **Heterogeneous Hardware Utilization**: Make the most of your hardware resources with
-`ggml <https://github.com/ggerganov/ggml>`_. Xorbits Inference intelligently utilizes heterogeneous
-hardware, including GPUs and CPUs, to accelerate your model inference tasks.
-
-⚙️ **Flexible API and Interfaces**: Offer multiple interfaces for interacting
-with your models, supporting RPC, RESTful API(compatible with OpenAI API), CLI and WebUI
-for seamless management and monitoring.
-
-🌐 **Distributed Deployment**: Excel in distributed deployment scenarios,
-allowing the seamless distribution of model inference across multiple devices or machines.
-
-🔌 **Built-in Integration with Third-Party Libraries**: Xorbits Inference seamlessly integrates
-with popular third-party libraries like `LangChain <https://python.langchain.com/docs/integrations/providers/xinference>`_
-, `LlamaIndex <https://gpt-index.readthedocs.io/en/stable/examples/llm/XinferenceLocalDeployment.html#i-run-pip-install-xinference-all-in-a-terminal-window>`_
-, `Dify <https://docs.dify.ai/advanced/model-configuration/xinference>`_
-, and `Chatbox <https://chatboxai.app/>`_.
-
-
-🔥 Hot Topics
--------------
-
-Framework Enhancements
-~~~~~~~~~~~~~~~~~~~~~~
-- Auto recover: `#694 <https://github.com/xorbitsai/inference/pull/694>`_
-- Function calling API: `#701 <https://github.com/xorbitsai/inference/pull/701>`_ , here's example: https://github.com/xorbitsai/inference/blob/main/examples/FunctionCall.ipynb
-- Support rerank model: `#672 <https://github.com/xorbitsai/inference/pull/672>`_
-- Speculative decoding: `#509 <https://github.com/xorbitsai/inference/pull/509>`_
-- Support grammar-based sampling for ggml models: `#525 <https://github.com/xorbitsai/inference/pull/525>`_
-- Incorporate vLLM: `#445 <https://github.com/xorbitsai/inference/pull/445>`_
-
-
-New Models
-~~~~~~~~~~
-- Built-in support for `Yi <https://huggingface.co/01-ai>`_: `#629 <https://github.com/xorbitsai/inference/pull/629>`_
-- Built-in support for `zephyr-7b-alpha <https://huggingface.co/HuggingFaceH4/zephyr-7b-alpha>`_ and `zephyr-7b-beta <https://huggingface.co/HuggingFaceH4/zephyr-7b-beta>`_: `#597 <https://github.com/xorbitsai/inference/pull/597>`_
-- Built-in support for `chatglm3 <https://huggingface.co/THUDM/chatglm3-6b): [#587](https://github.com/xorbitsai/inference/pull/587>`_
-- Built-in support for `mistral-v0.1 <https://huggingface.co/mistralai/Mistral-7B-v0.1>`_ and `mistral-instruct-v0.1 <https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.1>`_: `#510 <https://github.com/xorbitsai/inference/pull/510>`_
-
-
-Integrations
-~~~~~~~~~~~~
-- `Dify <https://docs.dify.ai/advanced/model-configuration/xinference>`_: an LLMOps platform that enables developers (and even non-developers) to quickly build useful applications based on large language models, ensuring they are visual, operable, and improvable.
-- `Chatbox <https://chatboxai.app/>`_: a desktop client for multiple cutting-edge LLM models, available on Windows, Mac and Linux.
-
-
-License
--------
-`Apache 2 <https://github.com/xorbitsai/inference/blob/main/LICENSE>`_
-
+======================
+Welcome to Xinference!
+======================
 
 .. toctree::
    :maxdepth: 2
@@ -79,3 +13,187 @@ License
    user_guide/index
    examples/index
    reference/index
+
+
+Xorbits Inference (Xinference) is an open-source platform to streamline the operation and integration
+of a wide array of AI models. With Xinference, you're empowered to run inference using any open-source LLMs,
+embedding models, and multimodal models either in the cloud or on your own premises, and create robust
+AI-driven applications.   
+
+Developing Real-world AI Applications with Xinference
+-----------------------------------------------------
+
+.. tabs::
+
+  .. code-tab:: python LLM
+
+    from xinference.client import Client
+
+    client = Client("http://localhost:9997")
+    model = client.get_model("MODEL_UID")
+
+    model.chat(
+       prompt="What is the largest animal?",
+       system_prompt="You are a helpful assistant",
+       generate_config={"max_tokens": 1024}
+    )
+
+  .. code-tab:: python Multimodal
+   
+    from xinference.client import Client
+
+    client = Client("http://localhost:9997")
+    model = client.get_model("MODEL_UID")
+
+    model.chat(
+       chat_history=[
+         {
+            "role": "user",
+            "content": [
+               {"type": "text", "text": "What’s in this image?"},
+               {
+                  "type": "image_url",
+                  "image_url": {
+                     "url": "http://i.epochtimes.com/assets/uploads/2020/07/shutterstock_675595789-600x400.jpg",
+                  },
+               },
+            ],
+         }
+      ],
+      generate_config={"max_tokens": 1024}
+    )    
+
+  .. code-tab:: python Embedding
+
+    from xinference.client import Client
+
+    client = Client("http://localhost:9997")
+    model = client.get_model("MODEL_UID")
+
+    model.create_embedding("What is the capital of China?")
+
+  .. code-tab:: python Image
+
+    from xinference.client import Client
+
+    client = Client("http://localhost:9997")
+    model = client.get_model("MODEL_UID")
+
+    model.text_to_image("An astronaut walking on the mars")
+
+
+  .. code-tab:: python Rerank
+
+    from xinference.client import Client
+
+    client = Client("http://localhost:9997")
+    model = client.get_model("MODEL_UID")
+
+    query = "A man is eating pasta."
+    corpus = [
+      "A man is eating food.",
+      "A man is eating a piece of bread.",
+      "The girl is carrying a baby.",
+      "A man is riding a horse.",
+      "A woman is playing violin."
+    ]
+    print(model.rerank(corpus, query))
+
+
+Getting Started
+---------------
+
+.. grid:: 2
+
+    .. grid-item-card::  Install Xinference
+      :link: installation
+      :link-type: ref
+
+      Install Xinference on Linux, Windows, and macOS.
+
+    .. grid-item-card::  Try it out!
+      :link: using_xinference
+      :link-type: ref
+
+      Start by running Xinference on a local machine.
+
+
+.. grid:: 2
+
+   .. grid-item-card:: Explore models
+      :link: models_builtin_index
+      :link-type: ref
+      
+      Explore a wide range of models supported by Xinference.
+
+   .. grid-item-card:: Register your own model
+      :link: models_custom
+      :link-type: ref
+      
+      Register model weights and turn it into an API.
+
+
+Getting Involved
+----------------
+
+.. grid:: 
+   :gutter: 1
+
+   .. grid-item::
+      
+      .. div:: sd-font-weight-normal sd-fs-5
+         
+         Get Latest News
+
+      .. grid:: 1
+         :gutter: 3
+
+         .. grid-item-card::  
+            :link: https://twitter.com/Xorbitsio
+
+            :fab:`twitter` Follow us on Twitter
+
+         .. grid-item-card::  
+            :link: https://zhihu.com/org/xorbits
+
+            :fab:`zhihu` Read our blogs
+
+
+   .. grid-item::      
+
+      .. div:: sd-font-weight-normal sd-fs-5
+
+         Get Support
+
+      .. grid:: 1
+         :gutter: 3
+
+         .. grid-item-card:: 
+            :link: https://xorbits.cn/assets/images/wechat_pr.png
+            
+            :fab:`weixin` Find community on WeChat
+
+         .. grid-item-card:: 
+            :link: https://join.slack.com/t/xorbitsio/shared_invite/zt-1o3z9ucdh-RbfhbPVpx7prOVdM1CAuxg
+            
+            :fab:`slack` Find community on Slack
+
+         .. grid-item-card::  
+            :link: https://github.com/xorbitsai/inference/issues/new/choose
+
+            :fab:`github` Open an issue
+
+
+   .. grid-item::      
+
+      .. div:: sd-fs-5
+
+         Contribute to Xinference
+
+      .. grid:: 1
+         :gutter: 3
+
+         .. grid-item-card::  
+            :link: https://github.com/xorbitsai/inference/pulls
+
+            :fab:`github` Create a pull request
