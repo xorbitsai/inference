@@ -23,3 +23,5 @@ set the model download source to `ModelScope <https://modelscope.cn/models>`_.
 You can also achieve this by manually setting an environment variable ``XINFERENCE_MODEL_SRC=modelscope``.
 
 Please check the detail page of a model to confirm whether the model supports downloading from ModelScope.
+If a model spec supports downloading from ModelScope, the "Model Hubs" section in the spec information will
+include "ModelScope".
