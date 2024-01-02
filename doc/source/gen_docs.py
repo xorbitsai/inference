@@ -69,8 +69,7 @@ def main():
                 print(output_file_path)
 
         index_file_path = os.path.join(output_dir, "index.rst")
-
-        with open(index_file_path, "w") as file:            
+        with open(index_file_path, "w") as file:
             rendered_index = env.get_template('llm_index.rst.jinja').render(models=sorted_models)
             file.write(rendered_index)
 
