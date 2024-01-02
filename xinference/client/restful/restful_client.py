@@ -470,7 +470,9 @@ class RESTfulMultimodalModelHandle(RESTfulModelHandle):
                 request_body[key] = value
 
         stream = bool(generate_config and generate_config.get("stream"))
-        response = requests.post(url, json=request_body, stream=stream)
+        response = requests.post(
+            url, json=request_body, stream=stream, headers=self.auth_headers
+        )
 
         if response.status_code != 200:
             raise RuntimeError(
@@ -884,9 +886,13 @@ class Client:
                 model_uid, self.base_url, auth_headers=self._headers
             )
         elif desc["model_type"] == "rerank":
-            return RESTfulRerankModelHandle(model_uid, self.base_url)
+            return RESTfulRerankModelHandle(
+                model_uid, self.base_url, auth_headers=self._headers
+            )
         elif desc["model_type"] == "multimodal":
-            return RESTfulMultimodalModelHandle(model_uid, self.base_url)
+            return RESTfulMultimodalModelHandle(
+                model_uid, self.base_url, auth_headers=self._headers
+            )
         else:
             raise ValueError(f"Unknown model type:{desc['model_type']}")
 
