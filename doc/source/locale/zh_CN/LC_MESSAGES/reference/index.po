@@ -294,28 +294,3 @@ msgstr ""
 msgid "Creates an image by the input text."
 msgstr ""
 
-#~ msgid ""
-#~ "alias of "
-#~ ":py:class:`xinference.client.restful.restful_client.RESTfulChatglmCppChatModelHandle`"
-#~ msgstr ""
-
-#~ msgid ""
-#~ "alias of "
-#~ ":py:class:`xinference.client.restful.restful_client.RESTfulChatModelHandle`"
-#~ msgstr ""
-
-#~ msgid ""
-#~ "alias of "
-#~ ":py:class:`xinference.client.restful.restful_client.RESTfulEmbeddingModelHandle`"
-#~ msgstr ""
-
-#~ msgid ""
-#~ "alias of "
-#~ ":py:class:`xinference.client.restful.restful_client.RESTfulGenerateModelHandle`"
-#~ msgstr ""
-
-#~ msgid ""
-#~ "alias of "
-#~ ":py:class:`xinference.client.restful.restful_client.RESTfulImageModelHandle`"
-#~ msgstr ""
-
