@@ -53,3 +53,8 @@ Currently, supported model includes:
 - ``baichuan``, ``baichuan-chat``
 - ``internlm``, ``internlm-20b``, ``internlm-chat``, ``internlm-chat-20b``
 - ``vicuna-v1.3``, ``vicuna-v1.5``
+- ``Yi``, ``Yi-chat``
+- ``qwen-chat``
+- ``code-llama``, ``code-llama-python``, ``code-llama-instruct``
+- ``mistral-instruct-v0.1``
+- ``chatglm3``
