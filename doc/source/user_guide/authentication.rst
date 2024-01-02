@@ -1,7 +1,7 @@
 .. _user_guide_auth_system:
 
 ===================================
-Simple Oauth2 System (experimental)
+Simple OAuth2 System (experimental)
 ===================================
 
-
+OAuth2 is a specification that defines several ways to handle authentication and authorization.
