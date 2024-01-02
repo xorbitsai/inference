@@ -25,7 +25,7 @@ Developing Real-world AI Applications with Xinference
 
 .. tabs::
 
-  .. code-tab:: python Chat
+  .. code-tab:: python LLM
 
     from xinference.client import Client
 
@@ -39,7 +39,32 @@ Developing Real-world AI Applications with Xinference
        generate_config={"max_tokens": 1024}
     )
 
-  .. code-tab:: python Embeddings
+  .. code-tab:: python Multimodal
+   
+    from xinference.client import Client
+
+    client = Client("http://localhost:9997")
+    model = client.get_model("MODEL_UID")
+
+    model.chat(
+       prompt=[
+         {
+            "role": "user",
+            "content": [
+               {"type": "text", "text": "What’s in this image?"},
+               {
+                  "type": "image_url",
+                  "image_url": {
+                     "url": "http://i.epochtimes.com/assets/uploads/2020/07/shutterstock_675595789-600x400.jpg",
+                  },
+               },
+            ],
+         }
+      ],
+      generate_config={"max_tokens": 1024}
+    )    
+
+  .. code-tab:: python Embedding
 
     from xinference.client import Client
 
@@ -48,7 +73,7 @@ Developing Real-world AI Applications with Xinference
 
     model.create_embedding("What is the capital of China?")
 
-  .. code-tab:: python Images
+  .. code-tab:: python Image
 
     from xinference.client import Client
 
