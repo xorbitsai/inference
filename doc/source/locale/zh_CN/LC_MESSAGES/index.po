@@ -82,11 +82,11 @@ msgstr "最新资讯"
 
 #: ../../source/index.rst:130
 msgid ":fab:`twitter` Follow us on Twitter"
-msgstr "在 Twitter 上关注我们"
+msgstr ":fab:`twitter` 在 Twitter 上关注我们"
 
 #: ../../source/index.rst:135
 msgid ":fab:`zhihu` Read our blogs"
-msgstr "阅读知乎博客"
+msgstr "fab:`zhihu` 阅读知乎博客"
 
 #: ../../source/index.rst:142
 msgid "Get Support"
@@ -94,15 +94,15 @@ msgstr "寻求帮助"
 
 #: ../../source/index.rst:150
 msgid ":fab:`weixin` Find community on WeChat"
-msgstr "微信社区"
+msgstr "fab:`weixin` 微信社区"
 
 #: ../../source/index.rst:155
 msgid ":fab:`slack` Find community on Slack"
-msgstr "Slack 社区"
+msgstr ":fab:`slack` Slack 社区"
 
 #: ../../source/index.rst:160
 msgid ":fab:`github` Open an issue"
-msgstr "在 Github 上提 issue"
+msgstr ":fab:`github` 在 Github 上提 issue"
 
 #: ../../source/index.rst:167
 msgid "Contribute to Xinference"
@@ -110,4 +110,4 @@ msgstr "贡献"
 
 #: ../../source/index.rst:175
 msgid ":fab:`github` Create a pull request"
-msgstr "在 Github 上提 PR"
+msgstr "fab:`github` 在 Github 上提 PR"
