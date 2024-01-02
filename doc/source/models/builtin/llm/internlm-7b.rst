@@ -21,7 +21,7 @@ Model Spec 1 (pytorch, 7 Billion)
 - **Model Size (in billions):** 7
 - **Quantizations:** 4-bit, 8-bit, none
 - **Model ID:** internlm/internlm-7b
-- **Model hub**: 
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/internlm/internlm-7b>`_, `ModelScope <https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm-7b>`_
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::

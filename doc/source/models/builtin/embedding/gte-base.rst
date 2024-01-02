@@ -14,6 +14,7 @@ Specifications
 - **Dimensions:** 768
 - **Max Tokens:** 512
 - **Model ID:** thenlper/gte-base
+- **Model Hubs**: `Hugging Face <https://huggingface.co/thenlper/gte-base>`_, `ModelScope <https://modelscope.cn/models/Xorbits/gte-base>`_
 
 Execute the following command to launch the model::
 

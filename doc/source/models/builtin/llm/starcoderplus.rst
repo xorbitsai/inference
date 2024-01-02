@@ -21,7 +21,7 @@ Model Spec 1 (pytorch, 16 Billion)
 - **Model Size (in billions):** 16
 - **Quantizations:** 4-bit, 8-bit, none
 - **Model ID:** bigcode/starcoderplus
-- **Model hub**: 
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/bigcode/starcoderplus>`_
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::

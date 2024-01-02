@@ -21,7 +21,7 @@ Model Spec 1 (ggmlv3, 7 Billion)
 - **Model Size (in billions):** 7
 - **Quantizations:** q2_K, q3_K_L, q3_K_M, q3_K_S, q4_0, q4_1, q4_K_M, q4_K_S, q5_0, q5_1, q5_K_M, q5_K_S, q6_K, q8_0
 - **Model ID:** TheBloke/baichuan-llama-7B-GGML
-- **Model hub**: 
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/baichuan-llama-7B-GGML>`_
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
@@ -36,7 +36,7 @@ Model Spec 2 (pytorch, 7 Billion)
 - **Model Size (in billions):** 7
 - **Quantizations:** 4-bit, 8-bit, none
 - **Model ID:** baichuan-inc/Baichuan-7B
-- **Model hub**: 
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/baichuan-inc/Baichuan-7B>`_
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
@@ -51,7 +51,7 @@ Model Spec 3 (pytorch, 13 Billion)
 - **Model Size (in billions):** 13
 - **Quantizations:** 4-bit, 8-bit, none
 - **Model ID:** baichuan-inc/Baichuan-13B-Base
-- **Model hub**: 
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/baichuan-inc/Baichuan-13B-Base>`_
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::

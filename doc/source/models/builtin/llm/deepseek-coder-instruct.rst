@@ -21,7 +21,7 @@ Model Spec 1 (pytorch, 1_3 Billion)
 - **Model Size (in billions):** 1_3
 - **Quantizations:** 4-bit, 8-bit, none
 - **Model ID:** deepseek-ai/deepseek-coder-1.3b-instruct
-- **Model hub**: 
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/deepseek-ai/deepseek-coder-1.3b-instruct>`_, `ModelScope <https://modelscope.cn/models/deepseek-ai/deepseek-coder-1.3b-instruct>`_
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
@@ -36,7 +36,7 @@ Model Spec 2 (pytorch, 6_7 Billion)
 - **Model Size (in billions):** 6_7
 - **Quantizations:** 4-bit, 8-bit, none
 - **Model ID:** deepseek-ai/deepseek-coder-6.7b-instruct
-- **Model hub**: 
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/deepseek-ai/deepseek-coder-6.7b-instruct>`_, `ModelScope <https://modelscope.cn/models/deepseek-ai/deepseek-coder-6.7b-instruct>`_
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
@@ -51,7 +51,7 @@ Model Spec 3 (pytorch, 33 Billion)
 - **Model Size (in billions):** 33
 - **Quantizations:** 4-bit, 8-bit, none
 - **Model ID:** deepseek-ai/deepseek-coder-33b-instruct
-- **Model hub**: 
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/deepseek-ai/deepseek-coder-33b-instruct>`_, `ModelScope <https://modelscope.cn/models/deepseek-ai/deepseek-coder-33b-instruct>`_
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
@@ -66,7 +66,7 @@ Model Spec 4 (ggufv2, 1_3 Billion)
 - **Model Size (in billions):** 1_3
 - **Quantizations:** Q2_K, Q3_K_L, Q3_K_M, Q3_K_S, Q4_0, Q4_K_M, Q4_K_S, Q5_0, Q5_K_M, Q5_K_S, Q6_K, Q8_0
 - **Model ID:** TheBloke/deepseek-coder-1.3b-instruct-GGUF
-- **Model hub**: 
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/deepseek-coder-1.3b-instruct-GGUF>`_
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
@@ -81,7 +81,7 @@ Model Spec 5 (ggufv2, 6_7 Billion)
 - **Model Size (in billions):** 6_7
 - **Quantizations:** Q2_K, Q3_K_L, Q3_K_M, Q3_K_S, Q4_0, Q4_K_M, Q4_K_S, Q5_0, Q5_K_M, Q5_K_S, Q6_K, Q8_0
 - **Model ID:** TheBloke/deepseek-coder-6.7B-instruct-GGUF
-- **Model hub**: 
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/deepseek-coder-6.7B-instruct-GGUF>`_
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
@@ -96,7 +96,7 @@ Model Spec 6 (ggufv2, 33 Billion)
 - **Model Size (in billions):** 33
 - **Quantizations:** Q2_K, Q3_K_L, Q3_K_M, Q3_K_S, Q4_0, Q4_K_M, Q4_K_S, Q5_0, Q5_K_M, Q5_K_S, Q6_K, Q8_0
 - **Model ID:** TheBloke/deepseek-coder-33B-instruct-GGUF
-- **Model hub**: 
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/deepseek-coder-33B-instruct-GGUF>`_
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
