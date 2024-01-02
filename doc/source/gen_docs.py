@@ -21,8 +21,14 @@ def main():
     template_dir = '../templates' 
     env = Environment(loader=FileSystemLoader(template_dir))
 
-    with open('../../xinference/model/llm/llm_family.json', 'r') as file:
-        models = json.load(file)
+    with open('../../xinference/model/llm/llm_family.json', 'r') as model_file:
+        models = json.load(model_file)
+
+        model_scope_file = open('../../xinference/model/llm/llm_family_modelscope.json')
+
+        model_scope_models = json.load(model_scope_file)
+        print(model_scope_models)
+        models.update(model_scope_models)
 
         sorted_models = sorted(models, key=lambda x: x['model_name'].lower())
         output_dir = './models/builtin/llm'

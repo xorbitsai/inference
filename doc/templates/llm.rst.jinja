@@ -21,6 +21,7 @@ Model Spec {{ loop.index }} ({{ spec.model_format }}, {{ spec.model_size_in_bill
 - **Model Size (in billions):** {{ spec.model_size_in_billions }}
 - **Quantizations:** {{ spec.quantizations | join(', ') }}
 - **Model ID:** {{ spec.model_id }}
+- **Model Hub**: {{spec.model_hub }}
 
 Execute the following command to launch the model, remember to replace ``${{ '{' }}quantization{{ '}' }}`` with your
 chosen quantization method from the options listed above::

@@ -21,6 +21,7 @@ Model Spec 1 (ggmlv3, 16 Billion)
 - **Model Size (in billions):** 16
 - **Quantizations:** q4_0, q4_1, q5_0, q5_1, q8_0
 - **Model ID:** TheBloke/starcoder-GGML
+- **Model hub**: 
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::

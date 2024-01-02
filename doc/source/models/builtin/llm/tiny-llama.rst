@@ -21,6 +21,7 @@ Model Spec 1 (ggufv2, 1 Billion)
 - **Model Size (in billions):** 1
 - **Quantizations:** Q2_K, Q3_K_L, Q3_K_M, Q3_K_S, Q4_0, Q4_K_M, Q4_K_S, Q5_0, Q5_K_M, Q5_K_S, Q6_K, Q8_0
 - **Model ID:** TheBloke/TinyLlama-1.1B-Chat-v0.3-GGUF
+- **Model hub**: 
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
