@@ -21,6 +21,7 @@ Model Spec 1 (ggufv2, 2 Billion)
 - **Model Size (in billions):** 2
 - **Quantizations:** Q2_K, Q3_K_S, Q3_K_M, Q3_K_L, Q4_0, Q4_K_S, Q4_K_M, Q5_0, Q5_K_S, Q5_K_M, Q6_K, Q8_0
 - **Model ID:** TheBloke/phi-2-GGUF
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/phi-2-GGUF>`_
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
@@ -35,6 +36,7 @@ Model Spec 2 (pytorch, 2 Billion)
 - **Model Size (in billions):** 2
 - **Quantizations:** 4-bit, 8-bit, none
 - **Model ID:** microsoft/phi-2
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/microsoft/phi-2>`_
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::

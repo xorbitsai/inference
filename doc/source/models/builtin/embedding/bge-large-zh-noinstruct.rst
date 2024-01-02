@@ -14,6 +14,7 @@ Specifications
 - **Dimensions:** 1024
 - **Max Tokens:** 512
 - **Model ID:** BAAI/bge-large-zh-noinstruct
+- **Model Hubs**: `Hugging Face <https://huggingface.co/BAAI/bge-large-zh-noinstruct>`_, `ModelScope <https://modelscope.cn/models/Xorbits/bge-large-zh-noinstruct>`_
 
 Execute the following command to launch the model::
 

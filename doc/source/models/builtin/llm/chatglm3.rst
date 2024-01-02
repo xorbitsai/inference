@@ -21,6 +21,7 @@ Model Spec 1 (ggmlv3, 6 Billion)
 - **Model Size (in billions):** 6
 - **Quantizations:** q4_0
 - **Model ID:** Xorbits/chatglm3-6B-GGML
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/Xorbits/chatglm3-6B-GGML>`_, `ModelScope <https://modelscope.cn/models/Xorbits/chatglm3-ggml>`_
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
@@ -35,6 +36,7 @@ Model Spec 2 (pytorch, 6 Billion)
 - **Model Size (in billions):** 6
 - **Quantizations:** 4-bit, 8-bit, none
 - **Model ID:** THUDM/chatglm3-6b
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/THUDM/chatglm3-6b>`_, `ModelScope <https://modelscope.cn/models/ZhipuAI/chatglm3-6b>`_
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::

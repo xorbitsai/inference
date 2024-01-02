@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-12-25 17:11+0800\n"
+"POT-Creation-Date: 2024-01-02 16:27+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -17,7 +17,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Generated-By: Babel 2.11.0\n"
+"Generated-By: Babel 2.13.1\n"
 
 #: ../../source/models/sources/sources.rst:5
 msgid "Download Sources"
@@ -37,8 +37,8 @@ msgid ""
 "`Hugging Face model repository <https://huggingface.co/models>`_ by "
 "default."
 msgstr ""
-"Xinference 默认直接从 `Hugging Face 官方模型仓库 <https://huggingface.co/"
-"models>`_ 下载所需的模型。"
+"Xinference 默认直接从 `Hugging Face 官方模型仓库 <https://huggingface.co/models>`_ "
+"下载所需的模型。"
 
 #: ../../source/models/sources/sources.rst:14
 msgid ""
@@ -46,198 +46,30 @@ msgid ""
 "website to download with setting the environment variable "
 "``HF_ENDPOINT=https://hf-mirror.com``."
 msgstr ""
-"如果你的网络无法连接到 HuggingFace ，你可以通过环境变量指定 HuggingFace 镜像网站："
-"``HF_ENDPOINT=https://hf-mirror.com`` 。"
+"如果你的网络无法连接到 HuggingFace ，你可以通过环境变量指定 HuggingFace 镜像网站：``HF_ENDPOINT=https"
+"://hf-mirror.com`` 。"
 
 #: ../../source/models/sources/sources.rst:18
 msgid "ModelScope"
 msgstr ""
 
-#: ../../source/models/sources/sources.rst:19
+#: ../../source/models/sources/sources.rst:20
 msgid ""
-"Users can choose to download models from the `ModelScope model repository"
-" <https://modelscope.cn/models>`_."
-msgstr ""
-"用户可以选择从 `ModelScope 模型仓库 <https://modelscope.cn/models>`_ 下载"
-"模型。"
+"When Xinference detects that the system's language is set to Simplified "
+"Chinese, it will automatically set the model download source to "
+"`ModelScope <https://modelscope.cn/models>`_."
+msgstr "当 Xinference 检测到系统语言设置为“简体中文”时，会将模型下载源设置为 `ModelScope <https://modelscope.cn/models>`_。"
 
-#: ../../source/models/sources/sources.rst:21
-msgid "Xinference supports downloading the following models from ModelScope:"
-msgstr "Xinference 支持从 ModelScope 下载以下模型："
-
-#: ../../source/models/sources/sources.rst:45
-msgid "LLM Models"
-msgstr ""
-
-#: ../../source/models/sources/sources.rst:24
-msgid "llama-2-chat"
-msgstr ""
+#: ../../source/models/sources/sources.rst:23
+msgid ""
+"You can also achieve this by manually setting an environment variable "
+"``XINFERENCE_MODEL_SRC=modelscope``."
+msgstr "你也可以通过手动设置环境变量 ``XINFERENCE_MODEL_SRC=modelscope`` 来实现这一点。"
 
 #: ../../source/models/sources/sources.rst:25
-msgid "tiny-llama"
-msgstr ""
-
-#: ../../source/models/sources/sources.rst:26
-msgid "baichuan-2-chat"
-msgstr ""
-
-#: ../../source/models/sources/sources.rst:27
-msgid "baichuan-2"
-msgstr ""
-
-#: ../../source/models/sources/sources.rst:28
-msgid "chatglm2"
-msgstr ""
-
-#: ../../source/models/sources/sources.rst:29
-msgid "chatglm2-32k"
-msgstr ""
-
-#: ../../source/models/sources/sources.rst:30
-msgid "internlm-7b"
-msgstr ""
-
-#: ../../source/models/sources/sources.rst:31
-msgid "internlm-chat-7b"
-msgstr ""
-
-#: ../../source/models/sources/sources.rst:32
-msgid "internlm-20b"
-msgstr ""
-
-#: ../../source/models/sources/sources.rst:33
-msgid "internlm-chat-20b"
-msgstr ""
-
-#: ../../source/models/sources/sources.rst:34
-msgid "wizardcoder-python-v1.0"
-msgstr ""
-
-#: ../../source/models/sources/sources.rst:35
-msgid "code-llama"
-msgstr ""
-
-#: ../../source/models/sources/sources.rst:36
-msgid "code-llama-instruct"
-msgstr ""
-
-#: ../../source/models/sources/sources.rst:37
-msgid "code-llama-python"
-msgstr ""
-
-#: ../../source/models/sources/sources.rst:38
-msgid "mistral-v0.1"
-msgstr ""
-
-#: ../../source/models/sources/sources.rst:39
-msgid "wizardmath-v1.0"
-msgstr ""
-
-#: ../../source/models/sources/sources.rst:40
-msgid "mistral-instruct-v0.1"
-msgstr ""
-
-#: ../../source/models/sources/sources.rst:41
-msgid "falcon-instruct"
-msgstr ""
-
-#: ../../source/models/sources/sources.rst:42
-msgid "zephyr-7b-alpha"
-msgstr ""
-
-#: ../../source/models/sources/sources.rst:43
-msgid "zephyr-7b-beta"
-msgstr ""
-
-#: ../../source/models/sources/sources.rst:44
-msgid "OpenBuddy"
-msgstr ""
-
-#: ../../source/models/sources/sources.rst:45
-msgid "qwen-chat"
-msgstr ""
-
-#: ../../source/models/sources/sources.rst:64
-msgid "Embedding Models"
-msgstr ""
-
-#: ../../source/models/sources/sources.rst:48
-msgid "bge-large-en"
-msgstr ""
-
-#: ../../source/models/sources/sources.rst:49
-msgid "bge-base-en"
-msgstr ""
-
-#: ../../source/models/sources/sources.rst:50
-msgid "gte-large"
-msgstr ""
-
-#: ../../source/models/sources/sources.rst:51
-msgid "gte-base"
-msgstr ""
-
-#: ../../source/models/sources/sources.rst:52
-msgid "e5-large-v2"
-msgstr ""
-
-#: ../../source/models/sources/sources.rst:53
-msgid "bge-large-zh"
-msgstr ""
-
-#: ../../source/models/sources/sources.rst:54
-msgid "bge-large-zh-noinstruct"
-msgstr ""
-
-#: ../../source/models/sources/sources.rst:55
-msgid "bge-base-zh"
-msgstr ""
-
-#: ../../source/models/sources/sources.rst:56
-msgid "multilingual-e5-large"
-msgstr ""
-
-#: ../../source/models/sources/sources.rst:57
-msgid "bge-small-zh"
-msgstr ""
-
-#: ../../source/models/sources/sources.rst:58
-msgid "bge-small-zh-v1.5"
-msgstr ""
-
-#: ../../source/models/sources/sources.rst:59
-msgid "bge-base-zh-v1.5"
-msgstr ""
-
-#: ../../source/models/sources/sources.rst:60
-msgid "bge-large-zh-v1.5"
-msgstr ""
-
-#: ../../source/models/sources/sources.rst:61
-msgid "bge-small-en-v1.5"
-msgstr ""
-
-#: ../../source/models/sources/sources.rst:62
-msgid "bge-base-en-v1.5"
-msgstr ""
-
-#: ../../source/models/sources/sources.rst:63
-msgid "bge-large-en-v1.5"
-msgstr ""
-
-#: ../../source/models/sources/sources.rst:66
 msgid ""
-"One of the following settings will make Xinference download models from "
-"ModelScope:"
-msgstr ""
-"以下设置之一将使 Xinference 从 ModelScope 下载模型："
-
-#: ../../source/models/sources/sources.rst:68
-msgid "The operating system's language is set to Simplified Chinese (zh_CN)."
-msgstr ""
-"操作系统的语言设置为简体中文（zh_CN）。"
-
-#: ../../source/models/sources/sources.rst:69
-msgid "Set the environment variable ``XINFERENCE_MODEL_SRC=modelscope``."
-msgstr ""
-"设置环境变量 ``XINFERENCE_MODEL_SRC=modelscope``。"
+"Please check the detail page of a model to confirm whether the model "
+"supports downloading from ModelScope. If a model spec supports "
+"downloading from ModelScope, the \"Model Hubs\" section in the spec "
+"information will include \"ModelScope\"."
+msgstr "请在模型的详情页面上查看它是否支持从 ModelScope 进行下载。如果一个模型支持从 ModelScope 下载，模型信息中的 Model Hubs 这一项会包含 ModelScope。"

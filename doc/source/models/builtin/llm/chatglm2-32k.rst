@@ -21,6 +21,7 @@ Model Spec 1 (pytorch, 6 Billion)
 - **Model Size (in billions):** 6
 - **Quantizations:** 4-bit, 8-bit, none
 - **Model ID:** THUDM/chatglm2-6b-32k
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/THUDM/chatglm2-6b-32k>`_, `ModelScope <https://modelscope.cn/models/ZhipuAI/chatglm2-6b-32k>`_
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::

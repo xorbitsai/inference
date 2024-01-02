@@ -21,6 +21,7 @@ Model Spec 1 (pytorch, 13 Billion)
 - **Model Size (in billions):** 13
 - **Quantizations:** 8-bit, none
 - **Model ID:** skywork/Skywork-13B-Math
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/skywork/Skywork-13B-Math>`_, `ModelScope <https://modelscope.cn/models/skywork/Skywork-13B-Math>`_
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
