@@ -8,14 +8,14 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-12-25 17:11+0800\n"
+"POT-Creation-Date: 2024-01-03 15:51+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Generated-By: Babel 2.11.0\n"
+"Generated-By: Babel 2.12.1\n"
 
 #: ../../source/models/builtin/llm/baichuan-2-chat.rst:5
 msgid "baichuan-2-chat"
@@ -52,7 +52,7 @@ msgid "Model Spec 1 (pytorch, 7 Billion)"
 msgstr ""
 
 #: ../../source/models/builtin/llm/baichuan-2-chat.rst:20
-#: ../../source/models/builtin/llm/baichuan-2-chat.rst:34
+#: ../../source/models/builtin/llm/baichuan-2-chat.rst:35
 msgid "**Model Format:** pytorch"
 msgstr ""
 
@@ -61,7 +61,7 @@ msgid "**Model Size (in billions):** 7"
 msgstr ""
 
 #: ../../source/models/builtin/llm/baichuan-2-chat.rst:22
-#: ../../source/models/builtin/llm/baichuan-2-chat.rst:36
+#: ../../source/models/builtin/llm/baichuan-2-chat.rst:37
 msgid "**Quantizations:** 4-bit, 8-bit, none"
 msgstr ""
 
@@ -69,23 +69,37 @@ msgstr ""
 msgid "**Model ID:** baichuan-inc/Baichuan2-7B-Chat"
 msgstr ""
 
-#: ../../source/models/builtin/llm/baichuan-2-chat.rst:25
-#: ../../source/models/builtin/llm/baichuan-2-chat.rst:39
+#: ../../source/models/builtin/llm/baichuan-2-chat.rst:24
+msgid ""
+"**Model Hubs**:  `Hugging Face <https://huggingface.co/baichuan-"
+"inc/Baichuan2-7B-Chat>`_, `ModelScope <https://modelscope.cn/models"
+"/baichuan-inc/Baichuan2-7B-Chat>`_"
+msgstr ""
+
+#: ../../source/models/builtin/llm/baichuan-2-chat.rst:26
+#: ../../source/models/builtin/llm/baichuan-2-chat.rst:41
 msgid ""
 "Execute the following command to launch the model, remember to replace "
 "``${quantization}`` with your chosen quantization method from the options"
 " listed above::"
 msgstr ""
 
-#: ../../source/models/builtin/llm/baichuan-2-chat.rst:32
+#: ../../source/models/builtin/llm/baichuan-2-chat.rst:33
 msgid "Model Spec 2 (pytorch, 13 Billion)"
 msgstr ""
 
-#: ../../source/models/builtin/llm/baichuan-2-chat.rst:35
+#: ../../source/models/builtin/llm/baichuan-2-chat.rst:36
 msgid "**Model Size (in billions):** 13"
 msgstr ""
 
-#: ../../source/models/builtin/llm/baichuan-2-chat.rst:37
+#: ../../source/models/builtin/llm/baichuan-2-chat.rst:38
 msgid "**Model ID:** baichuan-inc/Baichuan2-13B-Chat"
+msgstr ""
+
+#: ../../source/models/builtin/llm/baichuan-2-chat.rst:39
+msgid ""
+"**Model Hubs**:  `Hugging Face <https://huggingface.co/baichuan-"
+"inc/Baichuan2-13B-Chat>`_, `ModelScope <https://modelscope.cn/models"
+"/baichuan-inc/Baichuan2-13B-Chat>`_"
 msgstr ""
 
