@@ -89,6 +89,10 @@ with popular third-party libraries including [LangChain](https://python.langchai
 * [Deployment Docs](https://inference.readthedocs.io/en/latest/getting_started/using_xinference.html)
 * [Examples and Tutorials](https://inference.readthedocs.io/en/latest/examples/index.html)
 
+### Jupyter Notebook
+
+The lightest way to experience Xinference is to try our [Juypter Notebook on Google Colab](https://colab.research.google.com/github/xorbitsai/inference/blob/main/examples/Xinference_Quick_Start.ipynb).
+
 ### Quick Start
 
 Install Xinference by using pip as follows. (For more options, see [Installation page](https://inference.readthedocs.io/en/latest/getting_started/installation.html).)

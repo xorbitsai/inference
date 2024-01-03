@@ -66,6 +66,10 @@ Xorbits Inference は、GPU や CPU を含む異種ハードウェアをイン�
 * [デプロイメントドキュメント](https://inference.readthedocs.io/en/latest/getting_started/using_xinference.html)
 * [例とチュートリアル](https://inference.readthedocs.io/en/latest/examples/index.html)
 
+### Jupyter Notebook
+
+Xinferenceを体験する最軽量な方法は、私たちの[Google Colab上のJupyterノートブック](https://colab.research.google.com/github/xorbitsai/inference/blob/main/examples/Xinference_Quick_Start.ipynb)を試すことです]。
+
 ### クイックスタート
 
 以下のようにpipを使用してXinferenceをインストールします。（他のオプションについては、[インストールページ](https://inference.readthedocs.io/en/latest/getting_started/installation.html)を参照してください。）
