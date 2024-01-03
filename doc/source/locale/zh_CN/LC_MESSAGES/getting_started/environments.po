@@ -20,7 +20,7 @@ msgstr ""
 "Generated-By: Babel 2.12.1\n"
 
 #: ../../source/getting_started/environments.rst:5
-msgid "Environments"
+msgid "Environments Variables"
 msgstr "环境变量"
 
 #: ../../source/getting_started/environments.rst:8
