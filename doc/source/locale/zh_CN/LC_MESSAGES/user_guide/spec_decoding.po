@@ -78,7 +78,6 @@ msgid ""
 msgstr "大模型与小模型输出的概率分布相似度。"
 
 #: ../../source/user_guide/spec_decoding.rst:58
-#, fuzzy, python-format
 msgid ""
 "In the example above, the target model is about five times larger than "
 "the draft model, and the two models are well aligned. Approximately 86% "
