@@ -9,7 +9,7 @@ Getting Started
    :maxdepth: 2
 
    installation
-   using_docker_image
    using_xinference
    logging
+   using_docker_image
    troubleshooting
