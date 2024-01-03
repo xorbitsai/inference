@@ -1,8 +1,8 @@
 .. _environments:
 
-=============
-Environments
-=============
+======================
+Environments Variables
+======================
 
 XINFERENCE_ENDPOINT
 ~~~~~~~~~~~~~~~~~~~~
