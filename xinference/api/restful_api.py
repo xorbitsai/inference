@@ -169,7 +169,7 @@ class RESTfulAPI:
             )
             for user in config.user_config:
                 user.password = get_password_hash(user.password)
-            common.XINFERENCE_OAUTH2_CONFIG = config
+            common.XINFERENCE_OAUTH2_CONFIG = config  # type: ignore
             return config
 
     def is_authenticated(self):
