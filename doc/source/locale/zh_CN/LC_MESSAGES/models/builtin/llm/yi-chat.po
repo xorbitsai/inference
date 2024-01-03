@@ -8,14 +8,14 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-12-25 17:11+0800\n"
+"POT-Creation-Date: 2024-01-03 15:51+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Generated-By: Babel 2.11.0\n"
+"Generated-By: Babel 2.12.1\n"
 
 #: ../../source/models/builtin/llm/yi-chat.rst:5
 msgid "Yi-chat"
@@ -56,7 +56,7 @@ msgid "**Model Format:** pytorch"
 msgstr ""
 
 #: ../../source/models/builtin/llm/yi-chat.rst:21
-#: ../../source/models/builtin/llm/yi-chat.rst:35
+#: ../../source/models/builtin/llm/yi-chat.rst:36
 msgid "**Model Size (in billions):** 34"
 msgstr ""
 
@@ -68,29 +68,41 @@ msgstr ""
 msgid "**Model ID:** 01-ai/Yi-34B-Chat"
 msgstr ""
 
-#: ../../source/models/builtin/llm/yi-chat.rst:25
-#: ../../source/models/builtin/llm/yi-chat.rst:39
+#: ../../source/models/builtin/llm/yi-chat.rst:24
+msgid ""
+"**Model Hubs**:  `Hugging Face <https://huggingface.co/01-ai/Yi-34B-"
+"Chat>`_, `ModelScope <https://modelscope.cn/models/01ai/Yi-34B-Chat>`_"
+msgstr ""
+
+#: ../../source/models/builtin/llm/yi-chat.rst:26
+#: ../../source/models/builtin/llm/yi-chat.rst:41
 msgid ""
 "Execute the following command to launch the model, remember to replace "
 "``${quantization}`` with your chosen quantization method from the options"
 " listed above::"
 msgstr ""
 
-#: ../../source/models/builtin/llm/yi-chat.rst:32
+#: ../../source/models/builtin/llm/yi-chat.rst:33
 msgid "Model Spec 2 (ggufv2, 34 Billion)"
 msgstr ""
 
-#: ../../source/models/builtin/llm/yi-chat.rst:34
+#: ../../source/models/builtin/llm/yi-chat.rst:35
 msgid "**Model Format:** ggufv2"
 msgstr ""
 
-#: ../../source/models/builtin/llm/yi-chat.rst:36
+#: ../../source/models/builtin/llm/yi-chat.rst:37
 msgid ""
 "**Quantizations:** Q2_K, Q3_K_L, Q3_K_M, Q3_K_S, Q4_0, Q4_K_M, Q4_K_S, "
 "Q5_0, Q5_K_M, Q5_K_S, Q6_K, Q8_0"
 msgstr ""
 
-#: ../../source/models/builtin/llm/yi-chat.rst:37
+#: ../../source/models/builtin/llm/yi-chat.rst:38
 msgid "**Model ID:** TheBloke/Yi-34B-Chat-GGUF"
+msgstr ""
+
+#: ../../source/models/builtin/llm/yi-chat.rst:39
+msgid ""
+"**Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/Yi-34B-"
+"Chat-GGUF>`_"
 msgstr ""
 

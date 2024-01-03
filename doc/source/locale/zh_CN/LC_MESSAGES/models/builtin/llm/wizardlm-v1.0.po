@@ -8,14 +8,14 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-12-25 17:11+0800\n"
+"POT-Creation-Date: 2024-01-03 15:51+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Generated-By: Babel 2.11.0\n"
+"Generated-By: Babel 2.12.1\n"
 
 #: ../../source/models/builtin/llm/wizardlm-v1.0.rst:5
 msgid "wizardlm-v1.0"
@@ -52,7 +52,7 @@ msgid "Model Spec 1 (ggmlv3, 7 Billion)"
 msgstr ""
 
 #: ../../source/models/builtin/llm/wizardlm-v1.0.rst:20
-#: ../../source/models/builtin/llm/wizardlm-v1.0.rst:34
+#: ../../source/models/builtin/llm/wizardlm-v1.0.rst:35
 msgid "**Model Format:** ggmlv3"
 msgstr ""
 
@@ -61,7 +61,7 @@ msgid "**Model Size (in billions):** 7"
 msgstr ""
 
 #: ../../source/models/builtin/llm/wizardlm-v1.0.rst:22
-#: ../../source/models/builtin/llm/wizardlm-v1.0.rst:36
+#: ../../source/models/builtin/llm/wizardlm-v1.0.rst:37
 msgid ""
 "**Quantizations:** q2_K, q3_K_L, q3_K_M, q3_K_S, q4_0, q4_1, q4_K_M, "
 "q4_K_S, q5_0, q5_1, q5_K_M, q5_K_S, q6_K, q8_0"
@@ -71,23 +71,35 @@ msgstr ""
 msgid "**Model ID:** TheBloke/WizardLM-7B-V1.0-Uncensored-GGML"
 msgstr ""
 
-#: ../../source/models/builtin/llm/wizardlm-v1.0.rst:25
-#: ../../source/models/builtin/llm/wizardlm-v1.0.rst:39
+#: ../../source/models/builtin/llm/wizardlm-v1.0.rst:24
+msgid ""
+"**Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/WizardLM-"
+"7B-V1.0-Uncensored-GGML>`_"
+msgstr ""
+
+#: ../../source/models/builtin/llm/wizardlm-v1.0.rst:26
+#: ../../source/models/builtin/llm/wizardlm-v1.0.rst:41
 msgid ""
 "Execute the following command to launch the model, remember to replace "
 "``${quantization}`` with your chosen quantization method from the options"
 " listed above::"
 msgstr ""
 
-#: ../../source/models/builtin/llm/wizardlm-v1.0.rst:32
+#: ../../source/models/builtin/llm/wizardlm-v1.0.rst:33
 msgid "Model Spec 2 (ggmlv3, 13 Billion)"
 msgstr ""
 
-#: ../../source/models/builtin/llm/wizardlm-v1.0.rst:35
+#: ../../source/models/builtin/llm/wizardlm-v1.0.rst:36
 msgid "**Model Size (in billions):** 13"
 msgstr ""
 
-#: ../../source/models/builtin/llm/wizardlm-v1.0.rst:37
+#: ../../source/models/builtin/llm/wizardlm-v1.0.rst:38
 msgid "**Model ID:** TheBloke/WizardLM-13B-V1.0-Uncensored-GGML"
+msgstr ""
+
+#: ../../source/models/builtin/llm/wizardlm-v1.0.rst:39
+msgid ""
+"**Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/WizardLM-"
+"13B-V1.0-Uncensored-GGML>`_"
 msgstr ""
 

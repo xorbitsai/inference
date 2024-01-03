@@ -12,3 +12,4 @@ Getting Started
    using_xinference
    logging
    troubleshooting
+   environments

@@ -8,14 +8,14 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-12-25 17:11+0800\n"
+"POT-Creation-Date: 2024-01-03 15:51+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Generated-By: Babel 2.11.0\n"
+"Generated-By: Babel 2.12.1\n"
 
 #: ../../source/models/builtin/llm/chatglm.rst:5
 msgid "chatglm"
@@ -56,7 +56,7 @@ msgid "**Model Format:** ggmlv3"
 msgstr ""
 
 #: ../../source/models/builtin/llm/chatglm.rst:21
-#: ../../source/models/builtin/llm/chatglm.rst:35
+#: ../../source/models/builtin/llm/chatglm.rst:36
 msgid "**Model Size (in billions):** 6"
 msgstr ""
 
@@ -68,27 +68,37 @@ msgstr ""
 msgid "**Model ID:** Xorbits/chatglm-6B-GGML"
 msgstr ""
 
-#: ../../source/models/builtin/llm/chatglm.rst:25
-#: ../../source/models/builtin/llm/chatglm.rst:39
+#: ../../source/models/builtin/llm/chatglm.rst:24
+msgid ""
+"**Model Hubs**:  `Hugging Face <https://huggingface.co/Xorbits/chatglm-"
+"6B-GGML>`_"
+msgstr ""
+
+#: ../../source/models/builtin/llm/chatglm.rst:26
+#: ../../source/models/builtin/llm/chatglm.rst:41
 msgid ""
 "Execute the following command to launch the model, remember to replace "
 "``${quantization}`` with your chosen quantization method from the options"
 " listed above::"
 msgstr ""
 
-#: ../../source/models/builtin/llm/chatglm.rst:32
+#: ../../source/models/builtin/llm/chatglm.rst:33
 msgid "Model Spec 2 (pytorch, 6 Billion)"
 msgstr ""
 
-#: ../../source/models/builtin/llm/chatglm.rst:34
+#: ../../source/models/builtin/llm/chatglm.rst:35
 msgid "**Model Format:** pytorch"
 msgstr ""
 
-#: ../../source/models/builtin/llm/chatglm.rst:36
+#: ../../source/models/builtin/llm/chatglm.rst:37
 msgid "**Quantizations:** 4-bit, 8-bit, none"
 msgstr ""
 
-#: ../../source/models/builtin/llm/chatglm.rst:37
+#: ../../source/models/builtin/llm/chatglm.rst:38
 msgid "**Model ID:** THUDM/chatglm-6b"
+msgstr ""
+
+#: ../../source/models/builtin/llm/chatglm.rst:39
+msgid "**Model Hubs**:  `Hugging Face <https://huggingface.co/THUDM/chatglm-6b>`_"
 msgstr ""
 
