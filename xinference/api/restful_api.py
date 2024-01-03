@@ -62,7 +62,6 @@ from ..types import (
     CreateCompletion,
     ImageList,
 )
-from .oauth2.common import XINFERENCE_AUTH_STARTUP_CONFIG_ENV_KEY
 from .oauth2.core import get_user, verify_token
 from .oauth2.types import AuthStartupConfig, LoginUserForm, User
 from .oauth2.utils import create_access_token, get_password_hash, verify_password
@@ -162,13 +161,15 @@ class RESTfulAPI:
 
     @staticmethod
     def init_auth_config(auth_config_file: Optional[str]):
+        from .oauth2 import common
+
         if auth_config_file:
             config: AuthStartupConfig = pydantic.parse_file_as(
                 path=auth_config_file, type_=AuthStartupConfig
             )
             for user in config.user_config:
                 user.password = get_password_hash(user.password)
-            os.environ[XINFERENCE_AUTH_STARTUP_CONFIG_ENV_KEY] = config.json()
+            common.XINFERENCE_OAUTH2_CONFIG = config
             return config
 
     def is_authenticated(self):

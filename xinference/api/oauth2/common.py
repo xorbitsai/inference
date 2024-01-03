@@ -11,4 +11,4 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-XINFERENCE_AUTH_STARTUP_CONFIG_ENV_KEY = "XINFERENCE_AUTH_STARTUP_CONFIG"
+XINFERENCE_OAUTH2_CONFIG = None
