@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-10-16 10:33+0800\n"
+"POT-Creation-Date: 2024-01-02 17:07+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: ja_JP\n"
@@ -134,5 +134,25 @@ msgstr ""
 
 #: ../../source/user_guide/backends.rst:55
 msgid "``vicuna-v1.3``, ``vicuna-v1.5``"
+msgstr ""
+
+#: ../../source/user_guide/backends.rst:56
+msgid "``Yi``, ``Yi-chat``"
+msgstr ""
+
+#: ../../source/user_guide/backends.rst:57
+msgid "``qwen-chat``"
+msgstr ""
+
+#: ../../source/user_guide/backends.rst:58
+msgid "``code-llama``, ``code-llama-python``, ``code-llama-instruct``"
+msgstr ""
+
+#: ../../source/user_guide/backends.rst:59
+msgid "``mistral-instruct-v0.1``"
+msgstr ""
+
+#: ../../source/user_guide/backends.rst:60
+msgid "``chatglm3``"
 msgstr ""
 

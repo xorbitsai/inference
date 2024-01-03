@@ -55,8 +55,8 @@ msgid ""
 "model, you can use this link: `https://huggingface.co/meta-llama/Llama-2"
 "-7b-hf <https://huggingface.co/meta-llama/Llama-2-7b-hf>`_."
 msgstr ""
-"想要获取访问权限，打开对应的 huggingface 仓库，同意其条款和注意事项。以 `"
-"`llama2``为例，可以打开这个链接去申请：`https://huggingface.co/meta-llama"
+"想要获取访问权限，打开对应的 huggingface 仓库，同意其条款和注意事项。以"
+" ``llama2`` 为例，可以打开这个链接去申请：`https://huggingface.co/meta-llama"
 "/Llama-2-7b-hf <https://huggingface.co/meta-llama/Llama-2-7b-hf>`_."
 
 #: ../../source/getting_started/troubleshooting.rst:29

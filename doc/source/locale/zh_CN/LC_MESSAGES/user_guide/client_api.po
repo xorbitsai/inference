@@ -25,13 +25,13 @@ msgstr "客户端 API"
 
 #: ../../source/user_guide/client_api.rst:7
 msgid "Complete Client API Reference: :ref:`reference_index`"
-msgstr ""
+msgstr "完整地 API 指南： :ref:`reference_index`"
 
 #: ../../source/user_guide/client_api.rst:9
 msgid ""
 "To utilize the Client API, initiate the xinference server using the "
 "command below:"
-msgstr ""
+msgstr "使用 Client API，需要先使用以下命令拉起 Xinference 服务："
 
 #: ../../source/user_guide/client_api.rst:18
 msgid ""
@@ -39,60 +39,62 @@ msgid ""
 "can connect to the xinference server through this endpoint using the "
 "Client."
 msgstr ""
+"在命令日志里会打印服务地址，上述日志中为 `http://127.0.0.1:9997`。用户可以通过 "
+"Client 连接 Xinference 服务。"
 
 #: ../../source/user_guide/client_api.rst:20
 msgid ""
 "Models are categorized into LLM, embedding, image, etc. We plan to "
 "introduce more model types in the future."
-msgstr ""
+msgstr "所有模型被分为 LLM、embedding、rerank 等类型。后续可能会支持更多类型的模型。"
 
 #: ../../source/user_guide/client_api.rst:23
 msgid "LLM"
-msgstr ""
+msgstr "LLM"
 
 #: ../../source/user_guide/client_api.rst:25
 msgid "To list the available built-in LLM models:"
-msgstr ""
+msgstr "列出所有内置支持的 LLM 模型："
 
 #: ../../source/user_guide/client_api.rst:38
 msgid "To initialize an LLM and chat:"
-msgstr ""
+msgstr "初始化一个大语言模型并且与之对话："
 
 #: ../../source/user_guide/client_api.rst:63
 msgid "Embedding"
-msgstr ""
+msgstr "Embedding"
 
 #: ../../source/user_guide/client_api.rst:65
 msgid "To list the available built-in embedding models:"
-msgstr ""
+msgstr "列出所有内置支持的 embedding 模型："
 
 #: ../../source/user_guide/client_api.rst:78
 msgid "To launch an embedding model and embed text:"
-msgstr ""
+msgstr "拉起 embedding 模型并使用文本向量化："
 
 #: ../../source/user_guide/client_api.rst:92
 #: ../../source/user_guide/client_api.rst:138
 #: ../../source/user_guide/client_api.rst:168
 msgid "Output:"
-msgstr ""
+msgstr "输出："
 
 #: ../../source/user_guide/client_api.rst:110
 msgid "Image"
-msgstr ""
+msgstr "图片"
 
 #: ../../source/user_guide/client_api.rst:112
 msgid "To list the available built-in image models:"
-msgstr ""
+msgstr "列出所有内置的文生图模型："
 
 #: ../../source/user_guide/client_api.rst:123
 msgid "To initiate an image model and generate an image using a text prompt:"
-msgstr ""
+msgstr "初始化一个文生图模型并通过提示词生成图片："
 
 #: ../../source/user_guide/client_api.rst:147
 msgid "Rerank"
-msgstr ""
+msgstr "Rerank"
 
 #: ../../source/user_guide/client_api.rst:148
 msgid "To launch a rerank model and compute the similarity scores:"
-msgstr ""
+msgstr "拉起 rerank 模型并计算文本相似度："
 

@@ -56,6 +56,7 @@ The effectiveness of speculative decoding relies on:
 - The similarity between the logits produced by the draft model and the target model.
 
 In the example above, the target model is about five times larger than the draft model, and the two models are well aligned. Approximately 86% of the draft tokens are accepted by the target model, resulting in a 25% increase in speed.
+
 References
 ~~~~~~~~~~
 - [1] `Fast Inference from Transformers via Speculative Decoding <https://arxiv.org/abs/2211.17192>`_
