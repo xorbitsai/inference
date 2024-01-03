@@ -80,7 +80,7 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 
 ### Jupyter Notebook
 
-体验 Xinference 最轻量级的方式是使用我们 [Google Colab 上的 Jupyter Notebook](https://colab.research.google.com/drive/1JP2fWlQ9HfkkVV8YRCqobuBlnDWINyA5)。
+体验 Xinference 最轻量级的方式是使用我们 [Google Colab 上的 Jupyter Notebook](https://colab.research.google.com/github/xorbitsai/inference/blob/main/examples/Xinference_Quick_Start.ipynb)。
 
 ### 快速开始
 

@@ -68,7 +68,7 @@ Xorbits Inference は、GPU や CPU を含む異種ハードウェアをイン�
 
 ### Jupyter Notebook
 
-Xinferenceを体験する最軽量な方法は、私たちのGoogle Colab上のJupyterノートブックを試すことです。
+Xinferenceを体験する最軽量な方法は、私たちの[Google Colab上のJupyterノートブック](https://colab.research.google.com/github/xorbitsai/inference/blob/main/examples/Xinference_Quick_Start.ipynb)を試すことです]。
 
 ### クイックスタート
 
