@@ -13,11 +13,13 @@
 # limitations under the License.
 
 import asyncio
+import re
 from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Union
 
+import orjson
 import xoscar as xo
 
-from ...core.model import ModelActor
+from ...core.model import IteratorWrapper, ModelActor
 from ...core.supervisor import SupervisorActor
 from ...isolation import Isolation
 from ..restful.restful_client import Client
@@ -38,6 +40,52 @@ if TYPE_CHECKING:
     )
 
 
+class SSEEvent(object):
+    # https://github.com/btubbs/sseclient/blob/master/sseclient.py
+    sse_line_pattern = re.compile("(?P<name>[^:]*):?( ?(?P<value>.*))?")
+
+    def __init__(self, data="", event="message", id=None, retry=None):
+        self.data = data
+        self.event = event
+        self.id = id
+        self.retry = retry
+
+    @classmethod
+    def parse(cls, raw):
+        """
+        Given a possibly-multiline string representing an SSE message, parse it
+        and return a Event object.
+        """
+        msg = cls()
+        for line in raw.splitlines():
+            m = cls.sse_line_pattern.match(line)
+            if m is None:
+                # Malformed line.  Discard but warn.
+                continue
+
+            name = m.group("name")
+            if name == "":
+                # line began with a ":", so is a comment.  Ignore
+                continue
+            value = m.group("value")
+
+            if name == "data":
+                # If we already have some data, then join to it with a newline.
+                # Else this is it.
+                if msg.data:
+                    msg.data = "%s\n%s" % (msg.data, value)
+                else:
+                    msg.data = value
+            elif name == "event":
+                msg.event = value
+            elif name == "id":
+                msg.id = value
+            elif name == "retry":
+                msg.retry = int(value)
+
+        return msg
+
+
 class ModelHandle:
     """
     A sync model interface (for rpc client) which provides type hints that makes it much easier to use xinference
@@ -47,6 +95,19 @@ class ModelHandle:
     def __init__(self, model_ref: xo.ActorRefType["ModelActor"], isolation: Isolation):
         self._model_ref = model_ref
         self._isolation = isolation
+
+
+class ClientIteratorWrapper(IteratorWrapper):
+    async def __anext__(self):
+        r = await super().__anext__()
+        text = r.decode("utf-8")
+        return orjson.loads(SSEEvent.parse(text).data)
+
+    @classmethod
+    def wrap(cls, iterator_wrapper):
+        c = cls.__new__(cls)
+        c.__dict__.update(iterator_wrapper.__dict__)
+        return c
 
 
 class EmbeddingModelHandle(ModelHandle):
@@ -68,7 +129,7 @@ class EmbeddingModelHandle(ModelHandle):
         """
 
         coro = self._model_ref.create_embedding(input)
-        return self._isolation.call(coro)
+        return orjson.loads(self._isolation.call(coro))
 
 
 class RerankModelHandle(ModelHandle):
@@ -104,7 +165,7 @@ class RerankModelHandle(ModelHandle):
         coro = self._model_ref.rerank(
             documents, query, top_n, max_chunks_per_doc, return_documents
         )
-        results = self._isolation.call(coro)
+        results = orjson.loads(self._isolation.call(coro))
         for r in results["results"]:
             r["document"] = documents[r["index"]]
         return results
@@ -140,7 +201,10 @@ class GenerateModelHandle(EmbeddingModelHandle):
         """
 
         coro = self._model_ref.generate(prompt, generate_config)
-        return self._isolation.call(coro)
+        r = self._isolation.call(coro)
+        if isinstance(r, bytes):
+            return orjson.loads(r)
+        return ClientIteratorWrapper.wrap(r)
 
 
 class ChatModelHandle(GenerateModelHandle):
@@ -185,7 +249,10 @@ class ChatModelHandle(GenerateModelHandle):
         coro = self._model_ref.chat(
             prompt, system_prompt, chat_history, generate_config
         )
-        return self._isolation.call(coro)
+        r = self._isolation.call(coro)
+        if isinstance(r, bytes):
+            return orjson.loads(r)
+        return ClientIteratorWrapper.wrap(r)
 
 
 class ChatglmCppChatModelHandle(EmbeddingModelHandle):
@@ -217,7 +284,10 @@ class ChatglmCppChatModelHandle(EmbeddingModelHandle):
         """
 
         coro = self._model_ref.chat(prompt, chat_history, generate_config)
-        return self._isolation.call(coro)
+        r = self._isolation.call(coro)
+        if isinstance(r, bytes):
+            return orjson.loads(r)
+        return ClientIteratorWrapper.wrap(r)
 
 
 class ImageModelHandle(ModelHandle):
@@ -249,7 +319,7 @@ class ImageModelHandle(ModelHandle):
         """
 
         coro = self._model_ref.text_to_image(prompt, n, size, response_format, **kwargs)
-        return self._isolation.call(coro)
+        return orjson.loads(self._isolation.call(coro))
 
     def image_to_image(
         self,
@@ -294,7 +364,7 @@ class ImageModelHandle(ModelHandle):
         coro = self._model_ref.image_to_image(
             image, prompt, negative_prompt, n, size, response_format, **kwargs
         )
-        return self._isolation.call(coro)
+        return orjson.loads(self._isolation.call(coro))
 
 
 class ActorClient:

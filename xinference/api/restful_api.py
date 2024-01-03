@@ -565,7 +565,7 @@ class RESTfulAPI:
                     except RuntimeError as re:
                         self.handle_request_limit_error(re)
                     async for item in iterator:
-                        yield dict(data=json.dumps(item))
+                        yield item
                 except Exception as ex:
                     if iterator is not None:
                         await iterator.destroy()
@@ -577,7 +577,7 @@ class RESTfulAPI:
         else:
             try:
                 data = await model.generate(body.prompt, kwargs)
-                return JSONResponse(content=data)
+                return Response(data, media_type="application/json")
             except Exception as e:
                 logger.error(e, exc_info=True)
                 self.handle_request_limit_error(e)
@@ -634,7 +634,7 @@ class RESTfulAPI:
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
 
-    async def create_images(self, request: TextToImageRequest) -> JSONResponse:
+    async def create_images(self, request: TextToImageRequest) -> Response:
         model_uid = request.model
         try:
             model = await (await self._get_supervisor_ref()).get_model(model_uid)
@@ -655,7 +655,7 @@ class RESTfulAPI:
                 response_format=request.response_format,
                 **kwargs,
             )
-            return JSONResponse(content=image_list)
+            return Response(content=image_list, media_type="application/json")
         except RuntimeError as re:
             logger.error(re, exc_info=True)
             self.handle_request_limit_error(re)
@@ -674,7 +674,7 @@ class RESTfulAPI:
         response_format: Optional[str] = Form("url"),
         size: Optional[str] = Form("1024*1024"),
         kwargs: Optional[str] = Form(None),
-    ) -> JSONResponse:
+    ) -> Response:
         model_uid = model
         try:
             model_ref = await (await self._get_supervisor_ref()).get_model(model_uid)
@@ -697,7 +697,7 @@ class RESTfulAPI:
                 response_format=response_format,
                 **kwargs,
             )
-            return JSONResponse(content=image_list)
+            return Response(content=image_list, media_type="application/json")
         except RuntimeError as re:
             logger.error(re, exc_info=True)
             raise HTTPException(status_code=400, detail=str(re))
@@ -828,7 +828,7 @@ class RESTfulAPI:
                     except RuntimeError as re:
                         self.handle_request_limit_error(re)
                     async for item in iterator:
-                        yield dict(data=json.dumps(item))
+                        yield item
                 except Exception as ex:
                     if iterator is not None:
                         await iterator.destroy()
@@ -843,7 +843,7 @@ class RESTfulAPI:
                     data = await model.chat(prompt, chat_history, kwargs)
                 else:
                     data = await model.chat(prompt, system_prompt, chat_history, kwargs)
-                return JSONResponse(content=data)
+                return Response(content=data, media_type="application/json")
             except Exception as e:
                 logger.error(e, exc_info=True)
                 self.handle_request_limit_error(e)
