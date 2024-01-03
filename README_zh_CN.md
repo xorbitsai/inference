@@ -78,6 +78,10 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 * [部署文档](https://inference.readthedocs.io/zh-cn/latest/getting_started/using_xinference.html)
 * [示例和教程](https://inference.readthedocs.io/zh-cn/latest/examples/index.html)
 
+### Jupyter Notebook
+
+体验 Xinference 最轻量级的方式是使用我们 [Google Colab 上的 Jupyter Notebook](https://colab.research.google.com/drive/1JP2fWlQ9HfkkVV8YRCqobuBlnDWINyA5)。
+
 ### 快速开始
 
 使用 pip 安装 Xinference，操作如下。（更多选项，请参阅[安装页面](https://inference.readthedocs.io/zh-cn/latest/getting_started/installation.html)。）
