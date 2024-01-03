@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import logging
-import os
 from typing import List, Optional, Union
 
 from fastapi import Depends, HTTPException, status
@@ -21,7 +20,6 @@ from jose import JWTError, jwt
 from pydantic import BaseModel, ValidationError
 from typing_extensions import Annotated
 
-from .common import XINFERENCE_AUTH_STARTUP_CONFIG_ENV_KEY
 from .types import AuthStartupConfig, User
 
 logger = logging.getLogger(__name__)
@@ -31,10 +29,10 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 
 def get_db():
-    # TODO: database here
-    # read from os env
-    env_str = os.environ.get(XINFERENCE_AUTH_STARTUP_CONFIG_ENV_KEY, None)
-    yield None if env_str is None else AuthStartupConfig.parse_raw(env_str)
+    from .common import XINFERENCE_OAUTH2_CONFIG
+
+    # In a real enterprise-level environment, this should be the database
+    yield XINFERENCE_OAUTH2_CONFIG
 
 
 def get_user(db_users: List[User], username: str) -> Optional[User]:
