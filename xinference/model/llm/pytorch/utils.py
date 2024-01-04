@@ -530,7 +530,11 @@ def generate_stream_chatglm(
 
     inputs = tokenizer([prompt], return_tensors="pt").to(model.device)
     input_echo_len = len(inputs["input_ids"][0])
-
+    eos_token_id = [
+        tokenizer.eos_token_id,
+        tokenizer.get_command("<|user|>"),
+        tokenizer.get_command("<|observation|>"),
+    ]
     gen_kwargs = {
         "max_length": max_new_tokens + input_echo_len,
         "do_sample": True if temperature > 1e-5 else False,
@@ -543,7 +547,9 @@ def generate_stream_chatglm(
 
     total_len = 0
     last_response_length = 0
-    for total_ids in model.stream_generate(**inputs, **gen_kwargs):
+    for total_ids in model.stream_generate(
+        **inputs, eos_token_id=eos_token_id, **gen_kwargs
+    ):
         total_ids = total_ids.tolist()[0]
         total_len = len(total_ids)
         if echo:

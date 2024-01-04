@@ -566,6 +566,16 @@
       "roles": [
         "user",
         "assistant"
+      ],
+      "stop_token_ids": [
+        64795,
+        64797,
+        2
+      ],
+      "stop":[
+        "<|user|>",
+        "<|observation|>",
+        "</s>"
       ]
     }
   },

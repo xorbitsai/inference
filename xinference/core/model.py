@@ -375,7 +375,6 @@ class ModelActor(xo.StatelessActor):
 
         return await self._call_wrapper(_wrapper)
 
-    @log_async(logger=logger)
     async def next(
         self, generator_uid: str
     ) -> Union["ChatCompletionChunk", "CompletionChunk"]:
