@@ -142,5 +142,45 @@
     "language": ["en"],
     "model_id": "jinaai/jina-embeddings-v2-base-en",
     "model_revision": "7302ac470bed880590f9344bfeee32ff8722d0e5"
+  },
+  {
+    "model_name": "text2vec-large-chinese",
+    "dimensions": 1024,
+    "max_tokens": 256,
+    "language": ["zh"],
+    "model_id": "shibing624/text2vec-bge-large-chinese",
+    "model_revision": "f5027ca48ea8316d63ee26d2b9bd27a061de33a3"
+  },
+  {
+    "model_name": "text2vec-base-chinese",
+    "dimensions": 768,
+    "max_tokens": 128,
+    "language": ["zh"],
+    "model_id": "shibing624/text2vec-base-chinese",
+    "model_revision": "8acc1289891d75f6b665ad623359798b55f86adb"
+  },
+  {
+    "model_name": "text2vec-base-chinese-paraphrase",
+    "dimensions": 768,
+    "max_tokens": 256,
+    "language": ["zh"],
+    "model_id": "shibing624/text2vec-base-chinese-paraphrase",
+    "model_revision": "beaf10481a5d9ca3b0daa9f0df6831ec956bf739"
+  },
+  {
+    "model_name": "text2vec-base-chinese-sentence",
+    "dimensions": 768,
+    "max_tokens": 256,
+    "language": ["zh"],
+    "model_id": "shibing624/text2vec-base-chinese-sentence",
+    "model_revision": "e73a94e821f22c6163166bfab9408d03933a5525"
+  },
+  {
+    "model_name": "text2vec-base-multilingual",
+    "dimensions": 384,
+    "max_tokens": 256,
+    "language": ["zh"],
+    "model_id": "shibing624/text2vec-base-multilingual",
+    "model_revision": "f241877385fa56ebcc75f04d1850e1579cfa661d"
   }
 ]
