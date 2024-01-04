@@ -27,7 +27,6 @@ from typing import (
     Iterator,
     List,
     Optional,
-    TypeVar,
     Union,
 )
 
@@ -43,8 +42,6 @@ import logging
 logger = logging.getLogger(__name__)
 
 from .utils import json_dumps, log_async
-
-T = TypeVar("T")
 
 try:
     from torch.cuda import OutOfMemoryError

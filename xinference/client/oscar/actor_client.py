@@ -14,7 +14,7 @@
 
 import asyncio
 import re
-from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Union
+from typing import TYPE_CHECKING, Any, AsyncIterator, Dict, List, Optional, Union
 
 import orjson
 import xoscar as xo
@@ -97,7 +97,7 @@ class ModelHandle:
         self._isolation = isolation
 
 
-class ClientIteratorWrapper:
+class ClientIteratorWrapper(AsyncIterator):
     def __init__(self, iterator_wrapper):
         self._iw = iterator_wrapper
 
@@ -178,7 +178,7 @@ class GenerateModelHandle(EmbeddingModelHandle):
         generate_config: Optional[
             Union["LlamaCppGenerateConfig", "PytorchGenerateConfig"]
         ] = None,
-    ) -> Union["Completion", Iterator["CompletionChunk"]]:
+    ) -> Union["Completion", AsyncIterator["CompletionChunk"]]:
         """
         Creates a completion for the provided prompt and parameters.
 
@@ -216,7 +216,7 @@ class ChatModelHandle(GenerateModelHandle):
         generate_config: Optional[
             Union["LlamaCppGenerateConfig", "PytorchGenerateConfig"]
         ] = None,
-    ) -> Union["ChatCompletion", Iterator["ChatCompletionChunk"]]:
+    ) -> Union["ChatCompletion", AsyncIterator["ChatCompletionChunk"]]:
         """
         Given a list of messages comprising a conversation, the model will return a response.
 
@@ -261,7 +261,7 @@ class ChatglmCppChatModelHandle(EmbeddingModelHandle):
         prompt: str,
         chat_history: Optional[List["ChatCompletionMessage"]] = None,
         generate_config: Optional["ChatglmCppGenerateConfig"] = None,
-    ) -> Union["ChatCompletion", Iterator["ChatCompletionChunk"]]:
+    ) -> Union["ChatCompletion", AsyncIterator["ChatCompletionChunk"]]:
         """
         Given a list of messages comprising a conversation, the ChatGLM model will return a response.
 
