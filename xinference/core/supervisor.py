@@ -114,6 +114,18 @@ class SupervisorActor(xo.StatelessActor):
             data[k] = v.dict()
         return data
 
+    @staticmethod
+    async def get_builtin_architectures() -> Dict[str, List[str]]:
+        from ..model.llm.llm_family import (
+            BUILTIN_LLM_MODEL_CHAT_ARCHITECTURES,
+            BUILTIN_LLM_MODEL_GENERATE_ARCHITECTURES,
+        )
+
+        return {
+            "chat": list(BUILTIN_LLM_MODEL_CHAT_ARCHITECTURES),
+            "generate": list(BUILTIN_LLM_MODEL_GENERATE_ARCHITECTURES),
+        }
+
     async def get_devices_count(self) -> int:
         from ..utils import cuda_count
 

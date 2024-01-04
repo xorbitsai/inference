@@ -43,11 +43,16 @@ const RegisterModel = () => {
     model_lang: ['en'],
     model_ability: ['generate'],
     model_description: 'This is a custom model description.',
+    model_architecture: '',
     model_specs: [],
     prompt_style: undefined,
   })
-  const [promptStyleLabel, setPromptStyleLabel] = useState('vicuna')
   const [promptStyles, setPromptStyles] = useState([])
+  const [architecture, setArchitecture] = useState({
+    chat: [],
+    generate: [],
+  })
+  const [architectureLabel, setArchitectureLabel] = useState('')
   const [tabValue, setTabValue] = React.useState('1')
 
   const errorModelName = formData.model_name.trim().length <= 0
@@ -65,15 +70,39 @@ const RegisterModel = () => {
         spec.model_size_in_billions === 0
       )
     })
+  const errorArchitecture = architectureLabel === ''
   const errorAny =
     errorModelName ||
     errorModelDescription ||
     errorContextLength ||
     errorLanguage ||
     errorAbility ||
-    errorModelSize
+    errorModelSize ||
+    errorArchitecture
 
   useEffect(() => {
+    const getBuiltinArchitectures = async () => {
+      const response = await fetch(endPoint + '/v1/models/architectures', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+      if (!response.ok) {
+        const errorData = await response.json() // Assuming the server returns error details in JSON format
+        setErrorMsg(
+          `Server error: ${response.status} - ${
+            errorData.detail || 'Unknown error'
+          }`
+        )
+      } else {
+        const data = await response.json()
+        data.chat.push('other')
+        data.generate.push('other')
+        setArchitecture(data)
+      }
+    }
+
     const getBuiltInPromptStyles = async () => {
       const response = await fetch(endPoint + '/v1/models/prompts', {
         method: 'GET',
@@ -109,7 +138,24 @@ const RegisterModel = () => {
         console.error('Error: ', error)
       })
     }
+    if (architecture.chat.length === 0) {
+      getBuiltinArchitectures().catch((error) => {
+        setErrorMsg(
+          error.message ||
+            'An unexpected error occurred when getting builtin prompt styles.'
+        )
+        console.error('Error: ', error)
+      })
+    }
   })
+
+  const getArchitectureByAbility = () => {
+    if (formData.model_ability.includes('chat')) {
+      return architecture.chat
+    } else {
+      return architecture.generate
+    }
+  }
 
   const isModelFormatPytorch = () => {
     return modelFormat === 'pytorch'
@@ -149,8 +195,10 @@ const RegisterModel = () => {
       ]
     }
 
+    formData.model_architecture = architectureLabel
+
     if (formData.model_ability.includes('chat')) {
-      const ps = promptStyles.find((item) => item.name === promptStyleLabel)
+      const ps = promptStyles.find((item) => item.name === architectureLabel)
       if (ps) {
         formData.prompt_style = {
           style_name: ps.style_name,
@@ -213,6 +261,7 @@ const RegisterModel = () => {
   }
 
   const toggleAbility = (ability) => {
+    setArchitectureLabel('')
     if (formData.model_ability.includes(ability)) {
       setFormData({
         ...formData,
@@ -452,40 +501,35 @@ const RegisterModel = () => {
             <Box padding="15px"></Box>
           </FormControl>
 
-          {formData.model_ability.includes('chat') && (
-            <FormControl sx={styles.baseFormControl}>
-              <label
-                style={{
-                  paddingLeft: 5,
-                  color: errorAbility ? ERROR_COLOR : 'inherit',
-                }}
-              >
-                Prompt styles
-              </label>
-              <FormHelperText>
-                Select a prompt style that aligns with the training data of your
-                model.
-              </FormHelperText>
-              <RadioGroup
-                value={promptStyleLabel}
-                onChange={(e) => {
-                  setPromptStyleLabel(e.target.value)
-                }}
-              >
-                <Box sx={styles.checkboxWrapper}>
-                  {promptStyles.map((p) => (
-                    <Box sx={{ marginLeft: '10px' }}>
-                      <FormControlLabel
-                        value={p.name}
-                        control={<Radio />}
-                        label={p.name}
-                      />
-                    </Box>
-                  ))}
-                </Box>
-              </RadioGroup>
-            </FormControl>
-          )}
+          <FormControl sx={styles.baseFormControl}>
+            <label
+              style={{
+                paddingLeft: 5,
+                color: errorAbility ? ERROR_COLOR : 'inherit',
+              }}
+            >
+              Model Architecture
+            </label>
+            <FormHelperText>
+              Please be careful to select the architecture corresponding to the
+              model you want to register. If not found, please choose `other`.
+            </FormHelperText>
+            <RadioGroup
+              value={architectureLabel}
+              onChange={(e) => {
+                setArchitectureLabel(e.target.value)
+              }}
+            >
+              <Box sx={styles.checkboxWrapper}>
+                {getArchitectureByAbility().map((v) => (
+                  <Box sx={{ marginLeft: '10px' }}>
+                    <FormControlLabel value={v} control={<Radio />} label={v} />
+                  </Box>
+                ))}
+              </Box>
+            </RadioGroup>
+            <Box padding="15px"></Box>
+          </FormControl>
 
           <Box width={'100%'}>
             {successMsg !== '' && (

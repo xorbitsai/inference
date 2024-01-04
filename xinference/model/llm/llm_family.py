@@ -41,7 +41,8 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_CONTEXT_LENGTH = 2048
 BUILTIN_LLM_PROMPT_STYLE: Dict[str, "PromptStyleV1"] = {}
-BUILTIN_LLM_MODEL_ARCHITECTURES: Set[str] = set()
+BUILTIN_LLM_MODEL_CHAT_ARCHITECTURES: Set[str] = set()
+BUILTIN_LLM_MODEL_GENERATE_ARCHITECTURES: Set[str] = set()
 
 
 class GgmlLLMSpecV1(BaseModel):
@@ -146,12 +147,24 @@ class CustomLLMFamilyV1(LLMFamilyV1):
         assert isinstance(llm_spec.model_architecture, str)
         if (
             llm_spec.model_architecture != "other"
-            and llm_spec.model_architecture not in BUILTIN_LLM_MODEL_ARCHITECTURES
+            and "chat" in llm_spec.model_ability
+            and llm_spec.model_architecture not in BUILTIN_LLM_MODEL_CHAT_ARCHITECTURES
         ):
             raise ValueError(
-                f"`model_architecture` must be `other` or one of the following values: \n"
-                f"{', '.join(list(BUILTIN_LLM_MODEL_ARCHITECTURES))}"
+                f"`model_architecture` for chat model must be `other` or one of the following values: \n"
+                f"{', '.join(list(BUILTIN_LLM_MODEL_CHAT_ARCHITECTURES))}"
             )
+        if (
+            llm_spec.model_architecture != "other"
+            and "chat" not in llm_spec.model_ability
+            and llm_spec.model_architecture
+            not in BUILTIN_LLM_MODEL_GENERATE_ARCHITECTURES
+        ):
+            raise ValueError(
+                f"`model_architecture` for generate model must be `other` or one of the following values: \n"
+                f"{', '.join(list(BUILTIN_LLM_MODEL_GENERATE_ARCHITECTURES))}"
+            )
+        # set prompt style when it is the builtin architecture
         if (
             llm_spec.prompt_style is None
             and llm_spec.model_architecture != "other"
