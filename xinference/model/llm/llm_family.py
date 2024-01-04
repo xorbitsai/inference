@@ -17,7 +17,7 @@ import os
 import platform
 import shutil
 from threading import Lock
-from typing import Any, Dict, List, Optional, Tuple, Type, Union
+from typing import Any, Dict, List, Optional, Set, Tuple, Type, Union
 
 from pydantic import BaseModel, Field, Protocol, ValidationError, validator
 from pydantic.error_wrappers import ErrorWrapper
@@ -41,6 +41,7 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_CONTEXT_LENGTH = 2048
 BUILTIN_LLM_PROMPT_STYLE: Dict[str, "PromptStyleV1"] = {}
+BUILTIN_LLM_MODEL_ARCHITECTURES: Set[str] = set()
 
 
 class GgmlLLMSpecV1(BaseModel):
@@ -110,6 +111,7 @@ class LLMFamilyV1(BaseModel):
 
 
 class CustomLLMFamilyV1(LLMFamilyV1):
+    model_architecture: str
     prompt_style: Optional[Union["PromptStyleV1", str]]  # type: ignore
 
     @classmethod
@@ -134,7 +136,28 @@ class CustomLLMFamilyV1(LLMFamilyV1):
             )
         except (ValueError, TypeError, UnicodeDecodeError) as e:
             raise ValidationError([ErrorWrapper(e, loc=ROOT_KEY)], cls)
-        llm_spec = cls.parse_obj(obj)
+        llm_spec: CustomLLMFamilyV1 = cls.parse_obj(obj)
+
+        # check model_architecture
+        if llm_spec.model_architecture is None:
+            raise ValueError(
+                f"You must specify `model_architecture` when registering custom LLM models."
+            )
+        assert isinstance(llm_spec.model_architecture, str)
+        if (
+            llm_spec.model_architecture != "other"
+            and llm_spec.model_architecture not in BUILTIN_LLM_MODEL_ARCHITECTURES
+        ):
+            raise ValueError(
+                f"`model_architecture` must be `other` or one of the following values: \n"
+                f"{', '.join(list(BUILTIN_LLM_MODEL_ARCHITECTURES))}"
+            )
+        if (
+            llm_spec.prompt_style is None
+            and llm_spec.model_architecture != "other"
+            and "chat" in llm_spec.model_ability
+        ):
+            llm_spec.prompt_style = llm_spec.model_architecture
 
         # handle prompt style when user choose existing style
         if llm_spec.prompt_style is not None and isinstance(llm_spec.prompt_style, str):
