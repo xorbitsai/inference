@@ -1,0 +1,64 @@
+name: Xinference CD for DockerHub
+
+on:
+  schedule:
+    - cron: '0 18 * * *'
+  push:
+    tags:
+      - '*'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [ "3.10" ]
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+
+      - name: Build and push Docker image
+        shell: bash
+        if: ${{ github.repository == 'xorbitsai/inference' }}
+        env:
+          DOCKER_ORG: ${{ secrets.DOCKERHUB_USERNAME }}
+          PY_VERSION: ${{ matrix.python-version }}
+        run: |
+          if [[ "$GITHUB_REF" =~ ^"refs/tags/" ]]; then
+            export GIT_TAG=$(echo "$GITHUB_REF" | sed -e "s/refs\/tags\///g")
+          else
+            export GIT_BRANCH=$(echo "$GITHUB_REF" | sed -e "s/refs\/heads\///g")
+          fi
+          
+          if [[ -n "$GIT_TAG" ]]; then
+            BRANCHES="$GIT_TAG"
+            echo "Will handle tag $BRANCHES"
+          else
+            MAINBRANCH=$(git rev-parse --abbrev-ref HEAD)
+            BRANCHES="$MAINBRANCH"
+          fi
+          
+          for branch in $BRANCHES; do
+            if [[ -n "$GIT_TAG" ]]; then
+              export IMAGE_TAG="$GIT_TAG"
+            else
+              git checkout $branch
+              export IMAGE_TAG="nightly-$branch"
+            fi
+            docker build -t "$DOCKER_ORG/xinference:${IMAGE_TAG}" --progress=plain -f xinference/deploy/docker/Dockerfile .
+            docker push "$DOCKER_ORG/xinference:${IMAGE_TAG}"
+          done
