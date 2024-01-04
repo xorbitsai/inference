@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Union
 import orjson
 import xoscar as xo
 
-from ...core.model import IteratorWrapper, ModelActor
+from ...core.model import ModelActor
 from ...core.supervisor import SupervisorActor
 from ...isolation import Isolation
 from ..restful.restful_client import Client
@@ -97,17 +97,17 @@ class ModelHandle:
         self._isolation = isolation
 
 
-class ClientIteratorWrapper(IteratorWrapper):
+class ClientIteratorWrapper:
+    def __init__(self, iterator_wrapper):
+        self._iw = iterator_wrapper
+
+    def __aiter__(self):
+        return self
+
     async def __anext__(self):
-        r = await super().__anext__()
+        r = await self._iw.__anext__()
         text = r.decode("utf-8")
         return orjson.loads(SSEEvent.parse(text).data)
-
-    @classmethod
-    def wrap(cls, iterator_wrapper):
-        c = cls.__new__(cls)
-        c.__dict__.update(iterator_wrapper.__dict__)
-        return c
 
 
 class EmbeddingModelHandle(ModelHandle):
@@ -204,7 +204,7 @@ class GenerateModelHandle(EmbeddingModelHandle):
         r = self._isolation.call(coro)
         if isinstance(r, bytes):
             return orjson.loads(r)
-        return ClientIteratorWrapper.wrap(r)
+        return ClientIteratorWrapper(r)
 
 
 class ChatModelHandle(GenerateModelHandle):
@@ -252,7 +252,7 @@ class ChatModelHandle(GenerateModelHandle):
         r = self._isolation.call(coro)
         if isinstance(r, bytes):
             return orjson.loads(r)
-        return ClientIteratorWrapper.wrap(r)
+        return ClientIteratorWrapper(r)
 
 
 class ChatglmCppChatModelHandle(EmbeddingModelHandle):
@@ -287,7 +287,7 @@ class ChatglmCppChatModelHandle(EmbeddingModelHandle):
         r = self._isolation.call(coro)
         if isinstance(r, bytes):
             return orjson.loads(r)
-        return ClientIteratorWrapper.wrap(r)
+        return ClientIteratorWrapper(r)
 
 
 class ImageModelHandle(ModelHandle):

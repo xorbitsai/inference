@@ -13,17 +13,17 @@
 # limitations under the License.
 
 import asyncio
+import functools
 import inspect
 import json
 import os
-import uuid
+import types
+import weakref
 from typing import (
     TYPE_CHECKING,
-    Any,
     AsyncGenerator,
     Callable,
     Dict,
-    Generic,
     Iterator,
     List,
     Optional,
@@ -36,7 +36,6 @@ import xoscar as xo
 
 if TYPE_CHECKING:
     from ..model.llm.core import LLM
-    from ..types import ChatCompletionChunk, CompletionChunk
     import PIL
 
 import logging
@@ -88,38 +87,30 @@ def request_limit(fn):
     return wrapped_func
 
 
-class IteratorWrapper(Generic[T]):
-    def __init__(self, uid: str, model_actor_addr: str, model_actor_uid: str):
-        self._uid = uid
-        self._model_actor_addr = model_actor_addr
-        self._model_actor_uid = model_actor_uid
-        self._model_actor_ref: Optional[xo.ActorRefType["ModelActor"]] = None
-
-    async def destroy(self):
-        if self._model_actor_ref is None:
-            self._model_actor_ref = await xo.actor_ref(
-                address=self._model_actor_addr, uid=self._model_actor_uid
-            )
-        assert self._model_actor_ref is not None
-        return await self._model_actor_ref.destroy_generator(self._uid)
-
-    def __aiter__(self):
-        return self
-
-    async def __anext__(self) -> T:
-        if self._model_actor_ref is None:
-            self._model_actor_ref = await xo.actor_ref(
-                address=self._model_actor_addr, uid=self._model_actor_uid
-            )
-
+def oom_check(fn):
+    @functools.wraps(fn)
+    def _wrapper(*args, **kwargs):
         try:
-            assert self._model_actor_ref is not None
-            return await self._model_actor_ref.next(self._uid)
-        except Exception as e:
-            if "StopIteration" in str(e):
-                raise StopAsyncIteration
-            else:
-                raise
+            return fn(*args, **kwargs)
+        except OutOfMemoryError:
+            logger.exception("Model actor is out of memory.")
+            os._exit(1)
+
+    @functools.wraps(fn)
+    async def _async_wrapper(*args, **kwargs):
+        try:
+            return await fn(*args, **kwargs)
+        except OutOfMemoryError:
+            logger.exception("Model actor is out of memory.")
+            os._exit(1)
+
+    assert not inspect.isasyncgen(fn)
+    assert not inspect.isgenerator(fn)
+
+    if asyncio.iscoroutinefunction(fn):
+        return _async_wrapper
+    else:
+        return _wrapper
 
 
 class ModelActor(xo.StatelessActor):
@@ -162,6 +153,7 @@ class ModelActor(xo.StatelessActor):
         self._request_limits = request_limits
 
         self._generators: Dict[str, Union[Iterator, AsyncGenerator]] = {}
+        self._current_generator = lambda: None
         self._lock = (
             None
             if isinstance(self._model, (PytorchModel, SpeculativeModel, VLLMModel))
@@ -188,106 +180,93 @@ class ModelActor(xo.StatelessActor):
             )
         )
 
-    def _wrap_generator(self, ret: Any):
-        if inspect.isgenerator(ret) or inspect.isasyncgen(ret):
-            if self._lock is not None and self._generators:
-                raise Exception("Parallel generation is not supported by ggml.")
-            generator_uid = str(uuid.uuid1())
-            self._generators[generator_uid] = ret
-
-            return IteratorWrapper(
-                uid=generator_uid,
-                model_actor_addr=self.address,
-                model_actor_uid=self.uid,
-            )
-        else:
-            return json_dumps(ret)
-
-    async def _call_wrapper(self, _wrapper: Callable):
+    def _to_json_generator(self, gen: types.GeneratorType):
         try:
-            assert not (
-                inspect.iscoroutinefunction(_wrapper)
-                or inspect.isasyncgenfunction(_wrapper)
+            for v in gen:
+                v = dict(data=json.dumps(v))
+                yield sse_starlette.sse.ensure_bytes(v, None)
+        except OutOfMemoryError:
+            logger.exception(
+                "Model actor is out of memory, model id: %s", self.model_uid()
             )
-            if self._lock is None:
-                return await asyncio.to_thread(_wrapper)
+            os._exit(1)
+
+    async def _to_json_async_gen(self, gen: types.AsyncGeneratorType):
+        try:
+            async for v in gen:
+                v = await asyncio.to_thread(json.dumps, v)
+                v = dict(data=v)  # noqa: F821
+                yield await asyncio.to_thread(sse_starlette.sse.ensure_bytes, v, None)
+        except OutOfMemoryError:
+            logger.exception(
+                "Model actor is out of memory, model id: %s", self.model_uid()
+            )
+            os._exit(1)
+
+    @oom_check
+    async def _call_wrapper(self, fn: Callable, *args, **kwargs):
+        if self._lock is None:
+            if inspect.isgeneratorfunction(fn):
+                ret = await fn(*args, **kwargs)
             else:
-                async with self._lock:
-                    return await asyncio.to_thread(_wrapper)
-        except OutOfMemoryError:
-            logger.exception(
-                "Model actor is out of memory, model id: %s", self.model_uid()
-            )
-            os._exit(1)
+                ret = await asyncio.to_thread(fn, *args, **kwargs)
+        else:
+            async with self._lock:
+                if inspect.isgeneratorfunction(fn):
+                    ret = await fn(*args, **kwargs)
+                else:
+                    ret = await asyncio.to_thread(fn, *args, **kwargs)
 
-    async def _call_async_wrapper(self, _wrapper: Callable):
-        try:
-            return await asyncio.create_task(_wrapper())
-        except OutOfMemoryError:
-            logger.exception(
-                "Model actor is out of memory, model id: %s", self.model_uid()
-            )
-            os._exit(1)
+        if self._lock is not None and self._current_generator():
+            raise Exception("Parallel generation is not supported by ggml.")
+
+        if inspect.isgenerator(ret):
+            gen = self._to_json_generator(ret)
+            self._current_generator = weakref.ref(gen)
+            return gen
+        if inspect.isasyncgen(ret):
+            gen = self._to_json_async_gen(ret)
+            self._current_generator = weakref.ref(gen)
+            return gen
+        return await asyncio.to_thread(json_dumps, ret)
 
     @log_async(logger=logger)
     @request_limit
+    @xo.generator
     async def generate(self, prompt: str, *args, **kwargs):
-        if not hasattr(self._model, "generate") and not hasattr(
-            self._model, "async_generate"
-        ):
-            raise AttributeError(f"Model {self._model.model_spec} is not for generate.")
-
-        def _wrapper():
-            return self._wrap_generator(
-                getattr(self._model, "generate")(prompt, *args, **kwargs)
-            )
-
-        async def _async_wrapper():
-            # for vLLM.
-            return self._wrap_generator(
-                await getattr(self._model, "async_generate")(prompt, *args, **kwargs)
-            )
-
         if hasattr(self._model, "generate"):
-            return await self._call_wrapper(_wrapper)
-        else:
-            return await self._call_async_wrapper(_async_wrapper)
+            return await self._call_wrapper(
+                self._model.generate, prompt, *args, **kwargs
+            )
+        if hasattr(self._model, "async_generate"):
+            return await self._call_wrapper(
+                self._model.async_generate, prompt, *args, **kwargs
+            )
+        raise AttributeError(f"Model {self._model.model_spec} is not for generate.")
 
     @log_async(logger=logger)
     @request_limit
+    @xo.generator
     async def chat(self, prompt: str, *args, **kwargs):
-        if not hasattr(self._model, "chat") and not hasattr(self._model, "async_chat"):
-            raise AttributeError(f"Model {self._model.model_spec} is not for chat.")
-
-        def _wrapper():
-            return self._wrap_generator(
-                getattr(self._model, "chat")(prompt, *args, **kwargs)
-            )
-
-        async def _async_wrapper():
-            # for vLLM.
-            return self._wrap_generator(
-                await getattr(self._model, "async_chat")(prompt, *args, **kwargs)
-            )
-
+        if hasattr(self._model, "chat"):
+            return await self._call_wrapper(self._model.chat, prompt, *args, **kwargs)
         if hasattr(self._model, "async_chat"):
-            return await self._call_async_wrapper(_async_wrapper)
-        else:
-            return await self._call_wrapper(_wrapper)
+            return await self._call_wrapper(
+                self._model.async_chat, prompt, *args, **kwargs
+            )
+        raise AttributeError(f"Model {self._model.model_spec} is not for chat.")
 
     @log_async(logger=logger)
     @request_limit
     async def create_embedding(self, input: Union[str, List[str]], *args, **kwargs):
-        if not hasattr(self._model, "create_embedding"):
-            raise AttributeError(
-                f"Model {self._model.model_spec} is not for creating embedding."
+        if hasattr(self._model, "create_embedding"):
+            return await self._call_wrapper(
+                self._model.create_embedding, input, *args, **kwargs
             )
 
-        def _wrapper():
-            data = getattr(self._model, "create_embedding")(input, *args, **kwargs)
-            return json_dumps(data)
-
-        return await self._call_wrapper(_wrapper)
+        raise AttributeError(
+            f"Model {self._model.model_spec} is not for creating embedding."
+        )
 
     @log_async(logger=logger)
     @request_limit
@@ -301,13 +280,9 @@ class ModelActor(xo.StatelessActor):
         *args,
         **kwargs,
     ):
-        if not hasattr(self._model, "rerank"):
-            raise AttributeError(
-                f"Model {self._model.model_spec} is not for reranking."
-            )
-
-        def _wrapper():
-            data = getattr(self._model, "rerank")(
+        if hasattr(self._model, "rerank"):
+            return await self._call_wrapper(
+                self._model.rerank,
                 documents,
                 query,
                 top_n,
@@ -316,9 +291,7 @@ class ModelActor(xo.StatelessActor):
                 *args,
                 **kwargs,
             )
-            return json_dumps(data)
-
-        return await self._call_wrapper(_wrapper)
+        raise AttributeError(f"Model {self._model.model_spec} is not for reranking.")
 
     @log_async(logger=logger)
     @request_limit
@@ -331,18 +304,19 @@ class ModelActor(xo.StatelessActor):
         *args,
         **kwargs,
     ):
-        if not hasattr(self._model, "text_to_image"):
-            raise AttributeError(
-                f"Model {self._model.model_spec} is not for creating image."
+        if hasattr(self._model, "text_to_image"):
+            return await self._call_wrapper(
+                self._model.text_to_image,
+                prompt,
+                n,
+                size,
+                response_format,
+                *args,
+                **kwargs,
             )
-
-        def _wrapper():
-            r = getattr(self._model, "text_to_image")(
-                prompt, n, size, response_format, *args, **kwargs
-            )
-            return json_dumps(r)
-
-        return await self._call_wrapper(_wrapper)
+        raise AttributeError(
+            f"Model {self._model.model_spec} is not for creating image."
+        )
 
     async def image_to_image(
         self,
@@ -355,13 +329,9 @@ class ModelActor(xo.StatelessActor):
         *args,
         **kwargs,
     ):
-        if not hasattr(self._model, "image_to_image"):
-            raise AttributeError(
-                f"Model {self._model.model_spec} is not for creating image."
-            )
-
-        def _wrapper():
-            r = getattr(self._model, "image_to_image")(
+        if hasattr(self._model, "image_to_image"):
+            return await self._call_wrapper(
+                self._model.image_to_image,
                 image,
                 prompt,
                 negative_prompt,
@@ -371,51 +341,6 @@ class ModelActor(xo.StatelessActor):
                 *args,
                 **kwargs,
             )
-            return json_dumps(r)
-
-        return await self._call_wrapper(_wrapper)
-
-    @log_async(logger=logger)
-    async def next(
-        self, generator_uid: str
-    ) -> Union["ChatCompletionChunk", "CompletionChunk"]:
-        assert generator_uid in self._generators
-        stop = object()
-        gen = self._generators[generator_uid]
-
-        def _wrapper():
-            try:
-                v = dict(data=json.dumps(next(gen)))
-                return sse_starlette.sse.ensure_bytes(v, None)
-            except StopIteration:
-                return stop
-
-        async def _async_wrapper():
-            try:
-                # anext is only available for Python >= 3.10
-                v = await gen.__anext__()
-                v = await asyncio.to_thread(json.dumps, v)
-                v = dict(data=v)  # noqa: F821
-                return await asyncio.to_thread(sse_starlette.sse.ensure_bytes, v, None)
-            except StopAsyncIteration:
-                return stop
-
-        if inspect.isgenerator(gen):
-            r = await self._call_wrapper(_wrapper)
-        elif inspect.isasyncgen(gen):
-            # for vLLM.
-            r = await self._call_async_wrapper(_async_wrapper)
-        else:
-            raise TypeError(
-                f"Unexpected type {type(gen)}, expecting generator or async generator"
-            )
-
-        if r is stop:
-            self._generators.pop(generator_uid, None)
-            raise Exception("StopIteration")
-        else:
-            return r
-
-    @log_async(logger=logger)
-    async def destroy_generator(self, generator_uid: str):
-        self._generators.pop(generator_uid, None)
+        raise AttributeError(
+            f"Model {self._model.model_spec} is not for creating image."
+        )
