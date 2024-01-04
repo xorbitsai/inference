@@ -47,3 +47,13 @@ The following is a list of built-in embedding models in Xinference:
   
    multilingual-e5-large
   
+   text2vec-base-chinese
+  
+   text2vec-base-chinese-paraphrase
+  
+   text2vec-base-chinese-sentence
+  
+   text2vec-base-multilingual
+  
+   text2vec-large-chinese
+  
