@@ -15,16 +15,12 @@ RUN apt-get -y update \
   && nvm use default \
   && apt-get -yq clean
 
+ENV PATH $NVM_DIR/versions/node/v$NODE_VERSION/bin:$PATH
+
 ARG PIP_INDEX=https://pypi.org/simple
 RUN python -m pip install --upgrade -i "$PIP_INDEX" pip && \
     CMAKE_ARGS="-DGGML_CUBLAS=ON" pip install -i "$PIP_INDEX" -U chatglm-cpp && \
     CMAKE_ARGS="-DLLAMA_CUBLAS=on" pip install -i "$PIP_INDEX" -U llama-cpp-python && \
     cd /opt/inference && \
-    pip install -i "$PIP_INDEX" -e ".[all]"
-
-
-ENV PATH $NVM_DIR/versions/node/v$NODE_VERSION/bin:$PATH
-ENV PYTHONPATH "${PYTHONPATH}:/opt/inference"
-
-RUN cd /opt/inference && \
-    python setup.py build_web
+    python setup.py build_web && \
+    pip install -i "$PIP_INDEX" ".[all]"
