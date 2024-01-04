@@ -409,7 +409,7 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
     ) -> PytorchGenerateConfig:
         generate_config = super()._sanitize_generate_config(generate_config)
         if (
-            generate_config.get("stop", None) is None
+            (not generate_config.get("stop", None))
             and self.model_family.prompt_style
             and self.model_family.prompt_style.stop
         ):

@@ -339,8 +339,7 @@
       ],
       "stop":[
         "<|user|>",
-        "<|observation|>",
-        "</s>"
+        "<|observation|>"
       ]
     }
   },

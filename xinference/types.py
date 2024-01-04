@@ -30,6 +30,7 @@ from .fields import (
     none_field,
     presence_penalty_field,
     repeat_penalty_field,
+    stop_field,
     stream_field,
     stream_interval_field,
     temperature_field,
@@ -328,7 +329,7 @@ class CreateCompletionTorch(BaseModel):
     echo: bool = echo_field
     max_tokens: int = max_tokens_field
     repetition_penalty: float = repeat_penalty_field
-    stop: Optional[Union[str, List[str]]] = none_field
+    stop: Optional[Union[str, List[str]]] = stop_field
     stop_token_ids: Optional[Union[int, List[int]]] = none_field
     stream: bool = stream_field
     stream_interval: int = stream_interval_field
@@ -384,7 +385,7 @@ class _CreateCompletionOpenAIFallback(BaseModel):
     n: Optional[int] = 1
     presence_penalty: Optional[float] = presence_penalty_field
     seed: Optional[int] = none_field
-    stop: Optional[Union[str, List[str]]] = none_field
+    stop: Optional[Union[str, List[str]]] = stop_field
     stream: bool = stream_field
     suffix: Optional[str] = none_field
     temperature: float = temperature_field
