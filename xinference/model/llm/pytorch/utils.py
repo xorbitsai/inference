@@ -558,11 +558,13 @@ def generate_stream_chatglm(
         response = process_response(response)
 
         partially_stopped = False
+        stopped = False
         if stop_str:
             if isinstance(stop_str, str):
                 pos = response.rfind(stop_str, 0)
                 if pos != -1:
                     response = response[:pos]
+                    stopped = True
                 else:
                     partially_stopped = is_partial_stop(response, stop_str)
             elif isinstance(stop_str, Iterable):
@@ -570,6 +572,7 @@ def generate_stream_chatglm(
                     pos = response.rfind(each_stop, 0)
                     if pos != -1:
                         response = response[:pos]
+                        stopped = True
                         break
                     else:
                         partially_stopped = is_partial_stop(response, each_stop)
@@ -602,6 +605,9 @@ def generate_stream_chatglm(
             )
 
             yield completion_chunk, completion_usage
+
+        if stopped:
+            break
 
     if total_len - input_echo_len == max_new_tokens - 1:
         finish_reason = "length"
