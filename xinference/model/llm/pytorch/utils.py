@@ -527,10 +527,12 @@ def generate_stream_chatglm(
     top_p = float(generate_config.get("top_p", 1.0))
     max_new_tokens = int(generate_config.get("max_tokens", 256))
     echo = generate_config.get("echo", False)
+    stop_str = generate_config.get("stop", None)
+    eos_token_id = generate_config.get("stop_token_ids", [])
+    eos_token_id.append(tokenizer.eos_token_id)
 
     inputs = tokenizer([prompt], return_tensors="pt").to(model.device)
     input_echo_len = len(inputs["input_ids"][0])
-
     gen_kwargs = {
         "max_length": max_new_tokens + input_echo_len,
         "do_sample": True if temperature > 1e-5 else False,
@@ -543,7 +545,9 @@ def generate_stream_chatglm(
 
     total_len = 0
     last_response_length = 0
-    for total_ids in model.stream_generate(**inputs, **gen_kwargs):
+    for total_ids in model.stream_generate(
+        **inputs, eos_token_id=eos_token_id, **gen_kwargs
+    ):
         total_ids = total_ids.tolist()[0]
         total_len = len(total_ids)
         if echo:
@@ -553,29 +557,57 @@ def generate_stream_chatglm(
         response = tokenizer.decode(output_ids)
         response = process_response(response)
 
+        partially_stopped = False
+        stopped = False
+        if stop_str:
+            if isinstance(stop_str, str):
+                pos = response.rfind(stop_str, 0)
+                if pos != -1:
+                    response = response[:pos]
+                    stopped = True
+                else:
+                    partially_stopped = is_partial_stop(response, stop_str)
+            elif isinstance(stop_str, Iterable):
+                for each_stop in stop_str:
+                    pos = response.rfind(each_stop, 0)
+                    if pos != -1:
+                        response = response[:pos]
+                        stopped = True
+                        break
+                    else:
+                        partially_stopped = is_partial_stop(response, each_stop)
+                        if partially_stopped:
+                            break
+            else:
+                raise ValueError("Invalid stop field type.")
+
         if stream:
             response = response.strip("�")
             tmp_response_length = len(response)
             response = response[last_response_length:]
             last_response_length = tmp_response_length
 
-        completion_choice = CompletionChoice(
-            text=response, index=0, logprobs=None, finish_reason=None
-        )
-        completion_chunk = CompletionChunk(
-            id=str(uuid.uuid1()),
-            object="text_completion",
-            created=int(time.time()),
-            model=model_uid,
-            choices=[completion_choice],
-        )
-        completion_usage = CompletionUsage(
-            prompt_tokens=input_echo_len,
-            completion_tokens=(total_len - input_echo_len),
-            total_tokens=total_len,
-        )
+        if not partially_stopped:
+            completion_choice = CompletionChoice(
+                text=response, index=0, logprobs=None, finish_reason=None
+            )
+            completion_chunk = CompletionChunk(
+                id=str(uuid.uuid1()),
+                object="text_completion",
+                created=int(time.time()),
+                model=model_uid,
+                choices=[completion_choice],
+            )
+            completion_usage = CompletionUsage(
+                prompt_tokens=input_echo_len,
+                completion_tokens=(total_len - input_echo_len),
+                total_tokens=total_len,
+            )
 
-        yield completion_chunk, completion_usage
+            yield completion_chunk, completion_usage
+
+        if stopped:
+            break
 
     if total_len - input_echo_len == max_new_tokens - 1:
         finish_reason = "length"

@@ -58,6 +58,7 @@ class ChatglmPytorchChatModel(PytorchChatModel):
         tokenizer = AutoTokenizer.from_pretrained(
             self.model_path,
             trust_remote_code=kwargs["trust_remote_code"],
+            encode_special_tokens=True,
             revision=kwargs["revision"],
         )
         model = AutoModel.from_pretrained(

@@ -557,7 +557,7 @@
           "none"
         ],
         "model_id": "THUDM/chatglm3-6b",
-        "model_revision": "e46a14881eae613281abbd266ee918e93a56018f"
+        "model_revision": "b098244a71fbe69ce149682d9072a7629f7e908c"
       }
     ],
     "prompt_style": {
@@ -566,6 +566,15 @@
       "roles": [
         "user",
         "assistant"
+      ],
+      "stop_token_ids": [
+        64795,
+        64797,
+        2
+      ],
+      "stop":[
+        "<|user|>",
+        "<|observation|>"
       ]
     }
   },

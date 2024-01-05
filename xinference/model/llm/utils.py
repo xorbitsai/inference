@@ -141,7 +141,7 @@ class ChatModelMixin:
             return ret
         elif prompt_style.style_name == "CHATGLM3":
             prompts = (
-                [f"<|system|>\n{prompt_style.system_prompt}"]
+                [f"<|system|>\n {prompt_style.system_prompt}"]
                 if prompt_style.system_prompt
                 else []
             )
@@ -155,7 +155,7 @@ class ChatModelMixin:
                 if content:
                     if role == "tool":
                         role = "observation"
-                    prompts.append(f"<|{role}|>\n{content}")
+                    prompts.append(f"<|{role}|>\n {content}")
                 else:
                     prompts.append(f"<|{role}|>")
             return "\n".join(prompts)
