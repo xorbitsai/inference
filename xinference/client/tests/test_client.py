@@ -187,6 +187,7 @@ def test_client_custom_model(setup):
     "embed",
     "chat"
   ],
+  "model_family": "other",
   "model_specs": [
     {
       "model_format": "pytorch",
@@ -402,6 +403,7 @@ def test_RESTful_client_custom_model(setup):
     "embed",
     "chat"
   ],
+  "model_family": "other",
   "model_specs": [
     {
       "model_format": "pytorch",
@@ -458,6 +460,7 @@ def test_RESTful_client_custom_model(setup):
     "embed",
     "chat"
   ],
+  "model_family": "other",
   "model_specs": [
     {
       "model_format": "pytorch",
@@ -486,6 +489,7 @@ def test_RESTful_client_custom_model(setup):
         "embed",
         "chat"
       ],
+      "model_family": "other",
       "model_specs": [
         {
           "model_format": "pytorch",

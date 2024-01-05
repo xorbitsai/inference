@@ -161,6 +161,9 @@ class RESTfulAPI:
             "/v1/models/prompts", self._get_builtin_prompts, methods=["GET"]
         )
         self._router.add_api_route(
+            "/v1/models/families", self._get_builtin_families, methods=["GET"]
+        )
+        self._router.add_api_route(
             "/v1/cluster/devices", self._get_devices_count, methods=["GET"]
         )
         self._router.add_api_route(
@@ -307,6 +310,17 @@ class RESTfulAPI:
         """
         try:
             data = await (await self._get_supervisor_ref()).get_builtin_prompts()
+            return JSONResponse(content=data)
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def _get_builtin_families(self) -> JSONResponse:
+        """
+        For internal usage
+        """
+        try:
+            data = await (await self._get_supervisor_ref()).get_builtin_families()
             return JSONResponse(content=data)
         except Exception as e:
             logger.error(e, exc_info=True)

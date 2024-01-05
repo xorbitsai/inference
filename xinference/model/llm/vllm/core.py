@@ -37,6 +37,7 @@ from ....types import (
     CompletionUsage,
 )
 from .. import LLM, LLMFamilyV1, LLMSpecV1
+from ..llm_family import CustomLLMFamilyV1
 from ..utils import ChatModelMixin
 
 logger = logging.getLogger(__name__)
@@ -197,8 +198,12 @@ class VLLMModel(LLM):
             # Currently, only 4-bit weight quantization is supported for GPTQ, but got 8 bits.
             if "4" not in quantization:
                 return False
-        if llm_family.model_name not in VLLM_SUPPORTED_MODELS:
-            return False
+        if isinstance(llm_family, CustomLLMFamilyV1):
+            if llm_family.model_family not in VLLM_SUPPORTED_MODELS:
+                return False
+        else:
+            if llm_family.model_name not in VLLM_SUPPORTED_MODELS:
+                return False
         if "generate" not in llm_family.model_ability:
             return False
         return VLLM_INSTALLED
@@ -329,8 +334,12 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
             # Currently, only 4-bit weight quantization is supported for GPTQ, but got 8 bits.
             if "4" not in quantization:
                 return False
-        if llm_family.model_name not in VLLM_SUPPORTED_CHAT_MODELS:
-            return False
+        if isinstance(llm_family, CustomLLMFamilyV1):
+            if llm_family.model_family not in VLLM_SUPPORTED_CHAT_MODELS:
+                return False
+        else:
+            if llm_family.model_name not in VLLM_SUPPORTED_CHAT_MODELS:
+                return False
         if "chat" not in llm_family.model_ability:
             return False
         return VLLM_INSTALLED
