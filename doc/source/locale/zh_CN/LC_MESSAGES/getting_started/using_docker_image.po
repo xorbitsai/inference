@@ -21,7 +21,7 @@ msgstr ""
 
 #: ../../source/getting_started/using_docker_image.rst:5
 msgid "Xinference Docker Image"
-msgstr "Xinference Docker 镜像"
+msgstr "Docker 镜像"
 
 #: ../../source/getting_started/using_docker_image.rst:7
 msgid "Xinference provides official images for use on Dockerhub."
