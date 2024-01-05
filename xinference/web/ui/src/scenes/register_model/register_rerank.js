@@ -6,6 +6,7 @@ import TextField from '@mui/material/TextField'
 import React, { useContext, useState } from 'react'
 
 import { ApiContext } from '../../components/apiContext'
+import fetcher from '../../components/fetcher'
 import { useMode } from '../../theme'
 
 const SUPPORTED_LANGUAGES_DICT = { en: 'English', zh: 'Chinese' }
@@ -36,7 +37,7 @@ const RegisterRerankModel = () => {
     }
 
     try {
-      const response = await fetch(
+      const response = await fetcher(
         endPoint + '/v1/model_registrations/rerank',
         {
           method: 'POST',

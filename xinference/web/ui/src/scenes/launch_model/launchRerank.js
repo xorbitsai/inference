@@ -2,6 +2,7 @@ import { Box, FormControl, TextField } from '@mui/material'
 import React, { useContext, useEffect, useState } from 'react'
 
 import { ApiContext } from '../../components/apiContext'
+import fetcher from '../../components/fetcher'
 import RerankCard from './rerankCard'
 
 const LaunchRerank = () => {
@@ -31,7 +32,7 @@ const LaunchRerank = () => {
     try {
       setIsCallingApi(true)
 
-      const response = await fetch(
+      const response = await fetcher(
         `${endPoint}/v1/model_registrations/rerank?detailed=true`,
         {
           method: 'GET',
@@ -41,7 +42,7 @@ const LaunchRerank = () => {
       const registrations = await response.json()
       const newRegistrationData = await Promise.all(
         registrations.map(async (registration) => {
-          const desc = await fetch(
+          const desc = await fetcher(
             `${endPoint}/v1/model_registrations/rerank/${registration.model_name}`,
             {
               method: 'GET',

@@ -2,6 +2,7 @@ import { Box, FormControl, TextField } from '@mui/material'
 import React, { useContext, useEffect, useState } from 'react'
 
 import { ApiContext } from '../../components/apiContext'
+import fetcher from '../../components/fetcher'
 import EmbeddingCard from './embeddingCard'
 import ModelCard from './modelCard'
 import RerankCard from './rerankCard'
@@ -33,7 +34,7 @@ const LaunchCustom = ({ gpuAvailable }) => {
     try {
       setIsCallingApi(true)
 
-      const rerankResponse = await fetch(
+      const rerankResponse = await fetcher(
         `${endPoint}/v1/model_registrations/rerank`,
         {
           method: 'GET',
@@ -44,7 +45,7 @@ const LaunchCustom = ({ gpuAvailable }) => {
         (data) => !data.is_builtin
       )
 
-      const embeddingResponse = await fetch(
+      const embeddingResponse = await fetcher(
         `${endPoint}/v1/model_registrations/embedding`,
         {
           method: 'GET',
@@ -56,7 +57,7 @@ const LaunchCustom = ({ gpuAvailable }) => {
         (data) => !data.is_builtin
       )
 
-      const llmResponse = await fetch(
+      const llmResponse = await fetcher(
         `${endPoint}/v1/model_registrations/LLM`,
         {
           method: 'GET',
@@ -69,7 +70,7 @@ const LaunchCustom = ({ gpuAvailable }) => {
 
       const newEmbeddingData = await Promise.all(
         customEmbeddingRegistrations.map(async (registration) => {
-          const desc = await fetch(
+          const desc = await fetcher(
             `${endPoint}/v1/model_registrations/embedding/${registration.model_name}`,
             {
               method: 'GET',
@@ -85,7 +86,7 @@ const LaunchCustom = ({ gpuAvailable }) => {
 
       const newLLMData = await Promise.all(
         customLLMRegistrations.map(async (registration) => {
-          const desc = await fetch(
+          const desc = await fetcher(
             `${endPoint}/v1/model_registrations/LLM/${registration.model_name}`,
             {
               method: 'GET',
@@ -101,7 +102,7 @@ const LaunchCustom = ({ gpuAvailable }) => {
 
       const newRerankData = await Promise.all(
         customRerankRegistrations.map(async (registration) => {
-          const desc = await fetch(
+          const desc = await fetcher(
             `${endPoint}/v1/model_registrations/rerank/${registration.model_name}`,
             {
               method: 'GET',

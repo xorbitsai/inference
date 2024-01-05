@@ -7,19 +7,22 @@ import {
   TextField,
 } from '@mui/material'
 import React, { useContext, useEffect, useState } from 'react'
+import { useCookies } from 'react-cookie'
 
 import { ApiContext } from '../../components/apiContext'
+import fetcher from '../../components/fetcher'
 import ModelCard from './modelCard'
 
 const LaunchLLM = ({ gpuAvailable }) => {
   let endPoint = useContext(ApiContext).endPoint
-  const [registrationData, setRegistrationData] = useState([])
   const { isCallingApi, setIsCallingApi } = useContext(ApiContext)
   const { isUpdatingModel } = useContext(ApiContext)
+  const { setErrorMsg } = useContext(ApiContext)
+  const [cookie] = useCookies(['token'])
 
+  const [registrationData, setRegistrationData] = useState([])
   // States used for filtering
   const [searchTerm, setSearchTerm] = useState('')
-
   const [modelAbility, setModelAbility] = useState('all')
 
   const handleChange = (event) => {
@@ -53,23 +56,39 @@ const LaunchLLM = ({ gpuAvailable }) => {
     return true
   }
 
-  const update = async () => {
-    if (isCallingApi || isUpdatingModel) return
+  const update = () => {
+    if (
+      isCallingApi ||
+      isUpdatingModel ||
+      cookie.token === '' ||
+      cookie.token === undefined ||
+      cookie.token === 'need_auth'
+    )
+      return
 
     try {
       setIsCallingApi(true)
 
-      const response = await fetch(
-        `${endPoint}/v1/model_registrations/LLM?detailed=true`,
-        {
-          method: 'GET',
+      fetcher(`${endPoint}/v1/model_registrations/LLM?detailed=true`, {
+        method: 'GET',
+      }).then((response) => {
+        if (!response.ok) {
+          response
+            .json()
+            .then((errData) =>
+              setErrorMsg(
+                `Server error: ${response.status} - ${
+                  errData.detail || 'Unknown error'
+                }`
+              )
+            )
+        } else {
+          response.json().then((data) => {
+            const builtinRegistrations = data.filter((v) => v.is_builtin)
+            setRegistrationData(builtinRegistrations)
+          })
         }
-      )
-
-      const registrations = await response.json()
-      const builtinRegistrations = registrations.filter((v) => v.is_builtin)
-
-      setRegistrationData(builtinRegistrations)
+      })
     } catch (error) {
       console.error('Error:', error)
     } finally {
@@ -78,8 +97,8 @@ const LaunchLLM = ({ gpuAvailable }) => {
   }
 
   useEffect(() => {
-    update().catch(console.error)
-  }, [])
+    update()
+  }, [cookie.token])
 
   const style = {
     display: 'grid',

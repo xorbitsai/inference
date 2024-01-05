@@ -24,13 +24,13 @@ from xoscar.utils import get_next_port
 
 from .. import __version__
 from ..client import RESTfulClient
-from ..client.oscar.actor_client import ActorClient
 from ..client.restful.restful_client import (
     RESTfulChatglmCppChatModelHandle,
     RESTfulChatModelHandle,
     RESTfulGenerateModelHandle,
 )
 from ..constants import (
+    XINFERENCE_AUTH_DIR,
     XINFERENCE_DEFAULT_DISTRIBUTED_HOST,
     XINFERENCE_DEFAULT_ENDPOINT_PORT,
     XINFERENCE_DEFAULT_LOCAL_HOST,
@@ -62,10 +62,32 @@ def get_endpoint(endpoint: Optional[str]) -> str:
         return endpoint
 
 
+def get_hash_endpoint(endpoint: str) -> str:
+    import hashlib
+
+    m = hashlib.sha256()
+    m.update(bytes(endpoint, "utf-8"))
+    return m.hexdigest()
+
+
+def get_stored_token(
+    endpoint: str, client: Optional[RESTfulClient] = None
+) -> Optional[str]:
+    rest_client = RESTfulClient(endpoint) if client is None else client
+    authed = rest_client._cluster_authed
+    if not authed:
+        return None
+
+    token_path = os.path.join(XINFERENCE_AUTH_DIR, get_hash_endpoint(endpoint))
+    if not os.path.exists(token_path):
+        raise RuntimeError("Cannot find access token, please login first!")
+    with open(token_path, "r") as f:
+        access_token = str(f.read())
+    return access_token
+
+
 def start_local_cluster(
-    log_level: str,
-    host: str,
-    port: int,
+    log_level: str, host: str, port: int, auth_config_file: Optional[str] = None
 ):
     from .local import main
 
@@ -81,6 +103,7 @@ def start_local_cluster(
         host=host,
         port=port,
         logging_conf=dict_config,
+        auth_config_file=auth_config_file,
     )
 
 
@@ -159,12 +182,15 @@ def cli(
     type=int,
     help="Specify the port number for the Xinference server.",
 )
-def local(
-    log_level: str,
-    host: str,
-    port: int,
-):
-    start_local_cluster(log_level=log_level, host=host, port=port)
+@click.option(
+    "--auth-config",
+    type=str,
+    help="Specify the auth config json file.",
+)
+def local(log_level: str, host: str, port: int, auth_config: Optional[str]):
+    start_local_cluster(
+        log_level=log_level, host=host, port=port, auth_config_file=auth_config
+    )
 
 
 @click.command(
@@ -196,7 +222,18 @@ def local(
     type=int,
     help="Specify the port number for the Xinference supervisor.",
 )
-def supervisor(log_level: str, host: str, port: int, supervisor_port: Optional[int]):
+@click.option(
+    "--auth-config",
+    type=str,
+    help="Specify the auth config json file.",
+)
+def supervisor(
+    log_level: str,
+    host: str,
+    port: int,
+    supervisor_port: Optional[int],
+    auth_config: Optional[str],
+):
     from ..deploy.supervisor import main
 
     dict_config = get_config_dict(
@@ -208,7 +245,11 @@ def supervisor(log_level: str, host: str, port: int, supervisor_port: Optional[i
     logging.config.dictConfig(dict_config)  # type: ignore
 
     main(
-        host=host, port=port, supervisor_port=supervisor_port, logging_conf=dict_config
+        host=host,
+        port=port,
+        supervisor_port=supervisor_port,
+        logging_conf=dict_config,
+        auth_config_file=auth_config,
     )
 
 
@@ -288,6 +329,7 @@ def register_model(
         model = fd.read()
 
     client = RESTfulClient(base_url=endpoint)
+    client._set_token(get_stored_token(endpoint, client))
     client.register_model(
         model_type=model_type,
         model=model,
@@ -316,6 +358,7 @@ def unregister_model(
     endpoint = get_endpoint(endpoint)
 
     client = RESTfulClient(base_url=endpoint)
+    client._set_token(get_stored_token(endpoint, client))
     client.unregister_model(
         model_type=model_type,
         model_name=model_name,
@@ -343,8 +386,9 @@ def list_model_registrations(
     from tabulate import tabulate
 
     endpoint = get_endpoint(endpoint)
-
     client = RESTfulClient(base_url=endpoint)
+    client._set_token(get_stored_token(endpoint, client))
+
     registrations = client.list_model_registrations(model_type=model_type)
 
     table = []
@@ -518,8 +562,9 @@ def model_launch(
         if size_in_billions is None or "_" in size_in_billions
         else int(size_in_billions)
     )
-
     client = RESTfulClient(base_url=endpoint)
+    client._set_token(get_stored_token(endpoint, client))
+
     model_uid = client.launch_model(
         model_name=model_name,
         model_type=model_type,
@@ -550,6 +595,7 @@ def model_list(endpoint: Optional[str]):
 
     endpoint = get_endpoint(endpoint)
     client = RESTfulClient(base_url=endpoint)
+    client._set_token(get_stored_token(endpoint, client))
 
     llm_table = []
     embedding_table = []
@@ -626,8 +672,8 @@ def model_terminate(
     model_uid: str,
 ):
     endpoint = get_endpoint(endpoint)
-
     client = RESTfulClient(base_url=endpoint)
+    client._set_token(get_stored_token(endpoint, client))
     client.terminate_model(model_uid=model_uid)
 
 
@@ -657,6 +703,8 @@ def model_generate(
     stream: bool,
 ):
     endpoint = get_endpoint(endpoint)
+    client = RESTfulClient(base_url=endpoint)
+    client._set_token(get_stored_token(endpoint, client))
     if stream:
         # TODO: when stream=True, RestfulClient cannot generate words one by one.
         # So use Client in temporary. The implementation needs to be changed to
@@ -669,7 +717,7 @@ def model_generate(
                 if prompt == "":
                     break
                 print(f"Completion: {prompt}", end="", file=sys.stdout)
-                async for chunk in model.generate(
+                for chunk in model.generate(
                     prompt=prompt,
                     generate_config={"stream": stream, "max_tokens": max_tokens},
                 ):
@@ -680,7 +728,6 @@ def model_generate(
                         print(choice["text"], end="", flush=True, file=sys.stdout)
                 print("", file=sys.stdout)
 
-        client = ActorClient(endpoint=endpoint)
         model = client.get_model(model_uid=model_uid)
 
         loop = asyncio.get_event_loop()
@@ -700,8 +747,7 @@ def model_generate(
                 # avoid displaying exception-unhandled warnings
                 task.exception()
     else:
-        restful_client = RESTfulClient(base_url=endpoint)
-        restful_model = restful_client.get_model(model_uid=model_uid)
+        restful_model = client.get_model(model_uid=model_uid)
         if not isinstance(
             restful_model, (RESTfulChatModelHandle, RESTfulGenerateModelHandle)
         ):
@@ -744,6 +790,9 @@ def model_chat(
 ):
     # TODO: chat model roles may not be user and assistant.
     endpoint = get_endpoint(endpoint)
+    client = RESTfulClient(base_url=endpoint)
+    client._set_token(get_stored_token(endpoint, client))
+
     chat_history: "List[ChatCompletionMessage]" = []
     if stream:
         # TODO: when stream=True, RestfulClient cannot generate words one by one.
@@ -758,7 +807,7 @@ def model_chat(
                     break
                 print("Assistant: ", end="", file=sys.stdout)
                 response_content = ""
-                async for chunk in model.chat(
+                for chunk in model.chat(
                     prompt=prompt,
                     chat_history=chat_history,
                     generate_config={"stream": stream, "max_tokens": max_tokens},
@@ -775,7 +824,6 @@ def model_chat(
                     ChatCompletionMessage(role="assistant", content=response_content)
                 )
 
-        client = ActorClient(endpoint=endpoint)
         model = client.get_model(model_uid=model_uid)
 
         loop = asyncio.get_event_loop()
@@ -795,8 +843,7 @@ def model_chat(
                 # avoid displaying exception-unhandled warnings
                 task.exception()
     else:
-        restful_client = RESTfulClient(base_url=endpoint)
-        restful_model = restful_client.get_model(model_uid=model_uid)
+        restful_model = client.get_model(model_uid=model_uid)
         if not isinstance(
             restful_model, (RESTfulChatModelHandle, RESTfulChatglmCppChatModelHandle)
         ):
@@ -820,6 +867,32 @@ def model_chat(
             chat_history.append(
                 ChatCompletionMessage(role="assistant", content=response_content)
             )
+
+
+@cli.command("login", help="Login when the cluster is authenticated.")
+@click.option("--endpoint", "-e", type=str, help="Xinference endpoint.")
+@click.option("--username", type=str, required=True, help="Username.")
+@click.option(
+    "--password",
+    type=str,
+    required=True,
+    help="Password.",
+)
+def cluster_login(
+    endpoint: Optional[str],
+    username: str,
+    password: str,
+):
+    endpoint = get_endpoint(endpoint)
+    restful_client = RESTfulClient(base_url=endpoint)
+    if restful_client._cluster_authed:
+        restful_client.login(username, password)
+        access_token = restful_client._get_token()
+        assert access_token is not None
+        os.makedirs(XINFERENCE_AUTH_DIR, exist_ok=True)
+        hashed_ep = get_hash_endpoint(endpoint)
+        with open(os.path.join(XINFERENCE_AUTH_DIR, hashed_ep), "w") as f:
+            f.write(access_token)
 
 
 if __name__ == "__main__":
