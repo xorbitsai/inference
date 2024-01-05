@@ -22,6 +22,7 @@ Define a custom LLM model based on the following template:
      "model_ability": [
        "generate"
      ],
+     "model_family": "llama-2",
      "model_specs": [
        {
          "model_format": "pytorch",
@@ -52,6 +53,7 @@ Define a custom LLM model based on the following template:
 * context_length: context_length: An optional integer that specifies the maximum context size the model was trained to accommodate, encompassing both the input and output lengths. If not defined, the default value is 2048 tokens (~1,500 words).
 * model_lang: A list of strings representing the supported languages for the model. Example: ["en"], which means that the model supports English.
 * model_ability: A list of strings defining the abilities of the model. It could include options like "embed", "generate", and "chat". In this case, the model has the ability to "generate".
+* model_family: A required string representing the family of the model you want to register. The optional values are the model names of all :ref:`built-in models <models_llm_index>`. If the model family you register is not among the built-in models in Xinference, please fill in ``other``. Note that you should choose the model family based on the ability of the model you want to register. For example, if you want to register the ``llama-2`` model, do not fill in ``llama-2-chat`` as the model family.
 * model_specs: An array of objects defining the specifications of the model. These include:
    * model_format: A string that defines the model format, could be "pytorch" or "ggmlv3".
    * model_size_in_billions: An integer defining the size of the model in billions of parameters.
@@ -59,7 +61,7 @@ Define a custom LLM model based on the following template:
    * model_id: A string representing the model ID, possibly referring to an identifier used by Hugging Face. **If model_uri is missing, Xinference will try to download the model from the huggingface repository specified here.**.
    * model_uri: A string representing the URI where the model can be loaded from, such as "file:///path/to/llama-2-7b". **When the model format is ggmlv3 or ggufv2, model_uri must be the specific file path. When the model format is pytorch, model_uri must be the path to the directory containing the model files.** If model URI is absent, Xinference will try to download the model from Hugging Face with the model ID.
    * model_file_name_template: Required by ggml/gguf models. An f-string template used for defining the model file name based on the quantization. **Note that this field is just a template for the format of the ggmlv3/ggufv2 model file, do not fill in the specific path of the model file.**
-* prompt_style: An optional field that could be required by chat models to define the style of prompts. The given example has this set to None, but additional details could be found in a referenced file xinference/model/llm/tests/test_utils.py. You can also specify this field as a string, which will use the builtin prompt style in Xinference. For example:
+* prompt_style: If the ``model_family`` field is not ``other``, this field does not need to be filled in. ``prompt_style`` is an optional field that could be required by ``chat`` models to define the style of prompts. The given example has this set to None, but additional details could be found in a referenced file xinference/model/llm/tests/test_utils.py. You can also specify this field as a string, which will use the builtin prompt style in Xinference. For example:
 
 .. code-block:: json
 
