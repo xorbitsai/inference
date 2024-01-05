@@ -37,11 +37,11 @@ Please make sure to be in the top-level directory of Xinference when using this 
 
 Image usage
 ===========
-You can start Xinference in the container like this, simultaneously mapping port 9997 in the container to port 9998 on the host, enabling debug logging, and disabling vllm.
+You can start Xinference in the container like this, simultaneously mapping port 9997 in the container to port 9998 on the host, enabling debug logging, and downloading models from modelscope.
 
 .. code-block:: bash
 
-   docker run -e XINFERENCE_DISABLE_VLLM=1 -p 9998:9997 --gpus all xprobe/xinference:v<your_version> xinference-local -H 0.0.0.0 --log-level debug
+   docker run -e XINFERENCE_MODEL_SRC=modelscope -p 9998:9997 --gpus all xprobe/xinference:v<your_version> xinference-local -H 0.0.0.0 --log-level debug
 
 
 .. warning::
