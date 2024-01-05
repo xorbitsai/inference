@@ -115,7 +115,6 @@ jobs:
           pip install modelscope
           pip install diffusers
           pip install protobuf
-          pip install git+https://github.com/xorbitsai/xoscar.git
           pip install -e ".[dev]"
           pip install "jinja2==3.1.2"
         working-directory: .
@@ -128,7 +127,6 @@ jobs:
             ${{ env.SELF_HOST_PYTHON }} -m pip install "openai>1"
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U modelscope
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U sse_starlette
-            ${{ env.SELF_HOST_PYTHON }} -m pip install git+https://github.com/xorbitsai/xoscar.git
             ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=1500 \
               -W ignore::PendingDeprecationWarning \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/image/tests/test_stable_diffusion.py
