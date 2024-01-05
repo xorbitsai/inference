@@ -24,6 +24,7 @@ from .llm_family import (
     BUILTIN_LLM_PROMPT_STYLE,
     BUILTIN_MODELSCOPE_LLM_FAMILIES,
     LLM_CLASSES,
+    CustomLLMFamilyV1,
     GgmlLLMSpecV1,
     LLMFamilyV1,
     LLMSpecV1,
@@ -131,5 +132,5 @@ def _install():
             with codecs.open(
                 os.path.join(user_defined_llm_dir, f), encoding="utf-8"
             ) as fd:
-                user_defined_llm_family = LLMFamilyV1.parse_obj(json.load(fd))
+                user_defined_llm_family = CustomLLMFamilyV1.parse_obj(json.load(fd))
                 register_llm(user_defined_llm_family, persist=False)

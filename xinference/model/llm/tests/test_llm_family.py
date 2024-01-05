@@ -19,6 +19,7 @@ import tempfile
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
+from pydantic import ValidationError
 
 from ....constants import XINFERENCE_ENV_MODEL_SRC
 from ...utils import is_locale_chinese_simplified, valid_model_revision
@@ -974,12 +975,39 @@ def test_parse_prompt_style():
         model_lang=["en"],
         model_ability=["chat", "generate"],
         model_specs=[hf_spec, ms_spec],
+        model_architecture="chatglm3",
         prompt_style="chatglm3",
     )
     model_spec = CustomLLMFamilyV1.parse_raw(bytes(llm_family.json(), "utf8"))
     assert model_spec.model_name == llm_family.model_name
 
-    # error
+    # error: missing architecture
+    with pytest.raises(ValidationError):
+        CustomLLMFamilyV1(
+            version=1,
+            model_type="LLM",
+            model_name="test_LLM",
+            model_lang=["en"],
+            model_ability=["chat", "generate"],
+            model_specs=[hf_spec, ms_spec],
+            prompt_style="chatglm3",
+        )
+
+    # wrong architecture
+    llm_family = CustomLLMFamilyV1(
+        version=1,
+        model_type="LLM",
+        model_name="test_LLM",
+        model_lang=["en"],
+        model_ability=["chat", "generate"],
+        model_architecture="xyzz",
+        model_specs=[hf_spec, ms_spec],
+        prompt_style="chatglm3",
+    )
+    with pytest.raises(ValueError):
+        CustomLLMFamilyV1.parse_raw(bytes(llm_family.json(), "utf8"))
+
+    # error: wrong prompt style
     llm_family = CustomLLMFamilyV1(
         version=1,
         model_type="LLM",
@@ -987,6 +1015,7 @@ def test_parse_prompt_style():
         model_lang=["en"],
         model_ability=["chat", "generate"],
         model_specs=[hf_spec, ms_spec],
+        model_architecture="chatglm3",
         prompt_style="test_xyz",
     )
     with pytest.raises(ValueError):
