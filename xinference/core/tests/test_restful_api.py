@@ -244,6 +244,7 @@ async def test_restful_api(setup):
     "embed",
     "chat"
   ],
+  "model_family": "other",
   "model_specs": [
     {
       "model_format": "pytorch",
