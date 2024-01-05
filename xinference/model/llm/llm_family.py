@@ -107,12 +107,13 @@ class LLMFamilyV1(BaseModel):
     model_lang: List[str]
     model_ability: List[Literal["embed", "generate", "chat"]]
     model_description: Optional[str]
+    # reason for not required str here: legacy registration
+    model_architecture: Optional[str]
     model_specs: List["LLMSpecV1"]
     prompt_style: Optional["PromptStyleV1"]
 
 
 class CustomLLMFamilyV1(LLMFamilyV1):
-    model_architecture: str
     prompt_style: Optional[Union["PromptStyleV1", str]]  # type: ignore
 
     @classmethod
