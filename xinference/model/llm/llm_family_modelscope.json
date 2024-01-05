@@ -331,6 +331,15 @@
       "roles": [
         "user",
         "assistant"
+      ],
+      "stop_token_ids": [
+        64795,
+        64797,
+        2
+      ],
+      "stop":[
+        "<|user|>",
+        "<|observation|>"
       ]
     }
   },
@@ -357,7 +366,7 @@
         ],
         "model_hub": "modelscope",
         "model_id": "ZhipuAI/chatglm3-6b-32k",
-        "model_revision": "v1.0.0"
+        "model_revision": "master"
       }
     ],
     "prompt_style": {

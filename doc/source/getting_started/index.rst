@@ -11,5 +11,6 @@ Getting Started
    installation
    using_xinference
    logging
+   using_docker_image
    troubleshooting
    environments
