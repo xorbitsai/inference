@@ -115,15 +115,15 @@ class SupervisorActor(xo.StatelessActor):
         return data
 
     @staticmethod
-    async def get_builtin_architectures() -> Dict[str, List[str]]:
+    async def get_builtin_families() -> Dict[str, List[str]]:
         from ..model.llm.llm_family import (
-            BUILTIN_LLM_MODEL_CHAT_ARCHITECTURES,
-            BUILTIN_LLM_MODEL_GENERATE_ARCHITECTURES,
+            BUILTIN_LLM_MODEL_CHAT_FAMILIES,
+            BUILTIN_LLM_MODEL_GENERATE_FAMILIES,
         )
 
         return {
-            "chat": list(BUILTIN_LLM_MODEL_CHAT_ARCHITECTURES),
-            "generate": list(BUILTIN_LLM_MODEL_GENERATE_ARCHITECTURES),
+            "chat": list(BUILTIN_LLM_MODEL_CHAT_FAMILIES),
+            "generate": list(BUILTIN_LLM_MODEL_GENERATE_FAMILIES),
         }
 
     async def get_devices_count(self) -> int:

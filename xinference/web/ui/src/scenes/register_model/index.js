@@ -43,16 +43,16 @@ const RegisterModel = () => {
     model_lang: ['en'],
     model_ability: ['generate'],
     model_description: 'This is a custom model description.',
-    model_architecture: '',
+    model_family: '',
     model_specs: [],
     prompt_style: undefined,
   })
   const [promptStyles, setPromptStyles] = useState([])
-  const [architecture, setArchitecture] = useState({
+  const [family, setFamily] = useState({
     chat: [],
     generate: [],
   })
-  const [architectureLabel, setArchitectureLabel] = useState('')
+  const [familyLabel, setFamilyLabel] = useState('')
   const [tabValue, setTabValue] = React.useState('1')
 
   const errorModelName = formData.model_name.trim().length <= 0
@@ -70,7 +70,7 @@ const RegisterModel = () => {
         spec.model_size_in_billions === 0
       )
     })
-  const errorArchitecture = architectureLabel === ''
+  const errorFamily = familyLabel === ''
   const errorAny =
     errorModelName ||
     errorModelDescription ||
@@ -78,11 +78,11 @@ const RegisterModel = () => {
     errorLanguage ||
     errorAbility ||
     errorModelSize ||
-    errorArchitecture
+    errorFamily
 
   useEffect(() => {
-    const getBuiltinArchitectures = async () => {
-      const response = await fetch(endPoint + '/v1/models/architectures', {
+    const getBuiltinFamilies = async () => {
+      const response = await fetch(endPoint + '/v1/models/families', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -99,7 +99,7 @@ const RegisterModel = () => {
         const data = await response.json()
         data.chat.push('other')
         data.generate.push('other')
-        setArchitecture(data)
+        setFamily(data)
       }
     }
 
@@ -138,8 +138,8 @@ const RegisterModel = () => {
         console.error('Error: ', error)
       })
     }
-    if (architecture.chat.length === 0) {
-      getBuiltinArchitectures().catch((error) => {
+    if (family.chat.length === 0) {
+      getBuiltinFamilies().catch((error) => {
         setErrorMsg(
           error.message ||
             'An unexpected error occurred when getting builtin prompt styles.'
@@ -149,11 +149,11 @@ const RegisterModel = () => {
     }
   })
 
-  const getArchitectureByAbility = () => {
+  const getFamilyByAbility = () => {
     if (formData.model_ability.includes('chat')) {
-      return architecture.chat
+      return family.chat
     } else {
-      return architecture.generate
+      return family.generate
     }
   }
 
@@ -195,10 +195,10 @@ const RegisterModel = () => {
       ]
     }
 
-    formData.model_architecture = architectureLabel
+    formData.model_family = familyLabel
 
     if (formData.model_ability.includes('chat')) {
-      const ps = promptStyles.find((item) => item.name === architectureLabel)
+      const ps = promptStyles.find((item) => item.name === familyLabel)
       if (ps) {
         formData.prompt_style = {
           style_name: ps.style_name,
@@ -261,7 +261,7 @@ const RegisterModel = () => {
   }
 
   const toggleAbility = (ability) => {
-    setArchitectureLabel('')
+    setFamilyLabel('')
     if (formData.model_ability.includes(ability)) {
       setFormData({
         ...formData,
@@ -508,20 +508,20 @@ const RegisterModel = () => {
                 color: errorAbility ? ERROR_COLOR : 'inherit',
               }}
             >
-              Model Architecture
+              Model Family
             </label>
             <FormHelperText>
-              Please be careful to select the architecture corresponding to the
+              Please be careful to select the family name corresponding to the
               model you want to register. If not found, please choose `other`.
             </FormHelperText>
             <RadioGroup
-              value={architectureLabel}
+              value={familyLabel}
               onChange={(e) => {
-                setArchitectureLabel(e.target.value)
+                setFamilyLabel(e.target.value)
               }}
             >
               <Box sx={styles.checkboxWrapper}>
-                {getArchitectureByAbility().map((v) => (
+                {getFamilyByAbility().map((v) => (
                   <Box sx={{ marginLeft: '10px' }}>
                     <FormControlLabel value={v} control={<Radio />} label={v} />
                   </Box>

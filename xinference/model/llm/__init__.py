@@ -19,8 +19,8 @@ import os
 from .core import LLM
 from .llm_family import (
     BUILTIN_LLM_FAMILIES,
-    BUILTIN_LLM_MODEL_CHAT_ARCHITECTURES,
-    BUILTIN_LLM_MODEL_GENERATE_ARCHITECTURES,
+    BUILTIN_LLM_MODEL_CHAT_FAMILIES,
+    BUILTIN_LLM_MODEL_GENERATE_FAMILIES,
     BUILTIN_LLM_PROMPT_STYLE,
     BUILTIN_MODELSCOPE_LLM_FAMILIES,
     LLM_CLASSES,
@@ -97,11 +97,11 @@ def _install():
             # note that the key is the model name,
             # since there are multiple representations of the same prompt style name in json.
             BUILTIN_LLM_PROMPT_STYLE[model_spec.model_name] = model_spec.prompt_style
-        # register model architecture
+        # register model family
         if "chat" in model_spec.model_ability:
-            BUILTIN_LLM_MODEL_CHAT_ARCHITECTURES.add(model_spec.model_name)
+            BUILTIN_LLM_MODEL_CHAT_FAMILIES.add(model_spec.model_name)
         else:
-            BUILTIN_LLM_MODEL_GENERATE_ARCHITECTURES.add(model_spec.model_name)
+            BUILTIN_LLM_MODEL_GENERATE_FAMILIES.add(model_spec.model_name)
 
     modelscope_json_path = os.path.join(
         os.path.dirname(os.path.abspath(__file__)), "llm_family_modelscope.json"
@@ -118,11 +118,11 @@ def _install():
             and model_spec.model_name not in BUILTIN_LLM_PROMPT_STYLE
         ):
             BUILTIN_LLM_PROMPT_STYLE[model_spec.model_name] = model_spec.prompt_style
-        # register model architecture
+        # register model family
         if "chat" in model_spec.model_ability:
-            BUILTIN_LLM_MODEL_CHAT_ARCHITECTURES.add(model_spec.model_name)
+            BUILTIN_LLM_MODEL_CHAT_FAMILIES.add(model_spec.model_name)
         else:
-            BUILTIN_LLM_MODEL_GENERATE_ARCHITECTURES.add(model_spec.model_name)
+            BUILTIN_LLM_MODEL_GENERATE_FAMILIES.add(model_spec.model_name)
 
     from ...constants import XINFERENCE_MODEL_DIR
 

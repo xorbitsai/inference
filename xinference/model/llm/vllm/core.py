@@ -199,7 +199,7 @@ class VLLMModel(LLM):
             if "4" not in quantization:
                 return False
         if isinstance(llm_family, CustomLLMFamilyV1):
-            if llm_family.model_architecture not in VLLM_SUPPORTED_MODELS:
+            if llm_family.model_family not in VLLM_SUPPORTED_MODELS:
                 return False
         else:
             if llm_family.model_name not in VLLM_SUPPORTED_MODELS:
@@ -335,7 +335,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
             if "4" not in quantization:
                 return False
         if isinstance(llm_family, CustomLLMFamilyV1):
-            if llm_family.model_architecture not in VLLM_SUPPORTED_CHAT_MODELS:
+            if llm_family.model_family not in VLLM_SUPPORTED_CHAT_MODELS:
                 return False
         else:
             if llm_family.model_name not in VLLM_SUPPORTED_CHAT_MODELS:

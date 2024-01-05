@@ -41,8 +41,8 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_CONTEXT_LENGTH = 2048
 BUILTIN_LLM_PROMPT_STYLE: Dict[str, "PromptStyleV1"] = {}
-BUILTIN_LLM_MODEL_CHAT_ARCHITECTURES: Set[str] = set()
-BUILTIN_LLM_MODEL_GENERATE_ARCHITECTURES: Set[str] = set()
+BUILTIN_LLM_MODEL_CHAT_FAMILIES: Set[str] = set()
+BUILTIN_LLM_MODEL_GENERATE_FAMILIES: Set[str] = set()
 
 
 class GgmlLLMSpecV1(BaseModel):
@@ -108,7 +108,7 @@ class LLMFamilyV1(BaseModel):
     model_ability: List[Literal["embed", "generate", "chat"]]
     model_description: Optional[str]
     # reason for not required str here: legacy registration
-    model_architecture: Optional[str]
+    model_family: Optional[str]
     model_specs: List["LLMSpecV1"]
     prompt_style: Optional["PromptStyleV1"]
 
@@ -140,38 +140,37 @@ class CustomLLMFamilyV1(LLMFamilyV1):
             raise ValidationError([ErrorWrapper(e, loc=ROOT_KEY)], cls)
         llm_spec: CustomLLMFamilyV1 = cls.parse_obj(obj)
 
-        # check model_architecture
-        if llm_spec.model_architecture is None:
+        # check model_family
+        if llm_spec.model_family is None:
             raise ValueError(
-                f"You must specify `model_architecture` when registering custom LLM models."
+                f"You must specify `model_family` when registering custom LLM models."
             )
-        assert isinstance(llm_spec.model_architecture, str)
+        assert isinstance(llm_spec.model_family, str)
         if (
-            llm_spec.model_architecture != "other"
+            llm_spec.model_family != "other"
             and "chat" in llm_spec.model_ability
-            and llm_spec.model_architecture not in BUILTIN_LLM_MODEL_CHAT_ARCHITECTURES
+            and llm_spec.model_family not in BUILTIN_LLM_MODEL_CHAT_FAMILIES
         ):
             raise ValueError(
-                f"`model_architecture` for chat model must be `other` or one of the following values: \n"
-                f"{', '.join(list(BUILTIN_LLM_MODEL_CHAT_ARCHITECTURES))}"
+                f"`model_family` for chat model must be `other` or one of the following values: \n"
+                f"{', '.join(list(BUILTIN_LLM_MODEL_CHAT_FAMILIES))}"
             )
         if (
-            llm_spec.model_architecture != "other"
+            llm_spec.model_family != "other"
             and "chat" not in llm_spec.model_ability
-            and llm_spec.model_architecture
-            not in BUILTIN_LLM_MODEL_GENERATE_ARCHITECTURES
+            and llm_spec.model_family not in BUILTIN_LLM_MODEL_GENERATE_FAMILIES
         ):
             raise ValueError(
-                f"`model_architecture` for generate model must be `other` or one of the following values: \n"
-                f"{', '.join(list(BUILTIN_LLM_MODEL_GENERATE_ARCHITECTURES))}"
+                f"`model_family` for generate model must be `other` or one of the following values: \n"
+                f"{', '.join(list(BUILTIN_LLM_MODEL_GENERATE_FAMILIES))}"
             )
-        # set prompt style when it is the builtin architecture
+        # set prompt style when it is the builtin model family
         if (
             llm_spec.prompt_style is None
-            and llm_spec.model_architecture != "other"
+            and llm_spec.model_family != "other"
             and "chat" in llm_spec.model_ability
         ):
-            llm_spec.prompt_style = llm_spec.model_architecture
+            llm_spec.prompt_style = llm_spec.model_family
 
         # handle prompt style when user choose existing style
         if llm_spec.prompt_style is not None and isinstance(llm_spec.prompt_style, str):
