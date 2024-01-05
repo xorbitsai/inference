@@ -9,7 +9,7 @@ Xinference provides official images for use on Dockerhub.
 
 Prerequisites
 =============
-* The image can only run in an environment with GPUs and CUDA installed, because Xinference in the image relies on CUBLAS for acceleration.
+* The image can only run in an environment with GPUs and CUDA installed, because Xinference in the image relies on Nvidia GPUs for acceleration.
 * CUDA must be successfully installed on the host machine. This can be determined by whether you can successfully execute the ``nvidia-smi`` command.
 * The CUDA version in the docker image is ``12.1``, and the CUDA version on the host machine should ideally be consistent with it. Be sure to keep the CUDA version on your host machine between ``11.8`` and ``12.2``, even if it is inconsistent.
 

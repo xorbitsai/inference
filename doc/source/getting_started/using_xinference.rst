@@ -15,7 +15,7 @@ After this quickstart, you will move on to learning how to deploy Xinference in 
 Start Local Server
 ------------------
 
-First, please ensure that you have installed Xinference according to the instructions provided :ref:`here <installation>`. 
+First, please ensure that you have installed Xinference according to the instructions provided :ref:`here <installation>`.
 To start a local instance of Xinference, run the following command:
 
 .. tabs::
@@ -47,9 +47,9 @@ To start a local instance of Xinference, run the following command:
     XINFERENCE_HOME=/tmp/xinference xinference-local --host 0.0.0.0 --port 9997
 
 Congrats! You now have Xinference running on your local machine. Once Xinference is running, there are multiple ways
-we can try it: via the web UI, via cURL, via the command line, or via the Xinference's python client. 
+we can try it: via the web UI, via cURL, via the command line, or via the Xinference's python client.
 
-You can visit the web UI at `http://127.0.0.1:9997/ui <http://127.0.0.1:9997/ui>`_ and visit `http://127.0.0.1:9997/docs <http://127.0.0.1:9997/docs>`_ 
+You can visit the web UI at `http://127.0.0.1:9997/ui <http://127.0.0.1:9997/ui>`_ and visit `http://127.0.0.1:9997/docs <http://127.0.0.1:9997/docs>`_
 to inspect the API docs.
 
 You can install the Xinference command line tool and Python client using the following command:
@@ -113,7 +113,7 @@ We cache the model files locally, so there's no need to redownload them for subs
 
   .. code-block:: bash
 
-    XINFERENCE_MODEL_SRC=modelscope xinference-local --host 0.0.0.0 --port 9997 
+    XINFERENCE_MODEL_SRC=modelscope xinference-local --host 0.0.0.0 --port 9997
 
 We can specify the model's UID using the ``--model-uid`` or ``-u`` flag. If not specified, Xinference will generate a random ID.
 This create a new model instance with unique ID ``my-llama-2``:
@@ -153,7 +153,7 @@ This create a new model instance with unique ID ``my-llama-2``:
 
     Model uid: my-llama-2
 
-Congrats! You now have ``llama-2-chat`` running by Xinference. Once the model is running, we can try it out either command line, via cURL, 
+Congrats! You now have ``llama-2-chat`` running by Xinference. Once the model is running, we can try it out either command line, via cURL,
 or via Xinference's python client:
 
 .. tabs::
@@ -218,7 +218,7 @@ or via Xinference's python client:
       }
     }
 
-Xinference provides OpenAI-compatible APIs for its supported models, so you can use Xinference as a local drop-in replacement for OpenAI APIs. For example: 
+Xinference provides OpenAI-compatible APIs for its supported models, so you can use Xinference as a local drop-in replacement for OpenAI APIs. For example:
 
 .. code-block:: python
 
@@ -290,7 +290,7 @@ When you no longer need a model that is currently running, you can remove it in 
 
   .. code-tab:: bash shell
 
-    xinference terminate --model-uid "my-llama-2" 
+    xinference terminate --model-uid "my-llama-2"
 
   .. code-tab:: bash cURL
 
@@ -306,7 +306,7 @@ Deploy Xinference In a Cluster
 ==============================
 
 To deploy Xinference in a cluster, you need to start a Xinference supervisor on one server and Xinference workers
-on the other servers. 
+on the other servers.
 
 First, make sure you have already installed Xinference on each of the servers according to the instructions
 provided :ref:`here <installation>`. Then follow the steps below:
@@ -353,7 +353,7 @@ Run On Nvidia GPU Host
 
 .. code-block:: bash
 
-  docker run -p 9997:9997 --rm --gpus all apecloud/xinference:latest-amd64
+  docker run -p 9997:9997 --rm --gpus all xprobe/xinference:latest
 
 Run On CPU Only Host
 -----------------------
