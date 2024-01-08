@@ -97,31 +97,30 @@ OpenAI Client Tool Calls
         {
             "type": "function",
             "function": {
-                "name": "track",
-                "description": "追踪指定股票的实时价格",
-                "parameters": {
-                    "type": "object",
-                    "properties": {"symbol": {"description": "需要追踪的股票代码"}},
-                    "required": ["symbol"],
-                },
-            },
-        },
-        {
-            "type": "function",
-            "function": {
-                "name": "text-to-speech",
-                "description": "将文本转换为语音",
+                "name": "uber_ride",
+                "description": "Find suitable ride for customers given the location, "
+                "type of ride, and the amount of time the customer is "
+                "willing to wait as parameters",
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "text": {"description": "需要转换成语音的文本"},
-                        "voice": {"description": "要使用的语音类型（男声、女声等）"},
-                        "speed": {"description": "语音的速度（快、中等、慢等）"},
+                        "loc": {
+                            "type": "int",
+                            "description": "Location of the starting place of the Uber ride",
+                        },
+                        "type": {
+                            "type": "string",
+                            "enum": ["plus", "comfort", "black"],
+                            "description": "Types of Uber ride user is ordering",
+                        },
+                        "time": {
+                            "type": "int",
+                            "description": "The amount of time in minutes the customer is willing to wait",
+                        },
                     },
-                    "required": ["text"],
                 },
             },
-        },
+        }
     ]
 
     # Assume that the model is already launched.
@@ -129,7 +128,7 @@ OpenAI Client Tool Calls
     client = openai.Client(api_key="not empty", base_url="http://localhost:9997/v1")
     client.chat.completions.create(
         model="chatglm3",
-        messages=[{"role": "user", "content": "帮我查询股票10111的价格"}],
+        messages=[{"role": "user", "content": "Call me an Uber ride type 'Plus' in Berkeley at zipcode 94704 in 10 minutes"}],
         tools=tools,
     )
 
@@ -137,7 +136,7 @@ Output:
 
 .. code-block::
 
-    ChatCompletion(id='chatcmpl-89e27bb0-148f-438c-aa6b-a829de853aa7', choices=[Choice(finish_reason='tool_calls', index=0, message=ChatCompletionMessage(content="```python\ntool_call(symbol='10111')\n```", role='assistant', function_call=None, tool_calls=[ChatCompletionMessageToolCall(id='call_89e27bb0-148f-438c-aa6b-a829de853aa7', function=Function(arguments='{"symbol": "10111"}', name='track'), type='function')]))], created=1704445827, model='chatglm3', object='chat.completion', system_fingerprint=None, usage=CompletionUsage(completion_tokens=-1, prompt_tokens=-1, total_tokens=-1))
+    ChatCompletion(id='chatcmpl-ad2f383f-31c7-47d9-87b7-3abe928e629c', choices=[Choice(finish_reason='tool_calls', index=0, message=ChatCompletionMessage(content="```python\ntool_call(loc=94704, type='plus', time=10)\n```", role='assistant', function_call=None, tool_calls=[ChatCompletionMessageToolCall(id='call_ad2f383f-31c7-47d9-87b7-3abe928e629c', function=Function(arguments='{"loc": 94704, "type": "plus", "time": 10}', name='uber_ride'), type='function')]))], created=1704687803, model='chatglm3', object='chat.completion', system_fingerprint=None, usage=CompletionUsage(completion_tokens=-1, prompt_tokens=-1, total_tokens=-1))
 
 
 
