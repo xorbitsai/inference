@@ -203,13 +203,13 @@ class ModelActor(xo.StatelessActor):
     @oom_check
     async def _call_wrapper(self, fn: Callable, *args, **kwargs):
         if self._lock is None:
-            if inspect.isgeneratorfunction(fn):
+            if inspect.iscoroutinefunction(fn):
                 ret = await fn(*args, **kwargs)
             else:
                 ret = await asyncio.to_thread(fn, *args, **kwargs)
         else:
             async with self._lock:
-                if inspect.isgeneratorfunction(fn):
+                if inspect.iscoroutinefunction(fn):
                     ret = await fn(*args, **kwargs)
                 else:
                     ret = await asyncio.to_thread(fn, *args, **kwargs)
