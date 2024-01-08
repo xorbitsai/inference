@@ -658,8 +658,7 @@ class RESTfulAPI:
             raise HTTPException(status_code=500, detail=str(e))
 
         try:
-            if request.kwargs:
-                kwargs = json.loads(request.kwargs)
+            kwargs = json.loads(request.kwargs) if request.kwargs else {}
             image_list = await model.text_to_image(
                 prompt=request.prompt,
                 n=request.n,
