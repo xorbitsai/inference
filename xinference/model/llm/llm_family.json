@@ -2484,7 +2484,7 @@
           "4bits",
           "8bits"
         ],
-        "model_id": "01-ai/Yi-34B-Chat-{quantization}",
+        "model_id": "01-ai/Yi-34B-Chat-{quantization}"
       },
       {
         "model_format": "pytorch",
