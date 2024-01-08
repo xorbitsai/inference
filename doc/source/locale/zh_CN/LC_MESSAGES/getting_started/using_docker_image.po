@@ -1,0 +1,179 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2024-01-05 16:09+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: zh_CN\n"
+"Language-Team: zh_CN <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.12.1\n"
+
+#: ../../source/getting_started/using_docker_image.rst:5
+msgid "Xinference Docker Image"
+msgstr "Docker 镜像"
+
+#: ../../source/getting_started/using_docker_image.rst:7
+msgid "Xinference provides official images for use on Dockerhub."
+msgstr "Xinference 在 Dockerhub 中上传了官方镜像。"
+
+#: ../../source/getting_started/using_docker_image.rst:11
+msgid "Prerequisites"
+msgstr "准备工作"
+
+#: ../../source/getting_started/using_docker_image.rst:12
+msgid ""
+"The image can only run in an environment with GPUs and CUDA installed, "
+"because Xinference in the image relies on Nvidia GPUs for acceleration."
+msgstr ""
+"Xinference 使用 GPU 加速推理，该镜像需要在有 GPU 显卡并且安装 CUDA 的机器上运行。"
+
+#: ../../source/getting_started/using_docker_image.rst:13
+msgid ""
+"CUDA must be successfully installed on the host machine. This can be "
+"determined by whether you can successfully execute the ``nvidia-smi`` "
+"command."
+msgstr ""
+"保证 CUDA 在机器上正确安装。可以使用 ``nvidia-smi`` 检查是否正确运行。"
+
+#: ../../source/getting_started/using_docker_image.rst:14
+msgid ""
+"The CUDA version in the docker image is ``12.1``, and the CUDA version on"
+" the host machine should ideally be consistent with it. Be sure to keep "
+"the CUDA version on your host machine between ``11.8`` and ``12.2``, even"
+" if it is inconsistent."
+msgstr ""
+"镜像中的 CUDA 版本是 ``12.1`` ，推荐机器上的版本与之保持一致。如果不一致，需要保证"
+"CUDA 版本在 ``11.8`` 与 ``12.2`` 之间。"
+
+#: ../../source/getting_started/using_docker_image.rst:18
+msgid "Docker Image"
+msgstr "Docker 镜像"
+
+#: ../../source/getting_started/using_docker_image.rst:19
+msgid ""
+"The official image of Xinference is available on DockerHub in the "
+"repository ``xprobe/xinference``. There are two kinds of image tags "
+"available:"
+msgstr ""
+"Xinference 的官方镜像在 Dockerhub 的 ``xprobe/xinference`` 仓库里。目前有两个"
+"版本可以获取："
+
+#: ../../source/getting_started/using_docker_image.rst:22
+msgid ""
+"``nightly-main``: This image is built daily from the `GitHub main branch "
+"<https://github.com/xorbitsai/inference>`_ and generally does not "
+"guarantee stability."
+msgstr ""
+"``nightly-main``: 这个镜像会每天从 GitHub main 分支更新制作，不保证稳定可靠。"
+
+#: ../../source/getting_started/using_docker_image.rst:23
+msgid ""
+"``v<release version>``: This image is built each time a Xinference "
+"release version is published, and it is typically more stable."
+msgstr ""
+"``v<release version>``: 这个镜像会在 Xinference 每次发布的时候制作，通常可以认为是稳定可靠的。"
+
+
+#: ../../source/getting_started/using_docker_image.rst:27
+msgid "Dockerfile for custom build"
+msgstr "自定义镜像"
+
+#: ../../source/getting_started/using_docker_image.rst:28
+msgid ""
+"If you need to build the Xinference image according to your own "
+"requirements, the source code for the Dockerfile is located at "
+"`xinference/deploy/docker/Dockerfile "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/deploy/docker/Dockerfile>`_"
+" for reference. Please make sure to be in the top-level directory of "
+"Xinference when using this Dockerfile. For example:"
+msgstr ""
+"如果需要安装额外的依赖，可以参考 `xinference/deploy/docker/Dockerfile "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/deploy/docker/Dockerfile>`_"
+" 。请确保使用 Dockerfile 制作镜像时在 Xinference 项目的根目录下。比如："
+
+#: ../../source/getting_started/using_docker_image.rst:39
+msgid "Image usage"
+msgstr "使用镜像"
+
+#: ../../source/getting_started/using_docker_image.rst:40
+msgid ""
+"You can start Xinference in the container like this, simultaneously "
+"mapping port 9997 in the container to port 9998 on the host, enabling "
+"debug logging, and downloading models from modelscope."
+msgstr ""
+"你可以使用如下方式在容器内启动 Xinference，同时将 9997 端口映射到宿主机的 9998 端口，"
+"并且指定日志级别为 DEBUG，也可以指定需要的环境变量。"
+
+#: ../../source/getting_started/using_docker_image.rst:48
+msgid ""
+"The option ``--gpus`` is essential and cannot be omitted, because as "
+"mentioned earlier, the image requires the host machine to have a GPU. "
+"Otherwise, errors will occur."
+msgstr ""
+"``--gpus`` 必须指定，正如前文描述，镜像必须运行在有 GPU 的机器上，否则会出现错误。"
+
+#: ../../source/getting_started/using_docker_image.rst:49
+msgid ""
+"The ``-H 0.0.0.0`` parameter after the ``xinference-local`` command "
+"cannot be omitted. Otherwise, the host machine may not be able to access "
+"the port inside the container."
+msgstr ""
+"``-H 0.0.0.0`` 也是必须指定的，否则在容器外无法连接到 Xinference 服务。"
+
+#: ../../source/getting_started/using_docker_image.rst:50
+msgid ""
+"You can add multiple ``-e`` options to introduce multiple environment "
+"variables."
+msgstr ""
+"可以指定多个 ``-e`` 选项赋值多个环境变量。"
+
+#: ../../source/getting_started/using_docker_image.rst:53
+msgid ""
+"Certainly, if you prefer, you can also manually enter the docker "
+"container and start Xinference in any desired way."
+msgstr ""
+"当然，也可以运行容器后，进入容器内手动拉起 Xinference。"
+
+#: ../../source/getting_started/using_docker_image.rst:57
+msgid "Mount your volume for loading and saving models"
+msgstr "挂载模型目录"
+
+#: ../../source/getting_started/using_docker_image.rst:58
+msgid ""
+"The image does not contain any model files by default, and it downloads "
+"the models into the container. Typically, you would need to mount a "
+"directory on the host machine to the docker container, so that Xinference"
+" can download the models onto it, allowing for reuse. In this case, you "
+"need to specify a volume when running the Docker image and configure "
+"environment variables for Xinference:"
+msgstr ""
+"默认情况下，镜像中不包含任何模型文件，使用过程中会在容器内下载模型。如果需要使用"
+"已经下载好的模型，需要将宿主机的目录挂载到容器内。这种情况下，需要在运行容器时指定"
+"本地卷，并且为 Xinference 配置环境变量。"
+
+#: ../../source/getting_started/using_docker_image.rst:67
+msgid ""
+"The principle behind the above command is to mount the specified "
+"directory from the host machine into the container, and then set the "
+"``XINFERENCE_HOME`` environment variable to point to that directory "
+"inside the container. This way, all downloaded model files will be stored"
+" in the directory you specified on the host machine. You don't have to "
+"worry about losing them when the Docker container stops, and the next "
+"time you run it, you can directly use the existing models without the "
+"need for repetitive downloads."
+msgstr ""
+"上述命令的原理是将主机上指定的目录挂载到容器中，并设置 ``XINFERENCE_HOME`` 环境变量"
+"指向容器内的该目录。这样，所有下载的模型文件将存储在您在主机上指定的目录中。您无需担心在"
+" Docker 容器停止时丢失这些文件，下次运行容器时，您可以直接使用现有的模型，无需重复下载。"
+

@@ -40,8 +40,6 @@ jobs:
         run: |
           if [[ "$GITHUB_REF" =~ ^"refs/tags/" ]]; then
             export GIT_TAG=$(echo "$GITHUB_REF" | sed -e "s/refs\/tags\///g")
-          else
-            export GIT_BRANCH=$(echo "$GITHUB_REF" | sed -e "s/refs\/heads\///g")
           fi
           
           if [[ -n "$GIT_TAG" ]]; then
@@ -62,3 +60,8 @@ jobs:
             docker build -t "$DOCKER_ORG/xinference:${IMAGE_TAG}" --progress=plain -f xinference/deploy/docker/Dockerfile .
             docker push "$DOCKER_ORG/xinference:${IMAGE_TAG}"
           done
+          
+          if [[ -n "$GIT_TAG" ]]; then
+            docker tag "$DOCKER_ORG/xinference:${GIT_TAG}" "$DOCKER_ORG/xinference:latest"
+            docker push "$DOCKER_ORG/xinference:latest"
+          fi

@@ -9,7 +9,7 @@ Xinference provides official images for use on Dockerhub.
 
 Prerequisites
 =============
-* The image can only run in an environment with GPUs and CUDA installed, because Xinference in the image relies on CUBLAS for acceleration.
+* The image can only run in an environment with GPUs and CUDA installed, because Xinference in the image relies on Nvidia GPUs for acceleration.
 * CUDA must be successfully installed on the host machine. This can be determined by whether you can successfully execute the ``nvidia-smi`` command.
 * The CUDA version in the docker image is ``12.1``, and the CUDA version on the host machine should ideally be consistent with it. Be sure to keep the CUDA version on your host machine between ``11.8`` and ``12.2``, even if it is inconsistent.
 
@@ -37,11 +37,11 @@ Please make sure to be in the top-level directory of Xinference when using this 
 
 Image usage
 ===========
-You can start Xinference in the container like this, simultaneously mapping port 9997 in the container to port 9998 on the host, enabling debug logging, and disabling vllm.
+You can start Xinference in the container like this, simultaneously mapping port 9997 in the container to port 9998 on the host, enabling debug logging, and downloading models from modelscope.
 
 .. code-block:: bash
 
-   docker run -e XINFERENCE_DISABLE_VLLM=1 -p 9998:9997 --gpus all xprobe/xinference:v<your_version> xinference-local -H 0.0.0.0 --log-level debug
+   docker run -e XINFERENCE_MODEL_SRC=modelscope -p 9998:9997 --gpus all xprobe/xinference:v<your_version> xinference-local -H 0.0.0.0 --log-level debug
 
 
 .. warning::

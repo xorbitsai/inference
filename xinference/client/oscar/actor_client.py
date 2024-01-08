@@ -14,12 +14,12 @@
 
 import asyncio
 import re
-from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Union
+from typing import TYPE_CHECKING, Any, AsyncIterator, Dict, List, Optional, Union
 
 import orjson
 import xoscar as xo
 
-from ...core.model import IteratorWrapper, ModelActor
+from ...core.model import ModelActor
 from ...core.supervisor import SupervisorActor
 from ...isolation import Isolation
 from ..restful.restful_client import Client
@@ -97,17 +97,17 @@ class ModelHandle:
         self._isolation = isolation
 
 
-class ClientIteratorWrapper(IteratorWrapper):
+class ClientIteratorWrapper(AsyncIterator):
+    def __init__(self, iterator_wrapper):
+        self._iw = iterator_wrapper
+
+    def __aiter__(self):
+        return self
+
     async def __anext__(self):
-        r = await super().__anext__()
+        r = await self._iw.__anext__()
         text = r.decode("utf-8")
         return orjson.loads(SSEEvent.parse(text).data)
-
-    @classmethod
-    def wrap(cls, iterator_wrapper):
-        c = cls.__new__(cls)
-        c.__dict__.update(iterator_wrapper.__dict__)
-        return c
 
 
 class EmbeddingModelHandle(ModelHandle):
@@ -178,7 +178,7 @@ class GenerateModelHandle(EmbeddingModelHandle):
         generate_config: Optional[
             Union["LlamaCppGenerateConfig", "PytorchGenerateConfig"]
         ] = None,
-    ) -> Union["Completion", Iterator["CompletionChunk"]]:
+    ) -> Union["Completion", AsyncIterator["CompletionChunk"]]:
         """
         Creates a completion for the provided prompt and parameters.
 
@@ -204,7 +204,7 @@ class GenerateModelHandle(EmbeddingModelHandle):
         r = self._isolation.call(coro)
         if isinstance(r, bytes):
             return orjson.loads(r)
-        return ClientIteratorWrapper.wrap(r)
+        return ClientIteratorWrapper(r)
 
 
 class ChatModelHandle(GenerateModelHandle):
@@ -216,7 +216,7 @@ class ChatModelHandle(GenerateModelHandle):
         generate_config: Optional[
             Union["LlamaCppGenerateConfig", "PytorchGenerateConfig"]
         ] = None,
-    ) -> Union["ChatCompletion", Iterator["ChatCompletionChunk"]]:
+    ) -> Union["ChatCompletion", AsyncIterator["ChatCompletionChunk"]]:
         """
         Given a list of messages comprising a conversation, the model will return a response.
 
@@ -252,7 +252,7 @@ class ChatModelHandle(GenerateModelHandle):
         r = self._isolation.call(coro)
         if isinstance(r, bytes):
             return orjson.loads(r)
-        return ClientIteratorWrapper.wrap(r)
+        return ClientIteratorWrapper(r)
 
 
 class ChatglmCppChatModelHandle(EmbeddingModelHandle):
@@ -261,7 +261,7 @@ class ChatglmCppChatModelHandle(EmbeddingModelHandle):
         prompt: str,
         chat_history: Optional[List["ChatCompletionMessage"]] = None,
         generate_config: Optional["ChatglmCppGenerateConfig"] = None,
-    ) -> Union["ChatCompletion", Iterator["ChatCompletionChunk"]]:
+    ) -> Union["ChatCompletion", AsyncIterator["ChatCompletionChunk"]]:
         """
         Given a list of messages comprising a conversation, the ChatGLM model will return a response.
 
@@ -287,7 +287,7 @@ class ChatglmCppChatModelHandle(EmbeddingModelHandle):
         r = self._isolation.call(coro)
         if isinstance(r, bytes):
             return orjson.loads(r)
-        return ClientIteratorWrapper.wrap(r)
+        return ClientIteratorWrapper(r)
 
 
 class ImageModelHandle(ModelHandle):
