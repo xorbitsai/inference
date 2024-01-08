@@ -37,6 +37,9 @@ To list the available built-in LLM models:
 
 To initialize an LLM and chat:
 
+Xinference Client
+=================
+
 .. code-block::
 
     from xinference.client import Client
@@ -59,6 +62,84 @@ To initialize an LLM and chat:
         generate_config={"max_tokens": 1024}
     )
 
+OpenAI Client
+=============
+
+Openai client request with the same function as before, excluding launch model. 
+More details refer to: https://platform.openai.com/docs/api-reference/chat?lang=python
+
+.. code-block::
+
+    import openai
+
+    # Assume that the model is already launched.
+    # The api_key can't be empty, any string is OK.
+    client = openai.Client(api_key="not empty", base_url="http://localhost:9997/v1")
+    client.chat.completions.create(
+        model=model_uid,
+        messages=[
+            {
+                "content": "What is the largest animal?",
+                "role": "user",
+            }
+        ],
+        max_tokens=1024
+    )
+
+OpenAI Client Tool Calls
+========================
+
+.. code-block::
+
+    import openai
+
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "uber_ride",
+                "description": "Find suitable ride for customers given the location, "
+                "type of ride, and the amount of time the customer is "
+                "willing to wait as parameters",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "loc": {
+                            "type": "int",
+                            "description": "Location of the starting place of the Uber ride",
+                        },
+                        "type": {
+                            "type": "string",
+                            "enum": ["plus", "comfort", "black"],
+                            "description": "Types of Uber ride user is ordering",
+                        },
+                        "time": {
+                            "type": "int",
+                            "description": "The amount of time in minutes the customer is willing to wait",
+                        },
+                    },
+                },
+            },
+        }
+    ]
+
+    # Assume that the model is already launched.
+    # The api_key can't be empty, any string is OK.
+    client = openai.Client(api_key="not empty", base_url="http://localhost:9997/v1")
+    client.chat.completions.create(
+        model="chatglm3",
+        messages=[{"role": "user", "content": "Call me an Uber ride type 'Plus' in Berkeley at zipcode 94704 in 10 minutes"}],
+        tools=tools,
+    )
+
+Output:
+
+.. code-block::
+
+    ChatCompletion(id='chatcmpl-ad2f383f-31c7-47d9-87b7-3abe928e629c', choices=[Choice(finish_reason='tool_calls', index=0, message=ChatCompletionMessage(content="```python\ntool_call(loc=94704, type='plus', time=10)\n```", role='assistant', function_call=None, tool_calls=[ChatCompletionMessageToolCall(id='call_ad2f383f-31c7-47d9-87b7-3abe928e629c', function=Function(arguments='{"loc": 94704, "type": "plus", "time": 10}', name='uber_ride'), type='function')]))], created=1704687803, model='chatglm3', object='chat.completion', system_fingerprint=None, usage=CompletionUsage(completion_tokens=-1, prompt_tokens=-1, total_tokens=-1))
+
+
+
 Embedding
 ~~~~~~~~~
 
@@ -76,6 +157,9 @@ To list the available built-in embedding models:
     ...
 
 To launch an embedding model and embed text:
+
+Xinference Client
+=================
 
 .. code-block::
 
@@ -106,6 +190,27 @@ Output:
         0.05420297756791115]}],
      'usage': {'prompt_tokens': 37, 'total_tokens': 37}}
 
+OpenAI Client
+=============
+
+Openai client request with the same function as before, excluding launch model. 
+More details refer to: https://platform.openai.com/docs/api-reference/embeddings?lang=python
+
+.. code-block::
+
+    import openai
+
+    # Assume that the model is already launched.
+    # The api_key can't be empty, any string is OK.
+    client = openai.Client(api_key="not empty", base_url="http://localhost:9997/v1")
+    client.embeddings.create(model=model_uid, input=["What is the capital of China?"])
+
+Output:
+
+.. code-block::
+
+    CreateEmbeddingResponse(data=[Embedding(embedding=[-0.014207549393177032, -0.01832585781812668, 0.010556723922491074, ..., -0.021243810653686523, -0.03009396605193615, 0.05420297756791115], index=0, object='embedding')], model='bge-small-en-v1.5-1-0', object='list', usage=Usage(prompt_tokens=37, total_tokens=37))
+
 Image
 ~~~~~
 
@@ -117,10 +222,15 @@ To list the available built-in image models:
 
     Type    Name                          Family            Is-built-in
     ------  ----------------------------  ----------------  -------------
+    image   sd-turbo                      stable_diffusion  True
+    image   sdxl-turbo                    stable_diffusion  True
     image   stable-diffusion-v1.5         stable_diffusion  True
     image   stable-diffusion-xl-base-1.0  stable_diffusion  True
 
 To initiate an image model and generate an image using a text prompt:
+
+Xinference Client
+=================
 
 .. code-block::
 
@@ -142,6 +252,28 @@ Output:
     {'created': 1697536913,
      'data': [{'url': '/home/admin/.xinference/image/605d2f545ac74142b8031455af31ee33.jpg',
      'b64_json': None}]}
+
+OpenAI Client
+=============
+
+Openai client request with the same function as before, excluding launch model. 
+More details refer to: https://platform.openai.com/docs/api-reference/images/create?lang=python
+
+.. code-block::
+
+    import openai
+
+    # Assume that the model is already launched.
+    # The api_key can't be empty, any string is OK.
+    client = openai.Client(api_key="not empty", base_url="http://localhost:9997/v1")
+    client.images.generate(model=model_uid, prompt="an apple")
+
+
+Output:
+
+.. code-block::
+
+    ImagesResponse(created=1704445354, data=[Image(b64_json=None, revised_prompt=None, url='/home/admin/.xinference/image/605d2f545ac74142b8031455af31ee33.jpg')])
 
 Rerank
 ~~~~~~
