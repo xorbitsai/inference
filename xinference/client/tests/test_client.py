@@ -52,11 +52,12 @@ async def test_client(setup):
     completion = model.chat("write a poem.", generate_config={"stream": True})
     with pytest.raises(Exception, match="Parallel generation"):
         model.chat("write a poem.", generate_config={"stream": True})
-    await completion.destroy()
+    del completion
     completion = model.chat("write a poem.", generate_config={"stream": True})
     async for chunk in completion:
         assert chunk
         assert isinstance(chunk, dict)
+    del completion
 
     client.terminate_model(model_uid=model_uid)
     assert len(client.list_models()) == 0
