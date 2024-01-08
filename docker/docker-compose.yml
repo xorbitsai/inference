@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  xinference:
+    container_name: xinference
+    image: xinference
+    build: .
+    ports:
+      - "9997:9997"
+    volumes:
+      - ./root:/root
+    environment:
+      - XINFERENCE_MODEL_SRC=huggingface
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
