@@ -191,7 +191,7 @@ const RerankCard = ({
 
   const handeCustomDelete = (e) => {
     e.stopPropagation()
-    fetch(url + `/v1/model_registrations/rerank/${modelData.model_name}`, {
+    fetcher(url + `/v1/model_registrations/rerank/${modelData.model_name}`, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
