@@ -82,6 +82,10 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 
 体验 Xinference 最轻量级的方式是使用我们 [Google Colab 上的 Jupyter Notebook](https://colab.research.google.com/github/xorbitsai/inference/blob/main/examples/Xinference_Quick_Start.ipynb)。
 
+### Docker
+
+你可以使用[Xinference Docker镜像](https://inference.readthedocs.io/zh-cn/latest/getting_started/using_docker_image.html)启动Xinference服务器。在执行安装命令之前，确保你的系统中已经安装了[Docker](https://docs.docker.com/get-docker/)和[CUDA](https://developer.nvidia.com/cuda-downloads)。
+
 ### 快速开始
 
 使用 pip 安装 Xinference，操作如下。（更多选项，请参阅[安装页面](https://inference.readthedocs.io/zh-cn/latest/getting_started/installation.html)。）
