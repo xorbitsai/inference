@@ -181,11 +181,6 @@ class CustomLLMFamilyV1(LLMFamilyV1):
                 )
             llm_spec.prompt_style = BUILTIN_LLM_PROMPT_STYLE[prompt_style_name]
 
-        # check gptq
-        for spec in llm_spec.model_specs:
-            if spec.model_format == "gptq" and len(spec.quantizations) == 0:
-                spec.quantizations = ["4-bit", "8-bit"]
-
         return llm_spec
 
 

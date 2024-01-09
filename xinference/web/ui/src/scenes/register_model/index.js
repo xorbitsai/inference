@@ -180,7 +180,7 @@ const RegisterModel = () => {
         {
           model_format: modelFormat,
           model_size_in_billions: modelSize,
-          quantizations: ['4-bit', '8-bit'],
+          quantizations: [''],
           model_id: '',
           model_uri: modelUri,
         },
