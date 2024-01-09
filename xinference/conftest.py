@@ -255,7 +255,9 @@ def setup_with_auth():
     user1 = User(username="user1", password="pass1", permissions=["admin"])
     user2 = User(username="user2", password="pass2", permissions=["models:list"])
     user3 = User(
-        username="user3", password="pass3", permissions=["models:read", "models:launch"]
+        username="user3",
+        password="pass3",
+        permissions=["models:list", "models:read", "models:start"],
     )
     auth_config = AuthConfig(
         algorithm="HS256",

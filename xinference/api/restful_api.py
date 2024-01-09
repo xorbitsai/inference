@@ -265,7 +265,7 @@ class RESTfulAPI:
             "/v1/models/{model_uid}",
             self.describe_model,
             methods=["GET"],
-            dependencies=[Security(verify_token, scopes=["models:read"])]
+            dependencies=[Security(verify_token, scopes=["models:list"])]
             if self.is_authenticated()
             else None,
         )
@@ -273,7 +273,7 @@ class RESTfulAPI:
             "/v1/models",
             self.launch_model,
             methods=["POST"],
-            dependencies=[Security(verify_token, scopes=["models:launch"])]
+            dependencies=[Security(verify_token, scopes=["models:start"])]
             if self.is_authenticated()
             else None,
         )
@@ -281,7 +281,7 @@ class RESTfulAPI:
             "/experimental/speculative_llms",
             self.launch_speculative_llm,
             methods=["POST"],
-            dependencies=[Security(verify_token, scopes=["models:launch"])]
+            dependencies=[Security(verify_token, scopes=["models:start"])]
             if self.is_authenticated()
             else None,
         )
@@ -289,7 +289,7 @@ class RESTfulAPI:
             "/v1/models/{model_uid}",
             self.terminate_model,
             methods=["DELETE"],
-            dependencies=[Security(verify_token, scopes=["models:delete"])]
+            dependencies=[Security(verify_token, scopes=["models:stop"])]
             if self.is_authenticated()
             else None,
         )
@@ -351,7 +351,7 @@ class RESTfulAPI:
             "/v1/model_registrations/{model_type}",
             self.register_model,
             methods=["POST"],
-            dependencies=[Security(verify_token, scopes=["models:launch"])]
+            dependencies=[Security(verify_token, scopes=["models:register"])]
             if self.is_authenticated()
             else None,
         )
@@ -359,7 +359,7 @@ class RESTfulAPI:
             "/v1/model_registrations/{model_type}/{model_name}",
             self.unregister_model,
             methods=["DELETE"],
-            dependencies=[Security(verify_token, scopes=["models:launch"])]
+            dependencies=[Security(verify_token, scopes=["models:unregister"])]
             if self.is_authenticated()
             else None,
         )
@@ -375,7 +375,7 @@ class RESTfulAPI:
             "/v1/model_registrations/{model_type}/{model_name}",
             self.get_model_registrations,
             methods=["GET"],
-            dependencies=[Security(verify_token, scopes=["models:read"])]
+            dependencies=[Security(verify_token, scopes=["models:list"])]
             if self.is_authenticated()
             else None,
         )

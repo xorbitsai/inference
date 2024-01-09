@@ -24,10 +24,6 @@ def test_client_auth(setup_with_auth):
     with pytest.raises(RuntimeError):
         client.list_models()
 
-    client.login("user3", "pass3")
-    with pytest.raises(RuntimeError):
-        client.list_models()
-
     client.login("user2", "pass2")
     assert len(client.list_models()) == 0
 
