@@ -41,6 +41,7 @@ class EmbeddingModelSpec(BaseModel):
     language: List[str]
     model_id: str
     model_revision: str
+    model_hub: str = "huggingface"
 
 
 class EmbeddingModelDescription(ModelDescription):
@@ -165,7 +166,7 @@ def cache(model_spec: EmbeddingModelSpec):
     if valid_model_revision(meta_path, model_spec.model_revision):
         return cache_dir
 
-    from_modelscope: bool = model_spec.model_id.startswith("Xorbits/")
+    from_modelscope: bool = model_spec.model_hub == "modelscope"
     if from_modelscope:
         download_dir = retry_download(
             ms_download,

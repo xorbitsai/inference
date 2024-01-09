@@ -5,7 +5,8 @@
     "max_tokens": 512,
     "language": ["en"],
     "model_id": "Xorbits/bge-large-en",
-    "model_revision": "v0.0.1"
+    "model_revision": "v0.0.1",
+    "model_hub": "modelscope"
   },
   {
     "model_name": "bge-base-en",
@@ -13,7 +14,8 @@
     "max_tokens": 512,
     "language": ["en"],
     "model_id": "Xorbits/bge-base-en",
-    "model_revision": "v0.0.1"
+    "model_revision": "v0.0.1",
+    "model_hub": "modelscope"
   },
   {
     "model_name": "gte-large",
@@ -21,7 +23,8 @@
     "max_tokens": 512,
     "language": ["en"],
     "model_id": "Xorbits/gte-large",
-    "model_revision": "v0.0.1"
+    "model_revision": "v0.0.1",
+    "model_hub": "modelscope"
   },
   {
     "model_name": "gte-base",
@@ -29,7 +32,8 @@
     "max_tokens": 512,
     "language": ["en"],
     "model_id": "Xorbits/gte-base",
-    "model_revision": "v0.0.1"
+    "model_revision": "v0.0.1",
+    "model_hub": "modelscope"
   },
   {
     "model_name": "e5-large-v2",
@@ -37,7 +41,8 @@
     "max_tokens": 512,
     "language": ["en"],
     "model_id": "Xorbits/e5-large-v2",
-    "model_revision": "v0.0.1"
+    "model_revision": "v0.0.1",
+    "model_hub": "modelscope"
   },
   {
     "model_name": "bge-large-zh",
@@ -45,7 +50,8 @@
     "max_tokens": 512,
     "language": ["zh"],
     "model_id": "Xorbits/bge-large-zh",
-    "model_revision": "v0.0.1"
+    "model_revision": "v0.0.1",
+    "model_hub": "modelscope"
   },
   {
     "model_name": "bge-large-zh-noinstruct",
@@ -53,7 +59,8 @@
     "max_tokens": 512,
     "language": ["zh"],
     "model_id": "Xorbits/bge-large-zh-noinstruct",
-    "model_revision": "v0.0.1"
+    "model_revision": "v0.0.1",
+    "model_hub": "modelscope"
   },
   {
     "model_name": "bge-base-zh",
@@ -61,7 +68,8 @@
     "max_tokens": 512,
     "language": ["zh"],
     "model_id": "Xorbits/bge-base-zh",
-    "model_revision": "v0.0.2"
+    "model_revision": "v0.0.2",
+    "model_hub": "modelscope"
   },
   {
     "model_name": "multilingual-e5-large",
@@ -69,7 +77,8 @@
     "max_tokens": 514,
     "language": ["zh"],
     "model_id": "Xorbits/multilingual-e5-large",
-    "model_revision": "v0.0.1"
+    "model_revision": "v0.0.1",
+    "model_hub": "modelscope"
   },
   {
     "model_name": "bge-small-zh",
@@ -77,7 +86,8 @@
     "max_tokens": 512,
     "language": ["zh"],
     "model_id": "Xorbits/bge-small-zh",
-    "model_revision": "v0.0.1"
+    "model_revision": "v0.0.1",
+    "model_hub": "modelscope"
   },
   {
     "model_name": "bge-small-zh-v1.5",
@@ -85,7 +95,8 @@
     "max_tokens": 512,
     "language": ["zh"],
     "model_id": "Xorbits/bge-small-zh-v1.5",
-    "model_revision": "v0.0.2"
+    "model_revision": "v0.0.2",
+    "model_hub": "modelscope"
   },
   {
     "model_name": "bge-base-zh-v1.5",
@@ -93,7 +104,8 @@
     "max_tokens": 512,
     "language": ["zh"],
     "model_id": "Xorbits/bge-base-zh-v1.5",
-    "model_revision": "v0.0.1"
+    "model_revision": "v0.0.1",
+    "model_hub": "modelscope"
   },
   {
     "model_name": "bge-large-zh-v1.5",
@@ -101,7 +113,8 @@
     "max_tokens": 512,
     "language": ["zh"],
     "model_id": "Xorbits/bge-large-zh-v1.5",
-    "model_revision": "v0.0.1"
+    "model_revision": "v0.0.1",
+    "model_hub": "modelscope"
   },
   {
     "model_name": "bge-small-en-v1.5",
@@ -109,7 +122,8 @@
     "max_tokens": 512,
     "language": ["en"],
     "model_id": "Xorbits/bge-small-en-v1.5",
-    "model_revision": "v0.0.2"
+    "model_revision": "v0.0.2",
+    "model_hub": "modelscope"
   },
   {
     "model_name": "bge-base-en-v1.5",
@@ -117,7 +131,8 @@
     "max_tokens": 512,
     "language": ["en"],
     "model_id": "Xorbits/bge-base-en-v1.5",
-    "model_revision": "v0.0.1"
+    "model_revision": "v0.0.1",
+    "model_hub": "modelscope"
   },
   {
     "model_name": "bge-large-en-v1.5",
@@ -125,7 +140,8 @@
     "max_tokens": 512,
     "language": ["en"],
     "model_id": "Xorbits/bge-large-en-v1.5",
-    "model_revision": "v0.0.1"
+    "model_revision": "v0.0.1",
+    "model_hub": "modelscope"
   },
     {
     "model_name": "jina-embeddings-v2-small-en",
@@ -133,7 +149,8 @@
     "max_tokens": 8192,
     "language": ["en"],
     "model_id": "Xorbits/jina-embeddings-v2-small-en",
-    "model_revision": "v0.0.1"
+    "model_revision": "v0.0.1",
+    "model_hub": "modelscope"
   },
   {
     "model_name": "jina-embeddings-v2-base-en",
@@ -141,6 +158,31 @@
     "max_tokens": 8192,
     "language": ["en"],
     "model_id": "Xorbits/jina-embeddings-v2-base-en",
-    "model_revision": "v0.0.1"
+    "model_revision": "v0.0.1",
+    "model_hub": "modelscope"
+  },
+  {
+    "model_name": "text2vec-large-chinese",
+    "dimensions": 1024,
+    "max_tokens": 256,
+    "language": ["zh"],
+    "model_id": "Jerry0/text2vec-large-chinese",
+    "model_hub": "modelscope"
+  },
+  {
+    "model_name": "text2vec-base-chinese",
+    "dimensions": 768,
+    "max_tokens": 128,
+    "language": ["zh"],
+    "model_id": "Jerry0/text2vec-base-chinese",
+    "model_hub": "modelscope"
+  },
+  {
+    "model_name": "text2vec-base-chinese-paraphrase",
+    "dimensions": 768,
+    "max_tokens": 256,
+    "language": ["zh"],
+    "model_id": "mwei23/text2vec-base-chinese-paraphrase",
+    "model_hub": "modelscope"
   }
 ]
