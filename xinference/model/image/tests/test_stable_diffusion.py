@@ -48,7 +48,7 @@ def test_model():
         r = model.text_to_image(input_text, size="256*256", response_format="b64_json")
         assert len(r["data"]) == 1
         b64_json = r["data"][0]["b64_json"]
-        image_bytes = base64.decodebytes(b64_json)
+        image_bytes = base64.b64decode(b64_json)
         img = Image.open(BytesIO(image_bytes))
         assert img.size == (256, 256)
     finally:
@@ -172,6 +172,19 @@ def test_restful_api_for_sd_turbo(setup, model_name):
     with open(r["data"][0]["url"], "rb") as f:
         img = Image.open(f)
         assert img.size == (512, 512)
+
+    import openai
+
+    client = openai.Client(api_key="not empty", base_url=f"{endpoint}/v1")
+    completion = client.images.generate(
+        model=model_uid,
+        prompt="A cinematic shot of a baby raccoon wearing an intricate italian priest robe.",
+        size="512*512",
+        response_format="b64_json",
+    )
+    img_bytes = base64.b64decode(completion.data[0].b64_json)
+    img = Image.open(BytesIO(img_bytes))
+    assert img.size == (512, 512)
 
 
 def test_get_cache_status():

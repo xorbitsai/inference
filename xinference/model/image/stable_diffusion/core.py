@@ -101,7 +101,7 @@ class DiffusionModel:
             def _gen_base64_image(_img):
                 buffered = BytesIO()
                 _img.save(buffered, format="jpeg")
-                return base64.b64encode(buffered.getvalue())
+                return base64.b64encode(buffered.getvalue()).decode()
 
             with ThreadPoolExecutor() as executor:
                 results = list(map(partial(executor.submit, _gen_base64_image), images))
