@@ -119,7 +119,22 @@ chosen quantization method from the options listed above::
    xinference launch --model-name qwen-chat --size-in-billions 7 --model-format gptq --quantization ${quantization}
 
 
-Model Spec 8 (gptq, 14 Billion)
+Model Spec 8 (gptq, 1_8 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** gptq
+- **Model Size (in billions):** 1_8
+- **Quantizations:** Int4, Int8
+- **Model ID:** Qwen/Qwen-1_8B-Chat-{quantization}
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen-1_8B-Chat-{quantization}>`_, `ModelScope <https://modelscope.cn/models/qwen/Qwen-1_8B-Chat-{quantization}>`_
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-name qwen-chat --size-in-billions 1_8 --model-format gptq --quantization ${quantization}
+
+
+Model Spec 9 (gptq, 14 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** gptq
@@ -134,7 +149,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-name qwen-chat --size-in-billions 14 --model-format gptq --quantization ${quantization}
 
 
-Model Spec 9 (gptq, 72 Billion)
+Model Spec 10 (gptq, 72 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** gptq
