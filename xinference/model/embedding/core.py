@@ -40,7 +40,7 @@ class EmbeddingModelSpec(BaseModel):
     max_tokens: int
     language: List[str]
     model_id: str
-    model_revision: str
+    model_revision: Optional[str]
     model_hub: str = "huggingface"
 
 
