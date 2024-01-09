@@ -11,4 +11,4 @@ User Guide
    backends
    client_api
    spec_decoding
-   auth_system
+   user_guide_auth_system
