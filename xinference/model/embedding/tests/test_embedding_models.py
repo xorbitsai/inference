@@ -46,6 +46,7 @@ TEST_MODEL_SPEC_FROM_MODELSCOPE = EmbeddingModelSpec(
     language=["zh"],
     model_id="Xorbits/bge-small-zh-v1.5",
     model_revision="v0.0.2",
+    model_hub="modelscope",
 )
 
 
