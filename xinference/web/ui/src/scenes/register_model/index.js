@@ -161,6 +161,10 @@ const RegisterModel = () => {
     return modelFormat === 'pytorch'
   }
 
+  const isModelFormatGPTQ = () => {
+    return modelFormat === 'gptq'
+  }
+
   const getPathComponents = (path) => {
     const normalizedPath = path.replace(/\\/g, '/')
     const baseDir = normalizedPath.substring(0, normalizedPath.lastIndexOf('/'))
@@ -171,7 +175,17 @@ const RegisterModel = () => {
   }
 
   const handleClick = async () => {
-    if (!isModelFormatPytorch()) {
+    if (isModelFormatGPTQ()) {
+      formData.model_specs = [
+        {
+          model_format: modelFormat,
+          model_size_in_billions: modelSize,
+          quantizations: [''],
+          model_id: '',
+          model_uri: modelUri,
+        },
+      ]
+    } else if (!isModelFormatPytorch()) {
       const { baseDir, filename } = getPathComponents(modelUri)
       formData.model_specs = [
         {
@@ -343,6 +357,13 @@ const RegisterModel = () => {
                     value="ggufv2"
                     control={<Radio />}
                     label="GGUF"
+                  />
+                </Box>
+                <Box sx={{ marginLeft: '10px' }}>
+                  <FormControlLabel
+                    value="gptq"
+                    control={<Radio />}
+                    label="GPTQ"
                   />
                 </Box>
               </Box>
