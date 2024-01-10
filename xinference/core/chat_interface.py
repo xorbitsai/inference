@@ -16,7 +16,7 @@ import base64
 import logging
 import os
 from io import BytesIO
-from typing import Generator, List
+from typing import Generator, List, Optional
 
 import gradio as gr
 import PIL.Image
@@ -48,6 +48,7 @@ class LLMInterface:
         model_ability: List[str],
         model_description: str,
         model_lang: List[str],
+        access_token: Optional[str],
     ):
         self.endpoint = endpoint
         self.model_uid = model_uid
@@ -60,6 +61,9 @@ class LLMInterface:
         self.model_ability = model_ability
         self.model_description = model_description
         self.model_lang = model_lang
+        self._access_token = (
+            access_token.replace("Bearer ", "") if access_token is not None else None
+        )
 
     def build(self) -> "gr.Blocks":
         if self.model_type == "multimodal":
@@ -110,6 +114,7 @@ class LLMInterface:
             from ..client import RESTfulClient
 
             client = RESTfulClient(self.endpoint)
+            client._set_token(self._access_token)
             model = client.get_model(self.model_uid)
             assert isinstance(
                 model, (RESTfulChatModelHandle, RESTfulChatglmCppChatModelHandle)
@@ -319,6 +324,7 @@ class LLMInterface:
             from ..client import RESTfulClient
 
             client = RESTfulClient(self.endpoint)
+            client._set_token(self._access_token)
             model = client.get_model(self.model_uid)
             assert isinstance(model, RESTfulGenerateModelHandle)
 
@@ -355,6 +361,7 @@ class LLMInterface:
             from ..client import RESTfulClient
 
             client = RESTfulClient(self.endpoint)
+            client._set_token(self._access_token)
             model = client.get_model(self.model_uid)
             assert isinstance(model, RESTfulGenerateModelHandle)
 

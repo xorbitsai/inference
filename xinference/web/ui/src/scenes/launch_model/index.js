@@ -1,6 +1,8 @@
 import { TabContext, TabList, TabPanel } from '@mui/lab'
 import { Box, Tab } from '@mui/material'
 import React, { useContext, useEffect, useState } from 'react'
+import { useCookies } from 'react-cookie'
+import { useNavigate } from 'react-router-dom'
 
 import { ApiContext } from '../../components/apiContext'
 import ErrorMessageSnackBar from '../../components/errorMessageSnackBar'
@@ -17,12 +19,22 @@ const LaunchModel = () => {
   const [gpuAvailable, setGPUAvailable] = useState(-1)
 
   const { setErrorMsg } = useContext(ApiContext)
+  const [cookie] = useCookies(['token'])
+  const navigate = useNavigate()
 
   const handleTabChange = (event, newValue) => {
     setValue(newValue)
   }
 
   useEffect(() => {
+    if (cookie.token === '' || cookie.token === undefined) {
+      return
+    }
+    if (cookie.token === 'need_auth') {
+      navigate('/login', { replace: true })
+      return
+    }
+
     if (gpuAvailable === -1) {
       fetch(endPoint + '/v1/cluster/devices', {
         method: 'GET',
@@ -46,7 +58,7 @@ const LaunchModel = () => {
         }
       })
     }
-  }, [])
+  }, [cookie.token])
 
   return (
     <Box m="20px">

@@ -79,7 +79,12 @@ def run_in_subprocess(
     return p
 
 
-def main(host: str, port: int, logging_conf: Optional[Dict] = None):
+def main(
+    host: str,
+    port: int,
+    logging_conf: Optional[Dict] = None,
+    auth_config_file: Optional[str] = None,
+):
     supervisor_address = f"{host}:{get_next_port()}"
     local_cluster = run_in_subprocess(supervisor_address, logging_conf)
 
@@ -98,6 +103,7 @@ def main(host: str, port: int, logging_conf: Optional[Dict] = None):
             host=host,
             port=port,
             logging_conf=logging_conf,
+            auth_config_file=auth_config_file,
         )
     finally:
         local_cluster.terminate()
