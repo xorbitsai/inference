@@ -403,7 +403,7 @@ class WorkerActor(xo.StatelessActor):
             abilities = await self._get_model_ability(model, model_type)
             await self._status_guard_ref.update_instance_info(
                 origin_uid,
-                {"model_ablity": abilities, "status": LaunchStatus.DOWNLOADED.name},
+                {"model_ability": abilities, "status": LaunchStatus.DOWNLOADED.name},
             )
             model_ref = await xo.create_actor(
                 ModelActor,
