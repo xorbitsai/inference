@@ -12,11 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import base64
 import logging
 import os
+from io import BytesIO
 from typing import Generator, List
 
 import gradio as gr
+import PIL.Image
 from gradio.components import Markdown, Textbox
 from gradio.layouts import Accordion, Column, Row
 
@@ -24,6 +27,7 @@ from ..client.restful.restful_client import (
     RESTfulChatglmCppChatModelHandle,
     RESTfulChatModelHandle,
     RESTfulGenerateModelHandle,
+    RESTfulMultimodalModelHandle,
 )
 from ..types import ChatCompletionMessage
 
@@ -37,6 +41,7 @@ class LLMInterface:
         model_uid: str,
         model_name: str,
         model_size_in_billions: int,
+        model_type: str,
         model_format: str,
         quantization: str,
         context_length: int,
@@ -48,6 +53,7 @@ class LLMInterface:
         self.model_uid = model_uid
         self.model_name = model_name
         self.model_size_in_billions = model_size_in_billions
+        self.model_type = model_type
         self.model_format = model_format
         self.quantization = quantization
         self.context_length = context_length
@@ -56,7 +62,9 @@ class LLMInterface:
         self.model_lang = model_lang
 
     def build(self) -> "gr.Blocks":
-        if "chat" in self.model_ability:
+        if self.model_type == "multimodal":
+            interface = self.build_chat_vl_interface()
+        elif "chat" in self.model_ability:
             interface = self.build_chat_interface()
         else:
             interface = self.build_generate_interface()
@@ -167,6 +175,119 @@ class LLMInterface:
             """,
             analytics_enabled=False,
         )
+
+    def build_chat_vl_interface(
+        self,
+    ) -> "gr.Blocks":
+        def predict(history, bot):
+            logger.info("Predict.")
+            from ..client import RESTfulClient
+
+            client = RESTfulClient(self.endpoint)
+            model = client.get_model(self.model_uid)
+            assert isinstance(model, RESTfulMultimodalModelHandle)
+
+            response = model.chat(chat_history=history)
+            print(response)
+
+            return history, bot
+
+        def add_text(history, bot, text, image):
+            logger.info("Add text, text: %s, image: %s", text, image)
+            if image:
+                buffered = BytesIO()
+                with PIL.Image.open(image) as img:
+                    img.thumbnail((500, 500))
+                    img.save(buffered, format="JPEG")
+                img_b64_str = base64.b64encode(buffered.getvalue()).decode()
+                display_content = f'<img src="data:image/png;base64,{img_b64_str}" alt="user upload image" />\n{text}'
+                message = {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": text},
+                        {"type": "image_url", "image_url": {"url": image}},
+                    ],
+                }
+            else:
+                display_content = text
+                message = {"role": "user", "content": text}
+            history = history + [message]
+            bot = bot + [(display_content, None)]
+            return history, bot, "", None
+
+        def clear_history():
+            logger.info("Clear history.")
+            return [], None, "", None
+
+        with gr.Blocks(
+            title=f"🚀 Xinference Chat Bot : {self.model_name} 🚀",
+            css="""
+        .center{
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 0px;
+            color: #9ea4b0 !important;
+        }
+        """,
+            analytics_enabled=False,
+        ) as chat_vl_interface:
+            Markdown(
+                f"""
+                <h1 style='text-align: center; margin-bottom: 1rem'>🚀 Xinference Chat Bot : {self.model_name} 🚀</h1>
+                """
+            )
+            Markdown(
+                f"""
+                <div class="center">
+                Model ID: {self.model_uid}
+                </div>
+                <div class="center">
+                Model Size: {self.model_size_in_billions} Billion Parameters
+                </div>
+                <div class="center">
+                Model Format: {self.model_format}
+                </div>
+                <div class="center">
+                Model Quantization: {self.quantization}
+                </div>
+                """
+            )
+
+            state = gr.State([])
+            with gr.Row():
+                chatbot = gr.Chatbot(
+                    elem_id="chatbot", label=self.model_name, height=550, scale=7
+                )
+                with gr.Column(scale=3):
+                    imagebox = gr.Image(type="filepath")
+                    textbox = gr.Textbox(
+                        show_label=False,
+                        placeholder="Enter text and press ENTER",
+                        container=False,
+                    )
+                    submit_btn = gr.Button(value="Send", variant="primary")
+                    clear_btn = gr.Button(value="Clear")
+
+            textbox.submit(
+                add_text,
+                [state, chatbot, textbox, imagebox],
+                [state, chatbot, textbox, imagebox],
+                queue=False,
+            ).then(predict, [state, chatbot], [state, chatbot])
+
+            submit_btn.click(
+                add_text,
+                [state, chatbot, textbox, imagebox],
+                [state, chatbot, textbox, imagebox],
+                queue=False,
+            ).then(predict, [state, chatbot], [state, chatbot])
+
+            clear_btn.click(
+                clear_history, None, [state, chatbot, textbox, imagebox], queue=False
+            )
+
+        return chat_vl_interface
 
     def build_generate_interface(
         self,
