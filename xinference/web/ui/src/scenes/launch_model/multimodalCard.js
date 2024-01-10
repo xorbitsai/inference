@@ -23,6 +23,7 @@ import Typography from '@mui/material/Typography'
 import React, { useContext, useEffect, useState } from 'react'
 
 import { ApiContext } from '../../components/apiContext'
+import fetcher from '../../components/fetcher'
 
 const CARD_HEIGHT = 380
 const CARD_WIDTH = 300
@@ -123,8 +124,8 @@ const MultimodalCard = ({ url, modelData, gpuAvailable, is_custom = false }) => 
         nGPU === '0' ? null : nGPU === 'auto' ? 'auto' : parseInt(nGPU, 10),
     }
 
-    // First fetch request to initiate the model
-    fetch(url + '/v1/models', {
+    // First fetcher request to initiate the model
+    fetcher(url + '/v1/models', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -282,7 +283,7 @@ const MultimodalCard = ({ url, modelData, gpuAvailable, is_custom = false }) => 
 
   const handeCustomDelete = (e) => {
     e.stopPropagation()
-    fetch(url + `/v1/model_registrations/LLM/${modelData.model_name}`, {
+    fetcher(url + `/v1/model_registrations/LLM/${modelData.model_name}`, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',

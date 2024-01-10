@@ -6,6 +6,7 @@ import {
 import React, { useContext, useEffect, useState } from 'react'
 
 import { ApiContext } from '../../components/apiContext'
+import fetcher from '../../components/fetcher'
 import MultimodalCard from './multimodalCard'
 
 const LaunchMultimodal = ({ gpuAvailable }) => {
@@ -45,7 +46,7 @@ const LaunchMultimodal = ({ gpuAvailable }) => {
     try {
       setIsCallingApi(true)
 
-      const response = await fetch(
+      const response = await fetcher(
         `${endPoint}/v1/model_registrations/multimodal?detailed=true`,
         {
           method: 'GET',
