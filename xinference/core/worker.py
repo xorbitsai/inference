@@ -345,7 +345,7 @@ class WorkerActor(xo.StatelessActor):
         else:
             assert model_type == "LLM"
             assert isinstance(model, LLM)
-            return model.model_family.model_ability
+            return model.model_family.model_ability  # type: ignore
 
     @log_async(logger=logger)
     async def launch_builtin_model(
