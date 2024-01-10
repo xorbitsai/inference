@@ -100,7 +100,7 @@ msgstr ""
 msgid ""
 "``algorithm``: The algorithm used for token generation and parsing. "
 "``HS256`` or ``RS256`` is recommended."
-msgstr "``algorithm``: 用于令牌生成与解析的算法。推荐使用 `HS256`` 或者 ``RS256`` 。"
+msgstr "``algorithm``: 用于令牌生成与解析的算法。推荐使用 ``HS256`` 或者 ``RS256`` 。"
 
 #: ../../source/user_guide/auth_system.rst:63
 msgid ""
@@ -153,7 +153,7 @@ msgid ""
 "For distributed startup, just specify this option when starting the "
 "supervisor:"
 msgstr ""
-"在分布式环境下，只需要在启动 supervisor 的是指定这个选项："
+"在分布式环境下，只需要在启动 supervisor 时指定这个选项："
 
 #: ../../source/user_guide/auth_system.rst:91
 msgid "Usage"
