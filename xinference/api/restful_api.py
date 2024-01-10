@@ -252,6 +252,15 @@ class RESTfulAPI:
         self._router.add_api_route(
             "/v1/cluster/auth", self.is_cluster_authenticated, methods=["GET"]
         )
+        # running instances
+        self._router.add_api_route(
+            "/v1/models/instances",
+            self.get_instances_info,
+            methods=["GET"],
+            dependencies=[Security(verify_token, scopes=["models:list"])]
+            if self.is_authenticated()
+            else None,
+        )
         self._router.add_api_route(
             "/v1/models",
             self.list_models,
@@ -546,7 +555,9 @@ class RESTfulAPI:
 
         return JSONResponse(content={"model_uid": model_uid})
 
-    async def launch_model(self, request: Request) -> JSONResponse:
+    async def launch_model(
+        self, request: Request, wait_ready: bool = Query(True)
+    ) -> JSONResponse:
         payload = await request.json()
         model_uid = payload.get("model_uid")
         model_name = payload.get("model_name")
@@ -591,6 +602,7 @@ class RESTfulAPI:
                 replica=replica,
                 n_gpu=n_gpu,
                 request_limits=request_limits,
+                wait_ready=wait_ready,
                 **kwargs,
             )
 
@@ -605,6 +617,20 @@ class RESTfulAPI:
             raise HTTPException(status_code=500, detail=str(e))
 
         return JSONResponse(content={"model_uid": model_uid})
+
+    async def get_instances_info(
+        self,
+        model_name: Optional[str] = Query(None),
+        model_uid: Optional[str] = Query(None),
+    ) -> JSONResponse:
+        try:
+            infos = await (await self._get_supervisor_ref()).get_instances_info(
+                model_name, model_uid
+            )
+        except Exception as e:
+            logger.error(str(e), exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+        return JSONResponse(content=infos)
 
     async def build_gradio_interface(
         self, model_uid: str, body: BuildGradioInterfaceRequest, request: Request

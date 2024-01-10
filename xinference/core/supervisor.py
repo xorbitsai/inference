@@ -22,6 +22,7 @@ from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Tuple, Un
 import xoscar as xo
 
 from ..core import ModelActor
+from ..core.status_guard import InstanceInfo, LaunchStatus
 from .resource import ResourceStatus
 from .utils import (
     build_replica_model_uid,
@@ -81,6 +82,11 @@ class SupervisorActor(xo.StatelessActor):
         # comment this line to avoid worker lost
         # self._check_dead_nodes_task = asyncio.create_task(self._check_dead_nodes())
         logger.info(f"Xinference supervisor {self.address} started")
+        from .status_guard import StatusGuardActor
+
+        self._status_guard_ref: xo.ActorRefType[
+            "StatusGuardActor"
+        ] = await xo.actor_ref(address=self.address, uid=StatusGuardActor.uid())
 
         from ..model.embedding import (
             CustomEmbeddingModelSpec,
@@ -511,6 +517,7 @@ class SupervisorActor(xo.StatelessActor):
         replica: int = 1,
         n_gpu: Optional[Union[int, str]] = "auto",
         request_limits: Optional[int] = None,
+        wait_ready: bool = True,
         **kwargs,
     ) -> str:
         if model_uid is None:
@@ -552,6 +559,18 @@ class SupervisorActor(xo.StatelessActor):
             )
             self._replica_model_uid_to_worker[_replica_model_uid] = worker_ref
 
+        async def _launch_model():
+            try:
+                for rep_model_uid in iter_replica_model_uid(model_uid, replica):
+                    await _launch_one_model(rep_model_uid)
+            except Exception:
+                # terminate_model will remove the replica info.
+                await self.terminate_model(model_uid, suppress_exception=True)
+                await self._status_guard_ref.update_instance_info(
+                    model_uid, {"status": LaunchStatus.FAILED.name}
+                )
+                raise
+
         if not is_valid_model_uid(model_uid):
             raise ValueError(
                 "The model UID is invalid. Please specify the model UID by 0 < length <= 100."
@@ -568,14 +587,28 @@ class SupervisorActor(xo.StatelessActor):
         self._model_uid_to_replica_info[model_uid] = ReplicaInfo(
             replica=replica, scheduler=itertools.cycle(range(replica))
         )
-        try:
-            for rep_model_uid in iter_replica_model_uid(model_uid, replica):
-                await _launch_one_model(rep_model_uid)
-        except Exception:
-            # terminate_model will remove the replica info.
-            await self.terminate_model(model_uid, suppress_exception=True)
-            raise
+        instance_info = InstanceInfo(
+            model_name=model_name,
+            model_uid=model_uid,
+            model_ability=[],
+            replica=replica,
+            status=LaunchStatus.SUBMITTED.name,
+            instance_created_ts=int(time.time()),
+        )
+        await self._status_guard_ref.set_instance_info(model_uid, instance_info)
+        if wait_ready:
+            await _launch_model()
+        else:
+            _ = asyncio.create_task(_launch_model())
         return model_uid
+
+    async def get_instances_info(
+        self, model_name: Optional[str], model_uid: Optional[str]
+    ) -> List[Dict]:
+        infos = await self._status_guard_ref.get_instance_info(
+            model_name=model_name, model_uid=model_uid
+        )
+        return [info.dict() for info in sorted(infos, key=lambda info: info.model_uid)]
 
     async def _check_dead_nodes(self):
         while True:
