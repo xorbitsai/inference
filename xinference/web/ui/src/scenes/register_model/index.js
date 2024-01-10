@@ -14,9 +14,12 @@ import AlertTitle from '@mui/material/AlertTitle'
 import Button from '@mui/material/Button'
 import TextField from '@mui/material/TextField'
 import React, { useContext, useEffect, useState } from 'react'
+import { useCookies } from 'react-cookie'
+import { useNavigate } from 'react-router-dom'
 
 import { ApiContext } from '../../components/apiContext'
 import ErrorMessageSnackBar from '../../components/errorMessageSnackBar'
+import fetcher from '../../components/fetcher'
 import Title from '../../components/Title'
 import { useMode } from '../../theme'
 import RegisterEmbeddingModel from './register_embedding'
@@ -54,6 +57,8 @@ const RegisterModel = () => {
   })
   const [familyLabel, setFamilyLabel] = useState('')
   const [tabValue, setTabValue] = React.useState('1')
+  const [cookie] = useCookies(['token'])
+  const navigate = useNavigate()
 
   const errorModelName = formData.model_name.trim().length <= 0
   const errorModelDescription = formData.model_description.length < 0
@@ -81,6 +86,14 @@ const RegisterModel = () => {
     errorFamily
 
   useEffect(() => {
+    if (cookie.token === '' || cookie.token === undefined) {
+      return
+    }
+    if (cookie.token === 'need_auth') {
+      navigate('/login', { replace: true })
+      return
+    }
+
     const getBuiltinFamilies = async () => {
       const response = await fetch(endPoint + '/v1/models/families', {
         method: 'GET',
@@ -147,7 +160,7 @@ const RegisterModel = () => {
         console.error('Error: ', error)
       })
     }
-  })
+  }, [cookie.token])
 
   const getFamilyByAbility = () => {
     if (formData.model_ability.includes('chat')) {
@@ -232,7 +245,7 @@ const RegisterModel = () => {
     }
 
     try {
-      const response = await fetch(endPoint + '/v1/model_registrations/LLM', {
+      const response = await fetcher(endPoint + '/v1/model_registrations/LLM', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-12-25 17:11+0800\n"
+"POT-Creation-Date: 2024-01-10 11:33+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -17,7 +17,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Generated-By: Babel 2.11.0\n"
+"Generated-By: Babel 2.12.1\n"
 
 #: ../../source/user_guide/client_api.rst:5
 msgid "Client API"
@@ -39,8 +39,8 @@ msgid ""
 "can connect to the xinference server through this endpoint using the "
 "Client."
 msgstr ""
-"在命令日志里会打印服务地址，上述日志中为 `http://127.0.0.1:9997`。用户可以通过 "
-"Client 连接 Xinference 服务。"
+"在命令日志里会打印服务地址，上述日志中为 `http://127.0.0.1:9997`。用户可以通过 Client 连接 Xinference "
+"服务。"
 
 #: ../../source/user_guide/client_api.rst:20
 msgid ""
@@ -60,41 +60,89 @@ msgstr "列出所有内置支持的 LLM 模型："
 msgid "To initialize an LLM and chat:"
 msgstr "初始化一个大语言模型并且与之对话："
 
-#: ../../source/user_guide/client_api.rst:63
-msgid "Embedding"
-msgstr "Embedding"
+#: ../../source/user_guide/client_api.rst:41
+#: ../../source/user_guide/client_api.rst:162
+#: ../../source/user_guide/client_api.rst:233
+msgid "Xinference Client"
+msgstr "Xinference Client"
 
-#: ../../source/user_guide/client_api.rst:65
-msgid "To list the available built-in embedding models:"
-msgstr "列出所有内置支持的 embedding 模型："
+#: ../../source/user_guide/client_api.rst:66
+#: ../../source/user_guide/client_api.rst:194
+#: ../../source/user_guide/client_api.rst:257
+msgid "OpenAI Client"
+msgstr "OpenAI Client"
 
-#: ../../source/user_guide/client_api.rst:78
-msgid "To launch an embedding model and embed text:"
-msgstr "拉起 embedding 模型并使用文本向量化："
+#: ../../source/user_guide/client_api.rst:68
+msgid ""
+"Openai client request with the same function as before, excluding launch "
+"model. More details refer to: https://platform.openai.com/docs/api-"
+"reference/chat?lang=python"
+msgstr ""
+"使用 Openai 发送请求时，除了创建模型，其余的请求都保持与 Openai 的接口兼容。"
+"Openai 使用方式可以参考 https://platform.openai.com/docs/api-reference/chat?lang=python"
 
-#: ../../source/user_guide/client_api.rst:92
-#: ../../source/user_guide/client_api.rst:138
-#: ../../source/user_guide/client_api.rst:168
+#: ../../source/user_guide/client_api.rst:90
+msgid "OpenAI Client Tool Calls"
+msgstr "OpenAI 工具调用"
+
+#: ../../source/user_guide/client_api.rst:135
+#: ../../source/user_guide/client_api.rst:176
+#: ../../source/user_guide/client_api.rst:208
+#: ../../source/user_guide/client_api.rst:248
+#: ../../source/user_guide/client_api.rst:272
+#: ../../source/user_guide/client_api.rst:300
 msgid "Output:"
 msgstr "输出："
 
-#: ../../source/user_guide/client_api.rst:110
+#: ../../source/user_guide/client_api.rst:144
+msgid "Embedding"
+msgstr "Embedding"
+
+#: ../../source/user_guide/client_api.rst:146
+msgid "To list the available built-in embedding models:"
+msgstr "列出所有内置支持的 embedding 模型："
+
+#: ../../source/user_guide/client_api.rst:159
+msgid "To launch an embedding model and embed text:"
+msgstr "拉起 embedding 模型并使用文本向量化："
+
+#: ../../source/user_guide/client_api.rst:196
+msgid ""
+"Openai client request with the same function as before, excluding launch "
+"model. More details refer to: https://platform.openai.com/docs/api-"
+"reference/embeddings?lang=python"
+msgstr ""
+"使用 Openai 发送请求时，除了创建模型，其余的请求都保持与 Openai 的接口兼容。"
+"Openai 使用方式可以参考 https://platform.openai.com/docs/api-reference/embeddings?lang=python"
+
+
+#: ../../source/user_guide/client_api.rst:215
 msgid "Image"
 msgstr "图片"
 
-#: ../../source/user_guide/client_api.rst:112
+#: ../../source/user_guide/client_api.rst:217
 msgid "To list the available built-in image models:"
 msgstr "列出所有内置的文生图模型："
 
-#: ../../source/user_guide/client_api.rst:123
+#: ../../source/user_guide/client_api.rst:230
 msgid "To initiate an image model and generate an image using a text prompt:"
 msgstr "初始化一个文生图模型并通过提示词生成图片："
 
-#: ../../source/user_guide/client_api.rst:147
+#: ../../source/user_guide/client_api.rst:259
+msgid ""
+"Openai client request with the same function as before, excluding launch "
+"model. More details refer to: https://platform.openai.com/docs/api-"
+"reference/images/create?lang=python"
+msgstr ""
+"使用 Openai 发送请求时，除了创建模型，其余的请求都保持与 Openai 的接口兼容。"
+"Openai 使用方式可以参考 https://platform.openai.com/docs/api-reference/images/create?lang=python"
+
+
+#: ../../source/user_guide/client_api.rst:279
 msgid "Rerank"
 msgstr "Rerank"
 
-#: ../../source/user_guide/client_api.rst:148
+#: ../../source/user_guide/client_api.rst:280
 msgid "To launch a rerank model and compute the similarity scores:"
 msgstr "拉起 rerank 模型并计算文本相似度："
 

@@ -12,6 +12,7 @@ import IconButton from '@mui/material/IconButton'
 import React, { useContext, useEffect, useState } from 'react'
 
 import { ApiContext } from '../../components/apiContext'
+import fetcher from '../../components/fetcher'
 
 const CARD_HEIGHT = 270
 const CARD_WIDTH = 270
@@ -46,8 +47,8 @@ const EmbeddingCard = ({
       model_type: 'embedding',
     }
 
-    // First fetch request to initiate the model
-    fetch(url + '/v1/models', {
+    // First fetcher request to initiate the model
+    fetcher(url + '/v1/models', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -204,7 +205,7 @@ const EmbeddingCard = ({
 
   const handeCustomDelete = (e) => {
     e.stopPropagation()
-    fetch(url + `/v1/model_registrations/embedding/${modelData.model_name}`, {
+    fetcher(url + `/v1/model_registrations/embedding/${modelData.model_name}`, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
