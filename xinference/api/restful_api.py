@@ -444,8 +444,8 @@ class RESTfulAPI:
         if model_name == "qwen-chat":
             model_name = "qwen-vl-chat"
             model_type = "multimodal"
-            model_format = "pytorch"
-            quantization = None
+            model_format = "gptq"
+            quantization = "Int4"
 
         try:
             model_uid = await (await self._get_supervisor_ref()).launch_builtin_model(

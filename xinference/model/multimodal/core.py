@@ -203,6 +203,8 @@ def match_multimodal(
                 and matched_quantization is None
             ):
                 continue
+            # Copy spec to avoid _apply_format_to_model_id modify the original spec.
+            spec = spec.copy()
             if quantization:
                 return (
                     family,
@@ -328,6 +330,11 @@ def _skip_download(
                     logger.warning(f"Cache {cache_dir} exists, but it was from {hub}")
                     return True
             return False
+    elif model_format in ["ggmlv3", "ggufv2", "gptq"]:
+        assert quantization is not None
+        return os.path.exists(
+            _get_meta_path(cache_dir, model_format, model_hub, quantization)
+        )
     else:
         raise ValueError(f"Unsupported format: {model_format}")
 
@@ -414,7 +421,7 @@ def cache_from_huggingface(
     ):
         return cache_dir
 
-    if model_spec.model_format in ["pytorch"]:
+    if model_spec.model_format in ["pytorch", "gptq"]:
         assert isinstance(model_spec, LVLMSpecV1)
         retry_download(
             huggingface_hub.snapshot_download,
