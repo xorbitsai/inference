@@ -454,9 +454,10 @@ const RunningModels = () => {
             aria-label="tabs"
           >
             <Tab label="Language Models" value="1" />
-            <Tab label="Embedding Models" value="2" />
-            <Tab label="Image models" value="3" />
-            <Tab label="Rerank models" value="4" />
+            <Tab label="Multimodal Models" value="2" />
+            <Tab label="Embedding Models" value="3" />
+            <Tab label="Image models" value="4" />
+            <Tab label="Rerank models" value="5" />
           </TabList>
         </Box>
         <TabPanel value="1" sx={{ padding: 0 }}>
