@@ -27,6 +27,7 @@ import xoscar as xo
 
 from .api.oauth2.types import AuthConfig, AuthStartupConfig, User
 from .constants import XINFERENCE_LOG_BACKUP_COUNT, XINFERENCE_LOG_MAX_BYTES
+from .core.status_guard import StatusGuardActor
 from .core.supervisor import SupervisorActor
 from .deploy.utils import create_worker_actor_pool, get_log_file, get_timestamp_ms
 from .deploy.worker import start_worker_components
@@ -139,6 +140,9 @@ async def _start_test_cluster(
     try:
         pool = await create_worker_actor_pool(
             address=f"test://{address}", logging_conf=logging_conf
+        )
+        await xo.create_actor(
+            StatusGuardActor, address=address, uid=StatusGuardActor.uid()
         )
         await xo.create_actor(
             SupervisorActor, address=address, uid=SupervisorActor.uid()
