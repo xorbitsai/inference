@@ -72,7 +72,7 @@ Xinferenceを体験する最軽量な方法は、私たちの[Google Colab上の
 
 ### Docker
 
-あなたは[Xinference Dockerイメージ](https://inference.readthedocs.io/en/latest/getting_started/using_docker_image.html)を使用してXinferenceサーバーを開始することができます。インストールコマンドを実行する前に、システムに[Docker](https://docs.docker.com/get-docker/)と[CUDA](https://developer.nvidia.com/cuda-downloads)が設定されていることを確認してください。
+Nvidia GPUユーザーは、[Xinference Dockerイメージ](https://inference.readthedocs.io/en/latest/getting_started/using_docker_image.html)を使用してXinferenceサーバーを開始することができます。インストールコマンドを実行する前に、システムに[Docker](https://docs.docker.com/get-docker/)と[CUDA](https://developer.nvidia.com/cuda-downloads)が設定されていることを確認してください。
 
 ### クイックスタート
 

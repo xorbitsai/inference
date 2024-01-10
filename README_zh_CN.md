@@ -84,7 +84,7 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 
 ### Docker
 
-你可以使用[Xinference Docker镜像](https://inference.readthedocs.io/zh-cn/latest/getting_started/using_docker_image.html)启动Xinference服务器。在执行安装命令之前，确保你的系统中已经安装了[Docker](https://docs.docker.com/get-docker/)和[CUDA](https://developer.nvidia.com/cuda-downloads)。
+Nvidia GPU 用户可以使用[Xinference Docker 镜像](https://inference.readthedocs.io/zh-cn/latest/getting_started/using_docker_image.html) 启动 Xinference 服务器。在执行安装命令之前，确保你的系统中已经安装了 [Docker](https://docs.docker.com/get-docker/) 和 [CUDA](https://developer.nvidia.com/cuda-downloads)。
 
 ### 快速开始
 
