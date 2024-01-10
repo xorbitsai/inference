@@ -50,7 +50,7 @@ class GgmlLLMSpecV1(BaseModel):
     # Must in order that `str` first, then `int`
     model_size_in_billions: Union[str, int]
     quantizations: List[str]
-    model_id: str
+    model_id: Optional[str]
     model_file_name_template: str
     model_hub: str = "huggingface"
     model_uri: Optional[str]
@@ -73,7 +73,7 @@ class PytorchLLMSpecV1(BaseModel):
     # Must in order that `str` first, then `int`
     model_size_in_billions: Union[str, int]
     quantizations: List[str]
-    model_id: str
+    model_id: Optional[str]
     model_hub: str = "huggingface"
     model_uri: Optional[str]
     model_revision: Optional[str]
@@ -413,7 +413,7 @@ def _get_cache_dir(
     # quantization a dedicated cache dir.
     quant_suffix = ""
     for q in llm_spec.quantizations:
-        if q in llm_spec.model_id:
+        if llm_spec.model_id and q in llm_spec.model_id:
             quant_suffix = q
             break
     cache_dir_name = (
@@ -726,7 +726,7 @@ def match_llm(
     def _apply_format_to_model_id(spec: LLMSpecV1, q: str) -> LLMSpecV1:
         # Different quantized versions of some models use different model ids,
         # Here we check the `{}` in the model id to format the id.
-        if "{" in spec.model_id:
+        if spec.model_id and "{" in spec.model_id:
             spec.model_id = spec.model_id.format(quantization=q)
         return spec
 

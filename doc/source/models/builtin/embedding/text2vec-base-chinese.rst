@@ -14,7 +14,7 @@ Specifications
 - **Dimensions:** 768
 - **Max Tokens:** 128
 - **Model ID:** shibing624/text2vec-base-chinese
-- **Model Hubs**: `Hugging Face <https://huggingface.co/shibing624/text2vec-base-chinese>`_
+- **Model Hubs**: `Hugging Face <https://huggingface.co/shibing624/text2vec-base-chinese>`_, `ModelScope <https://modelscope.cn/models/Jerry0/text2vec-base-chinese>`_
 
 Execute the following command to launch the model::
 
