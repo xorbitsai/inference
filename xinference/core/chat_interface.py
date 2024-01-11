@@ -34,7 +34,7 @@ from ..types import ChatCompletionMessage
 logger = logging.getLogger(__name__)
 
 
-class LLMInterface:
+class GradioInterface:
     def __init__(
         self,
         endpoint: str,

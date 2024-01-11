@@ -622,7 +622,7 @@ class RESTfulAPI:
         but calling API in async function does not return
         """
         assert self._app is not None
-        assert body.model_type == "LLM"
+        assert body.model_type in ["LLM", "multimodal"]
 
         # asyncio.Lock() behaves differently in 3.9 than 3.10+
         # A event loop is required in 3.9 but not 3.10+
@@ -636,12 +636,12 @@ class RESTfulAPI:
                 )
                 asyncio.set_event_loop(asyncio.new_event_loop())
 
-        from ..core.chat_interface import LLMInterface
+        from ..core.chat_interface import GradioInterface
 
         try:
             access_token = request.headers.get("Authorization")
             internal_host = "localhost" if self._host == "0.0.0.0" else self._host
-            interface = LLMInterface(
+            interface = GradioInterface(
                 endpoint=f"http://{internal_host}:{self._port}",
                 model_uid=model_uid,
                 model_name=body.model_name,
