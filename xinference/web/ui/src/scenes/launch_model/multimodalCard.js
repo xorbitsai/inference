@@ -28,7 +28,12 @@ import fetcher from '../../components/fetcher'
 const CARD_HEIGHT = 380
 const CARD_WIDTH = 300
 
-const MultimodalCard = ({ url, modelData, gpuAvailable, is_custom = false }) => {
+const MultimodalCard = ({
+  url,
+  modelData,
+  gpuAvailable,
+  is_custom = false,
+}) => {
   const [hover, setHover] = useState(false)
   const [selected, setSelected] = useState(false)
   const { isCallingApi, setIsCallingApi } = useContext(ApiContext)

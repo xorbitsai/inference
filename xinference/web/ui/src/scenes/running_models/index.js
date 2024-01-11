@@ -40,7 +40,9 @@ const RunningModels = () => {
     }
     if (isCallingApi) {
       setLlmData([{ id: 'Loading, do not refresh page...', url: 'IS_LOADING' }])
-      setMultimodalData([{ id: 'Loading, do not refresh page...', url: 'IS_LOADING' }])
+      setMultimodalData([
+        { id: 'Loading, do not refresh page...', url: 'IS_LOADING' },
+      ])
       setEmbeddingModelData([
         { id: 'Loading, do not refresh page...', url: 'IS_LOADING' },
       ])
@@ -81,7 +83,7 @@ const RunningModels = () => {
                   newLlmData.push(newValue)
                 } else if (newValue.model_type === 'multimodal') {
                   newMultimodalData.push(newValue)
-                }else if (newValue.model_type === 'embedding') {
+                } else if (newValue.model_type === 'embedding') {
                   newEmbeddingModelData.push(newValue)
                 } else if (newValue.model_type === 'image') {
                   newImageModelData.push(newValue)

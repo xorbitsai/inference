@@ -185,7 +185,7 @@ class GradioInterface:
         self,
     ) -> "gr.Blocks":
         def predict(history, bot):
-            logger.info("Predict.")
+            logger.debug("Predict.")
             from ..client import RESTfulClient
 
             client = RESTfulClient(self.endpoint)
@@ -202,7 +202,7 @@ class GradioInterface:
             return history, bot
 
         def add_text(history, bot, text, image):
-            logger.info("Add text, text: %s, image: %s", text, image)
+            logger.debug("Add text, text: %s, image: %s", text, image)
             if image:
                 buffered = BytesIO()
                 with PIL.Image.open(image) as img:
@@ -225,7 +225,7 @@ class GradioInterface:
             return history, bot, "", None
 
         def clear_history():
-            logger.info("Clear history.")
+            logger.debug("Clear history.")
             return [], None, "", None
 
         def update_button(text):
@@ -278,10 +278,12 @@ class GradioInterface:
                         placeholder="Enter text and press ENTER",
                         container=False,
                     )
-                    submit_btn = gr.Button(value="Send", variant="primary")
+                    submit_btn = gr.Button(
+                        value="Send", variant="primary", interactive=False
+                    )
                     clear_btn = gr.Button(value="Clear")
 
-            textbox.input(update_button, [textbox], [submit_btn])
+            textbox.change(update_button, [textbox], [submit_btn], queue=False)
 
             textbox.submit(
                 add_text,
