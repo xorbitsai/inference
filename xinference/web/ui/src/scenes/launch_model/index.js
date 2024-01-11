@@ -78,7 +78,7 @@ const LaunchModel = () => {
           <LaunchLLM gpuAvailable={gpuAvailable} />
         </TabPanel>
         <TabPanel value="2" sx={{ padding: 0 }}>
-          <LaunchMultimodal />
+          <LaunchMultimodal gpuAvailable={gpuAvailable} />
         </TabPanel>
         <TabPanel value="3" sx={{ padding: 0 }}>
           <LaunchEmbedding />
