@@ -15,6 +15,7 @@
 import base64
 import logging
 import os
+import re
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
@@ -101,7 +102,7 @@ class DiffusionModel:
             def _gen_base64_image(_img):
                 buffered = BytesIO()
                 _img.save(buffered, format="jpeg")
-                return base64.b64encode(buffered.getvalue())
+                return base64.b64encode(buffered.getvalue()).decode()
 
             with ThreadPoolExecutor() as executor:
                 results = list(map(partial(executor.submit, _gen_base64_image), images))
@@ -120,7 +121,7 @@ class DiffusionModel:
     ):
         # References:
         # https://huggingface.co/docs/diffusers/main/en/api/pipelines/controlnet_sdxl
-        width, height = map(int, size.split("*"))
+        width, height = map(int, re.split(r"[^\d]+", size))
         return self._call_model(
             prompt=prompt,
             height=height,
@@ -140,7 +141,7 @@ class DiffusionModel:
         response_format: str = "url",
         **kwargs,
     ):
-        width, height = map(int, size.split("*"))
+        width, height = map(int, re.split(r"[^\d]+", size))
         return self._call_model(
             image=image,
             prompt=prompt,
