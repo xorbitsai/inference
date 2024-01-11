@@ -228,6 +228,9 @@ class GradioInterface:
             logger.info("Clear history.")
             return [], None, "", None
 
+        def update_button(text):
+            return gr.update(interactive=bool(text))
+
         with gr.Blocks(
             title=f"🚀 Xinference Chat Bot : {self.model_name} 🚀",
             css="""
@@ -277,6 +280,8 @@ class GradioInterface:
                     )
                     submit_btn = gr.Button(value="Send", variant="primary")
                     clear_btn = gr.Button(value="Clear")
+
+            textbox.input(update_button, [textbox], [submit_btn])
 
             textbox.submit(
                 add_text,
