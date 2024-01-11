@@ -21,7 +21,6 @@ import {
 import IconButton from '@mui/material/IconButton'
 import Typography from '@mui/material/Typography'
 import React, { useContext, useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 
 import { ApiContext } from '../../components/apiContext'
 import fetcher from '../../components/fetcher'
@@ -29,13 +28,17 @@ import fetcher from '../../components/fetcher'
 const CARD_HEIGHT = 380
 const CARD_WIDTH = 300
 
-const ModelCard = ({ url, modelData, gpuAvailable, is_custom = false }) => {
+const MultimodalCard = ({
+  url,
+  modelData,
+  gpuAvailable,
+  is_custom = false,
+}) => {
   const [hover, setHover] = useState(false)
   const [selected, setSelected] = useState(false)
   const { isCallingApi, setIsCallingApi } = useContext(ApiContext)
   const { isUpdatingModel } = useContext(ApiContext)
   const { setErrorMsg } = useContext(ApiContext)
-  const navigate = useNavigate()
 
   // Model parameter selections
   const [modelUID, setModelUID] = useState('')
@@ -116,6 +119,7 @@ const ModelCard = ({ url, modelData, gpuAvailable, is_custom = false }) => {
 
     const modelDataWithID = {
       // If user does not fill model_uid, pass null (None) to server and server generates it.
+      model_type: 'multimodal',
       model_uid: modelUID.trim() === '' ? null : modelUID.trim(),
       model_name: modelData.model_name,
       model_format: modelFormat,
@@ -144,7 +148,7 @@ const ModelCard = ({ url, modelData, gpuAvailable, is_custom = false }) => {
             )
           })
         } else {
-          navigate('/running_models')
+          window.open(url + '/ui/#/running_models', '_blank', 'noreferrer')
         }
         setIsCallingApi(false)
       })
@@ -608,4 +612,4 @@ const ModelCard = ({ url, modelData, gpuAvailable, is_custom = false }) => {
   )
 }
 
-export default ModelCard
+export default MultimodalCard
