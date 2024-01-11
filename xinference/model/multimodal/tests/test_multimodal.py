@@ -18,7 +18,10 @@ import requests
 
 
 @pytest.mark.skip(reason="Cost too many resources.")
-def test_restful_api_for_qwen_vl(setup):
+@pytest.mark.parametrize(
+    "model_format, quantization", [("pytorch", None), ("gptq", "Int4")]
+)
+def test_restful_api_for_qwen_vl(setup, model_format, quantization):
     endpoint, _ = setup
     from ....client import Client
 
@@ -28,6 +31,8 @@ def test_restful_api_for_qwen_vl(setup):
         model_uid="my_controlnet",
         model_name="qwen-vl-chat",
         model_type="multimodal",
+        model_format=model_format,
+        quantization=quantization,
     )
     model = client.get_model(model_uid)
     prompt = [

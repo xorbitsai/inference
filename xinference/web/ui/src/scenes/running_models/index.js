@@ -15,6 +15,7 @@ import Title from '../../components/Title'
 const RunningModels = () => {
   const [tabValue, setTabValue] = React.useState('1')
   const [llmData, setLlmData] = useState([])
+  const [multimodalData, setMultimodalData] = useState([])
   const [embeddingModelData, setEmbeddingModelData] = useState([])
   const [imageModelData, setImageModelData] = useState([])
   const [rerankModelData, setRerankModelData] = useState([])
@@ -39,6 +40,9 @@ const RunningModels = () => {
     }
     if (isCallingApi) {
       setLlmData([{ id: 'Loading, do not refresh page...', url: 'IS_LOADING' }])
+      setMultimodalData([
+        { id: 'Loading, do not refresh page...', url: 'IS_LOADING' },
+      ])
       setEmbeddingModelData([
         { id: 'Loading, do not refresh page...', url: 'IS_LOADING' },
       ])
@@ -65,6 +69,7 @@ const RunningModels = () => {
           } else {
             response.json().then((data) => {
               const newLlmData = []
+              const newMultimodalData = []
               const newEmbeddingModelData = []
               const newImageModelData = []
               const newRerankModelData = []
@@ -76,6 +81,8 @@ const RunningModels = () => {
                 }
                 if (newValue.model_type === 'LLM') {
                   newLlmData.push(newValue)
+                } else if (newValue.model_type === 'multimodal') {
+                  newMultimodalData.push(newValue)
                 } else if (newValue.model_type === 'embedding') {
                   newEmbeddingModelData.push(newValue)
                 } else if (newValue.model_type === 'image') {
@@ -85,6 +92,7 @@ const RunningModels = () => {
                 }
               })
               setLlmData(newLlmData)
+              setMultimodalData(newMultimodalData)
               setEmbeddingModelData(newEmbeddingModelData)
               setImageModelData(newImageModelData)
               setRerankModelData(newRerankModelData)
@@ -448,9 +456,10 @@ const RunningModels = () => {
             aria-label="tabs"
           >
             <Tab label="Language Models" value="1" />
-            <Tab label="Embedding Models" value="2" />
-            <Tab label="Image models" value="3" />
-            <Tab label="Rerank models" value="4" />
+            <Tab label="Multimodal Models" value="2" />
+            <Tab label="Embedding Models" value="3" />
+            <Tab label="Image models" value="4" />
+            <Tab label="Rerank models" value="5" />
           </TabList>
         </Box>
         <TabPanel value="1" sx={{ padding: 0 }}>
@@ -470,6 +479,20 @@ const RunningModels = () => {
         <TabPanel value="2" sx={{ padding: 0 }}>
           <Box sx={{ height: '100%', width: '100%' }}>
             <DataGrid
+              rows={multimodalData}
+              columns={llmColumns}
+              autoHeight={true}
+              sx={dataGridStyle}
+              slots={{
+                noRowsOverlay: noRowsOverlay,
+                noResultsOverlay: noResultsOverlay,
+              }}
+            />
+          </Box>
+        </TabPanel>
+        <TabPanel value="3" sx={{ padding: 0 }}>
+          <Box sx={{ height: '100%', width: '100%' }}>
+            <DataGrid
               rows={embeddingModelData}
               columns={embeddingModelColumns}
               autoHeight={true}
@@ -481,7 +504,7 @@ const RunningModels = () => {
             />
           </Box>
         </TabPanel>
-        <TabPanel value="3" sx={{ padding: 0 }}>
+        <TabPanel value="4" sx={{ padding: 0 }}>
           <Box sx={{ height: '100%', width: '100%' }}>
             <DataGrid
               rows={imageModelData}
@@ -495,7 +518,7 @@ const RunningModels = () => {
             />
           </Box>
         </TabPanel>
-        <TabPanel value="4" sx={{ padding: 0 }}>
+        <TabPanel value="5" sx={{ padding: 0 }}>
           <Box sx={{ height: '100%', width: '100%' }}>
             <DataGrid
               rows={rerankModelData}

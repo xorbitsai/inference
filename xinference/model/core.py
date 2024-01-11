@@ -78,7 +78,14 @@ def create_model_instance(
     elif model_type == "multimodal":
         kwargs.pop("trust_remote_code", None)
         return create_multimodal_model_instance(
-            subpool_addr, devices, model_uid, model_name, **kwargs
+            subpool_addr,
+            devices,
+            model_uid,
+            model_name,
+            model_format,
+            model_size_in_billions,
+            quantization,
+            **kwargs,
         )
     else:
         raise ValueError(f"Unsupported model type: {model_type}.")
