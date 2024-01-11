@@ -73,14 +73,7 @@ class QwenVLChat(LVLM):
 
     def _message_content_to_qwen(self, content) -> str:
         def _ensure_url(_url):
-            try:
-                if _url.startswith("data:"):
-                    raise "Not a valid url."
-                parsed = urlparse(_url)
-                if not parsed.scheme:
-                    raise "Not a valid url."
-                return _url
-            except Exception:
+            if _url.startswith("data:"):
                 logging.info("Parse url by base64 decoder.")
                 # https://platform.openai.com/docs/guides/vision/uploading-base-64-encoded-images
                 # e.g. f"data:image/jpeg;base64,{base64_image}"
@@ -93,6 +86,10 @@ class QwenVLChat(LVLM):
                     f.write(data)
                 logging.info("Dump base64 data to %s", f.name)
                 return f.name
+            else:
+                if len(_url) > 2048:
+                    raise Exception(f"Image url is too long, {len(_url)} > 2048.")
+                return _url
 
         if not isinstance(content, str):
             # TODO(codingl2k1): Optimize _ensure_url
