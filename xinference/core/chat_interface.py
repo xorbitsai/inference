@@ -185,10 +185,11 @@ class GradioInterface:
         self,
     ) -> "gr.Blocks":
         def predict(history, bot):
-            logger.debug("Predict.")
+            logger.debug("Predict model: %s, history: %s", self.model_uid, history)
             from ..client import RESTfulClient
 
             client = RESTfulClient(self.endpoint)
+            client._set_token(self._access_token)
             model = client.get_model(self.model_uid)
             assert isinstance(model, RESTfulMultimodalModelHandle)
 
