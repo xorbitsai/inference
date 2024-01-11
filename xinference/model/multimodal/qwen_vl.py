@@ -18,7 +18,6 @@ import tempfile
 import time
 import uuid
 from typing import Dict, Iterator, List, Optional, Union
-from urllib.parse import urlparse
 
 from ...types import (
     ChatCompletion,
