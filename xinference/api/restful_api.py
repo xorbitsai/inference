@@ -580,13 +580,6 @@ class RESTfulAPI:
                 detail="Invalid input. Please specify the model name",
             )
 
-        # For test
-        if model_name == "qwen-chat":
-            model_name = "qwen-vl-chat"
-            model_type = "multimodal"
-            model_format = "gptq"
-            quantization = "Int4"
-
         try:
             model_uid = await (await self._get_supervisor_ref()).launch_builtin_model(
                 model_uid=model_uid,
