@@ -415,7 +415,7 @@ class WorkerActor(xo.StatelessActor):
             await model_ref.load()
             await self._status_guard_ref.update_instance_info(
                 origin_uid,
-                {"model_ablity": abilities, "status": LaunchStatus.READY.name},
+                {"status": LaunchStatus.READY.name},
             )
         except:
             logger.error(f"Failed to load model {model_uid}", exc_info=True)
