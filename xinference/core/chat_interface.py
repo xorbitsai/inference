@@ -193,6 +193,8 @@ class GradioInterface:
             assert isinstance(model, RESTfulMultimodalModelHandle)
 
             prompt = history[-1]
+            assert prompt["role"] == "user"
+            prompt = prompt["content"]
             response = model.chat(prompt=prompt, chat_history=history[:-1])
             print(response)
 
