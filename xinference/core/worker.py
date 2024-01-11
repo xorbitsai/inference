@@ -339,6 +339,8 @@ class WorkerActor(xo.StatelessActor):
     ):
         launch_args = locals()
         launch_args.pop("self")
+        launch_args.pop("kwargs")
+        launch_args.update(kwargs)
         if n_gpu is not None:
             if isinstance(n_gpu, int) and (n_gpu <= 0 or n_gpu > cuda_count()):
                 raise ValueError(
