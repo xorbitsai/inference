@@ -512,7 +512,12 @@ const MultimodalCard = ({
                 >
                   {['auto']
                     .concat(
-                      range(0, modelFormat !== 'pytorch' ? 1 : gpuAvailable)
+                      range(
+                        0,
+                        modelFormat !== 'pytorch' && modelFormat !== 'gptq'
+                          ? 1
+                          : gpuAvailable
+                      )
                     )
                     .map((v) => {
                       return (
