@@ -21,7 +21,7 @@ Model Spec 1 (gptq, 34 Billion)
 - **Model Size (in billions):** 34
 - **Quantizations:** 8bits
 - **Model ID:** 01-ai/Yi-34B-Chat-{quantization}
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/01-ai/Yi-34B-Chat-{quantization}>`_
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/01-ai/Yi-34B-Chat-{quantization}>`_, `ModelScope <https://modelscope.cn/models/01ai/Yi-34B-Chat-{quantization}>`_
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
