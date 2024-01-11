@@ -192,7 +192,8 @@ class GradioInterface:
             model = client.get_model(self.model_uid)
             assert isinstance(model, RESTfulMultimodalModelHandle)
 
-            response = model.chat(chat_history=history)
+            prompt = history[-1]
+            response = model.chat(prompt=prompt, chat_history=history[:-1])
             print(response)
 
             return history, bot
