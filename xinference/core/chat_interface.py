@@ -195,9 +195,10 @@ class GradioInterface:
             prompt = history[-1]
             assert prompt["role"] == "user"
             prompt = prompt["content"]
+            # multimodal chat does not support stream.
             response = model.chat(prompt=prompt, chat_history=history[:-1])
-            print(response)
-
+            history.append(response["choices"][0]["message"])
+            bot[-1][1] = history[-1]["content"]
             return history, bot
 
         def add_text(history, bot, text, image):
