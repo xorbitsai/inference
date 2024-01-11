@@ -14,7 +14,22 @@ Specifications
 ^^^^^^^^^^^^^^
 
 
-Model Spec 1 (pytorch, 34 Billion)
+Model Spec 1 (gptq, 34 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** gptq
+- **Model Size (in billions):** 34
+- **Quantizations:** 8bits
+- **Model ID:** 01-ai/Yi-34B-Chat-{quantization}
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/01-ai/Yi-34B-Chat-{quantization}>`_, `ModelScope <https://modelscope.cn/models/01ai/Yi-34B-Chat-{quantization}>`_
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-name Yi-chat --size-in-billions 34 --model-format gptq --quantization ${quantization}
+
+
+Model Spec 2 (pytorch, 34 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** pytorch
@@ -29,7 +44,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-name Yi-chat --size-in-billions 34 --model-format pytorch --quantization ${quantization}
 
 
-Model Spec 2 (ggufv2, 34 Billion)
+Model Spec 3 (ggufv2, 34 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** ggufv2
