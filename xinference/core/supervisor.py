@@ -459,10 +459,13 @@ class SupervisorActor(xo.StatelessActor):
         return f"{model_name}-{gen_random_string(8)}"
 
     async def get_launch_versions(self, model_type: str, model_name: str) -> List[str]:
+        from ..model.embedding import get_embedding_launch_versions
         from ..model.llm.llm_family import get_llm_launch_versions
 
         if model_type == "LLM":
             all_launch_versions = get_llm_launch_versions()
+        elif model_type == "embedding":
+            all_launch_versions = get_embedding_launch_versions()
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
 

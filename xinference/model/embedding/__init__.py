@@ -17,7 +17,15 @@ import json
 import os
 
 from .core import MODEL_NAME_TO_REVISION, EmbeddingModelSpec, get_cache_status
-from .custom import CustomEmbeddingModelSpec, register_embedding, unregister_embedding
+from .custom import (
+    EMBEDDING_LAUNCH_VERSIONS,
+    CustomEmbeddingModelSpec,
+    get_embedding_launch_versions,
+    get_user_defined_embeddings,
+    register_embedding,
+    unregister_embedding,
+)
+from .utils import get_launch_version
 
 _model_spec_json = os.path.join(os.path.dirname(__file__), "model_spec.json")
 _model_spec_modelscope_json = os.path.join(
@@ -29,6 +37,8 @@ BUILTIN_EMBEDDING_MODELS = dict(
 )
 for model_name, model_spec in BUILTIN_EMBEDDING_MODELS.items():
     MODEL_NAME_TO_REVISION[model_name].append(model_spec.model_revision)
+    # register launch version
+    EMBEDDING_LAUNCH_VERSIONS.update(get_launch_version(model_spec))
 MODELSCOPE_EMBEDDING_MODELS = dict(
     (spec["model_name"], EmbeddingModelSpec(**spec))
     for spec in json.load(
@@ -37,6 +47,9 @@ MODELSCOPE_EMBEDDING_MODELS = dict(
 )
 for model_name, model_spec in MODELSCOPE_EMBEDDING_MODELS.items():
     MODEL_NAME_TO_REVISION[model_name].append(model_spec.model_revision)
+    # register launch version
+    if model_spec.model_name not in EMBEDDING_LAUNCH_VERSIONS:
+        EMBEDDING_LAUNCH_VERSIONS.update(get_launch_version(model_spec))
 
 from ...constants import XINFERENCE_MODEL_DIR
 
@@ -46,6 +59,10 @@ if os.path.isdir(user_defined_llm_dir):
         with codecs.open(os.path.join(user_defined_llm_dir, f), encoding="utf-8") as fd:
             user_defined_llm_family = CustomEmbeddingModelSpec.parse_obj(json.load(fd))
             register_embedding(user_defined_llm_family, persist=False)
+
+for ud_embedding in get_user_defined_embeddings():
+    # register launch version
+    EMBEDDING_LAUNCH_VERSIONS.update(get_launch_version(ud_embedding))
 
 del _model_spec_json
 del _model_spec_modelscope_json

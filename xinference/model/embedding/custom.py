@@ -14,10 +14,11 @@
 import logging
 import os
 from threading import Lock
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from ...constants import XINFERENCE_CACHE_DIR, XINFERENCE_MODEL_DIR
 from .core import EmbeddingModelSpec
+from .utils import get_launch_version
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +33,13 @@ class CustomEmbeddingModelSpec(EmbeddingModelSpec):
 
 
 UD_EMBEDDINGS: List[CustomEmbeddingModelSpec] = []
+
+EMBEDDING_LAUNCH_VERSIONS: Dict[str, List[str]] = {}
+
+
+def get_embedding_launch_versions():
+    with UD_EMBEDDING_LOCK:
+        return EMBEDDING_LAUNCH_VERSIONS.copy()
 
 
 def get_user_defined_embeddings() -> List[EmbeddingModelSpec]:
@@ -59,6 +67,7 @@ def register_embedding(model_spec: CustomEmbeddingModelSpec, persist: bool):
                 )
 
         UD_EMBEDDINGS.append(model_spec)
+        EMBEDDING_LAUNCH_VERSIONS.update(get_launch_version(model_spec))
 
     if persist:
         # We only validate model URL when persist is True.
@@ -83,6 +92,7 @@ def unregister_embedding(model_name: str, raise_error: bool = True):
                 break
         if model_spec:
             UD_EMBEDDINGS.remove(model_spec)
+            EMBEDDING_LAUNCH_VERSIONS.pop(model_spec.model_name, None)
 
             persist_path = os.path.join(
                 XINFERENCE_MODEL_DIR, "embedding", f"{model_spec.model_name}.json"
