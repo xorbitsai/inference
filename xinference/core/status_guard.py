@@ -22,10 +22,10 @@ logger = getLogger(__name__)
 
 
 class LaunchStatus(Enum):
-    CREATING = (1,)
-    UPDATING = (2,)
-    TERMINATING = (3,)
-    READY = (4,)
+    CREATING = 1
+    UPDATING = 2
+    TERMINATING = 3
+    READY = 4
     ERROR = 5
 
 

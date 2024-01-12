@@ -255,7 +255,7 @@ class RESTfulAPI:
         # running instances
         self._router.add_api_route(
             "/v1/models/instances",
-            self.get_instances_info,
+            self.get_instance_info,
             methods=["GET"],
             dependencies=[Security(verify_token, scopes=["models:list"])]
             if self.is_authenticated()
@@ -618,13 +618,13 @@ class RESTfulAPI:
 
         return JSONResponse(content={"model_uid": model_uid})
 
-    async def get_instances_info(
+    async def get_instance_info(
         self,
         model_name: Optional[str] = Query(None),
         model_uid: Optional[str] = Query(None),
     ) -> JSONResponse:
         try:
-            infos = await (await self._get_supervisor_ref()).get_instances_info(
+            infos = await (await self._get_supervisor_ref()).get_instance_info(
                 model_name, model_uid
             )
         except Exception as e:

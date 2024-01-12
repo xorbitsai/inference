@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import asyncio
+import functools
 import itertools
 import time
 from dataclasses import dataclass
@@ -47,6 +48,13 @@ logger = getLogger(__name__)
 
 
 DEFAULT_NODE_TIMEOUT = 60
+ASYNC_LAUNCH_TASKS = {}  # type: ignore
+
+
+def callback_for_async_launch(model_uid: str):
+    print("================here")
+    ASYNC_LAUNCH_TASKS.pop(model_uid, None)
+    logger.debug(f"Model uid: {model_uid} async launch completes.")
 
 
 @dataclass
@@ -599,10 +607,14 @@ class SupervisorActor(xo.StatelessActor):
         if wait_ready:
             await _launch_model()
         else:
-            _ = asyncio.create_task(_launch_model())
+            task = asyncio.create_task(_launch_model())
+            ASYNC_LAUNCH_TASKS[model_uid] = task
+            task.add_done_callback(
+                functools.partial(callback_for_async_launch, model_uid)
+            )
         return model_uid
 
-    async def get_instances_info(
+    async def get_instance_info(
         self, model_name: Optional[str], model_uid: Optional[str]
     ) -> List[Dict]:
         infos = await self._status_guard_ref.get_instance_info(
