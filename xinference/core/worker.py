@@ -62,15 +62,26 @@ class WorkerActor(xo.StatelessActor):
         self._lock = asyncio.Lock()
 
     async def recover_sub_pool(self, address):
-        logger.warning("Process %s is down, create model.", address)
+        logger.warning("Process %s is down.", address)
+        # Xoscar does not remove the address from sub_processes.
+        try:
+            await self._main_pool.remove_sub_pool(address)
+        except Exception:
+            pass
         for model_uid, addr in self._model_uid_to_addr.items():
             if addr == address:
                 launch_args = self._model_uid_to_launch_args.get(model_uid)
-                try:
-                    await self.terminate_model(model_uid)
-                except Exception:
-                    pass
-                await self.launch_builtin_model(**launch_args)
+                if launch_args is None:
+                    logger.warning(
+                        "Not recreate model because the it is down during launch."
+                    )
+                else:
+                    logger.warning("Recreating model actor %s ...", model_uid)
+                    try:
+                        await self.terminate_model(model_uid)
+                    except Exception:
+                        pass
+                    await self.launch_builtin_model(**launch_args)
                 break
 
     @classmethod
