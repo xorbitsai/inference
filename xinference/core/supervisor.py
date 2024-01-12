@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import asyncio
-import functools
 import itertools
 import time
 from dataclasses import dataclass
@@ -52,7 +51,6 @@ ASYNC_LAUNCH_TASKS = {}  # type: ignore
 
 
 def callback_for_async_launch(model_uid: str):
-    print("================here")
     ASYNC_LAUNCH_TASKS.pop(model_uid, None)
     logger.debug(f"Model uid: {model_uid} async launch completes.")
 
@@ -609,9 +607,7 @@ class SupervisorActor(xo.StatelessActor):
         else:
             task = asyncio.create_task(_launch_model())
             ASYNC_LAUNCH_TASKS[model_uid] = task
-            task.add_done_callback(
-                functools.partial(callback_for_async_launch, model_uid)
-            )
+            task.add_done_callback(lambda _: callback_for_async_launch(model_uid))
         return model_uid
 
     async def get_instance_info(
