@@ -212,6 +212,8 @@ UD_LLM_FAMILIES: List["LLMFamilyV1"] = []
 
 UD_LLM_FAMILIES_LOCK = Lock()
 
+LLM_LAUNCH_VERSIONS: Dict[str, List[str]] = {}
+
 
 def download_from_self_hosted_storage() -> bool:
     from ...constants import XINFERENCE_ENV_MODEL_SRC
@@ -711,6 +713,11 @@ def get_user_defined_llm_families():
         return UD_LLM_FAMILIES.copy()
 
 
+def get_llm_launch_versions():
+    with UD_LLM_FAMILIES_LOCK:
+        return LLM_LAUNCH_VERSIONS.copy()
+
+
 def match_llm(
     model_name: str,
     model_format: Optional[str] = None,
@@ -796,6 +803,7 @@ def match_llm(
 
 def register_llm(llm_family: LLMFamilyV1, persist: bool):
     from ..utils import is_valid_model_name
+    from .utils import get_launch_version
 
     if not is_valid_model_name(llm_family.model_name):
         raise ValueError(f"Invalid model name {llm_family.model_name}.")
@@ -808,6 +816,7 @@ def register_llm(llm_family: LLMFamilyV1, persist: bool):
                 )
 
         UD_LLM_FAMILIES.append(llm_family)
+        LLM_LAUNCH_VERSIONS.update(get_launch_version(llm_family))
 
     if persist:
         # We only validate model URL when persist is True.
@@ -833,6 +842,7 @@ def unregister_llm(model_name: str, raise_error: bool = True):
                 break
         if llm_family:
             UD_LLM_FAMILIES.remove(llm_family)
+            LLM_LAUNCH_VERSIONS.pop(llm_family.model_name, None)
 
             persist_path = os.path.join(
                 XINFERENCE_MODEL_DIR, "llm", f"{llm_family.model_name}.json"

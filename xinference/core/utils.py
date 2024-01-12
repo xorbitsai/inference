@@ -15,7 +15,7 @@ import logging
 import os
 import random
 import string
-from typing import Generator, Tuple
+from typing import Generator, List, Tuple, Union
 
 import orjson
 from pydantic import BaseModel
@@ -125,3 +125,18 @@ def purge_dir(d):
                 os.rmdir(subdir)
         except Exception:
             pass
+
+
+def parse_model_launch_version(model_version: str) -> Tuple:
+    results: List[str] = model_version.split("--")
+    if len(results) != 4:
+        raise ValueError(f"model_version parses failed! model_version: {model_version}")
+    model_name = results[0]
+    size = results[1]
+    if not size.endswith("B"):
+        raise ValueError(f"Cannot parse model_size_in_billions: {size}")
+    size = size.rstrip("B")
+    size_in_billions: Union[int, str] = size if "_" in size else int(size)
+    model_format = results[2]
+    quantization = results[3]
+    return model_name, size_in_billions, model_format, quantization

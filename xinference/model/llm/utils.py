@@ -16,9 +16,10 @@ import json
 import logging
 import time
 import uuid
+from collections import defaultdict
 from typing import AsyncGenerator, Dict, Iterator, List, Optional, cast
 
-from xinference.model.llm.llm_family import PromptStyleV1
+from xinference.model.llm.llm_family import LLMFamilyV1, PromptStyleV1
 
 from ...types import (
     SPECIAL_TOOL_PROMPT,
@@ -573,3 +574,14 @@ Begin!"""
                 "total_tokens": -1,
             },
         }
+
+
+def get_launch_version(llm_family: LLMFamilyV1) -> Dict[str, List[str]]:
+    res = defaultdict(list)
+    for spec in llm_family.model_specs:
+        for q in spec.quantizations:
+            res[llm_family.model_name].append(
+                f"{llm_family.model_name}--{spec.model_size_in_billions}B--"
+                f"{spec.model_format}--{q}"
+            )
+    return res

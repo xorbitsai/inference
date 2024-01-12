@@ -797,6 +797,44 @@ class Client:
         response_data = response.json()
         return response_data["model_uid"]
 
+    def launch_model_by_version(
+        self,
+        model_version: str,
+        model_type: str = "LLM",
+        model_uid: Optional[str] = None,
+        replica: int = 1,
+        n_gpu: Optional[Union[int, str]] = "auto",
+    ) -> str:
+        url = f"{self.base_url}/v1/models/instance"
+
+        payload = {
+            "model_version": model_version,
+            "model_type": model_type,
+            "model_uid": model_uid,
+            "replica": replica,
+            "n_gpu": n_gpu,
+        }
+
+        response = requests.post(url, json=payload, headers=self._headers)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to launch model, detail: {_get_error_string(response)}"
+            )
+
+        response_data = response.json()
+        return response_data["model_uid"]
+
+    def get_launch_versions(self, model_type: str, model_name: str):
+        url = f"{self.base_url}/v1/models/{model_type}/{model_name}/versions"
+        response = requests.get(url)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to get model launch versions, detail: {_get_error_string(response)}"
+            )
+
+        response_data = response.json()
+        return response_data
+
     def terminate_model(self, model_uid: str):
         """
         Terminate the specific model running on the server.

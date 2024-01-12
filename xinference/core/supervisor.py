@@ -32,6 +32,7 @@ from .utils import (
     iter_replica_model_uid,
     log_async,
     log_sync,
+    parse_model_launch_version,
     parse_replica_model_uid,
 )
 
@@ -456,6 +457,44 @@ class SupervisorActor(xo.StatelessActor):
             f"{model_name} exists in xinference. Generate suffix to {model_name} for model_uid."
         )
         return f"{model_name}-{gen_random_string(8)}"
+
+    async def get_launch_versions(self, model_type: str, model_name: str) -> List[str]:
+        from ..model.llm.llm_family import get_llm_launch_versions
+
+        if model_type == "LLM":
+            all_launch_versions = get_llm_launch_versions()
+        else:
+            raise ValueError(f"Unsupported model type: {model_type}")
+
+        if model_name not in all_launch_versions:
+            raise KeyError(
+                f"{model_name} with {model_type} type does not exist in xinference"
+            )
+
+        return all_launch_versions[model_name]
+
+    @log_async(logger=logger)
+    async def launch_model_by_version(
+        self,
+        model_uid: Optional[str],
+        model_type: str,
+        model_version: str,
+        replica: int = 1,
+        n_gpu: Optional[Union[int, str]] = "auto",
+    ):
+        model_name, size, model_format, quantization = parse_model_launch_version(
+            model_version
+        )
+        return await self.launch_builtin_model(
+            model_uid=model_uid,
+            model_name=model_name,
+            model_size_in_billions=size,
+            model_format=model_format,
+            quantization=quantization,
+            model_type=model_type,
+            replica=replica,
+            n_gpu=n_gpu,
+        )
 
     async def launch_speculative_llm(
         self,

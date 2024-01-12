@@ -25,6 +25,7 @@ from .llm_family import (
     BUILTIN_LLM_PROMPT_STYLE,
     BUILTIN_MODELSCOPE_LLM_FAMILIES,
     LLM_CLASSES,
+    LLM_LAUNCH_VERSIONS,
     CustomLLMFamilyV1,
     GgmlLLMSpecV1,
     LLMFamilyV1,
@@ -38,6 +39,7 @@ from .llm_family import (
     register_llm,
     unregister_llm,
 )
+from .utils import get_launch_version
 
 
 def _install():
@@ -107,6 +109,9 @@ def _install():
             BUILTIN_LLM_MODEL_GENERATE_FAMILIES.add(model_spec.model_name)
         if "tool_call" in model_spec.model_ability:
             BUILTIN_LLM_MODEL_TOOL_CALL_FAMILIES.add(model_spec.model_name)
+        # generate launch versions
+        LLM_LAUNCH_VERSIONS.update(get_launch_version(model_spec))
+
 
     modelscope_json_path = os.path.join(
         os.path.dirname(os.path.abspath(__file__)), "llm_family_modelscope.json"
@@ -130,6 +135,9 @@ def _install():
             BUILTIN_LLM_MODEL_GENERATE_FAMILIES.add(model_spec.model_name)
         if "tool_call" in model_spec.model_ability:
             BUILTIN_LLM_MODEL_TOOL_CALL_FAMILIES.add(model_spec.model_name)
+        # generate launch versions
+        if model_spec.model_name not in LLM_LAUNCH_VERSIONS:
+            LLM_LAUNCH_VERSIONS.update(get_launch_version(model_spec))
 
     from ...constants import XINFERENCE_MODEL_DIR
 
@@ -141,3 +149,7 @@ def _install():
             ) as fd:
                 user_defined_llm_family = CustomLLMFamilyV1.parse_obj(json.load(fd))
                 register_llm(user_defined_llm_family, persist=False)
+
+    # generate launch versions
+    for ud_llm in get_user_defined_llm_families():
+        LLM_LAUNCH_VERSIONS.update(get_launch_version(ud_llm))
