@@ -22,12 +22,11 @@ logger = getLogger(__name__)
 
 
 class LaunchStatus(Enum):
-    SUBMITTED = (1,)
-    DOWNLOADING = (2,)
-    DOWNLOADED = (3,)
+    CREATING = (1,)
+    UPDATING = (2,)
+    TERMINATING = (3,)
     READY = (4,)
-    TERMINATED = (5,)
-    FAILED = 6
+    ERROR = 5
 
 
 class InstanceInfo(BaseModel):

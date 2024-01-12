@@ -567,7 +567,7 @@ class SupervisorActor(xo.StatelessActor):
                 # terminate_model will remove the replica info.
                 await self.terminate_model(model_uid, suppress_exception=True)
                 await self._status_guard_ref.update_instance_info(
-                    model_uid, {"status": LaunchStatus.FAILED.name}
+                    model_uid, {"status": LaunchStatus.ERROR.name}
                 )
                 raise
 
@@ -592,7 +592,7 @@ class SupervisorActor(xo.StatelessActor):
             model_uid=model_uid,
             model_ability=[],
             replica=replica,
-            status=LaunchStatus.SUBMITTED.name,
+            status=LaunchStatus.CREATING.name,
             instance_created_ts=int(time.time()),
         )
         await self._status_guard_ref.set_instance_info(model_uid, instance_info)

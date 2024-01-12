@@ -384,9 +384,6 @@ class WorkerActor(xo.StatelessActor):
 
         try:
             origin_uid, _, _ = parse_replica_model_uid(model_uid)
-            await self._status_guard_ref.update_instance_info(
-                origin_uid, {"status": LaunchStatus.DOWNLOADING.name}
-            )
             model, model_description = await asyncio.to_thread(
                 create_model_instance,
                 subpool_address,
@@ -400,11 +397,6 @@ class WorkerActor(xo.StatelessActor):
                 is_local_deployment,
                 **kwargs,
             )
-            abilities = await self._get_model_ability(model, model_type)
-            await self._status_guard_ref.update_instance_info(
-                origin_uid,
-                {"model_ability": abilities, "status": LaunchStatus.DOWNLOADED.name},
-            )
             model_ref = await xo.create_actor(
                 ModelActor,
                 address=subpool_address,
@@ -413,10 +405,6 @@ class WorkerActor(xo.StatelessActor):
                 request_limits=request_limits,
             )
             await model_ref.load()
-            await self._status_guard_ref.update_instance_info(
-                origin_uid,
-                {"status": LaunchStatus.READY.name},
-            )
         except:
             logger.error(f"Failed to load model {model_uid}", exc_info=True)
             self.release_devices(model_uid=model_uid)
@@ -428,9 +416,19 @@ class WorkerActor(xo.StatelessActor):
         self._model_uid_to_addr[model_uid] = subpool_address
         self._model_uid_to_launch_args[model_uid] = launch_args
 
+        # update status to READY
+        abilities = await self._get_model_ability(model, model_type)
+        await self._status_guard_ref.update_instance_info(
+            origin_uid,
+            {"model_ability": abilities, "status": LaunchStatus.READY.name},
+        )
+
     @log_async(logger=logger)
     async def terminate_model(self, model_uid: str):
         origin_uid, _, _ = parse_replica_model_uid(model_uid)
+        await self._status_guard_ref.update_instance_info(
+            origin_uid, {"status": LaunchStatus.TERMINATING.name}
+        )
         model_ref = self._model_uid_to_model.get(model_uid, None)
         if model_ref is None:
             raise ValueError(f"Model not found in the model list, uid: {model_uid}")
@@ -450,9 +448,6 @@ class WorkerActor(xo.StatelessActor):
             self.release_devices(model_uid)
             del self._model_uid_to_addr[model_uid]
             del self._model_uid_to_launch_args[model_uid]
-            await self._status_guard_ref.update_instance_info(
-                origin_uid, {"status": LaunchStatus.TERMINATED.name}
-            )
 
     @log_async(logger=logger)
     async def list_models(self) -> Dict[str, Dict[str, Any]]:
