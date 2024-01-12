@@ -5,12 +5,12 @@ services:
     image: xprobe/xinference:latest
     ports:
       - "9997:9997"
-    volumes:
-      # replace <xinference_home> with your xinference home path on the host machine
-      - <xinference_home>:/root/.xinference
-    environment:
-      # add envs here. Here's an example, if you want to download model from modelscope
-      - XINFERENCE_MODEL_SRC=modelscope
+#    volumes:
+#      # replace <xinference_home> with your xinference home path on the host machine
+#      - <xinference_home>:/root/.xinference
+#    environment:
+#      # add envs here. Here's an example, if you want to download model from modelscope
+#      - XINFERENCE_MODEL_SRC=modelscope
     command: xinference-local --host 0.0.0.0 --port 9997
     deploy:
       resources:
