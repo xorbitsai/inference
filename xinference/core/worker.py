@@ -34,6 +34,9 @@ logger = getLogger(__name__)
 
 
 DEFAULT_NODE_HEARTBEAT_INTERVAL = 5
+MODEL_ACTOR_AUTO_RECOVER_LIMIT = os.getenv("XINFERENCE_MODEL_ACTOR_AUTO_RECOVER_LIMIT")
+if MODEL_ACTOR_AUTO_RECOVER_LIMIT is not None:
+    MODEL_ACTOR_AUTO_RECOVER_LIMIT = int(MODEL_ACTOR_AUTO_RECOVER_LIMIT)
 
 
 class WorkerActor(xo.StatelessActor):
@@ -57,6 +60,7 @@ class WorkerActor(xo.StatelessActor):
         self._gpu_to_model_uid: Dict[int, str] = {}
         self._gpu_to_embedding_model_uids: Dict[int, Set[str]] = defaultdict(set)
         self._model_uid_to_addr: Dict[str, str] = {}
+        self._model_uid_to_recover_count: Dict[str, int] = {}
         self._model_uid_to_launch_args: Dict[str, Dict] = {}
 
         self._lock = asyncio.Lock()
@@ -76,12 +80,27 @@ class WorkerActor(xo.StatelessActor):
                         "Not recreate model because the it is down during launch."
                     )
                 else:
-                    logger.warning("Recreating model actor %s ...", model_uid)
+                    recover_count = self._model_uid_to_recover_count.get(model_uid)
                     try:
                         await self.terminate_model(model_uid)
                     except Exception:
                         pass
-                    await self.launch_builtin_model(**launch_args)
+                    if recover_count is not None:
+                        if recover_count > 0:
+                            logger.warning(
+                                "Recreating model actor %s, remain %s times ...",
+                                model_uid,
+                                recover_count - 1,
+                            )
+                            self._model_uid_to_recover_count[model_uid] = (
+                                recover_count - 1
+                            )
+                            await self.launch_builtin_model(**launch_args)
+                        else:
+                            logger.warning("Stop recreating model actor.")
+                    else:
+                        logger.warning("Recreating model actor %s ...", model_uid)
+                        await self.launch_builtin_model(**launch_args)
                 break
 
     @classmethod
@@ -401,13 +420,16 @@ class WorkerActor(xo.StatelessActor):
         self._model_uid_to_model[model_uid] = model_ref
         self._model_uid_to_model_spec[model_uid] = model_description
         self._model_uid_to_addr[model_uid] = subpool_address
+        self._model_uid_to_recover_count.setdefault(
+            model_uid, MODEL_ACTOR_AUTO_RECOVER_LIMIT
+        )
         self._model_uid_to_launch_args[model_uid] = launch_args
 
     @log_async(logger=logger)
     async def terminate_model(self, model_uid: str):
         model_ref = self._model_uid_to_model.get(model_uid, None)
         if model_ref is None:
-            raise ValueError(f"Model not found in the model list, uid: {model_uid}")
+            raise ValueError(f"Model not found, uid: {model_uid}")
 
         try:
             await xo.destroy_actor(model_ref)
@@ -423,6 +445,7 @@ class WorkerActor(xo.StatelessActor):
             del self._model_uid_to_model_spec[model_uid]
             self.release_devices(model_uid)
             del self._model_uid_to_addr[model_uid]
+            del self._model_uid_to_recover_count[model_uid]
             del self._model_uid_to_launch_args[model_uid]
 
     @log_async(logger=logger)
@@ -438,7 +461,7 @@ class WorkerActor(xo.StatelessActor):
     def get_model(self, model_uid: str) -> xo.ActorRefType["ModelActor"]:
         model_ref = self._model_uid_to_model.get(model_uid, None)
         if model_ref is None:
-            raise ValueError(f"Model not found in the model list, uid: {model_uid}")
+            raise ValueError(f"Model not found, uid: {model_uid}")
         return model_ref
 
     @log_sync(logger=logger)

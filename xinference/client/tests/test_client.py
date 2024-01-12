@@ -583,6 +583,13 @@ def test_client_custom_embedding_model(setup):
 
 
 @pytest.fixture
+def set_auto_recover_limit():
+    os.environ["XINFERENCE_MODEL_ACTOR_AUTO_RECOVER_LIMIT"] = "1"
+    yield
+    del os.environ["XINFERENCE_MODEL_ACTOR_AUTO_RECOVER_LIMIT"]
+
+
+@pytest.fixture
 def setup_cluster():
     import xoscar as xo
 
@@ -615,7 +622,7 @@ def setup_cluster():
         local_cluster.terminate()
 
 
-def test_auto_recover(setup_cluster):
+def test_auto_recover(set_auto_recover_limit, setup_cluster):
     endpoint, _ = setup_cluster
     current_proc = psutil.Process()
     chilren_proc = set(current_proc.children(recursive=True))
@@ -647,3 +654,23 @@ def test_auto_recover(setup_cluster):
             time.sleep(1)
     else:
         assert False
+
+    new_children_proc = set(current_proc.children(recursive=True))
+    model_proc = next(iter(new_children_proc - chilren_proc))
+    assert len(client.list_models()) == 1
+
+    model_proc.kill()
+
+    expect_failed = False
+    for _ in range(5):
+        try:
+            completion = model.generate(
+                "Once upon a time, there was a very old computer", {"max_tokens": 64}
+            )
+            assert "text" in completion["choices"][0]
+            break
+        except Exception:
+            time.sleep(1)
+    else:
+        expect_failed = True
+    assert expect_failed
