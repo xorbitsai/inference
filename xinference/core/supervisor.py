@@ -92,7 +92,9 @@ class SupervisorActor(xo.StatelessActor):
 
         self._status_guard_ref: xo.ActorRefType[
             "StatusGuardActor"
-        ] = await xo.actor_ref(address=self.address, uid=StatusGuardActor.uid())
+        ] = await xo.create_actor(
+            StatusGuardActor, address=self.address, uid=StatusGuardActor.uid()
+        )
 
         from ..model.embedding import (
             CustomEmbeddingModelSpec,

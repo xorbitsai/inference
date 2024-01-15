@@ -26,7 +26,6 @@ from ..constants import (
     XINFERENCE_HEALTH_CHECK_ATTEMPTS,
     XINFERENCE_HEALTH_CHECK_INTERVAL,
 )
-from ..core.status_guard import StatusGuardActor
 from ..core.supervisor import SupervisorActor
 from .utils import health_check
 
@@ -40,9 +39,6 @@ async def _start_supervisor(address: str, logging_conf: Optional[Dict] = None):
     try:
         pool = await xo.create_actor_pool(
             address=address, n_process=0, logging_conf={"dict": logging_conf}
-        )
-        await xo.create_actor(
-            StatusGuardActor, address=address, uid=StatusGuardActor.uid()
         )
         await xo.create_actor(
             SupervisorActor, address=address, uid=SupervisorActor.uid()

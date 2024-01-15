@@ -26,7 +26,6 @@ from ..constants import (
     XINFERENCE_HEALTH_CHECK_ATTEMPTS,
     XINFERENCE_HEALTH_CHECK_INTERVAL,
 )
-from ..core.status_guard import StatusGuardActor
 from ..core.supervisor import SupervisorActor
 from .utils import health_check
 from .worker import start_worker_components
@@ -46,9 +45,6 @@ async def _start_local_cluster(
     try:
         pool = await create_worker_actor_pool(
             address=address, logging_conf=logging_conf
-        )
-        await xo.create_actor(
-            StatusGuardActor, address=address, uid=StatusGuardActor.uid()
         )
         await xo.create_actor(
             SupervisorActor, address=address, uid=SupervisorActor.uid()
