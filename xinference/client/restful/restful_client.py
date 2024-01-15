@@ -771,7 +771,7 @@ class Client:
 
         """
 
-        url = f"{self.base_url}/v1/models?wait_ready=false"
+        url = f"{self.base_url}/v1/models"
 
         payload = {
             "model_uid": model_uid,
