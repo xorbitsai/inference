@@ -490,6 +490,7 @@ class SupervisorActor(xo.StatelessActor):
         model_version: str,
         replica: int = 1,
         n_gpu: Optional[Union[int, str]] = "auto",
+        wait_ready: bool = True,
     ):
         parse_results = parse_model_launch_version(model_version, model_type)
 
@@ -507,6 +508,8 @@ class SupervisorActor(xo.StatelessActor):
             model_type=model_type,
             replica=replica,
             n_gpu=n_gpu,
+            wait_ready=wait_ready,
+            model_version=model_version,
             **kwargs,
         )
 
@@ -582,6 +585,7 @@ class SupervisorActor(xo.StatelessActor):
         n_gpu: Optional[Union[int, str]] = "auto",
         request_limits: Optional[int] = None,
         wait_ready: bool = True,
+        model_version: Optional[str] = None,
         **kwargs,
     ) -> str:
         if model_uid is None:
@@ -654,6 +658,7 @@ class SupervisorActor(xo.StatelessActor):
         instance_info = InstanceInfo(
             model_name=model_name,
             model_uid=model_uid,
+            model_version=model_version,
             model_ability=[],
             replica=replica,
             status=LaunchStatus.CREATING.name,

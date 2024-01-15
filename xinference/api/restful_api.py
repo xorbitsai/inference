@@ -656,7 +656,9 @@ class RESTfulAPI:
             raise HTTPException(status_code=500, detail=str(e))
         return JSONResponse(content=infos)
 
-    async def launch_model_by_version(self, request: Request) -> JSONResponse:
+    async def launch_model_by_version(
+        self, request: Request, wait_ready: bool = Query(True)
+    ) -> JSONResponse:
         payload = await request.json()
         model_uid = payload.get("model_uid")
         model_type = payload.get("model_type")
@@ -673,6 +675,7 @@ class RESTfulAPI:
                 model_version=model_version,
                 replica=replica,
                 n_gpu=n_gpu,
+                wait_ready=wait_ready,
             )
         except Exception as e:
             logger.error(str(e), exc_info=True)
