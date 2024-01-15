@@ -106,19 +106,19 @@ class ChatglmPytorchChatModel(PytorchChatModel):
         generate_config: Optional[PytorchGenerateConfig] = None,
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
         tools = self._handle_tools(generate_config)
+        kwargs: Dict[str, Any] = {}
+        generate_config = generate_config or {}
+        temperature = generate_config.get("temperature")
+        if temperature is not None:
+            kwargs["temperature"] = float(temperature)
+        top_p = generate_config.get("top_p")
+        if top_p is not None:
+            kwargs["top_p"] = float(top_p)
+        max_length = generate_config.get("max_tokens")
+        if max_length is not None:
+            kwargs["max_length"] = int(max_length)
         if tools:
             # Tool calls only works for non stream, so we call chat directly.
-            kwargs: Dict[str, Any] = {}
-            generate_config = generate_config or {}
-            temperature = generate_config.get("temperature")
-            if temperature is not None:
-                kwargs["temperature"] = float(temperature)
-            top_p = generate_config.get("top_p")
-            if top_p is not None:
-                kwargs["top_p"] = float(top_p)
-            max_length = generate_config.get("max_tokens")
-            if max_length is not None:
-                kwargs["max_length"] = int(max_length)
             if prompt == SPECIAL_TOOL_PROMPT and chat_history:
                 tool_message = chat_history.pop()
                 content = tool_message.get("content")
@@ -135,6 +135,12 @@ class ChatglmPytorchChatModel(PytorchChatModel):
                 self.model_family.model_name, self.model_uid, msg, tools
             )
         else:
+            stream = generate_config.get("stream", False)
+            if stream:
+                self._model.stream_chat(self._tokenizer, prompt, chat_history)
+            response, history = self._model.chat(
+                self._tokenizer, prompt, chat_history, **kwargs
+            )
             return super().chat(
                 prompt=prompt,
                 system_prompt=system_prompt,

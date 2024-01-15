@@ -213,7 +213,6 @@ class PytorchModel(LLM):
     ) -> Union[Completion, Iterator[CompletionChunk]]:
         from .utils import (
             generate_stream,
-            generate_stream_chatglm,
             generate_stream_falcon,
         )
 
@@ -224,16 +223,6 @@ class PytorchModel(LLM):
         ) -> Iterator[CompletionChunk]:
             if "falcon" in model_family_name:
                 for completion_chunk, _ in generate_stream_falcon(
-                    self.model_uid,
-                    self._model,
-                    self._tokenizer,
-                    prompt,
-                    self._device,
-                    generate_config,
-                ):
-                    yield completion_chunk
-            elif "chatglm" in model_family_name:
-                for completion_chunk, _ in generate_stream_chatglm(
                     self.model_uid,
                     self._model,
                     self._tokenizer,
@@ -266,16 +255,6 @@ class PytorchModel(LLM):
         if not stream:
             if "falcon" in model_family_name:
                 for completion_chunk, completion_usage in generate_stream_falcon(
-                    self.model_uid,
-                    self._model,
-                    self._tokenizer,
-                    prompt,
-                    self._device,
-                    generate_config,
-                ):
-                    pass
-            elif "chatglm" in model_family_name:
-                for completion_chunk, completion_usage in generate_stream_chatglm(
                     self.model_uid,
                     self._model,
                     self._tokenizer,
