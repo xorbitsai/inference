@@ -14,7 +14,6 @@
 
 import gc
 import logging
-import re
 import time
 import uuid
 from threading import Thread
@@ -23,7 +22,6 @@ from typing import Iterable, Iterator, Tuple
 import torch
 from transformers import GenerationConfig, TextIteratorStreamer
 from transformers.generation.logits_process import (
-    LogitsProcessor,
     LogitsProcessorList,
     RepetitionPenaltyLogitsProcessor,
     TemperatureLogitsWarper,
