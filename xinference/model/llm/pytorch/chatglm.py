@@ -21,6 +21,8 @@ from ....types import (
     ChatCompletionChoice,
     ChatCompletionChunk,
     ChatCompletionMessage,
+    CompletionChoice,
+    CompletionChunk,
     CompletionUsage,
     PytorchGenerateConfig,
 )
@@ -121,17 +123,17 @@ class ChatglmPytorchChatModel(PytorchChatModel):
         max_length = generate_config.get("max_tokens")
         if max_length is not None:
             kwargs["max_length"] = int(max_length)
+        # Tool calls only works for non stream, so we call chat directly.
+        if prompt == SPECIAL_TOOL_PROMPT and chat_history:
+            tool_message = chat_history.pop()
+            content = tool_message.get("content")
+            assert content is not None
+            prompt = content
+            kwargs["role"] = "observation"
+            chat_history = [h for h in chat_history if not h.get("tool_calls")]
+        if not chat_history:
+            chat_history = []
         if tools:
-            # Tool calls only works for non stream, so we call chat directly.
-            if prompt == SPECIAL_TOOL_PROMPT and chat_history:
-                tool_message = chat_history.pop()
-                content = tool_message.get("content")
-                assert content is not None
-                prompt = content
-                kwargs["role"] = "observation"
-                chat_history = [h for h in chat_history if not h.get("tool_calls")]
-            if not chat_history:
-                chat_history = []
             msg = self._model.chat(
                 self._tokenizer, prompt, [tools] + chat_history, **kwargs
             )
@@ -141,23 +143,40 @@ class ChatglmPytorchChatModel(PytorchChatModel):
         else:
             stream = generate_config.get("stream", False)
             if stream:
-                self._model.stream_chat(self._tokenizer, prompt, chat_history)
-            response, _ = self._model.chat(
-                self._tokenizer, prompt, chat_history, **kwargs
-            )
-            return ChatCompletion(
-                id="chat" + str(uuid.uuid1()),
-                object="chat.completion",
-                created=int(time.time()),
-                model=self.model_uid,
-                choices=[
-                    ChatCompletionChoice(
-                        index=0,
-                        message={"role": "assistant", "content": response},
-                        finish_reason="stop",
-                    )
-                ],
-                usage=CompletionUsage(
-                    prompt_tokens=-1, completion_tokens=-1, total_tokens=-1
-                ),
-            )
+
+                def _stream_generator():
+                    for chunk_text, _ in self._model.stream_chat(
+                        self._tokenizer, prompt, chat_history
+                    ):
+                        completion_choice = CompletionChoice(
+                            text=chunk_text, index=0, logprobs=None, finish_reason=None
+                        )
+                        yield CompletionChunk(
+                            id=str(uuid.uuid1()),
+                            object="text_completion",
+                            created=int(time.time()),
+                            model=self.model_uid,
+                            choices=[completion_choice],
+                        )
+
+                return self._to_chat_completion_chunks(_stream_generator())
+            else:
+                response, _ = self._model.chat(
+                    self._tokenizer, prompt, chat_history, **kwargs
+                )
+                return ChatCompletion(
+                    id="chat" + str(uuid.uuid1()),
+                    object="chat.completion",
+                    created=int(time.time()),
+                    model=self.model_uid,
+                    choices=[
+                        ChatCompletionChoice(
+                            index=0,
+                            message={"role": "assistant", "content": response},
+                            finish_reason="stop",
+                        )
+                    ],
+                    usage=CompletionUsage(
+                        prompt_tokens=-1, completion_tokens=-1, total_tokens=-1
+                    ),
+                )
