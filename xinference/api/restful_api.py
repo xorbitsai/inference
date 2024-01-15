@@ -649,11 +649,11 @@ class RESTfulAPI:
     ) -> JSONResponse:
         try:
             infos = await (await self._get_supervisor_ref()).get_instance_info(
-                model_name, model_uid)
+                model_name, model_uid
+            )
         except Exception as e:
             logger.error(str(e), exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
-
         return JSONResponse(content=infos)
 
     async def launch_model_by_version(self, request: Request) -> JSONResponse:
