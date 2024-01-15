@@ -429,7 +429,7 @@ class WorkerActor(xo.StatelessActor):
     async def terminate_model(self, model_uid: str):
         model_ref = self._model_uid_to_model.get(model_uid, None)
         if model_ref is None:
-            raise ValueError(f"Model not found, uid: {model_uid}")
+            logger.debug("Model not found, uid: %s", model_uid)
 
         try:
             await xo.destroy_actor(model_ref)
@@ -440,13 +440,17 @@ class WorkerActor(xo.StatelessActor):
         try:
             subpool_address = self._model_uid_to_addr[model_uid]
             await self._main_pool.remove_sub_pool(subpool_address)
+        except Exception as e:
+            logger.debug(
+                "Remove sub pool failed, model uid: %s, error: %s", model_uid, e
+            )
         finally:
-            del self._model_uid_to_model[model_uid]
-            del self._model_uid_to_model_spec[model_uid]
+            self._model_uid_to_model.pop(model_uid, None)
+            self._model_uid_to_model_spec.pop(model_uid, None)
             self.release_devices(model_uid)
-            del self._model_uid_to_addr[model_uid]
-            del self._model_uid_to_recover_count[model_uid]
-            del self._model_uid_to_launch_args[model_uid]
+            self._model_uid_to_addr.pop(model_uid, None)
+            self._model_uid_to_recover_count.pop(model_uid, None)
+            self._model_uid_to_launch_args.pop(model_uid, None)
 
     @log_async(logger=logger)
     async def list_models(self) -> Dict[str, Dict[str, Any]]:
