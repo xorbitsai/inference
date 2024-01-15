@@ -1054,3 +1054,22 @@ def test_launch_model_async(setup):
 
     response = requests.get(status_url)
     assert len(response.json()) == 0
+
+
+def test_launch_model_by_version(setup):
+    from ...model.llm import LLM_LAUNCH_VERSIONS
+
+    endpoint, _ = setup
+    url = f"{endpoint}/v1/models/instance"
+
+    payload = {
+        "model_uid": "test_orca",
+        "model_type": "LLM",
+        "model_version": LLM_LAUNCH_VERSIONS["orca"][0],
+    }
+    response = requests.post(url, json=payload)
+    assert response.json()["model_uid"] == "test_orca"
+
+    # delete again
+    url = f"{endpoint}/v1/models/test_orca"
+    requests.delete(url)
