@@ -496,11 +496,11 @@ Begin!"""
     @classmethod
     def _tool_calls_completion(cls, model_name, model_uid, c, tools):
         _id = str(uuid.uuid4())
-        if model_name == "gorilla-openfunctions-v1":
+        if "gorilla-openfunctions-v1" in model_name:
             content, func, args = cls._eval_gorilla_openfunctions_arguments(c, tools)
-        elif model_name == "chatglm3":
+        elif "chatglm3" in model_name:
             content, func, args = cls._eval_chatglm3_arguments(c, tools)
-        elif model_name == "qwen-chat":
+        elif "qwen-chat" in model_name:
             content, func, args = cls._eval_qwen_chat_arguments(c, tools)
         else:
             raise Exception(f"Model {model_name} is not support tool calls.")

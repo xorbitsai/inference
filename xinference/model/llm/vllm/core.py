@@ -379,7 +379,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
 
         generate_config = self._sanitize_chat_config(generate_config)
         # TODO(codingl2k1): qwen hacky to set stop for function call.
-        if tools and self.model_family.model_name == "qwen-chat":
+        if tools and "qwen-chat" in self.model_family.model_name:
             stop = generate_config.get("stop")
             if isinstance(stop, str):
                 generate_config["stop"] = [stop, "Observation:"]
