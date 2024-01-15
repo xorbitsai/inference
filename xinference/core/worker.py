@@ -25,6 +25,7 @@ from xoscar import MainActorPoolType
 
 from ..constants import XINFERENCE_CACHE_DIR
 from ..core import ModelActor
+from ..core.status_guard import LaunchStatus
 from ..model.core import ModelDescription, create_model_instance
 from ..utils import cuda_count
 from .resource import gather_node_info
@@ -111,8 +112,14 @@ class WorkerActor(xo.StatelessActor):
         return "worker"
 
     async def __post_create__(self):
+        from .status_guard import StatusGuardActor
         from .supervisor import SupervisorActor
 
+        self._status_guard_ref: xo.ActorRefType[
+            "StatusGuardActor"
+        ] = await xo.actor_ref(
+            address=self._supervisor_address, uid=StatusGuardActor.uid()
+        )
         self._supervisor_ref: xo.ActorRefType["SupervisorActor"] = await xo.actor_ref(
             address=self._supervisor_address, uid=SupervisorActor.uid()
         )
@@ -357,6 +364,22 @@ class WorkerActor(xo.StatelessActor):
             self._gpu_to_model_uid[int(dev)] = model_uid
         self._model_uid_to_addr[model_uid] = subpool_address
 
+    async def _get_model_ability(self, model: Any, model_type: str) -> List[str]:
+        from ..model.llm.core import LLM
+
+        if model_type == "embedding":
+            return ["embed"]
+        elif model_type == "rerank":
+            return ["rerank"]
+        elif model_type == "image":
+            return ["text_to_image"]
+        elif model_type == "multimodal":
+            return ["multimodal"]
+        else:
+            assert model_type == "LLM"
+            assert isinstance(model, LLM)
+            return model.model_family.model_ability  # type: ignore
+
     @log_async(logger=logger)
     async def launch_builtin_model(
         self,
@@ -393,6 +416,7 @@ class WorkerActor(xo.StatelessActor):
         )
 
         try:
+            origin_uid, _, _ = parse_replica_model_uid(model_uid)
             model, model_description = await asyncio.to_thread(
                 create_model_instance,
                 subpool_address,
@@ -428,8 +452,19 @@ class WorkerActor(xo.StatelessActor):
         )
         self._model_uid_to_launch_args[model_uid] = launch_args
 
+        # update status to READY
+        abilities = await self._get_model_ability(model, model_type)
+        await self._status_guard_ref.update_instance_info(
+            origin_uid,
+            {"model_ability": abilities, "status": LaunchStatus.READY.name},
+        )
+
     @log_async(logger=logger)
     async def terminate_model(self, model_uid: str):
+        origin_uid, _, _ = parse_replica_model_uid(model_uid)
+        await self._status_guard_ref.update_instance_info(
+            origin_uid, {"status": LaunchStatus.TERMINATING.name}
+        )
         model_ref = self._model_uid_to_model.get(model_uid, None)
         if model_ref is None:
             logger.debug("Model not found, uid: %s", model_uid)
@@ -454,6 +489,9 @@ class WorkerActor(xo.StatelessActor):
             self._model_uid_to_addr.pop(model_uid, None)
             self._model_uid_to_recover_count.pop(model_uid, None)
             self._model_uid_to_launch_args.pop(model_uid, None)
+            await self._status_guard_ref.update_instance_info(
+                origin_uid, {"status": LaunchStatus.TERMINATED.name}
+            )
 
     @log_async(logger=logger)
     async def list_models(self) -> Dict[str, Dict[str, Any]]:
