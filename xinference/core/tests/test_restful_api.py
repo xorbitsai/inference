@@ -14,6 +14,7 @@
 
 import json
 import sys
+import time
 
 import openai
 import pytest
@@ -1019,3 +1020,37 @@ def test_lang_chain(setup):
     )
     assert type(r) == AIMessage
     assert r.content
+
+
+def test_launch_model_async(setup):
+    endpoint, _ = setup
+    url = f"{endpoint}/v1/models?wait_ready=false"
+
+    payload = {
+        "model_uid": "test_orca",
+        "model_name": "orca",
+        "quantization": "q4_0",
+    }
+
+    response = requests.post(url, json=payload)
+    response_data = response.json()
+    model_uid_res = response_data["model_uid"]
+    assert model_uid_res == "test_orca"
+
+    status_url = f"{endpoint}/v1/models/instances?model_uid=test_orca"
+    while True:
+        response = requests.get(status_url)
+        response_data = response.json()
+        assert len(response_data) == 1
+        res = response_data[0]
+        print(res)
+        if res["status"] == "READY":
+            break
+        time.sleep(2)
+
+    # delete again
+    url = f"{endpoint}/v1/models/test_orca"
+    requests.delete(url)
+
+    response = requests.get(status_url)
+    assert len(response.json()) == 0

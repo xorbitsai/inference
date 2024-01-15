@@ -448,6 +448,9 @@ class WorkerActor(xo.StatelessActor):
             self.release_devices(model_uid)
             del self._model_uid_to_addr[model_uid]
             del self._model_uid_to_launch_args[model_uid]
+            await self._status_guard_ref.update_instance_info(
+                origin_uid, {"status": LaunchStatus.TERMINATED.name}
+            )
 
     @log_async(logger=logger)
     async def list_models(self) -> Dict[str, Dict[str, Any]]:

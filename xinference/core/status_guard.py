@@ -25,8 +25,9 @@ class LaunchStatus(Enum):
     CREATING = 1
     UPDATING = 2
     TERMINATING = 3
-    READY = 4
-    ERROR = 5
+    TERMINATED = 4
+    READY = 5
+    ERROR = 6
 
 
 class InstanceInfo(BaseModel):
@@ -51,6 +52,14 @@ class StatusGuardActor(xo.StatelessActor):
     def uid(cls) -> str:
         return "status_guard"
 
+    @staticmethod
+    def _drop_terminated_info(instance_infos: List[InstanceInfo]) -> List[InstanceInfo]:
+        return [
+            info
+            for info in instance_infos
+            if info.status != LaunchStatus.TERMINATED.name
+        ]
+
     def set_instance_info(self, model_uid: str, info: InstanceInfo):
         self._model_uid_to_info[model_uid] = info
 
@@ -59,7 +68,7 @@ class StatusGuardActor(xo.StatelessActor):
     ) -> List[InstanceInfo]:
         if model_uid is not None:
             return (
-                [self._model_uid_to_info[model_uid]]
+                self._drop_terminated_info([self._model_uid_to_info[model_uid]])
                 if model_uid in self._model_uid_to_info
                 else []
             )
@@ -67,7 +76,11 @@ class StatusGuardActor(xo.StatelessActor):
         filtered_infos: List[InstanceInfo] = list(
             filter(lambda info: info.model_name == model_name, all_infos)
         )
-        return filtered_infos if model_name is not None else all_infos
+        return (
+            self._drop_terminated_info(filtered_infos)
+            if model_name is not None
+            else self._drop_terminated_info(all_infos)
+        )
 
     def update_instance_info(self, model_uid: str, info: Dict):
         self._model_uid_to_info[model_uid].update(**info)
