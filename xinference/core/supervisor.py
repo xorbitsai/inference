@@ -460,12 +460,18 @@ class SupervisorActor(xo.StatelessActor):
 
     async def get_launch_versions(self, model_type: str, model_name: str) -> List[str]:
         from ..model.embedding import get_embedding_launch_versions
+        from ..model.image.core import get_image_launch_versions
         from ..model.llm.llm_family import get_llm_launch_versions
+        from ..model.rerank import get_rerank_launch_versions
 
         if model_type == "LLM":
             all_launch_versions = get_llm_launch_versions()
         elif model_type == "embedding":
             all_launch_versions = get_embedding_launch_versions()
+        elif model_type == "rerank":
+            all_launch_versions = get_rerank_launch_versions()
+        elif model_type == "image":
+            all_launch_versions = get_image_launch_versions()
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
 
@@ -485,18 +491,23 @@ class SupervisorActor(xo.StatelessActor):
         replica: int = 1,
         n_gpu: Optional[Union[int, str]] = "auto",
     ):
-        model_name, size, model_format, quantization = parse_model_launch_version(
-            model_version
-        )
+        parse_results = parse_model_launch_version(model_version, model_type)
+
+        if model_type == "image" and len(parse_results) == 2:
+            kwargs = {"controlnet": parse_results[1]}
+        else:
+            kwargs = {}
+
         return await self.launch_builtin_model(
             model_uid=model_uid,
-            model_name=model_name,
-            model_size_in_billions=size,
-            model_format=model_format,
-            quantization=quantization,
+            model_name=parse_results[0],
+            model_size_in_billions=parse_results[1] if model_type == "LLM" else None,
+            model_format=parse_results[2] if model_type == "LLM" else None,
+            quantization=parse_results[3] if model_type == "LLM" else None,
             model_type=model_type,
             replica=replica,
             n_gpu=n_gpu,
+            **kwargs,
         )
 
     async def launch_speculative_llm(

@@ -14,7 +14,7 @@
 import collections.abc
 import logging
 import os
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from pydantic import BaseModel
 
@@ -26,6 +26,12 @@ from .stable_diffusion.core import DiffusionModel
 MAX_ATTEMPTS = 3
 
 logger = logging.getLogger(__name__)
+
+IMAGE_LAUNCH_VERSIONS: Dict[str, List[str]] = {}
+
+
+def get_image_launch_versions():
+    return IMAGE_LAUNCH_VERSIONS.copy()
 
 
 class ImageModelFamilyV1(BaseModel):

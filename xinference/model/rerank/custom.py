@@ -14,15 +14,18 @@
 import logging
 import os
 from threading import Lock
-from typing import List, Literal, Optional
+from typing import Dict, List, Literal, Optional
 
 from ...constants import XINFERENCE_CACHE_DIR, XINFERENCE_MODEL_DIR
 from .core import RerankModelSpec
+from .utils import get_launch_version
 
 logger = logging.getLogger(__name__)
 
 
 UD_RERANK_LOCK = Lock()
+
+RERANK_LAUNCH_VERSIONS: Dict[str, List[str]] = {}
 
 
 class CustomRerankModelSpec(RerankModelSpec):
@@ -38,6 +41,11 @@ UD_RERANKS: List[CustomRerankModelSpec] = []
 def get_user_defined_reranks() -> List[CustomRerankModelSpec]:
     with UD_RERANK_LOCK:
         return UD_RERANKS.copy()
+
+
+def get_rerank_launch_versions() -> Dict[str, List[str]]:
+    with UD_RERANK_LOCK:
+        return RERANK_LAUNCH_VERSIONS.copy()
 
 
 def register_rerank(model_spec: CustomRerankModelSpec, persist: bool):
@@ -60,6 +68,7 @@ def register_rerank(model_spec: CustomRerankModelSpec, persist: bool):
                 )
 
         UD_RERANKS.append(model_spec)
+        RERANK_LAUNCH_VERSIONS.update(get_launch_version(model_spec))
 
     if persist:
         # We only validate model URL when persist is True.
@@ -84,6 +93,7 @@ def unregister_rerank(model_name: str, raise_error: bool = True):
                 break
         if model_spec:
             UD_RERANKS.remove(model_spec)
+            RERANK_LAUNCH_VERSIONS.pop(model_spec.model_name, None)
 
             persist_path = os.path.join(
                 XINFERENCE_MODEL_DIR, "rerank", f"{model_spec.model_name}.json"
