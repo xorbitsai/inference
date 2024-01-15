@@ -145,9 +145,12 @@ class ChatglmPytorchChatModel(PytorchChatModel):
             if stream:
 
                 def _stream_generator():
+                    last_chunk_text_length = 0
                     for chunk_text, _ in self._model.stream_chat(
-                        self._tokenizer, prompt, chat_history
+                        self._tokenizer, prompt, chat_history, **kwargs
                     ):
+                        chunk_text = chunk_text[last_chunk_text_length:]
+                        last_chunk_text_length += len(chunk_text)
                         completion_choice = CompletionChoice(
                             text=chunk_text, index=0, logprobs=None, finish_reason=None
                         )
