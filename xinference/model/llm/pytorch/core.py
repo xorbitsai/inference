@@ -211,10 +211,7 @@ class PytorchModel(LLM):
     def generate(
         self, prompt: str, generate_config: Optional[PytorchGenerateConfig] = None
     ) -> Union[Completion, Iterator[CompletionChunk]]:
-        from .utils import (
-            generate_stream,
-            generate_stream_falcon,
-        )
+        from .utils import generate_stream, generate_stream_falcon
 
         model_family_name = self.model_family.model_name.lower()
 

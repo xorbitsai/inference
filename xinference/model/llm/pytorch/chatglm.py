@@ -11,13 +11,17 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import time
+import uuid
 from typing import Any, Dict, Iterator, List, Optional, Union
 
 from ....types import (
     SPECIAL_TOOL_PROMPT,
     ChatCompletion,
+    ChatCompletionChoice,
     ChatCompletionChunk,
     ChatCompletionMessage,
+    CompletionUsage,
     PytorchGenerateConfig,
 )
 from ..llm_family import LLMFamilyV1, LLMSpecV1
@@ -138,12 +142,22 @@ class ChatglmPytorchChatModel(PytorchChatModel):
             stream = generate_config.get("stream", False)
             if stream:
                 self._model.stream_chat(self._tokenizer, prompt, chat_history)
-            response, history = self._model.chat(
+            response, _ = self._model.chat(
                 self._tokenizer, prompt, chat_history, **kwargs
             )
-            return super().chat(
-                prompt=prompt,
-                system_prompt=system_prompt,
-                chat_history=chat_history,
-                generate_config=generate_config,
+            return ChatCompletion(
+                id="chat" + str(uuid.uuid1()),
+                object="chat.completion",
+                created=int(time.time()),
+                model=self.model_uid,
+                choices=[
+                    ChatCompletionChoice(
+                        index=0,
+                        message={"role": "assistant", "content": response},
+                        finish_reason="stop",
+                    )
+                ],
+                usage=CompletionUsage(
+                    prompt_tokens=-1, completion_tokens=-1, total_tokens=-1
+                ),
             )
