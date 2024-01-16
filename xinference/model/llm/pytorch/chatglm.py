@@ -132,7 +132,7 @@ class ChatglmPytorchChatModel(PytorchChatModel):
                 self._tokenizer, prompt, [tools] + chat_history, **kwargs
             )
             return self._tool_calls_completion(
-                self.model_family.model_name, self.model_uid, msg, tools
+                self.model_family, self.model_uid, msg, tools
             )
         else:
             return super().chat(
