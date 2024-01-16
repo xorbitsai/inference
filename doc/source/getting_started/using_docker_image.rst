@@ -67,3 +67,22 @@ In this case, you need to specify a volume when running the Docker image and con
 The principle behind the above command is to mount the specified directory from the host machine into the container, and then set the ``XINFERENCE_HOME`` environment variable to point to that directory inside the container.
 This way, all downloaded model files will be stored in the directory you specified on the host machine.
 You don't have to worry about losing them when the Docker container stops, and the next time you run it, you can directly use the existing models without the need for repetitive downloads.
+
+If you downloaded the model using the default path on the host machine, and since the xinference cache directory
+stores the model using symbolic links, you need to mount the directory where the original file is located into the container as well.
+For example, if you are using HuggingFace and Modelscope as model hub, you would need to mount the corresponding
+directories into the container. Generally, the cache directories for HuggingFace and Modelscope are located
+at <home_path>/.cache/huggingface and <home_path>/.cache/modelscope. The command would be like:
+
+.. code-block:: bash
+
+   docker run \
+     -v </your/home/path>/.xinference:/root/.xinference \
+     -v </your/home/path>/.cache/huggingface:/root/.cache/huggingface \
+     -v </your/home/path>/.cache/modelscope:/root/.cache/modelscope \
+     -p 9997:9997 \
+     --gpus all \
+     xprobe/xinference:v<your_version> \
+     xinference-local -H 0.0.0.0
+
+
