@@ -16,6 +16,7 @@ import uvicorn
 from aioprometheus import Counter, Gauge, MetricsMiddleware
 from aioprometheus.asgi.starlette import metrics
 from fastapi import FastAPI
+from fastapi.responses import RedirectResponse
 
 generate_throughput = Gauge(
     "xinference:generate_tokens_per_s", "Generate throughput in tokens/s."
@@ -32,9 +33,9 @@ total_tokens_output = Counter(
     "xinference:total_tokens_output", "The counter for output tokens."
 )
 
+
 def update_metrics(name, op, kwargs):
     pass
-
 
 
 def launch_metrics_export_server(host=None, port=None):
@@ -42,6 +43,11 @@ def launch_metrics_export_server(host=None, port=None):
 
     app.add_middleware(MetricsMiddleware)
     app.add_route("/metrics", metrics)
+
+    @app.get("/")
+    async def root():
+        response = RedirectResponse(url="/metrics")
+        return response
 
     if host is not None or port is not None:
         uvicorn.run(app, host=host, port=port)

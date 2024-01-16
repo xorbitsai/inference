@@ -45,8 +45,8 @@ class WorkerActor(xo.StatelessActor):
         supervisor_address: str,
         main_pool: MainActorPoolType,
         cuda_devices: List[int],
-        metrics_export_host: Optional[str] = None,
-        metrics_export_port: Optional[int] = None,
+        metrics_exporter_host: Optional[str] = None,
+        metrics_exporter_port: Optional[int] = None,
     ):
         super().__init__()
         # static attrs.
@@ -65,11 +65,12 @@ class WorkerActor(xo.StatelessActor):
         self._model_uid_to_launch_args: Dict[str, Dict] = {}
 
         # metrics export server.
-        if metrics_export_host is not None or metrics_export_port is not None:
+        if metrics_exporter_host is not None or metrics_exporter_port is not None:
+            logger.info(f"Start metrics export server at {metrics_exporter_host}:{metrics_exporter_port}")
             self._metrics_thread = threading.Thread(
                 name="Metrics Export Server",
                 target=launch_metrics_export_server,
-                args=(metrics_export_host, metrics_export_port),
+                args=(metrics_exporter_host, metrics_exporter_port),
                 daemon=True,
             )
             self._metrics_thread.start()
