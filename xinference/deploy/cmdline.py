@@ -34,6 +34,7 @@ from ..constants import (
     XINFERENCE_DEFAULT_DISTRIBUTED_HOST,
     XINFERENCE_DEFAULT_ENDPOINT_PORT,
     XINFERENCE_DEFAULT_LOCAL_HOST,
+    XINFERENCE_DEFAULT_METRICS_EXPORTER_PORT,
     XINFERENCE_ENV_ENDPOINT,
     XINFERENCE_LOG_BACKUP_COUNT,
     XINFERENCE_LOG_MAX_BYTES,
@@ -87,7 +88,12 @@ def get_stored_token(
 
 
 def start_local_cluster(
-    log_level: str, host: str, port: int, auth_config_file: Optional[str] = None
+    log_level: str,
+    host: str,
+    port: int,
+    metrics_exporter_host: Optional[str] = None,
+    metrics_exporter_port: Optional[int] = None,
+    auth_config_file: Optional[str] = None,
 ):
     from .local import main
 
@@ -102,6 +108,8 @@ def start_local_cluster(
     main(
         host=host,
         port=port,
+        metrics_exporter_host=metrics_exporter_host,
+        metrics_exporter_port=metrics_exporter_port,
         logging_conf=dict_config,
         auth_config_file=auth_config_file,
     )
@@ -183,13 +191,39 @@ def cli(
     help="Specify the port number for the Xinference server.",
 )
 @click.option(
+    "--metrics-exporter-host",
+    "-MH",
+    default=XINFERENCE_DEFAULT_LOCAL_HOST,
+    type=str,
+    help="Specify the host address for the Xinference metrics exporter server.",
+)
+@click.option(
+    "--metrics-exporter-port",
+    "-mp",
+    default=XINFERENCE_DEFAULT_METRICS_EXPORTER_PORT,
+    type=int,
+    help="Specify the port number for the Xinference metrics exporter server.",
+)
+@click.option(
     "--auth-config",
     type=str,
     help="Specify the auth config json file.",
 )
-def local(log_level: str, host: str, port: int, auth_config: Optional[str]):
+def local(
+    log_level: str,
+    host: str,
+    port: int,
+    metrics_exporter_host: Optional[str],
+    metrics_exporter_port: Optional[int],
+    auth_config: Optional[str],
+):
     start_local_cluster(
-        log_level=log_level, host=host, port=port, auth_config_file=auth_config
+        log_level=log_level,
+        host=host,
+        port=port,
+        metrics_exporter_host=metrics_exporter_host,
+        metrics_exporter_port=metrics_exporter_port,
+        auth_config_file=auth_config,
     )
 
 
@@ -276,8 +310,25 @@ def supervisor(
     type=int,
     help="Specify the port number for the Xinference worker.",
 )
+@click.option(
+    "--metrics-exporter-host",
+    "-MH",
+    default=XINFERENCE_DEFAULT_DISTRIBUTED_HOST,
+    type=str,
+    help="Specify the host address for the metrics exporter server.",
+)
+@click.option(
+    "--metrics-exporter-port",
+    type=int,
+    help="Specify the port number for the Xinference metrics exporter worker.",
+)
 def worker(
-    log_level: str, endpoint: Optional[str], host: str, worker_port: Optional[int]
+    log_level: str,
+    endpoint: Optional[str],
+    host: str,
+    worker_port: Optional[int],
+    metrics_exporter_host: Optional[str],
+    metrics_exporter_port: Optional[int],
 ):
     from ..deploy.worker import main
 
@@ -298,6 +349,8 @@ def worker(
     main(
         address=address,
         supervisor_address=supervisor_internal_addr,
+        metrics_exporter_host=metrics_exporter_host,
+        metrics_exporter_port=metrics_exporter_port,
         logging_conf=dict_config,
     )
 

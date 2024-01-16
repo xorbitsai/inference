@@ -16,6 +16,7 @@ import asyncio
 import os
 import platform
 import signal
+import threading
 from collections import defaultdict
 from logging import getLogger
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
@@ -28,6 +29,7 @@ from ..core import ModelActor
 from ..core.status_guard import LaunchStatus
 from ..model.core import ModelDescription, create_model_instance
 from ..utils import cuda_count
+from .metrics import launch_metrics_export_server
 from .resource import gather_node_info
 from .utils import log_async, log_sync, parse_replica_model_uid, purge_dir
 
@@ -43,6 +45,8 @@ class WorkerActor(xo.StatelessActor):
         supervisor_address: str,
         main_pool: MainActorPoolType,
         cuda_devices: List[int],
+        metrics_export_host: Optional[str] = None,
+        metrics_export_port: Optional[int] = None,
     ):
         super().__init__()
         # static attrs.
@@ -59,6 +63,16 @@ class WorkerActor(xo.StatelessActor):
         self._gpu_to_embedding_model_uids: Dict[int, Set[str]] = defaultdict(set)
         self._model_uid_to_addr: Dict[str, str] = {}
         self._model_uid_to_launch_args: Dict[str, Dict] = {}
+
+        # metrics export server.
+        if metrics_export_host is not None or metrics_export_port is not None:
+            self._metrics_thread = threading.Thread(
+                name="Metrics Export Server",
+                target=launch_metrics_export_server,
+                args=(metrics_export_host, metrics_export_port),
+                daemon=True,
+            )
+            self._metrics_thread.start()
 
         self._lock = asyncio.Lock()
 
@@ -498,3 +512,7 @@ class WorkerActor(xo.StatelessActor):
                 await asyncio.sleep(DEFAULT_NODE_HEARTBEAT_INTERVAL)
             except asyncio.CancelledError:  # pragma: no cover
                 break
+
+
+    def update_metrics(self, name, op, kwargs):
+        pass
