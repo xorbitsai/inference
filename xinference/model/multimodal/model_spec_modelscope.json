@@ -18,6 +18,7 @@
         "quantizations": [
           "none"
         ],
+        "model_hub": "modelscope",
         "model_id": "Qwen/Qwen-VL-Chat",
         "model_revision": "master"
       },
@@ -27,6 +28,7 @@
         "quantizations": [
           "Int4"
         ],
+        "model_hub": "modelscope",
         "model_id": "Qwen/Qwen-VL-Chat-{quantization}",
         "model_revision": "master"
       }
