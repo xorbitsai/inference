@@ -54,11 +54,12 @@ def setup_cluster():
 
 
 @pytest.mark.asyncio
-async def test_metrics_exporter(setup_cluster):
+async def test_metrics_exporter_server(setup_cluster):
     endpoint, metrics_exporter_address, supervisor_address = setup_cluster
 
     import xoscar as xo
     from ..supervisor import SupervisorActor
+    from ...client import Client
 
     supervisor_ref = await xo.actor_ref(supervisor_address, SupervisorActor.uid())
     await supervisor_ref.record_metrics(
@@ -69,4 +70,16 @@ async def test_metrics_exporter(setup_cluster):
     response = requests.get(metrics_exporter_address)
     assert response.ok
     assert "12357" in response.text
-    print(response)
+
+    client = Client(endpoint)
+
+    model_uid = client.launch_model(
+        model_name="orca", model_size_in_billions=3, quantization="q4_0"
+    )
+    worker_ref = await supervisor_ref.get_model(model_uid)
+    await worker_ref.record_metrics(
+        "total_tokens_input", "inc", {"labels": {"model": model_uid}}
+    )
+    response = requests.get(metrics_exporter_address)
+    assert response.ok
+    assert 'xinference:total_tokens_input{model="orca"} 1' in response.text

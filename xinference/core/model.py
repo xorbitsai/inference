@@ -356,5 +356,5 @@ class ModelActor(xo.StatelessActor):
         )
 
     async def record_metrics(self, name, op, kwargs):
-        worker_ref = self._get_worker_ref()
+        worker_ref = await self._get_worker_ref()
         await worker_ref.record_metrics(name, op, kwargs)
