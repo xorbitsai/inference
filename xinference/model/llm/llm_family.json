@@ -2846,8 +2846,7 @@
       "en"
     ],
     "model_ability": [
-      "chat",
-      "function"
+      "chat"
     ],
     "model_description": "OpenFunctions is designed to extend Large Language Model (LLM) Chat Completion feature to formulate executable APIs call given natural language instructions and API context.",
     "model_specs": [
