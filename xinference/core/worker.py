@@ -70,7 +70,7 @@ class WorkerActor(xo.StatelessActor):
             logger.info(
                 f"Starting metrics export server at {metrics_exporter_host}:{metrics_exporter_port}"
             )
-            q = queue.Queue()
+            q: queue.Queue = queue.Queue()
             self._metrics_thread = threading.Thread(
                 name="Metrics Export Server",
                 target=launch_metrics_export_server,

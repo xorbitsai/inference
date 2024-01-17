@@ -58,8 +58,9 @@ async def test_metrics_exporter_server(setup_cluster):
     endpoint, metrics_exporter_address, supervisor_address = setup_cluster
 
     import xoscar as xo
-    from ..supervisor import SupervisorActor
+
     from ...client import Client
+    from ..supervisor import SupervisorActor
 
     supervisor_ref = await xo.actor_ref(supervisor_address, SupervisorActor.uid())
     await supervisor_ref.record_metrics(

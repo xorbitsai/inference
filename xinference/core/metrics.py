@@ -13,12 +13,12 @@
 # limitations under the License.
 
 import asyncio
+
 import uvicorn
 from aioprometheus import Counter, Gauge, MetricsMiddleware
 from aioprometheus.asgi.starlette import metrics
 from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
-
 
 DEFAULT_METRICS_SERVER_LOG_LEVEL = "warning"
 

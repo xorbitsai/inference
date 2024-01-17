@@ -34,6 +34,7 @@ import sse_starlette.sse
 import xoscar as xo
 
 if TYPE_CHECKING:
+    from .worker import WorkerActor
     from ..model.llm.core import LLM
     import PIL
 
