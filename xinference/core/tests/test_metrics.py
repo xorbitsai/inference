@@ -77,8 +77,8 @@ async def test_metrics_exporter_server(setup_cluster):
     model_uid = client.launch_model(
         model_name="orca", model_size_in_billions=3, quantization="q4_0"
     )
-    worker_ref = await supervisor_ref.get_model(model_uid)
-    await worker_ref.record_metrics(
+    model_ref = await supervisor_ref.get_model(model_uid)
+    await model_ref.record_metrics(
         "total_tokens_input", "inc", {"labels": {"model": model_uid}}
     )
     response = requests.get(metrics_exporter_address)
