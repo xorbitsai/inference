@@ -153,8 +153,13 @@ def is_model_cached(model_spec: Any, name_to_revisions_mapping: Dict):
 
 
 def is_valid_model_name(model_name: str) -> bool:
-    model_name = model_name.strip()
-    return 0 < len(model_name) <= 100
+    import re
+
+    if len(model_name) == 0:
+        return False
+
+    # check if contains +/?%#&=\s
+    return re.match(r"^[^+\/?%#&=\s]*$", model_name) is not None
 
 
 def parse_uri(uri: str) -> Tuple[str, str]:
