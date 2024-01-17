@@ -81,7 +81,7 @@ class WorkerActor(xo.StatelessActor):
             logger.info("Checking metrics export server...")
             while self._metrics_thread.is_alive():
                 try:
-                    host, port = q.get(block=False)
+                    host, port = q.get(block=False)[:2]
                     logger.info(f"Metrics server is started at: http://{host}:{port}")
                     break
                 except queue.Empty:

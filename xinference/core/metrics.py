@@ -15,7 +15,7 @@
 import asyncio
 
 import uvicorn
-from aioprometheus import Counter, Gauge, MetricsMiddleware
+from aioprometheus import Counter, Gauge
 from aioprometheus.asgi.starlette import metrics
 from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
@@ -46,8 +46,6 @@ def record_metrics(name, op, kwargs):
 
 def launch_metrics_export_server(q, host=None, port=None):
     app = FastAPI()
-
-    app.add_middleware(MetricsMiddleware)
     app.add_route("/metrics", metrics)
 
     @app.get("/")
