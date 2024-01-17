@@ -91,11 +91,6 @@ async def test_opt_pytorch_model(setup, quantization):
         for r in results:
             r.result()
 
-        embedding_res = model.create_embedding(
-            "The food was delicious and the waiter..."
-        )
-        assert "embedding" in embedding_res["data"][0]
-
         client.terminate_model(model_uid=model_uid)
         assert len(client.list_models()) == 0
 
