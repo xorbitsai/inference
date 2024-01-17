@@ -12,11 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import uvicorn
 from aioprometheus import Counter, Gauge, MetricsMiddleware
 from aioprometheus.asgi.starlette import metrics
 from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
+
+
+DEFAULT_METRICS_SERVER_LOG_LEVEL = "warning"
+
 
 generate_throughput = Gauge(
     "xinference:generate_tokens_per_s", "Generate throughput in tokens/s."
@@ -34,11 +39,12 @@ total_tokens_output = Counter(
 )
 
 
-def update_metrics(name, op, kwargs):
-    pass
+def record_metrics(name, op, kwargs):
+    collector = globals().get(name)
+    getattr(collector, op)(**kwargs)
 
 
-def launch_metrics_export_server(host=None, port=None):
+def launch_metrics_export_server(q, host=None, port=None):
     app = FastAPI()
 
     app.add_middleware(MetricsMiddleware)
@@ -49,7 +55,31 @@ def launch_metrics_export_server(host=None, port=None):
         response = RedirectResponse(url="/metrics")
         return response
 
-    if host is not None or port is not None:
-        uvicorn.run(app, host=host, port=port)
-    else:
-        uvicorn.run(app)
+    async def main():
+        if host is not None and port is not None:
+            config = uvicorn.Config(
+                app, host=host, port=port, log_level=DEFAULT_METRICS_SERVER_LOG_LEVEL
+            )
+        elif host is not None:
+            config = uvicorn.Config(
+                app, host=host, port=0, log_level=DEFAULT_METRICS_SERVER_LOG_LEVEL
+            )
+        elif port is not None:
+            config = uvicorn.Config(
+                app, port=port, log_level=DEFAULT_METRICS_SERVER_LOG_LEVEL
+            )
+        else:
+            config = uvicorn.Config(app, log_level=DEFAULT_METRICS_SERVER_LOG_LEVEL)
+
+        server = uvicorn.Server(config)
+        task = asyncio.create_task(server.serve())
+
+        while not server.started and not task.done():
+            await asyncio.sleep(0.1)
+
+        for server in server.servers:
+            for socket in server.sockets:
+                q.put(socket.getsockname())
+        await task
+
+    asyncio.run(main())

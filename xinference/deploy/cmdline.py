@@ -34,7 +34,6 @@ from ..constants import (
     XINFERENCE_DEFAULT_DISTRIBUTED_HOST,
     XINFERENCE_DEFAULT_ENDPOINT_PORT,
     XINFERENCE_DEFAULT_LOCAL_HOST,
-    XINFERENCE_DEFAULT_METRICS_EXPORTER_PORT,
     XINFERENCE_ENV_ENDPOINT,
     XINFERENCE_LOG_BACKUP_COUNT,
     XINFERENCE_LOG_MAX_BYTES,
@@ -200,7 +199,6 @@ def cli(
 @click.option(
     "--metrics-exporter-port",
     "-mp",
-    default=XINFERENCE_DEFAULT_METRICS_EXPORTER_PORT,
     type=int,
     help="Specify the port number for the Xinference metrics exporter server.",
 )

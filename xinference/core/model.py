@@ -140,12 +140,15 @@ class ModelActor(xo.StatelessActor):
             gc.collect()
             torch.cuda.empty_cache()
 
-    def __init__(self, model: "LLM", request_limits: Optional[int] = None):
+    def __init__(
+        self, worker_address: str, model: "LLM", request_limits: Optional[int] = None
+    ):
         super().__init__()
         from ..model.llm.pytorch.core import PytorchModel
         from ..model.llm.pytorch.spec_model import SpeculativeModel
         from ..model.llm.vllm.core import VLLMModel
 
+        self._worker_address = worker_address
         self._model = model
         self._request_limits = request_limits
 
@@ -156,7 +159,17 @@ class ModelActor(xo.StatelessActor):
             if isinstance(self._model, (PytorchModel, SpeculativeModel, VLLMModel))
             else asyncio.locks.Lock()
         )
+        self._worker_ref = None
         self._serve_count = 0
+
+    async def _get_worker_ref(self) -> xo.ActorRefType["WorkerActor"]:
+        from .worker import WorkerActor
+
+        if self._worker_ref is None:
+            self._worker_ref = await xo.actor_ref(
+                address=self._worker_address, uid=WorkerActor.uid()
+            )
+        return self._worker_ref
 
     def is_vllm_backend(self) -> bool:
         from ..model.llm.vllm.core import VLLMModel
@@ -341,3 +354,7 @@ class ModelActor(xo.StatelessActor):
         raise AttributeError(
             f"Model {self._model.model_spec} is not for creating image."
         )
+
+    async def record_metrics(self, name, op, kwargs):
+        worker_ref = self._get_worker_ref()
+        await worker_ref.record_metrics(name, op, kwargs)

@@ -748,3 +748,15 @@ class SupervisorActor(xo.StatelessActor):
         self._worker_status[worker_address] = WorkerStatus(
             update_time=time.time(), status=status
         )
+
+    async def record_metrics(self, name, op, kwargs):
+        if not self._worker_address_to_worker:
+            logger.warning(
+                "No worker found, discard supervisor metrics, name: %s, op: %s, kwargs: %s",
+                name,
+                op,
+                kwargs,
+            )
+        else:
+            worker = next(iter(self._worker_address_to_worker.values()))
+            await worker.record_metrics(name, op, kwargs)

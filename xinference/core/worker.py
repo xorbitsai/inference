@@ -15,6 +15,7 @@
 import asyncio
 import os
 import platform
+import queue
 import signal
 import threading
 from collections import defaultdict
@@ -29,7 +30,7 @@ from ..core import ModelActor
 from ..core.status_guard import LaunchStatus
 from ..model.core import ModelDescription, create_model_instance
 from ..utils import cuda_count
-from .metrics import launch_metrics_export_server
+from .metrics import launch_metrics_export_server, record_metrics
 from .resource import gather_node_info
 from .utils import log_async, log_sync, parse_replica_model_uid, purge_dir
 
@@ -66,14 +67,27 @@ class WorkerActor(xo.StatelessActor):
 
         # metrics export server.
         if metrics_exporter_host is not None or metrics_exporter_port is not None:
-            logger.info(f"Start metrics export server at {metrics_exporter_host}:{metrics_exporter_port}")
+            logger.info(
+                f"Starting metrics export server at {metrics_exporter_host}:{metrics_exporter_port}"
+            )
+            q = queue.Queue()
             self._metrics_thread = threading.Thread(
                 name="Metrics Export Server",
                 target=launch_metrics_export_server,
-                args=(metrics_exporter_host, metrics_exporter_port),
+                args=(q, metrics_exporter_host, metrics_exporter_port),
                 daemon=True,
             )
             self._metrics_thread.start()
+            logger.info("Checking metrics export server...")
+            while self._metrics_thread.is_alive():
+                try:
+                    host, port = q.get(block=False)
+                    logger.info(f"Metrics server is started at: http://{host}:{port}")
+                    break
+                except queue.Empty:
+                    pass
+            else:
+                raise Exception("Metrics server thread exit.")
 
         self._lock = asyncio.Lock()
 
@@ -331,7 +345,11 @@ class WorkerActor(xo.StatelessActor):
 
         try:
             model_ref = await xo.create_actor(
-                ModelActor, address=subpool_address, uid=model_uid, model=model
+                ModelActor,
+                address=subpool_address,
+                uid=model_uid,
+                worker_address=self.address,
+                model=model,
             )
             await model_ref.load()
         except:
@@ -416,6 +434,7 @@ class WorkerActor(xo.StatelessActor):
                 ModelActor,
                 address=subpool_address,
                 uid=model_uid,
+                worker_address=self.address,
                 model=model,
                 request_limits=request_limits,
             )
@@ -514,6 +533,6 @@ class WorkerActor(xo.StatelessActor):
             except asyncio.CancelledError:  # pragma: no cover
                 break
 
-
-    def update_metrics(self, name, op, kwargs):
-        pass
+    @staticmethod
+    def record_metrics(name, op, kwargs):
+        record_metrics(name, op, kwargs)
