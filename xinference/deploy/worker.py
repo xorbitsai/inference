@@ -55,8 +55,8 @@ async def start_worker_components(
 async def _start_worker(
     address: str,
     supervisor_address: str,
-    metrics_exporter_host: Optional[str]=None,
-    metrics_exporter_port: Optional[int]=None,
+    metrics_exporter_host: Optional[str] = None,
+    metrics_exporter_port: Optional[int] = None,
     logging_conf: Any = None,
 ):
     from .utils import create_worker_actor_pool
@@ -75,8 +75,8 @@ async def _start_worker(
 def main(
     address: str,
     supervisor_address: str,
-    metrics_exporter_host: Optional[str]=None,
-    metrics_exporter_port: Optional[int]=None,
+    metrics_exporter_host: Optional[str] = None,
+    metrics_exporter_port: Optional[int] = None,
     logging_conf: Optional[dict] = None,
 ):
     loop = asyncio.get_event_loop()
