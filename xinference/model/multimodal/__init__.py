@@ -30,16 +30,23 @@ MODEL_CLASSES.append(QwenVLChat)
 
 
 def _install():
-    json_path = os.path.join(
+    json_path_huggingface = os.path.join(
         os.path.dirname(os.path.abspath(__file__)), "model_spec.json"
     )
-    for json_obj in json.load(codecs.open(json_path, "r", encoding="utf-8")):
-        model_family = LVLMFamilyV1.parse_obj(json_obj)
-        BUILTIN_LVLM_FAMILIES.append(model_family)
-        for model_spec in model_family.model_specs:
-            MODEL_NAME_TO_REVISION[model_family.model_name].append(
-                model_spec.model_revision
-            )
+    json_path_modelscope = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "model_spec_modelscope.json"
+    )
+    for builtin_family, json_path in [
+        (BUILTIN_LVLM_FAMILIES, json_path_huggingface),
+        (BUILTIN_MODELSCOPE_LVLM_FAMILIES, json_path_modelscope),
+    ]:
+        for json_obj in json.load(codecs.open(json_path, "r", encoding="utf-8")):
+            model_family = LVLMFamilyV1.parse_obj(json_obj)
+            builtin_family.append(model_family)
+            for model_spec in model_family.model_specs:
+                MODEL_NAME_TO_REVISION[model_family.model_name].append(
+                    model_spec.model_revision
+                )
 
 
 _install()
