@@ -15,8 +15,9 @@
 import asyncio
 
 import uvicorn
-from aioprometheus import Counter, Gauge
+from aioprometheus import Counter, Gauge, MetricsMiddleware
 from aioprometheus.asgi.starlette import metrics
+from aioprometheus.mypy_types import LabelsType
 from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
 
@@ -26,16 +27,31 @@ DEFAULT_METRICS_SERVER_LOG_LEVEL = "warning"
 generate_throughput = Gauge(
     "xinference:generate_tokens_per_s", "Generate throughput in tokens/s."
 )
+# Latency
 first_token_latency = Gauge(
     "xinference:first_token_latency_ms", "First token latency in ms."
 )
 generate_latency = Gauge("xinference:generate_latency_ms", "Generate latency in ms.")
-requests_throughput = Gauge("xinference:requests_per_s", "Requests per second.")
-total_tokens_input = Counter(
-    "xinference:total_tokens_input", "The counter for input tokens."
+# Tokens counter
+input_tokens_total_counter = Counter(
+    "xinference:input_tokens_total_counter", "Total number of input tokens."
 )
-total_tokens_output = Counter(
-    "xinference:total_tokens_output", "The counter for output tokens."
+output_tokens_total_counter = Counter(
+    "xinference:output_tokens_total_counter", "Total number of output tokens."
+)
+# RESTful API counter
+requests_total_counter = Counter(
+    "xinference:requests_total_counter", "Total number of requests received."
+)
+responses_total_counter = Counter(
+    "xinference:responses_total_counter", "Total number of responses sent."
+)
+exceptions_total_counter = Counter(
+    "xinference:exceptions_total_counter",
+    "Total number of requested which generated an exception.",
+)
+status_codes_counter = Counter(
+    "xinference:status_codes_counter", "Total number of response status codes."
 )
 
 
@@ -81,3 +97,32 @@ def launch_metrics_export_server(q, host=None, port=None):
         await task
 
     asyncio.run(main())
+
+
+class RestfulAPIMetricsMiddleware(MetricsMiddleware):
+    def __init__(self, restful_api, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.restful_api = restful_api
+
+    def _counter_wrapper(self, name: str):
+        class Counter:
+            @staticmethod
+            def inc(labels: LabelsType):
+                supervisor_ref = self.restful_api._supervisor_ref
+                if supervisor_ref is not None:
+                    # May have performance issue.
+                    coro = supervisor_ref.record_metrics(
+                        name, "inc", {"labels": labels}
+                    )
+                    asyncio.create_task(coro)
+
+        return Counter
+
+    def create_metrics(self):
+        """Create middleware metrics"""
+
+        self.requests_counter = self._counter_wrapper("requests_total_counter")
+        self.responses_counter = self._counter_wrapper("responses_total_counter")
+        self.exceptions_counter = self._counter_wrapper("exceptions_total_counter")
+        self.status_codes_counter = self._counter_wrapper("status_codes_counter")
+        self.metrics_created = True

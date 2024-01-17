@@ -64,7 +64,7 @@ async def test_metrics_exporter_server(setup_cluster):
 
     supervisor_ref = await xo.actor_ref(supervisor_address, SupervisorActor.uid())
     await supervisor_ref.record_metrics(
-        "requests_throughput",
+        "requests_total_counter",
         "set",
         {"labels": {"node": supervisor_address}, "value": 12357},
     )
@@ -79,8 +79,8 @@ async def test_metrics_exporter_server(setup_cluster):
     )
     model_ref = await supervisor_ref.get_model(model_uid)
     await model_ref.record_metrics(
-        "total_tokens_input", "inc", {"labels": {"model": model_uid}}
+        "input_tokens_total_counter", "inc", {"labels": {"model": model_uid}}
     )
     response = requests.get(metrics_exporter_address)
     assert response.ok
-    assert 'xinference:total_tokens_input{model="orca"} 1' in response.text
+    assert 'xinference:input_tokens_total_counter{model="orca"} 1' in response.text

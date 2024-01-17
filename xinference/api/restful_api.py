@@ -52,6 +52,7 @@ from uvicorn import Config, Server
 from xoscar.utils import get_next_port
 
 from ..constants import XINFERENCE_DEFAULT_ENDPOINT_PORT
+from ..core.metrics import RestfulAPIMetricsMiddleware
 from ..core.supervisor import SupervisorActor
 from ..core.utils import json_dumps
 from ..types import (
@@ -389,6 +390,7 @@ class RESTfulAPI:
             else None,
         )
 
+        self._app.add_middleware(RestfulAPIMetricsMiddleware, restful_api=self)
         self._app.include_router(self._router)
 
         # Check all the routes returns Response.
