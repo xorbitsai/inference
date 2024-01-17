@@ -458,7 +458,7 @@ class SupervisorActor(xo.StatelessActor):
         )
         return f"{model_name}-{gen_random_string(8)}"
 
-    async def get_launch_versions(self, model_type: str, model_name: str) -> List[str]:
+    async def get_model_versions(self, model_type: str, model_name: str) -> List[str]:
         from ..model.embedding import get_embedding_launch_versions
         from ..model.image.core import get_image_launch_versions
         from ..model.llm.llm_family import get_llm_launch_versions

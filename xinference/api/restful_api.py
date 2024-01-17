@@ -265,7 +265,7 @@ class RESTfulAPI:
         )
         self._router.add_api_route(
             "/v1/models/{model_type}/{model_name}/versions",
-            self.get_launch_versions,
+            self.get_model_versions,
             methods=["GET"],
             dependencies=[Security(verify_token, scopes=["models:list"])]
             if self.is_authenticated()
@@ -682,11 +682,11 @@ class RESTfulAPI:
             raise HTTPException(status_code=500, detail=str(e))
         return JSONResponse(content={"model_uid": model_uid})
 
-    async def get_launch_versions(
+    async def get_model_versions(
         self, model_type: str, model_name: str
     ) -> JSONResponse:
         try:
-            content = await (await self._get_supervisor_ref()).get_launch_versions(
+            content = await (await self._get_supervisor_ref()).get_model_versions(
                 model_type, model_name
             )
             return JSONResponse(content=content)
