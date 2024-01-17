@@ -535,7 +535,8 @@
       "zh"
     ],
     "model_ability": [
-      "chat"
+      "chat",
+      "tool_call"
     ],
     "model_description": "ChatGLM3 is the third generation of ChatGLM, still open-source and trained on Chinese and English data.",
     "model_specs": [
@@ -1155,7 +1156,8 @@
       "zh"
     ],
     "model_ability": [
-      "chat"
+      "chat",
+      "tool_call"
     ],
     "model_description": "Qwen-chat is a fine-tuned version of the Qwen LLM trained with alignment techniques, specializing in chatting.",
     "model_specs": [

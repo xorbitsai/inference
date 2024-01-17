@@ -43,6 +43,7 @@ DEFAULT_CONTEXT_LENGTH = 2048
 BUILTIN_LLM_PROMPT_STYLE: Dict[str, "PromptStyleV1"] = {}
 BUILTIN_LLM_MODEL_CHAT_FAMILIES: Set[str] = set()
 BUILTIN_LLM_MODEL_GENERATE_FAMILIES: Set[str] = set()
+BUILTIN_LLM_MODEL_TOOL_CALL_FAMILIES: Set[str] = set()
 
 
 class GgmlLLMSpecV1(BaseModel):
@@ -105,7 +106,7 @@ class LLMFamilyV1(BaseModel):
     context_length: Optional[int] = DEFAULT_CONTEXT_LENGTH
     model_name: str
     model_lang: List[str]
-    model_ability: List[Literal["embed", "generate", "chat"]]
+    model_ability: List[Literal["embed", "generate", "chat", "tool_call"]]
     model_description: Optional[str]
     # reason for not required str here: legacy registration
     model_family: Optional[str]
@@ -154,6 +155,15 @@ class CustomLLMFamilyV1(LLMFamilyV1):
             raise ValueError(
                 f"`model_family` for chat model must be `other` or one of the following values: \n"
                 f"{', '.join(list(BUILTIN_LLM_MODEL_CHAT_FAMILIES))}"
+            )
+        if (
+            llm_spec.model_family != "other"
+            and "tool_call" in llm_spec.model_ability
+            and llm_spec.model_family not in BUILTIN_LLM_MODEL_TOOL_CALL_FAMILIES
+        ):
+            raise ValueError(
+                f"`model_family` for tool call model must be `other` or one of the following values: \n"
+                f"{', '.join(list(BUILTIN_LLM_MODEL_TOOL_CALL_FAMILIES))}"
             )
         if (
             llm_spec.model_family != "other"

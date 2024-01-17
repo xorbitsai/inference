@@ -21,6 +21,7 @@ from .llm_family import (
     BUILTIN_LLM_FAMILIES,
     BUILTIN_LLM_MODEL_CHAT_FAMILIES,
     BUILTIN_LLM_MODEL_GENERATE_FAMILIES,
+    BUILTIN_LLM_MODEL_TOOL_CALL_FAMILIES,
     BUILTIN_LLM_PROMPT_STYLE,
     BUILTIN_MODELSCOPE_LLM_FAMILIES,
     LLM_CLASSES,
@@ -102,6 +103,8 @@ def _install():
             BUILTIN_LLM_MODEL_CHAT_FAMILIES.add(model_spec.model_name)
         else:
             BUILTIN_LLM_MODEL_GENERATE_FAMILIES.add(model_spec.model_name)
+        if "tool_call" in model_spec.model_ability:
+            BUILTIN_LLM_MODEL_TOOL_CALL_FAMILIES.add(model_spec.model_name)
 
     modelscope_json_path = os.path.join(
         os.path.dirname(os.path.abspath(__file__)), "llm_family_modelscope.json"
@@ -123,6 +126,8 @@ def _install():
             BUILTIN_LLM_MODEL_CHAT_FAMILIES.add(model_spec.model_name)
         else:
             BUILTIN_LLM_MODEL_GENERATE_FAMILIES.add(model_spec.model_name)
+        if "tool_call" in model_spec.model_ability:
+            BUILTIN_LLM_MODEL_TOOL_CALL_FAMILIES.add(model_spec.model_name)
 
     from ...constants import XINFERENCE_MODEL_DIR
 
