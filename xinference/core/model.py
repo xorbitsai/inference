@@ -184,7 +184,7 @@ class ModelActor(xo.StatelessActor):
         self._loop = asyncio.get_running_loop()
 
     async def _record_completion_metrics(
-        self, duration, completion_tokens, prompt_tokens, total_tokens
+        self, duration, completion_tokens, prompt_tokens
     ):
         coros = []
         if completion_tokens > 0:
@@ -275,9 +275,8 @@ class ModelActor(xo.StatelessActor):
             if self._loop is not None and final_usage is not None:
                 coro = self._record_completion_metrics(
                     time.time() - start_time,
-                    final_usage["completion_tokens"],
+                    completion_tokens=final_usage["completion_tokens"],
                     prompt_tokens=final_usage["prompt_tokens"],
-                    total_tokens=final_usage["total_tokens"],
                 )
                 asyncio.run_coroutine_threadsafe(coro, loop=self._loop)
 
@@ -312,9 +311,8 @@ class ModelActor(xo.StatelessActor):
                 coros.append(
                     self._record_completion_metrics(
                         time.time() - start_time,
-                        final_usage["completion_tokens"],
+                        completion_tokens=final_usage["completion_tokens"],
                         prompt_tokens=final_usage["prompt_tokens"],
-                        total_tokens=final_usage["total_tokens"],
                     )
                 )
             await asyncio.gather(*coros)
@@ -385,12 +383,10 @@ class ModelActor(xo.StatelessActor):
                 # Some backends may not have a valid usage, we just skip them.
                 completion_tokens = usage["completion_tokens"]
                 prompt_tokens = usage["prompt_tokens"]
-                total_tokens = usage["total_tokens"]
                 await self._record_completion_metrics(
                     time.time() - start_time,
                     completion_tokens,
                     prompt_tokens,
-                    total_tokens,
                 )
 
     @log_async(logger=logger)
