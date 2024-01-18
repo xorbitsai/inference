@@ -17,6 +17,8 @@ import functools
 import inspect
 import json
 import os
+import queue
+import time
 import types
 import weakref
 from typing import (
@@ -162,6 +164,48 @@ class ModelActor(xo.StatelessActor):
         )
         self._worker_ref = None
         self._serve_count = 0
+        self._metrics_labels = {"model": self.model_uid(), "node": self._worker_address}
+        self._loop = None
+
+    async def __post_create__(self):
+        self._loop = asyncio.get_running_loop()
+
+    async def _record_completion_metrics(
+        self, duration, completion_tokens, prompt_tokens, total_tokens
+    ):
+        coros = []
+        if completion_tokens > 0:
+            coros.append(
+                self.record_metrics(
+                    "output_tokens_total_counter",
+                    "add",
+                    {
+                        "labels": self._metrics_labels,
+                        "value": completion_tokens,
+                    },
+                )
+            )
+        if prompt_tokens > 0:
+            coros.append(
+                self.record_metrics(
+                    "input_tokens_total_counter",
+                    "add",
+                    {"labels": self._metrics_labels, "value": prompt_tokens},
+                )
+            )
+        if total_tokens > 0:
+            generate_throughput = total_tokens / duration
+            coros.append(
+                self.record_metrics(
+                    "generate_throughput",
+                    "set",
+                    {
+                        "labels": self._metrics_labels,
+                        "value": generate_throughput,
+                    },
+                )
+            )
+        await asyncio.gather(*coros)
 
     async def _get_worker_ref(self) -> xo.ActorRefType["WorkerActor"]:
         from .worker import WorkerActor
@@ -192,8 +236,14 @@ class ModelActor(xo.StatelessActor):
         )
 
     def _to_json_generator(self, gen: types.GeneratorType):
+        start_time = time.time()
+        first_token_latency = None
+        final_usage = None
         try:
             for v in gen:
+                if first_token_latency is None:
+                    first_token_latency = (time.time() - start_time) * 1000
+                final_usage = usage
                 v = dict(data=json.dumps(v))
                 yield sse_starlette.sse.ensure_bytes(v, None)
         except OutOfMemoryError:
@@ -201,10 +251,32 @@ class ModelActor(xo.StatelessActor):
                 "Model actor is out of memory, model id: %s", self.model_uid()
             )
             os._exit(1)
+        finally:
+            if first_token_latency is not None:
+                coro = self.record_metrics(
+                    "first_token_latency",
+                    "set",
+                    {"labels": self._metrics_labels, "value": first_token_latency},
+                )
+                asyncio.run_coroutine_threadsafe(coro, loop=self._loop)
+            if final_usage is not None:
+                coro = self._record_completion_metrics(
+                    time.time() - start_time,
+                    final_usage["completion_tokens"],
+                    prompt_tokens=final_usage["prompt_tokens"],
+                    total_tokens=final_usage["total_tokens"],
+                )
+                asyncio.run_coroutine_threadsafe(coro, loop=self._loop)
 
     async def _to_json_async_gen(self, gen: types.AsyncGeneratorType):
+        start_time = time.time()
+        first_token_latency = None
+        final_usage = None
         try:
             async for v in gen:
+                if first_token_latency is None:
+                    first_token_latency = (time.time() - start_time) * 1000
+                final_usage = usage
                 v = await asyncio.to_thread(json.dumps, v)
                 v = dict(data=v)  # noqa: F821
                 yield await asyncio.to_thread(sse_starlette.sse.ensure_bytes, v, None)
@@ -213,6 +285,26 @@ class ModelActor(xo.StatelessActor):
                 "Model actor is out of memory, model id: %s", self.model_uid()
             )
             os._exit(1)
+        finally:
+            coros = []
+            if first_token_latency is not None:
+                coros.append(
+                    self.record_metrics(
+                        "first_token_latency",
+                        "set",
+                        {"labels": self._metrics_labels, "value": first_token_latency},
+                    )
+                )
+            if final_usage is not None:
+                coros.append(
+                    self._record_completion_metrics(
+                        time.time() - start_time,
+                        final_usage["completion_tokens"],
+                        prompt_tokens=final_usage["prompt_tokens"],
+                        total_tokens=final_usage["total_tokens"],
+                    )
+                )
+            await asyncio.gather(*coros)
 
     @oom_check
     async def _call_wrapper(self, fn: Callable, *args, **kwargs):
@@ -259,13 +351,34 @@ class ModelActor(xo.StatelessActor):
     @request_limit
     @xo.generator
     async def chat(self, prompt: str, *args, **kwargs):
-        if hasattr(self._model, "chat"):
-            return await self._call_wrapper(self._model.chat, prompt, *args, **kwargs)
-        if hasattr(self._model, "async_chat"):
-            return await self._call_wrapper(
-                self._model.async_chat, prompt, *args, **kwargs
-            )
-        raise AttributeError(f"Model {self._model.model_spec} is not for chat.")
+        start_time = time.time()
+        response = None
+        try:
+            if hasattr(self._model, "chat"):
+                response = await self._call_wrapper(
+                    self._model.chat, prompt, *args, **kwargs
+                )
+                return response
+            if hasattr(self._model, "async_chat"):
+                response = await self._call_wrapper(
+                    self._model.async_chat, prompt, *args, **kwargs
+                )
+                return response
+            raise AttributeError(f"Model {self._model.model_spec} is not for chat.")
+        finally:
+            # For the non stream result.
+            if response is not None and isinstance(response, dict):
+                usage = response["usage"]
+                # Some backends may not have a valid usage, we just skip them.
+                completion_tokens = usage["completion_tokens"]
+                prompt_tokens = usage["prompt_tokens"]
+                total_tokens = usage["total_tokens"]
+                await self._record_completion_metrics(
+                    time.time() - start_time,
+                    completion_tokens,
+                    prompt_tokens,
+                    total_tokens,
+                )
 
     @log_async(logger=logger)
     @request_limit
