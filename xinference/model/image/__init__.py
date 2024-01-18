@@ -30,7 +30,7 @@ BUILTIN_IMAGE_MODELS = dict(
     for spec in json.load(codecs.open(_model_spec_json, "r", encoding="utf-8"))
 )
 
-# register launch version
+# register model description
 for model_name, model_spec in BUILTIN_IMAGE_MODELS.items():
     IMAGE_MODEL_DESCRIPTIONS.update(generate_image_description(model_spec))
 

@@ -127,7 +127,7 @@ def purge_dir(d):
             pass
 
 
-def parse_model_launch_version(model_version: str, model_type: str) -> Tuple:
+def parse_model_version(model_version: str, model_type: str) -> Tuple:
     results: List[str] = model_version.split("--")
     if model_type == "LLM":
         if len(results) != 4:

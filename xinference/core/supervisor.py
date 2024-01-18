@@ -32,7 +32,7 @@ from .utils import (
     iter_replica_model_uid,
     log_async,
     log_sync,
-    parse_model_launch_version,
+    parse_model_version,
     parse_replica_model_uid,
 )
 
@@ -517,7 +517,7 @@ class SupervisorActor(xo.StatelessActor):
         n_gpu: Optional[Union[int, str]] = "auto",
         wait_ready: bool = True,
     ):
-        parse_results = parse_model_launch_version(model_version, model_type)
+        parse_results = parse_model_version(model_version, model_type)
 
         if model_type == "image" and len(parse_results) == 2:
             kwargs = {"controlnet": parse_results[1]}

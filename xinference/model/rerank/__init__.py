@@ -53,7 +53,7 @@ MODELSCOPE_RERANK_MODELS = dict(
 )
 for model_name, model_spec in MODELSCOPE_RERANK_MODELS.items():
     MODEL_NAME_TO_REVISION[model_name].append(model_spec.model_revision)
-    # register launch version
+    # register model description
     if model_spec.model_name not in RERANK_MODEL_DESCRIPTIONS:
         RERANK_MODEL_DESCRIPTIONS.update(generate_rerank_description(model_spec))
 
@@ -67,7 +67,7 @@ if os.path.isdir(user_defined_rerank_dir):
             user_defined_rerank_spec = CustomRerankModelSpec.parse_obj(json.load(fd))
             register_rerank(user_defined_rerank_spec, persist=False)
 
-# register launch version
+# register model description
 for ud_rerank in get_user_defined_reranks():
     RERANK_MODEL_DESCRIPTIONS.update(generate_rerank_description(ud_rerank))
 
