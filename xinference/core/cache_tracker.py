@@ -87,7 +87,7 @@ class CacheTrackerActor(xo.Actor):
 
     def get_model_versions(self, model_name: str) -> List[Dict]:
         if model_name not in self._model_name_to_version_info:
-            raise KeyError(
-                f"Model name {model_name} version info has not been recorded."
-            )
-        return self._model_name_to_version_info[model_name]
+            logger.warning(f"Not record version info for model_name: {model_name}")
+            return []
+        else:
+            return self._model_name_to_version_info[model_name]

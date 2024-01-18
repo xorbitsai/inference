@@ -304,6 +304,12 @@ async def test_restful_api(setup):
     response = requests.delete(url, json=payload)
     assert response.status_code == 200
 
+    # check model version info after unregister
+    url = f"{endpoint}/v1/models/LLM/custom_model/versions"
+    response = requests.get(url)
+    version_infos = response.json()
+    assert len(version_infos) == 0
+
     url = f"{endpoint}/v1/model_registrations/LLM"
 
     response = requests.get(url)
