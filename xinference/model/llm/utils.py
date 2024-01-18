@@ -494,16 +494,19 @@ Begin!"""
         return text, None, None
 
     @classmethod
-    def _tool_calls_completion(cls, model_name, model_uid, c, tools):
+    def _tool_calls_completion(cls, model_family, model_uid, c, tools):
         _id = str(uuid.uuid4())
-        if model_name == "gorilla-openfunctions-v1":
+        family = model_family.model_family or model_family.model_name
+        if "gorilla-openfunctions-v1" == family:
             content, func, args = cls._eval_gorilla_openfunctions_arguments(c, tools)
-        elif model_name == "chatglm3":
+        elif "chatglm3" == family:
             content, func, args = cls._eval_chatglm3_arguments(c, tools)
-        elif model_name == "qwen-chat":
+        elif "qwen-chat" == family:
             content, func, args = cls._eval_qwen_chat_arguments(c, tools)
         else:
-            raise Exception(f"Model {model_name} is not support tool calls.")
+            raise Exception(
+                f"Model {model_family.model_name} is not support tool calls."
+            )
         logger.debug("Tool call content: %s, func: %s, args: %s", content, func, args)
 
         if content:

@@ -11,13 +11,19 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import time
+import uuid
 from typing import Any, Dict, Iterator, List, Optional, Union
 
 from ....types import (
     SPECIAL_TOOL_PROMPT,
     ChatCompletion,
+    ChatCompletionChoice,
     ChatCompletionChunk,
     ChatCompletionMessage,
+    CompletionChoice,
+    CompletionChunk,
+    CompletionUsage,
     PytorchGenerateConfig,
 )
 from ..llm_family import LLMFamilyV1, LLMSpecV1
@@ -106,38 +112,74 @@ class ChatglmPytorchChatModel(PytorchChatModel):
         generate_config: Optional[PytorchGenerateConfig] = None,
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
         tools = self._handle_tools(generate_config)
+        kwargs: Dict[str, Any] = {}
+        generate_config = generate_config or {}
+        temperature = generate_config.get("temperature")
+        if temperature is not None:
+            kwargs["temperature"] = float(temperature)
+        top_p = generate_config.get("top_p")
+        if top_p is not None:
+            kwargs["top_p"] = float(top_p)
+        max_length = generate_config.get("max_tokens")
+        if max_length is not None:
+            kwargs["max_length"] = int(max_length)
+        # Tool calls only works for non stream, so we call chat directly.
+        if prompt == SPECIAL_TOOL_PROMPT and chat_history:
+            tool_message = chat_history.pop()
+            content = tool_message.get("content")
+            assert content is not None
+            prompt = content
+            kwargs["role"] = "observation"
+            chat_history = [h for h in chat_history if not h.get("tool_calls")]
+        if not chat_history:
+            chat_history = []
         if tools:
-            # Tool calls only works for non stream, so we call chat directly.
-            kwargs: Dict[str, Any] = {}
-            generate_config = generate_config or {}
-            temperature = generate_config.get("temperature")
-            if temperature is not None:
-                kwargs["temperature"] = float(temperature)
-            top_p = generate_config.get("top_p")
-            if top_p is not None:
-                kwargs["top_p"] = float(top_p)
-            max_length = generate_config.get("max_tokens")
-            if max_length is not None:
-                kwargs["max_length"] = int(max_length)
-            if prompt == SPECIAL_TOOL_PROMPT and chat_history:
-                tool_message = chat_history.pop()
-                content = tool_message.get("content")
-                assert content is not None
-                prompt = content
-                kwargs["role"] = "observation"
-                chat_history = [h for h in chat_history if not h.get("tool_calls")]
-            if not chat_history:
-                chat_history = []
             msg = self._model.chat(
                 self._tokenizer, prompt, [tools] + chat_history, **kwargs
             )
             return self._tool_calls_completion(
-                self.model_family.model_name, self.model_uid, msg, tools
+                self.model_family, self.model_uid, msg, tools
             )
         else:
-            return super().chat(
-                prompt=prompt,
-                system_prompt=system_prompt,
-                chat_history=chat_history,
-                generate_config=generate_config,
-            )
+            stream = generate_config.get("stream", False)
+            if stream:
+
+                def _stream_generator():
+                    last_chunk_text_length = 0
+                    for chunk_text, _ in self._model.stream_chat(
+                        self._tokenizer, prompt, chat_history, **kwargs
+                    ):
+                        chunk_text = chunk_text[last_chunk_text_length:]
+                        last_chunk_text_length += len(chunk_text)
+                        completion_choice = CompletionChoice(
+                            text=chunk_text, index=0, logprobs=None, finish_reason=None
+                        )
+                        yield CompletionChunk(
+                            id=str(uuid.uuid1()),
+                            object="text_completion",
+                            created=int(time.time()),
+                            model=self.model_uid,
+                            choices=[completion_choice],
+                        )
+
+                return self._to_chat_completion_chunks(_stream_generator())
+            else:
+                response, _ = self._model.chat(
+                    self._tokenizer, prompt, chat_history, **kwargs
+                )
+                return ChatCompletion(
+                    id="chat" + str(uuid.uuid1()),
+                    object="chat.completion",
+                    created=int(time.time()),
+                    model=self.model_uid,
+                    choices=[
+                        ChatCompletionChoice(
+                            index=0,
+                            message={"role": "assistant", "content": response},
+                            finish_reason="stop",
+                        )
+                    ],
+                    usage=CompletionUsage(
+                        prompt_tokens=-1, completion_tokens=-1, total_tokens=-1
+                    ),
+                )

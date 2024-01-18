@@ -70,9 +70,6 @@ async def test_client(setup):
 
     model = client.get_model(model_uid=model_uid)
 
-    embedding_res = model.create_embedding("The food was delicious and the waiter...")
-    assert "embedding" in embedding_res["data"][0]
-
     client.terminate_model(model_uid=model_uid)
     assert len(client.list_models()) == 0
 
@@ -154,9 +151,6 @@ def test_replica_model(setup):
     while len(replica_uids) != replica:
         model = client.get_model(model_uid=model_uid)
         replica_uids.add(model._model_ref.uid)
-
-    embedding_res = model.create_embedding("The food was delicious and the waiter...")
-    assert "embedding" in embedding_res["data"][0]
 
     client2 = RESTfulClient(endpoint)
     info = client2.describe_model(model_uid=model_uid)
@@ -356,11 +350,6 @@ def test_RESTful_client(setup):
         model_size_in_billions=3,
         quantization="q4_0",
     )
-
-    model2 = client.get_model(model_uid=model_uid2)
-
-    embedding_res = model2.create_embedding("The food was delicious and the waiter...")
-    assert "embedding" in embedding_res["data"][0]
 
     client.terminate_model(model_uid=model_uid2)
     assert len(client.list_models()) == 0

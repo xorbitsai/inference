@@ -16,7 +16,6 @@ RUN apt-get -y update \
   && apt-get -yq clean
 
 ENV PATH $NVM_DIR/versions/node/v$NODE_VERSION/bin:$PATH
-ENV LD_LIBRARY_PATH /usr/local/cuda/compat:$LD_LIBRARY_PATH
 
 ARG PIP_INDEX=https://pypi.org/simple
 RUN python -m pip install --upgrade -i "$PIP_INDEX" pip && \

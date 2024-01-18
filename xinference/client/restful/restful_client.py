@@ -257,7 +257,7 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
         return response_data
 
 
-class RESTfulGenerateModelHandle(RESTfulEmbeddingModelHandle):
+class RESTfulGenerateModelHandle(RESTfulModelHandle):
     def generate(
         self,
         prompt: str,
@@ -486,7 +486,7 @@ class RESTfulMultimodalModelHandle(RESTfulModelHandle):
         return response_data
 
 
-class RESTfulChatglmCppChatModelHandle(RESTfulEmbeddingModelHandle):
+class RESTfulChatglmCppChatModelHandle(RESTfulModelHandle):
     def chat(
         self,
         prompt: str,

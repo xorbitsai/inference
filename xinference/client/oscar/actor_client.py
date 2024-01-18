@@ -171,7 +171,7 @@ class RerankModelHandle(ModelHandle):
         return results
 
 
-class GenerateModelHandle(EmbeddingModelHandle):
+class GenerateModelHandle(ModelHandle):
     def generate(
         self,
         prompt: str,
@@ -255,7 +255,7 @@ class ChatModelHandle(GenerateModelHandle):
         return ClientIteratorWrapper(r)
 
 
-class ChatglmCppChatModelHandle(EmbeddingModelHandle):
+class ChatglmCppChatModelHandle(ModelHandle):
     def chat(
         self,
         prompt: str,

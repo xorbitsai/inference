@@ -170,7 +170,7 @@ class VLLMModel(LLM):
         )
         sanitized.setdefault("temperature", generate_config.get("temperature", 1.0))
         sanitized.setdefault("top_p", generate_config.get("top_p", 1.0))
-        sanitized.setdefault("max_tokens", generate_config.get("max_tokens", 16))
+        sanitized.setdefault("max_tokens", generate_config.get("max_tokens", 1024))
         sanitized.setdefault("stop", generate_config.get("stop", None))
         sanitized.setdefault(
             "stop_token_ids", generate_config.get("stop_token_ids", None)
@@ -379,7 +379,8 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
 
         generate_config = self._sanitize_chat_config(generate_config)
         # TODO(codingl2k1): qwen hacky to set stop for function call.
-        if tools and self.model_family.model_name == "qwen-chat":
+        model_family = self.model_family.model_family or self.model_family.model_name
+        if tools and "qwen-chat" == model_family:
             stop = generate_config.get("stop")
             if isinstance(stop, str):
                 generate_config["stop"] = [stop, "Observation:"]
@@ -400,6 +401,6 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
             assert not isinstance(c, AsyncGenerator)
             if tools:
                 return self._tool_calls_completion(
-                    self.model_family.model_name, self.model_uid, c, tools
+                    self.model_family, self.model_uid, c, tools
                 )
             return self._to_chat_completion(c)
