@@ -130,6 +130,7 @@ jobs:
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U xoscar
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U "python-jose[cryptography]"
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U "passlib[bcrypt]"
+            ${{ env.SELF_HOST_PYTHON }} -m pip install -U "aioprometheus[starlette]"
             ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=1500 \
               -W ignore::PendingDeprecationWarning \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/image/tests/test_stable_diffusion.py
