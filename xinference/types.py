@@ -110,7 +110,7 @@ class CompletionChunk(TypedDict):
     created: int
     model: str
     choices: List[CompletionChoice]
-    usage: Optional[CompletionUsage]
+    usage: NotRequired[CompletionUsage]
 
 
 class Completion(TypedDict):
@@ -161,7 +161,7 @@ class ChatCompletionChunk(TypedDict):
     object: Literal["chat.completion.chunk"]
     created: int
     choices: List[ChatCompletionChunkChoice]
-    usage: Optional[CompletionUsage]
+    usage: NotRequired[CompletionUsage]
 
 
 class ChatglmCppModelConfig(TypedDict, total=False):

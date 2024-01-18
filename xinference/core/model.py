@@ -170,7 +170,7 @@ class ModelActor(xo.StatelessActor):
             "format": self._model.model_spec.model_format,
             "quantization": self._model.quantization,
         }
-        self._loop = None
+        self._loop: Optional[asyncio.AbstractEventLoop] = None
 
     async def __post_create__(self):
         self._loop = asyncio.get_running_loop()
@@ -257,14 +257,14 @@ class ModelActor(xo.StatelessActor):
             )
             os._exit(1)
         finally:
-            if first_token_latency is not None:
+            if self._loop is not None and first_token_latency is not None:
                 coro = self.record_metrics(
                     "first_token_latency",
                     "set",
                     {"labels": self._metrics_labels, "value": first_token_latency},
                 )
                 asyncio.run_coroutine_threadsafe(coro, loop=self._loop)
-            if final_usage is not None:
+            if self._loop is not None and final_usage is not None:
                 coro = self._record_completion_metrics(
                     time.time() - start_time,
                     final_usage["completion_tokens"],
