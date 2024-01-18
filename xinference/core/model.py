@@ -147,7 +147,7 @@ class ModelActor(xo.StatelessActor):
         self,
         worker_address: str,
         model: "LLM",
-        model_description: "ModelDescription",
+        model_description: Optional["ModelDescription"] = None,
         request_limits: Optional[int] = None,
     ):
         super().__init__()
@@ -157,7 +157,9 @@ class ModelActor(xo.StatelessActor):
 
         self._worker_address = worker_address
         self._model = model
-        self._model_description = model_description.to_dict()
+        self._model_description = (
+            model_description.to_dict() if model_description else {}
+        )
         self._request_limits = request_limits
 
         self._generators: Dict[str, Union[Iterator, AsyncGenerator]] = {}

@@ -350,6 +350,7 @@ class WorkerActor(xo.StatelessActor):
                 uid=model_uid,
                 worker_address=self.address,
                 model=model,
+                model_description=model_description,
             )
             await model_ref.load()
         except:
@@ -436,6 +437,7 @@ class WorkerActor(xo.StatelessActor):
                 uid=model_uid,
                 worker_address=self.address,
                 model=model,
+                model_description=model_description,
                 request_limits=request_limits,
             )
             await model_ref.load()
