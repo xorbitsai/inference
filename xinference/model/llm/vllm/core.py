@@ -303,6 +303,16 @@ class VLLMModel(LLM):
                     delta = choice["text"][len(previous_texts[i]) :]
                     previous_texts[i] = choice["text"]
                     choice["text"] = delta
+                prompt_tokens = len(_request_output.prompt_token_ids)
+                completion_tokens = sum(
+                    len(output.token_ids) for output in _request_output.outputs
+                )
+                total_tokens = prompt_tokens + completion_tokens
+                chunk["usage"] = CompletionUsage(
+                    prompt_tokens=prompt_tokens,
+                    completion_tokens=completion_tokens,
+                    total_tokens=total_tokens,
+                )
                 yield chunk
 
         if stream:

@@ -219,7 +219,7 @@ class PytorchModel(LLM):
             prompt: str, generate_config: PytorchGenerateConfig
         ) -> Iterator[CompletionChunk]:
             if "falcon" in model_family_name:
-                for completion_chunk, _ in generate_stream_falcon(
+                for completion_chunk, completion_usage in generate_stream_falcon(
                     self.model_uid,
                     self._model,
                     self._tokenizer,
@@ -227,9 +227,10 @@ class PytorchModel(LLM):
                     self._device,
                     generate_config,
                 ):
+                    completion_chunk["usage"] = completion_usage
                     yield completion_chunk
             else:
-                for completion_chunk, _ in generate_stream(
+                for completion_chunk, completion_usage in generate_stream(
                     self.model_uid,
                     self._model,
                     self._tokenizer,
@@ -237,6 +238,7 @@ class PytorchModel(LLM):
                     self._device,
                     generate_config,
                 ):
+                    completion_chunk["usage"] = completion_usage
                     yield completion_chunk
 
         logger.debug(

@@ -164,7 +164,13 @@ class ModelActor(xo.StatelessActor):
         )
         self._worker_ref = None
         self._serve_count = 0
-        self._metrics_labels = {"model": self.model_uid(), "node": self._worker_address}
+        self._metrics_labels = {
+            "type": "LLM",
+            "model": self.model_uid(),
+            "node": self._worker_address,
+            "format": self._model.model_spec.model_format,
+            "quantization": self._model.quantization,
+        }
         self._loop = None
 
     async def __post_create__(self):
@@ -243,7 +249,7 @@ class ModelActor(xo.StatelessActor):
             for v in gen:
                 if first_token_latency is None:
                     first_token_latency = (time.time() - start_time) * 1000
-                final_usage = usage
+                final_usage = v.pop("usage", None)
                 v = dict(data=json.dumps(v))
                 yield sse_starlette.sse.ensure_bytes(v, None)
         except OutOfMemoryError:
@@ -276,7 +282,7 @@ class ModelActor(xo.StatelessActor):
             async for v in gen:
                 if first_token_latency is None:
                     first_token_latency = (time.time() - start_time) * 1000
-                final_usage = usage
+                final_usage = v.pop("usage", None)
                 v = await asyncio.to_thread(json.dumps, v)
                 v = dict(data=v)  # noqa: F821
                 yield await asyncio.to_thread(sse_starlette.sse.ensure_bytes, v, None)
