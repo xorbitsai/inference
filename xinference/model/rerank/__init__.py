@@ -42,8 +42,6 @@ BUILTIN_RERANK_MODELS = dict(
 )
 for model_name, model_spec in BUILTIN_RERANK_MODELS.items():
     MODEL_NAME_TO_REVISION[model_name].append(model_spec.model_revision)
-    # register model description
-    RERANK_MODEL_DESCRIPTIONS.update(generate_rerank_description(model_spec))
 
 MODELSCOPE_RERANK_MODELS = dict(
     (spec["model_name"], RerankModelSpec(**spec))
@@ -53,9 +51,12 @@ MODELSCOPE_RERANK_MODELS = dict(
 )
 for model_name, model_spec in MODELSCOPE_RERANK_MODELS.items():
     MODEL_NAME_TO_REVISION[model_name].append(model_spec.model_revision)
-    # register model description
-    if model_spec.model_name not in RERANK_MODEL_DESCRIPTIONS:
-        RERANK_MODEL_DESCRIPTIONS.update(generate_rerank_description(model_spec))
+
+# register model description after recording model revision
+for model_spec_info in [BUILTIN_RERANK_MODELS, MODELSCOPE_RERANK_MODELS]:
+    for model_name, model_spec in model_spec_info.items():
+        if model_spec.model_name not in RERANK_MODEL_DESCRIPTIONS:
+            RERANK_MODEL_DESCRIPTIONS.update(generate_rerank_description(model_spec))
 
 # if persist=True, load them when init
 user_defined_rerank_dir = os.path.join(XINFERENCE_MODEL_DIR, "rerank")

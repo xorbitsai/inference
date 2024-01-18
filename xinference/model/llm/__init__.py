@@ -113,8 +113,6 @@ def _install():
             BUILTIN_LLM_MODEL_GENERATE_FAMILIES.add(model_spec.model_name)
         if "tool_call" in model_spec.model_ability:
             BUILTIN_LLM_MODEL_TOOL_CALL_FAMILIES.add(model_spec.model_name)
-        # register model description
-        LLM_MODEL_DESCRIPTIONS.update(generate_llm_description(model_spec))
 
     modelscope_json_path = os.path.join(
         os.path.dirname(os.path.abspath(__file__)), "llm_family_modelscope.json"
@@ -138,9 +136,11 @@ def _install():
             BUILTIN_LLM_MODEL_GENERATE_FAMILIES.add(model_spec.model_name)
         if "tool_call" in model_spec.model_ability:
             BUILTIN_LLM_MODEL_TOOL_CALL_FAMILIES.add(model_spec.model_name)
-        # register model description
-        if model_spec.model_name not in LLM_MODEL_DESCRIPTIONS:
-            LLM_MODEL_DESCRIPTIONS.update(generate_llm_description(model_spec))
+
+    for llm_specs in [BUILTIN_LLM_FAMILIES, BUILTIN_MODELSCOPE_LLM_FAMILIES]:
+        for llm_spec in llm_specs:
+            if llm_spec.model_name not in LLM_MODEL_DESCRIPTIONS:
+                LLM_MODEL_DESCRIPTIONS.update(generate_llm_description(llm_spec))
 
     from ...constants import XINFERENCE_MODEL_DIR
 

@@ -40,7 +40,9 @@ RERANK_MODEL_DESCRIPTIONS: Dict[str, List[Dict]] = defaultdict(list)
 
 
 def get_rerank_model_descriptions():
-    return RERANK_MODEL_DESCRIPTIONS.copy()
+    import copy
+
+    return copy.deepcopy(RERANK_MODEL_DESCRIPTIONS)
 
 
 class RerankModelSpec(BaseModel):

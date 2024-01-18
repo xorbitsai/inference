@@ -38,7 +38,9 @@ EMBEDDING_MODEL_DESCRIPTIONS: Dict[str, List[Dict]] = defaultdict(list)
 
 
 def get_embedding_model_descriptions():
-    return EMBEDDING_MODEL_DESCRIPTIONS.copy()
+    import copy
+
+    return copy.deepcopy(EMBEDDING_MODEL_DESCRIPTIONS)
 
 
 class EmbeddingModelSpec(BaseModel):

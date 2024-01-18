@@ -33,7 +33,9 @@ LLM_MODEL_DESCRIPTIONS: Dict[str, List[Dict]] = defaultdict(list)
 
 
 def get_llm_model_descriptions():
-    return LLM_MODEL_DESCRIPTIONS.copy()
+    import copy
+
+    return copy.deepcopy(LLM_MODEL_DESCRIPTIONS)
 
 
 class LLM(abc.ABC):

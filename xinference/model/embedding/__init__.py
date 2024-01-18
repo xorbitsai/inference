@@ -41,8 +41,7 @@ BUILTIN_EMBEDDING_MODELS = dict(
 )
 for model_name, model_spec in BUILTIN_EMBEDDING_MODELS.items():
     MODEL_NAME_TO_REVISION[model_name].append(model_spec.model_revision)
-    # register model description
-    EMBEDDING_MODEL_DESCRIPTIONS.update(generate_embedding_description(model_spec))
+
 MODELSCOPE_EMBEDDING_MODELS = dict(
     (spec["model_name"], EmbeddingModelSpec(**spec))
     for spec in json.load(
@@ -51,9 +50,14 @@ MODELSCOPE_EMBEDDING_MODELS = dict(
 )
 for model_name, model_spec in MODELSCOPE_EMBEDDING_MODELS.items():
     MODEL_NAME_TO_REVISION[model_name].append(model_spec.model_revision)
-    # register model description
-    if model_spec.model_name not in EMBEDDING_MODEL_DESCRIPTIONS:
-        EMBEDDING_MODEL_DESCRIPTIONS.update(generate_embedding_description(model_spec))
+
+# register model description after recording model revision
+for model_spec_info in [BUILTIN_EMBEDDING_MODELS, MODELSCOPE_EMBEDDING_MODELS]:
+    for model_name, model_spec in model_spec_info.items():
+        if model_spec.model_name not in EMBEDDING_MODEL_DESCRIPTIONS:
+            EMBEDDING_MODEL_DESCRIPTIONS.update(
+                generate_embedding_description(model_spec)
+            )
 
 from ...constants import XINFERENCE_MODEL_DIR
 
