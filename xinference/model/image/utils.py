@@ -11,20 +11,16 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-from collections import defaultdict
-from typing import Dict, List
+from typing import Optional
 
 from .core import ImageModelFamilyV1
 
 
-def get_launch_version(image_model: ImageModelFamilyV1) -> Dict[str, List[str]]:
-    res = defaultdict(list)
-    res[image_model.model_name].append(image_model.model_name)
-    if image_model.controlnet is not None:
-        # TODO: currently, support one controlnet
-        for cn in image_model.controlnet:
-            res[image_model.model_name].append(
-                f"{image_model.model_name}--{cn.model_name}"
-            )
-    return res
+def get_model_version(
+    image_model: ImageModelFamilyV1, controlnet: Optional[ImageModelFamilyV1]
+) -> str:
+    return (
+        image_model.model_name
+        if controlnet is None
+        else f"{image_model.model_name}--{controlnet.model_name}"
+    )

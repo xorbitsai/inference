@@ -36,6 +36,13 @@ MODEL_NAME_TO_REVISION: Dict[str, List[str]] = defaultdict(list)
 SUPPORTED_SCHEMES = ["s3"]
 
 
+RERANK_MODEL_DESCRIPTIONS: Dict[str, List[Dict]] = defaultdict(list)
+
+
+def get_rerank_model_descriptions():
+    return RERANK_MODEL_DESCRIPTIONS.copy()
+
+
 class RerankModelSpec(BaseModel):
     model_name: str
     language: List[str]
@@ -50,8 +57,9 @@ class RerankModelDescription(ModelDescription):
         address: Optional[str],
         devices: Optional[List[str]],
         model_spec: RerankModelSpec,
+        model_path: Optional[str] = None,
     ):
-        super().__init__(address, devices)
+        super().__init__(address, devices, model_path=model_path)
         self._model_spec = model_spec
 
     def to_dict(self):
@@ -63,6 +71,31 @@ class RerankModelDescription(ModelDescription):
             "language": self._model_spec.language,
             "model_revision": self._model_spec.model_revision,
         }
+
+    def to_version_info(self):
+        from .utils import get_model_version
+
+        if self._model_path is None:
+            is_cached = get_cache_status(self._model_spec)
+            file_location = get_cache_dir(self._model_spec)
+        else:
+            is_cached = True
+            file_location = self._model_path
+
+        return {
+            "model_version": get_model_version(self._model_spec),
+            "model_file_location": file_location,
+            "cache_status": is_cached,
+            "language": self._model_spec.language,
+        }
+
+
+def generate_rerank_description(model_spec: RerankModelSpec) -> Dict[str, List[Dict]]:
+    res = defaultdict(list)
+    res[model_spec.model_name].append(
+        RerankModelDescription(None, None, model_spec).to_version_info()
+    )
+    return res
 
 
 class RerankModel:
@@ -131,6 +164,10 @@ class RerankModel:
         return Rerank(id=str(uuid.uuid1()), results=docs)
 
 
+def get_cache_dir(model_spec: RerankModelSpec):
+    return os.path.realpath(os.path.join(XINFERENCE_CACHE_DIR, model_spec.model_name))
+
+
 def get_cache_status(
     model_spec: RerankModelSpec,
 ) -> bool:
@@ -145,9 +182,7 @@ def cache_from_uri(
 
     from ..utils import copy_from_src_to_dst, parse_uri
 
-    cache_dir = os.path.realpath(
-        os.path.join(XINFERENCE_CACHE_DIR, model_spec.model_name)
-    )
+    cache_dir = get_cache_dir(model_spec)
     if os.path.exists(cache_dir):
         logger.info(f"Rerank cache {cache_dir} exists")
         return cache_dir
@@ -227,9 +262,7 @@ def cache(model_spec: RerankModelSpec):
         logger.info(f"Rerank model caching from URI: {model_spec.model_uri}")
         return cache_from_uri(model_spec=model_spec)
 
-    cache_dir = os.path.realpath(
-        os.path.join(XINFERENCE_CACHE_DIR, model_spec.model_name)
-    )
+    cache_dir = get_cache_dir(model_spec)
     if not os.path.exists(cache_dir):
         os.makedirs(cache_dir, exist_ok=True)
     meta_path = os.path.join(cache_dir, "__valid_download")
@@ -313,5 +346,7 @@ def create_rerank_model_instance(
 
     model_path = cache(model_spec)
     model = RerankModel(model_uid, model_path, **kwargs)
-    model_description = RerankModelDescription(subpool_addr, devices, model_spec)
+    model_description = RerankModelDescription(
+        subpool_addr, devices, model_spec, model_path=model_path
+    )
     return model, model_description

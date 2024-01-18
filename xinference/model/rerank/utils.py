@@ -11,13 +11,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from collections import defaultdict
-from typing import Dict, List
-
 from .core import RerankModelSpec
 
 
-def get_launch_version(rerank_model: RerankModelSpec) -> Dict[str, List[str]]:
-    res = defaultdict(list)
-    res[rerank_model.model_name].append(rerank_model.model_name)
-    return res
+def get_model_version(rerank_model: RerankModelSpec) -> str:
+    return rerank_model.model_name

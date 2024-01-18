@@ -14,12 +14,10 @@
 import functools
 import json
 import logging
+import os
 import time
 import uuid
-from collections import defaultdict
-from typing import AsyncGenerator, Dict, Iterator, List, Optional, cast
-
-from xinference.model.llm.llm_family import LLMFamilyV1, PromptStyleV1
+from typing import AsyncGenerator, Dict, Iterator, List, Optional, Tuple, cast
 
 from ...types import (
     SPECIAL_TOOL_PROMPT,
@@ -28,6 +26,14 @@ from ...types import (
     ChatCompletionMessage,
     Completion,
     CompletionChunk,
+)
+from .llm_family import (
+    GgmlLLMSpecV1,
+    LLMFamilyV1,
+    LLMSpecV1,
+    PromptStyleV1,
+    _get_cache_dir,
+    get_cache_status,
 )
 
 logger = logging.getLogger(__name__)
@@ -576,12 +582,33 @@ Begin!"""
         }
 
 
-def get_launch_version(llm_family: LLMFamilyV1) -> Dict[str, List[str]]:
-    res = defaultdict(list)
-    for spec in llm_family.model_specs:
-        for q in spec.quantizations:
-            res[llm_family.model_name].append(
-                f"{llm_family.model_name}--{spec.model_size_in_billions}B--"
-                f"{spec.model_format}--{q}"
-            )
-    return res
+def get_file_location(
+    llm_family: LLMFamilyV1, spec: LLMSpecV1, quantization: str
+) -> Tuple[str, bool]:
+    cache_dir = _get_cache_dir(llm_family, spec, create_if_not_exist=False)
+    cache_status = get_cache_status(llm_family, spec)
+    if isinstance(cache_status, list):
+        is_cached = None
+        for q, cs in zip(spec.quantizations, cache_status):
+            if q == quantization:
+                is_cached = cs
+                break
+    else:
+        is_cached = cache_status
+    assert isinstance(is_cached, bool)
+
+    if spec.model_format in ["pytorch", "gptq"]:
+        return cache_dir, is_cached
+    elif spec.model_format in ["ggmlv3", "ggufv2"]:
+        assert isinstance(spec, GgmlLLMSpecV1)
+        filename = spec.model_file_name_template.format(quantization=quantization)
+        model_path = os.path.join(cache_dir, filename)
+        return model_path, is_cached
+    else:
+        raise ValueError(f"Not supported model format {spec.model_format}")
+
+
+def get_model_version(
+    llm_family: LLMFamilyV1, llm_spec: LLMSpecV1, quantization: str
+) -> str:
+    return f"{llm_family.model_name}--{llm_spec.model_size_in_billions}B--{llm_spec.model_format}--{quantization}"

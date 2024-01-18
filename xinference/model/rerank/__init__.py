@@ -17,15 +17,20 @@ import json
 import os
 
 from ...constants import XINFERENCE_MODEL_DIR
-from .core import MODEL_NAME_TO_REVISION, RerankModelSpec, get_cache_status
+from .core import (
+    MODEL_NAME_TO_REVISION,
+    RERANK_MODEL_DESCRIPTIONS,
+    RerankModelSpec,
+    generate_rerank_description,
+    get_cache_status,
+    get_rerank_model_descriptions,
+)
 from .custom import (
-    RERANK_LAUNCH_VERSIONS,
     CustomRerankModelSpec,
-    get_rerank_launch_versions,
     get_user_defined_reranks,
     register_rerank,
+    unregister_rerank,
 )
-from .utils import get_launch_version
 
 _model_spec_json = os.path.join(os.path.dirname(__file__), "model_spec.json")
 _model_spec_modelscope_json = os.path.join(
@@ -37,8 +42,8 @@ BUILTIN_RERANK_MODELS = dict(
 )
 for model_name, model_spec in BUILTIN_RERANK_MODELS.items():
     MODEL_NAME_TO_REVISION[model_name].append(model_spec.model_revision)
-    # register launch version
-    RERANK_LAUNCH_VERSIONS.update(get_launch_version(model_spec))
+    # register model description
+    RERANK_MODEL_DESCRIPTIONS.update(generate_rerank_description(model_spec))
 
 MODELSCOPE_RERANK_MODELS = dict(
     (spec["model_name"], RerankModelSpec(**spec))
@@ -49,8 +54,8 @@ MODELSCOPE_RERANK_MODELS = dict(
 for model_name, model_spec in MODELSCOPE_RERANK_MODELS.items():
     MODEL_NAME_TO_REVISION[model_name].append(model_spec.model_revision)
     # register launch version
-    if model_spec.model_name not in RERANK_LAUNCH_VERSIONS:
-        RERANK_LAUNCH_VERSIONS.update(get_launch_version(model_spec))
+    if model_spec.model_name not in RERANK_MODEL_DESCRIPTIONS:
+        RERANK_MODEL_DESCRIPTIONS.update(generate_rerank_description(model_spec))
 
 # if persist=True, load them when init
 user_defined_rerank_dir = os.path.join(XINFERENCE_MODEL_DIR, "rerank")
@@ -64,7 +69,7 @@ if os.path.isdir(user_defined_rerank_dir):
 
 # register launch version
 for ud_rerank in get_user_defined_reranks():
-    RERANK_LAUNCH_VERSIONS.update(get_launch_version(ud_rerank))
+    RERANK_MODEL_DESCRIPTIONS.update(generate_rerank_description(ud_rerank))
 
 del _model_spec_json
 del _model_spec_modelscope_json

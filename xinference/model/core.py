@@ -12,14 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from abc import ABC
+from abc import ABC, abstractmethod
 from typing import Any, List, Optional, Tuple
 
 
 class ModelDescription(ABC):
-    def __init__(self, address: Optional[str], devices: Optional[List[str]]):
+    def __init__(
+        self,
+        address: Optional[str],
+        devices: Optional[List[str]],
+        model_path: Optional[str] = None,
+    ):
         self.address = address
         self.devices = devices
+        self._model_path = model_path
 
     def to_dict(self):
         """
@@ -27,6 +33,12 @@ class ModelDescription(ABC):
         :return:
         """
         raise NotImplementedError
+
+    @abstractmethod
+    def to_version_info(self):
+        """
+        Return a dict to describe version info about a model instance
+        """
 
 
 def create_model_instance(

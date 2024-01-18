@@ -90,6 +90,7 @@ class SupervisorActor(xo.StatelessActor):
         # comment this line to avoid worker lost
         # self._check_dead_nodes_task = asyncio.create_task(self._check_dead_nodes())
         logger.info(f"Xinference supervisor {self.address} started")
+        from .cache_tracker import CacheTrackerActor
         from .status_guard import StatusGuardActor
 
         self._status_guard_ref: xo.ActorRefType[
@@ -97,29 +98,65 @@ class SupervisorActor(xo.StatelessActor):
         ] = await xo.create_actor(
             StatusGuardActor, address=self.address, uid=StatusGuardActor.uid()
         )
+        self._cache_tracker_ref: xo.ActorRefType[
+            "CacheTrackerActor"
+        ] = await xo.create_actor(
+            CacheTrackerActor, address=self.address, uid=CacheTrackerActor.uid()
+        )
 
         from ..model.embedding import (
             CustomEmbeddingModelSpec,
+            generate_embedding_description,
+            get_embedding_model_descriptions,
             register_embedding,
             unregister_embedding,
         )
-        from ..model.llm import register_llm, unregister_llm
-        from ..model.llm.llm_family import CustomLLMFamilyV1
-        from ..model.rerank.custom import (
+        from ..model.image import get_image_model_descriptions
+        from ..model.llm import (
+            CustomLLMFamilyV1,
+            generate_llm_description,
+            get_llm_model_descriptions,
+            register_llm,
+            unregister_llm,
+        )
+        from ..model.rerank import (
             CustomRerankModelSpec,
+            generate_rerank_description,
+            get_rerank_model_descriptions,
             register_rerank,
             unregister_rerank,
         )
 
         self._custom_register_type_to_cls: Dict[str, Tuple] = {
-            "LLM": (CustomLLMFamilyV1, register_llm, unregister_llm),
+            "LLM": (
+                CustomLLMFamilyV1,
+                register_llm,
+                unregister_llm,
+                generate_llm_description,
+            ),
             "embedding": (
                 CustomEmbeddingModelSpec,
                 register_embedding,
                 unregister_embedding,
+                generate_embedding_description,
             ),
-            "rerank": (CustomRerankModelSpec, register_rerank, unregister_rerank),
+            "rerank": (
+                CustomRerankModelSpec,
+                register_rerank,
+                unregister_rerank,
+                generate_rerank_description,
+            ),
         }
+
+        # record model version
+        model_version_infos: Dict[str, List[Dict]] = {}
+        model_version_infos.update(get_llm_model_descriptions())
+        model_version_infos.update(get_embedding_model_descriptions())
+        model_version_infos.update(get_rerank_model_descriptions())
+        model_version_infos.update(get_image_model_descriptions())
+        await self._cache_tracker_ref.record_model_version(
+            model_version_infos, self.address
+        )
 
     @staticmethod
     async def get_builtin_prompts() -> Dict[str, Any]:
@@ -421,6 +458,7 @@ class SupervisorActor(xo.StatelessActor):
                 model_spec_cls,
                 register_fn,
                 unregister_fn,
+                generate_fn,
             ) = self._custom_register_type_to_cls[model_type]
 
             if not self.is_local_deployment():
@@ -431,6 +469,9 @@ class SupervisorActor(xo.StatelessActor):
             model_spec = model_spec_cls.parse_raw(model)
             try:
                 register_fn(model_spec, persist)
+                await self._cache_tracker_ref.record_model_version(
+                    generate_fn(model_spec), self.address
+                )
             except Exception as e:
                 unregister_fn(model_spec.model_name, raise_error=False)
                 raise e
@@ -440,8 +481,9 @@ class SupervisorActor(xo.StatelessActor):
     @log_async(logger=logger)
     async def unregister_model(self, model_type: str, model_name: str):
         if model_type in self._custom_register_type_to_cls:
-            _, _, unregister_fn = self._custom_register_type_to_cls[model_type]
+            _, _, unregister_fn, _ = self._custom_register_type_to_cls[model_type]
             unregister_fn(model_name)
+            await self._cache_tracker_ref.unregister_model_version(model_name)
 
             if not self.is_local_deployment():
                 workers = list(self._worker_address_to_worker.values())
@@ -458,29 +500,12 @@ class SupervisorActor(xo.StatelessActor):
         )
         return f"{model_name}-{gen_random_string(8)}"
 
-    async def get_model_versions(self, model_type: str, model_name: str) -> List[str]:
-        from ..model.embedding import get_embedding_launch_versions
-        from ..model.image.core import get_image_launch_versions
-        from ..model.llm.llm_family import get_llm_launch_versions
-        from ..model.rerank import get_rerank_launch_versions
-
-        if model_type == "LLM":
-            all_launch_versions = get_llm_launch_versions()
-        elif model_type == "embedding":
-            all_launch_versions = get_embedding_launch_versions()
-        elif model_type == "rerank":
-            all_launch_versions = get_rerank_launch_versions()
-        elif model_type == "image":
-            all_launch_versions = get_image_launch_versions()
-        else:
-            raise ValueError(f"Unsupported model type: {model_type}")
-
-        if model_name not in all_launch_versions:
-            raise KeyError(
-                f"{model_name} with {model_type} type does not exist in xinference"
-            )
-
-        return all_launch_versions[model_name]
+    @log_async(logger=logger)
+    async def get_model_versions(self, model_type: str, model_name: str) -> List[Dict]:
+        logger.debug(
+            f"Get model versions of model_name: {model_name}, model_type: {model_type}"
+        )
+        return await self._cache_tracker_ref.get_model_versions(model_name)
 
     @log_async(logger=logger)
     async def launch_model_by_version(

@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import json
+import os.path
 import sys
 import time
 
@@ -275,6 +276,12 @@ async def test_restful_api(setup):
 
     response = requests.post(url, json=payload)
     assert response.status_code == 200
+
+    # check model version info after registration
+    url = f"{endpoint}/v1/models/LLM/custom_model/versions"
+    response = requests.get(url)
+    version_infos = response.json()
+    assert len(version_infos) == 3  # three quantizations
 
     url = f"{endpoint}/v1/model_registrations/LLM"
 
@@ -1057,18 +1064,36 @@ def test_launch_model_async(setup):
 
 
 def test_launch_model_by_version(setup):
-    from ...model.llm import LLM_LAUNCH_VERSIONS
+    from ...model.llm import get_llm_model_descriptions
 
-    endpoint, _ = setup
+    endpoint, supervisor_addr = setup
     url = f"{endpoint}/v1/models/instance"
+
+    version_info = get_llm_model_descriptions()["orca"][0]
 
     payload = {
         "model_uid": "test_orca",
         "model_type": "LLM",
-        "model_version": LLM_LAUNCH_VERSIONS["orca"][0],
+        "model_version": version_info["model_version"],
     }
     response = requests.post(url, json=payload)
     assert response.json()["model_uid"] == "test_orca"
+
+    url_version = f"{endpoint}/v1/models/LLM/orca/versions"
+    response = requests.get(url_version)
+    versions = response.json()
+
+    has_version = False
+    for info in versions:
+        if info["model_version"] == version_info["model_version"]:
+            has_version = True
+            assert info["cache_status"] is True
+            assert info["model_file_location"] is not None
+            assert isinstance(info["model_file_location"], dict)
+            assert supervisor_addr in info["model_file_location"]
+            assert os.path.exists(info["model_file_location"][supervisor_addr])
+            break
+    assert has_version is True
 
     # delete again
     url = f"{endpoint}/v1/models/test_orca"

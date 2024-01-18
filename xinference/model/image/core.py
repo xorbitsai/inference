@@ -14,6 +14,7 @@
 import collections.abc
 import logging
 import os
+from collections import defaultdict
 from typing import Dict, List, Optional, Tuple
 
 from pydantic import BaseModel
@@ -27,11 +28,11 @@ MAX_ATTEMPTS = 3
 
 logger = logging.getLogger(__name__)
 
-IMAGE_LAUNCH_VERSIONS: Dict[str, List[str]] = {}
+IMAGE_MODEL_DESCRIPTIONS: Dict[str, List[Dict]] = defaultdict(list)
 
 
-def get_image_launch_versions():
-    return IMAGE_LAUNCH_VERSIONS.copy()
+def get_image_model_descriptions():
+    return IMAGE_MODEL_DESCRIPTIONS.copy()
 
 
 class ImageModelFamilyV1(BaseModel):
@@ -48,8 +49,9 @@ class ImageModelDescription(ModelDescription):
         address: Optional[str],
         devices: Optional[List[str]],
         model_spec: ImageModelFamilyV1,
+        model_path: Optional[str] = None,
     ):
-        super().__init__(address, devices)
+        super().__init__(address, devices, model_path=model_path)
         self._model_spec = model_spec
 
     def to_dict(self):
@@ -62,6 +64,48 @@ class ImageModelDescription(ModelDescription):
             "model_revision": self._model_spec.model_revision,
             "controlnet": self._model_spec.controlnet,
         }
+
+    def to_version_info(self):
+        from .utils import get_model_version
+
+        if self._model_path is None:
+            is_cached = get_cache_status(self._model_spec)
+            file_location = get_cache_dir(self._model_spec)
+        else:
+            is_cached = True
+            file_location = self._model_path
+
+        if self._model_spec.controlnet is None:
+            return [
+                {
+                    "model_version": get_model_version(self._model_spec, None),
+                    "model_file_location": file_location,
+                    "cache_status": is_cached,
+                    "controlnet": "zoe-depth",
+                }
+            ]
+        else:
+            res = []
+            for cn in self._model_spec.controlnet:
+                res.append(
+                    {
+                        "model_version": get_model_version(self._model_spec, cn),
+                        "model_file_location": file_location,
+                        "cache_status": is_cached,
+                        "controlnet": cn.model_name,
+                    }
+                )
+            return res
+
+
+def generate_image_description(
+    image_model: ImageModelFamilyV1,
+) -> Dict[str, List[Dict]]:
+    res = defaultdict(list)
+    res[image_model.model_name].extend(
+        ImageModelDescription(None, None, image_model).to_version_info()
+    )
+    return res
 
 
 def match_diffusion(model_name: str) -> ImageModelFamilyV1:
@@ -80,9 +124,7 @@ def cache(model_spec: ImageModelFamilyV1):
     # TODO: cache from uri
     import huggingface_hub
 
-    cache_dir = os.path.realpath(
-        os.path.join(XINFERENCE_CACHE_DIR, model_spec.model_name)
-    )
+    cache_dir = get_cache_dir(model_spec)
     if not os.path.exists(cache_dir):
         os.makedirs(cache_dir, exist_ok=True)
 
@@ -119,12 +161,14 @@ def cache(model_spec: ImageModelFamilyV1):
     return cache_dir
 
 
+def get_cache_dir(model_spec: ImageModelFamilyV1):
+    return os.path.realpath(os.path.join(XINFERENCE_CACHE_DIR, model_spec.model_name))
+
+
 def get_cache_status(
     model_spec: ImageModelFamilyV1,
 ) -> bool:
-    cache_dir = os.path.realpath(
-        os.path.join(XINFERENCE_CACHE_DIR, model_spec.model_name)
-    )
+    cache_dir = get_cache_dir(model_spec)
     meta_path = os.path.join(cache_dir, "__valid_download")
     return valid_model_revision(meta_path, model_spec.model_revision)
 
@@ -163,5 +207,7 @@ def create_image_model_instance(
             kwargs["controlnet"] = controlnet_model_paths
     model_path = cache(model_spec)
     model = DiffusionModel(model_uid, model_path, **kwargs)
-    model_description = ImageModelDescription(subpool_addr, devices, model_spec)
+    model_description = ImageModelDescription(
+        subpool_addr, devices, model_spec, model_path=model_path
+    )
     return model, model_description
