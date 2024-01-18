@@ -37,6 +37,7 @@ import xoscar as xo
 if TYPE_CHECKING:
     from .worker import WorkerActor
     from ..model.llm.core import LLM
+    from ..model.core import ModelDescription
     import PIL
 
 import logging
@@ -143,7 +144,11 @@ class ModelActor(xo.StatelessActor):
             torch.cuda.empty_cache()
 
     def __init__(
-        self, worker_address: str, model: "LLM", request_limits: Optional[int] = None
+        self,
+        worker_address: str,
+        model: "LLM",
+        model_description: "ModelDescription",
+        request_limits: Optional[int] = None,
     ):
         super().__init__()
         from ..model.llm.pytorch.core import PytorchModel
@@ -152,6 +157,7 @@ class ModelActor(xo.StatelessActor):
 
         self._worker_address = worker_address
         self._model = model
+        self._model_description = model_description.to_dict()
         self._request_limits = request_limits
 
         self._generators: Dict[str, Union[Iterator, AsyncGenerator]] = {}
@@ -164,11 +170,11 @@ class ModelActor(xo.StatelessActor):
         self._worker_ref = None
         self._serve_count = 0
         self._metrics_labels = {
-            "type": "LLM",
+            "type": self._model_description.get("model_type", "unknown"),
             "model": self.model_uid(),
             "node": self._worker_address,
-            "format": self._model.model_spec.model_format,
-            "quantization": self._model.quantization,
+            "format": self._model_description.get("model_format", "unknown"),
+            "quantization": self._model_description.get("quantization", "none"),
         }
         self._loop: Optional[asyncio.AbstractEventLoop] = None
 
