@@ -72,7 +72,7 @@ Add ``H 0.0.0.0`` when starting, as in
 
 .. code:: bash
 
-   bashxinference -H 0.0.0.0
+   xinference -H 0.0.0.0
 
 If using docker (official docker is recommended), add ``p 9998:9997``
 when starting, then access is available through ``ip+9998`` of the local
@@ -108,7 +108,7 @@ How to upgrade xinference
 
 .. code:: bash
 
-   bashpip install --upgrade xinference
+   pip install --upgrade xinference
 
 Installation of xinference dependencies is slow
 ===============================================
