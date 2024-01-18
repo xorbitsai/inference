@@ -206,8 +206,8 @@ class ModelActor(xo.StatelessActor):
                     {"labels": self._metrics_labels, "value": prompt_tokens},
                 )
             )
-        if total_tokens > 0:
-            generate_throughput = total_tokens / duration
+        if completion_tokens > 0:
+            generate_throughput = completion_tokens / duration
             coros.append(
                 self.record_metrics(
                     "generate_throughput",
