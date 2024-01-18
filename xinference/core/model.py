@@ -17,7 +17,6 @@ import functools
 import inspect
 import json
 import os
-import queue
 import time
 import types
 import weakref
