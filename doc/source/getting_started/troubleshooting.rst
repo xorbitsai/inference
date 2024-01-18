@@ -158,5 +158,5 @@ When using xinference to load models, multi-GPU support is not functioning, and 
 Does Xinference support setting up a chat model for embeddings?
 ===============================================================
 
-It used to, but since the embedding performance of LLMs was poor, the
+It used to. But since the embedding performance of LLMs was poor, the
 feature has been removed to prevent misuse.
