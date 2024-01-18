@@ -52,7 +52,6 @@ from uvicorn import Config, Server
 from xoscar.utils import get_next_port
 
 from ..constants import XINFERENCE_DEFAULT_ENDPOINT_PORT
-from ..core.metrics import RestfulAPIMetricsMiddleware
 from ..core.supervisor import SupervisorActor
 from ..core.utils import json_dumps
 from ..types import (
@@ -66,6 +65,8 @@ from ..types import (
 from .oauth2.core import get_user, verify_token
 from .oauth2.types import AuthStartupConfig, LoginUserForm, User
 from .oauth2.utils import create_access_token, get_password_hash, verify_password
+from aioprometheus import MetricsMiddleware
+from aioprometheus.asgi.starlette import metrics
 
 logger = logging.getLogger(__name__)
 
@@ -390,8 +391,9 @@ class RESTfulAPI:
             else None,
         )
 
-        self._app.add_middleware(RestfulAPIMetricsMiddleware, restful_api=self)
+        self._app.add_middleware(MetricsMiddleware)
         self._app.include_router(self._router)
+        self._app.add_route("/metrics", metrics)
 
         # Check all the routes returns Response.
         # This is to avoid `jsonable_encoder` performance issue:

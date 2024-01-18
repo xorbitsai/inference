@@ -62,21 +62,19 @@ async def test_metrics_exporter_server(setup_cluster):
     from ...client import Client
     from ..supervisor import SupervisorActor
 
-    supervisor_ref = await xo.actor_ref(supervisor_address, SupervisorActor.uid())
-    await supervisor_ref.record_metrics(
-        "requests_total_counter",
-        "set",
-        {"labels": {"node": supervisor_address}, "value": 12357},
-    )
-    response = requests.get(metrics_exporter_address)
-    assert response.ok
-    assert "12357" in response.text
-
     client = Client(endpoint)
 
     model_uid = client.launch_model(
         model_name="orca", model_size_in_billions=3, quantization="q4_0"
     )
+
+    # Check the supervisor metrics collected the RESTful API.
+    supervisor_ref = await xo.actor_ref(supervisor_address, SupervisorActor.uid())
+    response = requests.get(f"{endpoint}/metrics")
+    assert response.ok
+    assert "/v1/models" in response.text
+
+    # Check the worker metrics collected model metrics.
     model_ref = await supervisor_ref.get_model(model_uid)
     await model_ref.record_metrics(
         "input_tokens_total_counter", "inc", {"labels": {"model": model_uid}}

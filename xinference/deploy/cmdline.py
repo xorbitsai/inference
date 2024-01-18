@@ -192,9 +192,9 @@ def cli(
 @click.option(
     "--metrics-exporter-host",
     "-MH",
-    default=XINFERENCE_DEFAULT_LOCAL_HOST,
+    default=None,
     type=str,
-    help="Specify the host address for the Xinference metrics exporter server.",
+    help="Specify the host address for the Xinference metrics exporter server, default is the same as --host.",
 )
 @click.option(
     "--metrics-exporter-port",
@@ -215,6 +215,8 @@ def local(
     metrics_exporter_port: Optional[int],
     auth_config: Optional[str],
 ):
+    if metrics_exporter_host is None:
+        metrics_exporter_host = host
     start_local_cluster(
         log_level=log_level,
         host=host,

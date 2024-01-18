@@ -33,6 +33,7 @@ from .utils import (
     log_sync,
     parse_replica_model_uid,
 )
+from .metrics import record_metrics
 
 if TYPE_CHECKING:
     from ..model.embedding import EmbeddingModelSpec
@@ -751,14 +752,6 @@ class SupervisorActor(xo.StatelessActor):
             update_time=time.time(), status=status
         )
 
-    async def record_metrics(self, name, op, kwargs):
-        if not self._worker_address_to_worker:
-            logger.warning(
-                "No worker found, discard supervisor metrics, name: %s, op: %s, kwargs: %s",
-                name,
-                op,
-                kwargs,
-            )
-        else:
-            worker = next(iter(self._worker_address_to_worker.values()))
-            await worker.record_metrics(name, op, kwargs)
+    @staticmethod
+    def record_metrics(name, op, kwargs):
+        record_metrics(name, op, kwargs)
