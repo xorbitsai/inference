@@ -40,6 +40,14 @@ class CacheTrackerActor(xo.Actor):
                     else None
                 )
 
+    @staticmethod
+    def _update_file_location(data: Dict, origin_version_info: Dict):
+        if origin_version_info["model_file_location"] is None:
+            origin_version_info["model_file_location"] = data
+        else:
+            assert isinstance(origin_version_info["model_file_location"], dict)
+            origin_version_info["model_file_location"].update(data)
+
     def record_model_version(self, version_info: Dict[str, List[Dict]], address: str):
         self._map_address_to_file_location(version_info, address)
         for model_name, model_versions in version_info.items():
@@ -56,10 +64,10 @@ class CacheTrackerActor(xo.Actor):
                         version["cache_status"]
                         and version["model_file_location"] is not None
                     ):
-                        origin_version["model_file_location"].update(
-                            version["model_file_location"]
-                        )
                         origin_version["cache_status"] = True
+                        self._update_file_location(
+                            version["model_file_location"], origin_version
+                        )
 
     def update_cache_status(
         self,
@@ -73,13 +81,11 @@ class CacheTrackerActor(xo.Actor):
         else:
             for version_info in self._model_name_to_version_info[model_name]:
                 if model_version is None:  # image model
-                    version_info["model_file_location"].update({address: model_path})
+                    self._update_file_location({address: model_path}, version_info)
                     version_info["cache_status"] = True
                 else:
                     if version_info["model_version"] == model_version:
-                        version_info["model_file_location"].update(
-                            {address: model_path}
-                        )
+                        self._update_file_location({address: model_path}, version_info)
                         version_info["cache_status"] = True
 
     def unregister_model_version(self, model_name: str):
