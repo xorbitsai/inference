@@ -250,12 +250,12 @@ class ModelActor(xo.StatelessActor):
 
     def _to_json_generator(self, gen: types.GeneratorType):
         start_time = time.time()
-        first_token_latency = None
+        time_to_first_token = None
         final_usage = None
         try:
             for v in gen:
-                if first_token_latency is None:
-                    first_token_latency = (time.time() - start_time) * 1000
+                if time_to_first_token is None:
+                    time_to_first_token = (time.time() - start_time) * 1000
                 final_usage = v.pop("usage", None)
                 v = dict(data=json.dumps(v))
                 yield sse_starlette.sse.ensure_bytes(v, None)
@@ -265,11 +265,11 @@ class ModelActor(xo.StatelessActor):
             )
             os._exit(1)
         finally:
-            if self._loop is not None and first_token_latency is not None:
+            if self._loop is not None and time_to_first_token is not None:
                 coro = self.record_metrics(
-                    "first_token_latency",
+                    "time_to_first_token",
                     "set",
-                    {"labels": self._metrics_labels, "value": first_token_latency},
+                    {"labels": self._metrics_labels, "value": time_to_first_token},
                 )
                 asyncio.run_coroutine_threadsafe(coro, loop=self._loop)
             if self._loop is not None and final_usage is not None:
@@ -282,12 +282,12 @@ class ModelActor(xo.StatelessActor):
 
     async def _to_json_async_gen(self, gen: types.AsyncGeneratorType):
         start_time = time.time()
-        first_token_latency = None
+        time_to_first_token = None
         final_usage = None
         try:
             async for v in gen:
-                if first_token_latency is None:
-                    first_token_latency = (time.time() - start_time) * 1000
+                if time_to_first_token is None:
+                    time_to_first_token = (time.time() - start_time) * 1000
                 final_usage = v.pop("usage", None)
                 v = await asyncio.to_thread(json.dumps, v)
                 v = dict(data=v)  # noqa: F821
@@ -299,12 +299,12 @@ class ModelActor(xo.StatelessActor):
             os._exit(1)
         finally:
             coros = []
-            if first_token_latency is not None:
+            if time_to_first_token is not None:
                 coros.append(
                     self.record_metrics(
-                        "first_token_latency",
+                        "time_to_first_token",
                         "set",
-                        {"labels": self._metrics_labels, "value": first_token_latency},
+                        {"labels": self._metrics_labels, "value": time_to_first_token},
                     )
                 )
             if final_usage is not None:

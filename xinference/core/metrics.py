@@ -28,8 +28,8 @@ generate_throughput = Gauge(
     "xinference:generate_tokens_per_s", "Generate throughput in tokens/s."
 )
 # Latency
-first_token_latency = Gauge(
-    "xinference:first_token_latency_ms", "First token latency in ms."
+time_to_first_token = Gauge(
+    "xinference:time_to_first_token_ms", "First token latency in ms."
 )
 # Tokens counter
 input_tokens_total_counter = Counter(
