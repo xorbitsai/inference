@@ -94,6 +94,7 @@ VLLM_SUPPORTED_CHAT_MODELS = [
     "code-llama-python",
     "code-llama-instruct",
     "mistral-instruct-v0.1",
+    "mistral-instruct-v0.2",
     "chatglm3",
 ]
 
