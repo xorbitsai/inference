@@ -1818,14 +1818,13 @@
       }
     ],
     "prompt_style": {
-      "style_name": "INTERNLM2",
+      "style_name": "CHATML",
       "system_prompt": "",
       "roles": [
         "[UNUSED_TOKEN_146]user",
         "[UNUSED_TOKEN_146]assistant"
       ],
       "intra_message_sep": "[UNUSED_TOKEN_145]",
-      "inter_message_sep": "[UNUSED_TOKEN_145]",
       "stop_token_ids": [
         92542,
         92540
