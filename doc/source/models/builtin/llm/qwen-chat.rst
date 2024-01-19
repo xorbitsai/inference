@@ -4,10 +4,10 @@
 qwen-chat
 ========================================
 
-- **Context Length:** 2048
+- **Context Length:** 32768
 - **Model Name:** qwen-chat
 - **Languages:** en, zh
-- **Abilities:** chat
+- **Abilities:** chat, tools
 - **Description:** Qwen-chat is a fine-tuned version of the Qwen LLM trained with alignment techniques, specializing in chatting.
 
 Specifications
@@ -49,7 +49,7 @@ Model Spec 3 (pytorch, 1_8 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 1_8
-- **Quantizations:** none
+- **Quantizations:** 4-bit, 8-bit, none
 - **Model ID:** Qwen/Qwen-1_8B-Chat
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen-1_8B-Chat>`_, `ModelScope <https://modelscope.cn/models/qwen/Qwen-1_8B-Chat>`_
 
@@ -64,7 +64,7 @@ Model Spec 4 (pytorch, 7 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 7
-- **Quantizations:** none
+- **Quantizations:** 4-bit, 8-bit, none
 - **Model ID:** Qwen/Qwen-7B-Chat
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen-7B-Chat>`_, `ModelScope <https://modelscope.cn/models/qwen/Qwen-7B-Chat>`_
 
@@ -79,7 +79,7 @@ Model Spec 5 (pytorch, 14 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 14
-- **Quantizations:** none
+- **Quantizations:** 4-bit, 8-bit, none
 - **Model ID:** Qwen/Qwen-14B-Chat
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen-14B-Chat>`_, `ModelScope <https://modelscope.cn/models/qwen/Qwen-14B-Chat>`_
 
@@ -94,7 +94,7 @@ Model Spec 6 (pytorch, 72 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 72
-- **Quantizations:** none
+- **Quantizations:** 4-bit, 8-bit, none
 - **Model ID:** Qwen/Qwen-72B-Chat
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen-72B-Chat>`_, `ModelScope <https://modelscope.cn/models/qwen/Qwen-72B-Chat>`_
 

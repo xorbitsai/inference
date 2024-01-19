@@ -57,6 +57,8 @@ The following is a list of built-in LLM in Xinference:
   
    internlm-chat-7b
   
+   internlm2-chat
+  
    llama-2
   
    llama-2-chat

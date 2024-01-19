@@ -7,7 +7,7 @@ chatglm3
 - **Context Length:** 8192
 - **Model Name:** chatglm3
 - **Languages:** en, zh
-- **Abilities:** chat
+- **Abilities:** chat, tools
 - **Description:** ChatGLM3 is the third generation of ChatGLM, still open-source and trained on Chinese and English data.
 
 Specifications
