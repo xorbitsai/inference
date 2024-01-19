@@ -3202,19 +3202,17 @@
     ],
     "prompt_style": {
       "style_name": "CHATML",
-      "system_prompt": "",
+      "system_prompt": "You are an AI assistant whose name is InternLM (书生·浦语).\n- InternLM (书生·浦语) is a conversational language model that is developed by Shanghai AI Laboratory (上海人工智能实验室). It is designed to be helpful, honest, and harmless.\n- InternLM (书生·浦语) can understand and communicate fluently in the language chosen by the user such as English and 中文.",
       "roles": [
         "[UNUSED_TOKEN_146]user",
         "[UNUSED_TOKEN_146]assistant"
       ],
       "intra_message_sep": "[UNUSED_TOKEN_145]",
       "stop_token_ids": [
-        92542,
-        92540
+        92542
       ],
       "stop": [
-        "[UNUSED_TOKEN_145]",
-        "[UNUSED_TOKEN_143]"
+        "[UNUSED_TOKEN_145]"
       ]
     }
   }
