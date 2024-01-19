@@ -79,7 +79,7 @@ class Internlm2PytorchChatModel(PytorchChatModel):
         if llm_spec.model_format != "pytorch":
             return False
         model_family = llm_family.model_family or llm_family.model_name
-        if model_family != "internlm2":
+        if model_family != "internlm2-chat":
             return False
         if "chat" not in llm_family.model_ability:
             return False
