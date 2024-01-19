@@ -17,6 +17,7 @@ import functools
 import inspect
 import json
 import os
+import time
 import types
 import weakref
 from typing import (
@@ -34,7 +35,9 @@ import sse_starlette.sse
 import xoscar as xo
 
 if TYPE_CHECKING:
+    from .worker import WorkerActor
     from ..model.llm.core import LLM
+    from ..model.core import ModelDescription
     import PIL
 
 import logging
@@ -140,13 +143,23 @@ class ModelActor(xo.StatelessActor):
             gc.collect()
             torch.cuda.empty_cache()
 
-    def __init__(self, model: "LLM", request_limits: Optional[int] = None):
+    def __init__(
+        self,
+        worker_address: str,
+        model: "LLM",
+        model_description: Optional["ModelDescription"] = None,
+        request_limits: Optional[int] = None,
+    ):
         super().__init__()
         from ..model.llm.pytorch.core import PytorchModel
         from ..model.llm.pytorch.spec_model import SpeculativeModel
         from ..model.llm.vllm.core import VLLMModel
 
+        self._worker_address = worker_address
         self._model = model
+        self._model_description = (
+            model_description.to_dict() if model_description else {}
+        )
         self._request_limits = request_limits
 
         self._generators: Dict[str, Union[Iterator, AsyncGenerator]] = {}
@@ -156,7 +169,65 @@ class ModelActor(xo.StatelessActor):
             if isinstance(self._model, (PytorchModel, SpeculativeModel, VLLMModel))
             else asyncio.locks.Lock()
         )
+        self._worker_ref = None
         self._serve_count = 0
+        self._metrics_labels = {
+            "type": self._model_description.get("model_type", "unknown"),
+            "model": self.model_uid(),
+            "node": self._worker_address,
+            "format": self._model_description.get("model_format", "unknown"),
+            "quantization": self._model_description.get("quantization", "none"),
+        }
+        self._loop: Optional[asyncio.AbstractEventLoop] = None
+
+    async def __post_create__(self):
+        self._loop = asyncio.get_running_loop()
+
+    async def _record_completion_metrics(
+        self, duration, completion_tokens, prompt_tokens
+    ):
+        coros = []
+        if completion_tokens > 0:
+            coros.append(
+                self.record_metrics(
+                    "output_tokens_total_counter",
+                    "add",
+                    {
+                        "labels": self._metrics_labels,
+                        "value": completion_tokens,
+                    },
+                )
+            )
+        if prompt_tokens > 0:
+            coros.append(
+                self.record_metrics(
+                    "input_tokens_total_counter",
+                    "add",
+                    {"labels": self._metrics_labels, "value": prompt_tokens},
+                )
+            )
+        if completion_tokens > 0:
+            generate_throughput = completion_tokens / duration
+            coros.append(
+                self.record_metrics(
+                    "generate_throughput",
+                    "set",
+                    {
+                        "labels": self._metrics_labels,
+                        "value": generate_throughput,
+                    },
+                )
+            )
+        await asyncio.gather(*coros)
+
+    async def _get_worker_ref(self) -> xo.ActorRefType["WorkerActor"]:
+        from .worker import WorkerActor
+
+        if self._worker_ref is None:
+            self._worker_ref = await xo.actor_ref(
+                address=self._worker_address, uid=WorkerActor.uid()
+            )
+        return self._worker_ref
 
     def is_vllm_backend(self) -> bool:
         from ..model.llm.vllm.core import VLLMModel
@@ -178,8 +249,14 @@ class ModelActor(xo.StatelessActor):
         )
 
     def _to_json_generator(self, gen: types.GeneratorType):
+        start_time = time.time()
+        time_to_first_token = None
+        final_usage = None
         try:
             for v in gen:
+                if time_to_first_token is None:
+                    time_to_first_token = (time.time() - start_time) * 1000
+                final_usage = v.pop("usage", None)
                 v = dict(data=json.dumps(v))
                 yield sse_starlette.sse.ensure_bytes(v, None)
         except OutOfMemoryError:
@@ -187,10 +264,31 @@ class ModelActor(xo.StatelessActor):
                 "Model actor is out of memory, model id: %s", self.model_uid()
             )
             os._exit(1)
+        finally:
+            if self._loop is not None and time_to_first_token is not None:
+                coro = self.record_metrics(
+                    "time_to_first_token",
+                    "set",
+                    {"labels": self._metrics_labels, "value": time_to_first_token},
+                )
+                asyncio.run_coroutine_threadsafe(coro, loop=self._loop)
+            if self._loop is not None and final_usage is not None:
+                coro = self._record_completion_metrics(
+                    time.time() - start_time,
+                    completion_tokens=final_usage["completion_tokens"],
+                    prompt_tokens=final_usage["prompt_tokens"],
+                )
+                asyncio.run_coroutine_threadsafe(coro, loop=self._loop)
 
     async def _to_json_async_gen(self, gen: types.AsyncGeneratorType):
+        start_time = time.time()
+        time_to_first_token = None
+        final_usage = None
         try:
             async for v in gen:
+                if time_to_first_token is None:
+                    time_to_first_token = (time.time() - start_time) * 1000
+                final_usage = v.pop("usage", None)
                 v = await asyncio.to_thread(json.dumps, v)
                 v = dict(data=v)  # noqa: F821
                 yield await asyncio.to_thread(sse_starlette.sse.ensure_bytes, v, None)
@@ -199,6 +297,25 @@ class ModelActor(xo.StatelessActor):
                 "Model actor is out of memory, model id: %s", self.model_uid()
             )
             os._exit(1)
+        finally:
+            coros = []
+            if time_to_first_token is not None:
+                coros.append(
+                    self.record_metrics(
+                        "time_to_first_token",
+                        "set",
+                        {"labels": self._metrics_labels, "value": time_to_first_token},
+                    )
+                )
+            if final_usage is not None:
+                coros.append(
+                    self._record_completion_metrics(
+                        time.time() - start_time,
+                        completion_tokens=final_usage["completion_tokens"],
+                        prompt_tokens=final_usage["prompt_tokens"],
+                    )
+                )
+            await asyncio.gather(*coros)
 
     @oom_check
     async def _call_wrapper(self, fn: Callable, *args, **kwargs):
@@ -245,13 +362,32 @@ class ModelActor(xo.StatelessActor):
     @request_limit
     @xo.generator
     async def chat(self, prompt: str, *args, **kwargs):
-        if hasattr(self._model, "chat"):
-            return await self._call_wrapper(self._model.chat, prompt, *args, **kwargs)
-        if hasattr(self._model, "async_chat"):
-            return await self._call_wrapper(
-                self._model.async_chat, prompt, *args, **kwargs
-            )
-        raise AttributeError(f"Model {self._model.model_spec} is not for chat.")
+        start_time = time.time()
+        response = None
+        try:
+            if hasattr(self._model, "chat"):
+                response = await self._call_wrapper(
+                    self._model.chat, prompt, *args, **kwargs
+                )
+                return response
+            if hasattr(self._model, "async_chat"):
+                response = await self._call_wrapper(
+                    self._model.async_chat, prompt, *args, **kwargs
+                )
+                return response
+            raise AttributeError(f"Model {self._model.model_spec} is not for chat.")
+        finally:
+            # For the non stream result.
+            if response is not None and isinstance(response, dict):
+                usage = response["usage"]
+                # Some backends may not have a valid usage, we just skip them.
+                completion_tokens = usage["completion_tokens"]
+                prompt_tokens = usage["prompt_tokens"]
+                await self._record_completion_metrics(
+                    time.time() - start_time,
+                    completion_tokens,
+                    prompt_tokens,
+                )
 
     @log_async(logger=logger)
     @request_limit
@@ -341,3 +477,7 @@ class ModelActor(xo.StatelessActor):
         raise AttributeError(
             f"Model {self._model.model_spec} is not for creating image."
         )
+
+    async def record_metrics(self, name, op, kwargs):
+        worker_ref = await self._get_worker_ref()
+        await worker_ref.record_metrics(name, op, kwargs)

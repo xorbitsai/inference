@@ -27,6 +27,8 @@ from typing import Any, List, Optional, Union
 import gradio as gr
 import pydantic
 import xoscar as xo
+from aioprometheus import REGISTRY, MetricsMiddleware
+from aioprometheus.asgi.starlette import metrics
 from fastapi import (
     APIRouter,
     FastAPI,
@@ -389,7 +391,13 @@ class RESTfulAPI:
             else None,
         )
 
+        # Clear the global Registry for the MetricsMiddleware, or
+        # the MetricsMiddleware will register duplicated metrics if the port
+        # conflict (This serve method run more than once).
+        REGISTRY.clear()
+        self._app.add_middleware(MetricsMiddleware)
         self._app.include_router(self._router)
+        self._app.add_route("/metrics", metrics)
 
         # Check all the routes returns Response.
         # This is to avoid `jsonable_encoder` performance issue:

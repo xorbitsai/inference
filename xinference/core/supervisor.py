@@ -23,6 +23,7 @@ import xoscar as xo
 
 from ..core import ModelActor
 from ..core.status_guard import InstanceInfo, LaunchStatus
+from .metrics import record_metrics
 from .resource import ResourceStatus
 from .utils import (
     build_replica_model_uid,
@@ -750,3 +751,7 @@ class SupervisorActor(xo.StatelessActor):
         self._worker_status[worker_address] = WorkerStatus(
             update_time=time.time(), status=status
         )
+
+    @staticmethod
+    def record_metrics(name, op, kwargs):
+        record_metrics(name, op, kwargs)

@@ -120,7 +120,10 @@ async def test_concurrent_pytorch_model(setup):
     print(next(iter(pool.sub_processes.keys())))
     mock_torch_model = MockPytorchModel()
     model_torch_actor = await xoscar.create_actor(
-        ModelActor, mock_torch_model, address=next(iter(pool.sub_processes.keys()))
+        ModelActor,
+        pool.external_address,
+        mock_torch_model,
+        address=next(iter(pool.sub_processes.keys())),
     )
     coros = []
     for _ in range(3):
@@ -133,7 +136,10 @@ async def test_concurrent_pytorch_model(setup):
 
     mock_non_torch_model = MockNonPytorchModel()
     model_non_torch_actor = await xoscar.create_actor(
-        ModelActor, mock_non_torch_model, address=next(iter(pool.sub_processes.keys()))
+        ModelActor,
+        pool.external_address,
+        mock_non_torch_model,
+        address=next(iter(pool.sub_processes.keys())),
     )
     coros = []
     for _ in range(3):

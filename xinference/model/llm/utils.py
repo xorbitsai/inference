@@ -16,7 +16,7 @@ import json
 import logging
 import time
 import uuid
-from typing import AsyncGenerator, Dict, Iterator, List, Optional
+from typing import AsyncGenerator, Dict, Iterator, List, Optional, cast
 
 from xinference.model.llm.llm_family import PromptStyleV1
 
@@ -360,7 +360,7 @@ Begin!"""
 
     @classmethod
     def _to_chat_completion_chunk(cls, chunk: CompletionChunk) -> ChatCompletionChunk:
-        return {
+        chat_chunk = {
             "id": "chat" + chunk["id"],
             "model": chunk["model"],
             "created": chunk["created"],
@@ -376,12 +376,16 @@ Begin!"""
                 for i, choice in enumerate(chunk["choices"])
             ],
         }
+        usage = chunk.get("usage")
+        if usage is not None:
+            chat_chunk["usage"] = usage
+        return cast(ChatCompletionChunk, chat_chunk)
 
     @classmethod
     def _get_first_chat_completion_chunk(
         cls, chunk: CompletionChunk
     ) -> ChatCompletionChunk:
-        return {
+        chat_chunk = {
             "id": "chat" + chunk["id"],
             "model": chunk["model"],
             "created": chunk["created"],
@@ -397,6 +401,10 @@ Begin!"""
                 for i, choice in enumerate(chunk["choices"])
             ],
         }
+        usage = chunk.get("usage")
+        if usage is not None:
+            chat_chunk["usage"] = usage
+        return cast(ChatCompletionChunk, chat_chunk)
 
     @classmethod
     def _to_chat_completion_chunks(

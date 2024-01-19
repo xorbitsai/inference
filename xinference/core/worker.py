@@ -15,7 +15,9 @@
 import asyncio
 import os
 import platform
+import queue
 import signal
+import threading
 from collections import defaultdict
 from logging import getLogger
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
@@ -28,6 +30,7 @@ from ..core import ModelActor
 from ..core.status_guard import LaunchStatus
 from ..model.core import ModelDescription, create_model_instance
 from ..utils import cuda_count
+from .metrics import launch_metrics_export_server, record_metrics
 from .resource import gather_node_info
 from .utils import log_async, log_sync, parse_replica_model_uid, purge_dir
 
@@ -49,6 +52,8 @@ class WorkerActor(xo.StatelessActor):
         supervisor_address: str,
         main_pool: MainActorPoolType,
         cuda_devices: List[int],
+        metrics_exporter_host: Optional[str] = None,
+        metrics_exporter_port: Optional[int] = None,
     ):
         super().__init__()
         # static attrs.
@@ -66,6 +71,30 @@ class WorkerActor(xo.StatelessActor):
         self._model_uid_to_addr: Dict[str, str] = {}
         self._model_uid_to_recover_count: Dict[str, int] = {}
         self._model_uid_to_launch_args: Dict[str, Dict] = {}
+
+        # metrics export server.
+        if metrics_exporter_host is not None or metrics_exporter_port is not None:
+            logger.info(
+                f"Starting metrics export server at {metrics_exporter_host}:{metrics_exporter_port}"
+            )
+            q: queue.Queue = queue.Queue()
+            self._metrics_thread = threading.Thread(
+                name="Metrics Export Server",
+                target=launch_metrics_export_server,
+                args=(q, metrics_exporter_host, metrics_exporter_port),
+                daemon=True,
+            )
+            self._metrics_thread.start()
+            logger.info("Checking metrics export server...")
+            while self._metrics_thread.is_alive():
+                try:
+                    host, port = q.get(block=False)[:2]
+                    logger.info(f"Metrics server is started at: http://{host}:{port}")
+                    break
+                except queue.Empty:
+                    pass
+            else:
+                raise Exception("Metrics server thread exit.")
 
         self._lock = asyncio.Lock()
 
@@ -349,7 +378,12 @@ class WorkerActor(xo.StatelessActor):
 
         try:
             model_ref = await xo.create_actor(
-                ModelActor, address=subpool_address, uid=model_uid, model=model
+                ModelActor,
+                address=subpool_address,
+                uid=model_uid,
+                worker_address=self.address,
+                model=model,
+                model_description=model_description,
             )
             await model_ref.load()
         except:
@@ -434,7 +468,9 @@ class WorkerActor(xo.StatelessActor):
                 ModelActor,
                 address=subpool_address,
                 uid=model_uid,
+                worker_address=self.address,
                 model=model,
+                model_description=model_description,
                 request_limits=request_limits,
             )
             await model_ref.load()
@@ -539,3 +575,7 @@ class WorkerActor(xo.StatelessActor):
                 await asyncio.sleep(DEFAULT_NODE_HEARTBEAT_INTERVAL)
             except asyncio.CancelledError:  # pragma: no cover
                 break
+
+    @staticmethod
+    def record_metrics(name, op, kwargs):
+        record_metrics(name, op, kwargs)
