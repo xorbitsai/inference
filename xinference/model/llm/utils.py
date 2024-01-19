@@ -299,6 +299,24 @@ Begin!"""
             )
             ret += chat_history[-1]["role"] + ":"
             return ret
+        elif prompt_style.style_name == "INTERNLM2":
+            ret = (
+                "<s>"
+                if prompt_style.system_prompt == ""
+                else "<s>[UNUSED_TOKEN_146]system\n"
+                + prompt_style.system_prompt
+                + prompt_style.intra_message_sep
+                + "\n"
+            )
+            for message in chat_history:
+                role = message["role"]
+                content = message["content"]
+
+                if content:
+                    ret += role + "\n" + content + prompt_style.intra_message_sep + "\n"
+                else:
+                    ret += role + "\n"
+            return ret
         elif prompt_style.style_name == "ADD_COLON_SINGLE_COT":
             ret = prompt_style.system_prompt + prompt_style.intra_message_sep
             for message in chat_history:

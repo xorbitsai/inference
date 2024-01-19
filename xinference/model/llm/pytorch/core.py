@@ -192,7 +192,8 @@ class PytorchModel(LLM):
     ) -> bool:
         if llm_spec.model_format not in ["pytorch", "gptq"]:
             return False
-        if llm_family.model_name in [
+        model_family = llm_family.model_family or llm_family.model_name
+        if model_family in [
             "baichuan-chat",
             "vicuna-v1.3",
             "falcon",
@@ -420,6 +421,7 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
             "chatglm2-32k",
             "llama-2",
             "llama-2-chat",
+            "internlm2-chat",
         ]:
             return False
         if "chat" not in llm_family.model_ability:

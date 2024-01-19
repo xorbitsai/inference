@@ -1778,5 +1778,55 @@
         "model_revision": "master"
       }
     ]
+  },
+  {
+    "version": 1,
+    "context_length": 204800,
+    "model_name": "internlm2-chat",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "The second generation of the InternLM model, InternLM2.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "Shanghai_AI_Laboratory/internlm2-chat-7b",
+        "model_hub": "modelscope",
+        "model_revision": "master"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 20,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "Shanghai_AI_Laboratory/internlm2-chat-20b",
+        "model_hub": "modelscope",
+        "model_revision": "master"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "INTERNLM2",
+      "system_prompt": "You are InternLM (书生·浦语), a helpful, honest, and harmless AI assistant developed by Shanghai AI Laboratory (上海人工智能实验室).",
+      "roles": [
+        "[UNUSED_TOKEN_146]user",
+        "[UNUSED_TOKEN_146]assistant"
+      ],
+      "intra_message_sep": "[UNUSED_TOKEN_145]",
+      "stop_token_ids": [
+        92542
+      ],
+      "stop": [
+        "[UNUSED_TOKEN_145]"
+      ]
+    }
   }
 ]
