@@ -23,6 +23,7 @@ import xoscar as xo
 
 from ..core import ModelActor
 from ..core.status_guard import InstanceInfo, LaunchStatus
+from .metrics import record_metrics
 from .resource import ResourceStatus
 from .utils import (
     build_replica_model_uid,
@@ -33,7 +34,6 @@ from .utils import (
     log_sync,
     parse_replica_model_uid,
 )
-from .metrics import record_metrics
 
 if TYPE_CHECKING:
     from ..model.embedding import EmbeddingModelSpec

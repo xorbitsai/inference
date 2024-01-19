@@ -27,6 +27,8 @@ from typing import Any, List, Optional, Union
 import gradio as gr
 import pydantic
 import xoscar as xo
+from aioprometheus import MetricsMiddleware
+from aioprometheus.asgi.starlette import metrics
 from fastapi import (
     APIRouter,
     FastAPI,
@@ -65,8 +67,6 @@ from ..types import (
 from .oauth2.core import get_user, verify_token
 from .oauth2.types import AuthStartupConfig, LoginUserForm, User
 from .oauth2.utils import create_access_token, get_password_hash, verify_password
-from aioprometheus import MetricsMiddleware
-from aioprometheus.asgi.starlette import metrics
 
 logger = logging.getLogger(__name__)
 
