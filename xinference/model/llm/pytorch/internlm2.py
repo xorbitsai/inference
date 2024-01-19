@@ -105,12 +105,19 @@ class Internlm2PytorchChatModel(PytorchChatModel):
             kwargs["max_length"] = int(max_new_tokens)
 
         stream = generate_config.get("stream", False)
+        if chat_history:
+            input_history = [
+                (chat_history[i]["content"], (chat_history[i + 1]["content"]))
+                for i in range(0, len(chat_history), 2)
+            ]
+        else:
+            input_history = []
         if stream:
 
             def _stream_generator():
                 last_chunk_text_length = 0
                 for chunk_text, _ in self._model.stream_chat(
-                    self._tokenizer, prompt, chat_history, **kwargs
+                    self._tokenizer, prompt, input_history, **kwargs
                 ):
                     chunk_text = chunk_text[last_chunk_text_length:]
                     last_chunk_text_length += len(chunk_text)
@@ -128,7 +135,7 @@ class Internlm2PytorchChatModel(PytorchChatModel):
             return self._to_chat_completion_chunks(_stream_generator())
         else:
             response, _ = self._model.chat(
-                self._tokenizer, prompt, chat_history, **kwargs
+                self._tokenizer, prompt, input_history, **kwargs
             )
             return ChatCompletion(
                 id="chat" + str(uuid.uuid1()),
