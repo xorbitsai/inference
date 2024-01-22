@@ -118,7 +118,7 @@ $ xinference-local
 
 <a href="https://github.com/xorbitsai/inference/graphs/contributors" target="_blank" style="display: block" align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://next.ossinsight.io/widgets/official/compose-contributors/thumbnail.png?repo_id=653496050&image_size=auto&color_scheme=dark" height="auto">
-    <img alt="Contributors of xorbitsai/inference" src="https://next.ossinsight.io/widgets/official/compose-contributors/thumbnail.png?repo_id=653496050&image_size=auto&color_scheme=light" height="auto">
+    <source media="(prefers-color-scheme: dark)" srcset="https://next.ossinsight.io/widgets/official/compose-contributors/thumbnail.png?repo_id=653496050&limit=30&image_size=auto&color_scheme=dark" height="auto">
+    <img alt="Contributors of xorbitsai/inference" src="https://next.ossinsight.io/widgets/official/compose-contributors/thumbnail.png?repo_id=653496050&limit=30&image_size=auto&color_scheme=light" height="auto">
   </picture>
 </a>
