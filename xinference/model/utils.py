@@ -141,10 +141,12 @@ def valid_model_revision(
         return real_revision == expected_model_revision
 
 
+def get_cache_dir(model_spec: Any) -> str:
+    return os.path.realpath(os.path.join(XINFERENCE_CACHE_DIR, model_spec.model_name))
+
+
 def is_model_cached(model_spec: Any, name_to_revisions_mapping: Dict):
-    cache_dir = os.path.realpath(
-        os.path.join(XINFERENCE_CACHE_DIR, model_spec.model_name)
-    )
+    cache_dir = get_cache_dir(model_spec)
     meta_path = os.path.join(cache_dir, "__valid_download")
     revisions = name_to_revisions_mapping[model_spec.model_name]
     if model_spec.model_revision not in revisions:  # Usually for UT

@@ -17,8 +17,20 @@ import json
 import os
 
 from ...constants import XINFERENCE_MODEL_DIR
-from .core import MODEL_NAME_TO_REVISION, RerankModelSpec, get_cache_status
-from .custom import CustomRerankModelSpec, register_rerank
+from .core import (
+    MODEL_NAME_TO_REVISION,
+    RERANK_MODEL_DESCRIPTIONS,
+    RerankModelSpec,
+    generate_rerank_description,
+    get_cache_status,
+    get_rerank_model_descriptions,
+)
+from .custom import (
+    CustomRerankModelSpec,
+    get_user_defined_reranks,
+    register_rerank,
+    unregister_rerank,
+)
 
 _model_spec_json = os.path.join(os.path.dirname(__file__), "model_spec.json")
 _model_spec_modelscope_json = os.path.join(
@@ -30,6 +42,7 @@ BUILTIN_RERANK_MODELS = dict(
 )
 for model_name, model_spec in BUILTIN_RERANK_MODELS.items():
     MODEL_NAME_TO_REVISION[model_name].append(model_spec.model_revision)
+
 MODELSCOPE_RERANK_MODELS = dict(
     (spec["model_name"], RerankModelSpec(**spec))
     for spec in json.load(
@@ -38,6 +51,12 @@ MODELSCOPE_RERANK_MODELS = dict(
 )
 for model_name, model_spec in MODELSCOPE_RERANK_MODELS.items():
     MODEL_NAME_TO_REVISION[model_name].append(model_spec.model_revision)
+
+# register model description after recording model revision
+for model_spec_info in [BUILTIN_RERANK_MODELS, MODELSCOPE_RERANK_MODELS]:
+    for model_name, model_spec in model_spec_info.items():
+        if model_spec.model_name not in RERANK_MODEL_DESCRIPTIONS:
+            RERANK_MODEL_DESCRIPTIONS.update(generate_rerank_description(model_spec))
 
 # if persist=True, load them when init
 user_defined_rerank_dir = os.path.join(XINFERENCE_MODEL_DIR, "rerank")
@@ -48,6 +67,10 @@ if os.path.isdir(user_defined_rerank_dir):
         ) as fd:
             user_defined_rerank_spec = CustomRerankModelSpec.parse_obj(json.load(fd))
             register_rerank(user_defined_rerank_spec, persist=False)
+
+# register model description
+for ud_rerank in get_user_defined_reranks():
+    RERANK_MODEL_DESCRIPTIONS.update(generate_rerank_description(ud_rerank))
 
 del _model_spec_json
 del _model_spec_modelscope_json

@@ -17,7 +17,8 @@ import logging
 import os
 import platform
 from abc import abstractmethod
-from typing import TYPE_CHECKING, List, Optional, Tuple, Union
+from collections import defaultdict
+from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, Union
 
 from ...core.utils import parse_replica_model_uid
 from ..core import ModelDescription
@@ -26,6 +27,15 @@ if TYPE_CHECKING:
     from .llm_family import LLMFamilyV1, LLMSpecV1
 
 logger = logging.getLogger(__name__)
+
+
+LLM_MODEL_DESCRIPTIONS: Dict[str, List[Dict]] = defaultdict(list)
+
+
+def get_llm_model_descriptions():
+    import copy
+
+    return copy.deepcopy(LLM_MODEL_DESCRIPTIONS)
 
 
 class LLM(abc.ABC):
@@ -107,8 +117,9 @@ class LLMDescription(ModelDescription):
         llm_family: "LLMFamilyV1",
         llm_spec: "LLMSpecV1",
         quantization: Optional[str],
+        model_path: Optional[str] = None,
     ):
-        super().__init__(address, devices)
+        super().__init__(address, devices, model_path=model_path)
         self._llm_family = llm_family
         self._llm_spec = llm_spec
         self._quantization = quantization
@@ -129,6 +140,34 @@ class LLMDescription(ModelDescription):
             "revision": self._llm_spec.model_revision,
             "context_length": self._llm_family.context_length,
         }
+
+    def to_version_info(self):
+        from .utils import get_file_location, get_model_version
+
+        model_file_location, cache_status = get_file_location(
+            self._llm_family, self._llm_spec, self._quantization
+        )
+
+        return {
+            "model_version": get_model_version(
+                self._llm_family, self._llm_spec, self._quantization
+            ),
+            "model_file_location": model_file_location,
+            "cache_status": cache_status,
+            "quantization": self._quantization,
+            "model_format": self._llm_spec.model_format,
+            "model_size_in_billions": self._llm_spec.model_size_in_billions,
+        }
+
+
+def generate_llm_description(llm_family: "LLMFamilyV1") -> Dict[str, List[Dict]]:
+    res = defaultdict(list)
+    for spec in llm_family.model_specs:
+        for q in spec.quantizations:
+            res[llm_family.model_name].append(
+                LLMDescription(None, None, llm_family, spec, q).to_version_info()
+            )
+    return res
 
 
 def create_llm_model_instance(

@@ -152,6 +152,7 @@ class WorkerActor(xo.StatelessActor):
         return "worker"
 
     async def __post_create__(self):
+        from .cache_tracker import CacheTrackerActor
         from .status_guard import StatusGuardActor
         from .supervisor import SupervisorActor
 
@@ -165,6 +166,11 @@ class WorkerActor(xo.StatelessActor):
         ] = await xo.actor_ref(
             address=self._supervisor_address, uid=EventCollectorActor.uid()
         )
+        self._cache_tracker_ref: xo.ActorRefType[
+            "CacheTrackerActor"
+        ] = await xo.actor_ref(
+            address=self._supervisor_address, uid=CacheTrackerActor.uid()
+        )
         self._supervisor_ref: xo.ActorRefType["SupervisorActor"] = await xo.actor_ref(
             address=self._supervisor_address, uid=SupervisorActor.uid()
         )
@@ -176,13 +182,20 @@ class WorkerActor(xo.StatelessActor):
 
         from ..model.embedding import (
             CustomEmbeddingModelSpec,
+            get_embedding_model_descriptions,
             register_embedding,
             unregister_embedding,
         )
-        from ..model.llm import register_llm, unregister_llm
-        from ..model.llm.llm_family import CustomLLMFamilyV1
-        from ..model.rerank.custom import (
+        from ..model.image import get_image_model_descriptions
+        from ..model.llm import (
+            CustomLLMFamilyV1,
+            get_llm_model_descriptions,
+            register_llm,
+            unregister_llm,
+        )
+        from ..model.rerank import (
             CustomRerankModelSpec,
+            get_rerank_model_descriptions,
             register_rerank,
             unregister_rerank,
         )
@@ -196,6 +209,16 @@ class WorkerActor(xo.StatelessActor):
             ),
             "rerank": (CustomRerankModelSpec, register_rerank, unregister_rerank),
         }
+
+        # record model version
+        model_version_infos: Dict[str, List[Dict]] = {}
+        model_version_infos.update(get_llm_model_descriptions())
+        model_version_infos.update(get_embedding_model_descriptions())
+        model_version_infos.update(get_rerank_model_descriptions())
+        model_version_infos.update(get_image_model_descriptions())
+        await self._cache_tracker_ref.record_model_version(
+            model_version_infos, self.address
+        )
 
         # Windows does not have signal handler
         if os.name != "nt":
@@ -430,6 +453,23 @@ class WorkerActor(xo.StatelessActor):
             assert isinstance(model, LLM)
             return model.model_family.model_ability  # type: ignore
 
+    async def update_cache_status(
+        self, model_name: str, model_description: ModelDescription
+    ):
+        version_info = model_description.to_version_info()
+        if isinstance(version_info, list):  # image model
+            model_path = version_info[0]["model_file_location"]
+            await self._cache_tracker_ref.update_cache_status(
+                self.address, model_name, None, model_path
+            )
+        else:
+            await self._cache_tracker_ref.update_cache_status(
+                self.address,
+                model_name,
+                version_info["model_version"],
+                version_info["model_file_location"],
+            )
+
     @log_async(logger=logger)
     async def launch_builtin_model(
         self,
@@ -489,6 +529,7 @@ class WorkerActor(xo.StatelessActor):
                 is_local_deployment,
                 **kwargs,
             )
+            await self.update_cache_status(model_name, model_description)
             model_ref = await xo.create_actor(
                 ModelActor,
                 address=subpool_address,

@@ -15,7 +15,7 @@ import logging
 import os
 import random
 import string
-from typing import Generator, Tuple
+from typing import Generator, List, Tuple, Union
 
 import orjson
 from pydantic import BaseModel
@@ -125,3 +125,32 @@ def purge_dir(d):
                 os.rmdir(subdir)
         except Exception:
             pass
+
+
+def parse_model_version(model_version: str, model_type: str) -> Tuple:
+    results: List[str] = model_version.split("--")
+    if model_type == "LLM":
+        if len(results) != 4:
+            raise ValueError(
+                f"LLM model_version parses failed! model_version: {model_version}"
+            )
+        model_name = results[0]
+        size = results[1]
+        if not size.endswith("B"):
+            raise ValueError(f"Cannot parse model_size_in_billions: {size}")
+        size = size.rstrip("B")
+        size_in_billions: Union[int, str] = size if "_" in size else int(size)
+        model_format = results[2]
+        quantization = results[3]
+        return model_name, size_in_billions, model_format, quantization
+    elif model_type == "embedding":
+        assert len(results) > 0, "Embedding model_version parses failed!"
+        return (results[0],)
+    elif model_type == "rerank":
+        assert len(results) > 0, "Rerank model_version parses failed!"
+        return (results[0],)
+    elif model_type == "image":
+        assert 2 >= len(results) >= 1, "Image model_version parses failed!"
+        return tuple(results)
+    else:
+        raise ValueError(f"Not supported model_type: {model_type}")

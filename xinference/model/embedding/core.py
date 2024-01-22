@@ -24,7 +24,7 @@ from pydantic import BaseModel
 from ...constants import XINFERENCE_CACHE_DIR
 from ...types import Embedding, EmbeddingData, EmbeddingUsage
 from ..core import ModelDescription
-from ..utils import is_model_cached, valid_model_revision
+from ..utils import get_cache_dir, is_model_cached, valid_model_revision
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +32,15 @@ SUPPORTED_SCHEMES = ["s3"]
 # Used for check whether the model is cached.
 # Init when registering all the builtin models.
 MODEL_NAME_TO_REVISION: Dict[str, List[str]] = defaultdict(list)
+
+
+EMBEDDING_MODEL_DESCRIPTIONS: Dict[str, List[Dict]] = defaultdict(list)
+
+
+def get_embedding_model_descriptions():
+    import copy
+
+    return copy.deepcopy(EMBEDDING_MODEL_DESCRIPTIONS)
 
 
 class EmbeddingModelSpec(BaseModel):
@@ -50,8 +59,9 @@ class EmbeddingModelDescription(ModelDescription):
         address: Optional[str],
         devices: Optional[List[str]],
         model_spec: EmbeddingModelSpec,
+        model_path: Optional[str] = None,
     ):
-        super().__init__(address, devices)
+        super().__init__(address, devices, model_path=model_path)
         self._model_spec = model_spec
 
     def to_dict(self):
@@ -65,6 +75,34 @@ class EmbeddingModelDescription(ModelDescription):
             "language": self._model_spec.language,
             "model_revision": self._model_spec.model_revision,
         }
+
+    def to_version_info(self):
+        from .utils import get_model_version
+
+        if self._model_path is None:
+            is_cached = get_cache_status(self._model_spec)
+            file_location = get_cache_dir(self._model_spec)
+        else:
+            is_cached = True
+            file_location = self._model_path
+
+        return {
+            "model_version": get_model_version(self._model_spec),
+            "model_file_location": file_location,
+            "cache_status": is_cached,
+            "dimensions": self._model_spec.dimensions,
+            "max_tokens": self._model_spec.max_tokens,
+        }
+
+
+def generate_embedding_description(
+    model_spec: EmbeddingModelSpec,
+) -> Dict[str, List[Dict]]:
+    res = defaultdict(list)
+    res[model_spec.model_name].append(
+        EmbeddingModelDescription(None, None, model_spec).to_version_info()
+    )
+    return res
 
 
 def cache_from_uri(
@@ -421,5 +459,7 @@ def create_embedding_model_instance(
     model_spec = match_embedding(model_name)
     model_path = cache(model_spec)
     model = EmbeddingModel(model_uid, model_path, **kwargs)
-    model_description = EmbeddingModelDescription(subpool_addr, devices, model_spec)
+    model_description = EmbeddingModelDescription(
+        subpool_addr, devices, model_spec, model_path=model_path
+    )
     return model, model_description

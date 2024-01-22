@@ -16,7 +16,13 @@ import codecs
 import json
 import os
 
-from .core import LLM
+from .core import (
+    LLM,
+    LLM_MODEL_DESCRIPTIONS,
+    LLMDescription,
+    generate_llm_description,
+    get_llm_model_descriptions,
+)
 from .llm_family import (
     BUILTIN_LLM_FAMILIES,
     BUILTIN_LLM_MODEL_CHAT_FAMILIES,
@@ -131,6 +137,11 @@ def _install():
         if "tool_call" in model_spec.model_ability:
             BUILTIN_LLM_MODEL_TOOL_CALL_FAMILIES.add(model_spec.model_name)
 
+    for llm_specs in [BUILTIN_LLM_FAMILIES, BUILTIN_MODELSCOPE_LLM_FAMILIES]:
+        for llm_spec in llm_specs:
+            if llm_spec.model_name not in LLM_MODEL_DESCRIPTIONS:
+                LLM_MODEL_DESCRIPTIONS.update(generate_llm_description(llm_spec))
+
     from ...constants import XINFERENCE_MODEL_DIR
 
     user_defined_llm_dir = os.path.join(XINFERENCE_MODEL_DIR, "llm")
@@ -141,3 +152,7 @@ def _install():
             ) as fd:
                 user_defined_llm_family = CustomLLMFamilyV1.parse_obj(json.load(fd))
                 register_llm(user_defined_llm_family, persist=False)
+
+    # register model description
+    for ud_llm in get_user_defined_llm_families():
+        LLM_MODEL_DESCRIPTIONS.update(generate_llm_description(ud_llm))

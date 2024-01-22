@@ -26,6 +26,7 @@ potential of cutting-edge AI models.
 
 ## 🔥 Hot Topics
 ### Framework Enhancements
+- Metrics support: [#906](https://github.com/xorbitsai/inference/pull/906)
 - Docker image: [#855](https://github.com/xorbitsai/inference/pull/855)
 - Support multimodal: [#829](https://github.com/xorbitsai/inference/pull/829)
 - Auto recover: [#694](https://github.com/xorbitsai/inference/pull/694)
@@ -33,12 +34,12 @@ potential of cutting-edge AI models.
 - Support rerank model: [#672](https://github.com/xorbitsai/inference/pull/672)
 - Speculative decoding: [#509](https://github.com/xorbitsai/inference/pull/509)
 ### New Models
+- Built-in support for [InternLM2-chat](https://huggingface.co/internlm/internlm2-chat-7b): [#829](https://github.com/xorbitsai/inference/pull/913)
 - Built-in support for [qwen-vl](https://huggingface.co/Qwen/Qwen-VL-Chat): [#829](https://github.com/xorbitsai/inference/pull/829)
 - Built-in support for [phi-2](https://huggingface.co/microsoft/phi-2): [#828](https://github.com/xorbitsai/inference/pull/828)
 - Built-in support for [mistral-instruct-v0.2](https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.2): [#796](https://github.com/xorbitsai/inference/pull/796)
 - Built-in support for [deepseek-llm](https://huggingface.co/deepseek-ai) and [deepseek-coder](https://huggingface.co/deepseek-ai): [#786](https://github.com/xorbitsai/inference/pull/786)
 - Built-in support for [Mixtral-8x7B-v0.1](https://huggingface.co/mistralai/Mixtral-8x7B-v0.1): [#782](https://github.com/xorbitsai/inference/pull/782)
-- Built-in support for [OpenHermes 2.5](https://huggingface.co/teknium/OpenHermes-2.5-Mistral-7B): [#776](https://github.com/xorbitsai/inference/pull/776)
 ### Integrations
 - [Dify](https://docs.dify.ai/advanced/model-configuration/xinference): an LLMOps platform that enables developers (and even non-developers) to quickly build useful applications based on large language models, ensuring they are visual, operable, and improvable.
 - [Chatbox](https://chatboxai.app/): a desktop client for multiple cutting-edge LLM models, available on Windows, Mac and Linux.
@@ -127,3 +128,9 @@ Once Xinference is running, there are multiple ways you can try it: via the web 
 | [Github Issues](https://github.com/xorbitsai/inference/issues)                                | Reporting bugs and filing feature requests.        |
 | [Slack](https://join.slack.com/t/xorbitsio/shared_invite/zt-1o3z9ucdh-RbfhbPVpx7prOVdM1CAuxg) | Collaborating with other Xorbits users.            |
 | [Twitter](https://twitter.com/xorbitsio)                                                      | Staying up-to-date on new features.                |
+
+## Contributors
+
+<a href="https://github.com/xorbitsai/inference/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=xorbitsai/inference" />
+</a>

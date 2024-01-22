@@ -16,11 +16,22 @@ import codecs
 import json
 import os
 
-from .core import ImageModelFamilyV1, get_cache_status
+from .core import (
+    IMAGE_MODEL_DESCRIPTIONS,
+    ImageModelFamilyV1,
+    generate_image_description,
+    get_cache_status,
+    get_image_model_descriptions,
+)
 
 _model_spec_json = os.path.join(os.path.dirname(__file__), "model_spec.json")
 BUILTIN_IMAGE_MODELS = dict(
     (spec["model_name"], ImageModelFamilyV1(**spec))
     for spec in json.load(codecs.open(_model_spec_json, "r", encoding="utf-8"))
 )
+
+# register model description
+for model_name, model_spec in BUILTIN_IMAGE_MODELS.items():
+    IMAGE_MODEL_DESCRIPTIONS.update(generate_image_description(model_spec))
+
 del _model_spec_json
