@@ -421,7 +421,6 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
             "chatglm2-32k",
             "llama-2",
             "llama-2-chat",
-            "internlm2-chat",
         ]:
             return False
         if "chat" not in llm_family.model_ability:
