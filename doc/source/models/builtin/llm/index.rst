@@ -85,6 +85,8 @@ The following is a list of built-in LLM in Xinference:
   
    qwen-chat
   
+   qwen-vl-chat
+  
    skywork
   
    skywork-math
