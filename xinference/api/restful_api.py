@@ -20,6 +20,7 @@ import multiprocessing
 import os
 import pprint
 import sys
+import time
 import warnings
 from datetime import timedelta
 from typing import Any, List, Optional, Union
@@ -54,7 +55,7 @@ from uvicorn import Config, Server
 from xoscar.utils import get_next_port
 
 from ..constants import XINFERENCE_DEFAULT_ENDPOINT_PORT
-from ..core.event import EventCollectorActor
+from ..core.event import EventCollectorActor, EventType, Event
 from ..core.supervisor import SupervisorActor
 from ..core.utils import json_dumps
 from ..types import (
@@ -198,6 +199,22 @@ class RESTfulAPI:
             )
         return self._event_collector_ref
 
+    async def _report_error_event(self, model_uid: str, content: str):
+        try:
+            event_collector_ref = await self._get_event_collector_ref()
+            await event_collector_ref.report_event(
+                model_uid,
+                Event(
+                    event_type=EventType.ERROR,
+                    event_ts=int(time.time()),
+                    event_content=content,
+                ),
+            )
+        except Exception:
+            logger.exception(
+                "Report error event failed, model: %s, content: %s", model_uid, content
+            )
+
     async def login_for_access_token(self, form_data: LoginUserForm) -> JSONResponse:
         user = authenticate_user(
             self._auth_config.user_config, form_data.username, form_data.password
@@ -293,7 +310,7 @@ class RESTfulAPI:
             "/v1/models/{model_uid}/events",
             self.get_model_events,
             methods=["GET"],
-            dependencies=[Security(verify_token, scopes=["models:events"])]
+            dependencies=[Security(verify_token, scopes=["models:read"])]
             if self.is_authenticated()
             else None,
         )
@@ -757,10 +774,12 @@ class RESTfulAPI:
             model = await (await self._get_supervisor_ref()).get_model(model_uid)
         except ValueError as ve:
             logger.error(str(ve), exc_info=True)
+            await self._report_error_event(model_uid, str(ve))
             raise HTTPException(status_code=400, detail=str(ve))
 
         except Exception as e:
             logger.error(e, exc_info=True)
+            await self._report_error_event(model_uid, str(e))
             raise HTTPException(status_code=500, detail=str(e))
 
         if body.stream:
@@ -776,6 +795,7 @@ class RESTfulAPI:
                         yield item
                 except Exception as ex:
                     logger.exception("Completion stream got an error: %s", ex)
+                    await self._report_error_event(model_uid, str(ex))
                     # https://github.com/openai/openai-python/blob/e0aafc6c1a45334ac889fe3e54957d309c3af93f/src/openai/_streaming.py#L107
                     yield dict(data=json.dumps({"error": str(ex)}))
 
@@ -786,6 +806,7 @@ class RESTfulAPI:
                 return Response(data, media_type="application/json")
             except Exception as e:
                 logger.error(e, exc_info=True)
+                await self._report_error_event(model_uid, str(e))
                 self.handle_request_limit_error(e)
                 raise HTTPException(status_code=500, detail=str(e))
 
@@ -796,9 +817,11 @@ class RESTfulAPI:
             model = await (await self._get_supervisor_ref()).get_model(model_uid)
         except ValueError as ve:
             logger.error(str(ve), exc_info=True)
+            await self._report_error_event(model_uid, str(ve))
             raise HTTPException(status_code=400, detail=str(ve))
         except Exception as e:
             logger.error(e, exc_info=True)
+            await self._report_error_event(model_uid, str(e))
             raise HTTPException(status_code=500, detail=str(e))
 
         try:
@@ -806,10 +829,12 @@ class RESTfulAPI:
             return Response(embedding, media_type="application/json")
         except RuntimeError as re:
             logger.error(re, exc_info=True)
+            await self._report_error_event(model_uid, str(re))
             self.handle_request_limit_error(re)
             raise HTTPException(status_code=400, detail=str(re))
         except Exception as e:
             logger.error(e, exc_info=True)
+            await self._report_error_event(model_uid, str(e))
             raise HTTPException(status_code=500, detail=str(e))
 
     async def rerank(self, request: RerankRequest) -> Response:
@@ -818,9 +843,11 @@ class RESTfulAPI:
             model = await (await self._get_supervisor_ref()).get_model(model_uid)
         except ValueError as ve:
             logger.error(str(ve), exc_info=True)
+            await self._report_error_event(model_uid, str(ve))
             raise HTTPException(status_code=400, detail=str(ve))
         except Exception as e:
             logger.error(e, exc_info=True)
+            await self._report_error_event(model_uid, str(e))
             raise HTTPException(status_code=500, detail=str(e))
 
         try:
@@ -834,10 +861,12 @@ class RESTfulAPI:
             return Response(scores, media_type="application/json")
         except RuntimeError as re:
             logger.error(re, exc_info=True)
+            await self._report_error_event(model_uid, str(re))
             self.handle_request_limit_error(re)
             raise HTTPException(status_code=400, detail=str(re))
         except Exception as e:
             logger.error(e, exc_info=True)
+            await self._report_error_event(model_uid, str(e))
             raise HTTPException(status_code=500, detail=str(e))
 
     async def create_images(self, request: TextToImageRequest) -> Response:
@@ -846,9 +875,11 @@ class RESTfulAPI:
             model = await (await self._get_supervisor_ref()).get_model(model_uid)
         except ValueError as ve:
             logger.error(str(ve), exc_info=True)
+            await self._report_error_event(model_uid, str(ve))
             raise HTTPException(status_code=400, detail=str(ve))
         except Exception as e:
             logger.error(e, exc_info=True)
+            await self._report_error_event(model_uid, str(e))
             raise HTTPException(status_code=500, detail=str(e))
 
         try:
@@ -863,10 +894,12 @@ class RESTfulAPI:
             return Response(content=image_list, media_type="application/json")
         except RuntimeError as re:
             logger.error(re, exc_info=True)
+            await self._report_error_event(model_uid, str(re))
             self.handle_request_limit_error(re)
             raise HTTPException(status_code=400, detail=str(re))
         except Exception as e:
             logger.error(e, exc_info=True)
+            await self._report_error_event(model_uid, str(e))
             raise HTTPException(status_code=500, detail=str(e))
 
     async def create_variations(
@@ -885,9 +918,11 @@ class RESTfulAPI:
             model_ref = await (await self._get_supervisor_ref()).get_model(model_uid)
         except ValueError as ve:
             logger.error(str(ve), exc_info=True)
+            await self._report_error_event(model_uid, str(ve))
             raise HTTPException(status_code=400, detail=str(ve))
         except Exception as e:
             logger.error(e, exc_info=True)
+            await self._report_error_event(model_uid, str(e))
             raise HTTPException(status_code=500, detail=str(e))
 
         try:
@@ -905,9 +940,11 @@ class RESTfulAPI:
             return Response(content=image_list, media_type="application/json")
         except RuntimeError as re:
             logger.error(re, exc_info=True)
+            await self._report_error_event(model_uid, str(re))
             raise HTTPException(status_code=400, detail=str(re))
         except Exception as e:
             logger.error(e, exc_info=True)
+            await self._report_error_event(model_uid, str(e))
             raise HTTPException(status_code=500, detail=str(e))
 
     async def create_chat_completion(
@@ -975,18 +1012,22 @@ class RESTfulAPI:
             model = await (await self._get_supervisor_ref()).get_model(model_uid)
         except ValueError as ve:
             logger.error(str(ve), exc_info=True)
+            await self._report_error_event(model_uid, str(ve))
             raise HTTPException(status_code=400, detail=str(ve))
         except Exception as e:
             logger.error(e, exc_info=True)
+            await self._report_error_event(model_uid, str(e))
             raise HTTPException(status_code=500, detail=str(e))
 
         try:
             desc = await (await self._get_supervisor_ref()).describe_model(model_uid)
         except ValueError as ve:
             logger.error(str(ve), exc_info=True)
+            await self._report_error_event(model_uid, str(ve))
             raise HTTPException(status_code=400, detail=str(ve))
         except Exception as e:
             logger.error(e, exc_info=True)
+            await self._report_error_event(model_uid, str(e))
             raise HTTPException(status_code=500, detail=str(e))
 
         model_name = desc.get("model_name", "")
@@ -1031,11 +1072,13 @@ class RESTfulAPI:
                                 prompt, system_prompt, chat_history, kwargs
                             )
                     except RuntimeError as re:
+                        await self._report_error_event(model_uid, str(re))
                         self.handle_request_limit_error(re)
                     async for item in iterator:
                         yield item
                 except Exception as ex:
                     logger.exception("Chat completion stream got an error: %s", ex)
+                    await self._report_error_event(model_uid, str(ex))
                     # https://github.com/openai/openai-python/blob/e0aafc6c1a45334ac889fe3e54957d309c3af93f/src/openai/_streaming.py#L107
                     yield dict(data=json.dumps({"error": str(ex)}))
 
@@ -1049,6 +1092,7 @@ class RESTfulAPI:
                 return Response(content=data, media_type="application/json")
             except Exception as e:
                 logger.error(e, exc_info=True)
+                await self._report_error_event(model_uid, str(e))
                 self.handle_request_limit_error(e)
                 raise HTTPException(status_code=500, detail=str(e))
 
