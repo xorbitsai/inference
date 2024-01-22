@@ -32,6 +32,7 @@ from .utils import (
     iter_replica_model_uid,
     log_async,
     log_sync,
+    parse_model_version,
     parse_replica_model_uid,
 )
 
@@ -89,6 +90,7 @@ class SupervisorActor(xo.StatelessActor):
         # comment this line to avoid worker lost
         # self._check_dead_nodes_task = asyncio.create_task(self._check_dead_nodes())
         logger.info(f"Xinference supervisor {self.address} started")
+        from .cache_tracker import CacheTrackerActor
         from .status_guard import StatusGuardActor
 
         self._status_guard_ref: xo.ActorRefType[
@@ -96,29 +98,65 @@ class SupervisorActor(xo.StatelessActor):
         ] = await xo.create_actor(
             StatusGuardActor, address=self.address, uid=StatusGuardActor.uid()
         )
+        self._cache_tracker_ref: xo.ActorRefType[
+            "CacheTrackerActor"
+        ] = await xo.create_actor(
+            CacheTrackerActor, address=self.address, uid=CacheTrackerActor.uid()
+        )
 
         from ..model.embedding import (
             CustomEmbeddingModelSpec,
+            generate_embedding_description,
+            get_embedding_model_descriptions,
             register_embedding,
             unregister_embedding,
         )
-        from ..model.llm import register_llm, unregister_llm
-        from ..model.llm.llm_family import CustomLLMFamilyV1
-        from ..model.rerank.custom import (
+        from ..model.image import get_image_model_descriptions
+        from ..model.llm import (
+            CustomLLMFamilyV1,
+            generate_llm_description,
+            get_llm_model_descriptions,
+            register_llm,
+            unregister_llm,
+        )
+        from ..model.rerank import (
             CustomRerankModelSpec,
+            generate_rerank_description,
+            get_rerank_model_descriptions,
             register_rerank,
             unregister_rerank,
         )
 
         self._custom_register_type_to_cls: Dict[str, Tuple] = {
-            "LLM": (CustomLLMFamilyV1, register_llm, unregister_llm),
+            "LLM": (
+                CustomLLMFamilyV1,
+                register_llm,
+                unregister_llm,
+                generate_llm_description,
+            ),
             "embedding": (
                 CustomEmbeddingModelSpec,
                 register_embedding,
                 unregister_embedding,
+                generate_embedding_description,
             ),
-            "rerank": (CustomRerankModelSpec, register_rerank, unregister_rerank),
+            "rerank": (
+                CustomRerankModelSpec,
+                register_rerank,
+                unregister_rerank,
+                generate_rerank_description,
+            ),
         }
+
+        # record model version
+        model_version_infos: Dict[str, List[Dict]] = {}
+        model_version_infos.update(get_llm_model_descriptions())
+        model_version_infos.update(get_embedding_model_descriptions())
+        model_version_infos.update(get_rerank_model_descriptions())
+        model_version_infos.update(get_image_model_descriptions())
+        await self._cache_tracker_ref.record_model_version(
+            model_version_infos, self.address
+        )
 
     @staticmethod
     async def get_builtin_prompts() -> Dict[str, Any]:
@@ -420,6 +458,7 @@ class SupervisorActor(xo.StatelessActor):
                 model_spec_cls,
                 register_fn,
                 unregister_fn,
+                generate_fn,
             ) = self._custom_register_type_to_cls[model_type]
 
             if not self.is_local_deployment():
@@ -430,6 +469,9 @@ class SupervisorActor(xo.StatelessActor):
             model_spec = model_spec_cls.parse_raw(model)
             try:
                 register_fn(model_spec, persist)
+                await self._cache_tracker_ref.record_model_version(
+                    generate_fn(model_spec), self.address
+                )
             except Exception as e:
                 unregister_fn(model_spec.model_name, raise_error=False)
                 raise e
@@ -439,8 +481,9 @@ class SupervisorActor(xo.StatelessActor):
     @log_async(logger=logger)
     async def unregister_model(self, model_type: str, model_name: str):
         if model_type in self._custom_register_type_to_cls:
-            _, _, unregister_fn = self._custom_register_type_to_cls[model_type]
+            _, _, unregister_fn, _ = self._custom_register_type_to_cls[model_type]
             unregister_fn(model_name)
+            await self._cache_tracker_ref.unregister_model_version(model_name)
 
             if not self.is_local_deployment():
                 workers = list(self._worker_address_to_worker.values())
@@ -456,6 +499,44 @@ class SupervisorActor(xo.StatelessActor):
             f"{model_name} exists in xinference. Generate suffix to {model_name} for model_uid."
         )
         return f"{model_name}-{gen_random_string(8)}"
+
+    @log_async(logger=logger)
+    async def get_model_versions(self, model_type: str, model_name: str) -> List[Dict]:
+        logger.debug(
+            f"Get model versions of model_name: {model_name}, model_type: {model_type}"
+        )
+        return await self._cache_tracker_ref.get_model_versions(model_name)
+
+    @log_async(logger=logger)
+    async def launch_model_by_version(
+        self,
+        model_uid: Optional[str],
+        model_type: str,
+        model_version: str,
+        replica: int = 1,
+        n_gpu: Optional[Union[int, str]] = "auto",
+        wait_ready: bool = True,
+    ):
+        parse_results = parse_model_version(model_version, model_type)
+
+        if model_type == "image" and len(parse_results) == 2:
+            kwargs = {"controlnet": parse_results[1]}
+        else:
+            kwargs = {}
+
+        return await self.launch_builtin_model(
+            model_uid=model_uid,
+            model_name=parse_results[0],
+            model_size_in_billions=parse_results[1] if model_type == "LLM" else None,
+            model_format=parse_results[2] if model_type == "LLM" else None,
+            quantization=parse_results[3] if model_type == "LLM" else None,
+            model_type=model_type,
+            replica=replica,
+            n_gpu=n_gpu,
+            wait_ready=wait_ready,
+            model_version=model_version,
+            **kwargs,
+        )
 
     async def launch_speculative_llm(
         self,
@@ -529,6 +610,7 @@ class SupervisorActor(xo.StatelessActor):
         n_gpu: Optional[Union[int, str]] = "auto",
         request_limits: Optional[int] = None,
         wait_ready: bool = True,
+        model_version: Optional[str] = None,
         **kwargs,
     ) -> str:
         if model_uid is None:
@@ -601,6 +683,7 @@ class SupervisorActor(xo.StatelessActor):
         instance_info = InstanceInfo(
             model_name=model_name,
             model_uid=model_uid,
+            model_version=model_version,
             model_ability=[],
             replica=replica,
             status=LaunchStatus.CREATING.name,

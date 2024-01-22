@@ -212,6 +212,8 @@ UD_LLM_FAMILIES: List["LLMFamilyV1"] = []
 
 UD_LLM_FAMILIES_LOCK = Lock()
 
+LLM_LAUNCH_VERSIONS: Dict[str, List[str]] = {}
+
 
 def download_from_self_hosted_storage() -> bool:
     from ...constants import XINFERENCE_ENV_MODEL_SRC

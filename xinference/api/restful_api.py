@@ -264,6 +264,14 @@ class RESTfulAPI:
             else None,
         )
         self._router.add_api_route(
+            "/v1/models/{model_type}/{model_name}/versions",
+            self.get_model_versions,
+            methods=["GET"],
+            dependencies=[Security(verify_token, scopes=["models:list"])]
+            if self.is_authenticated()
+            else None,
+        )
+        self._router.add_api_route(
             "/v1/models",
             self.list_models,
             methods=["GET"],
@@ -277,6 +285,14 @@ class RESTfulAPI:
             self.describe_model,
             methods=["GET"],
             dependencies=[Security(verify_token, scopes=["models:list"])]
+            if self.is_authenticated()
+            else None,
+        )
+        self._router.add_api_route(
+            "/v1/models/instance",
+            self.launch_model_by_version,
+            methods=["POST"],
+            dependencies=[Security(verify_token, scopes=["models:start"])]
             if self.is_authenticated()
             else None,
         )
@@ -639,6 +655,44 @@ class RESTfulAPI:
             logger.error(str(e), exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
         return JSONResponse(content=infos)
+
+    async def launch_model_by_version(
+        self, request: Request, wait_ready: bool = Query(True)
+    ) -> JSONResponse:
+        payload = await request.json()
+        model_uid = payload.get("model_uid")
+        model_type = payload.get("model_type")
+        model_version = payload.get("model_version")
+        replica = payload.get("replica", 1)
+        n_gpu = payload.get("n_gpu", "auto")
+
+        try:
+            model_uid = await (
+                await self._get_supervisor_ref()
+            ).launch_model_by_version(
+                model_uid=model_uid,
+                model_type=model_type,
+                model_version=model_version,
+                replica=replica,
+                n_gpu=n_gpu,
+                wait_ready=wait_ready,
+            )
+        except Exception as e:
+            logger.error(str(e), exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+        return JSONResponse(content={"model_uid": model_uid})
+
+    async def get_model_versions(
+        self, model_type: str, model_name: str
+    ) -> JSONResponse:
+        try:
+            content = await (await self._get_supervisor_ref()).get_model_versions(
+                model_type, model_name
+            )
+            return JSONResponse(content=content)
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
 
     async def build_gradio_interface(
         self, model_uid: str, body: BuildGradioInterfaceRequest, request: Request

@@ -33,6 +33,7 @@ class LaunchStatus(Enum):
 class InstanceInfo(BaseModel):
     model_name: str
     model_uid: str
+    model_version: Optional[str]
     model_ability: List[str]
     replica: int
     status: str

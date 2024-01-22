@@ -88,8 +88,9 @@ class LVLMDescription(ModelDescription):
         model_family: "LVLMFamilyV1",
         model_spec: "LVLMSpecV1",
         quantization: Optional[str],
+        model_path: Optional[str] = None,
     ):
-        super().__init__(address, devices)
+        super().__init__(address, devices, model_path=model_path)
         self._model_family = model_family
         self._model_spec = model_spec
         self._quantization = quantization
@@ -110,6 +111,10 @@ class LVLMDescription(ModelDescription):
             "revision": self._model_spec.model_revision,
             "context_length": self._model_family.context_length,
         }
+
+    def to_version_info(self):
+        # TODO: perfect this in the future
+        return {"model_version": "", "model_file_location": None, "cache_status": False}
 
 
 class LVLM(abc.ABC):
@@ -247,7 +252,12 @@ def create_multimodal_model_instance(
 
     model = cls(model_uid, model_family, model_spec, quantization, save_path, kwargs)
     return model, LVLMDescription(
-        subpool_addr, devices, model_family, model_spec, quantization
+        subpool_addr,
+        devices,
+        model_family,
+        model_spec,
+        quantization,
+        model_path=save_path,
     )
 
 
