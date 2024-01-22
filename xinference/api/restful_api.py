@@ -54,6 +54,7 @@ from uvicorn import Config, Server
 from xoscar.utils import get_next_port
 
 from ..constants import XINFERENCE_DEFAULT_ENDPOINT_PORT
+from ..core.event import EventCollectorActor
 from ..core.supervisor import SupervisorActor
 from ..core.utils import json_dumps
 from ..types import (
@@ -157,6 +158,7 @@ class RESTfulAPI:
         self._host = host
         self._port = port
         self._supervisor_ref = None
+        self._event_collector_ref = None
         self._auth_config: AuthStartupConfig = self.init_auth_config(auth_config_file)
         self._router = APIRouter()
         self._app = FastAPI()
@@ -188,6 +190,13 @@ class RESTfulAPI:
                 address=self._supervisor_address, uid=SupervisorActor.uid()
             )
         return self._supervisor_ref
+
+    async def _get_event_collector_ref(self) -> xo.ActorRefType[EventCollectorActor]:
+        if self._event_collector_ref is None:
+            self._event_collector_ref = await xo.actor_ref(
+                address=self._supervisor_address, uid=EventCollectorActor.uid()
+            )
+        return self._event_collector_ref
 
     async def login_for_access_token(self, form_data: LoginUserForm) -> JSONResponse:
         user = authenticate_user(
@@ -277,6 +286,14 @@ class RESTfulAPI:
             self.describe_model,
             methods=["GET"],
             dependencies=[Security(verify_token, scopes=["models:list"])]
+            if self.is_authenticated()
+            else None,
+        )
+        self._router.add_api_route(
+            "/v1/models/{model_uid}/events",
+            self.get_model_events,
+            methods=["GET"],
+            dependencies=[Security(verify_token, scopes=["models:events"])]
             if self.is_authenticated()
             else None,
         )
@@ -1089,6 +1106,18 @@ class RESTfulAPI:
                 model_type, model_name
             )
             return JSONResponse(content=data)
+        except ValueError as re:
+            logger.error(re, exc_info=True)
+            raise HTTPException(status_code=400, detail=str(re))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def get_model_events(self, model_uid: str) -> JSONResponse:
+        try:
+            event_collector_ref = await self._get_event_collector_ref()
+            events = await event_collector_ref.get_model_events(model_uid)
+            return JSONResponse(content=events)
         except ValueError as re:
             logger.error(re, exc_info=True)
             raise HTTPException(status_code=400, detail=str(re))

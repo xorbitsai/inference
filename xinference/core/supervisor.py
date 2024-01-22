@@ -97,6 +97,14 @@ class SupervisorActor(xo.StatelessActor):
             StatusGuardActor, address=self.address, uid=StatusGuardActor.uid()
         )
 
+        from .event import EventCollectorActor
+
+        self._event_collector_ref: xo.ActorRefType[
+            EventCollectorActor
+        ] = await xo.create_actor(
+            EventCollectorActor, address=self.address, uid=EventCollectorActor.uid()
+        )
+
         from ..model.embedding import (
             CustomEmbeddingModelSpec,
             register_embedding,

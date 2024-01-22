@@ -1054,3 +1054,37 @@ def test_launch_model_async(setup):
 
     response = requests.get(status_url)
     assert len(response.json()) == 0
+
+
+def test_events(setup):
+    endpoint, _ = setup
+    url = f"{endpoint}/v1/models"
+
+    payload = {
+        "model_uid": "test_orca",
+        "model_name": "orca",
+        "quantization": "q4_0",
+    }
+
+    response = requests.post(url, json=payload)
+    response_data = response.json()
+    model_uid_res = response_data["model_uid"]
+    assert model_uid_res == "test_orca"
+
+    events_url = f"{endpoint}/v1/models/test_orca/events"
+    response = requests.get(events_url)
+    response_data = response.json()
+    # [{'event_type': 'INFO', 'event_ts': 1705896156, 'event_content': 'Launch model'}]
+    assert len(response_data) == 1
+    assert "Launch" in response_data[0]["event_content"]
+
+    # delete again
+    url = f"{endpoint}/v1/models/test_orca"
+    requests.delete(url)
+
+    response = requests.get(events_url)
+    response_data = response.json()
+    # [{'event_type': 'INFO', 'event_ts': 1705896215, 'event_content': 'Launch model'},
+    #  {'event_type': 'INFO', 'event_ts': 1705896215, 'event_content': 'Terminate model'}]
+    assert len(response_data) == 2
+    assert "Terminate" in response_data[1]["event_content"]
