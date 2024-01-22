@@ -114,4 +114,8 @@ $ xinference-local
 | [微信社群](https://xorbits.cn/assets/images/wechat_pr.png)                                     | 与其他 Xorbits 用户交流。                         |
 | [知乎](https://zhihu.com/org/xorbits)                                                         | 了解团队最新的进展。                                  |
 
+## 贡献者
 
+<a href="https://github.com/xorbitsai/inference/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=xorbitsai/inference" />
+</a>

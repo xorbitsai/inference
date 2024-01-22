@@ -99,3 +99,9 @@ Xinferenceが実行されると、Web UI、cURL、コマンドライン、また
 | [Github イシュー](https://github.com/xorbitsai/inference/issues)                                  | バグ報告と機能リクエストの提出。                  |
 | [Slack](https://join.slack.com/t/xorbitsio/shared_invite/zt-1o3z9ucdh-RbfhbPVpx7prOVdM1CAuxg)      | 他のXorbitsユーザーとの協力。                      |
 | [Twitter](https://twitter.com/xorbitsio)                                                          | 新機能に関する最新情報の入手。                    |
+
+## 寄稿者
+
+<a href="https://github.com/xorbitsai/inference/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=xorbitsai/inference" />
+</a>

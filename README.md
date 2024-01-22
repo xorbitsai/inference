@@ -128,3 +128,9 @@ Once Xinference is running, there are multiple ways you can try it: via the web 
 | [Github Issues](https://github.com/xorbitsai/inference/issues)                                | Reporting bugs and filing feature requests.        |
 | [Slack](https://join.slack.com/t/xorbitsio/shared_invite/zt-1o3z9ucdh-RbfhbPVpx7prOVdM1CAuxg) | Collaborating with other Xorbits users.            |
 | [Twitter](https://twitter.com/xorbitsio)                                                      | Staying up-to-date on new features.                |
+
+## Contributors
+
+<a href="https://github.com/xorbitsai/inference/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=xorbitsai/inference" />
+</a>
