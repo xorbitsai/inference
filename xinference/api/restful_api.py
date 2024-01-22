@@ -55,7 +55,7 @@ from uvicorn import Config, Server
 from xoscar.utils import get_next_port
 
 from ..constants import XINFERENCE_DEFAULT_ENDPOINT_PORT
-from ..core.event import EventCollectorActor, EventType, Event
+from ..core.event import Event, EventCollectorActor, EventType
 from ..core.supervisor import SupervisorActor
 from ..core.utils import json_dumps
 from ..types import (
