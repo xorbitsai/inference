@@ -19,19 +19,20 @@ import time
 import uuid
 from typing import Dict, Iterator, List, Optional, Union
 
-from ...types import (
+from ....types import (
     ChatCompletion,
     ChatCompletionChoice,
     ChatCompletionChunk,
     CompletionUsage,
 )
-from ..utils import select_device
-from .core import LVLM, LVLMFamilyV1, LVLMSpecV1
+from ....model.utils import select_device
+from ..llm_family import LLMFamilyV1, LLMSpecV1
+from .core import PytorchChatModel
 
 logger = logging.getLogger(__name__)
 
 
-class QwenVLChat(LVLM):
+class QwenVLChatModel(PytorchChatModel):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._tokenizer = None
@@ -39,7 +40,7 @@ class QwenVLChat(LVLM):
 
     @classmethod
     def match(
-        cls, model_family: "LVLMFamilyV1", model_spec: "LVLMSpecV1", quantization: str
+        cls, model_family: "LLMFamilyV1", model_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         if "qwen" in model_family.model_name:
             return True
