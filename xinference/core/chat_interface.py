@@ -66,7 +66,7 @@ class GradioInterface:
         )
 
     def build(self) -> "gr.Blocks":
-        if self.model_type == "multimodal":
+        if "vision" in self.model_ability:
             interface = self.build_chat_vl_interface()
         elif "chat" in self.model_ability:
             interface = self.build_chat_interface()
