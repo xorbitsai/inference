@@ -703,7 +703,7 @@ class RESTfulAPI:
         but calling API in async function does not return
         """
         assert self._app is not None
-        assert body.model_type in ["LLM", "multimodal"]
+        assert body.model_type == "LLM"
 
         # asyncio.Lock() behaves differently in 3.9 than 3.10+
         # A event loop is required in 3.9 but not 3.10+

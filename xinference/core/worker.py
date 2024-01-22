@@ -430,8 +430,6 @@ class WorkerActor(xo.StatelessActor):
             return ["rerank"]
         elif model_type == "image":
             return ["text_to_image"]
-        elif model_type == "multimodal":
-            return ["multimodal"]
         else:
             assert model_type == "LLM"
             assert isinstance(model, LLM)

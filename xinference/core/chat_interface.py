@@ -27,7 +27,6 @@ from ..client.restful.restful_client import (
     RESTfulChatglmCppChatModelHandle,
     RESTfulChatModelHandle,
     RESTfulGenerateModelHandle,
-    RESTfulMultimodalModelHandle,
 )
 from ..types import ChatCompletionMessage
 
@@ -191,7 +190,7 @@ class GradioInterface:
             client = RESTfulClient(self.endpoint)
             client._set_token(self._access_token)
             model = client.get_model(self.model_uid)
-            assert isinstance(model, RESTfulMultimodalModelHandle)
+            assert isinstance(model, RESTfulChatModelHandle)
 
             prompt = history[-1]
             assert prompt["role"] == "user"
