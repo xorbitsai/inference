@@ -99,3 +99,12 @@ Xinferenceが実行されると、Web UI、cURL、コマンドライン、また
 | [Github イシュー](https://github.com/xorbitsai/inference/issues)                                  | バグ報告と機能リクエストの提出。                  |
 | [Slack](https://join.slack.com/t/xorbitsio/shared_invite/zt-1o3z9ucdh-RbfhbPVpx7prOVdM1CAuxg)      | 他のXorbitsユーザーとの協力。                      |
 | [Twitter](https://twitter.com/xorbitsio)                                                          | 新機能に関する最新情報の入手。                    |
+
+## 寄稿者
+
+<a href="https://next.ossinsight.io/widgets/official/compose-recent-active-contributors?repo_id=653496050&limit=30" target="_blank" style="display: block" align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://next.ossinsight.io/widgets/official/compose-recent-active-contributors/thumbnail.png?repo_id=653496050&limit=30&image_size=auto&color_scheme=dark" height="auto">
+    <img alt="Active Contributors of xorbitsai/inference - Last 28 days" src="https://next.ossinsight.io/widgets/official/compose-recent-active-contributors/thumbnail.png?repo_id=653496050&limit=30&image_size=auto&color_scheme=light" width="655" height="auto">
+  </picture>
+</a>

@@ -114,4 +114,11 @@ $ xinference-local
 | [微信社群](https://xorbits.cn/assets/images/wechat_pr.png)                                     | 与其他 Xorbits 用户交流。                         |
 | [知乎](https://zhihu.com/org/xorbits)                                                         | 了解团队最新的进展。                                  |
 
+## 贡献者
 
+<a href="https://next.ossinsight.io/widgets/official/compose-recent-active-contributors?repo_id=653496050&limit=30" target="_blank" style="display: block" align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://next.ossinsight.io/widgets/official/compose-recent-active-contributors/thumbnail.png?repo_id=653496050&limit=30&image_size=auto&color_scheme=dark" height="auto">
+    <img alt="Active Contributors of xorbitsai/inference - Last 28 days" src="https://next.ossinsight.io/widgets/official/compose-recent-active-contributors/thumbnail.png?repo_id=653496050&limit=30&image_size=auto&color_scheme=light" width="655" height="auto">
+  </picture>
+</a>
