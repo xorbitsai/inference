@@ -19,13 +19,13 @@ import time
 import uuid
 from typing import Dict, Iterator, List, Optional, Union
 
+from ....model.utils import select_device
 from ....types import (
     ChatCompletion,
     ChatCompletionChoice,
     ChatCompletionChunk,
     CompletionUsage,
 )
-from ....model.utils import select_device
 from ..llm_family import LLMFamilyV1, LLMSpecV1
 from .core import PytorchChatModel
 
@@ -50,7 +50,7 @@ class QwenVLChatModel(PytorchChatModel):
         from transformers import AutoModelForCausalLM, AutoTokenizer
         from transformers.generation import GenerationConfig
 
-        device = self.kwargs.get("device", "auto")
+        device = self._pytorch_model_config.get("device", "auto")
         device = select_device(device)
 
         self._tokenizer = AutoTokenizer.from_pretrained(
