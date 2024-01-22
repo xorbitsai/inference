@@ -14,7 +14,7 @@ Specifications
 - **Dimensions:** {{ dimensions }}
 - **Max Tokens:** {{ max_tokens }}
 - **Model ID:** {{ model_id }}
-- **Model Hubs**: {% for hub in model_hubs -%}`{{ hub.name }} <{{ hub.url }}>`_{% if not loop.last %}, {% endif %} {%- endfor %}
+- **Model Hubs**: {% for hub in model_hubs -%}`{{ hub.name }} <{{ hub.url }}>`__{% if not loop.last %}, {% endif %} {%- endfor %}
 
 Execute the following command to launch the model::
 

@@ -14,7 +14,7 @@ Specifications
 - **Dimensions:** 1024
 - **Max Tokens:** 514
 - **Model ID:** intfloat/multilingual-e5-large
-- **Model Hubs**: `Hugging Face <https://huggingface.co/intfloat/multilingual-e5-large>`_, `ModelScope <https://modelscope.cn/models/Xorbits/multilingual-e5-large>`_
+- **Model Hubs**: `Hugging Face <https://huggingface.co/intfloat/multilingual-e5-large>`__, `ModelScope <https://modelscope.cn/models/Xorbits/multilingual-e5-large>`__
 
 Execute the following command to launch the model::
 

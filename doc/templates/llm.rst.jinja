@@ -21,7 +21,7 @@ Model Spec {{ loop.index }} ({{ spec.model_format }}, {{ spec.model_size_in_bill
 - **Model Size (in billions):** {{ spec.model_size_in_billions }}
 - **Quantizations:** {{ spec.quantizations | join(', ') }}
 - **Model ID:** {{ spec.model_id }}
-- **Model Hubs**:  {% for hub in spec.model_hubs -%}`{{ hub.name }} <{{ hub.url }}>`_{% if not loop.last %}, {% endif %} {%- endfor %}
+- **Model Hubs**:  {% for hub in spec.model_hubs -%}`{{ hub.name }} <{{ hub.url }}>`__{% if not loop.last %}, {% endif %} {%- endfor %}
 
 Execute the following command to launch the model, remember to replace ``${{ '{' }}quantization{{ '}' }}`` with your
 chosen quantization method from the options listed above::
