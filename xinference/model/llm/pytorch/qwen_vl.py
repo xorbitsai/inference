@@ -24,10 +24,11 @@ from ....types import (
     ChatCompletion,
     ChatCompletionChoice,
     ChatCompletionChunk,
+    ChatCompletionMessage,
     CompletionUsage,
 )
 from ..llm_family import LLMFamilyV1, LLMSpecV1
-from .core import PytorchChatModel
+from .core import PytorchChatModel, PytorchGenerateConfig
 
 logger = logging.getLogger(__name__)
 
@@ -107,8 +108,8 @@ class QwenVLChatModel(PytorchChatModel):
         self,
         prompt: Union[str, List[Dict]],
         system_prompt: Optional[str] = None,
-        chat_history: Optional[List[Dict]] = None,
-        generate_config: Optional[Dict] = None,
+        chat_history: Optional[List[ChatCompletionMessage]] = None,
+        generate_config: Optional[PytorchGenerateConfig] = None,
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
         if generate_config and generate_config.get("stream"):
             raise Exception(
