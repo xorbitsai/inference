@@ -76,15 +76,14 @@ class Internlm2PytorchChatModel(PytorchChatModel):
     def match(
         cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
-        return False
-        # if llm_spec.model_format != "pytorch":
-        #     return False
-        # model_family = llm_family.model_family or llm_family.model_name
-        # if model_family != "internlm2-chat":
-        #     return False
-        # if "chat" not in llm_family.model_ability:
-        #     return False
-        # return True
+        if llm_spec.model_format != "pytorch":
+            return False
+        model_family = llm_family.model_family or llm_family.model_name
+        if model_family != "internlm2-chat":
+            return False
+        if "chat" not in llm_family.model_ability:
+            return False
+        return True
 
     def chat(
         self,
