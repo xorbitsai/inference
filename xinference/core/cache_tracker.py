@@ -97,3 +97,6 @@ class CacheTrackerActor(xo.Actor):
             return []
         else:
             return self._model_name_to_version_info[model_name]
+
+    def get_model_version_count(self, model_name: str) -> int:
+        return len(self.get_model_versions(model_name))
