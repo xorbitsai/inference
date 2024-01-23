@@ -18,6 +18,7 @@ import platform
 import queue
 import signal
 import threading
+import time
 from collections import defaultdict
 from logging import getLogger
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
@@ -30,6 +31,7 @@ from ..core import ModelActor
 from ..core.status_guard import LaunchStatus
 from ..model.core import ModelDescription, create_model_instance
 from ..utils import cuda_count
+from .event import Event, EventCollectorActor, EventType
 from .metrics import launch_metrics_export_server, record_metrics
 from .resource import gather_node_info
 from .utils import log_async, log_sync, parse_replica_model_uid, purge_dir
@@ -125,6 +127,15 @@ class WorkerActor(xo.StatelessActor):
                                 model_uid,
                                 recover_count - 1,
                             )
+                            event_model_uid, _, __ = parse_replica_model_uid(model_uid)
+                            await self._event_collector_ref.report_event(
+                                event_model_uid,
+                                Event(
+                                    event_type=EventType.WARNING,
+                                    event_ts=int(time.time()),
+                                    event_content="Recreate model",
+                                ),
+                            )
                             self._model_uid_to_recover_count[model_uid] = (
                                 recover_count - 1
                             )
@@ -149,6 +160,11 @@ class WorkerActor(xo.StatelessActor):
             "StatusGuardActor"
         ] = await xo.actor_ref(
             address=self._supervisor_address, uid=StatusGuardActor.uid()
+        )
+        self._event_collector_ref: xo.ActorRefType[
+            EventCollectorActor
+        ] = await xo.actor_ref(
+            address=self._supervisor_address, uid=EventCollectorActor.uid()
         )
         self._cache_tracker_ref: xo.ActorRefType[
             "CacheTrackerActor"
@@ -467,6 +483,15 @@ class WorkerActor(xo.StatelessActor):
         request_limits: Optional[int] = None,
         **kwargs,
     ):
+        event_model_uid, _, __ = parse_replica_model_uid(model_uid)
+        await self._event_collector_ref.report_event(
+            event_model_uid,
+            Event(
+                event_type=EventType.INFO,
+                event_ts=int(time.time()),
+                event_content="Launch model",
+            ),
+        )
         launch_args = locals()
         launch_args.pop("self")
         launch_args.pop("kwargs")
@@ -538,6 +563,15 @@ class WorkerActor(xo.StatelessActor):
 
     @log_async(logger=logger)
     async def terminate_model(self, model_uid: str):
+        event_model_uid, _, __ = parse_replica_model_uid(model_uid)
+        await self._event_collector_ref.report_event(
+            event_model_uid,
+            Event(
+                event_type=EventType.INFO,
+                event_ts=int(time.time()),
+                event_content="Terminate model",
+            ),
+        )
         origin_uid, _, _ = parse_replica_model_uid(model_uid)
         await self._status_guard_ref.update_instance_info(
             origin_uid, {"status": LaunchStatus.TERMINATING.name}
