@@ -55,6 +55,9 @@ class AuthService:
         security_scopes: SecurityScopes,
         token: Annotated[str, Depends(oauth2_scheme)],
     ):
+        """
+        Advanced dependencies. See: https://fastapi.tiangolo.com/advanced/advanced-dependencies/
+        """
         if security_scopes.scopes:
             authenticate_value = f'Bearer scope="{security_scopes.scope_str}"'
         else:
