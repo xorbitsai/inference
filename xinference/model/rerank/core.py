@@ -106,12 +106,14 @@ class RerankModel:
         model_uid: str,
         model_path: str,
         device: Optional[str] = None,
+        use_fp16: bool = False,
         model_config: Optional[Dict] = None,
     ):
         self._model_uid = model_uid
         self._model_path = model_path
         self._device = device
         self._model_config = model_config or dict()
+        self._use_fp16 = use_fp16
         self._model = None
 
     def load(self):
@@ -126,8 +128,10 @@ class RerankModel:
 
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
         self._model = CrossEncoder(
-            self._model_path, device=self._device, **self._model_config
+            self._model_path, device=self._device, automodel_args=self._model_config
         )
+        if self._use_fp16:
+            self._model.model.half()
 
     def rerank(
         self,
@@ -347,7 +351,8 @@ def create_rerank_model_instance(
                 )
 
     model_path = cache(model_spec)
-    model = RerankModel(model_uid, model_path, **kwargs)
+    use_fp16 = kwargs.pop("use_fp16", False)
+    model = RerankModel(model_uid, model_path, use_fp16=use_fp16, model_config=kwargs)
     model_description = RerankModelDescription(
         subpool_addr, devices, model_spec, model_path=model_path
     )
