@@ -499,22 +499,6 @@ def list_model_registrations(
             tabulate(table, headers=["Type", "Name", "Family", "Is-built-in"]),
             file=sys.stderr,
         )
-    elif model_type == "multimodal":
-        for registration in registrations:
-            model_name = registration["model_name"]
-            model_family = client.get_model_registration(model_type, model_name)
-            table.append(
-                [
-                    model_type,
-                    model_family["model_name"],
-                    model_family["model_lang"],
-                    registration["is_builtin"],
-                ]
-            )
-        print(
-            tabulate(table, headers=["Type", "Name", "Language", "Is-built-in"]),
-            file=sys.stderr,
-        )
     else:
         raise NotImplementedError(f"List {model_type} is not implemented.")
 

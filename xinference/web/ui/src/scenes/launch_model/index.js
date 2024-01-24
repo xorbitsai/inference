@@ -10,7 +10,6 @@ import Title from '../../components/Title'
 import LaunchCustom from './launchCustom'
 import LaunchEmbedding from './launchEmbedding'
 import LaunchLLM from './launchLLM'
-import LaunchMultimodal from './launchMultimodal'
 import LaunchRerank from './launchRerank'
 
 const LaunchModel = () => {
@@ -68,25 +67,21 @@ const LaunchModel = () => {
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
           <TabList value={value} onChange={handleTabChange} aria-label="tabs">
             <Tab label="Language Models" value="1" />
-            <Tab label="Multimodal Models" value="2" />
-            <Tab label="Embedding Models" value="3" />
-            <Tab label="Rerank Models" value="4" />
-            <Tab label="Custom Models" value="5" />
+            <Tab label="Embedding Models" value="2" />
+            <Tab label="Rerank Models" value="3" />
+            <Tab label="Custom Models" value="4" />
           </TabList>
         </Box>
         <TabPanel value="1" sx={{ padding: 0 }}>
           <LaunchLLM gpuAvailable={gpuAvailable} />
         </TabPanel>
         <TabPanel value="2" sx={{ padding: 0 }}>
-          <LaunchMultimodal gpuAvailable={gpuAvailable} />
-        </TabPanel>
-        <TabPanel value="3" sx={{ padding: 0 }}>
           <LaunchEmbedding />
         </TabPanel>
-        <TabPanel value="4" sx={{ padding: 0 }}>
+        <TabPanel value="3" sx={{ padding: 0 }}>
           <LaunchRerank />
         </TabPanel>
-        <TabPanel value="5" sx={{ padding: 0 }}>
+        <TabPanel value="4" sx={{ padding: 0 }}>
           <LaunchCustom gpuAvailable={gpuAvailable} />
         </TabPanel>
       </TabContext>

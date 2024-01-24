@@ -28,9 +28,8 @@ def test_restful_api_for_qwen_vl(setup, model_format, quantization):
     client = Client(endpoint)
 
     model_uid = client.launch_model(
-        model_uid="my_controlnet",
+        model_uid="qwen-vl-chat",
         model_name="qwen-vl-chat",
-        model_type="multimodal",
         model_format=model_format,
         quantization=quantization,
     )

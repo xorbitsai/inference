@@ -19,19 +19,21 @@ import time
 import uuid
 from typing import Dict, Iterator, List, Optional, Union
 
-from ...types import (
+from ....model.utils import select_device
+from ....types import (
     ChatCompletion,
     ChatCompletionChoice,
     ChatCompletionChunk,
+    ChatCompletionMessage,
     CompletionUsage,
 )
-from ..utils import select_device
-from .core import LVLM, LVLMFamilyV1, LVLMSpecV1
+from ..llm_family import LLMFamilyV1, LLMSpecV1
+from .core import PytorchChatModel, PytorchGenerateConfig
 
 logger = logging.getLogger(__name__)
 
 
-class QwenVLChat(LVLM):
+class QwenVLChatModel(PytorchChatModel):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._tokenizer = None
@@ -39,7 +41,7 @@ class QwenVLChat(LVLM):
 
     @classmethod
     def match(
-        cls, model_family: "LVLMFamilyV1", model_spec: "LVLMSpecV1", quantization: str
+        cls, model_family: "LLMFamilyV1", model_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         if "qwen" in model_family.model_name:
             return True
@@ -49,7 +51,7 @@ class QwenVLChat(LVLM):
         from transformers import AutoModelForCausalLM, AutoTokenizer
         from transformers.generation import GenerationConfig
 
-        device = self.kwargs.get("device", "auto")
+        device = self._pytorch_model_config.get("device", "auto")
         device = select_device(device)
 
         self._tokenizer = AutoTokenizer.from_pretrained(
@@ -106,8 +108,8 @@ class QwenVLChat(LVLM):
         self,
         prompt: Union[str, List[Dict]],
         system_prompt: Optional[str] = None,
-        chat_history: Optional[List[Dict]] = None,
-        generate_config: Optional[Dict] = None,
+        chat_history: Optional[List[ChatCompletionMessage]] = None,
+        generate_config: Optional[PytorchGenerateConfig] = None,
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
         if generate_config and generate_config.get("stream"):
             raise Exception(

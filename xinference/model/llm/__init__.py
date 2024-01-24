@@ -56,6 +56,7 @@ def _install():
     from .pytorch.falcon import FalconPytorchChatModel, FalconPytorchModel
     from .pytorch.internlm2 import Internlm2PytorchChatModel
     from .pytorch.llama_2 import LlamaPytorchChatModel, LlamaPytorchModel
+    from .pytorch.qwen_vl import QwenVLChatModel
     from .pytorch.vicuna import VicunaPytorchChatModel
     from .vllm.core import VLLMChatModel, VLLMModel
 
@@ -88,6 +89,7 @@ def _install():
             PytorchChatModel,
             FalconPytorchModel,
             Internlm2PytorchChatModel,
+            QwenVLChatModel,
             PytorchModel,
         ]
     )

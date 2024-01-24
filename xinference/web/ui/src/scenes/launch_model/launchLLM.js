@@ -131,6 +131,7 @@ const LaunchLLM = ({ gpuAvailable }) => {
             <MenuItem value="all">all</MenuItem>
             <MenuItem value="generate">generate</MenuItem>
             <MenuItem value="chat">chat</MenuItem>
+            <MenuItem value="vision">vl-chat</MenuItem>
           </Select>
         </FormControl>
         <FormControl variant="outlined" margin="normal">

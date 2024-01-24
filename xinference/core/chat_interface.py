@@ -27,7 +27,6 @@ from ..client.restful.restful_client import (
     RESTfulChatglmCppChatModelHandle,
     RESTfulChatModelHandle,
     RESTfulGenerateModelHandle,
-    RESTfulMultimodalModelHandle,
 )
 from ..types import ChatCompletionMessage
 
@@ -66,7 +65,7 @@ class GradioInterface:
         )
 
     def build(self) -> "gr.Blocks":
-        if self.model_type == "multimodal":
+        if "vision" in self.model_ability:
             interface = self.build_chat_vl_interface()
         elif "chat" in self.model_ability:
             interface = self.build_chat_interface()
@@ -191,7 +190,7 @@ class GradioInterface:
             client = RESTfulClient(self.endpoint)
             client._set_token(self._access_token)
             model = client.get_model(self.model_uid)
-            assert isinstance(model, RESTfulMultimodalModelHandle)
+            assert isinstance(model, RESTfulChatModelHandle)
 
             prompt = history[-1]
             assert prompt["role"] == "user"

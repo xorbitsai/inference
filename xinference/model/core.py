@@ -56,7 +56,6 @@ def create_model_instance(
     from .embedding.core import create_embedding_model_instance
     from .image.core import create_image_model_instance
     from .llm.core import create_llm_model_instance
-    from .multimodal.core import create_multimodal_model_instance
     from .rerank.core import create_rerank_model_instance
 
     if model_type == "LLM":
@@ -86,18 +85,6 @@ def create_model_instance(
         kwargs.pop("trust_remote_code", None)
         return create_rerank_model_instance(
             subpool_addr, devices, model_uid, model_name, **kwargs
-        )
-    elif model_type == "multimodal":
-        kwargs.pop("trust_remote_code", None)
-        return create_multimodal_model_instance(
-            subpool_addr,
-            devices,
-            model_uid,
-            model_name,
-            model_format,
-            model_size_in_billions,
-            quantization,
-            **kwargs,
         )
     else:
         raise ValueError(f"Unsupported model type: {model_type}.")

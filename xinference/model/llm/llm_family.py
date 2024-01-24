@@ -106,7 +106,7 @@ class LLMFamilyV1(BaseModel):
     context_length: Optional[int] = DEFAULT_CONTEXT_LENGTH
     model_name: str
     model_lang: List[str]
-    model_ability: List[Literal["embed", "generate", "chat", "tools"]]
+    model_ability: List[Literal["embed", "generate", "chat", "tools", "vision"]]
     model_description: Optional[str]
     # reason for not required str here: legacy registration
     model_family: Optional[str]
