@@ -426,6 +426,29 @@ class ModelActor(xo.StatelessActor):
             )
         raise AttributeError(f"Model {self._model.model_spec} is not for reranking.")
 
+    @log_async(logger=logger, args_formatter=lambda _, kwargs: kwargs.pop("audio"))
+    @request_limit
+    async def transcriptions(
+        self,
+        audio: bytes,
+        language: Optional[str] = None,
+        prompt: Optional[str] = None,
+        response_format: Optional[str] = "json",
+        temperature: Optional[float] = 0,
+    ):
+        if hasattr(self._model, "transcriptions"):
+            return await self._call_wrapper(
+                self._model.transcriptions,
+                audio,
+                language,
+                prompt,
+                response_format,
+                temperature,
+            )
+        raise AttributeError(
+            f"Model {self._model.model_spec} is not for creating transcriptions."
+        )
+
     @log_async(logger=logger)
     @request_limit
     async def text_to_image(

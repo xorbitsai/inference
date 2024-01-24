@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import copy
 import logging
 import os
 import random
@@ -23,14 +24,21 @@ from pydantic import BaseModel
 logger = logging.getLogger(__name__)
 
 
-def log_async(logger):
+def log_async(logger, args_formatter=None):
     import time
     from functools import wraps
 
     def decorator(func):
         @wraps(func)
         async def wrapped(*args, **kwargs):
-            logger.debug(f"Enter {func.__name__}, args: {args}, kwargs: {kwargs}")
+            if args_formatter is not None:
+                formatted_args, formatted_kwargs = copy.copy(args), copy.copy(kwargs)
+                args_formatter(formatted_args, formatted_kwargs)
+            else:
+                formatted_args, formatted_kwargs = args, kwargs
+            logger.debug(
+                f"Enter {func.__name__}, args: {formatted_args}, kwargs: {formatted_kwargs}"
+            )
             start = time.time()
             ret = await func(*args, **kwargs)
             logger.debug(

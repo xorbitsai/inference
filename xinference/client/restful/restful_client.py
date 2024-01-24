@@ -524,6 +524,37 @@ class RESTfulChatglmCppGenerateModelHandle(RESTfulChatglmCppChatModelHandle):
         return response_data
 
 
+class RESTfulAudioModelHandle(RESTfulModelHandle):
+    def transcriptions(
+        self,
+        audio: bytes,
+        language: Optional[str] = None,
+        prompt: Optional[str] = None,
+        response_format: Optional[str] = "json",
+        temperature: Optional[float] = 0,
+    ):
+        url = f"{self._base_url}/v1/audio/transcriptions"
+        params = {
+            "model": self._model_uid,
+            "language": language,
+            "prompt": prompt,
+            "response_format": response_format,
+            "temperature": temperature,
+        }
+        files: List[Any] = []
+        for key, value in params.items():
+            files.append((key, (None, value)))
+        files.append(("audio", ("audio", audio, "application/octet-stream")))
+        response = requests.post(url, files=files, headers=self.auth_headers)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to variants the images, detail: {_get_error_string(response)}"
+            )
+
+        response_data = response.json()
+        return response_data
+
+
 class Client:
     def __init__(self, base_url):
         self.base_url = base_url
@@ -801,6 +832,10 @@ class Client:
             )
         elif desc["model_type"] == "rerank":
             return RESTfulRerankModelHandle(
+                model_uid, self.base_url, auth_headers=self._headers
+            )
+        elif desc["model_type"] == "audio":
+            return RESTfulAudioModelHandle(
                 model_uid, self.base_url, auth_headers=self._headers
             )
         else:
