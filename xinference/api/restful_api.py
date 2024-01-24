@@ -22,11 +22,9 @@ import pprint
 import sys
 import time
 import warnings
-from datetime import timedelta
 from typing import Any, List, Optional, Union
 
 import gradio as gr
-import pydantic
 import xoscar as xo
 from aioprometheus import REGISTRY, MetricsMiddleware
 from aioprometheus.asgi.starlette import metrics
@@ -41,7 +39,6 @@ from fastapi import (
     Response,
     Security,
     UploadFile,
-    status,
 )
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -66,9 +63,8 @@ from ..types import (
     CreateCompletion,
     ImageList,
 )
-from .oauth2.core import get_user, verify_token
-from .oauth2.types import AuthStartupConfig, LoginUserForm, User
-from .oauth2.utils import create_access_token, get_password_hash, verify_password
+from .oauth2.auth_service import AuthService
+from .oauth2.types import LoginUserForm
 
 logger = logging.getLogger(__name__)
 
@@ -137,15 +133,6 @@ class BuildGradioInterfaceRequest(BaseModel):
     model_lang: List[str]
 
 
-def authenticate_user(db_users: List[User], username: str, password: str):
-    user = get_user(db_users, username)
-    if not user:
-        return False
-    if not verify_password(password, user.password):
-        return False
-    return user
-
-
 class RESTfulAPI:
     def __init__(
         self,
@@ -160,25 +147,12 @@ class RESTfulAPI:
         self._port = port
         self._supervisor_ref = None
         self._event_collector_ref = None
-        self._auth_config: AuthStartupConfig = self.init_auth_config(auth_config_file)
+        self._auth_service = AuthService(auth_config_file)
         self._router = APIRouter()
         self._app = FastAPI()
 
-    @staticmethod
-    def init_auth_config(auth_config_file: Optional[str]):
-        from .oauth2 import common
-
-        if auth_config_file:
-            config: AuthStartupConfig = pydantic.parse_file_as(
-                path=auth_config_file, type_=AuthStartupConfig
-            )
-            for user in config.user_config:
-                user.password = get_password_hash(user.password)
-            common.XINFERENCE_OAUTH2_CONFIG = config  # type: ignore
-            return config
-
     def is_authenticated(self):
-        return False if self._auth_config is None else True
+        return False if self._auth_service.config is None else True
 
     @staticmethod
     def handle_request_limit_error(e: Exception):
@@ -216,28 +190,10 @@ class RESTfulAPI:
             )
 
     async def login_for_access_token(self, form_data: LoginUserForm) -> JSONResponse:
-        user = authenticate_user(
-            self._auth_config.user_config, form_data.username, form_data.password
+        result = self._auth_service.generate_token_for_user(
+            form_data.username, form_data.password
         )
-        if not user:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Incorrect username or password",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-        assert user is not None and isinstance(user, User)
-        access_token_expires = timedelta(
-            minutes=self._auth_config.auth_config.token_expire_in_minutes
-        )
-        access_token = create_access_token(
-            data={"sub": user.username, "scopes": user.permissions},
-            secret_key=self._auth_config.auth_config.secret_key,
-            algorithm=self._auth_config.auth_config.algorithm,
-            expires_delta=access_token_expires,
-        )
-        return JSONResponse(
-            content={"access_token": access_token, "token_type": "bearer"}
-        )
+        return JSONResponse(content=result)
 
     async def is_cluster_authenticated(self) -> JSONResponse:
         return JSONResponse(content={"auth": self.is_authenticated()})
@@ -270,7 +226,7 @@ class RESTfulAPI:
             "/v1/ui/{model_uid}",
             self.build_gradio_interface,
             methods=["POST"],
-            dependencies=[Security(verify_token, scopes=["models:read"])]
+            dependencies=[Security(self._auth_service, scopes=["models:read"])]
             if self.is_authenticated()
             else None,
         )
@@ -285,7 +241,7 @@ class RESTfulAPI:
             "/v1/models/instances",
             self.get_instance_info,
             methods=["GET"],
-            dependencies=[Security(verify_token, scopes=["models:list"])]
+            dependencies=[Security(self._auth_service, scopes=["models:list"])]
             if self.is_authenticated()
             else None,
         )
@@ -293,7 +249,7 @@ class RESTfulAPI:
             "/v1/models/{model_type}/{model_name}/versions",
             self.get_model_versions,
             methods=["GET"],
-            dependencies=[Security(verify_token, scopes=["models:list"])]
+            dependencies=[Security(self._auth_service, scopes=["models:list"])]
             if self.is_authenticated()
             else None,
         )
@@ -301,7 +257,7 @@ class RESTfulAPI:
             "/v1/models",
             self.list_models,
             methods=["GET"],
-            dependencies=[Security(verify_token, scopes=["models:list"])]
+            dependencies=[Security(self._auth_service, scopes=["models:list"])]
             if self.is_authenticated()
             else None,
         )
@@ -310,7 +266,7 @@ class RESTfulAPI:
             "/v1/models/{model_uid}",
             self.describe_model,
             methods=["GET"],
-            dependencies=[Security(verify_token, scopes=["models:list"])]
+            dependencies=[Security(self._auth_service, scopes=["models:list"])]
             if self.is_authenticated()
             else None,
         )
@@ -318,7 +274,7 @@ class RESTfulAPI:
             "/v1/models/{model_uid}/events",
             self.get_model_events,
             methods=["GET"],
-            dependencies=[Security(verify_token, scopes=["models:read"])]
+            dependencies=[Security(self._auth_service, scopes=["models:read"])]
             if self.is_authenticated()
             else None,
         )
@@ -326,7 +282,7 @@ class RESTfulAPI:
             "/v1/models/instance",
             self.launch_model_by_version,
             methods=["POST"],
-            dependencies=[Security(verify_token, scopes=["models:start"])]
+            dependencies=[Security(self._auth_service, scopes=["models:start"])]
             if self.is_authenticated()
             else None,
         )
@@ -334,7 +290,7 @@ class RESTfulAPI:
             "/v1/models",
             self.launch_model,
             methods=["POST"],
-            dependencies=[Security(verify_token, scopes=["models:start"])]
+            dependencies=[Security(self._auth_service, scopes=["models:start"])]
             if self.is_authenticated()
             else None,
         )
@@ -342,7 +298,7 @@ class RESTfulAPI:
             "/experimental/speculative_llms",
             self.launch_speculative_llm,
             methods=["POST"],
-            dependencies=[Security(verify_token, scopes=["models:start"])]
+            dependencies=[Security(self._auth_service, scopes=["models:start"])]
             if self.is_authenticated()
             else None,
         )
@@ -350,7 +306,7 @@ class RESTfulAPI:
             "/v1/models/{model_uid}",
             self.terminate_model,
             methods=["DELETE"],
-            dependencies=[Security(verify_token, scopes=["models:stop"])]
+            dependencies=[Security(self._auth_service, scopes=["models:stop"])]
             if self.is_authenticated()
             else None,
         )
@@ -359,7 +315,7 @@ class RESTfulAPI:
             self.create_completion,
             methods=["POST"],
             response_model=Completion,
-            dependencies=[Security(verify_token, scopes=["models:read"])]
+            dependencies=[Security(self._auth_service, scopes=["models:read"])]
             if self.is_authenticated()
             else None,
         )
@@ -367,7 +323,7 @@ class RESTfulAPI:
             "/v1/embeddings",
             self.create_embedding,
             methods=["POST"],
-            dependencies=[Security(verify_token, scopes=["models:read"])]
+            dependencies=[Security(self._auth_service, scopes=["models:read"])]
             if self.is_authenticated()
             else None,
         )
@@ -375,7 +331,7 @@ class RESTfulAPI:
             "/v1/rerank",
             self.rerank,
             methods=["POST"],
-            dependencies=[Security(verify_token, scopes=["models:read"])]
+            dependencies=[Security(self._auth_service, scopes=["models:read"])]
             if self.is_authenticated()
             else None,
         )
@@ -384,7 +340,7 @@ class RESTfulAPI:
             self.create_images,
             methods=["POST"],
             response_model=ImageList,
-            dependencies=[Security(verify_token, scopes=["models:read"])]
+            dependencies=[Security(self._auth_service, scopes=["models:read"])]
             if self.is_authenticated()
             else None,
         )
@@ -393,7 +349,7 @@ class RESTfulAPI:
             self.create_variations,
             methods=["POST"],
             response_model=ImageList,
-            dependencies=[Security(verify_token, scopes=["models:read"])]
+            dependencies=[Security(self._auth_service, scopes=["models:read"])]
             if self.is_authenticated()
             else None,
         )
@@ -402,7 +358,7 @@ class RESTfulAPI:
             self.create_chat_completion,
             methods=["POST"],
             response_model=ChatCompletion,
-            dependencies=[Security(verify_token, scopes=["models:read"])]
+            dependencies=[Security(self._auth_service, scopes=["models:read"])]
             if self.is_authenticated()
             else None,
         )
@@ -412,7 +368,7 @@ class RESTfulAPI:
             "/v1/model_registrations/{model_type}",
             self.register_model,
             methods=["POST"],
-            dependencies=[Security(verify_token, scopes=["models:register"])]
+            dependencies=[Security(self._auth_service, scopes=["models:register"])]
             if self.is_authenticated()
             else None,
         )
@@ -420,7 +376,7 @@ class RESTfulAPI:
             "/v1/model_registrations/{model_type}/{model_name}",
             self.unregister_model,
             methods=["DELETE"],
-            dependencies=[Security(verify_token, scopes=["models:unregister"])]
+            dependencies=[Security(self._auth_service, scopes=["models:unregister"])]
             if self.is_authenticated()
             else None,
         )
@@ -428,7 +384,7 @@ class RESTfulAPI:
             "/v1/model_registrations/{model_type}",
             self.list_model_registrations,
             methods=["GET"],
-            dependencies=[Security(verify_token, scopes=["models:list"])]
+            dependencies=[Security(self._auth_service, scopes=["models:list"])]
             if self.is_authenticated()
             else None,
         )
@@ -436,7 +392,7 @@ class RESTfulAPI:
             "/v1/model_registrations/{model_type}/{model_name}",
             self.get_model_registrations,
             methods=["GET"],
-            dependencies=[Security(verify_token, scopes=["models:list"])]
+            dependencies=[Security(self._auth_service, scopes=["models:list"])]
             if self.is_authenticated()
             else None,
         )
