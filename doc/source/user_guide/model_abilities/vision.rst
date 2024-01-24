@@ -4,13 +4,13 @@
 Vision
 =====================
 
-Learn how to chat with LLMs possessing the `vision` ability.
+Learn how to process images with LLMs.
 
 
 Introduction
 ============
 
-With the ``vision`` ability you can have your model  take in images and answer questions about them.
+With the ``vision`` ability you can have your model take in images and answer questions about them.
 Within Xinference, this indicates that certain models are capable of processing image inputs when conducting
 dialogues via the Chat API.
 
