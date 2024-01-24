@@ -52,7 +52,7 @@ class WhisperModel:
             max_new_tokens=128,
             chunk_length_s=30,
             batch_size=16,
-            return_timestamps=True,
+            return_timestamps=False,
             torch_dtype=torch_dtype,
             device=device,
         )
@@ -65,6 +65,7 @@ class WhisperModel:
     ):
         if response_format == "json":
             logger.debug("Call whisper model with generate_kwargs: %s", generate_kwargs)
+            assert callable(self._model)
             result = self._model(audio, generate_kwargs=generate_kwargs)
             return {"text": result["text"]}
         else:
@@ -75,8 +76,8 @@ class WhisperModel:
         audio: bytes,
         language: Optional[str] = None,
         prompt: Optional[str] = None,
-        response_format: Optional[str] = "json",
-        temperature: Optional[float] = 0,
+        response_format: str = "json",
+        temperature: float = 0,
     ):
         if temperature != 0:
             logger.warning(
@@ -97,8 +98,8 @@ class WhisperModel:
         self,
         audio: bytes,
         prompt: Optional[str] = None,
-        response_format: Optional[str] = "json",
-        temperature: Optional[float] = 0,
+        response_format: str = "json",
+        temperature: float = 0,
     ):
         if temperature != 0:
             logger.warning(
@@ -111,6 +112,6 @@ class WhisperModel:
             )
         return self._call_model(
             audio=audio,
-            generate_kwargs={"language": "english", "task": "translate"},
+            generate_kwargs={"task": "translate"},
             response_format=response_format,
         )

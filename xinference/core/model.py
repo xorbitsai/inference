@@ -433,8 +433,8 @@ class ModelActor(xo.StatelessActor):
         audio: bytes,
         language: Optional[str] = None,
         prompt: Optional[str] = None,
-        response_format: Optional[str] = "json",
-        temperature: Optional[float] = 0,
+        response_format: str = "json",
+        temperature: float = 0,
     ):
         if hasattr(self._model, "transcriptions"):
             return await self._call_wrapper(
@@ -447,6 +447,27 @@ class ModelActor(xo.StatelessActor):
             )
         raise AttributeError(
             f"Model {self._model.model_spec} is not for creating transcriptions."
+        )
+
+    @log_async(logger=logger, args_formatter=lambda _, kwargs: kwargs.pop("audio"))
+    @request_limit
+    async def translations(
+        self,
+        audio: bytes,
+        prompt: Optional[str] = None,
+        response_format: str = "json",
+        temperature: float = 0,
+    ):
+        if hasattr(self._model, "translations"):
+            return await self._call_wrapper(
+                self._model.translations,
+                audio,
+                prompt,
+                response_format,
+                temperature,
+            )
+        raise AttributeError(
+            f"Model {self._model.model_spec} is not for creating translations."
         )
 
     @log_async(logger=logger)

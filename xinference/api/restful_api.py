@@ -388,6 +388,14 @@ class RESTfulAPI:
             else None,
         )
         self._router.add_api_route(
+            "/v1/audio/translations",
+            self.create_translations,
+            methods=["POST"],
+            dependencies=[Security(verify_token, scopes=["models:read"])]
+            if self.is_authenticated()
+            else None,
+        )
+        self._router.add_api_route(
             "/v1/images/generations",
             self.create_images,
             methods=["POST"],
@@ -955,18 +963,61 @@ class RESTfulAPI:
 
         try:
             if kwargs is not None:
-                kwargs = json.loads(kwargs)
+                parsed_kwargs = json.loads(kwargs)
             else:
-                kwargs = {}
-            image_list = await model_ref.transcriptions(
+                parsed_kwargs = {}
+            transcription = await model_ref.transcriptions(
                 audio=await audio.read(),
                 language=language,
                 prompt=prompt,
                 response_format=response_format,
                 temperature=temperature,
-                **kwargs,
+                **parsed_kwargs,
             )
-            return Response(content=image_list, media_type="application/json")
+            return Response(content=transcription, media_type="application/json")
+        except RuntimeError as re:
+            logger.error(re, exc_info=True)
+            await self._report_error_event(model_uid, str(re))
+            raise HTTPException(status_code=400, detail=str(re))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            await self._report_error_event(model_uid, str(e))
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def create_translations(
+        self,
+        model: str = Form(...),
+        audio: UploadFile = File(media_type="application/octet-stream"),
+        prompt: Optional[str] = Form(None),
+        response_format: Optional[str] = Form("json"),
+        temperature: Optional[float] = Form(0),
+        kwargs: Optional[str] = Form(None),
+    ) -> Response:
+        model_uid = model
+        try:
+            model_ref = await (await self._get_supervisor_ref()).get_model(model_uid)
+        except ValueError as ve:
+            logger.error(str(ve), exc_info=True)
+            await self._report_error_event(model_uid, str(ve))
+            raise HTTPException(status_code=400, detail=str(ve))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            await self._report_error_event(model_uid, str(e))
+            raise HTTPException(status_code=500, detail=str(e))
+
+        try:
+            if kwargs is not None:
+                parsed_kwargs = json.loads(kwargs)
+            else:
+                parsed_kwargs = {}
+            translation = await model_ref.translations(
+                audio=await audio.read(),
+                prompt=prompt,
+                response_format=response_format,
+                temperature=temperature,
+                **parsed_kwargs,
+            )
+            return Response(content=translation, media_type="application/json")
         except RuntimeError as re:
             logger.error(re, exc_info=True)
             await self._report_error_event(model_uid, str(re))
@@ -1034,9 +1085,9 @@ class RESTfulAPI:
 
         try:
             if kwargs is not None:
-                kwargs = json.loads(kwargs)
+                parsed_kwargs = json.loads(kwargs)
             else:
-                kwargs = {}
+                parsed_kwargs = {}
             image_list = await model_ref.image_to_image(
                 image=Image.open(image.file),
                 prompt=prompt,
@@ -1044,7 +1095,7 @@ class RESTfulAPI:
                 n=n,
                 size=size,
                 response_format=response_format,
-                **kwargs,
+                **parsed_kwargs,
             )
             return Response(content=image_list, media_type="application/json")
         except RuntimeError as re:

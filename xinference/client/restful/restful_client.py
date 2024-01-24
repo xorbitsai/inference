@@ -533,6 +533,33 @@ class RESTfulAudioModelHandle(RESTfulModelHandle):
         response_format: Optional[str] = "json",
         temperature: Optional[float] = 0,
     ):
+        """
+        Transcribes audio into the input language.
+
+        Parameters
+        ----------
+
+        audio: bytes
+            The audio file object (not file name) to transcribe, in one of these formats: flac, mp3, mp4, mpeg,
+            mpga, m4a, ogg, wav, or webm.
+        language: Optional[str]
+            The language of the input audio. Supplying the input language in ISO-639-1
+            (https://en.wikipedia.org/wiki/List_of_ISO_639_language_codes) format will improve accuracy and latency.
+        prompt: Optional[str]
+            An optional text to guide the model's style or continue a previous audio segment.
+            The prompt should match the audio language.
+        response_format: Optional[str], defaults to json
+            The format of the transcript output, in one of these options: json, text, srt, verbose_json, or vtt.
+        temperature: Optional[float], defaults to 0
+            The sampling temperature, between 0 and 1. Higher values like 0.8 will make the output more random,
+            while lower values like 0.2 will make it more focused and deterministic.
+            If set to 0, the model will use log probability to automatically increase the temperature
+            until certain thresholds are hit.
+
+        Returns
+        -------
+            The transcribed text.
+        """
         url = f"{self._base_url}/v1/audio/transcriptions"
         params = {
             "model": self._model_uid,
@@ -548,7 +575,58 @@ class RESTfulAudioModelHandle(RESTfulModelHandle):
         response = requests.post(url, files=files, headers=self.auth_headers)
         if response.status_code != 200:
             raise RuntimeError(
-                f"Failed to variants the images, detail: {_get_error_string(response)}"
+                f"Failed to transcribe the audio, detail: {_get_error_string(response)}"
+            )
+
+        response_data = response.json()
+        return response_data
+
+    def translations(
+        self,
+        audio: bytes,
+        prompt: Optional[str] = None,
+        response_format: Optional[str] = "json",
+        temperature: Optional[float] = 0,
+    ):
+        """
+        Translates audio into English.
+
+        Parameters
+        ----------
+
+        audio: bytes
+            The audio file object (not file name) to transcribe, in one of these formats: flac, mp3, mp4, mpeg,
+            mpga, m4a, ogg, wav, or webm.
+        prompt: Optional[str]
+            An optional text to guide the model's style or continue a previous audio segment.
+            The prompt should match the audio language.
+        response_format: Optional[str], defaults to json
+            The format of the transcript output, in one of these options: json, text, srt, verbose_json, or vtt.
+        temperature: Optional[float], defaults to 0
+            The sampling temperature, between 0 and 1. Higher values like 0.8 will make the output more random,
+            while lower values like 0.2 will make it more focused and deterministic.
+            If set to 0, the model will use log probability to automatically increase the temperature
+            until certain thresholds are hit.
+
+        Returns
+        -------
+            The translated text.
+        """
+        url = f"{self._base_url}/v1/audio/translations"
+        params = {
+            "model": self._model_uid,
+            "prompt": prompt,
+            "response_format": response_format,
+            "temperature": temperature,
+        }
+        files: List[Any] = []
+        for key, value in params.items():
+            files.append((key, (None, value)))
+        files.append(("audio", ("audio", audio, "application/octet-stream")))
+        response = requests.post(url, files=files, headers=self.auth_headers)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to translate the audio, detail: {_get_error_string(response)}"
             )
 
         response_data = response.json()

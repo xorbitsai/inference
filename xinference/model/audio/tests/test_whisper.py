@@ -11,8 +11,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import os.path
 
-import pytest
 import requests
 
 
@@ -24,7 +24,7 @@ def test_restful_api_for_whisper(setup):
 
     model_uid = client.launch_model(
         model_uid="whisper-1",
-        model_name="whisper-tiny",
+        model_name="whisper-large-v3",
         model_type="audio",
     )
     model = client.get_model(model_uid)
@@ -36,3 +36,15 @@ def test_restful_api_for_whisper(setup):
     assert "my fellow americans" in transcription
     assert "your country" in transcription
     assert "do for you" in transcription
+
+    # Translation requires large-v3 model.
+    zh_cn_audio_path = os.path.join(
+        os.path.dirname(__file__), "common_voice_zh-CN_38026095.mp3"
+    )
+    with open(zh_cn_audio_path, "rb") as f:
+        zh_cn_audio = f.read()
+    response = model.translations(zh_cn_audio)
+    translation = response["text"].lower()
+    assert "list" in translation
+    assert "airlines" in translation
+    assert "hong kong" in translation
