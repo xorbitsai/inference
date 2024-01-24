@@ -115,7 +115,7 @@ We cache the model files locally, so there's no need to redownload them for subs
 
     XINFERENCE_MODEL_SRC=modelscope xinference-local --host 0.0.0.0 --port 9997
 
-We can specify the model's UID using the ``--model-uid`` or ``-u`` flag. If not specified, Xinference will generate a random ID.
+We can specify the model's UID using the ``--model-uid`` or ``-u`` flag. If not specified, Xinference will generate a unique ID.
 This create a new model instance with unique ID ``my-llama-2``:
 
 .. tabs::
@@ -153,15 +153,10 @@ This create a new model instance with unique ID ``my-llama-2``:
 
     Model uid: my-llama-2
 
-Congrats! You now have ``llama-2-chat`` running by Xinference. Once the model is running, we can try it out either command line, via cURL,
+Congrats! You now have ``llama-2-chat`` running by Xinference. Once the model is running, we can try it out either via cURL,
 or via Xinference's python client:
 
 .. tabs::
-
-  .. code-tab:: bash shell
-
-    xinference chat --model-uid my-llama-2
-    User: What is the largest animal?
 
   .. code-tab:: bash cURL
 

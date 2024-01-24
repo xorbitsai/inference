@@ -45,7 +45,7 @@ When the following conditions are met, Xinference will choose vLLM as the infere
 - The model format is PyTorch
 - The quantization method is none
 - The system is Linux and has at least one CUDA device
-- The model is within the list of models supported by vLLM.
+- The model is within the list of models supported by vLLM
 
 Currently, supported model includes:
 

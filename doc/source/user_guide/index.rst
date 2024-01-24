@@ -7,7 +7,7 @@ User Guide
 .. toctree::
    :maxdepth: 2
 
-   cache_management
+   model_abilities/index
    backends
    client_api
    spec_decoding
