@@ -1942,7 +1942,7 @@
           "8-bit"
         ],
         "model_hub": "modelscope",
-        "model_id": "OrionStarAI/Orion-14B-Chat-RAG",
+        "model_id": "OrionStarAI/Orion-14B-Chat-RAG"
       }
     ],
     "prompt_style": {
