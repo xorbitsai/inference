@@ -380,6 +380,19 @@ Begin!"""
                 return f"USER: <<question>> {prompt} <<function>> {tools_string}\nASSISTANT: "
             else:
                 return f"USER: <<question>> {prompt}\nASSISTANT: "
+        elif prompt_style.style_name == "orion":
+            ret = "<s>"
+            for i, message in enumerate(chat_history):
+                content = message["content"]
+                role = message["role"]
+                if i % 2 == 0:  # Human
+                    ret += role + ": " + content + "\n\n"
+                else:  # Assistant
+                    if content:
+                        ret += role + ": </s>" + content + "</s>"
+                    else:
+                        ret += role + ": </s>"
+            return ret
         else:
             raise ValueError(f"Invalid prompt style: {prompt_style.style_name}")
 
