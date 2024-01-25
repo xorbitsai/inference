@@ -70,7 +70,7 @@ class GgmlLLMSpecV1(BaseModel):
 
 
 class PytorchLLMSpecV1(BaseModel):
-    model_format: Literal["pytorch", "gptq"]
+    model_format: Literal["pytorch", "gptq", "awq"]
     # Must in order that `str` first, then `int`
     model_size_in_billions: Union[str, int]
     quantizations: List[str]
@@ -451,7 +451,7 @@ def _get_meta_path(
             return os.path.join(cache_dir, "__valid_download")
         else:
             return os.path.join(cache_dir, f"__valid_download_{model_hub}")
-    elif model_format in ["ggmlv3", "ggufv2", "gptq"]:
+    elif model_format in ["ggmlv3", "ggufv2", "gptq", "awq"]:
         assert quantization is not None
         if model_hub == "huggingface":
             return os.path.join(cache_dir, f"__valid_download_{quantization}")
@@ -489,7 +489,7 @@ def _skip_download(
                     logger.warning(f"Cache {cache_dir} exists, but it was from {hub}")
                     return True
             return False
-    elif model_format in ["ggmlv3", "ggufv2", "gptq"]:
+    elif model_format in ["ggmlv3", "ggufv2", "gptq", "awq"]:
         assert quantization is not None
         return os.path.exists(
             _get_meta_path(cache_dir, model_format, model_hub, quantization)
@@ -537,7 +537,7 @@ def cache_from_modelscope(
     ):
         return cache_dir
 
-    if llm_spec.model_format in ["pytorch", "gptq"]:
+    if llm_spec.model_format in ["pytorch", "gptq", "awq"]:
         download_dir = retry_download(
             snapshot_download,
             llm_family.model_name,
@@ -598,7 +598,7 @@ def cache_from_huggingface(
     ):
         return cache_dir
 
-    if llm_spec.model_format in ["pytorch", "gptq"]:
+    if llm_spec.model_format in ["pytorch", "gptq", "awq"]:
         assert isinstance(llm_spec, PytorchLLMSpecV1)
         retry_download(
             huggingface_hub.snapshot_download,
@@ -679,7 +679,7 @@ def get_cache_status(
         ]
         return any(revisions)
     # just check meta file for ggml and gptq model
-    elif llm_spec.model_format in ["ggmlv3", "ggufv2", "gptq"]:
+    elif llm_spec.model_format in ["ggmlv3", "ggufv2", "gptq", "awq"]:
         ret = []
         for q in llm_spec.quantizations:
             assert q is not None
