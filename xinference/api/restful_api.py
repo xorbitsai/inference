@@ -942,7 +942,7 @@ class RESTfulAPI:
     async def create_transcriptions(
         self,
         model: str = Form(...),
-        audio: UploadFile = File(media_type="application/octet-stream"),
+        file: UploadFile = File(media_type="application/octet-stream"),
         language: Optional[str] = Form(None),
         prompt: Optional[str] = Form(None),
         response_format: Optional[str] = Form("json"),
@@ -967,7 +967,7 @@ class RESTfulAPI:
             else:
                 parsed_kwargs = {}
             transcription = await model_ref.transcriptions(
-                audio=await audio.read(),
+                audio=await file.read(),
                 language=language,
                 prompt=prompt,
                 response_format=response_format,
@@ -987,7 +987,7 @@ class RESTfulAPI:
     async def create_translations(
         self,
         model: str = Form(...),
-        audio: UploadFile = File(media_type="application/octet-stream"),
+        file: UploadFile = File(media_type="application/octet-stream"),
         prompt: Optional[str] = Form(None),
         response_format: Optional[str] = Form("json"),
         temperature: Optional[float] = Form(0),
@@ -1011,7 +1011,7 @@ class RESTfulAPI:
             else:
                 parsed_kwargs = {}
             translation = await model_ref.translations(
-                audio=await audio.read(),
+                audio=await file.read(),
                 prompt=prompt,
                 response_format=response_format,
                 temperature=temperature,

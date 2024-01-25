@@ -48,3 +48,19 @@ def test_restful_api_for_whisper(setup):
     assert "list" in translation
     assert "airlines" in translation
     assert "hong kong" in translation
+
+    # Test openai API
+    import openai
+
+    client = openai.Client(api_key="not empty", base_url=f"{endpoint}/v1")
+    with open(zh_cn_audio_path, "rb") as f:
+        completion = client.audio.transcriptions.create(model=model_uid, file=f)
+        assert "列表" in completion.text
+        assert "香港" in completion.text
+        assert "航空" in completion.text
+
+        completion = client.audio.translations.create(model=model_uid, file=f)
+        translation = completion.text.lower()
+        assert "list" in translation
+        assert "airlines" in translation
+        assert "hong kong" in translation

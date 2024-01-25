@@ -571,7 +571,7 @@ class RESTfulAudioModelHandle(RESTfulModelHandle):
         files: List[Any] = []
         for key, value in params.items():
             files.append((key, (None, value)))
-        files.append(("audio", ("audio", audio, "application/octet-stream")))
+        files.append(("file", ("file", audio, "application/octet-stream")))
         response = requests.post(url, files=files, headers=self.auth_headers)
         if response.status_code != 200:
             raise RuntimeError(
@@ -622,7 +622,7 @@ class RESTfulAudioModelHandle(RESTfulModelHandle):
         files: List[Any] = []
         for key, value in params.items():
             files.append((key, (None, value)))
-        files.append(("audio", ("audio", audio, "application/octet-stream")))
+        files.append(("file", ("file", audio, "application/octet-stream")))
         response = requests.post(url, files=files, headers=self.auth_headers)
         if response.status_code != 200:
             raise RuntimeError(

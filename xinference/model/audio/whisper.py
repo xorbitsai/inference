@@ -90,7 +90,9 @@ class WhisperModel:
             )
         return self._call_model(
             audio=audio,
-            generate_kwargs={"language": language} if language is not None else {},
+            generate_kwargs={"language": language, "task": "transcribe"}
+            if language is not None
+            else {"task": "transcribe"},
             response_format=response_format,
         )
 
