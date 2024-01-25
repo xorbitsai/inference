@@ -386,6 +386,7 @@ Begin!"""
                 content = message["content"]
                 role = message["role"]
                 if i % 2 == 0:  # Human
+                    assert content is not None
                     ret += role + ": " + content + "\n\n"
                 else:  # Assistant
                     if content:
