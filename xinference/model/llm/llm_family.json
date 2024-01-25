@@ -3184,7 +3184,7 @@
           "none"
         ],
         "model_id": "internlm/internlm2-chat-7b",
-        "model_revision": "5797f79825bab7013932d57e2babaac1b8de6b4f"
+        "model_revision": "2292b86b21cb856642782cebed0a453997453b1f"
       },
       {
         "model_format": "pytorch",
@@ -3193,22 +3193,22 @@
           "none"
         ],
         "model_id": "internlm/internlm2-chat-20b",
-        "model_revision": "3ccaf3ae82d5d01c0a95eecf40ee550f9c543635"
+        "model_revision": "b666125047cd98c5a7c85ca28720b44a06aed124"
       }
     ],
     "prompt_style": {
       "style_name": "INTERNLM2",
       "system_prompt": "You are InternLM (书生·浦语), a helpful, honest, and harmless AI assistant developed by Shanghai AI Laboratory (上海人工智能实验室).",
       "roles": [
-        "[UNUSED_TOKEN_146]user",
-        "[UNUSED_TOKEN_146]assistant"
+        "<|im_start|>user",
+        "<|im_start|>assistant"
       ],
-      "intra_message_sep": "[UNUSED_TOKEN_145]",
+      "intra_message_sep": "<|im_end|>",
       "stop_token_ids": [
         92542
       ],
       "stop": [
-        "[UNUSED_TOKEN_145]"
+        "<|im_end|>"
       ]
     }
   },

@@ -1817,15 +1817,15 @@
       "style_name": "INTERNLM2",
       "system_prompt": "You are InternLM (书生·浦语), a helpful, honest, and harmless AI assistant developed by Shanghai AI Laboratory (上海人工智能实验室).",
       "roles": [
-        "[UNUSED_TOKEN_146]user",
-        "[UNUSED_TOKEN_146]assistant"
+        "<|im_start|>user",
+        "<|im_start|>assistant"
       ],
-      "intra_message_sep": "[UNUSED_TOKEN_145]",
+      "intra_message_sep": "<|im_end|>",
       "stop_token_ids": [
         92542
       ],
       "stop": [
-        "[UNUSED_TOKEN_145]"
+        "<|im_end|>"
       ]
     }
   },

@@ -310,7 +310,7 @@ Begin!"""
             ret = (
                 "<s>"
                 if prompt_style.system_prompt == ""
-                else "<s>[UNUSED_TOKEN_146]system\n"
+                else "<s><|im_start|>system\n"
                 + prompt_style.system_prompt
                 + prompt_style.intra_message_sep
                 + "\n"
