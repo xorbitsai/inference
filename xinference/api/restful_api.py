@@ -339,7 +339,7 @@ class RESTfulAPI:
             "/v1/audio/transcriptions",
             self.create_transcriptions,
             methods=["POST"],
-            dependencies=[Security(verify_token, scopes=["models:read"])]
+            dependencies=[Security(self._auth_service, scopes=["models:read"])]
             if self.is_authenticated()
             else None,
         )
@@ -347,7 +347,7 @@ class RESTfulAPI:
             "/v1/audio/translations",
             self.create_translations,
             methods=["POST"],
-            dependencies=[Security(verify_token, scopes=["models:read"])]
+            dependencies=[Security(self._auth_service, scopes=["models:read"])]
             if self.is_authenticated()
             else None,
         )
