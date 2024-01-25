@@ -55,7 +55,7 @@ def test_restful_api_for_whisper(setup):
         model_uid="whisper-2",
         model_name="whisper-tiny.en",
         model_type="audio",
-        n_gpu=0,
+        n_gpu=None,
     )
     model2 = client.get_model(model_uid2)
     with pytest.raises(RuntimeError, match="translations"):
