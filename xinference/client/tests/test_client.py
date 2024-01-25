@@ -116,7 +116,7 @@ def test_client_for_embedding(setup):
     assert len(client.list_models()) == 0
 
     model_uid = client.launch_model(
-        model_name="jina-embeddings-v2-small-en", model_type="embedding"
+        model_name="bge-small-en-v1.5", model_type="embedding"
     )
     assert len(client.list_models()) == 1
 
@@ -124,7 +124,7 @@ def test_client_for_embedding(setup):
     assert isinstance(model, EmbeddingModelHandle)
 
     completion = model.create_embedding("write a poem.")
-    assert len(completion["data"][0]["embedding"]) == 512
+    assert len(completion["data"][0]["embedding"]) == 384
 
     client.terminate_model(model_uid=model_uid)
     assert len(client.list_models()) == 0
