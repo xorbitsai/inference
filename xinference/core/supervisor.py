@@ -37,6 +37,7 @@ from .utils import (
 )
 
 if TYPE_CHECKING:
+    from ..model.audio import AudioModelFamilyV1
     from ..model.embedding import EmbeddingModelSpec
     from ..model.image import ImageModelFamilyV1
     from ..model.llm import LLMFamilyV1
@@ -297,6 +298,25 @@ class SupervisorActor(xo.StatelessActor):
                 "is_builtin": is_builtin,
             }
 
+    def _to_audio_model_reg(
+        self, model_family: "AudioModelFamilyV1", is_builtin: bool
+    ) -> Dict[str, Any]:
+        from ..model.audio import get_cache_status
+
+        if self.is_local_deployment():
+            # TODO: does not work when the supervisor and worker are running on separate nodes.
+            cache_status = get_cache_status(model_family)
+            return {
+                **model_family.dict(),
+                "cache_status": cache_status,
+                "is_builtin": is_builtin,
+            }
+        else:
+            return {
+                **model_family.dict(),
+                "is_builtin": is_builtin,
+            }
+
     @log_sync(logger=logger)
     def list_model_registrations(
         self, model_type: str, detailed: bool = False
@@ -358,6 +378,18 @@ class SupervisorActor(xo.StatelessActor):
 
             ret.sort(key=sort_helper)
             return ret
+        elif model_type == "audio":
+            from ..model.audio import BUILTIN_AUDIO_MODELS
+
+            ret = []
+            for model_name, family in BUILTIN_AUDIO_MODELS.items():
+                if detailed:
+                    ret.append(self._to_audio_model_reg(family, is_builtin=True))
+                else:
+                    ret.append({"model_name": model_name, "is_builtin": True})
+
+            ret.sort(key=sort_helper)
+            return ret
         elif model_type == "rerank":
             from ..model.rerank import BUILTIN_RERANK_MODELS
             from ..model.rerank.custom import get_user_defined_reranks
@@ -406,6 +438,13 @@ class SupervisorActor(xo.StatelessActor):
             from ..model.image import BUILTIN_IMAGE_MODELS
 
             for f in BUILTIN_IMAGE_MODELS.values():
+                if f.model_name == model_name:
+                    return f
+            raise ValueError(f"Model {model_name} not found")
+        elif model_type == "audio":
+            from ..model.audio import BUILTIN_AUDIO_MODELS
+
+            for f in BUILTIN_AUDIO_MODELS.values():
                 if f.model_name == model_name:
                     return f
             raise ValueError(f"Model {model_name} not found")

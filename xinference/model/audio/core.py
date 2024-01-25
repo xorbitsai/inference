@@ -33,6 +33,7 @@ class AudioModelFamilyV1(BaseModel):
     model_name: str
     model_id: str
     model_revision: str
+    multilingual: bool
 
 
 class AudioModelDescription(ModelDescription):
