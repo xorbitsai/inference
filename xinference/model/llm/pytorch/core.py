@@ -190,7 +190,7 @@ class PytorchModel(LLM):
     def match(
         cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
-        if llm_spec.model_format not in ["pytorch", "gptq"]:
+        if llm_spec.model_format not in ["pytorch", "gptq", "awq"]:
             return False
         model_family = llm_family.model_family or llm_family.model_name
         if model_family in [
@@ -408,7 +408,7 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
     def match(
         cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
-        if llm_spec.model_format not in ["pytorch", "gptq"]:
+        if llm_spec.model_format not in ["pytorch", "gptq", "awq"]:
             return False
         if llm_family.model_name in [
             "baichuan-chat",

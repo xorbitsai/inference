@@ -81,6 +81,10 @@ The following is a list of built-in LLM in Xinference:
   
    orca
   
+   orion-chat
+  
+   orion-chat-rag
+  
    phi-2
   
    qwen-chat

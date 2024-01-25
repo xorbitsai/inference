@@ -1872,5 +1872,90 @@
         "assistant"
       ]
     }
+  },
+  {
+    "version": 1,
+    "context_length": 4096,
+    "model_name": "orion-chat",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "Orion-14B series models are open-source multilingual large language models trained from scratch by OrionStarAI.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 14,
+        "quantizations": [
+          "none",
+          "4-bit",
+          "8-bit"
+        ],
+        "model_id": "OrionStarAI/Orion-14B-Chat",
+        "model_hub": "modelscope"
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 14,
+        "quantizations": [
+          "Int4"
+        ],
+        "model_hub": "modelscope",
+        "model_id": "OrionStarAI/Orion-14B-Chat-{quantization}"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "orion",
+      "roles": [
+        "Human",
+        "assistant"
+      ],
+      "stop": [
+        "<s>",
+        "</s>",
+        "<unk>"
+      ]
+    }
+  },
+  {
+    "version": 1,
+    "context_length": 4096,
+    "model_name": "orion-chat-rag",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "Orion-14B series models are open-source multilingual large language models trained from scratch by OrionStarAI.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 14,
+        "quantizations": [
+          "none",
+          "4-bit",
+          "8-bit"
+        ],
+        "model_hub": "modelscope",
+        "model_id": "OrionStarAI/Orion-14B-Chat-RAG"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "orion",
+      "roles": [
+        "Human",
+        "assistant"
+      ],
+      "stop": [
+        "<s>",
+        "</s>",
+        "<unk>"
+      ]
+    }
   }
 ]

@@ -190,12 +190,12 @@ class VLLMModel(LLM):
             return False
         if not cls._is_linux():
             return False
-        if llm_spec.model_format not in ["pytorch", "gptq"]:
+        if llm_spec.model_format not in ["pytorch", "gptq", "awq"]:
             return False
         if llm_spec.model_format == "pytorch":
             if quantization != "none" and not (quantization is None):
                 return False
-        if llm_spec.model_format == "gptq":
+        if llm_spec.model_format in ["gptq", "awq"]:
             # Currently, only 4-bit weight quantization is supported for GPTQ, but got 8 bits.
             if "4" not in quantization:
                 return False
@@ -336,12 +336,12 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
     ) -> bool:
         if XINFERENCE_DISABLE_VLLM:
             return False
-        if llm_spec.model_format not in ["pytorch", "gptq"]:
+        if llm_spec.model_format not in ["pytorch", "gptq", "awq"]:
             return False
         if llm_spec.model_format == "pytorch":
             if quantization != "none" and not (quantization is None):
                 return False
-        if llm_spec.model_format == "gptq":
+        if llm_spec.model_format in ["gptq", "awq"]:
             # Currently, only 4-bit weight quantization is supported for GPTQ, but got 8 bits.
             if "4" not in quantization:
                 return False
