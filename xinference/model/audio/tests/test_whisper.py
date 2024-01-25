@@ -13,6 +13,7 @@
 # limitations under the License.
 import os.path
 
+import pytest
 import requests
 
 
@@ -48,6 +49,16 @@ def test_restful_api_for_whisper(setup):
     assert "list" in translation
     assert "airlines" in translation
     assert "hong kong" in translation
+
+    # If model multilingual is False, it can't be used for translations.
+    model_uid2 = client.launch_model(
+        model_uid="whisper-2",
+        model_name="whisper-tiny.en",
+        model_type="audio",
+    )
+    model2 = client.get_model(model_uid2)
+    with pytest.raises(RuntimeError, match="translations"):
+        model2.translations(zh_cn_audio)
 
     # Test openai API
     import openai

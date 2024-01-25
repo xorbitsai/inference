@@ -12,17 +12,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import logging
-from typing import Dict, Optional
+from typing import TYPE_CHECKING, Dict, Optional
+
+if TYPE_CHECKING:
+    from .core import AudioModelFamilyV1
 
 logger = logging.getLogger(__name__)
 
 
 class WhisperModel:
     def __init__(
-        self, model_uid: str, model_path: str, device: Optional[str] = None, **kwargs
+        self,
+        model_uid: str,
+        model_path: str,
+        model_spec: "AudioModelFamilyV1",
+        device: Optional[str] = None,
+        **kwargs,
     ):
         self._model_uid = model_uid
         self._model_path = model_path
+        self._model_spec = model_spec
         self._device = device
         self._model = None
         self._kwargs = kwargs
@@ -103,6 +112,10 @@ class WhisperModel:
         response_format: str = "json",
         temperature: float = 0,
     ):
+        if not self._model_spec.multilingual:
+            raise RuntimeError(
+                f"Model {self._model_spec.model_name} is not suitable for translations."
+            )
         if temperature != 0:
             logger.warning(
                 "Temperature for whisper transcriptions will be ignored: %s.",

@@ -154,7 +154,7 @@ def create_audio_model_instance(
 ) -> Tuple[WhisperModel, AudioModelDescription]:
     model_spec = match_model(model_name)
     model_path = cache(model_spec)
-    model = WhisperModel(model_uid, model_path, **kwargs)
+    model = WhisperModel(model_uid, model_path, model_spec, **kwargs)
     model_description = AudioModelDescription(
         subpool_addr, devices, model_spec, model_path=model_path
     )
