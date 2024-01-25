@@ -28,19 +28,17 @@ def test_client_auth(setup_with_auth):
     assert len(client.list_models()) == 0
 
     with pytest.raises(RuntimeError):
-        client.launch_model(
-            model_name="jina-embeddings-v2-small-en", model_type="embedding"
-        )
+        client.launch_model(model_name="bge-small-en-v1.5", model_type="embedding")
 
     client.login("user3", "pass3")
     model_uid = client.launch_model(
-        model_name="jina-embeddings-v2-small-en", model_type="embedding"
+        model_name="bge-small-en-v1.5", model_type="embedding"
     )
     model = client.get_model(model_uid=model_uid)
     assert isinstance(model, RESTfulEmbeddingModelHandle)
 
     completion = model.create_embedding("write a poem.")
-    assert len(completion["data"][0]["embedding"]) == 512
+    assert len(completion["data"][0]["embedding"]) == 384
 
     with pytest.raises(RuntimeError):
         client.terminate_model(model_uid=model_uid)
