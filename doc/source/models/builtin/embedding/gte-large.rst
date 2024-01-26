@@ -14,7 +14,7 @@ Specifications
 - **Dimensions:** 1024
 - **Max Tokens:** 512
 - **Model ID:** thenlper/gte-large
-- **Model Hubs**: `Hugging Face <https://huggingface.co/thenlper/gte-large>`_, `ModelScope <https://modelscope.cn/models/Xorbits/gte-large>`_
+- **Model Hubs**: `Hugging Face <https://huggingface.co/thenlper/gte-large>`__, `ModelScope <https://modelscope.cn/models/Xorbits/gte-large>`__
 
 Execute the following command to launch the model::
 

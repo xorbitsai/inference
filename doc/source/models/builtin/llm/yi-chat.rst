@@ -21,7 +21,7 @@ Model Spec 1 (gptq, 34 Billion)
 - **Model Size (in billions):** 34
 - **Quantizations:** 8bits
 - **Model ID:** 01-ai/Yi-34B-Chat-{quantization}
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/01-ai/Yi-34B-Chat-{quantization}>`_, `ModelScope <https://modelscope.cn/models/01ai/Yi-34B-Chat-{quantization}>`_
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/01-ai/Yi-34B-Chat-{quantization}>`__, `ModelScope <https://modelscope.cn/models/01ai/Yi-34B-Chat-{quantization}>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
@@ -36,7 +36,7 @@ Model Spec 2 (pytorch, 34 Billion)
 - **Model Size (in billions):** 34
 - **Quantizations:** 4-bit, 8-bit, none
 - **Model ID:** 01-ai/Yi-34B-Chat
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/01-ai/Yi-34B-Chat>`_, `ModelScope <https://modelscope.cn/models/01ai/Yi-34B-Chat>`_
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/01-ai/Yi-34B-Chat>`__, `ModelScope <https://modelscope.cn/models/01ai/Yi-34B-Chat>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
@@ -51,7 +51,7 @@ Model Spec 3 (ggufv2, 34 Billion)
 - **Model Size (in billions):** 34
 - **Quantizations:** Q2_K, Q3_K_L, Q3_K_M, Q3_K_S, Q4_0, Q4_K_M, Q4_K_S, Q5_0, Q5_K_M, Q5_K_S, Q6_K, Q8_0
 - **Model ID:** TheBloke/Yi-34B-Chat-GGUF
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/Yi-34B-Chat-GGUF>`_
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/Yi-34B-Chat-GGUF>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::

@@ -128,6 +128,55 @@ Getting Started
       Register model weights and turn it into an API.
 
 
+
+Explore the API
+---------------
+
+.. grid:: 2
+
+    .. grid-item-card::  Chat & Generate
+      :link: chat
+      :link-type: ref
+
+      Learn how to chat with LLMs in Xinference.
+
+    .. grid-item-card::  Tools
+      :link: tools
+      :link-type: ref
+
+      Learn how to connect LLM with external tools.
+
+
+.. grid:: 2
+
+    .. grid-item-card::  Embeddings
+      :link: embed
+      :link-type: ref
+
+      Learn how to create text embeddings in Xinference.
+
+    .. grid-item-card::  Rerank
+      :link: rerank
+      :link-type: ref
+
+      Learn how to use rerank models in Xinference.
+
+
+.. grid:: 2
+
+    .. grid-item-card::  Images
+      :link: image
+      :link-type: ref
+
+      Learn how to generate images with Xinference.
+
+    .. grid-item-card::  Vision
+      :link: vision
+      :link-type: ref
+
+      Learn how to process image with LLMs.
+
+
 Getting Involved
 ----------------
 

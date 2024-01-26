@@ -14,7 +14,7 @@ Specifications
 - **Dimensions:** 768
 - **Max Tokens:** 256
 - **Model ID:** shibing624/text2vec-base-chinese-paraphrase
-- **Model Hubs**: `Hugging Face <https://huggingface.co/shibing624/text2vec-base-chinese-paraphrase>`_, `ModelScope <https://modelscope.cn/models/mwei23/text2vec-base-chinese-paraphrase>`_
+- **Model Hubs**: `Hugging Face <https://huggingface.co/shibing624/text2vec-base-chinese-paraphrase>`__, `ModelScope <https://modelscope.cn/models/mwei23/text2vec-base-chinese-paraphrase>`__
 
 Execute the following command to launch the model::
 

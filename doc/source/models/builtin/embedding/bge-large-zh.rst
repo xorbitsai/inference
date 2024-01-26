@@ -14,7 +14,7 @@ Specifications
 - **Dimensions:** 1024
 - **Max Tokens:** 512
 - **Model ID:** BAAI/bge-large-zh
-- **Model Hubs**: `Hugging Face <https://huggingface.co/BAAI/bge-large-zh>`_, `ModelScope <https://modelscope.cn/models/Xorbits/bge-large-zh>`_
+- **Model Hubs**: `Hugging Face <https://huggingface.co/BAAI/bge-large-zh>`__, `ModelScope <https://modelscope.cn/models/Xorbits/bge-large-zh>`__
 
 Execute the following command to launch the model::
 

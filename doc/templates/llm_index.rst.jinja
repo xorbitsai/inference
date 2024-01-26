@@ -6,6 +6,21 @@ Large language Models
 
 The following is a list of built-in LLM in Xinference:
 
+.. list-table::
+   :widths: 25 25 25 50
+   :header-rows: 1
+
+   * - MODEL NAME
+     - ABILITIES
+     - COTNEXT_LENGTH
+     - DESCRIPTION
+
+{% for model in models %}
+   * - :ref:`{{ model.model_name|lower }} <models_llm_{{ model.model_name|lower }}>`
+     - {{ model.model_ability | join(', ') }}
+     - {{ model.context_length }}
+     - {{ model.model_description }}
+{% endfor %}
 
 .. toctree::
    :maxdepth: 3
@@ -13,3 +28,5 @@ The following is a list of built-in LLM in Xinference:
   {% for model in models %}
    {{ model.model_name|lower }}
   {% endfor %}
+
+
