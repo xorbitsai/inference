@@ -17,7 +17,7 @@ Rerank models in Xinference can be invoked through the Rerank endpoint to rank a
 Quickstart
 ================
 
-We can try it out either cURL, OpenAI Client, or via Xinference's python client:
+We can try Rerank API out either via cURL, OpenAI Client, or Xinference's python client:
 
 .. tabs::
 

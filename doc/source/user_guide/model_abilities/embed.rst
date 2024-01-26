@@ -40,7 +40,7 @@ You can examine all the :ref:`builtin embedding models in Xinference <models_emb
 Quickstart
 ============
 
-We can try it out either cURL, OpenAI Client, or via Xinference's python client:
+We can try Embeddings API out either via cURL, OpenAI Client, or Xinference's python client:
 
 .. tabs::
 

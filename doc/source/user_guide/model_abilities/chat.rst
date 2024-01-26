@@ -56,7 +56,7 @@ Chat API
 ------------
 
 The Chat API mimics OpenAI's `Chat Completion API <https://platform.openai.com/docs/api-reference/chat/create>`__. 
-We can try it out either cURL, OpenAI Client, or via Xinference's python client:
+We can try Chat API out either via cURL, OpenAI Client, or Xinference's python client:
 
 .. tabs::
 

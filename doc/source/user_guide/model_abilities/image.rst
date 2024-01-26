@@ -49,7 +49,7 @@ Text-to-image
 --------------------
 
 The Text-to-image API mimics OpenAI's `create images API <https://platform.openai.com/docs/api-reference/images/create>`_.
-We can try it out either cURL, OpenAI Client, or via Xinference's python client:
+We can try Text-to-image API out either via cURL, OpenAI Client, or Xinference's python client:
 
 .. tabs::
 
