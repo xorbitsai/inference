@@ -202,7 +202,7 @@ const RegisterModel = () => {
           model_uri: modelUri,
         },
       ]
-    } else if (!isModelFormatAWQ()) {
+    } else if (isModelFormatAWQ()) {
       formData.model_specs = [
         {
           model_format: modelFormat,
@@ -212,7 +212,7 @@ const RegisterModel = () => {
           model_uri: modelUri,
         },
       ]
-    }else if (!isModelFormatPytorch()) {
+    } else if (!isModelFormatPytorch()) {
       const { baseDir, filename } = getPathComponents(modelUri)
       formData.model_specs = [
         {
