@@ -226,10 +226,13 @@ class SupervisorActor(xo.StatelessActor):
             "workers": self._worker_status,
         }
 
-    def _to_llm_reg(
+    async def _to_llm_reg(
         self, llm_family: "LLMFamilyV1", is_builtin: bool
     ) -> Dict[str, Any]:
         from ..model.llm import get_cache_status
+
+        instance_cnt = await self.get_instance_count(llm_family.model_name)
+        version_cnt = await self.get_model_version_count(llm_family.model_name)
 
         if self.is_local_deployment():
             specs = []
@@ -237,88 +240,115 @@ class SupervisorActor(xo.StatelessActor):
             for spec in llm_family.model_specs:
                 cache_status = get_cache_status(llm_family, spec)
                 specs.append({**spec.dict(), "cache_status": cache_status})
-            return {**llm_family.dict(), "is_builtin": is_builtin, "model_specs": specs}
+            res = {**llm_family.dict(), "is_builtin": is_builtin, "model_specs": specs}
         else:
-            return {**llm_family.dict(), "is_builtin": is_builtin}
+            res = {**llm_family.dict(), "is_builtin": is_builtin}
+        res["model_version_count"] = version_cnt
+        res["model_instance_count"] = instance_cnt
+        return res
 
-    def _to_embedding_model_reg(
+    async def _to_embedding_model_reg(
         self, model_spec: "EmbeddingModelSpec", is_builtin: bool
     ) -> Dict[str, Any]:
         from ..model.embedding import get_cache_status
 
+        instance_cnt = await self.get_instance_count(model_spec.model_name)
+        version_cnt = await self.get_model_version_count(model_spec.model_name)
+
         if self.is_local_deployment():
             # TODO: does not work when the supervisor and worker are running on separate nodes.
             cache_status = get_cache_status(model_spec)
-            return {
+            res = {
                 **model_spec.dict(),
                 "cache_status": cache_status,
                 "is_builtin": is_builtin,
             }
         else:
-            return {
+            res = {
                 **model_spec.dict(),
                 "is_builtin": is_builtin,
             }
+        res["model_version_count"] = version_cnt
+        res["model_instance_count"] = instance_cnt
+        return res
 
-    def _to_rerank_model_reg(
+    async def _to_rerank_model_reg(
         self, model_spec: "RerankModelSpec", is_builtin: bool
     ) -> Dict[str, Any]:
         from ..model.rerank import get_cache_status
 
+        instance_cnt = await self.get_instance_count(model_spec.model_name)
+        version_cnt = await self.get_model_version_count(model_spec.model_name)
+
         if self.is_local_deployment():
             # TODO: does not work when the supervisor and worker are running on separate nodes.
             cache_status = get_cache_status(model_spec)
-            return {
+            res = {
                 **model_spec.dict(),
                 "cache_status": cache_status,
                 "is_builtin": is_builtin,
             }
         else:
-            return {
+            res = {
                 **model_spec.dict(),
                 "is_builtin": is_builtin,
             }
+        res["model_version_count"] = version_cnt
+        res["model_instance_count"] = instance_cnt
+        return res
 
-    def _to_image_model_reg(
+    async def _to_image_model_reg(
         self, model_family: "ImageModelFamilyV1", is_builtin: bool
     ) -> Dict[str, Any]:
         from ..model.image import get_cache_status
 
+        instance_cnt = await self.get_instance_count(model_family.model_name)
+        version_cnt = await self.get_model_version_count(model_family.model_name)
+
         if self.is_local_deployment():
             # TODO: does not work when the supervisor and worker are running on separate nodes.
             cache_status = get_cache_status(model_family)
-            return {
+            res = {
                 **model_family.dict(),
                 "cache_status": cache_status,
                 "is_builtin": is_builtin,
             }
         else:
-            return {
+            res = {
                 **model_family.dict(),
                 "is_builtin": is_builtin,
             }
+        res["model_version_count"] = version_cnt
+        res["model_instance_count"] = instance_cnt
+        return res
 
-    def _to_audio_model_reg(
+    async def _to_audio_model_reg(
         self, model_family: "AudioModelFamilyV1", is_builtin: bool
     ) -> Dict[str, Any]:
         from ..model.audio import get_cache_status
 
+        instance_cnt = await self.get_instance_count(model_family.model_name)
+        version_cnt = await self.get_model_version_count(model_family.model_name)
+
         if self.is_local_deployment():
             # TODO: does not work when the supervisor and worker are running on separate nodes.
             cache_status = get_cache_status(model_family)
-            return {
+            res = {
                 **model_family.dict(),
                 "cache_status": cache_status,
                 "is_builtin": is_builtin,
             }
         else:
-            return {
+            res = {
                 **model_family.dict(),
                 "is_builtin": is_builtin,
             }
+        res["model_version_count"] = version_cnt
+        res["model_instance_count"] = instance_cnt
+        return res
 
-    @log_sync(logger=logger)
-    def list_model_registrations(
+    @log_async(logger=logger)
+    async def list_model_registrations(
         self, model_type: str, detailed: bool = False
     ) -> List[Dict[str, Any]]:
         def sort_helper(item):
@@ -331,13 +361,13 @@ class SupervisorActor(xo.StatelessActor):
             ret = []
             for family in BUILTIN_LLM_FAMILIES:
                 if detailed:
-                    ret.append(self._to_llm_reg(family, True))
+                    ret.append(await self._to_llm_reg(family, True))
                 else:
                     ret.append({"model_name": family.model_name, "is_builtin": True})
 
             for family in get_user_defined_llm_families():
                 if detailed:
-                    ret.append(self._to_llm_reg(family, False))
+                    ret.append(await self._to_llm_reg(family, False))
                 else:
                     ret.append({"model_name": family.model_name, "is_builtin": False})
 
@@ -350,14 +380,16 @@ class SupervisorActor(xo.StatelessActor):
             ret = []
             for model_name, family in BUILTIN_EMBEDDING_MODELS.items():
                 if detailed:
-                    ret.append(self._to_embedding_model_reg(family, is_builtin=True))
+                    ret.append(
+                        await self._to_embedding_model_reg(family, is_builtin=True)
+                    )
                 else:
                     ret.append({"model_name": model_name, "is_builtin": True})
 
             for model_spec in get_user_defined_embeddings():
                 if detailed:
                     ret.append(
-                        self._to_embedding_model_reg(model_spec, is_builtin=False)
+                        await self._to_embedding_model_reg(model_spec, is_builtin=False)
                     )
                 else:
                     ret.append(
@@ -372,7 +404,7 @@ class SupervisorActor(xo.StatelessActor):
             ret = []
             for model_name, family in BUILTIN_IMAGE_MODELS.items():
                 if detailed:
-                    ret.append(self._to_image_model_reg(family, is_builtin=True))
+                    ret.append(await self._to_image_model_reg(family, is_builtin=True))
                 else:
                     ret.append({"model_name": model_name, "is_builtin": True})
 
@@ -384,7 +416,7 @@ class SupervisorActor(xo.StatelessActor):
             ret = []
             for model_name, family in BUILTIN_AUDIO_MODELS.items():
                 if detailed:
-                    ret.append(self._to_audio_model_reg(family, is_builtin=True))
+                    ret.append(await self._to_audio_model_reg(family, is_builtin=True))
                 else:
                     ret.append({"model_name": model_name, "is_builtin": True})
 
@@ -397,13 +429,15 @@ class SupervisorActor(xo.StatelessActor):
             ret = []
             for model_name, family in BUILTIN_RERANK_MODELS.items():
                 if detailed:
-                    ret.append(self._to_rerank_model_reg(family, is_builtin=True))
+                    ret.append(await self._to_rerank_model_reg(family, is_builtin=True))
                 else:
                     ret.append({"model_name": model_name, "is_builtin": True})
 
             for model_spec in get_user_defined_reranks():
                 if detailed:
-                    ret.append(self._to_rerank_model_reg(model_spec, is_builtin=False))
+                    ret.append(
+                        await self._to_rerank_model_reg(model_spec, is_builtin=False)
+                    )
                 else:
                     ret.append(
                         {"model_name": model_spec.model_name, "is_builtin": False}
@@ -508,12 +542,11 @@ class SupervisorActor(xo.StatelessActor):
         )
         return f"{model_name}-{gen_random_string(8)}"
 
-    @log_async(logger=logger)
     async def get_model_versions(self, model_type: str, model_name: str) -> List[Dict]:
-        logger.debug(
-            f"Get model versions of model_name: {model_name}, model_type: {model_type}"
-        )
         return await self._cache_tracker_ref.get_model_versions(model_name)
+
+    async def get_model_version_count(self, model_name: str) -> int:
+        return await self._cache_tracker_ref.get_model_version_count(model_name)
 
     @log_async(logger=logger)
     async def launch_model_by_version(
@@ -713,6 +746,9 @@ class SupervisorActor(xo.StatelessActor):
             model_name=model_name, model_uid=model_uid
         )
         return [info.dict() for info in sorted(infos, key=lambda info: info.model_uid)]
+
+    async def get_instance_count(self, model_name: str) -> int:
+        return await self._status_guard_ref.get_instance_count(model_name)
 
     async def _check_dead_nodes(self):
         while True:

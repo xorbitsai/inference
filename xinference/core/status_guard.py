@@ -83,5 +83,8 @@ class StatusGuardActor(xo.StatelessActor):
             else self._drop_terminated_info(all_infos)
         )
 
+    def get_instance_count(self, model_name: str) -> int:
+        return len(self.get_instance_info(model_name=model_name))
+
     def update_instance_info(self, model_uid: str, info: Dict):
         self._model_uid_to_info[model_uid].update(**info)
