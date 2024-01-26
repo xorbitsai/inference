@@ -5,7 +5,8 @@ Builtin Models
 ==============
 
 
-Xinference offers an extensive array of AI models, encompassing everything from text generation and multimodal models, to text embedding and rerank models.
+Xinference offers an extensive array of AI models, encompassing everything from text generation and multimodal models, 
+to text embedding and rerank models.
 
 
 List the Built-in Models
@@ -17,25 +18,54 @@ You can list all models of a certain type that are available to launch in Xinfer
 
   .. code-tab:: bash shell
 
-    xinference registrations -t <model_type>
+    xinference registrations --model-type <MODEL_TYPE> \
+                             --endpoint "http://<XINFERENCE_HOST>:<XINFERENCE_PORT>" \
 
   .. code-tab:: bash cURL
 
-    curl http://127.0.0.1:9997/v1/model_registrations/<model_type>
+    curl http://<XINFERENCE_HOST>:<XINFERENCE_PORT>/v1/model_registrations/<MODEL_TYPE>
 
   .. code-tab:: python
 
-    from xinference.client import RESTfulClient
-    client = RESTfulClient("http://127.0.0.1:9997")
-    print(client.list_model_registrations(model_type='<model_type>'))
+    from xinference.client import Client
+    client = Client("http://<XINFERENCE_HOST>:<XINFERENCE_PORT>")
+    print(client.list_model_registrations(model_type='<MODEL_TYPE>'))
 
-The following ``model_type`` is supported by Xinference:
+
+The following ``MODEL_TYPE`` is supported by Xinference:
 
 * ``LLM``   
 * ``multimodal``
 * ``embedding``
 * ``image`` 
 * ``rerank``
+
+
+Launch a Built-in Model
+============================
+
+You can launch a model in Xinference either via command line or Xinference's Python client:
+
+.. tabs::
+
+  .. code-tab:: bash shell
+
+    xinference launch --model-name <MODEL_NAME> \
+                      --model-type <MODEL_TYPE> \
+                      --endpoint "http://<XINFERENCE_HOST>:<XINFERENCE_PORT>" \
+
+
+  .. code-tab:: python
+
+    from xinference.client import Client
+
+    client = Client("http://<XINFERENCE_HOST>:<XINFERENCE_PORT>")
+    model_uid = client.launch_model(model_name="<MODEL_NAME>", model_type="<MODEL_TYPE>")
+    print(model_uid)
+
+
+For model type ``LLM``, launching the model requires not only specifying the model name, but also the size of the parameters
+and the model format.  Please refer to the list of LLM :ref:`model families <models_llm_index>`.
 
 
 .. toctree::

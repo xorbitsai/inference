@@ -4,7 +4,7 @@
 Large language Models
 =====================
 
-The following is a list of built-in LLM in Xinference:
+The following is a list of built-in LLM in Xinference. Each entry represents a model family.
 
 .. list-table::
    :widths: 25 25 25 50
