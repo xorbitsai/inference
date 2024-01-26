@@ -76,6 +76,15 @@ Developing Real-world AI Applications with Xinference
 
     model.text_to_image("An astronaut walking on the mars")
 
+  .. code-tab:: python Audio
+
+    from xinference.client import Client
+
+    client = Client("http://localhost:9997")
+    model = client.get_model("MODEL_UID")
+
+    with open("speech.mp3", "rb") as audio_file:
+        model.transcriptions(audio_file.read())
 
   .. code-tab:: python Rerank
 
@@ -175,6 +184,15 @@ Explore the API
       :link-type: ref
 
       Learn how to process image with LLMs.
+
+
+.. grid:: 2
+
+    .. grid-item-card::  Audio
+      :link: audio
+      :link-type: ref
+
+      Learn how to turn audio into text or text into audio with Xinference.
 
 
 Getting Involved

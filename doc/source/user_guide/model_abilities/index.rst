@@ -13,4 +13,5 @@ Model Abilities
    embed
    rerank
    image
+   audio
 

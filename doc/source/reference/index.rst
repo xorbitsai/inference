@@ -35,7 +35,6 @@ ChatglmCppChatModelHandle
    xinference.client.handlers.ChatglmCppChatModelHandle
 
    xinference.client.handlers.ChatglmCppChatModelHandle.chat
-   xinference.client.handlers.ChatglmCppChatModelHandle.create_embedding
 
 
 ChatModelHandle
@@ -46,7 +45,6 @@ ChatModelHandle
    xinference.client.handlers.ChatModelHandle
 
    xinference.client.handlers.ChatModelHandle.chat
-   xinference.client.handlers.ChatModelHandle.create_embedding
    xinference.client.handlers.ChatModelHandle.generate
 
 
@@ -67,7 +65,6 @@ GenerateModelHandle
 
    xinference.client.handlers.GenerateModelHandle
 
-   xinference.client.handlers.GenerateModelHandle.create_embedding
    xinference.client.handlers.GenerateModelHandle.generate
 
 
@@ -79,3 +76,14 @@ ImageModelHandle
    xinference.client.handlers.ImageModelHandle
 
    xinference.client.handlers.ImageModelHandle.text_to_image
+
+
+AudioModelHandle
+^^^^^^^^^^^^^^^^
+.. autosummary::
+   :toctree: generated/
+
+   xinference.client.handlers.AudioModelHandle
+
+   xinference.client.handlers.AudioModelHandle.transcriptions
+   xinference.client.handlers.AudioModelHandle.translations
