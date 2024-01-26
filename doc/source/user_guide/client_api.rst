@@ -275,6 +275,76 @@ Output:
 
     ImagesResponse(created=1704445354, data=[Image(b64_json=None, revised_prompt=None, url='/home/admin/.xinference/image/605d2f545ac74142b8031455af31ee33.jpg')])
 
+
+Audio
+~~~~~
+
+To list the available built-in image models:
+
+.. code-block::
+
+    >>> xinference registrations -t audio
+
+    Type    Name               Family    Multilingual    Is-built-in
+    ------  -----------------  --------  --------------  -------------
+    audio   whisper-base       whisper   True            True
+    audio   whisper-base.en    whisper   False           True
+    audio   whisper-large-v3   whisper   True            True
+    audio   whisper-medium     whisper   True            True
+    audio   whisper-medium.en  whisper   False           True
+    audio   whisper-tiny       whisper   True            True
+    audio   whisper-tiny.en    whisper   False           True
+
+
+To initiate an audio model and get text from an audio:
+
+Xinference Client
+=================
+
+.. code-block::
+
+    from xinference.client import Client
+
+    client = Client("http://localhost:9997")
+    model_uid = client.launch_model(model_name="whisper-large-v3", model_type="audio")
+    model = client.get_model(model_uid)
+
+    input_text = "an apple"
+    with open("audio.mp3", "rb") as audio_file:
+        model.transcriptions(audio_file.read())
+
+Output:
+
+.. code-block::
+
+    {
+      "text": "Imagine the wildest idea that you've ever had, and you're curious about how it might scale to something that's a 100, a 1,000 times bigger. This is a place where you can get to do that."
+    }
+
+
+OpenAI Client
+=============
+
+Openai client request with the same function as before.
+More details refer to: https://platform.openai.com/docs/api-reference/audio/createTranscription
+
+.. code-block::
+
+    import openai
+
+    # Assume that the model is already launched.
+    # The api_key can't be empty, any string is OK.
+    client = openai.Client(api_key="not empty", base_url="http://localhost:9997/v1")
+    with open("audio.mp3", "rb") as audio_file:
+        completion = client.audio.transcriptions.create(model=model_uid, file=audio_file)
+
+Output:
+
+.. code-block::
+
+    Translation(text=' This list lists the airlines in Hong Kong.')
+
+
 Rerank
 ~~~~~~
 To launch a rerank model and compute the similarity scores:
