@@ -26,20 +26,20 @@ potential of cutting-edge AI models.
 
 ## 🔥 Hot Topics
 ### Framework Enhancements
+- Support speech recognition model: [#929](https://github.com/xorbitsai/inference/pull/929)
 - Metrics support: [#906](https://github.com/xorbitsai/inference/pull/906)
 - Docker image: [#855](https://github.com/xorbitsai/inference/pull/855)
 - Support multimodal: [#829](https://github.com/xorbitsai/inference/pull/829)
 - Auto recover: [#694](https://github.com/xorbitsai/inference/pull/694)
 - Function calling API: [#701](https://github.com/xorbitsai/inference/pull/701), here's example: https://github.com/xorbitsai/inference/blob/main/examples/FunctionCall.ipynb
 - Support rerank model: [#672](https://github.com/xorbitsai/inference/pull/672)
-- Speculative decoding: [#509](https://github.com/xorbitsai/inference/pull/509)
 ### New Models
+- Built-in support for [Whisper](https://github.com/openai/whisper): [#929](https://github.com/xorbitsai/inference/pull/929)
+- Built-in support for [Orion-chat](https://huggingface.co/OrionStarAI): [#933](https://github.com/xorbitsai/inference/pull/933)
 - Built-in support for [InternLM2-chat](https://huggingface.co/internlm/internlm2-chat-7b): [#829](https://github.com/xorbitsai/inference/pull/913)
 - Built-in support for [qwen-vl](https://huggingface.co/Qwen/Qwen-VL-Chat): [#829](https://github.com/xorbitsai/inference/pull/829)
 - Built-in support for [phi-2](https://huggingface.co/microsoft/phi-2): [#828](https://github.com/xorbitsai/inference/pull/828)
 - Built-in support for [mistral-instruct-v0.2](https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.2): [#796](https://github.com/xorbitsai/inference/pull/796)
-- Built-in support for [deepseek-llm](https://huggingface.co/deepseek-ai) and [deepseek-coder](https://huggingface.co/deepseek-ai): [#786](https://github.com/xorbitsai/inference/pull/786)
-- Built-in support for [Mixtral-8x7B-v0.1](https://huggingface.co/mistralai/Mixtral-8x7B-v0.1): [#782](https://github.com/xorbitsai/inference/pull/782)
 ### Integrations
 - [Dify](https://docs.dify.ai/advanced/model-configuration/xinference): an LLMOps platform that enables developers (and even non-developers) to quickly build useful applications based on large language models, ensuring they are visual, operable, and improvable.
 - [Chatbox](https://chatboxai.app/): a desktop client for multiple cutting-edge LLM models, available on Windows, Mac and Linux.
@@ -68,16 +68,17 @@ allowing the seamless distribution of model inference across multiple devices or
 with popular third-party libraries including [LangChain](https://python.langchain.com/docs/integrations/providers/xinference), [LlamaIndex](https://gpt-index.readthedocs.io/en/stable/examples/llm/XinferenceLocalDeployment.html#i-run-pip-install-xinference-all-in-a-terminal-window), [Dify](https://docs.dify.ai/advanced/model-configuration/xinference), and [Chatbox](https://chatboxai.app/).
 
 ## Why Xinference
-| Feature | Xinference | FastChat | OpenLLM | RayLLM |
-|---------|------------|----------|---------|--------|
-| OpenAI-Compatible RESTful API | ✅ | ✅ | ✅ | ✅ |
-| vLLM Integrations | ✅ | ✅ | ✅ | ✅ |
-| More Inference Engines (GGML, TensorRT) | ✅ | ❌ | ✅ | ✅ |
-| More Platforms (CPU, Metal) | ✅ | ✅ | ❌ | ❌ |
-| Multi-node Cluster Deployment | ✅ | ❌ | ❌ | ✅ |
-| Image Models (Text-to-Image) | ✅ | ✅ | ❌ | ❌ |
-| Text Embedding Models | ✅ | ❌ | ❌ | ❌ |
-| Multimodal Models | ✅ | ❌ | ❌ | ❌ |
+| Feature                                        | Xinference | FastChat | OpenLLM | RayLLM |
+|------------------------------------------------|------------|----------|---------|--------|
+| OpenAI-Compatible RESTful API                  | ✅ | ✅ | ✅ | ✅ |
+| vLLM Integrations                              | ✅ | ✅ | ✅ | ✅ |
+| More Inference Engines (GGML, TensorRT)        | ✅ | ❌ | ✅ | ✅ |
+| More Platforms (CPU, Metal)                    | ✅ | ✅ | ❌ | ❌ |
+| Multi-node Cluster Deployment                  | ✅ | ❌ | ❌ | ✅ |
+| Image Models (Text-to-Image)                   | ✅ | ✅ | ❌ | ❌ |
+| Text Embedding Models                          | ✅ | ❌ | ❌ | ❌ |
+| Multimodal Models                              | ✅ | ❌ | ❌ | ❌ |
+| Audio Models                                   | ✅ | ❌ | ❌ | ❌ |
 | More OpenAI Functionalities (Function Calling) | ✅ | ❌ | ❌ | ❌ |
 
 ## Getting Started

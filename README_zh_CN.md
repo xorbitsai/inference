@@ -23,20 +23,20 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 
 ## 🔥 近期热点
 ### 框架增强
+- 支持语音识别模型: [#929](https://github.com/xorbitsai/inference/pull/929)
 - 增加 Metrics 统计信息: [#906](https://github.com/xorbitsai/inference/pull/906)
 - Docker 镜像支持: [#855](https://github.com/xorbitsai/inference/pull/855)
 - 支持多模态模型：[#829](https://github.com/xorbitsai/inference/pull/829)
 - 模型自动恢复: [#694](https://github.com/xorbitsai/inference/pull/694)
 - 函数调用接口: [#701](https://github.com/xorbitsai/inference/pull/701)，示例代码：https://github.com/xorbitsai/inference/blob/main/examples/FunctionCall.ipynb
 - 支持 rerank 模型: [#672](https://github.com/xorbitsai/inference/pull/672)
-- 支持指定 grammar 输出: [#525](https://github.com/xorbitsai/inference/pull/525)
 ### 新模型
+- 内置 [Whisper](https://github.com/openai/whisper): [#929](https://github.com/xorbitsai/inference/pull/929)
+- 内置 [Orion-chat](https://huggingface.co/OrionStarAI): [#933](https://github.com/xorbitsai/inference/pull/933)
 - 内置 [InternLM2-chat](https://huggingface.co/internlm/internlm2-chat-7b): [#829](https://github.com/xorbitsai/inference/pull/913)
 - 内置 [qwen-vl](https://huggingface.co/Qwen/Qwen-VL-Chat): [#829](https://github.com/xorbitsai/inference/pull/829)
 - 内置 [phi-2](https://huggingface.co/microsoft/phi-2): [#828](https://github.com/xorbitsai/inference/pull/828)
 - 内置 [mistral-instruct-v0.2](https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.2): [#796](https://github.com/xorbitsai/inference/pull/796)
-- 内置 [deepseek-llm](https://huggingface.co/deepseek-ai) 与 [deepseek-coder](https://huggingface.co/deepseek-ai): [#786](https://github.com/xorbitsai/inference/pull/786)
-- 内置 [Mixtral-8x7B-v0.1](https://huggingface.co/mistralai/Mixtral-8x7B-v0.1): [#782](https://github.com/xorbitsai/inference/pull/782)
 ### 集成
 - [Dify](https://docs.dify.ai/advanced/model-configuration/xinference): 一个涵盖了大型语言模型开发、部署、维护和优化的 LLMOps 平台。
 - [Chatbox](https://chatboxai.app/): 一个支持前沿大语言模型的桌面客户端，支持 Windows，Mac，以及 Linux。
@@ -55,17 +55,18 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 🔌 **开放生态，无缝对接**: 与流行的三方库无缝对接，包括 [LangChain](https://python.langchain.com/docs/integrations/providers/xinference)，[LlamaIndex](https://gpt-index.readthedocs.io/en/stable/examples/llm/XinferenceLocalDeployment.html#i-run-pip-install-xinference-all-in-a-terminal-window)，[Dify](https://docs.dify.ai/advanced/model-configuration/xinference)，以及 [Chatbox](https://chatboxai.app/)。
 
 ## 为什么选择 Xinference
-| 功能特点 | Xinference | FastChat | OpenLLM | RayLLM |
-|---------|------------|----------|---------|--------|
+| 功能特点                    | Xinference | FastChat | OpenLLM | RayLLM |
+|-------------------------|------------|----------|---------|--------|
 | 兼容 OpenAI 的 RESTful API | ✅ | ✅ | ✅ | ✅ |
-| vLLM 集成 | ✅ | ✅ | ✅ | ✅ |
-| 更多推理引擎（GGML、TensorRT） | ✅ | ❌ | ✅ | ✅ |
-| 更多平台支持（CPU、Metal） | ✅ | ✅ | ❌ | ❌ |
-| 分布式集群部署 | ✅ | ❌ | ❌ | ✅ |
-| 图像模型（文生图） | ✅ | ✅ | ❌ | ❌ |
-| 文本嵌入模型 | ✅ | ❌ | ❌ | ❌ |
-| 多模态模型 | ✅ | ❌ | ❌ | ❌ |
-| 更多 OpenAI 功能 (函数调用) | ✅ | ❌ | ❌ | ❌ |
+| vLLM 集成                 | ✅ | ✅ | ✅ | ✅ |
+| 更多推理引擎（GGML、TensorRT）   | ✅ | ❌ | ✅ | ✅ |
+| 更多平台支持（CPU、Metal）       | ✅ | ✅ | ❌ | ❌ |
+| 分布式集群部署                 | ✅ | ❌ | ❌ | ✅ |
+| 图像模型（文生图）               | ✅ | ✅ | ❌ | ❌ |
+| 文本嵌入模型                  | ✅ | ❌ | ❌ | ❌ |
+| 多模态模型                   | ✅ | ❌ | ❌ | ❌ |
+| 语音识别模型                  | ✅ | ❌ | ❌ | ❌ |
+| 更多 OpenAI 功能 (函数调用)     | ✅ | ❌ | ❌ | ❌ |
 
 
 ## 入门指南
