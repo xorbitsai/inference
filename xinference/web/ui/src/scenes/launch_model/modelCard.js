@@ -510,7 +510,9 @@ const ModelCard = ({ url, modelData, gpuAvailable, is_custom = false }) => {
                     .concat(
                       range(
                         0,
-                        modelFormat !== 'pytorch' && modelFormat !== 'gptq'
+                        modelFormat !== 'pytorch' &&
+                          modelFormat !== 'gptq' &&
+                          modelFormat !== 'awq'
                           ? 1
                           : gpuAvailable
                       )

@@ -178,6 +178,10 @@ const RegisterModel = () => {
     return modelFormat === 'gptq'
   }
 
+  const isModelFormatAWQ = () => {
+    return modelFormat === 'awq'
+  }
+
   const getPathComponents = (path) => {
     const normalizedPath = path.replace(/\\/g, '/')
     const baseDir = normalizedPath.substring(0, normalizedPath.lastIndexOf('/'))
@@ -189,6 +193,16 @@ const RegisterModel = () => {
 
   const handleClick = async () => {
     if (isModelFormatGPTQ()) {
+      formData.model_specs = [
+        {
+          model_format: modelFormat,
+          model_size_in_billions: modelSize,
+          quantizations: [''],
+          model_id: '',
+          model_uri: modelUri,
+        },
+      ]
+    } else if (isModelFormatAWQ()) {
       formData.model_specs = [
         {
           model_format: modelFormat,
@@ -377,6 +391,13 @@ const RegisterModel = () => {
                     value="gptq"
                     control={<Radio />}
                     label="GPTQ"
+                  />
+                </Box>
+                <Box sx={{ marginLeft: '10px' }}>
+                  <FormControlLabel
+                    value="awq"
+                    control={<Radio />}
+                    label="AWQ"
                   />
                 </Box>
               </Box>
