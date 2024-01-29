@@ -16,7 +16,7 @@ import logging
 import os
 import random
 import string
-from typing import Generator, List, Tuple, Union
+from typing import Dict, Generator, List, Tuple, Union
 
 import orjson
 from pydantic import BaseModel
@@ -162,3 +162,28 @@ def parse_model_version(model_version: str, model_type: str) -> Tuple:
         return tuple(results)
     else:
         raise ValueError(f"Not supported model_type: {model_type}")
+
+
+def _get_nvidia_gpu_mem_info(gpu_id: int) -> Dict[str, float]:
+    from pynvml import nvmlDeviceGetHandleByIndex, nvmlDeviceGetMemoryInfo
+
+    handler = nvmlDeviceGetHandleByIndex(gpu_id)
+    mem_info = nvmlDeviceGetMemoryInfo(handler)
+    return {"total": mem_info.total, "used": mem_info.used, "free": mem_info.free}
+
+
+def get_nvidia_gpu_info() -> Dict:
+    try:
+        from pynvml import nvmlDeviceGetCount, nvmlInit, nvmlShutdown
+
+        nvmlInit()
+        device_count = nvmlDeviceGetCount()
+        res = {}
+        for i in range(device_count):
+            res[f"gpu-{i}"] = _get_nvidia_gpu_mem_info(i)
+        nvmlShutdown()
+        return res
+    except:
+        # TODO: add log here
+        # logger.debug(f"Cannot init nvml. Maybe due to lack of NVIDIA GPUs or incorrect installation of CUDA.")
+        return {}
