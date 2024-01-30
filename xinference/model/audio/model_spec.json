@@ -28,6 +28,20 @@
     "multilingual": false
   },
   {
+    "model_name": "whisper-small",
+    "model_family": "whisper",
+    "model_id": "openai/whisper-small",
+    "model_revision": "998cb1a777c20db53d6033a61b977ed4c3792cac",
+    "multilingual": true
+  },
+  {
+    "model_name": "whisper-small.en",
+    "model_family": "whisper",
+    "model_id": "openai/whisper-small.en",
+    "model_revision": "e8727524f962ee844a7319d92be39ac1bd25655a",
+    "multilingual": false
+  },
+  {
     "model_name": "whisper-medium",
     "model_family": "whisper",
     "model_id": "openai/whisper-medium",
@@ -47,5 +61,19 @@
     "model_id": "openai/whisper-large-v3",
     "model_revision": "6cdf07a7e3ec3806e5d55f787915b85d4cd020b1",
     "multilingual": true
+  },
+  {
+    "model_name": "Belle-distilwhisper-large-v2-zh",
+    "model_family": "whisper",
+    "model_id": "BELLE-2/Belle-distilwhisper-large-v2-zh",
+    "model_revision": "ed25d13498fa5bac758b2fc479435b698532dfe8",
+    "multilingual": false
+  },
+  {
+    "model_name": "Belle-whisper-large-v2-zh",
+    "model_family": "whisper",
+    "model_id": "BELLE-2/Belle-whisper-large-v2-zh",
+    "model_revision": "ec5bd5d78598545b7585814edde86dac2002b5b9",
+    "multilingual": false
   }
 ]

@@ -1138,3 +1138,20 @@ def test_launch_model_by_version(setup):
     # delete again
     url = f"{endpoint}/v1/models/test_orca"
     requests.delete(url)
+
+
+def test_cluster_info(setup):
+    endpoint, _ = setup
+    url = f"{endpoint}/v1/cluster/info"
+
+    response = requests.get(url)
+    assert response.status_code == 200
+    result = response.json()
+    assert isinstance(result, list)
+    assert len(result) == 2
+    assert result[0]["node_type"] == "Supervisor"
+    assert result[0]["gpu_count"] == 0
+    assert result[0]["gpu_vram_total"] == 0
+    assert result[1]["node_type"] == "Worker"
+    assert result[1]["gpu_count"] == 0
+    assert result[1]["gpu_vram_total"] == 0
