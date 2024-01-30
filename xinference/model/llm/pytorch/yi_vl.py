@@ -207,6 +207,7 @@ class YiVLChatModel(PytorchChatModel):
         generate_kwargs = {
             "input_ids": input_ids,
             "images": image_tensor.unsqueeze(0).to(dtype=torch.bfloat16).cuda(),
+            "streamer": streamer,
             "do_sample": True,
             "top_p": float(top_p),
             "temperature": float(temperature),
