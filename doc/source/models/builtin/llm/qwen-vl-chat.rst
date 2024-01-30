@@ -21,7 +21,7 @@ Model Spec 1 (pytorch, 7 Billion)
 - **Model Size (in billions):** 7
 - **Quantizations:** none
 - **Model ID:** Qwen/Qwen-VL-Chat
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen-VL-Chat>`_, `ModelScope <https://modelscope.cn/models/Qwen/Qwen-VL-Chat>`_
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen-VL-Chat>`__, `ModelScope <https://modelscope.cn/models/Qwen/Qwen-VL-Chat>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
@@ -36,7 +36,7 @@ Model Spec 2 (gptq, 7 Billion)
 - **Model Size (in billions):** 7
 - **Quantizations:** Int4
 - **Model ID:** Qwen/Qwen-VL-Chat-{quantization}
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen-VL-Chat-{quantization}>`_, `ModelScope <https://modelscope.cn/models/Qwen/Qwen-VL-Chat-{quantization}>`_
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen-VL-Chat-{quantization}>`__, `ModelScope <https://modelscope.cn/models/Qwen/Qwen-VL-Chat-{quantization}>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
