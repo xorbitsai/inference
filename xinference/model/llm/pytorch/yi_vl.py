@@ -22,9 +22,7 @@ from typing import Dict, Iterator, List, Optional, Union
 import requests
 import torch
 from PIL import Image
-from transformers import TextIteratorStreamer
 
-from ....model.utils import select_device
 from ....types import (
     ChatCompletion,
     ChatCompletionChoice,
@@ -155,16 +153,12 @@ class YiVLChatModel(PytorchChatModel):
         stopping_criteria = KeywordsStoppingCriteria(
             keywords, self._tokenizer, input_ids
         )
-        streamer = TextIteratorStreamer(
-            self._tokenizer, timeout=60, skip_prompt=True, skip_special_tokens=True
-        )
         top_p = generate_config.get("top_p", 0.7)
         temperature = generate_config.get("temperature", 0.2)
         max_new_tokens = generate_config.get("max_tokens", 512)
         generate_kwargs = {
             "input_ids": input_ids,
             "images": image_tensor.unsqueeze(0).to(dtype=torch.bfloat16).cuda(),
-            "streamer": streamer,
             "do_sample": True,
             "top_p": float(top_p),
             "temperature": float(temperature),
@@ -174,13 +168,6 @@ class YiVLChatModel(PytorchChatModel):
         }
         r = self._model.generate(**generate_kwargs)
         print("fffffffffffffff", r)
-        # from threading import Thread
-        # t = Thread(target=model.generate, kwargs=generate_kwargs)
-        # t.start()
-
-        # response, history = self._model.chat(
-        #     self._tokenizer, query=prompt, history=qwen_history
-        # )
         return ChatCompletion(
             id="chat" + str(uuid.uuid1()),
             object="chat.completion",
