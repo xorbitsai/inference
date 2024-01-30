@@ -20,6 +20,7 @@ from typing import Dict, Generator, List, Tuple, Union
 
 import orjson
 from pydantic import BaseModel
+from pynvml import nvmlDeviceGetCount, nvmlInit, nvmlShutdown
 
 logger = logging.getLogger(__name__)
 
@@ -174,16 +175,15 @@ def _get_nvidia_gpu_mem_info(gpu_id: int) -> Dict[str, float]:
 
 def get_nvidia_gpu_info() -> Dict:
     try:
-        from pynvml import nvmlDeviceGetCount, nvmlInit, nvmlShutdown
-
         nvmlInit()
         device_count = nvmlDeviceGetCount()
         res = {}
         for i in range(device_count):
             res[f"gpu-{i}"] = _get_nvidia_gpu_mem_info(i)
-        nvmlShutdown()
         return res
     except:
         # TODO: add log here
         # logger.debug(f"Cannot init nvml. Maybe due to lack of NVIDIA GPUs or incorrect installation of CUDA.")
         return {}
+    finally:
+        nvmlShutdown()
