@@ -76,8 +76,12 @@ class YiVLChatModel(PytorchChatModel):
 
                 return Image.open(BytesIO(data))
             else:
-                response = requests.get(_url)
-                return Image.open(BytesIO(response.content))
+                try:
+                    response = requests.get(_url)
+                except requests.exceptions.MissingSchema:
+                    return Image.open(_url)
+                else:
+                    return Image.open(BytesIO(response.content))
 
         if not isinstance(content, str):
             from ....thirdparty.llava.model.constants import DEFAULT_IMAGE_TOKEN
@@ -89,7 +93,7 @@ class YiVLChatModel(PytorchChatModel):
                 if c_type == "text":
                     texts.append(c["text"])
                 elif c_type == "image_url":
-                    image_urls.append(c["image_url"])
+                    image_urls.append(c["image_url"]["url"])
             image_futures = []
             with ThreadPoolExecutor() as executor:
                 for image_url in image_urls:
