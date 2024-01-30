@@ -128,7 +128,7 @@ class RerankModel:
 
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
         self._model = CrossEncoder(
-            self._model_path, device=self._device, automodel_args=self._model_config
+            self._model_path, device=self._device, **self._model_config
         )
         if self._use_fp16:
             self._model.model.half()
