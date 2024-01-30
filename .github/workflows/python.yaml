@@ -110,7 +110,7 @@ jobs:
           pip install transformers_stream_generator
           pip install bitsandbytes
           pip install ctransformers
-          pip install sentence-transformers<2.3.0
+          pip install "sentence-transformers<2.3.0"
           pip install s3fs
           pip install modelscope
           pip install diffusers
