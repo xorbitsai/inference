@@ -157,10 +157,13 @@ class YiVLChatModel(PytorchChatModel):
         chat_history: Optional[List[ChatCompletionMessage]] = None,
         generate_config: Optional[PytorchGenerateConfig] = None,
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
+        # TODO(codingl2k1): implement stream mode.
         if generate_config and generate_config.get("stream"):
             raise Exception(
                 f"Chat with model {self.model_family.model_name} does not support stream."
             )
+        if not generate_config:
+            generate_config = {}
         from ....thirdparty.llava.conversation import conv_templates
         from ....thirdparty.llava.mm_utils import (
             KeywordsStoppingCriteria,
@@ -224,7 +227,6 @@ class YiVLChatModel(PytorchChatModel):
             if generated_text.endswith(stop_str):
                 generated_text = generated_text[: -len(stop_str)]
         r = self._parse_text(generated_text)
-        print("fffffffffffffff", r)
         return ChatCompletion(
             id="chat" + str(uuid.uuid1()),
             object="chat.completion",
