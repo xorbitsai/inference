@@ -21,7 +21,7 @@ Model Spec 1 (pytorch, 7 Billion)
 - **Model Size (in billions):** 7
 - **Quantizations:** none
 - **Model ID:** internlm/internlm2-chat-7b
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/internlm/internlm2-chat-7b>`_, `ModelScope <https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm2-chat-7b>`_
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/internlm/internlm2-chat-7b>`__, `ModelScope <https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm2-chat-7b>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
@@ -36,7 +36,7 @@ Model Spec 2 (pytorch, 20 Billion)
 - **Model Size (in billions):** 20
 - **Quantizations:** none
 - **Model ID:** internlm/internlm2-chat-20b
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/internlm/internlm2-chat-20b>`_, `ModelScope <https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm2-chat-20b>`_
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/internlm/internlm2-chat-20b>`__, `ModelScope <https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm2-chat-20b>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::

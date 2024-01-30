@@ -21,7 +21,7 @@ Model Spec 1 (pytorch, 14 Billion)
 - **Model Size (in billions):** 14
 - **Quantizations:** none, 4-bit, 8-bit
 - **Model ID:** OrionStarAI/Orion-14B-Chat-RAG
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/OrionStarAI/Orion-14B-Chat-RAG>`_, `ModelScope <https://modelscope.cn/models/OrionStarAI/Orion-14B-Chat-RAG>`_
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/OrionStarAI/Orion-14B-Chat-RAG>`__, `ModelScope <https://modelscope.cn/models/OrionStarAI/Orion-14B-Chat-RAG>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
