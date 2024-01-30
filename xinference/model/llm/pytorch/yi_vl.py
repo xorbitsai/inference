@@ -17,11 +17,13 @@ import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
+from threading import Thread
 from typing import Dict, Iterator, List, Optional, Union
 
 import requests
 import torch
 from PIL import Image
+from transformers import TextIteratorStreamer
 
 from ....model.utils import select_device
 from ....types import (
@@ -67,7 +69,8 @@ class YiVLChatModel(PytorchChatModel):
             _,
         ) = load_pretrained_model(self.model_path, device_map=device)
 
-    def _message_content_to_yi(self, content) -> Union[str, tuple]:
+    @staticmethod
+    def _message_content_to_yi(content) -> Union[str, tuple]:
         def _load_image(_url):
             if _url.startswith("data:"):
                 logging.info("Parse url by base64 decoder.")
@@ -114,6 +117,38 @@ class YiVLChatModel(PytorchChatModel):
             else:
                 raise RuntimeError("Only one image per message is supported by Yi VL.")
         return content
+
+    @staticmethod
+    def _parse_text(text):
+        lines = text.split("\n")
+        lines = [line for line in lines if line != ""]
+        count = 0
+        for i, line in enumerate(lines):
+            if "```" in line:
+                count += 1
+                items = line.split("`")
+                if count % 2 == 1:
+                    lines[i] = f'<pre><code class="language-{items[-1]}">'
+                else:
+                    lines[i] = f"<br></code></pre>"
+            else:
+                if i > 0:
+                    if count % 2 == 1:
+                        line = line.replace("`", r"\`")
+                        line = line.replace("<", "&lt;")
+                        line = line.replace(">", "&gt;")
+                        line = line.replace(" ", "&nbsp;")
+                        line = line.replace("*", "&ast;")
+                        line = line.replace("_", "&lowbar;")
+                        line = line.replace("-", "&#45;")
+                        line = line.replace(".", "&#46;")
+                        line = line.replace("!", "&#33;")
+                        line = line.replace("(", "&#40;")
+                        line = line.replace(")", "&#41;")
+                        line = line.replace("$", "&#36;")
+                    lines[i] = "<br>" + line
+        text = "".join(lines)
+        return text
 
     def chat(
         self,
@@ -163,6 +198,9 @@ class YiVLChatModel(PytorchChatModel):
         stopping_criteria = KeywordsStoppingCriteria(
             keywords, self._tokenizer, input_ids
         )
+        streamer = TextIteratorStreamer(
+            self._tokenizer, timeout=60, skip_prompt=True, skip_special_tokens=True
+        )
         top_p = generate_config.get("top_p", 0.7)
         temperature = generate_config.get("temperature", 0.2)
         max_new_tokens = generate_config.get("max_tokens", 512)
@@ -176,7 +214,15 @@ class YiVLChatModel(PytorchChatModel):
             "use_cache": True,
             "max_new_tokens": min(int(max_new_tokens), 1536),
         }
-        r = self._model.generate(**generate_kwargs)
+        t = Thread(target=self._model.generate, kwargs=generate_kwargs)
+        t.start()
+
+        generated_text = ""
+        for new_text in streamer:
+            generated_text += new_text
+            if generated_text.endswith(stop_str):
+                generated_text = generated_text[: -len(stop_str)]
+        r = self._parse_text(generated_text)
         print("fffffffffffffff", r)
         return ChatCompletion(
             id="chat" + str(uuid.uuid1()),
