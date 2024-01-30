@@ -53,7 +53,9 @@ class YiVLChatModel(PytorchChatModel):
 
     def load(self):
         from ....thirdparty.llava.mm_utils import load_pretrained_model
+        from ....thirdparty.llava.model.constants import key_info
 
+        key_info["model_path"] = self.model_path
         (
             self._tokenizer,
             self._model,
