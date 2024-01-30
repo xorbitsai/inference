@@ -24,7 +24,7 @@ import xoscar as xo
 from ..core import ModelActor
 from ..core.status_guard import InstanceInfo, LaunchStatus
 from .metrics import record_metrics
-from .resource import ResourceStatus
+from .resource import GPUStatus, ResourceStatus
 from .utils import (
     build_replica_model_uid,
     gen_random_string,
@@ -60,7 +60,7 @@ def callback_for_async_launch(model_uid: str):
 @dataclass
 class WorkerStatus:
     update_time: float
-    status: Dict[str, ResourceStatus]
+    status: Dict[str, Union[ResourceStatus, GPUStatus]]
 
 
 @dataclass
@@ -165,6 +165,30 @@ class SupervisorActor(xo.StatelessActor):
         await self._cache_tracker_ref.record_model_version(
             model_version_infos, self.address
         )
+
+    async def get_cluster_device_info(self) -> List:
+        supervisor_device_info = {
+            "ip_address": self.address.split(":")[0],
+            "gpu_count": 0,
+            "gpu_vram_total": 0,
+        }
+        res = [{"node_type": "Supervisor", **supervisor_device_info}]
+        for worker_addr, worker_status in self._worker_status.items():
+            vram_total: float = sum(
+                [v.mem_total for k, v in worker_status.status.items() if k != "cpu"]  # type: ignore
+            )
+            total = (
+                vram_total if vram_total == 0 else f"{int(vram_total / 1024 / 1024)}MiB"
+            )
+            res.append(
+                {
+                    "node_type": "Worker",
+                    "ip_address": worker_addr.split(":")[0],
+                    "gpu_count": len(worker_status.status) - 1,
+                    "gpu_vram_total": total,
+                }
+            )
+        return res
 
     @staticmethod
     async def get_builtin_prompts() -> Dict[str, Any]:
@@ -871,7 +895,7 @@ class SupervisorActor(xo.StatelessActor):
             )
 
     async def report_worker_status(
-        self, worker_address: str, status: Dict[str, ResourceStatus]
+        self, worker_address: str, status: Dict[str, Union[ResourceStatus, GPUStatus]]
     ):
         if worker_address not in self._worker_status:
             logger.debug("Worker %s resources: %s", worker_address, status)

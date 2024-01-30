@@ -217,6 +217,9 @@ class RESTfulAPI:
             "/v1/models/families", self._get_builtin_families, methods=["GET"]
         )
         self._router.add_api_route(
+            "/v1/cluster/info", self.get_cluster_device_info, methods=["GET"]
+        )
+        self._router.add_api_route(
             "/v1/cluster/devices", self._get_devices_count, methods=["GET"]
         )
         self._router.add_api_route("/v1/address", self.get_address, methods=["GET"])
@@ -1281,6 +1284,14 @@ class RESTfulAPI:
         except ValueError as re:
             logger.error(re, exc_info=True)
             raise HTTPException(status_code=400, detail=str(re))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def get_cluster_device_info(self) -> JSONResponse:
+        try:
+            data = await (await self._get_supervisor_ref()).get_cluster_device_info()
+            return JSONResponse(content=data)
         except Exception as e:
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))

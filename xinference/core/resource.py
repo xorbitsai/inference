@@ -13,9 +13,11 @@
 # limitations under the License.
 
 from dataclasses import dataclass
-from typing import Dict
+from typing import Dict, Union
 
 import psutil
+
+from .utils import get_nvidia_gpu_info
 
 
 @dataclass
@@ -26,7 +28,14 @@ class ResourceStatus:
     memory_total: float
 
 
-def gather_node_info() -> Dict[str, ResourceStatus]:
+@dataclass
+class GPUStatus:
+    mem_total: float
+    mem_free: float
+    mem_used: float
+
+
+def gather_node_info() -> Dict[str, Union[ResourceStatus, GPUStatus]]:
     node_resource = dict()
     mem_info = psutil.virtual_memory()
     node_resource["cpu"] = ResourceStatus(
@@ -35,13 +44,11 @@ def gather_node_info() -> Dict[str, ResourceStatus]:
         memory_available=mem_info.available,
         memory_total=mem_info.total,
     )
-    # TODO: record GPU stats
-    # for idx, gpu_card_stat in enumerate(resource.cuda_card_stats()):
-    #     node_resource[f"gpu-{idx}"] = ResourceStatus(
-    #         available=gpu_card_stat.gpu_usage / 100.0,
-    #         total=1,
-    #         memory_available=gpu_card_stat.fb_mem_info.available,
-    #         memory_total=gpu_card_stat.fb_mem_info.total,
-    #     )
+    for gpu_idx, gpu_info in get_nvidia_gpu_info().items():
+        node_resource[gpu_idx] = GPUStatus(  # type: ignore
+            mem_total=gpu_info["total"],
+            mem_used=gpu_info["used"],
+            mem_free=gpu_info["free"],
+        )
 
-    return node_resource
+    return node_resource  # type: ignore
