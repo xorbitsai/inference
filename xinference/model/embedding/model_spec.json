@@ -144,6 +144,14 @@
     "model_revision": "7302ac470bed880590f9344bfeee32ff8722d0e5"
   },
   {
+    "model_name": "jina-embeddings-v2-base-zh",
+    "dimensions": 768,
+    "max_tokens": 8192,
+    "language": ["zh", "en"],
+    "model_id": "jinaai/jina-embeddings-v2-base-zh",
+    "model_revision": "67974cbef5cf50562eadd745de8afc661c52c96f"
+  },
+  {
     "model_name": "text2vec-large-chinese",
     "dimensions": 1024,
     "max_tokens": 256,
