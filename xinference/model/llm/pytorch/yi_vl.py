@@ -23,6 +23,7 @@ import requests
 import torch
 from PIL import Image
 
+from ....model.utils import select_device
 from ....types import (
     ChatCompletion,
     ChatCompletionChoice,
@@ -55,13 +56,16 @@ class YiVLChatModel(PytorchChatModel):
         from ....thirdparty.llava.mm_utils import load_pretrained_model
         from ....thirdparty.llava.model.constants import key_info
 
+        device = self._pytorch_model_config.get("device", "auto")
+        device = select_device(device)
+
         key_info["model_path"] = self.model_path
         (
             self._tokenizer,
             self._model,
             self._image_processor,
             _,
-        ) = load_pretrained_model(self.model_path)
+        ) = load_pretrained_model(self.model_path, device_map=device)
 
     def _message_content_to_yi(self, content) -> Union[str, tuple]:
         def _load_image(_url):
