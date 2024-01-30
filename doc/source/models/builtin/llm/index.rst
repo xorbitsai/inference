@@ -4,7 +4,7 @@
 Large language Models
 =====================
 
-The following is a list of built-in LLM in Xinference. Each entry represents a model family.
+The following is a list of built-in LLM in Xinference:
 
 .. list-table::
    :widths: 25 25 25 50
@@ -52,7 +52,7 @@ The following is a list of built-in LLM in Xinference. Each entry represents a m
      - ChatGLM2-32k is a special version of ChatGLM2, with a context window of 32k tokens instead of 8k.
 
    * - :ref:`chatglm3 <models_llm_chatglm3>`
-     - chat
+     - chat, tools
      - 8192
      - ChatGLM3 is the third generation of ChatGLM, still open-source and trained on Chinese and English data.
 
@@ -131,6 +131,11 @@ The following is a list of built-in LLM in Xinference. Each entry represents a m
      - 4096
      - Internlm-chat is a fine-tuned version of the Internlm LLM, specializing in chatting.
 
+   * - :ref:`internlm2-chat <models_llm_internlm2-chat>`
+     - chat
+     - 204800
+     - The second generation of the InternLM model, InternLM2.
+
    * - :ref:`llama-2 <models_llm_llama-2>`
      - generate
      - 4096
@@ -186,15 +191,30 @@ The following is a list of built-in LLM in Xinference. Each entry represents a m
      - 2048
      - Orca is an LLM trained by fine-tuning LLaMA on explanation traces obtained from GPT-4.
 
+   * - :ref:`orion-chat <models_llm_orion-chat>`
+     - chat
+     - 4096
+     - Orion-14B series models are open-source multilingual large language models trained from scratch by OrionStarAI.
+
+   * - :ref:`orion-chat-rag <models_llm_orion-chat-rag>`
+     - chat
+     - 4096
+     - Orion-14B series models are open-source multilingual large language models trained from scratch by OrionStarAI.
+
    * - :ref:`phi-2 <models_llm_phi-2>`
      - generate
      - 2048
      - Phi-2 is a 2.7B Transformer based LLM used for research on model safety, trained with data similar to Phi-1.5 but augmented with synthetic texts and curated websites.
 
    * - :ref:`qwen-chat <models_llm_qwen-chat>`
-     - chat
-     - 2048
+     - chat, tools
+     - 32768
      - Qwen-chat is a fine-tuned version of the Qwen LLM trained with alignment techniques, specializing in chatting.
+
+   * - :ref:`qwen-vl-chat <models_llm_qwen-vl-chat>`
+     - chat, vision
+     - 4096
+     - Qwen-VL-Chat supports more flexible interaction, such as multiple image inputs, multi-round question answering, and creative capabilities.
 
    * - :ref:`skywork <models_llm_skywork>`
      - generate

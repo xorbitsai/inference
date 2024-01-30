@@ -35,7 +35,6 @@ You can list all models of a certain type that are available to launch in Xinfer
 The following ``MODEL_TYPE`` is supported by Xinference:
 
 * ``LLM``   
-* ``multimodal``
 * ``embedding``
 * ``image`` 
 * ``rerank``
@@ -73,4 +72,5 @@ and the model format.  Please refer to the list of LLM :ref:`model families <mod
 
    llm/index
    embedding/index
+   image/index
    rerank/index

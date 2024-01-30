@@ -1,0 +1,15 @@
+.. _models_image_index:
+
+================
+Image Models
+================
+
+The following is a list of built-in image models in Xinference:
+
+
+.. toctree::
+   :maxdepth: 1
+
+  {% for model in models %}
+   {{ model.model_name|lower }}
+  {% endfor %}

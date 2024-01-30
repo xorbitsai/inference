@@ -36,7 +36,7 @@ Model Spec 2 (awq, 46_7 Billion)
 - **Model Size (in billions):** 46_7
 - **Quantizations:** 4-bit
 - **Model ID:** TheBloke/Mixtral-8x7B-Instruct-v0.1-AWQ
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/Mixtral-8x7B-Instruct-v0.1-AWQ>`_
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/Mixtral-8x7B-Instruct-v0.1-AWQ>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
