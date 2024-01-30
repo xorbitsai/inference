@@ -186,4 +186,7 @@ def get_nvidia_gpu_info() -> Dict:
         # logger.debug(f"Cannot init nvml. Maybe due to lack of NVIDIA GPUs or incorrect installation of CUDA.")
         return {}
     finally:
-        nvmlShutdown()
+        try:
+            nvmlShutdown()
+        except:
+            pass
