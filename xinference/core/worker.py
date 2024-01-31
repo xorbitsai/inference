@@ -152,6 +152,7 @@ class WorkerActor(xo.StatelessActor):
         return "worker"
 
     async def __post_create__(self):
+        from ..isolation import Isolation
         from .cache_tracker import CacheTrackerActor
         from .status_guard import StatusGuardActor
         from .supervisor import SupervisorActor
@@ -175,7 +176,12 @@ class WorkerActor(xo.StatelessActor):
             address=self._supervisor_address, uid=SupervisorActor.uid()
         )
         await self._supervisor_ref.add_worker(self.address)
-        self._upload_task = asyncio.create_task(self._periodical_report_status())
+        # Run _periodical_report_status() in a dedicated thread.
+        self._isolation = Isolation(asyncio.new_event_loop(), threaded=True)
+        self._isolation.start()
+        asyncio.run_coroutine_threadsafe(
+            self._periodical_report_status(), loop=self._isolation.loop
+        )
         logger.info(f"Xinference worker {self.address} started")
         logger.info("Purge cache directory: %s", XINFERENCE_CACHE_DIR)
         purge_dir(XINFERENCE_CACHE_DIR)
@@ -233,7 +239,7 @@ class WorkerActor(xo.StatelessActor):
             )
 
     async def __pre_destroy__(self):
-        self._upload_task.cancel()
+        self._isolation.stop()
 
     @staticmethod
     def get_devices_count():
@@ -628,7 +634,15 @@ class WorkerActor(xo.StatelessActor):
         return model_desc.to_dict()
 
     async def report_status(self):
-        status = await asyncio.to_thread(gather_node_info)
+        status = dict()
+        try:
+            async with asyncio.timeout(2):
+                status = await asyncio.to_thread(gather_node_info)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("Report status got error.")
+        logger.debug("Report status: %s", status)
         await self._supervisor_ref.report_worker_status(self.address, status)
 
     async def _periodical_report_status(self):
