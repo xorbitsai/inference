@@ -135,6 +135,8 @@ class LLMDescription(ModelDescription):
             "model_description": self._llm_family.model_description,
             "model_format": self._llm_spec.model_format,
             "model_size_in_billions": self._llm_spec.model_size_in_billions,
+            "model_family": self._llm_family.model_family
+            or self._llm_family.model_name,
             "quantization": self._quantization,
             "model_hub": self._llm_spec.model_hub,
             "revision": self._llm_spec.model_revision,

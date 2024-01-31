@@ -193,7 +193,7 @@ const RunningModels = () => {
                         },
                         body: JSON.stringify({
                           model_type: row.model_type,
-                          model_name: row.model_name,
+                          model_name: row.model_family,
                           model_size_in_billions: row.model_size_in_billions,
                           model_format: row.model_format,
                           quantization: row.quantization,
