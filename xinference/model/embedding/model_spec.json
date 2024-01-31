@@ -190,5 +190,21 @@
     "language": ["zh"],
     "model_id": "shibing624/text2vec-base-multilingual",
     "model_revision": "f241877385fa56ebcc75f04d1850e1579cfa661d"
+  },
+  {
+    "model_name": "bge-m3",
+    "dimensions": 1024,
+    "max_tokens": 8192,
+    "language": ["zh", "en"],
+    "model_id": "BAAI/bge-m3",
+    "model_revision": "73a15ad29ab604f3bdc31601849a9defe86d563f"
+  },
+  {
+    "model_name": "bce-embedding-base_v1",
+    "dimensions": 768,
+    "max_tokens": 512,
+    "language": ["zh", "en"],
+    "model_id": "maidalun1020/bce-embedding-base_v1",
+    "model_revision": "236d9024fc1b4046f03848723f934521a66a9323"
   }
 ]

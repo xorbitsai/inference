@@ -12,5 +12,11 @@
     "model_id": "Xorbits/bge-reranker-large",
     "model_revision": "v0.0.1",
     "model_hub": "modelscope"
+  },
+    {
+    "model_name": "bce-reranker-base_v1",
+    "language": ["en", "zh"],
+    "model_id": "maidalun/bce-reranker-base_v1",
+    "model_hub": "modelscope"
   }
 ]

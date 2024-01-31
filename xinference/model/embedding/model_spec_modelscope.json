@@ -192,5 +192,21 @@
     "language": ["zh"],
     "model_id": "mwei23/text2vec-base-chinese-paraphrase",
     "model_hub": "modelscope"
+  },
+  {
+    "model_name": "bge-m3",
+    "dimensions": 1024,
+    "max_tokens": 8192,
+    "language": ["zh", "en"],
+    "model_id": "Xorbits/bge-m3",
+    "model_hub": "modelscope"
+  },
+  {
+    "model_name": "bce-embedding-base_v1",
+    "dimensions": 768,
+    "max_tokens": 512,
+    "language": ["zh", "en"],
+    "model_id": "maidalun/bce-embedding-base_v1",
+    "model_hub": "modelscope"
   }
 ]

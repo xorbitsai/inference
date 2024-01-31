@@ -11,6 +11,8 @@ The following is a list of built-in embedding models in Xinference:
    :maxdepth: 1
 
   
+   bce-embedding-base_v1
+  
    bge-base-en
   
    bge-base-en-v1.5
@@ -28,6 +30,8 @@ The following is a list of built-in embedding models in Xinference:
    bge-large-zh-noinstruct
   
    bge-large-zh-v1.5
+  
+   bge-m3
   
    bge-small-en-v1.5
   
