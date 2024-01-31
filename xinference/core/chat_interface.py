@@ -98,9 +98,16 @@ class GradioInterface:
             return flat_list
 
         def to_chat(lst: List[str]) -> List[ChatCompletionMessage]:
+            from ..model.llm import BUILTIN_LLM_PROMPT_STYLE
+
             res = []
+            prompt_style = BUILTIN_LLM_PROMPT_STYLE.get(self.model_name)
+            if prompt_style is None:
+                roles = ["assistant", "user"]
+            else:
+                roles = prompt_style.roles
             for i in range(len(lst)):
-                role = "assistant" if i % 2 == 1 else "user"
+                role = roles[0] if i % 2 == 1 else roles[1]
                 res.append(ChatCompletionMessage(role=role, content=lst[i]))
             return res
 

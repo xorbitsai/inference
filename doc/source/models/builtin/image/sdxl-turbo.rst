@@ -5,7 +5,9 @@ sdxl-turbo
 ==========
 
 - **Model Name:** sdxl-turbo
+- **Model Family:** stable_diffusion
 - **Abilities:** text-to-image
+- **Available ControlNet:** None
 
 Specifications
 ^^^^^^^^^^^^^^
