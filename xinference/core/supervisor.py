@@ -14,6 +14,7 @@
 
 import asyncio
 import itertools
+import os
 import time
 from dataclasses import dataclass
 from logging import getLogger
@@ -35,6 +36,7 @@ from .utils import (
     parse_model_version,
     parse_replica_model_uid,
 )
+from ..constants import XINFERENCE_DISABLE_CHECK_NODES
 
 if TYPE_CHECKING:
     from ..model.audio import AudioModelFamilyV1
@@ -90,15 +92,15 @@ class SupervisorActor(xo.StatelessActor):
 
     async def __post_create__(self):
         self._uptime = time.time()
-        # comment this line to avoid worker lost
-        # Run _check_dead_nodes() in a dedicated thread.
-        from ..isolation import Isolation
+        if not XINFERENCE_DISABLE_CHECK_NODES:
+            # Run _check_dead_nodes() in a dedicated thread.
+            from ..isolation import Isolation
 
-        self._isolation = Isolation(asyncio.new_event_loop(), threaded=True)
-        self._isolation.start()
-        asyncio.run_coroutine_threadsafe(
-            self._check_dead_nodes(), loop=self._isolation.loop
-        )
+            self._isolation = Isolation(asyncio.new_event_loop(), threaded=True)
+            self._isolation.start()
+            asyncio.run_coroutine_threadsafe(
+                self._check_dead_nodes(), loop=self._isolation.loop
+            )
         logger.info(f"Xinference supervisor {self.address} started")
         from .cache_tracker import CacheTrackerActor
         from .status_guard import StatusGuardActor
