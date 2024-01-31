@@ -5,7 +5,9 @@ sd-turbo
 ========
 
 - **Model Name:** sd-turbo
+- **Model Family:** stable_diffusion
 - **Abilities:** text-to-image
+- **Available ControlNet:** None
 
 Specifications
 ^^^^^^^^^^^^^^
