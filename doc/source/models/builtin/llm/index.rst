@@ -301,6 +301,11 @@ The following is a list of built-in LLM in Xinference:
      - 204800
      - The Yi series models are large language models trained from scratch by developers at 01.AI.
 
+   * - :ref:`yi-vl-chat <models_llm_yi-vl-chat>`
+     - chat, vision
+     - 204800
+     - Yi Vision Language (Yi-VL) model is the open-source, multimodal version of the Yi Large Language Model (LLM) series, enabling content comprehension, recognition, and multi-round conversations about images.
+
    * - :ref:`zephyr-7b-alpha <models_llm_zephyr-7b-alpha>`
      - chat
      - 8192
@@ -429,6 +434,8 @@ The following is a list of built-in LLM in Xinference:
    yi-200k
   
    yi-chat
+  
+   yi-vl-chat
   
    zephyr-7b-alpha
   

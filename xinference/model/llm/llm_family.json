@@ -3346,5 +3346,61 @@
         "<unk>"
       ]
     }
+  },
+  {
+    "version": 1,
+    "context_length": 204800,
+    "model_name": "yi-vl-chat",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat",
+      "vision"
+    ],
+    "model_description": "Yi Vision Language (Yi-VL) model is the open-source, multimodal version of the Yi Large Language Model (LLM) series, enabling content comprehension, recognition, and multi-round conversations about images.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 6,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "01-ai/Yi-VL-6B",
+        "model_revision": "897c938da1ec860330e2ba2d425ab3004495ba38"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 34,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "01-ai/Yi-VL-34B",
+        "model_revision": "ea29a9a430f27893e780366dae81d4ca5ebab561"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "CHATML",
+      "system_prompt": "",
+      "roles": [
+        "<|im_start|>user",
+        "<|im_start|>assistant"
+      ],
+      "intra_message_sep": "<|im_end|>",
+      "inter_message_sep": "",
+      "stop_token_ids": [
+        2,
+        6,
+        7,
+        8
+      ],
+      "stop": [
+        "<|endoftext|>",
+        "<|im_start|>",
+        "<|im_end|>",
+        "<|im_sep|>"
+      ]
+    }
   }
 ]
