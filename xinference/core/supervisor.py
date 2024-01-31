@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Tuple, Un
 
 import xoscar as xo
 
+from ..constants import XINFERENCE_DISABLE_CHECK_NODES
 from ..core import ModelActor
 from ..core.status_guard import InstanceInfo, LaunchStatus
 from .metrics import record_metrics
@@ -35,7 +36,6 @@ from .utils import (
     parse_model_version,
     parse_replica_model_uid,
 )
-from ..constants import XINFERENCE_DISABLE_CHECK_NODES
 
 if TYPE_CHECKING:
     from ..model.audio import AudioModelFamilyV1
