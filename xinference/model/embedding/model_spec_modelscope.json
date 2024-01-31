@@ -162,6 +162,14 @@
     "model_hub": "modelscope"
   },
   {
+    "model_name": "jina-embeddings-v2-base-zh",
+    "dimensions": 768,
+    "max_tokens": 8192,
+    "language": ["zh", "en"],
+    "model_id": "jinaai/jina-embeddings-v2-base-zh",
+    "model_hub": "modelscope"
+  },
+  {
     "model_name": "text2vec-large-chinese",
     "dimensions": 1024,
     "max_tokens": 256,
