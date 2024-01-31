@@ -14,7 +14,6 @@
 
 import asyncio
 import itertools
-import os
 import time
 from dataclasses import dataclass
 from logging import getLogger
