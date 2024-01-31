@@ -37,6 +37,7 @@ The following ``MODEL_TYPE`` is supported by Xinference:
 * ``LLM``   
 * ``embedding``
 * ``image`` 
+* ``audio``
 * ``rerank``
 
 
@@ -73,4 +74,5 @@ and the model format.  Please refer to the list of LLM :ref:`model families <mod
    llm/index
    embedding/index
    image/index
+   audio/index
    rerank/index

@@ -5,7 +5,9 @@ stable-diffusion-v1.5
 =====================
 
 - **Model Name:** stable-diffusion-v1.5
+- **Model Family:** stable_diffusion
 - **Abilities:** text-to-image
+- **Available ControlNet:** ['canny', 'mlsd', 'hed', 'scribble', 'openpose', 'normal', 'seg']
 
 Specifications
 ^^^^^^^^^^^^^^

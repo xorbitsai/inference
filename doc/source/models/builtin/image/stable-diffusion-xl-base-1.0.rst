@@ -5,7 +5,9 @@ stable-diffusion-xl-base-1.0
 ============================
 
 - **Model Name:** stable-diffusion-xl-base-1.0
+- **Model Family:** stable_diffusion
 - **Abilities:** text-to-image
+- **Available ControlNet:** ['canny', 'depth', 'zoe-depth']
 
 Specifications
 ^^^^^^^^^^^^^^

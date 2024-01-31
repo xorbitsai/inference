@@ -146,6 +146,10 @@ def main():
         os.makedirs(output_dir, exist_ok=True)
 
         for model in sorted_models:
+            available_controlnet = [cn["model_name"] for cn in model.get("controlnet", [])]
+            if not available_controlnet:
+                available_controlnet = None
+            model["available_controlnet"] = available_controlnet
             rendered = env.get_template('image.rst.jinja').render(model)
             output_file_path = os.path.join(output_dir, f"{model['model_name'].lower()}.rst")
             with open(output_file_path, 'w') as output_file:
@@ -155,6 +159,25 @@ def main():
         with open(index_file_path, "w") as file:
             rendered_index = env.get_template('image_index.rst.jinja').render(models=sorted_models)
             file.write(rendered_index)
+
+    with open('../../xinference/model/audio/model_spec.json', 'r') as file:
+        models = json.load(file)
+
+        sorted_models = sorted(models, key=lambda x: x['model_name'].lower())
+        output_dir = './models/builtin/audio'
+        os.makedirs(output_dir, exist_ok=True)
+
+        for model in sorted_models:
+            rendered = env.get_template('audio.rst.jinja').render(model)
+            output_file_path = os.path.join(output_dir, f"{model['model_name'].lower()}.rst")
+            with open(output_file_path, 'w') as output_file:
+                output_file.write(rendered)
+
+        index_file_path = os.path.join(output_dir, "index.rst")
+        with open(index_file_path, "w") as file:
+            rendered_index = env.get_template('audio_index.rst.jinja').render(models=sorted_models)
+            file.write(rendered_index)
+
 
 if __name__ == "__main__":
     main()
