@@ -21,6 +21,12 @@ from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Tuple, Un
 
 import xoscar as xo
 
+from ..constants import (
+    XINFERENCE_DISABLE_HEALTH_CHECK,
+    XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD,
+    XINFERENCE_HEALTH_CHECK_INTERVAL,
+    XINFERENCE_HEALTH_CHECK_TIMEOUT,
+)
 from ..core import ModelActor
 from ..core.status_guard import InstanceInfo, LaunchStatus
 from .metrics import record_metrics
@@ -48,7 +54,6 @@ if TYPE_CHECKING:
 logger = getLogger(__name__)
 
 
-DEFAULT_NODE_TIMEOUT = 60
 ASYNC_LAUNCH_TASKS = {}  # type: ignore
 
 
@@ -60,6 +65,7 @@ def callback_for_async_launch(model_uid: str):
 @dataclass
 class WorkerStatus:
     update_time: float
+    failure_remaining_count: int
     status: Dict[str, Union[ResourceStatus, GPUStatus]]
 
 
@@ -87,8 +93,15 @@ class SupervisorActor(xo.StatelessActor):
 
     async def __post_create__(self):
         self._uptime = time.time()
-        # comment this line to avoid worker lost
-        # self._check_dead_nodes_task = asyncio.create_task(self._check_dead_nodes())
+        if not XINFERENCE_DISABLE_HEALTH_CHECK:
+            # Run _check_dead_nodes() in a dedicated thread.
+            from ..isolation import Isolation
+
+            self._isolation = Isolation(asyncio.new_event_loop(), threaded=True)
+            self._isolation.start()
+            asyncio.run_coroutine_threadsafe(
+                self._check_dead_nodes(), loop=self._isolation.loop
+            )
         logger.info(f"Xinference supervisor {self.address} started")
         from .cache_tracker import CacheTrackerActor
         from .status_guard import StatusGuardActor
@@ -776,27 +789,48 @@ class SupervisorActor(xo.StatelessActor):
 
     async def _check_dead_nodes(self):
         while True:
-            dead_nodes = []
-            for address, status in self._worker_status.items():
-                if time.time() - status.update_time > DEFAULT_NODE_TIMEOUT:
-                    dead_models = []
-                    for model_uid in self._replica_model_uid_to_worker:
-                        if (
-                            self._replica_model_uid_to_worker[model_uid].address
-                            == address
-                        ):
-                            dead_models.append(model_uid)
-                    logger.error(
-                        "Worker timeout. address: %s, influenced models: %s",
-                        address,
-                        dead_models,
-                    )
-                    dead_nodes.append(address)
+            try:
+                dead_nodes = []
+                for address, status in self._worker_status.items():
+                    if (
+                        time.time() - status.update_time
+                        > XINFERENCE_HEALTH_CHECK_TIMEOUT
+                    ):
+                        status.failure_remaining_count -= 1
+                    else:
+                        status.failure_remaining_count = (
+                            XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD
+                        )
 
-            for address in dead_nodes:
-                self._worker_status.pop(address)
-                self._worker_address_to_worker.pop(address)
-            await asyncio.sleep(5)
+                    if status.failure_remaining_count <= 0:
+                        dead_models = []
+                        for model_uid in self._replica_model_uid_to_worker:
+                            if (
+                                self._replica_model_uid_to_worker[model_uid].address
+                                == address
+                            ):
+                                dead_models.append(model_uid)
+                        logger.error(
+                            "Worker dead. address: %s, influenced models: %s",
+                            address,
+                            dead_models,
+                        )
+                        dead_nodes.append(address)
+                    elif (
+                        status.failure_remaining_count
+                        != XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD
+                    ):
+                        logger.error(
+                            "Worker timeout. address: %s, check count remaining %s...",
+                            address,
+                            status.failure_remaining_count,
+                        )
+
+                for address in dead_nodes:
+                    self._worker_status.pop(address, None)
+                    self._worker_address_to_worker.pop(address, None)
+            finally:
+                await asyncio.sleep(XINFERENCE_HEALTH_CHECK_INTERVAL)
 
     @log_async(logger=logger)
     async def terminate_model(self, model_uid: str, suppress_exception=False):
@@ -899,9 +933,15 @@ class SupervisorActor(xo.StatelessActor):
     ):
         if worker_address not in self._worker_status:
             logger.debug("Worker %s resources: %s", worker_address, status)
-        self._worker_status[worker_address] = WorkerStatus(
-            update_time=time.time(), status=status
-        )
+            self._worker_status[worker_address] = WorkerStatus(
+                update_time=time.time(),
+                failure_remaining_count=XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD,
+                status=status,
+            )
+        else:
+            worker_status = self._worker_status[worker_address]
+            worker_status.update_time = time.time()
+            worker_status.status = status
 
     @staticmethod
     def record_metrics(name, op, kwargs):
