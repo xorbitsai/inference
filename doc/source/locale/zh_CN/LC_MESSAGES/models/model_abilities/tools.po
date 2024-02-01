@@ -1,0 +1,146 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2024-02-01 16:47+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: zh_CN\n"
+"Language-Team: zh_CN <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.13.1\n"
+
+#: ../../source/models/model_abilities/tools.rst:5
+msgid "Tools"
+msgstr "工具"
+
+#: ../../source/models/model_abilities/tools.rst:7
+msgid "Learn how to connect LLM with external tools."
+msgstr "学习如何将 LLM 与外部工具连接起来。"
+
+#: ../../source/models/model_abilities/tools.rst:11
+msgid "Introduction"
+msgstr "介绍"
+
+#: ../../source/models/model_abilities/tools.rst:13
+msgid "With the ``tools`` ability you can have your model use external tools."
+msgstr "通过 ``tools`` 功能，您可以让您的模型使用外部工具。"
+
+#: ../../source/models/model_abilities/tools.rst:16
+msgid ""
+"Like `OpenAI's Function calling API "
+"<https://platform.openai.com/docs/guides/function-calling>`_, you can "
+"define the functions along with their parameters and have the model "
+"dynamically choose which function to call and what parameters to pass to "
+"it."
+msgstr "就像 `OpenAI 的 Function calling API <https://platform.openai.com/docs/guides/function-calling>`_ 一样，"
+"你可以定义带有参数的函数，并让模型动态选择要调用哪个函数以及传递给它什么参数。"
+
+#: ../../source/models/model_abilities/tools.rst:19
+msgid "This is the general process for calling a function:"
+msgstr "这是调用函数的一般过程："
+
+#: ../../source/models/model_abilities/tools.rst:21
+msgid ""
+"You submit a query, detailing the functions, their parameters, and "
+"descriptions."
+msgstr "您提交一个查询，详细说明函数、它们的参数和描述。"
+
+#: ../../source/models/model_abilities/tools.rst:22
+msgid ""
+"The LLM decides whether to initiate the function. If chosen not to, it "
+"replies in everyday language, either offering a solution based on its "
+"inherent understanding or asking further details about the query and tool"
+" usage. On deciding to use a tool, it recommends the suitable API and "
+"instructions for its usage, framed in JSON."
+msgstr "LLM 决定是否启动功能。如果选择不启动，它会用日常语言回复，要么基于其内在理解提供解决方案，"
+"要么询问有关查询和工具使用的进一步细节。在决定使用工具时，它会推荐适合的 API 和 JSON 格式的使用说明。"
+
+#: ../../source/models/model_abilities/tools.rst:25
+msgid ""
+"Following that, you implement the API call within your application and "
+"send the returned response back to the LLM for result analysis and "
+"proceeding with the next steps."
+msgstr "接下来，你在应用程序中实现 API 调用，并将返回的响应发送回 LLM 进行结果分析，并继续执行下一步操作。"
+
+#: ../../source/models/model_abilities/tools.rst:28
+msgid ""
+"There is no dedicated API endpoint implemented for ``tools`` ability. It "
+"must be used in combination with Chat API."
+msgstr "目前没有为 ``tools`` 功能实现专用的 API 端点。它必须与 Chat API 结合使用。"
+
+#: ../../source/models/model_abilities/tools.rst:31
+msgid "Supported models"
+msgstr "支持的模型列表"
+
+#: ../../source/models/model_abilities/tools.rst:33
+msgid ""
+"The ``tools`` ability is supported with the following models in "
+"Xinference:"
+msgstr "Xinference 支持以下模型使用 ``tools`` 功能："
+
+#: ../../source/models/model_abilities/tools.rst:35
+msgid ":ref:`models_llm_qwen-chat`"
+msgstr ""
+
+#: ../../source/models/model_abilities/tools.rst:36
+msgid ":ref:`models_llm_chatglm3`"
+msgstr ""
+
+#: ../../source/models/model_abilities/tools.rst:37
+msgid ":ref:`models_llm_gorilla-openfunctions-v1`"
+msgstr ""
+
+#: ../../source/models/model_abilities/tools.rst:41
+msgid "Quickstart"
+msgstr "快速入门"
+
+#: ../../source/models/model_abilities/tools.rst:43
+msgid ""
+"An optional parameter ``tools`` in the Chat API can be used to provide "
+"function specifications. The purpose of this is to enable models to "
+"generate function arguments which adhere to the provided specifications."
+msgstr "Chat API 中的可选参数 ``tools`` 可以用于提供函数规范。其目的是使模型能够生成符合所提供规范的函数参数。"
+
+#: ../../source/models/model_abilities/tools.rst:47
+msgid "Example using OpenAI Client"
+msgstr "使用 OpenAI 客户端的示例"
+
+#: ../../source/models/model_abilities/tools.rst:96
+msgid "The output will be:"
+msgstr "输出结果是："
+
+#: ../../source/models/model_abilities/tools.rst:115
+msgid ""
+"Finish reason will be ``tool_calls`` if the LLM uses a tool call. "
+"Othewise it will be the default finish reason."
+msgstr "如果 LLM 使用了工具调用，完成原因将是 ``tool_calls`` 。"
+"否则，它将是默认的完成原因。"
+
+#: ../../source/models/model_abilities/tools.rst:120
+msgid ""
+"The API will not actually execute any function calls. It is up to "
+"developers to execute function calls using model outputs."
+msgstr "API 本身不会执行任何函数调用。开发者需要使用模型输出来执行函数调用。"
+
+#: ../../source/models/model_abilities/tools.rst:124
+msgid "You can find more examples of ``tools`` ability in the tutorial notebook:"
+msgstr "你可以在教程笔记本中找到更多关于 ``tools`` 能力的示例。"
+
+#: ../../source/models/model_abilities/tools.rst:128
+msgid "Function calling"
+msgstr "函数调用"
+
+#: ../../source/models/model_abilities/tools.rst:131
+msgid "Learn from a complete example demonstrating function calling"
+msgstr "学习一个完整的示例，演示函数调用的过程。"
+

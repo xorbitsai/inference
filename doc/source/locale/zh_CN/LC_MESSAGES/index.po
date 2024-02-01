@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-12-29 16:06+0800\n"
+"POT-Creation-Date: 2024-02-01 16:47+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -30,84 +30,148 @@ msgid ""
 "Xinference, you're empowered to run inference using any open-source LLMs,"
 " embedding models, and multimodal models either in the cloud or on your "
 "own premises, and create robust AI-driven applications."
-msgstr "Xorbits Inference (Xinference) 是一个开源平台，用于简化各种 AI 模型的运行和集成。借助 Xinference，您可以使用任何开源 LLM、嵌入模型和多模态模型在云端或本地环境中运行推理，并创建强大的 AI 应用。"
+msgstr ""
+"Xorbits Inference (Xinference) 是一个开源平台，用于简化各种 AI 模型的运行"
+"和集成。借助 Xinference，您可以使用任何开源 LLM、嵌入模型和多模态模型在"
+"云端或本地环境中运行推理，并创建强大的 AI 应用。"
 
 #: ../../source/index.rst:24
 msgid "Developing Real-world AI Applications with Xinference"
 msgstr "使用 Xinference 开发真实场景的 AI 应用"
 
-#: ../../source/index.rst:80
+#: ../../source/index.rst:108
 msgid "Getting Started"
 msgstr "入门指南"
 
-#: ../../source/index.rst:84
+#: ../../source/index.rst:112
 msgid "Install Xinference"
 msgstr "安装 Xinference"
 
-#: ../../source/index.rst:88
+#: ../../source/index.rst:116
 msgid "Install Xinference on Linux, Windows, and macOS."
 msgstr "在 Linux、Windows 和 macOS 上安装 Xinference。"
 
-#: ../../source/index.rst:90
+#: ../../source/index.rst:118
 msgid "Try it out!"
 msgstr "立即体验！"
 
-#: ../../source/index.rst:94
+#: ../../source/index.rst:122
 msgid "Start by running Xinference on a local machine."
 msgstr "首先在本地计算机上运行 Xinference。"
 
-#: ../../source/index.rst:99
+#: ../../source/index.rst:127
 msgid "Explore models"
 msgstr "探索模型"
 
-#: ../../source/index.rst:103
+#: ../../source/index.rst:131
 msgid "Explore a wide range of models supported by Xinference."
 msgstr "探索 Xinference 支持的各种模型。"
 
-#: ../../source/index.rst:105
+#: ../../source/index.rst:133
 msgid "Register your own model"
 msgstr "注册你自己的模型"
 
-#: ../../source/index.rst:109
+#: ../../source/index.rst:137
 msgid "Register model weights and turn it into an API."
 msgstr "注册模型权重，并转化为 API"
 
-#: ../../source/index.rst:113
+#: ../../source/index.rst:142
+msgid "Explore the API"
+msgstr "探索 API"
+
+#: ../../source/index.rst:146
+msgid "Chat & Generate"
+msgstr "聊天 & 生成"
+
+#: ../../source/index.rst:150
+msgid "Learn how to chat with LLMs in Xinference."
+msgstr "学习如何在 Xinference 中与 LLM聊天。"
+
+#: ../../source/index.rst:152
+msgid "Tools"
+msgstr "工具"
+
+#: ../../source/index.rst:156
+msgid "Learn how to connect LLM with external tools."
+msgstr "学习如何将 LLM 与外部工具连接起来。"
+
+#: ../../source/index.rst:161
+msgid "Embeddings"
+msgstr "嵌入"
+
+#: ../../source/index.rst:165
+msgid "Learn how to create text embeddings in Xinference."
+msgstr "学习如何在 Xinference 中创建文本嵌入。"
+
+#: ../../source/index.rst:167
+msgid "Rerank"
+msgstr "重排序"
+
+#: ../../source/index.rst:171
+msgid "Learn how to use rerank models in Xinference."
+msgstr "学习如何在 Xinference 中使用重排序模型。"
+
+#: ../../source/index.rst:176
+msgid "Images"
+msgstr "图像"
+
+#: ../../source/index.rst:180
+msgid "Learn how to generate images with Xinference."
+msgstr "学习如何使用Xinference生成图像。"
+
+#: ../../source/index.rst:182
+msgid "Vision"
+msgstr "视觉"
+
+#: ../../source/index.rst:186
+msgid "Learn how to process image with LLMs."
+msgstr "学习如何使用 LLM 处理图像。"
+
+#: ../../source/index.rst:191
+msgid "Audio"
+msgstr "音频"
+
+#: ../../source/index.rst:195
+msgid "Learn how to turn audio into text or text into audio with Xinference."
+msgstr "学习如何使用 Xinference 将音频转换为文本或将文本转换为音频。"
+
+#: ../../source/index.rst:199
 msgid "Getting Involved"
 msgstr "参与我们"
 
-#: ../../source/index.rst:122
+#: ../../source/index.rst:208
 msgid "Get Latest News"
 msgstr "最新资讯"
 
-#: ../../source/index.rst:130
+#: ../../source/index.rst:216
 msgid ":fab:`twitter` Follow us on Twitter"
 msgstr ":fab:`twitter` 在 Twitter 上关注我们"
 
-#: ../../source/index.rst:135
+#: ../../source/index.rst:221
 msgid ":fab:`zhihu` Read our blogs"
 msgstr ":fab:`zhihu` 阅读知乎博客"
 
-#: ../../source/index.rst:142
+#: ../../source/index.rst:228
 msgid "Get Support"
 msgstr "寻求帮助"
 
-#: ../../source/index.rst:150
+#: ../../source/index.rst:236
 msgid ":fab:`weixin` Find community on WeChat"
 msgstr ":fab:`weixin` 微信社区"
 
-#: ../../source/index.rst:155
+#: ../../source/index.rst:241
 msgid ":fab:`slack` Find community on Slack"
 msgstr ":fab:`slack` Slack 社区"
 
-#: ../../source/index.rst:160
+#: ../../source/index.rst:246
 msgid ":fab:`github` Open an issue"
 msgstr ":fab:`github` 在 Github 上提 issue"
 
-#: ../../source/index.rst:167
+#: ../../source/index.rst:253
 msgid "Contribute to Xinference"
 msgstr "贡献"
 
-#: ../../source/index.rst:175
+#: ../../source/index.rst:261
 msgid ":fab:`github` Create a pull request"
 msgstr ":fab:`github` 在 Github 上提 PR"
+

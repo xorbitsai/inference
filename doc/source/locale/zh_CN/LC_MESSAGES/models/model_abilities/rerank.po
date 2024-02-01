@@ -1,0 +1,52 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2024-02-01 16:47+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: zh_CN\n"
+"Language-Team: zh_CN <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.13.1\n"
+
+#: ../../source/models/model_abilities/rerank.rst:5
+msgid "Rerank"
+msgstr "重排序"
+
+#: ../../source/models/model_abilities/rerank.rst:7
+msgid "Learn how to use rerank models in Xinference."
+msgstr "学习如何在Xinference中使用重新排序模型。"
+
+#: ../../source/models/model_abilities/rerank.rst:11
+msgid "Introduction"
+msgstr "介绍"
+
+#: ../../source/models/model_abilities/rerank.rst:13
+msgid ""
+"Given a query and a list of documents, Rerank indexes the documents from "
+"most to least semantically relevant to the query. Rerank models in "
+"Xinference can be invoked through the Rerank endpoint to rank a list of "
+"documents."
+msgstr "给定一个查询和一系列文档，Rerank 会根据与查询的语义相关性从最相关到最不相关对文档进行重新排序。"
+"在 Xinference 中，可以通过 Rerank 端点调用 Rerank 模型来对一系列文档进行排序。"
+
+#: ../../source/models/model_abilities/rerank.rst:18
+msgid "Quickstart"
+msgstr "快速入门"
+
+#: ../../source/models/model_abilities/rerank.rst:20
+msgid ""
+"We can try Rerank API out either via cURL, OpenAI Client, or Xinference's"
+" python client:"
+msgstr "我们可以通过cURL、OpenAI Client或Xinference的来尝试使用Rerank API："
+

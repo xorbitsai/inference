@@ -1,0 +1,87 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2024-02-01 16:47+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: zh_CN\n"
+"Language-Team: zh_CN <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.13.1\n"
+
+#: ../../source/models/model_abilities/vision.rst:5
+msgid "Vision"
+msgstr "视觉"
+
+#: ../../source/models/model_abilities/vision.rst:7
+msgid "Learn how to process images with LLMs."
+msgstr "学习如何使用 LLM 处理图像。"
+
+#: ../../source/models/model_abilities/vision.rst:11
+msgid "Introduction"
+msgstr "介绍"
+
+#: ../../source/models/model_abilities/vision.rst:13
+msgid ""
+"With the ``vision`` ability you can have your model take in images and "
+"answer questions about them. Within Xinference, this indicates that "
+"certain models are capable of processing image inputs when conducting "
+"dialogues via the Chat API."
+msgstr "通过 ``vision`` 能力，您可以让模型接收图像并回答有关它们的问题。"
+"在 Xinference 中，这表示某些模型在通过 Chat API 进行对话时能够处理图像输入。"
+
+#: ../../source/models/model_abilities/vision.rst:19
+msgid "Supported models"
+msgstr "支持的模型列表"
+
+#: ../../source/models/model_abilities/vision.rst:21
+msgid ""
+"The ``vision`` ability is supported with the following models in "
+"Xinference:"
+msgstr "在 Xinference 中支持 ``vision`` 功能的模型如下："
+
+#: ../../source/models/model_abilities/vision.rst:23
+msgid "qwen-vl-chat"
+msgstr ""
+
+#: ../../source/models/model_abilities/vision.rst:27
+msgid "Quickstart"
+msgstr "快速入门"
+
+#: ../../source/models/model_abilities/vision.rst:29
+msgid ""
+"Images are made available to the model in two main ways: by passing a "
+"link to the image or by passing the base64 encoded image directly in the "
+"request."
+msgstr "模型可以通过两种主要方式获取图像：通过传递图像的链接或直接在请求中传递 base64 编码的图像。"
+
+#: ../../source/models/model_abilities/vision.rst:33
+msgid "Example using OpenAI Client"
+msgstr "使用 OpenAI 客户端的示例"
+
+#: ../../source/models/model_abilities/vision.rst:64
+msgid "Uploading base 64 encoded images"
+msgstr "上传 Base64 编码的图片"
+
+#: ../../source/models/model_abilities/vision.rst:106
+msgid "You can find more examples of ``vision`` ability in the tutorial notebook:"
+msgstr "你可以在教程笔记本中找到更多关于 ``vision`` 能力的示例。"
+
+#: ../../source/models/model_abilities/vision.rst:110
+msgid "Qwen VL Chat"
+msgstr ""
+
+#: ../../source/models/model_abilities/vision.rst:113
+msgid "Learn vision ability from a example using qwen-vl-chat"
+msgstr "通过使用 qwen-vl-chat 的示例来学习使用 LLM 的视觉能力"
+

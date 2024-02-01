@@ -1,0 +1,131 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2024-02-01 16:47+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: zh_CN\n"
+"Language-Team: zh_CN <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.13.1\n"
+
+#: ../../source/models/model_abilities/image.rst:5
+msgid "Images (Experimental)"
+msgstr "图像（实验性质）"
+
+#: ../../source/models/model_abilities/image.rst:7
+msgid "Learn how to generate images with Xinference."
+msgstr "学习如何使用 Xinference 生成图像。"
+
+#: ../../source/models/model_abilities/image.rst:11
+msgid "Introduction"
+msgstr "介绍"
+
+#: ../../source/models/model_abilities/image.rst:14
+msgid "The Images API provides two methods for interacting with images:"
+msgstr "Images API提供了两种与图像交互的方法："
+
+#: ../../source/models/model_abilities/image.rst:17
+msgid ""
+"The Text-to-image endpoint create images from scratch based on a text "
+"prompt."
+msgstr "文生图端点根据文本从零开始创建图像。"
+
+#: ../../source/models/model_abilities/image.rst:18
+msgid ""
+"The Image-to-image endpoint allows you to generate a variation of a given"
+" image."
+msgstr "图生图端点允许您生成给定图像的变体。"
+
+#: ../../source/models/model_abilities/image.rst:25
+msgid "API ENDPOINT"
+msgstr "API 端点"
+
+#: ../../source/models/model_abilities/image.rst:26
+msgid "OpenAI-compatible ENDPOINT"
+msgstr "OpenAI 兼容端点"
+
+#: ../../source/models/model_abilities/image.rst:28
+msgid "Text-to-Image API"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:29
+msgid "/v1/images/generations"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:31
+msgid "Image-to-image API"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:32
+msgid "/v1/images/variations"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:35
+msgid "Supported models"
+msgstr "支持的模型列表"
+
+#: ../../source/models/model_abilities/image.rst:37
+msgid ""
+"The Text-to-image API is supported with the following models in "
+"Xinference:"
+msgstr "Text-to-image API 在 Xinference 中支持以下模型："
+
+#: ../../source/models/model_abilities/image.rst:39
+msgid "sd-turbo"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:40
+msgid "sdxl-turbo"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:41
+msgid "stable-diffusion-v1.5"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:42
+msgid "stable-diffusion-xl-base-1.0"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:46
+msgid "Quickstart"
+msgstr "快速入门"
+
+#: ../../source/models/model_abilities/image.rst:49
+msgid "Text-to-image"
+msgstr "文生图"
+
+#: ../../source/models/model_abilities/image.rst:51
+msgid ""
+"The Text-to-image API mimics OpenAI's `create images API "
+"<https://platform.openai.com/docs/api-reference/images/create>`_. We can "
+"try Text-to-image API out either via cURL, OpenAI Client, or Xinference's"
+" python client:"
+msgstr "可以通过 cURL、OpenAI Client 或 Xinference 的方式尝试使用 Text-to-image API。"
+
+#: ../../source/models/model_abilities/image.rst:107
+msgid "Image-to-image"
+msgstr "图生图"
+
+#: ../../source/models/model_abilities/image.rst:109
+msgid "You can find more examples of Images API in the tutorial notebook:"
+msgstr "你可以在教程笔记本中找到更多 Images API 的示例。"
+
+#: ../../source/models/model_abilities/image.rst:113
+msgid "Stable Diffusion ControlNet"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:116
+msgid "Learn from a Stable Diffusion ControlNet example"
+msgstr "学习一个 Stable Diffusion 控制网络的示例"
+
