@@ -23,7 +23,7 @@ import xoscar as xo
 from xoscar.utils import get_next_port
 
 from ..constants import (
-    XINFERENCE_HEALTH_CHECK_ATTEMPTS,
+    XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD,
     XINFERENCE_HEALTH_CHECK_INTERVAL,
 )
 from ..core.supervisor import SupervisorActor
@@ -82,7 +82,7 @@ def main(
 
     if not health_check(
         address=supervisor_address,
-        max_attempts=XINFERENCE_HEALTH_CHECK_ATTEMPTS,
+        max_attempts=XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD,
         sleep_interval=XINFERENCE_HEALTH_CHECK_INTERVAL,
     ):
         raise RuntimeError("Supervisor is not available after multiple attempts")

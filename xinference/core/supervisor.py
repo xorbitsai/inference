@@ -21,7 +21,12 @@ from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Tuple, Un
 
 import xoscar as xo
 
-from ..constants import XINFERENCE_DISABLE_CHECK_NODES
+from ..constants import (
+    XINFERENCE_DISABLE_HEALTH_CHECK,
+    XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD,
+    XINFERENCE_HEALTH_CHECK_INTERVAL,
+    XINFERENCE_HEALTH_CHECK_TIMEOUT,
+)
 from ..core import ModelActor
 from ..core.status_guard import InstanceInfo, LaunchStatus
 from .metrics import record_metrics
@@ -49,9 +54,6 @@ if TYPE_CHECKING:
 logger = getLogger(__name__)
 
 
-DEFAULT_NODE_TIMEOUT = 10
-DEFAULT_NODE_FAILURE_COUNT = 5
-DEFAULT_CHECK_ALIVE_INTERVAL = 5
 ASYNC_LAUNCH_TASKS = {}  # type: ignore
 
 
@@ -91,7 +93,7 @@ class SupervisorActor(xo.StatelessActor):
 
     async def __post_create__(self):
         self._uptime = time.time()
-        if not XINFERENCE_DISABLE_CHECK_NODES:
+        if not XINFERENCE_DISABLE_HEALTH_CHECK:
             # Run _check_dead_nodes() in a dedicated thread.
             from ..isolation import Isolation
 
@@ -790,10 +792,15 @@ class SupervisorActor(xo.StatelessActor):
             try:
                 dead_nodes = []
                 for address, status in self._worker_status.items():
-                    if time.time() - status.update_time > DEFAULT_NODE_TIMEOUT:
+                    if (
+                        time.time() - status.update_time
+                        > XINFERENCE_HEALTH_CHECK_TIMEOUT
+                    ):
                         status.failure_remaining_count -= 1
                     else:
-                        status.failure_remaining_count = DEFAULT_NODE_FAILURE_COUNT
+                        status.failure_remaining_count = (
+                            XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD
+                        )
 
                     if status.failure_remaining_count <= 0:
                         dead_models = []
@@ -809,7 +816,10 @@ class SupervisorActor(xo.StatelessActor):
                             dead_models,
                         )
                         dead_nodes.append(address)
-                    elif status.failure_remaining_count != DEFAULT_NODE_FAILURE_COUNT:
+                    elif (
+                            status.failure_remaining_count
+                            != XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD
+                    ):
                         logger.error(
                             "Worker timeout. address: %s, check count remaining %s...",
                             address,
@@ -820,7 +830,7 @@ class SupervisorActor(xo.StatelessActor):
                     self._worker_status.pop(address, None)
                     self._worker_address_to_worker.pop(address, None)
             finally:
-                await asyncio.sleep(DEFAULT_CHECK_ALIVE_INTERVAL)
+                await asyncio.sleep(XINFERENCE_HEALTH_CHECK_INTERVAL)
 
     @log_async(logger=logger)
     async def terminate_model(self, model_uid: str, suppress_exception=False):
@@ -925,7 +935,7 @@ class SupervisorActor(xo.StatelessActor):
             logger.debug("Worker %s resources: %s", worker_address, status)
             self._worker_status[worker_address] = WorkerStatus(
                 update_time=time.time(),
-                failure_remaining_count=DEFAULT_NODE_FAILURE_COUNT,
+                failure_remaining_count=XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD,
                 status=status,
             )
         else:
