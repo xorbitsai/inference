@@ -817,8 +817,8 @@ class SupervisorActor(xo.StatelessActor):
                         )
                         dead_nodes.append(address)
                     elif (
-                            status.failure_remaining_count
-                            != XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD
+                        status.failure_remaining_count
+                        != XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD
                     ):
                         logger.error(
                             "Worker timeout. address: %s, check count remaining %s...",
