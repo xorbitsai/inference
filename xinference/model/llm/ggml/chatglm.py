@@ -247,11 +247,11 @@ class ChatglmCppChatModel(LLM):
         if system_prompt is not None:
             chat_history_list.append({"role": "system", "content": system_prompt})
         if chat_history is not None:
-            chat_history_list.extend(chat_history)
+            chat_history_list.extend(chat_history)  # type: ignore
 
         tool_message = self._handle_tools(generate_config)
         if tool_message is not None:
-            chat_history_list.insert(0, tool_message)
+            chat_history_list.insert(0, tool_message)  # type: ignore
 
         # We drop the message which contains tool calls to walkaround the issue:
         # https://github.com/li-plus/chatglm.cpp/issues/231
