@@ -946,7 +946,7 @@ async def test_openai(setup):
         stream_chunk_type_name = "ChatCompletionChunk"
         response_type_name = "ChatCompletion"
     async for chunk in await openai_chat_completion(
-        messages=messages, stream=True, model=model_uid_res
+        messages=messages, stream=True, model=model_uid_res, max_tokens=None
     ):
         if not hasattr(chunk, "choices") or len(chunk.choices) == 0:
             continue

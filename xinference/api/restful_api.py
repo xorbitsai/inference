@@ -62,6 +62,7 @@ from ..types import (
     CreateChatCompletion,
     CreateCompletion,
     ImageList,
+    max_tokens_field,
 )
 from .oauth2.auth_service import AuthService
 from .oauth2.types import LoginUserForm
@@ -794,6 +795,9 @@ class RESTfulAPI:
         }
         kwargs = body.dict(exclude_unset=True, exclude=exclude)
 
+        if body.max_tokens is None:
+            kwargs["max_tokens"] = max_tokens_field.default
+
         if body.logit_bias is not None:
             raise HTTPException(status_code=501, detail="Not implemented")
 
@@ -1081,6 +1085,9 @@ class RESTfulAPI:
             "user",
         }
         kwargs = body.dict(exclude_unset=True, exclude=exclude)
+
+        if body.max_tokens is None:
+            kwargs["max_tokens"] = max_tokens_field.default
 
         if body.logit_bias is not None:
             raise HTTPException(status_code=501, detail="Not implemented")
