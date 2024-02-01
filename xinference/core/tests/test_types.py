@@ -92,7 +92,7 @@ def test_create_chat_completion_types():
     # with pytest.raises(pydantic.ValidationError):
     #     CreateChatCompletion(model="abc", messages=[{"role": "invalid"}])
 
-    CreateChatCompletion(model="abc", messages=[{"role": "tool"}])
+    CreateChatCompletion(model="abc", messages=[{"role": "tool"}], max_tokens=None)
 
     types = [
         CreateChatCompletionTorch,

@@ -329,7 +329,7 @@ class ModelAndPrompt(BaseModel):
 
 class CreateCompletionTorch(BaseModel):
     echo: bool = echo_field
-    max_tokens: int = max_tokens_field
+    max_tokens: Optional[int] = max_tokens_field
     repetition_penalty: float = repeat_penalty_field
     stop: Optional[Union[str, List[str]]] = stop_field
     stop_token_ids: Optional[Union[int, List[int]]] = none_field
