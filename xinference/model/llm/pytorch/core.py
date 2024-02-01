@@ -14,6 +14,7 @@
 
 import logging
 import os
+import json
 from typing import Iterable, Iterator, List, Optional, Union
 
 from ....types import (
@@ -29,6 +30,7 @@ from ....types import (
     PytorchGenerateConfig,
     PytorchModelConfig,
 )
+from ....device_utils import gpu_count, get_device_preferred_dtype, is_hf_accelerate_supported
 from ...utils import select_device
 from ..core import LLM
 from ..llm_family import LLMFamilyV1, LLMSpecV1
@@ -115,23 +117,18 @@ class PytorchModel(LLM):
             )
         from .compression import load_compress_model
 
-        cuda_visible_devices_env = os.getenv("CUDA_VISIBLE_DEVICES", None)
-        cuda_visible_devices = (
-            cuda_visible_devices_env.split(",") if cuda_visible_devices_env else []
-        )
-
         quantization = self.quantization
-        num_gpus = len(cuda_visible_devices) if cuda_visible_devices_env != "-1" else 0
+        num_gpus = gpu_count()
         device = self._pytorch_model_config.get("device", "auto")
         self._pytorch_model_config["device"] = select_device(device)
         self._device = self._pytorch_model_config["device"]
 
-        if self._device == "cpu":
-            kwargs = {"torch_dtype": torch.float32}
-        elif self._device == "cuda":
-            kwargs = {"torch_dtype": torch.float16}
-        elif self._device == "mps":
-            kwargs = {"torch_dtype": torch.float16}
+        kwargs = {}
+
+        dtype = get_device_preferred_dtype(self._device)
+
+        if dtype is not None:
+            kwargs["torch_dtype"] = dtype
         else:
             raise ValueError(f"Device {self._device} is not supported in temporary")
 
@@ -142,9 +139,23 @@ class PytorchModel(LLM):
             "trust_remote_code"
         )
         model_format = self.model_spec.model_format
+
+        is_device_map_auto = False
+
+        # This is required for Intel GPU to actually work with accelerate device_map until
+        # https://github.com/intel/intel-extension-for-pytorch/issues/522
+        # is resolved
+        max_memory_env = os.getenv("ACCELERATE_MAX_MEMORY", None)
+
+        if max_memory_env is not None:
+            max_memory_raw = json.loads(max_memory_env)
+            max_memory = {int(k) if k.isdigit() else k : max_memory_raw[k] for k in max_memory_raw}
+            kwargs["max_memory"] = max_memory
+
         if quantization != "none" and model_format == "pytorch":
             if self._device == "cuda" and self._is_linux():
                 kwargs["device_map"] = "auto"
+                is_device_map_auto = True
                 if quantization == "4-bit":
                     kwargs["load_in_4bit"] = True
                     kwargs["bnb_4bit_compute_dtype"] = torch.float16
@@ -178,11 +189,13 @@ class PytorchModel(LLM):
                     logger.debug(f"Model Memory: {self._model.get_memory_footprint()}")
                     return
 
-        if num_gpus > 0 and self._device == "cuda":
+        if num_gpus > 0 and is_hf_accelerate_supported(self._device):
             kwargs.update({"device_map": "auto"})
+            is_device_map_auto = True
+
         self._model, self._tokenizer = self._load_model(**kwargs)
 
-        if self._device == "mps":
+        if not is_device_map_auto:
             self._model.to(self._device)
         logger.debug(f"Model Memory: {self._model.get_memory_footprint()}")
 

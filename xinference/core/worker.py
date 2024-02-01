@@ -31,7 +31,7 @@ from ..constants import XINFERENCE_CACHE_DIR
 from ..core import ModelActor
 from ..core.status_guard import LaunchStatus
 from ..model.core import ModelDescription, create_model_instance
-from ..utils import cuda_count
+from ..device_utils import gpu_count
 from .event import Event, EventCollectorActor, EventType
 from .metrics import launch_metrics_export_server, record_metrics
 from .resource import gather_node_info
@@ -54,13 +54,13 @@ class WorkerActor(xo.StatelessActor):
         self,
         supervisor_address: str,
         main_pool: MainActorPoolType,
-        cuda_devices: List[int],
+        gpu_devices: List[int],
         metrics_exporter_host: Optional[str] = None,
         metrics_exporter_port: Optional[int] = None,
     ):
         super().__init__()
         # static attrs.
-        self._total_cuda_devices = cuda_devices
+        self._total_gpu_devices = gpu_devices
         self._supervisor_address = supervisor_address
         self._supervisor_ref = None
         self._main_pool = main_pool
@@ -244,9 +244,9 @@ class WorkerActor(xo.StatelessActor):
 
     @staticmethod
     def get_devices_count():
-        from ..utils import cuda_count
+        from ..device_utils import gpu_count
 
-        return cuda_count()
+        return gpu_count()
 
     @log_sync(logger=logger)
     def get_model_count(self) -> int:
@@ -263,7 +263,7 @@ class WorkerActor(xo.StatelessActor):
         we assume that embedding model only takes 1 GPU slot.
         """
         candidates = []
-        for _dev in self._total_cuda_devices:
+        for _dev in self._total_gpu_devices:
             if _dev not in self._gpu_to_model_uid:
                 candidates.append(_dev)
             else:
@@ -291,11 +291,11 @@ class WorkerActor(xo.StatelessActor):
         return device
 
     def allocate_devices(self, model_uid: str, n_gpu: int) -> List[int]:
-        if n_gpu > len(self._total_cuda_devices) - len(self._gpu_to_model_uid):
+        if n_gpu > len(self._total_gpu_devices) - len(self._gpu_to_model_uid):
             raise RuntimeError("No available slot found for the model")
 
         devices: List[int] = [
-            dev for dev in self._total_cuda_devices if dev not in self._gpu_to_model_uid
+            dev for dev in self._total_gpu_devices if dev not in self._gpu_to_model_uid
         ][:n_gpu]
         for dev in devices:
             self._gpu_to_model_uid[int(dev)] = model_uid
@@ -324,7 +324,7 @@ class WorkerActor(xo.StatelessActor):
     ) -> Tuple[str, List[str]]:
         env = {}
         devices = []
-        if isinstance(n_gpu, int) or (n_gpu == "auto" and cuda_count() > 0):
+        if isinstance(n_gpu, int) or (n_gpu == "auto" and gpu_count() > 0):
             # Currently, n_gpu=auto means using 1 GPU
             gpu_cnt = n_gpu if isinstance(n_gpu, int) else 1
             devices = (
@@ -396,10 +396,10 @@ class WorkerActor(xo.StatelessActor):
         n_gpu: Optional[Union[int, str]] = "auto",
     ):
         if n_gpu is not None:
-            if isinstance(n_gpu, int) and (n_gpu <= 0 or n_gpu > cuda_count()):
+            if isinstance(n_gpu, int) and (n_gpu <= 0 or n_gpu > gpu_count()):
                 raise ValueError(
                     f"The parameter `n_gpu` must be greater than 0 and "
-                    f"not greater than the number of GPUs: {cuda_count()} on the machine."
+                    f"not greater than the number of GPUs: {gpu_count()} on the machine."
                 )
             if isinstance(n_gpu, str) and n_gpu != "auto":
                 raise ValueError("Currently `n_gpu` only supports `auto`.")
@@ -504,10 +504,10 @@ class WorkerActor(xo.StatelessActor):
         launch_args.pop("kwargs")
         launch_args.update(kwargs)
         if n_gpu is not None:
-            if isinstance(n_gpu, int) and (n_gpu <= 0 or n_gpu > cuda_count()):
+            if isinstance(n_gpu, int) and (n_gpu <= 0 or n_gpu > gpu_count()):
                 raise ValueError(
                     f"The parameter `n_gpu` must be greater than 0 and "
-                    f"not greater than the number of GPUs: {cuda_count()} on the machine."
+                    f"not greater than the number of GPUs: {gpu_count()} on the machine."
                 )
             if isinstance(n_gpu, str) and n_gpu != "auto":
                 raise ValueError("Currently `n_gpu` only supports `auto`.")

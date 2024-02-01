@@ -23,6 +23,7 @@ from functools import partial
 from io import BytesIO
 from typing import List, Optional, Union
 
+from ....device_utils import move_model_to_available_device
 from ....constants import XINFERENCE_IMAGE_DIR
 from ....types import Image, ImageList
 
@@ -40,7 +41,7 @@ class DiffusionModel:
         self._kwargs = kwargs
 
     def load(self):
-        import torch
+        # import torch
         from diffusers import AutoPipelineForText2Image
 
         controlnet = self._kwargs.get("controlnet")
@@ -57,10 +58,7 @@ class DiffusionModel:
             # torch_dtype=torch.float16,
             # use_safetensors=True,
         )
-        if torch.cuda.is_available():
-            self._model = self._model.to("cuda")
-        elif torch.backends.mps.is_available():
-            self._model = self._model.to("mps")
+        self._model = move_model_to_available_device(self._model)
         # Recommended if your computer has < 64 GB of RAM
         self._model.enable_attention_slicing()
 

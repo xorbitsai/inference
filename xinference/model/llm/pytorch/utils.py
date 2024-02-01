@@ -29,6 +29,7 @@ from transformers.generation.logits_process import (
     TopPLogitsWarper,
 )
 
+from ....device_utils import empty_cache
 from ....types import (
     CompletionChoice,
     CompletionChunk,
@@ -335,7 +336,7 @@ def generate_stream(
     # clean
     del past_key_values, out
     gc.collect()
-    torch.cuda.empty_cache()
+    empty_cache()
 
 
 @torch.inference_mode()
@@ -489,4 +490,4 @@ def generate_stream_falcon(
 
     # clean
     gc.collect()
-    torch.cuda.empty_cache()
+    empty_cache()

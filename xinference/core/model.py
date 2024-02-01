@@ -45,6 +45,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 from .utils import json_dumps, log_async
+from ..device_utils import empty_cache
 
 try:
     from torch.cuda import OutOfMemoryError
@@ -130,7 +131,7 @@ class ModelActor(xo.StatelessActor):
             try:
                 import gc
 
-                import torch
+                import torch # noqa: F401
             except ImportError:
                 error_message = "Failed to import module 'torch'"
                 installation_guide = [
@@ -141,7 +142,7 @@ class ModelActor(xo.StatelessActor):
 
             del self._model
             gc.collect()
-            torch.cuda.empty_cache()
+            empty_cache()
 
     def __init__(
         self,

@@ -227,11 +227,11 @@ class SupervisorActor(xo.StatelessActor):
         }
 
     async def get_devices_count(self) -> int:
-        from ..utils import cuda_count
+        from ..device_utils import gpu_count
 
         if self.is_local_deployment():
-            return cuda_count()
-        # distributed deployment, choose a worker and return its cuda_count.
+            return gpu_count()
+        # distributed deployment, choose a worker and return its device_count.
         # Assume that each worker has the same count of cards.
         worker_ref = await self._choose_worker()
         return await worker_ref.get_devices_count()

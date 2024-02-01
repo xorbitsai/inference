@@ -56,6 +56,9 @@ class YiVLChatModel(PytorchChatModel):
         from ....thirdparty.llava.mm_utils import load_pretrained_model
         from ....thirdparty.llava.model.constants import key_info
 
+        self._device = self._pytorch_model_config.get("device", "auto")
+        self._device = select_device(self._device)
+
         key_info["model_path"] = self.model_path
         # Default device_map is auto, it can loads model to multiple cards.
         # If the device_map is set to cuda, then only 1 card can be used.
@@ -64,7 +67,7 @@ class YiVLChatModel(PytorchChatModel):
             self._model,
             self._image_processor,
             _,
-        ) = load_pretrained_model(self.model_path)
+        ) = load_pretrained_model(self.model_path, device_map=self._device)
 
     @staticmethod
     def _message_content_to_yi(content) -> Union[str, tuple]:
@@ -185,7 +188,7 @@ class YiVLChatModel(PytorchChatModel):
                 prompt, self._tokenizer, IMAGE_TOKEN_INDEX, return_tensors="pt"
             )
             .unsqueeze(0)
-            .cuda()
+            .to(self._device)
         )
 
         images = state.get_images(return_pil=True)
@@ -208,7 +211,7 @@ class YiVLChatModel(PytorchChatModel):
         max_new_tokens = generate_config.get("max_tokens", 512)
         generate_kwargs = {
             "input_ids": input_ids,
-            "images": image_tensor.unsqueeze(0).to(dtype=torch.bfloat16).cuda(),
+            "images": image_tensor.unsqueeze(0).to(dtype=torch.bfloat16).to(self._device),
             "streamer": streamer,
             "do_sample": True,
             "top_p": float(top_p),

@@ -14,6 +14,8 @@
 import logging
 from typing import TYPE_CHECKING, Dict, Optional
 
+from xinference.device_utils import get_available_device, is_device_available, get_device_preferred_dtype
+
 if TYPE_CHECKING:
     from .core import AudioModelFamilyV1
 
@@ -37,11 +39,15 @@ class WhisperModel:
         self._kwargs = kwargs
 
     def load(self):
-        import torch
         from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor, pipeline
 
-        device = "cuda:0" if torch.cuda.is_available() else "cpu"
-        torch_dtype = torch.float16 if torch.cuda.is_available() else torch.float32
+        if self._device is None:
+            self._device = get_available_device()
+        else:
+            if not is_device_available(self._device):
+                raise ValueError(f"Device {self._device} is not available!")
+
+        torch_dtype = get_device_preferred_dtype(self._device)
 
         model = AutoModelForSpeechSeq2Seq.from_pretrained(
             self._model_path,
@@ -49,7 +55,7 @@ class WhisperModel:
             low_cpu_mem_usage=True,
             use_safetensors=True,
         )
-        model.to(device)
+        model.to(self._device)
 
         processor = AutoProcessor.from_pretrained(self._model_path)
 
@@ -63,7 +69,7 @@ class WhisperModel:
             batch_size=16,
             return_timestamps=False,
             torch_dtype=torch_dtype,
-            device=device,
+            device=self._device,
         )
 
     def _call_model(

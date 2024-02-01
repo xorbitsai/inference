@@ -13,10 +13,10 @@
 # limitations under the License.
 
 import logging
-import os
 from typing import Iterator, List, Optional, Union
 
 from ....types import Completion, CompletionChunk, Embedding
+from ....device_utils import gpu_count, get_device_preferred_dtype, is_hf_accelerate_supported
 from ...utils import select_device
 from .. import LLMFamilyV1, LLMSpecV1
 from .core import PytorchChatModel, PytorchGenerateConfig, PytorchModelConfig
@@ -73,30 +73,26 @@ class SpeculativeModel(PytorchChatModel):
 
     def load(self):
         try:
-            import torch
+            import torch # noqa: F401
         except ImportError:
             raise ImportError(
                 f"Failed to import module 'torch'. Please make sure 'torch' is installed.\n\n"
             )
 
-        cuda_visible_devices_env = os.getenv("CUDA_VISIBLE_DEVICES", None)
-        cuda_visible_devices = (
-            cuda_visible_devices_env.split(",") if cuda_visible_devices_env else []
-        )
-
-        num_gpus = len(cuda_visible_devices) if cuda_visible_devices_env != "-1" else 0
+        num_gpus = gpu_count()
         device = self._pytorch_model_config.get("device", "auto")
         self._pytorch_model_config["device"] = select_device(device)
         self._device = self._pytorch_model_config["device"]
 
-        if self._device == "cpu":
-            kwargs = {"torch_dtype": torch.float32}
-        elif self._device == "cuda":
-            kwargs = {"torch_dtype": torch.float16}
-        elif self._device == "mps":
-            kwargs = {"torch_dtype": torch.float16}
+        kwargs = {}
+
+        dtype = get_device_preferred_dtype(self._device)
+
+        if dtype is not None:
+            kwargs["torch_dtype"] = dtype
         else:
             raise ValueError(f"Device {self._device} is not supported in temporary")
+
         kwargs["trust_remote_code"] = self._pytorch_model_config.get(
             "trust_remote_code"
         )
@@ -106,15 +102,18 @@ class SpeculativeModel(PytorchChatModel):
                 "Quantization is not supported by speculative decoding yet"
             )
 
-        if num_gpus > 0 and self._device == "cuda":
+        is_device_map_auto = False
+
+        if num_gpus > 0 and is_hf_accelerate_supported(self._device):
             kwargs.update({"device_map": "auto"})
+            is_device_map_auto = True
 
         self._model, self._tokenizer = self._load_model(
             model_path=self.model_path,
             revision=self.model_spec.model_revision,
             **kwargs,
         )
-        if self._device == "mps":
+        if not is_device_map_auto:
             self._model.to(self._device)
         logger.debug(
             f"Model {self.model_uid} memory footprint: {self._model.get_memory_footprint()}"
@@ -125,7 +124,7 @@ class SpeculativeModel(PytorchChatModel):
             revision=self._draft_model_spec.model_revision,
             **kwargs,
         )
-        if self._device == "mps":
+        if not is_device_map_auto:
             self._model.to(self._device)
         logger.debug(
             f"Draft model {self.model_uid} memory footprint: {self._model.get_memory_footprint()}"
