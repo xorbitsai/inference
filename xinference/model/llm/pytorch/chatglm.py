@@ -120,9 +120,9 @@ class ChatglmPytorchChatModel(PytorchChatModel):
         top_p = generate_config.get("top_p")
         if top_p is not None:
             kwargs["top_p"] = float(top_p)
-        max_length = generate_config.get("max_tokens")
-        if max_length is not None:
-            kwargs["max_length"] = int(max_length)
+        max_new_tokens = generate_config.get("max_tokens")
+        if max_new_tokens is not None:
+            kwargs["max_new_tokens"] = int(max_new_tokens)
         # Tool calls only works for non stream, so we call chat directly.
         if prompt == SPECIAL_TOOL_PROMPT and chat_history:
             tool_message = chat_history.pop()

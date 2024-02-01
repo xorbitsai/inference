@@ -59,16 +59,21 @@ def get_context_length(config):
         hasattr(config, "max_sequence_length")
         and config.max_sequence_length is not None
     ):
-        return config.max_sequence_length
-    elif hasattr(config, "seq_length") and config.seq_length is not None:
-        return config.seq_length
-    elif (
+        max_sequence_length = config.max_sequence_length
+    else:
+        max_sequence_length = 2048
+    if hasattr(config, "seq_length") and config.seq_length is not None:
+        seq_length = config.seq_length
+    else:
+        seq_length = 2048
+    if (
         hasattr(config, "max_position_embeddings")
         and config.max_position_embeddings is not None
     ):
-        return config.max_position_embeddings
+        max_position_embeddings = config.max_position_embeddings
     else:
-        return 2048
+        max_position_embeddings = 2048
+    return max(max_sequence_length, seq_length, max_position_embeddings)
 
 
 def prepare_logits_processor(
@@ -128,6 +133,8 @@ def generate_stream(
         max_src_len = context_len
     else:
         max_src_len = context_len - max_new_tokens - 8
+        if max_src_len < 0:
+            raise ValueError("Max tokens exceeds model's max length")
 
     input_ids = input_ids[-max_src_len:]
     input_echo_len = len(input_ids)
