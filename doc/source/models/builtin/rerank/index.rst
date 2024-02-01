@@ -1,4 +1,4 @@
-.. _models_rarank_index:
+.. _models_rerank_index:
 
 ================
 Rerank Models
