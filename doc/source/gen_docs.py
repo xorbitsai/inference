@@ -19,6 +19,21 @@ from jinja2 import Environment, FileSystemLoader
 MODEL_HUB_HUGGING_FACE = "Hugging Face"
 MODEL_HUB_MODELSCOPE = "ModelScope"
 
+
+def get_metrics_from_url(metrics_url):
+    from prometheus_client.parser import text_string_to_metric_families
+    import requests
+
+    metrics = requests.get(metrics_url).content
+    result = []
+    for family in text_string_to_metric_families(metrics.decode("utf-8")):
+        result.append({
+            "name": family.name,
+            "type": family.type,
+            "help": family.documentation,
+        })
+    return result
+
 def main():
     template_dir = '../templates' 
     env = Environment(loader=FileSystemLoader(template_dir))
@@ -177,6 +192,20 @@ def main():
         with open(index_file_path, "w") as file:
             rendered_index = env.get_template('audio_index.rst.jinja').render(models=sorted_models)
             file.write(rendered_index)
+
+    try:
+        output_dir = './user_guide'
+        os.makedirs(output_dir, exist_ok=True)
+
+        supervisor_metrics = get_metrics_from_url("http://127.0.0.1:9997/metrics")
+        worker_metrics = get_metrics_from_url("http://127.0.0.1:9977/metrics")
+        all_metrics = {"supervisor_metrics": supervisor_metrics, "worker_metrics": worker_metrics}
+        rendered = env.get_template('metrics.jinja').render(all_metrics)
+        output_file_path = os.path.join(output_dir, "metrics.rst")
+        with open(output_file_path, 'w') as output_file:
+            output_file.write(rendered)
+    except Exception:
+        print("Skip generate metrics doc, please start a local xinference server by: `xinference-local -mp 9977`.")
 
 
 if __name__ == "__main__":
