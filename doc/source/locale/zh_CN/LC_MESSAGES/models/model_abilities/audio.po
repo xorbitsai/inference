@@ -1,0 +1,135 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2024-02-01 16:47+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: zh_CN\n"
+"Language-Team: zh_CN <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.13.1\n"
+
+#: ../../source/models/model_abilities/audio.rst:5
+msgid "Audio (Experimental)"
+msgstr "音频（实验性质）"
+
+#: ../../source/models/model_abilities/audio.rst:7
+msgid "Learn how to turn audio into text or text into audio with Xinference."
+msgstr "学习如何使用 Xinference 将音频转换为文本或将文本转换为音频。"
+
+#: ../../source/models/model_abilities/audio.rst:11
+msgid "Introduction"
+msgstr "介绍"
+
+#: ../../source/models/model_abilities/audio.rst:14
+msgid "The Audio API provides two methods for interacting with audio:"
+msgstr "Audio API提供了两种与音频交互的方法："
+
+#: ../../source/models/model_abilities/audio.rst:17
+msgid "The transcriptions endpoint transcribes audio into the input language."
+msgstr "转录终端将音频转录为输入语言。"
+
+#: ../../source/models/model_abilities/audio.rst:18
+msgid "The translations endpoint translates audio into English."
+msgstr "翻译端点将音频转换为英文。"
+
+#: ../../source/models/model_abilities/audio.rst:25
+msgid "API ENDPOINT"
+msgstr "API 端点"
+
+#: ../../source/models/model_abilities/audio.rst:26
+msgid "OpenAI-compatible ENDPOINT"
+msgstr "OpenAI 兼容端点"
+
+#: ../../source/models/model_abilities/audio.rst:28
+msgid "Transcription API"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:29
+msgid "/v1/audio/transcriptions"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:31
+msgid "Translation API"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:32
+msgid "/v1/audio/translations"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:35
+msgid "Supported models"
+msgstr "支持的模型列表"
+
+#: ../../source/models/model_abilities/audio.rst:37
+msgid "The audio API is supported with the following models in Xinference:"
+msgstr "在Xinference中，以下模型支持音频API："
+
+#: ../../source/models/model_abilities/audio.rst:39
+msgid "whisper-tiny"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:40
+msgid "whisper-tiny.en"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:41
+msgid "whisper-base"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:42
+msgid "whisper-base.en"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:43
+msgid "whisper-medium"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:44
+msgid "whisper-medium.en"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:45
+msgid "whisper-large-v3"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:49
+msgid "Quickstart"
+msgstr "快速入门"
+
+#: ../../source/models/model_abilities/audio.rst:52
+msgid "Transcription"
+msgstr "转录"
+
+#: ../../source/models/model_abilities/audio.rst:54
+msgid ""
+"The Transcription API mimics OpenAI's `create transcriptions API "
+"<https://platform.openai.com/docs/api-"
+"reference/audio/createTranscription>`_. We can try Transcription API out "
+"either via cURL, OpenAI Client, or Xinference's python client:"
+msgstr "Transcription API 模仿了 OpenAI 的 `create transcriptions API <https://platform.openai.com/docs/api-reference/audio/createTranscription>`_。"
+"你可以通过 cURL、OpenAI Client 或者 Xinference 的 Python 客户端来尝试 Transcription API："
+
+#: ../../source/models/model_abilities/audio.rst:105
+msgid "Translation"
+msgstr "翻译"
+
+#: ../../source/models/model_abilities/audio.rst:107
+msgid ""
+"The Translation API mimics OpenAI's `create translations API "
+"<https://platform.openai.com/docs/api-"
+"reference/audio/createTranslation>`_. We can try Translation API out "
+"either via cURL, OpenAI Client, or Xinference's python client:"
+msgstr "Translation API 模仿了 OpenAI 的 `create translations API <https://platform.openai.com/docs/api-reference/audio/createTranslation>`_。"
+"你可以通过 cURL、OpenAI Client 或 Xinference 的 Python 客户端来尝试使用 Translation API："
+

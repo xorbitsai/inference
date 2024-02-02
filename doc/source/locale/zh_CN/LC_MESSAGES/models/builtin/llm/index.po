@@ -8,20 +8,755 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-12-25 17:11+0800\n"
+"POT-Creation-Date: 2024-02-01 16:47+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Generated-By: Babel 2.11.0\n"
+"Generated-By: Babel 2.13.1\n"
 
 #: ../../source/models/builtin/llm/index.rst:5
 msgid "Large language Models"
-msgstr ""
+msgstr "大语言模型"
 
 #: ../../source/models/builtin/llm/index.rst:7
 msgid "The following is a list of built-in LLM in Xinference:"
+msgstr "以下是 Xinference 中内置的 LLM 列表:"
+
+#: ../../source/models/builtin/llm/index.rst:13
+msgid "MODEL NAME"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:14
+msgid "ABILITIES"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:15
+msgid "COTNEXT_LENGTH"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:16
+msgid "DESCRIPTION"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:19
+msgid ":ref:`baichuan <models_llm_baichuan>`"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:20
+#: ../../source/models/builtin/llm/index.rst:25
+#: ../../source/models/builtin/llm/index.rst:65
+#: ../../source/models/builtin/llm/index.rst:75
+#: ../../source/models/builtin/llm/index.rst:90
+#: ../../source/models/builtin/llm/index.rst:110
+#: ../../source/models/builtin/llm/index.rst:115
+#: ../../source/models/builtin/llm/index.rst:120
+#: ../../source/models/builtin/llm/index.rst:140
+#: ../../source/models/builtin/llm/index.rst:160
+#: ../../source/models/builtin/llm/index.rst:170
+#: ../../source/models/builtin/llm/index.rst:185
+#: ../../source/models/builtin/llm/index.rst:205
+#: ../../source/models/builtin/llm/index.rst:220
+#: ../../source/models/builtin/llm/index.rst:225
+#: ../../source/models/builtin/llm/index.rst:235
+#: ../../source/models/builtin/llm/index.rst:240
+#: ../../source/models/builtin/llm/index.rst:245
+#: ../../source/models/builtin/llm/index.rst:280
+#: ../../source/models/builtin/llm/index.rst:290
+#: ../../source/models/builtin/llm/index.rst:295
+msgid "generate"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:21
+#: ../../source/models/builtin/llm/index.rst:26
+#: ../../source/models/builtin/llm/index.rst:31
+#: ../../source/models/builtin/llm/index.rst:36
+#: ../../source/models/builtin/llm/index.rst:81
+#: ../../source/models/builtin/llm/index.rst:86
+#: ../../source/models/builtin/llm/index.rst:106
+#: ../../source/models/builtin/llm/index.rst:131
+#: ../../source/models/builtin/llm/index.rst:141
+#: ../../source/models/builtin/llm/index.rst:146
+#: ../../source/models/builtin/llm/index.rst:196
+#: ../../source/models/builtin/llm/index.rst:201
+#: ../../source/models/builtin/llm/index.rst:216
+#: ../../source/models/builtin/llm/index.rst:221
+#: ../../source/models/builtin/llm/index.rst:226
+#: ../../source/models/builtin/llm/index.rst:256
+#: ../../source/models/builtin/llm/index.rst:291
+msgid "4096"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:22
+msgid ""
+"Baichuan is an open-source Transformer based LLM that is trained on both "
+"Chinese and English data."
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:24
+msgid ":ref:`baichuan-2 <models_llm_baichuan-2>`"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:27
+msgid ""
+"Baichuan2 is an open-source Transformer based LLM that is trained on both"
+" Chinese and English data."
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:29
+msgid ":ref:`baichuan-2-chat <models_llm_baichuan-2-chat>`"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:30
+#: ../../source/models/builtin/llm/index.rst:35
+#: ../../source/models/builtin/llm/index.rst:40
+#: ../../source/models/builtin/llm/index.rst:45
+#: ../../source/models/builtin/llm/index.rst:50
+#: ../../source/models/builtin/llm/index.rst:60
+#: ../../source/models/builtin/llm/index.rst:70
+#: ../../source/models/builtin/llm/index.rst:80
+#: ../../source/models/builtin/llm/index.rst:85
+#: ../../source/models/builtin/llm/index.rst:95
+#: ../../source/models/builtin/llm/index.rst:100
+#: ../../source/models/builtin/llm/index.rst:105
+#: ../../source/models/builtin/llm/index.rst:125
+#: ../../source/models/builtin/llm/index.rst:130
+#: ../../source/models/builtin/llm/index.rst:135
+#: ../../source/models/builtin/llm/index.rst:145
+#: ../../source/models/builtin/llm/index.rst:150
+#: ../../source/models/builtin/llm/index.rst:155
+#: ../../source/models/builtin/llm/index.rst:165
+#: ../../source/models/builtin/llm/index.rst:175
+#: ../../source/models/builtin/llm/index.rst:180
+#: ../../source/models/builtin/llm/index.rst:190
+#: ../../source/models/builtin/llm/index.rst:195
+#: ../../source/models/builtin/llm/index.rst:200
+#: ../../source/models/builtin/llm/index.rst:230
+#: ../../source/models/builtin/llm/index.rst:250
+#: ../../source/models/builtin/llm/index.rst:255
+#: ../../source/models/builtin/llm/index.rst:260
+#: ../../source/models/builtin/llm/index.rst:265
+#: ../../source/models/builtin/llm/index.rst:270
+#: ../../source/models/builtin/llm/index.rst:275
+#: ../../source/models/builtin/llm/index.rst:285
+#: ../../source/models/builtin/llm/index.rst:300
+#: ../../source/models/builtin/llm/index.rst:310
+#: ../../source/models/builtin/llm/index.rst:315
+msgid "chat"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:32
+msgid ""
+"Baichuan2-chat is a fine-tuned version of the Baichuan LLM, specializing "
+"in chatting."
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:34
+msgid ":ref:`baichuan-chat <models_llm_baichuan-chat>`"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:37
+msgid ""
+"Baichuan-chat is a fine-tuned version of the Baichuan LLM, specializing "
+"in chatting."
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:39
+msgid ":ref:`chatglm <models_llm_chatglm>`"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:41
+#: ../../source/models/builtin/llm/index.rst:91
+#: ../../source/models/builtin/llm/index.rst:96
+#: ../../source/models/builtin/llm/index.rst:176
+#: ../../source/models/builtin/llm/index.rst:186
+#: ../../source/models/builtin/llm/index.rst:191
+#: ../../source/models/builtin/llm/index.rst:206
+#: ../../source/models/builtin/llm/index.rst:246
+#: ../../source/models/builtin/llm/index.rst:251
+#: ../../source/models/builtin/llm/index.rst:271
+#: ../../source/models/builtin/llm/index.rst:276
+#: ../../source/models/builtin/llm/index.rst:281
+#: ../../source/models/builtin/llm/index.rst:286
+msgid "2048"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:42
+msgid ""
+"ChatGLM is an open-source General Language Model (GLM) based LLM trained "
+"on both Chinese and English data."
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:44
+msgid ":ref:`chatglm2 <models_llm_chatglm2>`"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:46
+#: ../../source/models/builtin/llm/index.rst:56
+#: ../../source/models/builtin/llm/index.rst:121
+#: ../../source/models/builtin/llm/index.rst:151
+#: ../../source/models/builtin/llm/index.rst:156
+#: ../../source/models/builtin/llm/index.rst:161
+#: ../../source/models/builtin/llm/index.rst:181
+#: ../../source/models/builtin/llm/index.rst:231
+#: ../../source/models/builtin/llm/index.rst:236
+#: ../../source/models/builtin/llm/index.rst:241
+#: ../../source/models/builtin/llm/index.rst:311
+#: ../../source/models/builtin/llm/index.rst:316
+msgid "8192"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:47
+msgid ""
+"ChatGLM2 is the second generation of ChatGLM, still open-source and "
+"trained on Chinese and English data."
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:49
+msgid ":ref:`chatglm2-32k <models_llm_chatglm2-32k>`"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:51
+#: ../../source/models/builtin/llm/index.rst:61
+#: ../../source/models/builtin/llm/index.rst:166
+#: ../../source/models/builtin/llm/index.rst:171
+#: ../../source/models/builtin/llm/index.rst:211
+msgid "32768"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:52
+msgid ""
+"ChatGLM2-32k is a special version of ChatGLM2, with a context window of "
+"32k tokens instead of 8k."
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:54
+msgid ":ref:`chatglm3 <models_llm_chatglm3>`"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:55
+#: ../../source/models/builtin/llm/index.rst:210
+msgid "chat, tools"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:57
+#: ../../source/models/builtin/llm/index.rst:62
+msgid ""
+"ChatGLM3 is the third generation of ChatGLM, still open-source and "
+"trained on Chinese and English data."
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:59
+msgid ":ref:`chatglm3-32k <models_llm_chatglm3-32k>`"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:64
+msgid ":ref:`code-llama <models_llm_code-llama>`"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:66
+#: ../../source/models/builtin/llm/index.rst:71
+#: ../../source/models/builtin/llm/index.rst:76
+#: ../../source/models/builtin/llm/index.rst:101
+#: ../../source/models/builtin/llm/index.rst:266
+msgid "100000"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:67
+msgid ""
+"Code-Llama is an open-source LLM trained by fine-tuning LLaMA2 for "
+"generating and discussing code."
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:69
+msgid ":ref:`code-llama-instruct <models_llm_code-llama-instruct>`"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:72
+msgid "Code-Llama-Instruct is an instruct-tuned version of the Code-Llama LLM."
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:74
+msgid ":ref:`code-llama-python <models_llm_code-llama-python>`"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:77
+msgid ""
+"Code-Llama-Python is a fine-tuned version of the Code-Llama LLM, "
+"specializing in Python."
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:79
+msgid ":ref:`deepseek-chat <models_llm_deepseek-chat>`"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:82
+msgid ""
+"DeepSeek LLM is an advanced language model comprising 67 billion "
+"parameters. It has been trained from scratch on a vast dataset of 2 "
+"trillion tokens in both English and Chinese."
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:84
+msgid ":ref:`deepseek-coder-instruct <models_llm_deepseek-coder-instruct>`"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:87
+msgid ""
+"deepseek-coder-instruct is a model initialized from deepseek-coder-base "
+"and fine-tuned on 2B tokens of instruction data."
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:89
+msgid ":ref:`falcon <models_llm_falcon>`"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:92
+msgid ""
+"Falcon is an open-source Transformer based LLM trained on the RefinedWeb "
+"dataset."
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:94
+msgid ":ref:`falcon-instruct <models_llm_falcon-instruct>`"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:97
+msgid ""
+"Falcon-instruct is a fine-tuned version of the Falcon LLM, specializing "
+"in chatting."
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:99
+msgid ":ref:`glaive-coder <models_llm_glaive-coder>`"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:102
+msgid ""
+"A code model trained on a dataset of ~140k programming related problems "
+"and solutions generated from Glaive’s synthetic data generation platform"
+"."
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:104
+msgid ":ref:`gorilla-openfunctions-v1 <models_llm_gorilla-openfunctions-v1>`"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:107
+msgid ""
+"OpenFunctions is designed to extend Large Language Model (LLM) Chat "
+"Completion feature to formulate executable APIs call given natural "
+"language instructions and API context."
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:109
+msgid ":ref:`gpt-2 <models_llm_gpt-2>`"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:111
+msgid "1024"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:112
+msgid ""
+"GPT-2 is a Transformer-based LLM that is trained on WebTest, a 40 GB "
+"dataset of Reddit posts with 3+ upvotes."
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:114
+msgid ":ref:`internlm-20b <models_llm_internlm-20b>`"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:116
+#: ../../source/models/builtin/llm/index.rst:126
+#: ../../source/models/builtin/llm/index.rst:261
+msgid "16384"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:117
+msgid ""
+"Pre-trained on over 2.3T Tokens containing high-quality English, Chinese,"
+" and code data."
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:119
+msgid ":ref:`internlm-7b <models_llm_internlm-7b>`"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:122
+msgid ""
+"InternLM is a Transformer-based LLM that is trained on both Chinese and "
+"English data, focusing on practical scenarios."
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:124
+msgid ":ref:`internlm-chat-20b <models_llm_internlm-chat-20b>`"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:127
+msgid ""
+"Pre-trained on over 2.3T Tokens containing high-quality English, Chinese,"
+" and code data. The Chat version has undergone SFT and RLHF training."
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:129
+msgid ":ref:`internlm-chat-7b <models_llm_internlm-chat-7b>`"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:132
+msgid ""
+"Internlm-chat is a fine-tuned version of the Internlm LLM, specializing "
+"in chatting."
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:134
+msgid ":ref:`internlm2-chat <models_llm_internlm2-chat>`"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:136
+#: ../../source/models/builtin/llm/index.rst:296
+#: ../../source/models/builtin/llm/index.rst:301
+#: ../../source/models/builtin/llm/index.rst:306
+msgid "204800"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:137
+msgid "The second generation of the InternLM model, InternLM2."
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:139
+msgid ":ref:`llama-2 <models_llm_llama-2>`"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:142
+msgid ""
+"Llama-2 is the second generation of Llama, open-source and trained on a "
+"larger amount of data."
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:144
+msgid ":ref:`llama-2-chat <models_llm_llama-2-chat>`"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:147
+msgid ""
+"Llama-2-Chat is a fine-tuned version of the Llama-2 LLM, specializing in "
+"chatting."
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:149
+msgid ":ref:`mistral-instruct-v0.1 <models_llm_mistral-instruct-v0.1>`"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:152
+msgid ""
+"Mistral-7B-Instruct is a fine-tuned version of the Mistral-7B LLM on "
+"public datasets, specializing in chatting."
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:154
+msgid ":ref:`mistral-instruct-v0.2 <models_llm_mistral-instruct-v0.2>`"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:157
+msgid ""
+"The Mistral-7B-Instruct-v0.2 Large Language Model (LLM) is an improved "
+"instruct fine-tuned version of Mistral-7B-Instruct-v0.1."
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:159
+msgid ":ref:`mistral-v0.1 <models_llm_mistral-v0.1>`"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:162
+msgid ""
+"Mistral-7B is a unmoderated Transformer based LLM claiming to outperform "
+"Llama2 on all benchmarks."
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:164
+msgid ":ref:`mixtral-instruct-v0.1 <models_llm_mixtral-instruct-v0.1>`"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:167
+msgid ""
+"Mistral-8x7B-Instruct is a fine-tuned version of the Mistral-8x7B LLM, "
+"specializing in chatting."
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:169
+msgid ":ref:`mixtral-v0.1 <models_llm_mixtral-v0.1>`"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:172
+msgid ""
+"The Mixtral-8x7B Large Language Model (LLM) is a pretrained generative "
+"Sparse Mixture of Experts."
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:174
+msgid ":ref:`openbuddy <models_llm_openbuddy>`"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:177
+msgid ""
+"OpenBuddy is a powerful open multilingual chatbot model aimed at global "
+"users."
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:179
+msgid ":ref:`openhermes-2.5 <models_llm_openhermes-2.5>`"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:182
+msgid ""
+"Openhermes 2.5 is a fine-tuned version of Mistral-7B-v0.1 on primarily "
+"GPT-4 generated data."
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:184
+msgid ":ref:`opt <models_llm_opt>`"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:187
+msgid ""
+"Opt is an open-source, decoder-only, Transformer based LLM that was "
+"designed to replicate GPT-3."
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:189
+msgid ":ref:`orca <models_llm_orca>`"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:192
+msgid ""
+"Orca is an LLM trained by fine-tuning LLaMA on explanation traces "
+"obtained from GPT-4."
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:194
+msgid ":ref:`orion-chat <models_llm_orion-chat>`"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:197
+#: ../../source/models/builtin/llm/index.rst:202
+msgid ""
+"Orion-14B series models are open-source multilingual large language "
+"models trained from scratch by OrionStarAI."
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:199
+msgid ":ref:`orion-chat-rag <models_llm_orion-chat-rag>`"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:204
+msgid ":ref:`phi-2 <models_llm_phi-2>`"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:207
+msgid ""
+"Phi-2 is a 2.7B Transformer based LLM used for research on model safety, "
+"trained with data similar to Phi-1.5 but augmented with synthetic texts "
+"and curated websites."
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:209
+msgid ":ref:`qwen-chat <models_llm_qwen-chat>`"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:212
+msgid ""
+"Qwen-chat is a fine-tuned version of the Qwen LLM trained with alignment "
+"techniques, specializing in chatting."
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:214
+msgid ":ref:`qwen-vl-chat <models_llm_qwen-vl-chat>`"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:215
+#: ../../source/models/builtin/llm/index.rst:305
+msgid "chat, vision"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:217
+msgid ""
+"Qwen-VL-Chat supports more flexible interaction, such as multiple image "
+"inputs, multi-round question answering, and creative capabilities."
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:219
+msgid ":ref:`skywork <models_llm_skywork>`"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:222
+#: ../../source/models/builtin/llm/index.rst:227
+msgid ""
+"Skywork is a series of large models developed by the Kunlun Group · "
+"Skywork team."
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:224
+msgid ":ref:`skywork-math <models_llm_skywork-math>`"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:229
+msgid ":ref:`starchat-beta <models_llm_starchat-beta>`"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:232
+msgid ""
+"Starchat-beta is a fine-tuned version of the Starcoderplus LLM, "
+"specializing in coding assistance."
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:234
+msgid ":ref:`starcoder <models_llm_starcoder>`"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:237
+msgid ""
+"Starcoder is an open-source Transformer based LLM that is trained on "
+"permissively licensed data from GitHub."
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:239
+msgid ":ref:`starcoderplus <models_llm_starcoderplus>`"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:242
+msgid ""
+"Starcoderplus is an open-source LLM trained by fine-tuning Starcoder on "
+"RedefinedWeb and StarCoderData datasets."
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:244
+msgid ":ref:`tiny-llama <models_llm_tiny-llama>`"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:247
+msgid ""
+"The TinyLlama project aims to pretrain a 1.1B Llama model on 3 trillion "
+"tokens."
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:249
+msgid ":ref:`vicuna-v1.3 <models_llm_vicuna-v1.3>`"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:252
+#: ../../source/models/builtin/llm/index.rst:257
+msgid ""
+"Vicuna is an open-source LLM trained by fine-tuning LLaMA on data "
+"collected from ShareGPT."
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:254
+msgid ":ref:`vicuna-v1.5 <models_llm_vicuna-v1.5>`"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:259
+msgid ":ref:`vicuna-v1.5-16k <models_llm_vicuna-v1.5-16k>`"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:262
+msgid ""
+"Vicuna-v1.5-16k is a special version of Vicuna-v1.5, with a context "
+"window of 16k tokens instead of 4k."
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:264
+msgid ":ref:`wizardcoder-python-v1.0 <models_llm_wizardcoder-python-v1.0>`"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:269
+msgid ":ref:`wizardlm-v1.0 <models_llm_wizardlm-v1.0>`"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:272
+msgid ""
+"WizardLM is an open-source LLM trained by fine-tuning LLaMA with Evol-"
+"Instruct."
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:274
+msgid ":ref:`wizardmath-v1.0 <models_llm_wizardmath-v1.0>`"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:277
+msgid ""
+"WizardMath is an open-source LLM trained by fine-tuning Llama2 with Evol-"
+"Instruct, specializing in math."
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:279
+msgid ":ref:`xverse <models_llm_xverse>`"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:282
+msgid ""
+"XVERSE is a multilingual large language model, independently developed by"
+" Shenzhen Yuanxiang Technology."
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:284
+msgid ":ref:`xverse-chat <models_llm_xverse-chat>`"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:287
+msgid "XVERSEB-Chat is the aligned version of model XVERSE."
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:289
+msgid ":ref:`yi <models_llm_yi>`"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:292
+#: ../../source/models/builtin/llm/index.rst:297
+#: ../../source/models/builtin/llm/index.rst:302
+msgid ""
+"The Yi series models are large language models trained from scratch by "
+"developers at 01.AI."
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:294
+msgid ":ref:`yi-200k <models_llm_yi-200k>`"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:299
+msgid ":ref:`yi-chat <models_llm_yi-chat>`"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:304
+msgid ":ref:`yi-vl-chat <models_llm_yi-vl-chat>`"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:307
+msgid ""
+"Yi Vision Language (Yi-VL) model is the open-source, multimodal version "
+"of the Yi Large Language Model (LLM) series, enabling content "
+"comprehension, recognition, and multi-round conversations about images."
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:309
+msgid ":ref:`zephyr-7b-alpha <models_llm_zephyr-7b-alpha>`"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:312
+msgid ""
+"Zephyr-7B-α is the first model in the series, and is a fine-tuned "
+"version of mistralai/Mistral-7B-v0.1."
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:314
+msgid ":ref:`zephyr-7b-beta <models_llm_zephyr-7b-beta>`"
+msgstr ""
+
+#: ../../source/models/builtin/llm/index.rst:317
+msgid ""
+"Zephyr-7B-β is the second model in the series, and is a fine-tuned "
+"version of mistralai/Mistral-7B-v0.1"
 msgstr ""
 

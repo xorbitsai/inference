@@ -19,9 +19,9 @@ msgstr ""
 
 #: ../../source/models/builtin/embedding/index.rst:5
 msgid "Embedding Models"
-msgstr ""
+msgstr "嵌入模型"
 
 #: ../../source/models/builtin/embedding/index.rst:7
 msgid "The following is a list of built-in embedding models in Xinference:"
-msgstr ""
+msgstr "以下是 Xinference 中内置的嵌入模型列表:"
 
