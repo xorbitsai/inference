@@ -23,7 +23,6 @@ from typing import Dict, Iterator, List, Optional, Union
 import requests
 import torch
 from PIL import Image
-from transformers import TextIteratorStreamer
 
 from ....model.utils import select_device
 from ....types import (
@@ -157,6 +156,8 @@ class YiVLChatModel(PytorchChatModel):
         chat_history: Optional[List[ChatCompletionMessage]] = None,
         generate_config: Optional[PytorchGenerateConfig] = None,
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
+        from transformers import TextIteratorStreamer
+
         # TODO(codingl2k1): implement stream mode.
         if generate_config and generate_config.get("stream"):
             raise Exception(

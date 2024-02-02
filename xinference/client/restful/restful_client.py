@@ -404,6 +404,7 @@ class RESTfulChatglmCppChatModelHandle(RESTfulModelHandle):
     def chat(
         self,
         prompt: str,
+        system_prompt: Optional[str] = None,
         chat_history: Optional[List["ChatCompletionMessage"]] = None,
         tools: Optional[List[Dict]] = None,
         generate_config: Optional["ChatglmCppGenerateConfig"] = None,
@@ -415,6 +416,8 @@ class RESTfulChatglmCppChatModelHandle(RESTfulModelHandle):
         ----------
         prompt: str
             The user's input.
+        system_prompt: Optional[str]
+            The system context provide to Model prior to any chats.
         chat_history: Optional[List["ChatCompletionMessage"]]
             A list of messages comprising the conversation so far.
         tools: Optional[List[Dict]]
@@ -440,6 +443,13 @@ class RESTfulChatglmCppChatModelHandle(RESTfulModelHandle):
 
         if chat_history is None:
             chat_history = []
+
+        if chat_history and chat_history[0]["role"] == "system":
+            if system_prompt is not None:
+                chat_history[0]["content"] = system_prompt
+        else:
+            if system_prompt is not None:
+                chat_history.insert(0, {"role": "system", "content": system_prompt})
 
         chat_history.append({"role": "user", "content": prompt})
 

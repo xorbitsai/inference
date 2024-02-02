@@ -644,7 +644,6 @@ class WorkerActor(xo.StatelessActor):
             raise
         except Exception:
             logger.exception("Report status got error.")
-        logger.debug("Report status: %s", status)
         await self._supervisor_ref.report_worker_status(self.address, status)
 
     async def _periodical_report_status(self):

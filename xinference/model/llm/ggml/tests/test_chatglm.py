@@ -14,7 +14,7 @@
 
 import random
 import string
-from typing import Iterator, Union
+from typing import Any, Iterator, List, Union
 
 import pytest
 
@@ -46,6 +46,10 @@ class MockPipeline:
 class MockChatglmCppChatModel(ChatglmCppChatModel):
     def load(self):
         self._llm = MockPipeline()
+
+    @staticmethod
+    def _to_chatglm_chat_messages(history_list: List[Any]):
+        return []
 
 
 mock_model_spec = GgmlLLMSpecV1(

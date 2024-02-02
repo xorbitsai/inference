@@ -230,20 +230,28 @@ class ChatglmCppChatModel(LLM):
             ),
         }
 
+    @staticmethod
+    def _to_chatglm_chat_messages(history_list: List[Any]):
+        from chatglm_cpp import ChatMessage
+
+        return [ChatMessage(role=v["role"], content=v["content"]) for v in history_list]
+
     def chat(
         self,
         prompt: str,
+        system_prompt: Optional[str] = None,
         chat_history: Optional[List[ChatCompletionMessage]] = None,
         generate_config: Optional[ChatglmCppGenerateConfig] = None,
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
+        chat_history_list = []
+        if system_prompt is not None:
+            chat_history_list.append({"role": "system", "content": system_prompt})
         if chat_history is not None:
-            chat_history_list = chat_history
-        else:
-            chat_history_list = []
+            chat_history_list.extend(chat_history)  # type: ignore
 
         tool_message = self._handle_tools(generate_config)
         if tool_message is not None:
-            chat_history_list.insert(0, tool_message)
+            chat_history_list.insert(0, tool_message)  # type: ignore
 
         # We drop the message which contains tool calls to walkaround the issue:
         # https://github.com/li-plus/chatglm.cpp/issues/231
@@ -276,17 +284,18 @@ class ChatglmCppChatModel(LLM):
         params = {k: v for k, v in params.items() if v is not None}
 
         assert self._llm is not None
+        chat_history_messages = self._to_chatglm_chat_messages(chat_history_list)
 
         if generate_config["stream"]:
             it = self._llm.chat(
-                chat_history_list,
+                chat_history_messages,
                 **params,
             )
             assert not isinstance(it, str)
             return self._convert_raw_text_chunks_to_chat(it, self.model_uid)
         else:
             c = self._llm.chat(
-                chat_history_list,
+                chat_history_messages,
                 **params,
             )
             assert not isinstance(c, Iterator)
