@@ -1157,16 +1157,13 @@ class RESTfulAPI:
             raise HTTPException(status_code=500, detail=str(e))
 
         model_name = desc.get("model_name", "")
-        is_chatglm_ggml = (
-            desc.get("model_format") == "ggmlv3" and "chatglm" in model_name
-        )
         function_call_models = ["chatglm3", "gorilla-openfunctions-v1", "qwen-chat"]
 
         is_qwen = desc.get("model_format") == "ggmlv3" and "qwen" in model_name
 
-        if (is_chatglm_ggml or is_qwen) and system_prompt is not None:
+        if is_qwen and system_prompt is not None:
             raise HTTPException(
-                status_code=400, detail="ChatGLM ggml does not have system prompt"
+                status_code=400, detail="Qwen ggml does not have system prompt"
             )
 
         if not any(name in model_name for name in function_call_models):
@@ -1191,7 +1188,7 @@ class RESTfulAPI:
                 iterator = None
                 try:
                     try:
-                        if is_chatglm_ggml or is_qwen:
+                        if is_qwen:
                             iterator = await model.chat(prompt, chat_history, kwargs)
                         else:
                             iterator = await model.chat(
@@ -1211,7 +1208,7 @@ class RESTfulAPI:
             return EventSourceResponse(stream_results())
         else:
             try:
-                if is_chatglm_ggml or is_qwen:
+                if is_qwen:
                     data = await model.chat(prompt, chat_history, kwargs)
                 else:
                     data = await model.chat(prompt, system_prompt, chat_history, kwargs)
