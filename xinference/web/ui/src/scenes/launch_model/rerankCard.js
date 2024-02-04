@@ -124,8 +124,6 @@ const RerankCard = ({
     },
     buttonsContainer: {
       display: 'flex',
-      margin: '0 auto',
-      marginTop: '60px',
       border: 'none',
       justifyContent: 'space-between',
       alignItems: 'center',
@@ -258,12 +256,10 @@ const RerankCard = ({
             })()}
           </Stack>
         </div>
-        {hover ? (
+        {!selected && hover && (
           <p style={styles.instructionText}>
             Click with mouse to launch the model
           </p>
-        ) : (
-          <p style={styles.instructionText}></p>
         )}
       </Box>
       {/* Second state: show parameter selection page */}
