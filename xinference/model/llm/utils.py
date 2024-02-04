@@ -60,10 +60,18 @@ class ChatModelMixin:
             ChatCompletionMessage(role=prompt_style.roles[1], content="")
         )
 
+        def get_role(role_name: str):
+            if role_name == "user":
+                return prompt_style.roles[0]
+            elif role_name == "assistant":
+                return prompt_style.roles[1]
+            else:
+                return role_name
+
         if prompt_style.style_name == "ADD_COLON_SINGLE":
             ret = prompt_style.system_prompt + prompt_style.intra_message_sep
             for message in chat_history:
-                role = message["role"]
+                role = get_role(message["role"])
                 content = message["content"]
                 if content:
                     ret += role + ": " + content + prompt_style.intra_message_sep
@@ -74,7 +82,7 @@ class ChatModelMixin:
             seps = [prompt_style.intra_message_sep, prompt_style.inter_message_sep]
             ret = prompt_style.system_prompt + seps[0]
             for i, message in enumerate(chat_history):
-                role = message["role"]
+                role = get_role(message["role"])
                 content = message["content"]
                 if content:
                     ret += role + ": " + content + seps[i % 2]
@@ -85,7 +93,7 @@ class ChatModelMixin:
             seps = [prompt_style.intra_message_sep, prompt_style.inter_message_sep]
             ret = prompt_style.system_prompt
             for i, message in enumerate(chat_history):
-                role = message["role"]
+                role = get_role(message["role"])
                 content = message["content"]
                 if content:
                     ret += role + content + seps[i % 2]
@@ -96,7 +104,7 @@ class ChatModelMixin:
             seps = [prompt_style.intra_message_sep, prompt_style.inter_message_sep]
             ret = ""
             for i, message in enumerate(chat_history):
-                role = message["role"]
+                role = get_role(message["role"])
                 content = message["content"]
                 if content:
                     if i == 0:
@@ -109,7 +117,7 @@ class ChatModelMixin:
         elif prompt_style.style_name == "FALCON":
             ret = prompt_style.system_prompt
             for message in chat_history:
-                role = message["role"]
+                role = get_role(message["role"])
                 content = message["content"]
                 if content:
                     ret += (
@@ -137,7 +145,7 @@ class ChatModelMixin:
             else:
                 ret = ""
             for i, message in enumerate(chat_history):
-                role = message["role"]
+                role = get_role(message["role"])
                 content = message["content"]
                 if i % 2 == 0:
                     ret += f"[Round {i // 2 + round_add_n}]{prompt_style.intra_message_sep}"
@@ -154,7 +162,7 @@ class ChatModelMixin:
             )
 
             for i, message in enumerate(chat_history):
-                role = message["role"]
+                role = get_role(message["role"])
                 content = message["content"]
                 tool_calls = message.get("tool_calls")
                 if tool_calls:
@@ -173,7 +181,7 @@ class ChatModelMixin:
                 else ""
             )
             for i, message in enumerate(chat_history):
-                role = message["role"]
+                role = get_role(message["role"])
                 content = message["content"]
                 if content:
                     ret += f"<|{role}|> \n {content}"
@@ -239,7 +247,7 @@ Begin!"""
 
             ret = f"<|im_start|>system\n{prompt_style.system_prompt}<|im_end|>"
             for message in chat_history:
-                role = message["role"]
+                role = get_role(message["role"])
                 content = message["content"]
 
                 ret += prompt_style.intra_message_sep
@@ -279,7 +287,7 @@ Begin!"""
                 else prompt_style.system_prompt + prompt_style.intra_message_sep + "\n"
             )
             for message in chat_history:
-                role = message["role"]
+                role = get_role(message["role"])
                 content = message["content"]
 
                 if content:
@@ -293,7 +301,7 @@ Begin!"""
             for i, message in enumerate(chat_history[:-2]):
                 if i % 2 == 0:
                     ret += "<s>"
-                role = message["role"]
+                role = get_role(message["role"])
                 content = message["content"]
                 ret += role + ":" + str(content) + seps[i % 2]
             if len(ret) == 0:
@@ -316,7 +324,7 @@ Begin!"""
                 + "\n"
             )
             for message in chat_history:
-                role = message["role"]
+                role = get_role(message["role"])
                 content = message["content"]
 
                 if content:
@@ -327,7 +335,7 @@ Begin!"""
         elif prompt_style.style_name == "ADD_COLON_SINGLE_COT":
             ret = prompt_style.system_prompt + prompt_style.intra_message_sep
             for message in chat_history:
-                role = message["role"]
+                role = get_role(message["role"])
                 content = message["content"]
                 if content:
                     ret += role + ": " + content + prompt_style.intra_message_sep
@@ -341,7 +349,7 @@ Begin!"""
             seps = [prompt_style.intra_message_sep, prompt_style.inter_message_sep]
             ret = prompt_style.system_prompt
             for i, message in enumerate(chat_history):
-                role = message["role"]
+                role = get_role(message["role"])
                 content = message["content"]
                 if content:
                     ret += role + ": " + content + seps[i % 2]
@@ -352,7 +360,7 @@ Begin!"""
             sep = prompt_style.inter_message_sep
             ret = prompt_style.system_prompt + sep
             for i, message in enumerate(chat_history):
-                role = message["role"]
+                role = get_role(message["role"])
                 content = message["content"]
                 if content:
                     ret += role + "\n" + content + sep
@@ -384,7 +392,7 @@ Begin!"""
             ret = "<s>"
             for i, message in enumerate(chat_history):
                 content = message["content"]
-                role = message["role"]
+                role = get_role(message["role"])
                 if i % 2 == 0:  # Human
                     assert content is not None
                     ret += role + ": " + content + "\n\n"
