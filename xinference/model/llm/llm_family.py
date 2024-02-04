@@ -19,13 +19,19 @@ import shutil
 from threading import Lock
 from typing import Any, Dict, List, Optional, Set, Tuple, Type, Union
 
-from pydantic import BaseModel, Field, Protocol, ValidationError, validator
-from pydantic.error_wrappers import ErrorWrapper
-from pydantic.parse import load_str_bytes
-from pydantic.types import StrBytes
-from pydantic.utils import ROOT_KEY
 from typing_extensions import Annotated, Literal
 
+from ..._compat import (
+    ROOT_KEY,
+    BaseModel,
+    ErrorWrapper,
+    Field,
+    Protocol,
+    StrBytes,
+    ValidationError,
+    load_str_bytes,
+    validator,
+)
 from ...constants import XINFERENCE_CACHE_DIR, XINFERENCE_MODEL_DIR
 from ..utils import (
     download_from_modelscope,

@@ -18,9 +18,9 @@ import pydantic
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, SecurityScopes
 from jose import JWTError, jwt
-from pydantic import BaseModel, ValidationError
 from typing_extensions import Annotated
 
+from ..._compat import BaseModel, ValidationError
 from .types import AuthStartupConfig, User
 from .utils import create_access_token, get_password_hash, verify_password
 

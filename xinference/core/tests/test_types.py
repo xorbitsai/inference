@@ -13,8 +13,8 @@
 # limitations under the License.
 import pydantic
 import pytest
-from pydantic import create_model_from_typeddict
 
+from ..._compat import create_model_from_typeddict
 from ...types import (
     CreateChatCompletion,
     CreateChatCompletionCTransformers,

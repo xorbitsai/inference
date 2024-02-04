@@ -14,14 +14,14 @@
 
 from typing import Any, Callable, Dict, ForwardRef, Iterable, List, Optional, Union
 
-from pydantic import (
+from typing_extensions import Literal, NotRequired, TypedDict
+
+from ._compat import (
     BaseModel,
     create_model,
     create_model_from_typeddict,
     validate_arguments,
 )
-from typing_extensions import Literal, NotRequired, TypedDict
-
 from .fields import (
     echo_field,
     frequency_penalty_field,

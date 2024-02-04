@@ -44,13 +44,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from PIL import Image
-from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
 from starlette.responses import JSONResponse as StarletteJSONResponse
 from starlette.responses import RedirectResponse
 from uvicorn import Config, Server
 from xoscar.utils import get_next_port
 
+from .._compat import BaseModel, Field
 from ..constants import XINFERENCE_DEFAULT_ENDPOINT_PORT
 from ..core.event import Event, EventCollectorActor, EventType
 from ..core.supervisor import SupervisorActor
