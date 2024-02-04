@@ -19,12 +19,12 @@ import {
   TextField,
 } from '@mui/material'
 import IconButton from '@mui/material/IconButton'
-import Typography from '@mui/material/Typography'
 import React, { useContext, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { ApiContext } from '../../components/apiContext'
 import fetcher from '../../components/fetcher'
+import TitleTypography from '../../components/titleTypography'
 
 const CARD_HEIGHT = 380
 const CARD_WIDTH = 300
@@ -315,9 +315,7 @@ const ModelCard = ({ url, modelData, gpuAvailable, is_custom = false }) => {
             alignItems="center"
             spacing={1}
           >
-            <Typography variant="h4" gutterBottom noWrap>
-              {modelData.model_name}
-            </Typography>
+            <TitleTypography value={modelData.model_name} />
             <IconButton
               aria-label="delete"
               onClick={handeCustomDelete}
@@ -327,7 +325,7 @@ const ModelCard = ({ url, modelData, gpuAvailable, is_custom = false }) => {
             </IconButton>
           </Stack>
         )}
-        {!is_custom && <h2 style={styles.h2}>{modelData.model_name}</h2>}
+        {!is_custom && <TitleTypography value={modelData.model_name} />}
         <Stack
           spacing={1}
           direction="row"
@@ -394,7 +392,7 @@ const ModelCard = ({ url, modelData, gpuAvailable, is_custom = false }) => {
             : { ...styles.parameterCard, ...styles.slideOut }
         }
       >
-        <h2 style={styles.h2}>{modelData.model_name}</h2>
+        <TitleTypography value={modelData.model_name} />
         <Box display="flex" flexDirection="column" width="100%" mx="auto">
           <Grid container rowSpacing={0} columnSpacing={1}>
             <Grid item xs={6}>
