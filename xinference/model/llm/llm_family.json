@@ -2132,7 +2132,7 @@
     ],
     "prompt_style": {
       "style_name": "LLAMA2",
-      "system_prompt": "",
+      "system_prompt": "[INST] ",
       "roles": [
         "[INST]",
         "[/INST]"
@@ -2193,7 +2193,7 @@
     ],
     "prompt_style": {
       "style_name": "LLAMA2",
-      "system_prompt": "",
+      "system_prompt": "[INST] ",
       "roles": [
         "[INST]",
         "[/INST]"
