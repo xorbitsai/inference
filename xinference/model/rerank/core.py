@@ -14,28 +14,22 @@
 
 import logging
 import os
-import shutil
 import uuid
 from collections import defaultdict
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
-from pydantic import BaseModel
 
 from ...constants import XINFERENCE_CACHE_DIR
 from ...types import Document, DocumentObj, Rerank
-from ..core import ModelDescription
-from ..utils import is_model_cached, valid_model_revision
+from ..core import CacheableModelSpec, ModelDescription
+from ..utils import is_model_cached
 
 logger = logging.getLogger(__name__)
 
 # Used for check whether the model is cached.
 # Init when registering all the builtin models.
 MODEL_NAME_TO_REVISION: Dict[str, List[str]] = defaultdict(list)
-
-SUPPORTED_SCHEMES = ["s3"]
-
-
 RERANK_MODEL_DESCRIPTIONS: Dict[str, List[Dict]] = defaultdict(list)
 
 
@@ -45,7 +39,7 @@ def get_rerank_model_descriptions():
     return copy.deepcopy(RERANK_MODEL_DESCRIPTIONS)
 
 
-class RerankModelSpec(BaseModel):
+class RerankModelSpec(CacheableModelSpec):
     model_name: str
     language: List[str]
     model_id: str
@@ -180,135 +174,10 @@ def get_cache_status(
     return is_model_cached(model_spec, MODEL_NAME_TO_REVISION)
 
 
-def cache_from_uri(
-    model_spec: RerankModelSpec,
-    self_hosted_storage: bool = False,
-) -> str:
-    from fsspec import AbstractFileSystem, filesystem
-
-    from ..utils import copy_from_src_to_dst, parse_uri
-
-    cache_dir = get_cache_dir(model_spec)
-    if os.path.exists(cache_dir):
-        logger.info(f"Rerank cache {cache_dir} exists")
-        return cache_dir
-
-    assert model_spec.model_uri is not None
-    src_scheme, src_root = parse_uri(model_spec.model_uri)
-    if src_root.endswith("/"):
-        # remove trailing path separator.
-        src_root = src_root[:-1]
-
-    if src_scheme == "file":
-        if not os.path.isabs(src_root):
-            raise ValueError(
-                f"Model URI cannot be a relative path: {model_spec.model_uri}"
-            )
-        os.makedirs(XINFERENCE_CACHE_DIR, exist_ok=True)
-        os.symlink(src_root, cache_dir, target_is_directory=True)
-        return cache_dir
-    elif src_scheme in SUPPORTED_SCHEMES:
-        # use anonymous connection for self-hosted storage.
-        src_fs: AbstractFileSystem = filesystem(src_scheme, anon=self_hosted_storage)
-        local_fs: AbstractFileSystem = filesystem("file")
-
-        files_to_download = []
-        os.makedirs(cache_dir, exist_ok=True)
-
-        for path, _, files in src_fs.walk(model_spec.model_uri):
-            for file in files:
-                src_path = f"{path}/{file}"
-                local_path = src_path.replace(src_root, cache_dir)
-                files_to_download.append((src_path, local_path))
-
-        from concurrent.futures import ThreadPoolExecutor
-
-        failed = False
-        with ThreadPoolExecutor(max_workers=min(len(files_to_download), 4)) as executor:
-            futures = [
-                (
-                    src_path,
-                    executor.submit(
-                        copy_from_src_to_dst, src_fs, src_path, local_fs, local_path
-                    ),
-                )
-                for src_path, local_path in files_to_download
-            ]
-            for src_path, future in futures:
-                if failed:
-                    future.cancel()
-                else:
-                    try:
-                        future.result()
-                    except:
-                        logger.error(f"Download {src_path} failed", exc_info=True)
-                        failed = True
-
-        if failed:
-            logger.warning(f"Removing cache directory: {cache_dir}")
-            shutil.rmtree(cache_dir, ignore_errors=True)
-            raise RuntimeError(
-                f"Failed to download rerank model '{model_spec.model_name}' "
-            )
-        return cache_dir
-    else:
-        raise ValueError(f"Unsupported URL scheme: {src_scheme}")
-
-
 def cache(model_spec: RerankModelSpec):
-    from huggingface_hub import snapshot_download as hf_download
-    from modelscope.hub.snapshot_download import snapshot_download as ms_download
+    from ..utils import cache
 
-    from ..utils import retry_download, symlink_local_file
-
-    if (
-        hasattr(model_spec, "model_uri")
-        and getattr(model_spec, "model_uri", None) is not None
-    ):
-        logger.info(f"Rerank model caching from URI: {model_spec.model_uri}")
-        return cache_from_uri(model_spec=model_spec)
-
-    cache_dir = get_cache_dir(model_spec)
-    if not os.path.exists(cache_dir):
-        os.makedirs(cache_dir, exist_ok=True)
-    meta_path = os.path.join(cache_dir, "__valid_download")
-    if valid_model_revision(meta_path, model_spec.model_revision):
-        return cache_dir
-
-    if model_spec.model_hub == "modelscope":
-        logger.info(
-            f"Download {model_spec.model_name} from modelscope {model_spec.model_id}"
-        )
-        download_dir = retry_download(
-            ms_download,
-            model_spec.model_name,
-            None,
-            model_spec.model_id,
-            revision=model_spec.model_revision,
-        )
-        for subdir, dirs, files in os.walk(download_dir):
-            for file in files:
-                relpath = os.path.relpath(os.path.join(subdir, file), download_dir)
-                symlink_local_file(os.path.join(subdir, file), cache_dir, relpath)
-    else:
-        logger.info(
-            f"Download {model_spec.model_name} from huggingface {model_spec.model_id}"
-        )
-        retry_download(
-            hf_download,
-            model_spec.model_name,
-            None,
-            model_spec.model_id,
-            revision=model_spec.model_revision,
-            local_dir=cache_dir,
-            local_dir_use_symlinks=True,
-        )
-    with open(meta_path, "w") as f:
-        import json
-
-        desc = RerankModelDescription(None, None, model_spec)
-        json.dump(desc.to_dict(), f)
-    return cache_dir
+    return cache(model_spec, RerankModelDescription)
 
 
 def create_rerank_model_instance(

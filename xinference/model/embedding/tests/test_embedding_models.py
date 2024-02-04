@@ -131,7 +131,7 @@ def test_get_cache_status():
 
 
 def test_from_local_uri():
-    from ..core import cache_from_uri
+    from ...utils import cache_from_uri
     from ..custom import CustomEmbeddingModelSpec
 
     tmp_dir = tempfile.mkdtemp()
@@ -154,7 +154,7 @@ def test_from_local_uri():
 
 def test_register_custom_embedding():
     from ....constants import XINFERENCE_CACHE_DIR
-    from ..core import cache_from_uri
+    from ...utils import cache_from_uri
     from ..custom import (
         CustomEmbeddingModelSpec,
         register_embedding,

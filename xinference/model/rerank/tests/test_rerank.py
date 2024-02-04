@@ -54,7 +54,7 @@ def test_restful_api(setup):
 
 
 def test_from_local_uri():
-    from ..core import cache_from_uri
+    from ...utils import cache_from_uri
     from ..custom import CustomRerankModelSpec
 
     tmp_dir = tempfile.mkdtemp()
@@ -74,7 +74,7 @@ def test_from_local_uri():
 
 def test_register_custom_rerank():
     from ....constants import XINFERENCE_CACHE_DIR
-    from ..core import cache_from_uri
+    from ...utils import cache_from_uri
     from ..custom import CustomRerankModelSpec, register_rerank, unregister_rerank
 
     tmp_dir = tempfile.mkdtemp()

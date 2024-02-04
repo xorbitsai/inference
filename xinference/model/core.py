@@ -15,6 +15,8 @@
 from abc import ABC, abstractmethod
 from typing import Any, List, Optional, Tuple
 
+from pydantic import BaseModel
+
 
 class ModelDescription(ABC):
     def __init__(
@@ -94,3 +96,10 @@ def create_model_instance(
         )
     else:
         raise ValueError(f"Unsupported model type: {model_type}.")
+
+
+class CacheableModelSpec(BaseModel):
+    model_name: str
+    model_id: str
+    model_revision: str
+    model_hub: str = "huggingface"
