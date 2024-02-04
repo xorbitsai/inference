@@ -101,5 +101,5 @@ def create_model_instance(
 class CacheableModelSpec(BaseModel):
     model_name: str
     model_id: str
-    model_revision: str
+    model_revision: Optional[str]
     model_hub: str = "huggingface"
