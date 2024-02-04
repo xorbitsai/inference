@@ -35,7 +35,9 @@ BUILTIN_IMAGE_MODELS = dict(
 )
 MODELSCOPE_IMAGE_MODELS = dict(
     (spec["model_name"], ImageModelFamilyV1(**spec))
-    for spec in json.load(codecs.open(_model_spec_modelscope_json, "r", encoding="utf-8"))
+    for spec in json.load(
+        codecs.open(_model_spec_modelscope_json, "r", encoding="utf-8")
+    )
 )
 
 # register model description
