@@ -12,3 +12,4 @@ User Guide
    client_api
    spec_decoding
    auth_system
+   metrics
