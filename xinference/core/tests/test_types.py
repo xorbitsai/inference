@@ -11,10 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import pydantic
 import pytest
 
-from ..._compat import create_model_from_typeddict
+from ..._compat import ValidationError, create_model_from_typeddict
 from ...types import (
     CreateChatCompletion,
     CreateChatCompletionCTransformers,
@@ -60,10 +59,10 @@ def test_create_completion_types():
         == openai_model.__fields__.keys()
     )
 
-    with pytest.raises(pydantic.ValidationError):
+    with pytest.raises(ValidationError):
         CreateCompletion()
 
-    with pytest.raises(pydantic.ValidationError):
+    with pytest.raises(ValidationError):
         CreateCompletion(model="abc", prompt="def", not_exist="jdk")
 
     CreateCompletion(model="abc", prompt="def")
@@ -83,10 +82,10 @@ def test_create_completion_types():
 
 
 def test_create_chat_completion_types():
-    with pytest.raises(pydantic.ValidationError):
+    with pytest.raises(ValidationError):
         CreateChatCompletion()
 
-    with pytest.raises(pydantic.ValidationError):
+    with pytest.raises(ValidationError):
         CreateChatCompletion(model="abc", not_exist="jdk")
 
     # with pytest.raises(pydantic.ValidationError):

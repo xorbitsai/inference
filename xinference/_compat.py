@@ -25,6 +25,7 @@ if PYDANTIC_V2:
         create_model,
         create_model_from_namedtuple,
         create_model_from_typeddict,
+        parse_file_as,
         validate_arguments,
         validator,
     )
@@ -41,6 +42,7 @@ else:
         create_model,
         create_model_from_namedtuple,
         create_model_from_typeddict,
+        parse_file_as,
         validate_arguments,
         validator,
     )
