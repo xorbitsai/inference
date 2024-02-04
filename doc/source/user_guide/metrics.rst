@@ -4,9 +4,9 @@
 Metrics
 ==================
 
-There are two types of metrics exporters in Xinferece cluseter:
+There are two types of metrics exporters in an Xinference cluster:
 
-- Supervisor metrics exporter: <endpoint>/metrics. e.g. http://127.0.0.1:9997/metrics
+- Supervisor metrics exporter at `<endpoint>/metrics`, e.g. `http://127.0.0.1:9997/metrics`.
 - Worker metrics exporter at each worker node, the exporter host and port can be set by `--metrics-exporter-host` and `--metrics-exporter-port` options in `xinference-local` or `xinference-worker` command.
 
 Supervisor Metrics

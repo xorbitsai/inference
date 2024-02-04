@@ -1156,17 +1156,17 @@ class RESTfulAPI:
             await self._report_error_event(model_uid, str(e))
             raise HTTPException(status_code=500, detail=str(e))
 
-        model_name = desc.get("model_name", "")
+        model_family = desc.get("model_family", "")
         function_call_models = ["chatglm3", "gorilla-openfunctions-v1", "qwen-chat"]
 
-        is_qwen = desc.get("model_format") == "ggmlv3" and "qwen" in model_name
+        is_qwen = desc.get("model_format") == "ggmlv3" and "qwen-chat" == model_family
 
         if is_qwen and system_prompt is not None:
             raise HTTPException(
                 status_code=400, detail="Qwen ggml does not have system prompt"
             )
 
-        if not any(name in model_name for name in function_call_models):
+        if model_family not in function_call_models:
             if body.tools:
                 raise HTTPException(
                     status_code=400,
