@@ -38,6 +38,10 @@ jobs:
           DOCKER_ORG: ${{ secrets.DOCKERHUB_USERNAME }}
           PY_VERSION: ${{ matrix.python-version }}
         run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf "/usr/local/share/boost"
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
           if [[ "$GITHUB_REF" =~ ^"refs/tags/" ]]; then
             export GIT_TAG=$(echo "$GITHUB_REF" | sed -e "s/refs\/tags\///g")
           fi
