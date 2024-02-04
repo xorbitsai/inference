@@ -1224,16 +1224,19 @@
       }
     ],
     "prompt_style": {
-      "style_name": "NO_COLON_TWO",
-      "system_prompt": "<s>[INST] <<SYS>>\nAn informative and inspiring conversation\n<</SYS>>\n\n",
+      "style_name": "LLAMA2",
+      "system_prompt": "",
       "roles": [
         "[INST]",
         "[/INST]"
       ],
       "intra_message_sep": " ",
-      "inter_message_sep": " </s><s>",
+      "inter_message_sep": "<s>",
       "stop_token_ids": [
         2
+      ],
+      "stop": [
+        "</s>"
       ]
     }
   },
@@ -1272,16 +1275,19 @@
       }
     ],
     "prompt_style": {
-      "style_name": "NO_COLON_TWO",
-      "system_prompt": "<s>[INST] <<SYS>>\nAn informative and inspiring conversation\n<</SYS>>\n\n",
+      "style_name": "LLAMA2",
+      "system_prompt": "",
       "roles": [
         "[INST]",
         "[/INST]"
       ],
       "intra_message_sep": " ",
-      "inter_message_sep": " </s><s>",
+      "inter_message_sep": "<s>",
       "stop_token_ids": [
         2
+      ],
+      "stop": [
+        "</s>"
       ]
     }
   },
