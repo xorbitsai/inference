@@ -263,9 +263,7 @@ def cache_from_uri(
         if failed:
             logger.warning(f"Removing cache directory: {cache_dir}")
             shutil.rmtree(cache_dir, ignore_errors=True)
-            raise RuntimeError(
-                f"Failed to download embedding model '{model_spec.model_name}' "
-            )
+            raise RuntimeError(f"Failed to download model '{model_spec.model_name}' ")
         return cache_dir
     else:
         raise ValueError(f"Unsupported URL scheme: {src_scheme}")
@@ -276,7 +274,7 @@ def cache(model_spec: CacheableModelSpec, model_description_type: type):
         hasattr(model_spec, "model_uri")
         and getattr(model_spec, "model_uri", None) is not None
     ):
-        logger.info(f"Embedding model caching from URI: {model_spec.model_uri}")
+        logger.info(f"Model caching from URI: {model_spec.model_uri}")
         return cache_from_uri(model_spec=model_spec)
 
     cache_dir = os.path.realpath(
