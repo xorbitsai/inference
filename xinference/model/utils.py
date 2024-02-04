@@ -120,7 +120,9 @@ def retry_download(
 
 
 def valid_model_revision(
-    meta_path: str, expected_model_revision: Optional[str]
+    meta_path: str,
+    expected_model_revision: Optional[str],
+    expected_model_hub: Optional[str] = None,
 ) -> bool:
     if not os.path.exists(meta_path):
         return False
@@ -140,7 +142,13 @@ def valid_model_revision(
                 f"No `revision` information in the `__valid_download` file. "
             )
             return False
-        return real_revision == expected_model_revision
+        if expected_model_hub is not None and expected_model_hub != meta_data.get(
+            "model_hub", "huggingface"
+        ):
+            logger.info("Use model cache from a different hub.")
+            return True
+        else:
+            return real_revision == expected_model_revision
 
 
 def get_cache_dir(model_spec: Any) -> str:
@@ -283,7 +291,7 @@ def cache(model_spec: CacheableModelSpec, model_description_type: type):
     if not os.path.exists(cache_dir):
         os.makedirs(cache_dir, exist_ok=True)
     meta_path = os.path.join(cache_dir, "__valid_download")
-    if valid_model_revision(meta_path, model_spec.model_revision):
+    if valid_model_revision(meta_path, model_spec.model_revision, model_spec.model_hub):
         return cache_dir
 
     from_modelscope: bool = model_spec.model_hub == "modelscope"
