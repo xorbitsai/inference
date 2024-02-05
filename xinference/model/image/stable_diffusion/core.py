@@ -23,8 +23,8 @@ from functools import partial
 from io import BytesIO
 from typing import List, Optional, Union
 
-from ....device_utils import move_model_to_available_device
 from ....constants import XINFERENCE_IMAGE_DIR
+from ....device_utils import move_model_to_available_device
 from ....types import Image, ImageList
 
 logger = logging.getLogger(__name__)
