@@ -9,6 +9,7 @@ import ErrorMessageSnackBar from '../../components/errorMessageSnackBar'
 import Title from '../../components/Title'
 import LaunchCustom from './launchCustom'
 import LaunchEmbedding from './launchEmbedding'
+import LaunchImage from './launchImage'
 import LaunchLLM from './launchLLM'
 import LaunchRerank from './launchRerank'
 
@@ -69,7 +70,8 @@ const LaunchModel = () => {
             <Tab label="Language Models" value="1" />
             <Tab label="Embedding Models" value="2" />
             <Tab label="Rerank Models" value="3" />
-            <Tab label="Custom Models" value="4" />
+            <Tab label="Image Models" value="4" />
+            <Tab label="Custom Models" value="5" />
           </TabList>
         </Box>
         <TabPanel value="1" sx={{ padding: 0 }}>
@@ -81,7 +83,10 @@ const LaunchModel = () => {
         <TabPanel value="3" sx={{ padding: 0 }}>
           <LaunchRerank />
         </TabPanel>
-        <TabPanel value="4" sx={{ padding: 0 }}>
+        <TabPanel value="4" sx={{ paddding: 0 }}>
+          <LaunchImage />
+        </TabPanel>
+        <TabPanel value="5" sx={{ padding: 0 }}>
           <LaunchCustom gpuAvailable={gpuAvailable} />
         </TabPanel>
       </TabContext>

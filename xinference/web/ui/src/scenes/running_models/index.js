@@ -449,8 +449,8 @@ const RunningModels = () => {
           >
             <Tab label="Language Models" value="1" />
             <Tab label="Embedding Models" value="2" />
-            <Tab label="Image models" value="3" />
-            <Tab label="Rerank models" value="4" />
+            <Tab label="Rerank models" value="3" />
+            <Tab label="Image models" value="4" />
           </TabList>
         </Box>
         <TabPanel value="1" sx={{ padding: 0 }}>
@@ -484,8 +484,8 @@ const RunningModels = () => {
         <TabPanel value="3" sx={{ padding: 0 }}>
           <Box sx={{ height: '100%', width: '100%' }}>
             <DataGrid
-              rows={imageModelData}
-              columns={imageModelColumns}
+              rows={rerankModelData}
+              columns={rerankModelColumns}
               autoHeight={true}
               sx={dataGridStyle}
               slots={{
@@ -498,8 +498,8 @@ const RunningModels = () => {
         <TabPanel value="4" sx={{ padding: 0 }}>
           <Box sx={{ height: '100%', width: '100%' }}>
             <DataGrid
-              rows={rerankModelData}
-              columns={rerankModelColumns}
+              rows={imageModelData}
+              columns={imageModelColumns}
               autoHeight={true}
               sx={dataGridStyle}
               slots={{
