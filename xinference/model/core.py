@@ -15,7 +15,7 @@
 from abc import ABC, abstractmethod
 from typing import Any, List, Optional, Tuple
 
-from pydantic import BaseModel
+from .._compat import BaseModel
 
 
 class ModelDescription(ABC):
