@@ -3,7 +3,7 @@ import React, { useContext, useEffect, useState } from 'react'
 
 import { ApiContext } from '../../components/apiContext'
 import fetcher from '../../components/fetcher'
-import ImageCard from './ImageCard'
+import ImageCard from './imageCard'
 
 const LaunchImage = () => {
   let endPoint = useContext(ApiContext).endPoint
@@ -93,7 +93,7 @@ const LaunchImage = () => {
           <TextField
             id="search"
             type="search"
-            label="Search for text2image model name"
+            label="Search for image model name"
             value={searchTerm}
             onChange={handleChange}
             size="small"
