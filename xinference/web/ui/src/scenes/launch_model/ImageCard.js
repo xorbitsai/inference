@@ -17,11 +17,11 @@ import fetcher from '../../components/fetcher'
 const CARD_HEIGHT = 270
 const CARD_WIDTH = 270
 
-const Text2ImageCard = ({
-    url,
-    modelData,
-    cardHeight = CARD_HEIGHT,
-    is_custom = false,
+const ImageCard = ({
+  url,
+  modelData,
+  cardHeight = CARD_HEIGHT,
+  is_custom = false,
 }) => {
   const [modelUID, setModelUID] = useState('')
   const [hover, setHover] = useState(false)
@@ -124,8 +124,6 @@ const Text2ImageCard = ({
     },
     buttonsContainer: {
       display: 'flex',
-      margin: '0 auto',
-      marginTop: '60px',
       border: 'none',
       justifyContent: 'space-between',
       alignItems: 'center',
@@ -235,33 +233,37 @@ const Text2ImageCard = ({
           )}
           {!is_custom && <h2 style={styles.h2}>{modelData.model_name}</h2>}
           <Stack
-              spacing={1}
-              direction="row"
-              useFlexGap
-              flexWrap="wrap"
-              sx={{ marginLeft: 1 }}
+            spacing={1}
+            direction="row"
+            useFlexGap
+            flexWrap="wrap"
+            sx={{ marginLeft: 1 }}
           >
-              {(() => {
-                      return <Chip label={modelData.model_family} variant="outlined" size="small" />
-              })()}
-              {(() => {
-                  if (modelData.is_cached) {
-                      return <Chip label="Cached" variant="outlined" size="small" />;
-                  }
-              })()}
-              {(() => {
-                  if (is_custom && customDeleted) {
-                      return <Chip label="Deleted" variant="outlined" size="small" />;
-                  }
-              })()}
+            {(() => {
+              return (
+                <Chip
+                  label={modelData.model_family}
+                  variant="outlined"
+                  size="small"
+                />
+              )
+            })()}
+            {(() => {
+              if (modelData.is_cached) {
+                return <Chip label="Cached" variant="outlined" size="small" />
+              }
+            })()}
+            {(() => {
+              if (is_custom && customDeleted) {
+                return <Chip label="Deleted" variant="outlined" size="small" />
+              }
+            })()}
           </Stack>
         </div>
-        {hover ? (
+        {!selected && hover && (
           <p style={styles.instructionText}>
             Click with mouse to launch the model
           </p>
-        ) : (
-          <p style={styles.instructionText}></p>
         )}
       </Box>
       {/* Second state: show parameter selection page */}
@@ -283,7 +285,7 @@ const Text2ImageCard = ({
         </FormControl>
         <Box style={styles.buttonsContainer}>
           <button
-            title="Launch Text2Image"
+            title="Launch Image"
             style={styles.buttonContainer}
             onClick={() => launchModel(url, modelData)}
             disabled={isCallingApi || isUpdatingModel || !modelData}
@@ -320,7 +322,7 @@ const Text2ImageCard = ({
             })()}
           </button>
           <button
-            title="Launch Text2Image"
+            title="Launch Image"
             style={styles.buttonContainer}
             onClick={() => setSelected(false)}
           >
@@ -334,4 +336,4 @@ const Text2ImageCard = ({
   )
 }
 
-export default Text2ImageCard
+export default ImageCard

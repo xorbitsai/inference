@@ -9,9 +9,9 @@ import ErrorMessageSnackBar from '../../components/errorMessageSnackBar'
 import Title from '../../components/Title'
 import LaunchCustom from './launchCustom'
 import LaunchEmbedding from './launchEmbedding'
+import LaunchImage from './launchImage'
 import LaunchLLM from './launchLLM'
 import LaunchRerank from './launchRerank'
-import LaunchText2Image from "./launchText2Image";
 
 const LaunchModel = () => {
   let endPoint = useContext(ApiContext).endPoint
@@ -86,8 +86,8 @@ const LaunchModel = () => {
         <TabPanel value="4" sx={{ padding: 0 }}>
           <LaunchCustom gpuAvailable={gpuAvailable} />
         </TabPanel>
-        <TabPanel value="5" sx={{ paddding: 0}}>
-          <LaunchText2Image/>
+        <TabPanel value="5" sx={{ paddding: 0 }}>
+          <LaunchImage />
         </TabPanel>
       </TabContext>
     </Box>
