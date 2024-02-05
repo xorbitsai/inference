@@ -71,7 +71,7 @@ const LaunchModel = () => {
             <Tab label="Embedding Models" value="2" />
             <Tab label="Rerank Models" value="3" />
             <Tab label="Custom Models" value="4" />
-            <Tab label="Text2Image MOdels" value="5" />
+            <Tab label="Image Models" value="5" />
           </TabList>
         </Box>
         <TabPanel value="1" sx={{ padding: 0 }}>
