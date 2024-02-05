@@ -95,9 +95,11 @@ class QwenVLChatModel(PytorchChatModel):
         if not isinstance(content, str):
             # TODO(codingl2k1): Optimize _ensure_url
             content = [
-                {"image": _ensure_url(c["image_url"]["url"]), "type": "image"}
-                if c.get("type") == "image_url"
-                else c
+                (
+                    {"image": _ensure_url(c["image_url"]["url"]), "type": "image"}
+                    if c.get("type") == "image_url"
+                    else c
+                )
                 for c in content
             ]
             content = sorted(content, key=operator.itemgetter("type"))

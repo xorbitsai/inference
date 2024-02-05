@@ -12,11 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import logging
 import os
-import json
 from typing import Iterable, Iterator, List, Optional, Union
 
+from ....device_utils import (
+    get_device_preferred_dtype,
+    gpu_count,
+    is_hf_accelerate_supported,
+)
 from ....types import (
     ChatCompletion,
     ChatCompletionChunk,
@@ -30,7 +35,6 @@ from ....types import (
     PytorchGenerateConfig,
     PytorchModelConfig,
 )
-from ....device_utils import gpu_count, get_device_preferred_dtype, is_hf_accelerate_supported
 from ...utils import select_device
 from ..core import LLM
 from ..llm_family import LLMFamilyV1, LLMSpecV1
@@ -149,7 +153,9 @@ class PytorchModel(LLM):
 
         if max_memory_env is not None:
             max_memory_raw = json.loads(max_memory_env)
-            max_memory = {int(k) if k.isdigit() else k : max_memory_raw[k] for k in max_memory_raw}
+            max_memory = {
+                int(k) if k.isdigit() else k: max_memory_raw[k] for k in max_memory_raw
+            }
             kwargs["max_memory"] = max_memory
 
         if quantization != "none" and model_format == "pytorch":

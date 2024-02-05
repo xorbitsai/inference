@@ -13,12 +13,12 @@
 # limitations under the License.
 
 import os
-from typing_extensions import Literal, Union
 
 import torch
+from typing_extensions import Literal, Union
 
 try:
-    import intel_extension_for_pytorch # noqa: F401
+    import intel_extension_for_pytorch  # noqa: F401
 except:
     pass
 

@@ -231,9 +231,11 @@ class RESTfulAPI:
             "/v1/ui/{model_uid}",
             self.build_gradio_interface,
             methods=["POST"],
-            dependencies=[Security(self._auth_service, scopes=["models:read"])]
-            if self.is_authenticated()
-            else None,
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:read"])]
+                if self.is_authenticated()
+                else None
+            ),
         )
         self._router.add_api_route(
             "/token", self.login_for_access_token, methods=["POST"]
@@ -246,142 +248,176 @@ class RESTfulAPI:
             "/v1/models/instances",
             self.get_instance_info,
             methods=["GET"],
-            dependencies=[Security(self._auth_service, scopes=["models:list"])]
-            if self.is_authenticated()
-            else None,
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:list"])]
+                if self.is_authenticated()
+                else None
+            ),
         )
         self._router.add_api_route(
             "/v1/models/{model_type}/{model_name}/versions",
             self.get_model_versions,
             methods=["GET"],
-            dependencies=[Security(self._auth_service, scopes=["models:list"])]
-            if self.is_authenticated()
-            else None,
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:list"])]
+                if self.is_authenticated()
+                else None
+            ),
         )
         self._router.add_api_route(
             "/v1/models",
             self.list_models,
             methods=["GET"],
-            dependencies=[Security(self._auth_service, scopes=["models:list"])]
-            if self.is_authenticated()
-            else None,
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:list"])]
+                if self.is_authenticated()
+                else None
+            ),
         )
 
         self._router.add_api_route(
             "/v1/models/{model_uid}",
             self.describe_model,
             methods=["GET"],
-            dependencies=[Security(self._auth_service, scopes=["models:list"])]
-            if self.is_authenticated()
-            else None,
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:list"])]
+                if self.is_authenticated()
+                else None
+            ),
         )
         self._router.add_api_route(
             "/v1/models/{model_uid}/events",
             self.get_model_events,
             methods=["GET"],
-            dependencies=[Security(self._auth_service, scopes=["models:read"])]
-            if self.is_authenticated()
-            else None,
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:read"])]
+                if self.is_authenticated()
+                else None
+            ),
         )
         self._router.add_api_route(
             "/v1/models/instance",
             self.launch_model_by_version,
             methods=["POST"],
-            dependencies=[Security(self._auth_service, scopes=["models:start"])]
-            if self.is_authenticated()
-            else None,
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:start"])]
+                if self.is_authenticated()
+                else None
+            ),
         )
         self._router.add_api_route(
             "/v1/models",
             self.launch_model,
             methods=["POST"],
-            dependencies=[Security(self._auth_service, scopes=["models:start"])]
-            if self.is_authenticated()
-            else None,
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:start"])]
+                if self.is_authenticated()
+                else None
+            ),
         )
         self._router.add_api_route(
             "/experimental/speculative_llms",
             self.launch_speculative_llm,
             methods=["POST"],
-            dependencies=[Security(self._auth_service, scopes=["models:start"])]
-            if self.is_authenticated()
-            else None,
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:start"])]
+                if self.is_authenticated()
+                else None
+            ),
         )
         self._router.add_api_route(
             "/v1/models/{model_uid}",
             self.terminate_model,
             methods=["DELETE"],
-            dependencies=[Security(self._auth_service, scopes=["models:stop"])]
-            if self.is_authenticated()
-            else None,
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:stop"])]
+                if self.is_authenticated()
+                else None
+            ),
         )
         self._router.add_api_route(
             "/v1/completions",
             self.create_completion,
             methods=["POST"],
             response_model=Completion,
-            dependencies=[Security(self._auth_service, scopes=["models:read"])]
-            if self.is_authenticated()
-            else None,
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:read"])]
+                if self.is_authenticated()
+                else None
+            ),
         )
         self._router.add_api_route(
             "/v1/embeddings",
             self.create_embedding,
             methods=["POST"],
-            dependencies=[Security(self._auth_service, scopes=["models:read"])]
-            if self.is_authenticated()
-            else None,
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:read"])]
+                if self.is_authenticated()
+                else None
+            ),
         )
         self._router.add_api_route(
             "/v1/rerank",
             self.rerank,
             methods=["POST"],
-            dependencies=[Security(self._auth_service, scopes=["models:read"])]
-            if self.is_authenticated()
-            else None,
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:read"])]
+                if self.is_authenticated()
+                else None
+            ),
         )
         self._router.add_api_route(
             "/v1/audio/transcriptions",
             self.create_transcriptions,
             methods=["POST"],
-            dependencies=[Security(self._auth_service, scopes=["models:read"])]
-            if self.is_authenticated()
-            else None,
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:read"])]
+                if self.is_authenticated()
+                else None
+            ),
         )
         self._router.add_api_route(
             "/v1/audio/translations",
             self.create_translations,
             methods=["POST"],
-            dependencies=[Security(self._auth_service, scopes=["models:read"])]
-            if self.is_authenticated()
-            else None,
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:read"])]
+                if self.is_authenticated()
+                else None
+            ),
         )
         self._router.add_api_route(
             "/v1/images/generations",
             self.create_images,
             methods=["POST"],
             response_model=ImageList,
-            dependencies=[Security(self._auth_service, scopes=["models:read"])]
-            if self.is_authenticated()
-            else None,
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:read"])]
+                if self.is_authenticated()
+                else None
+            ),
         )
         self._router.add_api_route(
             "/v1/images/variations",
             self.create_variations,
             methods=["POST"],
             response_model=ImageList,
-            dependencies=[Security(self._auth_service, scopes=["models:read"])]
-            if self.is_authenticated()
-            else None,
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:read"])]
+                if self.is_authenticated()
+                else None
+            ),
         )
         self._router.add_api_route(
             "/v1/chat/completions",
             self.create_chat_completion,
             methods=["POST"],
             response_model=ChatCompletion,
-            dependencies=[Security(self._auth_service, scopes=["models:read"])]
-            if self.is_authenticated()
-            else None,
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:read"])]
+                if self.is_authenticated()
+                else None
+            ),
         )
 
         # for custom models
@@ -389,33 +425,41 @@ class RESTfulAPI:
             "/v1/model_registrations/{model_type}",
             self.register_model,
             methods=["POST"],
-            dependencies=[Security(self._auth_service, scopes=["models:register"])]
-            if self.is_authenticated()
-            else None,
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:register"])]
+                if self.is_authenticated()
+                else None
+            ),
         )
         self._router.add_api_route(
             "/v1/model_registrations/{model_type}/{model_name}",
             self.unregister_model,
             methods=["DELETE"],
-            dependencies=[Security(self._auth_service, scopes=["models:unregister"])]
-            if self.is_authenticated()
-            else None,
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:unregister"])]
+                if self.is_authenticated()
+                else None
+            ),
         )
         self._router.add_api_route(
             "/v1/model_registrations/{model_type}",
             self.list_model_registrations,
             methods=["GET"],
-            dependencies=[Security(self._auth_service, scopes=["models:list"])]
-            if self.is_authenticated()
-            else None,
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:list"])]
+                if self.is_authenticated()
+                else None
+            ),
         )
         self._router.add_api_route(
             "/v1/model_registrations/{model_type}/{model_name}",
             self.get_model_registrations,
             methods=["GET"],
-            dependencies=[Security(self._auth_service, scopes=["models:list"])]
-            if self.is_authenticated()
-            else None,
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:list"])]
+                if self.is_authenticated()
+                else None
+            ),
         )
 
         # Clear the global Registry for the MetricsMiddleware, or

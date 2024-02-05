@@ -21,9 +21,8 @@ from typing import Any, Callable, Dict, Optional, Tuple
 
 from fsspec import AbstractFileSystem
 
-from ..device_utils import get_available_device, is_device_available
-
 from ..constants import XINFERENCE_CACHE_DIR, XINFERENCE_ENV_MODEL_SRC
+from ..device_utils import get_available_device, is_device_available
 from .core import CacheableModelSpec
 
 logger = logging.getLogger(__name__)
@@ -403,7 +402,7 @@ def patch_trust_remote_code():
 
 def select_device(device):
     try:
-        import torch # noqa: F401
+        import torch  # noqa: F401
     except ImportError:
         raise ImportError(
             f"Failed to import module 'torch'. Please make sure 'torch' is installed.\n\n"

@@ -15,8 +15,12 @@
 import logging
 from typing import Iterator, List, Optional, Union
 
+from ....device_utils import (
+    get_device_preferred_dtype,
+    gpu_count,
+    is_hf_accelerate_supported,
+)
 from ....types import Completion, CompletionChunk, Embedding
-from ....device_utils import gpu_count, get_device_preferred_dtype, is_hf_accelerate_supported
 from ...utils import select_device
 from .. import LLMFamilyV1, LLMSpecV1
 from .core import PytorchChatModel, PytorchGenerateConfig, PytorchModelConfig
@@ -73,7 +77,7 @@ class SpeculativeModel(PytorchChatModel):
 
     def load(self):
         try:
-            import torch # noqa: F401
+            import torch  # noqa: F401
         except ImportError:
             raise ImportError(
                 f"Failed to import module 'torch'. Please make sure 'torch' is installed.\n\n"

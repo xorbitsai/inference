@@ -14,7 +14,11 @@
 import logging
 from typing import TYPE_CHECKING, Dict, Optional
 
-from xinference.device_utils import get_available_device, is_device_available, get_device_preferred_dtype
+from xinference.device_utils import (
+    get_available_device,
+    get_device_preferred_dtype,
+    is_device_available,
+)
 
 if TYPE_CHECKING:
     from .core import AudioModelFamilyV1
@@ -105,9 +109,11 @@ class WhisperModel:
             )
         return self._call_model(
             audio=audio,
-            generate_kwargs={"language": language, "task": "transcribe"}
-            if language is not None
-            else {"task": "transcribe"},
+            generate_kwargs=(
+                {"language": language, "task": "transcribe"}
+                if language is not None
+                else {"task": "transcribe"}
+            ),
             response_format=response_format,
         )
 

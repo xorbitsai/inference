@@ -211,7 +211,9 @@ class YiVLChatModel(PytorchChatModel):
         max_new_tokens = generate_config.get("max_tokens", 512)
         generate_kwargs = {
             "input_ids": input_ids,
-            "images": image_tensor.unsqueeze(0).to(dtype=torch.bfloat16).to(self._device),
+            "images": image_tensor.unsqueeze(0)
+            .to(dtype=torch.bfloat16)
+            .to(self._device),
             "streamer": streamer,
             "do_sample": True,
             "top_p": float(top_p),

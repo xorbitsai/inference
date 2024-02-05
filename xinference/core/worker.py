@@ -30,8 +30,8 @@ from xoscar import MainActorPoolType
 from ..constants import XINFERENCE_CACHE_DIR
 from ..core import ModelActor
 from ..core.status_guard import LaunchStatus
-from ..model.core import ModelDescription, create_model_instance
 from ..device_utils import gpu_count
+from ..model.core import ModelDescription, create_model_instance
 from .event import Event, EventCollectorActor, EventType
 from .metrics import launch_metrics_export_server, record_metrics
 from .resource import gather_node_info
