@@ -665,12 +665,16 @@ class Client:
     def _check_cluster_authenticated(self):
         url = f"{self.base_url}/v1/cluster/auth"
         response = requests.get(url)
-        if response.status_code != 200:
-            raise RuntimeError(
-                f"Failed to get cluster information, detail: {response.json()['detail']}"
-            )
-        response_data = response.json()
-        self._cluster_authed = bool(response_data["auth"])
+        # compatible with old version of xinference
+        if response.status_code == 404:
+            self._cluster_authed = False
+        else:
+            if response.status_code != 200:
+                raise RuntimeError(
+                    f"Failed to get cluster information, detail: {response.json()['detail']}"
+                )
+            response_data = response.json()
+            self._cluster_authed = bool(response_data["auth"])
 
     def login(self, username: str, password: str):
         if not self._cluster_authed:
