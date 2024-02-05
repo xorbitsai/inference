@@ -16,4 +16,3 @@ Specifications
 Execute the following command to launch the model::
 
    xinference launch --model-name bce-reranker-base_v1 --model-type rerank
-

@@ -44,13 +44,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from PIL import Image
-from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
 from starlette.responses import JSONResponse as StarletteJSONResponse
 from starlette.responses import RedirectResponse
 from uvicorn import Config, Server
 from xoscar.utils import get_next_port
 
+from .._compat import BaseModel, Field
 from ..constants import XINFERENCE_DEFAULT_ENDPOINT_PORT
 from ..core.event import Event, EventCollectorActor, EventType
 from ..core.supervisor import SupervisorActor
@@ -190,7 +190,8 @@ class RESTfulAPI:
                 "Report error event failed, model: %s, content: %s", model_uid, content
             )
 
-    async def login_for_access_token(self, form_data: LoginUserForm) -> JSONResponse:
+    async def login_for_access_token(self, request: Request) -> JSONResponse:
+        form_data = LoginUserForm.parse_obj(await request.json())
         result = self._auth_service.generate_token_for_user(
             form_data.username, form_data.password
         )
@@ -705,13 +706,15 @@ class RESTfulAPI:
             raise HTTPException(status_code=500, detail=str(e))
 
     async def build_gradio_interface(
-        self, model_uid: str, body: BuildGradioInterfaceRequest, request: Request
+        self, model_uid: str, request: Request
     ) -> JSONResponse:
         """
         Separate build_interface with launch_model
         build_interface requires RESTful Client for API calls
         but calling API in async function does not return
         """
+        payload = await request.json()
+        body = BuildGradioInterfaceRequest.parse_obj(payload)
         assert self._app is not None
         assert body.model_type == "LLM"
 
@@ -781,9 +784,8 @@ class RESTfulAPI:
     async def get_address(self) -> JSONResponse:
         return JSONResponse(content=self._supervisor_address)
 
-    async def create_completion(
-        self, request: Request, body: CreateCompletionRequest
-    ) -> Response:
+    async def create_completion(self, request: Request) -> Response:
+        body = CreateCompletionRequest.parse_obj(await request.json())
         exclude = {
             "prompt",
             "model",
@@ -843,8 +845,9 @@ class RESTfulAPI:
                 self.handle_request_limit_error(e)
                 raise HTTPException(status_code=500, detail=str(e))
 
-    async def create_embedding(self, request: CreateEmbeddingRequest) -> Response:
-        model_uid = request.model
+    async def create_embedding(self, request: Request) -> Response:
+        body = CreateEmbeddingRequest.parse_obj(await request.json())
+        model_uid = body.model
 
         try:
             model = await (await self._get_supervisor_ref()).get_model(model_uid)
@@ -858,7 +861,7 @@ class RESTfulAPI:
             raise HTTPException(status_code=500, detail=str(e))
 
         try:
-            embedding = await model.create_embedding(request.input)
+            embedding = await model.create_embedding(body.input)
             return Response(embedding, media_type="application/json")
         except RuntimeError as re:
             logger.error(re, exc_info=True)
@@ -870,8 +873,9 @@ class RESTfulAPI:
             await self._report_error_event(model_uid, str(e))
             raise HTTPException(status_code=500, detail=str(e))
 
-    async def rerank(self, request: RerankRequest) -> Response:
-        model_uid = request.model
+    async def rerank(self, request: Request) -> Response:
+        body = RerankRequest.parse_obj(await request.json())
+        model_uid = body.model
         try:
             model = await (await self._get_supervisor_ref()).get_model(model_uid)
         except ValueError as ve:
@@ -885,11 +889,11 @@ class RESTfulAPI:
 
         try:
             scores = await model.rerank(
-                request.documents,
-                request.query,
-                top_n=request.top_n,
-                max_chunks_per_doc=request.max_chunks_per_doc,
-                return_documents=request.return_documents,
+                body.documents,
+                body.query,
+                top_n=body.top_n,
+                max_chunks_per_doc=body.max_chunks_per_doc,
+                return_documents=body.return_documents,
             )
             return Response(scores, media_type="application/json")
         except RuntimeError as re:
@@ -990,8 +994,9 @@ class RESTfulAPI:
             await self._report_error_event(model_uid, str(e))
             raise HTTPException(status_code=500, detail=str(e))
 
-    async def create_images(self, request: TextToImageRequest) -> Response:
-        model_uid = request.model
+    async def create_images(self, request: Request) -> Response:
+        body = TextToImageRequest.parse_obj(await request.json())
+        model_uid = body.model
         try:
             model = await (await self._get_supervisor_ref()).get_model(model_uid)
         except ValueError as ve:
@@ -1004,12 +1009,12 @@ class RESTfulAPI:
             raise HTTPException(status_code=500, detail=str(e))
 
         try:
-            kwargs = json.loads(request.kwargs) if request.kwargs else {}
+            kwargs = json.loads(body.kwargs) if body.kwargs else {}
             image_list = await model.text_to_image(
-                prompt=request.prompt,
-                n=request.n,
-                size=request.size,
-                response_format=request.response_format,
+                prompt=body.prompt,
+                n=body.n,
+                size=body.size,
+                response_format=body.response_format,
                 **kwargs,
             )
             return Response(content=image_list, media_type="application/json")
@@ -1070,11 +1075,8 @@ class RESTfulAPI:
             await self._report_error_event(model_uid, str(e))
             raise HTTPException(status_code=500, detail=str(e))
 
-    async def create_chat_completion(
-        self,
-        request: Request,
-        body: CreateChatCompletion,
-    ) -> Response:
+    async def create_chat_completion(self, request: Request) -> Response:
+        body = CreateChatCompletion.parse_obj(await request.json())
         exclude = {
             "prompt",
             "model",
@@ -1156,17 +1158,17 @@ class RESTfulAPI:
             await self._report_error_event(model_uid, str(e))
             raise HTTPException(status_code=500, detail=str(e))
 
-        model_name = desc.get("model_name", "")
+        model_family = desc.get("model_family", "")
         function_call_models = ["chatglm3", "gorilla-openfunctions-v1", "qwen-chat"]
 
-        is_qwen = desc.get("model_format") == "ggmlv3" and "qwen" in model_name
+        is_qwen = desc.get("model_format") == "ggmlv3" and "qwen-chat" == model_family
 
         if is_qwen and system_prompt is not None:
             raise HTTPException(
                 status_code=400, detail="Qwen ggml does not have system prompt"
             )
 
-        if not any(name in model_name for name in function_call_models):
+        if model_family not in function_call_models:
             if body.tools:
                 raise HTTPException(
                     status_code=400,
@@ -1219,11 +1221,10 @@ class RESTfulAPI:
                 self.handle_request_limit_error(e)
                 raise HTTPException(status_code=500, detail=str(e))
 
-    async def register_model(
-        self, model_type: str, request: RegisterModelRequest
-    ) -> JSONResponse:
-        model = request.model
-        persist = request.persist
+    async def register_model(self, model_type: str, request: Request) -> JSONResponse:
+        body = RegisterModelRequest.parse_obj(await request.json())
+        model = body.model
+        persist = body.persist
 
         try:
             await (await self._get_supervisor_ref()).register_model(

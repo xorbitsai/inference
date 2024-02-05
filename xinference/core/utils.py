@@ -19,8 +19,9 @@ import string
 from typing import Dict, Generator, List, Tuple, Union
 
 import orjson
-from pydantic import BaseModel
 from pynvml import nvmlDeviceGetCount, nvmlInit, nvmlShutdown
+
+from .._compat import BaseModel
 
 logger = logging.getLogger(__name__)
 

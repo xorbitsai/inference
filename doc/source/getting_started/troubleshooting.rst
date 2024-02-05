@@ -32,12 +32,6 @@ Your credential to access huggingface can be found online at `https://huggingfac
 
 You can set the token as an environmental variable, with ``export HUGGING_FACE_HUB_TOKEN=your_token_here``.
 
-Download models from ModelScope
-===============================
-
-When the network connection to HuggingFace is blocked, you can also choose to download models from ModelScope, especially for Chinese users.
-For a detailed list of supported models and settings, please refer to :ref:`models_download`.
-
 
 Incompatibility Between NVIDIA Driver and PyTorch Version
 =========================================================
@@ -65,98 +59,44 @@ Say if your CUDA driver version is 11.8, then you can install PyTorch with the f
    pip install torch==2.0.1+cu118
 
 
-Access is possible through ``http://localhost:9997``, but not through ``ip+9997`` of the local machine.
-=======================================================================================================
+Xinference service cannot be accessed from external systems through ``<IP>:9997``
+=================================================================================
 
-Add ``H 0.0.0.0`` when starting, as in
+Use ``-H 0.0.0.0`` parameter in when starting Xinference:
 
 .. code:: bash
 
-   xinference -H 0.0.0.0
+   xinference-local -H 0.0.0.0
 
-If using docker (official docker is recommended), add ``p 9998:9997``
-when starting, then access is available through ``ip+9998`` of the local
-machine.
+Then Xinference service will listen on all network interfaces (not limited to ``127.0.0.1`` or ``localhost``).
 
-Can multiple models be loaded together?
-=======================================
+If you are using the :ref:`using_docker_image`, please add ``-p <PORT>:9997``
+during the docker run command, then access is available through ``<IP>:<PORT>`` of
+the local machine.
 
-A single GPU can only support loading one LLM model at a time, but it is
-possible to load an embedding model and a rerank model simultaneously.
-With multiple GPUs, you can load multiple LLM models.
+Launching a built-in model takes a long time, and sometimes the model fails to download
+=======================================================================================
 
-Issues with loading or slow downloads of the built-in models in xinference
-==========================================================================
-
-Xinference by default uses huggiface as the source for models. If your
+Xinference by default uses HuggingFace as the source for models. If your
 machines are in Mainland China, there might be accessibility issues when
 using built-in models.
 
-To address this, add ``XINFERENCE_MODEL_SRC=modelscope`` when starting
-the service to change the model source to ModelScope, which is optimized
+To address this, add environment variable ``XINFERENCE_MODEL_SRC=modelscope`` when starting
+the Xinference to change the model source to ModelScope, which is optimized
 for Mainland China.
 
-If you’re starting xinference with Docker, include
-``e XINFERENCE_MODEL_SRC=modelscope`` during the docker run command. For
-more environment variable configurations, please refer to the official
-[`Environment
-Variables <https://inference.readthedocs.io/zh-cn/latest/getting_started/environments.html>`__]
-documentation.
+If you’re starting Xinference with Docker, include ``-e XINFERENCE_MODEL_SRC=modelscope``
+during the docker run command.
 
-How to upgrade xinference
-=========================
+When using the official Docker image, RayWorkerVllm died due to OOM, causing the model to fail to load
+=======================================================================================================
 
-.. code:: bash
+Docker's ``--shm-size`` parameter is used to set the size of shared memory. 
+The default size of shared memory (/dev/shm) is 64MB, which may be too small for vLLM backend.
 
-   pip install --upgrade xinference
 
-Installation of xinference dependencies is slow
-===============================================
-
-We are recommended to use the official docker image for installation.
-There is a nightly-main version based on the main branch updated daily.
-For stable versions, see GitHub.
+You can increase its size by setting the ``--shm-size`` parameter as follows:
 
 .. code:: bash
 
-   docker pull xprobe/xinference
-
-Does xinference support configuring LoRA?
-=========================================
-
-It is currently not supported; it requires manual integration with the
-main model.
-
-Can’t find a custom registration entry point for rerank models in xinference
-============================================================================
-
-Upgrade inference to the latest version, versions ``0.7.3`` and below
-are not supported.
-
-Does xinference support running on Huawei Ascend 310 or 910 hardware?
-=====================================================================
-
-Yes, it does.
-
-Does xinference support an API that is compatible with OpenAI?
-==============================================================
-
-Yes, xinference not only supports an API compatible with OpenAI but also
-has a client API available for use. For more details, please visit the
-official website `Client
-API <https://inference.readthedocs.io/zh-cn/latest/user_guide/client_api.html>`__.
-
-When using xinference to load models, multi-GPU support is not functioning, and it only loads onto one card.
-============================================================================================================
-
--  If you are using Docker for vLLM multi-GPU inference, you need to
-   specify ``-shm-size``.
-
--  If the vLLM backend is in use, you should disable vLLM before
-   performing the inference.
-
-Does Xinference support setting up a chat model for embeddings?
-===============================================================
-
-It used to. But since the embedding performance of LLMs was poor, the
-feature has been removed to prevent misuse.
+   docker run --shm-size=128g ...

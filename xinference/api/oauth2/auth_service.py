@@ -14,13 +14,12 @@
 from datetime import timedelta
 from typing import List, Optional
 
-import pydantic
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, SecurityScopes
 from jose import JWTError, jwt
-from pydantic import BaseModel, ValidationError
 from typing_extensions import Annotated
 
+from ..._compat import BaseModel, ValidationError, parse_file_as
 from .types import AuthStartupConfig, User
 from .utils import create_access_token, get_password_hash, verify_password
 
@@ -43,7 +42,7 @@ class AuthService:
 
     def init_auth_config(self):
         if self._auth_config_file:
-            config: AuthStartupConfig = pydantic.parse_file_as(
+            config: AuthStartupConfig = parse_file_as(
                 path=self._auth_config_file, type_=AuthStartupConfig
             )
             for user in config.user_config:

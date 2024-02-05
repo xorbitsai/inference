@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-12-29 15:20+0800\n"
+"POT-Creation-Date: 2024-02-05 11:25+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -17,7 +17,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Generated-By: Babel 2.11.0\n"
+"Generated-By: Babel 2.13.1\n"
 
 #: ../../source/getting_started/troubleshooting.rst:5
 msgid "Troubleshooting"
@@ -55,9 +55,9 @@ msgid ""
 "model, you can use this link: `https://huggingface.co/meta-llama/Llama-2"
 "-7b-hf <https://huggingface.co/meta-llama/Llama-2-7b-hf>`_."
 msgstr ""
-"想要获取访问权限，打开对应的 huggingface 仓库，同意其条款和注意事项。以"
-" ``llama2`` 为例，可以打开这个链接去申请：`https://huggingface.co/meta-llama"
-"/Llama-2-7b-hf <https://huggingface.co/meta-llama/Llama-2-7b-hf>`_."
+"想要获取访问权限，打开对应的 huggingface 仓库，同意其条款和注意事项。以 `"
+"`llama2`` 为例，可以打开这个链接去申请：`https://huggingface.co/meta-"
+"llama/Llama-2-7b-hf <https://huggingface.co/meta-llama/Llama-2-7b-hf>`_."
 
 #: ../../source/getting_started/troubleshooting.rst:29
 msgid "Set up credentials to access huggingface"
@@ -80,35 +80,21 @@ msgstr ""
 "可以通过设置环境变量设置访问凭证，``export HUGGING_FACE_HUB_TOKEN=your_"
 "token_here``。"
 
-#: ../../source/getting_started/troubleshooting.rst:36
-msgid "Download models from ModelScope"
-msgstr "从 ModelScope 下载模型"
-
-#: ../../source/getting_started/troubleshooting.rst:38
-msgid ""
-"When the network connection to HuggingFace is blocked, you can also "
-"choose to download models from ModelScope, especially for Chinese users. "
-"For a detailed list of supported models and settings, please refer to "
-":ref:`models_download`."
-msgstr ""
-"当你所在的网络访问 HuggingFace 有阻碍时，可以选择 ModelScope 作为模型下载"
-"源，特别适合国内的用户。"
-
-#: ../../source/getting_started/troubleshooting.rst:43
+#: ../../source/getting_started/troubleshooting.rst:37
 msgid "Incompatibility Between NVIDIA Driver and PyTorch Version"
 msgstr "英伟达驱动和 PyTorch 版本不匹配"
 
-#: ../../source/getting_started/troubleshooting.rst:45
+#: ../../source/getting_started/troubleshooting.rst:39
 msgid "If you are using a NVIDIA GPU, you may face the following error:"
 msgstr "如果你在使用英伟达显卡，你可能会遇到以下错误："
 
-#: ../../source/getting_started/troubleshooting.rst:56
+#: ../../source/getting_started/troubleshooting.rst:50
 msgid ""
 "This typically indicates that your CUDA driver version is not compatible "
 "with the PyTorch version you are using."
 msgstr "这种情况一般是 CUDA 的版本和 Pytorch 版本不兼容导致的。"
 
-#: ../../source/getting_started/troubleshooting.rst:58
+#: ../../source/getting_started/troubleshooting.rst:52
 msgid ""
 "Go to `https://pytorch.org <https://pytorch.org>`_ to install a PyTorch "
 "version that has been compiled with your version of the CUDA driver. **Do"
@@ -116,11 +102,87 @@ msgid ""
 "and 12.1.**"
 msgstr ""
 "可以到 `https://pytorch.org <https://pytorch.org>`_ 官网安装和 CUDA 对应"
-"的预编译版本的 PyTorch。同时，**请检查安装的 CUDA 版本不要小于 11.8，最好版本在 11.8 到 12.1之间。**"
+"的预编译版本的 PyTorch。同时，**请检查安装的 CUDA 版本不要小于 11.8，最好"
+"版本在 11.8 到 12.1之间。**"
 
-#: ../../source/getting_started/troubleshooting.rst:61
+#: ../../source/getting_started/troubleshooting.rst:55
 msgid ""
 "Say if your CUDA driver version is 11.8, then you can install PyTorch "
 "with the following command:"
 msgstr "比如你的 CUDA 版本是 11.8，可以使用以下命令安装对应的 PyTorch："
+
+#: ../../source/getting_started/troubleshooting.rst:63
+msgid ""
+"Xinference service cannot be accessed from external systems through "
+"``<IP>:9997``"
+msgstr "外部系统无法通过 ``<IP>:9997`` 访问 Xinference 服务"
+
+#: ../../source/getting_started/troubleshooting.rst:65
+msgid "Use ``-H 0.0.0.0`` parameter in when starting Xinference:"
+msgstr "在启动 Xinference 时记得要加上 ``-H 0.0.0.0`` 参数:"
+
+#: ../../source/getting_started/troubleshooting.rst:71
+msgid ""
+"Then Xinference service will listen on all network interfaces (not "
+"limited to ``127.0.0.1`` or ``localhost``)."
+msgstr "那么 Xinference 服务将监听所有网络接口（而不仅限于 ``127.0.0.1`` 或 ``localhost``）。"
+
+
+#: ../../source/getting_started/troubleshooting.rst:73
+msgid ""
+"If you are using the :ref:`using_docker_image`, please add ``-p "
+"<PORT>:9997`` during the docker run command, then access is available "
+"through ``<IP>:<PORT>`` of the local machine."
+msgstr "如果使用的是 :ref:`using_docker_image`，请在 Docker 运行命令中 加上 ``-p <PORT>:9997`` ，"
+"，你就可以通过本地机器的 ``<IP>:<PORT>`` 进行访问。"
+
+#: ../../source/getting_started/troubleshooting.rst:78
+msgid ""
+"Launching a built-in model takes a long time, and sometimes the model "
+"fails to download"
+msgstr "启动内置模型需要很长时间，模型有时下载失败"
+
+#: ../../source/getting_started/troubleshooting.rst:80
+msgid ""
+"Xinference by default uses HuggingFace as the source for models. If your "
+"machines are in Mainland China, there might be accessibility issues when "
+"using built-in models."
+msgstr "Xinference 默认使用 HuggingFace作为模型源。如果你的机器在中国大陆，使用内置模型可能会有访问问题。"
+
+#: ../../source/getting_started/troubleshooting.rst:84
+msgid ""
+"To address this, add environment variable "
+"``XINFERENCE_MODEL_SRC=modelscope`` when starting the Xinference to "
+"change the model source to ModelScope, which is optimized for Mainland "
+"China."
+msgstr "要解决这个问题，可以在启动 Xinference 时添加环境变量 ``XINFERENCE_MODEL_SRC=modelscope``，"
+"将模型源更改为 ModelScope，在中国大陆速度下载更快。"
+
+
+#: ../../source/getting_started/troubleshooting.rst:88
+msgid ""
+"If you’re starting Xinference with Docker, include ``-e XINFERENCE_MODEL"
+"_SRC=modelscope`` during the docker run command."
+msgstr "如果你用 Docker 启动 Xinference，可以在 Docker 命令中包含 ``-e XINFERENCE_MODEL_SRC=modelscope`` 选项。"
+
+#: ../../source/getting_started/troubleshooting.rst:92
+msgid ""
+"When using the official Docker image, RayWorkerVllm died due to OOM, "
+"causing the model to fail to load"
+msgstr "使用官方 Docker 映像时，RayWorkerVllm 因 OOM 而死亡，导致模型无法加载"
+
+#: ../../source/getting_started/troubleshooting.rst:94
+msgid ""
+"Docker's ``--shm-size`` parameter is used to set the size of shared "
+"memory. The default size of shared memory (/dev/shm) is 64MB, which may "
+"be too small for vLLM backend."
+msgstr ""
+"Docker 的 ``--shm-size`` 参数可以用来设置共享内存的大小。共享内存(/dev/"
+"shm)的默认大小是 64MB，对于 vLLM 后端来说可能不够。"
+
+#: ../../source/getting_started/troubleshooting.rst:98
+msgid ""
+"You can increase its size by setting the ``--shm-size`` parameter as "
+"follows:"
+msgstr "你可以通过设置参数 ``--shm-size`` 来增加它的大小："
 

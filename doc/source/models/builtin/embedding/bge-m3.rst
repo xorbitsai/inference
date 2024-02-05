@@ -19,4 +19,3 @@ Specifications
 Execute the following command to launch the model::
 
    xinference launch --model-name bge-m3 --model-type embedding
-

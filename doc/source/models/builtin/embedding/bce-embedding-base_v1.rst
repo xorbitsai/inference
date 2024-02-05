@@ -19,4 +19,3 @@ Specifications
 Execute the following command to launch the model::
 
    xinference launch --model-name bce-embedding-base_v1 --model-type embedding
-
