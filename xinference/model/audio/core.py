@@ -16,8 +16,7 @@ import os
 from collections import defaultdict
 from typing import Dict, List, Optional, Tuple
 
-from pydantic import BaseModel
-
+from ..._compat import BaseModel
 from ...constants import XINFERENCE_CACHE_DIR
 from ..core import ModelDescription
 from ..utils import valid_model_revision

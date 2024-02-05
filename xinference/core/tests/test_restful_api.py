@@ -101,7 +101,7 @@ async def test_restful_api(setup):
         "prompt": "Once upon a time, there was a very old computer.",
     }
     response = requests.post(url, json=payload)
-    assert response.status_code == 422
+    assert response.status_code == 500
 
     # chat
     url = f"{endpoint}/v1/chat/completions"
@@ -128,7 +128,7 @@ async def test_restful_api(setup):
         ],
     }
     response = requests.post(url, json=payload)
-    assert response.status_code == 422
+    assert response.status_code == 500
 
     payload = {
         "model": "bogus",

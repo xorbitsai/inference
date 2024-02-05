@@ -16,7 +16,8 @@ from logging import getLogger
 from typing import Dict, List, Optional
 
 import xoscar as xo
-from pydantic import BaseModel
+
+from .._compat import BaseModel
 
 logger = getLogger(__name__)
 

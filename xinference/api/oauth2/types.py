@@ -13,7 +13,7 @@
 # limitations under the License.
 from typing import List
 
-from pydantic import BaseModel
+from ..._compat import BaseModel
 
 
 class LoginUserForm(BaseModel):

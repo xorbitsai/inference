@@ -19,8 +19,8 @@ from collections import defaultdict
 from typing import Dict, List, Optional, Tuple, Union, no_type_check
 
 import numpy as np
-from pydantic import BaseModel
 
+from ..._compat import BaseModel
 from ...constants import XINFERENCE_CACHE_DIR
 from ...types import Embedding, EmbeddingData, EmbeddingUsage
 from ..core import ModelDescription
