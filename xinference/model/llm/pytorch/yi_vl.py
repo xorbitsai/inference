@@ -24,7 +24,6 @@ import requests
 import torch
 from PIL import Image
 
-from ....model.utils import select_device
 from ....types import (
     ChatCompletion,
     ChatCompletionChoice,
@@ -57,16 +56,15 @@ class YiVLChatModel(PytorchChatModel):
         from ....thirdparty.llava.mm_utils import load_pretrained_model
         from ....thirdparty.llava.model.constants import key_info
 
-        device = self._pytorch_model_config.get("device", "auto")
-        device = select_device(device)
-
         key_info["model_path"] = self.model_path
+        # Default device_map is auto, it can loads model to multiple cards.
+        # If the device_map is set to cuda, then only 1 card can be used.
         (
             self._tokenizer,
             self._model,
             self._image_processor,
             _,
-        ) = load_pretrained_model(self.model_path, device_map=device)
+        ) = load_pretrained_model(self.model_path)
 
     @staticmethod
     def _message_content_to_yi(content) -> Union[str, tuple]:
