@@ -20,7 +20,6 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
-from ..._compat import BaseModel
 from ...constants import XINFERENCE_CACHE_DIR
 from ...types import Document, DocumentObj, Rerank
 from ..core import CacheableModelSpec, ModelDescription
