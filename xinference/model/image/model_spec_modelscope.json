@@ -1,0 +1,94 @@
+[
+  {
+    "model_name": "sd-turbo",
+    "model_family": "stable_diffusion",
+    "model_hub": "modelscope",
+    "model_id": "AI-ModelScope/sd-turbo",
+    "model_revision": "master"
+  },
+  {
+    "model_name": "sdxl-turbo",
+    "model_family": "stable_diffusion",
+    "model_hub": "modelscope",
+    "model_id": "AI-ModelScope/sdxl-turbo",
+    "model_revision": "master"
+  },
+  {
+    "model_name": "stable-diffusion-v1.5",
+    "model_family": "stable_diffusion",
+    "model_hub": "modelscope",
+    "model_id": "AI-ModelScope/stable-diffusion-v1-5",
+    "model_revision": "master",
+    "controlnet": [
+      {
+        "model_name":"canny",
+        "model_family": "controlnet",
+        "model_id": "lllyasviel/sd-controlnet-canny",
+        "model_revision": "7f2f69197050967007f6bbd23ab5e52f0384162a"
+      },
+      {
+        "model_name":"mlsd",
+        "model_family": "controlnet",
+        "model_id": "lllyasviel/sd-controlnet-mlsd",
+        "model_revision": "456fc1af4dc8f7d5fa6c949c5040d3828a24e3ad"
+      },
+      {
+        "model_name":"hed",
+        "model_family": "controlnet",
+        "model_id": "lllyasviel/sd-controlnet-hed",
+        "model_revision": "04473d9334ab44908daa66107bbfb6f710aa056d"
+      },
+      {
+        "model_name":"scribble",
+        "model_family": "controlnet",
+        "model_id": "lllyasviel/sd-controlnet-scribble",
+        "model_revision": "864edcd5ccc6ee2695eeebea5b4512100c83e7b3"
+      },
+      {
+        "model_name":"openpose",
+        "model_family": "controlnet",
+        "model_id": "lllyasviel/sd-controlnet-openpose",
+        "model_revision": "df796456519d1ac5dbe674caa0653fcc9673bca8"
+      },
+      {
+        "model_name":"normal",
+        "model_family": "controlnet",
+        "model_id": "lllyasviel/sd-controlnet-normal",
+        "model_revision": "1cbed9b3ca84422e4a2f23c14b9f5a114742b31d"
+      },
+      {
+        "model_name":"seg",
+        "model_family": "controlnet",
+        "model_id": "lllyasviel/sd-controlnet-seg",
+        "model_revision": "ecdcb5645b5099c9a7500a504fb9ab3f743c4d96"
+      }
+    ]
+  },
+  {
+    "model_name": "stable-diffusion-xl-base-1.0",
+    "model_family": "stable_diffusion",
+    "model_hub": "modelscope",
+    "model_id": "AI-ModelScope/stable-diffusion-xl-base-1.0",
+    "model_revision": "master",
+    "controlnet": [
+      {
+        "model_name":"canny",
+        "model_family": "controlnet",
+        "model_id": "diffusers/controlnet-canny-sdxl-1.0",
+        "model_revision": "eb115a19a10d14909256db740ed109532ab1483c"
+      },
+      {
+        "model_name":"depth",
+        "model_family": "controlnet",
+        "model_id": "diffusers/controlnet-depth-sdxl-1.0",
+        "model_revision": "cb2e660019b26f7d2379e26922b5b2c87253dcf7"
+      },
+      {
+        "model_name":"zoe-depth",
+        "model_family": "controlnet",
+        "model_id": "diffusers/controlnet-zoe-depth-sdxl-1.0",
+        "model_revision": "62134b9d8e703b5d6f74f1534457287a8bba77ef"
+      }
+    ]
+  }
+]

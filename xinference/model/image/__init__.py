@@ -15,6 +15,7 @@
 import codecs
 import json
 import os
+from itertools import chain
 
 from .core import (
     IMAGE_MODEL_DESCRIPTIONS,
@@ -25,13 +26,24 @@ from .core import (
 )
 
 _model_spec_json = os.path.join(os.path.dirname(__file__), "model_spec.json")
+_model_spec_modelscope_json = os.path.join(
+    os.path.dirname(__file__), "model_spec_modelscope.json"
+)
 BUILTIN_IMAGE_MODELS = dict(
     (spec["model_name"], ImageModelFamilyV1(**spec))
     for spec in json.load(codecs.open(_model_spec_json, "r", encoding="utf-8"))
 )
+MODELSCOPE_IMAGE_MODELS = dict(
+    (spec["model_name"], ImageModelFamilyV1(**spec))
+    for spec in json.load(
+        codecs.open(_model_spec_modelscope_json, "r", encoding="utf-8")
+    )
+)
 
 # register model description
-for model_name, model_spec in BUILTIN_IMAGE_MODELS.items():
+for model_name, model_spec in chain(
+    MODELSCOPE_IMAGE_MODELS.items(), BUILTIN_IMAGE_MODELS.items()
+):
     IMAGE_MODEL_DESCRIPTIONS.update(generate_image_description(model_spec))
 
 del _model_spec_json

@@ -17,9 +17,8 @@ import os
 from collections import defaultdict
 from typing import Dict, List, Optional, Tuple
 
-from ..._compat import BaseModel
 from ...constants import XINFERENCE_CACHE_DIR
-from ..core import ModelDescription
+from ..core import CacheableModelSpec, ModelDescription
 from ..utils import valid_model_revision
 from .stable_diffusion.core import DiffusionModel
 
@@ -36,11 +35,12 @@ def get_image_model_descriptions():
     return copy.deepcopy(IMAGE_MODEL_DESCRIPTIONS)
 
 
-class ImageModelFamilyV1(BaseModel):
+class ImageModelFamilyV1(CacheableModelSpec):
     model_family: str
     model_name: str
     model_id: str
     model_revision: str
+    model_hub: str = "huggingface"
     controlnet: Optional[List["ImageModelFamilyV1"]]
 
 
@@ -110,7 +110,18 @@ def generate_image_description(
 
 
 def match_diffusion(model_name: str) -> ImageModelFamilyV1:
-    from . import BUILTIN_IMAGE_MODELS
+    from ..utils import download_from_modelscope
+    from . import BUILTIN_IMAGE_MODELS, MODELSCOPE_IMAGE_MODELS
+
+    if download_from_modelscope():
+        if model_name in MODELSCOPE_IMAGE_MODELS:
+            logger.debug(f"Image model {model_name} found in ModelScope.")
+            return MODELSCOPE_IMAGE_MODELS[model_name]
+        else:
+            logger.debug(
+                f"Image model {model_name} not found in ModelScope, "
+                f"now try to load it via builtin way."
+            )
 
     if model_name in BUILTIN_IMAGE_MODELS:
         return BUILTIN_IMAGE_MODELS[model_name]
@@ -122,44 +133,9 @@ def match_diffusion(model_name: str) -> ImageModelFamilyV1:
 
 
 def cache(model_spec: ImageModelFamilyV1):
-    # TODO: cache from uri
-    import huggingface_hub
+    from ..utils import cache
 
-    cache_dir = get_cache_dir(model_spec)
-    if not os.path.exists(cache_dir):
-        os.makedirs(cache_dir, exist_ok=True)
-
-    meta_path = os.path.join(cache_dir, "__valid_download")
-    if valid_model_revision(meta_path, model_spec.model_revision):
-        return cache_dir
-
-    for current_attempt in range(1, MAX_ATTEMPTS + 1):
-        try:
-            huggingface_hub.snapshot_download(
-                model_spec.model_id,
-                revision=model_spec.model_revision,
-                local_dir=cache_dir,
-                local_dir_use_symlinks=True,
-                resume_download=True,
-            )
-            break
-        except huggingface_hub.utils.LocalEntryNotFoundError:
-            remaining_attempts = MAX_ATTEMPTS - current_attempt
-            logger.warning(
-                f"Attempt {current_attempt} failed. Remaining attempts: {remaining_attempts}"
-            )
-    else:
-        raise RuntimeError(
-            f"Failed to download model '{model_spec.model_name}' after {MAX_ATTEMPTS} attempts"
-        )
-
-    with open(meta_path, "w") as f:
-        import json
-
-        desc = ImageModelDescription(None, None, model_spec)
-        json.dump(desc.to_dict(), f)
-
-    return cache_dir
+    return cache(model_spec, ImageModelDescription)
 
 
 def get_cache_dir(model_spec: ImageModelFamilyV1):
