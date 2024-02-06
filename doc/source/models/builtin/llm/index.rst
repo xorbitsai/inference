@@ -216,6 +216,11 @@ The following is a list of built-in LLM in Xinference:
      - 4096
      - Qwen-VL-Chat supports more flexible interaction, such as multiple image inputs, multi-round question answering, and creative capabilities.
 
+   * - :ref:`qwen1.5-chat <models_llm_qwen1.5-chat>`
+     - chat, tools
+     - 32768
+     - Qwen1.5 is the beta version of Qwen2, a transformer-based decoder-only language model pretrained on a large amount of data.
+
    * - :ref:`skywork <models_llm_skywork>`
      - generate
      - 4096
@@ -400,6 +405,8 @@ The following is a list of built-in LLM in Xinference:
    qwen-chat
   
    qwen-vl-chat
+  
+   qwen1.5-chat
   
    skywork
   

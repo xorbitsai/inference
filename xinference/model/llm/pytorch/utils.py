@@ -122,7 +122,7 @@ def generate_stream(
         temperature, repetition_penalty, top_p, top_k
     )
 
-    if "qwen" in str(type(model)).lower():
+    if ".modeling_qwen." in str(type(model)).lower():
         # TODO: hacky
         input_ids = tokenizer(prompt, allowed_special="all").input_ids
     else:

@@ -1159,7 +1159,12 @@ class RESTfulAPI:
             raise HTTPException(status_code=500, detail=str(e))
 
         model_family = desc.get("model_family", "")
-        function_call_models = ["chatglm3", "gorilla-openfunctions-v1", "qwen-chat"]
+        function_call_models = [
+            "chatglm3",
+            "gorilla-openfunctions-v1",
+            "qwen-chat",
+            "qwen1.5-chat",
+        ]
 
         is_qwen = desc.get("model_format") == "ggmlv3" and "qwen-chat" == model_family
 

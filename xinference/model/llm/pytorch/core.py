@@ -448,7 +448,7 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
         generate_config = self._sanitize_generate_config(generate_config)
         # TODO(codingl2k1): qwen hacky to set stop for function call.
         model_family = self.model_family.model_family or self.model_family.model_name
-        if tools and "qwen-chat" == model_family:
+        if tools and model_family in ["qwen-chat", "qwen1.5-chat"]:
             stop = generate_config.get("stop")
             if isinstance(stop, str):
                 generate_config["stop"] = [stop, "Observation:"]
