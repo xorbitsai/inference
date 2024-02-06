@@ -881,9 +881,7 @@
           "Q4_K_M",
           "Q5_0",
           "Q5_K_S",
-          "Q5_K_M",
-          "Q6_K",
-          "Q8_0"
+          "Q5_K_M"
         ],
         "model_id": "TheBloke/Llama-2-70B-Chat-GGUF",
         "model_file_name_template": "llama-2-70b-chat.{quantization}.gguf"
