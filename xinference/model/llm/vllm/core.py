@@ -56,6 +56,7 @@ class VLLMModelConfig(TypedDict, total=False):
     max_num_batched_tokens: int
     max_num_seqs: int
     quantization: Optional[str]
+    max_model_len: Optional[int]
 
 
 class VLLMGenerateConfig(TypedDict, total=False):
@@ -88,7 +89,6 @@ VLLM_SUPPORTED_CHAT_MODELS = [
     "internlm-chat-8k",
     "internlm-chat-20b",
     "qwen-chat",
-    "qwen1.5-chat",
     "Yi",
     "Yi-chat",
     "code-llama",
@@ -99,6 +99,8 @@ VLLM_SUPPORTED_CHAT_MODELS = [
     "mixtral-instruct-v0.1",
     "chatglm3",
 ]
+if VLLM_INSTALLED and vllm.__version__ >= "0.3.0":
+    VLLM_SUPPORTED_CHAT_MODELS.append("qwen1.5-chat")
 
 
 class VLLMModel(LLM):
@@ -152,6 +154,7 @@ class VLLMModel(LLM):
         model_config.setdefault("gpu_memory_utilization", 0.90)
         model_config.setdefault("max_num_seqs", 256)
         model_config.setdefault("quantization", None)
+        model_config.setdefault("max_model_len", 4096)
 
         return model_config
 
