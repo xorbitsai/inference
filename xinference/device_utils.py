@@ -17,11 +17,6 @@ import os
 import torch
 from typing_extensions import Literal, Union
 
-try:
-    import intel_extension_for_pytorch  # noqa: F401
-except:
-    pass
-
 
 DeviceType = Literal["cuda", "mps", "xpu", "cpu"]
 
