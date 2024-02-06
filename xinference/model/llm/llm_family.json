@@ -1520,7 +1520,7 @@
         "quantizations": [
           "q8_0"
         ],
-        "model_id": "Qwen/Qwen1.5-0.5B-Chat-GGUF",
+        "model_id": "Qwen/Qwen1.5-1.8B-Chat-GGUF",
         "model_file_name_template": "qwen1_5-1_8b-chat-{quantization}.gguf"
       },
       {
@@ -1531,15 +1531,6 @@
         ],
         "model_id": "Qwen/Qwen1.5-4B-Chat-GGUF",
         "model_file_name_template": "qwen1_5-4b-chat-{quantization}.gguf"
-      },
-      {
-        "model_format": "ggufv2",
-        "model_size_in_billions": 7,
-        "quantizations": [
-          "q5_k_m"
-        ],
-        "model_id": "Qwen/Qwen1.5-7B-Chat-GGUF",
-        "model_file_name_template": "qwen1_5-7b-chat-{quantization}.gguf"
       },
       {
         "model_format": "ggufv2",
