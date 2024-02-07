@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-02-01 16:47+0800\n"
+"POT-Creation-Date: 2024-02-07 17:52+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -37,162 +37,157 @@ msgstr "你可以列出 Xinference 中所有可以启动的、某种类型的模
 msgid "The following ``MODEL_TYPE`` is supported by Xinference:"
 msgstr "Xinference 支持以下 ``MODEL_TYPE``："
 
-#: ../../source/models/index.rst:35
-msgid "Type"
-msgstr "模型类型"
-
-#: ../../source/models/index.rst:36
-msgid "Description"
-msgstr "描述"
-
-#: ../../source/models/index.rst:37
-msgid "Index"
-msgstr "索引"
-
-#: ../../source/models/index.rst:39
+#: ../../source/models/index.rst:33
 msgid "LLM"
 msgstr ""
 
-#: ../../source/models/index.rst:40
+#: ../../source/models/index.rst:37
 msgid "Text generation models or large language models"
 msgstr "文本生成模型或大型语言模型"
 
-#: ../../source/models/index.rst:41
-msgid ":ref:`Index <models_llm_index>`"
-msgstr ""
-
-#: ../../source/models/index.rst:43
+#: ../../source/models/index.rst:39
 msgid "embedding"
 msgstr ""
 
-#: ../../source/models/index.rst:44
+#: ../../source/models/index.rst:43
 msgid "Text embeddings models"
 msgstr "文本嵌入模型"
-
-#: ../../source/models/index.rst:45
-msgid ":ref:`Index <models_embedding_index>`"
-msgstr ""
 
 #: ../../source/models/index.rst:47
 msgid "image"
 msgstr ""
 
-#: ../../source/models/index.rst:48
+#: ../../source/models/index.rst:51
 msgid "Image generation or manipulation models"
 msgstr "图像生成或处理模型"
 
-#: ../../source/models/index.rst:49
-msgid ":ref:`Index <models_image_index>`"
-msgstr ""
-
-#: ../../source/models/index.rst:51
+#: ../../source/models/index.rst:53
 msgid "audio"
 msgstr ""
 
-#: ../../source/models/index.rst:52
+#: ../../source/models/index.rst:57
 msgid "Audio models"
 msgstr "音频模型"
 
-#: ../../source/models/index.rst:53
-msgid ":ref:`Index <models_audio_index>`"
-msgstr ""
-
-#: ../../source/models/index.rst:55
+#: ../../source/models/index.rst:61
 msgid "rerank"
 msgstr ""
 
-#: ../../source/models/index.rst:56
+#: ../../source/models/index.rst:65
 msgid "Rerank models"
 msgstr "重排序模型"
 
-#: ../../source/models/index.rst:57
-msgid ":ref:`Index <models_rerank_index>`"
-msgstr ""
-
-#: ../../source/models/index.rst:60
+#: ../../source/models/index.rst:69
 msgid ""
 "You can see all the built-in models supported by xinference :ref:`here "
 "<models_builtin_index>`. If the model you need is not available, "
-"xinference also allows you to register your own :ref:`custom models "
+"Xinference also allows you to register your own :ref:`custom models "
 "<models_custom>`."
-msgstr "你可以在 :ref:`这里 <models_builtin_index>` 查看 Xinference 支持的所有内置模型。"
-"如果你需要的模型不可用，Xinference 还允许你注册自己的 :ref:`自定义模型 <models_custom>`。"
+msgstr ""
+"你可以在 :ref:`这里 <models_builtin_index>` 查看 Xinference 支持的所有"
+"内置模型。如果你需要的模型不可用，Xinference 还允许你注册自己的 :ref:`"
+"自定义模型 <models_custom>`。"
 
-#: ../../source/models/index.rst:64
-msgid "Launch Model"
-msgstr "启动模型"
+#: ../../source/models/index.rst:74
+msgid "Launch and Terminate Model"
+msgstr "启动和停止模型"
 
-#: ../../source/models/index.rst:66
+#: ../../source/models/index.rst:76
+msgid ""
+"Each running model instance will be assigned a unique model uid. By "
+"default, the model uid is equal to the model name. This unique id can be "
+"used as a handle for the further usage. You can manually assign it by "
+"passing ``--model-uid`` option in the launch command."
+msgstr ""
+"每个运行的模型实例将被分配一个唯一的模型uid。默认情况下，模型uid等于模型"
+"名。这个 ID 是后续使用模型实例的句柄，启动命令 ``--model-uid`` 选项可以"
+"手动指定它。"
+
+#: ../../source/models/index.rst:80
 msgid ""
 "You can launch a model in Xinference either via command line or "
 "Xinference's Python client:"
 msgstr "你可以通过命令行或者 Xinference 的 Python 客户端来启动一个模型。"
 
-#: ../../source/models/index.rst:86
+#: ../../source/models/index.rst:105
 msgid ""
 "For model type ``LLM``, launching the model requires not only specifying "
 "the model name, but also the size of the parameters and the model format."
 "  Please refer to the list of LLM :ref:`model families "
 "<models_llm_index>`."
-msgstr "对于模型类型 ``LLM``，启动模型不仅需要指定模型名称，还需要参数的大小和模型格式。"
+msgstr ""
+"对于模型类型 ``LLM``，启动模型不仅需要指定模型名称，还需要参数的大小和"
+"模型格式。请参考 :ref:`models_llm_index` 文档。"
 
-#: ../../source/models/index.rst:91
+#: ../../source/models/index.rst:108
+msgid ""
+"The following command gives you the currently running models in "
+"Xinference:"
+msgstr "以下命令可以列出 Xinference 中正在运行的模型："
+
+#: ../../source/models/index.rst:129
+msgid ""
+"When you no longer need a model that is currently running, you can remove"
+" it in the following way to free up the resources it occupies:"
+msgstr "当你不再需要当前正在运行的模型时，以下列方式释放其占用的资源："
+
+#: ../../source/models/index.rst:153
 msgid "Model Usage"
 msgstr "模型使用"
 
-#: ../../source/models/index.rst:96
+#: ../../source/models/index.rst:158
 msgid "Chat & Generate"
 msgstr "聊天 & 生成"
 
-#: ../../source/models/index.rst:100
+#: ../../source/models/index.rst:162
 msgid "Learn how to chat with LLMs in Xinference."
 msgstr "学习如何在 Xinference 中与 LLM聊天。"
 
-#: ../../source/models/index.rst:102
+#: ../../source/models/index.rst:164
 msgid "Tools"
 msgstr "工具"
 
-#: ../../source/models/index.rst:106
+#: ../../source/models/index.rst:168
 msgid "Learn how to connect LLM with external tools."
 msgstr "学习如何将 LLM 与外部工具连接起来。"
 
-#: ../../source/models/index.rst:111
+#: ../../source/models/index.rst:173
 msgid "Embeddings"
 msgstr "嵌入"
 
-#: ../../source/models/index.rst:115
+#: ../../source/models/index.rst:177
 msgid "Learn how to create text embeddings in Xinference."
 msgstr "学习如何在 Xinference 中创建文本嵌入。"
 
-#: ../../source/models/index.rst:117
+#: ../../source/models/index.rst:179
 msgid "Rerank"
 msgstr "重排序"
 
-#: ../../source/models/index.rst:121
+#: ../../source/models/index.rst:183
 msgid "Learn how to use rerank models in Xinference."
 msgstr "学习如何在 Xinference 中使用重排序模型。"
 
-#: ../../source/models/index.rst:126
+#: ../../source/models/index.rst:188
 msgid "Images"
 msgstr "图像"
 
-#: ../../source/models/index.rst:130
+#: ../../source/models/index.rst:192
 msgid "Learn how to generate images with Xinference."
 msgstr "学习如何使用Xinference生成图像。"
 
-#: ../../source/models/index.rst:132
+#: ../../source/models/index.rst:194
 msgid "Vision"
 msgstr "视觉"
 
-#: ../../source/models/index.rst:136
+#: ../../source/models/index.rst:198
 msgid "Learn how to process image with LLMs."
 msgstr "学习如何使用 LLM 处理图像。"
 
-#: ../../source/models/index.rst:141
+#: ../../source/models/index.rst:203
 msgid "Audio"
 msgstr "音频"
 
-#: ../../source/models/index.rst:145
+#: ../../source/models/index.rst:207
 msgid "Learn how to turn audio into text or text into audio with Xinference."
 msgstr "学习如何使用 Xinference 将音频转换为文本或将文本转换为音频。"
 
