@@ -17,7 +17,6 @@ import os
 import torch
 from typing_extensions import Literal, Union
 
-
 DeviceType = Literal["cuda", "mps", "xpu", "cpu"]
 
 

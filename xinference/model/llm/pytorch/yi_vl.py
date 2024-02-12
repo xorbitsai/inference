@@ -24,6 +24,7 @@ import requests
 import torch
 from PIL import Image
 
+from ....model.utils import select_device
 from ....types import (
     ChatCompletion,
     ChatCompletionChoice,
