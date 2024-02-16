@@ -1094,10 +1094,12 @@ class RESTfulAPI:
         if body.logit_bias is not None:
             raise HTTPException(status_code=501, detail="Not implemented")
 
+        messages = body.messages and list(body.messages) or None
+
         if (
-            not body.messages
-            or body.messages[-1].get("role") not in ["user", "system", "tool"]
-            or not body.messages[-1].get("content")
+            not messages
+            or messages[-1].get("role") not in ["user", "system", "tool"]
+            or not messages[-1].get("content")
         ):
             raise HTTPException(
                 status_code=400, detail="Invalid input. Please specify the prompt."
@@ -1105,7 +1107,7 @@ class RESTfulAPI:
 
         system_messages = []
         non_system_messages = []
-        for msg in body.messages:
+        for msg in messages:
             assert (
                 msg.get("content") != SPECIAL_TOOL_PROMPT
             ), f"Invalid message content {SPECIAL_TOOL_PROMPT}"
@@ -1118,13 +1120,13 @@ class RESTfulAPI:
             raise HTTPException(
                 status_code=400, detail="Multiple system messages are not supported."
             )
-        if len(system_messages) == 1 and body.messages[0]["role"] != "system":
+        if len(system_messages) == 1 and messages[0]["role"] != "system":
             raise HTTPException(
                 status_code=400, detail="System message should be the first one."
             )
         assert non_system_messages
 
-        has_tool_message = body.messages[-1].get("role") == "tool"
+        has_tool_message = messages[-1].get("role") == "tool"
         if has_tool_message:
             prompt = SPECIAL_TOOL_PROMPT
             system_prompt = system_messages[0]["content"] if system_messages else None
