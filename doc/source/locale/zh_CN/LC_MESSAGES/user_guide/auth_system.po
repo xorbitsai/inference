@@ -102,7 +102,7 @@ msgid ""
 "``HS`` series algorithms are recommended. For example, ``HS256``, "
 "``HS384`` or ``HS512``."
 msgstr ""
-"``algorithm``: 用于令牌生成与解析的算法。推荐使用 ``HS`` 系列算法，例如``HS256``，``HS384`` 或者 ``HS512``算法。"
+"``algorithm``: 用于令牌生成与解析的算法。推荐使用 ``HS`` 系列算法，例如 ``HS256``，``HS384`` 或者 ``HS512`` 算法。"
 
 #: ../../source/user_guide/auth_system.rst:63
 msgid ""
