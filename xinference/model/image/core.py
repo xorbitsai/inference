@@ -56,6 +56,10 @@ class ImageModelDescription(ModelDescription):
         self._model_spec = model_spec
 
     def to_dict(self):
+        if self._model_spec.controlnet is not None:
+            controlnet = [cn.dict() for cn in self._model_spec.controlnet]
+        else:
+            controlnet = self._model_spec.controlnet
         return {
             "model_type": "image",
             "address": self.address,
@@ -63,7 +67,7 @@ class ImageModelDescription(ModelDescription):
             "model_name": self._model_spec.model_name,
             "model_family": self._model_spec.model_family,
             "model_revision": self._model_spec.model_revision,
-            "controlnet": self._model_spec.controlnet,
+            "controlnet": controlnet,
         }
 
     def to_version_info(self):
