@@ -97,7 +97,6 @@ msgid ""
 msgstr "``auth_config``: 这个字段配置与安全相关的信息。"
 
 #: ../../source/user_guide/auth_system.rst:61
-#, fuzzy
 msgid ""
 "``algorithm``: The algorithm used for token generation and parsing. "
 "``HS`` series algorithms are recommended. For example, ``HS256``, "
@@ -106,7 +105,6 @@ msgstr ""
 "``algorithm``: 用于令牌生成与解析的算法。推荐使用 ``HS`` 系列算法，例如``HS256``，``HS384`` 或者 ``HS512``算法。"
 
 #: ../../source/user_guide/auth_system.rst:63
-#, fuzzy
 msgid ""
 "``secret_key``: The secret_key used for token generation and parsing. Use"
 " this command to generate the secret_key adapted to the ``HS`` "
