@@ -58,9 +58,9 @@ Xinference requires a JSON-formatted file with the following specific fields:
 
 * ``auth_config``: This field is used to configure security-related information.
 
-   * ``algorithm``: The algorithm used for token generation and parsing. ``HS256`` or ``RS256`` is recommended.
+   * ``algorithm``: The algorithm used for token generation and parsing. ``HS`` series algorithms are recommended. For example, ``HS256``, ``HS384`` or ``HS512``.
 
-   * ``secret_key``: The secret_key used for token generation and parsing. Use this command to generate: ``openssl rand -hex 32``.
+   * ``secret_key``: The secret_key used for token generation and parsing. Use this command to generate the secret_key adapted to the ``HS`` algorithms: ``openssl rand -hex 32``.
 
    * ``token_expire_in_minutes``: Reserved field indicating the expiration time of the token. The current open-source version of Xinference does not check the expiration time of tokens.
 
