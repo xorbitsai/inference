@@ -1,6 +1,7 @@
 import {
   AddBoxOutlined,
   ChevronRightOutlined,
+  DnsOutlined,
   GitHub,
   RocketLaunchOutlined,
   SmartToyOutlined,
@@ -33,6 +34,10 @@ const navItems = [
   {
     text: 'Register Model',
     icon: <AddBoxOutlined />,
+  },
+  {
+    text: 'Cluster Information',
+    icon: <DnsOutlined />,
   },
   {
     text: 'Contact Us',
@@ -147,6 +152,10 @@ const MenuSide = () => {
                         )
                       } else if (link === 'launch_model') {
                         navigate(`/`)
+                        setActive(link)
+                        console.log(active)
+                      } else if (link === 'cluster_information') {
+                        navigate(`/cluster_info`)
                         setActive(link)
                         console.log(active)
                       } else {

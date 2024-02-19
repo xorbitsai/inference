@@ -15,4 +15,9 @@ const isValidBearerToken = (token) => {
   )
 }
 
-export { getEndpoint, isValidBearerToken }
+const toReadableSize = (size) => {
+  const res_size = size / 1024.0 ** 2
+  return res_size.toFixed(2) + 'MiB'
+}
+
+export { getEndpoint, isValidBearerToken, toReadableSize }

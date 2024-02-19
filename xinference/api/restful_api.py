@@ -51,6 +51,7 @@ from uvicorn import Config, Server
 from xoscar.utils import get_next_port
 
 from .._compat import BaseModel, Field
+from .._version import get_versions
 from ..constants import XINFERENCE_DEFAULT_ENDPOINT_PORT
 from ..core.event import Event, EventCollectorActor, EventType
 from ..core.supervisor import SupervisorActor
@@ -220,6 +221,9 @@ class RESTfulAPI:
         )
         self._router.add_api_route(
             "/v1/cluster/info", self.get_cluster_device_info, methods=["GET"]
+        )
+        self._router.add_api_route(
+            "/v1/cluster/version", self.get_cluster_version, methods=["GET"]
         )
         self._router.add_api_route(
             "/v1/cluster/devices", self._get_devices_count, methods=["GET"]
@@ -1300,9 +1304,21 @@ class RESTfulAPI:
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
 
-    async def get_cluster_device_info(self) -> JSONResponse:
+    async def get_cluster_device_info(
+        self, detailed: bool = Query(False)
+    ) -> JSONResponse:
         try:
-            data = await (await self._get_supervisor_ref()).get_cluster_device_info()
+            data = await (await self._get_supervisor_ref()).get_cluster_device_info(
+                detailed=detailed
+            )
+            return JSONResponse(content=data)
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def get_cluster_version(self) -> JSONResponse:
+        try:
+            data = get_versions()
             return JSONResponse(content=data)
         except Exception as e:
             logger.error(e, exc_info=True)

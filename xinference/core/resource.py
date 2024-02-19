@@ -22,8 +22,9 @@ from .utils import get_nvidia_gpu_info
 
 @dataclass
 class ResourceStatus:
-    available: float
+    usage: float
     total: float
+    memory_used: float
     memory_available: float
     memory_total: float
 
@@ -39,8 +40,9 @@ def gather_node_info() -> Dict[str, Union[ResourceStatus, GPUStatus]]:
     node_resource = dict()
     mem_info = psutil.virtual_memory()
     node_resource["cpu"] = ResourceStatus(
-        available=psutil.cpu_percent() / 100.0,
+        usage=psutil.cpu_percent() / 100.0,
         total=psutil.cpu_count(),
+        memory_used=mem_info.used,
         memory_available=mem_info.available,
         memory_total=mem_info.total,
     )

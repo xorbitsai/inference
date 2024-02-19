@@ -9,6 +9,7 @@ import { ApiContextProvider } from './components/apiContext'
 import AuthAlertDialog from './components/authAlertDialog'
 import { getEndpoint, isValidBearerToken } from './components/utils'
 import Layout from './scenes/_layout'
+import ClusterInfo from './scenes/cluster_info'
 import LaunchModel from './scenes/launch_model'
 import Login from './scenes/login/login'
 import RegisterModel from './scenes/register_model'
@@ -97,6 +98,7 @@ function App() {
                 <Route path="/" element={<LaunchModel />} />
                 <Route path="/running_models" element={<RunningModels />} />
                 <Route path="/register_model" element={<RegisterModel />} />
+                <Route path="/cluster_info" element={<ClusterInfo />} />
               </Route>
             </Routes>
           </ApiContextProvider>
