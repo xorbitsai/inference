@@ -1,4 +1,4 @@
-FROM pytorch/pytorch:2.1.2-cuda12.1-cudnn8-devel
+FROM pytorch/pytorch:2.2.0-cuda12.1-cudnn8-devel
 
 COPY . /opt/inference
 
@@ -6,7 +6,7 @@ ENV NVM_DIR /usr/local/nvm
 ENV NODE_VERSION 14.21.1
 
 RUN apt-get -y update \
-  && apt install -y curl procps \
+  && apt install -y curl procps git \
   && mkdir -p $NVM_DIR \
   && curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash \
   && . $NVM_DIR/nvm.sh \
@@ -23,4 +23,5 @@ RUN python -m pip install --upgrade -i "$PIP_INDEX" pip && \
     CMAKE_ARGS="-DLLAMA_CUBLAS=on" pip install -i "$PIP_INDEX" -U llama-cpp-python && \
     cd /opt/inference && \
     python setup.py build_web && \
+    git restore . && \
     pip install -i "$PIP_INDEX" ".[all]"
