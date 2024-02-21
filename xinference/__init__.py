@@ -18,6 +18,12 @@ from . import _version
 __version__ = _version.get_versions()["version"]
 
 
+try:
+    import intel_extension_for_pytorch  # noqa: F401
+except:
+    pass
+
+
 def _install():
     from xoscar.backends.router import Router
 

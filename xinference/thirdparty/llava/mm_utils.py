@@ -85,7 +85,7 @@ def load_pretrained_model(
 
     if not vision_tower.is_loaded:
         vision_tower.load_model()
-    vision_tower.to(device="cuda", dtype=torch.bfloat16)
+    vision_tower.to(device=model.device, dtype=torch.bfloat16)
     image_processor = vision_tower.image_processor
 
     if hasattr(model.config, "max_sequence_length"):

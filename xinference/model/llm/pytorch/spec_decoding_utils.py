@@ -17,6 +17,8 @@ import time
 import uuid
 from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple
 
+from ....device_utils import empty_cache
+
 try:
     import torch
     from torch.nn import functional as F
@@ -526,4 +528,4 @@ def speculative_generate_stream(
     del kv_cache
     del draft_kv_cache
     gc.collect()
-    torch.cuda.empty_cache()
+    empty_cache()

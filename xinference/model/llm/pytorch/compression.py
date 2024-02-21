@@ -25,6 +25,8 @@ from torch.nn import functional as F
 from tqdm import tqdm
 from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
 
+from ....device_utils import empty_cache
+
 
 @dataclasses.dataclass
 class CompressionConfig:
@@ -153,7 +155,7 @@ def load_compress_model(
             tmp_state_dict[name] = None
             tensor = None
             gc.collect()
-            torch.cuda.empty_cache()
+            empty_cache()
 
     for name in model.state_dict():
         if name not in linear_weights:

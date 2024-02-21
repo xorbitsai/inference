@@ -22,6 +22,7 @@ from typing import Any, Callable, Dict, Optional, Tuple
 from fsspec import AbstractFileSystem
 
 from ..constants import XINFERENCE_CACHE_DIR, XINFERENCE_ENV_MODEL_SRC
+from ..device_utils import get_available_device, is_device_available
 from .core import CacheableModelSpec
 
 logger = logging.getLogger(__name__)
@@ -401,27 +402,16 @@ def patch_trust_remote_code():
 
 def select_device(device):
     try:
-        import torch
+        import torch  # noqa: F401
     except ImportError:
         raise ImportError(
             f"Failed to import module 'torch'. Please make sure 'torch' is installed.\n\n"
         )
 
     if device == "auto":
-        # When env CUDA_VISIBLE_DEVICES=-1, torch.cuda.is_available() return False
-        if torch.cuda.is_available():
-            return "cuda"
-        elif torch.backends.mps.is_available():
-            return "mps"
-        return "cpu"
-    elif device == "cuda":
-        if not torch.cuda.is_available():
-            raise ValueError("cuda is unavailable in your environment")
-    elif device == "mps":
-        if not torch.backends.mps.is_available():
-            raise ValueError("mps is unavailable in your environment")
-    elif device == "cpu":
-        pass
+        return get_available_device()
     else:
-        raise ValueError(f"Device {device} is not supported in temporary")
+        if not is_device_available(device):
+            raise ValueError(f"{device} is unavailable in your environment")
+
     return device
