@@ -43,6 +43,7 @@ const ModelCard = ({ url, modelData, gpuAvailable, is_custom = false }) => {
   const [modelSize, setModelSize] = useState('')
   const [quantization, setQuantization] = useState('')
   const [nGPU, setNGPU] = useState('auto')
+  const [replica, setReplica] = useState(1)
 
   const [formatOptions, setFormatOptions] = useState([])
   const [sizeOptions, setSizeOptions] = useState([])
@@ -123,6 +124,7 @@ const ModelCard = ({ url, modelData, gpuAvailable, is_custom = false }) => {
       quantization: quantization,
       n_gpu:
         nGPU === '0' ? null : nGPU === 'auto' ? 'auto' : parseInt(nGPU, 10),
+      replica: replica,
     }
 
     // First fetcher request to initiate the model
@@ -525,13 +527,29 @@ const ModelCard = ({ url, modelData, gpuAvailable, is_custom = false }) => {
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={12}>
+            <Grid item xs={6}>
               <FormControl variant="outlined" margin="normal" fullWidth>
                 <TextField
                   variant="outlined"
                   value={modelUID}
                   label="(Optional) Model UID, model name by default"
                   onChange={(e) => setModelUID(e.target.value)}
+                />
+              </FormControl>
+            </Grid>
+            <Grid item xs={6}>
+              <FormControl variant="outlined" margin="normal" fullWidth>
+                <TextField
+                  disabled={!modelFormat || !modelSize || !quantization}
+                  type="number"
+                  InputProps={{
+                    inputProps: {
+                      min: 1,
+                    },
+                  }}
+                  label="Replica"
+                  value={replica}
+                  onChange={(e) => setReplica(parseInt(e.target.value, 10))}
                 />
               </FormControl>
             </Grid>
