@@ -29,7 +29,7 @@
           "Q4_K_M"
         ],
         "model_id": "Xorbits/Llama-2-13b-Chat-GGUF",
-        "model_file_name_template": "llama-2-7b-chat.{quantization}.gguf",
+        "model_file_name_template": "llama-2-13b-chat.{quantization}.gguf",
         "model_hub": "modelscope",
         "model_revision": "v0.0.1"
       },
