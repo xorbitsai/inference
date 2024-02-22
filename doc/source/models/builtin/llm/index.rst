@@ -96,6 +96,11 @@ The following is a list of built-in LLM in Xinference:
      - 2048
      - Falcon-instruct is a fine-tuned version of the Falcon LLM, specializing in chatting.
 
+   * - :ref:`gemma-it <models_llm_gemma-it>`
+     - chat
+     - 8192
+     - Gemma is a family of lightweight, state-of-the-art open models from Google, built from the same research and technology used to create the Gemini models.
+
    * - :ref:`glaive-coder <models_llm_glaive-coder>`
      - chat
      - 100000
@@ -357,6 +362,8 @@ The following is a list of built-in LLM in Xinference:
    falcon
   
    falcon-instruct
+  
+   gemma-it
   
    glaive-coder
   

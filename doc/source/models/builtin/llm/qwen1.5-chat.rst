@@ -284,14 +284,29 @@ chosen quantization method from the options listed above::
    xinference launch --model-name qwen1.5-chat --size-in-billions 72 --model-format awq --quantization ${quantization}
 
 
-Model Spec 19 (ggufv2, 1_8 Billion)
+Model Spec 19 (ggufv2, 0_5 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** ggufv2
+- **Model Size (in billions):** 0_5
+- **Quantizations:** q2_k, q3_k_m, q4_0, q4_k_m, q5_0, q5_k_m, q6_k, q8_0
+- **Model ID:** Qwen/Qwen1.5-0.5B-Chat-GGUF
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen1.5-0.5B-Chat-GGUF>`__, `ModelScope <https://modelscope.cn/models/qwen/Qwen1.5-0.5B-Chat-GGUF>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-name qwen1.5-chat --size-in-billions 0_5 --model-format ggufv2 --quantization ${quantization}
+
+
+Model Spec 20 (ggufv2, 1_8 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** ggufv2
 - **Model Size (in billions):** 1_8
-- **Quantizations:** q8_0
-- **Model ID:** Qwen/Qwen1.5-0.5B-Chat-GGUF
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen1.5-0.5B-Chat-GGUF>`__, `ModelScope <https://modelscope.cn/models/qwen/Qwen1.5-0.5B-Chat-GGUF>`__
+- **Quantizations:** q2_k, q3_k_m, q4_0, q4_k_m, q5_0, q5_k_m, q6_k, q8_0
+- **Model ID:** Qwen/Qwen1.5-1.8B-Chat-GGUF
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen1.5-1.8B-Chat-GGUF>`__, `ModelScope <https://modelscope.cn/models/qwen/Qwen1.5-1.8B-Chat-GGUF>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
@@ -299,12 +314,12 @@ chosen quantization method from the options listed above::
    xinference launch --model-name qwen1.5-chat --size-in-billions 1_8 --model-format ggufv2 --quantization ${quantization}
 
 
-Model Spec 20 (ggufv2, 4 Billion)
+Model Spec 21 (ggufv2, 4 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** ggufv2
 - **Model Size (in billions):** 4
-- **Quantizations:** q8_0
+- **Quantizations:** q2_k, q3_k_m, q4_0, q4_k_m, q5_0, q5_k_m, q6_k, q8_0
 - **Model ID:** Qwen/Qwen1.5-4B-Chat-GGUF
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen1.5-4B-Chat-GGUF>`__, `ModelScope <https://modelscope.cn/models/qwen/Qwen1.5-4B-Chat-GGUF>`__
 
@@ -314,27 +329,12 @@ chosen quantization method from the options listed above::
    xinference launch --model-name qwen1.5-chat --size-in-billions 4 --model-format ggufv2 --quantization ${quantization}
 
 
-Model Spec 21 (ggufv2, 7 Billion)
-++++++++++++++++++++++++++++++++++++++++
-
-- **Model Format:** ggufv2
-- **Model Size (in billions):** 7
-- **Quantizations:** q5_k_m
-- **Model ID:** Qwen/Qwen1.5-7B-Chat-GGUF
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen1.5-7B-Chat-GGUF>`__, `ModelScope <https://modelscope.cn/models/qwen/Qwen1.5-7B-Chat-GGUF>`__
-
-Execute the following command to launch the model, remember to replace ``${quantization}`` with your
-chosen quantization method from the options listed above::
-
-   xinference launch --model-name qwen1.5-chat --size-in-billions 7 --model-format ggufv2 --quantization ${quantization}
-
-
 Model Spec 22 (ggufv2, 7 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** ggufv2
 - **Model Size (in billions):** 7
-- **Quantizations:** q5_k_m
+- **Quantizations:** q2_k, q3_k_m, q4_0, q4_k_m, q5_0, q5_k_m, q6_k, q8_0
 - **Model ID:** Qwen/Qwen1.5-7B-Chat-GGUF
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen1.5-7B-Chat-GGUF>`__, `ModelScope <https://modelscope.cn/models/qwen/Qwen1.5-7B-Chat-GGUF>`__
 
@@ -349,7 +349,7 @@ Model Spec 23 (ggufv2, 14 Billion)
 
 - **Model Format:** ggufv2
 - **Model Size (in billions):** 14
-- **Quantizations:** q5_k_m
+- **Quantizations:** q2_k, q3_k_m, q4_0, q4_k_m, q5_0, q5_k_m, q6_k, q8_0
 - **Model ID:** Qwen/Qwen1.5-14B-Chat-GGUF
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen1.5-14B-Chat-GGUF>`__, `ModelScope <https://modelscope.cn/models/qwen/Qwen1.5-14B-Chat-GGUF>`__
 
@@ -364,7 +364,7 @@ Model Spec 24 (ggufv2, 72 Billion)
 
 - **Model Format:** ggufv2
 - **Model Size (in billions):** 72
-- **Quantizations:** q2_k
+- **Quantizations:** q2_k, q3_k_m
 - **Model ID:** Qwen/Qwen1.5-72B-Chat-GGUF
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen1.5-72B-Chat-GGUF>`__, `ModelScope <https://modelscope.cn/models/qwen/Qwen1.5-72B-Chat-GGUF>`__
 

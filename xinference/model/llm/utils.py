@@ -402,6 +402,15 @@ Begin!"""
                     else:
                         ret += role + ": </s>"
             return ret
+        elif prompt_style.style_name == "gemma":
+            ret = ""
+            for message in chat_history:
+                content = message["content"]
+                role = get_role(message["role"])
+                ret += "<start_of_turn>" + role + "\n"
+                if content:
+                    ret += content + "<end_of_turn>\n"
+            return ret
         else:
             raise ValueError(f"Invalid prompt style: {prompt_style.style_name}")
 
