@@ -15,6 +15,7 @@
 import asyncio
 import itertools
 import time
+import typing
 from dataclasses import dataclass
 from logging import getLogger
 from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Tuple, Union
@@ -179,12 +180,26 @@ class SupervisorActor(xo.StatelessActor):
             model_version_infos, self.address
         )
 
-    async def get_cluster_device_info(self) -> List:
+    @typing.no_type_check
+    async def get_cluster_device_info(self, detailed: bool = False) -> List:
+        import psutil
+
         supervisor_device_info = {
             "ip_address": self.address.split(":")[0],
             "gpu_count": 0,
             "gpu_vram_total": 0,
         }
+        if detailed:
+            supervisor_device_info["gpu_vram_total"] = 0
+            supervisor_device_info["gpu_vram_available"] = 0
+            supervisor_device_info["cpu_available"] = psutil.cpu_count() * (
+                1 - psutil.cpu_percent() / 100.0
+            )
+            supervisor_device_info["cpu_count"] = psutil.cpu_count()
+            mem_info = psutil.virtual_memory()
+            supervisor_device_info["mem_used"] = mem_info.used
+            supervisor_device_info["mem_available"] = mem_info.available
+            supervisor_device_info["mem_total"] = mem_info.total
         res = [{"node_type": "Supervisor", **supervisor_device_info}]
         for worker_addr, worker_status in self._worker_status.items():
             vram_total: float = sum(
@@ -193,14 +208,24 @@ class SupervisorActor(xo.StatelessActor):
             total = (
                 vram_total if vram_total == 0 else f"{int(vram_total / 1024 / 1024)}MiB"
             )
-            res.append(
-                {
-                    "node_type": "Worker",
-                    "ip_address": worker_addr.split(":")[0],
-                    "gpu_count": len(worker_status.status) - 1,
-                    "gpu_vram_total": total,
-                }
-            )
+            info = {
+                "node_type": "Worker",
+                "ip_address": worker_addr.split(":")[0],
+                "gpu_count": len(worker_status.status) - 1,
+                "gpu_vram_total": total,
+            }
+            if detailed:
+                cpu_info = worker_status.status["cpu"]
+                info["cpu_available"] = cpu_info.total * (1 - cpu_info.usage)
+                info["cpu_count"] = cpu_info.total
+                info["mem_used"] = cpu_info.memory_used
+                info["mem_available"] = cpu_info.memory_available
+                info["mem_total"] = cpu_info.memory_total
+                info["gpu_vram_total"] = vram_total
+                info["gpu_vram_available"] = sum(
+                    [v.mem_free for k, v in worker_status.status.items() if k != "cpu"]
+                )
+            res.append(info)
         return res
 
     @staticmethod
