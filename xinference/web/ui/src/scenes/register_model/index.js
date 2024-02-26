@@ -39,6 +39,7 @@ const RegisterModel = () => {
   const [modelFormat, setModelFormat] = useState('pytorch')
   const [modelSize, setModelSize] = useState(7)
   const [modelUri, setModelUri] = useState('/path/to/llama-2')
+  const [quantization, setQuantization] = useState('')
   const [formData, setFormData] = useState({
     version: 1,
     context_length: 2048,
@@ -197,7 +198,7 @@ const RegisterModel = () => {
         {
           model_format: modelFormat,
           model_size_in_billions: modelSize,
-          quantizations: [''],
+          quantizations: [quantization],
           model_id: '',
           model_uri: modelUri,
         },
@@ -207,7 +208,7 @@ const RegisterModel = () => {
         {
           model_format: modelFormat,
           model_size_in_billions: modelSize,
-          quantizations: [''],
+          quantizations: [quantization],
           model_id: '',
           model_uri: modelUri,
         },
@@ -218,7 +219,7 @@ const RegisterModel = () => {
         {
           model_format: modelFormat,
           model_size_in_billions: modelSize,
-          quantizations: [''],
+          quantizations: [quantization],
           model_id: '',
           model_file_name_template: filename,
           model_uri: baseDir,
@@ -456,6 +457,17 @@ const RegisterModel = () => {
                 setModelUri(e.target.value)
               }}
               helperText="For PyTorch, provide the model directory. For GGML/GGUF, provide the model file path."
+            />
+            <Box padding="15px"></Box>
+
+            <TextField
+              label="Quantization (Optional)"
+              size="small"
+              value={quantization}
+              onChange={(e) => {
+                setQuantization(e.target.value)
+              }}
+              helperText="For GPTQ/AWQ models, please be careful to fill in the quantization corresponding to the model you want to register."
             />
             <Box padding="15px"></Box>
 
