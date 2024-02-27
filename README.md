@@ -34,12 +34,12 @@ potential of cutting-edge AI models.
 - Function calling API: [#701](https://github.com/xorbitsai/inference/pull/701), here's example: https://github.com/xorbitsai/inference/blob/main/examples/FunctionCall.ipynb
 - Support rerank model: [#672](https://github.com/xorbitsai/inference/pull/672)
 ### New Models
+- Built-in support for [Gemma](https://github.com/google-deepmind/gemma): [#1024](https://github.com/xorbitsai/inference/pull/1024)
+- Built-in support for [Qwen1.5](https://github.com/QwenLM/Qwen1.5): [#994](https://github.com/xorbitsai/inference/pull/994)
 - Built-in support for [Yi-VL](https://github.com/01-ai/Yi): [#946](https://github.com/xorbitsai/inference/pull/946)
 - Built-in support for [Whisper](https://github.com/openai/whisper): [#929](https://github.com/xorbitsai/inference/pull/929)
 - Built-in support for [Orion-chat](https://huggingface.co/OrionStarAI): [#933](https://github.com/xorbitsai/inference/pull/933)
 - Built-in support for [InternLM2-chat](https://huggingface.co/internlm/internlm2-chat-7b): [#829](https://github.com/xorbitsai/inference/pull/913)
-- Built-in support for [qwen-vl](https://huggingface.co/Qwen/Qwen-VL-Chat): [#829](https://github.com/xorbitsai/inference/pull/829)
-- Built-in support for [phi-2](https://huggingface.co/microsoft/phi-2): [#828](https://github.com/xorbitsai/inference/pull/828)
 ### Integrations
 - [Dify](https://docs.dify.ai/advanced/model-configuration/xinference): an LLMOps platform that enables developers (and even non-developers) to quickly build useful applications based on large language models, ensuring they are visual, operable, and improvable.
 - [Chatbox](https://chatboxai.app/): a desktop client for multiple cutting-edge LLM models, available on Windows, Mac and Linux.
