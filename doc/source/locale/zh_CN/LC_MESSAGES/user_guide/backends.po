@@ -138,7 +138,7 @@ msgstr "操作系统为 Linux 并且至少有一个支持 CUDA 的设备"
 msgid ""
 "The model family (for custom models) / model name (for builtin models) is"
 " within the list of models supported by vLLM"
-msgstr " ``model_family`` （对于自定义模型）和 ``model_name`` （对于内置模型）在 vLLM 的支持列表中。"
+msgstr "自定义模型的 ``model_family`` 字段和内置模型的 ``model_name`` 字段在 vLLM 的支持列表中。"
 
 #: ../../source/user_guide/backends.rst:51
 msgid "Currently, supported model includes:"
