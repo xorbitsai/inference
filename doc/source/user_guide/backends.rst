@@ -42,19 +42,20 @@ vLLM is fast with:
 
 When the following conditions are met, Xinference will choose vLLM as the inference engine:
 
-- The model format is PyTorch
-- The quantization method is none
+- The model format is ``pytorch``, ``gptq`` or ``awq``.
+- When the model format is ``pytorch``, the quantization is ``none``.
+- When the model format is ``gptq`` or ``awq``, the quantization is ``Int4``.
 - The system is Linux and has at least one CUDA device
-- The model is within the list of models supported by vLLM
+- The model family (for custom models) / model name (for builtin models) is within the list of models supported by vLLM
 
 Currently, supported model includes:
 
 - ``llama-2``, ``llama-2-chat``
 - ``baichuan``, ``baichuan-chat``
-- ``internlm``, ``internlm-20b``, ``internlm-chat``, ``internlm-chat-20b``
+- ``internlm-16k``, ``internlm-chat-7b``, ``internlm-chat-8k``, ``internlm-chat-20b``
 - ``vicuna-v1.3``, ``vicuna-v1.5``
 - ``Yi``, ``Yi-chat``
-- ``qwen-chat``
+- ``qwen-chat``, ``qwen1.5-chat``
 - ``code-llama``, ``code-llama-python``, ``code-llama-instruct``
-- ``mistral-instruct-v0.1``
+- ``mistral-v0.1``, ``mistral-instruct-v0.1``, ``mistral-instruct-v0.2``, ``mixtral-instruct-v0.1``
 - ``chatglm3``
