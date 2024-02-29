@@ -231,7 +231,7 @@ Getting Involved
          :gutter: 3
 
          .. grid-item-card:: 
-            :link: https://xorbits.cn/assets/images/wechat_pr.png
+            :link: https://xorbits.cn/assets/images/wechat_work_qr.png
             
             :fab:`weixin` Find community on WeChat
 

@@ -110,7 +110,7 @@ if version_match != 'zh-cn':
 else:
     html_theme_options['icon_links'].extend([{
         "name": "WeChat",
-        "url": "https://xorbits.cn/assets/images/wechat_pr.png",
+        "url": "https://xorbits.cn/assets/images/wechat_work_qr.png",
         "icon": "fa-brands fa-weixin",
         "type": "fontawesome",
     },
