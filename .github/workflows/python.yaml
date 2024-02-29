@@ -102,6 +102,10 @@ jobs:
           MODULE: ${{ matrix.module }}
         if: ${{ matrix.module != 'gpu' }}
         run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf "/usr/local/share/boost"
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
           pip install "llama-cpp-python>=0.2.23"
           pip install transformers
           pip install torch
