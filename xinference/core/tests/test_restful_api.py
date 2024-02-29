@@ -1141,7 +1141,7 @@ def test_launch_model_by_version(setup):
     requests.delete(url)
 
 
-@pytest.mark.skipif(os.environ.get("CI"), reason="Skip windows")
+@pytest.mark.skipif(os.environ.get("GITHUB_ACTIONS"), reason="Skip windows")
 def test_cluster_info(setup):
     endpoint, _ = setup
     url = f"{endpoint}/v1/cluster/info"

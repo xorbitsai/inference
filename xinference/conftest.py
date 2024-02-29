@@ -26,7 +26,7 @@ import pytest
 import xoscar as xo
 
 # skip health checking for CI
-if os.environ.get("CI"):
+if os.environ.get("GITHUB_ACTIONS"):
     os.environ["XINFERENCE_DISABLE_HEALTH_CHECK"] = "1"
 
 from .api.oauth2.types import AuthConfig, AuthStartupConfig, User
