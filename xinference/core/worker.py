@@ -27,7 +27,7 @@ import xoscar as xo
 from async_timeout import timeout
 from xoscar import MainActorPoolType
 
-from ..constants import XINFERENCE_CACHE_DIR
+from ..constants import XINFERENCE_CACHE_DIR, XINFERENCE_DISABLE_HEALTH_CHECK
 from ..core import ModelActor
 from ..core.status_guard import LaunchStatus
 from ..device_utils import gpu_count
@@ -177,12 +177,13 @@ class WorkerActor(xo.StatelessActor):
             address=self._supervisor_address, uid=SupervisorActor.uid()
         )
         await self._supervisor_ref.add_worker(self.address)
-        # Run _periodical_report_status() in a dedicated thread.
-        self._isolation = Isolation(asyncio.new_event_loop(), threaded=True)
-        self._isolation.start()
-        asyncio.run_coroutine_threadsafe(
-            self._periodical_report_status(), loop=self._isolation.loop
-        )
+        if not XINFERENCE_DISABLE_HEALTH_CHECK:
+            # Run _periodical_report_status() in a dedicated thread.
+            self._isolation = Isolation(asyncio.new_event_loop(), threaded=True)
+            self._isolation.start()
+            asyncio.run_coroutine_threadsafe(
+                self._periodical_report_status(), loop=self._isolation.loop
+            )
         logger.info(f"Xinference worker {self.address} started")
         logger.info("Purge cache directory: %s", XINFERENCE_CACHE_DIR)
         purge_dir(XINFERENCE_CACHE_DIR)
