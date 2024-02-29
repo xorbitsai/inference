@@ -349,7 +349,7 @@ try:
         exclude_fields=["model", "prompt", "grammar", "max_tokens"],
         include_fields={
             "grammar": (Optional[Any], None),
-            "max_tokens": (Optional[Any], None),
+            "max_tokens": (Optional[int], max_tokens_field),
         },
     )
 except ImportError:
