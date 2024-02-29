@@ -347,7 +347,10 @@ try:
     CreateCompletionLlamaCpp = get_pydantic_model_from_method(
         Llama.create_completion,
         exclude_fields=["model", "prompt", "grammar", "max_tokens"],
-        include_fields={"grammar": (Optional[Any], None), "max_tokens": (Optional[Any], None)},
+        include_fields={
+            "grammar": (Optional[Any], None),
+            "max_tokens": (Optional[Any], None),
+        },
     )
 except ImportError:
     CreateCompletionLlamaCpp = create_model("CreateCompletionLlamaCpp")
