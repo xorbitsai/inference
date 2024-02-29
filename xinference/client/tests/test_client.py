@@ -300,7 +300,10 @@ def test_RESTful_client(setup):
     assert len(client.list_models()) == 0
 
     model_uid = client.launch_model(
-        model_name="orca", model_size_in_billions=3, quantization="q4_0"
+        model_name="tiny-llama",
+        model_size_in_billions=1,
+        model_format="ggufv2",
+        quantization="q2_K",
     )
     assert len(client.list_models()) == 1
 
@@ -503,9 +506,7 @@ def test_client_from_modelscope(setup):
         client = RESTfulClient(endpoint)
         assert len(client.list_models()) == 0
 
-        model_uid = client.launch_model(
-            model_name="orca", model_size_in_billions=3, quantization="q4_0"
-        )
+        model_uid = client.launch_model(model_name="tiny-llama")
         assert len(client.list_models()) == 1
         model = client.get_model(model_uid=model_uid)
         completion = model.generate("write a poem.", generate_config={"max_tokens": 5})

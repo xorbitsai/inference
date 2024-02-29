@@ -134,7 +134,8 @@ async def _start_test_cluster(
     logging_conf: Optional[Dict] = None,
 ):
     logging.config.dictConfig(logging_conf)  # type: ignore
-
+    # skip health checking
+    os.environ["XINFERENCE_DISABLE_HEALTH_CHECK"] = "1"
     pool = None
     try:
         pool = await create_worker_actor_pool(
