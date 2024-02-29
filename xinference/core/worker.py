@@ -27,7 +27,11 @@ import xoscar as xo
 from async_timeout import timeout
 from xoscar import MainActorPoolType
 
-from ..constants import XINFERENCE_CACHE_DIR, XINFERENCE_DISABLE_HEALTH_CHECK
+from ..constants import (
+    XINFERENCE_CACHE_DIR,
+    XINFERENCE_DISABLE_HEALTH_CHECK,
+    XINFERENCE_ENV_HEALTH_CHECK_INTERVAL,
+)
 from ..core import ModelActor
 from ..core.status_guard import LaunchStatus
 from ..device_utils import gpu_count
@@ -40,7 +44,6 @@ from .utils import log_async, log_sync, parse_replica_model_uid, purge_dir
 logger = getLogger(__name__)
 
 
-DEFAULT_NODE_HEARTBEAT_INTERVAL = 5
 MODEL_ACTOR_AUTO_RECOVER_LIMIT: Optional[int]
 _MODEL_ACTOR_AUTO_RECOVER_LIMIT = os.getenv("XINFERENCE_MODEL_ACTOR_AUTO_RECOVER_LIMIT")
 if _MODEL_ACTOR_AUTO_RECOVER_LIMIT is not None:
@@ -663,7 +666,7 @@ class WorkerActor(xo.StatelessActor):
             ) as ex:  # pragma: no cover  # noqa: E722  # nosec  # pylint: disable=bare-except
                 logger.error(f"Failed to upload node info: {ex}")
             try:
-                await asyncio.sleep(DEFAULT_NODE_HEARTBEAT_INTERVAL)
+                await asyncio.sleep(XINFERENCE_ENV_HEALTH_CHECK_INTERVAL)
             except asyncio.CancelledError:  # pragma: no cover
                 break
 
