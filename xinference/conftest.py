@@ -25,8 +25,9 @@ from typing import Dict, Optional
 import pytest
 import xoscar as xo
 
-# skip health checking
-os.environ["XINFERENCE_DISABLE_HEALTH_CHECK"] = "1"
+# skip health checking for CI
+if os.environ["CI"]:
+    os.environ["XINFERENCE_DISABLE_HEALTH_CHECK"] = "1"
 
 from .api.oauth2.types import AuthConfig, AuthStartupConfig, User
 from .constants import XINFERENCE_LOG_BACKUP_COUNT, XINFERENCE_LOG_MAX_BYTES
