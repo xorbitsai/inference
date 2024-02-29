@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import json
+import typing
 import warnings
 from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Union
 
@@ -47,6 +48,7 @@ def _get_error_string(response: requests.Response) -> str:
     return "Unknown error"
 
 
+@typing.no_type_check
 def handle_system_prompts(
     chat_history: List["ChatCompletionMessage"], system_prompt: Optional[str]
 ) -> List["ChatCompletionMessage"]:
@@ -382,7 +384,7 @@ class RESTfulChatModelHandle(RESTfulGenerateModelHandle):
             chat_history = []
 
         chat_history = handle_system_prompts(chat_history, system_prompt)
-        chat_history.append({"role": "user", "content": prompt})
+        chat_history.append({"role": "user", "content": prompt})  # type: ignore
 
         request_body: Dict[str, Any] = {
             "model": self._model_uid,
@@ -456,7 +458,7 @@ class RESTfulChatglmCppChatModelHandle(RESTfulModelHandle):
             chat_history = []
 
         chat_history = handle_system_prompts(chat_history, system_prompt)
-        chat_history.append({"role": "user", "content": prompt})
+        chat_history.append({"role": "user", "content": prompt})  # type: ignore
 
         request_body: Dict[str, Any] = {
             "model": self._model_uid,
