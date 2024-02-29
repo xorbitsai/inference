@@ -1256,6 +1256,7 @@ class RESTfulAPI:
                         self.handle_request_limit_error(re)
                     async for item in iterator:
                         yield item
+                    yield "[DONE]"
                 except Exception as ex:
                     logger.exception("Chat completion stream got an error: %s", ex)
                     await self._report_error_event(model_uid, str(ex))
