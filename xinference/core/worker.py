@@ -30,7 +30,7 @@ from xoscar import MainActorPoolType
 from ..constants import (
     XINFERENCE_CACHE_DIR,
     XINFERENCE_DISABLE_HEALTH_CHECK,
-    XINFERENCE_ENV_HEALTH_CHECK_INTERVAL,
+    XINFERENCE_HEALTH_CHECK_INTERVAL,
 )
 from ..core import ModelActor
 from ..core.status_guard import LaunchStatus
@@ -666,7 +666,7 @@ class WorkerActor(xo.StatelessActor):
             ) as ex:  # pragma: no cover  # noqa: E722  # nosec  # pylint: disable=bare-except
                 logger.error(f"Failed to upload node info: {ex}")
             try:
-                await asyncio.sleep(XINFERENCE_ENV_HEALTH_CHECK_INTERVAL)
+                await asyncio.sleep(XINFERENCE_HEALTH_CHECK_INTERVAL)
             except asyncio.CancelledError:  # pragma: no cover
                 break
 
