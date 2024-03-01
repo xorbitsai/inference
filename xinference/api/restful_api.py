@@ -1137,7 +1137,7 @@ class RESTfulAPI:
         }
         kwargs = body.dict(exclude_unset=True, exclude=exclude)
 
-        # TODO: Decide if this default value overide is necessary #1061
+        # TODO: Decide if this default value override is necessary #1061
         if body.max_tokens is None:
             kwargs["max_tokens"] = max_tokens_field.default
 
