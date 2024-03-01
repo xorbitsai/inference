@@ -40,7 +40,12 @@ from ..constants import (
 )
 from ..isolation import Isolation
 from ..types import ChatCompletionMessage
-from .utils import get_config_dict, get_log_file, get_timestamp_ms
+from .utils import (
+    get_config_dict,
+    get_log_file,
+    get_timestamp_ms,
+    handle_click_args_type,
+)
 
 try:
     # provide elaborate line editing and history features.
@@ -525,6 +530,10 @@ def list_model_registrations(
 @cli.command(
     "launch",
     help="Launch a model with the Xinference framework with the given parameters.",
+    context_settings=dict(
+        ignore_unknown_options=True,
+        allow_extra_args=True,
+    ),
 )
 @click.option(
     "--endpoint",
@@ -593,7 +602,9 @@ def list_model_registrations(
     type=bool,
     help="Whether or not to allow for custom models defined on the Hub in their own modeling files.",
 )
+@click.pass_context
 def model_launch(
+    ctx,
     endpoint: Optional[str],
     model_name: str,
     model_type: str,
@@ -605,6 +616,13 @@ def model_launch(
     n_gpu: str,
     trust_remote_code: bool,
 ):
+    kwargs = {}
+    for i in range(0, len(ctx.args), 2):
+        if not ctx.args[i].startswith("--"):
+            raise ValueError("You must specify extra kwargs with `--` prefix.")
+        kwargs[ctx.args[i][2:]] = handle_click_args_type(ctx.args[i + 1])
+    print(f"Launch model name: {model_name} with kwargs: {kwargs}", file=sys.stderr)
+
     if n_gpu.lower() == "none":
         _n_gpu: Optional[Union[int, str]] = None
     elif n_gpu == "auto":
@@ -631,6 +649,7 @@ def model_launch(
         replica=replica,
         n_gpu=_n_gpu,
         trust_remote_code=trust_remote_code,
+        **kwargs,
     )
 
     print(f"Model uid: {model_uid}", file=sys.stderr)

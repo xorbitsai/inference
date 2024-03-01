@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-01-02 17:07+0800\n"
+"POT-Creation-Date: 2024-02-28 16:25+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -17,7 +17,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Generated-By: Babel 2.12.1\n"
+"Generated-By: Babel 2.11.0\n"
 
 #: ../../source/user_guide/backends.rst:5
 msgid "Backends"
@@ -28,7 +28,9 @@ msgid ""
 "Xinference supports multiple backends for different models. After the "
 "user specifies the model, xinference will automatically select the "
 "appropriate backend."
-msgstr "Xinference 对于不同模型支持不同的推理引擎。用户选择模型后，Xinference 会自动选择合适的引擎"
+msgstr ""
+"Xinference 对于不同模型支持不同的推理引擎。用户选择模型后，Xinference 会"
+"自动选择合适的引擎"
 
 #: ../../source/user_guide/backends.rst:11
 msgid "llama-cpp-python"
@@ -41,9 +43,9 @@ msgid ""
 "tensor library `ggml`, supporting inference of the LLaMA series models "
 "and their variants."
 msgstr ""
-"`llama-cpp-python <https://github.com/abetlen/llama-cpp-python>`_ 是 "
-"`llama.cpp` 的 Python 接口。`llama-cpp` 是基于 tensor 库 `ggml` 开发的，支持 LLaMA "
-"系列的大语言模型以及它的各种变种。"
+"`llama-cpp-python <https://github.com/abetlen/llama-cpp-python>`_ 是 `"
+"llama.cpp` 的 Python 接口。`llama-cpp` 是基于 tensor 库 `ggml` 开发的，"
+"支持 LLaMA 系列的大语言模型以及它的各种变种。"
 
 #: ../../source/user_guide/backends.rst:16
 msgid ""
@@ -53,9 +55,10 @@ msgid ""
 "python installation guide <https://github.com/abetlen/llama-cpp-python"
 "#installation-with-openblas--cublas--clblast--metal>`_."
 msgstr ""
-"推荐用户手动安装 `llama-cpp-python`，根据当前使用的硬件，指定对应的编译选项以获得最好的推理性能。可以参考 `llama-"
-"cpp-python 安装指南 <https://github.com/abetlen/llama-cpp-python"
-"#installation-with-openblas--cublas--clblast--metal>`_ 。"
+"推荐用户手动安装 `llama-cpp-python`，根据当前使用的硬件，指定对应的编译"
+"选项以获得最好的推理性能。可以参考 `llama-cpp-python 安装指南 <https://"
+"github.com/abetlen/llama-cpp-python#installation-with-openblas--cublas--"
+"clblast--metal>`_ 。"
 
 #: ../../source/user_guide/backends.rst:21
 msgid "ctransformers"
@@ -65,7 +68,9 @@ msgstr "ctransformers"
 msgid ""
 "CTransformers provide python bindings for the Transformer models "
 "implemented in C/C++ using GGML library."
-msgstr "CTransformers 基于 GGML 使用 C++ 实现了 transformer 模型的推理，并提供了 Python 接口。"
+msgstr ""
+"CTransformers 基于 GGML 使用 C++ 实现了 transformer 模型的推理，并提供了 "
+"Python 接口。"
 
 #: ../../source/user_guide/backends.rst:24
 msgid ""
@@ -74,8 +79,9 @@ msgid ""
 "inference efficiency. Please refer to the `ctransformers installation "
 "guide <https://github.com/marella/ctransformers#gpu>`_."
 msgstr ""
-"推荐用户手动安装 `ctransformers`，根据当前使用的硬件，指定对应的编译选项以获得最好的推理性能。可以参考 "
-"`ctransformers 安装指南 <https://github.com/marella/ctransformers#gpu>`_. 。"
+"推荐用户手动安装 `ctransformers`，根据当前使用的硬件，指定对应的编译选项"
+"以获得最好的推理性能。可以参考 `ctransformers 安装指南 <https://github."
+"com/marella/ctransformers#gpu>`_. 。"
 
 #: ../../source/user_guide/backends.rst:30
 msgid "transformers"
@@ -100,7 +106,9 @@ msgid ""
 "vLLM is fast with: - State-of-the-art serving throughput - Efficient "
 "management of attention key and value memory with PagedAttention - "
 "Continuous batching of incoming requests - Optimized CUDA kernels"
-msgstr "vLLM 优势主要体现在：提供最高的吞吐能力，高效的显存管理，批量处理的能力，以及优化的 CUDA 实现。"
+msgstr ""
+"vLLM 优势主要体现在：提供最高的吞吐能力，高效的显存管理，批量处理的能力，"
+"以及优化的 CUDA 实现。"
 
 #: ../../source/user_guide/backends.rst:43
 msgid ""
@@ -109,58 +117,70 @@ msgid ""
 msgstr "当满足以下条件时，Xinference 会自动选择 vLLM 作为推理引擎："
 
 #: ../../source/user_guide/backends.rst:45
-msgid "The model format is PyTorch"
-msgstr "模型格式为 PyTorch"
+msgid "The model format is ``pytorch``, ``gptq`` or ``awq``."
+msgstr "模型格式为 ``pytorch`` ， ``gptq`` 或者 ``awq`` 。"
 
 #: ../../source/user_guide/backends.rst:46
-msgid "The quantization method is none"
-msgstr "量化方式为 none"
+msgid "When the model format is ``pytorch``, the quantization is ``none``."
+msgstr "当模型格式为 ``pytorch`` 时，量化选项需为 ``none`` 。"
 
 #: ../../source/user_guide/backends.rst:47
+msgid ""
+"When the model format is ``gptq`` or ``awq``, the quantization is "
+"``Int4``."
+msgstr "当模型格式为 ``gptq`` 或 ``awq`` 时，量化选项需为 ``Int4`` 。"
+
+#: ../../source/user_guide/backends.rst:48
 msgid "The system is Linux and has at least one CUDA device"
 msgstr "操作系统为 Linux 并且至少有一个支持 CUDA 的设备"
 
-#: ../../source/user_guide/backends.rst:48
-msgid "The model is within the list of models supported by vLLM."
-msgstr "模型在以下支持列表里"
+#: ../../source/user_guide/backends.rst:49
+msgid ""
+"The model family (for custom models) / model name (for builtin models) is"
+" within the list of models supported by vLLM"
+msgstr "自定义模型的 ``model_family`` 字段和内置模型的 ``model_name`` 字段在 vLLM 的支持列表中。"
 
-#: ../../source/user_guide/backends.rst:50
+#: ../../source/user_guide/backends.rst:51
 msgid "Currently, supported model includes:"
 msgstr "目前，支持的模型包括："
 
-#: ../../source/user_guide/backends.rst:52
+#: ../../source/user_guide/backends.rst:53
 msgid "``llama-2``, ``llama-2-chat``"
 msgstr "``llama-2``, ``llama-2-chat``"
 
-#: ../../source/user_guide/backends.rst:53
+#: ../../source/user_guide/backends.rst:54
 msgid "``baichuan``, ``baichuan-chat``"
 msgstr "``baichuan``, ``baichuan-chat``"
 
-#: ../../source/user_guide/backends.rst:54
-msgid "``internlm``, ``internlm-20b``, ``internlm-chat``, ``internlm-chat-20b``"
+#: ../../source/user_guide/backends.rst:55
+msgid ""
+"``internlm-16k``, ``internlm-chat-7b``, ``internlm-chat-8k``, ``internlm-"
+"chat-20b``"
 msgstr "``internlm``, ``internlm-20b``, ``internlm-chat``, ``internlm-chat-20b``"
 
-#: ../../source/user_guide/backends.rst:55
+#: ../../source/user_guide/backends.rst:56
 msgid "``vicuna-v1.3``, ``vicuna-v1.5``"
 msgstr "``vicuna-v1.3``, ``vicuna-v1.5``"
 
-#: ../../source/user_guide/backends.rst:56
+#: ../../source/user_guide/backends.rst:57
 msgid "``Yi``, ``Yi-chat``"
 msgstr "``Yi``, ``Yi-chat``"
 
-#: ../../source/user_guide/backends.rst:57
-msgid "``qwen-chat``"
-msgstr "``qwen-chat``"
-
 #: ../../source/user_guide/backends.rst:58
+msgid "``qwen-chat``, ``qwen1.5-chat``"
+msgstr "``qwen-chat``, ``qwen1.5-chat``"
+
+#: ../../source/user_guide/backends.rst:59
 msgid "``code-llama``, ``code-llama-python``, ``code-llama-instruct``"
 msgstr "``code-llama``, ``code-llama-python``, ``code-llama-instruct``"
 
-#: ../../source/user_guide/backends.rst:59
-msgid "``mistral-instruct-v0.1``"
-msgstr "``mistral-instruct-v0.1``"
-
 #: ../../source/user_guide/backends.rst:60
+msgid ""
+"``mistral-v0.1``, ``mistral-instruct-v0.1``, ``mistral-instruct-v0.2``, "
+"``mixtral-instruct-v0.1``"
+msgstr "``mistral-v0.1``, ``mistral-instruct-v0.1``, ``mistral-instruct-v0.2``, ``mixtral-instruct-v0.1``"
+
+#: ../../source/user_guide/backends.rst:61
 msgid "``chatglm3``"
 msgstr "``chatglm3``"
 
