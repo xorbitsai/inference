@@ -1124,6 +1124,7 @@
         "quantizations": [
           "8bits"
         ],
+        "model_hub": "modelscope",
         "model_id": "01ai/Yi-34B-Chat-{quantization}",
         "model_revision": "master"
       },
@@ -1646,7 +1647,8 @@
           "8-bit",
           "none"
         ],
-        "model_id": "qwen/Qwen1.5-0.5B-Chat"
+        "model_id": "qwen/Qwen1.5-0.5B-Chat",
+        "model_hub": "modelscope"
       },
       {
         "model_format": "pytorch",
