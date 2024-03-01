@@ -63,9 +63,13 @@ jobs:
             fi
             docker build -t "$DOCKER_ORG/xinference:${IMAGE_TAG}" --progress=plain -f xinference/deploy/docker/Dockerfile .
             docker push "$DOCKER_ORG/xinference:${IMAGE_TAG}"
+            docker build -t "$DOCKER_ORG/xinference:${IMAGE_TAG}-cpu" --progress=plain -f xinference/deploy/docker/cpu.Dockerfile .
+            docker push "$DOCKER_ORG/xinference:${IMAGE_TAG}-cpu"
           done
           
           if [[ -n "$GIT_TAG" ]]; then
             docker tag "$DOCKER_ORG/xinference:${GIT_TAG}" "$DOCKER_ORG/xinference:latest"
             docker push "$DOCKER_ORG/xinference:latest"
+            docker tag "$DOCKER_ORG/xinference:${GIT_TAG}-cpu" "$DOCKER_ORG/xinference:latest-cpu"
+            docker push "$DOCKER_ORG/xinference:latest-cpu"
           fi
