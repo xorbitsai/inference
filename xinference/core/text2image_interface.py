@@ -18,6 +18,7 @@ from typing import Dict, List, Optional, Union
 
 import gradio as gr
 import PIL.Image
+from gradio import Markdown
 
 from ..client.restful.restful_client import RESTfulImageModelHandle
 
@@ -67,12 +68,13 @@ class Text2ImageInterface:
         interface.favicon_path = favicon_path
         return interface
 
-    def build_stable_diffusion_interface(self) -> gr.Blocks:
+    def build_stable_diffusion_interface(self) -> "gr.Blocks":
         def generate_image(
             prompt: str,
-            num_inference_steps: int,
-            guidance_scale: float,
-            seed: int,
+            negative_prompt: str,
+            n: int,
+            size_width: int,
+            size_height: int,
         ) -> PIL.Image.Image:
             from ..client import RESTfulClient
 
@@ -81,13 +83,13 @@ class Text2ImageInterface:
             model = client.get_model(self.model_uid)
             assert isinstance(model, RESTfulImageModelHandle)
 
+            size = f"{int(size_width)}*{int(size_height)}"
+
             image_urls = model.text_to_image(
                 prompt=prompt,
-                n=1,
-                num_inference_steps=num_inference_steps,
-                guidance_scale=guidance_scale,
-                seed=seed,
-                **self.controlnet if self.controlnet else {},
+                negative_prompt=negative_prompt,
+                n=n,
+                size=size,
             )
             logger.info(f"Image URLs: {image_urls}")
             image_path = image_urls["data"][0]["url"]
@@ -96,18 +98,58 @@ class Text2ImageInterface:
 
             return img
 
-        return gr.Interface(
-            fn=generate_image,
-            inputs=[
-                gr.Textbox(label="Prompt"),
-                gr.Slider(minimum=1, maximum=50, label="Num Inference Steps"),
-                gr.Slider(minimum=1, maximum=20, label="Guidance Scale"),
-                gr.Number(label="Seed"),
-            ],
-            outputs=gr.Image(type="pil"),
+        with gr.Blocks(
             title=f"🎨 Xinference Stable Diffusion: {self.model_name} 🎨",
-            description="""
-            Generate images from textual descriptions using Stable Diffusion.
-            """,
+            css="""
+        .center{
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 0px;
+            color: #9ea4b0 !important;
+        }
+        """,
             analytics_enabled=False,
-        )
+        ) as text2image_vl_interface:
+            Markdown(
+                f"""
+                <h1 style='text-align: center; margin-bottom: 1rem'>🎨 Xinference Stable Diffusion: {self.model_name} 🎨"</h1>
+                """
+            )
+            Markdown(
+                f"""
+                <div class="center">
+                Model ID: {self.model_uid}
+                </div>
+                """
+            )
+
+            with gr.Column():
+                with gr.Row():
+                    with gr.Column(scale=6):
+                        prompt = gr.Textbox(
+                            label="Prompt", show_label=False, placeholder="Prompt"
+                        )
+                        negative_prompt = gr.Textbox(
+                            label="Negative prompt",
+                            show_label=False,
+                            placeholder="Negative prompt",
+                        )
+                    with gr.Column(scale=1):
+                        generate_button = gr.Button("Generate Image")
+
+                with gr.Row():
+                    n = gr.Number(label="Number of Images", value=1)
+                    size_width = gr.Number(label="Width", value=1024)
+                    size_height = gr.Number(label="Height", value=1024)
+
+                with gr.Column():
+                    image_output = gr.Image(label="Generated Image")
+
+            generate_button.click(
+                generate_image,
+                inputs=[prompt, negative_prompt, n, size_width, size_height],
+                outputs=image_output,
+            )
+
+        return text2image_vl_interface

@@ -44,7 +44,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from PIL import Image
-from pydantic import ValidationError
 from sse_starlette.sse import EventSourceResponse
 from starlette.responses import JSONResponse as StarletteJSONResponse
 from starlette.responses import RedirectResponse
@@ -112,6 +111,9 @@ class RerankRequest(BaseModel):
 class TextToImageRequest(BaseModel):
     model: str
     prompt: Union[str, List[str]] = Field(description="The input to embed.")
+    negative_prompt: Union[str, List[str]] = Field(
+        description="The negative_prompt_input to embed."
+    )
     n: Optional[int] = 1
     response_format: Optional[str] = "url"
     size: Optional[str] = "1024*1024"
@@ -835,11 +837,7 @@ class RESTfulAPI:
         Build a Gradio interface for image processing models.
         """
         payload = await request.json()
-        try:
-            body = BuildGradioImageInterfaceRequest.parse_obj(payload)
-        except ValidationError as e:
-            logger.info(e.json())
-        logger.info("[body] %s", body)
+        body = BuildGradioImageInterfaceRequest.parse_obj(payload)
         assert self._app is not None
         assert body.model_type == "image"
 
@@ -1132,6 +1130,7 @@ class RESTfulAPI:
 
         try:
             kwargs = json.loads(body.kwargs) if body.kwargs else {}
+            kwargs["negative_prompt"] = body.negative_prompt
             image_list = await model.text_to_image(
                 prompt=body.prompt,
                 n=body.n,

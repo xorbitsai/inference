@@ -450,8 +450,6 @@ const RunningModels = () => {
                 paddingRight: '10px',
               }}
               onClick={() => {
-                console.log(row) // 在这里打印row的值
-                console.log(row.controlnet)
                 if (isCallingApi || isUpdatingModel) {
                   // Make sure no ongoing call
                   return
