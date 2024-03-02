@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import json
+import typing
 import warnings
 from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Union
 
@@ -45,6 +46,25 @@ def _get_error_string(response: requests.Response) -> str:
     except requests.HTTPError as e:
         return str(e)
     return "Unknown error"
+
+
+@typing.no_type_check
+def handle_system_prompts(
+    chat_history: List["ChatCompletionMessage"], system_prompt: Optional[str]
+) -> List["ChatCompletionMessage"]:
+    history_system_prompts = [
+        ch["content"] for ch in chat_history if ch["role"] == "system"
+    ]
+    if system_prompt is not None:
+        history_system_prompts.append(system_prompt)
+
+    # remove all the system prompt in the chat_history
+    chat_history = list(filter(lambda x: x["role"] != "system", chat_history))
+    # insert all system prompts at the beginning
+    chat_history.insert(
+        0, {"role": "system", "content": ". ".join(history_system_prompts)}
+    )
+    return chat_history
 
 
 class RESTfulModelHandle:
@@ -369,15 +389,8 @@ class RESTfulChatModelHandle(RESTfulGenerateModelHandle):
         if chat_history is None:
             chat_history = []
 
-        if chat_history and chat_history[0]["role"] == "system":
-            if system_prompt is not None:
-                chat_history[0]["content"] = system_prompt
-
-        else:
-            if system_prompt is not None:
-                chat_history.insert(0, {"role": "system", "content": system_prompt})
-
-        chat_history.append({"role": "user", "content": prompt})
+        chat_history = handle_system_prompts(chat_history, system_prompt)
+        chat_history.append({"role": "user", "content": prompt})  # type: ignore
 
         request_body: Dict[str, Any] = {
             "model": self._model_uid,
@@ -450,14 +463,8 @@ class RESTfulChatglmCppChatModelHandle(RESTfulModelHandle):
         if chat_history is None:
             chat_history = []
 
-        if chat_history and chat_history[0]["role"] == "system":
-            if system_prompt is not None:
-                chat_history[0]["content"] = system_prompt
-        else:
-            if system_prompt is not None:
-                chat_history.insert(0, {"role": "system", "content": system_prompt})
-
-        chat_history.append({"role": "user", "content": prompt})
+        chat_history = handle_system_prompts(chat_history, system_prompt)
+        chat_history.append({"role": "user", "content": prompt})  # type: ignore
 
         request_body: Dict[str, Any] = {
             "model": self._model_uid,

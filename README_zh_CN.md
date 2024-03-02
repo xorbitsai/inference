@@ -6,7 +6,7 @@
 [![PyPI Latest Release](https://img.shields.io/pypi/v/xinference.svg?style=for-the-badge)](https://pypi.org/project/xinference/)
 [![License](https://img.shields.io/pypi/l/xinference.svg?style=for-the-badge)](https://github.com/xorbitsai/inference/blob/main/LICENSE)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/xorbitsai/inference/python.yaml?branch=main&style=for-the-badge&label=GITHUB%20ACTIONS&logo=github)](https://actions-badge.atrox.dev/xorbitsai/inference/goto?ref=main)
-[![WeChat](https://img.shields.io/badge/添加微信小助手-07C160?style=for-the-badge&logo=wechat&logoColor=white)](https://xorbits.cn/assets/images/wechat_pr.png)
+[![WeChat](https://img.shields.io/badge/添加微信小助手-07C160?style=for-the-badge&logo=wechat&logoColor=white)](https://xorbits.cn/assets/images/wechat_work_qr.png)
 [![Zhihu](https://img.shields.io/static/v1?style=for-the-badge&message=未来速度&color=0084FF&logo=Zhihu&logoColor=FFFFFF&label=)](https://www.zhihu.com/org/xorbits)
 
 [English](README.md) | 中文介绍 | [日本語](README_ja_JP.md)
@@ -112,7 +112,7 @@ $ xinference-local
 | [Github 问题](https://github.com/xorbitsai/inference/issues)                                  | 报告错误和提交功能请求。                          |
 | [Slack](https://join.slack.com/t/xorbitsio/shared_invite/zt-1o3z9ucdh-RbfhbPVpx7prOVdM1CAuxg)   | 与其他 Xorbits 用户合作。                          |
 | [Twitter](https://twitter.com/xorbitsio)                                                     | 及时了解新功能。                                  |
-| [微信社群](https://xorbits.cn/assets/images/wechat_pr.png)                                     | 与其他 Xorbits 用户交流。                         |
+| [微信社群](https://xorbits.cn/assets/images/wechat_work_qr.png)                                     | 与其他 Xorbits 用户交流。                         |
 | [知乎](https://zhihu.com/org/xorbits)                                                         | 了解团队最新的进展。                                  |
 
 ## 贡献者
