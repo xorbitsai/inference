@@ -91,12 +91,11 @@ class Text2ImageInterface:
                 n=n,
                 size=size,
             )
+            
             logger.info(f"Image URLs: {image_urls}")
-            image_path = image_urls["data"][0]["url"]
+            images = [PIL.Image.open(url["url"]) for url in image_urls["data"]]
 
-            img = PIL.Image.open(image_path)
-
-            return img
+            return images
 
         with gr.Blocks(
             title=f"🎨 Xinference Stable Diffusion: {self.model_name} 🎨",
@@ -113,7 +112,7 @@ class Text2ImageInterface:
         ) as text2image_vl_interface:
             Markdown(
                 f"""
-                <h1 style='text-align: center; margin-bottom: 1rem'>🎨 Xinference Stable Diffusion: {self.model_name} 🎨"</h1>
+                <h1 class="center" style='text-align: center; margin-bottom: 1rem'>🎨 Xinference Stable Diffusion: {self.model_name} 🎨"</h1>
                 """
             )
             Markdown(
@@ -126,7 +125,7 @@ class Text2ImageInterface:
 
             with gr.Column():
                 with gr.Row():
-                    with gr.Column(scale=6):
+                    with gr.Column(scale=12):
                         prompt = gr.Textbox(
                             label="Prompt", show_label=False, placeholder="Prompt"
                         )
@@ -144,7 +143,7 @@ class Text2ImageInterface:
                     size_height = gr.Number(label="Height", value=1024)
 
                 with gr.Column():
-                    image_output = gr.Image(label="Generated Image")
+                    image_output = gr.Gallery(label="Generated Images")
 
             generate_button.click(
                 generate_image,
