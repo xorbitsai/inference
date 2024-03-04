@@ -43,6 +43,7 @@ const ModelCard = ({ url, modelData, gpuAvailable, is_custom = false }) => {
   const [modelSize, setModelSize] = useState('')
   const [quantization, setQuantization] = useState('')
   const [nGPU, setNGPU] = useState('auto')
+  const [nGPULayers, setNGPULayers] = useState(-1)
   const [replica, setReplica] = useState(1)
 
   const [formatOptions, setFormatOptions] = useState([])
@@ -124,6 +125,7 @@ const ModelCard = ({ url, modelData, gpuAvailable, is_custom = false }) => {
       quantization: quantization,
       n_gpu:
         nGPU === '0' ? null : nGPU === 'auto' ? 'auto' : parseInt(nGPU, 10),
+      n_gpu_layers: nGPULayers,
       replica: replica,
     }
 
@@ -493,39 +495,58 @@ const ModelCard = ({ url, modelData, gpuAvailable, is_custom = false }) => {
               </FormControl>
             </Grid>
             <Grid item xs={6}>
-              <FormControl
-                variant="outlined"
-                margin="normal"
-                fullWidth
-                disabled={!modelFormat || !modelSize || !quantization}
-              >
-                <InputLabel id="n-gpu-label">N-GPU</InputLabel>
-                <Select
-                  labelId="n-gpu-label"
-                  value={nGPU}
-                  onChange={(e) => setNGPU(e.target.value)}
-                  label="N-GPU"
+              {modelFormat !== 'ggufv2' ? (
+                <FormControl
+                  variant="outlined"
+                  margin="normal"
+                  fullWidth
+                  disabled={!modelFormat || !modelSize || !quantization}
                 >
-                  {['auto']
-                    .concat(
-                      range(
-                        0,
-                        modelFormat !== 'pytorch' &&
-                          modelFormat !== 'gptq' &&
-                          modelFormat !== 'awq'
-                          ? 1
-                          : gpuAvailable
+                  <InputLabel id="n-gpu-label">N-GPU</InputLabel>
+                  <Select
+                    labelId="n-gpu-label"
+                    value={nGPU}
+                    onChange={(e) => setNGPU(e.target.value)}
+                    label="N-GPU"
+                  >
+                    {['auto']
+                      .concat(
+                        range(
+                          0,
+                          modelFormat !== 'pytorch' &&
+                            modelFormat !== 'gptq' &&
+                            modelFormat !== 'awq'
+                            ? 1
+                            : gpuAvailable
+                        )
                       )
-                    )
-                    .map((v) => {
-                      return (
-                        <MenuItem key={v} value={v}>
-                          {v}
-                        </MenuItem>
-                      )
-                    })}
-                </Select>
-              </FormControl>
+                      .map((v) => {
+                        return (
+                          <MenuItem key={v} value={v}>
+                            {v}
+                          </MenuItem>
+                        )
+                      })}
+                  </Select>
+                </FormControl>
+              ) : (
+                <FormControl variant="outlined" margin="normal" fullWidth>
+                  <TextField
+                    disabled={!modelFormat || !modelSize || !quantization}
+                    type="number"
+                    label="N GPU Layers"
+                    InputProps={{
+                      inputProps: {
+                        min: -1,
+                      },
+                    }}
+                    value={nGPULayers}
+                    onChange={(e) =>
+                      setNGPULayers(parseInt(e.target.value, 10))
+                    }
+                  />
+                </FormControl>
+              )}
             </Grid>
             <Grid item xs={6}>
               <FormControl variant="outlined" margin="normal" fullWidth>
