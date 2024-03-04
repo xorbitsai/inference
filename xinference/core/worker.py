@@ -263,7 +263,11 @@ class WorkerActor(xo.StatelessActor):
         if os.name != "nt":
 
             async def signal_handler():
-                await self._supervisor_ref.remove_worker(self.address)
+                try:
+                    await self._supervisor_ref.remove_worker(self.address)
+                except Exception as e:
+                    # Ignore the error of rpc, anyway we are exiting
+                    logger.exception("remove worker rpc error: %s", e)
                 os._exit(0)
 
             loop = asyncio.get_running_loop()
