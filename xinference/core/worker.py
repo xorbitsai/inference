@@ -27,7 +27,11 @@ import xoscar as xo
 from async_timeout import timeout
 from xoscar import MainActorPoolType
 
-from ..constants import XINFERENCE_CACHE_DIR
+from ..constants import (
+    XINFERENCE_CACHE_DIR,
+    XINFERENCE_DISABLE_HEALTH_CHECK,
+    XINFERENCE_HEALTH_CHECK_INTERVAL,
+)
 from ..core import ModelActor
 from ..core.status_guard import LaunchStatus
 from ..device_utils import gpu_count
@@ -40,7 +44,6 @@ from .utils import log_async, log_sync, parse_replica_model_uid, purge_dir
 logger = getLogger(__name__)
 
 
-DEFAULT_NODE_HEARTBEAT_INTERVAL = 5
 MODEL_ACTOR_AUTO_RECOVER_LIMIT: Optional[int]
 _MODEL_ACTOR_AUTO_RECOVER_LIMIT = os.getenv("XINFERENCE_MODEL_ACTOR_AUTO_RECOVER_LIMIT")
 if _MODEL_ACTOR_AUTO_RECOVER_LIMIT is not None:
@@ -177,12 +180,13 @@ class WorkerActor(xo.StatelessActor):
             address=self._supervisor_address, uid=SupervisorActor.uid()
         )
         await self._supervisor_ref.add_worker(self.address)
-        # Run _periodical_report_status() in a dedicated thread.
-        self._isolation = Isolation(asyncio.new_event_loop(), threaded=True)
-        self._isolation.start()
-        asyncio.run_coroutine_threadsafe(
-            self._periodical_report_status(), loop=self._isolation.loop
-        )
+        if not XINFERENCE_DISABLE_HEALTH_CHECK:
+            # Run _periodical_report_status() in a dedicated thread.
+            self._isolation = Isolation(asyncio.new_event_loop(), threaded=True)
+            self._isolation.start()
+            asyncio.run_coroutine_threadsafe(
+                self._periodical_report_status(), loop=self._isolation.loop
+            )
         logger.info(f"Xinference worker {self.address} started")
         logger.info("Purge cache directory: %s", XINFERENCE_CACHE_DIR)
         purge_dir(XINFERENCE_CACHE_DIR)
@@ -662,7 +666,7 @@ class WorkerActor(xo.StatelessActor):
             ) as ex:  # pragma: no cover  # noqa: E722  # nosec  # pylint: disable=bare-except
                 logger.error(f"Failed to upload node info: {ex}")
             try:
-                await asyncio.sleep(DEFAULT_NODE_HEARTBEAT_INTERVAL)
+                await asyncio.sleep(XINFERENCE_HEALTH_CHECK_INTERVAL)
             except asyncio.CancelledError:  # pragma: no cover
                 break
 

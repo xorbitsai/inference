@@ -15,7 +15,8 @@
 import logging
 import os
 import time
-from typing import TYPE_CHECKING, Optional
+import typing
+from typing import TYPE_CHECKING, Any, Optional
 
 import xoscar as xo
 
@@ -159,3 +160,26 @@ def health_check(address: str, max_attempts: int, sleep_interval: int = 3) -> bo
 def get_timestamp_ms():
     t = time.time()
     return int(round(t * 1000))
+
+
+@typing.no_type_check
+def handle_click_args_type(arg: str) -> Any:
+    if arg == "None":
+        return None
+    if arg in ("True", "true"):
+        return True
+    if arg in ("False", "false"):
+        return False
+    try:
+        result = int(arg)
+        return result
+    except:
+        pass
+
+    try:
+        result = float(arg)
+        return result
+    except:
+        pass
+
+    return arg
