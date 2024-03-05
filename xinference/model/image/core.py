@@ -155,7 +155,14 @@ def get_cache_status(
 
 
 def create_image_model_instance(
-    subpool_addr: str, devices: List[str], model_uid: str, model_name: str, **kwargs
+    subpool_addr: str,
+    devices: List[str],
+    model_uid: str,
+    model_name: str,
+    lora_model_path: Optional[str] = None,
+    lora_load_kwargs: Optional[Dict] = None,
+    lora_fuse_kwargs: Optional[Dict] = None,
+    **kwargs,
 ) -> Tuple[DiffusionModel, ImageModelDescription]:
     model_spec = match_diffusion(model_name)
     controlnet = kwargs.get("controlnet")
@@ -187,7 +194,14 @@ def create_image_model_instance(
         else:
             kwargs["controlnet"] = controlnet_model_paths
     model_path = cache(model_spec)
-    model = DiffusionModel(model_uid, model_path, **kwargs)
+    model = DiffusionModel(
+        model_uid,
+        model_path,
+        lora_model_path=lora_model_path,
+        lora_load_kwargs=lora_load_kwargs,
+        lora_fuse_kwargs=lora_fuse_kwargs,
+        **kwargs,
+    )
     model_description = ImageModelDescription(
         subpool_addr, devices, model_spec, model_path=model_path
     )

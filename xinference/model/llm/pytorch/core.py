@@ -51,6 +51,7 @@ class PytorchModel(LLM):
         model_spec: "LLMSpecV1",
         quantization: str,
         model_path: str,
+        peft_model_path: Optional[str] = None,
         pytorch_model_config: Optional[PytorchModelConfig] = None,
     ):
         super().__init__(model_uid, model_family, model_spec, quantization, model_path)
@@ -58,6 +59,7 @@ class PytorchModel(LLM):
         self._pytorch_model_config: PytorchModelConfig = self._sanitize_model_config(
             pytorch_model_config
         )
+        self._peft_model_path = peft_model_path
 
     def _sanitize_model_config(
         self, pytorch_model_config: Optional[PytorchModelConfig]
@@ -111,6 +113,24 @@ class PytorchModel(LLM):
             **kwargs,
         )
         return model, tokenizer
+
+    def _apply_lora(self):
+        if self._peft_model_path is not None:
+            try:
+                from peft import PeftModel
+            except ImportError:
+                raise ImportError(
+                    f"Failed to import 'PeftModel' from 'peft'. Please make sure 'peft' is installed.\n\n"
+                )
+
+            # Apply LoRA
+            self._model = PeftModel.from_pretrained(
+                self._model,
+                self._peft_model_path,
+            )
+            logger.info(
+                f"Successfully loaded the PEFT adaptor for model {self.model_uid}."
+            )
 
     def load(self):
         try:
@@ -200,6 +220,7 @@ class PytorchModel(LLM):
             is_device_map_auto = True
 
         self._model, self._tokenizer = self._load_model(**kwargs)
+        self._apply_lora()
 
         if not is_device_map_auto:
             self._model.to(self._device)
@@ -390,6 +411,7 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
         model_spec: "LLMSpecV1",
         quantization: str,
         model_path: str,
+        peft_model_path: Optional[str] = None,
         pytorch_model_config: Optional[PytorchModelConfig] = None,
     ):
         super().__init__(
@@ -398,6 +420,7 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
             model_spec,
             quantization,
             model_path,
+            peft_model_path,
             pytorch_model_config,
         )
 

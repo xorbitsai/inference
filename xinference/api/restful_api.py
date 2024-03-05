@@ -651,6 +651,9 @@ class RESTfulAPI:
         replica = payload.get("replica", 1)
         n_gpu = payload.get("n_gpu", "auto")
         request_limits = payload.get("request_limits", None)
+        peft_model_path = payload.get("peft_model_path", None)
+        image_lora_load_kwargs = payload.get("image_lora_load_kwargs", None)
+        image_lora_fuse_kwargs = payload.get("image_lora_fuse_kwargs", None)
 
         exclude_keys = {
             "model_uid",
@@ -662,6 +665,9 @@ class RESTfulAPI:
             "replica",
             "n_gpu",
             "request_limits",
+            "peft_model_path",
+            "image_lora_load_kwargs",
+            "image_lora_fuse_kwargs",
         }
 
         kwargs = {
@@ -686,6 +692,9 @@ class RESTfulAPI:
                 n_gpu=n_gpu,
                 request_limits=request_limits,
                 wait_ready=wait_ready,
+                peft_model_path=peft_model_path,
+                image_lora_load_kwargs=image_lora_load_kwargs,
+                image_lora_fuse_kwargs=image_lora_fuse_kwargs,
                 **kwargs,
             )
 

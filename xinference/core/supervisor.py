@@ -714,6 +714,9 @@ class SupervisorActor(xo.StatelessActor):
         request_limits: Optional[int] = None,
         wait_ready: bool = True,
         model_version: Optional[str] = None,
+        peft_model_path: Optional[str] = None,
+        image_lora_load_kwargs: Optional[Dict] = None,
+        image_lora_fuse_kwargs: Optional[Dict] = None,
         **kwargs,
     ) -> str:
         if model_uid is None:
@@ -751,6 +754,9 @@ class SupervisorActor(xo.StatelessActor):
                 model_type=model_type,
                 n_gpu=n_gpu,
                 request_limits=request_limits,
+                peft_model_path=peft_model_path,
+                image_lora_load_kwargs=image_lora_load_kwargs,
+                image_lora_fuse_kwargs=image_lora_fuse_kwargs,
                 **kwargs,
             )
             self._replica_model_uid_to_worker[_replica_model_uid] = worker_ref

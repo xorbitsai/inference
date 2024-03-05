@@ -210,6 +210,7 @@ CustomLLMFamilyV1.update_forward_refs()
 
 
 LLM_CLASSES: List[Type[LLM]] = []
+PEFT_SUPPORTED_CLASSES: List[Type[LLM]] = []
 
 BUILTIN_LLM_FAMILIES: List["LLMFamilyV1"] = []
 BUILTIN_MODELSCOPE_LLM_FAMILIES: List["LLMFamilyV1"] = []
@@ -873,12 +874,20 @@ def unregister_llm(model_name: str, raise_error: bool = True):
 
 
 def match_llm_cls(
-    family: LLMFamilyV1, llm_spec: "LLMSpecV1", quantization: str
+    family: LLMFamilyV1,
+    llm_spec: "LLMSpecV1",
+    quantization: str,
+    peft_model_path: Optional[str] = None,
 ) -> Optional[Type[LLM]]:
     """
     Find an LLM implementation for given LLM family and spec.
     """
-    for cls in LLM_CLASSES:
-        if cls.match(family, llm_spec, quantization):
-            return cls
+    if peft_model_path is not None:
+        for cls in PEFT_SUPPORTED_CLASSES:
+            if cls.match(family, llm_spec, quantization):
+                return cls
+    else:
+        for cls in LLM_CLASSES:
+            if cls.match(family, llm_spec, quantization):
+                return cls
     return None

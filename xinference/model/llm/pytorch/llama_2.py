@@ -26,6 +26,7 @@ class LlamaPytorchModel(PytorchModel):
         model_spec: "LLMSpecV1",
         quantization: str,
         model_path: str,
+        peft_model_path: Optional[str] = None,
         pytorch_model_config: Optional[PytorchModelConfig] = None,
     ):
         super().__init__(
@@ -34,6 +35,7 @@ class LlamaPytorchModel(PytorchModel):
             model_spec,
             quantization,
             model_path,
+            peft_model_path=peft_model_path,
             pytorch_model_config=pytorch_model_config,
         )
 
@@ -67,6 +69,7 @@ class LlamaPytorchChatModel(PytorchChatModel):
         model_spec: "LLMSpecV1",
         quantization: str,
         model_path: str,
+        peft_model_path: Optional[str] = None,
         pytorch_model_config: Optional["PytorchModelConfig"] = None,
     ):
         super().__init__(
@@ -75,6 +78,7 @@ class LlamaPytorchChatModel(PytorchChatModel):
             model_spec,
             quantization,
             model_path,
+            peft_model_path=peft_model_path,
             pytorch_model_config=pytorch_model_config,
         )
         self._use_fast_tokenizer = False
