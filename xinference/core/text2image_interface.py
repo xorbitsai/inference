@@ -91,7 +91,7 @@ class Text2ImageInterface:
                 n=n,
                 size=size,
             )
-            
+
             logger.info(f"Image URLs: {image_urls}")
             images = [PIL.Image.open(url["url"]) for url in image_urls["data"]]
 
@@ -112,7 +112,7 @@ class Text2ImageInterface:
         ) as text2image_vl_interface:
             Markdown(
                 f"""
-                <h1 class="center" style='text-align: center; margin-bottom: 1rem'>🎨 Xinference Stable Diffusion: {self.model_name} 🎨"</h1>
+                <h1 class="center" style='text-align: center; margin-bottom: 1rem'>🎨 Xinference Stable Diffusion: {self.model_name} 🎨</h1>
                 """
             )
             Markdown(
