@@ -220,7 +220,9 @@ class RESTfulAPI:
             "/v1/models/families", self._get_builtin_families, methods=["GET"]
         )
         self._router.add_api_route(
-            "/vllm/models", self.get_vllm_models, methods=["GET"]
+            "/v1/models/vllm-supported",
+            self.list_vllm_supported_model_families,
+            methods=["GET"],
         )
         self._router.add_api_route(
             "/v1/cluster/info", self.get_cluster_device_info, methods=["GET"]
@@ -1351,7 +1353,7 @@ class RESTfulAPI:
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
 
-    async def get_vllm_models(self) -> JSONResponse:
+    async def list_vllm_supported_model_families(self) -> JSONResponse:
         try:
             from ..model.llm.vllm.core import (
                 VLLM_SUPPORTED_CHAT_MODELS,
@@ -1359,8 +1361,8 @@ class RESTfulAPI:
             )
 
             data = {
-                "vllm_supported_chat_models": VLLM_SUPPORTED_CHAT_MODELS,
-                "vllm_supported_models": VLLM_SUPPORTED_MODELS,
+                "chat": VLLM_SUPPORTED_CHAT_MODELS,
+                "generate": VLLM_SUPPORTED_MODELS,
             }
             return JSONResponse(content=data)
         except Exception as e:

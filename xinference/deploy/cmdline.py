@@ -932,12 +932,12 @@ def vllm_models(endpoint: Optional[str]):
     client = RESTfulClient(base_url=endpoint)
     client._set_token(get_stored_token(endpoint, client))
     vllm_models_dict = client.vllm_models()
-    print("VLLM Models:")
-    chat_models = vllm_models_dict["vllm_supported_chat_models"]
-    supported_models = vllm_models_dict["vllm_supported_models"]
+    print("VLLM supported model families:")
+    chat_models = vllm_models_dict["chat"]
+    supported_models = vllm_models_dict["generate"]
 
-    print("VLLM Supported Chat Models:", chat_models)
-    print("VLLM Supported Generate Models:", supported_models)
+    print("VLLM supported chat model families:", chat_models)
+    print("VLLM supported generate model families:", supported_models)
 
 
 @cli.command("login", help="Login when the cluster is authenticated.")

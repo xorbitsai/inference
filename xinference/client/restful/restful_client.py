@@ -676,23 +676,16 @@ class Client:
             response_data = response.json()
             self._cluster_authed = bool(response_data["auth"])
 
-    def vllm_models(self) -> List[str]:
-        url = f"{self.base_url}/vllm/models"
-        response = requests.get(url)
+    def vllm_models(self) -> Dict[str, Any]:
+        url = f"{self.base_url}/v1/models/vllm-supported"
+        response = requests.get(url, headers=self._headers)
         if response.status_code != 200:
             raise RuntimeError(
                 f"Failed to fetch VLLM models. detail: {response.json()['detail']}"
             )
 
         try:
-            data = response.json()
-            models_dict = {
-                "vllm_supported_chat_models": data.get(
-                    "vllm_supported_chat_models", []
-                ),
-                "vllm_supported_models": data.get("vllm_supported_models", []),
-            }
-            return models_dict
+            return response.json()
         except Exception as e:
             raise RuntimeError(f"Error parsing JSON response: {e}")
 
