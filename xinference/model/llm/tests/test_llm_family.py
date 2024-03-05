@@ -56,8 +56,12 @@ def test_deserialize_llm_family_v1():
          "model_format":"ggmlv3",
          "model_size_in_billions":2,
          "quantizations": ["q4_0", "q4_1"],
+         "quantization_parts": {
+            "q4_2": ["a", "b"]
+         },
          "model_id":"example/TestModel",
-         "model_file_name_template":"TestModel.{quantization}.ggmlv3.bin"
+         "model_file_name_template":"TestModel.{quantization}.ggmlv3.bin",
+         "model_file_name_split_template":"TestModel.{quantization}.ggmlv3.bin.{part}"
       },
       {
          "model_format":"pytorch",
@@ -91,6 +95,12 @@ def test_deserialize_llm_family_v1():
     assert ggml_spec.model_id == "example/TestModel"
     assert ggml_spec.model_hub == "huggingface"
     assert ggml_spec.model_file_name_template == "TestModel.{quantization}.ggmlv3.bin"
+    assert (
+        ggml_spec.model_file_name_split_template
+        == "TestModel.{quantization}.ggmlv3.bin.{part}"
+    )
+    assert ggml_spec.quantization_parts["q4_2"][0] == "a"
+    assert ggml_spec.quantization_parts["q4_2"][1] == "b"
 
     pytorch_spec = model_family.model_specs[1]
     assert pytorch_spec.model_format == "pytorch"
@@ -116,9 +126,11 @@ def test_serialize_llm_family_v1():
         model_format="ggmlv3",
         model_size_in_billions=2,
         quantizations=["q4_0", "q4_1"],
+        quantization_parts={"q4_2": ["a", "b"]},
         model_id="example/TestModel",
         model_revision="123",
         model_file_name_template="TestModel.{quantization}.ggmlv3.bin",
+        model_file_name_split_template="TestModel.{quantization}.ggmlv3.bin.{part}",
     )
     pytorch_spec = PytorchLLMSpecV1(
         model_format="pytorch",
@@ -147,7 +159,7 @@ def test_serialize_llm_family_v1():
         prompt_style=prompt_style,
     )
 
-    expected = """{"version": 1, "context_length": 2048, "model_name": "TestModel", "model_lang": ["en"], "model_ability": ["embed", "generate"], "model_description": null, "model_family": null, "model_specs": [{"model_format": "ggmlv3", "model_hub": "huggingface", "model_size_in_billions": 2, "quantizations": ["q4_0", "q4_1"], "model_id": "example/TestModel", "model_revision": "123", "model_file_name_template": "TestModel.{quantization}.ggmlv3.bin", "model_uri": null}, {"model_format": "pytorch", "model_hub": "huggingface", "model_size_in_billions": 3, "quantizations": ["int8", "int4", "none"], "model_id": "example/TestModel", "model_revision": "456", "model_uri": null}], "prompt_style": {"style_name": "ADD_COLON_SINGLE", "system_prompt": "A chat between a curious human and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the human's questions.", "roles": ["user", "assistant"], "intra_message_sep": "\\n### ", "inter_message_sep": "\\n### ", "stop": null, "stop_token_ids": null}}"""
+    expected = """{"version": 1, "context_length": 2048, "model_name": "TestModel", "model_lang": ["en"], "model_ability": ["embed", "generate"], "model_description": null, "model_family": null, "model_specs": [{"model_format": "ggmlv3", "model_hub": "huggingface", "model_size_in_billions": 2, "quantizations": ["q4_0", "q4_1"], "quantization_parts": {"q4_2": ["a", "b"]}, "model_id": "example/TestModel", "model_revision": "123", "model_file_name_template": "TestModel.{quantization}.ggmlv3.bin", "model_file_name_split_template": "TestModel.{quantization}.ggmlv3.bin.{part}", "model_uri": null}, {"model_format": "pytorch", "model_hub": "huggingface", "model_size_in_billions": 3, "quantizations": ["int8", "int4", "none"], "model_id": "example/TestModel", "model_revision": "456", "model_uri": null}], "prompt_style": {"style_name": "ADD_COLON_SINGLE", "system_prompt": "A chat between a curious human and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the human's questions.", "roles": ["user", "assistant"], "intra_message_sep": "\\n### ", "inter_message_sep": "\\n### ", "stop": null, "stop_token_ids": null}}"""
     assert json.loads(llm_family.json()) == json.loads(expected)
 
     llm_family_context_length = LLMFamilyV1(
