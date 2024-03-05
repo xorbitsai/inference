@@ -676,6 +676,14 @@ class Client:
             response_data = response.json()
             self._cluster_authed = bool(response_data["auth"])
 
+    def vllm_models(self) -> List[str]:
+        from ...model.llm.vllm.core import (
+            VLLM_SUPPORTED_CHAT_MODELS,
+            VLLM_SUPPORTED_MODELS,
+        )
+
+        return VLLM_SUPPORTED_MODELS + VLLM_SUPPORTED_CHAT_MODELS
+
     def login(self, username: str, password: str):
         if not self._cluster_authed:
             return
