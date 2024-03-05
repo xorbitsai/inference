@@ -51,8 +51,8 @@ class PytorchModel(LLM):
         model_spec: "LLMSpecV1",
         quantization: str,
         model_path: str,
-        peft_model_path: Optional[str] = None,
         pytorch_model_config: Optional[PytorchModelConfig] = None,
+        peft_model_path: Optional[str] = None,
     ):
         super().__init__(model_uid, model_family, model_spec, quantization, model_path)
         self._use_fast_tokenizer = True
@@ -411,8 +411,8 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
         model_spec: "LLMSpecV1",
         quantization: str,
         model_path: str,
-        peft_model_path: Optional[str] = None,
         pytorch_model_config: Optional[PytorchModelConfig] = None,
+        peft_model_path: Optional[str] = None,
     ):
         super().__init__(
             model_uid,
@@ -420,8 +420,8 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
             model_spec,
             quantization,
             model_path,
-            peft_model_path,
             pytorch_model_config,
+            peft_model_path,
         )
 
     def _sanitize_generate_config(

@@ -221,8 +221,8 @@ def create_llm_model_instance(
             llm_spec,
             quantization,
             save_path,
-            peft_model_path,
             kwargs,
+            peft_model_path,
         )
     else:
         model = llm_cls(
