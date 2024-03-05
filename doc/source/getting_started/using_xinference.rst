@@ -153,6 +153,17 @@ This create a new model instance with unique ID ``my-llama-2``:
 
     Model uid: my-llama-2
 
+.. note::
+  For some engines, such as vllm, users need to specify the engine-related parameters when
+  running models. In this case, you can directly specify the parameter name and value in the
+  command line, for example:
+
+  .. code-block:: bash
+
+    xinference launch -u my-llama-2 -n llama-2-chat -s 13 -f pytorch --gpu_memory_utilization 0.9
+
+  `gpu_memory_utilization=0.9` will pass to vllm when launching model.
+
 Congrats! You now have ``llama-2-chat`` running by Xinference. Once the model is running, we can try it out either via cURL,
 or via Xinference's python client:
 
