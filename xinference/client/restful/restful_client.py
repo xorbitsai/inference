@@ -683,6 +683,19 @@ class Client:
             response_data = response.json()
             self._cluster_authed = bool(response_data["auth"])
 
+    def vllm_models(self) -> Dict[str, Any]:
+        url = f"{self.base_url}/v1/models/vllm-supported"
+        response = requests.get(url, headers=self._headers)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to fetch VLLM models. detail: {response.json()['detail']}"
+            )
+
+        try:
+            return response.json()
+        except Exception as e:
+            raise RuntimeError(f"Error parsing JSON response: {e}")
+
     def login(self, username: str, password: str):
         if not self._cluster_authed:
             return

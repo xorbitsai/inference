@@ -35,15 +35,6 @@ from .ctransformers import CTRANSFORMERS_SUPPORTED_MODEL
 logger = logging.getLogger(__name__)
 
 
-SIZE_TO_GPU_LAYERS = {
-    3: 26,
-    7: 32,
-    13: 40,
-    30: 60,
-    65: 80,
-}
-
-
 class LlamaCppModel(LLM):
     def __init__(
         self,
@@ -56,13 +47,6 @@ class LlamaCppModel(LLM):
     ):
         super().__init__(model_uid, model_family, model_spec, quantization, model_path)
 
-        closest_size = min(
-            SIZE_TO_GPU_LAYERS.keys(),
-            key=lambda x: abs(
-                x - self.handle_model_size(model_spec.model_size_in_billions)
-            ),
-        )
-        self._gpu_layers = SIZE_TO_GPU_LAYERS[closest_size]
         self._llamacpp_model_config: LlamaCppModelConfig = self._sanitize_model_config(
             llamacpp_model_config
         )
@@ -96,9 +80,9 @@ class LlamaCppModel(LLM):
 
         if self._is_darwin_and_apple_silicon() and self._can_apply_metal():
             # TODO: platform.processor() is not safe, need to be replaced to other method.
-            llamacpp_model_config.setdefault("n_gpu_layers", 1)
+            llamacpp_model_config.setdefault("n_gpu_layers", -1)
         elif self._is_linux() and self._can_apply_cublas():
-            llamacpp_model_config.setdefault("n_gpu_layers", self._gpu_layers)
+            llamacpp_model_config.setdefault("n_gpu_layers", -1)
 
         return llamacpp_model_config
 
@@ -313,7 +297,7 @@ class LlamaCppChatModel(LlamaCppModel, ChatModelMixin):
                 generate_config["stop"] = [stop, "Observation:"]
             elif isinstance(stop, Iterable):
                 assert not isinstance(stop, str)
-                generate_config["stop"] = stop + ["Observation:"]
+                generate_config["stop"] = stop + ["Observation:"]  # type: ignore
             else:
                 generate_config["stop"] = "Observation:"
 
