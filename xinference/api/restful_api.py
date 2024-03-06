@@ -853,12 +853,12 @@ class RESTfulAPI:
                 )
                 asyncio.set_event_loop(asyncio.new_event_loop())
 
-        from ..core.image_interface import Text2ImageInterface
+        from ..core.image_interface import ImageInterface
 
         try:
             access_token = request.headers.get("Authorization")
             internal_host = "localhost" if self._host == "0.0.0.0" else self._host
-            interface = Text2ImageInterface(
+            interface = ImageInterface(
                 endpoint=f"http://{internal_host}:{self._port}",
                 model_uid=model_uid,
                 model_family=body.model_family,

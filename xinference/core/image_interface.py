@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import io
 import logging
 import os
 from typing import Dict, List, Optional, Union
@@ -25,7 +26,7 @@ from ..client.restful.restful_client import RESTfulImageModelHandle
 logger = logging.getLogger(__name__)
 
 
-class Text2ImageInterface:
+class ImageInterface:
     def __init__(
         self,
         endpoint: str,
@@ -101,16 +102,18 @@ class Text2ImageInterface:
         with gr.Blocks() as text2image_vl_interface:
             with gr.Column():
                 with gr.Row():
-                    with gr.Column(scale=15):
+                    with gr.Column(scale=10):
                         prompt = gr.Textbox(
-                            label="Prompt", show_label=False, placeholder="Prompt"
+                            label="Prompt",
+                            show_label=True,
+                            placeholder="Enter prompt here...",
                         )
                         negative_prompt = gr.Textbox(
                             label="Negative prompt",
-                            show_label=False,
-                            placeholder="Negative prompt",
+                            show_label=True,
+                            placeholder="Enter negative prompt here...",
                         )
-                    with gr.Column():
+                    with gr.Column(scale=1):
                         generate_button = gr.Button("Generate")
 
                 with gr.Row():
@@ -119,7 +122,7 @@ class Text2ImageInterface:
                     size_height = gr.Number(label="Height", value=1024)
 
                 with gr.Column():
-                    image_output = gr.Gallery(label="Generated Images")
+                    image_output = gr.Gallery()
 
             generate_button.click(
                 text_generate_image,
@@ -146,13 +149,15 @@ class Text2ImageInterface:
             assert isinstance(model, RESTfulImageModelHandle)
 
             size = f"{int(size_width)}*{int(size_height)}"
-            logger.info(image)
+
+            bio = io.BytesIO()
+            image.save(bio, format="png")
 
             image_urls = model.image_to_image(
                 prompt=prompt,
                 negative_prompt=negative_prompt,
                 n=n,
-                image=image,
+                image=bio.getvalue(),
                 size=size,
             )
             logger.info(f"image URLs: {image_urls}")
@@ -162,16 +167,18 @@ class Text2ImageInterface:
         with gr.Blocks() as image2image_inteface:
             with gr.Column():
                 with gr.Row():
-                    with gr.Column(scale=15):
+                    with gr.Column(scale=10):
                         prompt = gr.Textbox(
-                            label="Prompt", show_label=True, placeholder="Hello"
+                            label="Prompt",
+                            show_label=True,
+                            placeholder="Enter prompt here...",
                         )
                         negative_prompt = gr.Textbox(
                             label="Negative Prompt",
-                            show_label=False,
-                            placeholder="Negative Prompt",
+                            show_label=True,
+                            placeholder="Enter negative prompt here...",
                         )
-                    with gr.Column():
+                    with gr.Column(scale=1):
                         generate_button = gr.Button("Generate")
 
                 with gr.Row():
@@ -181,9 +188,9 @@ class Text2ImageInterface:
 
                 with gr.Row():
                     with gr.Column(scale=1):
-                        uploaded_image = gr.Image(label="Upload Image")
+                        uploaded_image = gr.Image(type="pil", label="Upload Image")
                     with gr.Column(scale=1):
-                        output_gallery = gr.Gallery(type="pil", label="Modified Images")
+                        output_gallery = gr.Gallery()
 
             generate_button.click(
                 image_generate_image,
