@@ -2967,7 +2967,7 @@
   },
   {
     "version": 1,
-    "context_length": 100000,
+    "context_length": 16384,
     "model_name": "glaive-coder",
     "model_description": "A code model trained on a dataset of ~140k programming related problems and solutions generated from Glaive’s synthetic data generation platform.",
     "model_lang": [
