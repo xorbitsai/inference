@@ -853,7 +853,7 @@ class RESTfulAPI:
                 )
                 asyncio.set_event_loop(asyncio.new_event_loop())
 
-        from ..core.text2image_interface import Text2ImageInterface
+        from ..core.image_interface import Text2ImageInterface
 
         try:
             access_token = request.headers.get("Authorization")
