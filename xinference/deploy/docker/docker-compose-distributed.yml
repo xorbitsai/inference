@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  xinference: &xinference
+    image: xprobe/xinference:latest
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+              driver: nvidia
+              count: all
+#    volumes:
+#      # Replace <xinference_home> with your xinference home path on the host machine
+#      - <xinference_home>:/root/.xinference
+#      # Replace <huggingface_cache_dir> with your huggingface cache path, default is
+#      # <home_path>/.cache/huggingface
+#      - <huggingface_cache_dir>:/root/.cache/huggingface
+#      # If models are downloaded from modelscope, replace <huggingface_cache_dir> with
+#      # your modelscope cache path, default is <home_path>/.cache/modelscope
+#      - <modelscope_cache_dir>:/root/.cache/modelscope
+#    environment:
+#      # add envs here. Here's an example, if you want to download model from modelscope
+#      - XINFERENCE_MODEL_SRC=modelscope
+
+  xinference-supervisor:
+    <<: *xinference
+    ports:
+      - "9997:9997"
+      - "9999:9999"
+    command: xinference-supervisor --host xinference-supervisor --port 9997 --supervisor-port 9999
+    restart: always
+    healthcheck:
+      test: curl --fail http://xinference-supervisor:9997/status || exit 1
+      interval: 5s
+      retries: 5
+      start_period: 5s
+      timeout: 5s
+
+  # This examples is just using two workers. You can add more by incrementing
+  # the worker suffix and port number.
+  xinference-worker-1:
+    <<: *xinference
+    ports:
+      - "30001:30001"
+    command: xinference-worker -e http://xinference-supervisor:9997 --host xinference-worker-1 --worker-port 30001
+    restart: always
+    depends_on:
+      xinference-supervisor:
+        condition: service_healthy
+
+  xinference-worker-2:
+    <<: *xinference
+    ports:
+      - "30002:30002"
+    command: xinference-worker -e http://xinference-supervisor:9997 --host xinference-worker-2 --worker-port 30002
+    restart: always
+    depends_on:
+      xinference-supervisor:
+        condition: service_healthy

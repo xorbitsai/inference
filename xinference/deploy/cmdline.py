@@ -944,6 +944,21 @@ def model_chat(
             )
 
 
+@cli.command("vllm-models", help="Query and display models compatible with VLLM.")
+@click.option("--endpoint", "-e", type=str, help="Xinference endpoint.")
+def vllm_models(endpoint: Optional[str]):
+    endpoint = get_endpoint(endpoint)
+    client = RESTfulClient(base_url=endpoint)
+    client._set_token(get_stored_token(endpoint, client))
+    vllm_models_dict = client.vllm_models()
+    print("VLLM supported model families:")
+    chat_models = vllm_models_dict["chat"]
+    supported_models = vllm_models_dict["generate"]
+
+    print("VLLM supported chat model families:", chat_models)
+    print("VLLM supported generate model families:", supported_models)
+
+
 @cli.command("login", help="Login when the cluster is authenticated.")
 @click.option("--endpoint", "-e", type=str, help="Xinference endpoint.")
 @click.option("--username", type=str, required=True, help="Username.")
