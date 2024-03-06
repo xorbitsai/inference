@@ -125,8 +125,11 @@ const ModelCard = ({ url, modelData, gpuAvailable, is_custom = false }) => {
       quantization: quantization,
       n_gpu:
         nGPU === '0' ? null : nGPU === 'auto' ? 'auto' : parseInt(nGPU, 10),
-      n_gpu_layers: nGPULayers,
       replica: replica,
+    }
+
+    if (nGPULayers >= 0) {
+      modelDataWithID.n_gpu_layers = nGPULayers
     }
 
     // First fetcher request to initiate the model
@@ -495,7 +498,7 @@ const ModelCard = ({ url, modelData, gpuAvailable, is_custom = false }) => {
               </FormControl>
             </Grid>
             <Grid item xs={6}>
-              {modelFormat !== 'ggufv2' ? (
+              {modelFormat !== 'ggufv2' && modelFormat !== 'ggmlv3' ? (
                 <FormControl
                   variant="outlined"
                   margin="normal"
