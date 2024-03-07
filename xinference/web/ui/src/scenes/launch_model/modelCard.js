@@ -132,7 +132,11 @@ const ModelCard = ({ url, modelData, gpuAvailable, is_custom = false }) => {
       model_size_in_billions: convertModelSize(modelSize),
       quantization: quantization,
       n_gpu:
-        nGPU === '0' ? null : nGPU === 'auto' ? 'auto' : parseInt(nGPU, 10),
+        parseInt(nGPU, 10) === 0 || nGPU === 'CPU'
+          ? null
+          : nGPU === 'auto'
+          ? 'auto'
+          : parseInt(nGPU, 10),
       replica: replica,
     }
 
