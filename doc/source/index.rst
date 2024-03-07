@@ -12,6 +12,7 @@ Welcome to Xinference!
    models/index
    user_guide/index
    examples/index
+   development/index
    reference/index
 
 

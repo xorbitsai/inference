@@ -1,0 +1,122 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2024-03-06 12:05+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: zh_CN\n"
+"Language-Team: zh_CN <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.14.0\n"
+
+#: ../../source/development/contributing_codebase.rst:3
+msgid "Contributing to the code base"
+msgstr "代码库开发指南"
+
+#: ../../source/development/contributing_codebase.rst:6
+msgid "Table of contents:"
+msgstr "目录"
+
+#: ../../source/development/contributing_codebase.rst:9
+msgid "Code standards"
+msgstr "代码规范"
+
+#: ../../source/development/contributing_codebase.rst:11
+msgid ""
+"Writing good code is not just about what you write. It is also about "
+"*how* you write it. During Continuous Integration testing, several tools "
+"will be run to check your code for stylistic errors. Good style is a "
+"requirement for submitting code to Xinference."
+msgstr ""
+"写出好的代码不仅在于你写了什么，更在于你是如何写的。"
+"在持续集成测试期间，会有多个工具来检查您的代码是否存在风格错误。"
+"良好的编程风格是提交代码到 Xinference 的要求之一。"
+
+#: ../../source/development/contributing_codebase.rst:15
+msgid ""
+"In addition, it is important that we do not make sudden changes to the "
+"code that could have the potential to break a lot of user code as a "
+"result. Therefore we need it to be as backwards compatible as possible to"
+" avoid mass breakages."
+msgstr ""
+"此外，不要对代码进行突然的更改，这可能会导致大量用户代码出现问题。"
+"所以，我们需要尽可能地保持向后兼容，以避免大规模的故障。"
+
+#: ../../source/development/contributing_codebase.rst:20
+msgid "Backwards compatibility"
+msgstr "向后兼容"
+
+#: ../../source/development/contributing_codebase.rst:22
+msgid ""
+"Please try to maintain backward compatibility. If you think breakage is "
+"necessary, clearly state why as part of the pull request. Also, be "
+"careful when changing method signatures and add deprecation warnings "
+"where needed. Also, add the deprecated sphinx directive to the deprecated"
+" functions or methods."
+msgstr ""
+"请尽量保持向后兼容性。如果您认为必须进行更改，请在拉取请求中说明清楚原因。"
+"同时，在更改方法签名时要小心，并在需要时添加弃用警告。此外，为弃用的函数或方法添加弃用的 sphinx 指令。"
+
+#: ../../source/development/contributing_codebase.rst:27
+msgid "You'll also need to"
+msgstr "同时你还需要"
+
+#: ../../source/development/contributing_codebase.rst:29
+msgid ""
+"Write a new test that asserts a warning is issued when calling with the "
+"deprecated argument"
+msgstr "编写一个新的测试样例，在调用带有弃用参数时会发出警告。"
+
+#: ../../source/development/contributing_codebase.rst:30
+msgid "Update all of Xinference existing tests and code to use the new argument"
+msgstr "更新所有 Xinference 现有的测试样例和代码，以使用新的参数。"
+
+#: ../../source/development/contributing_codebase.rst:33
+msgid "Type hints"
+msgstr "类型提示"
+
+#: ../../source/development/contributing_codebase.rst:35
+msgid ""
+"Xinference strongly encourages the use of :pep:`484` style type hints. "
+"New development should contain type hints and pull requests to annotate "
+"existing code are accepted as well!"
+msgstr "Xinference 强烈鼓励使用 :pep:`484` 风格的类型提示。新的开发应包含类型提示，并且对现有代码进行注释的拉取请求也是可以接受的！"
+
+#: ../../source/development/contributing_codebase.rst:39
+msgid "Test-driven development"
+msgstr "测试驱动开发"
+
+#: ../../source/development/contributing_codebase.rst:41
+msgid ""
+"Xinference is serious about testing and strongly encourages contributors "
+"to embrace `test-driven development (TDD) <https://en.wikipedia.org/wiki"
+"/Test-driven_development>`_. This development process \"relies on the "
+"repetition of a very short development cycle: first the developer writes "
+"an (initially failing) automated test case that defines a desired "
+"improvement or new function, then produces the minimum amount of code to "
+"pass that test.\" So, before actually writing any code, you should write "
+"your tests. Often the test can be taken from the original GitHub issue. "
+"However, it is always worth considering additional use cases and writing "
+"corresponding tests."
+msgstr ""
+"Xinference 非常重视测试，并强烈鼓励贡献者采用 `测试驱动开发(TDD) <https://en.wikipedia.org/wiki/Test-driven_development>`_ 。"
+"这种开发过程 \"依赖于非常短的开发周期的重复：首先，开发者编写一个（初始为失败的）自动化测试样例来定义所需的改进或新功能，然后用最少的代码来通过该测试。\""
+"因此，在实际编写任何代码之前，您应该编写您的测试样例。通常，测试样例可以从原始的 GitHub issue 中获取。然而，值得考虑额外的情况并编写相应的测试样例。"
+
+#: ../../source/development/contributing_codebase.rst:50
+msgid ""
+"Adding tests is frequently requested after code is pushed to Xinference. "
+"Thus, it is worth getting in the habit of writing tests ahead of time so "
+"this is never an issue."
+msgstr "在将代码推送到 Xinference 之后，经常会要求添加测试样例。因此，养成提前编写测试样例的习惯非常重要，这样就不会出现问题。"
+
