@@ -19,10 +19,10 @@ import {
   TextField,
 } from '@mui/material'
 import IconButton from '@mui/material/IconButton'
-import React, { useContext, useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import React, {useContext, useEffect, useState} from 'react'
+import {useNavigate} from 'react-router-dom'
 
-import { ApiContext } from '../../components/apiContext'
+import {ApiContext} from '../../components/apiContext'
 import fetcher from '../../components/fetcher'
 import TitleTypography from '../../components/titleTypography'
 
@@ -108,6 +108,14 @@ const ModelCard = ({ url, modelData, gpuAvailable, is_custom = false }) => {
       setQuantizationOptions(quants)
     }
   }, [modelFormat, modelSize, modelData])
+
+  const getNGPURange = () => {
+    if (gpuAvailable === 0) {
+      // remain 'auto' for distributed situation
+      return ['auto', 'CPU']
+    }
+    return ['auto', 'CPU'].concat(range(1, gpuAvailable))
+  }
 
   const launchModel = (url) => {
     if (isCallingApi || isUpdatingModel) {
@@ -512,24 +520,13 @@ const ModelCard = ({ url, modelData, gpuAvailable, is_custom = false }) => {
                     onChange={(e) => setNGPU(e.target.value)}
                     label="N-GPU"
                   >
-                    {['auto']
-                      .concat(
-                        range(
-                          0,
-                          modelFormat !== 'pytorch' &&
-                            modelFormat !== 'gptq' &&
-                            modelFormat !== 'awq'
-                            ? 1
-                            : gpuAvailable
-                        )
+                    {getNGPURange().map((v) => {
+                      return (
+                        <MenuItem key={v} value={v}>
+                          {v}
+                        </MenuItem>
                       )
-                      .map((v) => {
-                        return (
-                          <MenuItem key={v} value={v}>
-                            {v}
-                          </MenuItem>
-                        )
-                      })}
+                    })}
                   </Select>
                 </FormControl>
               ) : (
