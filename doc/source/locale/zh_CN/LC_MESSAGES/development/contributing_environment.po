@@ -122,7 +122,7 @@ msgstr "在正式安装Xinference之前，建议使用 Conda 创建一个隔离�
 
 #: ../../source/development/contributing_environment.rst:57
 msgid "``xinf`` can be replaced with a custom Conda environment name."
-msgstr "``xinf`` 可替换为自定义的 conda 环境名。"
+msgstr "``xinf`` 可替换为自定义的 Conda 环境名。"
 
 #: ../../source/development/contributing_environment.rst:59
 msgid ""
@@ -151,7 +151,7 @@ msgid ""
 "<https://inference.readthedocs.io/en/latest/getting_started/using_xinference.html>`__."
 msgstr ""
 "如果命令能够成功运行，接下来就能正常使用 Xinference 了，使用教程详情见 `使用 "
-"<https://inference.readthedocs.io/zh_cn/latest/getting_started/using_xinference.html>`__。"
+"<https://inference.readthedocs.io/zh-cn/latest/getting_started/using_xinference.html>`__。"
 
 #: ../../source/development/contributing_environment.rst:83
 msgid ""
