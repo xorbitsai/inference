@@ -70,7 +70,6 @@ class ImageInterface:
         return interface
 
     def text2image_interface(self) -> "gr.Blocks":
-
         def text_generate_image(
             prompt: str,
             negative_prompt: str,
