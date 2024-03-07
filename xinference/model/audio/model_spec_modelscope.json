@@ -1,0 +1,14 @@
+[
+    {
+        "model_name": "whisper-small.en",
+        "model_family": "whisper",
+        "model_id": "iic/speech_whisper-small_asr_english",
+        "model_revision": "ed3d1925a4b3cc1c21b001524a2fa376be1c7789"
+    },
+    {
+        "model_name": "whisper-large-v3",
+        "model_family": "whisper",
+        "model_id":"mwei23/whisper-large-v3",
+        "model_revision":"ab4067923fb167abb0eb528aacee7dc86700adc5"
+    }
+]
