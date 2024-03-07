@@ -1,13 +1,13 @@
 import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined'
 import OpenInBrowserOutlinedIcon from '@mui/icons-material/OpenInBrowserOutlined'
-import { TabContext, TabList, TabPanel } from '@mui/lab'
-import { Box, Stack, Tab } from '@mui/material'
-import { DataGrid } from '@mui/x-data-grid'
-import React, { useContext, useEffect, useState } from 'react'
-import { useCookies } from 'react-cookie'
-import { useNavigate } from 'react-router-dom'
+import {TabContext, TabList, TabPanel} from '@mui/lab'
+import {Box, Stack, Tab} from '@mui/material'
+import {DataGrid} from '@mui/x-data-grid'
+import React, {useContext, useEffect, useState} from 'react'
+import {useCookies} from 'react-cookie'
+import {useNavigate} from 'react-router-dom'
 
-import { ApiContext } from '../../components/apiContext'
+import {ApiContext} from '../../components/apiContext'
 import ErrorMessageSnackBar from '../../components/errorMessageSnackBar'
 import fetcher from '../../components/fetcher'
 import Title from '../../components/Title'
@@ -134,6 +134,11 @@ const RunningModels = () => {
     {
       field: 'quantization',
       headerName: 'Quantization',
+      flex: 1,
+    },
+    {
+      field: 'replica',
+      headerName: 'Replica',
       flex: 1,
     },
     {
@@ -313,6 +318,11 @@ const RunningModels = () => {
     {
       field: 'accelerators',
       headerName: 'GPU Indexes',
+      flex: 1,
+    },
+    {
+      field: 'replica',
+      headerName: 'Replica',
       flex: 1,
     },
     {

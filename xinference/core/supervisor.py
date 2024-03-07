@@ -922,7 +922,11 @@ class SupervisorActor(xo.StatelessActor):
         workers = list(self._worker_address_to_worker.values())
         for worker in workers:
             ret.update(await worker.list_models())
-        return {parse_replica_model_uid(k)[0]: v for k, v in ret.items()}
+        running_model_info = {parse_replica_model_uid(k)[0]: v for k, v in ret.items()}
+        # add replica count
+        for k, v in running_model_info.items():
+            v["replica"] = self._model_uid_to_replica_info[k].replica
+        return running_model_info
 
     def is_local_deployment(self) -> bool:
         # TODO: temporary.
