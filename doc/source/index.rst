@@ -12,8 +12,8 @@ Welcome to Xinference!
    models/index
    user_guide/index
    examples/index
-   development/index
    reference/index
+   development/index
 
 
 Xorbits Inference (Xinference) is an open-source platform to streamline the operation and integration
