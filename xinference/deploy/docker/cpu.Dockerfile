@@ -56,7 +56,8 @@ RUN python -m pip install --upgrade -i "$PIP_INDEX" pip && \
       controlnet_aux \
       orjson \
       auto-gptq \
-      optimum && \
+      optimum \
+      peft && \
     pip install -i "$PIP_INDEX" -U chatglm-cpp && \
     pip install -i "$PIP_INDEX" -U llama-cpp-python && \
     cd /opt/inference && \

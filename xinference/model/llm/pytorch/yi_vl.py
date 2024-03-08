@@ -69,6 +69,7 @@ class YiVLChatModel(PytorchChatModel):
             self._image_processor,
             _,
         ) = load_pretrained_model(self.model_path, device_map=self._device)
+        self._apply_lora()
 
     @staticmethod
     def _message_content_to_yi(content) -> Union[str, tuple]:

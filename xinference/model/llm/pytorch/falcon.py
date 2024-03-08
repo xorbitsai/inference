@@ -27,6 +27,7 @@ class FalconPytorchModel(PytorchModel):
         quantization: str,
         model_path: str,
         pytorch_model_config: Optional[PytorchModelConfig] = None,
+        peft_model_path: Optional[str] = None,
     ):
         super().__init__(
             model_uid,
@@ -35,6 +36,7 @@ class FalconPytorchModel(PytorchModel):
             quantization,
             model_path,
             pytorch_model_config=pytorch_model_config,
+            peft_model_path=peft_model_path,
         )
 
     def _load_model(self, **kwargs):
@@ -84,6 +86,7 @@ class FalconPytorchChatModel(PytorchChatModel):
         quantization: str,
         model_path: str,
         pytorch_model_config: Optional[PytorchModelConfig] = None,
+        peft_model_path: Optional[str] = None,
     ):
         super().__init__(
             model_uid,
@@ -92,6 +95,7 @@ class FalconPytorchChatModel(PytorchChatModel):
             quantization,
             model_path,
             pytorch_model_config=pytorch_model_config,
+            peft_model_path=peft_model_path,
         )
 
     def _load_model(self, **kwargs):

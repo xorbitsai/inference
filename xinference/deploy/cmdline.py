@@ -17,7 +17,7 @@ import logging
 import os
 import sys
 import warnings
-from typing import List, Optional, Union
+from typing import List, Optional, Tuple, Union
 
 import click
 from xoscar.utils import get_next_port
@@ -597,6 +597,26 @@ def list_model_registrations(
     help='The number of GPUs used by the model, default is "auto".',
 )
 @click.option(
+    "--peft-model-path",
+    default=None,
+    type=str,
+    help="PEFT model path.",
+)
+@click.option(
+    "--image-lora-load-kwargs",
+    "-ld",
+    "image_lora_load_kwargs",
+    type=(str, str),
+    multiple=True,
+)
+@click.option(
+    "--image-lora-fuse-kwargs",
+    "-fd",
+    "image_lora_fuse_kwargs",
+    type=(str, str),
+    multiple=True,
+)
+@click.option(
     "--trust-remote-code",
     default=True,
     type=bool,
@@ -614,6 +634,9 @@ def model_launch(
     quantization: str,
     replica: int,
     n_gpu: str,
+    peft_model_path: Optional[str],
+    image_lora_load_kwargs: Optional[Tuple],
+    image_lora_fuse_kwargs: Optional[Tuple],
     trust_remote_code: bool,
 ):
     kwargs = {}
@@ -629,6 +652,17 @@ def model_launch(
         _n_gpu = n_gpu
     else:
         _n_gpu = int(n_gpu)
+
+    image_lora_load_params = (
+        {k: handle_click_args_type(v) for k, v in dict(image_lora_load_kwargs).items()}
+        if image_lora_load_kwargs
+        else None
+    )
+    image_lora_fuse_params = (
+        {k: handle_click_args_type(v) for k, v in dict(image_lora_fuse_kwargs).items()}
+        if image_lora_fuse_kwargs
+        else None
+    )
 
     endpoint = get_endpoint(endpoint)
     model_size: Optional[Union[str, int]] = (
@@ -648,6 +682,9 @@ def model_launch(
         quantization=quantization,
         replica=replica,
         n_gpu=_n_gpu,
+        peft_model_path=peft_model_path,
+        image_lora_load_kwargs=image_lora_load_params,
+        image_lora_fuse_kwargs=image_lora_fuse_params,
         trust_remote_code=trust_remote_code,
         **kwargs,
     )
