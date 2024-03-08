@@ -360,7 +360,7 @@ def worker(
     )
 
 
-@cli.command("register", help="Registers a new model with Xinference for deployment.")
+@cli.command("register", help="Register a new model with Xinference for deployment.")
 @click.option("--endpoint", "-e", type=str, help="Xinference endpoint.")
 @click.option(
     "--model-type",
@@ -397,7 +397,7 @@ def register_model(
 
 @cli.command(
     "unregister",
-    help="Unregisters a model from Xinference, removing it from deployment.",
+    help="Unregister a model from Xinference, removing it from deployment.",
 )
 @click.option("--endpoint", "-e", type=str, help="Xinference endpoint.")
 @click.option(
@@ -423,7 +423,7 @@ def unregister_model(
     )
 
 
-@cli.command("registrations", help="Lists all registered models in Xinference.")
+@cli.command("registrations", help="List all registered models in Xinference.")
 @click.option(
     "--endpoint",
     "-e",
@@ -981,7 +981,7 @@ def model_chat(
             )
 
 
-@cli.command("vllm-models", help="Query and display models compatible with VLLM.")
+@cli.command("vllm-models", help="Query and display models compatible with vLLM.")
 @click.option("--endpoint", "-e", type=str, help="Xinference endpoint.")
 def vllm_models(endpoint: Optional[str]):
     endpoint = get_endpoint(endpoint)
