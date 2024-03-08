@@ -554,10 +554,12 @@ Begin!"""
                 return content, func_name, json.loads(func_args)
         except Exception as e:
             logger.error("Eval tool calls completion failed: %s", e)
-            
+        t = max(text.rfind("\nThought:"), text.rfind("Thought:"))
         z = max(text.rfind("\nFinal Answer:"), text.rfind("Final Answer:")) 
         if z >= 0:
             text = text[z + len("\nFinal Answer:") :] # len("\nFinal Answer::") and len("Final Answer::") both are OK since there is a space after :
+        else:
+            text = text[t + len("\nThought:") :] # There is only Thought: no Final Answer:
         return text, None, None
 
     @classmethod
@@ -576,13 +578,10 @@ Begin!"""
             )
         logger.debug("Tool call content: %s, func: %s, args: %s", content, func, args)
 
-        if content:
-            m = {"role": "assistant", "content": content, "tool_calls": []}
-            finish_reason = "stop"
-        else:
+        if func:
             m = {
                 "role": "assistant",
-                "content": None,
+                "content": content,
                 "tool_calls": [
                     {
                         "id": f"call_{_id}",
@@ -595,7 +594,10 @@ Begin!"""
                 ],
             }
             finish_reason = "tool_calls"
-
+        else:
+            m = {"role": "assistant", "content": content, "tool_calls": []}
+            finish_reason = "stop"
+        
         return {
             "id": "chat" + f"cmpl-{_id}",
             "model": model_uid,
