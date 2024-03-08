@@ -1,0 +1,70 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2024-03-08 12:40+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.11.0\n"
+
+#: ../../source/models/lora.rst:5
+msgid "LoRA Integration"
+msgstr "集成LoRA"
+
+#: ../../source/models/lora.rst:7
+msgid ""
+"Currently, Xinference supports launching ``LLM`` and ``image`` models "
+"with an attached LoRA fine-tuned model."
+msgstr "当前，Xinference 可以在启动 ``LLM`` 和 ``image`` 模型时连带一个 LoRA 微调模型用以辅助基础模型。"
+
+#: ../../source/models/lora.rst:10
+msgid "Usage"
+msgstr "使用方式"
+
+#: ../../source/models/lora.rst:11
+msgid ""
+"Different from built-in models, xinference currently does not involve "
+"managing LoRA models. Users need to first download the LoRA model "
+"themselves and then provide the storage path of the model files to "
+"xinference."
+msgstr ""
+"不同于内置模型，Xinference 目前不会涉及管理 LoRA 模型。用户需要首先下载对应的 LoRA 模型，"
+"然后将模型存储路径提供给 Xinference 。"
+
+#: ../../source/models/lora.rst:38
+msgid "Note"
+msgstr "注意事项"
+
+#: ../../source/models/lora.rst:40
+msgid ""
+"The options ``image_lora_load_kwargs`` and ``image_lora_fuse_kwargs`` are"
+" only applicable to models with model_type ``image``. They correspond to "
+"the parameters in the ``load_lora_weights`` and ``fuse_lora`` interfaces "
+"of the ``diffusers`` library. If launching an LLM model, these parameters"
+" are not required."
+msgstr ""
+"上述 ``image_lora_load_kwargs`` 和 ``image_lora_fuse_kwargs`` 选项只应用于 ``image`` 模型。它们对应"
+"于 ``diffusers`` 库的 ``load_lora_weights`` 和 ``fuse_lora`` 接口中的额外参数。"
+"如果启动的是 ``LLM`` 模型，则无需设置这些选项。"
+
+#: ../../source/models/lora.rst:44
+msgid ""
+"For LLM chat models, currently only LoRA models are supported that do not"
+" change the prompt style."
+msgstr ""
+"对于 ``LLM`` 聊天模型，当前仅支持那些微调后不更改原始基础模型的提示词模版的 LoRA 模型。"
+
+#: ../../source/models/lora.rst:46
+msgid "When using GPU, both LoRA and its base model occupy the same devices."
+msgstr ""
+"使用 GPU 时，LoRA 模型与其基础模型在同样的设备上，不会对其他模型造成影响。"
