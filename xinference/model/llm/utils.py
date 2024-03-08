@@ -535,11 +535,11 @@ Begin!"""
             # Refer to:
             # https://github.com/QwenLM/Qwen/blob/main/examples/react_prompt.md
             # https://github.com/QwenLM/Qwen/blob/main/openai_api.py#L297
-            func_name, func_args, content = "", "",""
+            func_name, func_args, content = "", "", ""
             i = text.rfind("\nAction:")
             j = text.rfind("\nAction Input:")
             k = text.rfind("\nObservation:")
-            t = max(text.rfind("\nThought:",0, i), text.rfind("Thought:",0, i)) #find the last thought just before Action, considering the Thought at the very beginning
+            t = max(text.rfind("\nThought:", 0, i), text.rfind("Thought:", 0, i)) #find the last thought just before Action, considering the Thought at the very beginning
             if 0 <= i < j:  # If the text has `Action` and `Action input`,
                 if k < j:  # but does not contain `Observation`,
                     # then it is likely that `Observation` is omitted by the LLM,
@@ -555,7 +555,7 @@ Begin!"""
         except Exception as e:
             logger.error("Eval tool calls completion failed: %s", e)
         t = max(text.rfind("\nThought:"), text.rfind("Thought:"))
-        z = max(text.rfind("\nFinal Answer:"), text.rfind("Final Answer:")) 
+        z = max(text.rfind("\nFinal Answer:"), text.rfind("Final Answer:"))
         if z >= 0:
             text = text[z + len("\nFinal Answer:") :] # len("\nFinal Answer::") and len("Final Answer::") both are OK since there is a space after :
         else:
@@ -597,7 +597,6 @@ Begin!"""
         else:
             m = {"role": "assistant", "content": content, "tool_calls": []}
             finish_reason = "stop"
-        
         return {
             "id": "chat" + f"cmpl-{_id}",
             "model": model_uid,
