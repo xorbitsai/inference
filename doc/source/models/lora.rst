@@ -1,5 +1,9 @@
 .. _lora:
 
+================
+LoRA Integration
+================
+
 Currently, Xinference supports launching ``LLM`` and ``image`` models with an attached LoRA fine-tuned model.
 
 Usage
@@ -34,7 +38,9 @@ Note
 ^^^^
 
 * The options ``image_lora_load_kwargs`` and ``image_lora_fuse_kwargs`` are only applicable to models with model_type ``image``.
-They correspond to the parameters in the ``load_lora_weights`` and ``fuse_lora`` interfaces of the ``diffusers`` library.
-If launching an LLM model, these parameters are not required.
+  They correspond to the parameters in the ``load_lora_weights`` and ``fuse_lora`` interfaces of the ``diffusers`` library.
+  If launching an LLM model, these parameters are not required.
 
 * For LLM chat models, currently only LoRA models are supported that do not change the prompt style.
+
+* When using GPU, both LoRA and its base model occupy the same devices.
