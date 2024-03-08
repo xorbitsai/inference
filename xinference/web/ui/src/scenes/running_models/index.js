@@ -17,6 +17,7 @@ const RunningModels = () => {
   const [llmData, setLlmData] = useState([])
   const [embeddingModelData, setEmbeddingModelData] = useState([])
   const [imageModelData, setImageModelData] = useState([])
+  const [audioModelData, setAudioModelData] = useState([])
   const [rerankModelData, setRerankModelData] = useState([])
   const { isCallingApi, setIsCallingApi } = useContext(ApiContext)
   const { isUpdatingModel, setIsUpdatingModel } = useContext(ApiContext)
@@ -40,6 +41,9 @@ const RunningModels = () => {
     if (isCallingApi) {
       setLlmData([{ id: 'Loading, do not refresh page...', url: 'IS_LOADING' }])
       setEmbeddingModelData([
+        { id: 'Loading, do not refresh page...', url: 'IS_LOADING' },
+      ])
+      setAudioModelData([
         { id: 'Loading, do not refresh page...', url: 'IS_LOADING' },
       ])
       setImageModelData([
@@ -68,6 +72,7 @@ const RunningModels = () => {
               const newEmbeddingModelData = []
               const newImageModelData = []
               const newRerankModelData = []
+              const newAudioModelData = []
               Object.entries(data).forEach(([key, value]) => {
                 let newValue = {
                   ...value,
@@ -78,6 +83,8 @@ const RunningModels = () => {
                   newLlmData.push(newValue)
                 } else if (newValue.model_type === 'embedding') {
                   newEmbeddingModelData.push(newValue)
+                } else if (newValue.model_type === 'audio') {
+                  newAudioModelData.push(newValue)
                 } else if (newValue.model_type === 'image') {
                   newImageModelData.push(newValue)
                 } else if (newValue.model_type === 'rerank') {
@@ -86,6 +93,7 @@ const RunningModels = () => {
               })
               setLlmData(newLlmData)
               setEmbeddingModelData(newEmbeddingModelData)
+              setAudioModelData(newAudioModelData)
               setImageModelData(newImageModelData)
               setRerankModelData(newRerankModelData)
               setIsUpdatingModel(false)
@@ -401,6 +409,7 @@ const RunningModels = () => {
   ]
 
   const imageModelColumns = embeddingModelColumns
+  const audioModelColumns = embeddingModelColumns
   const rerankModelColumns = embeddingModelColumns
 
   const dataGridStyle = {
@@ -461,6 +470,7 @@ const RunningModels = () => {
             <Tab label="Embedding Models" value="2" />
             <Tab label="Rerank models" value="3" />
             <Tab label="Image models" value="4" />
+            <Tab label="Audio models" value="5" />
           </TabList>
         </Box>
         <TabPanel value="1" sx={{ padding: 0 }}>
@@ -510,6 +520,20 @@ const RunningModels = () => {
             <DataGrid
               rows={imageModelData}
               columns={imageModelColumns}
+              autoHeight={true}
+              sx={dataGridStyle}
+              slots={{
+                noRowsOverlay: noRowsOverlay,
+                noResultsOverlay: noResultsOverlay,
+              }}
+            />
+          </Box>
+        </TabPanel>
+        <TabPanel value="5" sx={{ padding: 0 }}>
+          <Box sx={{ height: '100%', width: '100%' }}>
+            <DataGrid
+              rows={audioModelData}
+              columns={audioModelColumns}
               autoHeight={true}
               sx={dataGridStyle}
               slots={{
