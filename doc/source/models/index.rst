@@ -214,3 +214,4 @@ Model Usage
    builtin/index
    custom
    sources/sources
+   lora
