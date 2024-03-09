@@ -251,7 +251,11 @@ def cache(
         llm_spec.model_size_in_billions,
         quantization,
     )
-    if os.path.exists(legacy_cache_path):
+    cache_dir = _get_cache_dir(llm_family, llm_spec, create_if_not_exist=False)
+    if os.path.exists(cache_dir):
+        logger.info("Cache path exists: %s", cache_dir)
+        return cache_dir
+    elif os.path.exists(legacy_cache_path):
         logger.info("Legacy cache path exists: %s", legacy_cache_path)
         return os.path.dirname(legacy_cache_path)
     elif download_from_self_hosted_storage() and is_self_hosted(llm_family, llm_spec):
