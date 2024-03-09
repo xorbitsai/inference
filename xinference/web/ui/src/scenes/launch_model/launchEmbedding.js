@@ -40,24 +40,8 @@ const LaunchEmbedding = () => {
       )
 
       const registrations = await response.json()
-      const newRegistrationData = await Promise.all(
-        registrations.map(async (registration) => {
-          const desc = await fetcher(
-            `${endPoint}/v1/model_registrations/embedding/${registration.model_name}`,
-            {
-              method: 'GET',
-            }
-          )
 
-          return {
-            ...(await desc.json()),
-            is_builtin: registration.is_builtin,
-            is_cached: registration.cache_status,
-          }
-        })
-      )
-
-      const builtinRegistrations = newRegistrationData.filter(
+      const builtinRegistrations = registrations.filter(
         (v) => v.is_builtin
       )
       setRegistrationData(builtinRegistrations)
