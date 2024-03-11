@@ -714,6 +714,9 @@ class SupervisorActor(xo.StatelessActor):
         request_limits: Optional[int] = None,
         wait_ready: bool = True,
         model_version: Optional[str] = None,
+        peft_model_path: Optional[str] = None,
+        image_lora_load_kwargs: Optional[Dict] = None,
+        image_lora_fuse_kwargs: Optional[Dict] = None,
         **kwargs,
     ) -> str:
         if model_uid is None:
@@ -751,6 +754,9 @@ class SupervisorActor(xo.StatelessActor):
                 model_type=model_type,
                 n_gpu=n_gpu,
                 request_limits=request_limits,
+                peft_model_path=peft_model_path,
+                image_lora_load_kwargs=image_lora_load_kwargs,
+                image_lora_fuse_kwargs=image_lora_fuse_kwargs,
                 **kwargs,
             )
             self._replica_model_uid_to_worker[_replica_model_uid] = worker_ref
@@ -922,7 +928,11 @@ class SupervisorActor(xo.StatelessActor):
         workers = list(self._worker_address_to_worker.values())
         for worker in workers:
             ret.update(await worker.list_models())
-        return {parse_replica_model_uid(k)[0]: v for k, v in ret.items()}
+        running_model_info = {parse_replica_model_uid(k)[0]: v for k, v in ret.items()}
+        # add replica count
+        for k, v in running_model_info.items():
+            v["replica"] = self._model_uid_to_replica_info[k].replica
+        return running_model_info
 
     def is_local_deployment(self) -> bool:
         # TODO: temporary.

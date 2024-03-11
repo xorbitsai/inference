@@ -43,6 +43,8 @@ def streaming_response_iterator(
         line = line.strip()
         if line.startswith(b"data:"):
             json_str = line[len(b"data:") :].strip()
+            if json_str == b"[DONE]":
+                continue
             data = json.loads(json_str.decode("utf-8"))
             error = data.get("error")
             if error is not None:

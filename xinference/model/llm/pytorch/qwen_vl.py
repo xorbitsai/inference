@@ -71,6 +71,7 @@ class QwenVLChatModel(PytorchChatModel):
             trust_remote_code=True,
             code_revision=self.model_spec.model_revision,
         )
+        self._apply_lora()
 
     def _message_content_to_qwen(self, content) -> str:
         def _ensure_url(_url):

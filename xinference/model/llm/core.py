@@ -180,6 +180,7 @@ def create_llm_model_instance(
     model_format: Optional[str] = None,
     model_size_in_billions: Optional[int] = None,
     quantization: Optional[str] = None,
+    peft_model_path: Optional[str] = None,
     is_local_deployment: bool = False,
     **kwargs,
 ) -> Tuple[LLM, LLMDescription]:
@@ -203,7 +204,9 @@ def create_llm_model_instance(
     assert quantization is not None
     save_path = cache(llm_family, llm_spec, quantization)
 
-    llm_cls = match_llm_cls(llm_family, llm_spec, quantization)
+    llm_cls = match_llm_cls(
+        llm_family, llm_spec, quantization, peft_model_path=peft_model_path
+    )
     if not llm_cls:
         raise ValueError(
             f"Model not supported, name: {model_name}, format: {model_format},"
@@ -211,7 +214,20 @@ def create_llm_model_instance(
         )
     logger.debug(f"Launching {model_uid} with {llm_cls.__name__}")
 
-    model = llm_cls(model_uid, llm_family, llm_spec, quantization, save_path, kwargs)
+    if peft_model_path is not None:
+        model = llm_cls(
+            model_uid,
+            llm_family,
+            llm_spec,
+            quantization,
+            save_path,
+            kwargs,
+            peft_model_path,
+        )
+    else:
+        model = llm_cls(
+            model_uid, llm_family, llm_spec, quantization, save_path, kwargs
+        )
     return model, LLMDescription(
         subpool_addr, devices, llm_family, llm_spec, quantization
     )
