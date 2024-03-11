@@ -366,7 +366,7 @@ Run On CPU Only Host
 
 .. code-block:: bash
 
-  docker run -p 9997:9997 --rm apecloud/xinference:latest-cpu
+  docker run -p 9997:9997 --rm xprobe/xinference:latest-cpu
 
 
 Using Xinference On Kubernetes
