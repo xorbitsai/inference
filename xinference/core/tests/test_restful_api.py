@@ -195,33 +195,6 @@ async def test_restful_api(setup):
     response = requests.delete(url)
     assert response.status_code == 400
 
-    # test for model that supports embedding
-    url = f"{endpoint}/v1/models"
-
-    payload = {
-        "model_uid": "test_restful_api2",
-        "model_name": "orca",
-        "quantization": "q4_0",
-    }
-
-    response = requests.post(url, json=payload)
-    response_data = response.json()
-    model_uid_res = response_data["model_uid"]
-    assert model_uid_res == "test_restful_api2"
-
-    url = f"{endpoint}/v1/embeddings"
-    payload = {
-        "model": "test_restful_api2",
-        "input": "The food was delicious and the waiter...",
-    }
-    response = requests.post(url, json=payload)
-    embedding_res = response.json()
-
-    assert "embedding" in embedding_res["data"][0]
-
-    url = f"{endpoint}/v1/models/test_restful_api2"
-    response = requests.delete(url)
-
     # list model registration
 
     url = f"{endpoint}/v1/model_registrations/LLM"

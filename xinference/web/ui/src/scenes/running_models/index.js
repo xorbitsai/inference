@@ -137,6 +137,11 @@ const RunningModels = () => {
       flex: 1,
     },
     {
+      field: 'replica',
+      headerName: 'Replica',
+      flex: 1,
+    },
+    {
       field: 'url',
       headerName: 'Actions',
       flex: 1,
@@ -313,6 +318,11 @@ const RunningModels = () => {
     {
       field: 'accelerators',
       headerName: 'GPU Indexes',
+      flex: 1,
+    },
+    {
+      field: 'replica',
+      headerName: 'Replica',
       flex: 1,
     },
     {

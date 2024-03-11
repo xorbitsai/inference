@@ -26,13 +26,13 @@ potential of cutting-edge AI models.
 
 ## 🔥 Hot Topics
 ### Framework Enhancements
+- Support LoRA for LLM and image models: [#1080](https://github.com/xorbitsai/inference/pull/1080)
 - Support speech recognition model: [#929](https://github.com/xorbitsai/inference/pull/929)
 - Metrics support: [#906](https://github.com/xorbitsai/inference/pull/906)
 - Docker image: [#855](https://github.com/xorbitsai/inference/pull/855)
 - Support multimodal: [#829](https://github.com/xorbitsai/inference/pull/829)
 - Auto recover: [#694](https://github.com/xorbitsai/inference/pull/694)
 - Function calling API: [#701](https://github.com/xorbitsai/inference/pull/701), here's example: https://github.com/xorbitsai/inference/blob/main/examples/FunctionCall.ipynb
-- Support rerank model: [#672](https://github.com/xorbitsai/inference/pull/672)
 ### New Models
 - Built-in support for [Gemma](https://github.com/google-deepmind/gemma): [#1024](https://github.com/xorbitsai/inference/pull/1024)
 - Built-in support for [Qwen1.5](https://github.com/QwenLM/Qwen1.5): [#994](https://github.com/xorbitsai/inference/pull/994)
