@@ -17,7 +17,7 @@ import logging
 import os
 import sys
 import warnings
-from typing import List, Optional, Union
+from typing import List, Optional, Tuple, Union
 
 import click
 from xoscar.utils import get_next_port
@@ -40,7 +40,12 @@ from ..constants import (
 )
 from ..isolation import Isolation
 from ..types import ChatCompletionMessage
-from .utils import get_config_dict, get_log_file, get_timestamp_ms
+from .utils import (
+    get_config_dict,
+    get_log_file,
+    get_timestamp_ms,
+    handle_click_args_type,
+)
 
 try:
     # provide elaborate line editing and history features.
@@ -355,7 +360,7 @@ def worker(
     )
 
 
-@cli.command("register", help="Registers a new model with Xinference for deployment.")
+@cli.command("register", help="Register a new model with Xinference for deployment.")
 @click.option("--endpoint", "-e", type=str, help="Xinference endpoint.")
 @click.option(
     "--model-type",
@@ -392,7 +397,7 @@ def register_model(
 
 @cli.command(
     "unregister",
-    help="Unregisters a model from Xinference, removing it from deployment.",
+    help="Unregister a model from Xinference, removing it from deployment.",
 )
 @click.option("--endpoint", "-e", type=str, help="Xinference endpoint.")
 @click.option(
@@ -418,7 +423,7 @@ def unregister_model(
     )
 
 
-@cli.command("registrations", help="Lists all registered models in Xinference.")
+@cli.command("registrations", help="List all registered models in Xinference.")
 @click.option(
     "--endpoint",
     "-e",
@@ -525,6 +530,10 @@ def list_model_registrations(
 @cli.command(
     "launch",
     help="Launch a model with the Xinference framework with the given parameters.",
+    context_settings=dict(
+        ignore_unknown_options=True,
+        allow_extra_args=True,
+    ),
 )
 @click.option(
     "--endpoint",
@@ -588,12 +597,34 @@ def list_model_registrations(
     help='The number of GPUs used by the model, default is "auto".',
 )
 @click.option(
+    "--peft-model-path",
+    default=None,
+    type=str,
+    help="PEFT model path.",
+)
+@click.option(
+    "--image-lora-load-kwargs",
+    "-ld",
+    "image_lora_load_kwargs",
+    type=(str, str),
+    multiple=True,
+)
+@click.option(
+    "--image-lora-fuse-kwargs",
+    "-fd",
+    "image_lora_fuse_kwargs",
+    type=(str, str),
+    multiple=True,
+)
+@click.option(
     "--trust-remote-code",
     default=True,
     type=bool,
     help="Whether or not to allow for custom models defined on the Hub in their own modeling files.",
 )
+@click.pass_context
 def model_launch(
+    ctx,
     endpoint: Optional[str],
     model_name: str,
     model_type: str,
@@ -603,14 +634,35 @@ def model_launch(
     quantization: str,
     replica: int,
     n_gpu: str,
+    peft_model_path: Optional[str],
+    image_lora_load_kwargs: Optional[Tuple],
+    image_lora_fuse_kwargs: Optional[Tuple],
     trust_remote_code: bool,
 ):
+    kwargs = {}
+    for i in range(0, len(ctx.args), 2):
+        if not ctx.args[i].startswith("--"):
+            raise ValueError("You must specify extra kwargs with `--` prefix.")
+        kwargs[ctx.args[i][2:]] = handle_click_args_type(ctx.args[i + 1])
+    print(f"Launch model name: {model_name} with kwargs: {kwargs}", file=sys.stderr)
+
     if n_gpu.lower() == "none":
         _n_gpu: Optional[Union[int, str]] = None
     elif n_gpu == "auto":
         _n_gpu = n_gpu
     else:
         _n_gpu = int(n_gpu)
+
+    image_lora_load_params = (
+        {k: handle_click_args_type(v) for k, v in dict(image_lora_load_kwargs).items()}
+        if image_lora_load_kwargs
+        else None
+    )
+    image_lora_fuse_params = (
+        {k: handle_click_args_type(v) for k, v in dict(image_lora_fuse_kwargs).items()}
+        if image_lora_fuse_kwargs
+        else None
+    )
 
     endpoint = get_endpoint(endpoint)
     model_size: Optional[Union[str, int]] = (
@@ -630,7 +682,11 @@ def model_launch(
         quantization=quantization,
         replica=replica,
         n_gpu=_n_gpu,
+        peft_model_path=peft_model_path,
+        image_lora_load_kwargs=image_lora_load_params,
+        image_lora_fuse_kwargs=image_lora_fuse_params,
         trust_remote_code=trust_remote_code,
+        **kwargs,
     )
 
     print(f"Model uid: {model_uid}", file=sys.stderr)
@@ -923,6 +979,21 @@ def model_chat(
             chat_history.append(
                 ChatCompletionMessage(role="assistant", content=response_content)
             )
+
+
+@cli.command("vllm-models", help="Query and display models compatible with vLLM.")
+@click.option("--endpoint", "-e", type=str, help="Xinference endpoint.")
+def vllm_models(endpoint: Optional[str]):
+    endpoint = get_endpoint(endpoint)
+    client = RESTfulClient(base_url=endpoint)
+    client._set_token(get_stored_token(endpoint, client))
+    vllm_models_dict = client.vllm_models()
+    print("VLLM supported model families:")
+    chat_models = vllm_models_dict["chat"]
+    supported_models = vllm_models_dict["generate"]
+
+    print("VLLM supported chat model families:", chat_models)
+    print("VLLM supported generate model families:", supported_models)
 
 
 @cli.command("login", help="Login when the cluster is authenticated.")

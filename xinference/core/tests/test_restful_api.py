@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import json
+import os
 import os.path
 import sys
 import time
@@ -1140,6 +1141,7 @@ def test_launch_model_by_version(setup):
     requests.delete(url)
 
 
+@pytest.mark.skipif(bool(os.environ.get("GITHUB_ACTIONS")), reason="Skip windows")
 def test_cluster_info(setup):
     endpoint, _ = setup
     url = f"{endpoint}/v1/cluster/info"

@@ -220,6 +220,11 @@ class RESTfulAPI:
             "/v1/models/families", self._get_builtin_families, methods=["GET"]
         )
         self._router.add_api_route(
+            "/v1/models/vllm-supported",
+            self.list_vllm_supported_model_families,
+            methods=["GET"],
+        )
+        self._router.add_api_route(
             "/v1/cluster/info", self.get_cluster_device_info, methods=["GET"]
         )
         self._router.add_api_route(
@@ -651,6 +656,9 @@ class RESTfulAPI:
         replica = payload.get("replica", 1)
         n_gpu = payload.get("n_gpu", "auto")
         request_limits = payload.get("request_limits", None)
+        peft_model_path = payload.get("peft_model_path", None)
+        image_lora_load_kwargs = payload.get("image_lora_load_kwargs", None)
+        image_lora_fuse_kwargs = payload.get("image_lora_fuse_kwargs", None)
 
         exclude_keys = {
             "model_uid",
@@ -662,6 +670,9 @@ class RESTfulAPI:
             "replica",
             "n_gpu",
             "request_limits",
+            "peft_model_path",
+            "image_lora_load_kwargs",
+            "image_lora_fuse_kwargs",
         }
 
         kwargs = {
@@ -686,6 +697,9 @@ class RESTfulAPI:
                 n_gpu=n_gpu,
                 request_limits=request_limits,
                 wait_ready=wait_ready,
+                peft_model_path=peft_model_path,
+                image_lora_load_kwargs=image_lora_load_kwargs,
+                image_lora_fuse_kwargs=image_lora_fuse_kwargs,
                 **kwargs,
             )
 
@@ -845,6 +859,7 @@ class RESTfulAPI:
         }
         kwargs = body.dict(exclude_unset=True, exclude=exclude)
 
+        # TODO: Decide if this default value override is necessary #1061
         if body.max_tokens is None:
             kwargs["max_tokens"] = max_tokens_field.default
 
@@ -1136,6 +1151,7 @@ class RESTfulAPI:
         }
         kwargs = body.dict(exclude_unset=True, exclude=exclude)
 
+        # TODO: Decide if this default value override is necessary #1061
         if body.max_tokens is None:
             kwargs["max_tokens"] = max_tokens_field.default
 
@@ -1256,6 +1272,7 @@ class RESTfulAPI:
                         self.handle_request_limit_error(re)
                     async for item in iterator:
                         yield item
+                    yield "[DONE]"
                 except Exception as ex:
                     logger.exception("Chat completion stream got an error: %s", ex)
                     await self._report_error_event(model_uid, str(ex))
@@ -1344,6 +1361,22 @@ class RESTfulAPI:
         except ValueError as re:
             logger.error(re, exc_info=True)
             raise HTTPException(status_code=400, detail=str(re))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def list_vllm_supported_model_families(self) -> JSONResponse:
+        try:
+            from ..model.llm.vllm.core import (
+                VLLM_SUPPORTED_CHAT_MODELS,
+                VLLM_SUPPORTED_MODELS,
+            )
+
+            data = {
+                "chat": VLLM_SUPPORTED_CHAT_MODELS,
+                "generate": VLLM_SUPPORTED_MODELS,
+            }
+            return JSONResponse(content=data)
         except Exception as e:
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))

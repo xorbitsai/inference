@@ -59,6 +59,8 @@ class GgmlLLMSpecV1(BaseModel):
     quantizations: List[str]
     model_id: Optional[str]
     model_file_name_template: str
+    model_file_name_split_template: Optional[str]
+    quantization_parts: Optional[Dict[str, List[str]]]
     model_hub: str = "huggingface"
     model_uri: Optional[str]
     model_revision: Optional[str]
@@ -210,6 +212,7 @@ CustomLLMFamilyV1.update_forward_refs()
 
 
 LLM_CLASSES: List[Type[LLM]] = []
+PEFT_SUPPORTED_CLASSES: List[Type[LLM]] = []
 
 BUILTIN_LLM_FAMILIES: List["LLMFamilyV1"] = []
 BUILTIN_MODELSCOPE_LLM_FAMILIES: List["LLMFamilyV1"] = []
@@ -522,6 +525,52 @@ def _generate_meta_file(
         json.dump(desc.to_dict(), f)
 
 
+def _generate_model_file_names(
+    llm_spec: "LLMSpecV1", quantization: Optional[str] = None
+) -> Tuple[List[str], str, bool]:
+    file_names = []
+    final_file_name = llm_spec.model_file_name_template.format(
+        quantization=quantization
+    )
+    need_merge = False
+
+    if llm_spec.quantization_parts is None:
+        file_names.append(final_file_name)
+    elif quantization is not None and quantization in llm_spec.quantization_parts:
+        parts = llm_spec.quantization_parts[quantization]
+        need_merge = True
+
+        logger.info(
+            f"Model {llm_spec.model_id} {llm_spec.model_format} {quantization} has {len(parts)} parts."
+        )
+
+        if llm_spec.model_file_name_split_template is None:
+            raise ValueError(
+                f"No model_file_name_split_template for model spec {llm_spec.model_id}"
+            )
+
+        for part in parts:
+            file_name = llm_spec.model_file_name_split_template.format(
+                quantization=quantization, part=part
+            )
+            file_names.append(file_name)
+
+    return file_names, final_file_name, need_merge
+
+
+def _merge_cached_files(
+    cache_dir: str, input_file_names: List[str], output_file_name: str
+):
+    with open(os.path.join(cache_dir, output_file_name), "wb") as output_file:
+        for file_name in input_file_names:
+            logger.info(f"Merging file {file_name} into {output_file_name} ...")
+
+            with open(os.path.join(cache_dir, file_name), "rb") as input_file:
+                shutil.copyfileobj(input_file, output_file)
+
+    logger.info(f"Merge complete.")
+
+
 def cache_from_modelscope(
     llm_family: LLMFamilyV1,
     llm_spec: "LLMSpecV1",
@@ -560,19 +609,26 @@ def cache_from_modelscope(
                 symlink_local_file(os.path.join(subdir, file), cache_dir, relpath)
 
     elif llm_spec.model_format in ["ggmlv3", "ggufv2"]:
-        filename = llm_spec.model_file_name_template.format(quantization=quantization)
-        download_path = retry_download(
-            model_file_download,
-            llm_family.model_name,
-            {
-                "model_size": llm_spec.model_size_in_billions,
-                "model_format": llm_spec.model_format,
-            },
-            llm_spec.model_id,
-            filename,
-            revision=llm_spec.model_revision,
+        file_names, final_file_name, need_merge = _generate_model_file_names(
+            llm_spec, quantization
         )
-        symlink_local_file(download_path, cache_dir, filename)
+
+        for filename in file_names:
+            download_path = retry_download(
+                model_file_download,
+                llm_family.model_name,
+                {
+                    "model_size": llm_spec.model_size_in_billions,
+                    "model_format": llm_spec.model_format,
+                },
+                llm_spec.model_id,
+                filename,
+                revision=llm_spec.model_revision,
+            )
+            symlink_local_file(download_path, cache_dir, filename)
+
+        if need_merge:
+            _merge_cached_files(cache_dir, file_names, final_file_name)
     else:
         raise ValueError(f"Unsupported format: {llm_spec.model_format}")
 
@@ -621,20 +677,27 @@ def cache_from_huggingface(
 
     elif llm_spec.model_format in ["ggmlv3", "ggufv2"]:
         assert isinstance(llm_spec, GgmlLLMSpecV1)
-        file_name = llm_spec.model_file_name_template.format(quantization=quantization)
-        retry_download(
-            huggingface_hub.hf_hub_download,
-            llm_family.model_name,
-            {
-                "model_size": llm_spec.model_size_in_billions,
-                "model_format": llm_spec.model_format,
-            },
-            llm_spec.model_id,
-            revision=llm_spec.model_revision,
-            filename=file_name,
-            local_dir=cache_dir,
-            local_dir_use_symlinks=True,
+        file_names, final_file_name, need_merge = _generate_model_file_names(
+            llm_spec, quantization
         )
+
+        for file_name in file_names:
+            retry_download(
+                huggingface_hub.hf_hub_download,
+                llm_family.model_name,
+                {
+                    "model_size": llm_spec.model_size_in_billions,
+                    "model_format": llm_spec.model_format,
+                },
+                llm_spec.model_id,
+                revision=llm_spec.model_revision,
+                filename=file_name,
+                local_dir=cache_dir,
+                local_dir_use_symlinks=True,
+            )
+
+        if need_merge:
+            _merge_cached_files(cache_dir, file_names, final_file_name)
     else:
         raise ValueError(f"Unsupported model format: {llm_spec.model_format}")
 
@@ -873,12 +936,20 @@ def unregister_llm(model_name: str, raise_error: bool = True):
 
 
 def match_llm_cls(
-    family: LLMFamilyV1, llm_spec: "LLMSpecV1", quantization: str
+    family: LLMFamilyV1,
+    llm_spec: "LLMSpecV1",
+    quantization: str,
+    peft_model_path: Optional[str] = None,
 ) -> Optional[Type[LLM]]:
     """
     Find an LLM implementation for given LLM family and spec.
     """
-    for cls in LLM_CLASSES:
-        if cls.match(family, llm_spec, quantization):
-            return cls
+    if peft_model_path is not None:
+        for cls in PEFT_SUPPORTED_CLASSES:
+            if cls.match(family, llm_spec, quantization):
+                return cls
+    else:
+        for cls in LLM_CLASSES:
+            if cls.match(family, llm_spec, quantization):
+                return cls
     return None

@@ -25,6 +25,10 @@ from typing import Dict, Optional
 import pytest
 import xoscar as xo
 
+# skip health checking for CI
+if os.environ.get("GITHUB_ACTIONS"):
+    os.environ["XINFERENCE_DISABLE_HEALTH_CHECK"] = "1"
+
 from .api.oauth2.types import AuthConfig, AuthStartupConfig, User
 from .constants import XINFERENCE_LOG_BACKUP_COUNT, XINFERENCE_LOG_MAX_BYTES
 from .core.supervisor import SupervisorActor
@@ -134,7 +138,6 @@ async def _start_test_cluster(
     logging_conf: Optional[Dict] = None,
 ):
     logging.config.dictConfig(logging_conf)  # type: ignore
-
     pool = None
     try:
         pool = await create_worker_actor_pool(

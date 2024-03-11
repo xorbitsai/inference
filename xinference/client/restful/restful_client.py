@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import json
+import typing
 import warnings
 from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Union
 
@@ -45,6 +46,25 @@ def _get_error_string(response: requests.Response) -> str:
     except requests.HTTPError as e:
         return str(e)
     return "Unknown error"
+
+
+@typing.no_type_check
+def handle_system_prompts(
+    chat_history: List["ChatCompletionMessage"], system_prompt: Optional[str]
+) -> List["ChatCompletionMessage"]:
+    history_system_prompts = [
+        ch["content"] for ch in chat_history if ch["role"] == "system"
+    ]
+    if system_prompt is not None:
+        history_system_prompts.append(system_prompt)
+
+    # remove all the system prompt in the chat_history
+    chat_history = list(filter(lambda x: x["role"] != "system", chat_history))
+    # insert all system prompts at the beginning
+    chat_history.insert(
+        0, {"role": "system", "content": ". ".join(history_system_prompts)}
+    )
+    return chat_history
 
 
 class RESTfulModelHandle:
@@ -363,15 +383,8 @@ class RESTfulChatModelHandle(RESTfulGenerateModelHandle):
         if chat_history is None:
             chat_history = []
 
-        if chat_history and chat_history[0]["role"] == "system":
-            if system_prompt is not None:
-                chat_history[0]["content"] = system_prompt
-
-        else:
-            if system_prompt is not None:
-                chat_history.insert(0, {"role": "system", "content": system_prompt})
-
-        chat_history.append({"role": "user", "content": prompt})
+        chat_history = handle_system_prompts(chat_history, system_prompt)
+        chat_history.append({"role": "user", "content": prompt})  # type: ignore
 
         request_body: Dict[str, Any] = {
             "model": self._model_uid,
@@ -444,14 +457,8 @@ class RESTfulChatglmCppChatModelHandle(RESTfulModelHandle):
         if chat_history is None:
             chat_history = []
 
-        if chat_history and chat_history[0]["role"] == "system":
-            if system_prompt is not None:
-                chat_history[0]["content"] = system_prompt
-        else:
-            if system_prompt is not None:
-                chat_history.insert(0, {"role": "system", "content": system_prompt})
-
-        chat_history.append({"role": "user", "content": prompt})
+        chat_history = handle_system_prompts(chat_history, system_prompt)
+        chat_history.append({"role": "user", "content": prompt})  # type: ignore
 
         request_body: Dict[str, Any] = {
             "model": self._model_uid,
@@ -676,6 +683,19 @@ class Client:
             response_data = response.json()
             self._cluster_authed = bool(response_data["auth"])
 
+    def vllm_models(self) -> Dict[str, Any]:
+        url = f"{self.base_url}/v1/models/vllm-supported"
+        response = requests.get(url, headers=self._headers)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to fetch VLLM models. detail: {response.json()['detail']}"
+            )
+
+        try:
+            return response.json()
+        except Exception as e:
+            raise RuntimeError(f"Error parsing JSON response: {e}")
+
     def login(self, username: str, password: str):
         if not self._cluster_authed:
             return
@@ -771,6 +791,9 @@ class Client:
         replica: int = 1,
         n_gpu: Optional[Union[int, str]] = "auto",
         request_limits: Optional[int] = None,
+        peft_model_path: Optional[str] = None,
+        image_lora_load_kwargs: Optional[Dict] = None,
+        image_lora_fuse_kwargs: Optional[Dict] = None,
         **kwargs,
     ) -> str:
         """
@@ -798,6 +821,12 @@ class Client:
         request_limits: Optional[int]
             The number of request limits for this model， default is None.
             ``request_limits=None`` means no limits for this model.
+        peft_model_path: Optional[str]
+            PEFT (Parameter-Efficient Fine-Tuning) model path.
+        image_lora_load_kwargs: Optional[Dict]
+            lora load parameters for image model
+        image_lora_fuse_kwargs: Optional[Dict]
+            lora fuse parameters for image model
         **kwargs:
             Any other parameters been specified.
 
@@ -820,6 +849,9 @@ class Client:
             "replica": replica,
             "n_gpu": n_gpu,
             "request_limits": request_limits,
+            "peft_model_path": peft_model_path,
+            "image_lora_load_kwargs": image_lora_load_kwargs,
+            "image_lora_fuse_kwargs": image_lora_fuse_kwargs,
         }
 
         for key, value in kwargs.items():
