@@ -2795,6 +2795,17 @@
       },
       {
         "model_format": "pytorch",
+        "model_size_in_billions": 9,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "01-ai/Yi-9B",
+        "model_revision": "f70a5ff8b2e51c5d5b20e649d7b5f4238ffe6d5b"
+      },
+      {
+        "model_format": "pytorch",
         "model_size_in_billions": 34,
         "quantizations": [
           "4-bit",
@@ -3751,51 +3762,6 @@
         "<|im_start|>",
         "<|im_end|>",
         "<|im_sep|>"
-      ]
-    }
-  },
-  {
-    "version": 1,
-    "context_length": 8192,
-    "model_name": "gemma-it",
-    "model_lang": [
-      "en"
-    ],
-    "model_ability": [
-      "chat"
-    ],
-    "model_description": "Gemma is a family of lightweight, state-of-the-art open models from Google, built from the same research and technology used to create the Gemini models.",
-    "model_specs": [
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": 2,
-        "quantizations": [
-          "none",
-          "4-bit",
-          "8-bit"
-        ],
-        "model_id": "google/gemma-2b-it"
-      },
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": 7,
-        "quantizations": [
-          "none",
-          "4-bit",
-          "8-bit"
-        ],
-        "model_id": "google/gemma-7b-it"
-      }
-    ],
-    "prompt_style": {
-      "style_name": "gemma",
-      "roles": [
-        "user",
-        "model"
-      ],
-      "stop": [
-        "<end_of_turn>",
-        "<start_of_turn>"
       ]
     }
   }
