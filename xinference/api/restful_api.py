@@ -584,8 +584,22 @@ class RESTfulAPI:
 
     async def list_models(self) -> JSONResponse:
         try:
-            data = await (await self._get_supervisor_ref()).list_models()
-            return JSONResponse(content=data)
+            models = await (await self._get_supervisor_ref()).list_models()
+
+            model_list = []
+            for model_id, model_info in models.items():
+                model_list.append(
+                    {
+                        "id": model_id,
+                        "object": "model",
+                        "created": 0,
+                        "owned_by": "xinference",
+                        **model_info,
+                    }
+                )
+            response = {"object": "list", "data": model_list}
+
+            return JSONResponse(content=response)
         except Exception as e:
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
