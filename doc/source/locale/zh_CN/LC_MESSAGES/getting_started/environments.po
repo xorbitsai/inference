@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-01-03 15:51+0800\n"
+"POT-Creation-Date: 2024-03-11 13:33+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -17,7 +17,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Generated-By: Babel 2.12.1\n"
+"Generated-By: Babel 2.14.0\n"
 
 #: ../../source/getting_started/environments.rst:5
 msgid "Environments Variables"
@@ -32,8 +32,8 @@ msgid ""
 "Endpoint of Xinference, used to connect to Xinference service. Default "
 "value is http://127.0.0.1:9997 , you can get it through logs."
 msgstr ""
-"Xinference 的服务地址，用来与 Xinference 连接。默认地址是 http://127.0.0.1:9997，"
-"可以在日志中获得这个地址。"
+"Xinference 的服务地址，用来与 Xinference 连接。默认地址是 http://127.0."
+"0.1:9997，可以在日志中获得这个地址。"
 
 #: ../../source/getting_started/environments.rst:13
 msgid "XINFERENCE_MODEL_SRC"
@@ -44,7 +44,8 @@ msgid ""
 "Modelhub used for downloading models. Default is \"huggingface\", or you "
 "can set \"modelscope\" as downloading source."
 msgstr ""
-"配置模型下载仓库。默认下载源是 \"huggingface\"，也可以设置为 \"modelscope\" 作为下载源。"
+"配置模型下载仓库。默认下载源是 \"huggingface\"，也可以设置为 \"modelscope"
+"\" 作为下载源。"
 
 #: ../../source/getting_started/environments.rst:18
 msgid "XINFERENCE_HOME"
@@ -57,8 +58,9 @@ msgid ""
 "path of current user. You can change this directory by configuring this "
 "environment variable."
 msgstr ""
-"Xinference 默认使用 ``<HOME>/.xinference`` 作为默认目录来存储模型以及日志等必要的文件。"
-"其中 ``<HOME>`` 是当前用户的主目录。可以通过配置这个环境变量来修改默认目录。"
+"Xinference 默认使用 ``<HOME>/.xinference`` 作为默认目录来存储模型以及日志"
+"等必要的文件。其中 ``<HOME>`` 是当前用户的主目录。可以通过配置这个"
+"环境变量来修改默认目录。"
 
 #: ../../source/getting_started/environments.rst:25
 msgid "XINFERENCE_HEALTH_CHECK_ATTEMPTS"
@@ -69,7 +71,8 @@ msgid ""
 "The number of attempts for the health check at Xinference startup, if "
 "exceeded, will result in an error. The default value is 3."
 msgstr ""
-"Xinference 启动时健康检查的次数，如果超过这个次数还未成功，启动会报错，默认值为 3。"
+"Xinference 启动时健康检查的次数，如果超过这个次数还未成功，启动会报错，"
+"默认值为 3。"
 
 #: ../../source/getting_started/environments.rst:30
 msgid "XINFERENCE_HEALTH_CHECK_INTERVAL"
@@ -80,17 +83,31 @@ msgid ""
 "The timeout duration for the health check at Xinference startup, if "
 "exceeded, will result in an error. The default value is 3."
 msgstr ""
-"Xinference 启动时健康检查的时间间隔，如果超过这个时间还未成功，启动会报错，默认值为 3。"
+"Xinference 启动时健康检查的时间间隔，如果超过这个时间还未成功，启动会报错"
+"，默认值为 3。"
 
 #: ../../source/getting_started/environments.rst:35
-msgid "XINFERENCE_DISABLE_VLLM"
+#, fuzzy
+msgid "XINFERENCE_DISABLE_HEALTH_CHECK"
 msgstr "XINFERENCE_DISABLE_VLLM"
 
 #: ../../source/getting_started/environments.rst:36
 msgid ""
+"Xinference will automatically report health check at Xinference startup. "
+"Setting this environment to 1 can disable health check."
+msgstr ""
+"在满足条件时，Xinference 会自动汇报worker健康状况，设置改"
+"环境变量为 1可以禁用健康检查。"
+
+#: ../../source/getting_started/environments.rst:40
+msgid "XINFERENCE_DISABLE_VLLM"
+msgstr "XINFERENCE_DISABLE_VLLM"
+
+#: ../../source/getting_started/environments.rst:41
+msgid ""
 "Xinference will automatically use vLLM as backend if conditions are met. "
 "Setting this environment to 1 can disable the use of vLLM."
 msgstr ""
-"在满足条件时，Xinference 会自动使用 vLLM 作为推理引擎提供推理效率，设置改环境变量为 1"
-"可以禁用 vLLM。"
+"在满足条件时，Xinference 会自动使用 vLLM 作为推理引擎提供推理效率，设置改"
+"环境变量为 1可以禁用 vLLM。"
 
