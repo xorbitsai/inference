@@ -41,9 +41,7 @@ const LaunchEmbedding = () => {
 
       const registrations = await response.json()
 
-      const builtinRegistrations = registrations.filter(
-        (v) => v.is_builtin
-      )
+      const builtinRegistrations = registrations.filter((v) => v.is_builtin)
       setRegistrationData(builtinRegistrations)
     } catch (error) {
       console.error('Error:', error)
