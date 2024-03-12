@@ -27,6 +27,8 @@ MAX_ATTEMPTS = 3
 logger = logging.getLogger(__name__)
 
 IMAGE_MODEL_DESCRIPTIONS: Dict[str, List[Dict]] = defaultdict(list)
+BUILTIN_IMAGE_MODELS: Dict[str, "ImageModelFamilyV1"] = {}
+MODELSCOPE_IMAGE_MODELS: Dict[str, "ImageModelFamilyV1"] = {}
 
 
 def get_image_model_descriptions():
@@ -151,7 +153,21 @@ def get_cache_status(
 ) -> bool:
     cache_dir = get_cache_dir(model_spec)
     meta_path = os.path.join(cache_dir, "__valid_download")
-    return valid_model_revision(meta_path, model_spec.model_revision)
+
+    model_name = model_spec.model_name
+    if model_name in BUILTIN_IMAGE_MODELS and model_name in MODELSCOPE_IMAGE_MODELS:
+        hf_spec = BUILTIN_IMAGE_MODELS[model_name]
+        ms_spec = MODELSCOPE_IMAGE_MODELS[model_name]
+
+        return any(
+            [
+                valid_model_revision(meta_path, hf_spec.model_revision),
+                valid_model_revision(meta_path, ms_spec.model_revision),
+            ]
+        )
+    else:  # Usually for UT
+        logger.warning(f"Cannot find builtin image model spec: {model_name}")
+        return valid_model_revision(meta_path, model_spec.model_revision)
 
 
 def create_image_model_instance(

@@ -1,17 +1,10 @@
-import { RocketLaunchOutlined, UndoOutlined } from '@mui/icons-material'
+import {RocketLaunchOutlined, UndoOutlined} from '@mui/icons-material'
 import DeleteIcon from '@mui/icons-material/Delete'
-import {
-  Box,
-  Chip,
-  CircularProgress,
-  FormControl,
-  Stack,
-  TextField,
-} from '@mui/material'
+import {Box, Chip, CircularProgress, FormControl, Stack, TextField,} from '@mui/material'
 import IconButton from '@mui/material/IconButton'
-import React, { useContext, useEffect, useState } from 'react'
+import React, {useContext, useEffect, useState} from 'react'
 
-import { ApiContext } from '../../components/apiContext'
+import {ApiContext} from '../../components/apiContext'
 import fetcher from '../../components/fetcher'
 
 const CARD_HEIGHT = 270
@@ -249,7 +242,7 @@ const ImageCard = ({
               )
             })()}
             {(() => {
-              if (modelData.is_cached) {
+              if (modelData.cache_status) {
                 return <Chip label="Cached" variant="outlined" size="small" />
               }
             })()}
