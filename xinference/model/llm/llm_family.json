@@ -2800,6 +2800,17 @@
       },
       {
         "model_format": "pytorch",
+        "model_size_in_billions": 9,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "01-ai/Yi-9B",
+        "model_revision": "f70a5ff8b2e51c5d5b20e649d7b5f4238ffe6d5b"
+      },
+      {
+        "model_format": "pytorch",
         "model_size_in_billions": 34,
         "quantizations": [
           "4-bit",
