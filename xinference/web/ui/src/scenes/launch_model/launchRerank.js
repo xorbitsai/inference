@@ -40,24 +40,8 @@ const LaunchRerank = () => {
       )
 
       const registrations = await response.json()
-      const newRegistrationData = await Promise.all(
-        registrations.map(async (registration) => {
-          const desc = await fetcher(
-            `${endPoint}/v1/model_registrations/rerank/${registration.model_name}`,
-            {
-              method: 'GET',
-            }
-          )
 
-          return {
-            ...(await desc.json()),
-            is_builtin: registration.is_builtin,
-            is_cached: registration.cache_status,
-          }
-        })
-      )
-
-      const builtinRerankModels = newRegistrationData.filter((v) => {
+      const builtinRerankModels = registrations.filter((v) => {
         return v.is_builtin
       })
       setRegistrationData(builtinRerankModels)
