@@ -31,6 +31,11 @@ XINFERENCE_HEALTH_CHECK_INTERVAL
 The timeout duration for the health check at Xinference startup, if exceeded,
 will result in an error. The default value is 3.
 
+XINFERENCE_DISABLE_HEALTH_CHECK
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Xinference will automatically report health check at Xinference startup.
+Setting this environment to 1 can disable health check.
+
 XINFERENCE_DISABLE_VLLM
 ~~~~~~~~~~~~~~~~~~~~~~~~
 Xinference will automatically use vLLM as backend if conditions are met.
