@@ -891,11 +891,17 @@ class RESTfulAPI:
                         self.handle_request_limit_error(re)
                     async for item in iterator:
                         yield item
+                except asyncio.CancelledError:
+                    logger.info(
+                        f"Disconnected from client (via refresh/close) {request.client} during generate."
+                    )
+                    return
                 except Exception as ex:
                     logger.exception("Completion stream got an error: %s", ex)
                     await self._report_error_event(model_uid, str(ex))
                     # https://github.com/openai/openai-python/blob/e0aafc6c1a45334ac889fe3e54957d309c3af93f/src/openai/_streaming.py#L107
                     yield dict(data=json.dumps({"error": str(ex)}))
+                    return
 
             return EventSourceResponse(stream_results())
         else:
@@ -1273,11 +1279,23 @@ class RESTfulAPI:
                     async for item in iterator:
                         yield item
                     yield "[DONE]"
+                # Note that asyncio.CancelledError does not inherit from Exception.
+                # When the user uses ctrl+c to cancel the streaming chat, asyncio.CancelledError would be triggered.
+                # See https://github.com/sysid/sse-starlette/blob/main/examples/example.py#L48
+                except asyncio.CancelledError:
+                    logger.info(
+                        f"Disconnected from client (via refresh/close) {request.client} during chat."
+                    )
+                    # See https://github.com/sysid/sse-starlette/blob/main/examples/error_handling.py#L13
+                    # Use return to stop the generator from continuing.
+                    # TODO: Cannot yield here. Yield here would leads to error for the next streaming request.
+                    return
                 except Exception as ex:
                     logger.exception("Chat completion stream got an error: %s", ex)
                     await self._report_error_event(model_uid, str(ex))
                     # https://github.com/openai/openai-python/blob/e0aafc6c1a45334ac889fe3e54957d309c3af93f/src/openai/_streaming.py#L107
                     yield dict(data=json.dumps({"error": str(ex)}))
+                    return
 
             return EventSourceResponse(stream_results())
         else:
