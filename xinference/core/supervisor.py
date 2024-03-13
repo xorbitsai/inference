@@ -722,17 +722,10 @@ class SupervisorActor(xo.StatelessActor):
         if model_uid is None:
             model_uid = self._gen_model_uid(model_name)
 
+        model_size = str(model_size_in_billions) if model_size_in_billions else ""
         logger.debug(
-            (
-                f"Enter launch_builtin_model, model_uid: %s, model_name: %s, model_size: %s, "
-                f"model_format: %s, quantization: %s, replica: %s"
-            ),
-            model_uid,
-            model_name,
-            str(model_size_in_billions) if model_size_in_billions else "",
-            model_format,
-            quantization,
-            replica,
+            f"Enter launch_builtin_model, model_uid: {model_uid}, model_name: {model_name}, model_size: {model_size}, "
+            f"model_format: {model_format}, quantization: {quantization}, replica: {replica}"
         )
 
         async def _launch_one_model(_replica_model_uid):

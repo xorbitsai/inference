@@ -40,24 +40,8 @@ const LaunchImage = () => {
       )
 
       const registrations = await response.json()
-      const newRegistrationData = await Promise.all(
-        registrations.map(async (registration) => {
-          const desc = await fetcher(
-            `${endPoint}/v1/model_registrations/image/${registration.model_name}`,
-            {
-              method: 'GET',
-            }
-          )
 
-          return {
-            ...(await desc.json()),
-            is_builtin: registration.is_builtin,
-            is_cached: registration.cache_status,
-          }
-        })
-      )
-
-      const builtinImageModels = newRegistrationData.filter((v) => {
+      const builtinImageModels = registrations.filter((v) => {
         return v.is_builtin
       })
       setRegistrationData(builtinImageModels)
