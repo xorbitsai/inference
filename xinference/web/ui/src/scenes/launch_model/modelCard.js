@@ -43,6 +43,7 @@ const ModelCard = ({ url, modelData, gpuAvailable, is_custom = false }) => {
   const [modelSize, setModelSize] = useState('')
   const [quantization, setQuantization] = useState('')
   const [nGPU, setNGPU] = useState('auto')
+  const [nGPULayers, setNGPULayers] = useState(-1)
   const [replica, setReplica] = useState(1)
 
   const [formatOptions, setFormatOptions] = useState([])
@@ -108,6 +109,14 @@ const ModelCard = ({ url, modelData, gpuAvailable, is_custom = false }) => {
     }
   }, [modelFormat, modelSize, modelData])
 
+  const getNGPURange = () => {
+    if (gpuAvailable === 0) {
+      // remain 'auto' for distributed situation
+      return ['auto', 'CPU']
+    }
+    return ['auto', 'CPU'].concat(range(1, gpuAvailable))
+  }
+
   const launchModel = (url) => {
     if (isCallingApi || isUpdatingModel) {
       return
@@ -123,8 +132,16 @@ const ModelCard = ({ url, modelData, gpuAvailable, is_custom = false }) => {
       model_size_in_billions: convertModelSize(modelSize),
       quantization: quantization,
       n_gpu:
-        nGPU === '0' ? null : nGPU === 'auto' ? 'auto' : parseInt(nGPU, 10),
+        parseInt(nGPU, 10) === 0 || nGPU === 'CPU'
+          ? null
+          : nGPU === 'auto'
+          ? 'auto'
+          : parseInt(nGPU, 10),
       replica: replica,
+    }
+
+    if (nGPULayers >= 0) {
+      modelDataWithID.n_gpu_layers = nGPULayers
     }
 
     // First fetcher request to initiate the model
@@ -493,39 +510,47 @@ const ModelCard = ({ url, modelData, gpuAvailable, is_custom = false }) => {
               </FormControl>
             </Grid>
             <Grid item xs={6}>
-              <FormControl
-                variant="outlined"
-                margin="normal"
-                fullWidth
-                disabled={!modelFormat || !modelSize || !quantization}
-              >
-                <InputLabel id="n-gpu-label">N-GPU</InputLabel>
-                <Select
-                  labelId="n-gpu-label"
-                  value={nGPU}
-                  onChange={(e) => setNGPU(e.target.value)}
-                  label="N-GPU"
+              {modelFormat !== 'ggufv2' && modelFormat !== 'ggmlv3' ? (
+                <FormControl
+                  variant="outlined"
+                  margin="normal"
+                  fullWidth
+                  disabled={!modelFormat || !modelSize || !quantization}
                 >
-                  {['auto']
-                    .concat(
-                      range(
-                        0,
-                        modelFormat !== 'pytorch' &&
-                          modelFormat !== 'gptq' &&
-                          modelFormat !== 'awq'
-                          ? 1
-                          : gpuAvailable
-                      )
-                    )
-                    .map((v) => {
+                  <InputLabel id="n-gpu-label">N-GPU</InputLabel>
+                  <Select
+                    labelId="n-gpu-label"
+                    value={nGPU}
+                    onChange={(e) => setNGPU(e.target.value)}
+                    label="N-GPU"
+                  >
+                    {getNGPURange().map((v) => {
                       return (
                         <MenuItem key={v} value={v}>
                           {v}
                         </MenuItem>
                       )
                     })}
-                </Select>
-              </FormControl>
+                  </Select>
+                </FormControl>
+              ) : (
+                <FormControl variant="outlined" margin="normal" fullWidth>
+                  <TextField
+                    disabled={!modelFormat || !modelSize || !quantization}
+                    type="number"
+                    label="N GPU Layers"
+                    InputProps={{
+                      inputProps: {
+                        min: -1,
+                      },
+                    }}
+                    value={nGPULayers}
+                    onChange={(e) =>
+                      setNGPULayers(parseInt(e.target.value, 10))
+                    }
+                  />
+                </FormControl>
+              )}
             </Grid>
             <Grid item xs={6}>
               <FormControl variant="outlined" margin="normal" fullWidth>

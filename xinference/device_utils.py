@@ -92,8 +92,6 @@ def gpu_count():
         )
 
         return min(torch.cuda.device_count(), len(cuda_visible_devices))
-    elif torch.backends.mps.is_available():
-        return 1
     elif is_xpu_available():
         return torch.xpu.device_count()
     else:

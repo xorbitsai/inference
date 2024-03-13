@@ -31,6 +31,7 @@ from .llm_family import (
     BUILTIN_LLM_PROMPT_STYLE,
     BUILTIN_MODELSCOPE_LLM_FAMILIES,
     LLM_CLASSES,
+    PEFT_SUPPORTED_CLASSES,
     CustomLLMFamilyV1,
     GgmlLLMSpecV1,
     LLMFamilyV1,
@@ -80,6 +81,22 @@ def _install():
     )
     LLM_CLASSES.extend([VLLMModel, VLLMChatModel])
     LLM_CLASSES.extend(
+        [
+            BaichuanPytorchChatModel,
+            VicunaPytorchChatModel,
+            FalconPytorchChatModel,
+            ChatglmPytorchChatModel,
+            LlamaPytorchModel,
+            LlamaPytorchChatModel,
+            PytorchChatModel,
+            FalconPytorchModel,
+            Internlm2PytorchChatModel,
+            QwenVLChatModel,
+            YiVLChatModel,
+            PytorchModel,
+        ]
+    )
+    PEFT_SUPPORTED_CLASSES.extend(
         [
             BaichuanPytorchChatModel,
             VicunaPytorchChatModel,

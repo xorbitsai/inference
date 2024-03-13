@@ -259,7 +259,7 @@ const EmbeddingCard = ({
               })
             })()}
             {(() => {
-              if (modelData.is_cached) {
+              if (modelData.cache_status) {
                 return <Chip label="Cached" variant="outlined" size="small" />
               }
             })()}

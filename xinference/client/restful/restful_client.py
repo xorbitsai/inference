@@ -797,6 +797,9 @@ class Client:
         replica: int = 1,
         n_gpu: Optional[Union[int, str]] = "auto",
         request_limits: Optional[int] = None,
+        peft_model_path: Optional[str] = None,
+        image_lora_load_kwargs: Optional[Dict] = None,
+        image_lora_fuse_kwargs: Optional[Dict] = None,
         **kwargs,
     ) -> str:
         """
@@ -824,6 +827,12 @@ class Client:
         request_limits: Optional[int]
             The number of request limits for this model， default is None.
             ``request_limits=None`` means no limits for this model.
+        peft_model_path: Optional[str]
+            PEFT (Parameter-Efficient Fine-Tuning) model path.
+        image_lora_load_kwargs: Optional[Dict]
+            lora load parameters for image model
+        image_lora_fuse_kwargs: Optional[Dict]
+            lora fuse parameters for image model
         **kwargs:
             Any other parameters been specified.
 
@@ -846,6 +855,9 @@ class Client:
             "replica": replica,
             "n_gpu": n_gpu,
             "request_limits": request_limits,
+            "peft_model_path": peft_model_path,
+            "image_lora_load_kwargs": image_lora_load_kwargs,
+            "image_lora_fuse_kwargs": image_lora_fuse_kwargs,
         }
 
         for key, value in kwargs.items():
