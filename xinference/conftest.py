@@ -210,8 +210,8 @@ def setup():
 
     yield f"http://localhost:{port}", supervisor_addr
 
-    local_cluster_proc.terminate()
-    restful_api_proc.terminate()
+    local_cluster_proc.kill()
+    restful_api_proc.kill()
 
 
 @pytest.fixture
@@ -241,8 +241,8 @@ def setup_with_file_logging():
 
     yield f"http://localhost:{port}", supervisor_addr, TEST_LOG_FILE_PATH
 
-    local_cluster_proc.terminate()
-    restful_api_proc.terminate()
+    local_cluster_proc.kill()
+    restful_api_proc.kill()
 
 
 @pytest.fixture
@@ -292,8 +292,8 @@ def setup_with_auth():
 
     yield f"http://localhost:{port}", supervisor_addr
 
-    local_cluster_proc.terminate()
-    restful_api_proc.terminate()
+    local_cluster_proc.kill()
+    restful_api_proc.kill()
     try:
         os.remove(auth_file)
     except:
