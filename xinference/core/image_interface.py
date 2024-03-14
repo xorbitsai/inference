@@ -162,15 +162,25 @@ class ImageInterface:
             bio = io.BytesIO()
             image.save(bio, format="png")
 
-            image_urls = model.image_to_image(
+            response = model.image_to_image(
                 prompt=prompt,
                 negative_prompt=negative_prompt,
                 n=n,
                 image=bio.getvalue(),
                 size=size,
+                response_format="b64_json",
             )
-            logger.info(f"image URLs: {image_urls}")
-            images = [PIL.Image.open(url["url"]) for url in image_urls["data"]]
+
+            images = []
+            for image_dict in response["data"]:
+                image_data = base64.b64decode(image_dict["b64_json"])
+                image_path = os.path.join(XINFERENCE_IMAGE_DIR, f"{prompt[:10]}.png")
+                with open(image_path, mode="wb") as png:
+                    png.write(image_data)
+                logger.info(f"image location: {image_path}")
+                image = PIL.Image.open(io.BytesIO(image_data))
+                images.append(image)
+
             return images
 
         with gr.Blocks() as image2image_inteface:
