@@ -63,16 +63,16 @@ const RunningModels = () => {
               )
             })
           } else {
-            response.json().then((data) => {
+            response.json().then((response) => {
               const newLlmData = []
               const newEmbeddingModelData = []
               const newImageModelData = []
               const newRerankModelData = []
-              Object.entries(data).forEach(([key, value]) => {
+              response.data.forEach((model) => {
                 let newValue = {
-                  ...value,
-                  id: key,
-                  url: key,
+                  ...model,
+                  id: model.id,
+                  url: model.id,
                 }
                 if (newValue.model_type === 'LLM') {
                   newLlmData.push(newValue)
