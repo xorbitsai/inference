@@ -171,7 +171,6 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
     def text_to_image(
         self,
         prompt: str,
-        negative_prompt: str,
         n: int = 1,
         size: str = "1024*1024",
         response_format: str = "url",
@@ -184,10 +183,6 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
         ----------
         prompt: `str` or `List[str]`
             The prompt or prompts to guide image generation. If not defined, you need to pass `prompt_embeds`.
-        negative_prompt (`str` or `List[str]`, *optional*):
-            The prompt or prompts not to guide the image generation. If not defined, one has to pass
-            `negative_prompt_embeds` instead. Ignored when not using guidance (i.e., ignored if `guidance_scale` is
-            less than `1`).
         n: `int`, defaults to 1
             The number of images to generate per prompt. Must be between 1 and 10.
         size: `str`, defaults to `1024*1024`
@@ -203,7 +198,6 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
         request_body = {
             "model": self._model_uid,
             "prompt": prompt,
-            "negative_prompt": negative_prompt,
             "n": n,
             "size": size,
             "response_format": response_format,

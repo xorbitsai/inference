@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import base64
 import io
 import logging
 import os
@@ -22,6 +23,7 @@ import PIL.Image
 from gradio import Markdown
 
 from ..client.restful.restful_client import RESTfulImageModelHandle
+from ..constants import XINFERENCE_IMAGE_DIR
 
 logger = logging.getLogger(__name__)
 
@@ -72,10 +74,10 @@ class ImageInterface:
     def text2image_interface(self) -> "gr.Blocks":
         def text_generate_image(
             prompt: str,
-            negative_prompt: str,
             n: int,
             size_width: int,
             size_height: int,
+            negative_prompt: Optional[str] = None,
         ) -> PIL.Image.Image:
             from ..client import RESTfulClient
 
@@ -86,15 +88,23 @@ class ImageInterface:
 
             size = f"{int(size_width)}*{int(size_height)}"
 
-            image_urls = model.text_to_image(
+            response = model.text_to_image(
                 prompt=prompt,
-                negative_prompt=negative_prompt,
                 n=n,
                 size=size,
+                negative_prompt=negative_prompt,
+                response_format="b64_json",
             )
 
-            logger.info(f"Image URLs: {image_urls}")
-            images = [PIL.Image.open(url["url"]) for url in image_urls["data"]]
+            images = []
+            for image_dict in response["data"]:
+                image_data = base64.b64decode(image_dict["b64_json"])
+                image_path = os.path.join(XINFERENCE_IMAGE_DIR, f"{prompt[:10]}.png")
+                with open(image_path, mode="wb") as png:
+                    png.write(image_data)
+                logger.info(f"image location: {image_path}")
+                image = PIL.Image.open(io.BytesIO(image_data))
+                images.append(image)
 
             return images
 
@@ -125,7 +135,7 @@ class ImageInterface:
 
             generate_button.click(
                 text_generate_image,
-                inputs=[prompt, negative_prompt, n, size_width, size_height],
+                inputs=[prompt, n, size_width, size_height, negative_prompt],
                 outputs=image_output,
             )
 

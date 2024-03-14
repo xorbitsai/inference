@@ -111,9 +111,6 @@ class RerankRequest(BaseModel):
 class TextToImageRequest(BaseModel):
     model: str
     prompt: Union[str, List[str]] = Field(description="The input to embed.")
-    negative_prompt: Union[str, List[str]] = Field(
-        description="The negative_prompt_input to embed."
-    )
     n: Optional[int] = 1
     response_format: Optional[str] = "url"
     size: Optional[str] = "1024*1024"
@@ -1145,7 +1142,6 @@ class RESTfulAPI:
 
         try:
             kwargs = json.loads(body.kwargs) if body.kwargs else {}
-            kwargs["negative_prompt"] = body.negative_prompt
             image_list = await model.text_to_image(
                 prompt=body.prompt,
                 n=body.n,
