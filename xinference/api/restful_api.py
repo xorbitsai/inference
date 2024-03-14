@@ -22,7 +22,7 @@ import pprint
 import sys
 import time
 import warnings
-from typing import Any, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import gradio as gr
 import xoscar as xo
@@ -135,6 +135,15 @@ class BuildGradioInterfaceRequest(BaseModel):
     model_lang: List[str]
 
 
+class BuildGradioImageInterfaceRequest(BaseModel):
+    model_type: str
+    model_name: str
+    model_family: str
+    model_id: str
+    controlnet: Union[None, List[Dict[str, Union[str, None]]]]
+    model_revision: str
+
+
 class RESTfulAPI:
     def __init__(
         self,
@@ -239,6 +248,16 @@ class RESTfulAPI:
         self._router.add_api_route(
             "/v1/ui/{model_uid}",
             self.build_gradio_interface,
+            methods=["POST"],
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:read"])]
+                if self.is_authenticated()
+                else None
+            ),
+        )
+        self._router.add_api_route(
+            "/v1/ui/images/{model_uid}",
+            self.build_gradio_images_interface,
             methods=["POST"],
             dependencies=(
                 [Security(self._auth_service, scopes=["models:read"])]
@@ -811,6 +830,56 @@ class RESTfulAPI:
                 model_lang=body.model_lang,
                 access_token=access_token,
             ).build()
+            gr.mount_gradio_app(self._app, interface, f"/{model_uid}")
+        except ValueError as ve:
+            logger.error(str(ve), exc_info=True)
+            raise HTTPException(status_code=400, detail=str(ve))
+
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
+        return JSONResponse(content={"model_uid": model_uid})
+
+    async def build_gradio_images_interface(
+        self, model_uid: str, request: Request
+    ) -> JSONResponse:
+        """
+        Build a Gradio interface for image processing models.
+        """
+        payload = await request.json()
+        body = BuildGradioImageInterfaceRequest.parse_obj(payload)
+        assert self._app is not None
+        assert body.model_type == "image"
+
+        # asyncio.Lock() behaves differently in 3.9 than 3.10+
+        # A event loop is required in 3.9 but not 3.10+
+        if sys.version_info < (3, 10):
+            try:
+                asyncio.get_event_loop()
+            except RuntimeError:
+                warnings.warn(
+                    "asyncio.Lock() requires an event loop in Python 3.9"
+                    + "a placeholder event loop has been created"
+                )
+                asyncio.set_event_loop(asyncio.new_event_loop())
+
+        from ..core.image_interface import ImageInterface
+
+        try:
+            access_token = request.headers.get("Authorization")
+            internal_host = "localhost" if self._host == "0.0.0.0" else self._host
+            interface = ImageInterface(
+                endpoint=f"http://{internal_host}:{self._port}",
+                model_uid=model_uid,
+                model_family=body.model_family,
+                model_name=body.model_name,
+                model_id=body.model_id,
+                model_revision=body.model_revision,
+                controlnet=body.controlnet,
+                access_token=access_token,
+            ).build()
+
             gr.mount_gradio_app(self._app, interface, f"/{model_uid}")
         except ValueError as ve:
             logger.error(str(ve), exc_info=True)
