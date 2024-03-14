@@ -23,7 +23,6 @@ import PIL.Image
 from gradio import Markdown
 
 from ..client.restful.restful_client import RESTfulImageModelHandle
-from ..constants import XINFERENCE_IMAGE_DIR
 
 logger = logging.getLogger(__name__)
 
@@ -98,11 +97,8 @@ class ImageInterface:
 
             images = []
             for image_dict in response["data"]:
+                assert image_dict["b64_json"] is not None
                 image_data = base64.b64decode(image_dict["b64_json"])
-                image_path = os.path.join(XINFERENCE_IMAGE_DIR, f"{prompt[:10]}.png")
-                with open(image_path, mode="wb") as png:
-                    png.write(image_data)
-                logger.info(f"image location: {image_path}")
                 image = PIL.Image.open(io.BytesIO(image_data))
                 images.append(image)
 
@@ -173,11 +169,8 @@ class ImageInterface:
 
             images = []
             for image_dict in response["data"]:
+                assert image_dict["b64_json"] is not None
                 image_data = base64.b64decode(image_dict["b64_json"])
-                image_path = os.path.join(XINFERENCE_IMAGE_DIR, f"{prompt[:10]}.png")
-                with open(image_path, mode="wb") as png:
-                    png.write(image_data)
-                logger.info(f"image location: {image_path}")
                 image = PIL.Image.open(io.BytesIO(image_data))
                 images.append(image)
 
