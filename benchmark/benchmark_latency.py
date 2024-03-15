@@ -32,12 +32,11 @@ async def benchmark(
     api_url: str,
     model_uid: str,
     input_requests: List[Tuple[str, int, int]],
-    best_of: int,
 ) -> None:
     for request in input_requests:
         prompt, prompt_len, output_len = request
         await send_request(
-            api_url, model_uid, prompt, prompt_len, output_len, best_of, REQUEST_LATENCY
+            api_url, model_uid, prompt, prompt_len, output_len, REQUEST_LATENCY
         )
 
 
@@ -61,7 +60,6 @@ def main(args: argparse.Namespace):
             api_url,
             model_uid,
             input_requests,
-            args.best_of,
         )
     )
 
@@ -97,12 +95,6 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--tokenizer", type=str, required=True, help="Name or path of the tokenizer."
-    )
-    parser.add_argument(
-        "--best-of",
-        type=int,
-        default=1,
-        help="Generates `best_of` sequences per prompt and " "returns the best one.",
     )
     parser.add_argument(
         "--num-prompts", type=int, default=100, help="Number of prompts to process."
