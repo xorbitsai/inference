@@ -14,6 +14,7 @@
 
 import asyncio
 import itertools
+import json
 import time
 import typing
 from dataclasses import dataclass
@@ -21,6 +22,9 @@ from logging import getLogger
 from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Tuple, Union
 
 import xoscar as xo
+from huggingface_hub import HfApi
+from huggingface_hub.hf_api import ModelInfo
+from typing_extensions import Literal
 
 from ..constants import (
     XINFERENCE_DISABLE_HEALTH_CHECK,
@@ -30,11 +34,14 @@ from ..constants import (
 )
 from ..core import ModelActor
 from ..core.status_guard import InstanceInfo, LaunchStatus
+from ..model.llm import GgmlLLMSpecV1
+from ..model.llm.llm_family import HubImportLLMFamilyV1
 from .metrics import record_metrics
 from .resource import GPUStatus, ResourceStatus
 from .utils import (
     build_replica_model_uid,
     gen_random_string,
+    get_model_size_from_model_id,
     is_valid_model_uid,
     iter_replica_model_uid,
     log_async,
@@ -51,9 +58,7 @@ if TYPE_CHECKING:
     from ..model.rerank import RerankModelSpec
     from .worker import WorkerActor
 
-
 logger = getLogger(__name__)
-
 
 ASYNC_LAUNCH_TASKS = {}  # type: ignore
 
@@ -79,6 +84,7 @@ class ReplicaInfo:
 class SupervisorActor(xo.StatelessActor):
     def __init__(self):
         super().__init__()
+        self.__hf_api: Optional[HfApi] = None
         self._worker_address_to_worker: Dict[str, xo.ActorRefType["WorkerActor"]] = {}
         self._worker_status: Dict[str, WorkerStatus] = {}
         self._replica_model_uid_to_worker: Dict[
@@ -974,3 +980,55 @@ class SupervisorActor(xo.StatelessActor):
     @staticmethod
     def record_metrics(name, op, kwargs):
         record_metrics(name, op, kwargs)
+
+    def __get_hf_api(self):
+        if self.__hf_api is None:
+            self.__hf_api = HfApi()
+        return self.__hf_api
+
+    @log_async(logger=logger)
+    async def get_llm_spec(
+        self,
+        model_id: str,
+        model_format: Literal["pytorch", "ggmlv3", "ggufv2", "gptq", "awq"],
+        model_hub: str,
+    ) -> HubImportLLMFamilyV1:
+        llm_family = HubImportLLMFamilyV1(version=1)
+        if model_hub == "huggingface":
+            api = self.__get_hf_api()
+
+            model_info: ModelInfo = await asyncio.wrap_future(
+                api.run_as_future(api.model_info, model_id)
+            )
+            logger.info(f"Model info: {model_info}")
+
+            if await asyncio.wrap_future(
+                api.run_as_future(api.file_exists, model_id, "config.json")
+            ):
+                config_path = await asyncio.wrap_future(
+                    api.run_as_future(api.hf_hub_download, model_id, "config.json")
+                )
+                with open(config_path) as f:
+                    config = json.load(f)
+                    if "max_position_embeddings" in config:
+                        llm_family.context_length = config["max_position_embeddings"]
+
+            if model_format in ["pytorch", "gptq", "awq"]:
+                pass
+            elif model_format in ["ggmlv3", "ggufv2"]:
+                llm_spec = GgmlLLMSpecV1()
+                llm_family.model_specs.append(llm_spec)
+                llm_spec.model_id = model_id
+                llm_spec.model_format = model_format
+                llm_spec.model_hub = model_hub
+                llm_spec.model_size_in_billions = get_model_size_from_model_id(model_id)
+
+            else:
+                raise ValueError(f"Unsupported model format: {model_format}")
+
+        elif model_hub == "modelscope":
+            pass
+        else:
+            raise ValueError(f"Unsupported model hub: {model_hub}")
+
+        return llm_family

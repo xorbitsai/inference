@@ -15,11 +15,13 @@ import copy
 import logging
 import os
 import random
+import re
 import string
-from typing import Dict, Generator, List, Tuple, Union
+from typing import Dict, Generator, Iterable, List, Optional, Tuple, Union
 
 import orjson
 from pynvml import nvmlDeviceGetCount, nvmlInit, nvmlShutdown
+from typing_extensions import Literal
 
 from .._compat import BaseModel
 
@@ -191,3 +193,180 @@ def get_nvidia_gpu_info() -> Dict:
             nvmlShutdown()
         except:
             pass
+
+
+def get_model_size_from_model_id(model_id: str) -> str:
+    """
+    Get model size from model_id.
+
+    Args:
+        model_id: model_id in format of `user/repo`
+
+    Returns:
+        model size in format of `100B`, if size is in M, divide into 1000 and return as B.
+        For example, `100M` will be returned as `0.1B`.
+
+        If there is no model size in the repo name, return `UNKNOWN`.
+    """
+
+    def resize_to_billion(size: str) -> str:
+        if size.lower().endswith("m"):
+            return str(round(int(size[:-1]) / 1000, 2)).rstrip("0") + "B"
+        if size[0] == "0":
+            size = size[0] + "." + str(size[1:])
+        return size.replace("_", ".").upper()
+
+    split = model_id.split("/")
+    if len(split) != 2:
+        raise ValueError(f"Cannot parse model_id: {model_id}")
+    user, repo = split
+    segs = repo.split("-")
+    param_pattern = re.compile(r"\d+(?:[._]\d+)?[bm]", re.I)
+    partial_matched = "UNKNOWN"
+    for seg in segs:
+        if m := param_pattern.search(seg):
+            if m.start() == 0 and m.end() == len(seg):
+                return resize_to_billion(seg)
+            else:
+                # only match the first partial matched, and do not match `bit` for quantization mode
+                if (
+                    partial_matched == "UNKNOWN"
+                    and seg[m.end(0) : m.end(0) + 2].lower() != "it"
+                ):
+                    partial_matched = m.group(0)
+    return resize_to_billion(partial_matched)
+
+
+SUPPORTED_QUANTIZATIONS = [
+    "Q3_K_S",
+    "Q3_K_M",
+    "Q3_K_L",
+    "Q4_K_S",
+    "Q4_K_M",
+    "Q5_K_S",
+    "Q5_K_M",
+    "Q6_K",
+    "F32",
+    "F16",
+    "Q4_0",
+    "Q4_1",
+    "Q8_0",
+    "Q5_0",
+    "Q5_1",
+    "Q2_K",
+]
+
+
+def get_match_quantization_filenames(
+    filenames: List[str],
+) -> List[Tuple[str, str, int]]:
+    results: List[Tuple[str, str, int]] = []
+    for filename in filenames:
+        for quantization in SUPPORTED_QUANTIZATIONS:
+            if (index := filename.upper().find(quantization)) != -1:
+                results.append((filename, quantization, index))
+    return results
+
+
+def get_prefix_suffix(names: Iterable[str]) -> Tuple[str, str]:
+    if len(list(names)) == 0:
+        return "", ""
+
+    # if all names are the same, or only one name, return the first name as prefix and suffix is empty
+    if len(set(names)) == 1:
+        return list(names)[0], ""
+
+    min_len = min(map(len, names))
+    name = [n for n in names if len(n) == min_len][0]
+
+    for i in range(min_len):
+        if len(set(map(lambda x: x[: i + 1], names))) > 1:
+            prefix = name[:i]
+            break
+    else:
+        prefix = name
+
+    for i in range(min_len):
+        if len(set(map(lambda x: x[-i - 1 :], names))) > 1:
+            suffix = name[len(name) - i :]
+            break
+    else:
+        suffix = name
+
+    return prefix, suffix
+
+
+def get_llama_cpp_quantization_info(
+    filenames: List[str], model_type: Literal["ggmlv3", "ggufv2"]
+) -> Tuple[Optional[str], Optional[str]]:
+    model_file_name_template = None
+    model_file_name_split_template: Optional[str] = None
+    if model_type == "ggmlv3":
+        filenames = [
+            filename
+            for filename in filenames
+            if filename.lower().endswith(".bin") or "ggml" in filename.lower()
+        ]
+    elif model_type == "ggufv2":
+        filenames = [filename for filename in filenames if ".gguf" in filename]
+    else:
+        raise ValueError(f"Unsupported model type: {model_type}")
+
+    matched = get_match_quantization_filenames(filenames)
+
+    if len(matched) == 0:
+        raise ValueError("Cannot find any quantization files in this")
+
+    prefixes = set()
+    suffixes = set()
+
+    for filename, quantization, index in matched:
+        prefixes.add(filename[:index])
+        suffixes.add(filename[index + len(quantization) :])
+
+    if len(prefixes) == 1 and len(suffixes) == 1:
+        model_file_name_template = prefixes.pop() + "{quantization}" + suffixes.pop()
+
+    elif len(prefixes) == 1 and len(suffixes) > 1:
+        shortest_suffix = min(suffixes, key=len)
+        part_prefix, part_suffix = get_prefix_suffix(suffixes)
+        if shortest_suffix == part_prefix + part_suffix:
+            model_file_name_template = (
+                list(prefixes)[0] + "{quantization}" + shortest_suffix
+            )
+            part_prefix, part_suffix = get_prefix_suffix(
+                [suffix for suffix in suffixes if suffix != shortest_suffix]
+            )
+            model_file_name_split_template = (
+                prefixes.pop() + "{quantization}" + part_prefix + "{part}" + part_suffix
+            )
+        else:
+            model_file_name_split_template = (
+                prefixes.pop() + "{quantization}" + part_prefix + "{part}" + part_suffix
+            )
+
+    elif len(prefixes) > 1 and len(suffixes) == 1:
+        shortest_prefix = min(prefixes, key=len)
+        part_prefix, part_suffix = get_prefix_suffix(prefixes)
+        if shortest_prefix == part_prefix + part_suffix:
+            model_file_name_template = (
+                shortest_prefix + "{quantization}" + list(suffixes)[0]
+            )
+            part_prefix, part_suffix = get_prefix_suffix(
+                [prefix for prefix in prefixes if prefix != shortest_prefix]
+            )
+            model_file_name_split_template = (
+                part_prefix
+                + "{quantization}"
+                + shortest_prefix
+                + "{part}"
+                + part_suffix
+            )
+        else:
+            model_file_name_split_template = (
+                prefixes.pop() + "{quantization}" + part_prefix + "{part}" + part_suffix
+            )
+    else:
+        logger.info("Cannot find a valid template for model file names")
+
+    return model_file_name_template, model_file_name_split_template

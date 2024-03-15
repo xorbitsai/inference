@@ -4,8 +4,11 @@ import {
   FormControl,
   FormControlLabel,
   FormHelperText,
+  InputLabel,
+  MenuItem,
   Radio,
   RadioGroup,
+  Select,
 } from '@mui/material'
 import Alert from '@mui/material/Alert'
 import AlertTitle from '@mui/material/AlertTitle'
@@ -21,6 +24,12 @@ import { useMode } from '../../theme'
 const SUPPORTED_LANGUAGES_DICT = { en: 'English', zh: 'Chinese' }
 const SUPPORTED_FEATURES = ['Generate', 'Chat']
 
+const SUPPORTED_HUBS_DICT = { huggingface: 'HuggingFace', modelscope: 'ModelScope' }
+const SUPPORTED_HUBS = Object.keys(SUPPORTED_HUBS_DICT)
+
+const SOURCES_DICT = { self_hosted: 'Self Hosted', hub: 'Hub' }
+const SOURCES = Object.keys(SOURCES_DICT)
+
 // Convert dictionary of supported languages into list
 const SUPPORTED_LANGUAGES = Object.keys(SUPPORTED_LANGUAGES_DICT)
 
@@ -32,7 +41,10 @@ const RegisterLanguageModel = () => {
   const [modelFormat, setModelFormat] = useState('pytorch')
   const [modelSize, setModelSize] = useState(7)
   const [modelUri, setModelUri] = useState('/path/to/llama-2')
+  const [modelId, setModelId] = useState('')
   const [quantization, setQuantization] = useState('')
+  const [modelSource, setModelSource] = useState(SOURCES[0])
+  const [hub, setHub] = useState(SUPPORTED_HUBS[0])
   const [formData, setFormData] = useState({
     version: 1,
     context_length: 2048,
@@ -94,7 +106,7 @@ const RegisterLanguageModel = () => {
         setErrorMsg(
           `Server error: ${response.status} - ${
             errorData.detail || 'Unknown error'
-          }`
+          }`,
         )
       } else {
         const data = await response.json()
@@ -116,7 +128,7 @@ const RegisterLanguageModel = () => {
         setErrorMsg(
           `Server error: ${response.status} - ${
             errorData.detail || 'Unknown error'
-          }`
+          }`,
         )
       } else {
         const data = await response.json()
@@ -134,7 +146,7 @@ const RegisterLanguageModel = () => {
       getBuiltInPromptStyles().catch((error) => {
         setErrorMsg(
           error.message ||
-            'An unexpected error occurred when getting builtin prompt styles.'
+          'An unexpected error occurred when getting builtin prompt styles.',
         )
         console.error('Error: ', error)
       })
@@ -143,14 +155,14 @@ const RegisterLanguageModel = () => {
       getBuiltinFamilies().catch((error) => {
         setErrorMsg(
           error.message ||
-            'An unexpected error occurred when getting builtin prompt styles.'
+          'An unexpected error occurred when getting builtin prompt styles.',
         )
         console.error('Error: ', error)
       })
     }
   }, [cookie.token])
 
-    const getFamilyByAbility = () => {
+  const getFamilyByAbility = () => {
     if (formData.model_ability.includes('chat')) {
       return family.chat
     } else {
@@ -174,7 +186,7 @@ const RegisterLanguageModel = () => {
     const normalizedPath = path.replace(/\\/g, '/')
     const baseDir = normalizedPath.substring(0, normalizedPath.lastIndexOf('/'))
     const filename = normalizedPath.substring(
-      normalizedPath.lastIndexOf('/') + 1
+      normalizedPath.lastIndexOf('/') + 1,
     )
     return { baseDir, filename }
   }
@@ -262,17 +274,21 @@ const RegisterLanguageModel = () => {
         setErrorMsg(
           `Server error: ${response.status} - ${
             errorData.detail || 'Unknown error'
-          }`
+          }`,
         )
       } else {
         setSuccessMsg(
-          'Model has been registered successfully! Navigate to launch model page to proceed.'
+          'Model has been registered successfully! Navigate to launch model page to proceed.',
         )
       }
     } catch (error) {
       console.error('There was a problem with the fetch operation:', error)
       setErrorMsg(error.message || 'An unexpected error occurred.')
     }
+  }
+
+  const handleImportModel = async () => {
+    console.log('import model')
   }
 
   const toggleLanguage = (lang) => {
@@ -306,285 +322,357 @@ const RegisterLanguageModel = () => {
 
   return (
     <React.Fragment>
-    <Box padding="20px"></Box>
-          {/* Base Information */}
-          <FormControl sx={styles.baseFormControl}>
-            <TextField
-              label="Model Name"
-              error={errorModelName}
-              defaultValue={formData.model_name}
-              size="small"
-              helperText="Alphanumeric characters with properly placed hyphens and underscores. Must not match any built-in model names."
-              onChange={(event) =>
-                setFormData({ ...formData, model_name: event.target.value })
-              }
-            />
-            <Box padding="15px"></Box>
+      <Box padding="20px"></Box>
+      {/* Base Information */}
+      <FormControl sx={styles.baseFormControl}>
+        <TextField
+          label="Model Name"
+          error={errorModelName}
+          defaultValue={formData.model_name}
+          size="small"
+          helperText="Alphanumeric characters with properly placed hyphens and underscores. Must not match any built-in model names."
+          onChange={(event) =>
+            setFormData({ ...formData, model_name: event.target.value })
+          }
+        />
+        <Box padding="15px"></Box>
 
-            <label
-              style={{
-                paddingLeft: 5,
-              }}
-            >
-              Model Format
-            </label>
+        <label
+          style={{
+            paddingLeft: 5,
+          }}
+        >
+          Model Format
+        </label>
 
-            <RadioGroup
-              value={modelFormat}
-              onChange={(e) => {
-                setModelFormat(e.target.value)
-              }}
-            >
-              <Box sx={styles.checkboxWrapper}>
-                <Box sx={{ marginLeft: '10px' }}>
-                  <FormControlLabel
-                    value="pytorch"
-                    control={<Radio />}
-                    label="PyTorch"
-                  />
-                </Box>
-                <Box sx={{ marginLeft: '10px' }}>
-                  <FormControlLabel
-                    value="ggmlv3"
-                    control={<Radio />}
-                    label="GGML"
-                  />
-                </Box>
-                <Box sx={{ marginLeft: '10px' }}>
-                  <FormControlLabel
-                    value="ggufv2"
-                    control={<Radio />}
-                    label="GGUF"
-                  />
-                </Box>
-                <Box sx={{ marginLeft: '10px' }}>
-                  <FormControlLabel
-                    value="gptq"
-                    control={<Radio />}
-                    label="GPTQ"
-                  />
-                </Box>
-                <Box sx={{ marginLeft: '10px' }}>
-                  <FormControlLabel
-                    value="awq"
-                    control={<Radio />}
-                    label="AWQ"
-                  />
-                </Box>
+        <RadioGroup
+          value={modelFormat}
+          onChange={(e) => {
+            setModelFormat(e.target.value)
+          }}
+        >
+          <Box sx={styles.checkboxWrapper}>
+            <Box sx={{ marginLeft: '10px' }}>
+              <FormControlLabel
+                value="pytorch"
+                control={<Radio />}
+                label="PyTorch"
+              />
+            </Box>
+            <Box sx={{ marginLeft: '10px' }}>
+              <FormControlLabel
+                value="ggmlv3"
+                control={<Radio />}
+                label="GGML"
+              />
+            </Box>
+            <Box sx={{ marginLeft: '10px' }}>
+              <FormControlLabel
+                value="ggufv2"
+                control={<Radio />}
+                label="GGUF"
+              />
+            </Box>
+            <Box sx={{ marginLeft: '10px' }}>
+              <FormControlLabel
+                value="gptq"
+                control={<Radio />}
+                label="GPTQ"
+              />
+            </Box>
+            <Box sx={{ marginLeft: '10px' }}>
+              <FormControlLabel
+                value="awq"
+                control={<Radio />}
+                label="AWQ"
+              />
+            </Box>
+          </Box>
+        </RadioGroup>
+        <Box padding="15px"></Box>
+
+        <label
+          style={{
+            paddingLeft: 5,
+          }}
+        >
+          Model Source
+        </label>
+
+        <RadioGroup
+          value={modelSource}
+          onChange={(e) => {
+            setModelSource(e.target.value)
+          }}
+        >
+          <Box sx={styles.checkboxWrapper}>
+            {SOURCES.map((item) => (
+              <Box sx={{ marginLeft: '10px' }}>
+                <FormControlLabel
+                  value={item}
+                  control={<Radio />}
+                  label={SOURCES_DICT[item]}
+                />
               </Box>
-            </RadioGroup>
-            <Box padding="15px"></Box>
+            ))}
+          </Box>
+        </RadioGroup>
+        <Box padding="15px"></Box>
+
+        {modelSource === 'self_hosted' &&
+          <TextField
+            label="Model Path"
+            size="small"
+            value={modelUri}
+            onChange={(e) => {
+              setModelUri(e.target.value)
+            }}
+            helperText="For PyTorch, provide the model directory. For GGML/GGUF, provide the model file path."
+          />}
+        {modelSource === 'hub' &&
+          <Box sx={styles.checkboxWrapper}>
+
 
             <TextField
-              error={errorContextLength}
-              label="Context Length"
-              value={formData.context_length}
+              sx={{ width: '400px' }}
+              label="Model Id"
               size="small"
-              onChange={(event) => {
-                let value = event.target.value
-                // Remove leading zeros
-                if (/^0+/.test(value)) {
-                  value = value.replace(/^0+/, '') || '0'
-                }
-                // Ensure it's a positive integer, if not set it to the minimum
-                if (!/^\d+$/.test(value) || parseInt(value) < 0) {
-                  value = '0'
-                }
-                // Update with the processed value
-                setFormData({
-                  ...formData,
-                  context_length: Number(value),
-                })
-              }}
-            />
-            <Box padding="15px"></Box>
-
-            <TextField
-              label="Model Size in Billions"
-              size="small"
-              error={errorModelSize}
-              value={modelSize}
+              value={modelId}
               onChange={(e) => {
-                let value = e.target.value
-                // Remove leading zeros
-                if (/^0+/.test(value)) {
-                  value = value.replace(/^0+/, '') || '0'
-                }
-                // Ensure it's a positive integer, if not set it to the minimum
-                if (!/^\d+$/.test(value) || parseInt(value) < 0) {
-                  value = '0'
-                }
-                setModelSize(Number(value))
+                setModelId(e.target.value)
               }}
+              placeholder="user/repo"
             />
-            <Box padding="15px"></Box>
 
-            <TextField
-              label="Model Path"
-              size="small"
-              value={modelUri}
-              onChange={(e) => {
-                setModelUri(e.target.value)
-              }}
-              helperText="For PyTorch, provide the model directory. For GGML/GGUF, provide the model file path."
-            />
-            <Box padding="15px"></Box>
-
-            <TextField
-              label="Quantization (Optional)"
-              size="small"
-              value={quantization}
-              onChange={(e) => {
-                setQuantization(e.target.value)
-              }}
-              helperText="For GPTQ/AWQ models, please be careful to fill in the quantization corresponding to the model you want to register."
-            />
-            <Box padding="15px"></Box>
-
-            <TextField
-              label="Model Description (Optional)"
-              error={errorModelDescription}
-              defaultValue={formData.model_description}
-              size="small"
-              onChange={(event) =>
-                setFormData({
-                  ...formData,
-                  model_description: event.target.value,
-                })
-              }
-            />
-            <Box padding="15px"></Box>
-
-            <label
-              style={{
-                paddingLeft: 5,
-                color: errorLanguage ? ERROR_COLOR : 'inherit',
-              }}
-            >
-              Model Languages
-            </label>
-            <Box sx={styles.checkboxWrapper}>
-              {SUPPORTED_LANGUAGES.map((lang) => (
-                <Box key={lang} sx={{ marginRight: '10px' }}>
-                  <FormControlLabel
-                    control={
-                      <Checkbox
-                        checked={formData.model_lang.includes(lang)}
-                        onChange={() => toggleLanguage(lang)}
-                        name={lang}
-                        sx={
-                          errorLanguage
-                            ? {
-                                'color': ERROR_COLOR,
-                                '&.Mui-checked': {
-                                  color: ERROR_COLOR,
-                                },
-                              }
-                            : {}
-                        }
-                      />
-                    }
-                    label={SUPPORTED_LANGUAGES_DICT[lang]}
-                    style={{
-                      paddingLeft: 10,
-                      color: errorLanguage ? ERROR_COLOR : 'inherit',
-                    }}
-                  />
-                </Box>
-              ))}
-            </Box>
-            <Box padding="15px"></Box>
-
-            <label
-              style={{
-                paddingLeft: 5,
-                color: errorAbility ? ERROR_COLOR : 'inherit',
-              }}
-            >
-              Model Abilities
-            </label>
-            <Box sx={styles.checkboxWrapper}>
-              {SUPPORTED_FEATURES.map((ability) => (
-                <Box key={ability} sx={{ marginRight: '10px' }}>
-                  <FormControlLabel
-                    control={
-                      <Checkbox
-                        checked={formData.model_ability.includes(
-                          ability.toLowerCase()
-                        )}
-                        onChange={() => toggleAbility(ability.toLowerCase())}
-                        name={ability}
-                        sx={
-                          errorAbility
-                            ? {
-                                'color': ERROR_COLOR,
-                                '&.Mui-checked': {
-                                  color: ERROR_COLOR,
-                                },
-                              }
-                            : {}
-                        }
-                      />
-                    }
-                    label={ability}
-                    style={{
-                      paddingLeft: 10,
-                      color: errorAbility ? ERROR_COLOR : 'inherit',
-                    }}
-                  />
-                </Box>
-              ))}
-            </Box>
-            <Box padding="15px"></Box>
-          </FormControl>
-
-          <FormControl sx={styles.baseFormControl}>
-            <label
-              style={{
-                paddingLeft: 5,
-                color: errorAbility ? ERROR_COLOR : 'inherit',
-              }}
-            >
-              Model Family
-            </label>
-            <FormHelperText>
-              Please be careful to select the family name corresponding to the
-              model you want to register. If not found, please choose `other`.
-            </FormHelperText>
-            <RadioGroup
-              value={familyLabel}
-              onChange={(e) => {
-                setFamilyLabel(e.target.value)
-              }}
-            >
-              <Box sx={styles.checkboxWrapper}>
-                {getFamilyByAbility().map((v) => (
-                  <Box sx={{ marginLeft: '10px' }}>
-                    <FormControlLabel value={v} control={<Radio />} label={v} />
-                  </Box>
+            <FormControl variant="standard"
+                         sx={{ marginLeft: '10px' }}>
+              <InputLabel id="hub-label">Hub</InputLabel>
+              <Select
+                labelId="hub-label"
+                value={hub}
+                label="Hub"
+                onChange={(e) => {
+                  setHub(e.target.value)
+                }}
+              >
+                {SUPPORTED_HUBS.map((item) => (
+                  <MenuItem value={item}>{SUPPORTED_HUBS_DICT[item]}</MenuItem>
                 ))}
-              </Box>
-            </RadioGroup>
-            <Box padding="15px"></Box>
-          </FormControl>
-
-          <Box width={'100%'}>
-            {successMsg !== '' && (
-              <Alert severity="success">
-                <AlertTitle>Success</AlertTitle>
-                {successMsg}
-              </Alert>
-            )}
+              </Select>
+            </FormControl>
             <Button
+              sx={{ marginLeft: '10px' }}
               variant="contained"
               color="primary"
-              type="submit"
-              onClick={handleClick}
+              onClick={handleImportModel}
             >
-              Register Model
+              Import Model
             </Button>
           </Box>
-      </React.Fragment>
+        }
+        <Box padding="15px"></Box>
+
+
+        <TextField
+          error={errorContextLength}
+          label="Context Length"
+          value={formData.context_length}
+          size="small"
+          onChange={(event) => {
+            let value = event.target.value
+            // Remove leading zeros
+            if (/^0+/.test(value)) {
+              value = value.replace(/^0+/, '') || '0'
+            }
+            // Ensure it's a positive integer, if not set it to the minimum
+            if (!/^\d+$/.test(value) || parseInt(value) < 0) {
+              value = '0'
+            }
+            // Update with the processed value
+            setFormData({
+              ...formData,
+              context_length: Number(value),
+            })
+          }}
+        />
+        <Box padding="15px"></Box>
+
+        <TextField
+          label="Model Size in Billions"
+          size="small"
+          error={errorModelSize}
+          value={modelSize}
+          onChange={(e) => {
+            let value = e.target.value
+            // Remove leading zeros
+            if (/^0+/.test(value)) {
+              value = value.replace(/^0+/, '') || '0'
+            }
+            // Ensure it's a positive integer, if not set it to the minimum
+            if (!/^\d+$/.test(value) || parseInt(value) < 0) {
+              value = '0'
+            }
+            setModelSize(Number(value))
+          }}
+        />
+        <Box padding="15px"></Box>
+
+
+        <TextField
+          label="Quantization (Optional)"
+          size="small"
+          value={quantization}
+          onChange={(e) => {
+            setQuantization(e.target.value)
+          }}
+          helperText="For GPTQ/AWQ models, please be careful to fill in the quantization corresponding to the model you want to register."
+        />
+        <Box padding="15px"></Box>
+
+        <TextField
+          label="Model Description (Optional)"
+          error={errorModelDescription}
+          defaultValue={formData.model_description}
+          size="small"
+          onChange={(event) =>
+            setFormData({
+              ...formData,
+              model_description: event.target.value,
+            })
+          }
+        />
+        <Box padding="15px"></Box>
+
+        <label
+          style={{
+            paddingLeft: 5,
+            color: errorLanguage ? ERROR_COLOR : 'inherit',
+          }}
+        >
+          Model Languages
+        </label>
+        <Box sx={styles.checkboxWrapper}>
+          {SUPPORTED_LANGUAGES.map((lang) => (
+            <Box key={lang} sx={{ marginRight: '10px' }}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={formData.model_lang.includes(lang)}
+                    onChange={() => toggleLanguage(lang)}
+                    name={lang}
+                    sx={
+                      errorLanguage
+                        ? {
+                          'color': ERROR_COLOR,
+                          '&.Mui-checked': {
+                            color: ERROR_COLOR,
+                          },
+                        }
+                        : {}
+                    }
+                  />
+                }
+                label={SUPPORTED_LANGUAGES_DICT[lang]}
+                style={{
+                  paddingLeft: 10,
+                  color: errorLanguage ? ERROR_COLOR : 'inherit',
+                }}
+              />
+            </Box>
+          ))}
+        </Box>
+        <Box padding="15px"></Box>
+
+        <label
+          style={{
+            paddingLeft: 5,
+            color: errorAbility ? ERROR_COLOR : 'inherit',
+          }}
+        >
+          Model Abilities
+        </label>
+        <Box sx={styles.checkboxWrapper}>
+          {SUPPORTED_FEATURES.map((ability) => (
+            <Box key={ability} sx={{ marginRight: '10px' }}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={formData.model_ability.includes(
+                      ability.toLowerCase(),
+                    )}
+                    onChange={() => toggleAbility(ability.toLowerCase())}
+                    name={ability}
+                    sx={
+                      errorAbility
+                        ? {
+                          'color': ERROR_COLOR,
+                          '&.Mui-checked': {
+                            color: ERROR_COLOR,
+                          },
+                        }
+                        : {}
+                    }
+                  />
+                }
+                label={ability}
+                style={{
+                  paddingLeft: 10,
+                  color: errorAbility ? ERROR_COLOR : 'inherit',
+                }}
+              />
+            </Box>
+          ))}
+        </Box>
+        <Box padding="15px"></Box>
+      </FormControl>
+
+      <FormControl sx={styles.baseFormControl}>
+        <label
+          style={{
+            paddingLeft: 5,
+            color: errorAbility ? ERROR_COLOR : 'inherit',
+          }}
+        >
+          Model Family
+        </label>
+        <FormHelperText>
+          Please be careful to select the family name corresponding to the
+          model you want to register. If not found, please choose `other`.
+        </FormHelperText>
+        <RadioGroup
+          value={familyLabel}
+          onChange={(e) => {
+            setFamilyLabel(e.target.value)
+          }}
+        >
+          <Box sx={styles.checkboxWrapper}>
+            {getFamilyByAbility().map((v) => (
+              <Box sx={{ marginLeft: '10px' }}>
+                <FormControlLabel value={v} control={<Radio />} label={v} />
+              </Box>
+            ))}
+          </Box>
+        </RadioGroup>
+        <Box padding="15px"></Box>
+      </FormControl>
+
+      <Box width={'100%'}>
+        {successMsg !== '' && (
+          <Alert severity="success">
+            <AlertTitle>Success</AlertTitle>
+            {successMsg}
+          </Alert>
+        )}
+        <Button
+          variant="contained"
+          color="primary"
+          type="submit"
+          onClick={handleClick}
+        >
+          Register Model
+        </Button>
+      </Box>
+    </React.Fragment>
   )
 }
 
