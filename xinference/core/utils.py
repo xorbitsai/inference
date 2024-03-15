@@ -299,6 +299,12 @@ def get_prefix_suffix(names: Iterable[str]) -> Tuple[str, str]:
 def get_llama_cpp_quantization_info(
     filenames: List[str], model_type: Literal["ggmlv3", "ggufv2"]
 ) -> Tuple[Optional[str], Optional[str]]:
+    """
+    Get the model file name template and split template from a list of filenames.
+
+    NOTE: not support multiple quantization files in multi-part zip files.
+         for example: a-16b.ggmlv3.zip a-16b.ggmlv3.z01 a-16b.ggmlv3.z02 are not supported
+    """
     model_file_name_template = None
     model_file_name_split_template: Optional[str] = None
     if model_type == "ggmlv3":

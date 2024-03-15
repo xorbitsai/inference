@@ -229,3 +229,24 @@ def test_get_llama_cpp_quantization_info():
     tpl1, tpl2 = get_llama_cpp_quantization_info(filenames, "ggufv2")
     assert tpl1 == "kafkalm-70b-german-v0.1.{quantization}.test.gguf"
     assert tpl2 == "kafkalm-70b-german-v0.1.{quantization}.test-split-{part}.gguf"
+
+    filenames = [
+        "kafkalm-70b-german-v0.1.Q2_K.test.gguf",
+        "kafkalm-70b-german-v0.1.Q3_K_L.test.gguf",
+        "kafkalm-70b-german-v0.1.Q3_K_M.test.gguf",
+        "kafkalm-70b-german-v0.1.Q3_K_S.test.gguf",
+        "kafkalm-70b-german-v0.1.Q4_0.test.gguf",
+        "kafkalm-70b-german-v0.1.Q4_K_M.test.gguf",
+        "kafkalm-70b-german-v0.1.Q4_K_S.test.gguf",
+        "kafkalm-70b-german-v0.1.Q5_K_M.test.gguf",
+        "kafkalm-70b-german-v0.1.Q5_K_S.test.gguf",
+        "kafkalm-70b-german-v0.1.Q6_K.test.gguf-part1of2",
+        "kafkalm-70b-german-v0.1.Q6_K.test.gguf-part2of2",
+        "kafkalm-70b-german-v0.1.Q8_0.test.gguf-part1of3",
+        "kafkalm-70b-german-v0.1.Q8_0.test.gguf-part2of3",
+        "kafkalm-70b-german-v0.1.Q8_0.test.gguf-part3of3",
+    ]
+
+    tpl1, tpl2 = get_llama_cpp_quantization_info(filenames, "ggufv2")
+    assert tpl1 == "kafkalm-70b-german-v0.1.{quantization}.test.gguf"
+    assert tpl2 == "kafkalm-70b-german-v0.1.{quantization}.test.gguf-part{part}"
