@@ -124,7 +124,6 @@ class SGLANGModel(LLM):
         self._engine = sgl.Runtime(
             model_path=self.model_path,
             tokenizer_path=self.model_path,
-            trust_remote_code=True,
             **self._model_config,
         )
 
@@ -287,7 +286,7 @@ class SGLANGModel(LLM):
                 request_id,
                 model=self.model_uid,
                 output_text=state["answer"],
-                meta_info=state.get_meta_info(),
+                meta_info=state.get_meta_info(name="answer"),
             )
         else:
 
