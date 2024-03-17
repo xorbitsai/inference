@@ -35,7 +35,7 @@ from ..constants import (
 from ..core import ModelActor
 from ..core.status_guard import InstanceInfo, LaunchStatus
 from ..model.llm import GgmlLLMSpecV1
-from ..model.llm.llm_family import HubImportLLMFamilyV1
+from ..model.llm.llm_family import DEFAULT_CONTEXT_LENGTH, HubImportLLMFamilyV1
 from .metrics import record_metrics
 from .resource import GPUStatus, ResourceStatus
 from .utils import (
@@ -994,15 +994,14 @@ class SupervisorActor(xo.StatelessActor):
         model_format: Literal["pytorch", "ggmlv3", "ggufv2", "gptq", "awq"],
         model_hub: str,
     ) -> HubImportLLMFamilyV1:
-        llm_family = HubImportLLMFamilyV1(version=1)
         if model_hub == "huggingface":
             api = self.__get_hf_api()
-
             model_info: ModelInfo = await asyncio.wrap_future(
                 api.run_as_future(api.model_info, model_id)
             )
             logger.info(f"Model info: {model_info}")
 
+            context_length = DEFAULT_CONTEXT_LENGTH
             if await asyncio.wrap_future(
                 api.run_as_future(api.file_exists, model_id, "config.json")
             ):
@@ -1012,37 +1011,45 @@ class SupervisorActor(xo.StatelessActor):
                 with open(config_path) as f:
                     config = json.load(f)
                     if "max_position_embeddings" in config:
-                        llm_family.context_length = config["max_position_embeddings"]
+                        context_length = config["max_position_embeddings"]
 
             if model_format in ["pytorch", "gptq", "awq"]:
                 pass
             elif model_format in ["ggmlv3", "ggufv2"]:
-                llm_spec = GgmlLLMSpecV1()
-                llm_family.model_specs.append(llm_spec)
-                llm_spec.model_id = model_id
-                llm_spec.model_format = model_format
-                llm_spec.model_hub = model_hub
-                llm_spec.model_size_in_billions = get_model_size_from_model_id(model_id)
-
                 filenames = await asyncio.wrap_future(
                     api.run_as_future(api.list_repo_files, model_id)
                 )
 
                 (
-                    llm_spec.model_file_name_template,
-                    llm_spec.model_file_name_split_template,
-                    llm_spec.quantizations,
-                    llm_spec.quantization_parts,
+                    model_file_name_template,
+                    model_file_name_split_template,
+                    quantizations,
+                    quantization_parts,
                 ) = get_llama_cpp_quantization_info(
                     filenames, typing.cast(Literal["ggmlv3", "ggufv2"], model_format)
+                )
+
+                llm_spec = GgmlLLMSpecV1(
+                    model_id=model_id,
+                    model_format=model_format,
+                    model_hub=model_hub,
+                    quantizations=quantizations,
+                    quantization_parts=quantization_parts,
+                    model_size_in_billions=get_model_size_from_model_id(model_id),
+                    model_file_name_template=model_file_name_template,
+                    model_file_name_split_template=model_file_name_split_template,
+                )
+
+                return HubImportLLMFamilyV1(
+                    version=1, context_length=context_length, model_specs=[llm_spec]
                 )
 
             else:
                 raise ValueError(f"Unsupported model format: {model_format}")
 
         elif model_hub == "modelscope":
-            pass
+            raise NotImplementedError("modelscope not implemented")
         else:
             raise ValueError(f"Unsupported model hub: {model_hub}")
 
-        return llm_family
+        raise NotImplementedError()

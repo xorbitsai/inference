@@ -125,7 +125,7 @@ class LLMFamilyV1(BaseModel):
 class HubImportLLMFamilyV1(BaseModel):
     version: Literal[1]
     context_length: Optional[int] = DEFAULT_CONTEXT_LENGTH
-    model_specs: List["LLMSpecV1"]
+    model_specs: List["LLMSpecV1"] = []
     prompt_style: Optional["PromptStyleV1"]
 
 
