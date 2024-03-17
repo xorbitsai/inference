@@ -41,6 +41,7 @@ from .resource import GPUStatus, ResourceStatus
 from .utils import (
     build_replica_model_uid,
     gen_random_string,
+    get_llama_cpp_quantization_info,
     get_model_size_from_model_id,
     is_valid_model_uid,
     iter_replica_model_uid,
@@ -662,8 +663,8 @@ class SupervisorActor(xo.StatelessActor):
             model_uid = self._gen_model_uid(model_name)
         logger.debug(
             (
-                f"Enter launch_speculative_llm, model_uid: %s, model_name: %s, model_size: %s, "
-                f"draft_model_name: %s, draft_model_size: %s"
+                "Enter launch_speculative_llm, model_uid: %s, model_name: %s, model_size: %s, "
+                "draft_model_name: %s, draft_model_size: %s"
             ),
             model_uid,
             model_name,
@@ -1022,6 +1023,19 @@ class SupervisorActor(xo.StatelessActor):
                 llm_spec.model_format = model_format
                 llm_spec.model_hub = model_hub
                 llm_spec.model_size_in_billions = get_model_size_from_model_id(model_id)
+
+                filenames = await asyncio.wrap_future(
+                    api.run_as_future(api.list_repo_files, model_id)
+                )
+
+                (
+                    llm_spec.model_file_name_template,
+                    llm_spec.model_file_name_split_template,
+                    llm_spec.quantizations,
+                    llm_spec.quantization_parts,
+                ) = get_llama_cpp_quantization_info(
+                    filenames, typing.cast(Literal["ggmlv3", "ggufv2"], model_format)
+                )
 
             else:
                 raise ValueError(f"Unsupported model format: {model_format}")
