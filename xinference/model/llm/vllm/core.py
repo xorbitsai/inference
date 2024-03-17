@@ -110,6 +110,7 @@ if VLLM_INSTALLED and vllm.__version__ >= "0.3.3":
     VLLM_SUPPORTED_CHAT_MODELS.append("orion-chat")
     VLLM_SUPPORTED_CHAT_MODELS.append("orion-chat-rag")
 
+
 class VLLMModel(LLM):
     def __init__(
         self,
