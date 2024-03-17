@@ -21,7 +21,7 @@ Model Spec 1 (pytorch, 2 Billion)
 - **Model Size (in billions):** 2
 - **Quantizations:** none, 4-bit, 8-bit
 - **Model ID:** google/gemma-2b-it
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/google/gemma-2b-it>`__
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/google/gemma-2b-it>`__, `ModelScope <https://modelscope.cn/models/AI-ModelScope/gemma-2b-it>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
@@ -36,7 +36,7 @@ Model Spec 2 (pytorch, 7 Billion)
 - **Model Size (in billions):** 7
 - **Quantizations:** none, 4-bit, 8-bit
 - **Model ID:** google/gemma-7b-it
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/google/gemma-7b-it>`__
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/google/gemma-7b-it>`__, `ModelScope <https://modelscope.cn/models/AI-ModelScope/gemma-7b-it>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
