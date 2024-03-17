@@ -52,9 +52,6 @@ class LlamaCppModel(LLM):
         )
         self._llm = None
 
-    def _can_apply_metal(self):
-        return self.quantization.lower() in ["q4_0", "q4_1", "q4_k_s", "q4_k_m"]
-
     def _can_apply_cublas(self):
         # TODO: figure out the quantizations supported.
         return True
@@ -78,8 +75,7 @@ class LlamaCppModel(LLM):
             llamacpp_model_config["use_mlock"] = False
             llamacpp_model_config["n_gqa"] = 8
 
-        if self._is_darwin_and_apple_silicon() and self._can_apply_metal():
-            # TODO: platform.processor() is not safe, need to be replaced to other method.
+        if self._is_darwin_and_apple_silicon():
             llamacpp_model_config.setdefault("n_gpu_layers", -1)
         elif self._is_linux() and self._can_apply_cublas():
             llamacpp_model_config.setdefault("n_gpu_layers", -1)

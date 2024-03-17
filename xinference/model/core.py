@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from abc import ABC, abstractmethod
-from typing import Any, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from .._compat import BaseModel
 
@@ -52,6 +52,9 @@ def create_model_instance(
     model_format: Optional[str] = None,
     model_size_in_billions: Optional[int] = None,
     quantization: Optional[str] = None,
+    peft_model_path: Optional[str] = None,
+    image_lora_load_kwargs: Optional[Dict] = None,
+    image_lora_fuse_kwargs: Optional[Dict] = None,
     is_local_deployment: bool = False,
     **kwargs,
 ) -> Tuple[Any, ModelDescription]:
@@ -70,6 +73,7 @@ def create_model_instance(
             model_format,
             model_size_in_billions,
             quantization,
+            peft_model_path,
             is_local_deployment,
             **kwargs,
         )
@@ -82,7 +86,14 @@ def create_model_instance(
     elif model_type == "image":
         kwargs.pop("trust_remote_code", None)
         return create_image_model_instance(
-            subpool_addr, devices, model_uid, model_name, **kwargs
+            subpool_addr,
+            devices,
+            model_uid,
+            model_name,
+            lora_model_path=peft_model_path,
+            lora_load_kwargs=image_lora_load_kwargs,
+            lora_fuse_kwargs=image_lora_fuse_kwargs,
+            **kwargs,
         )
     elif model_type == "rerank":
         kwargs.pop("trust_remote_code", None)

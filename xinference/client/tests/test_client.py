@@ -274,7 +274,9 @@ def test_RESTful_client(setup):
             generate_config={"stream": True, "max_tokens": 5},
         )
         for chunk in streaming_response:
-            assert "content" or "role" in chunk["choices"][0]["delta"]
+            assert ("content" in chunk["choices"][0]["delta"]) or (
+                "role" in chunk["choices"][0]["delta"]
+            )
 
     _check_stream()
 
@@ -608,9 +610,9 @@ def setup_cluster():
             raise RuntimeError("Endpoint is not available after multiple attempts")
 
         yield f"http://localhost:{port}", supervisor_address
-        restful_api_proc.terminate()
+        restful_api_proc.kill()
     finally:
-        local_cluster.terminate()
+        local_cluster.kill()
 
 
 def test_auto_recover(set_auto_recover_limit, setup_cluster):

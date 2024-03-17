@@ -109,6 +109,14 @@ const ModelCard = ({ url, modelData, gpuAvailable, is_custom = false }) => {
     }
   }, [modelFormat, modelSize, modelData])
 
+  const getNGPURange = () => {
+    if (gpuAvailable === 0) {
+      // remain 'auto' for distributed situation
+      return ['auto', 'CPU']
+    }
+    return ['auto', 'CPU'].concat(range(1, gpuAvailable))
+  }
+
   const launchModel = (url) => {
     if (isCallingApi || isUpdatingModel) {
       return
@@ -124,7 +132,11 @@ const ModelCard = ({ url, modelData, gpuAvailable, is_custom = false }) => {
       model_size_in_billions: convertModelSize(modelSize),
       quantization: quantization,
       n_gpu:
-        nGPU === '0' ? null : nGPU === 'auto' ? 'auto' : parseInt(nGPU, 10),
+        parseInt(nGPU, 10) === 0 || nGPU === 'CPU'
+          ? null
+          : nGPU === 'auto'
+          ? 'auto'
+          : parseInt(nGPU, 10),
       replica: replica,
     }
 
@@ -512,24 +524,13 @@ const ModelCard = ({ url, modelData, gpuAvailable, is_custom = false }) => {
                     onChange={(e) => setNGPU(e.target.value)}
                     label="N-GPU"
                   >
-                    {['auto']
-                      .concat(
-                        range(
-                          0,
-                          modelFormat !== 'pytorch' &&
-                            modelFormat !== 'gptq' &&
-                            modelFormat !== 'awq'
-                            ? 1
-                            : gpuAvailable
-                        )
+                    {getNGPURange().map((v) => {
+                      return (
+                        <MenuItem key={v} value={v}>
+                          {v}
+                        </MenuItem>
                       )
-                      .map((v) => {
-                        return (
-                          <MenuItem key={v} value={v}>
-                            {v}
-                          </MenuItem>
-                        )
-                      })}
+                    })}
                   </Select>
                 </FormControl>
               ) : (

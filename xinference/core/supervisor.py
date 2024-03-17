@@ -714,22 +714,18 @@ class SupervisorActor(xo.StatelessActor):
         request_limits: Optional[int] = None,
         wait_ready: bool = True,
         model_version: Optional[str] = None,
+        peft_model_path: Optional[str] = None,
+        image_lora_load_kwargs: Optional[Dict] = None,
+        image_lora_fuse_kwargs: Optional[Dict] = None,
         **kwargs,
     ) -> str:
         if model_uid is None:
             model_uid = self._gen_model_uid(model_name)
 
+        model_size = str(model_size_in_billions) if model_size_in_billions else ""
         logger.debug(
-            (
-                f"Enter launch_builtin_model, model_uid: %s, model_name: %s, model_size: %s, "
-                f"model_format: %s, quantization: %s, replica: %s"
-            ),
-            model_uid,
-            model_name,
-            str(model_size_in_billions) if model_size_in_billions else "",
-            model_format,
-            quantization,
-            replica,
+            f"Enter launch_builtin_model, model_uid: {model_uid}, model_name: {model_name}, model_size: {model_size}, "
+            f"model_format: {model_format}, quantization: {quantization}, replica: {replica}"
         )
 
         async def _launch_one_model(_replica_model_uid):
@@ -751,6 +747,9 @@ class SupervisorActor(xo.StatelessActor):
                 model_type=model_type,
                 n_gpu=n_gpu,
                 request_limits=request_limits,
+                peft_model_path=peft_model_path,
+                image_lora_load_kwargs=image_lora_load_kwargs,
+                image_lora_fuse_kwargs=image_lora_fuse_kwargs,
                 **kwargs,
             )
             self._replica_model_uid_to_worker[_replica_model_uid] = worker_ref

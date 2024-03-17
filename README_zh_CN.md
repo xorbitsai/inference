@@ -23,13 +23,13 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 
 ## 🔥 近期热点
 ### 框架增强
+- 支持LLM和图像模型的LoRA: [#1080](https://github.com/xorbitsai/inference/pull/1080)
 - 支持语音识别模型: [#929](https://github.com/xorbitsai/inference/pull/929)
 - 增加 Metrics 统计信息: [#906](https://github.com/xorbitsai/inference/pull/906)
 - Docker 镜像支持: [#855](https://github.com/xorbitsai/inference/pull/855)
 - 支持多模态模型：[#829](https://github.com/xorbitsai/inference/pull/829)
 - 模型自动恢复: [#694](https://github.com/xorbitsai/inference/pull/694)
 - 函数调用接口: [#701](https://github.com/xorbitsai/inference/pull/701)，示例代码：https://github.com/xorbitsai/inference/blob/main/examples/FunctionCall.ipynb
-- 支持 rerank 模型: [#672](https://github.com/xorbitsai/inference/pull/672)
 ### 新模型
 - 内置 [Gemma](https://github.com/google-deepmind/gemma): [#1024](https://github.com/xorbitsai/inference/pull/1024)
 - 内置 [Qwen1.5](https://github.com/QwenLM/Qwen1.5): [#994](https://github.com/xorbitsai/inference/pull/994)

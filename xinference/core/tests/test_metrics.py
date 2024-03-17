@@ -48,9 +48,9 @@ def setup_cluster():
             raise RuntimeError("Endpoint is not available after multiple attempts")
 
         yield f"http://localhost:{port}", f"http://localhost:{metrics_port}/metrics", supervisor_address
-        restful_api_proc.terminate()
+        restful_api_proc.kill()
     finally:
-        local_cluster.terminate()
+        local_cluster.kill()
 
 
 @pytest.mark.asyncio

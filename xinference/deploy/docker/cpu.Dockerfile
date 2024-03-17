@@ -21,7 +21,7 @@ ARG PIP_INDEX=https://pypi.org/simple
 RUN python -m pip install --upgrade -i "$PIP_INDEX" pip && \
     pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu && \
     pip install -i "$PIP_INDEX" \
-      "xoscar>=0.2.1" \
+      "xoscar>=0.3.0" \
       "gradio>=3.39.0" \
       pillow \
       click \
@@ -56,7 +56,8 @@ RUN python -m pip install --upgrade -i "$PIP_INDEX" pip && \
       controlnet_aux \
       orjson \
       auto-gptq \
-      optimum && \
+      optimum \
+      peft && \
     pip install -i "$PIP_INDEX" -U chatglm-cpp && \
     pip install -i "$PIP_INDEX" -U llama-cpp-python && \
     cd /opt/inference && \
