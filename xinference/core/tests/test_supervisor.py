@@ -6,7 +6,7 @@ from ..supervisor import SupervisorActor
 @pytest.mark.asyncio
 async def test_get_llm_spec_hf():
     supervisor = SupervisorActor()
-    llm_family = await supervisor.get_llm_spec(
+    llm_family = await supervisor.get_llm_family_from_hub(
         "TheBloke/Llama-2-7B-Chat-GGML", "ggmlv3", "huggingface"
     )
     assert llm_family is not None
@@ -41,7 +41,7 @@ async def test_get_llm_spec_hf():
         llm_family.model_specs[0].quantizations
     )
 
-    llm_family = await supervisor.get_llm_spec(
+    llm_family = await supervisor.get_llm_family_from_hub(
         "TheBloke/KafkaLM-70B-German-V0.1-GGUF", "ggufv2", "huggingface"
     )
     assert llm_family is not None
@@ -80,7 +80,7 @@ async def test_get_llm_spec_hf():
     }.intersection(set(qs)) == set(qs)
 
     try:
-        llm_family = await supervisor.get_llm_spec(
+        llm_family = await supervisor.get_llm_family_from_hub(
             "Nobody/No_This_Repo", "ggufv2", "huggingface"
         )
         assert False
@@ -91,7 +91,7 @@ async def test_get_llm_spec_hf():
 @pytest.mark.asyncio
 async def test_get_llm_spec_ms():
     supervisor = SupervisorActor()
-    llm_family = await supervisor.get_llm_spec(
+    llm_family = await supervisor.get_llm_family_from_hub(
         "Xorbits/Llama-2-7B-Chat-GGML", "ggmlv3", "modelscope"
     )
     assert llm_family is not None
@@ -126,7 +126,7 @@ async def test_get_llm_spec_ms():
         llm_family.model_specs[0].quantizations
     )
 
-    llm_family = await supervisor.get_llm_spec(
+    llm_family = await supervisor.get_llm_family_from_hub(
         "qwen/Qwen1.5-72B-Chat-GGUF", "ggufv2", "modelscope"
     )
     assert llm_family is not None
@@ -161,7 +161,7 @@ async def test_get_llm_spec_ms():
     }.intersection(set(qs)) == set(qs)
 
     try:
-        llm_family = await supervisor.get_llm_spec(
+        llm_family = await supervisor.get_llm_family_from_hub(
             "Nobody/No_This_Repo", "ggufv2", "modelscope"
         )
         assert False
@@ -172,12 +172,12 @@ async def test_get_llm_spec_ms():
 @pytest.mark.asyncio
 async def test_get_llm_spec_2():
     supervisor = SupervisorActor()
-    llm_family = await supervisor.get_llm_spec(
+    llm_family = await supervisor.get_llm_family_from_hub(
         "Qwen/Qwen1.5-1.8B", "pytorch", "huggingface"
     )
     assert llm_family is not None
     assert len(llm_family.model_specs) == 1
-    pytorch_qs = {"4-bit, 8-bit, none"}
+    pytorch_qs = {"4-bit", "8-bit", "none"}
     assert (
         pytorch_qs.intersection(llm_family.model_specs[0].quantizations) == pytorch_qs
     )
@@ -185,12 +185,12 @@ async def test_get_llm_spec_2():
     assert llm_family.model_specs[0].model_size_in_billions == "1_8"
     assert llm_family.context_length == 32768
 
-    llm_family = await supervisor.get_llm_spec(
+    llm_family = await supervisor.get_llm_family_from_hub(
         "qwen/Qwen-14B-Chat", "pytorch", "modelscope"
     )
     assert llm_family is not None
     assert len(llm_family.model_specs) == 1
-    pytorch_qs = {"4-bit, 8-bit, none"}
+    pytorch_qs = {"4-bit", "8-bit", "none"}
     assert (
         pytorch_qs.intersection(llm_family.model_specs[0].quantizations) == pytorch_qs
     )
@@ -198,7 +198,7 @@ async def test_get_llm_spec_2():
     assert llm_family.model_specs[0].model_size_in_billions == 14
     assert llm_family.context_length == 8192
 
-    llm_family = await supervisor.get_llm_spec(
+    llm_family = await supervisor.get_llm_family_from_hub(
         "qwen/Qwen1.5-7B-Chat-AWQ", "awq", "modelscope"
     )
     assert llm_family is not None
@@ -211,7 +211,7 @@ async def test_get_llm_spec_2():
     assert llm_family.model_specs[0].model_size_in_billions == 7
     assert llm_family.context_length == 32768
 
-    llm_family = await supervisor.get_llm_spec(
+    llm_family = await supervisor.get_llm_family_from_hub(
         "casperhansen/mixtral-instruct-awq", "awq", "huggingface"
     )
     assert llm_family is not None

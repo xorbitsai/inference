@@ -986,10 +986,10 @@ class SupervisorActor(xo.StatelessActor):
         record_metrics(name, op, kwargs)
 
     @log_async(logger=logger)
-    async def get_llm_spec(
+    async def get_llm_family_from_hub(
         self,
         model_id: str,
-        model_format: Literal["pytorch", "ggmlv3", "ggufv2", "gptq", "awq"],
+        model_format: str,
         model_hub: str,
     ) -> HubImportLLMFamilyV1:
         if model_hub not in ["huggingface", "modelscope"]:
@@ -1049,7 +1049,9 @@ class SupervisorActor(xo.StatelessActor):
                 model_hub=model_hub,
                 model_size_in_billions=get_model_size_from_model_id(model_id),
                 quantizations=(
-                    ["4-bit, 8-bit, none"] if model_format == "pytorch" else ["Int4"]
+                    ["4-bit", "8-bit", "none"]
+                    if model_format == "pytorch"
+                    else ["Int4"]
                 ),
             )
             return HubImportLLMFamilyV1(
