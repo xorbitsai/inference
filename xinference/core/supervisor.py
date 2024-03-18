@@ -23,7 +23,10 @@ from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Tuple, Un
 
 import xoscar as xo
 from huggingface_hub import HfApi
-from huggingface_hub.hf_api import ModelInfo
+from modelscope import HubApi
+from modelscope.hub.errors import NotExistError
+from modelscope.hub.file_download import model_file_download
+from requests import HTTPError
 from typing_extensions import Literal
 
 from ..constants import (
@@ -86,6 +89,7 @@ class SupervisorActor(xo.StatelessActor):
     def __init__(self):
         super().__init__()
         self.__hf_api: Optional[HfApi] = None
+        self.__ms_api: Optional[HubApi] = None
         self._worker_address_to_worker: Dict[str, xo.ActorRefType["WorkerActor"]] = {}
         self._worker_status: Dict[str, WorkerStatus] = {}
         self._replica_model_uid_to_worker: Dict[
@@ -987,6 +991,11 @@ class SupervisorActor(xo.StatelessActor):
             self.__hf_api = HfApi()
         return self.__hf_api
 
+    def __get_ms_api(self):
+        if self.__ms_api is None:
+            self.__ms_api = HubApi()
+        return self.__ms_api
+
     @log_async(logger=logger)
     async def get_llm_spec(
         self,
@@ -994,19 +1003,23 @@ class SupervisorActor(xo.StatelessActor):
         model_format: Literal["pytorch", "ggmlv3", "ggufv2", "gptq", "awq"],
         model_hub: str,
     ) -> HubImportLLMFamilyV1:
-        if model_hub == "huggingface":
-            api = self.__get_hf_api()
-            model_info: ModelInfo = await asyncio.wrap_future(
-                api.run_as_future(api.model_info, model_id)
-            )
-            logger.info(f"Model info: {model_info}")
+        hf_api = self.__get_hf_api()
+        context_length = DEFAULT_CONTEXT_LENGTH
 
-            context_length = DEFAULT_CONTEXT_LENGTH
+        if model_hub == "huggingface":
+            repo_exists = await asyncio.wrap_future(
+                hf_api.run_as_future(hf_api.repo_exists, model_id)
+            )
+            if not repo_exists:
+                raise ValueError(f"Model {model_id} does not exist")
+
             if await asyncio.wrap_future(
-                api.run_as_future(api.file_exists, model_id, "config.json")
+                hf_api.run_as_future(hf_api.file_exists, model_id, "config.json")
             ):
                 config_path = await asyncio.wrap_future(
-                    api.run_as_future(api.hf_hub_download, model_id, "config.json")
+                    hf_api.run_as_future(
+                        hf_api.hf_hub_download, model_id, "config.json"
+                    )
                 )
                 with open(config_path) as f:
                     config = json.load(f)
@@ -1014,10 +1027,10 @@ class SupervisorActor(xo.StatelessActor):
                         context_length = config["max_position_embeddings"]
 
             if model_format in ["pytorch", "gptq", "awq"]:
-                pass
+                raise NotImplementedError("pytorch, gptq and awq not implemented yet")
             elif model_format in ["ggmlv3", "ggufv2"]:
                 filenames = await asyncio.wrap_future(
-                    api.run_as_future(api.list_repo_files, model_id)
+                    hf_api.run_as_future(hf_api.list_repo_files, model_id)
                 )
 
                 (
@@ -1048,8 +1061,59 @@ class SupervisorActor(xo.StatelessActor):
                 raise ValueError(f"Unsupported model format: {model_format}")
 
         elif model_hub == "modelscope":
-            raise NotImplementedError("modelscope not implemented")
+            ms_api = self.__get_ms_api()
+            try:
+                await asyncio.wrap_future(
+                    hf_api.run_as_future(ms_api.get_model, model_id)
+                )
+            except NotExistError:
+                raise ValueError(f"Model {model_id} does not exist")
+            except HTTPError:
+                raise ValueError(f"Model {model_id} does not exist")
+
+            try:
+                config_path = await asyncio.wrap_future(
+                    hf_api.run_as_future(model_file_download, model_id, "config.json")
+                )
+                if config_path is not None:
+                    with open(config_path) as f:
+                        config = json.load(f)
+                        if "max_position_embeddings" in config:
+                            context_length = config["max_position_embeddings"]
+            except NotExistError:
+                logger.warning(f"Model {model_id} does not have config file")
+
+            if model_format in ["pytorch", "gptq", "awq"]:
+                raise NotImplementedError("pytorch, gptq and awq not implemented yet")
+            elif model_format in ["ggmlv3", "ggufv2"]:
+                file_infos = await asyncio.wrap_future(
+                    hf_api.run_as_future(ms_api.get_model_files, model_id)
+                )
+                filenames = [info["Path"] for info in file_infos]
+                (
+                    model_file_name_template,
+                    model_file_name_split_template,
+                    quantizations,
+                    quantization_parts,
+                ) = get_llama_cpp_quantization_info(
+                    filenames, typing.cast(Literal["ggmlv3", "ggufv2"], model_format)
+                )
+
+                llm_spec = GgmlLLMSpecV1(
+                    model_id=model_id,
+                    model_format=model_format,
+                    model_hub=model_hub,
+                    quantizations=quantizations,
+                    quantization_parts=quantization_parts,
+                    model_size_in_billions=get_model_size_from_model_id(model_id),
+                    model_file_name_template=model_file_name_template,
+                    model_file_name_split_template=model_file_name_split_template,
+                )
+
+                return HubImportLLMFamilyV1(
+                    version=1, context_length=context_length, model_specs=[llm_spec]
+                )
+            else:
+                raise ValueError(f"Unsupported model format: {model_format}")
         else:
             raise ValueError(f"Unsupported model hub: {model_hub}")
-
-        raise NotImplementedError()
