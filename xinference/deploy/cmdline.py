@@ -488,6 +488,22 @@ def list_model_registrations(
             ),
             file=sys.stderr,
         )
+    elif model_type == "rerank":
+        for registration in registrations:
+            model_name = registration["model_name"]
+            model_family = client.get_model_registration(model_type, model_name)
+            table.append(
+                [
+                    model_type,
+                    model_family["model_name"],
+                    model_family["language"],
+                    registration["is_builtin"],
+                ]
+            )
+        print(
+            tabulate(table, headers=["Type", "Name", "Language", "Is-built-in"]),
+            file=sys.stderr,
+        )
     elif model_type == "image":
         for registration in registrations:
             model_name = registration["model_name"]
@@ -711,6 +727,9 @@ def model_list(endpoint: Optional[str]):
 
     llm_table = []
     embedding_table = []
+    rerank_table = []
+    image_table = []
+    audio_table = []
     models = client.list_models()
     for model_uid, model_spec in models.items():
         if model_spec["model_type"] == "LLM":
@@ -733,6 +752,23 @@ def model_list(endpoint: Optional[str]):
                     model_spec["dimensions"],
                 ]
             )
+        elif model_spec["model_type"] == "rerank":
+            rerank_table.append(
+                [model_uid, model_spec["model_type"], model_spec["model_name"]]
+            )
+        elif model_spec["model_type"] == "image":
+            image_table.append(
+                [
+                    model_uid,
+                    model_spec["model_type"],
+                    model_spec["model_name"],
+                    str(model_spec["controlnet"]),
+                ]
+            )
+        elif model_spec["model_type"] == "audio":
+            audio_table.append(
+                [model_uid, model_spec["model_type"], model_spec["model_name"]]
+            )
     if llm_table:
         print(
             tabulate(
@@ -748,6 +784,7 @@ def model_list(endpoint: Optional[str]):
             ),
             file=sys.stderr,
         )
+        print()  # add a blank line for better visual experience
     if embedding_table:
         print(
             tabulate(
@@ -761,6 +798,34 @@ def model_list(endpoint: Optional[str]):
             ),
             file=sys.stderr,
         )
+        print()
+    if rerank_table:
+        print(
+            tabulate(
+                rerank_table,
+                headers=["UID", "Type", "Name"],
+            ),
+            file=sys.stderr,
+        )
+        print()
+    if image_table:
+        print(
+            tabulate(
+                image_table,
+                headers=["UID", "Type", "Name", "Controlnet"],
+            ),
+            file=sys.stderr,
+        )
+        print()
+    if audio_table:
+        print(
+            tabulate(
+                audio_table,
+                headers=["UID", "Type", "Name"],
+            ),
+            file=sys.stderr,
+        )
+        print()
 
 
 @cli.command(

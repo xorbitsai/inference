@@ -732,7 +732,8 @@ class Client:
             )
 
         response_data = response.json()
-        return response_data
+        model_list = response_data["data"]
+        return {item["id"]: item for item in model_list}
 
     def launch_speculative_llm(
         self,
