@@ -41,6 +41,7 @@ class SGLANGModelConfig(TypedDict, total=False):
     mem_fraction_static: float
     log_level: str
     attention_reduce_in_fp32: bool  # For gemma
+    enable_flashinfer: bool  # See https://github.com/sgl-project/sglang/blob/main/python/sglang/srt/server_args.py#L191
 
 
 class SGLANGGenerateConfig(TypedDict, total=False):
@@ -135,6 +136,7 @@ class SGLANGModel(LLM):
                 model_config["mem_fraction_static"] = 0.90
         model_config.setdefault("log_level", "info")
         model_config.setdefault("attention_reduce_in_fp32", False)
+        model_config.setdefault("enable_flashinfer", False)
 
         return model_config
 
