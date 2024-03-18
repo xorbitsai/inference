@@ -22,12 +22,7 @@ from logging import getLogger
 from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Tuple, Union
 
 import xoscar as xo
-from huggingface_hub import HfApi
-from modelscope import HubApi
-from modelscope.hub.errors import NotExistError
-from modelscope.hub.file_download import model_file_download
-from requests import HTTPError
-from typing_extensions import Literal
+from typing_extensions import Literal, cast
 
 from ..constants import (
     XINFERENCE_DISABLE_HEALTH_CHECK,
@@ -39,6 +34,7 @@ from ..core import ModelActor
 from ..core.status_guard import InstanceInfo, LaunchStatus
 from ..model.llm import GgmlLLMSpecV1
 from ..model.llm.llm_family import DEFAULT_CONTEXT_LENGTH, HubImportLLMFamilyV1
+from ..model.llm.utils import MODEL_HUB, ModelHubUtil
 from .metrics import record_metrics
 from .resource import GPUStatus, ResourceStatus
 from .utils import (
@@ -88,8 +84,7 @@ class ReplicaInfo:
 class SupervisorActor(xo.StatelessActor):
     def __init__(self):
         super().__init__()
-        self.__hf_api: Optional[HfApi] = None
-        self.__ms_api: Optional[HubApi] = None
+        self._model_hub_util = ModelHubUtil()
         self._worker_address_to_worker: Dict[str, xo.ActorRefType["WorkerActor"]] = {}
         self._worker_status: Dict[str, WorkerStatus] = {}
         self._replica_model_uid_to_worker: Dict[
@@ -986,16 +981,6 @@ class SupervisorActor(xo.StatelessActor):
     def record_metrics(name, op, kwargs):
         record_metrics(name, op, kwargs)
 
-    def __get_hf_api(self):
-        if self.__hf_api is None:
-            self.__hf_api = HfApi()
-        return self.__hf_api
-
-    def __get_ms_api(self):
-        if self.__ms_api is None:
-            self.__ms_api = HubApi()
-        return self.__ms_api
-
     @log_async(logger=logger)
     async def get_llm_spec(
         self,
@@ -1003,117 +988,58 @@ class SupervisorActor(xo.StatelessActor):
         model_format: Literal["pytorch", "ggmlv3", "ggufv2", "gptq", "awq"],
         model_hub: str,
     ) -> HubImportLLMFamilyV1:
-        hf_api = self.__get_hf_api()
+        if model_hub not in ["huggingface", "modelscope"]:
+            raise ValueError(f"Unsupported model hub: {model_hub}")
+
+        model_hub = cast(MODEL_HUB, model_hub)
+
         context_length = DEFAULT_CONTEXT_LENGTH
 
-        if model_hub == "huggingface":
-            repo_exists = await asyncio.wrap_future(
-                hf_api.run_as_future(hf_api.repo_exists, model_id)
+        repo_exists = await self._model_hub_util.a_repo_exists(
+            model_id,
+            model_hub,
+        )
+        if not repo_exists:
+            raise ValueError(f"Model {model_id} does not exist")
+
+        if config_path := await self._model_hub_util.a_get_config_path(
+            model_id, model_hub
+        ):
+            with open(config_path) as f:
+                config = json.load(f)
+                if "max_position_embeddings" in config:
+                    context_length = config["max_position_embeddings"]
+
+        if model_format in ["pytorch", "gptq", "awq"]:
+            raise NotImplementedError("pytorch, gptq and awq not implemented yet")
+        elif model_format in ["ggmlv3", "ggufv2"]:
+            filenames = await self._model_hub_util.a_list_repo_files(
+                model_id, model_hub
             )
-            if not repo_exists:
-                raise ValueError(f"Model {model_id} does not exist")
 
-            if await asyncio.wrap_future(
-                hf_api.run_as_future(hf_api.file_exists, model_id, "config.json")
-            ):
-                config_path = await asyncio.wrap_future(
-                    hf_api.run_as_future(
-                        hf_api.hf_hub_download, model_id, "config.json"
-                    )
-                )
-                with open(config_path) as f:
-                    config = json.load(f)
-                    if "max_position_embeddings" in config:
-                        context_length = config["max_position_embeddings"]
+            (
+                model_file_name_template,
+                model_file_name_split_template,
+                quantizations,
+                quantization_parts,
+            ) = get_llama_cpp_quantization_info(
+                filenames, typing.cast(Literal["ggmlv3", "ggufv2"], model_format)
+            )
 
-            if model_format in ["pytorch", "gptq", "awq"]:
-                raise NotImplementedError("pytorch, gptq and awq not implemented yet")
-            elif model_format in ["ggmlv3", "ggufv2"]:
-                filenames = await asyncio.wrap_future(
-                    hf_api.run_as_future(hf_api.list_repo_files, model_id)
-                )
+            llm_spec = GgmlLLMSpecV1(
+                model_id=model_id,
+                model_format=model_format,
+                model_hub=model_hub,
+                quantizations=quantizations,
+                quantization_parts=quantization_parts,
+                model_size_in_billions=get_model_size_from_model_id(model_id),
+                model_file_name_template=model_file_name_template,
+                model_file_name_split_template=model_file_name_split_template,
+            )
 
-                (
-                    model_file_name_template,
-                    model_file_name_split_template,
-                    quantizations,
-                    quantization_parts,
-                ) = get_llama_cpp_quantization_info(
-                    filenames, typing.cast(Literal["ggmlv3", "ggufv2"], model_format)
-                )
+            return HubImportLLMFamilyV1(
+                version=1, context_length=context_length, model_specs=[llm_spec]
+            )
 
-                llm_spec = GgmlLLMSpecV1(
-                    model_id=model_id,
-                    model_format=model_format,
-                    model_hub=model_hub,
-                    quantizations=quantizations,
-                    quantization_parts=quantization_parts,
-                    model_size_in_billions=get_model_size_from_model_id(model_id),
-                    model_file_name_template=model_file_name_template,
-                    model_file_name_split_template=model_file_name_split_template,
-                )
-
-                return HubImportLLMFamilyV1(
-                    version=1, context_length=context_length, model_specs=[llm_spec]
-                )
-
-            else:
-                raise ValueError(f"Unsupported model format: {model_format}")
-
-        elif model_hub == "modelscope":
-            ms_api = self.__get_ms_api()
-            try:
-                await asyncio.wrap_future(
-                    hf_api.run_as_future(ms_api.get_model, model_id)
-                )
-            except NotExistError:
-                raise ValueError(f"Model {model_id} does not exist")
-            except HTTPError:
-                raise ValueError(f"Model {model_id} does not exist")
-
-            try:
-                config_path = await asyncio.wrap_future(
-                    hf_api.run_as_future(model_file_download, model_id, "config.json")
-                )
-                if config_path is not None:
-                    with open(config_path) as f:
-                        config = json.load(f)
-                        if "max_position_embeddings" in config:
-                            context_length = config["max_position_embeddings"]
-            except NotExistError:
-                logger.warning(f"Model {model_id} does not have config file")
-
-            if model_format in ["pytorch", "gptq", "awq"]:
-                raise NotImplementedError("pytorch, gptq and awq not implemented yet")
-            elif model_format in ["ggmlv3", "ggufv2"]:
-                file_infos = await asyncio.wrap_future(
-                    hf_api.run_as_future(ms_api.get_model_files, model_id)
-                )
-                filenames = [info["Path"] for info in file_infos]
-                (
-                    model_file_name_template,
-                    model_file_name_split_template,
-                    quantizations,
-                    quantization_parts,
-                ) = get_llama_cpp_quantization_info(
-                    filenames, typing.cast(Literal["ggmlv3", "ggufv2"], model_format)
-                )
-
-                llm_spec = GgmlLLMSpecV1(
-                    model_id=model_id,
-                    model_format=model_format,
-                    model_hub=model_hub,
-                    quantizations=quantizations,
-                    quantization_parts=quantization_parts,
-                    model_size_in_billions=get_model_size_from_model_id(model_id),
-                    model_file_name_template=model_file_name_template,
-                    model_file_name_split_template=model_file_name_split_template,
-                )
-
-                return HubImportLLMFamilyV1(
-                    version=1, context_length=context_length, model_specs=[llm_spec]
-                )
-            else:
-                raise ValueError(f"Unsupported model format: {model_format}")
         else:
-            raise ValueError(f"Unsupported model hub: {model_hub}")
+            raise ValueError(f"Unsupported model format: {model_format}")

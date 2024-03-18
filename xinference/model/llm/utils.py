@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import asyncio.futures
 import functools
 import json
 import logging
@@ -700,9 +699,7 @@ class ModelHubUtil(object):
         else:
             raise ValueError("Unsupported model hub")
 
-    async def a_repo_exists(
-        self, model_id: str, hub: MODEL_HUB
-    ) -> asyncio.Future[bool]:
+    async def a_repo_exists(self, model_id: str, hub: MODEL_HUB) -> bool:
         return await self.__async_runner.async_run(self.repo_exists, model_id, hub)
 
     def get_config_path(self, model_id: str, hub: MODEL_HUB) -> Optional[str]:
@@ -719,9 +716,7 @@ class ModelHubUtil(object):
                 logging.error(e)
                 return None
 
-    async def a_get_config_path(
-        self, model_id: str, hub: MODEL_HUB
-    ) -> asyncio.Future[Optional[str]]:
+    async def a_get_config_path(self, model_id: str, hub: MODEL_HUB) -> Optional[str]:
         return await self.__async_runner.async_run(self.get_config_path, model_id, hub)
 
     def list_repo_files(self, model_id: str, hub: MODEL_HUB) -> List[str]:
@@ -746,7 +741,5 @@ class ModelHubUtil(object):
         else:
             raise ValueError("Unsupported model hub")
 
-    async def a_list_repo_files(
-        self, model_id: str, hub: MODEL_HUB
-    ) -> asyncio.Future[List[str]]:
+    async def a_list_repo_files(self, model_id: str, hub: MODEL_HUB) -> List[str]:
         return await self.__async_runner.async_run(self.list_repo_files, model_id, hub)
