@@ -214,7 +214,7 @@ def get_model_size_from_model_id(model_id: str) -> Union[str, float, int]:
             return size
 
         if size.lower().endswith("m"):
-            return round(int(size[:-1]) / 1000, 2)
+            return str(round(int(size[:-1]) / 1000, 2)).replace(".", "_")
 
         size = size[:-1]
         if "_" not in size:
@@ -222,7 +222,7 @@ def get_model_size_from_model_id(model_id: str) -> Union[str, float, int]:
                 size = size[0] + "." + str(size[1:])
 
             if "." in size:
-                return float(size)
+                return size.replace(".", "_")
             else:
                 return int(size)
 

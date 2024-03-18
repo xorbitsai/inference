@@ -39,7 +39,7 @@ def test_replica_model_uid():
 def test_get_model_size_from_model_id():
     model_id = "froggeric/WestLake-10.7B-v2-GGUF"
     model_size = get_model_size_from_model_id(model_id)
-    assert model_size == 10.7
+    assert model_size == "10_7"
 
     model_id = "m-a-p/OpenCodeInterpreter-DS-33B"
     model_size = get_model_size_from_model_id(model_id)
@@ -47,7 +47,7 @@ def test_get_model_size_from_model_id():
 
     model_id = "MBZUAI/MobiLlama-05B"
     model_size = get_model_size_from_model_id(model_id)
-    assert model_size == 0.5
+    assert model_size == "0_5"
 
     model_id = "ibivibiv/alpaca-dragon-72b-v1"
     model_size = get_model_size_from_model_id(model_id)
@@ -63,7 +63,7 @@ def test_get_model_size_from_model_id():
 
     model_id = "ahxt/LiteLlama-460M-1T"
     model_size = get_model_size_from_model_id(model_id)
-    assert model_size == 0.46
+    assert model_size == "0_46"
 
     model_id = "Dracones/Midnight-Miqu-70B-v1.0_exl2_2.24bpw"
     model_size = get_model_size_from_model_id(model_id)
