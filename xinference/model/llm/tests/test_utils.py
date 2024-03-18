@@ -11,10 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import os
+
+import pytest
 
 from ....types import ChatCompletionMessage
 from ..llm_family import PromptStyleV1
-from ..utils import ChatModelMixin
+from ..utils import ChatModelMixin, ModelHubUtil
 
 
 def test_prompt_style_add_colon_single():
@@ -421,3 +424,157 @@ def test_is_valid_model_name():
     assert not is_valid_model_name("foo/bar")
     assert not is_valid_model_name("   ")
     assert not is_valid_model_name("")
+
+
+@pytest.fixture
+def model_hub_util():
+    return ModelHubUtil()
+
+
+def test__hf_api(model_hub_util):
+    assert model_hub_util._hf_api is not None
+
+
+def test__ms_api(model_hub_util):
+    assert model_hub_util._ms_api is not None
+
+
+def test_repo_exists(model_hub_util):
+    assert model_hub_util.repo_exists(
+        "TheBloke/KafkaLM-70B-German-V0.1-GGUF", "huggingface"
+    )
+    assert not model_hub_util.repo_exists("Nobody/No_This_Repo", "huggingface")
+    try:
+        model_hub_util.repo_exists("Nobody/No_This_Repo", "unknown_hub")
+        assert False
+    except ValueError:
+        assert True
+
+    assert model_hub_util.repo_exists("qwen/Qwen1.5-72B-Chat-GGUF", "modelscope")
+    assert not model_hub_util.repo_exists("Nobody/No_This_Repo", "modelscope")
+    try:
+        model_hub_util.repo_exists("Nobody/No_This_Repo", "unknown_hub")
+        assert False
+    except ValueError:
+        assert True
+
+
+@pytest.mark.asyncio
+async def test_a_repo_exists(model_hub_util):
+    assert await model_hub_util.a_repo_exists(
+        "TheBloke/KafkaLM-70B-German-V0.1-GGUF", "huggingface"
+    )
+    assert not await model_hub_util.a_repo_exists("Nobody/No_This_Repo", "huggingface")
+    try:
+        model_hub_util.repo_exists("Nobody/No_This_Repo", "unknown_hub")
+        assert False
+    except ValueError:
+        assert True
+
+    assert await model_hub_util.a_repo_exists(
+        "qwen/Qwen1.5-72B-Chat-GGUF", "modelscope"
+    )
+    assert not await model_hub_util.a_repo_exists("Nobody/No_This_Repo", "modelscope")
+    try:
+        await model_hub_util.a_repo_exists("Nobody/No_This_Repo", "unknown_hub")
+        assert False
+    except ValueError:
+        assert True
+
+
+def test_get_config_path(model_hub_util):
+    p = model_hub_util.get_config_path(
+        "TheBloke/KafkaLM-70B-German-V0.1-GGUF", "huggingface"
+    )
+    assert p is not None
+    assert os.path.isfile(p)
+
+    assert model_hub_util.get_config_path("Nobody/No_This_Repo", "huggingface") is None
+
+    p = model_hub_util.get_config_path("qwen/Qwen1.5-72B-Chat-GGUF", "modelscope")
+    assert p is None
+
+    p = model_hub_util.get_config_path("deepseek-ai/deepseek-vl-7b-chat", "modelscope")
+    assert p is not None
+    assert os.path.isfile(p)
+
+    assert model_hub_util.get_config_path("Nobody/No_This_Repo", "modelscope") is None
+
+
+@pytest.mark.asyncio
+async def test_a_get_config_path_async(model_hub_util):
+    p = await model_hub_util.a_get_config_path(
+        "TheBloke/KafkaLM-70B-German-V0.1-GGUF", "huggingface"
+    )
+    assert p is not None
+    assert os.path.isfile(p)
+
+    assert (
+        await model_hub_util.a_get_config_path("Nobody/No_This_Repo", "huggingface")
+        is None
+    )
+
+    p = await model_hub_util.a_get_config_path(
+        "qwen/Qwen1.5-72B-Chat-GGUF", "modelscope"
+    )
+    assert p is None
+
+    p = await model_hub_util.a_get_config_path(
+        "deepseek-ai/deepseek-vl-7b-chat", "modelscope"
+    )
+    assert p is not None
+    assert os.path.isfile(p)
+
+    assert (
+        await model_hub_util.a_get_config_path("Nobody/No_This_Repo", "modelscope")
+        is None
+    )
+
+
+def test_list_repo_files(model_hub_util):
+    files = model_hub_util.list_repo_files(
+        "TheBloke/KafkaLM-70B-German-V0.1-GGUF", "huggingface"
+    )
+    assert len(files) == 20
+
+    files = model_hub_util.list_repo_files(
+        "deepseek-ai/deepseek-vl-7b-chat", "modelscope"
+    )
+    assert len(files) == 12  # the `.gitattributes` file is not included
+
+    try:
+        model_hub_util.list_repo_files("Nobody/No_This_Repo", "huggingface")
+        assert False
+    except ValueError as e:
+        assert str(e) == "Repository Nobody/No_This_Repo not found."
+
+    try:
+        model_hub_util.list_repo_files("Nobody/No_This_Repo", "modelscope")
+        assert False
+    except ValueError as e:
+        assert str(e) == "Repository Nobody/No_This_Repo not found."
+
+
+@pytest.mark.asyncio
+async def test_a_list_repo_files(model_hub_util):
+    files = await model_hub_util.a_list_repo_files(
+        "TheBloke/KafkaLM-70B-German-V0.1-GGUF", "huggingface"
+    )
+    assert len(files) == 20
+
+    files = await model_hub_util.a_list_repo_files(
+        "deepseek-ai/deepseek-vl-7b-chat", "modelscope"
+    )
+    assert len(files) == 12  # the `.gitattributes` file is not included
+
+    try:
+        await model_hub_util.a_list_repo_files("Nobody/No_This_Repo", "huggingface")
+        assert False
+    except ValueError as e:
+        assert str(e) == "Repository Nobody/No_This_Repo not found."
+
+    try:
+        await model_hub_util.a_list_repo_files("Nobody/No_This_Repo", "modelscope")
+        assert False
+    except ValueError as e:
+        assert str(e) == "Repository Nobody/No_This_Repo not found."
