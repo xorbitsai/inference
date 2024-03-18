@@ -98,4 +98,4 @@ def main(
             auth_config_file=auth_config_file,
         )
     finally:
-        local_cluster.terminate()
+        local_cluster.kill()
