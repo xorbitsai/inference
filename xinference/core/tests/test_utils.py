@@ -91,11 +91,11 @@ def test_get_model_size_from_model_id():
 
     model_id = "mlx-community/c4ai-command-r-v01-4bit"
     model_size = get_model_size_from_model_id(model_id)
-    assert model_size == "UNKNOWN"
+    assert model_size == 0
 
     model_id = "lemonilia/ShoriRP-v0.75d"
     model_size = get_model_size_from_model_id(model_id)
-    assert model_size == "UNKNOWN"
+    assert model_size == 0
 
     model_id = "abc"
     try:

@@ -211,7 +211,7 @@ def get_model_size_from_model_id(model_id: str) -> Union[str, float, int]:
 
     def resize_to_billion(size: str) -> Union[str, int, float]:
         if size == "UNKNOWN":
-            return size
+            return 0
 
         if size.lower().endswith("m"):
             return str(round(int(size[:-1]) / 1000, 2)).replace(".", "_")
