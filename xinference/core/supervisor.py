@@ -33,7 +33,11 @@ from ..constants import (
 from ..core import ModelActor
 from ..core.status_guard import InstanceInfo, LaunchStatus
 from ..model.llm import GgmlLLMSpecV1
-from ..model.llm.llm_family import DEFAULT_CONTEXT_LENGTH, HubImportLLMFamilyV1
+from ..model.llm.llm_family import (
+    DEFAULT_CONTEXT_LENGTH,
+    HubImportLLMFamilyV1,
+    PytorchLLMSpecV1,
+)
 from ..model.llm.utils import MODEL_HUB, ModelHubUtil
 from .metrics import record_metrics
 from .resource import GPUStatus, ResourceStatus
@@ -1010,9 +1014,7 @@ class SupervisorActor(xo.StatelessActor):
                 if "max_position_embeddings" in config:
                     context_length = config["max_position_embeddings"]
 
-        if model_format in ["pytorch", "gptq", "awq"]:
-            raise NotImplementedError("pytorch, gptq and awq not implemented yet")
-        elif model_format in ["ggmlv3", "ggufv2"]:
+        if model_format in ["ggmlv3", "ggufv2"]:
             filenames = await self._model_hub_util.a_list_repo_files(
                 model_id, model_hub
             )
@@ -1040,6 +1042,20 @@ class SupervisorActor(xo.StatelessActor):
             return HubImportLLMFamilyV1(
                 version=1, context_length=context_length, model_specs=[llm_spec]
             )
-
+        elif model_format in ["pytorch", "awq"]:
+            llm_spec = PytorchLLMSpecV1(
+                model_id=model_id,
+                model_format=model_format,
+                model_hub=model_hub,
+                model_size_in_billions=get_model_size_from_model_id(model_id),
+                quantizations=(
+                    ["4-bit, 8-bit, none"] if model_format == "pytorch" else ["Int4"]
+                ),
+            )
+            return HubImportLLMFamilyV1(
+                version=1, context_length=context_length, model_specs=[llm_spec]
+            )
+        elif model_format == "gptq":
+            raise NotImplementedError("gptq is not implemented yet")
         else:
             raise ValueError(f"Unsupported model format: {model_format}")

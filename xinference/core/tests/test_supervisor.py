@@ -167,3 +167,59 @@ async def test_get_llm_spec_ms():
         assert False
     except ValueError as e:
         assert str(e) == "Model Nobody/No_This_Repo does not exist"
+
+
+@pytest.mark.asyncio
+async def test_get_llm_spec_2():
+    supervisor = SupervisorActor()
+    llm_family = await supervisor.get_llm_spec(
+        "Qwen/Qwen1.5-1.8B", "pytorch", "huggingface"
+    )
+    assert llm_family is not None
+    assert len(llm_family.model_specs) == 1
+    pytorch_qs = {"4-bit, 8-bit, none"}
+    assert (
+        pytorch_qs.intersection(llm_family.model_specs[0].quantizations) == pytorch_qs
+    )
+
+    assert llm_family.model_specs[0].model_size_in_billions == "1_8"
+    assert llm_family.context_length == 32768
+
+    llm_family = await supervisor.get_llm_spec(
+        "qwen/Qwen-14B-Chat", "pytorch", "modelscope"
+    )
+    assert llm_family is not None
+    assert len(llm_family.model_specs) == 1
+    pytorch_qs = {"4-bit, 8-bit, none"}
+    assert (
+        pytorch_qs.intersection(llm_family.model_specs[0].quantizations) == pytorch_qs
+    )
+
+    assert llm_family.model_specs[0].model_size_in_billions == 14
+    assert llm_family.context_length == 8192
+
+    llm_family = await supervisor.get_llm_spec(
+        "qwen/Qwen1.5-7B-Chat-AWQ", "awq", "modelscope"
+    )
+    assert llm_family is not None
+    assert len(llm_family.model_specs) == 1
+    pytorch_qs = {"Int4"}
+    assert (
+        pytorch_qs.intersection(llm_family.model_specs[0].quantizations) == pytorch_qs
+    )
+
+    assert llm_family.model_specs[0].model_size_in_billions == 7
+    assert llm_family.context_length == 32768
+
+    llm_family = await supervisor.get_llm_spec(
+        "casperhansen/mixtral-instruct-awq", "awq", "huggingface"
+    )
+    assert llm_family is not None
+    assert len(llm_family.model_specs) == 1
+    pytorch_qs = {"Int4"}
+    assert (
+        pytorch_qs.intersection(llm_family.model_specs[0].quantizations) == pytorch_qs
+    )
+
+    assert llm_family.model_specs[0].model_size_in_billions == 0
+    assert llm_family.context_length == 32768
