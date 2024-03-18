@@ -4,7 +4,7 @@
 glaive-coder
 ========================================
 
-- **Context Length:** 100000
+- **Context Length:** 16384
 - **Model Name:** glaive-coder
 - **Languages:** en
 - **Abilities:** chat

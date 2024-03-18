@@ -44,7 +44,22 @@ chosen quantization method from the options listed above::
    xinference launch --model-name Yi --size-in-billions 6 --model-format pytorch --quantization ${quantization}
 
 
-Model Spec 3 (pytorch, 34 Billion)
+Model Spec 3 (pytorch, 9 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** pytorch
+- **Model Size (in billions):** 9
+- **Quantizations:** 4-bit, 8-bit, none
+- **Model ID:** 01-ai/Yi-9B
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/01-ai/Yi-9B>`__, `ModelScope <https://modelscope.cn/models/01ai/Yi-9B>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-name Yi --size-in-billions 9 --model-format pytorch --quantization ${quantization}
+
+
+Model Spec 4 (pytorch, 34 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** pytorch
