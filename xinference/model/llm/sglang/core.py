@@ -121,7 +121,18 @@ class SGLANGModel(LLM):
         model_config.setdefault("tokenizer_mode", "auto")
         model_config.setdefault("trust_remote_code", True)
         model_config.setdefault("tp_size", cuda_count)
-        model_config.setdefault("mem_fraction_static", 0.9)
+        # See https://github.com/sgl-project/sglang/blob/main/python/sglang/srt/server_args.py#L37
+        mem_fraction_static = model_config.pop("mem_fraction_static", None)
+        if mem_fraction_static is None:
+            tp_size = model_config.get("tp_size", cuda_count)
+            if tp_size >= 8:
+                model_config["mem_fraction_static"] = 0.80
+            elif tp_size >= 4:
+                model_config["mem_fraction_static"] = 0.82
+            elif tp_size >= 2:
+                model_config["mem_fraction_static"] = 0.85
+            else:
+                model_config["mem_fraction_static"] = 0.90
         model_config.setdefault("log_level", "info")
         model_config.setdefault("attention_reduce_in_fp32", False)
 
