@@ -359,8 +359,9 @@ def get_llama_cpp_quantization_info(
     for filename, quantization, index in matched:
         prefixes.add(filename[:index])
         suffixes.add(filename[index + len(quantization) :])
-        if quantization not in quantizations:
-            quantizations.append(quantization)
+        q = filename[index : index + len(quantization)]
+        if q not in quantizations:
+            quantizations.append(q)
 
     if len(prefixes) == 1 and len(suffixes) == 1:
         model_file_name_template = prefixes.pop() + "{quantization}" + suffixes.pop()
