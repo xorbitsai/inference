@@ -1260,18 +1260,18 @@ class RESTfulAPI:
             )
 
         system_messages: List["ChatCompletionMessage"] = []
-        system_messages_tmp = []
+        system_messages_contents = []
         non_system_messages = []
         for msg in messages:
             assert (
                 msg.get("content") != SPECIAL_TOOL_PROMPT
             ), f"Invalid message content {SPECIAL_TOOL_PROMPT}"
             if msg["role"] == "system":
-                system_messages_tmp.append(msg["content"])
+                system_messages_contents.append(msg["content"])
             else:
                 non_system_messages.append(msg)
-        system_messages.insert(
-            0, {"role": "system", "content": ".".join(system_messages_tmp)}
+        system_messages.append(
+            {"role": "system", "content": ". ".join(system_messages_contents)}
         )
 
         assert non_system_messages
