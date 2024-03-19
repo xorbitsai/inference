@@ -59,6 +59,7 @@ from ..core.utils import json_dumps
 from ..types import (
     SPECIAL_TOOL_PROMPT,
     ChatCompletion,
+    ChatCompletionMessage,
     Completion,
     CreateChatCompletion,
     CreateCompletion,
@@ -1258,25 +1259,21 @@ class RESTfulAPI:
                 status_code=400, detail="Invalid input. Please specify the prompt."
             )
 
-        system_messages = []
+        system_messages: List["ChatCompletionMessage"] = []
+        system_messages_tmp = []
         non_system_messages = []
         for msg in messages:
             assert (
                 msg.get("content") != SPECIAL_TOOL_PROMPT
             ), f"Invalid message content {SPECIAL_TOOL_PROMPT}"
             if msg["role"] == "system":
-                system_messages.append(msg)
+                system_messages_tmp.append(msg["content"])
             else:
                 non_system_messages.append(msg)
+        system_messages.insert(
+            0, {"role": "system", "content": ".".join(system_messages_tmp)}
+        )
 
-        if len(system_messages) > 1:
-            raise HTTPException(
-                status_code=400, detail="Multiple system messages are not supported."
-            )
-        if len(system_messages) == 1 and messages[0]["role"] != "system":
-            raise HTTPException(
-                status_code=400, detail="System message should be the first one."
-            )
         assert non_system_messages
 
         has_tool_message = messages[-1].get("role") == "tool"
