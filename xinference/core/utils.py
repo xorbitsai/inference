@@ -218,7 +218,7 @@ def get_model_size_from_model_id(model_id: str) -> Union[str, float, int]:
 
         size = size[:-1]
         if "_" not in size:
-            if size[0] == "0":
+            if size[0] == "0" and "." not in size:
                 size = size[0] + "." + str(size[1:])
 
             if "." in size:

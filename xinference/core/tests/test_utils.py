@@ -90,6 +90,10 @@ def test_get_model_size_from_model_id():
     model_size = get_model_size_from_model_id(model_id)
     assert model_size == 33
 
+    model_id = "qwen/Qwen1.5-0.5B-Chat"
+    model_size = get_model_size_from_model_id(model_id)
+    assert model_size == "0_5"
+
     model_id = "mlx-community/c4ai-command-r-v01-4bit"
     model_size = get_model_size_from_model_id(model_id)
     assert model_size == 0
