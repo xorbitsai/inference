@@ -79,13 +79,10 @@ async def test_get_llm_spec_hf():
         "Q8_0",
     }.intersection(set(qs)) == set(qs)
 
-    try:
-        llm_family = await supervisor.get_llm_family_from_hub(
+    with pytest.raises(ValueError, match="Model Nobody/No_This_Repo does not exist"):
+        await supervisor.get_llm_family_from_hub(
             "Nobody/No_This_Repo", "ggufv2", "huggingface"
         )
-        assert False
-    except ValueError as e:
-        assert str(e) == "Model Nobody/No_This_Repo does not exist"
 
 
 @pytest.mark.asyncio
@@ -160,13 +157,10 @@ async def test_get_llm_spec_ms():
         "q8_0",
     }.intersection(set(qs)) == set(qs)
 
-    try:
-        llm_family = await supervisor.get_llm_family_from_hub(
+    with pytest.raises(ValueError, match="Model Nobody/No_This_Repo does not exist"):
+        await supervisor.get_llm_family_from_hub(
             "Nobody/No_This_Repo", "ggufv2", "modelscope"
         )
-        assert False
-    except ValueError as e:
-        assert str(e) == "Model Nobody/No_This_Repo does not exist"
 
 
 @pytest.mark.asyncio

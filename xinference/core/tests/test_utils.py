@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import pytest
 
 from ..utils import (
     SUPPORTED_QUANTIZATIONS,
@@ -98,11 +99,8 @@ def test_get_model_size_from_model_id():
     assert model_size == 0
 
     model_id = "abc"
-    try:
+    with pytest.raises(ValueError, match=r"Cannot parse model_id: .+"):
         get_model_size_from_model_id(model_id)
-        assert False
-    except ValueError:
-        pass
 
 
 def test_get_match_quantization_filenames():

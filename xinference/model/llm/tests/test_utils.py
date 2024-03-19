@@ -444,19 +444,13 @@ def test_repo_exists(model_hub_util):
         "TheBloke/KafkaLM-70B-German-V0.1-GGUF", "huggingface"
     )
     assert not model_hub_util.repo_exists("Nobody/No_This_Repo", "huggingface")
-    try:
+    with pytest.raises(ValueError, match="Unsupported model hub"):
         model_hub_util.repo_exists("Nobody/No_This_Repo", "unknown_hub")
-        assert False
-    except ValueError:
-        assert True
 
     assert model_hub_util.repo_exists("qwen/Qwen1.5-72B-Chat-GGUF", "modelscope")
     assert not model_hub_util.repo_exists("Nobody/No_This_Repo", "modelscope")
-    try:
+    with pytest.raises(ValueError, match="Unsupported model hub"):
         model_hub_util.repo_exists("Nobody/No_This_Repo", "unknown_hub")
-        assert False
-    except ValueError:
-        assert True
 
 
 @pytest.mark.asyncio
@@ -465,21 +459,15 @@ async def test_a_repo_exists(model_hub_util):
         "TheBloke/KafkaLM-70B-German-V0.1-GGUF", "huggingface"
     )
     assert not await model_hub_util.a_repo_exists("Nobody/No_This_Repo", "huggingface")
-    try:
+    with pytest.raises(ValueError, match="Unsupported model hub"):
         model_hub_util.repo_exists("Nobody/No_This_Repo", "unknown_hub")
-        assert False
-    except ValueError:
-        assert True
 
     assert await model_hub_util.a_repo_exists(
         "qwen/Qwen1.5-72B-Chat-GGUF", "modelscope"
     )
     assert not await model_hub_util.a_repo_exists("Nobody/No_This_Repo", "modelscope")
-    try:
+    with pytest.raises(ValueError, match="Unsupported model hub"):
         await model_hub_util.a_repo_exists("Nobody/No_This_Repo", "unknown_hub")
-        assert False
-    except ValueError:
-        assert True
 
 
 def test_get_config_path(model_hub_util):
@@ -542,17 +530,11 @@ def test_list_repo_files(model_hub_util):
     )
     assert len(files) == 12  # the `.gitattributes` file is not included
 
-    try:
+    with pytest.raises(ValueError, match="Repository Nobody/No_This_Repo not found."):
         model_hub_util.list_repo_files("Nobody/No_This_Repo", "huggingface")
-        assert False
-    except ValueError as e:
-        assert str(e) == "Repository Nobody/No_This_Repo not found."
 
-    try:
+    with pytest.raises(ValueError, match="Repository Nobody/No_This_Repo not found."):
         model_hub_util.list_repo_files("Nobody/No_This_Repo", "modelscope")
-        assert False
-    except ValueError as e:
-        assert str(e) == "Repository Nobody/No_This_Repo not found."
 
 
 @pytest.mark.asyncio
@@ -567,14 +549,8 @@ async def test_a_list_repo_files(model_hub_util):
     )
     assert len(files) == 12  # the `.gitattributes` file is not included
 
-    try:
+    with pytest.raises(ValueError, match="Repository Nobody/No_This_Repo not found."):
         await model_hub_util.a_list_repo_files("Nobody/No_This_Repo", "huggingface")
-        assert False
-    except ValueError as e:
-        assert str(e) == "Repository Nobody/No_This_Repo not found."
 
-    try:
+    with pytest.raises(ValueError, match="Repository Nobody/No_This_Repo not found."):
         await model_hub_util.a_list_repo_files("Nobody/No_This_Repo", "modelscope")
-        assert False
-    except ValueError as e:
-        assert str(e) == "Repository Nobody/No_This_Repo not found."
