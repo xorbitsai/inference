@@ -37,6 +37,7 @@ designed to be asynchronous and non-blocking and function as resource pools.
 
 Mangaging Model Serving with Xinference
 ---------------------------------------
+
 Using Xinference
 ^^^^^^^^^^^^^^^^
 Xinference can be used either on users’ private on-premise clouds or on public clouds:
@@ -61,16 +62,9 @@ Xinference can be used either on users’ private on-premise clouds or on public
 
 Lifecycle of Model Serving
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
-.. image:: ../_static/lifecycle.jpg
-   :alt: lifecycle
-
-This picture shows the lifecycle of Xinference modeling serving. Xinference's lifecycle of model serving is centered
-around models, primarily including managing models (using built-in open-source models or registering custom models),
-launching a model, listing running models, using a model, monitoring, and terminating running models. The following
-picture is the Web UI with each step in the lifecycle denoted.
-
-.. image:: ../_static/ui.jpg
-   :alt: ui
+Xinference's lifecycle of model serving is centered around models, primarily including managing models (using built-in
+open-source models or registering custom models), launching a model, listing running models, using a model, monitoring,
+and terminating running models.
 
 - **Supported Models**: At present, our platform supports a variety of models, including chat, generate, embedding,
   rerank, text-to-image, and image-to-image. Xinference offers built-in models and also allows users to register
@@ -123,13 +117,15 @@ followed by an explanation of how Xinference is developed based on this actor fr
 
 System Overview
 ^^^^^^^^^^^^^^^
-.. image:: ../_static/actor.jpg
-   :alt: actor
+.. raw:: html
 
-This picture depicts Xinference with two workers and one supervisor operating on three different servers. Both supervisor
-and worker are actor instances. Initially, an actor pool, serving as a resource pool, needs to be created on each server;
-and each actor can utilize a CPU core or a GPU device. Each server has its own address (IP address or hostname), so actors
-on different computing nodes can communicate with each other through these addresses.
+    <img class="align-center" alt="actor" src="../_static/actor.svg" style="background-color: transparent", width="77%">
+
+====
+
+Both supervisor and worker are actor instances. Initially, an actor pool, serving as a resource pool, needs to be created
+on each server; and each actor can utilize a CPU core or a GPU device. Each server has its own address (IP address or
+hostname), so actors on different computing nodes can communicate with each other through these addresses.
 
 WorkerActor
 ^^^^^^^^^^^
@@ -186,14 +182,10 @@ Concurrency and Scheduling
   as an asynchronous task: we push the task into the pool when the request arrives and pull the task when computing
   resources are available.
 
-- .. image:: ../_static/schedule.jpg
-   :alt: schedule
-  
-  **Scheduling**: Our actor design is adept at managing concurrent requests and multiple model instances. As depicted
-  in this picture, requests are dispatched to our per-model scheduler. Xinference retrieves the available actor from
-  the actor pools and invokes the corresponding actor function to generate content. This per-model scheduler enables
-  us to support one model with multiple replicas or multiple models. This picture demonstrates one model with 2 replicas,
-  each of which is hosted on a separate GPU device.
+- **Scheduling**: Our actor design is adept at managing concurrent requests and multiple model instances. Requests are
+  dispatched to our per-model scheduler. Xinference retrieves the available actor from the actor pools and invokes the
+  corresponding actor function to generate content. This per-model scheduler enables us to support one model with 
+  multiple replicas or multiple models.
 
 Model Management
 ^^^^^^^^^^^^^^^^
