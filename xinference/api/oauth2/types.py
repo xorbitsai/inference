@@ -23,6 +23,7 @@ class LoginUserForm(BaseModel):
 
 class User(LoginUserForm):
     permissions: List[str]
+    api_keys: List[str]
 
 
 class AuthConfig(BaseModel):

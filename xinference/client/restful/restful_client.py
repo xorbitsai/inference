@@ -651,9 +651,9 @@ class RESTfulAudioModelHandle(RESTfulModelHandle):
 
 
 class Client:
-    def __init__(self, base_url):
+    def __init__(self, base_url, api_key: Optional[str]):
         self.base_url = base_url
-        self._headers = {}
+        self._headers: Dict[str, str] = {}
         self._cluster_authed = False
         self._check_cluster_authenticated()
 

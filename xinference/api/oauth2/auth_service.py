@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import re
 from datetime import timedelta
 from typing import List, Optional
 
@@ -40,13 +41,33 @@ class AuthService:
     def config(self):
         return self._config
 
+    @staticmethod
+    def is_legal_apikey(key: str):
+        pattern = re.compile("^[sk]{2}-[a-zA-Z0-9]{48}$")
+        if re.match(pattern, key):
+            return True
+        else:
+            return False
+
     def init_auth_config(self):
         if self._auth_config_file:
             config: AuthStartupConfig = parse_file_as(
                 path=self._auth_config_file, type_=AuthStartupConfig
             )
+            total_keys = set()
             for user in config.user_config:
                 user.password = get_password_hash(user.password)
+                if len(set(user.api_keys)) != len(user.api_keys):
+                    raise ValueError("User has duplicate Api-Keys")
+                for api_key in user.api_keys:
+                    if not self.is_legal_apikey(api_key):
+                        raise ValueError(
+                            "Api-Key should be a string started with 'sk-' with a total length of 51"
+                        )
+                    if api_key in total_keys:
+                        raise ValueError("Api-Keys of different users have conflict")
+                    else:
+                        total_keys.add(api_key)
             return config
 
     def __call__(
