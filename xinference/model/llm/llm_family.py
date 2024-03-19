@@ -542,7 +542,10 @@ def _generate_model_file_names(
     )
     need_merge = False
 
-    if llm_spec.quantization_parts is None:
+    if (
+        llm_spec.quantization_parts is None
+        or quantization not in llm_spec.quantization_parts
+    ):
         file_names.append(final_file_name)
     elif quantization is not None and quantization in llm_spec.quantization_parts:
         parts = llm_spec.quantization_parts[quantization]

@@ -39,10 +39,13 @@ const RegisterLanguageModel = () => {
   const { setErrorMsg } = useContext(ApiContext)
   const [successMsg, setSuccessMsg] = useState('')
   const [modelFormat, setModelFormat] = useState('pytorch')
+  const [modelFileNameTemplate, setModelFileNameTemplate] = useState('')
+  const [modelFileNameSplitTemplate, setModelFileNameSplitTemplate] = useState('')
   const [modelSize, setModelSize] = useState(7)
   const [modelUri, setModelUri] = useState('/path/to/llama-2')
   const [modelId, setModelId] = useState('')
   const [quantization, setQuantization] = useState('')
+  const [quantizationParts, setQuantizationParts] = useState('')
   const [modelSource, setModelSource] = useState(SOURCES[0])
   const [hub, setHub] = useState(SUPPORTED_HUBS[0])
   const [formData, setFormData] = useState({
@@ -80,6 +83,11 @@ const RegisterLanguageModel = () => {
       )
     })
   const errorFamily = familyLabel === ''
+  const errorModelId = modelSource === 'hub' && modelId.search('\\w+/\\w+') === -1
+  const errorModelFileNameTemplate = modelSource === 'hub' && ['ggufv2', 'ggmlv3'].includes(modelFormat) &&
+    modelFileNameTemplate.trim().length <= 0
+  const errorQuantizationParts = modelSource === 'hub' && ['ggufv2', 'ggmlv3'].includes(modelFormat) &&
+    modelFileNameSplitTemplate.trim().length > 0 && quantizationParts.trim().length <= 0
   const errorAny =
     errorModelName ||
     errorModelDescription ||
@@ -87,7 +95,10 @@ const RegisterLanguageModel = () => {
     errorLanguage ||
     errorAbility ||
     errorModelSize ||
-    errorFamily
+    errorFamily ||
+    errorModelId ||
+    errorModelFileNameTemplate ||
+    errorQuantizationParts
 
   useEffect(() => {
     if (cookie.token === '' || cookie.token === undefined) {
@@ -192,48 +203,93 @@ const RegisterLanguageModel = () => {
   }
 
   const handleClick = async () => {
-    if (isModelFormatGPTQ()) {
-      formData.model_specs = [
-        {
-          model_format: modelFormat,
-          model_size_in_billions: modelSize,
-          quantizations: [quantization],
-          model_id: '',
-          model_uri: modelUri,
-        },
-      ]
-    } else if (isModelFormatAWQ()) {
-      formData.model_specs = [
-        {
-          model_format: modelFormat,
-          model_size_in_billions: modelSize,
-          quantizations: [quantization],
-          model_id: '',
-          model_uri: modelUri,
-        },
-      ]
-    } else if (!isModelFormatPytorch()) {
-      const { baseDir, filename } = getPathComponents(modelUri)
-      formData.model_specs = [
-        {
-          model_format: modelFormat,
-          model_size_in_billions: modelSize,
-          quantizations: [quantization],
-          model_id: '',
-          model_file_name_template: filename,
-          model_uri: baseDir,
-        },
-      ]
-    } else {
-      formData.model_specs = [
-        {
-          model_format: modelFormat,
-          model_size_in_billions: modelSize,
-          quantizations: ['4-bit', '8-bit', 'none'],
-          model_id: '',
-          model_uri: modelUri,
-        },
-      ]
+    if (modelSource === 'self_hosted') {
+      if (isModelFormatGPTQ()) {
+        formData.model_specs = [
+          {
+            model_format: modelFormat,
+            model_size_in_billions: modelSize,
+            quantizations: [quantization],
+            model_id: '',
+            model_uri: modelUri,
+          },
+        ]
+      } else if (isModelFormatAWQ()) {
+        formData.model_specs = [
+          {
+            model_format: modelFormat,
+            model_size_in_billions: modelSize,
+            quantizations: [quantization],
+            model_id: '',
+            model_uri: modelUri,
+          },
+        ]
+      } else if (!isModelFormatPytorch()) {
+        const { baseDir, filename } = getPathComponents(modelUri)
+        formData.model_specs = [
+          {
+            model_format: modelFormat,
+            model_size_in_billions: modelSize,
+            quantizations: [quantization],
+            model_id: '',
+            model_file_name_template: filename,
+            model_uri: baseDir,
+          },
+        ]
+      } else {
+        formData.model_specs = [
+          {
+            model_format: modelFormat,
+            model_size_in_billions: modelSize,
+            quantizations: ['4-bit', '8-bit', 'none'],
+            model_id: '',
+            model_uri: modelUri,
+          },
+        ]
+      }
+    } else if (modelSource === 'hub') {
+      const quantization_array = quantization.split(',')
+      if (isModelFormatGPTQ() || isModelFormatAWQ()) {
+        formData.model_specs = [
+          {
+            model_format: modelFormat,
+            model_size_in_billions: modelSize,
+            quantizations: quantization_array,
+            model_hub: hub,
+            model_id: modelId,
+            model_uri: null,
+          },
+        ]
+      } else if (!isModelFormatPytorch()) {
+        const qParts = quantizationParts.length > 0 ? JSON.parse(quantizationParts) : null
+        let splitTemplate = modelFileNameSplitTemplate.trim()
+        splitTemplate =  splitTemplate.length > 0 ? splitTemplate : null
+
+        formData.model_specs = [
+          {
+            model_format: modelFormat,
+            model_size_in_billions: modelSize,
+            model_file_name_template: modelFileNameTemplate,
+            model_file_name_split_template: splitTemplate,
+            quantizations: quantization_array,
+            quantization_parts: qParts,
+            model_hub: hub,
+            model_id: modelId,
+            model_uri: null,
+          },
+        ]
+      } else {
+        formData.model_specs = [
+          {
+            model_format: modelFormat,
+            model_size_in_billions: modelSize,
+            quantizations: ['4-bit', '8-bit', 'none'],
+            model_hub: hub,
+            model_id: modelId,
+            model_uri: null,
+          },
+        ]
+      }
     }
 
     formData.model_family = familyLabel
@@ -288,7 +344,63 @@ const RegisterLanguageModel = () => {
   }
 
   const handleImportModel = async () => {
-    console.log('import model')
+    if (errorModelId) {
+      setErrorMsg('Please fill in valid value for Model Id')
+      return
+    }
+    const response = await fetcher(endPoint +
+      `/v1/model_registrations/LLM/${hub}/${modelFormat}/${modelId}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+    if (!response.ok) {
+      const errorData = await response.json() // Assuming the server returns error details in JSON format
+      setErrorMsg(
+        `Server error: ${response.status} - ${errorData.detail || 'Unknown error'}`,
+      )
+    } else {
+      const body = await response.json()
+      console.log('response', body)
+      if ('context_length' in body && body['context_length'] > 0) {
+        setFormData({
+          ...formData,
+          context_length: Number(body['context_length']),
+        })
+      }
+
+      /**
+       * @type {object[]}
+       */
+      const modelSpecs = body['model_specs']
+      if (modelSpecs.length === 0) {
+        return
+      }
+      const modelSpec = modelSpecs[0]
+
+      const modelSize = modelSpec['model_size_in_billions']
+      setModelSize(modelSize)
+
+      if (['ggufv2', 'ggmlv3'].includes(modelFormat)) {
+
+        const modelFileNameTemplate = modelSpec['model_file_name_template']
+        setModelFileNameTemplate(modelFileNameTemplate)
+
+        const quantizations = modelSpec['quantizations']
+        setQuantization(quantizations.join(','))
+
+        /**
+         * @type {string | null}
+         */
+        const modelFileNameSplitTemplate = modelSpec['model_file_name_split_template']
+        if (modelFileNameSplitTemplate !== null && modelFileNameSplitTemplate.trim() !== '') {
+          setModelFileNameSplitTemplate(modelFileNameSplitTemplate)
+          const parts = JSON.stringify(modelSpec['quantization_parts'])
+          setQuantizationParts(parts)
+        }
+      }
+    }
   }
 
   const toggleLanguage = (lang) => {
@@ -437,6 +549,7 @@ const RegisterLanguageModel = () => {
               sx={{ width: '400px' }}
               label="Model Id"
               size="small"
+              error={errorModelId}
               value={modelId}
               onChange={(e) => {
                 setModelId(e.target.value)
@@ -517,6 +630,29 @@ const RegisterLanguageModel = () => {
         />
         <Box padding="15px"></Box>
 
+        {modelSource === 'hub' && ['ggufv2', 'ggmlv3'].includes(modelFormat) &&
+          <>
+            <TextField
+              label="Model File Name Template"
+              size="small"
+              value={modelFileNameTemplate}
+              onChange={(e) => {
+                setModelFileNameTemplate(e.target.value)
+              }}
+              error={errorModelFileNameTemplate}
+            />
+            <Box padding="15px"></Box>
+            <TextField
+              label="Model File Name Split Template (Optional)"
+              size="small"
+              value={modelFileNameSplitTemplate}
+              onChange={(e) => {
+                setModelFileNameSplitTemplate(e.target.value)
+              }}
+            />
+            <Box padding="15px"></Box>
+          </>
+        }
 
         <TextField
           label="Quantization (Optional)"
@@ -528,6 +664,23 @@ const RegisterLanguageModel = () => {
           helperText="For GPTQ/AWQ models, please be careful to fill in the quantization corresponding to the model you want to register."
         />
         <Box padding="15px"></Box>
+
+        {modelSource === 'hub' && ['ggufv2', 'ggmlv3'].includes(modelFormat) &&
+          modelFileNameSplitTemplate.trim().length > 0 &&
+          <>
+            <TextField
+              label="Quantization Parts (Optional)"
+              size="small"
+              value={quantizationParts}
+              error={errorQuantizationParts}
+              onChange={(e) => {
+                setQuantizationParts(e.target.value.trim())
+              }}
+              helperText="If there is more than 1 quantization parts, separated by commas"
+            />
+            <Box padding="15px"></Box>
+          </>
+        }
 
         <TextField
           label="Model Description (Optional)"

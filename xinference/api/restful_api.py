@@ -1515,11 +1515,20 @@ class RESTfulAPI:
     async def get_model_info_from_hub(
         self, model_type: str, model_hub: str, model_format: str, user: str, repo: str
     ) -> JSONResponse:
-        if model_type != "LLM":
-            raise HTTPException(status_code=400, detail="only LLM model type supported")
-        llm_family_info = await (
-            await self._get_supervisor_ref()
-        ).get_llm_family_from_hub(f"{user}/{repo}", model_format, model_hub)
+        try:
+            if model_type != "LLM":
+                raise HTTPException(
+                    status_code=400, detail="only LLM model type supported currently"
+                )
+            llm_family_info = await (
+                await self._get_supervisor_ref()
+            ).get_llm_family_from_hub(f"{user}/{repo}", model_format, model_hub)
+        except ValueError as re:
+            logger.error(re, exc_info=True)
+            raise HTTPException(status_code=400, detail=str(re))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
         return JSONResponse(content=llm_family_info)
 
 
