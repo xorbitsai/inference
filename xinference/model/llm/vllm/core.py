@@ -103,6 +103,13 @@ VLLM_SUPPORTED_CHAT_MODELS = [
 if VLLM_INSTALLED and vllm.__version__ >= "0.3.0":
     VLLM_SUPPORTED_CHAT_MODELS.append("qwen1.5-chat")
 
+if VLLM_INSTALLED and vllm.__version__ >= "0.3.2":
+    VLLM_SUPPORTED_CHAT_MODELS.append("gemma-it")
+
+if VLLM_INSTALLED and vllm.__version__ >= "0.3.3":
+    VLLM_SUPPORTED_CHAT_MODELS.append("orion-chat")
+    VLLM_SUPPORTED_CHAT_MODELS.append("orion-chat-rag")
+
 
 class VLLMModel(LLM):
     def __init__(
