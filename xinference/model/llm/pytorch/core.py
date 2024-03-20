@@ -487,10 +487,8 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
         chat_history = chat_history or []
         tools = generate_config.pop("tools", []) if generate_config else None
         full_prompt = self.get_prompt(prompt, chat_history, prompt_style, tools=tools)
-        logger.info(full_prompt)
 
         generate_config = self._sanitize_generate_config(generate_config)
-        logger.info(generate_config)
         # TODO(codingl2k1): qwen hacky to set stop for function call.
         model_family = self.model_family.model_family or self.model_family.model_name
         if tools and model_family in ["qwen-chat", "qwen1.5-chat"]:
