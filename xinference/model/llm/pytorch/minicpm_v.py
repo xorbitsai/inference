@@ -17,7 +17,7 @@ import operator
 import tempfile
 import time
 import uuid
-from typing import Dict, Iterator, List, Optional, Union
+from typing import Any, Dict, Iterator, List, Optional, Union
 
 from PIL import Image
 
@@ -30,7 +30,7 @@ from ....types import (
     CompletionUsage,
 )
 from ..llm_family import LLMFamilyV1, LLMSpecV1
-from .core import PytorchChatModel
+from .core import PytorchChatModel, PytorchGenerateConfig
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +68,9 @@ class MiniCPMVModel(PytorchChatModel):
             code_revision=self.model_spec.model_revision,
         ).eval()
 
-    def _message_content_to_minicpm(self, content) -> str:
+    def _message_content_to_minicpm(
+        self, content
+    ) -> tuple[list[dict[str, Any]], list[Any]]:
         def _ensure_url(_url):
             if _url.startswith("data:"):
                 logging.info("Parse url by base64 decoder.")
@@ -89,45 +91,63 @@ class MiniCPMVModel(PytorchChatModel):
                 return _url
 
         if not isinstance(content, str):
-            content = [
-                (
-                    {"image": _ensure_url(c["image_url"]["url"]), "type": "image"}
-                    if c.get("type") == "image_url"
-                    else c
-                )
-                for c in content
-            ]
-            content = sorted(content, key=operator.itemgetter("type"))
-            return self._tokenizer.from_list_format(content)
-        return content
+            images = []
+            other_content = []
+
+            for c in content:
+                if c.get("type") == "image_url":
+                    images.append(
+                        {"image": _ensure_url(c["image_url"]["url"]), "type": "image"}
+                    )
+                else:
+                    other_content.append(c)
+
+            images = sorted(images, key=operator.itemgetter("type"))
+            other_content = sorted(other_content, key=operator.itemgetter("type"))
+
+            return images, other_content
+        return [], [{"type": "text", "text": content}]
 
     def chat(
         self,
         prompt: Union[str, List[Dict]],
         system_prompt: Optional[str] = None,
         chat_history: Optional[List[ChatCompletionMessage]] = None,
+        generate_config: Optional[PytorchGenerateConfig] = None,
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
-        prompt = self._message_content_to_minicpm(prompt)
-        logger.info(prompt)
-        # Convert openai history to qwen vl history
-        minicpm_history = []
-        query_to_response: List = []
+        if generate_config and generate_config.get("stream"):
+            raise Exception(
+                f"Chat with model {self.model_family.model_name} does not support stream."
+            )
+        image_first, prompt = self._message_content_to_minicpm(prompt)
+
+        msgs = []
+        query_to_response: List[Dict] = []
+        image_another = []
         for h in chat_history or []:
             role = h["role"]
-            content = self._message_content_to_minicpm(h["content"])
+            image_tmp, content = self._message_content_to_minicpm(h["content"])
+            if image_tmp != []:
+                image_another = image_tmp
             if len(query_to_response) == 0 and role == "user":
-                query_to_response.append(content)
+                query_to_response.append(
+                    {"role": "user", "content": content[0]["text"]}
+                )
             if len(query_to_response) == 1 and role == "assistant":
-                query_to_response.append(content)
+                query_to_response.append(
+                    {"role": "assistant", "content": content[0]["text"]}
+                )
             if len(query_to_response) == 2:
-                minicpm_history.append(query_to_response)
+                msgs.extend(query_to_response)
                 query_to_response = []
-        image_values = [c["image"] for c in content if "image" in c]
-        image = Image.open(image_values[0]).convert("RGB")
-        response, history, _ = self._model.chat(
-            image=image,
-            msgs=minicpm_history,
-            tokenizer=self._tokenizer,
+        if image_first != []:
+            image = image_first
+        if image_another != []:
+            image = image_another
+        image = Image.open(image[0]["image"]).convert("RGB")
+        msgs.append({"role": "user", "content": prompt[0]["text"]})
+        response, context, _ = self._model.chat(
+            image=image, msgs=msgs, tokenizer=self._tokenizer, context=None
         )
 
         return ChatCompletion(

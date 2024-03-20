@@ -465,6 +465,7 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
             "llama-2-chat",
             "internlm2-chat",
             "qwen-vl-chat",
+            "MiniCPM-V",
             "yi-vl-chat",
         ]:
             return False

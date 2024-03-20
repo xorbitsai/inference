@@ -370,7 +370,6 @@ class ModelActor(xo.StatelessActor):
                 response = await self._call_wrapper(
                     self._model.chat, prompt, *args, **kwargs
                 )
-                logger.info(response)
                 return response
             if hasattr(self._model, "async_chat"):
                 response = await self._call_wrapper(

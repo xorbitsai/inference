@@ -188,8 +188,6 @@ class ChatModelMixin:
                 else:
                     ret += f"<|{role}|>"
             return ret
-        elif prompt_style.style_name == "MINICPM":
-            return ""
         elif prompt_style.style_name == "QWEN":
             if tools:
                 tool_desc = """{name_for_model}: Call this tool to interact with the {name_for_human} API. What is the {name_for_human} API useful for? {description_for_model} Parameters: {parameters} Format the arguments as a JSON object."""
