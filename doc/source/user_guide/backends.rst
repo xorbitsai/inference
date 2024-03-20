@@ -35,6 +35,7 @@ vLLM
 vLLM is a fast and easy-to-use library for LLM inference and serving.
 
 vLLM is fast with:
+
 - State-of-the-art serving throughput
 - Efficient management of attention key and value memory with PagedAttention
 - Continuous batching of incoming requests
@@ -59,3 +60,5 @@ Currently, supported model includes:
 - ``code-llama``, ``code-llama-python``, ``code-llama-instruct``
 - ``mistral-v0.1``, ``mistral-instruct-v0.1``, ``mistral-instruct-v0.2``, ``mixtral-instruct-v0.1``
 - ``chatglm3``
+- ``gemma-it``
+- ``orion-chat``, ``orion-chat-rag``
