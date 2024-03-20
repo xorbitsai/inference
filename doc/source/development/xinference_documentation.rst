@@ -12,17 +12,17 @@ Xinference: A Platform for Managing Large Model Serving
 
 Introduction
 ------------
-Xinference, an inference framework designed to simplify model serving. It provides the following features:
+Xinference is an inference framework designed to simplify model serving. It provides the following features:
 
-- **User-Friendly Interface**: Xinference simplifies interactions through a Web UI, command line, and an 
-  OpenAI-compatible API, integrating seamlessly with widely used libraries such as LangChain, LlamaIndex,
-  and Dify. This ease of access allows users to effortlessly manage the lifecycle of the latest models,
-  from download to deployment.
+- **User-Friendly Interface**: Xinference simplifies interactions through a Web UI. It also provides
+  command line tools and OpenAI-compatible APIs, integrating seamlessly with widely used libraries
+  such as LangChain, LlamaIndex, or Dify. This ease of access allows users to effortlessly manage
+  the lifecycle of the latest models, from download to deployment.
 
-- **Seamless Backend Integration and Deployment**: Catering to a variety of inference engines (like vLLM,
-  llama.cpp, TensorRT-LLM) and supporting diverse hardware, Xinference abstracts the complexity of backend
-  configurations. It enables efficient distribution of model inference tasks across different devices and 
-  platforms, providing a unified API endpoint for streamlined user access.
+- **Seamless Backend Integration and Deployment**: Integrating to a variety of inference engines
+  (like PyTorch, vLLM, llama.cpp, TensorRT-LLM) and supporting diverse hardware, Xinference abstracts
+  the complexity of backend configurations. It enables the efficient distribution of model inference
+  tasks across different devices and servers, providing a unified API endpoint for streamlined user access.
 
 - **Diverse Model Support**: Embracing a wide range of cutting-edge models, including those for pre-training,
   chat, embedding, and multimodal tasks, Xinference is tailored to accommodate different model requirements
