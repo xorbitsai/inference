@@ -148,6 +148,7 @@ class ChatglmPytorchChatModel(PytorchChatModel):
 
                 def _stream_generator():
                     last_chunk_text_length = 0
+                    chunk_id = "chat-" + str(uuid.uuid1())
                     for chunk_text, _ in self._model.stream_chat(
                         self._tokenizer, prompt, chat_history, **kwargs
                     ):
@@ -157,7 +158,7 @@ class ChatglmPytorchChatModel(PytorchChatModel):
                             text=chunk_text, index=0, logprobs=None, finish_reason=None
                         )
                         yield CompletionChunk(
-                            id=str(uuid.uuid1()),
+                            id=chunk_id,
                             object="text_completion",
                             created=int(time.time()),
                             model=self.model_uid,
