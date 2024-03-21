@@ -1,122 +1,102 @@
-.. _index:
+========================================
+The overall code framework of Xinference
+========================================
 
-.. raw:: html
+.. contents:: Table of contents:
+   :local:
 
-    <img class="align-center" alt="Xinference Logo" src="../_static/favicon.svg" style="background-color: transparent", width="180px">
+Overview
+--------
+The main code is located in the ``xinference/``: 
 
-====
+- ``api/``: ``restful_api.py`` is the core file that sets up and runs the RESTful API, interfacing with various functionalities 
+  like creating completions (presumably for LLMs), handling embeddings, reranking, and processing images, among others. 
+  It also handles registration and deregistration of models, suggesting dynamic management of available machine learning models.
+  The API supports operations like generating text completions, embeddings, reranking documents, and processing images. 
+  It integrates an authentication service (the specific code is located in `oauth2/`), indicating that some or all endpoints require user authentication.
+  See `RESTful API`_ for more information.
 
-=======================================================
-Xinference: A Platform for Managing Large Model Serving
-=======================================================
-
-Introduction
-------------
-Xinference is an inference framework designed to simplify model serving. It provides the following features:
-
-- **User-Friendly Interface**: Xinference simplifies interactions through a Web UI. It also provides
-  command line tools and OpenAI-compatible APIs, integrating seamlessly with widely used libraries
-  such as LangChain, LlamaIndex, or Dify. This ease of access allows users to effortlessly manage
-  the lifecycle of the latest models, from download to deployment.
-
-- **Seamless Backend Integration and Deployment**: Integrating to a variety of inference engines
-  (like PyTorch, vLLM, llama.cpp, TensorRT-LLM) and supporting diverse hardware, Xinference abstracts
-  the complexity of backend configurations. It enables the efficient distribution of model inference
-  tasks across different devices and servers, providing a unified API endpoint for streamlined user access.
-
-- **Diverse Model Support**: Embracing a wide range of cutting-edge models, including those for pre-training,
-  chat, embedding, and multimodal tasks, Xinference is tailored to accommodate different model requirements
-  and configurations, such as system prompts. This versatility ensures users can focus on their core objectives
-  without getting bogged down by the intricacies of model management.
-
-Xinference leverages `Xoscar <https://github.com/xorbitsai/xoscar>`_, an actor programming framework we designed, 
-as its core component to manage machines, devices, and model inference processes. Each actor serves as a basic
-unit for model inference and various inference engines can be integrate into the actor, enabling us to support 
-multiple inference backends and hardware. These actors are hosted and scheduled within actor pools, which are
-designed to be asynchronous and non-blocking and function as resource pools.
-
-Mangaging Model Serving with Xinference
----------------------------------------
-
-Using Xinference
-^^^^^^^^^^^^^^^^
-Xinference can be used either on users’ private on-premise clouds or on public clouds:
-
-- **Launching Xinference Cluster in Private Cloud**: After being installed by pip or Docker, users can launch
-  Xinference either on a local machine or a cluster. Users can use the commands to start a Xinference cluster:
-  ::
-
-    # on the supervisor server
-    xinference-supervisor -H '${sv_host}'
-
-    # on the worker server
-    xinference-worker -e 'http://${sv_host}:9997'
+- ``client/``: This is the client for the client-server architecture comprehensive framework, supporting both synchronous
+  and asynchronous operations. It also can handle streaming responses from models. This function is critical for processing
+  real-time, streaming outputs from models. 
   
-  Users should first launch the supervisor, and start workers on other servers. The supervisor is responsible
-  for coordination, whereas the worker manages the available resources (i.e., CPUs or GPUs) and executes the
-  inference requests. The workers establish connections to the supervisor using the hostname and port, thereby
-  setting up a Xinference cluster. In the local mode, both the supervisor and worker are launched on the same
-  local computer.
+  - ``oscar/`` defines the Actor Client which acts as a client interface for interacting
+    with models deployed in a server environment. It includes functionalities to register/unregister models, launch/terminate models,
+    and interact with different types of models. This part heavily utilizes ``asyncio`` for asynchronous operations. 
+  
+  - ``restful/`` implements a RESTful client for interacting with a server that
+    hosts machine learning models. It supports operations like listing models, launching and terminating models, and interacting
+    with various types of models through HTTP requests.
 
-- **Xinference Services on Public Cloud**: We also support public clouds, where computing resources can be auto-scaled.
+- ``core/``: This is the core part of the Xinference. 
+  
+  - ``metrics.py`` and ``resource.py`` defines a set of tools for collecting and reporting metrics and the status of node resources, 
+    including model throughput, latency, the usage of CPU and GPU, memory usage, and more.
+  
+  - ``image_interface.py`` and ``chat_interface.py`` implement Gradio interfaces for image and chat models, respectively. 
+    These interfaces allow users to interact with models through a Web UI, such as generating images or engaging in chat. 
+    They build user interfaces using the gradio package and communicate with backend models through RESTful APIs.
+  
+  - ``worker.py`` and ``supervisor.py`` respectively define the logic for worker nodes and supervisor nodes. Worker nodes are responsible
+    for carrying out specific model computation tasks, while supervisor nodes manage the lifecycle of worker nodes, schedule tasks, and
+    monitor system states.
+  
+  - ``status_guard.py`` implements a status monitor to track the status of models (like creating, updating, terminating, etc.). 
+    It allows querying status information of model instances and managing these statuses based on the model's UID.
+  
+  - ``cache_tracker.py`` defines a cache tracker for recording and managing cache status and information of model versions. 
+    It supports recording cache locations and statuses of model versions and querying model version information based on model names.
 
-Lifecycle of Model Serving
-^^^^^^^^^^^^^^^^^^^^^^^^^^
-Xinference's lifecycle of model serving is centered around models, primarily including managing models (using built-in
-open-source models or registering custom models), launching a model, listing running models, using a model, monitoring,
-and terminating running models.
+  - ``event.py`` defines an event collector for gathering and reporting various runtime events of models, such as information, warnings,
+    and errors. ``model.py`` defines a Model Actor, the core component for direct model interactions. The Model Actor is responsible for
+    executing model inference requests, handling input and output data streams, and supports various types of model operations.
+    These two parts are all utilize `Xoscar <https://github.com/xorbitsai/xoscar>`_ for concurrent and distributed execution.
 
-- **Supported Models**: At present, our platform supports a variety of models, including chat, generate, embedding,
-  rerank, text-to-image, and image-to-image. Xinference offers built-in models and also allows users to register
-  their own custom models. The built-in models, such as Llama and Gemma, are open-source and utilize checkpoint
-  files downloaded directly from model hubs, without any fine-tuning. If users fine-tune an open-source model,
-  they have the option to register it with Xinference.
+- ``deploy/``: It provides a command-line interface (CLI) for interacting with the Xinference framework, allowing users to perform
+  operations by command line. See `Command Line`_ for more information.
 
-- **Supported Inference Engines**: Currently, we have integrated PyTorch (the Hugging Face's Transformers), vLLM,
-  llama.cpp, and TensorRT-LLM as our inference backends.
+- ``locale``: It supports multi-language localization. By simply adding and updating JSON translation files, it becomes possible to
+  support more languages, improving user experience.
 
-- **Launch a Model**: Once a user has selected a model and configured necessary parameters, they can initiate it.
-  The model will be assigned to a worker within the Xinference cluster and an inference engine will be launched
-  on that worker. 
+- ``model/``: It provides a structure for model descriptions, creation, and caching. It supports different types of models including
+  large language models (LLMs), image models, audio models, embedding models, and rerank models. Take ``llm/`` for example, it focuses on
+  the management and instantiation of large language models (LLMs). It includes detailed implementations for loading, configuring,
+  and deploying LLMs, including handling different types of quantization and model formats. In ``llm/``, it supports many backends such as
+  GGML, PyTorch, SGLang and vLLM.
 
-- **List Running Models**: Users can launch one model with multiple replicas or multiple different models. After
-  initiation, the model will possess a unique model ID, which will be used to index the model for subsequent use
-  and management.
+- ``thirdparty/``: A thirdparty framework LLaVA (Large Language and Vision Assistant). It has the capable of understanding and generating
+  responses that consider both the textual and visual context, useful for applications such as chatbots, image captioning, and enhanced
+  language models that can interpret visual information. 
 
-- **Using a Model**: Users can use a model by using the Web UI, or the RESTful API, which is compatible with the
-  OpenAI developer platform. The RESTful API allows Xinference to be used as a drop-in replacement for OpenAI.
+- ``web/ui/``: The js code of the frontend (Web UI).
 
-- **Cluster and Model Monitoring**: Once the Xinference service is accessible to users, it exports metrics related
-  to the cluster and model for monitoring. The cluster metrics include the available and used GPU memory. The model
-  metrics comprise the count of received requests and sent responses, throughput(measured in tokens/s), and the first
-  token latency in milliseconds.
+Command Line
+------------
+::
 
-- **Terminate Running Models**: If a model is no longer required, users can terminate it, which will release the
-  corresponding computational resources.
+  console_scripts =
+      xinference = xinference.deploy.cmdline:cli
+      xinference-local = xinference.deploy.cmdline:local
+      xinference-supervisor = xinference.deploy.cmdline:supervisor
+      xinference-worker = xinference.deploy.cmdline:worker
 
-User Interface
-^^^^^^^^^^^^^^
-Currently, we offer three types of interfaces to our users: Web UI, RESTful API, and command line:
 
-- **Web UI**: Users can access the Web UI in their browser. The entire life cycle of the model serving can be
-  completed on the graphical user interfaces. This type of interface is suitable for beginners with limited
-  technical knowledge. 
+RESTful API
+-----------
+::
 
-- **RESTful API**: Users can also get access to models via our RESTful API using a development toolkit like Python,
-  Node.js, or curl. Users can easily migrate from OpenAI to Xinference. The RESTful API is aimed at advanced users
-  who need to interact with models programmatically.
+  /status
+  /v1/models/prompts
+  /v1/models/families
+  /v1/models/vllm-supported
+  /v1/cluster/info
+  /v1/cluster/version
+  /v1/cluster/devices
+  /v1/address
+  ...
 
-- **Command Line**: Users can also interact with Xinference on the node where the supervisor is located using command
-  lines such as ``xinference launch`` for launching a model, and ``xinference terminate`` for shutting down a model.
-
-Design and Implementation
--------------------------
-Xinference is fundamentally based on Xoscar, our actor framework, which can manage computational resources and Python
-processes to support scalable and concurrent programming. This section will first introduce our actor framework,
-followed by an explanation of how Xinference is developed based on this actor framework.
-
-System Overview
-^^^^^^^^^^^^^^^
+Actor
+-----
 .. raw:: html
 
     <img class="align-center" alt="actor" src="../_static/actor.svg" style="background-color: transparent", width="77%">
@@ -186,48 +166,6 @@ Concurrency and Scheduling
   dispatched to our per-model scheduler. Xinference retrieves the available actor from the actor pools and invokes the
   corresponding actor function to generate content. This per-model scheduler enables us to support one model with 
   multiple replicas or multiple models.
-
-Model Management
-^^^^^^^^^^^^^^^^
-For the inference engine management part, we have written modular code that includes loading models, formatting prompts,
-and stopping when encountering end-of-sequence (EOS) tokens. Different models can reuse these codes. We utilize JSON files
-to manage the metadata of emerging open-source models. Adding a new model does not necessitate writing new code; it merely
-requires appending new metadata to the existing JSON file.
-
-  ::
-
-    {
-     "model_name": "llama-2-chat",
-     "model_ability": ["chat"],
-     "model_specs": [
-       {
-        "model_format": "ggmlv3",
-        "model_size_in_billions": 70,
-        "quantization": ["q8_0", ...],
-        "model_id": "TheBloke/Llama-2-70B-Chat-GGML",
-       },
-       ...
-     ],
-     "prompt_style": {
-       "style_name": "LLAMA2",
-       "system_prompt": "<s>[INST] <<SYS>>\nYou are a helpful AI assistant.\n<</SYS>>\n\n",
-       "roles": ["[INST]", "[/INST]"],
-       "stop_token_ids": [2],
-       "stop": ["</s>"]
-     }
-    }
-
-This is an example of how to define the Llama-2 chat model. ``model_specs`` define the information of the model, as one model
-family usually comes with various sizes, quantization methods, and file formats. For instance, the ``model_format`` could be
-``pytorch`` (using Hugging Face Transformers or vLLM as backend), ``ggmlv3`` (a tensor library associated with llama.cpp), or
-``gptq`` (a post-training quantization framework). The ``model_id`` defines the repository of the model hub from which
-Xinference downloads the checkpoint files. Furthermore, due to distinct instruction-tuning processes, different model families
-have varying prompt styles. The ``prompt_style`` in the JSON file specifies how to format prompts for this particular model.
-For example, ``system_prompt`` and ``roles`` are used to specify the instructions and personality of the model.
-
-The current JSON format also supports the registration of custom models; custom model information is stored according to the
-aforementioned fields. Moreover, the definitions of other models (e.g., embedding model and multimodal) are quite similar,
-with fields slightly different.
 
 License
 -------
