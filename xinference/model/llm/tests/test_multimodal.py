@@ -207,3 +207,86 @@ def test_restful_api_for_yi_vl(setup, model_format, quantization):
         ],
     )
     assert "两条" in completion.choices[0].message.content
+
+
+# @pytest.mark.skip(reason="Cost too many resources.")
+@pytest.mark.parametrize("model_format, quantization", [("pytorch", None)])
+def test_restful_api_for_deepseek_vl(setup, model_format, quantization):
+    endpoint, _ = setup
+    from ....client import Client
+
+    client = Client(endpoint)
+
+    model_uid = client.launch_model(
+        model_uid="deepseek-vl-chat",
+        model_name="deepseek-vl-chat",
+        model_format=model_format,
+        quantization=quantization,
+    )
+    model = client.get_model(model_uid)
+    prompt = [
+        {"type": "text", "text": "What’s in this image?"},
+        {
+            "type": "image_url",
+            "image_url": {
+                "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg"
+            },
+        },
+    ]
+    response = model.chat(prompt=prompt)
+    assert "green" in response["choices"][0]["message"]["content"]
+    assert "tree" in response["choices"][0]["message"]["content"]
+    assert "sky" in response["choices"][0]["message"]["content"]
+
+    # openai client
+    import openai
+
+    client = openai.Client(api_key="not empty", base_url=f"{endpoint}/v1")
+    completion = client.chat.completions.create(
+        model=model_uid,
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "What’s in this image?"},
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg"
+                        },
+                    },
+                ],
+            }
+        ],
+    )
+    assert "green" in completion.choices[0].message.content
+    assert "tree" in completion.choices[0].message.content
+    assert "sky" in completion.choices[0].message.content
+
+    # Test base64 image
+    response = requests.get(
+        "http://i.epochtimes.com/assets/uploads/2020/07/shutterstock_675595789-600x400.jpg"
+    )
+
+    # https://platform.openai.com/docs/guides/vision/uploading-base-64-encoded-images
+    # Function to encode the image
+    b64_img = base64.b64encode(response.content).decode("utf-8")
+
+    completion = client.chat.completions.create(
+        model=model_uid,
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "图中有几条鱼？"},
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:image/jpeg;base64,{b64_img}",
+                        },
+                    },
+                ],
+            }
+        ],
+    )
+    assert "两条" in completion.choices[0].message.content
