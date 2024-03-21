@@ -154,7 +154,7 @@ async def test_restful_api(setup):
     response = requests.post(url, json=payload)
     assert response.status_code == 400
 
-    # Duplicate system messages
+    # allow duplicate system messages
     payload = {
         "model": model_uid_res,
         "messages": [
@@ -166,9 +166,10 @@ async def test_restful_api(setup):
         ],
     }
     response = requests.post(url, json=payload)
-    assert response.status_code == 400
+    completion = response.json()
+    assert "content" in completion["choices"][0]["message"]
 
-    # System message should be the first one.
+    # allow the first message is not system message.
     payload = {
         "model": model_uid_res,
         "messages": [
@@ -179,7 +180,8 @@ async def test_restful_api(setup):
         ],
     }
     response = requests.post(url, json=payload)
-    assert response.status_code == 400
+    completion = response.json()
+    assert "content" in completion["choices"][0]["message"]
 
     # delete
     url = f"{endpoint}/v1/models/test_restful_api"

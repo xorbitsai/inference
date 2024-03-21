@@ -451,6 +451,7 @@ Begin!"""
                     "index": i,
                     "delta": {
                         "role": "assistant",
+                        "content": "",
                     },
                     "finish_reason": None,
                 }
