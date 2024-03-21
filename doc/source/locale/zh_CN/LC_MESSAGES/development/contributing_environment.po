@@ -38,7 +38,6 @@ msgstr ""
 "Xinference 以及前端部分的编译。"
 
 #: ../../source/development/contributing_environment.rst:12
-#, fuzzy
 msgid "Getting started with Git"
 msgstr "Git 的使用"
 
@@ -152,8 +151,7 @@ msgid ""
 "<https://inference.readthedocs.io/en/latest/getting_started/using_xinference.html>`__."
 msgstr ""
 "如果命令能够成功运行，接下来就能正常使用 Xinference 了，使用教程详情见 `使用 "
-"<https://inference.readthedocs.io/zh-"
-"cn/latest/getting_started/using_xinference.html>`__。"
+"<https://inference.readthedocs.io/zh-cn/latest/getting_started/using_xinference.html>`__。"
 
 #: ../../source/development/contributing_environment.rst:83
 msgid ""
@@ -200,7 +198,5 @@ msgid ""
 "After compiling the frontend, you can ``cd`` back to the directory where "
 "the ``setup.cfg`` and ``setup.py`` files are located, and install "
 "Xinference via ``pip install -e .``."
-msgstr ""
-"编译完前端后，您可以返回到包含 ``setup.cfg`` 和 ``setup.py`` 文件的目录，然后通过 ``pip install -e "
-".`` 安装 Xinference。"
+msgstr "编译完前端后，您可以返回到包含 ``setup.cfg`` 和 ``setup.py`` 文件的目录，然后通过 ``pip install -e .`` 安装 Xinference。"
 
