@@ -42,7 +42,7 @@ class AuthService:
         return self._config
 
     @staticmethod
-    def is_legal_apikey(key: str):
+    def is_legal_api_key(key: str):
         pattern = re.compile("^[sk]{2}-[a-zA-Z0-9]{48}$")
         if re.match(pattern, key):
             return True
@@ -60,7 +60,7 @@ class AuthService:
                 if len(set(user.api_keys)) != len(user.api_keys):
                     raise ValueError("User has duplicate Api-Keys")
                 for api_key in user.api_keys:
-                    if not self.is_legal_apikey(api_key):
+                    if not self.is_legal_api_key(api_key):
                         raise ValueError(
                             "Api-Key should be a string started with 'sk-' with a total length of 51"
                         )
@@ -123,6 +123,13 @@ class AuthService:
                 return user
         return None
 
+    def get_user_with_api_key(self, api_key: str) -> Optional[User]:
+        for user in self._config.user_config:
+            for key in user.api_keys:
+                if api_key == key:
+                    return user
+        return None
+
     def authenticate_user(self, username: str, password: str):
         user = self.get_user(username)
         if not user:
@@ -137,6 +144,26 @@ class AuthService:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Incorrect username or password",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        assert user is not None and isinstance(user, User)
+        access_token_expires = timedelta(
+            minutes=self._config.auth_config.token_expire_in_minutes
+        )
+        access_token = create_access_token(
+            data={"sub": user.username, "scopes": user.permissions},
+            secret_key=self._config.auth_config.secret_key,
+            algorithm=self._config.auth_config.algorithm,
+            expires_delta=access_token_expires,
+        )
+        return {"access_token": access_token, "token_type": "bearer"}
+
+    def generate_token_with_api_key_for_user(self, api_key: str):
+        user = self.get_user_with_api_key(api_key)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect api-key",
                 headers={"WWW-Authenticate": "Bearer"},
             )
         assert user is not None and isinstance(user, User)
