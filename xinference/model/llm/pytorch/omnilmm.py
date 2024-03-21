@@ -17,7 +17,7 @@ import operator
 import tempfile
 import time
 import uuid
-from typing import Any, Dict, Iterator, List, Optional, Union
+from typing import Dict, Iterator, List, Optional, Union
 
 from PIL import Image
 
@@ -35,7 +35,7 @@ from .core import PytorchChatModel, PytorchGenerateConfig
 logger = logging.getLogger(__name__)
 
 
-class MiniCPMVModel(PytorchChatModel):
+class OmniLMMModel(PytorchChatModel):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._tokenizer = None
@@ -45,7 +45,7 @@ class MiniCPMVModel(PytorchChatModel):
     def match(
         cls, model_family: "LLMFamilyV1", model_spec: "LLMSpecV1", quantization: str
     ) -> bool:
-        if "MiniCPM-V" in model_family.model_name:
+        if "OmniLMM" in model_family.model_name:
             return True
         return False
 
@@ -68,9 +68,9 @@ class MiniCPMVModel(PytorchChatModel):
             code_revision=self.model_spec.model_revision,
         ).eval()
 
-    def _message_content_to_minicpm(
+    def _message_content_to_OmniLMM(
         self, content
-    ) -> tuple[list[dict[str, Any]], list[Any]]:
+    ) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
         def _ensure_url(_url):
             if _url.startswith("data:"):
                 logging.info("Parse url by base64 decoder.")
@@ -119,14 +119,14 @@ class MiniCPMVModel(PytorchChatModel):
             raise Exception(
                 f"Chat with model {self.model_family.model_name} does not support stream."
             )
-        image_first, prompt = self._message_content_to_minicpm(prompt)
+        image_first, prompt = self._message_content_to_OmniLMM(prompt)
 
         msgs = []
         query_to_response: List[Dict] = []
         image_another = []
         for h in chat_history or []:
             role = h["role"]
-            image_tmp, content = self._message_content_to_minicpm(h["content"])
+            image_tmp, content = self._message_content_to_OmniLMM(h["content"])
             if image_tmp != []:
                 image_another = image_tmp
             if len(query_to_response) == 0 and role == "user":

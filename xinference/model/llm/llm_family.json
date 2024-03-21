@@ -3665,7 +3665,7 @@
   {
     "version":1,
     "context_length":2048,
-    "model_name":"MiniCPM-V",
+    "model_name":"OmniLMM",
     "model_lang":[
       "en",
       "zh"
@@ -3696,7 +3696,7 @@
       }
     ],
     "prompt_style":{
-      "style_name":"MINICPM",
+      "style_name":"OmniLMM",
       "system_prompt":"The role of first msg should be user",
       "roles":[
         "user",
