@@ -60,6 +60,7 @@ def _install():
     from .pytorch.qwen_vl import QwenVLChatModel
     from .pytorch.vicuna import VicunaPytorchChatModel
     from .pytorch.yi_vl import YiVLChatModel
+    from .sglang.core import SGLANGChatModel, SGLANGModel
     from .vllm.core import VLLMChatModel, VLLMModel
 
     # register llm classes.
@@ -79,6 +80,7 @@ def _install():
             CtransformersModel,
         ]
     )
+    LLM_CLASSES.extend([SGLANGModel, SGLANGChatModel])
     LLM_CLASSES.extend([VLLMModel, VLLMChatModel])
     LLM_CLASSES.extend(
         [
