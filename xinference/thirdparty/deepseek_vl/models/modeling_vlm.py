@@ -29,8 +29,8 @@ from transformers import (
 )
 from transformers.configuration_utils import PretrainedConfig
 
-from deepseek_vl.models.clip_encoder import CLIPVisionTower, HybridVisionTower
-from deepseek_vl.models.projector import MlpProjector
+from .clip_encoder import CLIPVisionTower, HybridVisionTower
+from .projector import MlpProjector
 
 
 def model_name_to_cls(cls_name):

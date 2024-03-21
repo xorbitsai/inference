@@ -25,8 +25,8 @@ from PIL.Image import Image
 from transformers import LlamaTokenizerFast
 from transformers.processing_utils import ProcessorMixin
 
-from deepseek_vl.models.image_processing_vlm import VLMImageProcessor
-from deepseek_vl.utils.conversation import get_conv_template
+from .image_processing_vlm import VLMImageProcessor
+from ..utils.conversation import get_conv_template
 
 
 class DictOutput(object):

@@ -27,7 +27,7 @@ import re
 import time
 
 import mdtex2html
-from app_modules.presets import ALREADY_CONVERTED_MARK
+from .presets import ALREADY_CONVERTED_MARK
 from markdown import markdown
 from pygments import highlight
 from pygments.formatters import HtmlFormatter
