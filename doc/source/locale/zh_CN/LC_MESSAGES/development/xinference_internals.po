@@ -21,15 +21,15 @@ msgstr ""
 
 #: ../../source/development/xinference_internals.rst:3
 msgid "The internals of Xinference"
-msgstr ""
+msgstr "Xinference的内部结构"
 
 #: ../../source/development/xinference_internals.rst:6
 msgid "Table of contents:"
-msgstr ""
+msgstr "目录"
 
 #: ../../source/development/xinference_internals.rst:9
 msgid "Overview"
-msgstr ""
+msgstr "概述"
 
 #: ../../source/development/xinference_internals.rst:10
 msgid ""
@@ -42,6 +42,10 @@ msgid ""
 "pools, which are designed to be asynchronous and non-blocking and "
 "function as resource pools."
 msgstr ""
+"Xinference利用我们设计的actor编程框架Xoscar<https://github.com/xorbitsai/xoscar>`_"
+"作为其核心组件，以管理机器、设备和模型推理进程。每个actor都是模型推理的基本单元，各种推理"
+"后端可以集成到actor中，从而使我们能够支持多种推理引擎和硬件。这些actor在actor池中托管和调度，"
+"actor池的设计是异步和非阻塞的，具有资源池的功能"。"
 
 #: ../../source/development/xinference_internals.rst:22
 msgid ""
@@ -52,10 +56,13 @@ msgid ""
 "can communicate with each other through these addresses. See `Actor`_ for"
 " more information."
 msgstr ""
+"supervisor和worker都是actor实例。最初，需要在每台服务器上创建一个作为资源池的actor池；"
+"每个actor可以使用一个 CPU 内核或 GPU 设备。每台服务器都有自己的地址（IP 地址或主机名），"
+"因此不同计算节点上的角色可以通过这些地址相互通信。更多信息，请参阅 `Actor`_。"
 
 #: ../../source/development/xinference_internals.rst:27
 msgid "RESTful API"
-msgstr ""
+msgstr "RESTful API"
 
 #: ../../source/development/xinference_internals.rst:28
 msgid ""
@@ -64,6 +71,8 @@ msgid ""
 "`api/restful_api.py "
 "<https://github.com/xorbitsai/inference/tree/main/xinference/api/restful_api.py>`_."
 msgstr ""
+"RESTful API是利用`FastAPI <https://github.com/tiangolo/fastapi>`_实现的，"
+"具体代码在`api/restful_api.py <https://github.com/xorbitsai/inference/tree/main/xinference/api/restful_api.py>`_。"
 
 #: ../../source/development/xinference_internals.rst:35
 msgid ""
@@ -72,10 +81,13 @@ msgid ""
 "backend function you want in `api/restful_api.py "
 "<https://github.com/xorbitsai/inference/tree/main/xinference/api/restful_api.py>`_."
 msgstr ""
+"这是一个 API的示例，API ``/status`` 对应函数``get_status``。"
+"您可以在`api/restful_api.py <https://github.com/xorbitsai/inference/tree/main/xinference/api/restful_api.py>`_"
+"中添加RESTful API和对应后端函数之间的链接。
 
 #: ../../source/development/xinference_internals.rst:39
 msgid "Command Line"
-msgstr ""
+msgstr "命令行"
 
 #: ../../source/development/xinference_internals.rst:40
 msgid ""
@@ -86,14 +98,17 @@ msgid ""
 " allowing users to interact with the Xinference deployment features "
 "directly from the terminal."
 msgstr ""
+"命令行是通过`Click <https://click.palletsprojects.com/>`_实现的，具体代码在"
+"`deploy/cmdline.py <https://github.com/xorbitsai/inference/tree/main/xinference/deploy/cmdline.py>`_，"
+"命令行允许用户直接在终端与Xinference部署的功能进行交互。
 
 #: ../../source/development/xinference_internals.rst:45
 msgid "Entry Points"
-msgstr ""
+msgstr "入口点"
 
 #: ../../source/development/xinference_internals.rst:46
 msgid "Take the command-lines we implemented as examples:"
-msgstr ""
+msgstr "以我们实现的命令行为例："
 
 #: ../../source/development/xinference_internals.rst:48
 msgid ""
@@ -103,18 +118,22 @@ msgid ""
 "interactive commands like generate and chat for testing and interacting "
 "with deployed models in real-time."
 msgstr ""
+"``xinference``：提供命令用于模型管理，包括注册/取消注册模型、列出所有已注册/运行的模型，"
+"以及启动或终止特定模型。它还提供生成语言和聊天等交互式命令，用于实时测试已部署的模型并与之交互。"
 
 #: ../../source/development/xinference_internals.rst:52
 msgid ""
 "``xinference-local``: Starts a local Xinference cluster for development "
 "or testing purposes."
 msgstr ""
+"`xinference-local``：启动用于开发或测试目的的本地Xinference集群。"
 
 #: ../../source/development/xinference_internals.rst:54
 msgid ""
 "``xinference-supervisor``: Initiates a supervisor process that manages "
 "and monitors worker actors within a distributed setup."
 msgstr ""
+"``xinference-supervisor``：启动监督进程，在分布式体系中管理和监控worker actors。"
 
 #: ../../source/development/xinference_internals.rst:56
 msgid ""
@@ -122,6 +141,7 @@ msgid ""
 "assigned by the supervisor, utilizing available computational resources "
 "effectively."
 msgstr ""
+"``xinference-worker``：启动worker进程，执行supervisor分配的任务，有效利用可用计算资源。"
 
 #: ../../source/development/xinference_internals.rst:59
 msgid ""
@@ -129,36 +149,38 @@ msgid ""
 "behavior, such as specifying log levels, host addresses, port numbers, "
 "and other relevant settings."
 msgstr ""
+"每条命令都配有``option``和``flag``，可自定义其行为，如指定日志级别、主机地址、端口号和其他相关设置。"
 
 #: ../../source/development/xinference_internals.rst:62
 msgid ""
 "Python projects define command-line console entry points in `setup.cfg` "
 "or `setup.py`."
-msgstr ""
+msgstr "Python项目会在`setup.cfg`或`setup.py`中定义命令行控制台入口点。"
 
 #: ../../source/development/xinference_internals.rst:72
 msgid ""
 "The command-line ``xinference`` can be refered to code in "
 "``xinference.deploy.cmdline:cli``."
-msgstr ""
+msgstr "命令行``xinference``可参考``xinference.deploy.cmdline:cli``中的代码。"
 
 #: ../../source/development/xinference_internals.rst:75
 msgid "Click"
-msgstr ""
+msgstr "Click"
 
 #: ../../source/development/xinference_internals.rst:76
 msgid "We use Click to implement a specific command-line:"
-msgstr ""
+msgstr "我们使用Click来实现特定的命令行："
 
 #: ../../source/development/xinference_internals.rst:95
 msgid ""
 "For example, the ``xinference-local`` command allows you to define the "
 "host address and port."
 msgstr ""
+"例如，`xinference-local``命令允许您定义主机地址和端口。"
 
 #: ../../source/development/xinference_internals.rst:98
 msgid "Actor"
-msgstr ""
+msgstr "Actor"
 
 #: ../../source/development/xinference_internals.rst:99
 msgid ""
@@ -169,6 +191,9 @@ msgid ""
 "how our Worker Actor works, the actual Worker Actor is more complex than "
 "this."
 msgstr ""
+"Xinference以`Xoscar <https://github.com/xorbitsai/xoscar>`_为基础，"
+"Xoscar是我们的actor框架，可以管理计算资源和Python进程，支持可扩展的并发编程。"
+"下面的伪代码演示了Worker Actor的工作原理，实际的Worker Actor要比这个复杂得多。"
 
 #: ../../source/development/xinference_internals.rst:126
 msgid ""
@@ -177,6 +202,9 @@ msgid ""
 "from ``xoscar.Actor``. An instance of this class is a specific actor "
 "within the actor pool."
 msgstr ""
+"我们以``WorkerActor``为例，说明如何构建Xinference。"
+"每个actor类都是继承自``xoscar.Actor``的标准Python类。"
+"该类的实例就是actor池中的一个特定的actor。"
 
 #: ../../source/development/xinference_internals.rst:130
 msgid ""
@@ -189,6 +217,11 @@ msgid ""
 "necessary initializations. The ``__pre_destroy__`` is called after the "
 "actor is destroyed, allowing for cleanup or finalization tasks."
 msgstr ""
+"**定义Actor的行为**：每个actor都需要定义某些动作或行为来完成特定任务。"
+"例如，模型推理``WorkerActor``需要启动模型（``launch_model``）、"
+"列出该actor中的模型（``list_models``）、终止模型（``termininate_model``）。"
+"有两个特殊方法值得注意。``__post_create__``在创建actor之前调用，以便进行必要的初始化。"
+"而``__pre_destroy__``会在actor被销毁后调用，以便执行清理或最终任务。"
 
 #: ../../source/development/xinference_internals.rst:136
 msgid ""
@@ -199,6 +232,9 @@ msgid ""
 "  the ``launch_model`` method of this actor class can be invoked by "
 "calling ``worker_ref.launch_model()``."
 msgstr ""
+"**引用actor和调用方法**：当创建一个actor时，它会产生一个引用变量，以便其他角色可以引用它。"
+"actor引用也可以用地址来引用。假设创建了``WorkerActor``，且引用变量为``worker_ref``，"
+"那么就可以通过调用``worker_ref.launch_model()``来调用该actor类的``launch_model``。"
 
 #: ../../source/development/xinference_internals.rst:141
 msgid ""
@@ -208,42 +244,50 @@ msgid ""
 "to the user's need. Therefore, Xinference can support multiple inference "
 "engines and can easily adapt to new inference engines in the future."
 msgstr ""
+"**推理引擎**：actor可以管理进程，而推理引擎也是一进程。在``WorkerActor``的启动模型部分，"
+"我们可以根据用户的需要初始化不同的推理引擎。因此，Xinference可以支持多种推理引擎，并能轻松适应未来的新推理引擎。"
 
 #: ../../source/development/xinference_internals.rst:146
 msgid ""
 "See `Xoscar document <https://xoscar.dev/en/latest/getting_started/llm-"
 "inference.html>`_ for more actor use cases."
 msgstr ""
+"请参阅`Xoscar文档 <https://xoscar.dev/en/latest/getting_started/llm-inference.html>`_"
+"了解更多actor用例。"
 
 #: ../../source/development/xinference_internals.rst:149
 msgid "Concurrency"
-msgstr ""
+msgstr "并发性"
 
 #: ../../source/development/xinference_internals.rst:150
 msgid ""
 "Both Xinference and Xoscar highly utilize coroutine programming of "
 "``asyncio``."
 msgstr ""
+"Xinference和Xoscar都高度利用了``asyncio``进行协程编程。
 
 #: ../../source/development/xinference_internals.rst:152
 msgid ""
 "If you're not familiar with Pythons's ``asyncio``, you can see more "
 "tutorials for help:"
 msgstr ""
+"如果您不熟悉Python的``asyncio``，可以查看更多教程以获得帮助："
 
 #: ../../source/development/xinference_internals.rst:154
 msgid ""
 "[https://realpython.com/async-io-python/](https://realpython.com/async-"
 "io-python/)"
 msgstr ""
+"[https://realpython.com/async-io-python/](https://realpython.com/async-"
+"io-python/)"
 
 #: ../../source/development/xinference_internals.rst:156
 msgid "[https://docs.python.org/3/library/asyncio.html](https://docs.python.org/3/library/asyncio.html)"
-msgstr ""
+msgstr "[https://docs.python.org/3/library/asyncio.html](https://docs.python.org/3/library/asyncio.html)"
 
 #: ../../source/development/xinference_internals.rst:159
 msgid "Model"
-msgstr ""
+msgstr "模型"
 
 #: ../../source/development/xinference_internals.rst:160
 msgid ""
@@ -267,6 +311,15 @@ msgid ""
 " and `vLLM "
 "<https://github.com/xorbitsai/inference/tree/main/xinference/model/llm/vllm>`_."
 msgstr ""
+"Xinference支持不同类型的模型，包括大型语言模型（LLM）、图像模型、音频模型、嵌入模型等。"
+"所有模型都在`model/ <https://github.com/xorbitsai/inference/tree/main/xinference/model>`_中实现。"
+"以`llm/ <https://github.com/xorbitsai/inference/tree/main/xinference/model/llm>`_为例，"
+"它侧重于LLM的管理和实例化。它包括加载、配置和部署LLM的详细实现，包括处理不同类型的量化和模型格式。"
+"在`llm/ <https://github.com/xorbitsai/inference/tree/main/xinference/model/llm>`_中，"
+"它支持许多后端，如`GGML <https://github.com/xorbitsai/inference/tree/main/xinference/model/llm/ggml>`_、"
+"`PyTorch <https://github.com/xorbitsai/inference/tree/main/xinference/model/llm/pytorch>`_、"
+"`SGLang <https://github.com/xorbitsai/inference/tree/main/xinference/model/llm/sglang>`_和"
+"`vLLM <https://github.com/xorbitsai/inference/tree/main/xinference/model/llm/vllm>`_。"
 
 #: ../../source/development/xinference_internals.rst:171
 msgid ""
@@ -276,6 +329,9 @@ msgid ""
 "models. Adding a new model does not necessitate writing new code, it "
 "merely requires appending new metadata to the existing JSON file."
 msgstr ""
+"在`llm/llm_family.json <https://github.com/xorbitsai/inference/blob/main/xinference/model/llm/llm_family.json>`_"
+"中，我们利用JSON文件来管理新出现的开源模型的元数据。"
+"添加一个新模型并不需要编写新代码，只需要将新的元数据添加到现有的JSON文件中即可。"
 
 #: ../../source/development/xinference_internals.rst:198
 msgid ""
@@ -293,16 +349,25 @@ msgid ""
 "``system_prompt`` and ``roles`` are used to specify the instructions and "
 "personality of the model."
 msgstr ""
+"这是一个如何定义Llama-2聊天模型的示例。``model_specs``定义了模型的信息，"
+"因为一个模型系列通常有不同的尺寸、量化方法和文件格式。例如，``model_format``"
+"可以是``pytorch``（使用 Hugging Face Transformers或vLLM作为后端）、"
+"``ggmlv3``（与 llama.cpp 相关的张量库）或``gptq``（训练后量化框架）。"
+"``model_id``定义了模型中心的资源库，Xinference从模型中心下载检查点文件。"
+"此外，由于不同的指令调整过程，不同的模型系列有不同的提示风格。JSON文件中的"
+"``prompt_style``指定了该特定模型的提示格式。例如，``system_prompt``和``roles``"
+"用于指定模型的指令和个性。"
 
 #: ../../source/development/xinference_internals.rst:208
 msgid "Code Walkthrough"
-msgstr ""
+msgstr "代码指南"
 
 #: ../../source/development/xinference_internals.rst:209
 msgid ""
 "The main code is located in the `xinference/ "
 "<https://github.com/xorbitsai/inference/tree/main/xinference>`_:"
 msgstr ""
+"主要代码位于`xinference/ <https://github.com/xorbitsai/inference/tree/main/xinference>`_："
 
 #: ../../source/development/xinference_internals.rst:211
 msgid ""
@@ -314,6 +379,12 @@ msgid ""
 "an authentication service (the specific code is located in ``oauth2/``), "
 "as some or all endpoints require user authentication."
 msgstr ""
+"`api/ "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/api>`_： "
+"`restful_api.py "
+" "<https://github.com/xorbitsai/inference/tree/main/xinference/api/restful_api.py>`_"
+"是设置和运行RESTful API的核心部分。它集成了一个身份验证服务（具体代码位于"oauth2/``），"
+"因为部分或所有端口需要用户身份验证。"
 
 #: ../../source/development/xinference_internals.rst:216
 msgid ""
@@ -321,6 +392,9 @@ msgid ""
 "<https://github.com/xorbitsai/inference/tree/main/xinference/client>`_: "
 "This is the client of Xinference."
 msgstr ""
+"`client/ "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/client>`_："
+"这是Xinference的客户端。"
 
 #: ../../source/development/xinference_internals.rst:218
 msgid ""
@@ -333,6 +407,11 @@ msgid ""
 "``asyncio`` for asynchronous operations. See `Concurrency`_ for more "
 "information."
 msgstr ""
+"`oscar/ "
+" <https://github.com/xorbitsai/inference/tree/main/xinference/client/oscar>`_"
+"定义了 Actor 客户端，它是一个客户端接口，用于与部署在服务器环境中的模型交互。"
+"它包括注册/取消注册模型、启动/终止模型，以及与不同类型的模型交互的功能。"
+"这部分主要使用``asyncio``进行异步操作。更多信息，请参见`并发性`_。"
 
 #: ../../source/development/xinference_internals.rst:223
 msgid ""
@@ -340,6 +419,9 @@ msgid ""
 "<https://github.com/xorbitsai/inference/tree/main/xinference/client/restful>`_"
 " implements a RESTful client for interacting with a Xinference service."
 msgstr ""
+"`restful/ "
+" <https://github.com/xorbitsai/inference/tree/main/xinference/client/restful>`_"
+" 实现与Xinference服务交互的RESTful客户端。"
 
 #: ../../source/development/xinference_internals.rst:226
 msgid ""
@@ -347,6 +429,9 @@ msgid ""
 "<https://github.com/xorbitsai/inference/tree/main/xinference/core>`_: "
 "This is the core part of Xinference."
 msgstr ""
+"`core/ "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/core>`_："
+"这是Xinference的核心部分。"
 
 #: ../../source/development/xinference_internals.rst:228
 msgid ""
@@ -358,6 +443,11 @@ msgid ""
 "status of node resources, including model throughput, latency, the usage "
 "of CPU and GPU, memory usage, and more."
 msgstr ""
+"`metrics.py "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/core/metrics.py>`_"
+"和`resource.py "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/core/resource.py>`_"
+"定义了一套用于收集和报告指标以及节点资源状态的工具，包括模型吞吐量、延迟、CPU和GPU的使用率、内存使用率等。"
 
 #: ../../source/development/xinference_internals.rst:233
 msgid ""
@@ -371,6 +461,13 @@ msgid ""
 "engaging in chat. They build user interfaces using the gradio package and"
 " communicate with backend models through our RESTful APIs."
 msgstr ""
+"`image_interface.py "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/core/image_interface.py>`_"
+"和`chat_interface.py "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/core/chat_interface.py>`_"
+"<https://github.com/gradio-app/gradio>`_分别为图像和聊天模型实现了`Gradio <https://github.com/gradio-app/gradio>`_接口。"
+"这些接口允许用户通过网络用户界面与模型进行交互，例如生成图像或进行聊天。"
+"代码使用gradio软件包构建用户界面，并通过我们的RESTful API与后端模型通信。"
 
 #: ../../source/development/xinference_internals.rst:239
 msgid ""
@@ -383,6 +480,12 @@ msgid ""
 " tasks, while supervisor actors manage the lifecycle of worker nodes, "
 "schedule tasks, and monitor system states."
 msgstr ""
+"`worker.py "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/core/worker.py>`_"
+"和`supervisor.py "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/core/supervisor.py>`_"
+"分别定义了worker actor和supervisor actor的逻辑。worker actor负责执行特定的模型计算任务，"
+"而supervisor actor则管理Worker节点的生命周期和任务调度，并监控系统状态。"
 
 #: ../../source/development/xinference_internals.rst:244
 msgid ""
@@ -393,6 +496,9 @@ msgid ""
 "information of model instances and managing these statuses based on the "
 "model's UID."
 msgstr ""
+"`status_guard.py "
+" <https://github.com/xorbitsai/inference/tree/main/xinference/core/status_guard.py>`_"
+" 实现了一个状态监视器，用于跟踪模型的状态（如创建、更新、终止等）。它允许根据模型的UID查询模型实例的状态信息。
 
 #: ../../source/development/xinference_internals.rst:248
 msgid ""
@@ -403,6 +509,10 @@ msgid ""
 "statuses of model versions and querying model version information based "
 "on model names."
 msgstr ""
+"`cache_tracker.py "
+" <https://github.com/xorbitsai/inference/tree/main/xinference/core/cache_tracker.py>`_"
+"定义了一个缓存跟踪器，用于记录和管理缓存状态和模型版本信息。它支持记录缓存位置和模型版本的状态，"
+"并根据模型名称查询模型版本信息。"
 
 #: ../../source/development/xinference_internals.rst:252
 msgid ""
@@ -418,6 +528,14 @@ msgid ""
 "<https://github.com/xorbitsai/xoscar>`_ for concurrent and distributed "
 "execution."
 msgstr ""
+"`event.py "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/core/event.py>`_"
+"定义了一个事件收集器，用于收集和报告各种运行时模型的事件，如信息、警告和错误。"
+"`model.py "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/core/model.py>`_"
+"定义了一个模型 Actor，它是与模型直接交互的核心组件。模型actor负责执行模型推理请求，"
+"处理输入和输出数据流，并支持各种模型操作。这两个部分都使用`Xoscar "
+"<https://github.com/xorbitsai/xoscar>`_ 用于并发和分布式执行。"
 
 #: ../../source/development/xinference_internals.rst:259
 msgid ""
@@ -427,6 +545,10 @@ msgid ""
 "Xinference framework, allowing users to perform operations by command "
 "line. See `Command Line`_ for more information."
 msgstr ""
+"`deploy/ "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/deploy>`_："
+"它提供了一个命令行界面（CLI），用于与Xinference框架进行交互，允许用户通过命令行进行操作。"
+"更多信息，请参见`命令行`_。"
 
 #: ../../source/development/xinference_internals.rst:262
 msgid ""
@@ -436,6 +558,9 @@ msgid ""
 "JSON translation files, it becomes possible to support more languages, "
 "improving user experience."
 msgstr ""
+"`locale/ "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/locale>`_："
+"它支持多语言本地化。只需添加和更新JSON翻译文件，就可以支持更多语言，改善用户体验。"
 
 #: ../../source/development/xinference_internals.rst:265
 msgid ""
@@ -444,6 +569,9 @@ msgid ""
 " provides a structure for model descriptions, creation, and caching. See "
 "`Model`_ for more information."
 msgstr ""
+"`model/ "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/model>`_："
+"它为模型描述、创建和缓存提供了一个框架。请参见`模型`_ 以获取更多信息。"
 
 #: ../../source/development/xinference_internals.rst:268
 msgid ""
@@ -451,4 +579,6 @@ msgid ""
 "<https://github.com/xorbitsai/inference/tree/main/xinference/web/ui>`_: "
 "The js code of the frontend (Web UI)."
 msgstr ""
-
+"`web/ui/ "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/web/ui>`_："
+"前端（用户界面）的js代码。"
