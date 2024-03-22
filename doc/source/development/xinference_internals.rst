@@ -1,33 +1,17 @@
 ========================================
-The overall code framework of Xinference
+The internals of Xinference
 ========================================
 
 .. contents:: Table of contents:
    :local:
 
 Overview
---------
-Xinference is an inference framework designed to simplify model serving. It provides the following features:
-
-- **User-Friendly Interface**: Xinference simplifies interactions through a Web UI. It also provides
-  command line tools and OpenAI-compatible APIs, integrating seamlessly with widely used libraries
-  such as LangChain, LlamaIndex, or Dify. This ease of access allows users to effortlessly manage
-  the lifecycle of the latest models, from download to deployment.
-
-- **Seamless Backend Integration and Deployment**: Integrating to a variety of inference engines
-  (like PyTorch, vLLM, llama.cpp, TensorRT-LLM) and supporting diverse hardware, Xinference abstracts
-  the complexity of backend configurations. It enables the efficient distribution of model inference
-  tasks across different devices and servers, providing a unified API endpoint for streamlined user access.
-
-- **Diverse Model Support**: Embracing a wide range of cutting-edge models, including those for pre-training,
-  chat, embedding, and multimodal tasks, Xinference is tailored to accommodate different model requirements
-  and configurations, such as system prompts. This versatility ensures users can focus on their core objectives
-  without getting bogged down by the intricacies of model management.
+========
 
 Xinference leverages `Xoscar <https://github.com/xorbitsai/xoscar>`_, an actor programming framework we designed, 
 as its core component to manage machines, devices, and model inference processes. Each actor serves as a basic
-unit for model inference and various inference engines can be integrate into the actor, enabling us to support 
-multiple inference backends and hardware. These actors are hosted and scheduled within actor pools, which are
+unit for model inference and various inference backends can be integrate into the actor, enabling us to support 
+multiple inference engines and hardware. These actors are hosted and scheduled within actor pools, which are
 designed to be asynchronous and non-blocking and function as resource pools.
 
 .. raw:: html
@@ -41,7 +25,8 @@ on each server; and each actor can utilize a CPU core or a GPU device. Each serv
 hostname), so actors on different computing nodes can communicate with each other through these addresses. See `Actor`_ for more information.
 
 RESTful API
------------
+===========
+
 The RESTful API is implemented using `FastAPI <https://github.com/tiangolo/fastapi>`_, as specified in
 `api/restful_api.py <https://github.com/xorbitsai/inference/tree/main/xinference/api/restful_api.py>`_.
 
@@ -49,24 +34,20 @@ The RESTful API is implemented using `FastAPI <https://github.com/tiangolo/fasta
 
   self._router.add_api_route("/status", self.get_status, methods=["GET"])
 
-This is an example of api ``/status``, it's corresponding function is ``get_status``. You can add connection
-between api and function you want in `api/restful_api.py <https://github.com/xorbitsai/inference/tree/main/xinference/api/restful_api.py>`_.
+This is an example of the API ``/status``, it's corresponding function is ``get_status``. You can add connection
+between RESTful API and the backend function you want in `api/restful_api.py <https://github.com/xorbitsai/inference/tree/main/xinference/api/restful_api.py>`_.
 
 Command Line
-------------
-The Command Line is implemented using `Click <https://github.com/pallets/click>`_, as specified in
-`deploy/ <https://github.com/xorbitsai/inference/tree/main/xinference/deploy>`_,
+============
+
+The Command Line is implemented using `Click <https://click.palletsprojects.com/>`_, as specified in
+`deploy/cmdline.py <https://github.com/xorbitsai/inference/tree/main/xinference/deploy/cmdline.py>`_,
 allowing users to interact with the Xinference deployment features directly from the terminal.
 
-::
+Entry Points
+------------
 
-  console_scripts =
-      xinference = xinference.deploy.cmdline:cli
-      xinference-local = xinference.deploy.cmdline:local
-      xinference-supervisor = xinference.deploy.cmdline:supervisor
-      xinference-worker = xinference.deploy.cmdline:worker
-
-These are current command lines, set up in `setup.cfg <https://github.com/xorbitsai/inference/blob/main/setup.cfg>`_: 
+Take the command-lines we implemented as examples:
 
 - ``xinference``: Provides commands for model management, including registering/unregistering models, listing all
   registered/running models, and launching or terminating specific models. 
@@ -81,6 +62,24 @@ These are current command lines, set up in `setup.cfg <https://github.com/xorbit
 
 Each command is equipped with ``options`` and ``flags`` to customize its behavior, such as specifying log levels,
 host addresses, port numbers, and other relevant settings.
+
+Python projects define command-line console entry points in `setup.cfg` or `setup.py`.
+
+::
+
+  console_scripts =
+      xinference = xinference.deploy.cmdline:cli
+      xinference-local = xinference.deploy.cmdline:local
+      xinference-supervisor = xinference.deploy.cmdline:supervisor
+      xinference-worker = xinference.deploy.cmdline:worker
+
+
+The command-line ``xinference`` can be refered to code in ``xinference.deploy.cmdline:cli``.
+
+Click
+-----
+
+We use Click to implement a specific command-line: 
 
 ::
 
@@ -99,38 +98,39 @@ host addresses, port numbers, and other relevant settings.
         help="Specify the port number for the Xinference web ui and service.",
     )
 
-For example, the ``xinference-local`` command allows you to define the host address and port for the server.
+For example, the ``xinference-local`` command allows you to define the host address and port.
 
 Actor
------
+=====
+
 Xinference is fundamentally based on `Xoscar <https://github.com/xorbitsai/xoscar>`_, our actor framework, 
 which can manage computational resources and Python processes to support scalable and concurrent programming.
-The worker is the actual place for model serving.
+The following is a pseudocode demonstrating how our Worker Actor works, the actual Worker Actor is more complex than this.
 
-  ::
+::
 
-    import xoscar as xo
+  import xoscar as xo
 
-    class WorkerActor(xo.Actor):
-      def __init__(self, *args, **kwargs):
-        ... 
-      async def launch_model(self, model_id, n_gpu, ...):  
-        # launch an inference engine, use specific model class to load model checkpoints
-        ...
-      async def list_models(self):  
-        # list models on this actor
-        ...
-      async def terminate_model(self, model_id):  
-        # terminate the model
-        ...
-      async def __post_create__(self):
-        # called after the actor instance is created
-        ...
-      async def __pre_destroy__(self):
-        # called before the actor instance is destroyed
-        ... 
+  class WorkerActor(xo.Actor):
+    def __init__(self, *args, **kwargs):
+      ... 
+    async def launch_model(self, model_id, n_gpu, ...):  
+      # launch an inference engine, use specific model class to load model checkpoints
+      ...
+    async def list_models(self):  
+      # list models on this actor
+      ...
+    async def terminate_model(self, model_id):  
+      # terminate the model
+      ...
+    async def __post_create__(self):
+      # called after the actor instance is created
+      ...
+    async def __pre_destroy__(self):
+      # called before the actor instance is destroyed
+      ... 
 
-We use the ``WorkerActor`` as an example to illustrate how we build the model inference library. Each actor class
+We use the ``WorkerActor`` as an example to illustrate how we build the Xinference. Each actor class
 is a standard Python class that inherits from ``xoscar.Actor``. An instance of this class is a specific actor
 within the actor pool.
 
@@ -153,29 +153,24 @@ within the actor pool.
 See `Xoscar document <https://xoscar.dev/en/latest/getting_started/llm-inference.html>`_ for more actor use cases.
 
 Concurrency
------------
-- **Asynchronous I/O**: Our actor framework is designed in an asynchronous, non-blocking manner, enabling it to 
-  handle data-intensive workloads. Large model inference is time-consuming, and traditional blocking calls often
-  result in wasted time waiting for results to return. To address this, we have extensively used the philosophy
-  of coroutine, such as Pythons's ``asyncio``, in our internal implementation. We treat the model inference task
-  as an asynchronous task: we push the task into the pool when the request arrives and pull the task when computing
-  resources are available. If you're not familiar with Pythons's ``asyncio``, you can see more tutorials for help: 
-  
-  https://realpython.com/async-io-python/
-  
-  https://docs.python.org/3/library/asyncio.html
+===========
 
-- **Scheduling**: Our actor design is adept at managing concurrent requests and multiple model instances. Requests are
-  dispatched to our per-model scheduler. Xinference retrieves the available actor from the actor pools and invokes the
-  corresponding actor function to generate content. This per-model scheduler enables us to support one model with 
-  multiple replicas or multiple models.
+Both Xinference and Xoscar highly utilize coroutine programming of ``asyncio``.
+
+If you're not familiar with Pythons's ``asyncio``, you can see more tutorials for help: 
+  
+  - [https://realpython.com/async-io-python/](https://realpython.com/async-io-python/)
+  
+  - [https://docs.python.org/3/library/asyncio.html](https://docs.python.org/3/library/asyncio.html)
+
 
 Model
------
-Xinference supports different types of models including large language models (LLMs), image models, audio models, embedding models,
-and rerank models. This function is implemented in `model/ <https://github.com/xorbitsai/inference/tree/main/xinference/model>`_.
+=====
+
+Xinference supports different types of models including large language models (LLMs), image models, audio models, embedding models, etc. 
+All models are implemented in `model/ <https://github.com/xorbitsai/inference/tree/main/xinference/model>`_.
 Take `llm/ <https://github.com/xorbitsai/inference/tree/main/xinference/model/llm>`_ for example, it focuses on
-the management and instantiation of large language models (LLMs). It includes detailed implementations for loading, configuring,
+the management and instantiation of LLMs. It includes detailed implementations for loading, configuring,
 and deploying LLMs, including handling different types of quantization and model formats. 
 In `llm/ <https://github.com/xorbitsai/inference/tree/main/xinference/model/llm>`_,
 it supports many backends such as `GGML <https://github.com/xorbitsai/inference/tree/main/xinference/model/llm/ggml>`_,
@@ -187,54 +182,49 @@ In `llm/llm_family.json <https://github.com/xorbitsai/inference/blob/main/xinfer
 we utilize JSON files to manage the metadata of emerging open-source models. Adding a new model does not necessitate writing new code,
 it merely requires appending new metadata to the existing JSON file.
 
-  ::
+::
 
-    {
-        "model_name": "llama-2-chat",
-        "model_ability": ["chat"],
-        "model_specs": [
-            {
-                "model_format": "ggmlv3",
-                "model_size_in_billions": 70,
-                "quantization": ["q8_0", ...],
-                "model_id": "TheBloke/Llama-2-70B-Chat-GGML",
-            },
-            ...
-        ],
-        "prompt_style": {
-            "style_name": "LLAMA2",
-            "system_prompt": "<s>[INST] <<SYS>>\nYou are a helpful AI assistant.\n<</SYS>>\n\n",
-            "roles": ["[INST]", "[/INST]"],
-            "stop_token_ids": [2],
-            "stop": ["</s>"]
-        }
-    }
+  {
+      "model_name": "llama-2-chat",
+      "model_ability": ["chat"],
+      "model_specs": [
+          {
+              "model_format": "ggmlv3",
+              "model_size_in_billions": 70,
+              "quantization": ["q8_0", ...],
+              "model_id": "TheBloke/Llama-2-70B-Chat-GGML",
+          },
+          ...
+      ],
+      "prompt_style": {
+          "style_name": "LLAMA2",
+          "system_prompt": "<s>[INST] <<SYS>>\nYou are a helpful AI assistant.\n<</SYS>>\n\n",
+          "roles": ["[INST]", "[/INST]"],
+          "stop_token_ids": [2],
+          "stop": ["</s>"]
+      }
+  }
 
 This is an example of how to define the Llama-2 chat model. The ``model_specs`` define the information of the model, as one model family
 usually comes with various sizes, quantization methods, and file formats.
 For instance, the ``model_format`` could be ``pytorch`` (using Hugging Face Transformers or vLLM as backend),
-``ggmlv3`` (a tensor library associated with llama.cpp), or ``gptq`` (a post-training quantization framework~\cite{frantar2023optq}).
+``ggmlv3`` (a tensor library associated with llama.cpp), or ``gptq`` (a post-training quantization framework).
 The ``model_id`` defines the repository of the model hub from which Xinference downloads the checkpoint files.
 Furthermore, due to distinct instruction-tuning processes, different model families have varying prompt styles. 
 The ``prompt_style`` in the JSON file specifies how to format prompts for this particular model.
 For example, ``system_prompt`` and ``roles`` are used to specify the instructions and personality of the model.
 
 Code Walkthrough
-----------------
+================
+
 The main code is located in the `xinference/ <https://github.com/xorbitsai/inference/tree/main/xinference>`_: 
 
 - `api/ <https://github.com/xorbitsai/inference/tree/main/xinference/api>`_: `restful_api.py <https://github.com/xorbitsai/inference/tree/main/xinference/api/restful_api.py>`_ 
-  is the core part that sets up and runs the RESTful API, interfacing with various functionalities like creating completions
-  (presumably for LLMs), handling embeddings, reranking, and processing images, among others. 
-  It also handles registration and deregistration of models, suggesting dynamic management of available machine learning models.
-  The API supports operations like generating text completions, embeddings, reranking documents, and processing images. 
-  It integrates an authentication service (the specific code is located in ``oauth2/``), indicating that some or all endpoints
+  is the core part that sets up and runs the RESTful APIs.
+  It integrates an authentication service (the specific code is located in ``oauth2/``), as some or all endpoints
   require user authentication.
-  See `RESTful API`_ for more information.
 
-- `client/ <https://github.com/xorbitsai/inference/tree/main/xinference/client>`_: This is the client for the client-server
-  architecture comprehensive framework, supporting both synchronous and asynchronous operations. It also can handle streaming
-  responses from models. This function is critical for processing real-time, streaming outputs from models. 
+- `client/ <https://github.com/xorbitsai/inference/tree/main/xinference/client>`_: This is the client of Xinference. 
   
   - `oscar/ <https://github.com/xorbitsai/inference/tree/main/xinference/client/oscar>`_ defines the Actor Client which acts as
     a client interface for interacting with models deployed in a server environment. It includes functionalities to
@@ -242,8 +232,7 @@ The main code is located in the `xinference/ <https://github.com/xorbitsai/infer
     This part heavily utilizes ``asyncio`` for asynchronous operations. See `Concurrency`_ for more information.
   
   - `restful/ <https://github.com/xorbitsai/inference/tree/main/xinference/client/restful>`_ implements a RESTful client for
-    interacting with a server that hosts machine learning models. It supports operations like listing models, launching and
-    terminating models, and interacting with various types of models through HTTP requests.
+    interacting with a Xinference service.
 
 - `core/ <https://github.com/xorbitsai/inference/tree/main/xinference/core>`_: This is the core part of Xinference. 
   
@@ -256,12 +245,12 @@ The main code is located in the `xinference/ <https://github.com/xorbitsai/infer
     `chat_interface.py <https://github.com/xorbitsai/inference/tree/main/xinference/core/chat_interface.py>`_ 
     implement `Gradio <https://github.com/gradio-app/gradio>`_ interfaces for image and chat models, respectively. 
     These interfaces allow users to interact with models through a Web UI, such as generating images or engaging in chat. 
-    They build user interfaces using the gradio package and communicate with backend models through RESTful APIs.
+    They build user interfaces using the gradio package and communicate with backend models through our RESTful APIs.
   
   - `worker.py <https://github.com/xorbitsai/inference/tree/main/xinference/core/worker.py>`_ and
     `supervisor.py <https://github.com/xorbitsai/inference/tree/main/xinference/core/supervisor.py>`_ 
-    respectively define the logic for worker nodes and supervisor nodes. Worker nodes are responsible for carrying out specific
-    model computation tasks, while supervisor nodes manage the lifecycle of worker nodes, schedule tasks, and monitor system states.
+    respectively define the logic for worker actors and supervisor actor. Worker actors are responsible for carrying out specific
+    model computation tasks, while supervisor actors manage the lifecycle of worker nodes, schedule tasks, and monitor system states.
   
   - `status_guard.py <https://github.com/xorbitsai/inference/tree/main/xinference/core/status_guard.py>`_ implements a status monitor
     to track the status of models (like creating, updating, terminating, etc.). It allows querying status information of model instances
@@ -287,13 +276,4 @@ The main code is located in the `xinference/ <https://github.com/xorbitsai/infer
 - `model/ <https://github.com/xorbitsai/inference/tree/main/xinference/model>`_: It provides a structure for model descriptions, creation,
   and caching. See `Model`_ for more information.
 
-- `thirdparty/ <https://github.com/xorbitsai/inference/tree/main/xinference/thirdparty>`_: A thirdparty framework LLaVA
-  (Large Language and Vision Assistant). It has the capable of understanding and generating responses that consider both
-  the textual and visual context, useful for applications such as chatbots, image captioning, and enhanced language models
-  that can interpret visual information. 
-
 - `web/ui/ <https://github.com/xorbitsai/inference/tree/main/xinference/web/ui>`_: The js code of the frontend (Web UI).
-
-License
--------
-`Apache 2 <https://github.com/xorbitsai/inference/blob/main/LICENSE>`_
