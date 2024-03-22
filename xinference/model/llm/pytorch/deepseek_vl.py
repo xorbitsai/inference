@@ -101,6 +101,11 @@ class DeepSeekVLChatModel(PytorchChatModel):
 
         def _download(_images):
             local_images = []
+
+            # To make requests.get works
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
+            }
             with ThreadPoolExecutor() as executor:
                 for url in images:
                     try:
@@ -114,7 +119,7 @@ class DeepSeekVLChatModel(PytorchChatModel):
                     local_images.append(None)
 
                     def _fill_placeholder(_url, _index):
-                        response = requests.get(url)
+                        response = requests.get(url, headers=headers)
                         local_images[_index] = BytesIO(response.content)
 
                     executor.submit(_fill_placeholder, url, len(local_images) - 1)
@@ -205,7 +210,6 @@ class DeepSeekVLChatModel(PytorchChatModel):
         answer = self._tokenizer.decode(
             outputs[0].cpu().tolist(), skip_special_tokens=True
         )
-        print(answer)
 
         return ChatCompletion(
             id="chat" + str(uuid.uuid1()),
