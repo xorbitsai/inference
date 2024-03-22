@@ -1,13 +1,12 @@
-========================================
+===========================
 The internals of Xinference
-========================================
+===========================
 
 .. contents:: Table of contents:
    :local:
 
 Overview
 ========
-
 Xinference leverages `Xoscar <https://github.com/xorbitsai/xoscar>`_, an actor programming framework we designed, 
 as its core component to manage machines, devices, and model inference processes. Each actor serves as a basic
 unit for model inference and various inference backends can be integrate into the actor, enabling us to support 
@@ -26,7 +25,6 @@ hostname), so actors on different computing nodes can communicate with each othe
 
 RESTful API
 ===========
-
 The RESTful API is implemented using `FastAPI <https://github.com/tiangolo/fastapi>`_, as specified in
 `api/restful_api.py <https://github.com/xorbitsai/inference/tree/main/xinference/api/restful_api.py>`_.
 
@@ -39,14 +37,12 @@ between RESTful API and the backend function you want in `api/restful_api.py <ht
 
 Command Line
 ============
-
 The Command Line is implemented using `Click <https://click.palletsprojects.com/>`_, as specified in
 `deploy/cmdline.py <https://github.com/xorbitsai/inference/tree/main/xinference/deploy/cmdline.py>`_,
 allowing users to interact with the Xinference deployment features directly from the terminal.
 
 Entry Points
 ------------
-
 Take the command-lines we implemented as examples:
 
 - ``xinference``: Provides commands for model management, including registering/unregistering models, listing all
@@ -73,12 +69,10 @@ Python projects define command-line console entry points in `setup.cfg` or `setu
       xinference-supervisor = xinference.deploy.cmdline:supervisor
       xinference-worker = xinference.deploy.cmdline:worker
 
-
 The command-line ``xinference`` can be refered to code in ``xinference.deploy.cmdline:cli``.
 
 Click
 -----
-
 We use Click to implement a specific command-line: 
 
 ::
@@ -102,7 +96,6 @@ For example, the ``xinference-local`` command allows you to define the host addr
 
 Actor
 =====
-
 Xinference is fundamentally based on `Xoscar <https://github.com/xorbitsai/xoscar>`_, our actor framework, 
 which can manage computational resources and Python processes to support scalable and concurrent programming.
 The following is a pseudocode demonstrating how our Worker Actor works, the actual Worker Actor is more complex than this.
@@ -154,7 +147,6 @@ See `Xoscar document <https://xoscar.dev/en/latest/getting_started/llm-inference
 
 Concurrency
 ===========
-
 Both Xinference and Xoscar highly utilize coroutine programming of ``asyncio``.
 
 If you're not familiar with Pythons's ``asyncio``, you can see more tutorials for help: 
@@ -163,10 +155,8 @@ If you're not familiar with Pythons's ``asyncio``, you can see more tutorials fo
   
   - [https://docs.python.org/3/library/asyncio.html](https://docs.python.org/3/library/asyncio.html)
 
-
 Model
 =====
-
 Xinference supports different types of models including large language models (LLMs), image models, audio models, embedding models, etc. 
 All models are implemented in `model/ <https://github.com/xorbitsai/inference/tree/main/xinference/model>`_.
 Take `llm/ <https://github.com/xorbitsai/inference/tree/main/xinference/model/llm>`_ for example, it focuses on
@@ -216,7 +206,6 @@ For example, ``system_prompt`` and ``roles`` are used to specify the instruction
 
 Code Walkthrough
 ================
-
 The main code is located in the `xinference/ <https://github.com/xorbitsai/inference/tree/main/xinference>`_: 
 
 - `api/ <https://github.com/xorbitsai/inference/tree/main/xinference/api>`_: `restful_api.py <https://github.com/xorbitsai/inference/tree/main/xinference/api/restful_api.py>`_ 
