@@ -19,7 +19,7 @@ import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
-from typing import Dict, Iterator, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 
 import requests
 import torch
@@ -154,7 +154,7 @@ class DeepSeekVLChatModel(PytorchChatModel):
                 f"Chat with model {self.model_family.model_name} does not support stream."
             )
         prompt, images = self._message_content_to_deepseek(prompt)
-        prompt_messages = [
+        prompt_messages: List[Dict[str, Any]] = [
             {
                 "role": "User",
                 "content": prompt,
@@ -170,7 +170,7 @@ class DeepSeekVLChatModel(PytorchChatModel):
             role = h["role"]
             if role == "user":
                 content, images = self._message_content_to_deepseek(h["content"])
-                msg = {
+                msg: Dict[str, Any] = {
                     "role": "User",
                     "content": content,
                 }
