@@ -338,7 +338,7 @@
         64797,
         2
       ],
-      "stop":[
+      "stop": [
         "<|user|>",
         "<|observation|>"
       ]
@@ -382,13 +382,12 @@
         64797,
         2
       ],
-      "stop":[
+      "stop": [
         "<|user|>",
         "<|observation|>"
       ]
     }
   },
-
   {
     "version": 1,
     "context_length": 2048,
@@ -730,6 +729,74 @@
   },
   {
     "version": 1,
+    "context_length": 8194,
+    "model_name": "codeshell",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "generate"
+    ],
+    "model_description": "CodeShell is a multi-language code LLM developed by the Knowledge Computing Lab of Peking University. ",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "WisdomShell/CodeShell-7B",
+        "model_revision": "master",
+        "model_hub": "modelscope"
+      }
+    ]
+  },
+  {
+    "version": 1,
+    "context_length": 8194,
+    "model_name": "codeshell-chat",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "CodeShell is a multi-language code LLM developed by the Knowledge Computing Lab of Peking University.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "WisdomShell/CodeShell-7B-Chat",
+        "model_revision": "master",
+        "model_hub": "modelscope"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "CodeShell",
+      "system_prompt": "",
+      "roles": [
+        "## human:",
+        "## assistant: "
+      ],
+      "intra_message_sep": "",
+      "inter_message_sep": "",
+      "stop_token_ids": [
+        70000
+      ],
+      "stop": [
+        "<|endoftext|>",
+        "|||",
+        "|<end>|"
+      ]
+    }
+  },
+  {
+    "version": 1,
     "context_length": 100000,
     "model_name": "code-llama-instruct",
     "model_description": "Code-Llama-Instruct is an instruct-tuned version of the Code-Llama LLM.",
@@ -970,7 +1037,11 @@
     "context_length": 32768,
     "model_name": "mixtral-v0.1",
     "model_lang": [
-      "en", "fr", "it", "de", "es"
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es"
     ],
     "model_ability": [
       "generate"
@@ -996,7 +1067,11 @@
     "context_length": 32768,
     "model_name": "mixtral-instruct-v0.1",
     "model_lang": [
-      "en", "fr", "it", "de", "es"
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es"
     ],
     "model_ability": [
       "chat"
@@ -1050,6 +1125,18 @@
         ],
         "model_hub": "modelscope",
         "model_id": "01ai/Yi-6B",
+        "model_revision": "master"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 9,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_hub": "modelscope",
+        "model_id": "01ai/Yi-9B",
         "model_revision": "master"
       },
       {
@@ -1917,7 +2004,10 @@
         "model_file_name_template": "qwen1_5-72b-chat-{quantization}.gguf",
         "model_file_name_split_template": "qwen1_5-72b-chat-{quantization}.gguf.{part}",
         "quantization_parts": {
-          "q4_k_m": ["a", "b"]
+          "q4_k_m": [
+            "a",
+            "b"
+          ]
         }
       }
     ],
@@ -1996,7 +2086,8 @@
     "context_length": 4096,
     "model_name": "deepseek-coder-instruct",
     "model_lang": [
-      "en", "zh"
+      "en",
+      "zh"
     ],
     "model_ability": [
       "chat"

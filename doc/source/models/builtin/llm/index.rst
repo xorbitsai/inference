@@ -103,7 +103,7 @@ The following is a list of built-in LLM in Xinference:
 
    * - :ref:`glaive-coder <models_llm_glaive-coder>`
      - chat
-     - 100000
+     - 16384
      - A code model trained on a dataset of ~140k programming related problems and solutions generated from Glaive’s synthetic data generation platform.
 
    * - :ref:`gorilla-openfunctions-v1 <models_llm_gorilla-openfunctions-v1>`

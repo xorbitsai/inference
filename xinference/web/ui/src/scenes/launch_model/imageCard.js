@@ -10,6 +10,7 @@ import {
 } from '@mui/material'
 import IconButton from '@mui/material/IconButton'
 import React, { useContext, useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 import { ApiContext } from '../../components/apiContext'
 import fetcher from '../../components/fetcher'
@@ -27,8 +28,10 @@ const ImageCard = ({
   const [hover, setHover] = useState(false)
   const [selected, setSelected] = useState(false)
   const [customDeleted, setCustomDeleted] = useState(false)
+  const { setErrorMsg } = useContext(ApiContext)
   const { isCallingApi, setIsCallingApi } = useContext(ApiContext)
   const { isUpdatingModel } = useContext(ApiContext)
+  const navigate = useNavigate()
 
   // UseEffects for parameter selection, change options based on previous selections
   useEffect(() => {}, [modelData])
@@ -54,7 +57,19 @@ const ImageCard = ({
       },
       body: JSON.stringify(modelDataWithID),
     })
-      .then(() => {
+      .then((response) => {
+        if (!response.ok) {
+          // Assuming the server returns error details in JSON format
+          response.json().then((errorData) => {
+            setErrorMsg(
+              `Server error: ${response.status} - ${
+                errorData.detail || 'Unknown error'
+              }`
+            )
+          })
+        } else {
+          navigate('/running_models')
+        }
         setIsCallingApi(false)
       })
       .catch((error) => {
@@ -249,7 +264,7 @@ const ImageCard = ({
               )
             })()}
             {(() => {
-              if (modelData.is_cached) {
+              if (modelData.cache_status) {
                 return <Chip label="Cached" variant="outlined" size="small" />
               }
             })()}

@@ -18,7 +18,9 @@ import os
 from itertools import chain
 
 from .core import (
+    BUILTIN_IMAGE_MODELS,
     IMAGE_MODEL_DESCRIPTIONS,
+    MODELSCOPE_IMAGE_MODELS,
     ImageModelFamilyV1,
     generate_image_description,
     get_cache_status,
@@ -29,14 +31,18 @@ _model_spec_json = os.path.join(os.path.dirname(__file__), "model_spec.json")
 _model_spec_modelscope_json = os.path.join(
     os.path.dirname(__file__), "model_spec_modelscope.json"
 )
-BUILTIN_IMAGE_MODELS = dict(
-    (spec["model_name"], ImageModelFamilyV1(**spec))
-    for spec in json.load(codecs.open(_model_spec_json, "r", encoding="utf-8"))
+BUILTIN_IMAGE_MODELS.update(
+    dict(
+        (spec["model_name"], ImageModelFamilyV1(**spec))
+        for spec in json.load(codecs.open(_model_spec_json, "r", encoding="utf-8"))
+    )
 )
-MODELSCOPE_IMAGE_MODELS = dict(
-    (spec["model_name"], ImageModelFamilyV1(**spec))
-    for spec in json.load(
-        codecs.open(_model_spec_modelscope_json, "r", encoding="utf-8")
+MODELSCOPE_IMAGE_MODELS.update(
+    dict(
+        (spec["model_name"], ImageModelFamilyV1(**spec))
+        for spec in json.load(
+            codecs.open(_model_spec_modelscope_json, "r", encoding="utf-8")
+        )
     )
 )
 

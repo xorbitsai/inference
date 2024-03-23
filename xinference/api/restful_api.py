@@ -22,7 +22,7 @@ import pprint
 import sys
 import time
 import warnings
-from typing import Any, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import gradio as gr
 import xoscar as xo
@@ -59,6 +59,7 @@ from ..core.utils import json_dumps
 from ..types import (
     SPECIAL_TOOL_PROMPT,
     ChatCompletion,
+    ChatCompletionMessage,
     Completion,
     CreateChatCompletion,
     CreateCompletion,
@@ -133,6 +134,15 @@ class BuildGradioInterfaceRequest(BaseModel):
     model_ability: List[str]
     model_description: str
     model_lang: List[str]
+
+
+class BuildGradioImageInterfaceRequest(BaseModel):
+    model_type: str
+    model_name: str
+    model_family: str
+    model_id: str
+    controlnet: Union[None, List[Dict[str, Union[str, None]]]]
+    model_revision: str
 
 
 class RESTfulAPI:
@@ -239,6 +249,16 @@ class RESTfulAPI:
         self._router.add_api_route(
             "/v1/ui/{model_uid}",
             self.build_gradio_interface,
+            methods=["POST"],
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:read"])]
+                if self.is_authenticated()
+                else None
+            ),
+        )
+        self._router.add_api_route(
+            "/v1/ui/images/{model_uid}",
+            self.build_gradio_images_interface,
             methods=["POST"],
             dependencies=(
                 [Security(self._auth_service, scopes=["models:read"])]
@@ -584,8 +604,22 @@ class RESTfulAPI:
 
     async def list_models(self) -> JSONResponse:
         try:
-            data = await (await self._get_supervisor_ref()).list_models()
-            return JSONResponse(content=data)
+            models = await (await self._get_supervisor_ref()).list_models()
+
+            model_list = []
+            for model_id, model_info in models.items():
+                model_list.append(
+                    {
+                        "id": model_id,
+                        "object": "model",
+                        "created": 0,
+                        "owned_by": "xinference",
+                        **model_info,
+                    }
+                )
+            response = {"object": "list", "data": model_list}
+
+            return JSONResponse(content=response)
         except Exception as e:
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
@@ -822,6 +856,56 @@ class RESTfulAPI:
 
         return JSONResponse(content={"model_uid": model_uid})
 
+    async def build_gradio_images_interface(
+        self, model_uid: str, request: Request
+    ) -> JSONResponse:
+        """
+        Build a Gradio interface for image processing models.
+        """
+        payload = await request.json()
+        body = BuildGradioImageInterfaceRequest.parse_obj(payload)
+        assert self._app is not None
+        assert body.model_type == "image"
+
+        # asyncio.Lock() behaves differently in 3.9 than 3.10+
+        # A event loop is required in 3.9 but not 3.10+
+        if sys.version_info < (3, 10):
+            try:
+                asyncio.get_event_loop()
+            except RuntimeError:
+                warnings.warn(
+                    "asyncio.Lock() requires an event loop in Python 3.9"
+                    + "a placeholder event loop has been created"
+                )
+                asyncio.set_event_loop(asyncio.new_event_loop())
+
+        from ..core.image_interface import ImageInterface
+
+        try:
+            access_token = request.headers.get("Authorization")
+            internal_host = "localhost" if self._host == "0.0.0.0" else self._host
+            interface = ImageInterface(
+                endpoint=f"http://{internal_host}:{self._port}",
+                model_uid=model_uid,
+                model_family=body.model_family,
+                model_name=body.model_name,
+                model_id=body.model_id,
+                model_revision=body.model_revision,
+                controlnet=body.controlnet,
+                access_token=access_token,
+            ).build()
+
+            gr.mount_gradio_app(self._app, interface, f"/{model_uid}")
+        except ValueError as ve:
+            logger.error(str(ve), exc_info=True)
+            raise HTTPException(status_code=400, detail=str(ve))
+
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
+        return JSONResponse(content={"model_uid": model_uid})
+
     async def terminate_model(self, model_uid: str) -> JSONResponse:
         try:
             assert self._app is not None
@@ -891,11 +975,17 @@ class RESTfulAPI:
                         self.handle_request_limit_error(re)
                     async for item in iterator:
                         yield item
+                except asyncio.CancelledError:
+                    logger.info(
+                        f"Disconnected from client (via refresh/close) {request.client} during generate."
+                    )
+                    return
                 except Exception as ex:
                     logger.exception("Completion stream got an error: %s", ex)
                     await self._report_error_event(model_uid, str(ex))
                     # https://github.com/openai/openai-python/blob/e0aafc6c1a45334ac889fe3e54957d309c3af93f/src/openai/_streaming.py#L107
                     yield dict(data=json.dumps({"error": str(ex)}))
+                    return
 
             return EventSourceResponse(stream_results())
         else:
@@ -1169,25 +1259,21 @@ class RESTfulAPI:
                 status_code=400, detail="Invalid input. Please specify the prompt."
             )
 
-        system_messages = []
+        system_messages: List["ChatCompletionMessage"] = []
+        system_messages_contents = []
         non_system_messages = []
         for msg in messages:
             assert (
                 msg.get("content") != SPECIAL_TOOL_PROMPT
             ), f"Invalid message content {SPECIAL_TOOL_PROMPT}"
             if msg["role"] == "system":
-                system_messages.append(msg)
+                system_messages_contents.append(msg["content"])
             else:
                 non_system_messages.append(msg)
+        system_messages.append(
+            {"role": "system", "content": ". ".join(system_messages_contents)}
+        )
 
-        if len(system_messages) > 1:
-            raise HTTPException(
-                status_code=400, detail="Multiple system messages are not supported."
-            )
-        if len(system_messages) == 1 and messages[0]["role"] != "system":
-            raise HTTPException(
-                status_code=400, detail="System message should be the first one."
-            )
         assert non_system_messages
 
         has_tool_message = messages[-1].get("role") == "tool"
@@ -1273,11 +1359,23 @@ class RESTfulAPI:
                     async for item in iterator:
                         yield item
                     yield "[DONE]"
+                # Note that asyncio.CancelledError does not inherit from Exception.
+                # When the user uses ctrl+c to cancel the streaming chat, asyncio.CancelledError would be triggered.
+                # See https://github.com/sysid/sse-starlette/blob/main/examples/example.py#L48
+                except asyncio.CancelledError:
+                    logger.info(
+                        f"Disconnected from client (via refresh/close) {request.client} during chat."
+                    )
+                    # See https://github.com/sysid/sse-starlette/blob/main/examples/error_handling.py#L13
+                    # Use return to stop the generator from continuing.
+                    # TODO: Cannot yield here. Yield here would leads to error for the next streaming request.
+                    return
                 except Exception as ex:
                     logger.exception("Chat completion stream got an error: %s", ex)
                     await self._report_error_event(model_uid, str(ex))
                     # https://github.com/openai/openai-python/blob/e0aafc6c1a45334ac889fe3e54957d309c3af93f/src/openai/_streaming.py#L107
                     yield dict(data=json.dumps({"error": str(ex)}))
+                    return
 
             return EventSourceResponse(stream_results())
         else:
