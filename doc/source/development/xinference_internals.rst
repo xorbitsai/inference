@@ -155,20 +155,27 @@ If you're not familiar with Pythons's ``asyncio``, you can see more tutorials fo
   
   - `Python Official Documentation <https://docs.python.org/3/library/asyncio.html>`__
 
+
 Model
 =====
+
 Xinference supports different types of models including large language models (LLMs), image models, audio models, embedding models, etc. 
 All models are implemented in `model/ <https://github.com/xorbitsai/inference/tree/main/xinference/model>`_.
-Take `llm/ <https://github.com/xorbitsai/inference/tree/main/xinference/model/llm>`_ for example, it focuses on
-the management and instantiation of LLMs. It includes detailed implementations for loading, configuring,
-and deploying LLMs, including handling different types of quantization and model formats. 
-In `llm/ <https://github.com/xorbitsai/inference/tree/main/xinference/model/llm>`_,
-it supports many backends such as `GGML <https://github.com/xorbitsai/inference/tree/main/xinference/model/llm/ggml>`_,
-`PyTorch <https://github.com/xorbitsai/inference/tree/main/xinference/model/llm/pytorch>`_,
-`SGLang <https://github.com/xorbitsai/inference/tree/main/xinference/model/llm/sglang>`_
-and `vLLM <https://github.com/xorbitsai/inference/tree/main/xinference/model/llm/vllm>`_.
 
-In `llm/llm_family.json <https://github.com/xorbitsai/inference/blob/main/xinference/model/llm/llm_family.json>`_,
+LLM
+---
+
+Take `model/llm/ <https://github.com/xorbitsai/inference/tree/main/xinference/model/llm>`_ for example, it focuses on
+the management and instantiation of LLMs. It includes detailed implementations for loading, configuring,
+and deploying LLMs.
+
+We support many backends such as GGML, PyTorch, and vLLM. Our generated content is compatible with the format of OpenAI, supporting features such as streaming output and returning chat completion format (for chat models only).
+Therefore, there is a lot of adaptation work to be done after the model generate content. These tasks are not difficult, but they do require some time. When writing this part of the code, please refer to the `OpenAI API documentation <https://platform.openai.com/docs/introduction>`_ and the documentation of various inference backends, and make the necessary adaptations.
+
+JSON
+----
+
+In `model/llm/llm_family.json <https://github.com/xorbitsai/inference/blob/main/xinference/model/llm/llm_family.json>`_,
 we utilize JSON files to manage the metadata of emerging open-source models. Adding a new model does not necessitate writing new code,
 it merely requires appending new metadata to the existing JSON file.
 
@@ -206,6 +213,7 @@ For example, ``system_prompt`` and ``roles`` are used to specify the instruction
 
 Code Walkthrough
 ================
+
 The main code is located in the `xinference/ <https://github.com/xorbitsai/inference/tree/main/xinference>`_: 
 
 - `api/ <https://github.com/xorbitsai/inference/tree/main/xinference/api>`_: `restful_api.py <https://github.com/xorbitsai/inference/tree/main/xinference/api/restful_api.py>`_ 
@@ -216,9 +224,7 @@ The main code is located in the `xinference/ <https://github.com/xorbitsai/infer
 - `client/ <https://github.com/xorbitsai/inference/tree/main/xinference/client>`_: This is the client of Xinference. 
   
   - `oscar/ <https://github.com/xorbitsai/inference/tree/main/xinference/client/oscar>`_ defines the Actor Client which acts as
-    a client interface for interacting with models deployed in a server environment. It includes functionalities to
-    register/unregister models, launch/terminate models, and interact with different types of models. 
-    This part heavily utilizes ``asyncio`` for asynchronous operations. See `Concurrency`_ for more information.
+    a client interface for interacting with models deployed in a Xinference cluster.
   
   - `restful/ <https://github.com/xorbitsai/inference/tree/main/xinference/client/restful>`_ implements a RESTful client for
     interacting with a Xinference service.
