@@ -49,7 +49,7 @@ Take the command-lines we implemented as examples:
   registered/running models, and launching or terminating specific models. 
   It also features interactive commands like generate and chat for testing and interacting with deployed models in real-time.
 
-- ``xinference-local``: Starts a local Xinference cluster for development or testing purposes.
+- ``xinference-local``: Starts a local Xinference service.
 
 - ``xinference-supervisor``: Initiates a supervisor process that manages and monitors worker actors within a distributed setup.
 
@@ -105,23 +105,23 @@ The following is a pseudocode demonstrating how our Worker Actor works, the actu
   import xoscar as xo
 
   class WorkerActor(xo.Actor):
-    def __init__(self, *args, **kwargs):
-      ... 
-    async def launch_model(self, model_id, n_gpu, ...):  
-      # launch an inference engine, use specific model class to load model checkpoints
-      ...
-    async def list_models(self):  
-      # list models on this actor
-      ...
-    async def terminate_model(self, model_id):  
-      # terminate the model
-      ...
-    async def __post_create__(self):
-      # called after the actor instance is created
-      ...
-    async def __pre_destroy__(self):
-      # called before the actor instance is destroyed
-      ... 
+      def __init__(self, *args, **kwargs):
+          ... 
+      async def launch_model(self, model_id, n_gpu, ...):  
+          # launch an inference engine, use specific model class to load model checkpoints
+          ...
+      async def list_models(self):  
+          # list models on this actor
+          ...
+      async def terminate_model(self, model_id):  
+          # terminate the model
+          ...
+      async def __post_create__(self):
+          # called after the actor instance is created
+          ...
+      async def __pre_destroy__(self):
+          # called before the actor instance is destroyed
+          ... 
 
 We use the ``WorkerActor`` as an example to illustrate how we build the Xinference. Each actor class
 is a standard Python class that inherits from ``xoscar.Actor``. An instance of this class is a specific actor
@@ -136,7 +136,9 @@ within the actor pool.
 - **Reference Actor and Invoke Methods**: When an actor is created, it yields a reference variable so that other
   actors can reference it. The actor reference can also be referenced with the address. Suppose the ``WorkerActor``
   is created and the reference variable is ``worker_ref``,  the ``launch_model`` method of this actor class can
-  be invoked by calling ``worker_ref.launch_model()``.
+  be invoked by calling ``worker_ref.launch_model()``. 
+  Even if the actor's method is originally a synchronized method, when called with an actor reference, it will 
+  become as an asynchronous method.
 
 - **Inference Engine**: The actor can manage the process, and the inference engine is also a process. In the launch
   model part of the ``WorkerActor``, we can initialize different inference engines according to the user's need.
@@ -145,14 +147,21 @@ within the actor pool.
 
 See `Xoscar document <https://xoscar.dev/en/latest/getting_started/llm-inference.html>`_ for more actor use cases.
 
-Concurrency
-===========
-Both Xinference and Xoscar highly utilize coroutine programming of ``asyncio``.
+Asynchronous Programming
+========================
+
+Both Xinference and Xoscar highly utilize asynchronous programming of ``asyncio``.
+Asynchronous programming is a programming paradigm that does not block.
+Instead, requests and function calls are issued and executed in the background 
+and results are returned in the future. This enables us to perform 
+activities concurrently.
 
 If you're not familiar with Pythons's ``asyncio``, you can see more tutorials for help: 
   
+  - `Python Asyncio Tutorial <https://bbc.github.io/cloudfit-public-docs/asyncio/asyncio-part-1.html>`__
+
   - `Real Python's asyncio Tutorial <https://realpython.com/async-io-python/>`__
-  
+
   - `Python Official Documentation <https://docs.python.org/3/library/asyncio.html>`__
 
 
