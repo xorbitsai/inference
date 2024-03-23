@@ -190,7 +190,7 @@ class DeepSeekVLChatModel(PytorchChatModel):
         pil_images = load_pil_images(deepseek_history)
         prepare_inputs = self._vl_chat_processor(
             conversations=deepseek_history, images=pil_images, force_batchify=True
-        ).to(self._model.device, self._type)
+        ).to(self._model.device, self._model.dtype)
 
         # run image encoder to get the image embeddings
         inputs_embeds = self._model.prepare_inputs_embeds(**prepare_inputs)
@@ -203,7 +203,10 @@ class DeepSeekVLChatModel(PytorchChatModel):
             bos_token_id=self._tokenizer.bos_token_id,
             eos_token_id=self._tokenizer.eos_token_id,
             max_new_tokens=512,
-            do_sample=False,
+            do_sample=True,
+            top_p=0.95,
+            temperature=0.2,
+            repetition_penalty=1.1,
             use_cache=True,
         )
 
