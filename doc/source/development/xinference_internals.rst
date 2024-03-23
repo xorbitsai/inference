@@ -151,9 +151,9 @@ Both Xinference and Xoscar highly utilize coroutine programming of ``asyncio``.
 
 If you're not familiar with Pythons's ``asyncio``, you can see more tutorials for help: 
   
-  - [https://realpython.com/async-io-python/](https://realpython.com/async-io-python/)
+  - `Real Python's asyncio Tutorial <https://realpython.com/async-io-python/>`__
   
-  - [https://docs.python.org/3/library/asyncio.html](https://docs.python.org/3/library/asyncio.html)
+  - `Python Official Documentation <https://docs.python.org/3/library/asyncio.html>`__
 
 Model
 =====
@@ -254,7 +254,6 @@ The main code is located in the `xinference/ <https://github.com/xorbitsai/infer
     `model.py <https://github.com/xorbitsai/inference/tree/main/xinference/core/model.py>`_ defines a Model Actor, the core component for
     direct model interactions. The Model Actor is responsible for executing model inference requests, handling input and output data streams,
     and supports various types of model operations.
-    These two parts are all utilize `Xoscar <https://github.com/xorbitsai/xoscar>`_ for concurrent and distributed execution.
 
 - `deploy/ <https://github.com/xorbitsai/inference/tree/main/xinference/deploy>`_: It provides a command-line interface (CLI) for interacting
   with the Xinference framework, allowing users to perform operations by command line. See `Command Line`_ for more information.
