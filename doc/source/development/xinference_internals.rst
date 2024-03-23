@@ -210,8 +210,8 @@ The main code is located in the `xinference/ <https://github.com/xorbitsai/infer
 
 - `api/ <https://github.com/xorbitsai/inference/tree/main/xinference/api>`_: `restful_api.py <https://github.com/xorbitsai/inference/tree/main/xinference/api/restful_api.py>`_ 
   is the core part that sets up and runs the RESTful APIs.
-  It integrates an authentication service (the specific code is located in ``oauth2/``), as some or all endpoints
-  require user authentication.
+  It integrates an authentication service (the specific code is located in `oauth2/ <https://github.com/xorbitsai/inference/tree/main/xinference/api/oauth2>`_),
+  as some or all endpointsrequire user authentication.
 
 - `client/ <https://github.com/xorbitsai/inference/tree/main/xinference/client>`_: This is the client of Xinference. 
   
