@@ -111,6 +111,8 @@ jobs:
           fi
           pip install "llama-cpp-python>=0.2.23"
           pip install transformers
+          pip install attrdict
+          pip install "timm>=0.9.16"
           pip install torch
           pip install torchvision
           pip install accelerate
