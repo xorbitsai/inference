@@ -395,7 +395,7 @@ def register_model(
         model = fd.read()
 
     client = RESTfulClient(base_url=endpoint, api_key=api_key)
-    if client._get_token() is None:
+    if api_key is None:
         client._set_token(get_stored_token(endpoint, client))
     client.register_model(
         model_type=model_type,
@@ -433,7 +433,7 @@ def unregister_model(
     endpoint = get_endpoint(endpoint)
 
     client = RESTfulClient(base_url=endpoint, api_key=api_key)
-    if client._get_token() is None:
+    if api_key is None:
         client._set_token(get_stored_token(endpoint, client))
     client.unregister_model(
         model_type=model_type,
@@ -471,7 +471,7 @@ def list_model_registrations(
 
     endpoint = get_endpoint(endpoint)
     client = RESTfulClient(base_url=endpoint, api_key=api_key)
-    if client._get_token() is None:
+    if api_key is None:
         client._set_token(get_stored_token(endpoint, client))
 
     registrations = client.list_model_registrations(model_type=model_type)
@@ -722,7 +722,7 @@ def model_launch(
         else int(size_in_billions)
     )
     client = RESTfulClient(base_url=endpoint, api_key=api_key)
-    if client._get_token() is None:
+    if api_key is None:
         client._set_token(get_stored_token(endpoint, client))
 
     model_uid = client.launch_model(
@@ -766,7 +766,7 @@ def model_list(endpoint: Optional[str], api_key: Optional[str]):
 
     endpoint = get_endpoint(endpoint)
     client = RESTfulClient(base_url=endpoint, api_key=api_key)
-    if client._get_token() is None:
+    if api_key is None:
         client._set_token(get_stored_token(endpoint, client))
 
     llm_table = []
@@ -902,7 +902,7 @@ def model_terminate(
 ):
     endpoint = get_endpoint(endpoint)
     client = RESTfulClient(base_url=endpoint, api_key=api_key)
-    if client._get_token() is None:
+    if api_key is None:
         client._set_token(get_stored_token(endpoint, client))
     client.terminate_model(model_uid=model_uid)
 
@@ -942,7 +942,7 @@ def model_generate(
 ):
     endpoint = get_endpoint(endpoint)
     client = RESTfulClient(base_url=endpoint, api_key=api_key)
-    if client._get_token() is None:
+    if api_key is None:
         client._set_token(get_stored_token(endpoint, client))
     if stream:
         # TODO: when stream=True, RestfulClient cannot generate words one by one.
@@ -1038,7 +1038,7 @@ def model_chat(
     # TODO: chat model roles may not be user and assistant.
     endpoint = get_endpoint(endpoint)
     client = RESTfulClient(base_url=endpoint, api_key=api_key)
-    if client._get_token() is None:
+    if api_key is None:
         client._set_token(get_stored_token(endpoint, client))
 
     chat_history: "List[ChatCompletionMessage]" = []
@@ -1129,7 +1129,7 @@ def model_chat(
 def vllm_models(endpoint: Optional[str], api_key: Optional[str]):
     endpoint = get_endpoint(endpoint)
     client = RESTfulClient(base_url=endpoint, api_key=api_key)
-    if client._get_token() is None:
+    if api_key is None:
         client._set_token(get_stored_token(endpoint, client))
     vllm_models_dict = client.vllm_models()
     print("VLLM supported model families:")

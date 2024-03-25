@@ -13,7 +13,7 @@
 # limitations under the License.
 import re
 from datetime import timedelta
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, SecurityScopes
@@ -43,7 +43,7 @@ class AuthService:
 
     @staticmethod
     def is_legal_api_key(key: str):
-        pattern = re.compile("^[sk]{2}-[a-zA-Z0-9]{48}$")
+        pattern = re.compile("^[sk]{2}-[a-zA-Z0-9]{13}$")
         if re.match(pattern, key):
             return True
         else:
@@ -54,20 +54,20 @@ class AuthService:
             config: AuthStartupConfig = parse_file_as(
                 path=self._auth_config_file, type_=AuthStartupConfig
             )
-            total_keys = set()
+            all_api_keys = set()
             for user in config.user_config:
                 user.password = get_password_hash(user.password)
-                if len(set(user.api_keys)) != len(user.api_keys):
-                    raise ValueError("User has duplicate Api-Keys")
                 for api_key in user.api_keys:
                     if not self.is_legal_api_key(api_key):
                         raise ValueError(
-                            "Api-Key should be a string started with 'sk-' with a total length of 51"
+                            "Api-Key should be a string started with 'sk-' with a total length of 16"
                         )
-                    if api_key in total_keys:
-                        raise ValueError("Api-Keys of different users have conflict")
+                    if api_key in all_api_keys:
+                        raise ValueError(
+                            "Duplicate api-keys exists, please check your configuration"
+                        )
                     else:
-                        total_keys.add(api_key)
+                        all_api_keys.add(api_key)
             return config
 
     def __call__(
@@ -88,13 +88,11 @@ class AuthService:
             headers={"WWW-Authenticate": authenticate_value},
         )
 
-        through_api_key = False
-
-        try:
-            assert self._config is not None
-            if self.is_legal_api_key(token):
-                through_api_key = True
-            else:
+        if self.is_legal_api_key(token):
+            user, token_scopes = self.get_user_and_scopes_with_api_key(token)
+        else:
+            try:
+                assert self._config is not None
                 payload = jwt.decode(
                     token,
                     self._config.auth_config.secret_key,
@@ -105,22 +103,15 @@ class AuthService:
                 if username is None:
                     raise credentials_exception
                 token_scopes = payload.get("scopes", [])
-                token_data = TokenData(scopes=token_scopes, username=username)
-        except (JWTError, ValidationError):
-            raise credentials_exception
-        if not through_api_key:
-            user = self.get_user(token_data.username)
-        else:
-            user = self.get_user_with_api_key(token)
-            if user is None:
+                user = self.get_user(username)
+            except (JWTError, ValidationError):
                 raise credentials_exception
-            token_data = TokenData(scopes=user.permissions, username=user.username)
         if user is None:
             raise credentials_exception
-        if "admin" in token_data.scopes:
+        if "admin" in token_scopes:
             return user
         for scope in security_scopes.scopes:
-            if scope not in token_data.scopes:
+            if scope not in token_scopes:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="Not enough permissions",
@@ -134,12 +125,14 @@ class AuthService:
                 return user
         return None
 
-    def get_user_with_api_key(self, api_key: str) -> Optional[User]:
+    def get_user_and_scopes_with_api_key(
+        self, api_key: str
+    ) -> Tuple[Optional[User], List]:
         for user in self._config.user_config:
             for key in user.api_keys:
                 if api_key == key:
-                    return user
-        return None
+                    return user, user.permissions
+        return None, []
 
     def authenticate_user(self, username: str, password: str):
         user = self.get_user(username)
