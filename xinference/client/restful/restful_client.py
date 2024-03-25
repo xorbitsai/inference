@@ -657,7 +657,7 @@ class Client:
         self._cluster_authed = False
         self._check_cluster_authenticated()
         if api_key is not None:
-            self.login_with_api_key(api_key)
+            self._headers["Authorization"] = f"Bearer {api_key}"
 
     def _set_token(self, token: Optional[str]):
         if not self._cluster_authed or token is None:
@@ -704,22 +704,6 @@ class Client:
         url = f"{self.base_url}/token"
 
         payload = {"username": username, "password": password}
-
-        response = requests.post(url, json=payload)
-        if response.status_code != 200:
-            raise RuntimeError(f"Failed to login, detail: {response.json()['detail']}")
-
-        response_data = response.json()
-        # Only bearer token for now
-        access_token = response_data["access_token"]
-        self._headers["Authorization"] = f"Bearer {access_token}"
-
-    def login_with_api_key(self, api_key: str):
-        if not self._cluster_authed:
-            return
-        url = f"{self.base_url}/token/api_key"
-
-        payload = {"api_key": api_key}
 
         response = requests.post(url, json=payload)
         if response.status_code != 200:

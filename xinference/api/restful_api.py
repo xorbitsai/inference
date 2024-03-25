@@ -208,15 +208,6 @@ class RESTfulAPI:
         )
         return JSONResponse(content=result)
 
-    async def login_with_api_key_for_access_token(
-        self, request: Request
-    ) -> JSONResponse:
-        form_data = await request.json()
-        result = self._auth_service.generate_token_with_api_key_for_user(
-            form_data["api_key"]
-        )
-        return JSONResponse(content=result)
-
     async def is_cluster_authenticated(self) -> JSONResponse:
         return JSONResponse(content={"auth": self.is_authenticated()})
 
@@ -277,9 +268,6 @@ class RESTfulAPI:
         )
         self._router.add_api_route(
             "/token", self.login_for_access_token, methods=["POST"]
-        )
-        self._router.add_api_route(
-            "/token/api_key", self.login_with_api_key_for_access_token, methods=["POST"]
         )
         self._router.add_api_route(
             "/v1/cluster/auth", self.is_cluster_authenticated, methods=["GET"]

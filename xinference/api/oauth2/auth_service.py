@@ -78,6 +78,7 @@ class AuthService:
         """
         Advanced dependencies. See: https://fastapi.tiangolo.com/advanced/advanced-dependencies/
         """
+        print(f"DEBUG: Enter __call__ with token {token}")
         if security_scopes.scopes:
             authenticate_value = f'Bearer scope="{security_scopes.scope_str}"'
         else:
@@ -88,22 +89,33 @@ class AuthService:
             headers={"WWW-Authenticate": authenticate_value},
         )
 
+        through_api_key = False
+
         try:
             assert self._config is not None
-            payload = jwt.decode(
-                token,
-                self._config.auth_config.secret_key,
-                algorithms=[self._config.auth_config.algorithm],
-                options={"verify_exp": False},  # TODO: supports token expiration
-            )
-            username: str = payload.get("sub")
-            if username is None:
-                raise credentials_exception
-            token_scopes = payload.get("scopes", [])
-            token_data = TokenData(scopes=token_scopes, username=username)
+            if self.is_legal_api_key(token):
+                through_api_key = True
+            else:
+                payload = jwt.decode(
+                    token,
+                    self._config.auth_config.secret_key,
+                    algorithms=[self._config.auth_config.algorithm],
+                    options={"verify_exp": False},  # TODO: supports token expiration
+                )
+                username: str = payload.get("sub")
+                if username is None:
+                    raise credentials_exception
+                token_scopes = payload.get("scopes", [])
+                token_data = TokenData(scopes=token_scopes, username=username)
         except (JWTError, ValidationError):
             raise credentials_exception
-        user = self.get_user(token_data.username)
+        if not through_api_key:
+            user = self.get_user(token_data.username)
+        else:
+            user = self.get_user_with_api_key(token)
+            if user is None:
+                raise credentials_exception
+            token_data = TokenData(scopes=user.permissions, username=user.username)
         if user is None:
             raise credentials_exception
         if "admin" in token_data.scopes:
@@ -144,26 +156,6 @@ class AuthService:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Incorrect username or password",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-        assert user is not None and isinstance(user, User)
-        access_token_expires = timedelta(
-            minutes=self._config.auth_config.token_expire_in_minutes
-        )
-        access_token = create_access_token(
-            data={"sub": user.username, "scopes": user.permissions},
-            secret_key=self._config.auth_config.secret_key,
-            algorithm=self._config.auth_config.algorithm,
-            expires_delta=access_token_expires,
-        )
-        return {"access_token": access_token, "token_type": "bearer"}
-
-    def generate_token_with_api_key_for_user(self, api_key: str):
-        user = self.get_user_with_api_key(api_key)
-        if not user:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Incorrect api-key",
                 headers={"WWW-Authenticate": "Bearer"},
             )
         assert user is not None and isinstance(user, User)
