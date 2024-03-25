@@ -395,7 +395,8 @@ def register_model(
         model = fd.read()
 
     client = RESTfulClient(base_url=endpoint, api_key=api_key)
-    client._set_token(get_stored_token(endpoint, client))
+    if client._get_token() is None:
+        client._set_token(get_stored_token(endpoint, client))
     client.register_model(
         model_type=model_type,
         model=model,
