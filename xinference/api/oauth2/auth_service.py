@@ -78,7 +78,6 @@ class AuthService:
         """
         Advanced dependencies. See: https://fastapi.tiangolo.com/advanced/advanced-dependencies/
         """
-        print(f"DEBUG: Enter __call__ with token {token}")
         if security_scopes.scopes:
             authenticate_value = f'Bearer scope="{security_scopes.scope_str}"'
         else:
