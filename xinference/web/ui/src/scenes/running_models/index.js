@@ -50,7 +50,7 @@ const RunningModels = () => {
       ])
     } else {
       setIsUpdatingModel(true)
-      fetcher(`${endPoint}/v1/models/`, {
+      fetcher(`${endPoint}/v1/models`, {
         method: 'GET',
       })
         .then((response) => {
