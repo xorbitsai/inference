@@ -38,7 +38,6 @@ logger = logging.getLogger(__name__)
 class OmniLMMModel(PytorchChatModel):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._tokenizer = None
         self._model = None
 
     @classmethod
