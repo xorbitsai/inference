@@ -76,6 +76,16 @@ The following is a list of built-in LLM in Xinference:
      - 100000
      - Code-Llama-Python is a fine-tuned version of the Code-Llama LLM, specializing in Python.
 
+   * - :ref:`codeshell <models_llm_codeshell>`
+     - generate
+     - 8194
+     - CodeShell is a multi-language code LLM developed by the Knowledge Computing Lab of Peking University. 
+
+   * - :ref:`codeshell-chat <models_llm_codeshell-chat>`
+     - chat
+     - 8194
+     - CodeShell is a multi-language code LLM developed by the Knowledge Computing Lab of Peking University.
+
    * - :ref:`deepseek-chat <models_llm_deepseek-chat>`
      - chat
      - 4096
@@ -354,6 +364,10 @@ The following is a list of built-in LLM in Xinference:
    code-llama-instruct
   
    code-llama-python
+  
+   codeshell
+  
+   codeshell-chat
   
    deepseek-chat
   

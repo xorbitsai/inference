@@ -9,3 +9,4 @@ Development
 
     contributing_environment
     contributing_codebase
+    xinference_internals
