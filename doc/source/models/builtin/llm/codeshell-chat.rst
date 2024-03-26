@@ -1,0 +1,30 @@
+.. _models_llm_codeshell-chat:
+
+========================================
+codeshell-chat
+========================================
+
+- **Context Length:** 8194
+- **Model Name:** codeshell-chat
+- **Languages:** en, zh
+- **Abilities:** chat
+- **Description:** CodeShell is a multi-language code LLM developed by the Knowledge Computing Lab of Peking University.
+
+Specifications
+^^^^^^^^^^^^^^
+
+
+Model Spec 1 (pytorch, 7 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** pytorch
+- **Model Size (in billions):** 7
+- **Quantizations:** none
+- **Model ID:** WisdomShell/CodeShell-7B-Chat
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/WisdomShell/CodeShell-7B-Chat>`__, `ModelScope <https://modelscope.cn/models/WisdomShell/CodeShell-7B-Chat>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-name codeshell-chat --size-in-billions 7 --model-format pytorch --quantization ${quantization}
+
