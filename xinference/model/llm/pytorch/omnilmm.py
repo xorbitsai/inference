@@ -29,7 +29,7 @@ from ....types import (
 )
 from ....utils import select_device
 from ..llm_family import LLMFamilyV1, LLMSpecV1
-from ..core import PytorchChatModel, PytorchGenerateConfig
+from .core import PytorchChatModel, PytorchGenerateConfig
 from ....thirdparty.omnilmm.chat import OmniLMMChat, img2base64
 
 logger = logging.getLogger(__name__)
