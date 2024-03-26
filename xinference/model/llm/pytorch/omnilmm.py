@@ -18,7 +18,7 @@ import operator
 import tempfile
 import time
 import uuid
-from typing import Dict, Iterator, List, Optional, Union
+from typing import Dict, Iterator, List, Optional, Tuple, Union
 
 from ....thirdparty.omnilmm.chat import OmniLMMChat, img2base64
 from ....types import (
@@ -56,7 +56,7 @@ class OmniLMMModel(PytorchChatModel):
 
     def _message_content_to_OmniLMM(
         self, content
-    ) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
+    ) -> Tuple[list[dict[str, str]], list[dict[str, str]]]:
         def _ensure_url(_url):
             if _url.startswith("data:"):
                 logging.info("Parse url by base64 decoder.")
