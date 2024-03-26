@@ -20,7 +20,7 @@ import time
 import uuid
 from typing import Dict, Iterator, List, Optional, Union
 
-from .....types import (
+from ....types import (
     ChatCompletion,
     ChatCompletionChoice,
     ChatCompletionChunk,
@@ -28,9 +28,9 @@ from .....types import (
     CompletionUsage,
 )
 from ....utils import select_device
-from ...llm_family import LLMFamilyV1, LLMSpecV1
+from ..llm_family import LLMFamilyV1, LLMSpecV1
 from ..core import PytorchChatModel, PytorchGenerateConfig
-from .chat import OmniLMMChat, img2base64
+from ....thirdparty.omnilmm.chat import OmniLMMChat, img2base64
 
 logger = logging.getLogger(__name__)
 

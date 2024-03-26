@@ -8,10 +8,10 @@ from accelerate import init_empty_weights, load_checkpoint_and_dispatch
 from PIL import Image
 from transformers import AutoModel, AutoTokenizer
 
-from .....thirdparty.omnilmm.model.omnilmm import OmniLMMForCausalLM
-from .....thirdparty.omnilmm.model.utils import build_transform
-from .....thirdparty.omnilmm.train.train_utils import omni_preprocess
-from .....thirdparty.omnilmm.utils import disable_torch_init
+from .model.omnilmm import OmniLMMForCausalLM
+from .model.utils import build_transform
+from .train.train_utils import omni_preprocess
+from .utils import disable_torch_init
 
 DEFAULT_IMAGE_TOKEN = "<image>"
 DEFAULT_IMAGE_PATCH_TOKEN = "<im_patch>"
