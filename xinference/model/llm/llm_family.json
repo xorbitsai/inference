@@ -3674,7 +3674,7 @@
       "chat",
       "vision"
     ],
-    "model_description":"mniLMM is a family of open-source large multimodal models (LMMs) adept at vision & language modeling.",
+    "model_description":"OmniLMM is a family of open-source large multimodal models (LMMs) adept at vision & language modeling.",
     "model_specs":[
       {
         "model_format":"pytorch",

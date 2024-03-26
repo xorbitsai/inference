@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import base64
+import json
 import logging
 import operator
 import tempfile
@@ -19,18 +20,17 @@ import time
 import uuid
 from typing import Dict, Iterator, List, Optional, Union
 
-from PIL import Image
-
-from ....model.utils import select_device
-from ....types import (
+from .....types import (
     ChatCompletion,
     ChatCompletionChoice,
     ChatCompletionChunk,
     ChatCompletionMessage,
     CompletionUsage,
 )
-from ..llm_family import LLMFamilyV1, LLMSpecV1
-from .core import PytorchChatModel, PytorchGenerateConfig
+from ....utils import select_device
+from ...llm_family import LLMFamilyV1, LLMSpecV1
+from ..core import PytorchChatModel, PytorchGenerateConfig
+from .chat import OmniLMMChat, img2base64
 
 logger = logging.getLogger(__name__)
 
@@ -50,23 +50,10 @@ class OmniLMMModel(PytorchChatModel):
         return False
 
     def load(self):
-        from transformers import AutoModel, AutoTokenizer
-
         device = self._pytorch_model_config.get("device", "auto")
         device = select_device(device)
 
-        self._tokenizer = AutoTokenizer.from_pretrained(
-            self.model_path,
-            trust_remote_code=True,
-            code_revision=self.model_spec.model_revision,
-        )
-
-        self._model = AutoModel.from_pretrained(
-            self.model_path,
-            device_map=device,
-            trust_remote_code=True,
-            code_revision=self.model_spec.model_revision,
-        ).eval()
+        self._model = OmniLMMChat(self.model_path, device_map=device)
 
     def _message_content_to_OmniLMM(
         self, content
@@ -144,11 +131,10 @@ class OmniLMMModel(PytorchChatModel):
             image = image_first
         if image_another != []:
             image = image_another
-        image = Image.open(image[0]["image"]).convert("RGB")
+        im_64 = img2base64(image[0]["image"])
         msgs.append({"role": "user", "content": prompt[0]["text"]})
-        response, context, _ = self._model.chat(
-            image=image, msgs=msgs, tokenizer=self._tokenizer, context=None
-        )
+        input = {"image": im_64, "question": json.dumps(msgs, ensure_ascii=True)}
+        answer = self._model.chat(input=input)
 
         return ChatCompletion(
             id="chat" + str(uuid.uuid1()),
@@ -158,7 +144,7 @@ class OmniLMMModel(PytorchChatModel):
             choices=[
                 ChatCompletionChoice(
                     index=0,
-                    message={"role": "assistant", "content": response},
+                    message={"role": "assistant", "content": answer},
                     finish_reason="stop",
                 )
             ],
