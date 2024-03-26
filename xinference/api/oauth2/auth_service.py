@@ -43,7 +43,7 @@ class AuthService:
 
     @staticmethod
     def is_legal_api_key(key: str):
-        pattern = re.compile("^[sk]{2}-[a-zA-Z0-9]{13}$")
+        pattern = re.compile("^sk-[a-zA-Z0-9]{13}$")
         if re.match(pattern, key):
             return True
         else:

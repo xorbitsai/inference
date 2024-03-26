@@ -47,3 +47,32 @@ def test_client_auth(setup_with_auth):
     assert len(client.list_models()) == 1
     client.terminate_model(model_uid=model_uid)
     assert len(client.list_models()) == 0
+
+    # test with api-key
+    client = RESTfulClient(endpoint, api_key="sk-wrongapikey12")
+    with pytest.raises(RuntimeError):
+        client.list_models()
+
+    client = RESTfulClient(endpoint, api_key="sk-72tkvudyGLPMi")
+    assert len(client.list_models()) == 0
+
+    with pytest.raises(RuntimeError):
+        client.launch_model(model_name="bge-small-en-v1.5", model_type="embedding")
+
+    client = RESTfulClient(endpoint, api_key="sk-ZOTLIY4gt9w11")
+    model_uid = client.launch_model(
+        model_name="bge-small-en-v1.5", model_type="embedding"
+    )
+    model = client.get_model(model_uid=model_uid)
+    assert isinstance(model, RESTfulEmbeddingModelHandle)
+
+    completion = model.create_embedding("write a poem.")
+    assert len(completion["data"][0]["embedding"]) == 384
+
+    with pytest.raises(RuntimeError):
+        client.terminate_model(model_uid=model_uid)
+
+    client = RESTfulClient(endpoint, api_key="sk-3sjLbdwqAhhAF")
+    assert len(client.list_models()) == 1
+    client.terminate_model(model_uid=model_uid)
+    assert len(client.list_models()) == 0
