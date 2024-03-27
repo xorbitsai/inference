@@ -34,7 +34,7 @@ async def test_restful_api(setup):
     # list
     response = requests.get(url)
     response_data = response.json()
-    assert len(response_data) == 0
+    assert len(response_data["data"]) == 0
 
     # launch
     payload = {
@@ -70,7 +70,7 @@ async def test_restful_api(setup):
     # list
     response = requests.get(url)
     response_data = response.json()
-    assert len(response_data) == 1
+    assert len(response_data["data"]) == 1
 
     # describe
     response = requests.get(f"{endpoint}/v1/models/test_restful_api")
@@ -154,7 +154,7 @@ async def test_restful_api(setup):
     response = requests.post(url, json=payload)
     assert response.status_code == 400
 
-    # Duplicate system messages
+    # allow duplicate system messages
     payload = {
         "model": model_uid_res,
         "messages": [
@@ -166,9 +166,10 @@ async def test_restful_api(setup):
         ],
     }
     response = requests.post(url, json=payload)
-    assert response.status_code == 400
+    completion = response.json()
+    assert "content" in completion["choices"][0]["message"]
 
-    # System message should be the first one.
+    # allow the first message is not system message.
     payload = {
         "model": model_uid_res,
         "messages": [
@@ -179,7 +180,8 @@ async def test_restful_api(setup):
         ],
     }
     response = requests.post(url, json=payload)
-    assert response.status_code == 400
+    completion = response.json()
+    assert "content" in completion["choices"][0]["message"]
 
     # delete
     url = f"{endpoint}/v1/models/test_restful_api"
@@ -188,7 +190,7 @@ async def test_restful_api(setup):
     # list
     response = requests.get(f"{endpoint}/v1/models")
     response_data = response.json()
-    assert len(response_data) == 0
+    assert len(response_data["data"]) == 0
 
     # delete again
     url = f"{endpoint}/v1/models/test_restful_api"
@@ -307,7 +309,7 @@ def test_restful_api_for_embedding(setup):
     # list
     response = requests.get(url)
     response_data = response.json()
-    assert len(response_data) == 0
+    assert len(response_data["data"]) == 0
 
     # launch
     payload = {
@@ -323,7 +325,7 @@ def test_restful_api_for_embedding(setup):
 
     response = requests.get(url)
     response_data = response.json()
-    assert len(response_data) == 1
+    assert len(response_data["data"]) == 1
 
     # test embedding
     url = f"{endpoint}/v1/embeddings"
@@ -361,7 +363,7 @@ def test_restful_api_for_embedding(setup):
 
     response = requests.get(f"{endpoint}/v1/models")
     response_data = response.json()
-    assert len(response_data) == 0
+    assert len(response_data["data"]) == 0
 
 
 def _check_invalid_tool_calls(endpoint, model_uid_res):
@@ -423,7 +425,7 @@ def test_restful_api_for_tool_calls(setup, model_format, quantization):
     # list
     response = requests.get(url)
     response_data = response.json()
-    assert len(response_data) == 0
+    assert len(response_data["data"]) == 0
 
     # launch
     payload = {
@@ -441,7 +443,7 @@ def test_restful_api_for_tool_calls(setup, model_format, quantization):
 
     response = requests.get(url)
     response_data = response.json()
-    assert len(response_data) == 1
+    assert len(response_data["data"]) == 1
 
     # tool
     tools = [
@@ -570,7 +572,7 @@ def test_restful_api_for_gorilla_openfunctions_tool_calls(
     # list
     response = requests.get(url)
     response_data = response.json()
-    assert len(response_data) == 0
+    assert len(response_data["data"]) == 0
 
     # launch
     payload = {
@@ -588,7 +590,7 @@ def test_restful_api_for_gorilla_openfunctions_tool_calls(
 
     response = requests.get(url)
     response_data = response.json()
-    assert len(response_data) == 1
+    assert len(response_data["data"]) == 1
 
     # tool
     tools = [
@@ -669,7 +671,7 @@ def test_restful_api_for_qwen_tool_calls(setup, model_format, quantization):
     # list
     response = requests.get(url)
     response_data = response.json()
-    assert len(response_data) == 0
+    assert len(response_data["data"]) == 0
 
     # launch
     payload = {
@@ -687,7 +689,7 @@ def test_restful_api_for_qwen_tool_calls(setup, model_format, quantization):
 
     response = requests.get(url)
     response_data = response.json()
-    assert len(response_data) == 1
+    assert len(response_data["data"]) == 1
 
     # tool
     tools = [
@@ -885,7 +887,7 @@ async def test_openai(setup):
     # list
     response = requests.get(url)
     response_data = response.json()
-    assert len(response_data) == 0
+    assert len(response_data["data"]) == 0
 
     # launch
     payload = {
@@ -943,7 +945,7 @@ def test_lang_chain(setup):
     # list
     response = requests.get(url)
     response_data = response.json()
-    assert len(response_data) == 0
+    assert len(response_data["data"]) == 0
 
     # launch
     payload = {

@@ -364,7 +364,7 @@ Model Spec 24 (ggufv2, 72 Billion)
 
 - **Model Format:** ggufv2
 - **Model Size (in billions):** 72
-- **Quantizations:** q2_k, q3_k_m
+- **Quantizations:** q2_k, q3_k_m, q4_k_m
 - **Model ID:** Qwen/Qwen1.5-72B-Chat-GGUF
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen1.5-72B-Chat-GGUF>`__, `ModelScope <https://modelscope.cn/models/qwen/Qwen1.5-72B-Chat-GGUF>`__
 

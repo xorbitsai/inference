@@ -144,7 +144,6 @@ async def send_request(
     prompt: str,
     prompt_len: int,
     output_len: int,
-    best_of: int,
     stats: List[Tuple[int, int, float]],  # output.
 ) -> None:
     request_start_time = time.time()
@@ -152,7 +151,6 @@ async def send_request(
     pload = {
         "model": model_uid,
         "n": 1,
-        "best_of": best_of,
         "temperature": 1.0,
         "top_p": 1.0,
         "max_tokens": output_len,

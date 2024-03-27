@@ -208,10 +208,11 @@ def setup():
     if not api_health_check(endpoint, max_attempts=10, sleep_interval=5):
         raise RuntimeError("Endpoint is not available after multiple attempts")
 
-    yield f"http://localhost:{port}", supervisor_addr
-
-    local_cluster_proc.terminate()
-    restful_api_proc.terminate()
+    try:
+        yield f"http://localhost:{port}", supervisor_addr
+    finally:
+        local_cluster_proc.kill()
+        restful_api_proc.kill()
 
 
 @pytest.fixture
@@ -239,10 +240,11 @@ def setup_with_file_logging():
     if not api_health_check(endpoint, max_attempts=3, sleep_interval=5):
         raise RuntimeError("Endpoint is not available after multiple attempts")
 
-    yield f"http://localhost:{port}", supervisor_addr, TEST_LOG_FILE_PATH
-
-    local_cluster_proc.terminate()
-    restful_api_proc.terminate()
+    try:
+        yield f"http://localhost:{port}", supervisor_addr, TEST_LOG_FILE_PATH
+    finally:
+        local_cluster_proc.kill()
+        restful_api_proc.kill()
 
 
 @pytest.fixture
@@ -290,11 +292,12 @@ def setup_with_auth():
     if not api_health_check(endpoint, max_attempts=10, sleep_interval=5):
         raise RuntimeError("Endpoint is not available after multiple attempts")
 
-    yield f"http://localhost:{port}", supervisor_addr
-
-    local_cluster_proc.terminate()
-    restful_api_proc.terminate()
     try:
-        os.remove(auth_file)
-    except:
-        pass
+        yield f"http://localhost:{port}", supervisor_addr
+    finally:
+        local_cluster_proc.kill()
+        restful_api_proc.kill()
+        try:
+            os.remove(auth_file)
+        except:
+            pass
