@@ -71,6 +71,7 @@ const RunningModels = () => {
               const newLlmData = []
               const newEmbeddingModelData = []
               const newImageModelData = []
+              const newAudioModelData = []
               const newRerankModelData = []
               response.data.forEach((model) => {
                 let newValue = {
