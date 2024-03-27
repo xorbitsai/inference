@@ -58,6 +58,8 @@ RUN python -m pip install --upgrade -i "$PIP_INDEX" pip && \
       auto-gptq \
       optimum \
       peft && \
+      timm \
+      opencv-python \
     pip install -i "$PIP_INDEX" -U chatglm-cpp && \
     pip install -i "$PIP_INDEX" -U llama-cpp-python && \
     cd /opt/inference && \
