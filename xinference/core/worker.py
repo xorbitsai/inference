@@ -304,7 +304,9 @@ class WorkerActor(xo.StatelessActor):
         device, min_cnt = -1, -1
         # Pick the device with the fewest existing models among all the candidate devices.
         for _dev in candidates:
-            existing_cnt = len(self._gpu_to_embedding_model_uids[_dev])
+            existing_cnt = 0
+            if _dev in self._gpu_to_embedding_model_uids:
+                existing_cnt += len(self._gpu_to_embedding_model_uids[_dev])
             if _dev in self._gpu_to_model_uid:
                 existing_cnt += 1
             if _dev in self._user_specified_gpu_to_model_uids:
@@ -326,7 +328,7 @@ class WorkerActor(xo.StatelessActor):
                 ]
                 if allocated_non_embedding_rerank_models:
                     break
-            if not allocated_non_embedding_rerank_models:
+            if allocated_non_embedding_rerank_models:
                 user_specified_allocated_devices.add(dev)
         allocated_devices = set(self._gpu_to_model_uid.keys()).union(
             user_specified_allocated_devices
