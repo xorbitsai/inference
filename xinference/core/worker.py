@@ -74,6 +74,7 @@ class WorkerActor(xo.StatelessActor):
         self._model_uid_to_model_spec: Dict[str, ModelDescription] = {}
         self._gpu_to_model_uid: Dict[int, str] = {}
         self._gpu_to_embedding_model_uids: Dict[int, Set[str]] = defaultdict(set)
+        self._user_specified_gpu_to_model_uids: Dict[int, Set[str]] = defaultdict(set)
         self._model_uid_to_addr: Dict[str, str] = {}
         self._model_uid_to_recover_count: Dict[str, int] = {}
         self._model_uid_to_launch_args: Dict[str, Dict] = {}
@@ -268,12 +269,27 @@ class WorkerActor(xo.StatelessActor):
         """
         candidates = []
         for _dev in self._total_gpu_devices:
-            if _dev not in self._gpu_to_model_uid:
+            if (
+                _dev not in self._gpu_to_model_uid
+                and _dev not in self._user_specified_gpu_to_model_uids
+            ):  # no possible vllm model on it, add it to candidates
                 candidates.append(_dev)
-            else:
-                existing_model_uid = self._gpu_to_model_uid[_dev]
-                is_vllm_model = await self.is_model_vllm_backend(existing_model_uid)
-                if not is_vllm_model:
+            else:  # need to judge that whether to have vllm model on this device
+                has_vllm_model = False
+                if _dev in self._gpu_to_model_uid:
+                    existing_model_uid = self._gpu_to_model_uid[_dev]
+                    has_vllm_model = await self.is_model_vllm_backend(
+                        existing_model_uid
+                    )
+                if (
+                    not has_vllm_model
+                    and _dev in self._user_specified_gpu_to_model_uids
+                ):
+                    for rep_uid in self._user_specified_gpu_to_model_uids[_dev]:
+                        has_vllm_model = await self.is_model_vllm_backend(rep_uid)
+                        if has_vllm_model:
+                            break
+                if not has_vllm_model:
                     candidates.append(_dev)
 
         if len(candidates) == 0:
@@ -288,6 +304,8 @@ class WorkerActor(xo.StatelessActor):
             existing_cnt = len(self._gpu_to_embedding_model_uids[_dev])
             if _dev in self._gpu_to_model_uid:
                 existing_cnt += 1
+            if _dev in self._user_specified_gpu_to_model_uids:
+                existing_cnt += len(self._user_specified_gpu_to_model_uids[_dev])
             if min_cnt == -1 or existing_cnt < min_cnt:
                 device, min_cnt = _dev, existing_cnt
 
@@ -295,16 +313,70 @@ class WorkerActor(xo.StatelessActor):
         return device
 
     def allocate_devices(self, model_uid: str, n_gpu: int) -> List[int]:
-        if n_gpu > len(self._total_gpu_devices) - len(self._gpu_to_model_uid):
+        allocated_devices = set(
+            list(self._user_specified_gpu_to_model_uids.keys())
+            + list(self._gpu_to_model_uid.keys())
+        )
+        if n_gpu > len(self._total_gpu_devices) - len(allocated_devices):
             raise RuntimeError("No available slot found for the model")
 
         devices: List[int] = [
-            dev for dev in self._total_gpu_devices if dev not in self._gpu_to_model_uid
+            dev
+            for dev in self._total_gpu_devices
+            if dev not in self._gpu_to_model_uid
+            and dev not in self._user_specified_gpu_to_model_uids
         ][:n_gpu]
         for dev in devices:
             self._gpu_to_model_uid[int(dev)] = model_uid
 
         return sorted(devices)
+
+    async def allocate_devices_with_gpu_idx(
+        self, model_uid: str, gpu_idx: List[int]
+    ) -> List[int]:
+        """
+        When user specifies the gpu_idx, allocate models on user-specified GPUs whenever possible
+        """
+        # must be subset of total devices visible to this worker
+        if not set(gpu_idx) <= set(self._total_gpu_devices):
+            raise ValueError(
+                f"Worker {self.address} cannot use the GPUs with these indexes: {gpu_idx}. "
+                f"Worker {self.address} can only see these GPUs: {self._total_gpu_devices}."
+            )
+        # currently just report a warning log when there are already models on these GPUs
+        for idx in gpu_idx:
+            existing_model_uids = []
+            if idx in self._gpu_to_model_uid:
+                rep_uid = self._gpu_to_model_uid[idx]
+                is_vllm_model = await self.is_model_vllm_backend(rep_uid)
+                if is_vllm_model:
+                    raise RuntimeError(
+                        f"GPU index {idx} has been occupied with a vLLM model: {rep_uid}, "
+                        f"therefore cannot allocate GPU memory for a new model."
+                    )
+                existing_model_uids.append(rep_uid)
+            if idx in self._gpu_to_embedding_model_uids:
+                existing_model_uids.extend(self._gpu_to_embedding_model_uids[idx])
+            # If user has run the vLLM model on the GPU that was forced to be specified,
+            # it is not possible to force this GPU to be allocated again
+            if idx in self._user_specified_gpu_to_model_uids:
+                for rep_uid in self._user_specified_gpu_to_model_uids[idx]:
+                    is_vllm_model = await self.is_model_vllm_backend(rep_uid)
+                    if is_vllm_model:
+                        raise RuntimeError(
+                            f"User specified GPU index {idx} has been occupied with a vLLM model: {rep_uid}, "
+                            f"therefore cannot allocate GPU memory for a new model."
+                        )
+
+            if existing_model_uids:
+                logger.warning(
+                    f"WARNING!!! GPU index {idx} has been occupied "
+                    f"with these models on it: {existing_model_uids}"
+                )
+
+        for idx in gpu_idx:
+            self._user_specified_gpu_to_model_uids[idx].add(model_uid)
+        return sorted(gpu_idx)
 
     def release_devices(self, model_uid: str):
         devices = [
@@ -325,22 +397,28 @@ class WorkerActor(xo.StatelessActor):
         model_uid: str,
         model_type: Optional[str] = None,
         n_gpu: Optional[Union[int, str]] = "auto",
+        gpu_idx: Optional[List[int]] = None,
     ) -> Tuple[str, List[str]]:
         env = {}
         devices = []
-        if isinstance(n_gpu, int) or (n_gpu == "auto" and gpu_count() > 0):
-            # Currently, n_gpu=auto means using 1 GPU
-            gpu_cnt = n_gpu if isinstance(n_gpu, int) else 1
-            devices = (
-                [await self.allocate_devices_for_embedding(model_uid)]
-                if model_type in ["embedding", "rerank"]
-                else self.allocate_devices(model_uid=model_uid, n_gpu=gpu_cnt)
-            )
+        if gpu_idx is None:
+            if isinstance(n_gpu, int) or (n_gpu == "auto" and gpu_count() > 0):
+                # Currently, n_gpu=auto means using 1 GPU
+                gpu_cnt = n_gpu if isinstance(n_gpu, int) else 1
+                devices = (
+                    [await self.allocate_devices_for_embedding(model_uid)]
+                    if model_type in ["embedding", "rerank"]
+                    else self.allocate_devices(model_uid=model_uid, n_gpu=gpu_cnt)
+                )
+                env["CUDA_VISIBLE_DEVICES"] = ",".join([str(dev) for dev in devices])
+                logger.debug(f"GPU selected: {devices} for model {model_uid}")
+            if n_gpu is None:
+                env["CUDA_VISIBLE_DEVICES"] = "-1"
+                logger.debug(f"GPU disabled for model {model_uid}")
+        else:
+            assert isinstance(gpu_idx, list)
+            devices = await self.allocate_devices_with_gpu_idx(model_uid, gpu_idx)
             env["CUDA_VISIBLE_DEVICES"] = ",".join([str(dev) for dev in devices])
-            logger.debug(f"GPU selected: {devices} for model {model_uid}")
-        if n_gpu is None:
-            env["CUDA_VISIBLE_DEVICES"] = "-1"
-            logger.debug(f"GPU disabled for model {model_uid}")
 
         if os.name != "nt" and platform.system() != "Darwin":
             # Linux
@@ -495,6 +573,7 @@ class WorkerActor(xo.StatelessActor):
         image_lora_load_kwargs: Optional[Dict] = None,
         image_lora_fuse_kwargs: Optional[Dict] = None,
         request_limits: Optional[int] = None,
+        gpu_idx: Optional[Union[int, List[int]]] = None,
         **kwargs,
     ):
         event_model_uid, _, __ = parse_replica_model_uid(model_uid)
@@ -510,6 +589,17 @@ class WorkerActor(xo.StatelessActor):
         launch_args.pop("self")
         launch_args.pop("kwargs")
         launch_args.update(kwargs)
+
+        if gpu_idx is not None:
+            logger.info(
+                f"You specify to launch the model: {model_name} on GPU index: {gpu_idx} "
+                f"of the worker: {self.address}, "
+                f"xinference will automatically ignore the `n_gpu` option."
+            )
+            if isinstance(gpu_idx, int):
+                gpu_idx = [gpu_idx]
+            assert isinstance(gpu_idx, list)
+
         if n_gpu is not None:
             if isinstance(n_gpu, int) and (n_gpu <= 0 or n_gpu > gpu_count()):
                 raise ValueError(
