@@ -56,7 +56,7 @@ class OmniLMMModel(PytorchChatModel):
 
     def _message_content_to_OmniLMM(
         self, content
-    ) -> Tuple[list[dict[str, str]], list[dict[str, str]]]:
+    ) -> Tuple[List[Dict[str, str]], List[Dict[str, str]]]:
         def _ensure_url(_url):
             if _url.startswith("data:"):
                 logging.info("Parse url by base64 decoder.")
