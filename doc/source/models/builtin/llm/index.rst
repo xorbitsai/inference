@@ -96,6 +96,11 @@ The following is a list of built-in LLM in Xinference:
      - 4096
      - deepseek-coder-instruct is a model initialized from deepseek-coder-base and fine-tuned on 2B tokens of instruction data.
 
+   * - :ref:`deepseek-vl-chat <models_llm_deepseek-vl-chat>`
+     - chat, vision
+     - 4096
+     - DeepSeek-VL possesses general multimodal understanding capabilities, capable of processing logical diagrams, web pages, formula recognition, scientific literature, natural images, and embodied intelligence in complex scenarios.
+
    * - :ref:`falcon <models_llm_falcon>`
      - generate
      - 2048
@@ -377,6 +382,8 @@ The following is a list of built-in LLM in Xinference:
    deepseek-chat
   
    deepseek-coder-instruct
+  
+   deepseek-vl-chat
   
    falcon
   
