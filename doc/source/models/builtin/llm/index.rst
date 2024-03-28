@@ -186,6 +186,11 @@ The following is a list of built-in LLM in Xinference:
      - 32768
      - The Mixtral-8x7B Large Language Model (LLM) is a pretrained generative Sparse Mixture of Experts.
 
+   * - :ref:`omnilmm <models_llm_omnilmm>`
+     - chat, vision
+     - 2048
+     - OmniLMM is a family of open-source large multimodal models (LMMs) adept at vision & language modeling.
+
    * - :ref:`openbuddy <models_llm_openbuddy>`
      - chat
      - 2048
@@ -408,6 +413,8 @@ The following is a list of built-in LLM in Xinference:
    mixtral-instruct-v0.1
   
    mixtral-v0.1
+  
+   omnilmm
   
    openbuddy
   
