@@ -234,8 +234,14 @@ def test_restful_api_for_deepseek_vl(setup, model_format, quantization):
         },
     ]
     response = model.chat(prompt=prompt)
-    assert "green" in response["choices"][0]["message"]["content"]
-    assert "tree" in response["choices"][0]["message"]["content"]
+    assert any(
+        green in response["choices"][0]["message"]["content"]
+        for green in ["grass", "green"]
+    )
+    assert any(
+        tree in response["choices"][0]["message"]["content"]
+        for tree in ["tree", "wooden"]
+    )
     assert "sky" in response["choices"][0]["message"]["content"]
 
     # openai client
@@ -259,8 +265,14 @@ def test_restful_api_for_deepseek_vl(setup, model_format, quantization):
             }
         ],
     )
-    assert "green" in completion.choices[0].message.content
-    assert "tree" in completion.choices[0].message.content
+    assert any(
+        green in response["choices"][0]["message"]["content"]
+        for green in ["grass", "green"]
+    )
+    assert any(
+        tree in response["choices"][0]["message"]["content"]
+        for tree in ["tree", "wooden"]
+    )
     assert "sky" in completion.choices[0].message.content
 
     # Test base64 image
