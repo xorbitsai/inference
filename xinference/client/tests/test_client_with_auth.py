@@ -77,11 +77,11 @@ def test_client_auth(setup_with_auth):
     assert len(client.list_models()) == 1
 
     # test with openai SDK
-    client_ai = OpenAI(endpoint + "/v1", api_key="sk-wrongapikey12")
+    client_ai = OpenAI(base_url=endpoint + "/v1", api_key="sk-wrongapikey12")
     with pytest.raises(AuthenticationError):
         client_ai.models.list()
 
-    client_ai = OpenAI(endpoint + "/v1", api_key="sk-72tkvudyGLPMi")
+    client_ai = OpenAI(base_url=endpoint + "/v1", api_key="sk-72tkvudyGLPMi")
     assert len(client_ai.models.list().data) == 1
 
     with pytest.raises(PermissionDeniedError):
@@ -90,7 +90,7 @@ def test_client_auth(setup_with_auth):
             messages=[{"role": "user", "content": "write a poem."}],
         )
 
-    client_ai = OpenAI(endpoint + "/v1", api_key="sk-72tkvudyGLPMi")
+    client_ai = OpenAI(base_url=endpoint + "/v1", api_key="sk-72tkvudyGLPMi")
     chat_completion = client_ai.chat.completions.create(
         model="bge-small-en-v1.5",
         messages=[{"role": "user", "content": "write a poem."}],
