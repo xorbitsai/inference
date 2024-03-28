@@ -89,7 +89,9 @@ class CreateCompletionRequest(CreateCompletion):
 
 class CreateEmbeddingRequest(BaseModel):
     model: str
-    input: Union[str, List[str]] = Field(description="The input to embed.")
+    input: Union[str, List[str], List[int], List[List[int]]] = Field(
+        description="The input to embed."
+    )
     user: Optional[str] = None
 
     class Config:
