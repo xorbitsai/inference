@@ -89,7 +89,9 @@ class CreateCompletionRequest(CreateCompletion):
 
 class CreateEmbeddingRequest(BaseModel):
     model: str
-    input: Union[str, List[str]] = Field(description="The input to embed.")
+    input: Union[str, List[str], List[int], List[List[int]]] = Field(
+        description="The input to embed."
+    )
     user: Optional[str] = None
 
     class Config:
@@ -693,6 +695,8 @@ class RESTfulAPI:
         peft_model_path = payload.get("peft_model_path", None)
         image_lora_load_kwargs = payload.get("image_lora_load_kwargs", None)
         image_lora_fuse_kwargs = payload.get("image_lora_fuse_kwargs", None)
+        worker_ip = payload.get("worker_ip", None)
+        gpu_idx = payload.get("gpu_idx", None)
 
         exclude_keys = {
             "model_uid",
@@ -707,6 +711,8 @@ class RESTfulAPI:
             "peft_model_path",
             "image_lora_load_kwargs",
             "image_lora_fuse_kwargs",
+            "worker_ip",
+            "gpu_idx",
         }
 
         kwargs = {
@@ -734,6 +740,8 @@ class RESTfulAPI:
                 peft_model_path=peft_model_path,
                 image_lora_load_kwargs=image_lora_load_kwargs,
                 image_lora_fuse_kwargs=image_lora_fuse_kwargs,
+                worker_ip=worker_ip,
+                gpu_idx=gpu_idx,
                 **kwargs,
             )
 

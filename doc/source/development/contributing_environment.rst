@@ -8,7 +8,7 @@ Creating a development environment
 Before proceeding with any code modifications, it's essential to set up the necessary environment for Xinference development,
 which includes familiarizing yourself with Git usage, establishing an isolated environment, installing Xinference, and compiling the frontend.
 
-Getting startted with Git
+Getting started with Git
 -------------------------
 
 Now that you have identified an issue you wish to resolve, an enhancement to incorporate, or documentation to enhance,

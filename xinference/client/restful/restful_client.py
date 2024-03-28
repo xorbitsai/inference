@@ -651,11 +651,13 @@ class RESTfulAudioModelHandle(RESTfulModelHandle):
 
 
 class Client:
-    def __init__(self, base_url):
+    def __init__(self, base_url, api_key: Optional[str] = None):
         self.base_url = base_url
-        self._headers = {}
+        self._headers: Dict[str, str] = {}
         self._cluster_authed = False
         self._check_cluster_authenticated()
+        if api_key is not None and self._cluster_authed:
+            self._headers["Authorization"] = f"Bearer {api_key}"
 
     def _set_token(self, token: Optional[str]):
         if not self._cluster_authed or token is None:
@@ -795,6 +797,8 @@ class Client:
         peft_model_path: Optional[str] = None,
         image_lora_load_kwargs: Optional[Dict] = None,
         image_lora_fuse_kwargs: Optional[Dict] = None,
+        worker_ip: Optional[str] = None,
+        gpu_idx: Optional[Union[int, List[int]]] = None,
         **kwargs,
     ) -> str:
         """
@@ -828,6 +832,10 @@ class Client:
             lora load parameters for image model
         image_lora_fuse_kwargs: Optional[Dict]
             lora fuse parameters for image model
+        worker_ip: Optional[str]
+            Specify the worker ip where the model is located in a distributed scenario.
+        gpu_idx: Optional[Union[int, List[int]]]
+            Specify the GPU index where the model is located.
         **kwargs:
             Any other parameters been specified.
 
@@ -853,6 +861,8 @@ class Client:
             "peft_model_path": peft_model_path,
             "image_lora_load_kwargs": image_lora_load_kwargs,
             "image_lora_fuse_kwargs": image_lora_fuse_kwargs,
+            "worker_ip": worker_ip,
+            "gpu_idx": gpu_idx,
         }
 
         for key, value in kwargs.items():

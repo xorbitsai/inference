@@ -92,6 +92,15 @@ class SupervisorActor(xo.StatelessActor):
     def uid(cls) -> str:
         return "supervisor"
 
+    def _get_worker_ref_by_ip(
+        self, ip: str
+    ) -> Optional[xo.ActorRefType["WorkerActor"]]:
+        for addr, ref in self._worker_address_to_worker.items():
+            existing_ip = addr.split(":")[0]
+            if existing_ip == ip:
+                return ref
+        return None
+
     async def __post_create__(self):
         self._uptime = time.time()
         if not XINFERENCE_DISABLE_HEALTH_CHECK:
@@ -717,8 +726,25 @@ class SupervisorActor(xo.StatelessActor):
         peft_model_path: Optional[str] = None,
         image_lora_load_kwargs: Optional[Dict] = None,
         image_lora_fuse_kwargs: Optional[Dict] = None,
+        worker_ip: Optional[str] = None,
+        gpu_idx: Optional[Union[int, List[int]]] = None,
         **kwargs,
     ) -> str:
+        target_ip_worker_ref = (
+            self._get_worker_ref_by_ip(worker_ip) if worker_ip is not None else None
+        )
+        if (
+            worker_ip is not None
+            and not self.is_local_deployment()
+            and target_ip_worker_ref is None
+        ):
+            raise ValueError(f"Worker ip address {worker_ip} is not in the cluster.")
+        if worker_ip is not None and self.is_local_deployment():
+            logger.warning(
+                f"You specified the worker ip: {worker_ip} in local mode, "
+                f"xinference will ignore this option."
+            )
+
         if model_uid is None:
             model_uid = self._gen_model_uid(model_name)
 
@@ -735,7 +761,11 @@ class SupervisorActor(xo.StatelessActor):
                 )
 
             nonlocal model_type
-            worker_ref = await self._choose_worker()
+            worker_ref = (
+                target_ip_worker_ref
+                if target_ip_worker_ref is not None
+                else await self._choose_worker()
+            )
             # LLM as default for compatibility
             model_type = model_type or "LLM"
             await worker_ref.launch_builtin_model(
@@ -750,6 +780,7 @@ class SupervisorActor(xo.StatelessActor):
                 peft_model_path=peft_model_path,
                 image_lora_load_kwargs=image_lora_load_kwargs,
                 image_lora_fuse_kwargs=image_lora_fuse_kwargs,
+                gpu_idx=gpu_idx,
                 **kwargs,
             )
             self._replica_model_uid_to_worker[_replica_model_uid] = worker_ref
