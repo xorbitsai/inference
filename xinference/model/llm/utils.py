@@ -585,7 +585,7 @@ Begin!"""
     def _tool_calls_completion(cls, model_family, model_uid, c, tools):
         _id = str(uuid.uuid4())
         family = model_family.model_family or model_family.model_name
-        if "gorilla-openfunctions-v1" == family:
+        if family in ["gorilla-openfunctions-v1", "gorilla-openfunctions-v2"]:
             content, func, args = cls._eval_gorilla_openfunctions_arguments(c, tools)
         elif "chatglm3" == family:
             content, func, args = cls._eval_chatglm3_arguments(c, tools)
