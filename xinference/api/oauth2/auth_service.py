@@ -42,12 +42,9 @@ class AuthService:
         return self._config
 
     @staticmethod
-    def is_legal_api_key(key: str):
+    def is_legal_api_key(key: str) -> bool:
         pattern = re.compile("^sk-[a-zA-Z0-9]{13}$")
-        if re.match(pattern, key):
-            return True
-        else:
-            return False
+        return re.match(pattern, key) is not None
 
     def init_auth_config(self):
         if self._auth_config_file:
