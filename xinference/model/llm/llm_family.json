@@ -4126,6 +4126,15 @@
         ],
         "model_id": "BAAI/Aquila2-34B",
         "model_revision": "356733caf6221e9dd898cde8ff189a98175526ec"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 70,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "BAAI/Aquila2-70B-Expr",
+        "model_revision": "32a2897235541b9f5238bbe88f8d76a19993c0ba"
       }
     ]
   },
@@ -4176,7 +4185,8 @@
         "quantizations": [
           "Int4"
         ],
-        "model_id": "TheBloke/AquilaChat2-34B-GPTQ"
+        "model_id": "TheBloke/AquilaChat2-34B-GPTQ",
+        "model_revision": "9a9d21424f7db608be51df769885514ab6e052db"
       },
       {
         "model_format": "awq",
@@ -4184,7 +4194,8 @@
         "quantizations": [
           "Int4"
         ],
-        "model_id": "TheBloke/AquilaChat2-34B-AWQ"
+        "model_id": "TheBloke/AquilaChat2-34B-AWQ",
+        "model_revision": "ad1dec1c8adb7fa6cb07b7e261aaa04fccf1c4c0"
       },
       {
         "model_format": "pytorch",
@@ -4194,6 +4205,15 @@
         ],
         "model_id": "BAAI/AquilaChat2-34B",
         "model_revision": "b9cd9c7436435ab9cfa5e4f009be2b0354979ca8"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 70,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "BAAI/AquilaChat2-70B-Expr",
+        "model_revision": "0df19b6e10f1a19ca663f7cc1141aae10f1825f4"
       }
     ],
     "prompt_style": {
@@ -4261,7 +4281,8 @@
         "quantizations": [
           "Int4"
         ],
-        "model_id": "TheBloke/AquilaChat2-34B-16K-GPTQ"
+        "model_id": "TheBloke/AquilaChat2-34B-16K-GPTQ",
+        "model_revision": "0afa1c2a55a4ee1a6f0dba81d9ec296dc7936b91"
       },
       {
         "model_format": "awq",
@@ -4269,7 +4290,8 @@
         "quantizations": [
           "Int4"
         ],
-        "model_id": "TheBloke/AquilaChat2-34B-16K-AWQ"
+        "model_id": "TheBloke/AquilaChat2-34B-16K-AWQ",
+        "model_revision": "db7403ca492416903c84a7a38b11cb5506de48b1"
       },
       {
         "model_format": "pytorch",

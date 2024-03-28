@@ -2729,5 +2729,141 @@
         "model_revision": "master"
       }
     ]
+  },
+  {
+    "version": 1,
+    "context_length": 2048,
+    "model_name": "aquila2",
+    "model_lang": [
+      "zh"
+    ],
+    "model_ability": [
+      "generate"
+    ],
+    "model_description": "Aquila2 series models are the base language models",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 34,
+        "quantizations": [
+          "none"
+        ],
+        "model_hub": "modelscope",
+        "model_id": "BAAI/Aquila2-34B",
+        "model_revision": "master"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 70,
+        "quantizations": [
+          "none"
+        ],
+        "model_hub": "modelscope",
+        "model_id": "BAAI/Aquila2-70B-Expr",
+        "model_revision": "master"
+      }
+    ]
+  },
+  {
+    "version": 1,
+    "context_length": 2048,
+    "model_name": "aquila2-chat",
+    "model_lang": [
+      "zh"
+    ],
+    "model_ability": [
+      "generate"
+    ],
+    "model_description": "Aquila2-chat series models are the chat models",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 34,
+        "quantizations": [
+          "none"
+        ],
+        "model_hub": "modelscope",
+        "model_id": "BAAI/AquilaChat2-34B",
+        "model_revision": "master"
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 34,
+        "quantizations": [
+          "Int4"
+        ],
+        "model_hub": "modelscope",
+        "model_id": "BAAI/AquilaChat2-34B-Int4-GPTQ",
+        "model_revision": "master"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 70,
+        "quantizations": [
+          "none"
+        ],
+        "model_hub": "modelscope",
+        "model_id": "BAAI/AquilaChat2-70B-Expr",
+        "model_revision": "master"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "ADD_COLON_SINGLE",
+      "intra_message_sep": "\n",
+      "system_prompt": "",
+      "roles": [
+        "USER",
+        "ASSISTANT"
+      ],
+      "stop_token_ids": [
+        100006,
+        100007
+      ],
+      "stop": [
+        "[CLS]",
+        "</s>"
+      ]
+    }
+  },
+  {
+    "version": 1,
+    "context_length": 16384,
+    "model_name": "aquila2-chat-16k",
+    "model_lang": [
+      "zh"
+    ],
+    "model_ability": [
+      "generate"
+    ],
+    "model_description": "AquilaChat2-16k series models are the long-text chat models",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 34,
+        "quantizations": [
+          "none"
+        ],
+        "model_hub": "modelscope",
+        "model_id": "BAAI/AquilaChat2-34B-16K",
+        "model_revision": "master"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "ADD_COLON_SINGLE",
+      "intra_message_sep": "\n",
+      "system_prompt": "",
+      "roles": [
+        "USER",
+        "ASSISTANT"
+      ],
+      "stop_token_ids": [
+        100006,
+        100007
+      ],
+      "stop": [
+        "[CLS]",
+        "</s>"
+      ]
+    }
   }
 ]
