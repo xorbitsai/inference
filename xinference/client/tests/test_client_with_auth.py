@@ -95,7 +95,7 @@ def test_client_auth(setup_with_auth):
         model="bge-small-en-v1.5",
         input="write a poem.",
     )
-    assert len(chat_completion["data"][0]["embedding"]) == 384
+    assert len(chat_completion.data[0].embedding) == 384
     with pytest.raises(RuntimeError):
         client_ai.terminate_model(model_uid)
 
