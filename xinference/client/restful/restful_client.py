@@ -651,11 +651,13 @@ class RESTfulAudioModelHandle(RESTfulModelHandle):
 
 
 class Client:
-    def __init__(self, base_url):
+    def __init__(self, base_url, api_key: Optional[str] = None):
         self.base_url = base_url
-        self._headers = {}
+        self._headers: Dict[str, str] = {}
         self._cluster_authed = False
         self._check_cluster_authenticated()
+        if api_key is not None and self._cluster_authed:
+            self._headers["Authorization"] = f"Bearer {api_key}"
 
     def _set_token(self, token: Optional[str]):
         if not self._cluster_authed or token is None:
