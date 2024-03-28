@@ -690,6 +690,49 @@
   },
   {
     "version": 1,
+    "context_length": 131072,
+    "model_name": "chatglm3-128k",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "ChatGLM3 is the third generation of ChatGLM, still open-source and trained on Chinese and English data.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 6,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "THUDM/chatglm3-6b-128k",
+        "model_revision": "f0afbe671009abc9e31182170cf60636d5546cda"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "CHATGLM3",
+      "system_prompt": "",
+      "roles": [
+        "user",
+        "assistant"
+      ],
+      "stop_token_ids": [
+        64795,
+        64797,
+        2
+      ],
+      "stop": [
+        "<|user|>",
+        "<|observation|>"
+      ]
+    }
+  },
+  {
+    "version": 1,
     "context_length": 2048,
     "model_name": "xverse-chat",
     "model_lang": [
@@ -3357,6 +3400,59 @@
   {
     "version": 1,
     "context_length": 4096,
+    "model_name": "gorilla-openfunctions-v2",
+    "model_lang": [
+      "en"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "OpenFunctions is designed to extend Large Language Model (LLM) Chat Completion feature to formulate executable APIs call given natural language instructions and API context.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "gorilla-llm/gorilla-openfunctions-v2",
+        "model_revision": "0f91d705e64b77fb55e35a7eab5d03bf965c9b5c"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "Q2_K",
+          "Q3_K_L",
+          "Q3_K_M",
+          "Q3_K_S",
+          "Q4_0",
+          "Q4_K_M",
+          "Q4_K_S",
+          "Q5_K_M",
+          "Q5_K_S",
+          "Q6_K"
+        ],
+        "model_id": "gorilla-llm//gorilla-openfunctions-v2-GGUF",
+        "model_file_name_template": "gorilla-openfunctions-v2.{quantization}.gguf"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "GORILLA_OPENFUNCTIONS",
+      "system_prompt": "",
+      "roles": [
+        "",
+        ""
+      ],
+      "intra_message_sep": "\n",
+      "inter_message_sep": "\n",
+      "stop_token_ids": [],
+      "stop": []
+    }
+  },
+  {
+    "version": 1,
+    "context_length": 4096,
     "model_name": "deepseek-vl-chat",
     "model_lang": [
       "en",
@@ -3977,5 +4073,281 @@
         "<start_of_turn>"
       ]
     }
+  },
+  {
+    "version": 1,
+    "context_length": 4096,
+    "model_name": "Platypus2-70B-instruct",
+    "model_lang": [
+      "en"
+    ],
+    "model_ability": [
+      "generate"
+    ],
+    "model_description": "Platypus-70B-instruct is a merge of garage-bAInd/Platypus2-70B and upstage/Llama-2-70b-instruct-v2.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 70,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "garage-bAInd/Platypus2-70B-instruct",
+        "model_revision": "31389b50953688e4e542be53e6d2ab04d5c34e87"
+      }
+    ]
+  },
+  {
+    "version": 1,
+    "context_length":2048 ,
+    "model_name": "Aquila2",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "generate"
+    ],
+    "model_description": "Aquila2 series models are the base language models",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "BAAI/Aquila2-7B",
+        "model_revision": "9c76e143c6e9621689ca76e078c465b0dee75eb8"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 34,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "BAAI/Aquila2-34B",
+        "model_revision": "356733caf6221e9dd898cde8ff189a98175526ec"
+      }
+    ]
+  },
+  {
+    "version": 1,
+    "context_length": 2048,
+    "model_name": "AquilaChat2",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "Aquila2-chat series models are the chat models",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "BAAI/AquilaChat2-7B",
+        "model_revision": "0d060c4edeb4e0febd81130c17f6868653184fb3"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 34,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "BAAI/AquilaChat2-34B",
+        "model_revision": "b9cd9c7436435ab9cfa5e4f009be2b0354979ca8"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "ADD_COLON_SINGLE",
+      "intra_message_sep": "\n",
+      "system_prompt": "",
+      "roles": [
+        "USER",
+        "ASSISTANT"
+      ],
+      "stop_token_ids": [
+        100006,
+        100007
+      ],
+      "stop": [
+        "[CLS]",
+        "</s>"
+      ]
+    }
+  },
+  {
+    "version": 1,
+    "context_length": 204800,
+    "model_name": "AquilaChat2-16k",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "AquilaChat2-16k series models are the long-text chat models",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "BAAI/AquilaChat2-7B-16K",
+        "model_revision": "fb46d48479d05086ccf6952f19018322fcbb54cd"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 34,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "BAAI/AquilaChat2-34B-16K",
+        "model_revision": "a06fd164c7170714924d2881c61c8348425ebc94"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "ADD_COLON_SINGLE",
+      "intra_message_sep": "\n",
+      "system_prompt": "",
+      "roles": [
+        "USER",
+        "ASSISTANT"
+      ],
+      "stop_token_ids": [
+        100006,
+        100007
+      ],
+      "stop": [
+        "[CLS]",
+        "</s>"
+      ]
+    }
+  },
+  {
+    "version": 1,
+    "context_length": 4096,
+    "model_name": "MiniCPM-2B-sft-bf16",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "generate"
+    ],
+    "model_description": "MiniCPM is an End-Size LLM developed by ModelBest Inc. and TsinghuaNLP, with only 2.4B parameters excluding embeddings.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 2,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "openbmb/MiniCPM-2B-sft-bf16",
+        "model_revision": "fe1d74027ebdd81cef5f815fa3a2d432a6b5de2a"
+      }
+    ]
+  },
+  {
+    "version": 1,
+    "context_length": 4096,
+    "model_name": "MiniCPM-2B-sft-fp32",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "generate"
+    ],
+    "model_description": "MiniCPM is an End-Size LLM developed by ModelBest Inc. and TsinghuaNLP, with only 2.4B parameters excluding embeddings.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 2,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "openbmb/MiniCPM-2B-sft-fp32",
+        "model_revision": "35b90dd57d977b6e5bc4907986fa5b77aa15a82e"
+      }
+    ]
+  },
+  {
+    "version": 1,
+    "context_length": 4096,
+    "model_name": "MiniCPM-2B-dpo-bf16",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "generate"
+    ],
+    "model_description": "MiniCPM is an End-Size LLM developed by ModelBest Inc. and TsinghuaNLP, with only 2.4B parameters excluding embeddings.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 2,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "openbmb/MiniCPM-2B-dpo-bf16",
+        "model_revision": "f4a3ba49f3f18695945c2a7c12400d4da99da498"
+      }
+    ]
+  },
+  {
+    "version": 1,
+    "context_length": 4096,
+    "model_name": "MiniCPM-2B-dpo-fp16",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "generate"
+    ],
+    "model_description": "MiniCPM is an End-Size LLM developed by ModelBest Inc. and TsinghuaNLP, with only 2.4B parameters excluding embeddings.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 2,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "openbmb/MiniCPM-2B-dpo-fp16",
+        "model_revision": "e7a50289e4f839674cf8d4a5a2ce032ccacf64ac"
+      }
+    ]
+  },
+  {
+    "version": 1,
+    "context_length": 4096,
+    "model_name": "MiniCPM-2B-dpo-fp32",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "generate"
+    ],
+    "model_description": "MiniCPM is an End-Size LLM developed by ModelBest Inc. and TsinghuaNLP, with only 2.4B parameters excluding embeddings.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 2,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "openbmb/MiniCPM-2B-dpo-fp32",
+        "model_revision": "b560a1593779b735a84a6daf72fba96ae38da288"
+      }
+    ]
   }
 ]
