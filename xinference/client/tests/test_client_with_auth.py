@@ -85,15 +85,15 @@ def test_client_auth(setup_with_auth):
     client_ai = OpenAI(base_url=endpoint + "/v1", api_key="sk-72tkvudyGLPMi")
     assert len(client_ai.models.list().data) == 1
     with pytest.raises(PermissionDeniedError):
-        chat_completion = client_ai.chat.completions.create(
+        chat_completion = client_ai.embeddings.create(
             model="bge-small-en-v1.5",
-            messages=[{"role": "user", "content": "write a poem."}],
+            input="write a poem.",
         )
 
     client_ai = OpenAI(base_url=endpoint + "/v1", api_key="sk-ZOTLIY4gt9w11")
-    chat_completion = client_ai.chat.completions.create(
+    chat_completion = client_ai.embeddings.create(
         model="bge-small-en-v1.5",
-        messages=[{"role": "user", "content": "write a poem."}],
+        input="write a poem.",
     )
     assert len(chat_completion["data"][0]["embedding"]) == 384
     with pytest.raises(RuntimeError):
