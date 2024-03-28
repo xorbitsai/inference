@@ -99,6 +99,8 @@ VLLM_SUPPORTED_CHAT_MODELS = [
     "mistral-instruct-v0.2",
     "mixtral-instruct-v0.1",
     "chatglm3",
+    "deepseek-chat",
+    "deepseek-coder-instruct",
 ]
 if VLLM_INSTALLED and vllm.__version__ >= "0.3.0":
     VLLM_SUPPORTED_CHAT_MODELS.append("qwen1.5-chat")

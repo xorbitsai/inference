@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom'
 import { ApiContext } from '../../components/apiContext'
 import ErrorMessageSnackBar from '../../components/errorMessageSnackBar'
 import Title from '../../components/Title'
+import LaunchAudio from './launchAudio'
 import LaunchCustom from './launchCustom'
 import LaunchEmbedding from './launchEmbedding'
 import LaunchImage from './launchImage'
@@ -71,7 +72,8 @@ const LaunchModel = () => {
             <Tab label="Embedding Models" value="2" />
             <Tab label="Rerank Models" value="3" />
             <Tab label="Image Models" value="4" />
-            <Tab label="Custom Models" value="5" />
+            <Tab label="Audio Models" value="5" />
+            <Tab label="Custom Models" value="6" />
           </TabList>
         </Box>
         <TabPanel value="1" sx={{ padding: 0 }}>
@@ -87,6 +89,9 @@ const LaunchModel = () => {
           <LaunchImage />
         </TabPanel>
         <TabPanel value="5" sx={{ padding: 0 }}>
+          <LaunchAudio />
+        </TabPanel>
+        <TabPanel value="6" sx={{ padding: 0 }}>
           <LaunchCustom gpuAvailable={gpuAvailable} />
         </TabPanel>
       </TabContext>
