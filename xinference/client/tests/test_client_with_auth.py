@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import pytest
-from openai import AuthenticationError, OpenAI, PermissionDeniedError
 
 from ..restful.restful_client import Client as RESTfulClient
 from ..restful.restful_client import RESTfulEmbeddingModelHandle
@@ -77,27 +76,30 @@ def test_client_auth(setup_with_auth):
     assert len(client.list_models()) == 1
 
     # test with openai SDK
+    from openai import AuthenticationError, OpenAI, PermissionDeniedError
+
     client_ai = OpenAI(base_url=endpoint + "/v1", api_key="sk-wrongapikey12")
     with pytest.raises(AuthenticationError):
         client_ai.models.list()
 
     client_ai = OpenAI(base_url=endpoint + "/v1", api_key="sk-72tkvudyGLPMi")
     assert len(client_ai.models.list().data) == 1
-
     with pytest.raises(PermissionDeniedError):
         chat_completion = client_ai.chat.completions.create(
             model="bge-small-en-v1.5",
             messages=[{"role": "user", "content": "write a poem."}],
         )
 
-    client_ai = OpenAI(base_url=endpoint + "/v1", api_key="sk-72tkvudyGLPMi")
+    client_ai = OpenAI(base_url=endpoint + "/v1", api_key="sk-ZOTLIY4gt9w11")
     chat_completion = client_ai.chat.completions.create(
         model="bge-small-en-v1.5",
         messages=[{"role": "user", "content": "write a poem."}],
     )
-
     assert len(chat_completion["data"][0]["embedding"]) == 384
+    with pytest.raises(RuntimeError):
+        client_ai.terminate_model(model_uid)
 
+    client_ai = OpenAI(base_url=endpoint + "/v1", api_key="sk-3sjLbdwqAhhAF")
     client_ai.terminate_model(model_uid)
     assert len(client.list_models()) == 0
     assert len(client_ai.models.list().data) == 0
