@@ -2613,9 +2613,8 @@
   {
     "version": 1,
     "context_length": 4096,
-    "model_name": "MiniCPM-2B-sft-bf16",
+    "model_name": "minicpm-2b-sft-bf16",
     "model_lang": [
-      "en",
       "zh"
     ],
     "model_ability": [
@@ -2638,9 +2637,8 @@
   {
     "version": 1,
     "context_length": 4096,
-    "model_name": "MiniCPM-2B-sft-fp32",
+    "model_name": "minicpm-2b-sft-fp32",
     "model_lang": [
-      "en",
       "zh"
     ],
     "model_ability": [
@@ -2663,9 +2661,8 @@
   {
     "version": 1,
     "context_length": 4096,
-    "model_name": "MiniCPM-2B-dpo-bf16",
+    "model_name": "minicpm-2b-dpo-bf16",
     "model_lang": [
-      "en",
       "zh"
     ],
     "model_ability": [
@@ -2688,9 +2685,8 @@
   {
     "version": 1,
     "context_length": 4096,
-    "model_name": "MiniCPM-2B-dpo-fp16",
+    "model_name": "minicpm-2b-dpo-fp16",
     "model_lang": [
-      "en",
       "zh"
     ],
     "model_ability": [
@@ -2713,9 +2709,8 @@
   {
     "version": 1,
     "context_length": 4096,
-    "model_name": "MiniCPM-2B-dpo-fp32",
+    "model_name": "minicpm-2b-dpo-fp32",
     "model_lang": [
-      "en",
       "zh"
     ],
     "model_ability": [
