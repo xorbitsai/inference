@@ -209,7 +209,7 @@ def test_restful_api_for_yi_vl(setup, model_format, quantization):
     assert "两条" in completion.choices[0].message.content
 
 
-# @pytest.mark.skip(reason="Cost too many resources.")
+@pytest.mark.skip(reason="Cost too many resources.")
 @pytest.mark.parametrize("model_format, quantization", [("pytorch", None)])
 def test_restful_api_for_deepseek_vl(setup, model_format, quantization):
     endpoint, _ = setup
