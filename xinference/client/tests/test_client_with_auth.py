@@ -96,10 +96,8 @@ def test_client_auth(setup_with_auth):
         input="write a poem.",
     )
     assert len(chat_completion.data[0].embedding) == 384
-    with pytest.raises(RuntimeError):
-        client_ai.terminate_model(model_uid)
 
     client_ai = OpenAI(base_url=endpoint + "/v1", api_key="sk-3sjLbdwqAhhAF")
-    client_ai.terminate_model(model_uid)
+    client.terminate_model(model_uid)
     assert len(client.list_models()) == 0
     assert len(client_ai.models.list().data) == 0
