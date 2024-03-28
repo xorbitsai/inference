@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-02-18 17:25+0800\n"
+"POT-Creation-Date: 2024-03-28 18:03+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -90,30 +90,31 @@ msgstr ""
 "在启动 Xinference 时，需要指定所有的验证和授权信息。当前，Xinference 需要"
 "一个 JSON 文件，其中包含以下特定字段："
 
-#: ../../source/user_guide/auth_system.rst:59
+#: ../../source/user_guide/auth_system.rst:67
 msgid ""
 "``auth_config``: This field is used to configure security-related "
 "information."
 msgstr "``auth_config``: 这个字段配置与安全相关的信息。"
 
-#: ../../source/user_guide/auth_system.rst:61
+#: ../../source/user_guide/auth_system.rst:69
 msgid ""
 "``algorithm``: The algorithm used for token generation and parsing. "
 "``HS`` series algorithms are recommended. For example, ``HS256``, "
 "``HS384`` or ``HS512``."
 msgstr ""
-"``algorithm``: 用于令牌生成与解析的算法。推荐使用 ``HS`` 系列算法，例如 ``HS256``，``HS384`` 或者 ``HS512`` 算法。"
+"``algorithm``: 用于令牌生成与解析的算法。推荐使用 ``HS`` 系列算法，例如 `"
+"`HS256``，``HS384`` 或者 ``HS512`` 算法。"
 
-#: ../../source/user_guide/auth_system.rst:63
+#: ../../source/user_guide/auth_system.rst:71
 msgid ""
 "``secret_key``: The secret_key used for token generation and parsing. Use"
 " this command to generate the secret_key adapted to the ``HS`` "
 "algorithms: ``openssl rand -hex 32``."
 msgstr ""
-"``secret_key``: 用于令牌生成和解析的密钥。可以使用该命令生成适配 ``HS`` 系列算法的密钥：``openssl "
-"rand -hex 32`` 。"
+"``secret_key``: 用于令牌生成和解析的密钥。可以使用该命令生成适配 ``HS`` "
+"系列算法的密钥：``openssl rand -hex 32`` 。"
 
-#: ../../source/user_guide/auth_system.rst:65
+#: ../../source/user_guide/auth_system.rst:73
 msgid ""
 "``token_expire_in_minutes``: Reserved field indicating the expiration "
 "time of the token. The current open-source version of Xinference does not"
@@ -122,7 +123,7 @@ msgstr ""
 "``token_expire_in_minutes``: 保留字段，表示令牌失效时间。目前 Xinference "
 "开源版本不会检查令牌过期时间。"
 
-#: ../../source/user_guide/auth_system.rst:67
+#: ../../source/user_guide/auth_system.rst:75
 msgid ""
 "``user_config``: This field is used to configure user and permission "
 "information. Each user information is composed of these fields:"
@@ -130,15 +131,15 @@ msgstr ""
 "``user_config``: 这个字段用来配置用户和权限信息。每个用户信息由以下字段"
 "组成："
 
-#: ../../source/user_guide/auth_system.rst:69
+#: ../../source/user_guide/auth_system.rst:77
 msgid "``username``: string field for username."
 msgstr "``username``: 字符串，表示用户名"
 
-#: ../../source/user_guide/auth_system.rst:71
+#: ../../source/user_guide/auth_system.rst:79
 msgid "``password``: string field for password."
 msgstr "``password``: 字符串，表示密码"
 
-#: ../../source/user_guide/auth_system.rst:73
+#: ../../source/user_guide/auth_system.rst:81
 msgid ""
 "``permissions``: A list containing strings representing the permissions "
 "that this user has. The permissions are described as above."
@@ -146,7 +147,18 @@ msgstr ""
 "``permissions``: 字符串列表，表示该用户拥有的权限。权限描述如上权限部分"
 "文档所述。"
 
-#: ../../source/user_guide/auth_system.rst:76
+#: ../../source/user_guide/auth_system.rst:83
+msgid ""
+"``api_keys``: A list containing strings representing the api-keys of this"
+" user. With these api-keys, user can access the xinference interfaces "
+"without the need to signin. The api-key here is formatted similar to the "
+"``OPENAI_API_KEY`` , always starting with ``sk-``, followed by 13 "
+"alphanumeric characters."
+msgstr ""
+"``api_keys``: 字符串列表，表示该用户拥有的 api-key 。用户可以通过这些 api-key ，无需登录步骤即可访问 xinference 接口。"
+"这里的 api_key 组成与 ``OPENAI_API_KEY`` 相似，总是以 ``sk-`` 开头，后跟 13 个数字、大小写字母。"
+
+#: ../../source/user_guide/auth_system.rst:86
 msgid ""
 "Once you have configured such a JSON file, use the ``--auth-config`` "
 "option to enable Xinference with the authentication and authorization "
@@ -155,34 +167,38 @@ msgstr ""
 "配置好这样一个 JSON 文件后，可以使用 ``--auth-config`` 选项启用具有"
 "身份验证和授权系统的 Xinference。例如，本地启动的命令如下所示："
 
-#: ../../source/user_guide/auth_system.rst:83
+#: ../../source/user_guide/auth_system.rst:93
 msgid ""
 "For distributed startup, just specify this option when starting the "
 "supervisor:"
 msgstr "在分布式环境下，只需要在启动 supervisor 时指定这个选项："
 
-#: ../../source/user_guide/auth_system.rst:91
+#: ../../source/user_guide/auth_system.rst:101
 msgid "Usage"
 msgstr "使用"
 
-#: ../../source/user_guide/auth_system.rst:92
+#: ../../source/user_guide/auth_system.rst:102
 msgid ""
 "For Xinference with the authentication and authorization system enabled, "
 "all usage remains the same, except for the addition of a login step at "
-"the beginning."
+"the beginning or using the api-key."
 msgstr ""
 "使用带有权限管理的 Xinference 服务与正常的版本保持一致，只是在开始阶段"
-"添加了登录步骤。"
+"添加了登录步骤，或者使用 api-key 进行鉴权。"
 
-#: ../../source/user_guide/auth_system.rst:94
+#: ../../source/user_guide/auth_system.rst:105
+msgid "Signin"
+msgstr "基于用户名-密码的使用方式"
+
+#: ../../source/user_guide/auth_system.rst:106
 msgid "Signin for command line users:"
 msgstr "使用命令行登录："
 
-#: ../../source/user_guide/auth_system.rst:101
+#: ../../source/user_guide/auth_system.rst:113
 msgid "For python SDK users:"
 msgstr "使用 Python SDK 登录："
 
-#: ../../source/user_guide/auth_system.rst:110
+#: ../../source/user_guide/auth_system.rst:122
 msgid ""
 "For web UI users, when opening the web UI, you will first be directed to "
 "the login page. After logging in, you can use the web UI normally."
@@ -190,23 +206,46 @@ msgstr ""
 "对于 Web UI 的用户，在打开 Web UI 时，将首先跳转到登录页面。登录后，就"
 "可以正常使用Web UI 的功能。"
 
-#: ../../source/user_guide/auth_system.rst:114
+#: ../../source/user_guide/auth_system.rst:125
+msgid "Api-Key"
+msgstr "基于 Api-Key 鉴权的使用方式"
+
+#: ../../source/user_guide/auth_system.rst:126
+msgid ""
+"For command line users, just add ``--api-key`` or ``-ak`` option in the "
+"command you want to use."
+msgstr ""
+"对于命令行用户，仅需在所要运行的命令上新增 ``--api-key`` 或 ``-ak`` 选项即可。"
+
+#: ../../source/user_guide/auth_system.rst:133
+msgid ""
+"For python SDK users, pass the ``api_key`` parameter when initializing "
+"the client, just like the ``OPENAI`` Python client."
+msgstr ""
+"对于 Python 客户端用户，在客户端对象初始化时传入 ``api_key`` 参数即可，就像 ``OPENAI`` 客户端那样。"
+
+#: ../../source/user_guide/auth_system.rst:141
+msgid "Xinference is also compatible with the ``OPENAI`` Python SDK as well."
+msgstr ""
+"当然，Xinference 也与 ``OPENAI`` Python 客户端的使用方式完全兼容。"
+
+#: ../../source/user_guide/auth_system.rst:151
 msgid "Http Status Code"
 msgstr "Http 状态码"
 
-#: ../../source/user_guide/auth_system.rst:115
+#: ../../source/user_guide/auth_system.rst:152
 msgid "Add the following two HTTP status codes:"
 msgstr "添加了以下两种 HTTP 状态码："
 
-#: ../../source/user_guide/auth_system.rst:117
+#: ../../source/user_guide/auth_system.rst:154
 msgid "``401 Unauthorized``: login information or token verifies failed."
 msgstr "``401 Unauthorized``: 登录信息或者令牌验证失效。"
 
-#: ../../source/user_guide/auth_system.rst:118
+#: ../../source/user_guide/auth_system.rst:155
 msgid "``403 Forbidden``: No enough permissions when accessing interfaces."
 msgstr "``403 Forbidden``: 没有足够的权限访问接口。"
 
-#: ../../source/user_guide/auth_system.rst:120
+#: ../../source/user_guide/auth_system.rst:157
 msgid ""
 "For the command line, SDK, or web UI users, there will be clear "
 "information prompts when encountering authorization and permissions "
@@ -215,11 +254,11 @@ msgstr ""
 "对于命令行、SDK 或 Web UI 用户，在遇到授权和权限问题时，会有明确的信息"
 "提示。"
 
-#: ../../source/user_guide/auth_system.rst:124
+#: ../../source/user_guide/auth_system.rst:161
 msgid "Note"
 msgstr "注意"
 
-#: ../../source/user_guide/auth_system.rst:125
+#: ../../source/user_guide/auth_system.rst:162
 msgid ""
 "This feature is still in an experimental stage. Feel free to provide "
 "feedback on usage issues or improvement suggestions through `GitHub "

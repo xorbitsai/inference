@@ -42,6 +42,10 @@ Xinference requires a JSON-formatted file with the following specific fields:
                 "password": "secret1",
                 "permissions": [
                     "admin"
+                ],
+                "api_keys": [
+                    "sk-72tkvudyGLPMi",
+                    "sk-ZOTLIY4gt9w11"
                 ]
             },
             {
@@ -50,6 +54,10 @@ Xinference requires a JSON-formatted file with the following specific fields:
                 "permissions": [
                     "models:list",
                     "models:read"
+                ],
+                "api_keys": [
+                    "sk-35tkasdyGLYMy",
+                    "sk-ALTbgl6ut981w"
                 ]
             }
         ]
@@ -72,6 +80,8 @@ Xinference requires a JSON-formatted file with the following specific fields:
 
    * ``permissions``: A list containing strings representing the permissions that this user has. The permissions are described as above.
 
+   * ``api_keys``: A list containing strings representing the api-keys of this user. With these api-keys, user can access the xinference interfaces without the need to signin. The api-key here is formatted similar to the ``OPENAI_API_KEY`` , always starting with ``sk-``, followed by 13 alphanumeric characters.
+
 
 Once you have configured such a JSON file, use the ``--auth-config`` option to enable Xinference with the authentication and authorization system. For example, for local startup:
 
@@ -89,8 +99,10 @@ For distributed startup, just specify this option when starting the supervisor:
 
 Usage
 =====
-For Xinference with the authentication and authorization system enabled, all usage remains the same, except for the addition of a login step at the beginning.
+For Xinference with the authentication and authorization system enabled, all usage remains the same, except for the addition of a login step at the beginning or using the api-key.
 
+Signin
+------
 Signin for command line users:
 
 .. code-block:: bash
@@ -108,6 +120,31 @@ For python SDK users:
 
 
 For web UI users, when opening the web UI, you will first be directed to the login page. After logging in, you can use the web UI normally.
+
+Api-Key
+-------
+For command line users, just add ``--api-key`` or ``-ak`` option in the command you want to use.
+
+.. code-block:: bash
+
+   xinference launch <other options> --api-key <your_api_key>
+
+
+For python SDK users, pass the ``api_key`` parameter when initializing the client, just like the ``OPENAI`` Python client.
+
+.. code-block:: python
+
+   from xinference.client import Client
+   client = Client('<endpoint>', api_key='<your_api_key>')
+
+
+Xinference is also compatible with the ``OPENAI`` Python SDK as well.
+
+.. code-block:: python
+
+   from openai import OpenAI
+   client = OpenAI(base_url="<xinference endpoint>" + "/v1", api_key="<your_api_key>")
+   client.models.list()
 
 
 Http Status Code
