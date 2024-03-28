@@ -654,7 +654,7 @@ class WorkerActor(xo.StatelessActor):
         is_local_deployment = await self._supervisor_ref.is_local_deployment()
 
         subpool_address, devices = await self._create_subpool(
-            model_uid, model_type, n_gpu=n_gpu
+            model_uid, model_type, n_gpu=n_gpu, gpu_idx=gpu_idx
         )
 
         try:
