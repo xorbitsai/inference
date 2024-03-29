@@ -16,6 +16,21 @@ The following is a list of built-in LLM in Xinference:
      - DESCRIPTION
 
 
+   * - :ref:`aquila2 <models_llm_aquila2>`
+     - generate
+     - 2048
+     - Aquila2 series models are the base language models
+
+   * - :ref:`aquila2-chat <models_llm_aquila2-chat>`
+     - chat
+     - 2048
+     - Aquila2-chat series models are the chat models
+
+   * - :ref:`aquila2-chat-16k <models_llm_aquila2-chat-16k>`
+     - chat
+     - 16384
+     - AquilaChat2-16k series models are the long-text chat models
+
    * - :ref:`baichuan <models_llm_baichuan>`
      - generate
      - 4096
@@ -54,6 +69,11 @@ The following is a list of built-in LLM in Xinference:
    * - :ref:`chatglm3 <models_llm_chatglm3>`
      - chat, tools
      - 8192
+     - ChatGLM3 is the third generation of ChatGLM, still open-source and trained on Chinese and English data.
+
+   * - :ref:`chatglm3-128k <models_llm_chatglm3-128k>`
+     - chat
+     - 131072
      - ChatGLM3 is the third generation of ChatGLM, still open-source and trained on Chinese and English data.
 
    * - :ref:`chatglm3-32k <models_llm_chatglm3-32k>`
@@ -126,6 +146,11 @@ The following is a list of built-in LLM in Xinference:
      - 4096
      - OpenFunctions is designed to extend Large Language Model (LLM) Chat Completion feature to formulate executable APIs call given natural language instructions and API context.
 
+   * - :ref:`gorilla-openfunctions-v2 <models_llm_gorilla-openfunctions-v2>`
+     - chat
+     - 4096
+     - OpenFunctions is designed to extend Large Language Model (LLM) Chat Completion feature to formulate executable APIs call given natural language instructions and API context.
+
    * - :ref:`gpt-2 <models_llm_gpt-2>`
      - generate
      - 1024
@@ -165,6 +190,31 @@ The following is a list of built-in LLM in Xinference:
      - chat
      - 4096
      - Llama-2-Chat is a fine-tuned version of the Llama-2 LLM, specializing in chatting.
+
+   * - :ref:`minicpm-2b-dpo-bf16 <models_llm_minicpm-2b-dpo-bf16>`
+     - chat
+     - 4096
+     - MiniCPM is an End-Size LLM developed by ModelBest Inc. and TsinghuaNLP, with only 2.4B parameters excluding embeddings.
+
+   * - :ref:`minicpm-2b-dpo-fp16 <models_llm_minicpm-2b-dpo-fp16>`
+     - chat
+     - 4096
+     - MiniCPM is an End-Size LLM developed by ModelBest Inc. and TsinghuaNLP, with only 2.4B parameters excluding embeddings.
+
+   * - :ref:`minicpm-2b-dpo-fp32 <models_llm_minicpm-2b-dpo-fp32>`
+     - chat
+     - 4096
+     - MiniCPM is an End-Size LLM developed by ModelBest Inc. and TsinghuaNLP, with only 2.4B parameters excluding embeddings.
+
+   * - :ref:`minicpm-2b-sft-bf16 <models_llm_minicpm-2b-sft-bf16>`
+     - chat
+     - 4096
+     - MiniCPM is an End-Size LLM developed by ModelBest Inc. and TsinghuaNLP, with only 2.4B parameters excluding embeddings.
+
+   * - :ref:`minicpm-2b-sft-fp32 <models_llm_minicpm-2b-sft-fp32>`
+     - chat
+     - 4096
+     - MiniCPM is an End-Size LLM developed by ModelBest Inc. and TsinghuaNLP, with only 2.4B parameters excluding embeddings.
 
    * - :ref:`mistral-instruct-v0.1 <models_llm_mistral-instruct-v0.1>`
      - chat
@@ -230,6 +280,11 @@ The following is a list of built-in LLM in Xinference:
      - generate
      - 2048
      - Phi-2 is a 2.7B Transformer based LLM used for research on model safety, trained with data similar to Phi-1.5 but augmented with synthetic texts and curated websites.
+
+   * - :ref:`platypus2-70b-instruct <models_llm_platypus2-70b-instruct>`
+     - generate
+     - 4096
+     - Platypus-70B-instruct is a merge of garage-bAInd/Platypus2-70B and upstage/Llama-2-70b-instruct-v2.
 
    * - :ref:`qwen-chat <models_llm_qwen-chat>`
      - chat, tools
@@ -351,6 +406,12 @@ The following is a list of built-in LLM in Xinference:
    :maxdepth: 3
 
   
+   aquila2
+  
+   aquila2-chat
+  
+   aquila2-chat-16k
+  
    baichuan
   
    baichuan-2
@@ -366,6 +427,8 @@ The following is a list of built-in LLM in Xinference:
    chatglm2-32k
   
    chatglm3
+  
+   chatglm3-128k
   
    chatglm3-32k
   
@@ -395,6 +458,8 @@ The following is a list of built-in LLM in Xinference:
   
    gorilla-openfunctions-v1
   
+   gorilla-openfunctions-v2
+  
    gpt-2
   
    internlm-20b
@@ -410,6 +475,16 @@ The following is a list of built-in LLM in Xinference:
    llama-2
   
    llama-2-chat
+  
+   minicpm-2b-dpo-bf16
+  
+   minicpm-2b-dpo-fp16
+  
+   minicpm-2b-dpo-fp32
+  
+   minicpm-2b-sft-bf16
+  
+   minicpm-2b-sft-fp32
   
    mistral-instruct-v0.1
   
@@ -436,6 +511,8 @@ The following is a list of built-in LLM in Xinference:
    orion-chat-rag
   
    phi-2
+  
+   platypus2-70b-instruct
   
    qwen-chat
   
