@@ -54,9 +54,11 @@ def _install():
     from .pytorch.baichuan import BaichuanPytorchChatModel
     from .pytorch.chatglm import ChatglmPytorchChatModel
     from .pytorch.core import PytorchChatModel, PytorchModel
+    from .pytorch.deepseek_vl import DeepSeekVLChatModel
     from .pytorch.falcon import FalconPytorchChatModel, FalconPytorchModel
     from .pytorch.internlm2 import Internlm2PytorchChatModel
     from .pytorch.llama_2 import LlamaPytorchChatModel, LlamaPytorchModel
+    from .pytorch.omnilmm import OmniLMMModel
     from .pytorch.qwen_vl import QwenVLChatModel
     from .pytorch.vicuna import VicunaPytorchChatModel
     from .pytorch.yi_vl import YiVLChatModel
@@ -94,7 +96,9 @@ def _install():
             FalconPytorchModel,
             Internlm2PytorchChatModel,
             QwenVLChatModel,
+            OmniLMMModel,
             YiVLChatModel,
+            DeepSeekVLChatModel,
             PytorchModel,
         ]
     )

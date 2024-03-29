@@ -465,7 +465,9 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
             "llama-2-chat",
             "internlm2-chat",
             "qwen-vl-chat",
+            "OmniLMM",
             "yi-vl-chat",
+            "deepseek-vl-chat",
         ]:
             return False
         if "chat" not in llm_family.model_ability:
