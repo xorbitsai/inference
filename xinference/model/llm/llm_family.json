@@ -4329,7 +4329,7 @@
       "zh"
     ],
     "model_ability": [
-      "generate"
+      "chat"
     ],
     "model_description": "MiniCPM is an End-Size LLM developed by ModelBest Inc. and TsinghuaNLP, with only 2.4B parameters excluding embeddings.",
     "model_specs": [
@@ -4342,7 +4342,23 @@
         "model_id": "openbmb/MiniCPM-2B-sft-bf16",
         "model_revision": "fe1d74027ebdd81cef5f815fa3a2d432a6b5de2a"
       }
-    ]
+    ],
+    "prompt_style": {
+      "style_name": "MINICPM-2B",
+      "system_prompt": "",
+      "roles": [
+        "user",
+        "assistant"
+      ],
+      "stop_token_ids": [
+        1,
+        2
+      ],
+      "stop": [
+        "<s>",
+        "</s>"
+      ]
+    }
   },
   {
     "version": 1,
@@ -4352,7 +4368,7 @@
       "zh"
     ],
     "model_ability": [
-      "generate"
+      "chat"
     ],
     "model_description": "MiniCPM is an End-Size LLM developed by ModelBest Inc. and TsinghuaNLP, with only 2.4B parameters excluding embeddings.",
     "model_specs": [
@@ -4365,7 +4381,23 @@
         "model_id": "openbmb/MiniCPM-2B-sft-fp32",
         "model_revision": "35b90dd57d977b6e5bc4907986fa5b77aa15a82e"
       }
-    ]
+    ],
+    "prompt_style": {
+      "style_name": "MINICPM-2B",
+      "system_prompt": "",
+      "roles": [
+        "user",
+        "assistant"
+      ],
+      "stop_token_ids": [
+        1,
+        2
+      ],
+      "stop": [
+        "<s>",
+        "</s>"
+      ]
+    }
   },
   {
     "version": 1,
@@ -4375,7 +4407,7 @@
       "zh"
     ],
     "model_ability": [
-      "generate"
+      "chat"
     ],
     "model_description": "MiniCPM is an End-Size LLM developed by ModelBest Inc. and TsinghuaNLP, with only 2.4B parameters excluding embeddings.",
     "model_specs": [
@@ -4388,7 +4420,23 @@
         "model_id": "openbmb/MiniCPM-2B-dpo-bf16",
         "model_revision": "f4a3ba49f3f18695945c2a7c12400d4da99da498"
       }
-    ]
+    ],
+    "prompt_style": {
+      "style_name": "MINICPM-2B",
+      "system_prompt": "",
+      "roles": [
+        "user",
+        "assistant"
+      ],
+      "stop_token_ids": [
+        1,
+        2
+      ],
+      "stop": [
+        "<s>",
+        "</s>"
+      ]
+    }
   },
   {
     "version": 1,
@@ -4398,7 +4446,7 @@
       "zh"
     ],
     "model_ability": [
-      "generate"
+      "chat"
     ],
     "model_description": "MiniCPM is an End-Size LLM developed by ModelBest Inc. and TsinghuaNLP, with only 2.4B parameters excluding embeddings.",
     "model_specs": [
@@ -4411,17 +4459,33 @@
         "model_id": "openbmb/MiniCPM-2B-dpo-fp16",
         "model_revision": "e7a50289e4f839674cf8d4a5a2ce032ccacf64ac"
       }
-    ]
+    ],
+    "prompt_style": {
+      "style_name": "MINICPM-2B",
+      "system_prompt": "",
+      "roles": [
+        "user",
+        "assistant"
+      ],
+      "stop_token_ids": [
+        1,
+        2
+      ],
+      "stop": [
+        "<s>",
+        "</s>"
+      ]
+    }
   },
   {
     "version": 1,
     "context_length": 4096,
-    "model_name": "minicpm-2B-dpo-fp32",
+    "model_name": "minicpm-2b-dpo-fp32",
     "model_lang": [
       "zh"
     ],
     "model_ability": [
-      "generate"
+      "chat"
     ],
     "model_description": "MiniCPM is an End-Size LLM developed by ModelBest Inc. and TsinghuaNLP, with only 2.4B parameters excluding embeddings.",
     "model_specs": [
@@ -4434,6 +4498,22 @@
         "model_id": "openbmb/MiniCPM-2B-dpo-fp32",
         "model_revision": "b560a1593779b735a84a6daf72fba96ae38da288"
       }
-    ]
+    ],
+    "prompt_style": {
+      "style_name": "MINICPM-2B",
+      "system_prompt": "",
+      "roles": [
+        "user",
+        "assistant"
+      ],
+      "stop_token_ids": [
+        1,
+        2
+      ],
+      "stop": [
+        "<s>",
+        "</s>"
+      ]
+    }
   }
 ]
