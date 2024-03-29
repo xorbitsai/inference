@@ -21,7 +21,6 @@ ARG PIP_INDEX=https://pypi.org/simple
 RUN python -m pip install --upgrade -i "$PIP_INDEX" pip && \
     CMAKE_ARGS="-DGGML_CUBLAS=ON" pip install -i "$PIP_INDEX" -U chatglm-cpp && \
     CMAKE_ARGS="-DLLAMA_CUBLAS=on" pip install -i "$PIP_INDEX" -U llama-cpp-python && \
-    pip install -i "$PIP_INDEX" -U opencv-python-headless && \
     cd /opt/inference && \
     python setup.py build_web && \
     git restore . && \
