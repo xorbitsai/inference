@@ -86,6 +86,7 @@ VLLM_SUPPORTED_CHAT_MODELS = [
     "vicuna-v1.3",
     "vicuna-v1.5",
     "baichuan-chat",
+    "baichuan-2-chat",
     "internlm-chat-7b",
     "internlm-chat-8k",
     "internlm-chat-20b",
