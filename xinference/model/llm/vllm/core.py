@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import logging
 import multiprocessing
 import time
@@ -36,6 +37,8 @@ from ....types import (
     CompletionChoice,
     CompletionChunk,
     CompletionUsage,
+    ToolCallFunction,
+    ToolCalls,
 )
 from .. import LLM, LLMFamilyV1, LLMSpecV1
 from ..llm_family import CustomLLMFamilyV1
@@ -290,6 +293,7 @@ class VLLMModel(LLM):
         self,
         prompt: str,
         generate_config: Optional[Dict] = None,
+        tools: object = False,
     ) -> Union[Completion, AsyncGenerator[CompletionChunk, None]]:
         try:
             from vllm.sampling_params import SamplingParams
@@ -322,6 +326,28 @@ class VLLMModel(LLM):
                     model=self.model_uid,
                     request_output=_request_output,
                 )
+
+                if tools and chunk["choices"][0]["finish_reason"] is not None:
+                    _content, func, args = ChatModelMixin._eval_tool_arguments(
+                        self.model_family, chunk, tools
+                    )
+                    choice = chunk["choices"][0]
+                    # content has been returned in previous streaming
+                    choice["text"] = ""
+                    if func is not None:
+                        choice["tool_calls"] = [
+                            ToolCalls(
+                                id=str(uuid.uuid4()),
+                                type="function",
+                                function=ToolCallFunction(
+                                    name=func, args=json.dumps(args)
+                                ),
+                            )
+                        ]
+                        choice["finish_reason"] = "tool_calls"
+                    yield chunk
+                    continue
+
                 for i, choice in enumerate(chunk["choices"]):
                     delta = choice["text"][len(previous_texts[i]) :]
                     previous_texts[i] = choice["text"]
@@ -413,7 +439,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
         generate_config = self._sanitize_chat_config(generate_config)
         # TODO(codingl2k1): qwen hacky to set stop for function call.
         model_family = self.model_family.model_family or self.model_family.model_name
-        if tools and "qwen-chat" == model_family:
+        if tools and model_family in ["qwen-chat", "qwen1.5-chat"]:
             stop = generate_config.get("stop")
             if isinstance(stop, str):
                 generate_config["stop"] = [stop, "Observation:"]
@@ -426,7 +452,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
         stream = generate_config.get("stream", None)
 
         if stream:
-            agen = await self.async_generate(full_prompt, generate_config)
+            agen = await self.async_generate(full_prompt, generate_config, tools)
             assert isinstance(agen, AsyncGenerator)
             return self._async_to_chat_completion_chunks(agen)
         else:

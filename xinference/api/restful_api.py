@@ -1336,9 +1336,9 @@ class RESTfulAPI:
                     status_code=400,
                     detail=f"Only {function_call_models} support tool messages",
                 )
-        if body.tools and body.stream:
+        if body.tools and body.stream and not model.is_vllm_backend():
             raise HTTPException(
-                status_code=400, detail="Tool calls does not support stream"
+                status_code=400, detail="Tool calls only support streaming when using VLLM"
             )
 
         if body.stream:

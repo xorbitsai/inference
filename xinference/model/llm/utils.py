@@ -163,7 +163,7 @@ class ChatModelMixin:
 
             for i, message in enumerate(chat_history):
                 role = get_role(message["role"])
-                content = message["content"]
+                content = message.get("content")
                 tool_calls = message.get("tool_calls")
                 if tool_calls:
                     content = tool_calls[0]["function"]
@@ -248,7 +248,7 @@ Begin!"""
             ret = f"<|im_start|>system\n{prompt_style.system_prompt}<|im_end|>"
             for message in chat_history:
                 role = get_role(message["role"])
-                content = message["content"]
+                content = message.get("content")
 
                 ret += prompt_style.intra_message_sep
                 if tools:
@@ -436,6 +436,7 @@ Begin!"""
                     "index": i,
                     "delta": {
                         "content": choice["text"],
+                        "tool_calls": choice.get("tool_calls"),
                     },
                     "finish_reason": choice["finish_reason"],
                 }
@@ -582,8 +583,7 @@ Begin!"""
         return text, None, None
 
     @classmethod
-    def _tool_calls_completion(cls, model_family, model_uid, c, tools):
-        _id = str(uuid.uuid4())
+    def _eval_tool_arguments(cls, model_family, c, tools):
         family = model_family.model_family or model_family.model_name
         if "gorilla-openfunctions-v1" == family:
             content, func, args = cls._eval_gorilla_openfunctions_arguments(c, tools)
@@ -596,7 +596,12 @@ Begin!"""
                 f"Model {model_family.model_name} is not support tool calls."
             )
         logger.debug("Tool call content: %s, func: %s, args: %s", content, func, args)
+        return content, func, args
 
+    @classmethod
+    def _tool_calls_completion(cls, model_family, model_uid, c, tools):
+        _id = str(uuid.uuid4())
+        content, func, args = cls._eval_tool_arguments(model_family, c, tools)
         if func:
             m = {
                 "role": "assistant",
