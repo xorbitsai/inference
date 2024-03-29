@@ -424,7 +424,7 @@ Begin!"""
         elif prompt_style.style_name == "MINICPM-2B":
             ret = ""
             for message in chat_history:
-                content = message["content"]
+                content = message["content"] or ""
                 role = get_role(message["role"])
                 if role == "user":
                     ret += "<用户>" + content.strip()
