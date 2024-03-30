@@ -343,7 +343,7 @@ class VLLMModel(LLM):
                                 id=str(uuid.uuid4()),
                                 type="function",
                                 function=ToolCallFunction(
-                                    name=func, args=json.dumps(args)
+                                    name=func, arguments=json.dumps(args)
                                 ),
                             )
                         ]
