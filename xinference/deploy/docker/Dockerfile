@@ -24,4 +24,6 @@ RUN python -m pip install --upgrade -i "$PIP_INDEX" pip && \
     cd /opt/inference && \
     python setup.py build_web && \
     git restore . && \
-    pip install -i "$PIP_INDEX" ".[all]"
+    pip install -i "$PIP_INDEX" ".[all]" && \
+    pip uninstall -y opencv-contrib-python && \
+    pip install -i "$PIP_INDEX" opencv-contrib-python-headless
