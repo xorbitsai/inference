@@ -1007,8 +1007,14 @@ class RESTfulAPI:
                 raise HTTPException(status_code=500, detail=str(e))
 
     async def create_embedding(self, request: Request) -> Response:
-        body = CreateEmbeddingRequest.parse_obj(await request.json())
+        payload = await request.json()
+        body = CreateEmbeddingRequest.parse_obj(payload)
         model_uid = body.model
+        kwargs = {
+            key: value
+            for key, value in payload.items()
+            if key not in CreateEmbeddingRequest.__annotations__.keys()
+        }
 
         try:
             model = await (await self._get_supervisor_ref()).get_model(model_uid)
@@ -1022,7 +1028,7 @@ class RESTfulAPI:
             raise HTTPException(status_code=500, detail=str(e))
 
         try:
-            embedding = await model.create_embedding(body.input)
+            embedding = await model.create_embedding(body.input, **kwargs)
             return Response(embedding, media_type="application/json")
         except RuntimeError as re:
             logger.error(re, exc_info=True)
@@ -1035,8 +1041,15 @@ class RESTfulAPI:
             raise HTTPException(status_code=500, detail=str(e))
 
     async def rerank(self, request: Request) -> Response:
-        body = RerankRequest.parse_obj(await request.json())
+        payload = await request.json()
+        body = RerankRequest.parse_obj(payload)
         model_uid = body.model
+        kwargs = {
+            key: value
+            for key, value in payload.items()
+            if key not in RerankRequest.__annotations__.keys()
+        }
+
         try:
             model = await (await self._get_supervisor_ref()).get_model(model_uid)
         except ValueError as ve:
@@ -1055,6 +1068,7 @@ class RESTfulAPI:
                 top_n=body.top_n,
                 max_chunks_per_doc=body.max_chunks_per_doc,
                 return_documents=body.return_documents,
+                **kwargs,
             )
             return Response(scores, media_type="application/json")
         except RuntimeError as re:

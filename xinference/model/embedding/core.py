@@ -136,7 +136,7 @@ class EmbeddingModel:
     def create_embedding(self, sentences: Union[str, List[str]], **kwargs):
         from sentence_transformers import SentenceTransformer
 
-        normalize_embeddings = kwargs.pop("normalize_embeddings", True)
+        kwargs.setdefault("normalize_embeddings", True)
 
         # copied from sentence-transformers, and modify it to return tokens num
         @no_type_check
@@ -272,7 +272,6 @@ class EmbeddingModel:
             self._model,
             sentences,
             convert_to_numpy=False,
-            normalize_embeddings=normalize_embeddings,
             **kwargs,
         )
         if isinstance(sentences, str):
