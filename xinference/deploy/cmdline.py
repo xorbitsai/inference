@@ -376,18 +376,27 @@ def worker(
     is_flag=True,
     help="Persist the model configuration to the filesystem, retains the model registration after server restarts.",
 )
+@click.option(
+    "--api-key",
+    "-ak",
+    default=None,
+    type=str,
+    help="Api-Key for access xinference api with authorization.",
+)
 def register_model(
     endpoint: Optional[str],
     model_type: str,
     file: str,
     persist: bool,
+    api_key: Optional[str],
 ):
     endpoint = get_endpoint(endpoint)
     with open(file) as fd:
         model = fd.read()
 
-    client = RESTfulClient(base_url=endpoint)
-    client._set_token(get_stored_token(endpoint, client))
+    client = RESTfulClient(base_url=endpoint, api_key=api_key)
+    if api_key is None:
+        client._set_token(get_stored_token(endpoint, client))
     client.register_model(
         model_type=model_type,
         model=model,
@@ -408,15 +417,24 @@ def register_model(
     help="Type of model to unregister (default is 'LLM').",
 )
 @click.option("--model-name", "-n", type=str, help="Name of the model to unregister.")
+@click.option(
+    "--api-key",
+    "-ak",
+    default=None,
+    type=str,
+    help="Api-Key for access xinference api with authorization.",
+)
 def unregister_model(
     endpoint: Optional[str],
     model_type: str,
     model_name: str,
+    api_key: Optional[str],
 ):
     endpoint = get_endpoint(endpoint)
 
-    client = RESTfulClient(base_url=endpoint)
-    client._set_token(get_stored_token(endpoint, client))
+    client = RESTfulClient(base_url=endpoint, api_key=api_key)
+    if api_key is None:
+        client._set_token(get_stored_token(endpoint, client))
     client.unregister_model(
         model_type=model_type,
         model_name=model_name,
@@ -437,15 +455,24 @@ def unregister_model(
     type=str,
     help="Filter by model type (default is 'LLM').",
 )
+@click.option(
+    "--api-key",
+    "-ak",
+    default=None,
+    type=str,
+    help="Api-Key for access xinference api with authorization.",
+)
 def list_model_registrations(
     endpoint: Optional[str],
     model_type: str,
+    api_key: Optional[str],
 ):
     from tabulate import tabulate
 
     endpoint = get_endpoint(endpoint)
-    client = RESTfulClient(base_url=endpoint)
-    client._set_token(get_stored_token(endpoint, client))
+    client = RESTfulClient(base_url=endpoint, api_key=api_key)
+    if api_key is None:
+        client._set_token(get_stored_token(endpoint, client))
 
     registrations = client.list_model_registrations(model_type=model_type)
 
@@ -633,10 +660,29 @@ def list_model_registrations(
     multiple=True,
 )
 @click.option(
+    "--worker-ip",
+    default=None,
+    type=str,
+    help="Specify which worker this model runs on by ip, for distributed situation.",
+)
+@click.option(
+    "--gpu-idx",
+    default=None,
+    type=str,
+    help="Specify which GPUs of a worker this model can run on, separated with commas.",
+)
+@click.option(
     "--trust-remote-code",
     default=True,
     type=bool,
     help="Whether or not to allow for custom models defined on the Hub in their own modeling files.",
+)
+@click.option(
+    "--api-key",
+    "-ak",
+    default=None,
+    type=str,
+    help="Api-Key for access xinference api with authorization.",
 )
 @click.pass_context
 def model_launch(
@@ -653,7 +699,10 @@ def model_launch(
     peft_model_path: Optional[str],
     image_lora_load_kwargs: Optional[Tuple],
     image_lora_fuse_kwargs: Optional[Tuple],
+    worker_ip: Optional[str],
+    gpu_idx: Optional[str],
     trust_remote_code: bool,
+    api_key: Optional[str],
 ):
     kwargs = {}
     for i in range(0, len(ctx.args), 2):
@@ -680,14 +729,19 @@ def model_launch(
         else None
     )
 
+    _gpu_idx: Optional[List[int]] = (
+        None if gpu_idx is None else [int(idx) for idx in gpu_idx.split(",")]
+    )
+
     endpoint = get_endpoint(endpoint)
     model_size: Optional[Union[str, int]] = (
         size_in_billions
         if size_in_billions is None or "_" in size_in_billions
         else int(size_in_billions)
     )
-    client = RESTfulClient(base_url=endpoint)
-    client._set_token(get_stored_token(endpoint, client))
+    client = RESTfulClient(base_url=endpoint, api_key=api_key)
+    if api_key is None:
+        client._set_token(get_stored_token(endpoint, client))
 
     model_uid = client.launch_model(
         model_name=model_name,
@@ -701,6 +755,8 @@ def model_launch(
         peft_model_path=peft_model_path,
         image_lora_load_kwargs=image_lora_load_params,
         image_lora_fuse_kwargs=image_lora_fuse_params,
+        worker_ip=worker_ip,
+        gpu_idx=_gpu_idx,
         trust_remote_code=trust_remote_code,
         **kwargs,
     )
@@ -718,12 +774,20 @@ def model_launch(
     type=str,
     help="Xinference endpoint.",
 )
-def model_list(endpoint: Optional[str]):
+@click.option(
+    "--api-key",
+    "-ak",
+    default=None,
+    type=str,
+    help="Api-Key for access xinference api with authorization.",
+)
+def model_list(endpoint: Optional[str], api_key: Optional[str]):
     from tabulate import tabulate
 
     endpoint = get_endpoint(endpoint)
-    client = RESTfulClient(base_url=endpoint)
-    client._set_token(get_stored_token(endpoint, client))
+    client = RESTfulClient(base_url=endpoint, api_key=api_key)
+    if api_key is None:
+        client._set_token(get_stored_token(endpoint, client))
 
     llm_table = []
     embedding_table = []
@@ -844,13 +908,22 @@ def model_list(endpoint: Optional[str]):
     required=True,
     help="The unique identifier (UID) of the model.",
 )
+@click.option(
+    "--api-key",
+    "-ak",
+    default=None,
+    type=str,
+    help="Api-Key for access xinference api with authorization.",
+)
 def model_terminate(
     endpoint: Optional[str],
     model_uid: str,
+    api_key: Optional[str],
 ):
     endpoint = get_endpoint(endpoint)
-    client = RESTfulClient(base_url=endpoint)
-    client._set_token(get_stored_token(endpoint, client))
+    client = RESTfulClient(base_url=endpoint, api_key=api_key)
+    if api_key is None:
+        client._set_token(get_stored_token(endpoint, client))
     client.terminate_model(model_uid=model_uid)
 
 
@@ -873,15 +946,24 @@ def model_terminate(
     type=bool,
     help="Whether to stream the generated text. Use 'True' for streaming (default is True).",
 )
+@click.option(
+    "--api-key",
+    "-ak",
+    default=None,
+    type=str,
+    help="Api-Key for access xinference api with authorization.",
+)
 def model_generate(
     endpoint: Optional[str],
     model_uid: str,
     max_tokens: int,
     stream: bool,
+    api_key: Optional[str],
 ):
     endpoint = get_endpoint(endpoint)
-    client = RESTfulClient(base_url=endpoint)
-    client._set_token(get_stored_token(endpoint, client))
+    client = RESTfulClient(base_url=endpoint, api_key=api_key)
+    if api_key is None:
+        client._set_token(get_stored_token(endpoint, client))
     if stream:
         # TODO: when stream=True, RestfulClient cannot generate words one by one.
         # So use Client in temporary. The implementation needs to be changed to
@@ -959,16 +1041,25 @@ def model_generate(
     type=bool,
     help="Whether to stream the chat messages. Use 'True' for streaming (default is True).",
 )
+@click.option(
+    "--api-key",
+    "-ak",
+    default=None,
+    type=str,
+    help="Api-Key for access xinference api with authorization.",
+)
 def model_chat(
     endpoint: Optional[str],
     model_uid: str,
     max_tokens: int,
     stream: bool,
+    api_key: Optional[str],
 ):
     # TODO: chat model roles may not be user and assistant.
     endpoint = get_endpoint(endpoint)
-    client = RESTfulClient(base_url=endpoint)
-    client._set_token(get_stored_token(endpoint, client))
+    client = RESTfulClient(base_url=endpoint, api_key=api_key)
+    if api_key is None:
+        client._set_token(get_stored_token(endpoint, client))
 
     chat_history: "List[ChatCompletionMessage]" = []
     if stream:
@@ -1048,10 +1139,18 @@ def model_chat(
 
 @cli.command("vllm-models", help="Query and display models compatible with vLLM.")
 @click.option("--endpoint", "-e", type=str, help="Xinference endpoint.")
-def vllm_models(endpoint: Optional[str]):
+@click.option(
+    "--api-key",
+    "-ak",
+    default=None,
+    type=str,
+    help="Api-Key for access xinference api with authorization.",
+)
+def vllm_models(endpoint: Optional[str], api_key: Optional[str]):
     endpoint = get_endpoint(endpoint)
-    client = RESTfulClient(base_url=endpoint)
-    client._set_token(get_stored_token(endpoint, client))
+    client = RESTfulClient(base_url=endpoint, api_key=api_key)
+    if api_key is None:
+        client._set_token(get_stored_token(endpoint, client))
     vllm_models_dict = client.vllm_models()
     print("VLLM supported model families:")
     chat_models = vllm_models_dict["chat"]
