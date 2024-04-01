@@ -59,7 +59,7 @@ RUN python -m pip install --upgrade -i "$PIP_INDEX" pip && \
       optimum \
       peft \
       timm \
-      opencv-python && \
+      opencv-contrib-python-headless && \
     pip install -i "$PIP_INDEX" -U chatglm-cpp && \
     pip install -i "$PIP_INDEX" -U llama-cpp-python && \
     cd /opt/inference && \
