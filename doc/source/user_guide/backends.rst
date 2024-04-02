@@ -51,14 +51,17 @@ When the following conditions are met, Xinference will choose vLLM as the infere
 
 Currently, supported model includes:
 
+.. vllm_start
+
 - ``llama-2``, ``llama-2-chat``
-- ``baichuan``, ``baichuan-chat``
+- ``baichuan``, ``baichuan-chat``, ``baichuan-2-chat``
 - ``internlm-16k``, ``internlm-chat-7b``, ``internlm-chat-8k``, ``internlm-chat-20b``
-- ``vicuna-v1.3``, ``vicuna-v1.5``
+- ``mistral-v0.1``, ``mistral-instruct-v0.1``, ``mistral-instruct-v0.2``
 - ``Yi``, ``Yi-chat``
-- ``qwen-chat``, ``qwen1.5-chat``
 - ``code-llama``, ``code-llama-python``, ``code-llama-instruct``
-- ``mistral-v0.1``, ``mistral-instruct-v0.1``, ``mistral-instruct-v0.2``, ``mixtral-instruct-v0.1``
+- ``vicuna-v1.3``, ``vicuna-v1.5``
+- ``qwen-chat``
+- ``mixtral-instruct-v0.1``
 - ``chatglm3``
-- ``gemma-it``
-- ``orion-chat``, ``orion-chat-rag``
+- ``deepseek-chat``, ``deepseek-coder-instruct``
+.. vllm_end
