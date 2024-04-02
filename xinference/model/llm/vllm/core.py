@@ -105,6 +105,8 @@ VLLM_SUPPORTED_CHAT_MODELS = [
     "mistral-instruct-v0.2",
     "mixtral-instruct-v0.1",
     "chatglm3",
+    "chatglm3-32k",
+    "chatglm3-128k",
     "deepseek-chat",
     "deepseek-coder-instruct",
 ]
