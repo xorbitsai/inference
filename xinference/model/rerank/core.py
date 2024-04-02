@@ -137,7 +137,7 @@ class RerankModel:
         **kwargs,
     ) -> Rerank:
         assert self._model is not None
-        if len(kwargs):
+        if kwargs:
             raise ValueError("rerank hasn't support extra parameter.")
         if max_chunks_per_doc is not None:
             raise ValueError("rerank hasn't support `max_chunks_per_doc` parameter.")
