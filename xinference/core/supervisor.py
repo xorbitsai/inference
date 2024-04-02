@@ -870,6 +870,9 @@ class SupervisorActor(xo.StatelessActor):
                             address,
                             dead_models,
                         )
+                        for model_uid in dead_models:
+                            self._model_uid_to_replica_info.pop(model_uid[:-4], None)
+                            self._replica_model_uid_to_worker.pop(model_uid, None)
                         dead_nodes.append(address)
                     elif (
                         status.failure_remaining_count
