@@ -420,6 +420,26 @@ Begin!"""
                 if content:
                     ret += content + "<end_of_turn>\n"
             return ret
+        elif prompt_style.style_name == "CodeShell":
+            ret = ""
+            for message in chat_history:
+                content = message["content"]
+                role = get_role(message["role"])
+                if content:
+                    ret += f"{role}{content}|<end>|"
+                else:
+                    ret += f"{role}".rstrip()
+            return ret
+        elif prompt_style.style_name == "MINICPM-2B":
+            ret = ""
+            for message in chat_history:
+                content = message["content"] or ""
+                role = get_role(message["role"])
+                if role == "user":
+                    ret += "<用户>" + content.strip()
+                else:
+                    ret += "<AI>" + content.strip()
+            return ret
         else:
             raise ValueError(f"Invalid prompt style: {prompt_style.style_name}")
 
@@ -460,6 +480,7 @@ Begin!"""
                     "index": i,
                     "delta": {
                         "role": "assistant",
+                        "content": "",
                     },
                     "finish_reason": None,
                 }
@@ -583,7 +604,7 @@ Begin!"""
     def _tool_calls_completion(cls, model_family, model_uid, c, tools):
         _id = str(uuid.uuid4())
         family = model_family.model_family or model_family.model_name
-        if "gorilla-openfunctions-v1" == family:
+        if family in ["gorilla-openfunctions-v1", "gorilla-openfunctions-v2"]:
             content, func, args = cls._eval_gorilla_openfunctions_arguments(c, tools)
         elif "chatglm3" == family:
             content, func, args = cls._eval_chatglm3_arguments(c, tools)

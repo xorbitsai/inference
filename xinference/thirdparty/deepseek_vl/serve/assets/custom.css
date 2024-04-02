@@ -1,0 +1,355 @@
+/**
+ * Copyright (c) 2023-2024 DeepSeek.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of
+ * this software and associated documentation files (the "Software"), to deal in
+ * the Software without restriction, including without limitation the rights to
+ * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+ * the Software, and to permit persons to whom the Software is furnished to do so,
+ * subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+ * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+ * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+ * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ */
+
+:root {
+  --chatbot-color-light: #f3f3f3;
+  --chatbot-color-dark: #121111;
+}
+
+/* status_display */
+#status_display {
+  display: flex;
+  min-height: 2.5em;
+  align-items: flex-end;
+  justify-content: flex-end;
+}
+#status_display p {
+  font-size: 0.85em;
+  font-family: monospace;
+  color: var(--body-text-color-subdued);
+}
+
+/* usage_display */
+#usage_display {
+  height: 1em;
+}
+#usage_display p {
+  padding: 0 1em;
+  font-size: 0.85em;
+  font-family: monospace;
+  color: var(--body-text-color-subdued);
+}
+/* list */
+ol:not(.options),
+ul:not(.options) {
+  padding-inline-start: 2em !important;
+}
+
+/* Thank @Keldos-Li for fixing it */
+/* Light mode (default) */
+#deepseek_chatbot {
+  background-color: var(--chatbot-color-light) !important;
+  color: #000000 !important;
+}
+[data-testid="bot"] {
+  background-color: #ffffff !important;
+}
+[data-testid="user"] {
+  background-color: #95ec69 !important;
+}
+
+/* Dark mode */
+.dark #deepseek_chatbot {
+  background-color: var(--chatbot-color-dark) !important;
+  color: #ffffff !important;
+}
+.dark [data-testid="bot"] {
+  background-color: #2c2c2c !important;
+}
+.dark [data-testid="user"] {
+  background-color: #26b561 !important;
+}
+
+#deepseek_chatbot {
+  height: 100%;
+  min-height: 800px;
+  flex-grow: 1;
+  overflow: auto;
+}
+
+[class*="message"] {
+  border-radius: var(--radius-xl) !important;
+  border: none;
+  padding: var(--spacing-xl) !important;
+  font-size: var(--text-md) !important;
+  line-height: var(--line-md) !important;
+  min-height: calc(var(--text-md) * var(--line-md) + 2 * var(--spacing-xl));
+  min-width: calc(var(--text-md) * var(--line-md) + 2 * var(--spacing-xl));
+}
+[data-testid="bot"] {
+  max-width: 85%;
+  border-bottom-left-radius: 0 !important;
+}
+[data-testid="user"] {
+  max-width: 85%;
+  width: auto !important;
+  border-bottom-right-radius: 0 !important;
+}
+/* Table */
+table {
+  margin: 1em 0;
+  border-collapse: collapse;
+  empty-cells: show;
+}
+td,
+th {
+  border: 1.2px solid var(--border-color-primary) !important;
+  padding: 0.2em;
+}
+thead {
+  background-color: rgba(175, 184, 193, 0.2);
+}
+thead th {
+  padding: 0.5em 0.2em;
+}
+/* Inline code */
+#deepseek_chatbot code {
+  display: inline;
+  white-space: break-spaces;
+  border-radius: 6px;
+  margin: 0 2px 0 2px;
+  padding: 0.2em 0.4em 0.1em 0.4em;
+  background-color: rgba(175, 184, 193, 0.2);
+}
+/* Code block */
+#deepseek_chatbot pre code {
+  display: block;
+  overflow: auto;
+  white-space: pre;
+  background-color: #1c1d1e !important;
+  border-radius: 10px;
+  padding: 1.4em 1.2em 0em 1.4em;
+  margin: 1.2em 2em 1.2em 0.5em;
+  color: #fdf8f8;
+  box-shadow: 6px 6px 16px hsla(0, 0%, 0%, 0.2);
+}
+/* Hightlight */
+#deepseek_chatbot .highlight {
+  background-color: transparent;
+}
+#deepseek_chatbot .highlight .hll {
+  background-color: #49483e;
+}
+#deepseek_chatbot .highlight .c {
+  color: #75715e;
+} /* Comment */
+#deepseek_chatbot .highlight .err {
+  color: #960050;
+  background-color: #1e0010;
+} /* Error */
+#deepseek_chatbot .highlight .k {
+  color: #66d9ef;
+} /* Keyword */
+#deepseek_chatbot .highlight .l {
+  color: #ae81ff;
+} /* Literal */
+#deepseek_chatbot .highlight .n {
+  color: #f8f8f2;
+} /* Name */
+#deepseek_chatbot .highlight .o {
+  color: #f92672;
+} /* Operator */
+#deepseek_chatbot .highlight .p {
+  color: #f8f8f2;
+} /* Punctuation */
+#deepseek_chatbot .highlight .ch {
+  color: #75715e;
+} /* Comment.Hashbang */
+#deepseek_chatbot .highlight .cm {
+  color: #75715e;
+} /* Comment.Multiline */
+#deepseek_chatbot .highlight .cp {
+  color: #75715e;
+} /* Comment.Preproc */
+#deepseek_chatbot .highlight .cpf {
+  color: #75715e;
+} /* Comment.PreprocFile */
+#deepseek_chatbot .highlight .c1 {
+  color: #75715e;
+} /* Comment.Single */
+#deepseek_chatbot .highlight .cs {
+  color: #75715e;
+} /* Comment.Special */
+#deepseek_chatbot .highlight .gd {
+  color: #f92672;
+} /* Generic.Deleted */
+#deepseek_chatbot .highlight .ge {
+  font-style: italic;
+} /* Generic.Emph */
+#deepseek_chatbot .highlight .gi {
+  color: #a6e22e;
+} /* Generic.Inserted */
+#deepseek_chatbot .highlight .gs {
+  font-weight: bold;
+} /* Generic.Strong */
+#deepseek_chatbot .highlight .gu {
+  color: #75715e;
+} /* Generic.Subheading */
+#deepseek_chatbot .highlight .kc {
+  color: #66d9ef;
+} /* Keyword.Constant */
+#deepseek_chatbot .highlight .kd {
+  color: #66d9ef;
+} /* Keyword.Declaration */
+#deepseek_chatbot .highlight .kn {
+  color: #f92672;
+} /* Keyword.Namespace */
+#deepseek_chatbot .highlight .kp {
+  color: #66d9ef;
+} /* Keyword.Pseudo */
+#deepseek_chatbot .highlight .kr {
+  color: #66d9ef;
+} /* Keyword.Reserved */
+#deepseek_chatbot .highlight .kt {
+  color: #66d9ef;
+} /* Keyword.Type */
+#deepseek_chatbot .highlight .ld {
+  color: #e6db74;
+} /* Literal.Date */
+#deepseek_chatbot .highlight .m {
+  color: #ae81ff;
+} /* Literal.Number */
+#deepseek_chatbot .highlight .s {
+  color: #e6db74;
+} /* Literal.String */
+#deepseek_chatbot .highlight .na {
+  color: #a6e22e;
+} /* Name.Attribute */
+#deepseek_chatbot .highlight .nb {
+  color: #f8f8f2;
+} /* Name.Builtin */
+#deepseek_chatbot .highlight .nc {
+  color: #a6e22e;
+} /* Name.Class */
+#deepseek_chatbot .highlight .no {
+  color: #66d9ef;
+} /* Name.Constant */
+#deepseek_chatbot .highlight .nd {
+  color: #a6e22e;
+} /* Name.Decorator */
+#deepseek_chatbot .highlight .ni {
+  color: #f8f8f2;
+} /* Name.Entity */
+#deepseek_chatbot .highlight .ne {
+  color: #a6e22e;
+} /* Name.Exception */
+#deepseek_chatbot .highlight .nf {
+  color: #a6e22e;
+} /* Name.Function */
+#deepseek_chatbot .highlight .nl {
+  color: #f8f8f2;
+} /* Name.Label */
+#deepseek_chatbot .highlight .nn {
+  color: #f8f8f2;
+} /* Name.Namespace */
+#deepseek_chatbot .highlight .nx {
+  color: #a6e22e;
+} /* Name.Other */
+#deepseek_chatbot .highlight .py {
+  color: #f8f8f2;
+} /* Name.Property */
+#deepseek_chatbot .highlight .nt {
+  color: #f92672;
+} /* Name.Tag */
+#deepseek_chatbot .highlight .nv {
+  color: #f8f8f2;
+} /* Name.Variable */
+#deepseek_chatbot .highlight .ow {
+  color: #f92672;
+} /* Operator.Word */
+#deepseek_chatbot .highlight .w {
+  color: #f8f8f2;
+} /* Text.Whitespace */
+#deepseek_chatbot .highlight .mb {
+  color: #ae81ff;
+} /* Literal.Number.Bin */
+#deepseek_chatbot .highlight .mf {
+  color: #ae81ff;
+} /* Literal.Number.Float */
+#deepseek_chatbot .highlight .mh {
+  color: #ae81ff;
+} /* Literal.Number.Hex */
+#deepseek_chatbot .highlight .mi {
+  color: #ae81ff;
+} /* Literal.Number.Integer */
+#deepseek_chatbot .highlight .mo {
+  color: #ae81ff;
+} /* Literal.Number.Oct */
+#deepseek_chatbot .highlight .sa {
+  color: #e6db74;
+} /* Literal.String.Affix */
+#deepseek_chatbot .highlight .sb {
+  color: #e6db74;
+} /* Literal.String.Backtick */
+#deepseek_chatbot .highlight .sc {
+  color: #e6db74;
+} /* Literal.String.Char */
+#deepseek_chatbot .highlight .dl {
+  color: #e6db74;
+} /* Literal.String.Delimiter */
+#deepseek_chatbot .highlight .sd {
+  color: #e6db74;
+} /* Literal.String.Doc */
+#deepseek_chatbot .highlight .s2 {
+  color: #e6db74;
+} /* Literal.String.Double */
+#deepseek_chatbot .highlight .se {
+  color: #ae81ff;
+} /* Literal.String.Escape */
+#deepseek_chatbot .highlight .sh {
+  color: #e6db74;
+} /* Literal.String.Heredoc */
+#deepseek_chatbot .highlight .si {
+  color: #e6db74;
+} /* Literal.String.Interpol */
+#deepseek_chatbot .highlight .sx {
+  color: #e6db74;
+} /* Literal.String.Other */
+#deepseek_chatbot .highlight .sr {
+  color: #e6db74;
+} /* Literal.String.Regex */
+#deepseek_chatbot .highlight .s1 {
+  color: #e6db74;
+} /* Literal.String.Single */
+#deepseek_chatbot .highlight .ss {
+  color: #e6db74;
+} /* Literal.String.Symbol */
+#deepseek_chatbot .highlight .bp {
+  color: #f8f8f2;
+} /* Name.Builtin.Pseudo */
+#deepseek_chatbot .highlight .fm {
+  color: #a6e22e;
+} /* Name.Function.Magic */
+#deepseek_chatbot .highlight .vc {
+  color: #f8f8f2;
+} /* Name.Variable.Class */
+#deepseek_chatbot .highlight .vg {
+  color: #f8f8f2;
+} /* Name.Variable.Global */
+#deepseek_chatbot .highlight .vi {
+  color: #f8f8f2;
+} /* Name.Variable.Instance */
+#deepseek_chatbot .highlight .vm {
+  color: #f8f8f2;
+} /* Name.Variable.Magic */
+#deepseek_chatbot .highlight .il {
+  color: #ae81ff;
+} /* Literal.Number.Integer.Long */

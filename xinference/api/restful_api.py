@@ -59,6 +59,7 @@ from ..core.utils import json_dumps
 from ..types import (
     SPECIAL_TOOL_PROMPT,
     ChatCompletion,
+    ChatCompletionMessage,
     Completion,
     CreateChatCompletion,
     CreateCompletion,
@@ -88,7 +89,9 @@ class CreateCompletionRequest(CreateCompletion):
 
 class CreateEmbeddingRequest(BaseModel):
     model: str
-    input: Union[str, List[str]] = Field(description="The input to embed.")
+    input: Union[str, List[str], List[int], List[List[int]]] = Field(
+        description="The input to embed."
+    )
     user: Optional[str] = None
 
     class Config:
@@ -702,6 +705,8 @@ class RESTfulAPI:
         peft_model_path = payload.get("peft_model_path", None)
         image_lora_load_kwargs = payload.get("image_lora_load_kwargs", None)
         image_lora_fuse_kwargs = payload.get("image_lora_fuse_kwargs", None)
+        worker_ip = payload.get("worker_ip", None)
+        gpu_idx = payload.get("gpu_idx", None)
 
         exclude_keys = {
             "model_uid",
@@ -716,6 +721,8 @@ class RESTfulAPI:
             "peft_model_path",
             "image_lora_load_kwargs",
             "image_lora_fuse_kwargs",
+            "worker_ip",
+            "gpu_idx",
         }
 
         kwargs = {
@@ -743,6 +750,8 @@ class RESTfulAPI:
                 peft_model_path=peft_model_path,
                 image_lora_load_kwargs=image_lora_load_kwargs,
                 image_lora_fuse_kwargs=image_lora_fuse_kwargs,
+                worker_ip=worker_ip,
+                gpu_idx=gpu_idx,
                 **kwargs,
             )
 
@@ -1268,25 +1277,21 @@ class RESTfulAPI:
                 status_code=400, detail="Invalid input. Please specify the prompt."
             )
 
-        system_messages = []
+        system_messages: List["ChatCompletionMessage"] = []
+        system_messages_contents = []
         non_system_messages = []
         for msg in messages:
             assert (
                 msg.get("content") != SPECIAL_TOOL_PROMPT
             ), f"Invalid message content {SPECIAL_TOOL_PROMPT}"
             if msg["role"] == "system":
-                system_messages.append(msg)
+                system_messages_contents.append(msg["content"])
             else:
                 non_system_messages.append(msg)
+        system_messages.append(
+            {"role": "system", "content": ". ".join(system_messages_contents)}
+        )
 
-        if len(system_messages) > 1:
-            raise HTTPException(
-                status_code=400, detail="Multiple system messages are not supported."
-            )
-        if len(system_messages) == 1 and messages[0]["role"] != "system":
-            raise HTTPException(
-                status_code=400, detail="System message should be the first one."
-            )
         assert non_system_messages
 
         has_tool_message = messages[-1].get("role") == "tool"
