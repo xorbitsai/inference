@@ -1,4 +1,14 @@
-import { Box, Checkbox, FormControl, FormControlLabel } from '@mui/material'
+import {
+  Box,
+  Checkbox,
+  FormControl,
+  FormControlLabel,
+  InputLabel,
+  MenuItem,
+  Radio,
+  RadioGroup,
+  Select,
+} from '@mui/material'
 import Alert from '@mui/material/Alert'
 import AlertTitle from '@mui/material/AlertTitle'
 import Button from '@mui/material/Button'
@@ -13,20 +23,33 @@ const SUPPORTED_LANGUAGES_DICT = { en: 'English', zh: 'Chinese' }
 // Convert dictionary of supported languages into list
 const SUPPORTED_LANGUAGES = Object.keys(SUPPORTED_LANGUAGES_DICT)
 
+
+const SUPPORTED_HUBS_DICT = { huggingface: 'HuggingFace', modelscope: 'ModelScope' }
+const SUPPORTED_HUBS = Object.keys(SUPPORTED_HUBS_DICT)
+
+const SOURCES_DICT = { self_hosted: 'Self Hosted', hub: 'Hub' }
+const SOURCES = Object.keys(SOURCES_DICT)
+
 const RegisterEmbeddingModel = () => {
   const ERROR_COLOR = useMode()
   const endPoint = useContext(ApiContext).endPoint
   const { setErrorMsg } = useContext(ApiContext)
   const [successMsg, setSuccessMsg] = useState('')
+  const [modelSource, setModelSource] = useState(SOURCES[0])
+  const [hub, setHub] = useState(SUPPORTED_HUBS[0])
+  const [modelId, setModelId] = useState('')
   const [formData, setFormData] = useState({
     model_name: 'custom-embedding',
     dimensions: 768,
     max_tokens: 512,
     language: ['en'],
     model_uri: '/path/to/embedding-model',
+    model_id: null,
+    model_hub: null,
   })
 
   const errorModelName = formData.model_name.trim().length <= 0
+  const errorModelId = modelSource === 'hub' && modelId.search('\\w+/\\w+') === -1
   const errorDimensions = formData.dimensions < 0
   const errorMaxTokens = formData.max_tokens < 0
   const errorLanguage =
@@ -34,13 +57,27 @@ const RegisterEmbeddingModel = () => {
 
   const handleClick = async () => {
     const errorAny =
-      errorModelName || errorDimensions || errorMaxTokens || errorLanguage
+      errorModelName || errorDimensions || errorMaxTokens || errorLanguage || errorModelId
 
     if (errorAny) {
       setErrorMsg('Please fill in valid value for all fields')
       return
     }
 
+    let myFormData = {}
+    if (modelSource === 'self_hosted') {
+      myFormData = {
+        ...formData,
+        model_hub: null,
+        model_id: null,
+      }
+    } else {
+      myFormData = {
+        ...formData,
+        model_uri: null,
+      }
+    }
+    console.log(myFormData)
     try {
       const response = await fetcher(
         endPoint + '/v1/model_registrations/embedding',
@@ -50,21 +87,21 @@ const RegisterEmbeddingModel = () => {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: JSON.stringify(formData),
+            model: JSON.stringify(myFormData),
             persist: true,
           }),
-        }
+        },
       )
       if (!response.ok) {
         const errorData = await response.json() // Assuming the server returns error details in JSON format
         setErrorMsg(
           `Server error: ${response.status} - ${
             errorData.detail || 'Unknown error'
-          }`
+          }`,
         )
       } else {
         setSuccessMsg(
-          'Model has been registered successfully! Navigate to launch model page to proceed.'
+          'Model has been registered successfully! Navigate to launch model page to proceed.',
         )
       }
     } catch (error) {
@@ -87,6 +124,40 @@ const RegisterEmbeddingModel = () => {
     }
   }
 
+  const handleImportModel = async () => {
+    if (errorModelId) {
+      setErrorMsg('Please fill in valid value for Model Id')
+      return
+    }
+    const response = await fetcher(endPoint +
+      `/v1/model_registrations/embedding/${hub}/_/${modelId}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json() // Assuming the server returns error details in JSON format
+      setErrorMsg(
+        `Server error: ${response.status} - ${
+          errorData.detail || 'Unknown error'
+        }`,
+      )
+    } else {
+      const data = await response.json()
+      setFormData({
+        ...formData,
+        dimensions: data.dimensions,
+        max_tokens: data.max_tokens,
+        language: data.language,
+        model_hub: hub,
+        model_id: modelId,
+      })
+
+    }
+  }
+
   return (
     <React.Fragment>
       <Box padding="20px"></Box>
@@ -102,6 +173,91 @@ const RegisterEmbeddingModel = () => {
             setFormData({ ...formData, model_name: event.target.value })
           }
         />
+        <Box padding="15px"></Box>
+
+        <label
+          style={{
+            paddingLeft: 5,
+          }}
+        >
+          Model Source
+        </label>
+
+        <RadioGroup
+          value={modelSource}
+          onChange={(e) => {
+            setModelSource(e.target.value)
+          }}
+        >
+          <Box sx={styles.checkboxWrapper}>
+            {SOURCES.map((item) => (
+              <Box sx={{ marginLeft: '10px' }}>
+                <FormControlLabel
+                  value={item}
+                  control={<Radio />}
+                  label={SOURCES_DICT[item]}
+                />
+              </Box>
+            ))}
+          </Box>
+        </RadioGroup>
+        <Box padding="15px"></Box>
+
+        {modelSource === 'self_hosted' &&
+          <TextField
+            label="Model Path"
+            size="small"
+            value={formData.model_uri}
+            onChange={(e) => {
+              setFormData({
+                ...formData,
+                model_uri: e.target.value,
+              })
+            }}
+            helperText="Provide the model directory path."
+          />}
+
+        {modelSource === 'hub' &&
+          <Box sx={styles.checkboxWrapper}>
+
+            <TextField
+              sx={{ width: '400px' }}
+              label="Model Id"
+              size="small"
+              error={errorModelId}
+              value={modelId}
+              onChange={(e) => {
+                setModelId(e.target.value)
+              }}
+              placeholder="user/repo"
+            />
+
+            <FormControl variant="standard"
+                         sx={{ marginLeft: '10px' }}>
+              <InputLabel id="hub-label">Hub</InputLabel>
+              <Select
+                labelId="hub-label"
+                value={hub}
+                label="Hub"
+                onChange={(e) => {
+                  setHub(e.target.value)
+                }}
+              >
+                {SUPPORTED_HUBS.map((item) => (
+                  <MenuItem value={item}>{SUPPORTED_HUBS_DICT[item]}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <Button
+              sx={{ marginLeft: '10px' }}
+              variant="contained"
+              color="primary"
+              onClick={handleImportModel}
+            >
+              Import Model
+            </Button>
+          </Box>
+        }
         <Box padding="15px"></Box>
 
         <TextField
@@ -132,20 +288,6 @@ const RegisterEmbeddingModel = () => {
         />
         <Box padding="15px"></Box>
 
-        <TextField
-          label="Model Path"
-          size="small"
-          value={formData.model_uri}
-          onChange={(e) => {
-            setFormData({
-              ...formData,
-              model_uri: e.target.value,
-            })
-          }}
-          helperText="Provide the model directory path."
-        />
-        <Box padding="15px"></Box>
-
         <label
           style={{
             paddingLeft: 5,
@@ -166,11 +308,11 @@ const RegisterEmbeddingModel = () => {
                     sx={
                       errorLanguage
                         ? {
-                            'color': ERROR_COLOR,
-                            '&.Mui-checked': {
-                              color: ERROR_COLOR,
-                            },
-                          }
+                          'color': ERROR_COLOR,
+                          '&.Mui-checked': {
+                            color: ERROR_COLOR,
+                          },
+                        }
                         : {}
                     }
                   />

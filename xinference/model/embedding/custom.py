@@ -63,7 +63,8 @@ def register_embedding(model_spec: CustomEmbeddingModelSpec, persist: bool):
     if persist:
         # We only validate model URL when persist is True.
         model_uri = model_spec.model_uri
-        if model_uri and not is_valid_model_uri(model_uri):
+        model_id = model_spec.model_id
+        if model_id is None and model_uri and not is_valid_model_uri(model_uri):
             raise ValueError(f"Invalid model URI {model_uri}.")
 
         persist_path = os.path.join(

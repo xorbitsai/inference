@@ -32,6 +32,8 @@ from ..constants import (
 )
 from ..core import ModelActor
 from ..core.status_guard import InstanceInfo, LaunchStatus
+from ..model.embedding import CustomEmbeddingModelSpec
+from ..model.embedding.utils import get_language_from_model_id
 from ..model.llm import GgmlLLMSpecV1
 from ..model.llm.llm_family import (
     DEFAULT_CONTEXT_LENGTH,
@@ -61,6 +63,7 @@ if TYPE_CHECKING:
     from ..model.llm import LLMFamilyV1
     from ..model.rerank import RerankModelSpec
     from .worker import WorkerActor
+
 
 logger = getLogger(__name__)
 
@@ -1092,3 +1095,40 @@ class SupervisorActor(xo.StatelessActor):
             raise NotImplementedError("gptq is not implemented yet")
         else:
             raise ValueError(f"Unsupported model format: {model_format}")
+
+    @log_async(logger=logger)
+    async def get_embedding_spec_from_hub(
+        self, model_id: str, model_hub: str
+    ) -> CustomEmbeddingModelSpec:
+        if model_hub not in ["huggingface", "modelscope"]:
+            raise ValueError(f"Unsupported model hub: {model_hub}")
+
+        model_hub = cast(MODEL_HUB, model_hub)
+
+        repo_exists = await self._model_hub_util.a_repo_exists(
+            model_id,
+            model_hub,
+        )
+
+        if not repo_exists:
+            raise ValueError(f"Model {model_id} does not exist")
+
+        max_tokens = 512
+        dimensions = 768
+        if config_path := await self._model_hub_util.a_get_config_path(
+            model_id, model_hub
+        ):
+            with open(config_path) as f:
+                config = json.load(f)
+                if "max_position_embeddings" in config:
+                    max_tokens = config["max_position_embeddings"]
+                if "hidden_size" in config:
+                    dimensions = config["hidden_size"]
+        return CustomEmbeddingModelSpec(
+            model_name=model_id.split("/")[-1],
+            model_id=model_id,
+            max_tokens=max_tokens,
+            dimensions=dimensions,
+            model_hub=model_hub,
+            language=[get_language_from_model_id(model_id)],
+        )

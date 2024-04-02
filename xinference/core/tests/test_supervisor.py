@@ -217,3 +217,24 @@ async def test_get_llm_spec_2():
 
     assert llm_family.model_specs[0].model_size_in_billions == 0
     assert llm_family.context_length == 32768
+
+
+@pytest.mark.asyncio
+async def test_get_embedding_spec_from_hub():
+    supervisor = SupervisorActor()
+    embedding_spec = await supervisor.get_embedding_spec_from_hub(
+        "BAAI/bge-large-zh-v1.5", "huggingface"
+    )
+    assert embedding_spec is not None
+    assert embedding_spec.model_name == "bge-large-zh-v1.5"
+    assert embedding_spec.model_id == "BAAI/bge-large-zh-v1.5"
+
+    embedding_spec = await supervisor.get_embedding_spec_from_hub(
+        "bensonpeng/bge-large-en-v1.5", "modelscope"
+    )
+
+    assert embedding_spec is not None
+    assert embedding_spec.model_name == "bge-large-en-v1.5"
+    assert embedding_spec.model_id == "bensonpeng/bge-large-en-v1.5"
+    assert embedding_spec.max_tokens == 512
+    assert embedding_spec.dimensions == 1024

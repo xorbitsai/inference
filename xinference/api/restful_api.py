@@ -1521,20 +1521,27 @@ class RESTfulAPI:
         self, model_type: str, model_hub: str, model_format: str, user: str, repo: str
     ) -> JSONResponse:
         try:
-            if model_type != "LLM":
-                raise HTTPException(
-                    status_code=400, detail="only LLM model type supported currently"
-                )
-            llm_family_info = await (
-                await self._get_supervisor_ref()
-            ).get_llm_family_from_hub(f"{user}/{repo}", model_format, model_hub)
+            if model_type == "LLM":
+                llm_family_info = await (
+                    await self._get_supervisor_ref()
+                ).get_llm_family_from_hub(f"{user}/{repo}", model_format, model_hub)
+                return JSONResponse(content=llm_family_info)
+            if model_type == "embedding":
+                embed_spec = await (
+                    await self._get_supervisor_ref()
+                ).get_embedding_spec_from_hub(f"{user}/{repo}", model_hub)
+                return JSONResponse(content=embed_spec)
         except ValueError as re:
             logger.error(re, exc_info=True)
             raise HTTPException(status_code=400, detail=str(re))
         except Exception as e:
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
-        return JSONResponse(content=llm_family_info)
+
+        raise HTTPException(
+            status_code=400,
+            detail="only LLM and embedding model type supported currently",
+        )
 
 
 def run(
