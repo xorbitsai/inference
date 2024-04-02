@@ -46,6 +46,9 @@ Currently, supported models include:
 - ``mixtral-instruct-v0.1``
 - ``chatglm3``
 - ``deepseek-chat``, ``deepseek-coder-instruct``
+- ``qwen1.5-chat``
+- ``gemma-it``
+- ``orion-chat``, ``orion-chat-rag``
 .. vllm_end
 
 To install Xinference and vLLM::
