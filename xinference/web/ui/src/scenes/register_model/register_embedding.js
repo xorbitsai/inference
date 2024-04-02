@@ -64,7 +64,7 @@ const RegisterEmbeddingModel = () => {
       return
     }
 
-    let myFormData = {}
+    let myFormData
     if (modelSource === 'self_hosted') {
       myFormData = {
         ...formData,
