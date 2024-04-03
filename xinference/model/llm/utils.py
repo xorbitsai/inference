@@ -609,6 +609,24 @@ Begin!"""
         return content, func, args
 
     @classmethod
+    def _get_token_filter(cls, model_family):
+        family = model_family.model_family or model_family.model_name
+        if family in ["qwen-chat", "qwen1.5-chat"]:
+            found = False
+
+            def process_token(tokens: str):
+                nonlocal found
+                if found:
+                    return True
+                if tokens.endswith("\nFinal Answer:"):
+                    found = True
+                return False
+
+            return process_token
+        else:
+            return lambda token: True
+
+    @classmethod
     def _tool_calls_completion(cls, model_family, model_uid, c, tools):
         _id = str(uuid.uuid4())
         content, func, args = cls._eval_tool_arguments(model_family, c, tools)

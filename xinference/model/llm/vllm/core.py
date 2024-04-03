@@ -323,6 +323,7 @@ class VLLMModel(LLM):
 
         async def stream_results() -> AsyncGenerator[CompletionChunk, None]:
             previous_texts = [""] * sanitized_generate_config["n"]
+            tools_token_filter = ChatModelMixin._get_token_filter(self.model_family)
             async for _request_output in results_generator:
                 chunk = self._convert_request_output_to_completion_chunk(
                     request_id=request_id,
@@ -330,31 +331,35 @@ class VLLMModel(LLM):
                     request_output=_request_output,
                 )
 
-                if tools and chunk["choices"][0]["finish_reason"] is not None:
-                    _content, func, args = ChatModelMixin._eval_tool_arguments(
-                        self.model_family, chunk, tools
-                    )
-                    choice = chunk["choices"][0]
-                    # content has been returned in previous streaming
-                    choice["text"] = ""
-                    if func is not None:
-                        choice["tool_calls"] = [
-                            ToolCalls(
-                                id=str(uuid.uuid4()),
-                                type="function",
-                                function=ToolCallFunction(
-                                    name=func, arguments=json.dumps(args)
-                                ),
-                            )
-                        ]
-                        choice["finish_reason"] = "tool_calls"
-                    yield chunk
-                    continue
-
                 for i, choice in enumerate(chunk["choices"]):
                     delta = choice["text"][len(previous_texts[i]) :]
                     previous_texts[i] = choice["text"]
                     choice["text"] = delta
+
+                if tools:
+                    # only handle the first choice 
+                    choice = chunk["choices"][0]
+                    if choice["finish_reason"] is not None:
+                        choice["text"] = previous_texts[0]
+                        _content, func, args = ChatModelMixin._eval_tool_arguments(
+                            self.model_family, chunk, tools
+                        )
+                        choice["text"] = ""
+                        if func is not None:
+                            choice["tool_calls"] = [
+                                ToolCalls(
+                                    id=str(uuid.uuid4()),
+                                    type="function",
+                                    function=ToolCallFunction(
+                                        name=func, arguments=json.dumps(args)
+                                    ),
+                                )
+                            ]
+                            choice["finish_reason"] = "tool_calls"
+                    if not tools_token_filter(previous_texts[0]):
+                        continue
+                    
+
                 prompt_tokens = len(_request_output.prompt_token_ids)
                 completion_tokens = sum(
                     len(output.token_ids) for output in _request_output.outputs
