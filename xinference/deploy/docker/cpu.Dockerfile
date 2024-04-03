@@ -6,7 +6,7 @@ ENV NVM_DIR /usr/local/nvm
 ENV NODE_VERSION 14.21.1
 
 RUN apt-get -y update \
-  && apt install -y build-essential curl procps git \
+  && apt install -y build-essential curl procps git libgl1 \
   && mkdir -p $NVM_DIR \
   && curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash \
   && . $NVM_DIR/nvm.sh \
@@ -59,10 +59,9 @@ RUN python -m pip install --upgrade -i "$PIP_INDEX" pip && \
       optimum \
       peft \
       timm \
-      opencv-python \
-      opencv-python-headless && \
+      opencv-contrib-python-headless && \
     pip install -i "$PIP_INDEX" -U chatglm-cpp && \
-    pip install -i "$PIP_INDEX" -U llama-cpp-python && \
+    pip install -i "$PIP_INDEX" "llama-cpp-python>=0.2.25,!=0.2.58" && \
     cd /opt/inference && \
     python setup.py build_web && \
     git restore . && \
