@@ -1010,11 +1010,13 @@ class RESTfulAPI:
         payload = await request.json()
         body = CreateEmbeddingRequest.parse_obj(payload)
         model_uid = body.model
-        kwargs = {
-            key: value
-            for key, value in payload.items()
-            if key not in CreateEmbeddingRequest.__annotations__.keys()
+        exclude = {
+            "model",
+            "input",
+            "user",
+            "encoding_format",
         }
+        kwargs = {key: value for key, value in payload.items() if key not in exclude}
 
         try:
             model = await (await self._get_supervisor_ref()).get_model(model_uid)
