@@ -134,8 +134,11 @@ class RerankModel:
         top_n: Optional[int],
         max_chunks_per_doc: Optional[int],
         return_documents: Optional[bool],
+        **kwargs,
     ) -> Rerank:
         assert self._model is not None
+        if kwargs:
+            raise ValueError("rerank hasn't support extra parameter.")
         if max_chunks_per_doc is not None:
             raise ValueError("rerank hasn't support `max_chunks_per_doc` parameter.")
         sentence_combinations = [[query, doc] for doc in documents]
