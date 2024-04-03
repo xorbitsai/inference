@@ -1179,12 +1179,9 @@
         "model_format": "gptq",
         "model_size_in_billions": 13,
         "quantizations": [
-          "4-bit",
-          "8-bit",
-          "none"
+          "Int4"
         ],
-        "model_id": "meta-llama/Llama-2-13b-hf",
-        "model_revision": "db6b8eb1feabb38985fdf785a89895959e944936"
+        "model_id": "TheBloke/Llama-2-13B-GPTQ"
       },
       {
         "model_format": "pytorch",
