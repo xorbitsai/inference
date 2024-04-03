@@ -870,6 +870,12 @@ class SupervisorActor(xo.StatelessActor):
                             address,
                             dead_models,
                         )
+                        for replica_model_uid in dead_models:
+                            model_uid, _, _ = parse_replica_model_uid(replica_model_uid)
+                            self._model_uid_to_replica_info.pop(model_uid, None)
+                            self._replica_model_uid_to_worker.pop(
+                                replica_model_uid, None
+                            )
                         dead_nodes.append(address)
                     elif (
                         status.failure_remaining_count
@@ -979,14 +985,14 @@ class SupervisorActor(xo.StatelessActor):
 
     @log_async(logger=logger)
     async def remove_worker(self, worker_address: str):
-        dead_models = []
-        for model_uid in self._replica_model_uid_to_worker:
-            if self._replica_model_uid_to_worker[model_uid].address == worker_address:
-                dead_models.append(model_uid)
-        for replica_model_uid in dead_models:
-            model_uid, _, _ = parse_replica_model_uid(replica_model_uid)
-            self._model_uid_to_replica_info.pop(model_uid, None)
-            self._replica_model_uid_to_worker.pop(replica_model_uid, None)
+        for replica_model_uid in self._replica_model_uid_to_worker:
+            if (
+                self._replica_model_uid_to_worker[replica_model_uid].address
+                == worker_address
+            ):
+                model_uid, _, _ = parse_replica_model_uid(replica_model_uid)
+                self._model_uid_to_replica_info.pop(model_uid, None)
+                self._replica_model_uid_to_worker.pop(replica_model_uid, None)
 
         if worker_address in self._worker_address_to_worker:
             del self._worker_address_to_worker[worker_address]
