@@ -1127,9 +1127,7 @@
         "model_format": "gptq",
         "model_size_in_billions": 7,
         "quantizations": [
-          "4-bit",
-          "8-bit",
-          "none"
+          "Int4"
         ],
         "model_id": "TheBloke/Llama-2-7B-GPTQ"
       },
@@ -1159,9 +1157,7 @@
         "model_format": "gptq",
         "model_size_in_billions": 70,
         "quantizations": [
-          "4-bit",
-          "8-bit",
-          "none"
+          "Int4"
         ],
         "model_id": "TheBloke/Llama-2-70B-GPTQ"
       }
@@ -2677,9 +2673,7 @@
         "model_format": "gptq",
         "model_size_in_billions": 7,
         "quantizations": [
-          "float16",
-          "8-bit",
-          "none"
+          "Int4"
         ],
         "model_id": "TheBloke/Mistral-7B-Instruct-v0.2-GPTQ"
       },
@@ -2906,6 +2900,14 @@
         ],
         "model_id": "TheBloke/Mixtral-8x7B-Instruct-v0.1-AWQ",
         "model_revision": "9afb6f0a7d7fe9ecebdda1baa4ff4e13e73e97d7"
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": "46_7",
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "TheBloke/Mixtral-8x7B-Instruct-v0.1-GPTQ"
       },
       {
         "model_format": "ggufv2",
