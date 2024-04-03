@@ -337,7 +337,7 @@ class VLLMModel(LLM):
                     choice["text"] = delta
 
                 if tools:
-                    # only handle the first choice 
+                    # only handle the first choice
                     choice = chunk["choices"][0]
                     if choice["finish_reason"] is not None:
                         choice["text"] = previous_texts[0]
@@ -356,9 +356,8 @@ class VLLMModel(LLM):
                                 )
                             ]
                             choice["finish_reason"] = "tool_calls"
-                    if not tools_token_filter(previous_texts[0]):
+                    elif not tools_token_filter(previous_texts[0]):
                         continue
-                    
 
                 prompt_tokens = len(_request_output.prompt_token_ids)
                 completion_tokens = sum(
