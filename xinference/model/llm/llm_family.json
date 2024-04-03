@@ -914,6 +914,15 @@
         "model_revision": "08751db2aca9bf2f7f80d2e516117a53d7450235"
       },
       {
+        "model_format": "awq",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "4-bit"
+        ],
+        "model_id": "TheBloke/Llama-2-7B-Chat-AWQ",
+        "model_file_name_template": "llama-2-7b-chat-awq.{quantization}.bin"
+      },
+      {
         "model_format": "pytorch",
         "model_size_in_billions": 13,
         "quantizations": [
@@ -1046,6 +1055,20 @@
         "model_file_name_template": "llama-2-7b.ggmlv3.{quantization}.bin"
       },
       {
+        "model_format": "gptq",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "4-bit",
+          "2-bit",
+          "3-bit",
+          "5-bit",
+          "6-bit",
+          "8-bit"
+        ],
+        "model_id": "TheBloke/Llama-2-7B-GPTQ",
+        "model_file_name_template": "llama-2-7b-gptq.{quantization}.bin"
+      },
+      {
         "model_format": "ggmlv3",
         "model_size_in_billions": 13,
         "quantizations": [
@@ -1101,6 +1124,16 @@
         "model_revision": "6fdf2e60f86ff2481f2241aaee459f85b5b0bbb9"
       },
       {
+        "model_format": "gptq",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "TheBloke/Llama-2-7B-GPTQ"
+      },
+      {
         "model_format": "pytorch",
         "model_size_in_billions": 13,
         "quantizations": [
@@ -1112,7 +1145,7 @@
         "model_revision": "db6b8eb1feabb38985fdf785a89895959e944936"
       },
       {
-        "model_format": "pytorch",
+        "model_format": "gptq",
         "model_size_in_billions": 70,
         "quantizations": [
           "4-bit",
@@ -1121,6 +1154,16 @@
         ],
         "model_id": "meta-llama/Llama-2-70b-hf",
         "model_revision": "cc8aa03a000ff08b4d5c5b39673321a2a396c396"
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 70,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "TheBloke/Llama-2-70B-GPTQ"
       }
     ]
   },
@@ -2631,6 +2674,16 @@
         "model_revision": "b70aa86578567ba3301b21c8a27bea4e8f6d6d61"
       },
       {
+        "model_format": "gptq",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "float16",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "TheBloke/Mistral-7B-Instruct-v0.2-GPTQ"
+      },
+      {
         "model_format": "ggufv2",
         "model_size_in_billions": 7,
         "quantizations": [
@@ -2789,6 +2842,16 @@
         ],
         "model_id": "mistralai/Mixtral-8x7B-v0.1",
         "model_revision": "58301445dc1378584211722b7ebf8743ec4e192b"
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": "46_7",
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "TheBloke/Mixtral-8x7B-v0.1-GPTQ"
       },
       {
         "model_format": "ggufv2",
@@ -4060,6 +4123,16 @@
           "8-bit"
         ],
         "model_id": "google/gemma-7b-it"
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "float16",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "TechxGenus/gemma-7b-it-AWQ"
       }
     ],
     "prompt_style": {
