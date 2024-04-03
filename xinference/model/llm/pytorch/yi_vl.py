@@ -186,14 +186,13 @@ class YiVLChatModel(PytorchChatModel):
         state.append_message(state.roles[1], None)
 
         prompt = state.get_prompt()
-        device = 'cuda' if self._device == 'auto' else self._device
 
         input_ids = (
             tokenizer_image_token(
                 prompt, self._tokenizer, IMAGE_TOKEN_INDEX, return_tensors="pt"
             )
             .unsqueeze(0)
-            .to(device)
+            .to(self._model.device)
         )
 
         images = state.get_images(return_pil=True)
@@ -218,7 +217,7 @@ class YiVLChatModel(PytorchChatModel):
             "input_ids": input_ids,
             "images": image_tensor.unsqueeze(0)
             .to(dtype=torch.bfloat16)
-            .to(device),
+            .to(self._model.device),
             "streamer": streamer,
             "do_sample": True,
             "top_p": float(top_p),
