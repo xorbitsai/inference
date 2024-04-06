@@ -13,6 +13,7 @@ import LaunchEmbedding from './launchEmbedding'
 import LaunchImage from './launchImage'
 import LaunchLLM from './launchLLM'
 import LaunchRerank from './launchRerank'
+import PanelStyle from './panelStyles'
 
 const LaunchModel = () => {
   let endPoint = useContext(ApiContext).endPoint
@@ -76,22 +77,22 @@ const LaunchModel = () => {
             <Tab label="Custom Models" value="6" />
           </TabList>
         </Box>
-        <TabPanel value="1" sx={{ padding: 0 }}>
+        <TabPanel value="1" sx={PanelStyle.tabPanelStyle}>
           <LaunchLLM gpuAvailable={gpuAvailable} />
         </TabPanel>
-        <TabPanel value="2" sx={{ padding: 0 }}>
+        <TabPanel value="2" sx={PanelStyle.tabPanelStyle}>
           <LaunchEmbedding />
         </TabPanel>
-        <TabPanel value="3" sx={{ padding: 0 }}>
+        <TabPanel value="3" sx={PanelStyle.tabPanelStyle}>
           <LaunchRerank />
         </TabPanel>
-        <TabPanel value="4" sx={{ padding: 0 }}>
+        <TabPanel value="4" sx={PanelStyle.tabPanelStyle}>
           <LaunchImage />
         </TabPanel>
-        <TabPanel value="5" sx={{ padding: 0 }}>
+        <TabPanel value="5" sx={PanelStyle.tabPanelStyle}>
           <LaunchAudio />
         </TabPanel>
-        <TabPanel value="6" sx={{ padding: 0 }}>
+        <TabPanel value="6" sx={PanelStyle.tabPanelStyle}>
           <LaunchCustom gpuAvailable={gpuAvailable} />
         </TabPanel>
       </TabContext>

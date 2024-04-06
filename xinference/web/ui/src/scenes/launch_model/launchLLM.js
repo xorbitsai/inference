@@ -12,6 +12,7 @@ import { useCookies } from 'react-cookie'
 import { ApiContext } from '../../components/apiContext'
 import fetcher from '../../components/fetcher'
 import ModelCard from './cards/modelCard'
+import PanelStyle from './panelStyles'
 
 const LaunchLLM = ({ gpuAvailable }) => {
   let endPoint = useContext(ApiContext).endPoint
@@ -100,23 +101,9 @@ const LaunchLLM = ({ gpuAvailable }) => {
     update()
   }, [cookie.token])
 
-  const style = {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-    paddingLeft: '2rem',
-    gridGap: '2rem 0rem',
-  }
-
   return (
-    <Box m="20px">
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: '150px 1fr',
-          columnGap: '20px',
-          margin: '30px 2rem',
-        }}
-      >
+    <Box style={PanelStyle.boxStyle}>
+      <div style={PanelStyle.boxDivStyle}>
         <FormControl variant="outlined" margin="normal">
           <InputLabel id="ability-select-label">Model Ability</InputLabel>
           <Select
@@ -145,7 +132,7 @@ const LaunchLLM = ({ gpuAvailable }) => {
           />
         </FormControl>
       </div>
-      <div style={style}>
+      <div style={PanelStyle.cardsGridStyle}>
         {registrationData
           .filter((registration) => filter(registration))
           .map((filteredRegistration) => (

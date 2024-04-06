@@ -4,6 +4,7 @@ import React, { useContext, useEffect, useState } from 'react'
 import { ApiContext } from '../../components/apiContext'
 import fetcher from '../../components/fetcher'
 import EmbeddingCard from './cards/embeddingCard'
+import PanelStyle from './panelStyles'
 
 const LaunchEmbedding = () => {
   let endPoint = useContext(ApiContext).endPoint
@@ -55,22 +56,9 @@ const LaunchEmbedding = () => {
     // eslint-disable-next-line
   }, [])
 
-  const style = {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-    paddingLeft: '2rem',
-    gridGap: '2rem 0rem',
-  }
-
   return (
-    <Box m="20px">
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: '1fr',
-          margin: '30px 2rem',
-        }}
-      >
+    <Box style={PanelStyle.boxStyle}>
+      <div style={PanelStyle.boxDivStyle}>
         <FormControl variant="outlined" margin="normal">
           <TextField
             id="search"
@@ -82,7 +70,7 @@ const LaunchEmbedding = () => {
           />
         </FormControl>
       </div>
-      <div style={style}>
+      <div style={PanelStyle.cardsGridStyle}>
         {registrationData
           .filter((registration) => filter(registration))
           .map((filteredRegistration) => (
