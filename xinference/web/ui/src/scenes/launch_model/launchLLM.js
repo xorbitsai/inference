@@ -103,7 +103,7 @@ const LaunchLLM = ({ gpuAvailable }) => {
 
   return (
     <Box style={PanelStyle.boxStyle}>
-      <div style={PanelStyle.boxDivStyle}>
+      <div style={PanelStyle.box2ColDivStyle}>
         <FormControl variant="outlined" margin="normal">
           <InputLabel id="ability-select-label">Model Ability</InputLabel>
           <Select
