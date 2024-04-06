@@ -3,7 +3,7 @@ import React, { useContext, useEffect, useState } from 'react'
 
 import { ApiContext } from '../../components/apiContext'
 import fetcher from '../../components/fetcher'
-import AudioCard from './audioCard'
+import AudioCard from './cards/audioCard'
 
 const LaunchAudio = () => {
   let endPoint = useContext(ApiContext).endPoint

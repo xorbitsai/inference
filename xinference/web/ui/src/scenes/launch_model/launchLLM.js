@@ -11,7 +11,7 @@ import { useCookies } from 'react-cookie'
 
 import { ApiContext } from '../../components/apiContext'
 import fetcher from '../../components/fetcher'
-import ModelCard from './modelCard'
+import ModelCard from './cards/modelCard'
 
 const LaunchLLM = ({ gpuAvailable }) => {
   let endPoint = useContext(ApiContext).endPoint

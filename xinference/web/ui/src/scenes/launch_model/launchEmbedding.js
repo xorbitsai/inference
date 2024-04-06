@@ -3,7 +3,7 @@ import React, { useContext, useEffect, useState } from 'react'
 
 import { ApiContext } from '../../components/apiContext'
 import fetcher from '../../components/fetcher'
-import EmbeddingCard from './embeddingCard'
+import EmbeddingCard from './cards/embeddingCard'
 
 const LaunchEmbedding = () => {
   let endPoint = useContext(ApiContext).endPoint

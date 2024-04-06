@@ -3,7 +3,7 @@ import React, { useContext, useEffect, useState } from 'react'
 
 import { ApiContext } from '../../components/apiContext'
 import fetcher from '../../components/fetcher'
-import RerankCard from './rerankCard'
+import RerankCard from './cards/rerankCard'
 
 const LaunchRerank = () => {
   let endPoint = useContext(ApiContext).endPoint

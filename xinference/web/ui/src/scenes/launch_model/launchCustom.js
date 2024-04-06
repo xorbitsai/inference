@@ -3,9 +3,9 @@ import React, { useContext, useEffect, useState } from 'react'
 
 import { ApiContext } from '../../components/apiContext'
 import fetcher from '../../components/fetcher'
-import EmbeddingCard from './embeddingCard'
-import ModelCard from './modelCard'
-import RerankCard from './rerankCard'
+import EmbeddingCard from './cards/embeddingCard'
+import ModelCard from './cards/modelCard'
+import RerankCard from './cards/rerankCard'
 
 const LaunchCustom = ({ gpuAvailable }) => {
   let endPoint = useContext(ApiContext).endPoint

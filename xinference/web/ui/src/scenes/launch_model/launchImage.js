@@ -3,7 +3,7 @@ import React, { useContext, useEffect, useState } from 'react'
 
 import { ApiContext } from '../../components/apiContext'
 import fetcher from '../../components/fetcher'
-import ImageCard from './imageCard'
+import ImageCard from './cards/imageCard'
 
 const LaunchImage = () => {
   let endPoint = useContext(ApiContext).endPoint
