@@ -1,7 +1,8 @@
 const boxDivStyle = {
     display: 'grid',
     gridTemplateColumns: '1fr',
-    columnGap: '20px'
+    columnGap: '20px',
+    margin: '30px 2rem'
 };
 
 const PanelStyle = {
@@ -9,8 +10,7 @@ const PanelStyle = {
         padding: '0'
     },
     boxStyle: {
-        m: '20px',
-        padding: '30px 2rem'
+        margin: '20px'
     },
     boxDivStyle: boxDivStyle,
     box2ColDivStyle: {
