@@ -344,7 +344,7 @@ class VLLMModel(LLM):
                         _content, func, args = ChatModelMixin._eval_tool_arguments(
                             self.model_family, chunk, tools
                         )
-                        choice["text"] = ""
+                        choice["text"] = None
                         if func is not None:
                             choice["tool_calls"] = [
                                 ToolCalls(
@@ -357,6 +357,7 @@ class VLLMModel(LLM):
                                 )
                             ]
                             choice["finish_reason"] = "tool_calls"
+                    # use a filter function to skip Qwen's react thought process
                     elif not tools_token_filter(previous_texts[0]):
                         continue
                 prompt_tokens = len(_request_output.prompt_token_ids)
