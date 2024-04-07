@@ -611,10 +611,10 @@ Begin!"""
     @classmethod
     def _tools_token_filter(cls, model_family):
         """
-        Generates a filter function for Qwen series models to retain outputs after "\nFinal Answer:". 
-        
+        Generates a filter function for Qwen series models to retain outputs after "\nFinal Answer:".
+
         Returns:
-            A function that takes tokens (string output by the model so far) as input 
+            A function that takes tokens (string output by the model so far) as input
             returns True if current token is after "\nFinal Answer:", else False.
         """
         family = model_family.model_family or model_family.model_name
@@ -631,6 +631,7 @@ Begin!"""
                 if tokens.endswith("\nFinal Answer:"):
                     found = True
                 return False
+
             return process_token
         else:
             # For other families, allow all tokens.
