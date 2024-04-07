@@ -340,12 +340,16 @@ class VLLMModel(LLM):
                     # only handle the first choice
                     choice = chunk["choices"][0]
                     if choice["finish_reason"] is not None:
+                        # use previous text for evaluation temporarily
+                        choice_delta = choice["text"]
                         choice["text"] = previous_texts[0]
                         _content, func, args = ChatModelMixin._eval_tool_arguments(
                             self.model_family, chunk, tools
                         )
-                        choice["text"] = None
+                        choice["text"] = choice_delta
                         if func is not None:
+                            choice["text"] = None
+                            choice["finish_reason"] = "tool_calls"
                             choice["tool_calls"] = [
                                 ToolCalls(
                                     id=str(uuid.uuid4()),
@@ -356,7 +360,6 @@ class VLLMModel(LLM):
                                     ),
                                 )
                             ]
-                            choice["finish_reason"] = "tool_calls"
                     # use a filter function to skip Qwen's react thought process
                     elif not tools_token_filter(previous_texts[0]):
                         continue
