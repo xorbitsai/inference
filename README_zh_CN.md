@@ -23,20 +23,20 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 
 ## 🔥 近期热点
 ### 框架增强
+- 支持加载模型时指定 worker 和 GPU 索引: [#1195](https://github.com/xorbitsai/inference/pull/1195)
 - 支持 SGLang 后端: [#1161](https://github.com/xorbitsai/inference/pull/1161)
 - 支持LLM和图像模型的LoRA: [#1080](https://github.com/xorbitsai/inference/pull/1080)
 - 支持语音识别模型: [#929](https://github.com/xorbitsai/inference/pull/929)
 - 增加 Metrics 统计信息: [#906](https://github.com/xorbitsai/inference/pull/906)
 - Docker 镜像支持: [#855](https://github.com/xorbitsai/inference/pull/855)
 - 支持多模态模型：[#829](https://github.com/xorbitsai/inference/pull/829)
-- 模型自动恢复: [#694](https://github.com/xorbitsai/inference/pull/694)
 ### 新模型
+- 内置 [Qwen1.5 32B](https://huggingface.co/Qwen/Qwen1.5-32B-Chat): [#1249](https://github.com/xorbitsai/inference/pull/1249)
 - 内置 [OmniLMM](https://github.com/OpenBMB/OmniLMM): [#1171](https://github.com/xorbitsai/inference/pull/1171)
 - 内置 [Gemma](https://github.com/google-deepmind/gemma): [#1024](https://github.com/xorbitsai/inference/pull/1024)
 - 内置 [Qwen1.5](https://github.com/QwenLM/Qwen1.5): [#994](https://github.com/xorbitsai/inference/pull/994)
 - 内置 [Yi-VL](https://github.com/01-ai/Yi): [#946](https://github.com/xorbitsai/inference/pull/946)
 - 内置 [Whisper](https://github.com/openai/whisper): [#929](https://github.com/xorbitsai/inference/pull/929)
-- 内置 [Orion-chat](https://huggingface.co/OrionStarAI): [#933](https://github.com/xorbitsai/inference/pull/933)
 ### 集成
 - [Dify](https://docs.dify.ai/advanced/model-configuration/xinference): 一个涵盖了大型语言模型开发、部署、维护和优化的 LLMOps 平台。
 - [Chatbox](https://chatboxai.app/): 一个支持前沿大语言模型的桌面客户端，支持 Windows，Mac，以及 Linux。
