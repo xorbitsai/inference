@@ -609,20 +609,24 @@ Begin!"""
         return content, func, args
 
     @classmethod
-    def _get_token_filter(cls, model_family):
+    def _tools_token_filter(cls, model_family):
         family = model_family.model_family or model_family.model_name
         if family in ["qwen-chat", "qwen1.5-chat"]:
-            found = False
+            # Encapsulating function to reset 'found' after each call
+            def create_qwen_chat_filter():
+                found = False
 
-            def process_token(tokens: str):
-                nonlocal found
-                if found:
-                    return True
-                if tokens.endswith("\nFinal Answer:"):
-                    found = True
-                return False
+                def process_token(tokens: str):
+                    nonlocal found
+                    if found:
+                        return True
+                    if tokens.endswith("\nFinal Answer:"):
+                        found = True
+                    return False
 
-            return process_token
+                return process_token
+
+            return create_qwen_chat_filter()
         else:
             return lambda token: True
 

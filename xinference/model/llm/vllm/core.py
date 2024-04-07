@@ -323,7 +323,7 @@ class VLLMModel(LLM):
 
         async def stream_results() -> AsyncGenerator[CompletionChunk, None]:
             previous_texts = [""] * sanitized_generate_config["n"]
-            tools_token_filter = ChatModelMixin._get_token_filter(self.model_family)
+            tools_token_filter = ChatModelMixin._tools_token_filter(self.model_family)
             async for _request_output in results_generator:
                 chunk = self._convert_request_output_to_completion_chunk(
                     request_id=request_id,
@@ -351,14 +351,14 @@ class VLLMModel(LLM):
                                     id=str(uuid.uuid4()),
                                     type="function",
                                     function=ToolCallFunction(
-                                        name=func, arguments=json.dumps(args)
+                                        name=func,
+                                        arguments=json.dumps(args, ensure_ascii=False),
                                     ),
                                 )
                             ]
                             choice["finish_reason"] = "tool_calls"
                     elif not tools_token_filter(previous_texts[0]):
                         continue
-
                 prompt_tokens = len(_request_output.prompt_token_ids)
                 completion_tokens = sum(
                     len(output.token_ids) for output in _request_output.outputs
