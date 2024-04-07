@@ -446,7 +446,11 @@ Begin!"""
                     "index": i,
                     "delta": {
                         "content": choice["text"],
-                        **({"tool_calls": choice["tool_calls"]} if "tool_calls" in choice else {})
+                        **(
+                            {"tool_calls": choice["tool_calls"]}
+                            if "tool_calls" in choice
+                            else {}
+                        ),
                     },
                     "finish_reason": choice["finish_reason"],
                 }
