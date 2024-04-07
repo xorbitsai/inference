@@ -154,7 +154,6 @@ const LaunchLLM = ({ gpuAvailable }) => {
               url={endPoint}
               modelData={filteredRegistration}
               gpuAvailable={gpuAvailable}
-              isLLM={true}
               modelType={'LLM'}
             />
           ))}

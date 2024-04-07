@@ -36,7 +36,7 @@ import fetcher from '../../components/fetcher'
 import TitleTypography from '../../components/titleTypography'
 import styles from './styles/modelCardStyle'
 
-const ModelCard = ({ url, modelData, gpuAvailable, isLLM, modelType, is_custom = false }) => {
+const ModelCard = ({ url, modelData, gpuAvailable, modelType, is_custom = false }) => {
   const [hover, setHover] = useState(false)
   const [selected, setSelected] = useState(false)
   const [requestLimitsAlert, setRequestLimitsAlert] = useState(false)
@@ -184,7 +184,7 @@ const ModelCard = ({ url, modelData, gpuAvailable, isLLM, modelType, is_custom =
     const modelDataWithID2 = {
       model_uid: modelUID.trim() === '' ? null : modelUID.trim(),
       model_name: modelData.model_name,
-      model_type: 'embedding',
+      model_type: modelType,
     }
 
     if (nGPULayers >= 0) {
@@ -197,7 +197,7 @@ const ModelCard = ({ url, modelData, gpuAvailable, isLLM, modelType, is_custom =
       })
     }
 
-    const modelDataWithID = isLLM ? modelDataWithID1 : modelDataWithID2
+    const modelDataWithID = modelType === 'LLM' ? modelDataWithID1 : modelDataWithID2
 
     // First fetcher request to initiate the model
     fetcher(url + '/v1/models', {
@@ -317,9 +317,7 @@ const ModelCard = ({ url, modelData, gpuAvailable, isLLM, modelType, is_custom =
         }
       }}
     >
-      {/* First state: show description page */}
-      {isLLM ? (
-      <Box style={styles.descriptionCard}>
+      {modelType === 'LLM' ? (<Box style={styles.descriptionCard}>
         {is_custom && (
           <Stack
             direction="row"
@@ -361,7 +359,7 @@ const ModelCard = ({ url, modelData, gpuAvailable, isLLM, modelType, is_custom =
             }
           })()}
         </Stack>
-        <p style={styles.p}>{modelData.model_description}</p>
+        {modelData.model_description && <p style={styles.p}>{modelData.model_description}</p>}
 
         <div style={styles.iconRow}>
           <div style={styles.iconItem}>
@@ -405,7 +403,7 @@ const ModelCard = ({ url, modelData, gpuAvailable, isLLM, modelType, is_custom =
               alignItems="center"
               spacing={1}
             >
-              <h2 style={styles.h2}>{modelData.model_name}</h2>
+              <TitleTypography value={modelData.model_name} />
               <IconButton
                 aria-label="delete"
                 onClick={handeCustomDelete}
@@ -414,8 +412,8 @@ const ModelCard = ({ url, modelData, gpuAvailable, isLLM, modelType, is_custom =
                 <DeleteIcon />
               </IconButton>
             </Stack>
-          )}
-          {!is_custom && <h2 style={styles.h2}>{modelData.model_name}</h2>}
+          )}          
+          {!is_custom && <TitleTypography value={modelData.model_name} />}
           <Stack
             spacing={1}
             direction="row"
@@ -450,7 +448,8 @@ const ModelCard = ({ url, modelData, gpuAvailable, isLLM, modelType, is_custom =
             })()}
           </Stack>
         </div>
-        {modelData.dimensions && <div style={styles.iconRow}>
+        {modelData.dimensions && 
+        <div style={styles.iconRow}>
           <div style={styles.iconItem}>
             <span style={styles.boldIconText}>{modelData.dimensions}</span>
             <small style={styles.smallText}>dimensions</small>
@@ -467,12 +466,10 @@ const ModelCard = ({ url, modelData, gpuAvailable, isLLM, modelType, is_custom =
         )}
       </Box>
       )}
-      {/* Second state: show parameter selection page */}
       <Drawer open={selected} onClose={() => setSelected(false)} anchor={'right'}>
-        {isLLM ? (
         <div style={styles.drawerCard}>
           <TitleTypography value={modelData.model_name} />
-          <Box ref={parentRef} style={styles.formContainer} display="flex" flexDirection="column" width="100%" mx="auto">
+          {modelType === 'LLM' ? (<Box ref={parentRef} style={styles.formContainer} display="flex" flexDirection="column" width="100%" mx="auto">
             <Grid rowSpacing={0} columnSpacing={1}>
               <Grid item xs={12}>
                 <FormControl variant="outlined" margin="normal" fullWidth>
@@ -484,9 +481,9 @@ const ModelCard = ({ url, modelData, gpuAvailable, isLLM, modelType, is_custom =
                     label="Model Format"
                   >
                     {formatOptions.map((format) => {
-                      const specs = modelData.model_specs.filter(
-                        (spec) => spec.model_format === format
-                      )
+                      const specs = modelData.model_specs
+                        .filter((spec) => spec.model_format === format)
+                        
                       const cached = specs.some((spec) => isCached(spec))
                       const displayedFormat = cached
                         ? format + ' (cached)'
@@ -548,11 +545,7 @@ const ModelCard = ({ url, modelData, gpuAvailable, isLLM, modelType, is_custom =
                     {quantizationOptions.map((quant, index) => {
                       const specs = modelData.model_specs
                         .filter((spec) => spec.model_format === modelFormat)
-                        .filter(
-                          (spec) =>
-                            spec.model_size_in_billions ===
-                            convertModelSize(modelSize)
-                        )
+                        .filter((spec) => spec.model_size_in_billions === convertModelSize(modelSize))
 
                       const cached =
                         modelFormat === 'pytorch'
@@ -763,14 +756,24 @@ const ModelCard = ({ url, modelData, gpuAvailable, isLLM, modelType, is_custom =
                 </Box>
               </Collapse>
             </Grid>
-          </Box>
+          </Box>) : (
+            <FormControl variant="outlined" margin="normal" fullWidth>
+              <TextField
+                variant="outlined"
+                value={modelUID}
+                label="(Optional) Model UID, model name by default"
+                onChange={(e) => setModelUID(e.target.value)}
+              />
+            </FormControl>
+          )}
           <Box style={styles.buttonsContainer}>
             <button
               title="Launch"
               style={styles.buttonContainer}
               onClick={() => launchModel(url, modelData)}
               disabled={
-                isCallingApi ||
+                modelType === 'LLM' && 
+                (isCallingApi ||
                 isUpdatingModel ||
                 !(
                   modelFormat &&
@@ -780,7 +783,7 @@ const ModelCard = ({ url, modelData, gpuAvailable, isLLM, modelType, is_custom =
                     (!modelData.is_builtin && modelFormat !== 'pytorch'))
                 ) || 
                 !judgeCustomParameters() ||
-                defaultIndex !== -1
+                defaultIndex !== -1)
               }
             >
               {(() => {
@@ -832,73 +835,7 @@ const ModelCard = ({ url, modelData, gpuAvailable, isLLM, modelType, is_custom =
               </Box>
             </button>
           </Box>
-        </div>) : (
-        <div style={styles.drawerCard}>
-          <TitleTypography value={modelData.model_name} />
-          <FormControl variant="outlined" margin="normal" fullWidth>
-            <TextField
-              variant="outlined"
-              value={modelUID}
-              label="(Optional) Model UID, model name by default"
-              onChange={(e) => setModelUID(e.target.value)}
-            />
-          </FormControl>
-          <Box style={styles.buttonsContainer}>
-            <button
-              title="Launch Embedding"
-              style={styles.buttonContainer}
-              onClick={() => launchModel(url, modelData)}
-              disabled={isCallingApi || isUpdatingModel || !modelData}
-            >
-              {(() => {
-                if (isCallingApi || isUpdatingModel) {
-                  return (
-                    <Box
-                      style={{
-                        ...styles.buttonItem,
-                        backgroundColor: '#f2f2f2',
-                      }}
-                    >
-                      <CircularProgress
-                        size="20px"
-                        sx={{
-                          color: '#000000',
-                        }}
-                      />
-                    </Box>
-                  )
-                } else if (!modelData) {
-                  return (
-                    <Box
-                      style={{
-                        ...styles.buttonItem,
-                        backgroundColor: '#f2f2f2',
-                      }}
-                    >
-                      <RocketLaunchOutlined size="20px" />
-                    </Box>
-                  )
-                } else {
-                  return (
-                    <Box style={styles.buttonItem}>
-                      <RocketLaunchOutlined color="#000000" size="20px" />
-                    </Box>
-                  )
-                }
-              })()}
-            </button>
-            <button
-              title="Launch Embedding"
-              style={styles.buttonContainer}
-              onClick={() => setSelected(false)}
-            >
-              <Box style={styles.buttonItem}>
-                <UndoOutlined color="#000000" size="20px" />
-              </Box>
-            </button>
-          </Box>
         </div>
-        )}
       </Drawer>
       <Snackbar
         anchorOrigin={{ vertical: 'top', horizontal:'center' }}

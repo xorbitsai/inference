@@ -4,9 +4,7 @@ import React, { useContext, useEffect, useState } from 'react'
 
 import { ApiContext } from '../../components/apiContext'
 import fetcher from '../../components/fetcher'
-// import EmbeddingCard from './embeddingCard'
 import ModelCard from './modelCard'
-// import RerankCard from './rerankCard'
 
 const LaunchCustom = ({ gpuAvailable }) => {
   let endPoint = useContext(ApiContext).endPoint
@@ -168,41 +166,11 @@ const LaunchCustom = ({ gpuAvailable }) => {
       <TabContext value={value}>
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
           <TabList value={value} onChange={handleTabChange} aria-label="tabs">
-            {/* <Tab label="All" value="1" /> */}
             <Tab label="Language Models" value="1" />
             <Tab label="Embedding Models" value="2" />
             <Tab label="Rerank Models" value="3" />
           </TabList>
         </Box>
-        {/* <TabPanel value="1" sx={{ padding: 0 }}>
-          <div style={style}>
-            {registrationData
-              .filter((registration) => filter(registration))
-              .map((filteredRegistration) => {
-                if (
-                  (filteredRegistration.max_tokens && filteredRegistration.dimensions) || 
-                  (filteredRegistration.model_type && filteredRegistration.model_type === 'rerank')
-                ) {
-                  return (
-                    <ModelCard
-                      url={endPoint}
-                      modelData={filteredRegistration}
-                      is_custom={true}
-                    />
-                  )
-                } else {
-                  return (
-                    <ModelCard
-                      url={endPoint}
-                      modelData={filteredRegistration}
-                      gpuAvailable={gpuAvailable}
-                      is_custom={true}
-                    />
-                  )
-                }
-              })}
-          </div>
-        </TabPanel> */}
         <TabPanel value="1" sx={{ padding: 0 }}>
           <div style={style}>
             {registrationData.filter((registration) => filter(registration))
