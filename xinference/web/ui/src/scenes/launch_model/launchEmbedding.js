@@ -3,7 +3,8 @@ import React, { useContext, useEffect, useState } from 'react'
 
 import { ApiContext } from '../../components/apiContext'
 import fetcher from '../../components/fetcher'
-import EmbeddingCard from './embeddingCard'
+// import EmbeddingCard from './embeddingCard'
+import ModelCard from './modelCard'
 
 const LaunchEmbedding = () => {
   let endPoint = useContext(ApiContext).endPoint
@@ -86,7 +87,19 @@ const LaunchEmbedding = () => {
         {registrationData
           .filter((registration) => filter(registration))
           .map((filteredRegistration) => (
-            <EmbeddingCard url={endPoint} modelData={filteredRegistration} />
+            // <EmbeddingCard 
+            // key={filteredRegistration.model_name} 
+            // url={endPoint} 
+            // modelData={filteredRegistration} 
+            // />
+            <ModelCard
+              key={filteredRegistration.model_name}
+              url={endPoint}
+              modelData={filteredRegistration}
+              // gpuAvailable={gpuAvailable}
+              isLLM={false}
+              modelType={'embedding'}
+            />
           ))}
       </div>
     </Box>

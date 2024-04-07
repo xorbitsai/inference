@@ -3,7 +3,8 @@ import React, { useContext, useEffect, useState } from 'react'
 
 import { ApiContext } from '../../components/apiContext'
 import fetcher from '../../components/fetcher'
-import ImageCard from './imageCard'
+// import ImageCard from './imageCard'
+import ModelCard from './modelCard'
 
 const LaunchImage = () => {
   let endPoint = useContext(ApiContext).endPoint
@@ -88,7 +89,14 @@ const LaunchImage = () => {
         {registrationData
           .filter((registration) => filter(registration))
           .map((filteredRegistration) => (
-            <ImageCard url={endPoint} modelData={filteredRegistration} />
+            // <ImageCard url={endPoint} modelData={filteredRegistration} />
+            <ModelCard
+              key={filteredRegistration.model_name}
+              url={endPoint}
+              modelData={filteredRegistration}
+              isLLM={false}
+              modelType={'image'}
+            />
           ))}
       </div>
     </Box>

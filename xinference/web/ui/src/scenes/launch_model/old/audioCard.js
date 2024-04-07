@@ -12,8 +12,8 @@ import IconButton from '@mui/material/IconButton'
 import React, { useContext, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-import { ApiContext } from '../../components/apiContext'
-import fetcher from '../../components/fetcher'
+import { ApiContext } from '../../../components/apiContext'
+import fetcher from '../../../components/fetcher'
 
 const CARD_HEIGHT = 270
 const CARD_WIDTH = 270

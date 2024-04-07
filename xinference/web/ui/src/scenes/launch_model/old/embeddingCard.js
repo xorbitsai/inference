@@ -4,6 +4,7 @@ import {
   Box,
   Chip,
   CircularProgress,
+  Drawer,
   FormControl,
   Stack,
   TextField,
@@ -11,24 +12,18 @@ import {
 import IconButton from '@mui/material/IconButton'
 import React, { useContext, useEffect, useState } from 'react'
 
-import { ApiContext } from '../../components/apiContext'
-import fetcher from '../../components/fetcher'
+import { ApiContext } from '../../../components/apiContext'
+import fetcher from '../../../components/fetcher'
+import styles from '../styles/embeddingCardStyle'
 
-const CARD_HEIGHT = 270
-const CARD_WIDTH = 270
-
-const RerankCard = ({
-  url,
-  modelData,
-  cardHeight = CARD_HEIGHT,
-  is_custom = false,
-}) => {
+const EmbeddingCard = ({ url, modelData, is_custom = false }) => {
   const [modelUID, setModelUID] = useState('')
   const [hover, setHover] = useState(false)
   const [selected, setSelected] = useState(false)
   const [customDeleted, setCustomDeleted] = useState(false)
   const { isCallingApi, setIsCallingApi } = useContext(ApiContext)
   const { isUpdatingModel } = useContext(ApiContext)
+  const { setErrorMsg } = useContext(ApiContext)
 
   // UseEffects for parameter selection, change options based on previous selections
   useEffect(() => {}, [modelData])
@@ -43,7 +38,7 @@ const RerankCard = ({
     const modelDataWithID = {
       model_uid: modelUID.trim() === '' ? null : modelUID.trim(),
       model_name: modelData.model_name,
-      model_type: 'rerank',
+      model_type: 'embedding',
     }
 
     // First fetcher request to initiate the model
@@ -54,7 +49,20 @@ const RerankCard = ({
       },
       body: JSON.stringify(modelDataWithID),
     })
-      .then(() => {
+      .then((res) => {
+        if (!res.ok) {
+          res
+            .json()
+            .then((errData) =>
+              setErrorMsg(
+                `Server error: ${res.status} - ${
+                  errData.detail || 'Unknown error'
+                }`
+              )
+            )
+        } else {
+          window.open(url + '/ui/#/running_models', '_blank', 'noreferrer')
+        }
         setIsCallingApi(false)
       })
       .catch((error) => {
@@ -63,133 +71,9 @@ const RerankCard = ({
       })
   }
 
-  const styles = {
-    container: {
-      display: 'block',
-      position: 'relative',
-      width: `${CARD_WIDTH}px`,
-      height: `${cardHeight}px`,
-      border: '1px solid #ddd',
-      borderRadius: '20px',
-      background: 'white',
-      overflow: 'hidden',
-    },
-    containerSelected: {
-      display: 'block',
-      position: 'relative',
-      width: `${CARD_WIDTH}px`,
-      height: `${cardHeight}px`,
-      border: '1px solid #ddd',
-      borderRadius: '20px',
-      background: 'white',
-      overflow: 'hidden',
-      boxShadow: '0 0 2px #00000099',
-    },
-    descriptionCard: {
-      position: 'relative',
-      top: '-1px',
-      left: '-1px',
-      width: `${CARD_WIDTH}px`,
-      height: `${cardHeight}px`,
-      border: '1px solid #ddd',
-      padding: '20px',
-      borderRadius: '20px',
-      background: 'white',
-    },
-    parameterCard: {
-      position: 'relative',
-      top: `-${cardHeight + 1}px`,
-      left: '-1px',
-      width: `${CARD_WIDTH}px`,
-      height: `${cardHeight}px`,
-      border: '1px solid #ddd',
-      padding: '20px',
-      borderRadius: '20px',
-      background: 'white',
-    },
-    img: {
-      display: 'block',
-      margin: '0 auto',
-      width: '180px',
-      height: '180px',
-      objectFit: 'cover',
-      borderRadius: '10px',
-    },
-    titleContainer: {
-      minHeight: '120px',
-    },
-    h2: {
-      margin: '10px 10px',
-      fontSize: '20px',
-    },
-    buttonsContainer: {
-      display: 'flex',
-      border: 'none',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-    },
-    buttonContainer: {
-      width: '45%',
-      borderWidth: '0px',
-      backgroundColor: 'transparent',
-      paddingLeft: '0px',
-      paddingRight: '0px',
-    },
-    buttonItem: {
-      width: '100%',
-      margin: '0 auto',
-      padding: '5px',
-      display: 'flex',
-      justifyContent: 'center',
-      borderRadius: '4px',
-      border: '1px solid #e5e7eb',
-      borderWidth: '1px',
-      borderColor: '#e5e7eb',
-    },
-    instructionText: {
-      fontSize: '12px',
-      color: '#666666',
-      fontStyle: 'italic',
-      margin: '10px 0',
-      textAlign: 'center',
-    },
-    slideIn: {
-      transform: 'translateX(0%)',
-      transition: 'transform 0.2s ease-in-out',
-    },
-    slideOut: {
-      transform: 'translateX(100%)',
-      transition: 'transform 0.2s ease-in-out',
-    },
-    iconRow: {
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-    },
-    iconItem: {
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      margin: '20px',
-    },
-    boldIconText: {
-      fontWeight: 'bold',
-      fontSize: '1.2em',
-    },
-    muiIcon: {
-      fontSize: '1.5em',
-    },
-    smallText: {
-      fontSize: '0.8em',
-    },
-    langRow: {
-      margin: '2px 5px 40px 5px',
-    },
-  }
-
   const handeCustomDelete = (e) => {
     e.stopPropagation()
-    fetcher(url + `/v1/model_registrations/rerank/${modelData.model_name}`, {
+    fetcher(url + `/v1/model_registrations/embedding/${modelData.model_name}`, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
@@ -256,6 +140,16 @@ const RerankCard = ({
             })()}
           </Stack>
         </div>
+        <div style={styles.iconRow}>
+          <div style={styles.iconItem}>
+            <span style={styles.boldIconText}>{modelData.dimensions}</span>
+            <small style={styles.smallText}>dimensions</small>
+          </div>
+          <div style={styles.iconItem}>
+            <span style={styles.boldIconText}>{modelData.max_tokens}</span>
+            <small style={styles.smallText}>max tokens</small>
+          </div>
+        </div>
         {!selected && hover && (
           <p style={styles.instructionText}>
             Click with mouse to launch the model
@@ -281,7 +175,7 @@ const RerankCard = ({
         </FormControl>
         <Box style={styles.buttonsContainer}>
           <button
-            title="Launch Rerank"
+            title="Launch Embedding"
             style={styles.buttonContainer}
             onClick={() => launchModel(url, modelData)}
             disabled={isCallingApi || isUpdatingModel || !modelData}
@@ -290,7 +184,10 @@ const RerankCard = ({
               if (isCallingApi || isUpdatingModel) {
                 return (
                   <Box
-                    style={{ ...styles.buttonItem, backgroundColor: '#f2f2f2' }}
+                    style={{
+                      ...styles.buttonItem,
+                      backgroundColor: '#f2f2f2',
+                    }}
                   >
                     <CircularProgress
                       size="20px"
@@ -303,7 +200,10 @@ const RerankCard = ({
               } else if (!modelData) {
                 return (
                   <Box
-                    style={{ ...styles.buttonItem, backgroundColor: '#f2f2f2' }}
+                    style={{
+                      ...styles.buttonItem,
+                      backgroundColor: '#f2f2f2',
+                    }}
                   >
                     <RocketLaunchOutlined size="20px" />
                   </Box>
@@ -318,7 +218,7 @@ const RerankCard = ({
             })()}
           </button>
           <button
-            title="Launch Rerank"
+            title="Launch Embedding"
             style={styles.buttonContainer}
             onClick={() => setSelected(false)}
           >
@@ -328,8 +228,75 @@ const RerankCard = ({
           </button>
         </Box>
       </Box>
+      <Drawer open={selected} onClose={() => setSelected(false)} anchor={'right'}>
+      <div style={styles.drawerCard}>
+        <h2 style={styles.h2}>{modelData.model_name}</h2>
+        <FormControl variant="outlined" margin="normal" fullWidth>
+          <TextField
+            variant="outlined"
+            value={modelUID}
+            label="(Optional) Model UID, model name by default"
+            onChange={(e) => setModelUID(e.target.value)}
+          />
+        </FormControl>
+        <Box style={styles.buttonsContainer}>
+          <button
+            title="Launch Embedding"
+            style={styles.buttonContainer}
+            onClick={() => launchModel(url, modelData)}
+            disabled={isCallingApi || isUpdatingModel || !modelData}
+          >
+            {(() => {
+              if (isCallingApi || isUpdatingModel) {
+                return (
+                  <Box
+                    style={{
+                      ...styles.buttonItem,
+                      backgroundColor: '#f2f2f2',
+                    }}
+                  >
+                    <CircularProgress
+                      size="20px"
+                      sx={{
+                        color: '#000000',
+                      }}
+                    />
+                  </Box>
+                )
+              } else if (!modelData) {
+                return (
+                  <Box
+                    style={{
+                      ...styles.buttonItem,
+                      backgroundColor: '#f2f2f2',
+                    }}
+                  >
+                    <RocketLaunchOutlined size="20px" />
+                  </Box>
+                )
+              } else {
+                return (
+                  <Box style={styles.buttonItem}>
+                    <RocketLaunchOutlined color="#000000" size="20px" />
+                  </Box>
+                )
+              }
+            })()}
+          </button>
+          <button
+            title="Launch Embedding"
+            style={styles.buttonContainer}
+            onClick={() => setSelected(false)}
+          >
+            <Box style={styles.buttonItem}>
+              <UndoOutlined color="#000000" size="20px" />
+            </Box>
+          </button>
+        </Box>
+      </div>
+      </Drawer>
     </Box>
   )
 }
 
-export default RerankCard
+export default EmbeddingCard

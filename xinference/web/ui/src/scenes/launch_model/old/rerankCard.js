@@ -10,15 +10,14 @@ import {
 } from '@mui/material'
 import IconButton from '@mui/material/IconButton'
 import React, { useContext, useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 
-import { ApiContext } from '../../components/apiContext'
-import fetcher from '../../components/fetcher'
+import { ApiContext } from '../../../components/apiContext'
+import fetcher from '../../../components/fetcher'
 
 const CARD_HEIGHT = 270
 const CARD_WIDTH = 270
 
-const ImageCard = ({
+const RerankCard = ({
   url,
   modelData,
   cardHeight = CARD_HEIGHT,
@@ -28,10 +27,8 @@ const ImageCard = ({
   const [hover, setHover] = useState(false)
   const [selected, setSelected] = useState(false)
   const [customDeleted, setCustomDeleted] = useState(false)
-  const { setErrorMsg } = useContext(ApiContext)
   const { isCallingApi, setIsCallingApi } = useContext(ApiContext)
   const { isUpdatingModel } = useContext(ApiContext)
-  const navigate = useNavigate()
 
   // UseEffects for parameter selection, change options based on previous selections
   useEffect(() => {}, [modelData])
@@ -46,7 +43,7 @@ const ImageCard = ({
     const modelDataWithID = {
       model_uid: modelUID.trim() === '' ? null : modelUID.trim(),
       model_name: modelData.model_name,
-      model_type: 'image',
+      model_type: 'rerank',
     }
 
     // First fetcher request to initiate the model
@@ -57,19 +54,7 @@ const ImageCard = ({
       },
       body: JSON.stringify(modelDataWithID),
     })
-      .then((response) => {
-        if (!response.ok) {
-          // Assuming the server returns error details in JSON format
-          response.json().then((errorData) => {
-            setErrorMsg(
-              `Server error: ${response.status} - ${
-                errorData.detail || 'Unknown error'
-              }`
-            )
-          })
-        } else {
-          navigate('/running_models')
-        }
+      .then(() => {
         setIsCallingApi(false)
       })
       .catch((error) => {
@@ -204,7 +189,7 @@ const ImageCard = ({
 
   const handeCustomDelete = (e) => {
     e.stopPropagation()
-    fetcher(url + `/v1/model_registrations/image/${modelData.model_name}`, {
+    fetcher(url + `/v1/model_registrations/rerank/${modelData.model_name}`, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
@@ -255,13 +240,9 @@ const ImageCard = ({
             sx={{ marginLeft: 1 }}
           >
             {(() => {
-              return (
-                <Chip
-                  label={modelData.model_family}
-                  variant="outlined"
-                  size="small"
-                />
-              )
+              return modelData.language.map((v) => {
+                return <Chip label={v} variant="outlined" size="small" />
+              })
             })()}
             {(() => {
               if (modelData.cache_status) {
@@ -300,7 +281,7 @@ const ImageCard = ({
         </FormControl>
         <Box style={styles.buttonsContainer}>
           <button
-            title="Launch Image"
+            title="Launch Rerank"
             style={styles.buttonContainer}
             onClick={() => launchModel(url, modelData)}
             disabled={isCallingApi || isUpdatingModel || !modelData}
@@ -337,7 +318,7 @@ const ImageCard = ({
             })()}
           </button>
           <button
-            title="Launch Image"
+            title="Launch Rerank"
             style={styles.buttonContainer}
             onClick={() => setSelected(false)}
           >
@@ -351,4 +332,4 @@ const ImageCard = ({
   )
 }
 
-export default ImageCard
+export default RerankCard

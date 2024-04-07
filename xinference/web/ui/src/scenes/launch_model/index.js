@@ -85,7 +85,7 @@ const LaunchModel = () => {
         <TabPanel value="3" sx={{ padding: 0 }}>
           <LaunchRerank />
         </TabPanel>
-        <TabPanel value="4" sx={{ paddding: 0 }}>
+        <TabPanel value="4" sx={{ padding: 0 }}>
           <LaunchImage />
         </TabPanel>
         <TabPanel value="5" sx={{ padding: 0 }}>

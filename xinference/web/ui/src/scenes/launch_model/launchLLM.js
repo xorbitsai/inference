@@ -150,9 +150,12 @@ const LaunchLLM = ({ gpuAvailable }) => {
           .filter((registration) => filter(registration))
           .map((filteredRegistration) => (
             <ModelCard
+              key={filteredRegistration.model_name}
               url={endPoint}
               modelData={filteredRegistration}
               gpuAvailable={gpuAvailable}
+              isLLM={true}
+              modelType={'LLM'}
             />
           ))}
       </div>
