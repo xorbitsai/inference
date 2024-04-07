@@ -3,7 +3,8 @@ import React, { useContext, useEffect, useState } from 'react'
 
 import { ApiContext } from '../../components/apiContext'
 import fetcher from '../../components/fetcher'
-import RerankCard from './rerankCard'
+// import RerankCard from './rerankCard'
+import ModelCard from './modelCard'
 
 const LaunchRerank = () => {
   let endPoint = useContext(ApiContext).endPoint
@@ -88,7 +89,15 @@ const LaunchRerank = () => {
         {registrationData
           .filter((registration) => filter(registration))
           .map((filteredRegistration) => (
-            <RerankCard url={endPoint} modelData={filteredRegistration} />
+            // <RerankCard url={endPoint} modelData={filteredRegistration} />
+            <ModelCard
+              key={filteredRegistration.model_name}
+              url={endPoint}
+              modelData={filteredRegistration}
+              // gpuAvailable={gpuAvailable}
+              isLLM={false}
+              modelType={'rerank'}
+            />
           ))}
       </div>
     </Box>

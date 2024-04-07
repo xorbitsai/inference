@@ -3,7 +3,8 @@ import React, { useContext, useEffect, useState } from 'react'
 
 import { ApiContext } from '../../components/apiContext'
 import fetcher from '../../components/fetcher'
-import AudioCard from './audioCard'
+// import AudioCard from './audioCard'
+import ModelCard from './modelCard'
 
 const LaunchAudio = () => {
   let endPoint = useContext(ApiContext).endPoint
@@ -88,7 +89,14 @@ const LaunchAudio = () => {
         {registrationData
           .filter((registration) => filter(registration))
           .map((filteredRegistration) => (
-            <AudioCard url={endPoint} modelData={filteredRegistration} />
+            // <AudioCard url={endPoint} modelData={filteredRegistration} />
+            <ModelCard
+              key={filteredRegistration.model_name}
+              url={endPoint}
+              modelData={filteredRegistration}
+              isLLM={false}
+              modelType={'audio'}
+            />
           ))}
       </div>
     </Box>
