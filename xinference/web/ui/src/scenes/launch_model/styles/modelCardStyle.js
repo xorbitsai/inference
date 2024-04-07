@@ -30,7 +30,7 @@ const styles = {
     position: 'relative',
     padding: '20px 80px 0',
     minHeight: '100%',
-    width: '60vw'
+    width: '60vw',
   },
   p: {
     fontSize: '14px',
@@ -39,7 +39,7 @@ const styles = {
   formContainer: {
     height: '80%',
     overflow: 'scroll',
-    padding: '0 10px'
+    padding: '0 10px',
   },
   buttonsContainer: {
     position: 'absolute',

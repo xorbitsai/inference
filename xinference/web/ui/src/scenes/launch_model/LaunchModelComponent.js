@@ -6,7 +6,7 @@ import fetcher from '../../components/fetcher'
 import ModelCard from './modelCard'
 import style from './styles/launchModelStyle'
 
-const LaunchModelComponent = ({modelType}) => {
+const LaunchModelComponent = ({ modelType }) => {
   let endPoint = useContext(ApiContext).endPoint
   const [registrationData, setRegistrationData] = useState([])
   const [searchTerm, setSearchTerm] = useState('')
@@ -20,7 +20,9 @@ const LaunchModelComponent = ({modelType}) => {
 
   const filter = (registration) => {
     if (!registration || typeof searchTerm !== 'string') return false
-    const modelName = registration.model_name ? registration.model_name.toLowerCase() : ''
+    const modelName = registration.model_name
+      ? registration.model_name.toLowerCase()
+      : ''
     return modelName.includes(searchTerm.toLowerCase())
   }
 

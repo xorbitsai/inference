@@ -173,10 +173,18 @@ const LaunchCustom = ({ gpuAvailable }) => {
         </Box>
         <TabPanel value="1" sx={{ padding: 0 }}>
           <div style={style}>
-            {registrationData.filter((registration) => filter(registration))
+            {registrationData
+              .filter((registration) => filter(registration))
               .map((filteredRegistration) => {
-                if (!(filteredRegistration.max_tokens && filteredRegistration.dimensions) && 
-                  !(filteredRegistration.model_type && filteredRegistration.model_type === 'rerank')
+                if (
+                  !(
+                    filteredRegistration.max_tokens &&
+                    filteredRegistration.dimensions
+                  ) &&
+                  !(
+                    filteredRegistration.model_type &&
+                    filteredRegistration.model_type === 'rerank'
+                  )
                 ) {
                   return (
                     <ModelCard
@@ -192,9 +200,13 @@ const LaunchCustom = ({ gpuAvailable }) => {
         </TabPanel>
         <TabPanel value="2" sx={{ padding: 0 }}>
           <div style={style}>
-            {registrationData.filter((registration) => filter(registration))
+            {registrationData
+              .filter((registration) => filter(registration))
               .map((filteredRegistration) => {
-                if (filteredRegistration.max_tokens && filteredRegistration.dimensions) {
+                if (
+                  filteredRegistration.max_tokens &&
+                  filteredRegistration.dimensions
+                ) {
                   return (
                     <ModelCard
                       url={endPoint}
@@ -208,9 +220,13 @@ const LaunchCustom = ({ gpuAvailable }) => {
         </TabPanel>
         <TabPanel value="3" sx={{ padding: 0 }}>
           <div style={style}>
-            {registrationData.filter((registration) => filter(registration))
+            {registrationData
+              .filter((registration) => filter(registration))
               .map((filteredRegistration) => {
-                if (filteredRegistration.model_type && filteredRegistration.model_type === 'rerank') {
+                if (
+                  filteredRegistration.model_type &&
+                  filteredRegistration.model_type === 'rerank'
+                ) {
                   return (
                     <ModelCard
                       url={endPoint}
