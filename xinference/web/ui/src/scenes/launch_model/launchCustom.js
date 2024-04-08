@@ -145,24 +145,6 @@ const LaunchCustom = ({ gpuAvailable }) => {
 
   return (
     <Box m="20px">
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: '1fr',
-          margin: '30px 2rem',
-        }}
-      >
-        <FormControl variant="outlined" margin="normal">
-          <TextField
-            id="search"
-            type="search"
-            label="Search for custom model name"
-            value={searchTerm}
-            onChange={handleChange}
-            size="small"
-          />
-        </FormControl>
-      </div>
       <TabContext value={value}>
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
           <TabList value={value} onChange={handleTabChange} aria-label="tabs">
@@ -172,6 +154,24 @@ const LaunchCustom = ({ gpuAvailable }) => {
           </TabList>
         </Box>
         <TabPanel value="1" sx={{ padding: 0 }}>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr',
+              margin: '30px 2rem',
+            }}
+          >
+            <FormControl variant="outlined" margin="normal">
+              <TextField
+                id="search"
+                type="search"
+                label="Search for custom model name"
+                value={searchTerm}
+                onChange={handleChange}
+                size="small"
+              />
+            </FormControl>
+          </div>
           <div style={style}>
             {registrationData
               .filter((registration) => filter(registration))
@@ -199,6 +199,24 @@ const LaunchCustom = ({ gpuAvailable }) => {
           </div>
         </TabPanel>
         <TabPanel value="2" sx={{ padding: 0 }}>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr',
+              margin: '30px 2rem',
+            }}
+          >
+            <FormControl variant="outlined" margin="normal">
+              <TextField
+                id="search"
+                type="search"
+                label="Search for custom model name"
+                value={searchTerm}
+                onChange={handleChange}
+                size="small"
+              />
+            </FormControl>
+          </div>
           <div style={style}>
             {registrationData
               .filter((registration) => filter(registration))
@@ -219,6 +237,24 @@ const LaunchCustom = ({ gpuAvailable }) => {
           </div>
         </TabPanel>
         <TabPanel value="3" sx={{ padding: 0 }}>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr',
+              margin: '30px 2rem',
+            }}
+          >
+            <FormControl variant="outlined" margin="normal">
+              <TextField
+                id="search"
+                type="search"
+                label="Search for custom model name"
+                value={searchTerm}
+                onChange={handleChange}
+                size="small"
+              />
+            </FormControl>
+          </div>
           <div style={style}>
             {registrationData
               .filter((registration) => filter(registration))
