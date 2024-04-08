@@ -210,8 +210,7 @@ LLMSpecV1 = Annotated[
 LLMFamilyV1.update_forward_refs()
 CustomLLMFamilyV1.update_forward_refs()
 
-
-LLM_CLASSES: List[Type[LLM]] = []
+LLM_CLASSES: Dict[Type[LLM]] = []
 PEFT_SUPPORTED_CLASSES: List[Type[LLM]] = []
 
 BUILTIN_LLM_FAMILIES: List["LLMFamilyV1"] = []
