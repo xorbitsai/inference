@@ -182,9 +182,7 @@ const ModelCard = ({
           : parseInt(nGPU, 10),
       replica: replica,
       request_limits:
-        requestLimits.trim() === ''
-          ? null
-          : Number(requestLimits.trim()),
+        requestLimits.trim() === '' ? null : Number(requestLimits.trim()),
       peft_model_path:
         peftModelPath.trim() === '' ? null : peftModelPath.trim(),
       image_lora_load_kwargs:
@@ -343,7 +341,7 @@ const ModelCard = ({
               justifyContent="space-evenly"
               alignItems="center"
               spacing={1}
-            > 
+            >
               <TitleTypography value={modelData.model_name} />
               <IconButton
                 aria-label="delete"
@@ -379,7 +377,9 @@ const ModelCard = ({
             })()}
           </Stack>
           {modelData.model_description && (
-            <p style={styles.p} title={modelData.model_description}>{modelData.model_description}</p>
+            <p style={styles.p} title={modelData.model_description}>
+              {modelData.model_description}
+            </p>
           )}
 
           <div style={styles.iconRow}>
@@ -691,8 +691,14 @@ const ModelCard = ({
                         label="(Optional) Request Limits, the number of request limits for this model，default is None"
                         onChange={(e) => {
                           setRequestLimitsAlert(false)
-                          setRequestLimits(e.target.value)                        
-                          if (e.target.value !== '' && (!Number(e.target.value) || Number(e.target.value) < 1 || parseInt(e.target.value) !== parseFloat(e.target.value))) {
+                          setRequestLimits(e.target.value)
+                          if (
+                            e.target.value !== '' &&
+                            (!Number(e.target.value) ||
+                              Number(e.target.value) < 1 ||
+                              parseInt(e.target.value) !==
+                                parseFloat(e.target.value))
+                          ) {
                             setRequestLimitsAlert(true)
                           }
                         }}
@@ -753,7 +759,10 @@ const ModelCard = ({
                           setGPUIdxAlert(false)
                           setGPUIdx(e.target.value)
                           const regular = /^\d+(?:,\d+)*$/
-                          if (e.target.value !== '' && !regular.test(e.target.value)){
+                          if (
+                            e.target.value !== '' &&
+                            !regular.test(e.target.value)
+                          ) {
                             setGPUIdxAlert(true)
                           }
                         }}
@@ -774,7 +783,9 @@ const ModelCard = ({
                         marginTop: '10px',
                       }}
                     >
-                      <div>Additional parameters passed to the inference engine</div>
+                      <div>
+                        Additional parameters passed to the inference engine
+                      </div>
                       <IconButton
                         color="primary"
                         onClick={() => {
@@ -866,18 +877,18 @@ const ModelCard = ({
               disabled={
                 modelType === 'LLM' &&
                 (isCallingApi ||
-                isUpdatingModel ||
-                !(
-                  modelFormat &&
-                  modelSize &&
-                  modelData &&
-                  (quantization ||
-                    (!modelData.is_builtin && modelFormat !== 'pytorch'))
-                ) ||
-                !judgeCustomParameters() ||
-                defaultIndex !== -1 ||
-                requestLimitsAlert ||
-                GPUIdxAlert)
+                  isUpdatingModel ||
+                  !(
+                    modelFormat &&
+                    modelSize &&
+                    modelData &&
+                    (quantization ||
+                      (!modelData.is_builtin && modelFormat !== 'pytorch'))
+                  ) ||
+                  !judgeCustomParameters() ||
+                  defaultIndex !== -1 ||
+                  requestLimitsAlert ||
+                  GPUIdxAlert)
               }
             >
               {(() => {

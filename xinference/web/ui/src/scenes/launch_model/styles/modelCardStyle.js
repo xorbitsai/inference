@@ -34,20 +34,12 @@ const styles = {
     width: '60vw',
   },
   p: {
-    // display: 'flex',
-    // flexDirection: 'column',
-    // maxHeight: '6em',
-    // overflow: 'hidden',
-    // textOverflow: 'ellipsis',
-
-
-    "display": '-webkit-box',
+    'display': '-webkit-box',
     '-webkit-line-clamp': '4',
     '-webkit-box-orient': 'vertical',
     'overflow': 'hidden',
     'textOverflow': 'ellipsis',
     'wordBreak': 'break-word',
-
     'fontSize': '14px',
     'padding': '0px 10px',
   },
