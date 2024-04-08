@@ -8,6 +8,7 @@ const styles = {
     borderRadius: '20px',
   },
   containerSelected: {
+    cursor: 'pointer',
     display: 'block',
     position: 'relative',
     width: '300px',
@@ -33,8 +34,22 @@ const styles = {
     width: '60vw',
   },
   p: {
-    fontSize: '14px',
-    padding: '0px 10px',
+    // display: 'flex',
+    // flexDirection: 'column',
+    // maxHeight: '6em',
+    // overflow: 'hidden',
+    // textOverflow: 'ellipsis',
+
+
+    "display": '-webkit-box',
+    '-webkit-line-clamp': '4',
+    '-webkit-box-orient': 'vertical',
+    'overflow': 'hidden',
+    'textOverflow': 'ellipsis',
+    'wordBreak': 'break-word',
+
+    'fontSize': '14px',
+    'padding': '0px 10px',
   },
   formContainer: {
     height: '80%',

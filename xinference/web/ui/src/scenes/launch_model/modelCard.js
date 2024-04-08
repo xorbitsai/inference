@@ -184,7 +184,7 @@ const ModelCard = ({
       request_limits:
         requestLimits.trim() === ''
           ? null
-          : handleRequestLimits(requestLimits.trim()),
+          : Number(requestLimits.trim()),
       peft_model_path:
         peftModelPath.trim() === '' ? null : peftModelPath.trim(),
       image_lora_load_kwargs:
@@ -241,10 +241,6 @@ const ModelCard = ({
         console.error('Error:', error)
         setIsCallingApi(false)
       })
-  }
-
-  const handleRequestLimits = (data) => {
-    return data
   }
 
   const handleGPUIdx = (data) => {
@@ -347,7 +343,7 @@ const ModelCard = ({
               justifyContent="space-evenly"
               alignItems="center"
               spacing={1}
-            >
+            > 
               <TitleTypography value={modelData.model_name} />
               <IconButton
                 aria-label="delete"
@@ -383,7 +379,7 @@ const ModelCard = ({
             })()}
           </Stack>
           {modelData.model_description && (
-            <p style={styles.p}>{modelData.model_description}</p>
+            <p style={styles.p} title={modelData.model_description}>{modelData.model_description}</p>
           )}
 
           <div style={styles.iconRow}>
@@ -674,7 +670,7 @@ const ModelCard = ({
                   </FormControl>
                 </Grid>
                 <ListItemButton onClick={() => setIsOther(!isOther)}>
-                  <ListItemText primary="optional configurations" />
+                  <ListItemText primary="Optional Configurations" />
                   {isOther ? <ExpandLess /> : <ExpandMore />}
                 </ListItemButton>
                 <Collapse in={isOther} timeout="auto" unmountOnExit>
@@ -695,21 +691,15 @@ const ModelCard = ({
                         label="(Optional) Request Limits, the number of request limits for this model，default is None"
                         onChange={(e) => {
                           setRequestLimitsAlert(false)
-                          if (
-                            Number(e.target.value) &&
-                            Number(e.target.value) > 0
-                          ) {
-                            setRequestLimits(e.target.value)
-                          } else {
+                          setRequestLimits(e.target.value)                        
+                          if (e.target.value !== '' && (!Number(e.target.value) || Number(e.target.value) < 1 || parseInt(e.target.value) !== parseFloat(e.target.value))) {
                             setRequestLimitsAlert(true)
-                            setRequestLimits('')
                           }
                         }}
-                        onBlur={() => setRequestLimitsAlert(false)}
                       />
                       {requestLimitsAlert && (
                         <Alert severity="error">
-                          Please enter an integer greater than 0 !
+                          Please enter an integer greater than 0
                         </Alert>
                       )}
                     </FormControl>
@@ -761,23 +751,17 @@ const ModelCard = ({
                         label="(Optional) GPU Idx, Specify the GPU index where the model is located"
                         onChange={(e) => {
                           setGPUIdxAlert(false)
+                          setGPUIdx(e.target.value)
                           const regular = /^\d+(?:,\d+)*$/
-                          if (regular.test(e.target.value)) {
-                            setGPUIdx(e.target.value)
-                          } else {
+                          if (e.target.value !== '' && !regular.test(e.target.value)){
                             setGPUIdxAlert(true)
-                            setGPUIdx(e.target.value)
                           }
-                        }}
-                        onBlur={() => {
-                          setGPUIdxAlert(false)
-                          GPUIdxAlert ? setGPUIdx('') : ''
                         }}
                       />
                       {GPUIdxAlert && (
                         <Alert severity="error">
                           Please enter numeric data separated by commas, for
-                          example: 0, 1, 2 !
+                          example: 0,1,2
                         </Alert>
                       )}
                     </FormControl>
@@ -790,7 +774,7 @@ const ModelCard = ({
                         marginTop: '10px',
                       }}
                     >
-                      <div>add other custom parameters</div>
+                      <div>Additional parameters passed to the inference engine</div>
                       <IconButton
                         color="primary"
                         onClick={() => {
@@ -882,16 +866,18 @@ const ModelCard = ({
               disabled={
                 modelType === 'LLM' &&
                 (isCallingApi ||
-                  isUpdatingModel ||
-                  !(
-                    modelFormat &&
-                    modelSize &&
-                    modelData &&
-                    (quantization ||
-                      (!modelData.is_builtin && modelFormat !== 'pytorch'))
-                  ) ||
-                  !judgeCustomParameters() ||
-                  defaultIndex !== -1)
+                isUpdatingModel ||
+                !(
+                  modelFormat &&
+                  modelSize &&
+                  modelData &&
+                  (quantization ||
+                    (!modelData.is_builtin && modelFormat !== 'pytorch'))
+                ) ||
+                !judgeCustomParameters() ||
+                defaultIndex !== -1 ||
+                requestLimitsAlert ||
+                GPUIdxAlert)
               }
             >
               {(() => {
@@ -955,7 +941,7 @@ const ModelCard = ({
         anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
         open={openSnackbar}
         onClose={() => setOpenSnackbar(false)}
-        message="Please fill in the added custom parameters completely！"
+        message="Please fill in the added custom parameters completely!"
         key={'top' + 'center'}
       />
     </Box>
