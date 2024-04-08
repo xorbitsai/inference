@@ -74,7 +74,67 @@ chosen quantization method from the options listed above::
    xinference launch --model-name llama-2-chat --size-in-billions 7 --model-format pytorch --quantization ${quantization}
 
 
-Model Spec 5 (pytorch, 13 Billion)
+Model Spec 5 (gptq, 7 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** gptq
+- **Model Size (in billions):** 7
+- **Quantizations:** Int4
+- **Model ID:** TheBloke/Llama-2-7B-Chat-GPTQ
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/Llama-2-7B-Chat-GPTQ>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-name llama-2-chat --size-in-billions 7 --model-format gptq --quantization ${quantization}
+
+
+Model Spec 6 (gptq, 70 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** gptq
+- **Model Size (in billions):** 70
+- **Quantizations:** Int4
+- **Model ID:** TheBloke/Llama-2-70B-Chat-GPTQ
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/Llama-2-70B-Chat-GPTQ>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-name llama-2-chat --size-in-billions 70 --model-format gptq --quantization ${quantization}
+
+
+Model Spec 7 (awq, 70 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** awq
+- **Model Size (in billions):** 70
+- **Quantizations:** Int4
+- **Model ID:** TheBloke/Llama-2-70B-Chat-AWQ
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/Llama-2-70B-Chat-AWQ>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-name llama-2-chat --size-in-billions 70 --model-format awq --quantization ${quantization}
+
+
+Model Spec 8 (awq, 7 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** awq
+- **Model Size (in billions):** 7
+- **Quantizations:** Int4
+- **Model ID:** TheBloke/Llama-2-7B-Chat-AWQ
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/Llama-2-7B-Chat-AWQ>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-name llama-2-chat --size-in-billions 7 --model-format awq --quantization ${quantization}
+
+
+Model Spec 9 (pytorch, 13 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** pytorch
@@ -89,7 +149,37 @@ chosen quantization method from the options listed above::
    xinference launch --model-name llama-2-chat --size-in-billions 13 --model-format pytorch --quantization ${quantization}
 
 
-Model Spec 6 (pytorch, 70 Billion)
+Model Spec 10 (gptq, 13 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** gptq
+- **Model Size (in billions):** 13
+- **Quantizations:** Int4
+- **Model ID:** TheBloke/Llama-2-13B-chat-GPTQ
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/Llama-2-13B-chat-GPTQ>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-name llama-2-chat --size-in-billions 13 --model-format gptq --quantization ${quantization}
+
+
+Model Spec 11 (awq, 13 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** awq
+- **Model Size (in billions):** 13
+- **Quantizations:** Int4
+- **Model ID:** TheBloke/Llama-2-13B-chat-AWQ
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/Llama-2-13B-chat-AWQ>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-name llama-2-chat --size-in-billions 13 --model-format awq --quantization ${quantization}
+
+
+Model Spec 12 (pytorch, 70 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** pytorch
@@ -104,7 +194,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-name llama-2-chat --size-in-billions 70 --model-format pytorch --quantization ${quantization}
 
 
-Model Spec 7 (ggufv2, 7 Billion)
+Model Spec 13 (ggufv2, 7 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** ggufv2
@@ -119,7 +209,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-name llama-2-chat --size-in-billions 7 --model-format ggufv2 --quantization ${quantization}
 
 
-Model Spec 8 (ggufv2, 13 Billion)
+Model Spec 14 (ggufv2, 13 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** ggufv2
@@ -134,7 +224,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-name llama-2-chat --size-in-billions 13 --model-format ggufv2 --quantization ${quantization}
 
 
-Model Spec 9 (ggufv2, 70 Billion)
+Model Spec 15 (ggufv2, 70 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** ggufv2
