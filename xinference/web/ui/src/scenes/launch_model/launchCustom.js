@@ -1,11 +1,10 @@
-import { Box, FormControl, TextField } from '@mui/material'
+import { TabContext, TabList, TabPanel } from '@mui/lab'
+import { Box, FormControl, Tab, TextField } from '@mui/material'
 import React, { useContext, useEffect, useState } from 'react'
 
 import { ApiContext } from '../../components/apiContext'
 import fetcher from '../../components/fetcher'
-import EmbeddingCard from './embeddingCard'
 import ModelCard from './modelCard'
-import RerankCard from './rerankCard'
 
 const LaunchCustom = ({ gpuAvailable }) => {
   let endPoint = useContext(ApiContext).endPoint
@@ -15,6 +14,12 @@ const LaunchCustom = ({ gpuAvailable }) => {
 
   // States used for filtering
   const [searchTerm, setSearchTerm] = useState('')
+  const [value, setValue] = useState('1')
+
+  const handleTabChange = (event, newValue) => {
+    setValue(newValue)
+    update()
+  }
 
   const handleChange = (event) => {
     setSearchTerm(event.target.value)
@@ -134,69 +139,142 @@ const LaunchCustom = ({ gpuAvailable }) => {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
     paddingLeft: '2rem',
+    paddingTop: '2rem',
     gridGap: '2rem 0rem',
   }
 
   return (
     <Box m="20px">
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: '1fr',
-          margin: '30px 2rem',
-        }}
-      >
-        <FormControl variant="outlined" margin="normal">
-          <TextField
-            id="search"
-            type="search"
-            label="Search for custom model name"
-            value={searchTerm}
-            onChange={handleChange}
-            size="small"
-          />
-        </FormControl>
-      </div>
-      <div style={style}>
-        {registrationData
-          .filter((registration) => filter(registration))
-          .map((filteredRegistration) => {
-            if (
-              filteredRegistration.max_tokens &&
-              filteredRegistration.dimensions
-            ) {
-              return (
-                <EmbeddingCard
-                  url={endPoint}
-                  modelData={filteredRegistration}
-                  cardHeight={380}
-                  is_custom={true}
-                />
-              )
-            } else if (
-              filteredRegistration.model_type &&
-              filteredRegistration.model_type === 'rerank'
-            ) {
-              return (
-                <RerankCard
-                  url={endPoint}
-                  modelData={filteredRegistration}
-                  cardHeight={380}
-                  is_custom={true}
-                />
-              )
-            } else {
-              return (
-                <ModelCard
-                  url={endPoint}
-                  modelData={filteredRegistration}
-                  gpuAvailable={gpuAvailable}
-                  is_custom={true}
-                />
-              )
-            }
-          })}
-      </div>
+      <TabContext value={value}>
+        <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+          <TabList value={value} onChange={handleTabChange} aria-label="tabs">
+            <Tab label="Language Models" value="1" />
+            <Tab label="Embedding Models" value="2" />
+            <Tab label="Rerank Models" value="3" />
+          </TabList>
+        </Box>
+        <TabPanel value="1" sx={{ padding: 0 }}>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr',
+              margin: '30px 2rem',
+            }}
+          >
+            <FormControl variant="outlined" margin="normal">
+              <TextField
+                id="search"
+                type="search"
+                label="Search for custom model name"
+                value={searchTerm}
+                onChange={handleChange}
+                size="small"
+              />
+            </FormControl>
+          </div>
+          <div style={style}>
+            {registrationData
+              .filter((registration) => filter(registration))
+              .map((filteredRegistration) => {
+                if (
+                  !(
+                    filteredRegistration.max_tokens &&
+                    filteredRegistration.dimensions
+                  ) &&
+                  !(
+                    filteredRegistration.model_type &&
+                    filteredRegistration.model_type === 'rerank'
+                  )
+                ) {
+                  return (
+                    <ModelCard
+                      url={endPoint}
+                      modelData={filteredRegistration}
+                      gpuAvailable={gpuAvailable}
+                      is_custom={true}
+                    />
+                  )
+                }
+              })}
+          </div>
+        </TabPanel>
+        <TabPanel value="2" sx={{ padding: 0 }}>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr',
+              margin: '30px 2rem',
+            }}
+          >
+            <FormControl variant="outlined" margin="normal">
+              <TextField
+                id="search"
+                type="search"
+                label="Search for custom model name"
+                value={searchTerm}
+                onChange={handleChange}
+                size="small"
+              />
+            </FormControl>
+          </div>
+          <div style={style}>
+            {registrationData
+              .filter((registration) => filter(registration))
+              .map((filteredRegistration) => {
+                if (
+                  filteredRegistration.max_tokens &&
+                  filteredRegistration.dimensions
+                ) {
+                  return (
+                    <ModelCard
+                      url={endPoint}
+                      modelData={filteredRegistration}
+                      is_custom={true}
+                    />
+                  )
+                }
+              })}
+          </div>
+        </TabPanel>
+        <TabPanel value="3" sx={{ padding: 0 }}>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr',
+              margin: '30px 2rem',
+            }}
+          >
+            <FormControl variant="outlined" margin="normal">
+              <TextField
+                id="search"
+                type="search"
+                label="Search for custom model name"
+                value={searchTerm}
+                onChange={handleChange}
+                size="small"
+              />
+            </FormControl>
+          </div>
+          <div style={style}>
+            {registrationData
+              .filter((registration) => filter(registration))
+              .map((filteredRegistration) => {
+                if (
+                  filteredRegistration.model_type &&
+                  filteredRegistration.model_type === 'rerank'
+                ) {
+                  return (
+                    <ModelCard
+                      url={endPoint}
+                      modelData={filteredRegistration}
+                      is_custom={true}
+                    />
+                  )
+                }
+              })}
+          </div>
+        </TabPanel>
+      </TabContext>
     </Box>
   )
 }
