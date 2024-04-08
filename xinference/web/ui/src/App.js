@@ -1,4 +1,4 @@
-import { CssBaseline, ThemeProvider } from '@mui/material'
+import { CssBaseline } from '@mui/material'
 import Snackbar from '@mui/material/Snackbar'
 import React, { useEffect, useState } from 'react'
 import { useCookies } from 'react-cookie'
@@ -14,10 +14,8 @@ import LaunchModel from './scenes/launch_model'
 import Login from './scenes/login/login'
 import RegisterModel from './scenes/register_model'
 import RunningModels from './scenes/running_models'
-import { useMode } from './theme'
 
 function App() {
-  const [theme] = useMode()
   const [cookie, setCookie, removeCookie] = useCookies(['token'])
   const [msg, setMsg] = useState('')
 
@@ -88,21 +86,19 @@ function App() {
         </Alert>
       </Snackbar>
       <HashRouter>
-        <ThemeProvider theme={theme}>
-          <ApiContextProvider>
-            <CssBaseline />
-            <AuthAlertDialog />
-            <Routes>
-              <Route path="/login" element={<Login />} />
-              <Route element={<Layout />}>
-                <Route path="/" element={<LaunchModel />} />
-                <Route path="/running_models" element={<RunningModels />} />
-                <Route path="/register_model" element={<RegisterModel />} />
-                <Route path="/cluster_info" element={<ClusterInfo />} />
-              </Route>
-            </Routes>
-          </ApiContextProvider>
-        </ThemeProvider>
+        <ApiContextProvider>
+          <CssBaseline />
+          <AuthAlertDialog />
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route element={<Layout />}>
+              <Route path="/" element={<LaunchModel />} />
+              <Route path="/running_models" element={<RunningModels />} />
+              <Route path="/register_model" element={<RegisterModel />} />
+              <Route path="/cluster_info" element={<ClusterInfo />} />
+            </Route>
+          </Routes>
+        </ApiContextProvider>
       </HashRouter>
     </div>
   )

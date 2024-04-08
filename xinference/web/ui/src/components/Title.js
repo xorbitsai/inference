@@ -20,7 +20,7 @@ const Title = ({ title }) => {
       <Stack direction="row" alignItems="center" justifyContent="space-between">
         <Typography
           variant="h2"
-          color="#141414"
+          color="text.primary"
           fontWeight="bold"
           sx={{ m: '0 0 5px 0' }}
         >
