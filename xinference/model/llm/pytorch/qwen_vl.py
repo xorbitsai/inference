@@ -53,6 +53,8 @@ class QwenVLChatModel(PytorchChatModel):
 
         device = self._pytorch_model_config.get("device", "auto")
         device = select_device(device)
+        # for multiple GPU, set back to auto to make multiple devices work
+        device = "auto" if device == "cuda" else device
 
         self._tokenizer = AutoTokenizer.from_pretrained(
             self.model_path,

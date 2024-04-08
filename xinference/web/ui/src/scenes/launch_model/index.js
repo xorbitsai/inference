@@ -7,12 +7,9 @@ import { useNavigate } from 'react-router-dom'
 import { ApiContext } from '../../components/apiContext'
 import ErrorMessageSnackBar from '../../components/errorMessageSnackBar'
 import Title from '../../components/Title'
-import LaunchAudio from './launchAudio'
 import LaunchCustom from './launchCustom'
-import LaunchEmbedding from './launchEmbedding'
-import LaunchImage from './launchImage'
 import LaunchLLM from './launchLLM'
-import LaunchRerank from './launchRerank'
+import LaunchModelComponent from './LaunchModelComponent'
 
 const LaunchModel = () => {
   let endPoint = useContext(ApiContext).endPoint
@@ -80,16 +77,16 @@ const LaunchModel = () => {
           <LaunchLLM gpuAvailable={gpuAvailable} />
         </TabPanel>
         <TabPanel value="2" sx={{ padding: 0 }}>
-          <LaunchEmbedding />
+          <LaunchModelComponent modelType={'embedding'} />
         </TabPanel>
         <TabPanel value="3" sx={{ padding: 0 }}>
-          <LaunchRerank />
+          <LaunchModelComponent modelType={'rerank'} />
         </TabPanel>
         <TabPanel value="4" sx={{ padding: 0 }}>
-          <LaunchImage />
+          <LaunchModelComponent modelType={'image'} />
         </TabPanel>
         <TabPanel value="5" sx={{ padding: 0 }}>
-          <LaunchAudio />
+          <LaunchModelComponent modelType={'audio'} />
         </TabPanel>
         <TabPanel value="6" sx={{ padding: 0 }}>
           <LaunchCustom gpuAvailable={gpuAvailable} />

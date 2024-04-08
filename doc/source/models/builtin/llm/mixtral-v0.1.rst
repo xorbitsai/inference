@@ -29,7 +29,22 @@ chosen quantization method from the options listed above::
    xinference launch --model-name mixtral-v0.1 --size-in-billions 46_7 --model-format pytorch --quantization ${quantization}
 
 
-Model Spec 2 (ggufv2, 46_7 Billion)
+Model Spec 2 (gptq, 46_7 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** gptq
+- **Model Size (in billions):** 46_7
+- **Quantizations:** Int4
+- **Model ID:** TheBloke/Mixtral-8x7B-v0.1-GPTQ
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/Mixtral-8x7B-v0.1-GPTQ>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-name mixtral-v0.1 --size-in-billions 46_7 --model-format gptq --quantization ${quantization}
+
+
+Model Spec 3 (ggufv2, 46_7 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** ggufv2
