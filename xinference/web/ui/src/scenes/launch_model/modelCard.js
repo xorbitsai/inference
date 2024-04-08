@@ -338,9 +338,8 @@ const ModelCard = ({
           {is_custom && (
             <Stack
               direction="row"
-              justifyContent="space-evenly"
-              alignItems="center"
               spacing={1}
+              useFlexGap
             >
               <TitleTypography value={modelData.model_name} />
               <IconButton
@@ -421,9 +420,8 @@ const ModelCard = ({
             {is_custom && (
               <Stack
                 direction="row"
-                justifyContent="space-evenly"
-                alignItems="center"
                 spacing={1}
+                useFlexGap
               >
                 <TitleTypography value={modelData.model_name} />
                 <IconButton

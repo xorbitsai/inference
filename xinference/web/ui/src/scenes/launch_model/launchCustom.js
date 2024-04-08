@@ -139,7 +139,7 @@ const LaunchCustom = ({ gpuAvailable }) => {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
     paddingLeft: '2rem',
-    paddingTop: '2rem',
+    paddingBottom: '2rem',
     gridGap: '2rem 0rem',
   }
 
@@ -188,10 +188,12 @@ const LaunchCustom = ({ gpuAvailable }) => {
                 ) {
                   return (
                     <ModelCard
+                      key={filteredRegistration.model_name}
                       url={endPoint}
                       modelData={filteredRegistration}
                       gpuAvailable={gpuAvailable}
                       is_custom={true}
+                      modelType='LLM'
                     />
                   )
                 }
@@ -227,9 +229,11 @@ const LaunchCustom = ({ gpuAvailable }) => {
                 ) {
                   return (
                     <ModelCard
+                      key={filteredRegistration.model_name}
                       url={endPoint}
                       modelData={filteredRegistration}
                       is_custom={true}
+                      modelType='embedding'
                     />
                   )
                 }
@@ -265,9 +269,11 @@ const LaunchCustom = ({ gpuAvailable }) => {
                 ) {
                   return (
                     <ModelCard
+                      key={filteredRegistration.model_name}
                       url={endPoint}
                       modelData={filteredRegistration}
                       is_custom={true}
+                      modelType='rerank'
                     />
                   )
                 }
