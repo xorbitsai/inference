@@ -775,88 +775,88 @@ const ModelCard = ({
                       )}
                     </FormControl>
                   </Grid>
-                  <Box>
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        marginTop: '10px',
+                </Collapse>
+                <Box>
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      margin: '10px 0 0 15px',
+                    }}
+                  >
+                    <div>
+                      Additional parameters passed to the inference engine
+                    </div>
+                    <IconButton
+                      color="primary"
+                      onClick={() => {
+                        setArrId(arrId + 1)
+                        judgeCustomParameters()
+                          ? setCustomParametersArr([
+                              ...customParametersArr,
+                              { id: arrId, key: '', value: '' },
+                            ])
+                          : setOpenSnackbar(true)
                       }}
                     >
-                      <div>
-                        Additional parameters passed to the inference engine
-                      </div>
-                      <IconButton
-                        color="primary"
-                        onClick={() => {
-                          setArrId(arrId + 1)
-                          judgeCustomParameters()
-                            ? setCustomParametersArr([
-                                ...customParametersArr,
-                                { id: arrId, key: '', value: '' },
-                              ])
-                            : setOpenSnackbar(true)
-                        }}
-                      >
-                        <AddCircle />
-                      </IconButton>
-                    </div>
-                    <Box>
-                      {customParametersArr.map((item, index) => {
-                        return (
-                          <Box>
-                            <div
-                              key={item.id}
-                              style={{
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                alignItems: 'center',
-                                marginTop: '10px',
+                      <AddCircle />
+                    </IconButton>
+                  </div>
+                  <Box>
+                    {customParametersArr.map((item, index) => {
+                      return (
+                        <Box>
+                          <div
+                            key={item.id}
+                            style={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              marginTop: '10px',
+                            }}
+                          >
+                            <TextField
+                              label="key"
+                              value={item.key}
+                              onChange={(e) => {
+                                updateCustomParametersArr(
+                                  index,
+                                  'key',
+                                  e.target.value
+                                )
                               }}
+                              style={{ width: '44%' }}
+                            />
+                            <TextField
+                              label="value"
+                              value={item.value}
+                              onChange={(e) => {
+                                updateCustomParametersArr(
+                                  index,
+                                  'value',
+                                  e.target.value
+                                )
+                              }}
+                              style={{ width: '44%' }}
+                            />
+                            <IconButton
+                              aria-label="delete"
+                              onClick={() =>
+                                handleDeleteCustomParameters(index)
+                              }
+                              style={{ marginLeft: '10px' }}
                             >
-                              <TextField
-                                label="key"
-                                value={item.key}
-                                onChange={(e) => {
-                                  updateCustomParametersArr(
-                                    index,
-                                    'key',
-                                    e.target.value
-                                  )
-                                }}
-                                style={{ width: '44%' }}
-                              />
-                              <TextField
-                                label="value"
-                                value={item.value}
-                                onChange={(e) => {
-                                  updateCustomParametersArr(
-                                    index,
-                                    'value',
-                                    e.target.value
-                                  )
-                                }}
-                                style={{ width: '44%' }}
-                              />
-                              <IconButton
-                                aria-label="delete"
-                                onClick={() =>
-                                  handleDeleteCustomParameters(index)
-                                }
-                                style={{ marginLeft: '10px' }}
-                              >
-                                <DeleteIcon />
-                              </IconButton>
-                            </div>
-                            {isNotUnique && defaultIndex === index && (
-                              <Alert severity="error">key must be unique</Alert>
-                            )}
-                          </Box>
-                        )
-                      })}
-                    </Box>
+                              <DeleteIcon />
+                            </IconButton>
+                          </div>
+                          {isNotUnique && defaultIndex === index && (
+                            <Alert severity="error">key must be unique</Alert>
+                          )}
+                        </Box>
+                      )
+                    })}
                   </Box>
-                </Collapse>
+                </Box>
               </Grid>
             </Box>
           ) : (
