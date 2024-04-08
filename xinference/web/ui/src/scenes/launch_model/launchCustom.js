@@ -193,7 +193,7 @@ const LaunchCustom = ({ gpuAvailable }) => {
                       modelData={filteredRegistration}
                       gpuAvailable={gpuAvailable}
                       is_custom={true}
-                      modelType='LLM'
+                      modelType="LLM"
                     />
                   )
                 }
@@ -233,7 +233,7 @@ const LaunchCustom = ({ gpuAvailable }) => {
                       url={endPoint}
                       modelData={filteredRegistration}
                       is_custom={true}
-                      modelType='embedding'
+                      modelType="embedding"
                     />
                   )
                 }
@@ -273,7 +273,7 @@ const LaunchCustom = ({ gpuAvailable }) => {
                       url={endPoint}
                       modelData={filteredRegistration}
                       is_custom={true}
-                      modelType='rerank'
+                      modelType="rerank"
                     />
                   )
                 }
