@@ -52,6 +52,13 @@ def test_restful_api(setup):
     assert scores["results"][0]["index"] == 0
     assert scores["results"][0]["document"] == corpus[0]
 
+    kwargs = {
+        "invalid": "invalid",
+    }
+    with pytest.raises(RuntimeError) as err:
+        scores = model.rerank(corpus, query, **kwargs)
+    assert "hasn't support" in str(err.value)
+
 
 def test_from_local_uri():
     from ...utils import cache_from_uri
