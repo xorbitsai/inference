@@ -75,6 +75,7 @@ def test_model():
         assert len(r["data"]) == 4
         for d in r["data"]:
             assert len(d["embedding"]) == 384
+
     finally:
         if model_path is not None:
             shutil.rmtree(model_path, ignore_errors=True)
