@@ -2170,6 +2170,60 @@
   },
   {
     "version": 1,
+    "context_length": 32768,
+    "model_name": "qwen1.5-moe-chat",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "Qwen1.5-MoE is a transformer-based MoE decoder-only language model pretrained on a large amount of data.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": "2_7",
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "qwen/Qwen1.5-MoE-A2.7B-Chat",
+        "model_hub": "modelscope"
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": "2_7",
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "qwen/Qwen1.5-MoE-A2.7B-Chat-GPTQ-Int4",
+        "model_hub": "modelscope"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "QWEN",
+      "system_prompt": "You are a helpful assistant.",
+      "roles": [
+        "user",
+        "assistant"
+      ],
+      "intra_message_sep": "\n",
+      "stop_token_ids": [
+        151643,
+        151644,
+        151645
+      ],
+      "stop": [
+        "<|endoftext|>",
+        "<|im_start|>",
+        "<|im_end|>"
+      ]
+    }
+  },
+  {
+    "version": 1,
     "context_length": 4096,
     "model_name": "deepseek-chat",
     "model_lang": [
