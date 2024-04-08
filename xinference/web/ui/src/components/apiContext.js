@@ -1,5 +1,5 @@
-import { createTheme, ThemeProvider } from '@mui/material';
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import { createTheme, ThemeProvider } from '@mui/material'
+import React, { createContext, useContext, useEffect, useState } from 'react'
 
 import { getEndpoint } from './utils'
 
@@ -12,13 +12,16 @@ export const ApiContextProvider = ({ children }) => {
   const [errorMsg, setErrorMsg] = useState('')
   const endPoint = getEndpoint()
 
-  const systemPreference = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-  const initialMode = localStorage.getItem('theme') || systemPreference;
-  const [mode, setMode] = useState(initialMode);
+  const systemPreference = window.matchMedia('(prefers-color-scheme: dark)')
+    .matches
+    ? 'dark'
+    : 'light'
+  const initialMode = localStorage.getItem('theme') || systemPreference
+  const [mode, setMode] = useState(initialMode)
 
   useEffect(() => {
-    localStorage.setItem('theme', mode);
-  }, [mode]);
+    localStorage.setItem('theme', mode)
+  }, [mode])
 
   let theme = createTheme({
     palette: {
@@ -27,8 +30,8 @@ export const ApiContextProvider = ({ children }) => {
   })
 
   const toggleMode = () => {
-    setMode((prevMode) => (prevMode === 'light' ? 'dark' : 'light'));
-  };
+    setMode((prevMode) => (prevMode === 'light' ? 'dark' : 'light'))
+  }
 
   return (
     <ThemeProvider theme={theme}>
@@ -42,7 +45,7 @@ export const ApiContextProvider = ({ children }) => {
           errorMsg,
           setErrorMsg,
           mode,
-          toggleMode
+          toggleMode,
         }}
       >
         {children}
