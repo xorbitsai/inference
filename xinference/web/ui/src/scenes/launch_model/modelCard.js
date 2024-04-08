@@ -336,12 +336,7 @@ const ModelCard = ({
       {modelType === 'LLM' ? (
         <Box style={styles.descriptionCard}>
           {is_custom && (
-            <Stack
-              direction="row"
-              justifyContent="space-evenly"
-              alignItems="center"
-              spacing={1}
-            >
+            <Stack direction="row" spacing={1} useFlexGap>
               <TitleTypography value={modelData.model_name} />
               <IconButton
                 aria-label="delete"
@@ -419,12 +414,7 @@ const ModelCard = ({
         <Box style={styles.descriptionCard}>
           <div style={styles.titleContainer}>
             {is_custom && (
-              <Stack
-                direction="row"
-                justifyContent="space-evenly"
-                alignItems="center"
-                spacing={1}
-              >
+              <Stack direction="row" spacing={1} useFlexGap>
                 <TitleTypography value={modelData.model_name} />
                 <IconButton
                   aria-label="delete"
