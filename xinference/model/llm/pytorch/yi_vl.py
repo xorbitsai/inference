@@ -59,6 +59,8 @@ class YiVLChatModel(PytorchChatModel):
 
         self._device = self._pytorch_model_config.get("device", "auto")
         self._device = select_device(self._device)
+        # for multiple GPU, set back to auto to make multiple devices work
+        self._device = "auto" if self._device == "cuda" else self._device
 
         key_info["model_path"] = self.model_path
         # Default device_map is auto, it can loads model to multiple cards.
@@ -190,7 +192,7 @@ class YiVLChatModel(PytorchChatModel):
                 prompt, self._tokenizer, IMAGE_TOKEN_INDEX, return_tensors="pt"
             )
             .unsqueeze(0)
-            .to(self._device)
+            .to(self._model.device)
         )
 
         images = state.get_images(return_pil=True)
@@ -215,7 +217,7 @@ class YiVLChatModel(PytorchChatModel):
             "input_ids": input_ids,
             "images": image_tensor.unsqueeze(0)
             .to(dtype=torch.bfloat16)
-            .to(self._device),
+            .to(self._model.device),
             "streamer": streamer,
             "do_sample": True,
             "top_p": float(top_p),

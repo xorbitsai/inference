@@ -111,7 +111,7 @@ class ClientIteratorWrapper(AsyncIterator):
 
 
 class EmbeddingModelHandle(ModelHandle):
-    def create_embedding(self, input: Union[str, List[str]]) -> bytes:
+    def create_embedding(self, input: Union[str, List[str]], **kwargs) -> bytes:
         """
         Creates an embedding vector representing the input text.
 
@@ -128,7 +128,7 @@ class EmbeddingModelHandle(ModelHandle):
             machine learning models and algorithms.
         """
 
-        coro = self._model_ref.create_embedding(input)
+        coro = self._model_ref.create_embedding(input, **kwargs)
         return orjson.loads(self._isolation.call(coro))
 
 
@@ -140,6 +140,7 @@ class RerankModelHandle(ModelHandle):
         top_n: Optional[int],
         max_chunks_per_doc: Optional[int],
         return_documents: Optional[bool],
+        **kwargs,
     ):
         """
         Returns an ordered list of documents ordered by their relevance to the provided query.
@@ -163,7 +164,7 @@ class RerankModelHandle(ModelHandle):
 
         """
         coro = self._model_ref.rerank(
-            documents, query, top_n, max_chunks_per_doc, return_documents
+            documents, query, top_n, max_chunks_per_doc, return_documents, **kwargs
         )
         results = orjson.loads(self._isolation.call(coro))
         for r in results["results"]:
