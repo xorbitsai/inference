@@ -23,6 +23,7 @@ RUN python -m pip install --upgrade -i "$PIP_INDEX" pip && \
     pip install -i "$PIP_INDEX" \
       "xoscar>=0.3.0" \
       "gradio>=3.39.0" \
+      "typer[all]<0.12.0" \
       pillow \
       click \
       "tqdm>=4.27" \
