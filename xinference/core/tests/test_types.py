@@ -16,11 +16,9 @@ import pytest
 from ..._compat import ValidationError, create_model_from_typeddict
 from ...types import (
     CreateChatCompletion,
-    CreateChatCompletionCTransformers,
     CreateChatCompletionLlamaCpp,
     CreateChatCompletionTorch,
     CreateCompletion,
-    CreateCompletionCTransformers,
     CreateCompletionLlamaCpp,
     CreateCompletionTorch,
     _CreateCompletionOpenAIFallback,
@@ -67,11 +65,7 @@ def test_create_completion_types():
 
     CreateCompletion(model="abc", prompt="def")
 
-    types = [
-        CreateCompletionTorch,
-        CreateCompletionLlamaCpp,
-        CreateCompletionCTransformers,
-    ]
+    types = [CreateCompletionTorch, CreateCompletionLlamaCpp]
     for t in types:
         t()
         assert "model" not in t.__fields__
@@ -93,11 +87,7 @@ def test_create_chat_completion_types():
 
     CreateChatCompletion(model="abc", messages=[{"role": "tool"}], max_tokens=None)
 
-    types = [
-        CreateChatCompletionTorch,
-        CreateChatCompletionLlamaCpp,
-        CreateChatCompletionCTransformers,
-    ]
+    types = [CreateChatCompletionTorch, CreateChatCompletionLlamaCpp]
     for t in types:
         t()
         assert "model" not in t.__fields__
@@ -108,6 +98,5 @@ def test_create_chat_completion_types():
             check_fields(types[i], types[j])
 
     # These chat and generate share the same type.
-    assert CreateChatCompletionCTransformers is CreateCompletionCTransformers
     assert CreateChatCompletionLlamaCpp is CreateCompletionLlamaCpp
     assert CreateChatCompletionTorch is CreateCompletionTorch
