@@ -66,41 +66,30 @@ def _install():
     from .vllm.core import VLLMChatModel, VLLMModel
 
     # register llm classes.
-    LLM_CLASSES.extend(
-        [
-            LlamaCppChatModel,
-            LlamaCppModel,
-        ]
+    LLM_CLASSES.update({"vLLM": [VLLMModel, VLLMChatModel]})
+    LLM_CLASSES.update(
+        {
+            "PyTorch": [
+                BaichuanPytorchChatModel,
+                VicunaPytorchChatModel,
+                FalconPytorchChatModel,
+                ChatglmPytorchChatModel,
+                LlamaPytorchModel,
+                LlamaPytorchChatModel,
+                PytorchChatModel,
+                FalconPytorchModel,
+                Internlm2PytorchChatModel,
+                QwenVLChatModel,
+                OmniLMMModel,
+                YiVLChatModel,
+                DeepSeekVLChatModel,
+                PytorchModel,
+            ]
+        }
     )
-    LLM_CLASSES.extend(
-        [
-            ChatglmCppChatModel,
-        ]
-    )
-    LLM_CLASSES.extend(
-        [
-            CtransformersModel,
-        ]
-    )
-    LLM_CLASSES.extend([SGLANGModel, SGLANGChatModel])
-    LLM_CLASSES.extend([VLLMModel, VLLMChatModel])
-    LLM_CLASSES.extend(
-        [
-            BaichuanPytorchChatModel,
-            VicunaPytorchChatModel,
-            FalconPytorchChatModel,
-            ChatglmPytorchChatModel,
-            LlamaPytorchModel,
-            LlamaPytorchChatModel,
-            PytorchChatModel,
-            FalconPytorchModel,
-            Internlm2PytorchChatModel,
-            QwenVLChatModel,
-            OmniLMMModel,
-            YiVLChatModel,
-            DeepSeekVLChatModel,
-            PytorchModel,
-        ]
+    LLM_CLASSES.update({"SGLANG": [SGLANGModel, SGLANGChatModel]})
+    LLM_CLASSES.update(
+        {"ggml": [LlamaCppChatModel, LlamaCppModel, ChatglmCppChatModel]}
     )
     PEFT_SUPPORTED_CLASSES.extend(
         [

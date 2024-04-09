@@ -786,6 +786,7 @@ class Client:
     def launch_model(
         self,
         model_name: str,
+        model_engine: str,
         model_type: str = "LLM",
         model_uid: Optional[str] = None,
         model_size_in_billions: Optional[Union[int, str]] = None,
@@ -808,6 +809,8 @@ class Client:
         ----------
         model_name: str
             The name of model.
+        model_engine: str
+            The way of launching model.
         model_type: str
             type of model.
         model_uid: str
@@ -851,6 +854,7 @@ class Client:
         payload = {
             "model_uid": model_uid,
             "model_name": model_name,
+            "model_engine": model_engine,
             "model_type": model_type,
             "model_size_in_billions": model_size_in_billions,
             "model_format": model_format,

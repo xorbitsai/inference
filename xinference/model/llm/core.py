@@ -178,6 +178,9 @@ def create_llm_model_instance(
     model_uid: str,
     model_name: str,
     model_engine: str,
+    model_format: Optional[str] = None,
+    model_size_in_billions: Optional[int] = None,
+    quantization: Optional[str] = None,
     peft_model_path: Optional[str] = None,
     is_local_deployment: bool = False,
     **kwargs,
@@ -192,6 +195,7 @@ def create_llm_model_instance(
         quantization,
         is_local_deployment,
     )
+
     if not match_result:
         raise ValueError(
             f"Model not found, name: {model_name}, format: {model_format},"
@@ -203,7 +207,11 @@ def create_llm_model_instance(
     save_path = cache(llm_family, llm_spec, quantization)
 
     llm_cls = match_llm_cls(
-        llm_family, llm_spec, quantization, peft_model_path=peft_model_path
+        llm_family,
+        model_engine,
+        llm_spec,
+        quantization,
+        peft_model_path=peft_model_path,
     )
     if not llm_cls:
         raise ValueError(

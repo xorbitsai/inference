@@ -685,6 +685,7 @@ class RESTfulAPI:
         payload = await request.json()
         model_uid = payload.get("model_uid")
         model_name = payload.get("model_name")
+        model_engine = payload.get("model_engine")
         model_size_in_billions = payload.get("model_size_in_billions")
         model_format = payload.get("model_format")
         quantization = payload.get("quantization")
@@ -701,6 +702,7 @@ class RESTfulAPI:
         exclude_keys = {
             "model_uid",
             "model_name",
+            "model_engine",
             "model_size_in_billions",
             "model_format",
             "quantization",
@@ -729,6 +731,7 @@ class RESTfulAPI:
             model_uid = await (await self._get_supervisor_ref()).launch_builtin_model(
                 model_uid=model_uid,
                 model_name=model_name,
+                model_engine=model_engine,
                 model_size_in_billions=model_size_in_billions,
                 model_format=model_format,
                 quantization=quantization,
@@ -776,6 +779,7 @@ class RESTfulAPI:
     ) -> JSONResponse:
         payload = await request.json()
         model_uid = payload.get("model_uid")
+        model_engine = payload.get("model_engine")
         model_type = payload.get("model_type")
         model_version = payload.get("model_version")
         replica = payload.get("replica", 1)
@@ -786,6 +790,7 @@ class RESTfulAPI:
                 await self._get_supervisor_ref()
             ).launch_model_by_version(
                 model_uid=model_uid,
+                model_engine=model_engine,
                 model_type=model_type,
                 model_version=model_version,
                 replica=replica,

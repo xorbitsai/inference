@@ -210,7 +210,7 @@ LLMSpecV1 = Annotated[
 LLMFamilyV1.update_forward_refs()
 CustomLLMFamilyV1.update_forward_refs()
 
-LLM_CLASSES: Dict[Type[LLM]] = []
+LLM_CLASSES: Dict[str, List[Type[LLM]]] = {}
 PEFT_SUPPORTED_CLASSES: List[Type[LLM]] = []
 
 BUILTIN_LLM_FAMILIES: List["LLMFamilyV1"] = []
@@ -936,6 +936,7 @@ def unregister_llm(model_name: str, raise_error: bool = True):
 
 def match_llm_cls(
     family: LLMFamilyV1,
+    model_engine: str,
     llm_spec: "LLMSpecV1",
     quantization: str,
     peft_model_path: Optional[str] = None,
@@ -948,7 +949,7 @@ def match_llm_cls(
             if cls.match(family, llm_spec, quantization):
                 return cls
     else:
-        for cls in LLM_CLASSES:
+        for cls in LLM_CLASSES[model_engine]:
             if cls.match(family, llm_spec, quantization):
                 return cls
     return None
