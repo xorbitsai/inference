@@ -599,6 +599,13 @@ def list_model_registrations(
     help="Specify type of model, LLM as default.",
 )
 @click.option(
+    "--model-engine",
+    "-e",
+    type=str,
+    required=True,
+    help="The way of launching model.",
+)
+@click.option(
     "--model-uid",
     "-u",
     type=str,
@@ -691,6 +698,7 @@ def model_launch(
     endpoint: Optional[str],
     model_name: str,
     model_type: str,
+    model_engine: str,
     model_uid: str,
     size_in_billions: str,
     model_format: str,
@@ -765,6 +773,7 @@ def model_launch(
     model_uid = client.launch_model(
         model_name=model_name,
         model_type=model_type,
+        model_engine=model_engine,
         model_uid=model_uid,
         model_size_in_billions=model_size,
         model_format=model_format,
