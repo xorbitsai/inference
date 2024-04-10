@@ -43,7 +43,8 @@ function Login() {
       } else {
         res.json().then((data) => {
           setCookie('token', data['access_token'], { path: '/' })
-          navigate('/')
+          sessionStorage.setItem('token', data['access_token'])
+          navigate('/launch_model/llm')
         })
       }
     })

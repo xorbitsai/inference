@@ -138,7 +138,6 @@ const MenuSide = () => {
               }
 
               const link = text.toLowerCase().replace(' ', '_')
-              console.log(link)
 
               return (
                 <ListItem key={text}>
@@ -151,11 +150,19 @@ const MenuSide = () => {
                           'noreferrer'
                         )
                       } else if (link === 'launch_model') {
-                        navigate(`/`)
+                        sessionStorage.setItem('modelType', '/launch_model/llm')
+                        navigate('/launch_model/llm')
                         setActive(link)
                         console.log(active)
                       } else if (link === 'cluster_information') {
-                        navigate(`/cluster_info`)
+                        navigate('/cluster_info')
+                        setActive(link)
+                      } else if (link === 'running_models') {
+                        navigate('/running_models/LLM')
+                        sessionStorage.setItem(
+                          'runningModelType',
+                          '/running_models/LLM'
+                        )
                         setActive(link)
                         console.log(active)
                       } else {

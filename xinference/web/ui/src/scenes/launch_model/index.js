@@ -13,7 +13,7 @@ import LaunchModelComponent from './LaunchModelComponent'
 
 const LaunchModel = () => {
   let endPoint = useContext(ApiContext).endPoint
-  const [value, setValue] = React.useState('1')
+  const [value, setValue] = React.useState(sessionStorage.getItem('modelType'))
   const [gpuAvailable, setGPUAvailable] = useState(-1)
 
   const { setErrorMsg } = useContext(ApiContext)
@@ -22,6 +22,11 @@ const LaunchModel = () => {
 
   const handleTabChange = (event, newValue) => {
     setValue(newValue)
+    navigate(newValue)
+    sessionStorage.setItem('modelType', newValue)
+    newValue === '/launch_model/custom/llm'
+      ? sessionStorage.setItem('subType', newValue)
+      : ''
   }
 
   useEffect(() => {
@@ -58,6 +63,7 @@ const LaunchModel = () => {
     }
   }, [cookie.token])
 
+  useEffect(() => {})
   return (
     <Box m="20px">
       <Title title="Launch Model" />
@@ -65,30 +71,30 @@ const LaunchModel = () => {
       <TabContext value={value}>
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
           <TabList value={value} onChange={handleTabChange} aria-label="tabs">
-            <Tab label="Language Models" value="1" />
-            <Tab label="Embedding Models" value="2" />
-            <Tab label="Rerank Models" value="3" />
-            <Tab label="Image Models" value="4" />
-            <Tab label="Audio Models" value="5" />
-            <Tab label="Custom Models" value="6" />
+            <Tab label="Language Models" value="/launch_model/llm" />
+            <Tab label="Embedding Models" value="/launch_model/embedding" />
+            <Tab label="Rerank Models" value="/launch_model/rerank" />
+            <Tab label="Image Models" value="/launch_model/image" />
+            <Tab label="Audio Models" value="/launch_model/audio" />
+            <Tab label="Custom Models" value="/launch_model/custom/llm" />
           </TabList>
         </Box>
-        <TabPanel value="1" sx={{ padding: 0 }}>
+        <TabPanel value="/launch_model/llm" sx={{ padding: 0 }}>
           <LaunchLLM gpuAvailable={gpuAvailable} />
         </TabPanel>
-        <TabPanel value="2" sx={{ padding: 0 }}>
+        <TabPanel value="/launch_model/embedding" sx={{ padding: 0 }}>
           <LaunchModelComponent modelType={'embedding'} />
         </TabPanel>
-        <TabPanel value="3" sx={{ padding: 0 }}>
+        <TabPanel value="/launch_model/rerank" sx={{ padding: 0 }}>
           <LaunchModelComponent modelType={'rerank'} />
         </TabPanel>
-        <TabPanel value="4" sx={{ padding: 0 }}>
+        <TabPanel value="/launch_model/image" sx={{ padding: 0 }}>
           <LaunchModelComponent modelType={'image'} />
         </TabPanel>
-        <TabPanel value="5" sx={{ padding: 0 }}>
+        <TabPanel value="/launch_model/audio" sx={{ padding: 0 }}>
           <LaunchModelComponent modelType={'audio'} />
         </TabPanel>
-        <TabPanel value="6" sx={{ padding: 0 }}>
+        <TabPanel value="/launch_model/custom/llm" sx={{ padding: 0 }}>
           <LaunchCustom gpuAvailable={gpuAvailable} />
         </TabPanel>
       </TabContext>
