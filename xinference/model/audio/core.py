@@ -26,6 +26,17 @@ MAX_ATTEMPTS = 3
 
 logger = logging.getLogger(__name__)
 
+# Used for check whether the model is cached.
+# Init when registering all the builtin models.
+MODEL_NAME_TO_REVISION: Dict[str, List[str]] = defaultdict(list)
+AUDIO_MODEL_DESCRIPTIONS: Dict[str, List[Dict]] = defaultdict(list)
+
+
+def get_audio_model_descriptions():
+    import copy
+
+    return copy.deepcopy(AUDIO_MODEL_DESCRIPTIONS)
+
 
 class AudioModelFamilyV1(BaseModel):
     model_family: str

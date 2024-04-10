@@ -135,6 +135,13 @@ class SupervisorActor(xo.StatelessActor):
             EventCollectorActor, address=self.address, uid=EventCollectorActor.uid()
         )
 
+        from ..model.audio import (
+            CustomAudioModelFamilyV1,
+            generate_audio_description,
+            get_audio_model_descriptions,
+            register_audio,
+            unregister_audio,
+        )
         from ..model.embedding import (
             CustomEmbeddingModelSpec,
             generate_embedding_description,
@@ -177,6 +184,12 @@ class SupervisorActor(xo.StatelessActor):
                 unregister_rerank,
                 generate_rerank_description,
             ),
+            "audio": (
+                CustomAudioModelFamilyV1,
+                register_audio,
+                unregister_audio,
+                generate_audio_description,
+            ),
         }
 
         # record model version
@@ -185,6 +198,7 @@ class SupervisorActor(xo.StatelessActor):
         model_version_infos.update(get_embedding_model_descriptions())
         model_version_infos.update(get_rerank_model_descriptions())
         model_version_infos.update(get_image_model_descriptions())
+        model_version_infos.update(get_audio_model_descriptions())
         await self._cache_tracker_ref.record_model_version(
             model_version_infos, self.address
         )

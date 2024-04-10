@@ -76,3 +76,25 @@ def test_restful_api_for_whisper(setup):
         assert "list" in translation
         assert "airlines" in translation
         assert "hong kong" in translation
+
+
+def test_register_custom_audio():
+    from ..custom import (
+        CustomAudioModelFamilyV1,
+        get_user_defined_audios,
+        register_audio,
+        unregister_audio,
+    )
+
+    family = CustomAudioModelFamilyV1(
+        model_family="my-whisper",
+        model_name="custom_test_a",
+        model_id="test/custom_test_a",
+        multilingual=True,
+    )
+    register_audio(family, False)
+
+    assert family in get_user_defined_audios()
+
+    unregister_audio(family.model_name)
+    assert family not in get_user_defined_audios()
