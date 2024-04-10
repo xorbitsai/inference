@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import os.path
+import tempfile
 
 import pytest
 import requests
@@ -86,15 +87,63 @@ def test_register_custom_audio():
         unregister_audio,
     )
 
-    family = CustomAudioModelFamilyV1(
+    # correct
+    family_a = CustomAudioModelFamilyV1(
         model_family="my-whisper",
         model_name="custom_test_a",
         model_id="test/custom_test_a",
         multilingual=True,
     )
-    register_audio(family, False)
 
+    register_audio(family_a, False)
+    assert family_a in get_user_defined_audios()
+
+    # name conflict
+    family_b = CustomAudioModelFamilyV1(
+        model_family="my-whisper",
+        model_name="custom_test_b",
+        model_id="test/custom_test_b",
+        multilingual=True,
+    )
+    register_audio(family_b, False)
+    assert family_b in get_user_defined_audios()
+    with pytest.raises(ValueError):
+        register_audio(family_b, False)
+
+    # unregister
+    unregister_audio(family_a.model_name)
+    assert family_a not in get_user_defined_audios()
+    unregister_audio(family_b.model_name)
+    assert family_b not in get_user_defined_audios()
+
+
+def test_persistent_custom_audio():
+    from ....constants import XINFERENCE_MODEL_DIR
+    from ..custom import (
+        CustomAudioModelFamilyV1,
+        get_user_defined_audios,
+        register_audio,
+        unregister_audio,
+    )
+
+    temp_dir = tempfile.mkdtemp()
+
+    # correct
+    family = CustomAudioModelFamilyV1(
+        model_family="my-whisper",
+        model_name="custom_test_a",
+        model_id="test/custom_test_a",
+        multilingual=True,
+        model_uri=os.path.abspath(temp_dir),
+    )
+
+    register_audio(family, True)
     assert family in get_user_defined_audios()
+    assert f"{family.model_name}.json" in os.listdir(
+        os.path.join(XINFERENCE_MODEL_DIR, "audio")
+    )
 
     unregister_audio(family.model_name)
-    assert family not in get_user_defined_audios()
+    assert f"{family.model_name}.json" not in os.listdir(
+        os.path.join(XINFERENCE_MODEL_DIR, "audio")
+    )

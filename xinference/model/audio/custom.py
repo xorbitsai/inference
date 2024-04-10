@@ -34,8 +34,8 @@ UD_AUDIO_LOCK = Lock()
 
 
 class CustomAudioModelFamilyV1(AudioModelFamilyV1):
-    model_id = Optional[str]  # type: ignore
-    model_revision = Optional[str]  # type: ignore
+    model_id: Optional[str]  # type: ignore
+    model_revision: Optional[str]  # type: ignore
     model_uri: Optional[str]
 
     @classmethod
