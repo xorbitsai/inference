@@ -13,7 +13,7 @@ import LaunchModelComponent from './LaunchModelComponent'
 
 const LaunchModel = () => {
   let endPoint = useContext(ApiContext).endPoint
-  const [value, setValue] = React.useState(sessionStorage.getItem('modelType'))
+  const [value, setValue] = React.useState(sessionStorage.getItem('modelType') ? sessionStorage.getItem('modelType') : '/launch_model/llm')
   const [gpuAvailable, setGPUAvailable] = useState(-1)
 
   const { setErrorMsg } = useContext(ApiContext)
@@ -33,7 +33,7 @@ const LaunchModel = () => {
     if (cookie.token === '' || cookie.token === undefined) {
       return
     }
-    if (cookie.token === 'need_auth') {
+    if (!sessionStorage.getItem('token')) {
       navigate('/login', { replace: true })
       return
     }
