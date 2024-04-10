@@ -26,22 +26,27 @@ const navItems = [
   {
     text: 'Launch Model',
     icon: <RocketLaunchOutlined />,
+    link: '',
   },
   {
     text: 'Running Models',
     icon: <SmartToyOutlined />,
+    link: 'running_models',
   },
   {
     text: 'Register Model',
     icon: <AddBoxOutlined />,
+    link: 'register_model',
   },
   {
     text: 'Cluster Information',
     icon: <DnsOutlined />,
+    link: 'cluster_info',
   },
   {
     text: 'Contact Us',
     icon: <GitHub />,
+    link: 'https://github.com/xorbitsai/inference',
   },
 ]
 
@@ -54,10 +59,17 @@ const MenuSide = () => {
     `${Math.min(Math.max(window.innerWidth * 0.2, 287), 320)}px`
   )
 
-  const [selectedIndex, setSelectedIndex] = useState(1)
+  const [selectedIndex, setSelectedIndex] = useState(0)
 
   useEffect(() => {
     setActive(pathname.substring(1))
+    const idx = navItems.findIndex(
+      (item) => item.link === pathname.substring(1)
+    )
+    console.log('选择：', pathname, 'index: ', idx)
+    if (idx > -1) {
+      setSelectedIndex(idx)
+    }
   }, [pathname])
 
   useEffect(() => {
@@ -130,7 +142,7 @@ const MenuSide = () => {
         <Box width="100%">
           <Box m="1.5rem 2rem 2rem 3rem"></Box>
           <List>
-            {navItems.map(({ text, icon }, index) => {
+            {navItems.map(({ text, icon, link }, index) => {
               if (!icon) {
                 return (
                   <Typography key={text} sx={{ m: '2.25rem 0 1rem 3rem' }}>
@@ -139,30 +151,18 @@ const MenuSide = () => {
                 )
               }
 
-              const link = text.toLowerCase().replace(' ', '_')
-              console.log(link)
-
+              // const link = text.toLowerCase().replace(' ', '_')
+              // console.log(link)
               return (
                 <ListItem key={text}>
                   <ListItemButton
                     onClick={() => {
-                      if (link === 'contact_us') {
-                        window.open(
-                          'https://github.com/xorbitsai/inference',
-                          '_blank',
-                          'noreferrer'
-                        )
+                      if (link.toLowerCase().startsWith('http')) {
+                        window.open(link, '_blank', 'noreferrer')
                       } else {
-                        if (link === 'launch_model') {
-                          navigate(`/`)
-                        } else if (link === 'cluster_information') {
-                          navigate(`/cluster_info`)
-                        } else {
-                          navigate(`/${link}`)
-                        }
+                        navigate(`/${link}`)
                         setActive(link)
                         console.log(active)
-                        setSelectedIndex(index)
                       }
                     }}
                     selected={selectedIndex === index}
