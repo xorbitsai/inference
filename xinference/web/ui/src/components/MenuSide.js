@@ -54,7 +54,7 @@ const MenuSide = () => {
     `${Math.min(Math.max(window.innerWidth * 0.2, 287), 320)}px`
   )
 
-  const [selectedIndex, setSelectedIndex] = useState(1);
+  const [selectedIndex, setSelectedIndex] = useState(1)
 
   useEffect(() => {
     setActive(pathname.substring(1))
@@ -162,7 +162,7 @@ const MenuSide = () => {
                         }
                         setActive(link)
                         console.log(active)
-                        setSelectedIndex(index);
+                        setSelectedIndex(index)
                       }
                     }}
                     selected={selectedIndex === index}
