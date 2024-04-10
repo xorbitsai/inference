@@ -91,15 +91,15 @@ We can try Chat API out either via cURL, OpenAI Client, or Xinference's python c
         base_url="http://<XINFERENCE_HOST>:<XINFERENCE_PORT>/v1"
     )
     client.chat.completions.create(
-        model=("<MODEL_UID>",
+        model="<MODEL_UID>",
         messages=[
             {
                 "content": "What is the largest animal?",
                 "role": "user",
             }
         ],
-        max_tokens: 512,
-        temperature: 0.7        
+        max_tokens=512,
+        temperature=0.7
     )
 
   .. code-tab:: python Xinference Python Client

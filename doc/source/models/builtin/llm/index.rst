@@ -301,6 +301,11 @@ The following is a list of built-in LLM in Xinference:
      - 32768
      - Qwen1.5 is the beta version of Qwen2, a transformer-based decoder-only language model pretrained on a large amount of data.
 
+   * - :ref:`qwen1.5-moe-chat <models_llm_qwen1.5-moe-chat>`
+     - chat
+     - 32768
+     - Qwen1.5-MoE is a transformer-based MoE decoder-only language model pretrained on a large amount of data.
+
    * - :ref:`skywork <models_llm_skywork>`
      - generate
      - 4096
@@ -519,6 +524,8 @@ The following is a list of built-in LLM in Xinference:
    qwen-vl-chat
   
    qwen1.5-chat
+  
+   qwen1.5-moe-chat
   
    skywork
   

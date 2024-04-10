@@ -23,6 +23,7 @@ RUN python -m pip install --upgrade -i "$PIP_INDEX" pip && \
     pip install -i "$PIP_INDEX" \
       "xoscar>=0.3.0" \
       "gradio>=3.39.0" \
+      "typer[all]<0.12.0" \
       pillow \
       click \
       "tqdm>=4.27" \
@@ -61,7 +62,7 @@ RUN python -m pip install --upgrade -i "$PIP_INDEX" pip && \
       timm \
       opencv-contrib-python-headless && \
     pip install -i "$PIP_INDEX" -U chatglm-cpp && \
-    pip install -i "$PIP_INDEX" -U llama-cpp-python && \
+    pip install -i "$PIP_INDEX" "llama-cpp-python>=0.2.25,!=0.2.58" && \
     cd /opt/inference && \
     python setup.py build_web && \
     git restore . && \
