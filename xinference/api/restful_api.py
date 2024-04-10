@@ -296,6 +296,16 @@ class RESTfulAPI:
             ),
         )
         self._router.add_api_route(
+            "/v1/engines",
+            self.get_valid_engine,
+            methods=["GET"],
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:read"])]
+                if self.is_authenticated()
+                else None
+            ),
+        )
+        self._router.add_api_route(
             "/v1/models",
             self.list_models,
             methods=["GET"],
@@ -803,6 +813,16 @@ class RESTfulAPI:
         try:
             content = await (await self._get_supervisor_ref()).get_model_versions(
                 model_type, model_name
+            )
+            return JSONResponse(content=content)
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def get_valid_engine(self, model_name: str) -> JSONResponse:
+        try:
+            content = await (await self._get_supervisor_ref()).get_valid_engine(
+                model_name
             )
             return JSONResponse(content=content)
         except Exception as e:

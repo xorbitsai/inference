@@ -211,7 +211,11 @@ LLMFamilyV1.update_forward_refs()
 CustomLLMFamilyV1.update_forward_refs()
 
 
+LLAMA_CLASSES: List[Type[LLM]] = []
 LLM_CLASSES: List[Type[LLM]] = []
+PYTORCH_CLASSES: List[Type[LLM]] = []
+SGLANG_CLASSES: List[Type[LLM]] = []
+VLLM_CLASSES: List[Type[LLM]] = []
 PEFT_SUPPORTED_CLASSES: List[Type[LLM]] = []
 
 BUILTIN_LLM_FAMILIES: List["LLMFamilyV1"] = []

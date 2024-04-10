@@ -30,8 +30,12 @@ from .llm_family import (
     BUILTIN_LLM_MODEL_TOOL_CALL_FAMILIES,
     BUILTIN_LLM_PROMPT_STYLE,
     BUILTIN_MODELSCOPE_LLM_FAMILIES,
+    LLAMA_CLASSES,
     LLM_CLASSES,
     PEFT_SUPPORTED_CLASSES,
+    PYTORCH_CLASSES,
+    SGLANG_CLASSES,
+    VLLM_CLASSES,
     CustomLLMFamilyV1,
     GgmlLLMSpecV1,
     LLMFamilyV1,
@@ -82,9 +86,30 @@ def _install():
             CtransformersModel,
         ]
     )
+    LLAMA_CLASSES.extend([LlamaCppChatModel, LlamaCppModel, ChatglmCppChatModel])
     LLM_CLASSES.extend([SGLANGModel, SGLANGChatModel])
+    SGLANG_CLASSES.extend([SGLANGModel, SGLANGChatModel])
     LLM_CLASSES.extend([VLLMModel, VLLMChatModel])
+    VLLM_CLASSES.extend([VLLMModel, VLLMChatModel])
     LLM_CLASSES.extend(
+        [
+            BaichuanPytorchChatModel,
+            VicunaPytorchChatModel,
+            FalconPytorchChatModel,
+            ChatglmPytorchChatModel,
+            LlamaPytorchModel,
+            LlamaPytorchChatModel,
+            PytorchChatModel,
+            FalconPytorchModel,
+            Internlm2PytorchChatModel,
+            QwenVLChatModel,
+            OmniLMMModel,
+            YiVLChatModel,
+            DeepSeekVLChatModel,
+            PytorchModel,
+        ]
+    )
+    PYTORCH_CLASSES.extend(
         [
             BaichuanPytorchChatModel,
             VicunaPytorchChatModel,

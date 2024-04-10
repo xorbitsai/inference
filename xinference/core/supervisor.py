@@ -952,6 +952,123 @@ class SupervisorActor(xo.StatelessActor):
         return info
 
     @log_async(logger=logger)
+    async def get_valid_engine(
+        self, model_name: str
+    ) -> Dict[str, List[Dict[str, Any]]]:
+        from ..model.llm.llm_family import (
+            BUILTIN_LLM_FAMILIES,
+            BUILTIN_MODELSCOPE_LLM_FAMILIES,
+            LLAMA_CLASSES,
+            PYTORCH_CLASSES,
+            SGLANG_CLASSES,
+            VLLM_CLASSES,
+            LLMSpecV1,
+            download_from_modelscope,
+            get_user_defined_llm_families,
+        )
+
+        async def get_all_specs(
+            model_name: str,
+        ) -> Optional[List[Tuple[LLMFamilyV1, LLMSpecV1]]]:
+            user_defined_llm_families = get_user_defined_llm_families()
+
+            def _match_quantization(q: Union[str, None], quantizations: List[str]):
+                # Currently, the quantization name could include both uppercase and lowercase letters,
+                # so it is necessary to ensure that the case sensitivity does not
+                # affect the matching results.
+                if q is None:
+                    return q
+                for quant in quantizations:
+                    if q.lower() == quant.lower():
+                        return quant
+
+            def _apply_format_to_model_id(spec: LLMSpecV1, q: str) -> LLMSpecV1:
+                # Different quantized versions of some models use different model ids,
+                # Here we check the `{}` in the model id to format the id.
+                if spec.model_id and "{" in spec.model_id:
+                    spec.model_id = spec.model_id.format(quantization=q)
+                return spec
+
+            if download_from_modelscope():
+                all_families = (
+                    BUILTIN_MODELSCOPE_LLM_FAMILIES
+                    + BUILTIN_LLM_FAMILIES
+                    + user_defined_llm_families
+                )
+            else:
+                all_families = BUILTIN_LLM_FAMILIES + user_defined_llm_families
+
+            matched = []
+            for family in all_families:
+                if model_name != family.model_name:
+                    continue
+                for spec in family.model_specs:
+                    # Copy spec to avoid _apply_format_to_model_id modify the original spec.
+                    spec = spec.copy()
+                    if spec.model_format == "pytorch":
+                        matched.append(
+                            (family, _apply_format_to_model_id(spec, "none"))
+                        )
+                    else:
+                        # by default, choose the most coarse-grained quantization.
+                        # TODO: too hacky.
+                        quantizations = spec.quantizations
+                        quantizations.sort()
+                        for q in quantizations:
+                            matched.append((family, _apply_format_to_model_id(spec, q)))
+            if not len(matched):
+                return None
+            return matched
+
+        async def add_engine_params(
+            match_results: List,
+            engine: str,
+            engin_params: Dict,
+            model_cls: List,
+        ):
+            current_params = []
+            for llm_family, llm_spec in match_results:
+                quantizations = llm_spec.qutizations.copy()
+                valid_quantizations = []
+                for quantization in quantizations:
+                    for cls in model_cls:
+                        if cls.match(llm_family, llm_spec, quantization):
+                            valid_quantizations.append(quantization)
+                            break
+                current_params.append(
+                    {
+                        "model_name": model_name,
+                        "model_format": llm_spec.model_format,
+                        "model_size_in_billions": llm_spec.model_size_in_billions,
+                        "quantizations": valid_quantizations,
+                    }
+                )
+            engine_params[engine] = current_params
+
+        engine_params: Dict[str, List[Dict[str, Any]]] = {}
+        match_results = await get_all_specs(model_name)
+        if not match_results:
+            logger.debug(f"Model not found, name: {model_name}.")
+            return engine_params
+        else:
+            # current supported_engines = ["vLLM", "Sglang", "Pytorch", "llama-cpp-python"]
+            # check engine vLLM
+            await add_engine_params(match_results, "vLLM", engine_params, VLLM_CLASSES)
+            # check engine Sglang
+            await add_engine_params(
+                match_results, "Sglang", engine_params, SGLANG_CLASSES
+            )
+            # check engine Pytorch
+            await add_engine_params(
+                match_results, "Pytorch", engine_params, PYTORCH_CLASSES
+            )
+            # check engine llama-cpp-python
+            await add_engine_params(
+                match_results, "llama-cpp-python", engine_params, LLAMA_CLASSES
+            )
+        return engine_params
+
+    @log_async(logger=logger)
     async def list_models(self) -> Dict[str, Dict[str, Any]]:
         ret = {}
 
