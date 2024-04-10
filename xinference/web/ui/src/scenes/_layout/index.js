@@ -2,8 +2,8 @@ import { Box } from '@mui/material'
 import React from 'react'
 import { Outlet } from 'react-router-dom'
 
-import { useThemeSwitch } from '../../components/apiContext'
 import MenuSide from '../../components/MenuSide'
+import { useThemeSwitch } from '../../components/themeContext'
 import ThemeSwitch from '../../components/themeSwitch'
 
 const Layout = () => {

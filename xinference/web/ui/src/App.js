@@ -7,6 +7,7 @@ import { HashRouter, Route, Routes } from 'react-router-dom'
 import { Alert } from './components/alertComponent'
 import { ApiContextProvider } from './components/apiContext'
 import AuthAlertDialog from './components/authAlertDialog'
+import { ThemeContextProvider } from './components/themeContext'
 import { getEndpoint, isValidBearerToken } from './components/utils'
 import Layout from './scenes/_layout'
 import ClusterInfo from './scenes/cluster_info'
@@ -87,17 +88,19 @@ function App() {
       </Snackbar>
       <HashRouter>
         <ApiContextProvider>
-          <CssBaseline />
-          <AuthAlertDialog />
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route element={<Layout />}>
-              <Route path="/" element={<LaunchModel />} />
-              <Route path="/running_models" element={<RunningModels />} />
-              <Route path="/register_model" element={<RegisterModel />} />
-              <Route path="/cluster_info" element={<ClusterInfo />} />
-            </Route>
-          </Routes>
+          <ThemeContextProvider>
+            <CssBaseline />
+            <AuthAlertDialog />
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route element={<Layout />}>
+                <Route path="/" element={<LaunchModel />} />
+                <Route path="/running_models" element={<RunningModels />} />
+                <Route path="/register_model" element={<RegisterModel />} />
+                <Route path="/cluster_info" element={<ClusterInfo />} />
+              </Route>
+            </Routes>
+          </ThemeContextProvider>
         </ApiContextProvider>
       </HashRouter>
     </div>
