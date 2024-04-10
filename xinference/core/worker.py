@@ -27,6 +27,8 @@ import xoscar as xo
 from async_timeout import timeout
 from xoscar import MainActorPoolType
 
+from xinference.utils import PeftModelConfig
+
 from ..constants import (
     XINFERENCE_CACHE_DIR,
     XINFERENCE_DISABLE_HEALTH_CHECK,
@@ -598,9 +600,7 @@ class WorkerActor(xo.StatelessActor):
         quantization: Optional[str],
         model_type: str = "LLM",
         n_gpu: Optional[Union[int, str]] = "auto",
-        peft_model_path: Optional[str] = None,
-        image_lora_load_kwargs: Optional[Dict] = None,
-        image_lora_fuse_kwargs: Optional[Dict] = None,
+        peft_model_config: Optional[PeftModelConfig] = None,
         request_limits: Optional[int] = None,
         gpu_idx: Optional[Union[int, List[int]]] = None,
         **kwargs,
@@ -638,7 +638,7 @@ class WorkerActor(xo.StatelessActor):
             if isinstance(n_gpu, str) and n_gpu != "auto":
                 raise ValueError("Currently `n_gpu` only supports `auto`.")
 
-        if peft_model_path is not None:
+        if peft_model_config is not None:
             if model_type in ("embedding", "rerank"):
                 raise ValueError(
                     f"PEFT adaptors cannot be applied to embedding or rerank models."
@@ -669,9 +669,7 @@ class WorkerActor(xo.StatelessActor):
                 model_format,
                 model_size_in_billions,
                 quantization,
-                peft_model_path,
-                image_lora_load_kwargs,
-                image_lora_fuse_kwargs,
+                peft_model_config,
                 is_local_deployment,
                 **kwargs,
             )

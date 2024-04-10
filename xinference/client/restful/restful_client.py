@@ -18,6 +18,8 @@ from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Union
 
 import requests
 
+from xinference.utils import PeftModelConfig
+
 from ..common import streaming_response_iterator
 
 if TYPE_CHECKING:
@@ -793,10 +795,8 @@ class Client:
         quantization: Optional[str] = None,
         replica: int = 1,
         n_gpu: Optional[Union[int, str]] = "auto",
+        peft_model_config: Optional[PeftModelConfig] = None,
         request_limits: Optional[int] = None,
-        peft_model_path: Optional[str] = None,
-        image_lora_load_kwargs: Optional[Dict] = None,
-        image_lora_fuse_kwargs: Optional[Dict] = None,
         worker_ip: Optional[str] = None,
         gpu_idx: Optional[Union[int, List[int]]] = None,
         **kwargs,
@@ -823,15 +823,11 @@ class Client:
         n_gpu: Optional[Union[int, str]],
             The number of GPUs used by the model, default is "auto".
             ``n_gpu=None`` means cpu only, ``n_gpu=auto`` lets the system automatically determine the best number of GPUs to use.
+        mode_deft_config: Optional[PeftModelConfig],
+            The config for the lora model.
         request_limits: Optional[int]
-            The number of request limits for this model， default is None.
+            The number of request limits for this model, default is None.
             ``request_limits=None`` means no limits for this model.
-        peft_model_path: Optional[str]
-            PEFT (Parameter-Efficient Fine-Tuning) model path.
-        image_lora_load_kwargs: Optional[Dict]
-            lora load parameters for image model
-        image_lora_fuse_kwargs: Optional[Dict]
-            lora fuse parameters for image model
         worker_ip: Optional[str]
             Specify the worker ip where the model is located in a distributed scenario.
         gpu_idx: Optional[Union[int, List[int]]]
@@ -851,6 +847,9 @@ class Client:
         payload = {
             "model_uid": model_uid,
             "model_name": model_name,
+            "peft_model_config": peft_model_config.to_dict()
+            if peft_model_config
+            else None,
             "model_type": model_type,
             "model_size_in_billions": model_size_in_billions,
             "model_format": model_format,
@@ -858,9 +857,6 @@ class Client:
             "replica": replica,
             "n_gpu": n_gpu,
             "request_limits": request_limits,
-            "peft_model_path": peft_model_path,
-            "image_lora_load_kwargs": image_lora_load_kwargs,
-            "image_lora_fuse_kwargs": image_lora_fuse_kwargs,
             "worker_ip": worker_ip,
             "gpu_idx": gpu_idx,
         }

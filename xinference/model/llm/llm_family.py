@@ -939,12 +939,12 @@ def match_llm_cls(
     family: LLMFamilyV1,
     llm_spec: "LLMSpecV1",
     quantization: str,
-    peft_model_path: Optional[str] = None,
+    peft_model_paths: Optional[List[str]] = None,
 ) -> Optional[Type[LLM]]:
     """
     Find an LLM implementation for given LLM family and spec.
     """
-    if peft_model_path is not None:
+    if peft_model_paths is not None:
         for cls in PEFT_SUPPORTED_CLASSES:
             if cls.match(family, llm_spec, quantization):
                 return cls

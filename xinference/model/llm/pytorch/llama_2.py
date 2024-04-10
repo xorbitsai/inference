@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Optional
+from typing import List, Optional
 
 from ..llm_family import LLMFamilyV1, LLMSpecV1
 from .core import PytorchChatModel, PytorchModel, PytorchModelConfig
@@ -27,7 +27,7 @@ class LlamaPytorchModel(PytorchModel):
         quantization: str,
         model_path: str,
         pytorch_model_config: Optional[PytorchModelConfig] = None,
-        peft_model_path: Optional[str] = None,
+        peft_model_paths: Optional[List[str]] = None,
     ):
         super().__init__(
             model_uid,
@@ -36,7 +36,7 @@ class LlamaPytorchModel(PytorchModel):
             quantization,
             model_path,
             pytorch_model_config=pytorch_model_config,
-            peft_model_path=peft_model_path,
+            peft_model_paths=peft_model_paths,
         )
 
     def _load_model(self, **kwargs):
@@ -69,7 +69,7 @@ class LlamaPytorchChatModel(PytorchChatModel):
         model_spec: "LLMSpecV1",
         quantization: str,
         model_path: str,
-        peft_model_path: Optional[str] = None,
+        peft_model_paths: Optional[List[str]] = None,
         pytorch_model_config: Optional["PytorchModelConfig"] = None,
     ):
         super().__init__(
@@ -78,7 +78,7 @@ class LlamaPytorchChatModel(PytorchChatModel):
             model_spec,
             quantization,
             model_path,
-            peft_model_path=peft_model_path,
+            peft_model_paths=peft_model_paths,
             pytorch_model_config=pytorch_model_config,
         )
         self._use_fast_tokenizer = False
