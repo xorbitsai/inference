@@ -497,6 +497,7 @@ class SupervisorActor(xo.StatelessActor):
             return ret
         elif model_type == "audio":
             from ..model.audio import BUILTIN_AUDIO_MODELS
+            from ..model.audio.custom import get_user_defined_audios
 
             ret = []
             for model_name, family in BUILTIN_AUDIO_MODELS.items():
@@ -504,6 +505,16 @@ class SupervisorActor(xo.StatelessActor):
                     ret.append(await self._to_audio_model_reg(family, is_builtin=True))
                 else:
                     ret.append({"model_name": model_name, "is_builtin": True})
+
+            for model_spec in get_user_defined_audios():
+                if detailed:
+                    ret.append(
+                        await self._to_audio_model_reg(model_spec, is_builtin=False)
+                    )
+                else:
+                    ret.append(
+                        {"model_name": model_spec.model_name, "is_builtin": False}
+                    )
 
             ret.sort(key=sort_helper)
             return ret
@@ -562,8 +573,9 @@ class SupervisorActor(xo.StatelessActor):
             raise ValueError(f"Model {model_name} not found")
         elif model_type == "audio":
             from ..model.audio import BUILTIN_AUDIO_MODELS
+            from ..model.audio.custom import get_user_defined_audios
 
-            for f in BUILTIN_AUDIO_MODELS.values():
+            for f in list(BUILTIN_AUDIO_MODELS.values()) + get_user_defined_audios():
                 if f.model_name == model_name:
                     return f
             raise ValueError(f"Model {model_name} not found")
