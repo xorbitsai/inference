@@ -98,6 +98,7 @@ VLLM_SUPPORTED_CHAT_MODELS = [
     "internlm-chat-7b",
     "internlm-chat-8k",
     "internlm-chat-20b",
+    "internlm2-chat",
     "qwen-chat",
     "Yi-chat",
     "code-llama-instruct",
