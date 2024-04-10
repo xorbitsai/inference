@@ -34,7 +34,7 @@ Model Spec 2 (awq, 46_7 Billion)
 
 - **Model Format:** awq
 - **Model Size (in billions):** 46_7
-- **Quantizations:** 4-bit
+- **Quantizations:** Int4
 - **Model ID:** TheBloke/Mixtral-8x7B-Instruct-v0.1-AWQ
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/Mixtral-8x7B-Instruct-v0.1-AWQ>`__
 
@@ -44,7 +44,22 @@ chosen quantization method from the options listed above::
    xinference launch --model-name mixtral-instruct-v0.1 --size-in-billions 46_7 --model-format awq --quantization ${quantization}
 
 
-Model Spec 3 (ggufv2, 46_7 Billion)
+Model Spec 3 (gptq, 46_7 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** gptq
+- **Model Size (in billions):** 46_7
+- **Quantizations:** Int4
+- **Model ID:** TheBloke/Mixtral-8x7B-Instruct-v0.1-GPTQ
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/Mixtral-8x7B-Instruct-v0.1-GPTQ>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-name mixtral-instruct-v0.1 --size-in-billions 46_7 --model-format gptq --quantization ${quantization}
+
+
+Model Spec 4 (ggufv2, 46_7 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** ggufv2

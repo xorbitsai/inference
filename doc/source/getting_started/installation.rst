@@ -26,22 +26,31 @@ vLLM Backend
 ~~~~~~~~~~~~
 vLLM is a fast and easy-to-use library for LLM inference and serving. Xinference will choose vLLM as the backend to achieve better throughput when the following conditions are met:
 
-- The model format is PyTorch or GPTQ
-- The quantization method is GPTQ 4 bit or none
+- The model format is ``pytorch``, ``gptq`` or ``awq``.
+- When the model format is ``pytorch``, the quantization is ``none``.
+- When the model format is ``gptq`` or ``awq``, the quantization is ``Int4``.
 - The system is Linux and has at least one CUDA device
-- The model is within the list of models supported by vLLM.
+- The model family (for custom models) / model name (for builtin models) is within the list of models supported by vLLM
 
 Currently, supported models include:
 
+.. vllm_start
+
 - ``llama-2``, ``llama-2-chat``
-- ``baichuan``, ``baichuan-chat``
-- ``internlm``, ``internlm-20b``, ``internlm-chat``, ``internlm-chat-20b``
-- ``vicuna-v1.3``, ``vicuna-v1.5``
+- ``baichuan``, ``baichuan-chat``, ``baichuan-2-chat``
+- ``internlm-16k``, ``internlm-chat-7b``, ``internlm-chat-8k``, ``internlm-chat-20b``
+- ``mistral-v0.1``, ``mistral-instruct-v0.1``, ``mistral-instruct-v0.2``
 - ``Yi``, ``Yi-chat``
-- ``qwen-chat``
 - ``code-llama``, ``code-llama-python``, ``code-llama-instruct``
-- ``mistral-instruct-v0.1``
-- ``chatglm3``
+- ``vicuna-v1.3``, ``vicuna-v1.5``
+- ``qwen-chat``
+- ``mixtral-instruct-v0.1``
+- ``chatglm3``, ``chatglm3-32k``, ``chatglm3-128k``
+- ``deepseek-chat``, ``deepseek-coder-instruct``
+- ``qwen1.5-chat``
+- ``gemma-it``
+- ``orion-chat``, ``orion-chat-rag``
+.. vllm_end
 
 To install Xinference and vLLM::
 

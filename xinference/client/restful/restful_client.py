@@ -82,7 +82,7 @@ class RESTfulModelHandle:
 
 
 class RESTfulEmbeddingModelHandle(RESTfulModelHandle):
-    def create_embedding(self, input: Union[str, List[str]]) -> "Embedding":
+    def create_embedding(self, input: Union[str, List[str]], **kwargs) -> "Embedding":
         """
         Create an Embedding from user input via RESTful APIs.
 
@@ -104,7 +104,11 @@ class RESTfulEmbeddingModelHandle(RESTfulModelHandle):
 
         """
         url = f"{self._base_url}/v1/embeddings"
-        request_body = {"model": self._model_uid, "input": input}
+        request_body = {
+            "model": self._model_uid,
+            "input": input,
+        }
+        request_body.update(kwargs)
         response = requests.post(url, json=request_body, headers=self.auth_headers)
         if response.status_code != 200:
             raise RuntimeError(
@@ -123,6 +127,7 @@ class RESTfulRerankModelHandle(RESTfulModelHandle):
         top_n: Optional[int] = None,
         max_chunks_per_doc: Optional[int] = None,
         return_documents: Optional[bool] = None,
+        **kwargs,
     ):
         """
         Returns an ordered list of documents ordered by their relevance to the provided query.
@@ -158,6 +163,7 @@ class RESTfulRerankModelHandle(RESTfulModelHandle):
             "max_chunks_per_doc": max_chunks_per_doc,
             "return_documents": return_documents,
         }
+        request_body.update(kwargs)
         response = requests.post(url, json=request_body, headers=self.auth_headers)
         if response.status_code != 200:
             raise RuntimeError(
