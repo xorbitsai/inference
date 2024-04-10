@@ -54,6 +54,8 @@ const MenuSide = () => {
     `${Math.min(Math.max(window.innerWidth * 0.2, 287), 320)}px`
   )
 
+  const [selectedIndex, setSelectedIndex] = useState(1);
+
   useEffect(() => {
     setActive(pathname.substring(1))
   }, [pathname])
@@ -128,7 +130,7 @@ const MenuSide = () => {
         <Box width="100%">
           <Box m="1.5rem 2rem 2rem 3rem"></Box>
           <List>
-            {navItems.map(({ text, icon }) => {
+            {navItems.map(({ text, icon }, index) => {
               if (!icon) {
                 return (
                   <Typography key={text} sx={{ m: '2.25rem 0 1rem 3rem' }}>
@@ -150,20 +152,20 @@ const MenuSide = () => {
                           '_blank',
                           'noreferrer'
                         )
-                      } else if (link === 'launch_model') {
-                        navigate(`/`)
-                        setActive(link)
-                        console.log(active)
-                      } else if (link === 'cluster_information') {
-                        navigate(`/cluster_info`)
-                        setActive(link)
-                        console.log(active)
                       } else {
-                        navigate(`/${link}`)
+                        if (link === 'launch_model') {
+                          navigate(`/`)
+                        } else if (link === 'cluster_information') {
+                          navigate(`/cluster_info`)
+                        } else {
+                          navigate(`/${link}`)
+                        }
                         setActive(link)
                         console.log(active)
+                        setSelectedIndex(index);
                       }
                     }}
+                    selected={selectedIndex === index}
                   >
                     <ListItemIcon
                       sx={{
