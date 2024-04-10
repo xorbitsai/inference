@@ -83,7 +83,15 @@ try:
 except ImportError:
     VLLM_INSTALLED = False
 
-VLLM_SUPPORTED_MODELS = ["llama-2", "baichuan", "internlm-16k", "mistral-v0.1"]
+VLLM_SUPPORTED_MODELS = [
+    "llama-2",
+    "baichuan",
+    "internlm-16k",
+    "mistral-v0.1",
+    "Yi",
+    "code-llama",
+    "code-llama-python",
+]
 VLLM_SUPPORTED_CHAT_MODELS = [
     "llama-2-chat",
     "vicuna-v1.3",
@@ -94,15 +102,14 @@ VLLM_SUPPORTED_CHAT_MODELS = [
     "internlm-chat-8k",
     "internlm-chat-20b",
     "qwen-chat",
-    "Yi",
     "Yi-chat",
-    "code-llama",
-    "code-llama-python",
     "code-llama-instruct",
     "mistral-instruct-v0.1",
     "mistral-instruct-v0.2",
     "mixtral-instruct-v0.1",
     "chatglm3",
+    "chatglm3-32k",
+    "chatglm3-128k",
     "deepseek-chat",
     "deepseek-coder-instruct",
 ]
@@ -115,6 +122,9 @@ if VLLM_INSTALLED and vllm.__version__ >= "0.3.2":
 if VLLM_INSTALLED and vllm.__version__ >= "0.3.3":
     VLLM_SUPPORTED_CHAT_MODELS.append("orion-chat")
     VLLM_SUPPORTED_CHAT_MODELS.append("orion-chat-rag")
+
+if VLLM_INSTALLED and vllm.__version__ >= "0.4.0":
+    VLLM_SUPPORTED_CHAT_MODELS.append("qwen1.5-moe-chat")
 
 
 class VLLMModel(LLM):

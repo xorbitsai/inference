@@ -3,19 +3,19 @@ import React, { useContext, useEffect, useState } from 'react'
 
 import { ApiContext } from '../../components/apiContext'
 import fetcher from '../../components/fetcher'
-import ImageCard from './imageCard'
+import ModelCard from './modelCard'
+import style from './styles/launchModelStyle'
 
-const LaunchImage = () => {
+const LaunchModelComponent = ({ modelType }) => {
   let endPoint = useContext(ApiContext).endPoint
   const [registrationData, setRegistrationData] = useState([])
+  const [searchTerm, setSearchTerm] = useState('')
+
   const { isCallingApi, setIsCallingApi } = useContext(ApiContext)
   const { isUpdatingModel } = useContext(ApiContext)
 
-  // States used for filtering
-  const [searchTerm, setSearchTerm] = useState('')
-
-  const handleChange = (event) => {
-    setSearchTerm(event.target.value)
+  const handleChange = (e) => {
+    setSearchTerm(e.target.value)
   }
 
   const filter = (registration) => {
@@ -33,7 +33,7 @@ const LaunchImage = () => {
       setIsCallingApi(true)
 
       const response = await fetcher(
-        `${endPoint}/v1/model_registrations/image?detailed=true`,
+        `${endPoint}/v1/model_registrations/${modelType}?detailed=true`,
         {
           method: 'GET',
         }
@@ -41,10 +41,10 @@ const LaunchImage = () => {
 
       const registrations = await response.json()
 
-      const builtinImageModels = registrations.filter((v) => {
+      const builtinModels = registrations.filter((v) => {
         return v.is_builtin
       })
-      setRegistrationData(builtinImageModels)
+      setRegistrationData(builtinModels)
     } catch (error) {
       console.error('Error:', error)
     } finally {
@@ -54,15 +54,7 @@ const LaunchImage = () => {
 
   useEffect(() => {
     update()
-    // eslint-disable-next-line
   }, [])
-
-  const style = {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-    paddingLeft: '2rem',
-    gridGap: '2rem 0rem',
-  }
 
   return (
     <Box m="20px">
@@ -77,7 +69,7 @@ const LaunchImage = () => {
           <TextField
             id="search"
             type="search"
-            label="Search for image model name"
+            label={`Search for ${modelType} model name`}
             value={searchTerm}
             onChange={handleChange}
             size="small"
@@ -88,11 +80,16 @@ const LaunchImage = () => {
         {registrationData
           .filter((registration) => filter(registration))
           .map((filteredRegistration) => (
-            <ImageCard url={endPoint} modelData={filteredRegistration} />
+            <ModelCard
+              key={filteredRegistration.model_name}
+              url={endPoint}
+              modelData={filteredRegistration}
+              modelType={modelType}
+            />
           ))}
       </div>
     </Box>
   )
 }
 
-export default LaunchImage
+export default LaunchModelComponent

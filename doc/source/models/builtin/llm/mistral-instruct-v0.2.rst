@@ -29,7 +29,37 @@ chosen quantization method from the options listed above::
    xinference launch --model-name mistral-instruct-v0.2 --size-in-billions 7 --model-format pytorch --quantization ${quantization}
 
 
-Model Spec 2 (ggufv2, 7 Billion)
+Model Spec 2 (gptq, 7 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** gptq
+- **Model Size (in billions):** 7
+- **Quantizations:** Int4
+- **Model ID:** TheBloke/Mistral-7B-Instruct-v0.2-GPTQ
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/Mistral-7B-Instruct-v0.2-GPTQ>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-name mistral-instruct-v0.2 --size-in-billions 7 --model-format gptq --quantization ${quantization}
+
+
+Model Spec 3 (awq, 7 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** awq
+- **Model Size (in billions):** 7
+- **Quantizations:** Int4
+- **Model ID:** TheBloke/Mistral-7B-Instruct-v0.2-AWQ
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/Mistral-7B-Instruct-v0.2-AWQ>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-name mistral-instruct-v0.2 --size-in-billions 7 --model-format awq --quantization ${quantization}
+
+
+Model Spec 4 (ggufv2, 7 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** ggufv2

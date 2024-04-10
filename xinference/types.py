@@ -245,6 +245,8 @@ class LlamaCppModelConfig(TypedDict, total=False):
     n_ctx: int
     n_parts: int
     n_gpu_layers: int
+    split_mode: int
+    main_gpu: int
     seed: int
     f16_kv: bool
     logits_all: bool

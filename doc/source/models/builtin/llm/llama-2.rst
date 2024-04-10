@@ -29,7 +29,37 @@ chosen quantization method from the options listed above::
    xinference launch --model-name llama-2 --size-in-billions 7 --model-format ggmlv3 --quantization ${quantization}
 
 
-Model Spec 2 (ggmlv3, 13 Billion)
+Model Spec 2 (gptq, 7 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** gptq
+- **Model Size (in billions):** 7
+- **Quantizations:** Int4
+- **Model ID:** TheBloke/Llama-2-7B-GPTQ
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/Llama-2-7B-GPTQ>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-name llama-2 --size-in-billions 7 --model-format gptq --quantization ${quantization}
+
+
+Model Spec 3 (awq, 7 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** awq
+- **Model Size (in billions):** 7
+- **Quantizations:** Int4
+- **Model ID:** TheBloke/Llama-2-7B-AWQ
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/Llama-2-7B-AWQ>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-name llama-2 --size-in-billions 7 --model-format awq --quantization ${quantization}
+
+
+Model Spec 4 (ggmlv3, 13 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** ggmlv3
@@ -44,7 +74,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-name llama-2 --size-in-billions 13 --model-format ggmlv3 --quantization ${quantization}
 
 
-Model Spec 3 (ggmlv3, 70 Billion)
+Model Spec 5 (ggmlv3, 70 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** ggmlv3
@@ -59,7 +89,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-name llama-2 --size-in-billions 70 --model-format ggmlv3 --quantization ${quantization}
 
 
-Model Spec 4 (pytorch, 7 Billion)
+Model Spec 6 (pytorch, 7 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** pytorch
@@ -74,7 +104,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-name llama-2 --size-in-billions 7 --model-format pytorch --quantization ${quantization}
 
 
-Model Spec 5 (pytorch, 13 Billion)
+Model Spec 7 (pytorch, 13 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** pytorch
@@ -89,7 +119,37 @@ chosen quantization method from the options listed above::
    xinference launch --model-name llama-2 --size-in-billions 13 --model-format pytorch --quantization ${quantization}
 
 
-Model Spec 6 (pytorch, 70 Billion)
+Model Spec 8 (gptq, 13 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** gptq
+- **Model Size (in billions):** 13
+- **Quantizations:** Int4
+- **Model ID:** TheBloke/Llama-2-13B-GPTQ
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/Llama-2-13B-GPTQ>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-name llama-2 --size-in-billions 13 --model-format gptq --quantization ${quantization}
+
+
+Model Spec 9 (awq, 13 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** awq
+- **Model Size (in billions):** 13
+- **Quantizations:** Int4
+- **Model ID:** TheBloke/Llama-2-13B-AWQ
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/Llama-2-13B-AWQ>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-name llama-2 --size-in-billions 13 --model-format awq --quantization ${quantization}
+
+
+Model Spec 10 (pytorch, 70 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** pytorch
@@ -102,4 +162,34 @@ Execute the following command to launch the model, remember to replace ``${quant
 chosen quantization method from the options listed above::
 
    xinference launch --model-name llama-2 --size-in-billions 70 --model-format pytorch --quantization ${quantization}
+
+
+Model Spec 11 (gptq, 70 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** gptq
+- **Model Size (in billions):** 70
+- **Quantizations:** Int4
+- **Model ID:** TheBloke/Llama-2-70B-GPTQ
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/Llama-2-70B-GPTQ>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-name llama-2 --size-in-billions 70 --model-format gptq --quantization ${quantization}
+
+
+Model Spec 12 (awq, 70 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** awq
+- **Model Size (in billions):** 70
+- **Quantizations:** Int4
+- **Model ID:** TheBloke/Llama-2-70B-AWQ
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/Llama-2-70B-AWQ>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-name llama-2 --size-in-billions 70 --model-format awq --quantization ${quantization}
 
