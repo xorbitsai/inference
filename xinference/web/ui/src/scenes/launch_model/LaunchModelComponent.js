@@ -1,8 +1,9 @@
-import { Box, FormControl, TextField } from '@mui/material'
+import { Box, FormControl } from '@mui/material'
 import React, { useContext, useEffect, useState } from 'react'
 
 import { ApiContext } from '../../components/apiContext'
 import fetcher from '../../components/fetcher'
+import HotkeyFocusTextField from '../../components/hotkeyFocusTextField'
 import ModelCard from './modelCard'
 import style from './styles/launchModelStyle'
 
@@ -66,13 +67,14 @@ const LaunchModelComponent = ({ modelType }) => {
         }}
       >
         <FormControl variant="outlined" margin="normal">
-          <TextField
+          <HotkeyFocusTextField
             id="search"
             type="search"
             label={`Search for ${modelType} model name`}
             value={searchTerm}
             onChange={handleChange}
             size="small"
+            hotkey="/"
           />
         </FormControl>
       </div>
