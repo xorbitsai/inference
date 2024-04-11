@@ -1,4 +1,4 @@
-import { useRoutes } from 'react-router-dom'
+import { Navigate, useRoutes } from 'react-router-dom'
 
 import Layout from '../scenes/_layout'
 import ClusterInfo from '../scenes/cluster_info'
@@ -13,19 +13,23 @@ const routes = [
     element: <Layout />,
     children: [
       {
-        path: '/launch_model/:Modeltype/:subType?',
+        path: '/',
+        element: <Navigate to="launch_model/llm" replace />,
+      },
+      {
+        path: 'launch_model/:Modeltype/:subType?',
         element: <LaunchModel />,
       },
       {
-        path: '/running_models/:runningModelType',
+        path: 'running_models/:runningModelType',
         element: <RunningModels />,
       },
       {
-        path: '/register_model',
+        path: 'register_model',
         element: <RegisterModel />,
       },
       {
-        path: '/cluster_info',
+        path: 'cluster_info',
         element: <ClusterInfo />,
       },
     ],
@@ -33,6 +37,10 @@ const routes = [
   {
     path: '/login',
     element: <Login />,
+  },
+  {
+    path: '*',
+    element: <Navigate to="launch_model/llm" replace />,
   },
 ]
 const WraperRoutes = () => {

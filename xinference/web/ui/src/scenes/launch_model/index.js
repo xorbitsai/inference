@@ -33,7 +33,7 @@ const LaunchModel = () => {
     if (cookie.token === '' || cookie.token === undefined) {
       return
     }
-    if (!sessionStorage.getItem('token')) {
+    if (cookie.token !== 'no_auth' && !sessionStorage.getItem('token')) {
       navigate('/login', { replace: true })
       return
     }
