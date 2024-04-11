@@ -133,10 +133,12 @@ class VLLMModel(LLM):
         quantization: str,
         model_path: str,
         model_config: Optional[VLLMModelConfig],
+        peft_model_paths: Optional[List[str]] = None,
     ):
         super().__init__(model_uid, model_family, model_spec, quantization, model_path)
         self._model_config = model_config
         self._engine = None
+        self._peft_model_paths = peft_model_paths
 
     def load(self):
         try:
