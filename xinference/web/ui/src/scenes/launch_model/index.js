@@ -13,7 +13,11 @@ import LaunchModelComponent from './LaunchModelComponent'
 
 const LaunchModel = () => {
   let endPoint = useContext(ApiContext).endPoint
-  const [value, setValue] = React.useState(sessionStorage.getItem('modelType') ? sessionStorage.getItem('modelType') : '/launch_model/llm')
+  const [value, setValue] = React.useState(
+    sessionStorage.getItem('modelType')
+      ? sessionStorage.getItem('modelType')
+      : '/launch_model/llm'
+  )
   const [gpuAvailable, setGPUAvailable] = useState(-1)
 
   const { setErrorMsg } = useContext(ApiContext)

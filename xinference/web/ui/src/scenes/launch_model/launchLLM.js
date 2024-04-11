@@ -57,7 +57,11 @@ const LaunchLLM = ({ gpuAvailable }) => {
   }
 
   const update = () => {
-    if (isCallingApi || isUpdatingModel || (cookie.token !== 'no_auth' && !sessionStorage.getItem('token')))
+    if (
+      isCallingApi ||
+      isUpdatingModel ||
+      (cookie.token !== 'no_auth' && !sessionStorage.getItem('token'))
+    )
       return
 
     try {
