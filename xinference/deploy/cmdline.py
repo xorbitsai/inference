@@ -600,7 +600,7 @@ def list_model_registrations(
 )
 @click.option(
     "--model-engine",
-    "-e",
+    "-en",
     type=str,
     required=True,
     help="The way of launching model.",
