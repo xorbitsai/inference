@@ -459,7 +459,7 @@ class CreateChatCompletion(
 
 
 class LoRA:
-    def __init__(self, lora_name, local_path):
+    def __init__(self, lora_name: str, local_path: str):
         self.lora_name = lora_name
         self.local_path = local_path
 
