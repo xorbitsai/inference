@@ -12,6 +12,7 @@ const Title = ({ title }) => {
 
   const handleLogout = () => {
     removeCookie('token', { path: '/' })
+    sessionStorage.removeItem('token')
     navigate('/login', { replace: true })
   }
 

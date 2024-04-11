@@ -231,7 +231,11 @@ const ModelCard = ({
             )
           })
         } else {
-          navigate('/running_models')
+          navigate(`/running_models/${modelType}`)
+          sessionStorage.setItem(
+            'runningModelType',
+            `/running_models/${modelType}`
+          )
         }
         setIsCallingApi(false)
       })
@@ -357,7 +361,9 @@ const ModelCard = ({
           >
             {(() => {
               return modelData.model_lang.map((v) => {
-                return <Chip label={v} variant="outlined" size="small" />
+                return (
+                  <Chip key={v} label={v} variant="outlined" size="small" />
+                )
               })
             })()}
             {(() => {
