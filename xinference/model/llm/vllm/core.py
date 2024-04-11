@@ -61,6 +61,7 @@ class VLLMModelConfig(TypedDict, total=False):
 
 
 class VLLMGenerateConfig(TypedDict, total=False):
+    model: str
     n: int
     best_of: Optional[int]
     presence_penalty: float
@@ -124,6 +125,12 @@ if VLLM_INSTALLED and vllm.__version__ >= "0.4.0":
     VLLM_SUPPORTED_CHAT_MODELS.append("qwen1.5-moe-chat")
 
 
+class LoRA:
+    def __init__(self, name: str, local_path: str):
+        self.name = name
+        self.local_path = local_path
+
+
 class VLLMModel(LLM):
     def __init__(
         self,
@@ -135,16 +142,32 @@ class VLLMModel(LLM):
         model_config: Optional[VLLMModelConfig],
         peft_model_paths: Optional[List[str]] = None,
     ):
+        try:
+            from vllm.lora.request import LoRARequest
+        except ImportError:
+            error_message = "Failed to import module 'vllm'"
+            installation_guide = [
+                "Please make sure 'vllm' is installed. ",
+                "You can install it by `pip install vllm`\n",
+            ]
+
+            raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
         super().__init__(model_uid, model_family, model_spec, quantization, model_path)
         self._model_config = model_config
         self._engine = None
-        self._peft_model_paths = peft_model_paths
+        # Initialize self.lora_modules as a List[LoRA]
+        self.lora_modules = [
+            LoRA(name=path.split("/")[-1], local_path=path)
+            for path in peft_model_paths or []
+        ]
+        self.lora_requests: List[LoRARequest] = []
 
     def load(self):
         try:
             import vllm
             from vllm.engine.arg_utils import AsyncEngineArgs
             from vllm.engine.async_llm_engine import AsyncLLMEngine
+            from vllm.lora.request import LoRARequest
         except ImportError:
             error_message = "Failed to import module 'vllm'"
             installation_guide = [
@@ -167,7 +190,27 @@ class VLLMModel(LLM):
             f"Loading {self.model_uid} with following model config: {self._model_config}"
         )
 
-        engine_args = AsyncEngineArgs(model=self.model_path, **self._model_config)
+        if self.lora_modules is None:
+            self.lora_requests = []
+        else:
+            self.lora_requests = [
+                LoRARequest(
+                    lora_name=lora.name,
+                    lora_int_id=i,
+                    lora_local_path=lora.local_path,
+                )
+                for i, lora in enumerate(self.lora_modules, start=1)
+            ]
+
+        enable_lora = len(self.lora_requests) > 0
+        max_loras = len(self.lora_requests)
+
+        engine_args = AsyncEngineArgs(
+            model=self.model_path,
+            **self._model_config,
+            enable_lora=enable_lora,
+            max_loras=max_loras,
+        )
         self._engine = AsyncLLMEngine.from_engine_args(engine_args)
 
     def _sanitize_model_config(
@@ -192,12 +235,14 @@ class VLLMModel(LLM):
 
     @staticmethod
     def _sanitize_generate_config(
+        self,
         generate_config: Optional[Dict] = None,
     ) -> VLLMGenerateConfig:
         if not generate_config:
             generate_config = {}
 
         sanitized = VLLMGenerateConfig()
+        sanitized.setdefault("model", generate_config.get("model", self.model_uid))
         sanitized.setdefault("n", generate_config.get("n", 1))
         sanitized.setdefault("best_of", generate_config.get("best_of", None))
         sanitized.setdefault(
@@ -307,6 +352,7 @@ class VLLMModel(LLM):
         generate_config: Optional[Dict] = None,
     ) -> Union[Completion, AsyncGenerator[CompletionChunk, None]]:
         try:
+            from vllm.lora.request import LoRARequest
             from vllm.sampling_params import SamplingParams
         except ImportError:
             error_message = "Failed to import module 'vllm'"
@@ -326,8 +372,12 @@ class VLLMModel(LLM):
         sampling_params = SamplingParams(**sanitized_generate_config)
         request_id = str(uuid.uuid1())
 
+        lora_request = self._maybe_get_lora(sanitized_generate_config)
+
         assert self._engine is not None
-        results_generator = self._engine.generate(prompt, sampling_params, request_id)
+        results_generator = self._engine.generate(
+            prompt, sampling_params, request_id, lora_request
+        )
 
         async def stream_results() -> AsyncGenerator[CompletionChunk, None]:
             previous_texts = [""] * sanitized_generate_config["n"]
@@ -352,6 +402,15 @@ class VLLMModel(LLM):
                     total_tokens=total_tokens,
                 )
                 yield chunk
+
+        def _maybe_get_lora(self, request) -> Optional[LoRARequest]:
+            if request.model == self.model_uid:
+                return
+            for lora in self.lora_requests:
+                if request.model == lora.lora_name:
+                    return lora
+            # if _check_model has been called earlier, this will be unreachable
+            raise ValueError("The model `{request.model}` does not exist.")
 
         if stream:
             return stream_results()
