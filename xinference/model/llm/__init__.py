@@ -104,6 +104,8 @@ def _install():
     )
     PEFT_SUPPORTED_CLASSES.extend(
         [
+            VLLMModel,
+            VLLMChatModel,
             BaichuanPytorchChatModel,
             VicunaPytorchChatModel,
             FalconPytorchChatModel,

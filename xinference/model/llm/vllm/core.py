@@ -36,6 +36,7 @@ from ....types import (
     CompletionChoice,
     CompletionChunk,
     CompletionUsage,
+    LoRA,
 )
 from .. import LLM, LLMFamilyV1, LLMSpecV1
 from ..llm_family import CustomLLMFamilyV1
@@ -125,12 +126,6 @@ if VLLM_INSTALLED and vllm.__version__ >= "0.4.0":
     VLLM_SUPPORTED_CHAT_MODELS.append("qwen1.5-moe-chat")
 
 
-class LoRA:
-    def __init__(self, name: str, local_path: str):
-        self.name = name
-        self.local_path = local_path
-
-
 class VLLMModel(LLM):
     def __init__(
         self,
@@ -140,7 +135,7 @@ class VLLMModel(LLM):
         quantization: str,
         model_path: str,
         model_config: Optional[VLLMModelConfig],
-        peft_model_paths: Optional[List[str]] = None,
+        peft_model: Optional[List[LoRA]] = None,
     ):
         try:
             from vllm.lora.request import LoRARequest
@@ -155,11 +150,7 @@ class VLLMModel(LLM):
         super().__init__(model_uid, model_family, model_spec, quantization, model_path)
         self._model_config = model_config
         self._engine = None
-        # Initialize self.lora_modules as a List[LoRA]
-        self.lora_modules = [
-            LoRA(name=path.split("/")[-1], local_path=path)
-            for path in peft_model_paths or []
-        ]
+        self.lora_modules = peft_model
         self.lora_requests: List[LoRARequest] = []
 
     def load(self):
