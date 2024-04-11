@@ -87,9 +87,9 @@ def _install():
             ]
         }
     )
-    LLM_CLASSES.update({"SGLANG": [SGLANGModel, SGLANGChatModel]})
+    LLM_CLASSES.update({"Sglang": [SGLANGModel, SGLANGChatModel]})
     LLM_CLASSES.update(
-        {"ggml": [LlamaCppChatModel, LlamaCppModel, ChatglmCppChatModel]}
+        {"llama-cpp-python": [LlamaCppChatModel, LlamaCppModel, ChatglmCppChatModel]}
     )
     PEFT_SUPPORTED_CLASSES.extend(
         [
