@@ -28,6 +28,7 @@ import {
   Stack,
   TextField,
 } from '@mui/material'
+import Paper from '@mui/material/Paper'
 import React, { useContext, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
@@ -327,7 +328,7 @@ const ModelCard = ({
 
   // Set two different states based on mouse hover
   return (
-    <Box
+    <Paper
       style={hover ? styles.containerSelected : styles.container}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
@@ -336,6 +337,7 @@ const ModelCard = ({
           setSelected(true)
         }
       }}
+      elevation={hover ? 24 : 4}
     >
       {modelType === 'LLM' ? (
         <Box style={styles.descriptionCard}>
@@ -951,7 +953,7 @@ const ModelCard = ({
         message="Please fill in the added custom parameters completely!"
         key={'top' + 'center'}
       />
-    </Box>
+    </Paper>
   )
 }
 
