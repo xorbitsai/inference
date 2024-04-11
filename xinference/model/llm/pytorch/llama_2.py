@@ -14,6 +14,7 @@
 
 from typing import List, Optional
 
+from ....types import LoRA
 from ..llm_family import LLMFamilyV1, LLMSpecV1
 from .core import PytorchChatModel, PytorchModel, PytorchModelConfig
 
@@ -27,7 +28,7 @@ class LlamaPytorchModel(PytorchModel):
         quantization: str,
         model_path: str,
         pytorch_model_config: Optional[PytorchModelConfig] = None,
-        peft_model_paths: Optional[List[str]] = None,
+        peft_model: Optional[List[LoRA]] = None,
     ):
         super().__init__(
             model_uid,
@@ -36,7 +37,7 @@ class LlamaPytorchModel(PytorchModel):
             quantization,
             model_path,
             pytorch_model_config=pytorch_model_config,
-            peft_model_paths=peft_model_paths,
+            peft_model=peft_model,
         )
 
     def _load_model(self, **kwargs):
@@ -69,8 +70,8 @@ class LlamaPytorchChatModel(PytorchChatModel):
         model_spec: "LLMSpecV1",
         quantization: str,
         model_path: str,
-        peft_model_paths: Optional[List[str]] = None,
         pytorch_model_config: Optional["PytorchModelConfig"] = None,
+        peft_model: Optional[List[LoRA]] = None,
     ):
         super().__init__(
             model_uid,
@@ -78,7 +79,7 @@ class LlamaPytorchChatModel(PytorchChatModel):
             model_spec,
             quantization,
             model_path,
-            peft_model_paths=peft_model_paths,
+            peft_model=peft_model,
             pytorch_model_config=pytorch_model_config,
         )
         self._use_fast_tokenizer = False

@@ -50,8 +50,6 @@ from starlette.responses import RedirectResponse
 from uvicorn import Config, Server
 from xoscar.utils import get_next_port
 
-from xinference.utils import PeftModelConfig
-
 from .._compat import BaseModel, Field
 from .._version import get_versions
 from ..constants import XINFERENCE_DEFAULT_ENDPOINT_PORT
@@ -66,6 +64,7 @@ from ..types import (
     CreateChatCompletion,
     CreateCompletion,
     ImageList,
+    PeftModelConfig,
     max_tokens_field,
 )
 from .oauth2.auth_service import AuthService
@@ -694,7 +693,7 @@ class RESTfulAPI:
         replica = payload.get("replica", 1)
         n_gpu = payload.get("n_gpu", "auto")
         request_limits = payload.get("request_limits", None)
-        peft_model_config_dict = payload.get("peft_model_config", None)
+        peft_model_config = payload.get("peft_model_config", None)
         worker_ip = payload.get("worker_ip", None)
         gpu_idx = payload.get("gpu_idx", None)
 
@@ -723,8 +722,8 @@ class RESTfulAPI:
                 detail="Invalid input. Please specify the model name",
             )
 
-        if peft_model_config_dict is not None:
-            peft_model_config = PeftModelConfig.from_dict(peft_model_config_dict)
+        if peft_model_config is not None:
+            peft_model_config = PeftModelConfig.from_dict(peft_model_config)
         else:
             peft_model_config = None
 

@@ -32,6 +32,7 @@ from ....types import (
     Embedding,
     EmbeddingData,
     EmbeddingUsage,
+    LoRA,
     PytorchGenerateConfig,
     PytorchModelConfig,
 )
@@ -52,14 +53,14 @@ class PytorchModel(LLM):
         quantization: str,
         model_path: str,
         pytorch_model_config: Optional[PytorchModelConfig] = None,
-        peft_model_paths: Optional[List[str]] = None,
+        peft_model: Optional[List[LoRA]] = None,
     ):
         super().__init__(model_uid, model_family, model_spec, quantization, model_path)
         self._use_fast_tokenizer = True
         self._pytorch_model_config: PytorchModelConfig = self._sanitize_model_config(
             pytorch_model_config
         )
-        self._peft_model_paths = peft_model_paths
+        self._peft_model = peft_model
 
     def _sanitize_model_config(
         self, pytorch_model_config: Optional[PytorchModelConfig]
@@ -115,7 +116,7 @@ class PytorchModel(LLM):
         return model, tokenizer
 
     def _apply_lora(self):
-        if self._peft_model_paths is not None:
+        if self._peft_model is not None:
             try:
                 from peft import PeftModel
             except ImportError:
@@ -123,11 +124,11 @@ class PytorchModel(LLM):
                     f"Failed to import 'PeftModel' from 'peft'. Please make sure 'peft' is installed.\n\n"
                 )
 
-            for peft_model_path in self._peft_model_paths:
+            for peft_model in self._peft_model:
                 # Apply LoRA
                 self._model = PeftModel.from_pretrained(
                     self._model,
-                    peft_model_path,
+                    peft_model.local_path,
                 )
                 logger.info(
                     f"Successfully loaded the PEFT adaptor for model {self.model_uid}."
@@ -413,7 +414,7 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
         quantization: str,
         model_path: str,
         pytorch_model_config: Optional[PytorchModelConfig] = None,
-        peft_model_paths: Optional[List[str]] = None,
+        peft_model: Optional[List[LoRA]] = None,
     ):
         super().__init__(
             model_uid,
@@ -422,7 +423,7 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
             quantization,
             model_path,
             pytorch_model_config,
-            peft_model_paths,
+            peft_model,
         )
 
     def _sanitize_generate_config(

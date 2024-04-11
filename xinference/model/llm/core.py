@@ -20,9 +20,8 @@ from abc import abstractmethod
 from collections import defaultdict
 from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, Union
 
-from xinference.utils import PeftModelConfig
-
 from ...core.utils import parse_replica_model_uid
+from ...types import PeftModelConfig
 from ..core import ModelDescription
 
 if TYPE_CHECKING:
@@ -206,11 +205,9 @@ def create_llm_model_instance(
     assert quantization is not None
     save_path = cache(llm_family, llm_spec, quantization)
 
-    peft_model_paths = peft_model_config.peft_model_paths if peft_model_config else None
+    peft_model = peft_model_config.peft_model if peft_model_config else None
 
-    llm_cls = match_llm_cls(
-        llm_family, llm_spec, quantization, peft_model_paths=peft_model_paths
-    )
+    llm_cls = match_llm_cls(llm_family, llm_spec, quantization, peft_model=peft_model)
     if not llm_cls:
         raise ValueError(
             f"Model not supported, name: {model_name}, format: {model_format},"
@@ -218,15 +215,9 @@ def create_llm_model_instance(
         )
     logger.debug(f"Launching {model_uid} with {llm_cls.__name__}")
 
-    if peft_model_paths is not None:
+    if peft_model is not None:
         model = llm_cls(
-            model_uid,
-            llm_family,
-            llm_spec,
-            quantization,
-            save_path,
-            kwargs,
-            peft_model_paths,
+            model_uid, llm_family, llm_spec, quantization, save_path, kwargs, peft_model
         )
     else:
         model = llm_cls(

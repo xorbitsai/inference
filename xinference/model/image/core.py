@@ -17,9 +17,8 @@ import os
 from collections import defaultdict
 from typing import Dict, List, Optional, Tuple
 
-from xinference.utils import PeftModelConfig
-
 from ...constants import XINFERENCE_CACHE_DIR
+from ...types import PeftModelConfig
 from ..core import CacheableModelSpec, ModelDescription
 from ..utils import valid_model_revision
 from .stable_diffusion.core import DiffusionModel
@@ -211,18 +210,18 @@ def create_image_model_instance(
             kwargs["controlnet"] = controlnet_model_paths
     model_path = cache(model_spec)
     if peft_model_config is not None:
-        lora_model_paths = peft_model_config.peft_model_paths
+        lora_model = peft_model_config.peft_model
         lora_load_kwargs = peft_model_config.image_lora_load_kwargs
         lora_fuse_kwargs = peft_model_config.image_lora_fuse_kwargs
     else:
-        lora_model_paths = None
+        lora_model = None
         lora_load_kwargs = None
         lora_fuse_kwargs = None
 
     model = DiffusionModel(
         model_uid,
         model_path,
-        lora_model_paths=lora_model_paths,
+        lora_model_paths=lora_model,
         lora_load_kwargs=lora_load_kwargs,
         lora_fuse_kwargs=lora_fuse_kwargs,
         **kwargs,

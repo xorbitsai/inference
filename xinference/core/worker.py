@@ -27,8 +27,6 @@ import xoscar as xo
 from async_timeout import timeout
 from xoscar import MainActorPoolType
 
-from xinference.utils import PeftModelConfig
-
 from ..constants import (
     XINFERENCE_CACHE_DIR,
     XINFERENCE_DISABLE_HEALTH_CHECK,
@@ -38,6 +36,7 @@ from ..core import ModelActor
 from ..core.status_guard import LaunchStatus
 from ..device_utils import gpu_count
 from ..model.core import ModelDescription, create_model_instance
+from ..types import PeftModelConfig
 from .event import Event, EventCollectorActor, EventType
 from .metrics import launch_metrics_export_server, record_metrics
 from .resource import gather_node_info

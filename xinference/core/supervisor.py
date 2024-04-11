@@ -22,8 +22,6 @@ from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Tuple, Un
 
 import xoscar as xo
 
-from xinference.utils import PeftModelConfig
-
 from ..constants import (
     XINFERENCE_DISABLE_HEALTH_CHECK,
     XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD,
@@ -32,6 +30,7 @@ from ..constants import (
 )
 from ..core import ModelActor
 from ..core.status_guard import InstanceInfo, LaunchStatus
+from ..types import PeftModelConfig
 from .metrics import record_metrics
 from .resource import GPUStatus, ResourceStatus
 from .utils import (

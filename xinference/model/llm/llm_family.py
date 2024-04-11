@@ -33,6 +33,7 @@ from ..._compat import (
     validator,
 )
 from ...constants import XINFERENCE_CACHE_DIR, XINFERENCE_MODEL_DIR
+from ...types import LoRA
 from ..utils import (
     download_from_modelscope,
     is_valid_model_uri,
@@ -939,12 +940,12 @@ def match_llm_cls(
     family: LLMFamilyV1,
     llm_spec: "LLMSpecV1",
     quantization: str,
-    peft_model_paths: Optional[List[str]] = None,
+    peft_model: Optional[List[LoRA]] = None,
 ) -> Optional[Type[LLM]]:
     """
     Find an LLM implementation for given LLM family and spec.
     """
-    if peft_model_paths is not None:
+    if peft_model is not None:
         for cls in PEFT_SUPPORTED_CLASSES:
             if cls.match(family, llm_spec, quantization):
                 return cls
