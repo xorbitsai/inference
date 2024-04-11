@@ -14,6 +14,7 @@
 
 import asyncio
 import itertools
+import json
 import time
 import typing
 from dataclasses import dataclass
@@ -21,6 +22,7 @@ from logging import getLogger
 from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Tuple, Union
 
 import xoscar as xo
+from typing_extensions import Literal, cast
 
 from ..constants import (
     XINFERENCE_DISABLE_HEALTH_CHECK,
@@ -30,11 +32,22 @@ from ..constants import (
 )
 from ..core import ModelActor
 from ..core.status_guard import InstanceInfo, LaunchStatus
+from ..model.embedding import CustomEmbeddingModelSpec
+from ..model.embedding.utils import get_language_from_model_id
+from ..model.llm import GgmlLLMSpecV1
+from ..model.llm.llm_family import (
+    DEFAULT_CONTEXT_LENGTH,
+    HubImportLLMFamilyV1,
+    PytorchLLMSpecV1,
+)
+from ..model.llm.utils import MODEL_HUB, ModelHubUtil
 from .metrics import record_metrics
 from .resource import GPUStatus, ResourceStatus
 from .utils import (
     build_replica_model_uid,
     gen_random_string,
+    get_llama_cpp_quantization_info,
+    get_model_size_from_model_id,
     is_valid_model_uid,
     iter_replica_model_uid,
     log_async,
@@ -53,7 +66,6 @@ if TYPE_CHECKING:
 
 
 logger = getLogger(__name__)
-
 
 ASYNC_LAUNCH_TASKS = {}  # type: ignore
 
@@ -79,6 +91,7 @@ class ReplicaInfo:
 class SupervisorActor(xo.StatelessActor):
     def __init__(self):
         super().__init__()
+        self._model_hub_util = ModelHubUtil()
         self._worker_address_to_worker: Dict[str, xo.ActorRefType["WorkerActor"]] = {}
         self._worker_status: Dict[str, WorkerStatus] = {}
         self._replica_model_uid_to_worker: Dict[
@@ -665,8 +678,8 @@ class SupervisorActor(xo.StatelessActor):
             model_uid = self._gen_model_uid(model_name)
         logger.debug(
             (
-                f"Enter launch_speculative_llm, model_uid: %s, model_name: %s, model_size: %s, "
-                f"draft_model_name: %s, draft_model_size: %s"
+                "Enter launch_speculative_llm, model_uid: %s, model_name: %s, model_size: %s, "
+                "draft_model_name: %s, draft_model_size: %s"
             ),
             model_uid,
             model_name,
@@ -1021,3 +1034,117 @@ class SupervisorActor(xo.StatelessActor):
     @staticmethod
     def record_metrics(name, op, kwargs):
         record_metrics(name, op, kwargs)
+
+    @log_async(logger=logger)
+    async def get_llm_family_from_hub(
+        self,
+        model_id: str,
+        model_format: str,
+        model_hub: str,
+    ) -> HubImportLLMFamilyV1:
+        if model_hub not in ["huggingface", "modelscope"]:
+            raise ValueError(f"Unsupported model hub: {model_hub}")
+
+        model_hub = cast(MODEL_HUB, model_hub)
+
+        context_length = DEFAULT_CONTEXT_LENGTH
+
+        repo_exists = await self._model_hub_util.a_repo_exists(
+            model_id,
+            model_hub,
+        )
+        if not repo_exists:
+            raise ValueError(f"Model {model_id} does not exist")
+
+        if config_path := await self._model_hub_util.a_get_config_path(
+            model_id, model_hub
+        ):
+            with open(config_path) as f:
+                config = json.load(f)
+                if "max_position_embeddings" in config:
+                    context_length = config["max_position_embeddings"]
+
+        if model_format in ["ggmlv3", "ggufv2"]:
+            filenames = await self._model_hub_util.a_list_repo_files(
+                model_id, model_hub
+            )
+
+            (
+                model_file_name_template,
+                model_file_name_split_template,
+                quantizations,
+                quantization_parts,
+            ) = get_llama_cpp_quantization_info(
+                filenames, typing.cast(Literal["ggmlv3", "ggufv2"], model_format)
+            )
+
+            llm_spec = GgmlLLMSpecV1(
+                model_id=model_id,
+                model_format=model_format,
+                model_hub=model_hub,
+                quantizations=quantizations,
+                quantization_parts=quantization_parts,
+                model_size_in_billions=get_model_size_from_model_id(model_id),
+                model_file_name_template=model_file_name_template,
+                model_file_name_split_template=model_file_name_split_template,
+            )
+
+            return HubImportLLMFamilyV1(
+                version=1, context_length=context_length, model_specs=[llm_spec]
+            )
+        elif model_format in ["pytorch", "awq"]:
+            llm_spec = PytorchLLMSpecV1(
+                model_id=model_id,
+                model_format=model_format,
+                model_hub=model_hub,
+                model_size_in_billions=get_model_size_from_model_id(model_id),
+                quantizations=(
+                    ["4-bit", "8-bit", "none"]
+                    if model_format == "pytorch"
+                    else ["Int4"]
+                ),
+            )
+            return HubImportLLMFamilyV1(
+                version=1, context_length=context_length, model_specs=[llm_spec]
+            )
+        elif model_format == "gptq":
+            raise NotImplementedError("gptq is not implemented yet")
+        else:
+            raise ValueError(f"Unsupported model format: {model_format}")
+
+    @log_async(logger=logger)
+    async def get_embedding_spec_from_hub(
+        self, model_id: str, model_hub: str
+    ) -> CustomEmbeddingModelSpec:
+        if model_hub not in ["huggingface", "modelscope"]:
+            raise ValueError(f"Unsupported model hub: {model_hub}")
+
+        model_hub = cast(MODEL_HUB, model_hub)
+
+        repo_exists = await self._model_hub_util.a_repo_exists(
+            model_id,
+            model_hub,
+        )
+
+        if not repo_exists:
+            raise ValueError(f"Model {model_id} does not exist")
+
+        max_tokens = 512
+        dimensions = 768
+        if config_path := await self._model_hub_util.a_get_config_path(
+            model_id, model_hub
+        ):
+            with open(config_path) as f:
+                config = json.load(f)
+                if "max_position_embeddings" in config:
+                    max_tokens = config["max_position_embeddings"]
+                if "hidden_size" in config:
+                    dimensions = config["hidden_size"]
+        return CustomEmbeddingModelSpec(
+            model_name=model_id.split("/")[-1],
+            model_id=model_id,
+            max_tokens=max_tokens,
+            dimensions=dimensions,
+            model_hub=model_hub,
+            language=[get_language_from_model_id(model_id)],
+        )

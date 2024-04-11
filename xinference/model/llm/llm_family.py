@@ -122,6 +122,13 @@ class LLMFamilyV1(BaseModel):
     prompt_style: Optional["PromptStyleV1"]
 
 
+class HubImportLLMFamilyV1(BaseModel):
+    version: Literal[1]
+    context_length: Optional[int] = DEFAULT_CONTEXT_LENGTH
+    model_specs: List["LLMSpecV1"] = []
+    prompt_style: Optional["PromptStyleV1"]
+
+
 class CustomLLMFamilyV1(LLMFamilyV1):
     prompt_style: Optional[Union["PromptStyleV1", str]]  # type: ignore
 
@@ -208,6 +215,7 @@ LLMSpecV1 = Annotated[
 ]
 
 LLMFamilyV1.update_forward_refs()
+HubImportLLMFamilyV1.update_forward_refs()
 CustomLLMFamilyV1.update_forward_refs()
 
 
@@ -534,7 +542,10 @@ def _generate_model_file_names(
     )
     need_merge = False
 
-    if llm_spec.quantization_parts is None:
+    if (
+        llm_spec.quantization_parts is None
+        or quantization not in llm_spec.quantization_parts
+    ):
         file_names.append(final_file_name)
     elif quantization is not None and quantization in llm_spec.quantization_parts:
         parts = llm_spec.quantization_parts[quantization]

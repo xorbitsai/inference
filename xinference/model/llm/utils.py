@@ -19,6 +19,14 @@ import time
 import uuid
 from typing import AsyncGenerator, Dict, Iterator, List, Optional, Tuple, cast
 
+from huggingface_hub import HfApi
+from huggingface_hub.utils import RepositoryNotFoundError
+from modelscope import HubApi
+from modelscope.hub.errors import NotExistError
+from modelscope.hub.file_download import model_file_download
+from requests import HTTPError
+from typing_extensions import Literal
+
 from ...types import (
     SPECIAL_TOOL_PROMPT,
     ChatCompletion,
@@ -27,6 +35,7 @@ from ...types import (
     Completion,
     CompletionChunk,
 )
+from ...utils import AsyncRunner
 from .llm_family import (
     GgmlLLMSpecV1,
     LLMFamilyV1,
@@ -714,3 +723,82 @@ def get_model_version(
     llm_family: LLMFamilyV1, llm_spec: LLMSpecV1, quantization: str
 ) -> str:
     return f"{llm_family.model_name}--{llm_spec.model_size_in_billions}B--{llm_spec.model_format}--{quantization}"
+
+
+MODEL_HUB = Literal["huggingface", "modelscope"]
+
+
+class ModelHubUtil(object):
+    def __init__(self):
+        self.__hf_api: Optional[HfApi] = None
+        self.__ms_api: Optional[HubApi] = None
+        self.__async_runner = AsyncRunner()
+
+    @property
+    def _hf_api(self) -> HfApi:
+        if self.__hf_api is None:
+            self.__hf_api = HfApi()
+        return self.__hf_api
+
+    @property
+    def _ms_api(self) -> HubApi:
+        if self.__ms_api is None:
+            self.__ms_api = HubApi()
+        return self.__ms_api
+
+    def repo_exists(self, model_id: str, hub: MODEL_HUB) -> bool:
+        if hub == "huggingface":
+            return self._hf_api.repo_exists(model_id)
+        elif hub == "modelscope":
+            try:
+                self._ms_api.get_model(model_id)
+                return True
+            except (NotExistError, HTTPError):
+                return False
+        else:
+            raise ValueError("Unsupported model hub")
+
+    async def a_repo_exists(self, model_id: str, hub: MODEL_HUB) -> bool:
+        return await self.__async_runner.async_run(self.repo_exists, model_id, hub)
+
+    def get_config_path(self, model_id: str, hub: MODEL_HUB) -> Optional[str]:
+        if hub == "huggingface":
+            try:
+                return self._hf_api.hf_hub_download(model_id, "config.json")
+            except (ValueError, HTTPError) as e:
+                logging.error(e)
+                return None
+        elif hub == "modelscope":
+            try:
+                return model_file_download(model_id, "config.json")
+            except (NotExistError, HTTPError) as e:
+                logging.error(e)
+                return None
+
+    async def a_get_config_path(self, model_id: str, hub: MODEL_HUB) -> Optional[str]:
+        return await self.__async_runner.async_run(self.get_config_path, model_id, hub)
+
+    def list_repo_files(self, model_id: str, hub: MODEL_HUB) -> List[str]:
+        """
+        List all files in the model repo.
+
+        Notice: ModelScope does not return the hidden files which start with dot,
+                however, HuggingFace does.
+        """
+        if hub == "huggingface":
+            try:
+                return self._hf_api.list_repo_files(model_id)
+            except RepositoryNotFoundError:
+                raise ValueError(f"Repository {model_id} not found.")
+        elif hub == "modelscope":
+            try:
+                return [
+                    entry["Path"] for entry in self._ms_api.get_model_files(model_id)
+                ]
+            except HTTPError:
+                raise ValueError(f"Repository {model_id} not found.")
+        else:
+            raise ValueError("Unsupported model hub")
+
+    async def a_list_repo_files(self, model_id: str, hub: MODEL_HUB) -> List[str]:
+        return await self.__async_runner.async_run(self.list_repo_files, model_id, hub)

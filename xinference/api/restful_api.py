@@ -492,6 +492,16 @@ class RESTfulAPI:
                 else None
             ),
         )
+        self._router.add_api_route(
+            "/v1/model_registrations/{model_type}/{model_hub}/{model_format}/{user}/{repo}",
+            self.get_model_info_from_hub,
+            methods=["GET"],
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:register"])]
+                if self.is_authenticated()
+                else None
+            ),
+        )
 
         # Clear the global Registry for the MetricsMiddleware, or
         # the MetricsMiddleware will register duplicated metrics if the port
@@ -1525,6 +1535,32 @@ class RESTfulAPI:
         except Exception as e:
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
+
+    async def get_model_info_from_hub(
+        self, model_type: str, model_hub: str, model_format: str, user: str, repo: str
+    ) -> JSONResponse:
+        try:
+            if model_type == "LLM":
+                llm_family_info = await (
+                    await self._get_supervisor_ref()
+                ).get_llm_family_from_hub(f"{user}/{repo}", model_format, model_hub)
+                return JSONResponse(content=llm_family_info)
+            if model_type == "embedding":
+                embed_spec = await (
+                    await self._get_supervisor_ref()
+                ).get_embedding_spec_from_hub(f"{user}/{repo}", model_hub)
+                return JSONResponse(content=embed_spec)
+        except ValueError as re:
+            logger.error(re, exc_info=True)
+            raise HTTPException(status_code=400, detail=str(re))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
+        raise HTTPException(
+            status_code=400,
+            detail="only LLM and embedding model type supported currently",
+        )
 
 
 def run(
