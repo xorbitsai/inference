@@ -22,6 +22,8 @@ from typing import List, Optional, Tuple, Union
 import click
 from xoscar.utils import get_next_port
 
+from xinference.utils import PeftModelConfig
+
 from .. import __version__
 from ..client import RESTfulClient
 from ..client.restful.restful_client import (
@@ -640,8 +642,8 @@ def list_model_registrations(
     help='The number of GPUs used by the model, default is "auto".',
 )
 @click.option(
-    "--peft-model-path",
-    default=None,
+    "--peft-model-paths",
+    multiple=True,
     type=str,
     help="PEFT model path.",
 )
@@ -696,7 +698,7 @@ def model_launch(
     quantization: str,
     replica: int,
     n_gpu: str,
-    peft_model_path: Optional[str],
+    peft_model_paths: Optional[List[str]],
     image_lora_load_kwargs: Optional[Tuple],
     image_lora_fuse_kwargs: Optional[Tuple],
     worker_ip: Optional[str],
@@ -729,6 +731,10 @@ def model_launch(
         else None
     )
 
+    peft_model_config = PeftModelConfig(
+        peft_model_paths, image_lora_load_params, image_lora_fuse_params
+    )
+
     _gpu_idx: Optional[List[int]] = (
         None if gpu_idx is None else [int(idx) for idx in gpu_idx.split(",")]
     )
@@ -752,9 +758,7 @@ def model_launch(
         quantization=quantization,
         replica=replica,
         n_gpu=_n_gpu,
-        peft_model_path=peft_model_path,
-        image_lora_load_kwargs=image_lora_load_params,
-        image_lora_fuse_kwargs=image_lora_fuse_params,
+        peft_model_config=peft_model_config,
         worker_ip=worker_ip,
         gpu_idx=_gpu_idx,
         trust_remote_code=trust_remote_code,

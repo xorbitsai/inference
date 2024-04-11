@@ -12,9 +12,38 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import Dict, List, Optional
+
 import torch
 
 
 def cuda_count():
     # even if install torch cpu, this interface would return 0.
     return torch.cuda.device_count()
+
+
+class PeftModelConfig:
+    def __init__(
+        self,
+        peft_model_paths: Optional[List[str]] = None,
+        image_lora_load_kwargs: Optional[Dict] = None,
+        image_lora_fuse_kwargs: Optional[Dict] = None,
+    ):
+        self.peft_model_paths = peft_model_paths
+        self.image_lora_load_kwargs = image_lora_load_kwargs
+        self.image_lora_fuse_kwargs = image_lora_fuse_kwargs
+
+    def to_dict(self):
+        return {
+            "peft_model_paths": self.peft_model_paths,
+            "image_lora_load_kwargs": self.image_lora_load_kwargs,
+            "image_lora_fuse_kwargs": self.image_lora_fuse_kwargs,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict):
+        return cls(
+            peft_model_paths=data.get("peft_model_paths"),
+            image_lora_load_kwargs=data.get("image_lora_load_kwargs"),
+            image_lora_fuse_kwargs=data.get("image_lora_fuse_kwargs"),
+        )

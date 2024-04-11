@@ -22,6 +22,8 @@ from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Tuple, Un
 
 import xoscar as xo
 
+from xinference.utils import PeftModelConfig
+
 from ..constants import (
     XINFERENCE_DISABLE_HEALTH_CHECK,
     XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD,
@@ -723,9 +725,7 @@ class SupervisorActor(xo.StatelessActor):
         request_limits: Optional[int] = None,
         wait_ready: bool = True,
         model_version: Optional[str] = None,
-        peft_model_path: Optional[str] = None,
-        image_lora_load_kwargs: Optional[Dict] = None,
-        image_lora_fuse_kwargs: Optional[Dict] = None,
+        peft_model_config: Optional[PeftModelConfig] = None,
         worker_ip: Optional[str] = None,
         gpu_idx: Optional[Union[int, List[int]]] = None,
         **kwargs,
@@ -777,9 +777,7 @@ class SupervisorActor(xo.StatelessActor):
                 model_type=model_type,
                 n_gpu=n_gpu,
                 request_limits=request_limits,
-                peft_model_path=peft_model_path,
-                image_lora_load_kwargs=image_lora_load_kwargs,
-                image_lora_fuse_kwargs=image_lora_fuse_kwargs,
+                peft_model_config=peft_model_config,
                 gpu_idx=gpu_idx,
                 **kwargs,
             )
