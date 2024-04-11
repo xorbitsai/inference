@@ -91,11 +91,23 @@ class CompletionLogprobs(TypedDict):
     top_logprobs: List[Optional[Dict[str, float]]]
 
 
+class ToolCallFunction(TypedDict):
+    name: str
+    arguments: str
+
+
+class ToolCalls(TypedDict):
+    id: str
+    type: Literal["function"]
+    function: ToolCallFunction
+
+
 class CompletionChoice(TypedDict):
     text: str
     index: int
     logprobs: Optional[CompletionLogprobs]
     finish_reason: Optional[str]
+    tool_calls: NotRequired[List[ToolCalls]]
 
 
 class CompletionUsage(TypedDict):
@@ -147,6 +159,7 @@ class ChatCompletion(TypedDict):
 class ChatCompletionChunkDelta(TypedDict):
     role: NotRequired[str]
     content: NotRequired[str]
+    tool_calls: NotRequired[List[ToolCalls]]
 
 
 class ChatCompletionChunkChoice(TypedDict):
