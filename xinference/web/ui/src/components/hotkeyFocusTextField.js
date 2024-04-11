@@ -11,17 +11,15 @@ const HotkeyFocusTextField = ({
   ...props
 }) => {
   const [isFocused, setIsFocused] = useState(false)
-  const textFieldRef = useRef(null) // 创建一个ref来引用TextField
+  const textFieldRef = useRef(null)
   const handleKeyDown = (event) => {
-    // 检测到按下'/'键
     if (
       event.key === hotkey &&
       document.activeElement !== textFieldRef.current
     ) {
-      event.preventDefault() // 阻止默认行为
-      setIsFocused(true) // 更新状态以聚焦TextField
-      // 检查并确保TextField已经渲染
-      textFieldRef.current?.focus() // 使用ref聚焦TextField
+      event.preventDefault()
+      setIsFocused(true)
+      textFieldRef.current?.focus()
     }
   }
 
@@ -42,6 +40,7 @@ const HotkeyFocusTextField = ({
       inputRef={textFieldRef}
       autoFocus={isFocused}
       onBlur={() => setIsFocused(false)}
+      onFocus={() => setIsFocused(true)}
       InputProps={{
         endAdornment:
           !isFocused && !value ? (
