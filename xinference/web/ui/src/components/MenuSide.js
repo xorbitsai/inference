@@ -71,13 +71,17 @@ const MenuSide = () => {
     navigate('/login', { replace: true })
   }
 
+  const [selectedIndex, setSelectedIndex] = useState(-1)
+
   useEffect(() => {
     setActive(pathname.substring(1))
-    console.log(
-      '【Debug】选择：',
-      pathname.split('/').filter((p) => p),
-      'index: '
+    const pathFirst = pathname.split('/').filter((p) => p)[0]
+    const idx = navItems.findIndex(
+      (item) => item.link.split('/').filter((p) => p)[0] === pathFirst
     )
+    if (idx > -1) {
+      setSelectedIndex(idx)
+    }
   }, [pathname])
 
   useEffect(() => {
@@ -151,7 +155,7 @@ const MenuSide = () => {
           <Box width="100%">
             <Box m="1.5rem 2rem 2rem 3rem"></Box>
             <List>
-              {navItems.map(({ text, icon, link, sessionKey }) => {
+              {navItems.map(({ text, icon, link, sessionKey }, index) => {
                 if (!icon) {
                   return (
                     <Typography key={text} sx={{ m: '2.25rem 0 1rem 3rem' }}>
@@ -175,6 +179,7 @@ const MenuSide = () => {
                           }
                         }
                       }}
+                      selected={selectedIndex === index}
                     >
                       <ListItemIcon
                         sx={{
