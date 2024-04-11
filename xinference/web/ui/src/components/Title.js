@@ -1,20 +1,6 @@
-import ExitToAppIcon from '@mui/icons-material/ExitToApp'
 import { Box, Stack, Typography } from '@mui/material'
-import Button from '@mui/material/Button'
-import { useCookies } from 'react-cookie'
-import { useNavigate } from 'react-router-dom'
-
-import { isValidBearerToken } from './utils'
 
 const Title = ({ title }) => {
-  const [cookie, , removeCookie] = useCookies(['token'])
-  const navigate = useNavigate()
-
-  const handleLogout = () => {
-    removeCookie('token', { path: '/' })
-    navigate('/login', { replace: true })
-  }
-
   return (
     <Box mb="30px">
       <Stack direction="row" alignItems="center" justifyContent="space-between">
@@ -26,16 +12,6 @@ const Title = ({ title }) => {
         >
           {title}
         </Typography>
-        {isValidBearerToken(cookie.token) && (
-          <Button
-            variant="outlined"
-            size="large"
-            onClick={handleLogout}
-            startIcon={<ExitToAppIcon />}
-          >
-            LOG OUT
-          </Button>
-        )}
       </Stack>
     </Box>
   )

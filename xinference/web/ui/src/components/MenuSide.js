@@ -6,6 +6,7 @@ import {
   RocketLaunchOutlined,
   SmartToyOutlined,
 } from '@mui/icons-material'
+import ExitToAppIcon from '@mui/icons-material/ExitToApp'
 import {
   Box,
   Drawer,
@@ -17,10 +18,13 @@ import {
   Typography,
   useTheme,
 } from '@mui/material'
+import Button from '@mui/material/Button'
 import { useEffect, useState } from 'react'
+import { useCookies } from 'react-cookie'
 import { useLocation, useNavigate } from 'react-router-dom'
 
 import icon from '../media/icon.webp'
+import { isValidBearerToken } from './utils'
 
 const navItems = [
   {
@@ -61,12 +65,17 @@ const MenuSide = () => {
 
   const [selectedIndex, setSelectedIndex] = useState(0)
 
+  const [cookie, removeCookie] = useCookies(['token'])
+  const handleLogout = () => {
+    removeCookie('token', { path: '/' })
+    navigate('/login', { replace: true })
+  }
+
   useEffect(() => {
     setActive(pathname.substring(1))
     const idx = navItems.findIndex(
       (item) => item.link === pathname.substring(1)
     )
-    console.log('选择：', pathname, 'index: ', idx)
     if (idx > -1) {
       setSelectedIndex(idx)
     }
@@ -106,82 +115,89 @@ const MenuSide = () => {
         },
       }}
     >
-      {/* Title */}
-      <Box
-        display="flex"
-        justifyContent="center"
-        alignItems="center"
-        width="100%"
-      >
-        <Box display="flex" m="2rem 1rem 0rem 1rem" width="217px">
-          <Box
-            display="flex"
-            justifyContent="space-between"
-            alignItems="center"
-            textTransform="none"
-          >
+      <Box flex="1" display="flex" flexDirection="column">
+        {/* Title */}
+        <Box
+          display="flex"
+          justifyContent="center"
+          alignItems="center"
+          width="100%"
+        >
+          <Box display="flex" m="2rem 1rem 0rem 1rem" width="217px">
             <Box
-              component="img"
-              alt="profile"
-              src={icon}
-              height="60px"
-              width="60px"
-              borderRadius="50%"
-              sx={{ objectFit: 'cover', mr: 1.5 }}
-            />
-            <Box textAlign="left">
-              <Typography fontWeight="bold" fontSize="1.7rem">
-                {'Xinference'}
-              </Typography>
+              display="flex"
+              justifyContent="space-between"
+              alignItems="center"
+              textTransform="none"
+            >
+              <Box
+                component="img"
+                alt="profile"
+                src={icon}
+                height="60px"
+                width="60px"
+                borderRadius="50%"
+                sx={{ objectFit: 'cover', mr: 1.5 }}
+              />
+              <Box textAlign="left">
+                <Typography fontWeight="bold" fontSize="1.7rem">
+                  {'Xinference'}
+                </Typography>
+              </Box>
             </Box>
           </Box>
         </Box>
-      </Box>
 
-      <Box>
-        <Box width="100%">
-          <Box m="1.5rem 2rem 2rem 3rem"></Box>
-          <List>
-            {navItems.map(({ text, icon, link }, index) => {
-              if (!icon) {
+        <Box>
+          <Box width="100%">
+            <Box m="1.5rem 2rem 2rem 3rem"></Box>
+            <List>
+              {navItems.map(({ text, icon, link }, index) => {
+                if (!icon) {
+                  return (
+                    <Typography key={text} sx={{ m: '2.25rem 0 1rem 3rem' }}>
+                      {text}
+                    </Typography>
+                  )
+                }
+
                 return (
-                  <Typography key={text} sx={{ m: '2.25rem 0 1rem 3rem' }}>
-                    {text}
-                  </Typography>
-                )
-              }
-
-              // const link = text.toLowerCase().replace(' ', '_')
-              // console.log(link)
-              return (
-                <ListItem key={text}>
-                  <ListItemButton
-                    onClick={() => {
-                      if (link.toLowerCase().startsWith('http')) {
-                        window.open(link, '_blank', 'noreferrer')
-                      } else {
-                        navigate(`/${link}`)
-                        setActive(link)
-                        console.log(active)
-                      }
-                    }}
-                    selected={selectedIndex === index}
-                  >
-                    <ListItemIcon
-                      sx={{
-                        ml: '2rem',
+                  <ListItem key={text}>
+                    <ListItemButton
+                      onClick={() => {
+                        if (link.toLowerCase().startsWith('http')) {
+                          window.open(link, '_blank', 'noreferrer')
+                        } else {
+                          navigate(`/${link}`)
+                          setActive(link)
+                          console.log(active)
+                        }
                       }}
+                      selected={selectedIndex === index}
                     >
-                      {icon}
-                    </ListItemIcon>
-                    <ListItemText primary={text} />
-                    <ChevronRightOutlined sx={{ ml: 'auto' }} />
-                  </ListItemButton>
-                </ListItem>
-              )
-            })}
-          </List>
+                      <ListItemIcon sx={{ ml: '2rem' }}>{icon}</ListItemIcon>
+                      <ListItemText primary={text} />
+                      <ChevronRightOutlined sx={{ ml: 'auto' }} />
+                    </ListItemButton>
+                  </ListItem>
+                )
+              })}
+            </List>
+          </Box>
         </Box>
+
+        <Box flexGrow={1}></Box>
+        {isValidBearerToken(cookie.token) && (
+          <Button
+            variant="outlined"
+            size="large"
+            onClick={handleLogout}
+            startIcon={<ExitToAppIcon />}
+            sx={{ m: '1rem', mt: 'auto' }} // 使用marginTop: 'auto'来推动按钮到底部，并添加一些外边距
+          >
+            LOG OUT
+          </Button>
+        )}
       </Box>
     </Drawer>
   )
