@@ -60,29 +60,6 @@ msgstr ""
 "github.com/abetlen/llama-cpp-python#installation-with-openblas--cublas--"
 "clblast--metal>`_ 。"
 
-#: ../../source/user_guide/backends.rst:21
-msgid "ctransformers"
-msgstr "ctransformers"
-
-#: ../../source/user_guide/backends.rst:22
-msgid ""
-"CTransformers provide python bindings for the Transformer models "
-"implemented in C/C++ using GGML library."
-msgstr ""
-"CTransformers 基于 GGML 使用 C++ 实现了 transformer 模型的推理，并提供了 "
-"Python 接口。"
-
-#: ../../source/user_guide/backends.rst:24
-msgid ""
-"We recommend that users install `ctransformers` on the worker themselves "
-"and adjust the parameters according to the hardware to achieve the best "
-"inference efficiency. Please refer to the `ctransformers installation "
-"guide <https://github.com/marella/ctransformers#gpu>`_."
-msgstr ""
-"推荐用户手动安装 `ctransformers`，根据当前使用的硬件，指定对应的编译选项"
-"以获得最好的推理性能。可以参考 `ctransformers 安装指南 <https://github."
-"com/marella/ctransformers#gpu>`_. 。"
-
 #: ../../source/user_guide/backends.rst:30
 msgid "transformers"
 msgstr "transformers"

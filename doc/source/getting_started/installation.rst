@@ -66,7 +66,6 @@ It's advised to install the GGML dependencies manually based on your hardware sp
 Initial setup::
 
    pip install xinference
-   pip install ctransformers
 
 Hardware-Specific installations:
 
