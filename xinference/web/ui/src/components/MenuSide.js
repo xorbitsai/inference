@@ -30,22 +30,29 @@ const navItems = [
   {
     text: 'Launch Model',
     icon: <RocketLaunchOutlined />,
+    link: '/launch_model/llm',
+    sessionKey: 'modelType',
   },
   {
     text: 'Running Models',
     icon: <SmartToyOutlined />,
+    link: '/running_models/LLM',
+    sessionKey: 'runningModelType',
   },
   {
     text: 'Register Model',
     icon: <AddBoxOutlined />,
+    link: '/register_model',
   },
   {
     text: 'Cluster Information',
     icon: <DnsOutlined />,
+    link: '/cluster_info',
   },
   {
     text: 'Contact Us',
     icon: <GitHub />,
+    link: 'https://github.com/xorbitsai/inference',
   },
 ]
 
@@ -66,6 +73,11 @@ const MenuSide = () => {
 
   useEffect(() => {
     setActive(pathname.substring(1))
+    console.log(
+      '【Debug】选择：',
+      pathname.split('/').filter((p) => p),
+      'index: '
+    )
   }, [pathname])
 
   useEffect(() => {
@@ -139,7 +151,7 @@ const MenuSide = () => {
           <Box width="100%">
             <Box m="1.5rem 2rem 2rem 3rem"></Box>
             <List>
-              {navItems.map(({ text, icon }) => {
+              {navItems.map(({ text, icon, link, sessionKey }) => {
                 if (!icon) {
                   return (
                     <Typography key={text} sx={{ m: '2.25rem 0 1rem 3rem' }}>
@@ -148,41 +160,19 @@ const MenuSide = () => {
                   )
                 }
 
-                const link = text.toLowerCase().replace(' ', '_')
-
                 return (
                   <ListItem key={text}>
                     <ListItemButton
                       onClick={() => {
-                        if (link === 'contact_us') {
-                          window.open(
-                            'https://github.com/xorbitsai/inference',
-                            '_blank',
-                            'noreferrer'
-                          )
-                        } else if (link === 'launch_model') {
-                          sessionStorage.setItem(
-                            'modelType',
-                            '/launch_model/llm'
-                          )
-                          navigate('/launch_model/llm')
-                          setActive(link)
-                          console.log(active)
-                        } else if (link === 'cluster_information') {
-                          navigate('/cluster_info')
-                          setActive(link)
-                        } else if (link === 'running_models') {
-                          navigate('/running_models/LLM')
-                          sessionStorage.setItem(
-                            'runningModelType',
-                            '/running_models/LLM'
-                          )
-                          setActive(link)
-                          console.log(active)
+                        if (link.toLowerCase().startsWith('http')) {
+                          window.open(link, '_blank', 'noreferrer')
                         } else {
-                          navigate(`/${link}`)
-                          setActive(link)
+                          navigate(link)
+                          setActive(link.substring(1))
                           console.log(active)
+                          if (sessionKey) {
+                            sessionStorage.setItem(sessionKey, link)
+                          }
                         }
                       }}
                     >
