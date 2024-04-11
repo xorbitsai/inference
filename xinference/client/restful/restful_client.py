@@ -18,8 +18,7 @@ from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Union
 
 import requests
 
-from xinference.utils import PeftModelConfig
-
+from ...types import PeftModelConfig
 from ..common import streaming_response_iterator
 
 if TYPE_CHECKING:
@@ -829,7 +828,7 @@ class Client:
         n_gpu: Optional[Union[int, str]],
             The number of GPUs used by the model, default is "auto".
             ``n_gpu=None`` means cpu only, ``n_gpu=auto`` lets the system automatically determine the best number of GPUs to use.
-        mode_deft_config: Optional[PeftModelConfig],
+        model_peft_config: Optional[PeftModelConfig],
             The config for the lora model.
         request_limits: Optional[int]
             The number of request limits for this model, default is None.

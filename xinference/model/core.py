@@ -15,9 +15,8 @@
 from abc import ABC, abstractmethod
 from typing import Any, List, Optional, Tuple
 
-from xinference.utils import PeftModelConfig
-
 from .._compat import BaseModel
+from ..types import PeftModelConfig
 
 
 class ModelDescription(ABC):

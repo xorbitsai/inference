@@ -28,6 +28,7 @@
 
 from typing import List, Optional
 
+from ....types import LoRA
 from .. import LLMFamilyV1, LLMSpecV1
 from .core import PytorchChatModel, PytorchModelConfig
 
@@ -41,7 +42,7 @@ class VicunaPytorchChatModel(PytorchChatModel):
         quantization: str,
         model_path: str,
         pytorch_model_config: Optional["PytorchModelConfig"] = None,
-        peft_model_paths: Optional[List[str]] = None,
+        peft_model: Optional[List[LoRA]] = None,
     ):
         super().__init__(
             model_uid,
@@ -50,7 +51,7 @@ class VicunaPytorchChatModel(PytorchChatModel):
             quantization,
             model_path,
             pytorch_model_config=pytorch_model_config,
-            peft_model_paths=peft_model_paths,
+            peft_model=peft_model,
         )
         self._use_fast_tokenizer = False
 

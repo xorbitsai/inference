@@ -456,3 +456,58 @@ class CreateChatCompletion(
     CreateChatCompletionOpenAI,
 ):
     pass
+
+
+class LoRA:
+    def __init__(self, lora_name: str, local_path: str):
+        self.lora_name = lora_name
+        self.local_path = local_path
+
+    def to_dict(self):
+        return {
+            "lora_name": self.lora_name,
+            "local_path": self.local_path,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict):
+        return cls(
+            lora_name=data["lora_name"],
+            local_path=data["local_path"],
+        )
+
+
+class PeftModelConfig:
+    def __init__(
+        self,
+        peft_model: Optional[List[LoRA]] = None,
+        image_lora_load_kwargs: Optional[Dict] = None,
+        image_lora_fuse_kwargs: Optional[Dict] = None,
+    ):
+        self.peft_model = peft_model
+        self.image_lora_load_kwargs = image_lora_load_kwargs
+        self.image_lora_fuse_kwargs = image_lora_fuse_kwargs
+
+    def to_dict(self):
+        return {
+            "peft_model": [lora.to_dict() for lora in self.peft_model]
+            if self.peft_model
+            else None,
+            "image_lora_load_kwargs": self.image_lora_load_kwargs,
+            "image_lora_fuse_kwargs": self.image_lora_fuse_kwargs,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict):
+        peft_model_data = data.get("peft_model")
+        peft_model = (
+            [LoRA.from_dict(lora_dict) for lora_dict in peft_model_data]
+            if peft_model_data
+            else None
+        )
+
+        return cls(
+            peft_model=peft_model,
+            image_lora_load_kwargs=data.get("image_lora_load_kwargs"),
+            image_lora_fuse_kwargs=data.get("image_lora_fuse_kwargs"),
+        )
