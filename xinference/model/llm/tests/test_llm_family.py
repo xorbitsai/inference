@@ -1045,3 +1045,8 @@ def test_match_model_size():
     assert match_model_size("1_8", "1.8")
     assert not match_model_size("1", "1_8")
     assert not match_model_size("1__8", "1_8")
+    assert not match_model_size("1_8", 18)
+    assert not match_model_size("1_8", "18")
+    assert not match_model_size("1.8", 18)
+    assert not match_model_size("1.8", 1)
+    assert match_model_size("001", 1)

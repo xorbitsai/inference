@@ -15,7 +15,6 @@
 import logging
 import os
 import platform
-import re
 import shutil
 from threading import Lock
 from typing import Any, Dict, List, Optional, Set, Tuple, Type, Union
@@ -51,8 +50,6 @@ BUILTIN_LLM_PROMPT_STYLE: Dict[str, "PromptStyleV1"] = {}
 BUILTIN_LLM_MODEL_CHAT_FAMILIES: Set[str] = set()
 BUILTIN_LLM_MODEL_GENERATE_FAMILIES: Set[str] = set()
 BUILTIN_LLM_MODEL_TOOL_CALL_FAMILIES: Set[str] = set()
-
-MODEL_SIZE_SPLITTER_PAT = re.compile(r"(\d+)[_.](\d+)")
 
 
 class GgmlLLMSpecV1(BaseModel):
@@ -788,27 +785,20 @@ def get_user_defined_llm_families():
 def match_model_size(
     model_size: Union[int, str], spec_model_size: Union[int, str]
 ) -> bool:
+    if isinstance(model_size, str):
+        model_size = model_size.replace("_", ".")
+    if isinstance(spec_model_size, str):
+        spec_model_size = spec_model_size.replace("_", ".")
+
     if model_size == spec_model_size:
         return True
 
-    if isinstance(model_size, str):
-        try:
-            ms = int(model_size)
-            ss = int(spec_model_size)
-            if ms == ss:
-                return True
-        except ValueError:
-            ...
-
-        if m1 := MODEL_SIZE_SPLITTER_PAT.match(model_size):
-            if isinstance(spec_model_size, int):
-                return False
-
-            if m2 := MODEL_SIZE_SPLITTER_PAT.match(spec_model_size):
-                if m1.group(1) == m2.group(1) and m1.group(2) == m2.group(2):
-                    return True
-
-    return False
+    try:
+        ms = int(model_size)
+        ss = int(spec_model_size)
+        return ms == ss
+    except ValueError:
+        return False
 
 
 def match_llm(
