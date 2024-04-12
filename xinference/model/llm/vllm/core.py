@@ -62,7 +62,7 @@ class VLLMModelConfig(TypedDict, total=False):
 
 
 class VLLMGenerateConfig(TypedDict, total=False):
-    model: str
+    lora_model: str
     n: int
     best_of: Optional[int]
     presence_penalty: float
@@ -233,7 +233,9 @@ class VLLMModel(LLM):
             generate_config = {}
 
         sanitized = VLLMGenerateConfig()
-        sanitized.setdefault("model", generate_config.get("model", self.model_uid))
+        sanitized.setdefault(
+            "lora_model", generate_config.get("lora_model", self.model_uid)
+        )
         sanitized.setdefault("n", generate_config.get("n", 1))
         sanitized.setdefault("best_of", generate_config.get("best_of", None))
         sanitized.setdefault(
@@ -364,7 +366,7 @@ class VLLMModel(LLM):
         request_id = str(uuid.uuid1())
 
         lora_request = self._maybe_get_lora(sanitized_generate_config)
-
+        logger.info(f"[lora_request]: {lora_request}")
         assert self._engine is not None
         results_generator = self._engine.generate(
             prompt, sampling_params, request_id, lora_request
@@ -395,10 +397,10 @@ class VLLMModel(LLM):
                 yield chunk
 
         def _maybe_get_lora(self, request) -> Optional[LoRARequest]:
-            if request.model == self.model_uid:
+            if request.lora_model == self.model_uid:
                 return
             for lora in self.lora_requests:
-                if request.model == lora.lora_name:
+                if request.lora_model == lora.lora_name:
                     return lora
             # if _check_model has been called earlier, this will be unreachable
             raise ValueError("The model `{request.model}` does not exist.")

@@ -128,7 +128,7 @@ class GradioInterface:
                     "max_tokens": int(max_tokens),
                     "temperature": temperature,
                     "stream": True,
-                    "model": lora_name,
+                    "lora_model": lora_name,
                 },
             ):
                 assert isinstance(chunk, dict)
