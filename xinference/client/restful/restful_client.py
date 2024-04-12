@@ -818,8 +818,9 @@ class Client:
             type of model.
         model_uid: str
             UID of model, auto generate a UUID if is None.
-        model_size_in_billions: Optional[int]
+        model_size_in_billions: Optional[Union[int, str]]
             The size (in billions) of the model.
+            Notice: it should be str type if you want to use float value, 1.8 should be "1_8" or "1.8".
         model_format: Optional[str]
             The format of the model.
         quantization: Optional[str]

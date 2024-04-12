@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from .._compat import BaseModel
 
@@ -50,7 +50,7 @@ def create_model_instance(
     model_type: str,
     model_name: str,
     model_format: Optional[str] = None,
-    model_size_in_billions: Optional[int] = None,
+    model_size_in_billions: Optional[Union[int, str]] = None,
     quantization: Optional[str] = None,
     peft_model_path: Optional[str] = None,
     image_lora_load_kwargs: Optional[Dict] = None,

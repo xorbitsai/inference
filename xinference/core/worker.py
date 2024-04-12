@@ -593,7 +593,7 @@ class WorkerActor(xo.StatelessActor):
         self,
         model_uid: str,
         model_name: str,
-        model_size_in_billions: Optional[int],
+        model_size_in_billions: Optional[Union[int, str]],
         model_format: Optional[str],
         quantization: Optional[str],
         model_type: str = "LLM",

@@ -804,7 +804,7 @@ def match_model_size(
 def match_llm(
     model_name: str,
     model_format: Optional[str] = None,
-    model_size_in_billions: Optional[int] = None,
+    model_size_in_billions: Optional[Union[int, str]] = None,
     quantization: Optional[str] = None,
     is_local_deployment: bool = False,
 ) -> Optional[Tuple[LLMFamilyV1, LLMSpecV1, str]]:
