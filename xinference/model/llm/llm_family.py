@@ -199,6 +199,21 @@ class CustomLLMFamilyV1(LLMFamilyV1):
                 )
             llm_spec.prompt_style = BUILTIN_LLM_PROMPT_STYLE[prompt_style_name]
 
+        # check model ability, registering LLM only provides generate and chat
+        # but for vision models, we add back the abilities so that
+        # gradio chat interface can be generated properly
+        if (
+            llm_spec.model_family != "other"
+            and llm_spec.model_family
+            in {
+                family.model_name
+                for family in BUILTIN_LLM_FAMILIES
+                if "vision" in family.model_ability
+            }
+            and "vision" not in llm_spec.model_ability
+        ):
+            llm_spec.model_ability.append("vision")
+
         return llm_spec
 
 

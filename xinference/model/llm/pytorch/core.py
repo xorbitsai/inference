@@ -42,6 +42,25 @@ from ..utils import ChatModelMixin
 
 logger = logging.getLogger(__name__)
 
+NON_DEFAULT_MODEL_LIST: List[str] = [
+    "baichuan-chat",
+    "baichuan-2-chat",
+    "vicuna-v1.3",
+    "falcon",
+    "falcon-instruct",
+    "chatglm",
+    "chatglm2",
+    "chatglm2-32k",
+    "chatglm2-128k",
+    "llama-2",
+    "llama-2-chat",
+    "internlm2-chat",
+    "qwen-vl-chat",
+    "OmniLMM",
+    "yi-vl-chat",
+    "deepseek-vl-chat",
+]
+
 
 class PytorchModel(LLM):
     def __init__(
@@ -233,17 +252,7 @@ class PytorchModel(LLM):
         if llm_spec.model_format not in ["pytorch", "gptq", "awq"]:
             return False
         model_family = llm_family.model_family or llm_family.model_name
-        if model_family in [
-            "baichuan-chat",
-            "vicuna-v1.3",
-            "falcon",
-            "falcon-instruct",
-            "chatglm",
-            "chatglm2",
-            "chatglm2-32k",
-            "llama-2",
-            "llama-2-chat",
-        ]:
+        if model_family in NON_DEFAULT_MODEL_LIST:
             return False
         if "generate" not in llm_family.model_ability:
             return False
@@ -452,23 +461,8 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
     ) -> bool:
         if llm_spec.model_format not in ["pytorch", "gptq", "awq"]:
             return False
-        if llm_family.model_name in [
-            "baichuan-chat",
-            "baichuan-2-chat",
-            "vicuna-v1.3",
-            "falcon",
-            "falcon-instruct",
-            "chatglm",
-            "chatglm2",
-            "chatglm2-32k",
-            "llama-2",
-            "llama-2-chat",
-            "internlm2-chat",
-            "qwen-vl-chat",
-            "OmniLMM",
-            "yi-vl-chat",
-            "deepseek-vl-chat",
-        ]:
+        model_family = llm_family.model_family or llm_family.model_name
+        if model_family in NON_DEFAULT_MODEL_LIST:
             return False
         if "chat" not in llm_family.model_ability:
             return False

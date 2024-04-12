@@ -993,6 +993,20 @@ def test_parse_prompt_style():
     model_spec = CustomLLMFamilyV1.parse_raw(bytes(llm_family.json(), "utf8"))
     assert model_spec.model_name == llm_family.model_name
 
+    # test vision
+    llm_family = CustomLLMFamilyV1(
+        version=1,
+        model_type="LLM",
+        model_name="test_LLM",
+        model_lang=["en"],
+        model_ability=["chat", "generate"],
+        model_specs=[hf_spec, ms_spec],
+        model_family="qwen-vl-chat",
+        prompt_style="qwen-vl-chat",
+    )
+    model_spec = CustomLLMFamilyV1.parse_raw(bytes(llm_family.json(), "utf-8"))
+    assert "vision" in model_spec.model_ability
+
     # error: missing model_family
     llm_family = CustomLLMFamilyV1(
         version=1,

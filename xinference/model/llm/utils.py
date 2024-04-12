@@ -163,7 +163,7 @@ class ChatModelMixin:
 
             for i, message in enumerate(chat_history):
                 role = get_role(message["role"])
-                content = message["content"]
+                content = message.get("content")
                 tool_calls = message.get("tool_calls")
                 if tool_calls:
                     content = tool_calls[0]["function"]
@@ -248,7 +248,7 @@ Begin!"""
             ret = f"<|im_start|>system\n{prompt_style.system_prompt}<|im_end|>"
             for message in chat_history:
                 role = get_role(message["role"])
-                content = message["content"]
+                content = message.get("content")
 
                 ret += prompt_style.intra_message_sep
                 if tools:
@@ -446,6 +446,11 @@ Begin!"""
                     "index": i,
                     "delta": {
                         "content": choice["text"],
+                        **(
+                            {"tool_calls": choice["tool_calls"]}
+                            if "tool_calls" in choice
+                            else {}
+                        ),
                     },
                     "finish_reason": choice["finish_reason"],
                 }
@@ -592,8 +597,7 @@ Begin!"""
         return text, None, None
 
     @classmethod
-    def _tool_calls_completion(cls, model_family, model_uid, c, tools):
-        _id = str(uuid.uuid4())
+    def _eval_tool_arguments(cls, model_family, c, tools):
         family = model_family.model_family or model_family.model_name
         if family in ["gorilla-openfunctions-v1", "gorilla-openfunctions-v2"]:
             content, func, args = cls._eval_gorilla_openfunctions_arguments(c, tools)
@@ -606,7 +610,41 @@ Begin!"""
                 f"Model {model_family.model_name} is not support tool calls."
             )
         logger.debug("Tool call content: %s, func: %s, args: %s", content, func, args)
+        return content, func, args
 
+    @classmethod
+    def _tools_token_filter(cls, model_family):
+        """
+        Generates a filter function for Qwen series models to retain outputs after "\nFinal Answer:".
+
+        Returns:
+            A function that takes tokens (string output by the model so far) as input
+            returns True if current token is after "\nFinal Answer:", else False.
+        """
+        family = model_family.model_family or model_family.model_name
+        if family in ["qwen-chat", "qwen1.5-chat"]:
+            # Encapsulating function to reset 'found' after each call
+            found = False
+
+            def process_token(tokens: str):
+                nonlocal found
+                # Once "Final Answer:" is found, future tokens are allowed.
+                if found:
+                    return True
+                # Check if the token ends with "\nFinal Answer:" and update `found`.
+                if tokens.endswith("\nFinal Answer:"):
+                    found = True
+                return False
+
+            return process_token
+        else:
+            # For other families, allow all tokens.
+            return lambda tokens: True
+
+    @classmethod
+    def _tool_calls_completion(cls, model_family, model_uid, c, tools):
+        _id = str(uuid.uuid4())
+        content, func, args = cls._eval_tool_arguments(model_family, c, tools)
         if func:
             m = {
                 "role": "assistant",

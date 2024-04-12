@@ -114,6 +114,8 @@ class Internlm2PytorchChatModel(PytorchChatModel):
             ]
         else:
             input_history = []
+        if system_prompt:
+            kwargs["meta_instruction"] = system_prompt
         if stream:
 
             def _stream_generator():

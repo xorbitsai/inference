@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import logging
 import multiprocessing
 import time
@@ -36,6 +37,8 @@ from ....types import (
     CompletionChoice,
     CompletionChunk,
     CompletionUsage,
+    ToolCallFunction,
+    ToolCalls,
 )
 from .. import LLM, LLMFamilyV1, LLMSpecV1
 from ..llm_family import CustomLLMFamilyV1
@@ -98,6 +101,7 @@ VLLM_SUPPORTED_CHAT_MODELS = [
     "internlm-chat-7b",
     "internlm-chat-8k",
     "internlm-chat-20b",
+    "internlm2-chat",
     "qwen-chat",
     "Yi-chat",
     "code-llama-instruct",
@@ -303,6 +307,7 @@ class VLLMModel(LLM):
         self,
         prompt: str,
         generate_config: Optional[Dict] = None,
+        tools: object = False,
     ) -> Union[Completion, AsyncGenerator[CompletionChunk, None]]:
         try:
             from vllm.sampling_params import SamplingParams
@@ -329,16 +334,46 @@ class VLLMModel(LLM):
 
         async def stream_results() -> AsyncGenerator[CompletionChunk, None]:
             previous_texts = [""] * sanitized_generate_config["n"]
+            tools_token_filter = ChatModelMixin._tools_token_filter(self.model_family)
             async for _request_output in results_generator:
                 chunk = self._convert_request_output_to_completion_chunk(
                     request_id=request_id,
                     model=self.model_uid,
                     request_output=_request_output,
                 )
+
                 for i, choice in enumerate(chunk["choices"]):
                     delta = choice["text"][len(previous_texts[i]) :]
                     previous_texts[i] = choice["text"]
                     choice["text"] = delta
+
+                if tools:
+                    # only handle the first choice
+                    choice = chunk["choices"][0]
+                    if choice["finish_reason"] is not None:
+                        # use previous text for evaluation temporarily
+                        choice_delta = choice["text"]
+                        choice["text"] = previous_texts[0]
+                        _content, func, args = ChatModelMixin._eval_tool_arguments(
+                            self.model_family, chunk, tools
+                        )
+                        choice["text"] = choice_delta
+                        if func is not None:
+                            choice["text"] = None
+                            choice["finish_reason"] = "tool_calls"
+                            choice["tool_calls"] = [
+                                ToolCalls(
+                                    id=str(uuid.uuid4()),
+                                    type="function",
+                                    function=ToolCallFunction(
+                                        name=func,
+                                        arguments=json.dumps(args, ensure_ascii=False),
+                                    ),
+                                )
+                            ]
+                    # use a filter function to skip Qwen's react thought process
+                    elif not tools_token_filter(previous_texts[0]):
+                        continue
                 prompt_tokens = len(_request_output.prompt_token_ids)
                 completion_tokens = sum(
                     len(output.token_ids) for output in _request_output.outputs
@@ -426,7 +461,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
         generate_config = self._sanitize_chat_config(generate_config)
         # TODO(codingl2k1): qwen hacky to set stop for function call.
         model_family = self.model_family.model_family or self.model_family.model_name
-        if tools and "qwen-chat" == model_family:
+        if tools and model_family in ["qwen-chat", "qwen1.5-chat"]:
             stop = generate_config.get("stop")
             if isinstance(stop, str):
                 generate_config["stop"] = [stop, "Observation:"]
@@ -439,7 +474,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
         stream = generate_config.get("stream", None)
 
         if stream:
-            agen = await self.async_generate(full_prompt, generate_config)
+            agen = await self.async_generate(full_prompt, generate_config, tools)
             assert isinstance(agen, AsyncGenerator)
             return self._async_to_chat_completion_chunks(agen)
         else:
