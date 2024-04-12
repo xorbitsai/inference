@@ -131,7 +131,7 @@ class PytorchModel(LLM):
                     peft_model.local_path,
                 )
                 logger.info(
-                    f"Successfully loaded the PEFT adaptor for model {self.model_uid}."
+                    f"PEFT adaptor '{peft_model.lora_name}' successfully loaded for model '{self.model_uid}'."
                 )
 
     def load(self):
