@@ -800,7 +800,7 @@ class Client:
         quantization: Optional[str] = None,
         replica: int = 1,
         n_gpu: Optional[Union[int, str]] = "auto",
-        peft_model: Optional[Dict] = None,
+        peft_model: Optional[List[Dict]] = None,
         image_lora_load_kwargs: Optional[Dict] = None,
         image_lora_fuse_kwargs: Optional[Dict] = None,
         request_limits: Optional[int] = None,
