@@ -866,7 +866,9 @@ class Client:
         payload = {
             "model_uid": model_uid,
             "model_name": model_name,
-            "peft_model_config": peft_model_config.to_dict(),
+            "peft_model_config": peft_model_config.to_dict()
+            if peft_model_config
+            else None,
             "model_type": model_type,
             "model_size_in_billions": model_size_in_billions,
             "model_format": model_format,
