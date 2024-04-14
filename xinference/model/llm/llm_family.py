@@ -227,15 +227,26 @@ LLMFamilyV1.update_forward_refs()
 CustomLLMFamilyV1.update_forward_refs()
 
 
+LLAMA_CLASSES: List[Type[LLM]] = []
 LLM_CLASSES: List[Type[LLM]] = []
 PEFT_SUPPORTED_CLASSES: List[Type[LLM]] = []
 
 BUILTIN_LLM_FAMILIES: List["LLMFamilyV1"] = []
 BUILTIN_MODELSCOPE_LLM_FAMILIES: List["LLMFamilyV1"] = []
 
+QUANTIZATION_PARAMS: Dict[Tuple[str, str, str, Union[str, int]], List[str]] = {}
+
+SGLANG_CLASSES: List[Type[LLM]] = []
+PYTORCH_CLASSES: List[Type[LLM]] = []
+
 UD_LLM_FAMILIES: List["LLMFamilyV1"] = []
 
 UD_LLM_FAMILIES_LOCK = Lock()
+
+VLLM_CLASSES: List[Type[LLM]] = []
+
+LLM_ENGINES: Dict[str, List[Dict[str, Any]]] = {}
+SUPPORTED_ENGINES: Dict[str, List[Type[LLM]]] = {}
 
 LLM_LAUNCH_VERSIONS: Dict[str, List[str]] = {}
 
@@ -904,6 +915,7 @@ def match_llm(
 
 def register_llm(llm_family: LLMFamilyV1, persist: bool):
     from ..utils import is_valid_model_name
+    from .__init__ import query_engine_for_one_model
 
     if not is_valid_model_name(llm_family.model_name):
         raise ValueError(f"Invalid model name {llm_family.model_name}.")
@@ -916,6 +928,7 @@ def register_llm(llm_family: LLMFamilyV1, persist: bool):
                 )
 
         UD_LLM_FAMILIES.append(llm_family)
+        query_engine_for_one_model(llm_family)
 
     if persist:
         # We only validate model URL when persist is True.
@@ -941,6 +954,18 @@ def unregister_llm(model_name: str, raise_error: bool = True):
                 break
         if llm_family:
             UD_LLM_FAMILIES.remove(llm_family)
+            del LLM_ENGINES[llm_family]
+            global QUANTIZATION_PARAMS
+            QUANTIZATION_PARAMS = {
+                (name, engine, model_format, model_size_in_billions): quantizations
+                for (
+                    name,
+                    engine,
+                    model_format,
+                    model_size_in_billions,
+                ), quantizations in QUANTIZATION_PARAMS.items()
+                if name != model_name
+            }
 
             persist_path = os.path.join(
                 XINFERENCE_MODEL_DIR, "llm", f"{llm_family.model_name}.json"
