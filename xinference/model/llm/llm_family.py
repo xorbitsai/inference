@@ -954,7 +954,7 @@ def unregister_llm(model_name: str, raise_error: bool = True):
                 break
         if llm_family:
             UD_LLM_FAMILIES.remove(llm_family)
-            del LLM_ENGINES[llm_family]
+            del LLM_ENGINES[model_name]
             global QUANTIZATION_PARAMS
             QUANTIZATION_PARAMS = {
                 (name, engine, model_format, model_size_in_billions): quantizations
