@@ -210,7 +210,11 @@ const ModelCard = ({
     }
 
     const modelDataWithID =
-      modelType === 'LLM' ? modelDataWithID1 : modelDataWithID2
+      modelType === 'LLM'
+        ? modelDataWithID1
+        : modelType === 'embedding' || modelType === 'rerank'
+        ? { ...modelDataWithID2, replica }
+        : modelDataWithID2
 
     // First fetcher request to initiate the model
     fetcher(url + '/v1/models', {
@@ -863,6 +867,20 @@ const ModelCard = ({
                 label="(Optional) Model UID, model name by default"
                 onChange={(e) => setModelUID(e.target.value)}
               />
+              {(modelType === 'embedding' || modelType === 'rerank') && (
+                <TextField
+                  type="number"
+                  style={{ marginTop: '25px' }}
+                  InputProps={{
+                    inputProps: {
+                      min: 1,
+                    },
+                  }}
+                  label="Replica"
+                  value={replica}
+                  onChange={(e) => setReplica(parseInt(e.target.value, 10))}
+                />
+              )}
             </FormControl>
           )}
           <Box style={styles.buttonsContainer}>
