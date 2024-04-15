@@ -99,12 +99,14 @@ def generate_rerank_description(model_spec: RerankModelSpec) -> Dict[str, List[D
 class RerankModel:
     def __init__(
         self,
+        model_spec: RerankModelSpec,
         model_uid: str,
         model_path: str,
         device: Optional[str] = None,
         use_fp16: bool = False,
         model_config: Optional[Dict] = None,
     ):
+        self._model_spec = model_spec
         self._model_uid = model_uid
         self._model_path = model_path
         self._device = device
@@ -114,7 +116,16 @@ class RerankModel:
 
     def load(self):
         try:
-            from FlagEmbedding import FlagReranker
+            if self._model_spec.type == "normal":
+                from FlagEmbedding import FlagReranker
+            elif self._model_spec.type == "LLM-based":
+                from FlagEmbedding import FlagLLMReranker as FlagReranker
+            elif self._model_spec.type == "LLM-based layerwise":
+                from FlagEmbedding import LayerWiseFlagLLMReranker as FlagReranker
+            else:
+                raise RuntimeError(
+                    f"Unsupported Rank model type: {self._model_spec.type}"
+                )
         except ImportError:
             error_message = "Failed to import module 'FlagEmbedding'"
             installation_guide = [
@@ -222,7 +233,9 @@ def create_rerank_model_instance(
 
     model_path = cache(model_spec)
     use_fp16 = kwargs.pop("use_fp16", False)
-    model = RerankModel(model_uid, model_path, use_fp16=use_fp16, model_config=kwargs)
+    model = RerankModel(
+        model_spec, model_uid, model_path, use_fp16=use_fp16, model_config=kwargs
+    )
     model_description = RerankModelDescription(
         subpool_addr, devices, model_spec, model_path=model_path
     )
