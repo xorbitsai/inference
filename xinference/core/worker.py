@@ -195,6 +195,12 @@ class WorkerActor(xo.StatelessActor):
         logger.info("Purge cache directory: %s", XINFERENCE_CACHE_DIR)
         purge_dir(XINFERENCE_CACHE_DIR)
 
+        from ..model.audio import (
+            CustomAudioModelFamilyV1,
+            get_audio_model_descriptions,
+            register_audio,
+            unregister_audio,
+        )
         from ..model.embedding import (
             CustomEmbeddingModelSpec,
             get_embedding_model_descriptions,
@@ -223,6 +229,7 @@ class WorkerActor(xo.StatelessActor):
                 unregister_embedding,
             ),
             "rerank": (CustomRerankModelSpec, register_rerank, unregister_rerank),
+            "audio": (CustomAudioModelFamilyV1, register_audio, unregister_audio),
         }
 
         # record model version
@@ -231,6 +238,7 @@ class WorkerActor(xo.StatelessActor):
         model_version_infos.update(get_embedding_model_descriptions())
         model_version_infos.update(get_rerank_model_descriptions())
         model_version_infos.update(get_image_model_descriptions())
+        model_version_infos.update(get_audio_model_descriptions())
         await self._cache_tracker_ref.record_model_version(
             model_version_infos, self.address
         )
