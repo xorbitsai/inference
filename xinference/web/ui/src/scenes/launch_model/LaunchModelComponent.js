@@ -3,20 +3,19 @@ import React, { useContext, useEffect, useState } from 'react'
 
 import { ApiContext } from '../../components/apiContext'
 import fetcher from '../../components/fetcher'
-// import EmbeddingCard from './embeddingCard'
 import ModelCard from './modelCard'
+import style from './styles/launchModelStyle'
 
-const LaunchEmbedding = () => {
+const LaunchModelComponent = ({ modelType }) => {
   let endPoint = useContext(ApiContext).endPoint
   const [registrationData, setRegistrationData] = useState([])
+  const [searchTerm, setSearchTerm] = useState('')
+
   const { isCallingApi, setIsCallingApi } = useContext(ApiContext)
   const { isUpdatingModel } = useContext(ApiContext)
 
-  // States used for filtering
-  const [searchTerm, setSearchTerm] = useState('')
-
-  const handleChange = (event) => {
-    setSearchTerm(event.target.value)
+  const handleChange = (e) => {
+    setSearchTerm(e.target.value)
   }
 
   const filter = (registration) => {
@@ -34,7 +33,7 @@ const LaunchEmbedding = () => {
       setIsCallingApi(true)
 
       const response = await fetcher(
-        `${endPoint}/v1/model_registrations/embedding?detailed=true`,
+        `${endPoint}/v1/model_registrations/${modelType}?detailed=true`,
         {
           method: 'GET',
         }
@@ -42,8 +41,10 @@ const LaunchEmbedding = () => {
 
       const registrations = await response.json()
 
-      const builtinRegistrations = registrations.filter((v) => v.is_builtin)
-      setRegistrationData(builtinRegistrations)
+      const builtinModels = registrations.filter((v) => {
+        return v.is_builtin
+      })
+      setRegistrationData(builtinModels)
     } catch (error) {
       console.error('Error:', error)
     } finally {
@@ -53,15 +54,7 @@ const LaunchEmbedding = () => {
 
   useEffect(() => {
     update()
-    // eslint-disable-next-line
   }, [])
-
-  const style = {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-    paddingLeft: '2rem',
-    gridGap: '2rem 0rem',
-  }
 
   return (
     <Box m="20px">
@@ -76,7 +69,7 @@ const LaunchEmbedding = () => {
           <TextField
             id="search"
             type="search"
-            label="Search for embedding model name"
+            label={`Search for ${modelType} model name`}
             value={searchTerm}
             onChange={handleChange}
             size="small"
@@ -87,18 +80,11 @@ const LaunchEmbedding = () => {
         {registrationData
           .filter((registration) => filter(registration))
           .map((filteredRegistration) => (
-            // <EmbeddingCard 
-            // key={filteredRegistration.model_name} 
-            // url={endPoint} 
-            // modelData={filteredRegistration} 
-            // />
             <ModelCard
               key={filteredRegistration.model_name}
               url={endPoint}
               modelData={filteredRegistration}
-              // gpuAvailable={gpuAvailable}
-              isLLM={false}
-              modelType={'embedding'}
+              modelType={modelType}
             />
           ))}
       </div>
@@ -106,4 +92,4 @@ const LaunchEmbedding = () => {
   )
 }
 
-export default LaunchEmbedding
+export default LaunchModelComponent

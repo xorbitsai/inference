@@ -60,9 +60,7 @@ const LaunchLLM = ({ gpuAvailable }) => {
     if (
       isCallingApi ||
       isUpdatingModel ||
-      cookie.token === '' ||
-      cookie.token === undefined ||
-      cookie.token === 'need_auth'
+      (cookie.token !== 'no_auth' && !sessionStorage.getItem('token'))
     )
       return
 
@@ -154,7 +152,6 @@ const LaunchLLM = ({ gpuAvailable }) => {
               url={endPoint}
               modelData={filteredRegistration}
               gpuAvailable={gpuAvailable}
-              isLLM={true}
               modelType={'LLM'}
             />
           ))}

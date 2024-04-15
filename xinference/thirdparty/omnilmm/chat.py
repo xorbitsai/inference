@@ -207,7 +207,7 @@ class OmniLMM3B:
 
 class OmniLMMChat:
     def __init__(self, model_path, device_map) -> None:
-        if "12B" in model_path:
+        if "12b" in model_path:
             self.model = OmniLMM12B(model_path, device_map)
         else:
             self.model = OmniLMM3B(model_path, device_map)

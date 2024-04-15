@@ -59,9 +59,9 @@ RUN python -m pip install --upgrade -i "$PIP_INDEX" pip && \
       optimum \
       peft \
       timm \
-      opencv-python && \
+      opencv-contrib-python-headless && \
     pip install -i "$PIP_INDEX" -U chatglm-cpp && \
-    pip install -i "$PIP_INDEX" -U llama-cpp-python && \
+    pip install -i "$PIP_INDEX" "llama-cpp-python>=0.2.25,!=0.2.58" && \
     cd /opt/inference && \
     python setup.py build_web && \
     git restore . && \
