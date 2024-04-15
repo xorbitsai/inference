@@ -1,0 +1,35 @@
+.formBox {
+    position: relative;
+    max-height: 80vh;
+    overflow: auto;
+    padding: 40px 20px 0 0;
+}
+
+.icon {
+    cursor: pointer;
+    position: absolute;
+    top: 5px;
+    right: 20px;
+}
+
+.icon:hover {
+    color: #1976d2;
+}
+
+/* .arrow {
+    
+} */
+
+.jsonBox {
+    min-height: 80vh;
+    width: 200%;
+    padding-top: 40px;
+    background-color: pink;
+    transition: all .4s ease-in-out;
+}
+
+.hide {
+    width: 0;
+    transform: translate(20px, 0);
+    overflow: hidden;
+}
