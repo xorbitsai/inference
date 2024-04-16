@@ -292,6 +292,9 @@ def test_launch_custom_image(setup):
         num_inference_steps=10,
     )
     logger.info("test result %s", r)
+
+    client.unregister_model(model_type="image", model_name=my_model["model_name"])
+
     from PIL import Image
 
     with open(r["data"][0]["url"], "rb") as f:
@@ -324,18 +327,20 @@ def test_launch_custom_image_with_controlnet(setup):
     model_path = os.path.join(XINFERENCE_CACHE_DIR, "stable-diffusion-v1.5")
     controlnet_path = os.path.join(XINFERENCE_CACHE_DIR, "mlsd")
 
+    my_controlnet = {
+        "model_family": "controlnet",
+        "model_uid": "my_controlnet",
+        "model_name": "my_controlnet",
+        "model_uri": controlnet_path,
+    }
+
     my_model = {
         "model_family": "stable_diffusion",
         "model_uid": "my_sd",
         "model_name": "my_sd",
         "model_uri": model_path,
         "controlnet": [
-            {
-                "model_family": "controlnet",
-                "model_uid": "my_controlnet",
-                "model_name": "my_controlnet",
-                "model_uri": controlnet_path,
-            }
+            my_controlnet,
         ],
     }
 
@@ -382,3 +387,6 @@ def test_launch_custom_image_with_controlnet(setup):
         num_inference_steps=20,
     )
     logger.info("test result %s", r)
+
+    client.unregister_model(model_type="image", model_name=my_model["model_name"])
+    client.unregister_model(model_type="image", model_name=my_controlnet["model_name"])
