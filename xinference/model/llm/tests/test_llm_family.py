@@ -1095,7 +1095,7 @@ def test_query_engine():
     # assert match_engine_params(model_name, "SGlang", "pytorch", "1_8", "none")
     # assert not match_engine_params(model_name, "SGlang", "pytorch", "1_8", "4-bit")
     assert match_engine_params(model_name, "PyTorch", "pytorch", "1_8", "none")
-    assert not match_engine_params(model_name, "PyTorch", "pytorch", "1_8", "4-bit")
+    assert match_engine_params(model_name, "PyTorch", "pytorch", "1_8", "4-bit")
     assert match_engine_params(model_name, "llama-cpp-python", "ggufv2", "1_8", "q2_k")
     assert not match_engine_params(
         model_name, "llama-cpp-python", "ggmlv3", "1_8", "q2_k"
