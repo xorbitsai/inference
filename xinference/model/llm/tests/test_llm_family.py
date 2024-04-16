@@ -1067,7 +1067,6 @@ def test_match_model_size():
 
 
 def test_query_engine():
-    from .. import _install as llm_install
     from ..llm_family import (
         LLM_ENGINES,
         get_user_defined_llm_families,
@@ -1076,8 +1075,6 @@ def test_query_engine():
         unregister_llm,
     )
 
-    assert LLM_ENGINES == {}
-    llm_install()
     model_name = "qwen1.5-chat"
     assert model_name in LLM_ENGINES
     supported_engines = LLM_ENGINES[model_name]
