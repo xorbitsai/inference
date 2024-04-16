@@ -195,8 +195,8 @@ def _install():
 
     # support 4 engines for now
     SUPPORTED_ENGINES["vLLM"] = VLLM_CLASSES
-    SUPPORTED_ENGINES["Sglang"] = SGLANG_CLASSES
-    SUPPORTED_ENGINES["Pytorch"] = PYTORCH_CLASSES
+    SUPPORTED_ENGINES["SGlang"] = SGLANG_CLASSES
+    SUPPORTED_ENGINES["PyTorch"] = PYTORCH_CLASSES
     SUPPORTED_ENGINES["llama-cpp-python"] = LLAMA_CLASSES
 
     json_path = os.path.join(
