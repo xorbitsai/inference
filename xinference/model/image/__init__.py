@@ -20,11 +20,18 @@ from itertools import chain
 from .core import (
     BUILTIN_IMAGE_MODELS,
     IMAGE_MODEL_DESCRIPTIONS,
+    MODEL_NAME_TO_REVISION,
     MODELSCOPE_IMAGE_MODELS,
     ImageModelFamilyV1,
     generate_image_description,
     get_cache_status,
     get_image_model_descriptions,
+)
+from .custom import (
+    CustomImageModelFamilyV1,
+    get_user_defined_images,
+    register_image,
+    unregister_image,
 )
 
 _model_spec_json = os.path.join(os.path.dirname(__file__), "model_spec.json")
@@ -37,6 +44,9 @@ BUILTIN_IMAGE_MODELS.update(
         for spec in json.load(codecs.open(_model_spec_json, "r", encoding="utf-8"))
     )
 )
+for model_name, model_spec in BUILTIN_IMAGE_MODELS.items():
+    MODEL_NAME_TO_REVISION[model_name].append(model_spec.model_revision)
+
 MODELSCOPE_IMAGE_MODELS.update(
     dict(
         (spec["model_name"], ImageModelFamilyV1(**spec))
@@ -45,6 +55,8 @@ MODELSCOPE_IMAGE_MODELS.update(
         )
     )
 )
+for model_name, model_spec in MODELSCOPE_IMAGE_MODELS.items():
+    MODEL_NAME_TO_REVISION[model_name].append(model_spec.model_revision)
 
 # register model description
 for model_name, model_spec in chain(
@@ -52,4 +64,21 @@ for model_name, model_spec in chain(
 ):
     IMAGE_MODEL_DESCRIPTIONS.update(generate_image_description(model_spec))
 
+from ...constants import XINFERENCE_MODEL_DIR
+
+user_defined_image_dir = os.path.join(XINFERENCE_MODEL_DIR, "image")
+if os.path.isdir(user_defined_image_dir):
+    for f in os.listdir(user_defined_image_dir):
+        with codecs.open(
+            os.path.join(user_defined_image_dir, f), encoding="utf-8"
+        ) as fd:
+            user_defined_image_family = CustomImageModelFamilyV1.parse_obj(
+                json.load(fd)
+            )
+            register_image(user_defined_image_family, persist=False)
+
+for ud_image in get_user_defined_images():
+    IMAGE_MODEL_DESCRIPTIONS.update(generate_image_description(ud_image))
+
 del _model_spec_json
+del _model_spec_modelscope_json
