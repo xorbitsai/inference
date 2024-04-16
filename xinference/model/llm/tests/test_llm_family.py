@@ -36,6 +36,7 @@ from ..llm_family import (
     is_self_hosted,
     is_valid_model_uri,
     match_llm,
+    match_model_size,
     parse_uri,
 )
 
@@ -1046,3 +1047,20 @@ def test_parse_prompt_style():
     )
     with pytest.raises(ValueError):
         CustomLLMFamilyV1.parse_raw(bytes(llm_family.json(), "utf8"))
+
+
+def test_match_model_size():
+    assert match_model_size("1", "1")
+    assert match_model_size("1", 1)
+    assert match_model_size(1, 1)
+    assert not match_model_size("1", "b")
+    assert not match_model_size("1", "1b")
+    assert match_model_size("1.8", "1_8")
+    assert match_model_size("1_8", "1.8")
+    assert not match_model_size("1", "1_8")
+    assert not match_model_size("1__8", "1_8")
+    assert not match_model_size("1_8", 18)
+    assert not match_model_size("1_8", "18")
+    assert not match_model_size("1.8", 18)
+    assert not match_model_size("1.8", 1)
+    assert match_model_size("001", 1)
