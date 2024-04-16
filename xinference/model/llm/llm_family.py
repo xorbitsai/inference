@@ -234,8 +234,6 @@ PEFT_SUPPORTED_CLASSES: List[Type[LLM]] = []
 BUILTIN_LLM_FAMILIES: List["LLMFamilyV1"] = []
 BUILTIN_MODELSCOPE_LLM_FAMILIES: List["LLMFamilyV1"] = []
 
-QUANTIZATION_PARAMS: Dict[Tuple[str, str, str, Union[str, int]], List[str]] = {}
-
 SGLANG_CLASSES: List[Type[LLM]] = []
 PYTORCH_CLASSES: List[Type[LLM]] = []
 
@@ -245,7 +243,7 @@ UD_LLM_FAMILIES_LOCK = Lock()
 
 VLLM_CLASSES: List[Type[LLM]] = []
 
-LLM_ENGINES: Dict[str, List[Dict[str, Any]]] = {}
+LLM_ENGINES: Dict[str, Dict[str, List[Dict[str, Any]]]] = {}
 SUPPORTED_ENGINES: Dict[str, List[Type[LLM]]] = {}
 
 LLM_LAUNCH_VERSIONS: Dict[str, List[str]] = {}
@@ -955,17 +953,6 @@ def unregister_llm(model_name: str, raise_error: bool = True):
         if llm_family:
             UD_LLM_FAMILIES.remove(llm_family)
             del LLM_ENGINES[model_name]
-            global QUANTIZATION_PARAMS
-            QUANTIZATION_PARAMS = {
-                (name, engine, model_format, model_size_in_billions): quantizations
-                for (
-                    name,
-                    engine,
-                    model_format,
-                    model_size_in_billions,
-                ), quantizations in QUANTIZATION_PARAMS.items()
-                if name != model_name
-            }
 
             persist_path = os.path.join(
                 XINFERENCE_MODEL_DIR, "llm", f"{llm_family.model_name}.json"
@@ -1015,3 +1002,26 @@ def match_llm_cls(
             if cls.match(family, llm_spec, quantization):
                 return cls
     return None
+
+
+def match_engine_params(
+    model_name: str,
+    model_engine: str,
+    model_format: str,
+    model_size_in_billions: Union[str, int],
+    quantization: str,
+) -> bool:
+    if model_name not in LLM_ENGINES:
+        return False
+    if model_engine not in LLM_ENGINES[model_name]:
+        return False
+    match_params = LLM_ENGINES[model_name][model_engine]
+    for param in match_params:
+        if (
+            model_name == param["model_name"]
+            and model_format == param["model_format"]
+            and model_size_in_billions == param["model_size_in_billions"]
+            and quantization in param["quantizations"]
+        ):
+            return True
+    return False
