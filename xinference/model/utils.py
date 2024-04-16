@@ -17,7 +17,7 @@ import os
 import shutil
 from json import JSONDecodeError
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional, Tuple
+from typing import Any, Callable, Dict, Optional, Tuple, Union
 
 from fsspec import AbstractFileSystem
 
@@ -415,3 +415,14 @@ def select_device(device):
             raise ValueError(f"{device} is unavailable in your environment")
 
     return device
+
+
+def convert_float_to_int_or_str(model_size: float) -> Union[int, str]:
+    """convert float to int or string
+
+    if float can be presented as int, convert it to int, otherwise convert it to string
+    """
+    if int(model_size) == model_size:
+        return int(model_size)
+    else:
+        return str(model_size)

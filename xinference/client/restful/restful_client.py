@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Union
 
 import requests
 
+from ...model.utils import convert_float_to_int_or_str
 from ..common import streaming_response_iterator
 
 if TYPE_CHECKING:
@@ -746,7 +747,7 @@ class Client:
     def launch_speculative_llm(
         self,
         model_name: str,
-        model_size_in_billions: Optional[int],
+        model_size_in_billions: Optional[Union[int, str, float]],
         quantization: Optional[str],
         draft_model_name: str,
         draft_model_size_in_billions: Optional[int],
@@ -766,6 +767,10 @@ class Client:
         warnings.warn(
             "`launch_speculative_llm` is an experimental feature and the API may change in the future."
         )
+
+        # convert float to int or string since the RESTful API does not accept float.
+        if isinstance(model_size_in_billions, float):
+            model_size_in_billions = convert_float_to_int_or_str(model_size_in_billions)
 
         payload = {
             "model_uid": None,
@@ -794,7 +799,7 @@ class Client:
         model_name: str,
         model_type: str = "LLM",
         model_uid: Optional[str] = None,
-        model_size_in_billions: Optional[Union[int, str]] = None,
+        model_size_in_billions: Optional[Union[int, str, float]] = None,
         model_format: Optional[str] = None,
         quantization: Optional[str] = None,
         replica: int = 1,
@@ -818,7 +823,7 @@ class Client:
             type of model.
         model_uid: str
             UID of model, auto generate a UUID if is None.
-        model_size_in_billions: Optional[int]
+        model_size_in_billions: Optional[Union[int, str, float]]
             The size (in billions) of the model.
         model_format: Optional[str]
             The format of the model.
@@ -853,6 +858,10 @@ class Client:
         """
 
         url = f"{self.base_url}/v1/models"
+
+        # convert float to int or string since the RESTful API does not accept float.
+        if isinstance(model_size_in_billions, float):
+            model_size_in_billions = convert_float_to_int_or_str(model_size_in_billions)
 
         payload = {
             "model_uid": model_uid,
