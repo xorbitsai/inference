@@ -643,7 +643,7 @@ def list_model_registrations(
     "--lora-modules",
     "-lm",
     multiple=True,
-    type=str,
+    type=(str, str),
     help="LoRA module configurations in the format name=path. Multiple modules can be specified.",
 )
 @click.option(
@@ -697,7 +697,7 @@ def model_launch(
     quantization: str,
     replica: int,
     n_gpu: str,
-    lora_modules: Optional[Tuple[str, ...]],
+    lora_modules: Optional[Tuple],
     image_lora_load_kwargs: Optional[Tuple],
     image_lora_fuse_kwargs: Optional[Tuple],
     worker_ip: Optional[str],
@@ -730,13 +730,18 @@ def model_launch(
         else None
     )
 
-    if lora_modules is not None:
-        lora_list = [
-            {"lora_name": k, "local_path": v}
-            for k, v in (item.split("=") for item in lora_modules)
-        ]
-    else:
-        lora_list = []
+    lora_list = (
+        [{"lora_name": k, "local_path": v} for k, v in dict(lora_modules).items()]
+        if lora_modules
+        else []
+    )
+
+    print(lora_list)
+    peft_model_config = {
+        "image_lora_load_kwargs": image_lora_load_params,
+        "image_lora_fuse_kwargs": image_lora_fuse_params,
+        "lora_list": lora_list,
+    }
 
     _gpu_idx: Optional[List[int]] = (
         None if gpu_idx is None else [int(idx) for idx in gpu_idx.split(",")]
@@ -761,9 +766,7 @@ def model_launch(
         quantization=quantization,
         replica=replica,
         n_gpu=_n_gpu,
-        peft_model=lora_list,
-        image_lora_load_kwargs=image_lora_load_params,
-        image_lora_fuse_kwargs=image_lora_fuse_params,
+        peft_model_config=peft_model_config,
         worker_ip=worker_ip,
         gpu_idx=_gpu_idx,
         trust_remote_code=trust_remote_code,

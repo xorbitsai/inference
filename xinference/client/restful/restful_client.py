@@ -800,9 +800,7 @@ class Client:
         quantization: Optional[str] = None,
         replica: int = 1,
         n_gpu: Optional[Union[int, str]] = "auto",
-        peft_model: Optional[List[Dict]] = None,
-        image_lora_load_kwargs: Optional[Dict] = None,
-        image_lora_fuse_kwargs: Optional[Dict] = None,
+        peft_model_config: Optional[Dict] = None,
         request_limits: Optional[int] = None,
         worker_ip: Optional[str] = None,
         gpu_idx: Optional[Union[int, List[int]]] = None,
@@ -830,12 +828,10 @@ class Client:
         n_gpu: Optional[Union[int, str]],
             The number of GPUs used by the model, default is "auto".
             ``n_gpu=None`` means cpu only, ``n_gpu=auto`` lets the system automatically determine the best number of GPUs to use.
-        peft_model: Optional[str]
-            PEFT (Parameter-Efficient Fine-Tuning) model and path.
-        image_lora_load_kwargs: Optional[Dict]
-            lora load parameters for image model
-        image_lora_fuse_kwargs: Optional[Dict]
-            lora fuse parameters for image model
+        peft_model_config: Optional[Dict]
+            - "lora_list": A List of PEFT (Parameter-Efficient Fine-Tuning) model and path.
+            - "image_lora_load_kwargs": A Dict of lora load parameters for image model
+            - "image_lora_fuse_kwargs": A Dict of lora fuse parameters for image model
         request_limits: Optional[int]
             The number of request limits for this model, default is None.
             ``request_limits=None`` means no limits for this model.
@@ -855,20 +851,22 @@ class Client:
 
         url = f"{self.base_url}/v1/models"
 
-        if peft_model is not None:
-            lora_list = [LoRA.from_dict(model) for model in peft_model]
-            peft_model_config = PeftModelConfig(
-                lora_list, image_lora_load_kwargs, image_lora_fuse_kwargs
+        if peft_model_config is not None:
+            lora_list = [
+                LoRA.from_dict(model) for model in peft_model_config["lora_list"]
+            ]
+            peft_model = PeftModelConfig(
+                lora_list,
+                peft_model_config["image_lora_load_kwargs"],
+                peft_model_config["image_lora_fuse_kwargs"],
             )
         else:
-            peft_model_config = None
+            peft_model = None
 
         payload = {
             "model_uid": model_uid,
             "model_name": model_name,
-            "peft_model_config": peft_model_config.to_dict()
-            if peft_model_config
-            else None,
+            "peft_model_config": peft_model.to_dict() if peft_model else None,
             "model_type": model_type,
             "model_size_in_billions": model_size_in_billions,
             "model_format": model_format,
