@@ -736,7 +736,6 @@ def model_launch(
         else []
     )
 
-    print(lora_list)
     peft_model_config = {
         "image_lora_load_kwargs": image_lora_load_params,
         "image_lora_fuse_kwargs": image_lora_fuse_params,
