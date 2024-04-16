@@ -186,7 +186,7 @@ class VLLMModel(LLM):
         else:
             self.lora_requests = [
                 LoRARequest(
-                    lora_name=lora.name,
+                    lora_name=lora.lora_name,
                     lora_int_id=i,
                     lora_local_path=lora.local_path,
                 )
@@ -282,6 +282,9 @@ class VLLMModel(LLM):
                 return False
         if "generate" not in llm_family.model_ability:
             return False
+        logger.info(
+            f"[VLLM]: Match {llm_family.model_name} with following model config: {llm_spec}"
+        )
         return VLLM_INSTALLED
 
     @staticmethod
@@ -442,6 +445,9 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
                 return False
         if "chat" not in llm_family.model_ability:
             return False
+        logger.info(
+            f"[VLLM]: Match {llm_family.model_name} with following model config: {llm_spec}"
+        )
         return VLLM_INSTALLED
 
     def _sanitize_chat_config(
