@@ -1064,3 +1064,73 @@ def test_match_model_size():
     assert not match_model_size("1.8", 18)
     assert not match_model_size("1.8", 1)
     assert match_model_size("001", 1)
+
+
+def test_query_engine():
+    from .. import _install as llm_install
+    from ..llm_family import (
+        LLM_ENGINES,
+        get_user_defined_llm_families,
+        match_engine_params,
+        register_llm,
+        unregister_llm,
+    )
+
+    assert LLM_ENGINES == {}
+    llm_install()
+    model_name = "qwen1.5-chat"
+    assert model_name in LLM_ENGINES
+    supported_engines = LLM_ENGINES[model_name]
+    assert "vLLM" in supported_engines and len(supported_engines["vLLM"]) == 21
+    assert "SGlang" in supported_engines and len(supported_engines["SGlang"]) == 21
+    assert "PyTorch" in supported_engines and len(supported_engines["PyTorch"]) == 21
+    assert (
+        "llama-cpp-python" in supported_engines
+        and len(supported_engines["llama-cpp-python"]) == 7
+    )
+
+    assert match_engine_params(model_name, "vLLM", "gptq", "1_8", "Int4")
+    assert not match_engine_params(model_name, "vLLM", "gptq", "1_8", "Int8")
+    assert match_engine_params(model_name, "PyTorch", "gptq", "1_8", "Int4")
+    assert match_engine_params(model_name, "PyTorch", "gptq", "1_8", "Int4")
+    assert match_engine_params(model_name, "vLLM", "pytorch", "1_8", "none")
+    assert not match_engine_params(model_name, "vLLM", "pytorch", "1_8", "4-bit")
+    assert match_engine_params(model_name, "SGlang", "pytorch", "1_8", "none")
+    assert not match_engine_params(model_name, "SGlang", "pytorch", "1_8", "4-bit")
+    assert match_engine_params(model_name, "PyTorch", "pytorch", "1_8", "none")
+    assert not match_engine_params(model_name, "PyTorch", "pytorch", "1_8", "4-bit")
+    assert match_engine_params(model_name, "llama-cpp-python", "ggufv2", "1_8", "q2_k")
+    assert not match_engine_params(
+        model_name, "llama-cpp-python", "ggmlv3", "1_8", "q2_k"
+    )
+
+    spec = GgmlLLMSpecV1(
+        model_format="ggmlv3",
+        model_size_in_billions=3,
+        model_id="TheBloke/orca_mini_3B-GGML",
+        quantizations=[""],
+        model_file_name_template="README.md",
+    )
+    family = LLMFamilyV1(
+        version=1,
+        context_length=2048,
+        model_type="LLM",
+        model_name="custom_model",
+        model_lang=["en"],
+        model_ability=["embed", "chat"],
+        model_specs=[spec],
+        prompt_style=None,
+    )
+
+    register_llm(family, False)
+
+    assert family in get_user_defined_llm_families()
+    assert (
+        "custom_model" in LLM_ENGINES
+        and "llama-cpp-python" in LLM_ENGINES["custom_model"]
+    )
+    assert match_engine_params("custom_model", "llama-cpp-python", "ggmlv3", 3, "")
+
+    unregister_llm(family.model_name)
+    assert family not in get_user_defined_llm_families()
+    assert "custom_model" not in LLM_ENGINES
