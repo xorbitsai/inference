@@ -35,7 +35,6 @@ from .llm_family import (
     LLM_ENGINES,
     PEFT_SUPPORTED_CLASSES,
     PYTORCH_CLASSES,
-    QUANTIZATION_PARAMS,
     SGLANG_CLASSES,
     SUPPORTED_ENGINES,
     VLLM_CLASSES,
@@ -56,45 +55,44 @@ from .llm_family import (
 
 def query_engine_for_one_model(model_family):
     model_name = model_family.model_name
-    engines = LLM_ENGINES.get(model_name, {})
     specs = model_family.model_specs
+    engines = {}  # structure for engine query
     for spec in specs:
         model_format = spec.model_format
         model_size_in_billions = spec.model_size_in_billions
         quantizations = spec.quantizations
-        has_new_query = {}
         for quantization in quantizations:
+            # traverse all supported engines to match the name, format, size in billions and quatization of model
             for engine in SUPPORTED_ENGINES:
                 CLASSES = SUPPORTED_ENGINES[engine]
-                engine_quantizations = QUANTIZATION_PARAMS.get(
-                    (model_name, engine, model_format, model_size_in_billions), []
-                )
                 for cls in CLASSES:
-                    if (
-                        cls.match(model_family, spec, quantization)
-                        and quantization not in engine_quantizations
-                    ):
-                        engine_quantizations.append(quantization)
-                        QUANTIZATION_PARAMS[
-                            (model_name, engine, model_format, model_size_in_billions)
-                        ] = engine_quantizations
-                        has_new_query[engine] = True
+                    if cls.match(model_family, spec, quantization):
+                        engine_params = engines.get(engine, [])
+                        match_params = False
+                        # if the name, format and size in billions of model already exists in the structure, add the new quantization
+                        for param in engine_params:
+                            if (
+                                model_name == param["model_name"]
+                                and model_format == param["model_format"]
+                                and model_size_in_billions
+                                == param["model_size_in_billions"]
+                                and quantization not in param["quantizations"]
+                            ):
+                                param["quantizations"].append(quantization)
+                                match_params = True
+                                break
+                        # successfully match the params for the first time, add to the structure
+                        if not match_params:
+                            engine_params.append(
+                                {
+                                    "model_name": model_name,
+                                    "model_format": model_format,
+                                    "model_size_in_billions": model_size_in_billions,
+                                    "quantizations": [quantization],
+                                }
+                            )
+                        engines[engine] = engine_params
                         break
-        for engine in SUPPORTED_ENGINES:
-            if not has_new_query.get(engine, False):
-                continue
-            engine_params = engines.get(engine, [])
-            engine_params.append(
-                {
-                    "model_name": model_name,
-                    "model_format": model_format,
-                    "model_size_in_billions": model_size_in_billions,
-                    "quantizations": QUANTIZATION_PARAMS[
-                        (model_name, engine, model_format, model_size_in_billions)
-                    ],
-                }
-            )
-            engines[engine] = engine_params
     LLM_ENGINES[model_name] = engines
 
 
@@ -251,6 +249,7 @@ def _install():
             if llm_spec.model_name not in LLM_MODEL_DESCRIPTIONS:
                 LLM_MODEL_DESCRIPTIONS.update(generate_llm_description(llm_spec))
 
+    # traverse all families and add engine parameters corresponding to the model name
     for families in [BUILTIN_LLM_FAMILIES, BUILTIN_MODELSCOPE_LLM_FAMILIES]:
         for family in families:
             query_engine_for_one_model(family)
