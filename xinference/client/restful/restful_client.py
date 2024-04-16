@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Union
 
 import requests
 
-from ...types import PeftModelConfig
+from ...types import LoRA, PeftModelConfig
 from ..common import streaming_response_iterator
 
 if TYPE_CHECKING:
@@ -800,7 +800,9 @@ class Client:
         quantization: Optional[str] = None,
         replica: int = 1,
         n_gpu: Optional[Union[int, str]] = "auto",
-        peft_model_config: Optional[PeftModelConfig] = None,
+        peft_model: Optional[List[Dict]] = None,
+        image_lora_load_kwargs: Optional[Dict] = None,
+        image_lora_fuse_kwargs: Optional[Dict] = None,
         request_limits: Optional[int] = None,
         worker_ip: Optional[str] = None,
         gpu_idx: Optional[Union[int, List[int]]] = None,
@@ -828,8 +830,12 @@ class Client:
         n_gpu: Optional[Union[int, str]],
             The number of GPUs used by the model, default is "auto".
             ``n_gpu=None`` means cpu only, ``n_gpu=auto`` lets the system automatically determine the best number of GPUs to use.
-        model_peft_config: Optional[PeftModelConfig],
-            The config for the lora model.
+        peft_model: Optional[str]
+            PEFT (Parameter-Efficient Fine-Tuning) model and path.
+        image_lora_load_kwargs: Optional[Dict]
+            lora load parameters for image model
+        image_lora_fuse_kwargs: Optional[Dict]
+            lora fuse parameters for image model
         request_limits: Optional[int]
             The number of request limits for this model, default is None.
             ``request_limits=None`` means no limits for this model.
@@ -848,6 +854,14 @@ class Client:
         """
 
         url = f"{self.base_url}/v1/models"
+
+        if peft_model is not None:
+            lora_list = [LoRA.from_dict(model) for model in peft_model]
+            peft_model_config = PeftModelConfig(
+                lora_list, image_lora_load_kwargs, image_lora_fuse_kwargs
+            )
+        else:
+            peft_model_config = None
 
         payload = {
             "model_uid": model_uid,

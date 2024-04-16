@@ -39,7 +39,7 @@ from ..constants import (
     XINFERENCE_LOG_MAX_BYTES,
 )
 from ..isolation import Isolation
-from ..types import ChatCompletionMessage, LoRA, PeftModelConfig
+from ..types import ChatCompletionMessage
 from .utils import (
     get_config_dict,
     get_log_file,
@@ -731,12 +731,12 @@ def model_launch(
     )
 
     if lora_modules is not None:
-        lora_list = [LoRA(*item.split("=")) for item in lora_modules]
-        peft_model_config = PeftModelConfig(
-            lora_list, image_lora_load_params, image_lora_fuse_params
-        )
+        lora_list = [
+            {"lora_name": k, "local_path": v}
+            for k, v in (item.split("=") for item in lora_modules)
+        ]
     else:
-        peft_model_config = None
+        lora_list = []
 
     _gpu_idx: Optional[List[int]] = (
         None if gpu_idx is None else [int(idx) for idx in gpu_idx.split(",")]
@@ -761,7 +761,9 @@ def model_launch(
         quantization=quantization,
         replica=replica,
         n_gpu=_n_gpu,
-        peft_model_config=peft_model_config,
+        peft_model=lora_list,
+        image_lora_load_kwargs=image_lora_load_params,
+        image_lora_fuse_kwargs=image_lora_fuse_params,
         worker_ip=worker_ip,
         gpu_idx=_gpu_idx,
         trust_remote_code=trust_remote_code,
