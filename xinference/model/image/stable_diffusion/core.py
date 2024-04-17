@@ -25,7 +25,7 @@ from typing import Dict, List, Optional, Union
 
 from ....constants import XINFERENCE_IMAGE_DIR
 from ....device_utils import move_model_to_available_device
-from ....types import Image, ImageList
+from ....types import Image, ImageList, LoRA
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +36,7 @@ class DiffusionModel:
         model_uid: str,
         model_path: str,
         device: Optional[str] = None,
-        lora_model_path: Optional[str] = None,
+        lora_model: Optional[List[LoRA]] = None,
         lora_load_kwargs: Optional[Dict] = None,
         lora_fuse_kwargs: Optional[Dict] = None,
         **kwargs,
@@ -45,20 +45,21 @@ class DiffusionModel:
         self._model_path = model_path
         self._device = device
         self._model = None
-        self._lora_model_path = lora_model_path
+        self._lora_model = lora_model
         self._lora_load_kwargs = lora_load_kwargs or {}
         self._lora_fuse_kwargs = lora_fuse_kwargs or {}
         self._kwargs = kwargs
 
     def _apply_lora(self):
-        if self._lora_model_path is not None:
+        if self._lora_model is not None:
             logger.info(
                 f"Loading the LoRA with load kwargs: {self._lora_load_kwargs}, fuse kwargs: {self._lora_fuse_kwargs}."
             )
             assert self._model is not None
-            self._model.load_lora_weights(
-                self._lora_model_path, **self._lora_load_kwargs
-            )
+            for lora_model in self._lora_model:
+                self._model.load_lora_weights(
+                    lora_model.local_path, **self._lora_load_kwargs
+                )
             self._model.fuse_lora(**self._lora_fuse_kwargs)
             logger.info(f"Successfully loaded the LoRA for model {self._model_uid}.")
 
