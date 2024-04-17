@@ -408,7 +408,7 @@ const RegisterLLM = () => {
 
   const handleModelSize = (index, value) => {
     setModelSizeAlert(false)
-    
+    // --------------------------------------------------------------
     if(Number(value)) { 
       parseInt(value) === parseFloat(value) ? value = Number(value) : value = value.split('.').join('_')
     }else {
