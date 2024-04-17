@@ -20,7 +20,7 @@ import pytest
 from ....client import Client
 
 
-@pytest.mark.parametrize("model_name", ["bge-reranker-base", "bge-reranker-v2-gemma"])
+@pytest.mark.parametrize("model_name", ["bge-reranker-base", "bge-reranker-v2-m3"])
 def test_restful_api(model_name, setup):
     endpoint, _ = setup
     client = Client(endpoint)
