@@ -4756,7 +4756,7 @@
   {
     "version": 1,
     "context_length": 8192,
-    "model_name": "seallm_7b_v2",
+    "model_name": "seallm_v2",
     "model_lang": [
       "en",
       "zh",
@@ -4798,7 +4798,7 @@
   {
     "version": 1,
     "context_length": 8192,
-    "model_name": "seallm_7b_v2.5",
+    "model_name": "seallm_v2.5",
     "model_lang": [
       "en",
       "zh",
@@ -4886,6 +4886,24 @@
         ],
         "model_id": "andrewcanis/c4ai-command-r-v01-GGUF",
         "model_file_name_template": "c4ai-command-r-v01.{quantization}.gguf"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 104,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "CohereForAI/c4ai-command-r-plus",
+        "model_revision": "ba7f1d954c9d1609013677d87e4142ab95c34e62"
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 104,
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "alpindale/c4ai-command-r-plus-GPTQ",
+        "model_revision": "35febfc08f723ac0df32480eb4af349a7d08656e"
       }
     ]
   },
@@ -4914,10 +4932,19 @@
         "model_format": "pytorch",
         "model_size_in_billions": 35,
         "quantizations": [
-          "4-bit"
+          "none"
         ],
         "model_id": "CohereForAI/c4ai-command-r-v01-4bit",
         "model_revision": "f2e87936a146643c9dd143422dcafb9cb1552611"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 104,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "CohereForAI/c4ai-command-r-plus-4bit",
+        "model_revision": "bb63b5b7005ecedb30b0cfd0d5953b02a5817f7b"
       }
     ]
   }
