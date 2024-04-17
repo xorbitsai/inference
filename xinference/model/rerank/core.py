@@ -42,8 +42,9 @@ def get_rerank_model_descriptions():
 class RerankModelSpec(CacheableModelSpec):
     model_name: str
     language: List[str]
+    type: Optional[str] = "normal"
     model_id: str
-    model_revision: str
+    model_revision: Optional[str]
     model_hub: str = "huggingface"
 
 
@@ -63,6 +64,7 @@ class RerankModelDescription(ModelDescription):
             "model_type": "rerank",
             "address": self.address,
             "accelerators": self.devices,
+            "type": self._model_spec.type,
             "model_name": self._model_spec.model_name,
             "language": self._model_spec.language,
             "model_revision": self._model_spec.model_revision,
@@ -97,12 +99,14 @@ def generate_rerank_description(model_spec: RerankModelSpec) -> Dict[str, List[D
 class RerankModel:
     def __init__(
         self,
+        model_spec: RerankModelSpec,
         model_uid: str,
         model_path: str,
         device: Optional[str] = None,
         use_fp16: bool = False,
         model_config: Optional[Dict] = None,
     ):
+        self._model_spec = model_spec
         self._model_uid = model_uid
         self._model_path = model_path
         self._device = device
@@ -112,20 +116,25 @@ class RerankModel:
 
     def load(self):
         try:
-            from sentence_transformers.cross_encoder import CrossEncoder
+            if self._model_spec.type == "normal":
+                from FlagEmbedding import FlagReranker
+            elif self._model_spec.type == "LLM-based":
+                from FlagEmbedding import FlagLLMReranker as FlagReranker
+            elif self._model_spec.type == "LLM-based layerwise":
+                from FlagEmbedding import LayerWiseFlagLLMReranker as FlagReranker
+            else:
+                raise RuntimeError(
+                    f"Unsupported Rank model type: {self._model_spec.type}"
+                )
         except ImportError:
-            error_message = "Failed to import module 'SentenceTransformer'"
+            error_message = "Failed to import module 'FlagEmbedding'"
             installation_guide = [
-                "Please make sure 'sentence-transformers' is installed. ",
-                "You can install it by `pip install sentence-transformers`\n",
+                "Please make sure 'FlagEmbedding' is installed. ",
+                "You can install it by `pip install FlagEmbedding`\n",
             ]
 
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
-        self._model = CrossEncoder(
-            self._model_path, device=self._device, **self._model_config
-        )
-        if self._use_fp16:
-            self._model.model.half()
+        self._model = FlagReranker(self._model_path, use_fp16=True)
 
     def rerank(
         self,
@@ -142,7 +151,7 @@ class RerankModel:
         if max_chunks_per_doc is not None:
             raise ValueError("rerank hasn't support `max_chunks_per_doc` parameter.")
         sentence_combinations = [[query, doc] for doc in documents]
-        similarity_scores = self._model.predict(sentence_combinations)
+        similarity_scores = self._model.compute_score(sentence_combinations)
         sim_scores_argsort = list(reversed(np.argsort(similarity_scores)))
         if top_n is not None:
             sim_scores_argsort = sim_scores_argsort[:top_n]
@@ -224,7 +233,9 @@ def create_rerank_model_instance(
 
     model_path = cache(model_spec)
     use_fp16 = kwargs.pop("use_fp16", False)
-    model = RerankModel(model_uid, model_path, use_fp16=use_fp16, model_config=kwargs)
+    model = RerankModel(
+        model_spec, model_uid, model_path, use_fp16=use_fp16, model_config=kwargs
+    )
     model_description = RerankModelDescription(
         subpool_addr, devices, model_spec, model_path=model_path
     )

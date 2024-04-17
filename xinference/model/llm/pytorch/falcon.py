@@ -12,8 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Optional
+from typing import List, Optional
 
+from ....types import LoRA
 from ..llm_family import LLMFamilyV1, LLMSpecV1
 from .core import PytorchChatModel, PytorchModel, PytorchModelConfig
 
@@ -27,7 +28,7 @@ class FalconPytorchModel(PytorchModel):
         quantization: str,
         model_path: str,
         pytorch_model_config: Optional[PytorchModelConfig] = None,
-        peft_model_path: Optional[str] = None,
+        peft_model: Optional[List[LoRA]] = None,
     ):
         super().__init__(
             model_uid,
@@ -36,7 +37,7 @@ class FalconPytorchModel(PytorchModel):
             quantization,
             model_path,
             pytorch_model_config=pytorch_model_config,
-            peft_model_path=peft_model_path,
+            peft_model=peft_model,
         )
 
     def _load_model(self, **kwargs):
@@ -86,7 +87,7 @@ class FalconPytorchChatModel(PytorchChatModel):
         quantization: str,
         model_path: str,
         pytorch_model_config: Optional[PytorchModelConfig] = None,
-        peft_model_path: Optional[str] = None,
+        peft_model: Optional[List[LoRA]] = None,
     ):
         super().__init__(
             model_uid,
@@ -95,7 +96,7 @@ class FalconPytorchChatModel(PytorchChatModel):
             quantization,
             model_path,
             pytorch_model_config=pytorch_model_config,
-            peft_model_path=peft_model_path,
+            peft_model=peft_model,
         )
 
     def _load_model(self, **kwargs):
