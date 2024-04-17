@@ -1086,25 +1086,41 @@ def test_query_engine():
     #     and len(supported_engines["llama-cpp-python"]) == 7
     # )
 
-    # assert match_engine_params(model_name, "vLLM", "gptq", "1_8", "Int4")
-    # assert not match_engine_params(model_name, "vLLM", "gptq", "1_8", "Int8")
-    assert check_engine_by_spec_parameters(model_name, "PyTorch", "gptq", "1_8", "Int4")
-    assert check_engine_by_spec_parameters(model_name, "PyTorch", "gptq", "1_8", "Int8")
-    # assert match_engine_params(model_name, "vLLM", "pytorch", "1_8", "none")
-    # assert not match_engine_params(model_name, "vLLM", "pytorch", "1_8", "4-bit")
-    # assert match_engine_params(model_name, "SGlang", "pytorch", "1_8", "none")
-    # assert not match_engine_params(model_name, "SGlang", "pytorch", "1_8", "4-bit")
-    assert check_engine_by_spec_parameters(
-        model_name, "PyTorch", "pytorch", "1_8", "none"
+    # assert match_engine_params(model_name, "vLLM", "gptq", "1_8", "Int4") is not None
+    # assert match_engine_params(model_name, "vLLM", "gptq", "1_8", "Int8") is None
+    assert (
+        check_engine_by_spec_parameters(model_name, "PyTorch", "gptq", "1_8", "Int4")
+        is not None
     )
-    assert check_engine_by_spec_parameters(
-        model_name, "PyTorch", "pytorch", "1_8", "4-bit"
+    assert (
+        check_engine_by_spec_parameters(model_name, "PyTorch", "gptq", "1_8", "Int8")
+        is not None
     )
-    assert check_engine_by_spec_parameters(
-        model_name, "llama-cpp-python", "ggufv2", "1_8", "q2_k"
+    # assert match_engine_params(model_name, "vLLM", "pytorch", "1_8", "none") is not None
+    # assert match_engine_params(model_name, "vLLM", "pytorch", "1_8", "4-bit") is None
+    # assert match_engine_params(model_name, "SGlang", "pytorch", "1_8", "none") is not None
+    # assert match_engine_params(model_name, "SGlang", "pytorch", "1_8", "4-bit") is None
+    assert (
+        check_engine_by_spec_parameters(model_name, "PyTorch", "pytorch", "1_8", "none")
+        is not None
     )
-    assert not check_engine_by_spec_parameters(
-        model_name, "llama-cpp-python", "ggmlv3", "1_8", "q2_k"
+    assert (
+        check_engine_by_spec_parameters(
+            model_name, "PyTorch", "pytorch", "1_8", "4-bit"
+        )
+        is not None
+    )
+    assert (
+        check_engine_by_spec_parameters(
+            model_name, "llama-cpp-python", "ggufv2", "1_8", "q2_k"
+        )
+        is not None
+    )
+    assert (
+        check_engine_by_spec_parameters(
+            model_name, "llama-cpp-python", "ggmlv3", "1_8", "q2_k"
+        )
+        is None
     )
 
     spec = GgmlLLMSpecV1(
@@ -1132,8 +1148,11 @@ def test_query_engine():
         "custom_model" in LLM_ENGINES
         and "llama-cpp-python" in LLM_ENGINES["custom_model"]
     )
-    assert check_engine_by_spec_parameters(
-        "custom_model", "llama-cpp-python", "ggmlv3", 3, ""
+    assert (
+        check_engine_by_spec_parameters(
+            "custom_model", "llama-cpp-python", "ggmlv3", 3, ""
+        )
+        is not None
     )
 
     unregister_llm(family.model_name)
