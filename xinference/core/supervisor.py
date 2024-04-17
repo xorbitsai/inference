@@ -591,10 +591,9 @@ class SupervisorActor(xo.StatelessActor):
             raise ValueError(f"Unsupported model type: {model_type}")
 
     @log_async(logger=logger)
-    async def query_engines(self, model_name: str):
+    async def query_engines_by_model_name(self, model_name: str):
         from ..model.llm.llm_family import LLM_ENGINES
 
-        logger.debug(f"Enter supervisor query for model {model_name}")
         if model_name not in LLM_ENGINES:
             raise ValueError(f"Model {model_name} not found")
         return LLM_ENGINES[model_name]

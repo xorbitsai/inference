@@ -275,7 +275,9 @@ class RESTfulAPI:
             "/v1/cluster/auth", self.is_cluster_authenticated, methods=["GET"]
         )
         self._router.add_api_route(
-            "/v1/query_engines/{model_name}", self.query_engines, methods=["GET"]
+            "/v1/engines/{model_name}",
+            self.query_engines_by_model_name,
+            methods=["GET"],
         )
         # running instances
         self._router.add_api_route(
@@ -1421,10 +1423,11 @@ class RESTfulAPI:
                 self.handle_request_limit_error(e)
                 raise HTTPException(status_code=500, detail=str(e))
 
-    async def query_engines(self, model_name: str) -> JSONResponse:
-        logger.debug(f"Enter query for model {model_name}")
+    async def query_engines_by_model_name(self, model_name: str) -> JSONResponse:
         try:
-            content = await (await self._get_supervisor_ref()).query_engines(model_name)
+            content = await (
+                await self._get_supervisor_ref()
+            ).query_engines_by_model_name(model_name)
             return JSONResponse(content=content)
         except ValueError as re:
             logger.error(re, exc_info=True)
