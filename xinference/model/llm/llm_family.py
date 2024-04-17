@@ -913,7 +913,7 @@ def match_llm(
 
 def register_llm(llm_family: LLMFamilyV1, persist: bool):
     from ..utils import is_valid_model_name
-    from .__init__ import query_engine_for_one_model
+    from . import generate_engine_config_by_model_family
 
     if not is_valid_model_name(llm_family.model_name):
         raise ValueError(f"Invalid model name {llm_family.model_name}.")
@@ -926,7 +926,7 @@ def register_llm(llm_family: LLMFamilyV1, persist: bool):
                 )
 
         UD_LLM_FAMILIES.append(llm_family)
-        query_engine_for_one_model(llm_family)
+        generate_engine_config_by_model_family(llm_family)
 
     if persist:
         # We only validate model URL when persist is True.
@@ -1004,17 +1004,19 @@ def match_llm_cls(
     return None
 
 
-def match_engine_params(
-    model_name: str,
+def check_engine_by_spec_parameters(
     model_engine: str,
+    model_name: str,
     model_format: str,
     model_size_in_billions: Union[str, int],
     quantization: str,
-) -> bool:
+) -> Optional[Type[LLM]]:
     if model_name not in LLM_ENGINES:
-        return False
+        logger.debug(f"Model {model_name} not found")
+        return None
     if model_engine not in LLM_ENGINES[model_name]:
-        return False
+        logger.debug(f"Model {model_name} can not run on {model_engine}")
+        return None
     match_params = LLM_ENGINES[model_name][model_engine]
     for param in match_params:
         if (
@@ -1023,5 +1025,8 @@ def match_engine_params(
             and model_size_in_billions == param["model_size_in_billions"]
             and quantization in param["quantizations"]
         ):
-            return True
-    return False
+            return param["llm_class"]
+    logger.debug(
+        f"Model {model_name}, format {model_format}, size in billions {model_size_in_billions} and quantization {quantization} does not match"
+    )
+    return None

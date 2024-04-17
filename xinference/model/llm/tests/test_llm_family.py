@@ -1069,8 +1069,8 @@ def test_match_model_size():
 def test_query_engine():
     from ..llm_family import (
         LLM_ENGINES,
+        check_engine_by_spec_parameters,
         get_user_defined_llm_families,
-        match_engine_params,
         register_llm,
         unregister_llm,
     )
@@ -1088,16 +1088,22 @@ def test_query_engine():
 
     # assert match_engine_params(model_name, "vLLM", "gptq", "1_8", "Int4")
     # assert not match_engine_params(model_name, "vLLM", "gptq", "1_8", "Int8")
-    assert match_engine_params(model_name, "PyTorch", "gptq", "1_8", "Int4")
-    assert match_engine_params(model_name, "PyTorch", "gptq", "1_8", "Int8")
+    assert check_engine_by_spec_parameters(model_name, "PyTorch", "gptq", "1_8", "Int4")
+    assert check_engine_by_spec_parameters(model_name, "PyTorch", "gptq", "1_8", "Int8")
     # assert match_engine_params(model_name, "vLLM", "pytorch", "1_8", "none")
     # assert not match_engine_params(model_name, "vLLM", "pytorch", "1_8", "4-bit")
     # assert match_engine_params(model_name, "SGlang", "pytorch", "1_8", "none")
     # assert not match_engine_params(model_name, "SGlang", "pytorch", "1_8", "4-bit")
-    assert match_engine_params(model_name, "PyTorch", "pytorch", "1_8", "none")
-    assert match_engine_params(model_name, "PyTorch", "pytorch", "1_8", "4-bit")
-    assert match_engine_params(model_name, "llama-cpp-python", "ggufv2", "1_8", "q2_k")
-    assert not match_engine_params(
+    assert check_engine_by_spec_parameters(
+        model_name, "PyTorch", "pytorch", "1_8", "none"
+    )
+    assert check_engine_by_spec_parameters(
+        model_name, "PyTorch", "pytorch", "1_8", "4-bit"
+    )
+    assert check_engine_by_spec_parameters(
+        model_name, "llama-cpp-python", "ggufv2", "1_8", "q2_k"
+    )
+    assert not check_engine_by_spec_parameters(
         model_name, "llama-cpp-python", "ggmlv3", "1_8", "q2_k"
     )
 
@@ -1126,7 +1132,9 @@ def test_query_engine():
         "custom_model" in LLM_ENGINES
         and "llama-cpp-python" in LLM_ENGINES["custom_model"]
     )
-    assert match_engine_params("custom_model", "llama-cpp-python", "ggmlv3", 3, "")
+    assert check_engine_by_spec_parameters(
+        "custom_model", "llama-cpp-python", "ggmlv3", 3, ""
+    )
 
     unregister_llm(family.model_name)
     assert family not in get_user_defined_llm_families()

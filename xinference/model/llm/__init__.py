@@ -53,7 +53,7 @@ from .llm_family import (
 )
 
 
-def query_engine_for_one_model(model_family):
+def generate_engine_config_by_model_family(model_family):
     model_name = model_family.model_name
     specs = model_family.model_specs
     engines = {}  # structure for engine query
@@ -68,7 +68,7 @@ def query_engine_for_one_model(model_family):
                 for cls in CLASSES:
                     if cls.match(model_family, spec, quantization):
                         engine_params = engines.get(engine, [])
-                        match_params = False
+                        already_exists = False
                         # if the name, format and size in billions of model already exists in the structure, add the new quantization
                         for param in engine_params:
                             if (
@@ -79,16 +79,17 @@ def query_engine_for_one_model(model_family):
                                 and quantization not in param["quantizations"]
                             ):
                                 param["quantizations"].append(quantization)
-                                match_params = True
+                                already_exists = True
                                 break
                         # successfully match the params for the first time, add to the structure
-                        if not match_params:
+                        if not already_exists:
                             engine_params.append(
                                 {
                                     "model_name": model_name,
                                     "model_format": model_format,
                                     "model_size_in_billions": model_size_in_billions,
                                     "quantizations": [quantization],
+                                    "llm_class": cls,
                                 }
                             )
                         engines[engine] = engine_params
@@ -120,12 +121,6 @@ def _install():
             LlamaCppModel,
         ]
     )
-    LLAMA_CLASSES.extend(
-        [
-            LlamaCppChatModel,
-            LlamaCppModel,
-        ]
-    )
     LLM_CLASSES.extend(
         [
             ChatglmCppChatModel,
@@ -134,6 +129,8 @@ def _install():
     LLAMA_CLASSES.extend(
         [
             ChatglmCppChatModel,
+            LlamaCppChatModel,
+            LlamaCppModel,
         ]
     )
     LLM_CLASSES.extend([SGLANGModel, SGLANGChatModel])
@@ -252,7 +249,7 @@ def _install():
     # traverse all families and add engine parameters corresponding to the model name
     for families in [BUILTIN_LLM_FAMILIES, BUILTIN_MODELSCOPE_LLM_FAMILIES]:
         for family in families:
-            query_engine_for_one_model(family)
+            generate_engine_config_by_model_family(family)
 
     from ...constants import XINFERENCE_MODEL_DIR
 
