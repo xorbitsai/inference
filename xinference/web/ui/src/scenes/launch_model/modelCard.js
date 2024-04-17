@@ -28,6 +28,7 @@ import {
   Stack,
   TextField,
 } from '@mui/material'
+import Paper from '@mui/material/Paper'
 import React, { useContext, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
@@ -166,7 +167,7 @@ const ModelCard = ({
 
     setIsCallingApi(true)
 
-    const modelDataWithID1 = {
+    const modelDataWithID_LLM = {
       // If user does not fill model_uid, pass null (None) to server and server generates it.
       model_uid: modelUID.trim() === '' ? null : modelUID.trim(),
       model_name: modelData.model_name,
@@ -193,24 +194,28 @@ const ModelCard = ({
       gpu_idx: GPUIdx.trim() === '' ? null : handleGPUIdx(GPUIdx.trim()),
     }
 
-    const modelDataWithID2 = {
+    const modelDataWithID_other = {
       model_uid: modelUID.trim() === '' ? null : modelUID.trim(),
       model_name: modelData.model_name,
       model_type: modelType,
     }
 
     if (nGPULayers >= 0) {
-      modelDataWithID1.n_gpu_layers = nGPULayers
+      modelDataWithID_LLM.n_gpu_layers = nGPULayers
     }
 
     if (customParametersArr.length) {
       customParametersArr.forEach((item) => {
-        modelDataWithID1[item.key] = handleValueType(item.value)
+        modelDataWithID_LLM[item.key] = handleValueType(item.value)
       })
     }
 
     const modelDataWithID =
-      modelType === 'LLM' ? modelDataWithID1 : modelDataWithID2
+      modelType === 'LLM'
+        ? modelDataWithID_LLM
+        : modelType === 'embedding' || modelType === 'rerank'
+        ? { ...modelDataWithID_other, replica }
+        : modelDataWithID_other
 
     // First fetcher request to initiate the model
     fetcher(url + '/v1/models', {
@@ -231,7 +236,11 @@ const ModelCard = ({
             )
           })
         } else {
-          navigate('/running_models')
+          navigate(`/running_models/${modelType}`)
+          sessionStorage.setItem(
+            'runningModelType',
+            `/running_models/${modelType}`
+          )
         }
         setIsCallingApi(false)
       })
@@ -323,7 +332,7 @@ const ModelCard = ({
 
   // Set two different states based on mouse hover
   return (
-    <Box
+    <Paper
       style={hover ? styles.containerSelected : styles.container}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
@@ -332,6 +341,7 @@ const ModelCard = ({
           setSelected(true)
         }
       }}
+      elevation={hover ? 24 : 4}
     >
       {modelType === 'LLM' ? (
         <Box style={styles.descriptionCard}>
@@ -357,7 +367,9 @@ const ModelCard = ({
           >
             {(() => {
               return modelData.model_lang.map((v) => {
-                return <Chip label={v} variant="outlined" size="small" />
+                return (
+                  <Chip key={v} label={v} variant="outlined" size="small" />
+                )
               })
             })()}
             {(() => {
@@ -857,6 +869,20 @@ const ModelCard = ({
                 label="(Optional) Model UID, model name by default"
                 onChange={(e) => setModelUID(e.target.value)}
               />
+              {(modelType === 'embedding' || modelType === 'rerank') && (
+                <TextField
+                  style={{ marginTop: '25px' }}
+                  type="number"
+                  InputProps={{
+                    inputProps: {
+                      min: 1,
+                    },
+                  }}
+                  label="Replica"
+                  value={replica}
+                  onChange={(e) => setReplica(parseInt(e.target.value, 10))}
+                />
+              )}
             </FormControl>
           )}
           <Box style={styles.buttonsContainer}>
@@ -945,7 +971,7 @@ const ModelCard = ({
         message="Please fill in the added custom parameters completely!"
         key={'top' + 'center'}
       />
-    </Box>
+    </Paper>
   )
 }
 

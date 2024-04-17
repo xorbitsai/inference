@@ -17,14 +17,6 @@ We recommend that users install `llama-cpp-python` on the worker themselves and 
 parameters according to the hardware to achieve the best inference efficiency. Please refer to the
 `llama-cpp-python installation guide <https://github.com/abetlen/llama-cpp-python#installation-with-openblas--cublas--clblast--metal>`_.
 
-ctransformers
-~~~~~~~~~~~~~
-CTransformers provide python bindings for the Transformer models implemented in C/C++ using GGML library.
-
-We recommend that users install `ctransformers` on the worker themselves and adjust the parameters
-according to the hardware to achieve the best inference efficiency. Please refer to the
-`ctransformers installation guide <https://github.com/marella/ctransformers#gpu>`_.
-
 
 transformers
 ~~~~~~~~~~~~
@@ -60,11 +52,12 @@ Currently, supported model includes:
 - ``Yi``, ``Yi-chat``
 - ``code-llama``, ``code-llama-python``, ``code-llama-instruct``
 - ``vicuna-v1.3``, ``vicuna-v1.5``
+- ``internlm2-chat``
 - ``qwen-chat``
 - ``mixtral-instruct-v0.1``
 - ``chatglm3``, ``chatglm3-32k``, ``chatglm3-128k``
 - ``deepseek-chat``, ``deepseek-coder-instruct``
-- ``qwen1.5-chat``
+- ``qwen1.5-chat``, ``qwen1.5-moe-chat``
 - ``gemma-it``
 - ``orion-chat``, ``orion-chat-rag``
 .. vllm_end

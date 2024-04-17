@@ -200,6 +200,21 @@ class CustomLLMFamilyV1(LLMFamilyV1):
                 )
             llm_spec.prompt_style = BUILTIN_LLM_PROMPT_STYLE[prompt_style_name]
 
+        # check model ability, registering LLM only provides generate and chat
+        # but for vision models, we add back the abilities so that
+        # gradio chat interface can be generated properly
+        if (
+            llm_spec.model_family != "other"
+            and llm_spec.model_family
+            in {
+                family.model_name
+                for family in BUILTIN_LLM_FAMILIES
+                if "vision" in family.model_ability
+            }
+            and "vision" not in llm_spec.model_ability
+        ):
+            llm_spec.model_ability.append("vision")
+
         return llm_spec
 
 
@@ -783,10 +798,29 @@ def get_user_defined_llm_families():
         return UD_LLM_FAMILIES.copy()
 
 
+def match_model_size(
+    model_size: Union[int, str], spec_model_size: Union[int, str]
+) -> bool:
+    if isinstance(model_size, str):
+        model_size = model_size.replace("_", ".")
+    if isinstance(spec_model_size, str):
+        spec_model_size = spec_model_size.replace("_", ".")
+
+    if model_size == spec_model_size:
+        return True
+
+    try:
+        ms = int(model_size)
+        ss = int(spec_model_size)
+        return ms == ss
+    except ValueError:
+        return False
+
+
 def match_llm(
     model_name: str,
     model_format: Optional[str] = None,
-    model_size_in_billions: Optional[int] = None,
+    model_size_in_billions: Optional[Union[int, str]] = None,
     quantization: Optional[str] = None,
     is_local_deployment: bool = False,
 ) -> Optional[Tuple[LLMFamilyV1, LLMSpecV1, str]]:
@@ -830,7 +864,9 @@ def match_llm(
                 model_format
                 and model_format != spec.model_format
                 or model_size_in_billions
-                and model_size_in_billions != spec.model_size_in_billions
+                and not match_model_size(
+                    model_size_in_billions, spec.model_size_in_billions
+                )
                 or quantization
                 and matched_quantization is None
             ):

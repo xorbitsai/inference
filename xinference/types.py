@@ -91,11 +91,23 @@ class CompletionLogprobs(TypedDict):
     top_logprobs: List[Optional[Dict[str, float]]]
 
 
+class ToolCallFunction(TypedDict):
+    name: str
+    arguments: str
+
+
+class ToolCalls(TypedDict):
+    id: str
+    type: Literal["function"]
+    function: ToolCallFunction
+
+
 class CompletionChoice(TypedDict):
     text: str
     index: int
     logprobs: Optional[CompletionLogprobs]
     finish_reason: Optional[str]
+    tool_calls: NotRequired[List[ToolCalls]]
 
 
 class CompletionUsage(TypedDict):
@@ -147,6 +159,7 @@ class ChatCompletion(TypedDict):
 class ChatCompletionChunkDelta(TypedDict):
     role: NotRequired[str]
     content: NotRequired[str]
+    tool_calls: NotRequired[List[ToolCalls]]
 
 
 class ChatCompletionChunkChoice(TypedDict):
@@ -357,21 +370,6 @@ try:
 except ImportError:
     CreateCompletionLlamaCpp = create_model("CreateCompletionLlamaCpp")
 
-CreateCompletionCTransformers: BaseModel
-try:
-    from ctransformers.llm import LLM
-
-    CreateCompletionCTransformers = get_pydantic_model_from_method(
-        LLM.generate,
-        exclude_fields=["tokens"],
-        include_fields={
-            "max_tokens": (Optional[int], max_tokens_field),
-            "stream": (Optional[bool], stream_field),
-        },
-    )
-except ImportError:
-    CreateCompletionCTransformers = create_model("CreateCompletionCTransformers")
-
 
 # This type is for openai API compatibility
 CreateCompletionOpenAI: BaseModel
@@ -417,7 +415,6 @@ class CreateCompletion(
     ModelAndPrompt,
     CreateCompletionTorch,
     CreateCompletionLlamaCpp,
-    CreateCompletionCTransformers,
     CreateCompletionOpenAI,
 ):
     pass
@@ -430,8 +427,6 @@ class CreateChatModel(BaseModel):
 # Currently, chat calls generates, so the params share the same one.
 CreateChatCompletionTorch = CreateCompletionTorch
 CreateChatCompletionLlamaCpp: BaseModel = CreateCompletionLlamaCpp
-CreateChatCompletionCTransformers: BaseModel = CreateCompletionCTransformers
-
 
 # This type is for openai API compatibility
 CreateChatCompletionOpenAI: BaseModel
@@ -452,7 +447,6 @@ class CreateChatCompletion(
     CreateChatModel,
     CreateChatCompletionTorch,
     CreateChatCompletionLlamaCpp,
-    CreateChatCompletionCTransformers,
     CreateChatCompletionOpenAI,
 ):
     pass

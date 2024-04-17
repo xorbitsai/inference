@@ -16,9 +16,8 @@ import os
 from collections import defaultdict
 from typing import Dict, List, Optional, Tuple
 
-from ..._compat import BaseModel
 from ...constants import XINFERENCE_CACHE_DIR
-from ..core import ModelDescription
+from ..core import CacheableModelSpec, ModelDescription
 from ..utils import valid_model_revision
 from .whisper import WhisperModel
 
@@ -26,8 +25,19 @@ MAX_ATTEMPTS = 3
 
 logger = logging.getLogger(__name__)
 
+# Used for check whether the model is cached.
+# Init when registering all the builtin models.
+MODEL_NAME_TO_REVISION: Dict[str, List[str]] = defaultdict(list)
+AUDIO_MODEL_DESCRIPTIONS: Dict[str, List[Dict]] = defaultdict(list)
 
-class AudioModelFamilyV1(BaseModel):
+
+def get_audio_model_descriptions():
+    import copy
+
+    return copy.deepcopy(AUDIO_MODEL_DESCRIPTIONS)
+
+
+class AudioModelFamilyV1(CacheableModelSpec):
     model_family: str
     model_name: str
     model_id: str
@@ -77,63 +87,33 @@ def generate_audio_description(
     image_model: AudioModelFamilyV1,
 ) -> Dict[str, List[Dict]]:
     res = defaultdict(list)
-    res[image_model.model_name].extend(
-        AudioModelDescription(None, None, image_model).to_dict()
+    res[image_model.model_name].append(
+        AudioModelDescription(None, None, image_model).to_version_info()
     )
     return res
 
 
-def match_model(model_name: str) -> AudioModelFamilyV1:
+def match_audio(model_name: str) -> AudioModelFamilyV1:
     from . import BUILTIN_AUDIO_MODELS
+    from .custom import get_user_defined_audios
+
+    for model_spec in get_user_defined_audios():
+        if model_spec.model_name == model_name:
+            return model_spec
 
     if model_name in BUILTIN_AUDIO_MODELS:
         return BUILTIN_AUDIO_MODELS[model_name]
     else:
         raise ValueError(
-            f"Image model {model_name} not found, available"
+            f"Audio model {model_name} not found, available"
             f"model list: {BUILTIN_AUDIO_MODELS.keys()}"
         )
 
 
 def cache(model_spec: AudioModelFamilyV1):
-    # TODO: cache from uri
-    import huggingface_hub
+    from ..utils import cache
 
-    cache_dir = get_cache_dir(model_spec)
-    if not os.path.exists(cache_dir):
-        os.makedirs(cache_dir, exist_ok=True)
-
-    meta_path = os.path.join(cache_dir, "__valid_download")
-    if valid_model_revision(meta_path, model_spec.model_revision):
-        return cache_dir
-
-    for current_attempt in range(1, MAX_ATTEMPTS + 1):
-        try:
-            huggingface_hub.snapshot_download(
-                model_spec.model_id,
-                revision=model_spec.model_revision,
-                local_dir=cache_dir,
-                local_dir_use_symlinks=True,
-                resume_download=True,
-            )
-            break
-        except huggingface_hub.utils.LocalEntryNotFoundError:
-            remaining_attempts = MAX_ATTEMPTS - current_attempt
-            logger.warning(
-                f"Attempt {current_attempt} failed. Remaining attempts: {remaining_attempts}"
-            )
-    else:
-        raise RuntimeError(
-            f"Failed to download model '{model_spec.model_name}' after {MAX_ATTEMPTS} attempts"
-        )
-
-    with open(meta_path, "w") as f:
-        import json
-
-        desc = AudioModelDescription(None, None, model_spec)
-        json.dump(desc.to_dict(), f)
-
-    return cache_dir
+    return cache(model_spec, AudioModelDescription)
 
 
 def get_cache_dir(model_spec: AudioModelFamilyV1):
@@ -151,7 +131,7 @@ def get_cache_status(
 def create_audio_model_instance(
     subpool_addr: str, devices: List[str], model_uid: str, model_name: str, **kwargs
 ) -> Tuple[WhisperModel, AudioModelDescription]:
-    model_spec = match_model(model_name)
+    model_spec = match_audio(model_name)
     model_path = cache(model_spec)
     model = WhisperModel(model_uid, model_path, model_spec, **kwargs)
     model_description = AudioModelDescription(
