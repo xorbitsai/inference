@@ -1089,11 +1089,11 @@ def test_query_engine():
     # assert match_engine_params(model_name, "vLLM", "gptq", "1_8", "Int4") is not None
     # assert match_engine_params(model_name, "vLLM", "gptq", "1_8", "Int8") is None
     assert (
-        check_engine_by_spec_parameters(model_name, "PyTorch", "gptq", "1_8", "Int4")
+        check_engine_by_spec_parameters("PyTorch", model_name, "gptq", "1_8", "Int4")
         is not None
     )
     assert (
-        check_engine_by_spec_parameters(model_name, "PyTorch", "gptq", "1_8", "Int8")
+        check_engine_by_spec_parameters("PyTorch", model_name, "gptq", "1_8", "Int8")
         is not None
     )
     # assert match_engine_params(model_name, "vLLM", "pytorch", "1_8", "none") is not None
@@ -1101,24 +1101,24 @@ def test_query_engine():
     # assert match_engine_params(model_name, "SGlang", "pytorch", "1_8", "none") is not None
     # assert match_engine_params(model_name, "SGlang", "pytorch", "1_8", "4-bit") is None
     assert (
-        check_engine_by_spec_parameters(model_name, "PyTorch", "pytorch", "1_8", "none")
+        check_engine_by_spec_parameters("PyTorch", model_name, "pytorch", "1_8", "none")
         is not None
     )
     assert (
         check_engine_by_spec_parameters(
-            model_name, "PyTorch", "pytorch", "1_8", "4-bit"
+            "PyTorch", model_name, "pytorch", "1_8", "4-bit"
         )
         is not None
     )
     assert (
         check_engine_by_spec_parameters(
-            model_name, "llama-cpp-python", "ggufv2", "1_8", "q2_k"
+            "llama-cpp-python", model_name, "ggufv2", "1_8", "q2_k"
         )
         is not None
     )
     assert (
         check_engine_by_spec_parameters(
-            model_name, "llama-cpp-python", "ggmlv3", "1_8", "q2_k"
+            "llama-cpp-python", model_name, "ggmlv3", "1_8", "q2_k"
         )
         is None
     )
@@ -1150,7 +1150,7 @@ def test_query_engine():
     )
     assert (
         check_engine_by_spec_parameters(
-            "custom_model", "llama-cpp-python", "ggmlv3", 3, ""
+            "llama-cpp-python", "custom_model", "ggmlv3", 3, ""
         )
         is not None
     )
