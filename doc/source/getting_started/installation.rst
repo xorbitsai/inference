@@ -43,11 +43,12 @@ Currently, supported models include:
 - ``Yi``, ``Yi-chat``
 - ``code-llama``, ``code-llama-python``, ``code-llama-instruct``
 - ``vicuna-v1.3``, ``vicuna-v1.5``
+- ``internlm2-chat``
 - ``qwen-chat``
 - ``mixtral-instruct-v0.1``
 - ``chatglm3``, ``chatglm3-32k``, ``chatglm3-128k``
 - ``deepseek-chat``, ``deepseek-coder-instruct``
-- ``qwen1.5-chat``
+- ``qwen1.5-chat``, ``qwen1.5-moe-chat``
 - ``gemma-it``
 - ``orion-chat``, ``orion-chat-rag``
 .. vllm_end
@@ -65,7 +66,6 @@ It's advised to install the GGML dependencies manually based on your hardware sp
 Initial setup::
 
    pip install xinference
-   pip install ctransformers
 
 Hardware-Specific installations:
 

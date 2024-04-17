@@ -1,6 +1,7 @@
 import { TabContext, TabList, TabPanel } from '@mui/lab'
 import { Box, FormControl, Tab, TextField } from '@mui/material'
 import React, { useContext, useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 import { ApiContext } from '../../components/apiContext'
 import fetcher from '../../components/fetcher'
@@ -14,11 +15,14 @@ const LaunchCustom = ({ gpuAvailable }) => {
 
   // States used for filtering
   const [searchTerm, setSearchTerm] = useState('')
-  const [value, setValue] = useState('1')
+  const [value, setValue] = useState(sessionStorage.getItem('subType'))
 
+  const navigate = useNavigate()
   const handleTabChange = (event, newValue) => {
     setValue(newValue)
     update()
+    navigate(newValue)
+    sessionStorage.setItem('subType', newValue)
   }
 
   const handleChange = (event) => {
@@ -148,12 +152,15 @@ const LaunchCustom = ({ gpuAvailable }) => {
       <TabContext value={value}>
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
           <TabList value={value} onChange={handleTabChange} aria-label="tabs">
-            <Tab label="Language Models" value="1" />
-            <Tab label="Embedding Models" value="2" />
-            <Tab label="Rerank Models" value="3" />
+            <Tab label="Language Models" value="/launch_model/custom/llm" />
+            <Tab
+              label="Embedding Models"
+              value="/launch_model/custom/embedding"
+            />
+            <Tab label="Rerank Models" value="/launch_model/custom/rerank" />
           </TabList>
         </Box>
-        <TabPanel value="1" sx={{ padding: 0 }}>
+        <TabPanel value="/launch_model/custom/llm" sx={{ padding: 0 }}>
           <div
             style={{
               display: 'grid',
@@ -200,7 +207,7 @@ const LaunchCustom = ({ gpuAvailable }) => {
               })}
           </div>
         </TabPanel>
-        <TabPanel value="2" sx={{ padding: 0 }}>
+        <TabPanel value="/launch_model/custom/embedding" sx={{ padding: 0 }}>
           <div
             style={{
               display: 'grid',
@@ -240,7 +247,7 @@ const LaunchCustom = ({ gpuAvailable }) => {
               })}
           </div>
         </TabPanel>
-        <TabPanel value="3" sx={{ padding: 0 }}>
+        <TabPanel value="/launch_model/custom/rerank" sx={{ padding: 0 }}>
           <div
             style={{
               display: 'grid',

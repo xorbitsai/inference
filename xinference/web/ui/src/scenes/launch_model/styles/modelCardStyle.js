@@ -4,7 +4,6 @@ const styles = {
     position: 'relative',
     width: '300px',
     height: '300px',
-    border: '1px solid #ddd',
     borderRadius: '20px',
   },
   containerSelected: {
@@ -13,9 +12,7 @@ const styles = {
     position: 'relative',
     width: '300px',
     height: '300px',
-    border: '1px solid #ddd',
     borderRadius: '20px',
-    boxShadow: '0 0 10px #ccc',
   },
   descriptionCard: {
     position: 'relative',
@@ -23,7 +20,6 @@ const styles = {
     left: '-1px',
     width: '300px',
     height: '300px',
-    border: '1px solid #ddd',
     padding: '20px',
     borderRadius: '20px',
   },

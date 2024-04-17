@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import logging
 import multiprocessing
 import time
@@ -37,6 +38,8 @@ from ....types import (
     CompletionChunk,
     CompletionUsage,
     LoRA,
+    ToolCallFunction,
+    ToolCalls,
 )
 from .. import LLM, LLMFamilyV1, LLMSpecV1
 from ..llm_family import CustomLLMFamilyV1
@@ -100,6 +103,7 @@ VLLM_SUPPORTED_CHAT_MODELS = [
     "internlm-chat-7b",
     "internlm-chat-8k",
     "internlm-chat-20b",
+    "internlm2-chat",
     "qwen-chat",
     "Yi-chat",
     "code-llama-instruct",
@@ -346,9 +350,9 @@ class VLLMModel(LLM):
         self,
         prompt: str,
         generate_config: Optional[Dict] = None,
+        tools: object = False,
     ) -> Union[Completion, AsyncGenerator[CompletionChunk, None]]:
         try:
-            from vllm.lora.request import LoRARequest
             from vllm.sampling_params import SamplingParams
         except ImportError:
             error_message = "Failed to import module 'vllm'"
@@ -368,8 +372,14 @@ class VLLMModel(LLM):
         sampling_params = SamplingParams(**sanitized_generate_config)
         request_id = str(uuid.uuid1())
 
-        lora_request = self._maybe_get_lora(sanitized_generate_config)
+        lora_model = sanitized_generate_config.pop("lora_model")
+        if lora_model == self.model_uid:
+            lora_request = None
+        for lora in self.lora_requests:
+            if lora_model == lora.lora_name:
+                lora_request = lora
         logger.info(f"[lora_request]: {lora_request}")
+
         assert self._engine is not None
         results_generator = self._engine.generate(
             prompt, sampling_params, request_id, lora_request
@@ -377,16 +387,46 @@ class VLLMModel(LLM):
 
         async def stream_results() -> AsyncGenerator[CompletionChunk, None]:
             previous_texts = [""] * sanitized_generate_config["n"]
+            tools_token_filter = ChatModelMixin._tools_token_filter(self.model_family)
             async for _request_output in results_generator:
                 chunk = self._convert_request_output_to_completion_chunk(
                     request_id=request_id,
                     model=self.model_uid,
                     request_output=_request_output,
                 )
+
                 for i, choice in enumerate(chunk["choices"]):
                     delta = choice["text"][len(previous_texts[i]) :]
                     previous_texts[i] = choice["text"]
                     choice["text"] = delta
+
+                if tools:
+                    # only handle the first choice
+                    choice = chunk["choices"][0]
+                    if choice["finish_reason"] is not None:
+                        # use previous text for evaluation temporarily
+                        choice_delta = choice["text"]
+                        choice["text"] = previous_texts[0]
+                        _content, func, args = ChatModelMixin._eval_tool_arguments(
+                            self.model_family, chunk, tools
+                        )
+                        choice["text"] = choice_delta
+                        if func is not None:
+                            choice["text"] = None
+                            choice["finish_reason"] = "tool_calls"
+                            choice["tool_calls"] = [
+                                ToolCalls(
+                                    id=str(uuid.uuid4()),
+                                    type="function",
+                                    function=ToolCallFunction(
+                                        name=func,
+                                        arguments=json.dumps(args, ensure_ascii=False),
+                                    ),
+                                )
+                            ]
+                    # use a filter function to skip Qwen's react thought process
+                    elif not tools_token_filter(previous_texts[0]):
+                        continue
                 prompt_tokens = len(_request_output.prompt_token_ids)
                 completion_tokens = sum(
                     len(output.token_ids) for output in _request_output.outputs
@@ -398,15 +438,6 @@ class VLLMModel(LLM):
                     total_tokens=total_tokens,
                 )
                 yield chunk
-
-        def _maybe_get_lora(self, request) -> Optional[LoRARequest]:
-            if request.lora_model == self.model_uid:
-                return
-            for lora in self.lora_requests:
-                if request.lora_model == lora.lora_name:
-                    return lora
-            # if _check_model has been called earlier, this will be unreachable
-            raise ValueError("The model `{request.model}` does not exist.")
 
         if stream:
             return stream_results()
@@ -486,7 +517,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
         generate_config = self._sanitize_chat_config(generate_config)
         # TODO(codingl2k1): qwen hacky to set stop for function call.
         model_family = self.model_family.model_family or self.model_family.model_name
-        if tools and "qwen-chat" == model_family:
+        if tools and model_family in ["qwen-chat", "qwen1.5-chat"]:
             stop = generate_config.get("stop")
             if isinstance(stop, str):
                 generate_config["stop"] = [stop, "Observation:"]
@@ -499,7 +530,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
         stream = generate_config.get("stream", None)
 
         if stream:
-            agen = await self.async_generate(full_prompt, generate_config)
+            agen = await self.async_generate(full_prompt, generate_config, tools)
             assert isinstance(agen, AsyncGenerator)
             return self._async_to_chat_completion_chunks(agen)
         else:

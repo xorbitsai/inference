@@ -136,6 +136,8 @@ class ChatglmPytorchChatModel(PytorchChatModel):
             chat_history = [h for h in chat_history if not h.get("tool_calls")]
         if not chat_history:
             chat_history = []
+        if system_prompt:
+            chat_history.append({"role": "system", "content": system_prompt})
         if tools:
             msg = self._model.chat(
                 self._tokenizer, prompt, [tools] + chat_history, **kwargs

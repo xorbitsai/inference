@@ -51,24 +51,6 @@ msgid ""
 "#installation-with-openblas--cublas--clblast--metal>`_."
 msgstr ""
 
-#: ../../source/user_guide/backends.rst:21
-msgid "ctransformers"
-msgstr ""
-
-#: ../../source/user_guide/backends.rst:22
-msgid ""
-"CTransformers provide python bindings for the Transformer models "
-"implemented in C/C++ using GGML library."
-msgstr ""
-
-#: ../../source/user_guide/backends.rst:24
-msgid ""
-"We recommend that users install `ctransformers` on the worker themselves "
-"and adjust the parameters according to the hardware to achieve the best "
-"inference efficiency. Please refer to the `ctransformers installation "
-"guide <https://github.com/marella/ctransformers#gpu>`_."
-msgstr ""
-
 #: ../../source/user_guide/backends.rst:30
 msgid "transformers"
 msgstr ""
