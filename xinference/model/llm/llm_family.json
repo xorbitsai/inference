@@ -4752,5 +4752,200 @@
         "</s>"
       ]
     }
+  },
+  {
+    "version": 1,
+    "context_length": 8192,
+    "model_name": "seallm_v2",
+    "model_lang": [
+      "en",
+      "zh",
+      "vi",
+      "id",
+      "th",
+      "ms",
+      "km",
+      "lo",
+      "my",
+      "tl"
+    ],
+    "model_ability": [
+      "generate"
+    ],
+    "model_description": "We introduce SeaLLM-7B-v2, the state-of-the-art multilingual LLM for Southeast Asian (SEA) languages",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "SeaLLMs/SeaLLM-7B-v2",
+        "model_revision": "f1bd48e0d75365c24a3c5ad006b2d0a0c9dca30f"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "Q4_0",
+          "Q8_0"
+        ],
+        "model_id": "SeaLLMs/SeaLLM-7B-v2-gguf",
+        "model_file_name_template": "SeaLLM-7B-v2.{quantization}.gguf"
+      }
+    ]
+  },
+  {
+    "version": 1,
+    "context_length": 8192,
+    "model_name": "seallm_v2.5",
+    "model_lang": [
+      "en",
+      "zh",
+      "vi",
+      "id",
+      "th",
+      "ms",
+      "km",
+      "lo",
+      "my",
+      "tl"
+    ],
+    "model_ability": [
+      "generate"
+    ],
+    "model_description": "We introduce SeaLLM-7B-v2.5, the state-of-the-art multilingual LLM for Southeast Asian (SEA) languages",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "SeaLLMs/SeaLLM-7B-v2.5",
+        "model_revision": "c54a8eb8e2d58c5a680bfbbe3a7ae71753bb644b"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "Q4_K_M",
+          "Q8_0"
+        ],
+        "model_id": "SeaLLMs/SeaLLM-7B-v2.5-GGUF",
+        "model_file_name_template": "SeaLLM-7B-v2.5.{quantization}.gguf"
+      }
+    ]
+  },
+  {
+    "version": 1,
+    "context_length": 131072,
+    "model_name": "c4ai-command-r-v01",
+    "model_lang": [
+      "en",
+      "fr",
+      "de",
+      "es",
+      "it",
+      "pt",
+      "ja",
+      "ko",
+      "zh",
+      "ar"
+    ],
+    "model_ability": [
+      "generate"
+    ],
+    "model_description": "C4AI Command-R is a research release of a 35 billion parameter highly performant generative model.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 35,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "CohereForAI/c4ai-command-r-v01",
+        "model_revision": "16881ccde1c68bbc7041280e6a66637bc46bfe88"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 35,
+        "quantizations": [
+          "Q2_K",
+          "Q3_K_L",
+          "Q3_K_M",
+          "Q3_K_S",
+          "Q4_0",
+          "Q4_K_M",
+          "Q4_K_S",
+          "Q5_0",
+          "Q5_K_M",
+          "Q5_K_S",
+          "Q6_K",
+          "Q8_0"
+        ],
+        "model_id": "andrewcanis/c4ai-command-r-v01-GGUF",
+        "model_file_name_template": "c4ai-command-r-v01.{quantization}.gguf"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 104,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "CohereForAI/c4ai-command-r-plus",
+        "model_revision": "ba7f1d954c9d1609013677d87e4142ab95c34e62"
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 104,
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "alpindale/c4ai-command-r-plus-GPTQ",
+        "model_revision": "35febfc08f723ac0df32480eb4af349a7d08656e"
+      }
+    ]
+  },
+  {
+    "version": 1,
+    "context_length": 131072,
+    "model_name": "c4ai-command-r-v01-4bit",
+    "model_lang": [
+      "en",
+      "fr",
+      "de",
+      "es",
+      "it",
+      "pt",
+      "ja",
+      "ko",
+      "zh",
+      "ar"
+    ],
+    "model_ability": [
+      "generate"
+    ],
+    "model_description": "This model is 4bit quantized version of C4AI Command-R using bitsandbytes.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 35,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "CohereForAI/c4ai-command-r-v01-4bit",
+        "model_revision": "f2e87936a146643c9dd143422dcafb9cb1552611"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 104,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "CohereForAI/c4ai-command-r-plus-4bit",
+        "model_revision": "bb63b5b7005ecedb30b0cfd0d5953b02a5817f7b"
+      }
+    ]
   }
 ]

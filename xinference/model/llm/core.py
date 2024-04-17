@@ -207,9 +207,7 @@ def create_llm_model_instance(
 
     peft_model = peft_model_config.peft_model if peft_model_config else None
 
-    logger.info(f"llm_family: {llm_family}, llm_spec: {llm_spec}")
     llm_cls = match_llm_cls(llm_family, llm_spec, quantization, peft_model=peft_model)
-    logger.info(f"llm_cls: {llm_cls}")
     if not llm_cls:
         raise ValueError(
             f"Model not supported, name: {model_name}, format: {model_format},"
