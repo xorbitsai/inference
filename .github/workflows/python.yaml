@@ -124,6 +124,7 @@ jobs:
           pip install modelscope
           pip install diffusers
           pip install protobuf
+          pip install FlagEmbedding
           pip install -e ".[dev]"
           pip install "jinja2==3.1.2"
         working-directory: .
