@@ -20,11 +20,12 @@ import pytest
 from ....client import Client
 
 
-def test_restful_api(setup):
+@pytest.mark.parametrize("model_name", ["bge-reranker-base", "bge-reranker-v2-m3"])
+def test_restful_api(model_name, setup):
     endpoint, _ = setup
     client = Client(endpoint)
 
-    model_uid = client.launch_model(model_name="bge-reranker-base", model_type="rerank")
+    model_uid = client.launch_model(model_name=model_name, model_type="rerank")
     assert len(client.list_models()) == 1
     model = client.get_model(model_uid)
     # We want to compute the similarity between the query sentence
