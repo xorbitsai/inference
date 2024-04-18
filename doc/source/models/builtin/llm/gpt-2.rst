@@ -14,17 +14,17 @@ Specifications
 ^^^^^^^^^^^^^^
 
 
-Model Spec 1 (ggmlv3, 1 Billion)
+Model Spec 1 (pytorch, 1_5 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
-- **Model Format:** ggmlv3
-- **Model Size (in billions):** 1
+- **Model Format:** pytorch
+- **Model Size (in billions):** 1_5
 - **Quantizations:** none
-- **Model ID:** marella/gpt-2-ggml
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/marella/gpt-2-ggml>`__
+- **Model ID:** openai-community/gpt2
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/openai-community/gpt2>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
 
-   xinference launch --model-name gpt-2 --size-in-billions 1 --model-format ggmlv3 --quantization ${quantization}
+   xinference launch --model-name gpt-2 --size-in-billions 1_5 --model-format pytorch --quantization ${quantization}
 

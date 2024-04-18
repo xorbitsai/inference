@@ -3045,5 +3045,94 @@
         "</s>"
       ]
     }
+  },
+  {
+    "version": 1,
+    "context_length": 131072,
+    "model_name": "c4ai-command-r-v01",
+    "model_lang": [
+      "en",
+      "fr",
+      "de",
+      "es",
+      "it",
+      "pt",
+      "ja",
+      "ko",
+      "zh",
+      "ar"
+    ],
+    "model_ability": [
+      "generate"
+    ],
+    "model_description": "C4AI Command-R is a research release of a 35 billion parameter highly performant generative model.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 35,
+        "quantizations": [
+          "none"
+        ],
+        "model_hub": "modelscope",
+        "model_id": "AI-ModelScope/c4ai-command-r-v01",
+        "model_revision": "master"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 35,
+        "quantizations": [
+          "Q2_K",
+          "Q4_K_M",
+          "Q5_K_M"
+        ],
+        "model_id": "mirror013/C4AI-Command-R-v01-GGUF",
+        "model_file_name_template": "c4ai-command-r-v01.{quantization}.gguf",
+        "model_hub": "modelscope",
+        "model_revision": "master"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 104,
+        "quantizations": [
+          "none"
+        ],
+        "model_hub": "modelscope",
+        "model_id": "AI-ModelScope/c4ai-command-r-plus",
+        "model_revision": "master"
+      }
+    ]
+  },
+  {
+    "version": 1,
+    "context_length": 131072,
+    "model_name": "c4ai-command-r-v01-4bit",
+    "model_lang": [
+      "en",
+      "fr",
+      "de",
+      "es",
+      "it",
+      "pt",
+      "ja",
+      "ko",
+      "zh",
+      "ar"
+    ],
+    "model_ability": [
+      "generate"
+    ],
+    "model_description": "This model is 4bit quantized version of C4AI Command-R using bitsandbytes.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 35,
+        "quantizations": [
+          "none"
+        ],
+        "model_hub": "modelscope",
+        "model_id": "mirror013/c4ai-command-r-v01-4bit",
+        "model_revision": "master"
+      }
+    ]
   }
 ]

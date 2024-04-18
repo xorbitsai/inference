@@ -485,7 +485,7 @@ class PeftModelConfig:
 
     def to_dict(self):
         return {
-            "peft_model": [lora.to_dict() for lora in self.peft_model]
+            "lora_list": [lora.to_dict() for lora in self.peft_model]
             if self.peft_model
             else None,
             "image_lora_load_kwargs": self.image_lora_load_kwargs,
@@ -494,10 +494,10 @@ class PeftModelConfig:
 
     @classmethod
     def from_dict(cls, data: Dict):
-        peft_model_data = data.get("peft_model")
+        peft_model_list = data.get("lora_list", None)
         peft_model = (
-            [LoRA.from_dict(lora_dict) for lora_dict in peft_model_data]
-            if peft_model_data
+            [LoRA.from_dict(lora_dict) for lora_dict in peft_model_list]
+            if peft_model_list is not None
             else None
         )
 
