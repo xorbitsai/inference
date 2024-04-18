@@ -17,3 +17,9 @@ The following is a list of built-in rerank models in Xinference:
   
    bge-reranker-large
   
+   bge-reranker-v2-gemma
+  
+   bge-reranker-v2-m3
+  
+   bge-reranker-v2-minicpm-layerwise
+  

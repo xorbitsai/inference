@@ -126,6 +126,8 @@ if VLLM_INSTALLED and vllm.__version__ >= "0.3.3":
 
 if VLLM_INSTALLED and vllm.__version__ >= "0.4.0":
     VLLM_SUPPORTED_CHAT_MODELS.append("qwen1.5-moe-chat")
+    VLLM_SUPPORTED_MODELS.append("c4ai-command-r-v01")
+    VLLM_SUPPORTED_MODELS.append("c4ai-command-r-v01-4bit")
 
 
 class VLLMModel(LLM):
