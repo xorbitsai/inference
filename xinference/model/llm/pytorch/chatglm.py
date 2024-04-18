@@ -24,6 +24,7 @@ from ....types import (
     CompletionChoice,
     CompletionChunk,
     CompletionUsage,
+    LoRA,
     PytorchGenerateConfig,
 )
 from ..llm_family import LLMFamilyV1, LLMSpecV1
@@ -39,7 +40,7 @@ class ChatglmPytorchChatModel(PytorchChatModel):
         quantization: str,
         model_path: str,
         pytorch_model_config: Optional[PytorchModelConfig] = None,
-        peft_model_path: Optional[str] = None,
+        peft_model: Optional[List[LoRA]] = None,
     ):
         super().__init__(
             model_uid,
@@ -48,7 +49,7 @@ class ChatglmPytorchChatModel(PytorchChatModel):
             quantization,
             model_path,
             pytorch_model_config=pytorch_model_config,
-            peft_model_path=peft_model_path,
+            peft_model=peft_model,
         )
 
     def _load_model(self, **kwargs):

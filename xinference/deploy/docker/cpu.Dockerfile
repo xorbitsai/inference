@@ -53,6 +53,7 @@ RUN python -m pip install --upgrade -i "$PIP_INDEX" pip && \
       einops \
       tiktoken \
       "sentence-transformers>=2.3.1" \
+      FlagEmbedding \
       diffusers \
       controlnet_aux \
       orjson \
