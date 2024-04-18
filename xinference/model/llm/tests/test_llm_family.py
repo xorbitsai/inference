@@ -1278,7 +1278,7 @@ def test_query_engine_gerneral():
             model_engine="llama-cpp-python",
             model_name="chatglm",
             model_format="ggmlv3",
-            model_size_in_billions="6",
+            model_size_in_billions=6,
             quantization="q4_0",
         )
         is ChatglmCppChatModel
