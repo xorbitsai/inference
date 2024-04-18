@@ -14,13 +14,19 @@
 import codecs
 import json
 import os
+import platform
 import shutil
 import tempfile
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
-from ....constants import XINFERENCE_ENV_MODEL_SRC
+from ....constants import (
+    XINFERENCE_DISABLE_VLLM,
+    XINFERENCE_ENABLE_SGLANG,
+    XINFERENCE_ENV_MODEL_SRC,
+)
+from ....utils import cuda_count
 from ...utils import is_locale_chinese_simplified, valid_model_revision
 from ..llm_family import (
     AWSRegion,
@@ -39,6 +45,8 @@ from ..llm_family import (
     match_model_size,
     parse_uri,
 )
+from ..sglang.core import SGLANG_INSTALLED
+from ..vllm.core import VLLM_INSTALLED
 
 
 def test_deserialize_llm_family_v1():
@@ -1066,7 +1074,136 @@ def test_match_model_size():
     assert match_model_size("001", 1)
 
 
-def test_query_engine():
+@pytest.mark.skipif(
+    XINFERENCE_DISABLE_VLLM
+    or platform.system() != "Linux"
+    or cuda_count() <= 0
+    or not VLLM_INSTALLED,
+    reason="Current system does not support vLLM",
+)
+def test_quert_engine_vLLM():
+    from ..llm_family import LLM_ENGINES, check_engine_by_spec_parameters
+
+    model_name = "qwen1.5-chat"
+    assert model_name in LLM_ENGINES
+
+    assert (
+        "vLLM" in LLM_ENGINES[model_name] and len(LLM_ENGINES[model_name]["vLLM"]) == 21
+    )
+
+    assert check_engine_by_spec_parameters(
+        model_engine="vLLM",
+        model_name=model_name,
+        model_format="gptq",
+        model_size_in_billions="1_8",
+        quantization="Int4",
+    )
+    assert (
+        check_engine_by_spec_parameters(
+            model_engine="vLLM",
+            model_name=model_name,
+            model_format="gptq",
+            model_size_in_billions="1_8",
+            quantization="Int8",
+        )
+        is None
+    )
+    assert check_engine_by_spec_parameters(
+        model_engine="vLLM",
+        model_name=model_name,
+        model_format="pytorch",
+        model_size_in_billions="1_8",
+        quantization="none",
+    )
+    assert (
+        check_engine_by_spec_parameters(
+            model_engine="vLLM",
+            model_name=model_name,
+            model_format="pytorch",
+            model_size_in_billions="1_8",
+            quantization="4-bit",
+        )
+        is None
+    )
+    assert (
+        check_engine_by_spec_parameters(
+            model_engine="vLLM",
+            model_name=model_name,
+            model_format="ggmlv3",
+            model_size_in_billions="1_8",
+            quantization="q2_k",
+        )
+        is None
+    )
+
+
+@pytest.mark.skipif(
+    not XINFERENCE_ENABLE_SGLANG
+    or platform.system() != "Linux"
+    or cuda_count() <= 0
+    or not SGLANG_INSTALLED,
+    reason="Current system does not support SGLang",
+)
+def test_quert_engine_SGLang():
+    from ..llm_family import LLM_ENGINES, check_engine_by_spec_parameters
+
+    model_name = "qwen1.5-chat"
+    assert model_name in LLM_ENGINES
+
+    assert (
+        "SGLang" in LLM_ENGINES[model_name]
+        and len(LLM_ENGINES[model_name]["SGLang"]) == 21
+    )
+
+    assert check_engine_by_spec_parameters(
+        model_engine="SGLang",
+        model_name=model_name,
+        model_format="gptq",
+        model_size_in_billions="1_8",
+        quantization="Int4",
+    )
+    assert (
+        check_engine_by_spec_parameters(
+            model_engine="SGLang",
+            model_name=model_name,
+            model_format="gptq",
+            model_size_in_billions="1_8",
+            quantization="Int8",
+        )
+        is None
+    )
+    assert check_engine_by_spec_parameters(
+        model_engine="SGLang",
+        model_name=model_name,
+        model_format="pytorch",
+        model_size_in_billions="1_8",
+        quantization="none",
+    )
+    assert (
+        check_engine_by_spec_parameters(
+            model_engine="SGLang",
+            model_name=model_name,
+            model_format="pytorch",
+            model_size_in_billions="1_8",
+            quantization="4-bit",
+        )
+        is None
+    )
+    assert (
+        check_engine_by_spec_parameters(
+            model_engine="SGLang",
+            model_name=model_name,
+            model_format="ggmlv3",
+            model_size_in_billions="1_8",
+            quantization="q2_k",
+        )
+        is None
+    )
+
+
+def test_query_engine_gerneral():
+    from ..ggml.chatglm import ChatglmCppChatModel
+    from ..ggml.llamacpp import LlamaCppChatModel
     from ..llm_family import (
         LLM_ENGINES,
         check_engine_by_spec_parameters,
@@ -1077,50 +1214,74 @@ def test_query_engine():
 
     model_name = "qwen1.5-chat"
     assert model_name in LLM_ENGINES
-    # supported_engines = LLM_ENGINES[model_name]
-    # assert "vLLM" in supported_engines and len(supported_engines["vLLM"]) == 21
-    # assert "SGlang" in supported_engines and len(supported_engines["SGlang"]) == 21
-    # assert "PyTorch" in supported_engines and len(supported_engines["PyTorch"]) == 21
-    # assert (
-    #     "llama-cpp-python" in supported_engines
-    #     and len(supported_engines["llama-cpp-python"]) == 7
-    # )
 
-    # assert match_engine_params(model_name, "vLLM", "gptq", "1_8", "Int4") is not None
-    # assert match_engine_params(model_name, "vLLM", "gptq", "1_8", "Int8") is None
     assert (
-        check_engine_by_spec_parameters("PyTorch", model_name, "gptq", "1_8", "Int4")
-        is not None
+        "PyTorch" in LLM_ENGINES[model_name]
+        and len(LLM_ENGINES[model_name]["PyTorch"]) == 28
     )
     assert (
-        check_engine_by_spec_parameters("PyTorch", model_name, "gptq", "1_8", "Int8")
-        is not None
+        "llama-cpp-python" in LLM_ENGINES[model_name]
+        and len(LLM_ENGINES[model_name]["llama-cpp-python"]) == 7
     )
-    # assert match_engine_params(model_name, "vLLM", "pytorch", "1_8", "none") is not None
-    # assert match_engine_params(model_name, "vLLM", "pytorch", "1_8", "4-bit") is None
-    # assert match_engine_params(model_name, "SGlang", "pytorch", "1_8", "none") is not None
-    # assert match_engine_params(model_name, "SGlang", "pytorch", "1_8", "4-bit") is None
-    assert (
-        check_engine_by_spec_parameters("PyTorch", model_name, "pytorch", "1_8", "none")
-        is not None
+
+    assert check_engine_by_spec_parameters(
+        model_engine="PyTorch",
+        model_name=model_name,
+        model_format="gptq",
+        model_size_in_billions="1_8",
+        quantization="Int4",
+    )
+    assert check_engine_by_spec_parameters(
+        model_engine="PyTorch",
+        model_name=model_name,
+        model_format="gptq",
+        model_size_in_billions="1_8",
+        quantization="Int8",
+    )
+    assert check_engine_by_spec_parameters(
+        model_engine="PyTorch",
+        model_name=model_name,
+        model_format="pytorch",
+        model_size_in_billions="1_8",
+        quantization="none",
+    )
+    assert check_engine_by_spec_parameters(
+        model_engine="PyTorch",
+        model_name=model_name,
+        model_format="pytorch",
+        model_size_in_billions="1_8",
+        quantization="4-bit",
     )
     assert (
         check_engine_by_spec_parameters(
-            "PyTorch", model_name, "pytorch", "1_8", "4-bit"
+            model_engine="llama-cpp-python",
+            model_name=model_name,
+            model_format="ggufv2",
+            model_size_in_billions="1_8",
+            quantization="q2_k",
         )
-        is not None
+        is LlamaCppChatModel
     )
     assert (
         check_engine_by_spec_parameters(
-            "llama-cpp-python", model_name, "ggufv2", "1_8", "q2_k"
-        )
-        is not None
-    )
-    assert (
-        check_engine_by_spec_parameters(
-            "llama-cpp-python", model_name, "ggmlv3", "1_8", "q2_k"
+            model_engine="llama-cpp-python",
+            model_name=model_name,
+            model_format="ggmlv3",
+            model_size_in_billions="1_8",
+            quantization="q2_k",
         )
         is None
+    )
+
+    assert (
+        check_engine_by_spec_parameters(
+            model_engine="llama-cpp-python",
+            model_name="chatglm",
+            model_format="ggmlv3",
+            model_size_in_billions="6",
+            quantization="q4_0",
+        )
+        is ChatglmCppChatModel
     )
 
     spec = GgmlLLMSpecV1(
@@ -1148,11 +1309,12 @@ def test_query_engine():
         "custom_model" in LLM_ENGINES
         and "llama-cpp-python" in LLM_ENGINES["custom_model"]
     )
-    assert (
-        check_engine_by_spec_parameters(
-            "llama-cpp-python", "custom_model", "ggmlv3", 3, ""
-        )
-        is not None
+    assert check_engine_by_spec_parameters(
+        model_engine="llama-cpp-python",
+        model_name="custom_model",
+        model_format="ggmlv3",
+        model_size_in_billions=3,
+        quantization="",
     )
 
     unregister_llm(family.model_name)
