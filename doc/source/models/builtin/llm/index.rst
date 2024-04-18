@@ -51,6 +51,16 @@ The following is a list of built-in LLM in Xinference:
      - 4096
      - Baichuan-chat is a fine-tuned version of the Baichuan LLM, specializing in chatting.
 
+   * - :ref:`c4ai-command-r-v01 <models_llm_c4ai-command-r-v01>`
+     - generate
+     - 131072
+     - C4AI Command-R is a research release of a 35 billion parameter highly performant generative model.
+
+   * - :ref:`c4ai-command-r-v01-4bit <models_llm_c4ai-command-r-v01-4bit>`
+     - generate
+     - 131072
+     - This model is 4bit quantized version of C4AI Command-R using bitsandbytes.
+
    * - :ref:`chatglm <models_llm_chatglm>`
      - chat
      - 2048
@@ -306,6 +316,16 @@ The following is a list of built-in LLM in Xinference:
      - 32768
      - Qwen1.5-MoE is a transformer-based MoE decoder-only language model pretrained on a large amount of data.
 
+   * - :ref:`seallm_v2 <models_llm_seallm_v2>`
+     - generate
+     - 8192
+     - We introduce SeaLLM-7B-v2, the state-of-the-art multilingual LLM for Southeast Asian (SEA) languages
+
+   * - :ref:`seallm_v2.5 <models_llm_seallm_v2.5>`
+     - generate
+     - 8192
+     - We introduce SeaLLM-7B-v2.5, the state-of-the-art multilingual LLM for Southeast Asian (SEA) languages
+
    * - :ref:`skywork <models_llm_skywork>`
      - generate
      - 4096
@@ -425,6 +445,10 @@ The following is a list of built-in LLM in Xinference:
   
    baichuan-chat
   
+   c4ai-command-r-v01
+  
+   c4ai-command-r-v01-4bit
+  
    chatglm
   
    chatglm2
@@ -526,6 +550,10 @@ The following is a list of built-in LLM in Xinference:
    qwen1.5-chat
   
    qwen1.5-moe-chat
+  
+   seallm_v2
+  
+   seallm_v2.5
   
    skywork
   
