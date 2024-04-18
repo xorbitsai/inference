@@ -1,6 +1,7 @@
 [
   {
     "model_name": "bge-reranker-base",
+    "type": "normal",
     "language": ["en", "zh"],
     "model_id": "Xorbits/bge-reranker-base",
     "model_revision": "v0.0.1",
@@ -8,16 +9,39 @@
   },
   {
     "model_name": "bge-reranker-large",
+    "type": "normal",
     "language": ["en", "zh"],
     "model_id": "Xorbits/bge-reranker-large",
     "model_revision": "v0.0.1",
     "model_hub": "modelscope"
   },
-    {
+  {
     "model_name": "bce-reranker-base_v1",
+    "type": "normal",
     "language": ["en", "zh"],
     "model_id": "maidalun/bce-reranker-base_v1",
     "model_revision": "v0.0.1",
+    "model_hub": "modelscope"
+  },
+  {
+    "model_name": "bge-reranker-v2-m3",
+    "type": "normal",
+    "language": ["en", "zh", "multilingual"],
+    "model_id": "AI-ModelScope/bge-reranker-v2-m3",
+    "model_hub": "modelscope"
+  },
+  {
+    "model_name": "bge-reranker-v2-gemma",
+    "type": "LLM-based",
+    "language": ["en", "zh", "multilingual"],
+    "model_id": "AI-ModelScope/bge-reranker-v2-gemma",
+    "model_hub": "modelscope"
+  },
+  {
+    "model_name": "bge-reranker-v2-minicpm-layerwise",
+    "type": "LLM-based layerwise",
+    "language": ["en", "zh", "multilingual"],
+    "model_id": "zfffff/bge-reranker-v2-minicpm-layerwise",
     "model_hub": "modelscope"
   }
 ]
