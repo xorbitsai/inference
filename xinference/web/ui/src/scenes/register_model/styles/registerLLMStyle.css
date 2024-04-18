@@ -50,6 +50,11 @@
     color: #444;
 }
 
+.textareaError {
+    border: 1px solid rgb(177, 7, 7);
+    color: rgb(177, 7, 7);
+}
+
 .copyIcon {
     top: 13px;
     right: 5px;

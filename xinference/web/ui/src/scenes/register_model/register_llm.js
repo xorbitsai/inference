@@ -1,13 +1,11 @@
 import './styles/registerLLMStyle.css'
 
-import AddIcon from '@mui/icons-material/Add';
-import DeleteIcon from '@mui/icons-material/Delete'
 import FilterNoneIcon from '@mui/icons-material/FilterNone';
 import KeyboardDoubleArrowRightIcon from '@mui/icons-material/KeyboardDoubleArrowRight';
 import NotesIcon from '@mui/icons-material/Notes';
 import {
-  Alert,
-  AlertTitle,
+  // Alert,
+  // AlertTitle,
   Box,
   Button,
   Checkbox,
@@ -29,9 +27,10 @@ import { useCookies } from 'react-cookie'
 import { useNavigate } from 'react-router-dom'
 
 import { ApiContext } from '../../components/apiContext'
-import fetcher from '../../components/fetcher'
+// import fetcher from '../../components/fetcher'
 import { useMode } from '../../theme'
-import languages from './data/languages';
+import AddModelSpecs from './addModelSpecs'
+import languages from './data/languages'
 
 const SUPPORTED_LANGUAGES_DICT = { en: 'English', zh: 'Chinese' }
 const SUPPORTED_FEATURES = ['Generate', 'Chat', 'Vision']
@@ -39,30 +38,18 @@ const SUPPORTED_FEATURES = ['Generate', 'Chat', 'Vision']
 // Convert dictionary of supported languages into list
 const SUPPORTED_LANGUAGES = Object.keys(SUPPORTED_LANGUAGES_DICT)
 
-const modelFormatArr = [
-  {value: 'pytorch', label: 'PyTorch'},
-  {value: 'ggmlv3', label: 'GGML'},
-  {value: 'ggufv2', label: 'GGUF'},
-  {value: 'gptq', label: 'GPTQ'},
-  {value: 'awq', label: 'AWQ'},
-]
-
 const RegisterLLM = () => {
   const ERROR_COLOR = useMode()
   const endPoint = useContext(ApiContext).endPoint
   const { setErrorMsg } = useContext(ApiContext)
-  const [successMsg, setSuccessMsg] = useState('')
-  const [modelFormat, setModelFormat] = useState('pytorch')
-  const [modelSize, setModelSize] = useState(7)
-  const [modelUri, setModelUri] = useState('/path/to/llama-2')
-  const [quantization, setQuantization] = useState('')
+  // const [successMsg, setSuccessMsg] = useState('')
   const [formData, setFormData] = useState({
     version: 1,
     context_length: 2048,
     model_name: 'custom-llama-2',
     model_lang: ['en'],
     model_ability: ['generate'],
-    model_description: 'This is a custom model description.',
+    // model_description: 'This is a custom model description.',
     model_family: '',
     model_specs: [],
     prompt_style: undefined,
@@ -74,17 +61,10 @@ const RegisterLLM = () => {
   })
   const [familyLabel, setFamilyLabel] = useState('')
   const [isShow, setIsShow] = useState(false)
-  const [count, setCount] = useState(1)
   const [languagesArr, setLanguagesArr] = useState([])
-  const [specsArr, setSpecsArr] = useState([{
-    id: 0,
-    model_url: '/path/to/llama-2',
-    model_size: 7,
-    model_format: 'pytorch',
-    quantization: ''
-  }])
-  const [modelSizeAlert, setModelSizeAlert] = useState(false)
-  const [modelSizeAlertIndex, setModelSizeAlertIndex] = useState(-1)
+  const [modelSpecsArr, setModelSpecsArr] = useState([])
+  const [jsonData, setJsonData] = useState(null)
+  const [isTextareaError, setIsTextareaError] = useState(false)
 
   const scrollRef = useRef(null)
 
@@ -92,28 +72,28 @@ const RegisterLLM = () => {
   const navigate = useNavigate()
 
   const errorModelName = formData.model_name.trim().length <= 0
-  const errorModelDescription = formData.model_description.length < 0
+  // const errorModelDescription = formData.model_description.length < 0
   const errorContextLength = formData.context_length === 0
   const errorLanguage =
     formData.model_lang === undefined || formData.model_lang.length === 0
   const errorAbility =
     formData.model_ability === undefined || formData.model_ability.length === 0
-  const errorModelSize =
-    formData.model_specs &&
-    formData.model_specs.some((spec) => {
-      return (
-        spec.model_size_in_billions === undefined ||
-        spec.model_size_in_billions === 0
-      )
-    })
+  // const errorModelSize =
+  //   formData.model_specs &&
+  //   formData.model_specs.some((spec) => {
+  //     return (
+  //       spec.model_size_in_billions === undefined ||
+  //       spec.model_size_in_billions === 0
+  //     )
+  //   })
   const errorFamily = familyLabel === ''
   const errorAny =
     errorModelName ||
-    errorModelDescription ||
+    // errorModelDescription ||
     errorContextLength ||
     errorLanguage ||
     errorAbility ||
-    errorModelSize ||
+    // errorModelSize ||
     errorFamily
 
   useEffect(() => {
@@ -193,6 +173,10 @@ const RegisterLLM = () => {
     }
   }, [cookie.token])
 
+  useEffect(() => {
+    setJsonData(JSON.stringify(formData))
+  }, [formData])
+
   const getFamilyByAbility = () => {
     if (formData.model_ability.includes('chat') || formData.model_ability.includes('vision')) {
       return family.chat
@@ -214,73 +198,10 @@ const RegisterLLM = () => {
    })
   }
 
-  const isModelFormatPytorch = () => {
-    return modelFormat === 'pytorch'
-  }
-
-  const isModelFormatGPTQ = () => {
-    return modelFormat === 'gptq'
-  }
-
-  const isModelFormatAWQ = () => {
-    return modelFormat === 'awq'
-  }
-
-  const getPathComponents = (path) => {
-    const normalizedPath = path.replace(/\\/g, '/')
-    const baseDir = normalizedPath.substring(0, normalizedPath.lastIndexOf('/'))
-    const filename = normalizedPath.substring(
-      normalizedPath.lastIndexOf('/') + 1
-    )
-    return { baseDir, filename }
-  }
-
   const handleClick = async () => {
-    if (isModelFormatGPTQ()) {
-      formData.model_specs = [
-        {
-          model_format: modelFormat,
-          model_size_in_billions: modelSize,
-          quantizations: [quantization],
-          model_id: '',
-          model_uri: modelUri,
-        },
-      ]
-    } else if (isModelFormatAWQ()) {
-      formData.model_specs = [
-        {
-          model_format: modelFormat,
-          model_size_in_billions: modelSize,
-          quantizations: [quantization],
-          model_id: '',
-          model_uri: modelUri,
-        },
-      ]
-    } else if (!isModelFormatPytorch()) {
-      const { baseDir, filename } = getPathComponents(modelUri)
-      formData.model_specs = [
-        {
-          model_format: modelFormat,
-          model_size_in_billions: modelSize,
-          quantizations: [quantization],
-          model_id: '',
-          model_file_name_template: filename,
-          model_uri: baseDir,
-        },
-      ]
-    } else {
-      formData.model_specs = [
-        {
-          model_format: modelFormat,
-          model_size_in_billions: modelSize,
-          quantizations: ['4-bit', '8-bit', 'none'],
-          model_id: '',
-          model_uri: modelUri,
-        },
-      ]
-    }
-
+    formData.model_lang = Array.from(new Set([...formData.model_lang, ...languagesArr]))
     formData.model_family = familyLabel
+    formData.model_specs = modelSpecsArr
 
     if (formData.model_ability.includes('chat')) {
       const ps = promptStyles.find((item) => item.name === familyLabel)
@@ -301,37 +222,38 @@ const RegisterLLM = () => {
       setErrorMsg('Please fill in valid value for all fields')
       return
     }
+    console.log('formData', formData);
 
-    try {
-      const response = await fetcher(endPoint + '/v1/model_registrations/LLM', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: JSON.stringify(formData),
-          persist: true,
-        }),
-      })
-      if (!response.ok) {
-        const errorData = await response.json() // Assuming the server returns error details in JSON format
-        setErrorMsg(
-          `Server error: ${response.status} - ${
-            errorData.detail || 'Unknown error'
-          }`
-        )
-      } else {
-        setSuccessMsg(
-          'Model has been registered successfully! Navigate to launch model page to proceed.'
-        )
-        navigate('/launch_model/custom/llm')
-        sessionStorage.setItem('modelType', '/launch_model/custom/llm')
-        sessionStorage.setItem('subType', '/launch_model/custom/llm')
-      }
-    } catch (error) {
-      console.error('There was a problem with the fetch operation:', error)
-      setErrorMsg(error.message || 'An unexpected error occurred.')
-    }
+    // try {
+    //   const response = await fetcher(endPoint + '/v1/model_registrations/LLM', {
+    //     method: 'POST',
+    //     headers: {
+    //       'Content-Type': 'application/json',
+    //     },
+    //     body: JSON.stringify({
+    //       model: JSON.stringify(formData),
+    //       persist: true,
+    //     }),
+    //   })
+    //   if (!response.ok) {
+    //     const errorData = await response.json() // Assuming the server returns error details in JSON format
+    //     setErrorMsg(
+    //       `Server error: ${response.status} - ${
+    //         errorData.detail || 'Unknown error'
+    //       }`
+    //     )
+    //   } else {
+    //     setSuccessMsg(
+    //       'Model has been registered successfully! Navigate to launch model page to proceed.'
+    //     )
+    //     navigate('/launch_model/custom/llm')
+    //     sessionStorage.setItem('modelType', '/launch_model/custom/llm')
+    //     sessionStorage.setItem('subType', '/launch_model/custom/llm')
+    //   }
+    // } catch (error) {
+    //   console.error('There was a problem with the fetch operation:', error)
+    //   setErrorMsg(error.message || 'An unexpected error occurred.')
+    // }
   }
 
   const toggleLanguage = (lang) => {
@@ -349,16 +271,17 @@ const RegisterLLM = () => {
   }
 
   const toggleAbility = (ability) => {
-    setFamilyLabel('')
     if (formData.model_ability.includes(ability)) {
       setFormData({
         ...formData,
         model_ability: formData.model_ability.filter((a) => a !== ability),
+        model_family: '',
       })
     } else {
       setFormData({
         ...formData,
         model_ability: [...formData.model_ability, ability],
+        model_family: '',
       })
     }
   }
@@ -366,66 +289,42 @@ const RegisterLLM = () => {
   const handleSelectLanguages = (value) => {
     const arr = [...languagesArr, value]
     setLanguagesArr(arr)
+    setFormData({...formData, model_lang: [...formData.model_lang, ...arr]})
   }
 
-  const handleDeleteLanguages = (index) => {
-    const arr = languagesArr.filter((_, subIndex) => subIndex !== index)
+  const handleDeleteLanguages = (item) => {
+    const arr = languagesArr.filter((subItem) => subItem !== item)
     setLanguagesArr(arr)
+    setFormData({...formData, model_lang: formData.model_lang.filter((subItem) => subItem !== item)})
   }
 
-  const handleAddSpecs = () => {
-    setCount(count + 1)
-    const item = {
-      id: count,
-      model_url: '/path/to/llama-2',
-      model_size: 7,
-      model_format: 'pytorch',
-      quantization: ''
-    }
-    setSpecsArr([...specsArr, item])
-
-    scrollRef.current.scrollTo({
-      top: scrollRef.current.scrollHeight,
-      behavior: 'smooth',
-    })
-  }
-
-  const handleUpdateSpecsArr = (index, type, newValue) => {
-    console.log('handleUpdateSpecsArr', index, type, newValue);
-    setSpecsArr(
-      specsArr.map((item, subIndex) => {
-        if (subIndex === index) {
-          return { ...item, [type]: newValue }
-        }
-        return item
-      })
-    )
-  }
-
-  const handleDeleteSpecs = (id) => {
-    console.log('删除id:', id);
-  }
-
-  const handleModelSize = (index, value) => {
-    setModelSizeAlert(false)
-    // --------------------------------------------------------------
-    if(Number(value)) { 
-      parseInt(value) === parseFloat(value) ? value = Number(value) : value = value.split('.').join('_')
-    }else {
-      setModelSizeAlert(true)
-      setModelSizeAlertIndex(index)
-    }
-    handleUpdateSpecsArr(index, 'model_size', value)
-    setModelSize(Number(value))
+  const getSpecsArr = (arr) => {
+    setModelSpecsArr(arr)
+    setFormData({...formData, model_specs: arr})
   }
 
   const handleChangeText = (value) => {
-    console.log('text-value', value);
+    try {
+      JSON.parse(value)
+      // setJsonData()
+    } catch (error) {
+      setIsTextareaError(true)
+    }
+    setJsonData(value)
+
+    console.log('text-value', value, jsonData);
   }
 
   const handleCopy = () => {
     console.log('复制');
   }
+
+  // const handleScrollBottom = () => {
+  //   scrollRef.current.scrollTo({
+  //     top: scrollRef.current.scrollHeight,
+  //     behavior: 'smooth',
+  //   })
+  // }
 
   return (
     <Box style={{display: 'flex'}}>
@@ -452,7 +351,7 @@ const RegisterLLM = () => {
           {/* description */}
           <TextField
             label="Model Description (Optional)"
-            error={errorModelDescription}
+            // error={errorModelDescription}
             defaultValue={formData.model_description}
             size="small"
             onChange={(event) =>
@@ -548,14 +447,14 @@ const RegisterLLM = () => {
             </FormControl>     
           </Box>
           <Stack direction="row" spacing={1} style={{marginLeft: '10px'}}>
-            {languagesArr.map((item, index) => (
+            {languagesArr.map((item) => (
               <Chip
                 key={item}
                 label={item}
                 variant="outlined"
                 size="small"
                 color="primary"
-                onDelete={() => handleDeleteLanguages(index)}
+                onDelete={() => handleDeleteLanguages(item)}
               />
             ))}
           </Stack>
@@ -619,9 +518,11 @@ const RegisterLLM = () => {
               model you want to register. If not found, please choose `other`.
             </FormHelperText>
             <RadioGroup
-              value={familyLabel}
+              value={formData.model_family}
               onChange={(e) => {
                 setFamilyLabel(e.target.value)
+                
+                setFormData({...formData, model_family: e.target.value})
               }}
             >
               <Box sx={styles.checkboxWrapper} style={{marginLeft: '10px' }}>
@@ -636,101 +537,20 @@ const RegisterLLM = () => {
           </FormControl>
 
           {/* specs */}
-          <label style={{marginBottom: '30px'}}>
-            Model Specs
-            <Button variant="contained" size="small" endIcon={<AddIcon />} className='addBtn' onClick={handleAddSpecs}>add Specs</Button>
-          </label>
-          {JSON.stringify(specsArr)}
-          <div className='specs_container'>
-            {
-              specsArr.map((item, index) => (
-                <div className='item' key={item.id}>
-                  <TextField
-                    label="Model Path"
-                    size="small"
-                    value={item.model_url}
-                    onChange={(e) => {
-                      setModelUri(e.target.value)
-                      handleUpdateSpecsArr(index, 'model_url', e.target.value)
-                    }}
-                    helperText="For PyTorch, provide the model directory. For GGML/GGUF, provide the model file path."
-                  />
-                  <Box padding="15px"></Box>
+          {/* ----------------------------------------------------------------- */}
+          {/* {JSON.stringify(specsArr)} */}
+          <AddModelSpecs onGetArr={getSpecsArr} />
 
-                  <TextField
-                    label="Model Size in Billions"
-                    size="small"
-                    error={errorModelSize}
-                    value={item.model_size}
-                    onChange={(e) => {
-                      handleModelSize(index, e.target.value)
-                    }}
-                  />
-                  {modelSizeAlert && modelSizeAlertIndex === index && (
-                    <Alert severity="error">
-                      Please enter a number greater than 0.
-                    </Alert>
-                  )}
-                  <Box padding="15px"></Box>
-
-                  <label
-                    style={{
-                      paddingLeft: 5,
-                    }}
-                  >
-                    Model Format
-                  </label>
-                  <RadioGroup
-                    value={item.model_format}
-                    onChange={(e) => {
-                      setModelFormat(e.target.value)
-                      handleUpdateSpecsArr(index, 'model_format', e.target.value)
-                    }}
-                  >
-                    <Box sx={styles.checkboxWrapper}>
-                      {modelFormatArr.map(item => (
-                        <Box sx={{ marginLeft: '10px' }}>
-                          <FormControlLabel
-                            key={item.value}
-                            value={item.value}
-                            control={<Radio />}
-                            label={item.label}
-                          />
-                        </Box>
-                      ))}
-                    </Box>
-                  </RadioGroup>
-                  <Box padding="15px"></Box>
-
-                  <TextField
-                    label="Quantization (Optional)"
-                    size="small"
-                    value={quantization}
-                    onChange={(e) => {
-                      setQuantization(e.target.value)
-                    }}
-                    helperText="For GPTQ/AWQ models, please be careful to fill in the quantization corresponding to the model you want to register."
-                  />
-
-                  <Tooltip title="Delete specs" placement="top">
-                    <div className='deleteBtn' onClick={() => handleDeleteSpecs(item.id)}>
-                      <DeleteIcon className='deleteIcon' />
-                    </div>
-                  </Tooltip>
-                </div>
-              ))
-            }
-          </div>
           <Box padding="15px"></Box>
         </FormControl>
 
         <Box width={'100%'}>
-          {successMsg !== '' && (
+          {/* {successMsg !== '' && (
             <Alert severity="success">
               <AlertTitle>Success</AlertTitle>
               {successMsg}
             </Alert>
-          )}
+          )} */}
           <Button
             variant="contained"
             color="primary"
@@ -742,12 +562,21 @@ const RegisterLLM = () => {
         </Box>
       </div>
 
+      {/* JSON */}
       <div className={isShow ? 'jsonBox' : 'jsonBox hide'}>
-        <div className='jsonBox-header'>JSON Format</div>
+        <div className='jsonBox-header'>
+          JSON Format
+          {/* {isTextareaError && <p>JSON格式错误</p> } */}
+        </div>
         <Tooltip title="Copy all" placement="top">
           <FilterNoneIcon className='icon copyIcon' onClick={handleCopy} />
         </Tooltip>
-        <textarea className='textarea' placeholder="在此输入......" onChange={(e) => handleChangeText(e.target.value)} value="999000">
+        <textarea 
+          className={isTextareaError ? 'textarea textareaError' : 'textarea'}
+          placeholder="在此输入......"
+          onChange={(e) => handleChangeText(e.target.value)}
+          value={JSON.stringify(formData, null, '\t')}
+        >
           
         </textarea>
       </div>
