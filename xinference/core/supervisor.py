@@ -592,6 +592,24 @@ class SupervisorActor(xo.StatelessActor):
             raise ValueError(f"Unsupported model type: {model_type}")
 
     @log_async(logger=logger)
+    async def query_engines_by_model_name(self, model_name: str):
+        from copy import deepcopy
+
+        from ..model.llm.llm_family import LLM_ENGINES
+
+        if model_name not in LLM_ENGINES:
+            raise ValueError(f"Model {model_name} not found")
+
+        # filter llm_class
+        engine_params = deepcopy(LLM_ENGINES[model_name])
+        for engine in engine_params:
+            params = engine_params[engine]
+            for param in params:
+                del param["llm_class"]
+
+        return engine_params
+
+    @log_async(logger=logger)
     async def register_model(self, model_type: str, model: str, persist: bool):
         if model_type in self._custom_register_type_to_cls:
             (

@@ -275,6 +275,16 @@ class RESTfulAPI:
         self._router.add_api_route(
             "/v1/cluster/auth", self.is_cluster_authenticated, methods=["GET"]
         )
+        self._router.add_api_route(
+            "/v1/engines/{model_name}",
+            self.query_engines_by_model_name,
+            methods=["GET"],
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:list"])]
+                if self.is_authenticated()
+                else None
+            ),
+        )
         # running instances
         self._router.add_api_route(
             "/v1/models/instances",
@@ -1422,6 +1432,19 @@ class RESTfulAPI:
                 await self._report_error_event(model_uid, str(e))
                 self.handle_request_limit_error(e)
                 raise HTTPException(status_code=500, detail=str(e))
+
+    async def query_engines_by_model_name(self, model_name: str) -> JSONResponse:
+        try:
+            content = await (
+                await self._get_supervisor_ref()
+            ).query_engines_by_model_name(model_name)
+            return JSONResponse(content=content)
+        except ValueError as re:
+            logger.error(re, exc_info=True)
+            raise HTTPException(status_code=400, detail=str(re))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
 
     async def register_model(self, model_type: str, request: Request) -> JSONResponse:
         body = RegisterModelRequest.parse_obj(await request.json())

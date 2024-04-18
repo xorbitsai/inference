@@ -226,15 +226,24 @@ LLMSpecV1 = Annotated[
 LLMFamilyV1.update_forward_refs()
 CustomLLMFamilyV1.update_forward_refs()
 
-LLM_CLASSES: Dict[str, List[Type[LLM]]] = {}
+
+LLAMA_CLASSES: List[Type[LLM]] = []
 PEFT_SUPPORTED_CLASSES: List[Type[LLM]] = []
 
 BUILTIN_LLM_FAMILIES: List["LLMFamilyV1"] = []
 BUILTIN_MODELSCOPE_LLM_FAMILIES: List["LLMFamilyV1"] = []
 
+SGLANG_CLASSES: List[Type[LLM]] = []
+PYTORCH_CLASSES: List[Type[LLM]] = []
+
 UD_LLM_FAMILIES: List["LLMFamilyV1"] = []
 
 UD_LLM_FAMILIES_LOCK = Lock()
+
+VLLM_CLASSES: List[Type[LLM]] = []
+
+LLM_ENGINES: Dict[str, Dict[str, List[Dict[str, Any]]]] = {}
+SUPPORTED_ENGINES: Dict[str, List[Type[LLM]]] = {}
 
 LLM_LAUNCH_VERSIONS: Dict[str, List[str]] = {}
 
@@ -903,6 +912,7 @@ def match_llm(
 
 def register_llm(llm_family: LLMFamilyV1, persist: bool):
     from ..utils import is_valid_model_name
+    from . import generate_engine_config_by_model_family
 
     if not is_valid_model_name(llm_family.model_name):
         raise ValueError(f"Invalid model name {llm_family.model_name}.")
@@ -915,6 +925,7 @@ def register_llm(llm_family: LLMFamilyV1, persist: bool):
                 )
 
         UD_LLM_FAMILIES.append(llm_family)
+        generate_engine_config_by_model_family(llm_family)
 
     if persist:
         # We only validate model URL when persist is True.
@@ -940,6 +951,7 @@ def unregister_llm(model_name: str, raise_error: bool = True):
                 break
         if llm_family:
             UD_LLM_FAMILIES.remove(llm_family)
+            del LLM_ENGINES[model_name]
 
             persist_path = os.path.join(
                 XINFERENCE_MODEL_DIR, "llm", f"{llm_family.model_name}.json"
@@ -986,7 +998,39 @@ def match_llm_cls(
             if cls.match(family, llm_spec, quantization):
                 return cls
     else:
-        for cls in LLM_CLASSES[model_engine]:
-            if cls.match(family, llm_spec, quantization):
-                return cls
+        return check_engine_by_spec_parameters(
+            llm_spec.model_engine,
+            family.model_name,
+            llm_spec.model_format,
+            llm_spec.model_size_in_billions,
+            quantization,
+        )
+    return None
+
+
+def check_engine_by_spec_parameters(
+    model_engine: str,
+    model_name: str,
+    model_format: str,
+    model_size_in_billions: Union[str, int],
+    quantization: str,
+) -> Optional[Type[LLM]]:
+    if model_name not in LLM_ENGINES:
+        logger.debug(f"Cannot find model {model_name}.")
+        return None
+    if model_engine not in LLM_ENGINES[model_name]:
+        logger.debug(f"Model {model_name} cannot be run on engine {model_engine}.")
+        return None
+    match_params = LLM_ENGINES[model_name][model_engine]
+    for param in match_params:
+        if (
+            model_name == param["model_name"]
+            and model_format == param["model_format"]
+            and model_size_in_billions == param["model_size_in_billions"]
+            and quantization in param["quantizations"]
+        ):
+            return param["llm_class"]
+    logger.debug(
+        f"Model {model_name} with format {model_format}, size {model_size_in_billions} and quantization {quantization} cannot be run on engine {model_engine}."
+    )
     return None
