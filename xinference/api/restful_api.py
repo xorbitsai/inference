@@ -279,6 +279,11 @@ class RESTfulAPI:
             "/v1/engines/{model_name}",
             self.query_engines_by_model_name,
             methods=["GET"],
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:list"])]
+                if self.is_authenticated()
+                else None
+            ),
         )
         # running instances
         self._router.add_api_route(
