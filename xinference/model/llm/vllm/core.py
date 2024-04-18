@@ -65,7 +65,7 @@ class VLLMModelConfig(TypedDict, total=False):
 
 
 class VLLMGenerateConfig(TypedDict, total=False):
-    lora_model: str
+    lora_name: Optional[str]
     n: int
     best_of: Optional[int]
     presence_penalty: float
@@ -230,16 +230,13 @@ class VLLMModel(LLM):
 
     @staticmethod
     def _sanitize_generate_config(
-        self,
         generate_config: Optional[Dict] = None,
     ) -> VLLMGenerateConfig:
         if not generate_config:
             generate_config = {}
 
         sanitized = VLLMGenerateConfig()
-        sanitized.setdefault(
-            "lora_model", generate_config.get("lora_model", self.model_uid)
-        )
+        sanitized.setdefault("lora_name", generate_config.get("lora_name", None))
         sanitized.setdefault("n", generate_config.get("n", 1))
         sanitized.setdefault("best_of", generate_config.get("best_of", None))
         sanitized.setdefault(
@@ -286,9 +283,6 @@ class VLLMModel(LLM):
                 return False
         if "generate" not in llm_family.model_ability:
             return False
-        logger.info(
-            f"[VLLM]: Match {llm_family.model_name} with following model config: {llm_spec}"
-        )
         return VLLM_INSTALLED
 
     @staticmethod
@@ -368,17 +362,18 @@ class VLLMModel(LLM):
             "Enter generate, prompt: %s, generate config: %s", prompt, generate_config
         )
 
+        lora_model = sanitized_generate_config.pop("lora_name")
+
+        lora_request = None
+        if lora_model is not None:
+            for lora in self.lora_requests:
+                if lora_model == lora.lora_name:
+                    lora_request = lora
+                    break
+
         stream = sanitized_generate_config.pop("stream")
         sampling_params = SamplingParams(**sanitized_generate_config)
         request_id = str(uuid.uuid1())
-
-        lora_model = sanitized_generate_config.pop("lora_model")
-        if lora_model == self.model_uid:
-            lora_request = None
-        for lora in self.lora_requests:
-            if lora_model == lora.lora_name:
-                lora_request = lora
-        logger.info(f"[lora_request]: {lora_request}")
 
         assert self._engine is not None
         results_generator = self._engine.generate(
@@ -476,9 +471,6 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
                 return False
         if "chat" not in llm_family.model_ability:
             return False
-        logger.info(
-            f"[VLLM]: Match {llm_family.model_name} with following model config: {llm_spec}"
-        )
         return VLLM_INSTALLED
 
     def _sanitize_chat_config(

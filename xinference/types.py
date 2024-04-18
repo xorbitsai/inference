@@ -353,6 +353,7 @@ class CreateCompletionTorch(BaseModel):
     temperature: float = temperature_field
     top_p: float = top_p_field
     top_k: int = top_k_field
+    lora_name: Optional[str] = None
 
 
 CreateCompletionLlamaCpp: BaseModel
