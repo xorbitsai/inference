@@ -1201,7 +1201,7 @@ def test_quert_engine_SGLang():
     )
 
 
-def test_query_engine_gerneral():
+def test_query_engine_general():
     from ..ggml.chatglm import ChatglmCppChatModel
     from ..ggml.llamacpp import LlamaCppChatModel
     from ..llm_family import (
