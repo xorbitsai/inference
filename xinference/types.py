@@ -278,6 +278,7 @@ class PytorchGenerateConfig(TypedDict, total=False):
     stream_interval: int
     model: Optional[str]
     tools: Optional[List[Dict]]
+    lora_name: Optional[str]
 
 
 class PytorchModelConfig(TypedDict, total=False):
