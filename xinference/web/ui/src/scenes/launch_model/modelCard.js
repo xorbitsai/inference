@@ -758,7 +758,7 @@ const ModelCard = ({
                   <ListItemButton
                     onClick={() => setIsPeftModelConfig(!isPeftModelConfig)}
                   >
-                    <ListItemText primary="Model Config" />
+                    <ListItemText primary="Lora Config" />
                     {isPeftModelConfig ? <ExpandLess /> : <ExpandMore />}
                   </ListItemButton>
                   <Collapse
@@ -769,7 +769,7 @@ const ModelCard = ({
                   >
                     <AddPair
                       customData={{
-                        title: 'Peft Lora Config',
+                        title: 'Lora Model Config',
                         key: 'lora_name',
                         value: 'local_path',
                       }}
