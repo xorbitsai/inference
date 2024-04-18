@@ -90,7 +90,7 @@ const RegisterModel = () => {
     if (cookie.token === '' || cookie.token === undefined) {
       return
     }
-    if (cookie.token === 'need_auth') {
+    if (cookie.token !== 'no_auth' && !sessionStorage.getItem('token')) {
       navigate('/login', { replace: true })
       return
     }
@@ -281,6 +281,9 @@ const RegisterModel = () => {
         setSuccessMsg(
           'Model has been registered successfully! Navigate to launch model page to proceed.'
         )
+        navigate('/launch_model/custom/llm')
+        sessionStorage.setItem('modelType', '/launch_model/custom/llm')
+        sessionStorage.setItem('subType', '/launch_model/custom/llm')
       }
     } catch (error) {
       console.error('There was a problem with the fetch operation:', error)

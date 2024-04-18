@@ -4,6 +4,7 @@ import AlertTitle from '@mui/material/AlertTitle'
 import Button from '@mui/material/Button'
 import TextField from '@mui/material/TextField'
 import React, { useContext, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 import { ApiContext } from '../../components/apiContext'
 import fetcher from '../../components/fetcher'
@@ -18,6 +19,7 @@ const RegisterEmbeddingModel = () => {
   const endPoint = useContext(ApiContext).endPoint
   const { setErrorMsg } = useContext(ApiContext)
   const [successMsg, setSuccessMsg] = useState('')
+  const navigate = useNavigate()
   const [formData, setFormData] = useState({
     model_name: 'custom-embedding',
     dimensions: 768,
@@ -66,6 +68,9 @@ const RegisterEmbeddingModel = () => {
         setSuccessMsg(
           'Model has been registered successfully! Navigate to launch model page to proceed.'
         )
+        navigate('/launch_model/custom/embedding')
+        sessionStorage.setItem('modelType', '/launch_model/custom/llm')
+        sessionStorage.setItem('subType', '/launch_model/custom/embedding')
       }
     } catch (error) {
       console.error('There was a problem with the fetch operation:', error)

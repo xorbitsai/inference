@@ -91,11 +91,23 @@ class CompletionLogprobs(TypedDict):
     top_logprobs: List[Optional[Dict[str, float]]]
 
 
+class ToolCallFunction(TypedDict):
+    name: str
+    arguments: str
+
+
+class ToolCalls(TypedDict):
+    id: str
+    type: Literal["function"]
+    function: ToolCallFunction
+
+
 class CompletionChoice(TypedDict):
     text: str
     index: int
     logprobs: Optional[CompletionLogprobs]
     finish_reason: Optional[str]
+    tool_calls: NotRequired[List[ToolCalls]]
 
 
 class CompletionUsage(TypedDict):
@@ -147,6 +159,7 @@ class ChatCompletion(TypedDict):
 class ChatCompletionChunkDelta(TypedDict):
     role: NotRequired[str]
     content: NotRequired[str]
+    tool_calls: NotRequired[List[ToolCalls]]
 
 
 class ChatCompletionChunkChoice(TypedDict):
@@ -357,21 +370,6 @@ try:
 except ImportError:
     CreateCompletionLlamaCpp = create_model("CreateCompletionLlamaCpp")
 
-CreateCompletionCTransformers: BaseModel
-try:
-    from ctransformers.llm import LLM
-
-    CreateCompletionCTransformers = get_pydantic_model_from_method(
-        LLM.generate,
-        exclude_fields=["tokens"],
-        include_fields={
-            "max_tokens": (Optional[int], max_tokens_field),
-            "stream": (Optional[bool], stream_field),
-        },
-    )
-except ImportError:
-    CreateCompletionCTransformers = create_model("CreateCompletionCTransformers")
-
 
 # This type is for openai API compatibility
 CreateCompletionOpenAI: BaseModel
@@ -417,7 +415,6 @@ class CreateCompletion(
     ModelAndPrompt,
     CreateCompletionTorch,
     CreateCompletionLlamaCpp,
-    CreateCompletionCTransformers,
     CreateCompletionOpenAI,
 ):
     pass
@@ -430,8 +427,6 @@ class CreateChatModel(BaseModel):
 # Currently, chat calls generates, so the params share the same one.
 CreateChatCompletionTorch = CreateCompletionTorch
 CreateChatCompletionLlamaCpp: BaseModel = CreateCompletionLlamaCpp
-CreateChatCompletionCTransformers: BaseModel = CreateCompletionCTransformers
-
 
 # This type is for openai API compatibility
 CreateChatCompletionOpenAI: BaseModel
@@ -452,7 +447,61 @@ class CreateChatCompletion(
     CreateChatModel,
     CreateChatCompletionTorch,
     CreateChatCompletionLlamaCpp,
-    CreateChatCompletionCTransformers,
     CreateChatCompletionOpenAI,
 ):
     pass
+
+
+class LoRA:
+    def __init__(self, lora_name: str, local_path: str):
+        self.lora_name = lora_name
+        self.local_path = local_path
+
+    def to_dict(self):
+        return {
+            "lora_name": self.lora_name,
+            "local_path": self.local_path,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict):
+        return cls(
+            lora_name=data["lora_name"],
+            local_path=data["local_path"],
+        )
+
+
+class PeftModelConfig:
+    def __init__(
+        self,
+        peft_model: Optional[List[LoRA]] = None,
+        image_lora_load_kwargs: Optional[Dict] = None,
+        image_lora_fuse_kwargs: Optional[Dict] = None,
+    ):
+        self.peft_model = peft_model
+        self.image_lora_load_kwargs = image_lora_load_kwargs
+        self.image_lora_fuse_kwargs = image_lora_fuse_kwargs
+
+    def to_dict(self):
+        return {
+            "lora_list": [lora.to_dict() for lora in self.peft_model]
+            if self.peft_model
+            else None,
+            "image_lora_load_kwargs": self.image_lora_load_kwargs,
+            "image_lora_fuse_kwargs": self.image_lora_fuse_kwargs,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict):
+        peft_model_list = data.get("lora_list", None)
+        peft_model = (
+            [LoRA.from_dict(lora_dict) for lora_dict in peft_model_list]
+            if peft_model_list is not None
+            else None
+        )
+
+        return cls(
+            peft_model=peft_model,
+            image_lora_load_kwargs=data.get("image_lora_load_kwargs"),
+            image_lora_fuse_kwargs=data.get("image_lora_fuse_kwargs"),
+        )

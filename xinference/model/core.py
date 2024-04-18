@@ -13,9 +13,10 @@
 # limitations under the License.
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, List, Optional, Tuple, Union
 
 from .._compat import BaseModel
+from ..types import PeftModelConfig
 
 
 class ModelDescription(ABC):
@@ -51,11 +52,9 @@ def create_model_instance(
     model_name: str,
     model_engine: str,
     model_format: Optional[str] = None,
-    model_size_in_billions: Optional[int] = None,
+    model_size_in_billions: Optional[Union[int, str]] = None,
     quantization: Optional[str] = None,
-    peft_model_path: Optional[str] = None,
-    image_lora_load_kwargs: Optional[Dict] = None,
-    image_lora_fuse_kwargs: Optional[Dict] = None,
+    peft_model_config: Optional[PeftModelConfig] = None,
     is_local_deployment: bool = False,
     **kwargs,
 ) -> Tuple[Any, ModelDescription]:
@@ -75,7 +74,7 @@ def create_model_instance(
             model_format,
             model_size_in_billions,
             quantization,
-            peft_model_path,
+            peft_model_config,
             is_local_deployment,
             **kwargs,
         )
@@ -92,9 +91,7 @@ def create_model_instance(
             devices,
             model_uid,
             model_name,
-            lora_model_path=peft_model_path,
-            lora_load_kwargs=image_lora_load_kwargs,
-            lora_fuse_kwargs=image_lora_fuse_kwargs,
+            peft_model_config,
             **kwargs,
         )
     elif model_type == "rerank":

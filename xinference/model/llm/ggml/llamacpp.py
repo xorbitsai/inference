@@ -30,7 +30,6 @@ from ....types import (
 from ..core import LLM
 from ..llm_family import LLMFamilyV1, LLMSpecV1
 from ..utils import ChatModelMixin
-from .ctransformers import CTRANSFORMERS_SUPPORTED_MODEL
 
 logger = logging.getLogger(__name__)
 
@@ -182,11 +181,7 @@ class LlamaCppModel(LLM):
     ) -> bool:
         if llm_spec.model_format not in ["ggmlv3", "ggufv2"]:
             return False
-        if (
-            "chatglm" in llm_family.model_name
-            or "qwen" in llm_family.model_name
-            or llm_family.model_name in CTRANSFORMERS_SUPPORTED_MODEL
-        ):
+        if "chatglm" in llm_family.model_name or "qwen" in llm_family.model_name:
             return False
         if "generate" not in llm_family.model_ability:
             return False
@@ -250,10 +245,7 @@ class LlamaCppChatModel(LlamaCppModel, ChatModelMixin):
     ) -> bool:
         if llm_spec.model_format not in ["ggmlv3", "ggufv2"]:
             return False
-        if (
-            "chatglm" in llm_family.model_name
-            or llm_family.model_name in CTRANSFORMERS_SUPPORTED_MODEL
-        ):
+        if "chatglm" in llm_family.model_name:
             return False
         if "chat" not in llm_family.model_ability:
             return False

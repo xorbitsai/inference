@@ -647,10 +647,11 @@ def list_model_registrations(
     help='The number of GPUs used by the model, default is "auto".',
 )
 @click.option(
-    "--peft-model-path",
-    default=None,
-    type=str,
-    help="PEFT model path.",
+    "--lora-modules",
+    "-lm",
+    multiple=True,
+    type=(str, str),
+    help="LoRA module configurations in the format name=path. Multiple modules can be specified.",
 )
 @click.option(
     "--image-lora-load-kwargs",
@@ -704,7 +705,7 @@ def model_launch(
     quantization: str,
     replica: int,
     n_gpu: str,
-    peft_model_path: Optional[str],
+    lora_modules: Optional[Tuple],
     image_lora_load_kwargs: Optional[Tuple],
     image_lora_fuse_kwargs: Optional[Tuple],
     worker_ip: Optional[str],
@@ -737,6 +738,18 @@ def model_launch(
         else None
     )
 
+    lora_list = (
+        [{"lora_name": k, "local_path": v} for k, v in dict(lora_modules).items()]
+        if lora_modules
+        else []
+    )
+
+    peft_model_config = {
+        "image_lora_load_kwargs": image_lora_load_params,
+        "image_lora_fuse_kwargs": image_lora_fuse_params,
+        "lora_list": lora_list,
+    }
+
     _gpu_idx: Optional[List[int]] = (
         None if gpu_idx is None else [int(idx) for idx in gpu_idx.split(",")]
     )
@@ -744,7 +757,9 @@ def model_launch(
     endpoint = get_endpoint(endpoint)
     model_size: Optional[Union[str, int]] = (
         size_in_billions
-        if size_in_billions is None or "_" in size_in_billions
+        if size_in_billions is None
+        or "_" in size_in_billions
+        or "." in size_in_billions
         else int(size_in_billions)
     )
     client = RESTfulClient(base_url=endpoint, api_key=api_key)
@@ -761,9 +776,7 @@ def model_launch(
         quantization=quantization,
         replica=replica,
         n_gpu=_n_gpu,
-        peft_model_path=peft_model_path,
-        image_lora_load_kwargs=image_lora_load_params,
-        image_lora_fuse_kwargs=image_lora_fuse_params,
+        peft_model_config=peft_model_config,
         worker_ip=worker_ip,
         gpu_idx=_gpu_idx,
         trust_remote_code=trust_remote_code,

@@ -119,12 +119,12 @@ jobs:
           pip install sentencepiece
           pip install transformers_stream_generator
           pip install bitsandbytes
-          pip install ctransformers
           pip install "sentence-transformers>=2.3.1"
           pip install s3fs
           pip install modelscope
           pip install diffusers
           pip install protobuf
+          pip install FlagEmbedding
           pip install -e ".[dev]"
           pip install "jinja2==3.1.2"
         working-directory: .
