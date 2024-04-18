@@ -40,7 +40,10 @@ from typing import (
 import sse_starlette.sse
 import xoscar as xo
 
-from ..constants import XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE
+from ..constants import (
+    XINFERENCE_LAUNCH_MODEL_RETRY,
+    XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE,
+)
 
 if TYPE_CHECKING:
     from .progress_tracker import ProgressTrackerActor
@@ -374,7 +377,21 @@ class ModelActor(xo.StatelessActor):
         return condition
 
     async def load(self):
-        self._model.load()
+        i = 0
+        while True:
+            i += 1
+            try:
+                self._model.load()
+                break
+            except Exception as e:
+                if (
+                    i < XINFERENCE_LAUNCH_MODEL_RETRY
+                    and str(e).find("busy or unavailable") >= 0
+                ):
+                    await asyncio.sleep(5)
+                    logger.warning("Retry to load model {model_uid}: %d times", i)
+                    continue
+                raise
         if self.allow_batching():
             await self._scheduler_ref.set_model(self._model)
             logger.debug(
