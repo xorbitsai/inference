@@ -1012,14 +1012,10 @@ def check_engine_by_spec_parameters(
     quantization: str,
 ) -> Optional[Type[LLM]]:
     if model_name not in LLM_ENGINES:
-        logger.debug(
-            f"Model {model_name} with format {model_format}, size {model_size_in_billions} and quantization {quantization} cannot be run on engine {model_engine}."
-        )
+        logger.debug(f"Cannot find model {model_name}.")
         return None
     if model_engine not in LLM_ENGINES[model_name]:
-        logger.debug(
-            f"Model {model_name} with format {model_format}, size {model_size_in_billions} and quantization {quantization} cannot be run on engine {model_engine}."
-        )
+        logger.debug(f"Model {model_name} cannot be run on engine {model_engine}.")
         return None
     match_params = LLM_ENGINES[model_name][model_engine]
     for param in match_params:
