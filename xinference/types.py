@@ -186,6 +186,7 @@ class ChatglmCppGenerateConfig(TypedDict, total=False):
     top_p: float
     temperature: float
     stream: bool
+    lora_name: Optional[str]
 
 
 class QWenCppModelConfig(TypedDict, total=False):
@@ -354,7 +355,7 @@ class CreateCompletionTorch(BaseModel):
     temperature: float = temperature_field
     top_p: float = top_p_field
     top_k: int = top_k_field
-    lora_name: Optional[str] = None
+    lora_name: Optional[str]
 
 
 CreateCompletionLlamaCpp: BaseModel
