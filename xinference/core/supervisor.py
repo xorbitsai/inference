@@ -597,6 +597,13 @@ class SupervisorActor(xo.StatelessActor):
 
         if model_name not in LLM_ENGINES:
             raise ValueError(f"Model {model_name} not found")
+
+        # filter llm_class
+        for engine in LLM_ENGINES[model_name]:
+            params = LLM_ENGINES[model_name][engine]
+            for param in params:
+                del param["llm_class"]
+
         return LLM_ENGINES[model_name]
 
     @log_async(logger=logger)
