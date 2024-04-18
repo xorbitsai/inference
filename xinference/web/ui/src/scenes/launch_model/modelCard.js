@@ -1,5 +1,4 @@
 import {
-  AddCircle,
   ChatOutlined,
   EditNoteOutlined,
   ExpandLess,
@@ -35,6 +34,7 @@ import { useNavigate } from 'react-router-dom'
 import { ApiContext } from '../../components/apiContext'
 import fetcher from '../../components/fetcher'
 import TitleTypography from '../../components/titleTypography'
+import AddPair from './components/addPair'
 import styles from './styles/modelCardStyle'
 
 const ModelCard = ({
@@ -49,8 +49,7 @@ const ModelCard = ({
   const [requestLimitsAlert, setRequestLimitsAlert] = useState(false)
   const [GPUIdxAlert, setGPUIdxAlert] = useState(false)
   const [isOther, setIsOther] = useState(false)
-  const [isNotUnique, setisNotUnique] = useState(false)
-  const [defaultIndex, setDefaultIndex] = useState(-1)
+  const [isPeftModelConfig, setIsPeftModelConfig] = useState(false)
   const [openSnackbar, setOpenSnackbar] = useState(false)
   const { isCallingApi, setIsCallingApi } = useContext(ApiContext)
   const { isUpdatingModel } = useContext(ApiContext)
@@ -66,9 +65,6 @@ const ModelCard = ({
   const [nGPULayers, setNGPULayers] = useState(-1)
   const [replica, setReplica] = useState(1)
   const [requestLimits, setRequestLimits] = useState('')
-  const [peftModelPath, setPeftModelPath] = useState('')
-  const [imageLoraLoadKwargs, setImageLoraLoadKwargs] = useState('')
-  const [imageLoraFuseKwargs, setImageLoraFuseKwargs] = useState('')
   const [workerIp, setWorkerIp] = useState('')
   const [GPUIdx, setGPUIdx] = useState('')
 
@@ -77,7 +73,9 @@ const ModelCard = ({
   const [quantizationOptions, setQuantizationOptions] = useState([])
   const [customDeleted, setCustomDeleted] = useState(false)
   const [customParametersArr, setCustomParametersArr] = useState([])
-  const [arrId, setArrId] = useState(0)
+  const [loraListArr, setLoraListArr] = useState([])
+  const [imageLoraLoadKwargsArr, setImageLoraLoadKwargsArr] = useState([])
+  const [imageLoraFuseKwargsArr, setImageLoraFuseKwargsArr] = useState([])
 
   const parentRef = useRef(null)
 
@@ -184,12 +182,6 @@ const ModelCard = ({
       replica: replica,
       request_limits:
         requestLimits.trim() === '' ? null : Number(requestLimits.trim()),
-      peft_model_path:
-        peftModelPath.trim() === '' ? null : peftModelPath.trim(),
-      image_lora_load_kwargs:
-        imageLoraLoadKwargs.trim() === '' ? null : imageLoraLoadKwargs.trim(),
-      image_lora_fuse_kwargs:
-        imageLoraFuseKwargs.trim() === '' ? null : imageLoraFuseKwargs.trim(),
       worker_ip: workerIp.trim() === '' ? null : workerIp.trim(),
       gpu_idx: GPUIdx.trim() === '' ? null : handleGPUIdx(GPUIdx.trim()),
     }
@@ -202,6 +194,36 @@ const ModelCard = ({
 
     if (nGPULayers >= 0) {
       modelDataWithID_LLM.n_gpu_layers = nGPULayers
+    }
+
+    if (
+      loraListArr.length ||
+      imageLoraLoadKwargsArr.length ||
+      imageLoraFuseKwargsArr.length
+    ) {
+      const peft_model_config = {}
+      if (imageLoraLoadKwargsArr.length) {
+        const image_lora_load_kwargs = {}
+        imageLoraLoadKwargsArr.forEach((item) => {
+          image_lora_load_kwargs[item.key] = handleValueType(item.value)
+        })
+        peft_model_config['image_lora_load_kwargs'] = image_lora_load_kwargs
+      }
+      if (imageLoraFuseKwargsArr.length) {
+        const image_lora_fuse_kwargs = {}
+        imageLoraFuseKwargsArr.forEach((item) => {
+          image_lora_fuse_kwargs[item.key] = handleValueType(item.value)
+        })
+        peft_model_config['image_lora_fuse_kwargs'] = image_lora_fuse_kwargs
+      }
+      if (loraListArr.length) {
+        const lora_list = loraListArr
+        lora_list.map((item) => {
+          delete item.id
+        })
+        peft_model_config['lora_list'] = lora_list
+      }
+      modelDataWithID_LLM['peft_model_config'] = peft_model_config
     }
 
     if (customParametersArr.length) {
@@ -272,48 +294,18 @@ const ModelCard = ({
       .catch(console.error)
   }
 
-  const updateCustomParametersArr = (index, type, newValue) => {
-    setCustomParametersArr(
-      customParametersArr.map((pair, subIndex) => {
-        if (subIndex === index) {
-          return { ...pair, [type]: newValue }
-        }
-        return pair
-      })
-    )
-    if (type === 'key') {
-      setDefaultIndex(-1)
-      setisNotUnique(false)
-      customParametersArr.forEach((pair) => {
-        if (pair.key === newValue) {
-          setDefaultIndex(index)
-          setisNotUnique(true)
-        }
-      })
-    }
-  }
-
-  const judgeCustomParameters = () => {
+  const judgeArr = (arr, keysArr) => {
     if (
-      customParametersArr.length &&
-      customParametersArr[customParametersArr.length - 1].key !== '' &&
-      customParametersArr[customParametersArr.length - 1].value !== ''
+      arr.length &&
+      arr[arr.length - 1][keysArr[0]] !== '' &&
+      arr[arr.length - 1][keysArr[1]] !== ''
     ) {
       return true
-    } else if (customParametersArr.length === 0) {
+    } else if (arr.length === 0) {
       return true
     } else {
       return false
     }
-  }
-
-  const handleDeleteCustomParameters = (index) => {
-    setDefaultIndex(-1)
-    setCustomParametersArr(
-      customParametersArr.filter((pair, subIndex) => {
-        return index !== subIndex
-      })
-    )
   }
 
   const handleValueType = (str) => {
@@ -328,6 +320,22 @@ const ModelCard = ({
     } else {
       return str
     }
+  }
+
+  const getLoraListArr = (arr) => {
+    setLoraListArr(arr)
+  }
+
+  const getImageLoraLoadKwargsArr = (arr) => {
+    setImageLoraLoadKwargsArr(arr)
+  }
+
+  const getImageLoraFuseKwargsArr = (arr) => {
+    setImageLoraFuseKwargsArr(arr)
+  }
+
+  const getCustomParametersArr = (arr) => {
+    setCustomParametersArr(arr)
   }
 
   // Set two different states based on mouse hover
@@ -716,36 +724,6 @@ const ModelCard = ({
                     <FormControl variant="outlined" margin="normal" fullWidth>
                       <TextField
                         variant="outlined"
-                        value={peftModelPath}
-                        label="(Optional) Peft Model Path, PEFT (Parameter-Efficient Fine-Tuning) model path"
-                        onChange={(e) => setPeftModelPath(e.target.value)}
-                      />
-                    </FormControl>
-                  </Grid>
-                  <Grid item xs={12}>
-                    <FormControl variant="outlined" margin="normal" fullWidth>
-                      <TextField
-                        variant="outlined"
-                        value={imageLoraLoadKwargs}
-                        label="(Optional) Image Lora Load Kwargs, lora load parameters for image model"
-                        onChange={(e) => setImageLoraLoadKwargs(e.target.value)}
-                      />
-                    </FormControl>
-                  </Grid>
-                  <Grid item xs={12}>
-                    <FormControl variant="outlined" margin="normal" fullWidth>
-                      <TextField
-                        variant="outlined"
-                        value={imageLoraFuseKwargs}
-                        label="(Optional) Image Lora Fuse Kwargs, lora fuse parameters for image model"
-                        onChange={(e) => setImageLoraFuseKwargs(e.target.value)}
-                      />
-                    </FormControl>
-                  </Grid>
-                  <Grid item xs={12}>
-                    <FormControl variant="outlined" margin="normal" fullWidth>
-                      <TextField
-                        variant="outlined"
                         value={workerIp}
                         label="(Optional) Worker Ip, specify the worker ip where the model is located in a distributed scenario"
                         onChange={(e) => setWorkerIp(e.target.value)}
@@ -777,88 +755,57 @@ const ModelCard = ({
                       )}
                     </FormControl>
                   </Grid>
-                </Collapse>
-                <Box>
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      margin: '10px 0 0 15px',
-                    }}
+                  <ListItemButton
+                    onClick={() => setIsPeftModelConfig(!isPeftModelConfig)}
                   >
-                    <div>
-                      Additional parameters passed to the inference engine
-                    </div>
-                    <IconButton
-                      color="primary"
-                      onClick={() => {
-                        setArrId(arrId + 1)
-                        judgeCustomParameters()
-                          ? setCustomParametersArr([
-                              ...customParametersArr,
-                              { id: arrId, key: '', value: '' },
-                            ])
-                          : setOpenSnackbar(true)
+                    <ListItemText primary="Lora Config" />
+                    {isPeftModelConfig ? <ExpandLess /> : <ExpandMore />}
+                  </ListItemButton>
+                  <Collapse
+                    in={isPeftModelConfig}
+                    timeout="auto"
+                    unmountOnExit
+                    style={{ marginLeft: '30px' }}
+                  >
+                    <AddPair
+                      customData={{
+                        title: 'Lora Model Config',
+                        key: 'lora_name',
+                        value: 'local_path',
                       }}
-                    >
-                      <AddCircle />
-                    </IconButton>
-                  </div>
-                  <Box>
-                    {customParametersArr.map((item, index) => {
-                      return (
-                        <Box>
-                          <div
-                            key={item.id}
-                            style={{
-                              display: 'flex',
-                              justifyContent: 'space-between',
-                              alignItems: 'center',
-                              marginTop: '10px',
-                            }}
-                          >
-                            <TextField
-                              label="key"
-                              value={item.key}
-                              onChange={(e) => {
-                                updateCustomParametersArr(
-                                  index,
-                                  'key',
-                                  e.target.value
-                                )
-                              }}
-                              style={{ width: '44%' }}
-                            />
-                            <TextField
-                              label="value"
-                              value={item.value}
-                              onChange={(e) => {
-                                updateCustomParametersArr(
-                                  index,
-                                  'value',
-                                  e.target.value
-                                )
-                              }}
-                              style={{ width: '44%' }}
-                            />
-                            <IconButton
-                              aria-label="delete"
-                              onClick={() =>
-                                handleDeleteCustomParameters(index)
-                              }
-                              style={{ marginLeft: '10px' }}
-                            >
-                              <DeleteIcon />
-                            </IconButton>
-                          </div>
-                          {isNotUnique && defaultIndex === index && (
-                            <Alert severity="error">key must be unique</Alert>
-                          )}
-                        </Box>
-                      )
-                    })}
-                  </Box>
-                </Box>
+                      onGetArr={getLoraListArr}
+                      onJudgeArr={judgeArr}
+                    />
+                    <AddPair
+                      customData={{
+                        title: 'Lora Load Kwargs for Image Model',
+                        key: 'key',
+                        value: 'value',
+                      }}
+                      onGetArr={getImageLoraLoadKwargsArr}
+                      onJudgeArr={judgeArr}
+                    />
+                    <AddPair
+                      customData={{
+                        title: 'Lora Fuse Kwargs for Image Model',
+                        key: 'key',
+                        value: 'value',
+                      }}
+                      onGetArr={getImageLoraFuseKwargsArr}
+                      onJudgeArr={judgeArr}
+                    />
+                  </Collapse>
+                </Collapse>
+                <AddPair
+                  customData={{
+                    title:
+                      'Additional parameters passed to the inference engine',
+                    key: 'key',
+                    value: 'value',
+                  }}
+                  onGetArr={getCustomParametersArr}
+                  onJudgeArr={judgeArr}
+                />
               </Grid>
             </Box>
           ) : (
@@ -901,8 +848,10 @@ const ModelCard = ({
                     (quantization ||
                       (!modelData.is_builtin && modelFormat !== 'pytorch'))
                   ) ||
-                  !judgeCustomParameters() ||
-                  defaultIndex !== -1 ||
+                  !judgeArr(customParametersArr, ['key', 'value']) ||
+                  !judgeArr(loraListArr, ['lora_name', 'local_path']) ||
+                  !judgeArr(imageLoraLoadKwargsArr, ['key', 'value']) ||
+                  !judgeArr(imageLoraFuseKwargsArr, ['key', 'value']) ||
                   requestLimitsAlert ||
                   GPUIdxAlert)
               }
@@ -968,7 +917,7 @@ const ModelCard = ({
         anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
         open={openSnackbar}
         onClose={() => setOpenSnackbar(false)}
-        message="Please fill in the added custom parameters completely!"
+        message="Please fill in the complete parameters before adding!!"
         key={'top' + 'center'}
       />
     </Paper>
