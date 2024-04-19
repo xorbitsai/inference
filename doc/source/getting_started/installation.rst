@@ -42,6 +42,7 @@ Currently, supported models include:
 - ``mistral-v0.1``, ``mistral-instruct-v0.1``, ``mistral-instruct-v0.2``
 - ``Yi``, ``Yi-chat``
 - ``code-llama``, ``code-llama-python``, ``code-llama-instruct``
+- ``c4ai-command-r-v01``, ``c4ai-command-r-v01-4bit``
 - ``vicuna-v1.3``, ``vicuna-v1.5``
 - ``internlm2-chat``
 - ``qwen-chat``
