@@ -127,6 +127,8 @@ class ChatModelMixin:
                         f"<|start_header_id|>{role}<|end_header_id|>"
                         f"{prompt_style.intra_message_sep}{content}{prompt_style.inter_message_sep}"
                     )
+                else:
+                    ret += f"<|start_header_id|>{role}<|end_header_id|>{prompt_style.intra_message_sep}"
             return ret
         elif prompt_style.style_name == "FALCON":
             ret = prompt_style.system_prompt
