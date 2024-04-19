@@ -1,3 +1,5 @@
+import './styles/indexStyle'
+
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete'
 import {
@@ -11,8 +13,6 @@ import {
   Tooltip,
 } from '@mui/material'
 import React, { useEffect, useState } from 'react'
-
-import styles from './styles/indexStyle'
 
 const modelFormatArr = [
     {value: 'pytorch', label: 'PyTorch'},
@@ -40,16 +40,19 @@ const AddModelSpecs = ({onGetArr}) => {
 
     useEffect(() => {
         const arr = specsArr.map(item => {
-          delete item.id
-          parseInt(item.model_size_in_billions) === parseFloat(item.model_size_in_billions) 
-          ? item.model_size_in_billions = Number(item.model_size_in_billions) 
-          : item.model_size_in_billions = item.model_size_in_billions.split('.').join('_')
-    
-          item.quantizations = ''
-          if(item.model_format === 'pytorch') {
-            item.quantizations = 'none'
-          } else if (item.quantizations === '' && (item.model_format === 'ggmlv3' || item.model_format === 'ggufv2')) {
-            item.quantizations = 'default'
+          const { model_uri: uri, model_size_in_billions: size, model_format: modelFormat, quantizations } = item
+          const handleSize = parseInt(size) === parseFloat(size) ? Number(size) : size.split('.').join('_')
+          let handleQuantization = quantizations
+          if (modelFormat === 'pytorch') {
+            handleQuantization = 'none'
+          } else if (handleQuantization === '' && (modelFormat === 'ggmlv3' || modelFormat === 'ggufv2')) {
+            handleQuantization = 'default'
+          }
+          return {
+            model_uri: uri,
+            model_size_in_billions: handleSize,
+            model_format: modelFormat,
+            quantizations: handleQuantization,
           }
         })
         onGetArr(arr)
@@ -126,6 +129,7 @@ const AddModelSpecs = ({onGetArr}) => {
               specsArr.map((item, index) => (
                 <div className='item' key={item.id}>
                   <TextField
+                    style={{minWidth: '60%'}}
                     label="Model Path"
                     size="small"
                     value={item.model_uri}
@@ -185,13 +189,15 @@ const AddModelSpecs = ({onGetArr}) => {
                   {item.model_format !== 'pytorch' && (<>
                     <Box padding="15px"></Box>
                     <TextField
-                      label="Quantization (Optional)"
+                      style={{minWidth: '60%'}}
+                      label={(item.model_format === 'gptq' || item.model_format === 'awq') ? 'Quantization' : 'Quantization (Optional)'}
                       size="small"
+                      // fullWidth
                       value={item.quantizations}
                       onChange={(e) => {
                         handleQuantization(item.model_format, index, e.target.value, item.id)
                       }}
-                      helperText="For GPTQ/AWQ models, please be careful to fill in the quantization corresponding to the model you want to register."
+                      helperText={(item.model_format === 'gptq' || item.model_format === 'awq') ? 'For GPTQ/AWQ models, please be careful to fill in the quantization corresponding to the model you want to register.': ''}
                     />
                     {(item.model_format !== 'ggmlv3' && item.model_format !== 'ggufv2') && quantizationAlertId.includes(item.id) && item.quantizations == '' && (
                       <Alert severity="error">
@@ -214,3 +220,17 @@ const AddModelSpecs = ({onGetArr}) => {
 }
 
 export default AddModelSpecs
+
+const styles = {
+  baseFormControl: {
+    width: '100%',
+    margin: 'normal',
+    size: 'small',
+  },
+  checkboxWrapper: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    width: '100%'
+  },
+}

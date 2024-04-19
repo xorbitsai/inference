@@ -43,16 +43,11 @@
 .textarea {
     width: 100%;
     height: calc(100% - 40px);
-    padding: 5px;
+    padding: 5px 10px;
     border: 1px solid #ddd;
     border-radius: 5px;
     resize: none;
     color: #444;
-}
-
-.textareaError {
-    border: 1px solid rgb(177, 7, 7);
-    color: rgb(177, 7, 7);
 }
 
 .copyIcon {
