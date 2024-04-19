@@ -4,8 +4,6 @@ import FilterNoneIcon from '@mui/icons-material/FilterNone';
 import KeyboardDoubleArrowRightIcon from '@mui/icons-material/KeyboardDoubleArrowRight';
 import NotesIcon from '@mui/icons-material/Notes';
 import {
-  // Alert,
-  // AlertTitle,
   Box,
   Button,
   Checkbox,
@@ -49,7 +47,7 @@ const RegisterLLM = () => {
     model_name: 'custom-llama-2',
     model_lang: ['en'],
     model_ability: ['generate'],
-    // model_description: 'This is a custom model description.',
+model_description: 'This is a custom model description.',
     model_family: '',
     model_specs: [],
     prompt_style: undefined,
@@ -63,8 +61,8 @@ const RegisterLLM = () => {
   const [isShow, setIsShow] = useState(false)
   const [languagesArr, setLanguagesArr] = useState([])
   const [modelSpecsArr, setModelSpecsArr] = useState([])
-  const [jsonData, setJsonData] = useState(null)
-  const [isTextareaError, setIsTextareaError] = useState(false)
+  const [jsonData, setJsonData] = useState('')
+  // const [isTextareaError, setIsTextareaError] = useState(false)
 
   const scrollRef = useRef(null)
 
@@ -72,7 +70,7 @@ const RegisterLLM = () => {
   const navigate = useNavigate()
 
   const errorModelName = formData.model_name.trim().length <= 0
-  // const errorModelDescription = formData.model_description.length < 0
+const errorModelDescription = formData.model_description.length < 0
   const errorContextLength = formData.context_length === 0
   const errorLanguage =
     formData.model_lang === undefined || formData.model_lang.length === 0
@@ -89,7 +87,7 @@ const RegisterLLM = () => {
   const errorFamily = familyLabel === ''
   const errorAny =
     errorModelName ||
-    // errorModelDescription ||
+errorModelDescription ||
     errorContextLength ||
     errorLanguage ||
     errorAbility ||
@@ -174,7 +172,7 @@ const RegisterLLM = () => {
   }, [cookie.token])
 
   useEffect(() => {
-    setJsonData(JSON.stringify(formData))
+    setJsonData(JSON.stringify(formData, null, 4))
   }, [formData])
 
   const getFamilyByAbility = () => {
@@ -184,6 +182,7 @@ const RegisterLLM = () => {
       return family.generate
     }
   }
+
   const sortStringsByFirstLetter = (arr) => {
     return arr.sort((a, b) => {
       const firstCharA = a.charAt(0).toLowerCase()
@@ -199,7 +198,6 @@ const RegisterLLM = () => {
   }
 
   const handleClick = async () => {
-    formData.model_lang = Array.from(new Set([...formData.model_lang, ...languagesArr]))
     formData.model_family = familyLabel
     formData.model_specs = modelSpecsArr
 
@@ -289,7 +287,7 @@ const RegisterLLM = () => {
   const handleSelectLanguages = (value) => {
     const arr = [...languagesArr, value]
     setLanguagesArr(arr)
-    setFormData({...formData, model_lang: [...formData.model_lang, ...arr]})
+    setFormData({...formData, model_lang: Array.from(new Set([...formData.model_lang, ...arr]))})
   }
 
   const handleDeleteLanguages = (item) => {
@@ -303,17 +301,44 @@ const RegisterLLM = () => {
     setFormData({...formData, model_specs: arr})
   }
 
-  const handleChangeText = (value) => {
-    try {
-      JSON.parse(value)
-      // setJsonData()
-    } catch (error) {
-      setIsTextareaError(true)
-    }
-    setJsonData(value)
+  // const handleChangeText = (value) => {
+  //   setIsTextareaError(false)
+  //   try {
+  //     const json = JSON.parse(value)
+  //     setJsonData(JSON.stringify(json, null, 4))
 
-    console.log('text-value', value, jsonData);
-  }
+
+  //     console.log('json------------------', json);
+  //     const {
+  //       version,
+  //       model_name,
+  //       model_description,
+  //       context_length,
+  //       model_lang,
+  //       model_ability,
+  //       model_family,
+  //       model_specs
+  //     } = json
+
+  //     setLanguagesArr(model_lang.filter(item => {
+  //       return item !== 'en' && item !== 'zh'
+  //     }))
+
+  //     setFormData({
+  //       version,
+  //       model_name,
+  //       model_description,
+  //       context_length,
+  //       model_lang,
+  //       model_ability,
+  //       model_family,
+  //       model_specs
+  //     })
+  //   } catch (error) {
+  //     setIsTextareaError(true)
+  //     setJsonData(value)
+  //   }
+  // }
 
   const handleCopy = () => {
     console.log('复制');
@@ -339,7 +364,7 @@ const RegisterLLM = () => {
           <TextField
             label="Model Name"
             error={errorModelName}
-            defaultValue={formData.model_name}
+            value={formData.model_name}
             size="small"
             helperText="Alphanumeric characters with properly placed hyphens and underscores. Must not match any built-in model names."
             onChange={(event) =>
@@ -351,8 +376,8 @@ const RegisterLLM = () => {
           {/* description */}
           <TextField
             label="Model Description (Optional)"
-            // error={errorModelDescription}
-            defaultValue={formData.model_description}
+            error={errorModelDescription}
+            value={formData.model_description}
             size="small"
             onChange={(event) =>
               setFormData({
@@ -566,19 +591,16 @@ const RegisterLLM = () => {
       <div className={isShow ? 'jsonBox' : 'jsonBox hide'}>
         <div className='jsonBox-header'>
           JSON Format
-          {/* {isTextareaError && <p>JSON格式错误</p> } */}
         </div>
         <Tooltip title="Copy all" placement="top">
           <FilterNoneIcon className='icon copyIcon' onClick={handleCopy} />
         </Tooltip>
-        <textarea 
-          className={isTextareaError ? 'textarea textareaError' : 'textarea'}
-          placeholder="在此输入......"
-          onChange={(e) => handleChangeText(e.target.value)}
-          value={JSON.stringify(formData, null, '\t')}
-        >
-          
-        </textarea>
+        <textarea
+          readOnly
+          className='textarea'
+          // onChange={(e) => handleChangeText(e.target.value)}
+          value={jsonData}
+        />
       </div>
     </Box>
   )
