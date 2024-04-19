@@ -18,7 +18,6 @@ from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Union
 
 import requests
 
-from ...model.utils import convert_float_to_int_or_str
 from ...types import LoRA, PeftModelConfig
 from ..common import streaming_response_iterator
 
@@ -35,6 +34,17 @@ if TYPE_CHECKING:
         LlamaCppGenerateConfig,
         PytorchGenerateConfig,
     )
+
+
+def convert_float_to_int_or_str(model_size: float) -> Union[int, str]:
+    """convert float to int or string
+
+    if float can be presented as int, convert it to int, otherwise convert it to string
+    """
+    if int(model_size) == model_size:
+        return int(model_size)
+    else:
+        return str(model_size)
 
 
 def _get_error_string(response: requests.Response) -> str:
