@@ -50,6 +50,7 @@ Currently, supported models include:
 - ``chatglm3``, ``chatglm3-32k``, ``chatglm3-128k``
 - ``deepseek-chat``, ``deepseek-coder-instruct``
 - ``qwen1.5-chat``, ``qwen1.5-moe-chat``
+- ``codeqwen1.5-chat``
 - ``gemma-it``
 - ``orion-chat``, ``orion-chat-rag``
 .. vllm_end
