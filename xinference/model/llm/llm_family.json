@@ -1222,6 +1222,109 @@
   },
   {
     "version": 1,
+    "context_length": 8192,
+    "model_name": "llama-3-instruct",
+    "model_lang": [
+      "en"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "The Llama 3 instruction tuned models are optimized for dialogue use cases and outperform many of the available open source chat models on common industry benchmarks..",
+    "model_specs": [
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 8,
+        "quantizations": [
+          "IQ3_M",
+          "Q4_K_M",
+          "Q5_K_M",
+          "Q6_K",
+          "Q8_0"
+        ],
+        "model_id": "lmstudio-community/Meta-Llama-3-8B-Instruct-GGUF",
+        "model_file_name_template": "Meta-Llama-3-8B-Instruct-{quantization}.gguf"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 8,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "meta-llama/Meta-Llama-3-8B-Instruct"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 70,
+        "quantizations": [
+          "IQ3_XS",
+          "IQ4_XS",
+          "Q2_K",
+          "Q3_K_L",
+          "Q3_K_M",
+          "Q3_K_S",
+          "Q4_K_M",
+          "Q4_K_S",
+          "Q5_K_M",
+          "Q5_K_S",
+          "Q6_K",
+          "Q8_0",
+          "fp16"
+        ],
+        "model_id": "MaziyarPanahi/Meta-Llama-3-70B-Instruct-GGUF",
+        "model_file_name_template": "Meta-Llama-3-70B-Instruct.{quantization}.gguf",
+        "model_file_name_split_template": "Meta-Llama-3-70B-Instruct.{quantization}-{part}.gguf",
+        "quantization_parts": {
+          "Q6_K": [
+            "00001-of-00002",
+            "00002-of-00002"
+          ],
+          "Q8_0": [
+            "00001-of-00002",
+            "00002-of-00002"
+          ],
+          "fp16": [
+            "00001-of-00004",
+            "00002-of-00004",
+            "00003-of-00004",
+            "00004-of-00004"
+          ]
+        }
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 70,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "meta-llama/Meta-Llama-3-70B-Instruct"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "LLAMA3",
+      "system_prompt": "You are a helpful assistant.",
+      "roles": [
+        "user",
+        "assistant"
+      ],
+      "intra_message_sep": "\n\n",
+      "inter_message_sep": "<|eot_id|>",
+      "stop_token_ids": [
+        128001,
+        128009
+      ],
+      "stop": [
+        "<|end_of_text|>",
+        "<|eot_id|>"
+      ]
+    }
+  },
+  {
+    "version": 1,
     "context_length": 2048,
     "model_name": "opt",
     "model_lang": [

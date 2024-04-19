@@ -114,6 +114,20 @@ class ChatModelMixin:
                 else:
                     ret += role
             return ret
+        elif prompt_style.style_name == "LLAMA3":
+            ret = (
+                f"<|begin_of_text|><|start_header_id|>system<|end_header_id|>"
+                f"{prompt_style.intra_message_sep}{prompt_style.system_prompt}{prompt_style.inter_message_sep}"
+            )
+            for i, message in enumerate(chat_history):
+                role = get_role(message["role"])
+                content = message["content"]
+                if content:
+                    ret += (
+                        f"<|start_header_id|>{role}<|end_header_id|>"
+                        f"{prompt_style.intra_message_sep}{content}{prompt_style.inter_message_sep}"
+                    )
+            return ret
         elif prompt_style.style_name == "FALCON":
             ret = prompt_style.system_prompt
             for message in chat_history:
