@@ -21,6 +21,7 @@ import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 
 import icon from '../media/icon.webp'
+import ThemeButton from './themeButton'
 
 const navItems = [
   {
@@ -124,7 +125,7 @@ const MenuSide = () => {
         </Box>
       </Box>
 
-      <Box>
+      <Box sx={{ flexGrow: 1 }}>
         <Box width="100%">
           <Box m="1.5rem 2rem 2rem 3rem"></Box>
           <List>
@@ -188,6 +189,7 @@ const MenuSide = () => {
           </List>
         </Box>
       </Box>
+      <ThemeButton sx={{ m: '1rem' }} />
     </Drawer>
   )
 }
