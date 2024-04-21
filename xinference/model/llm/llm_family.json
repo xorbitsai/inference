@@ -3321,6 +3321,141 @@
   },
   {
     "version": 1,
+    "context_length": 65536,
+    "model_name": "mixtral-8x22B-instruct-v0.1",
+    "model_lang": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "The Mixtral-8x22B-Instruct-v0.1 Large Language Model (LLM) is an instruct fine-tuned version of the Mixtral-8x22B-v0.1, specializing in chatting.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": "141",
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "mistralai/Mixtral-8x22B-Instruct-v0.1",
+        "model_revision": "ebb919ac9e9f7f9a900644621bae7963bc593f4f"
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": "141",
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "MaziyarPanahi/Mixtral-8x22B-Instruct-v0.1-AWQ"
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": "141",
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "jarrelscy/Mixtral-8x22B-Instruct-v0.1-GPTQ-4bit"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": "141",
+        "quantizations": [
+          "Q2_K",
+          "Q3_K_L",
+          "Q3_K_M",
+          "Q3_K_S",
+          "Q4_K_M",
+          "Q4_K_S",
+          "Q5_K_M",
+          "Q5_K_S",
+          "Q6",
+          "Q8_0",
+          "fp16"
+        ],
+        "model_id": "MaziyarPanahi/Mixtral-8x22B-Instruct-v0.1-GGUF",
+        "model_file_name_template": "Mixtral-8x22B-Instruct-{quantization}-{part}.gguf",
+        "quantization_parts": {
+          "Q2_K": [
+            "00001-of-00003",
+            "00002-of-00003",
+            "00003-of-00003"
+          ],
+          "Q3_K_L": [
+            "00001-of-00002",
+            "00002-of-00002"
+          ],
+          "Q3_K_M": [
+            "00001-of-00002",
+            "00002-of-00002"
+          ],
+          "Q3_K_S": [
+            "00001-of-00003",
+            "00002-of-00003",
+            "00003-of-00003"
+          ],
+          "Q4_K_M": [
+            "00001-of-00002",
+            "00002-of-00002"
+          ],
+          "Q4_K_S": [
+            "00001-of-00002",
+            "00002-of-00002"
+          ],
+          "Q5_K_M": [
+            "00001-of-00004",
+            "00002-of-00004",
+            "00003-of-00004",
+            "00004-of-00004"
+          ],
+          "Q5_K_S": [
+            "00001-of-00004",
+            "00002-of-00004",
+            "00003-of-00004",
+            "00004-of-00004"
+          ],
+          "Q6": [
+            "00001-of-00004",
+            "00002-of-00004",
+            "00003-of-00004",
+            "00004-of-00004"
+          ],
+          "Q8_0": [
+            "00001-of-00004",
+            "00002-of-00004",
+            "00003-of-00004",
+            "00004-of-00004"
+          ],
+          "fp16": [
+            "00001-of-00007",
+            "00002-of-00007",
+            "00003-of-00007",
+            "00004-of-00007",
+            "00005-of-00007",
+            "00006-of-00007",
+            "00007-of-00007"
+          ]
+        }
+      }
+    ],
+    "prompt_style": {
+      "style_name": "MIXTRAL_V01",
+      "system_prompt": "",
+      "roles": [
+        "user",
+        "assistant"
+      ],
+      "intra_message_sep": "",
+      "inter_message_sep": ""
+    }
+  },
+  {
+    "version": 1,
     "context_length": 4096,
     "model_name": "Yi",
     "model_lang": [
