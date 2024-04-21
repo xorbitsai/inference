@@ -3379,7 +3379,8 @@
           "fp16"
         ],
         "model_id": "MaziyarPanahi/Mixtral-8x22B-Instruct-v0.1-GGUF",
-        "model_file_name_template": "Mixtral-8x22B-Instruct-{quantization}-{part}.gguf",
+        "model_file_name_template": "Mixtral-8x22B-Instruct-{quantization}.gguf",
+        "model_file_name_split_template": "Mixtral-8x22B-Instruct-{quantization}-{part}.gguf",
         "quantization_parts": {
           "Q2_K": [
             "00001-of-00003",
