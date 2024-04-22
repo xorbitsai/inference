@@ -116,6 +116,7 @@ class RerankModel:
             "bge-reranker-large",
             "bge-reranker-base",
             "bce-reranker-base_v1",
+            "bge-reranker-v2-m3",
         ]
         self._model = None
 
