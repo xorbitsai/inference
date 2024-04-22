@@ -140,6 +140,48 @@ def test_prompt_style_llama2():
     )
 
 
+def test_prompt_style_llama3():
+    prompt_style = PromptStyleV1(
+        style_name="LLAMA3",
+        system_prompt=(
+            "You are a helpful, respectful and honest assistant. Always answer"
+            " as helpfully as possible, while being safe. Your answers should not include any"
+            " harmful, unethical, racist, sexist, toxic, dangerous, or illegal content. Please"
+            " ensure that your responses are socially unbiased and positive in nature.\n\nIf a"
+            " question does not make any sense, or is not factually coherent, explain why instead"
+            " of answering something not correct. If you don't know the answer to a question,"
+            " please don't share false information"
+        ),
+        roles=["user", "assistant"],
+        intra_message_sep="\n\n",
+        inter_message_sep="<|eot_id|>",
+        stop_token_ids=[128001, 128009],
+    )
+    chat_history = [
+        ChatCompletionMessage(role=prompt_style.roles[0], content="Hi there."),
+        ChatCompletionMessage(
+            role=prompt_style.roles[1], content="Hello, how may I help you?"
+        ),
+    ]
+    expected = (
+        "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n"
+        "You are a helpful, respectful and honest assistant. Always answer"
+        " as helpfully as possible, while being safe. Your answers should not include any"
+        " harmful, unethical, racist, sexist, toxic, dangerous, or illegal content. Please"
+        " ensure that your responses are socially unbiased and positive in nature.\n\nIf a"
+        " question does not make any sense, or is not factually coherent, explain why instead"
+        " of answering something not correct. If you don't know the answer to a question,"
+        " please don't share false information<|eot_id|>"
+        "<|start_header_id|>user<|end_header_id|>\n\nHi there.<|eot_id|>"
+        "<|start_header_id|>assistant<|end_header_id|>\n\nHello, how may I help you?<|eot_id|>"
+        "<|start_header_id|>user<|end_header_id|>\n\nWrite a poem.<|eot_id|>"
+        "<|start_header_id|>assistant<|end_header_id|>\n\n"
+    )
+    assert expected == ChatModelMixin.get_prompt(
+        "Write a poem.", chat_history, prompt_style
+    )
+
+
 def test_prompt_style_falcon():
     prompt_style = PromptStyleV1(
         style_name="FALCON",

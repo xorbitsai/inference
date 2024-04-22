@@ -85,6 +85,7 @@ except ImportError:
 
 VLLM_SUPPORTED_MODELS = [
     "llama-2",
+    "llama-3",
     "baichuan",
     "internlm-16k",
     "mistral-v0.1",
@@ -94,6 +95,7 @@ VLLM_SUPPORTED_MODELS = [
 ]
 VLLM_SUPPORTED_CHAT_MODELS = [
     "llama-2-chat",
+    "llama-3-instruct",
     "vicuna-v1.3",
     "vicuna-v1.5",
     "baichuan-chat",

@@ -206,6 +206,16 @@ The following is a list of built-in LLM in Xinference:
      - 4096
      - Llama-2-Chat is a fine-tuned version of the Llama-2 LLM, specializing in chatting.
 
+   * - :ref:`llama-3 <models_llm_llama-3>`
+     - generate
+     - 8192
+     - Llama 3 is an auto-regressive language model that uses an optimized transformer architecture
+
+   * - :ref:`llama-3-instruct <models_llm_llama-3-instruct>`
+     - chat
+     - 8192
+     - The Llama 3 instruction tuned models are optimized for dialogue use cases and outperform many of the available open source chat models on common industry benchmarks..
+
    * - :ref:`minicpm-2b-dpo-bf16 <models_llm_minicpm-2b-dpo-bf16>`
      - chat
      - 4096
@@ -511,6 +521,10 @@ The following is a list of built-in LLM in Xinference:
    llama-2
   
    llama-2-chat
+  
+   llama-3
+  
+   llama-3-instruct
   
    minicpm-2b-dpo-bf16
   
