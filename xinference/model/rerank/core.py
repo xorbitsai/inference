@@ -112,29 +112,51 @@ class RerankModel:
         self._device = device
         self._model_config = model_config or dict()
         self._use_fp16 = use_fp16
+        self._use_sentence_transformers = model_spec.model_name in [
+            "bge-reranker-large",
+            "bge-reranker-base",
+            "bce-reranker-base_v1",
+        ]
         self._model = None
 
     def load(self):
-        try:
-            if self._model_spec.type == "normal":
-                from FlagEmbedding import FlagReranker
-            elif self._model_spec.type == "LLM-based":
-                from FlagEmbedding import FlagLLMReranker as FlagReranker
-            elif self._model_spec.type == "LLM-based layerwise":
-                from FlagEmbedding import LayerWiseFlagLLMReranker as FlagReranker
-            else:
-                raise RuntimeError(
-                    f"Unsupported Rank model type: {self._model_spec.type}"
-                )
-        except ImportError:
-            error_message = "Failed to import module 'FlagEmbedding'"
-            installation_guide = [
-                "Please make sure 'FlagEmbedding' is installed. ",
-                "You can install it by `pip install FlagEmbedding`\n",
-            ]
+        if self._use_sentence_transformers:
+            try:
+                from sentence_transformers.cross_encoder import CrossEncoder
+            except ImportError:
+                error_message = "Failed to import module 'sentence-transformers'"
+                installation_guide = [
+                    "Please make sure 'sentence-transformers' is installed. ",
+                    "You can install it by `pip install sentence-transformers`\n",
+                ]
 
-            raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
-        self._model = FlagReranker(self._model_path, use_fp16=True)
+                raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
+            self._model = CrossEncoder(
+                self._model_path, device=self._device, **self._model_config
+            )
+            if self._use_fp16:
+                self._model.model.half()
+        else:
+            try:
+                if self._model_spec.type == "normal":
+                    from FlagEmbedding import FlagReranker
+                elif self._model_spec.type == "LLM-based":
+                    from FlagEmbedding import FlagLLMReranker as FlagReranker
+                elif self._model_spec.type == "LLM-based layerwise":
+                    from FlagEmbedding import LayerWiseFlagLLMReranker as FlagReranker
+                else:
+                    raise RuntimeError(
+                        f"Unsupported Rank model type: {self._model_spec.type}"
+                    )
+            except ImportError:
+                error_message = "Failed to import module 'FlagEmbedding'"
+                installation_guide = [
+                    "Please make sure 'FlagEmbedding' is installed. ",
+                    "You can install it by `pip install FlagEmbedding`\n",
+                ]
+
+                raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
+            self._model = FlagReranker(self._model_path, use_fp16=self._use_fp16)
 
     def rerank(
         self,
@@ -151,7 +173,10 @@ class RerankModel:
         if max_chunks_per_doc is not None:
             raise ValueError("rerank hasn't support `max_chunks_per_doc` parameter.")
         sentence_combinations = [[query, doc] for doc in documents]
-        similarity_scores = self._model.compute_score(sentence_combinations)
+        if self._use_sentence_transformers:
+            similarity_scores = self._model.predict(sentence_combinations)
+        else:
+            similarity_scores = self._model.compute_score(sentence_combinations)
         sim_scores_argsort = list(reversed(np.argsort(similarity_scores)))
         if top_n is not None:
             sim_scores_argsort = sim_scores_argsort[:top_n]
