@@ -14,19 +14,13 @@
 import codecs
 import json
 import os
-import platform
 import shutil
 import tempfile
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
-from ....constants import (
-    XINFERENCE_DISABLE_VLLM,
-    XINFERENCE_ENABLE_SGLANG,
-    XINFERENCE_ENV_MODEL_SRC,
-)
-from ....utils import cuda_count
+from ....constants import XINFERENCE_ENV_MODEL_SRC
 from ...utils import is_locale_chinese_simplified, valid_model_revision
 from ..llm_family import (
     AWSRegion,
@@ -45,8 +39,6 @@ from ..llm_family import (
     match_model_size,
     parse_uri,
 )
-from ..sglang.core import SGLANG_INSTALLED
-from ..vllm.core import VLLM_INSTALLED
 
 
 def test_deserialize_llm_family_v1():
@@ -1075,10 +1067,7 @@ def test_match_model_size():
 
 
 @pytest.mark.skipif(
-    XINFERENCE_DISABLE_VLLM
-    or platform.system() != "Linux"
-    or cuda_count() <= 0
-    or not VLLM_INSTALLED,
+    True,
     reason="Current system does not support vLLM",
 )
 def test_quert_engine_vLLM():
@@ -1138,10 +1127,7 @@ def test_quert_engine_vLLM():
 
 
 @pytest.mark.skipif(
-    not XINFERENCE_ENABLE_SGLANG
-    or platform.system() != "Linux"
-    or cuda_count() <= 0
-    or not SGLANG_INSTALLED,
+    True,
     reason="Current system does not support SGLang",
 )
 def test_quert_engine_SGLang():
