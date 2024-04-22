@@ -736,11 +736,15 @@ def model_launch(
         else []
     )
 
-    peft_model_config = {
-        "image_lora_load_kwargs": image_lora_load_params,
-        "image_lora_fuse_kwargs": image_lora_fuse_params,
-        "lora_list": lora_list,
-    }
+    peft_model_config = (
+        {
+            "image_lora_load_kwargs": image_lora_load_params,
+            "image_lora_fuse_kwargs": image_lora_fuse_params,
+            "lora_list": lora_list,
+        }
+        if lora_list or image_lora_load_params or image_lora_fuse_params
+        else None
+    )
 
     _gpu_idx: Optional[List[int]] = (
         None if gpu_idx is None else [int(idx) for idx in gpu_idx.split(",")]
