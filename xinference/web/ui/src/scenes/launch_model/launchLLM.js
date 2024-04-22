@@ -1,16 +1,10 @@
-import {
-  Box,
-  FormControl,
-  InputLabel,
-  MenuItem,
-  Select,
-  TextField,
-} from '@mui/material'
+import { Box, FormControl, InputLabel, MenuItem, Select } from '@mui/material'
 import React, { useContext, useEffect, useState } from 'react'
 import { useCookies } from 'react-cookie'
 
 import { ApiContext } from '../../components/apiContext'
 import fetcher from '../../components/fetcher'
+import HotkeyFocusTextField from '../../components/hotkeyFocusTextField'
 import ModelCard from './modelCard'
 
 const LaunchLLM = ({ gpuAvailable }) => {
@@ -133,13 +127,14 @@ const LaunchLLM = ({ gpuAvailable }) => {
           </Select>
         </FormControl>
         <FormControl variant="outlined" margin="normal">
-          <TextField
+          <HotkeyFocusTextField
             id="search"
             type="search"
             label="Search for model name and description"
             value={searchTerm}
             onChange={handleChange}
             size="small"
+            hotkey="/"
           />
         </FormControl>
       </div>

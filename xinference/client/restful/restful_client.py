@@ -18,8 +18,6 @@ from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Union
 
 import requests
 
-from ...model.utils import convert_float_to_int_or_str
-from ...types import LoRA, PeftModelConfig
 from ..common import streaming_response_iterator
 
 if TYPE_CHECKING:
@@ -35,6 +33,17 @@ if TYPE_CHECKING:
         LlamaCppGenerateConfig,
         PytorchGenerateConfig,
     )
+
+
+def convert_float_to_int_or_str(model_size: float) -> Union[int, str]:
+    """convert float to int or string
+
+    if float can be presented as int, convert it to int, otherwise convert it to string
+    """
+    if int(model_size) == model_size:
+        return int(model_size)
+    else:
+        return str(model_size)
 
 
 def _get_error_string(response: requests.Response) -> str:
@@ -856,18 +865,6 @@ class Client:
 
         url = f"{self.base_url}/v1/models"
 
-        if peft_model_config is not None:
-            lora_list = [
-                LoRA.from_dict(model) for model in peft_model_config["lora_list"]
-            ]
-            peft_model = PeftModelConfig(
-                lora_list,
-                peft_model_config["image_lora_load_kwargs"],
-                peft_model_config["image_lora_fuse_kwargs"],
-            )
-        else:
-            peft_model = None
-
         # convert float to int or string since the RESTful API does not accept float.
         if isinstance(model_size_in_billions, float):
             model_size_in_billions = convert_float_to_int_or_str(model_size_in_billions)
@@ -875,7 +872,7 @@ class Client:
         payload = {
             "model_uid": model_uid,
             "model_name": model_name,
-            "peft_model_config": peft_model.to_dict() if peft_model else None,
+            "peft_model_config": peft_model_config,
             "model_type": model_type,
             "model_size_in_billions": model_size_in_billions,
             "model_format": model_format,

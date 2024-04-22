@@ -1,10 +1,11 @@
 import { TabContext, TabList, TabPanel } from '@mui/lab'
-import { Box, FormControl, Tab, TextField } from '@mui/material'
+import { Box, FormControl, Tab } from '@mui/material'
 import React, { useContext, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { ApiContext } from '../../components/apiContext'
 import fetcher from '../../components/fetcher'
+import HotkeyFocusTextField from '../../components/hotkeyFocusTextField'
 import ModelCard from './modelCard'
 
 const LaunchCustom = ({ gpuAvailable }) => {
@@ -169,13 +170,14 @@ const LaunchCustom = ({ gpuAvailable }) => {
             }}
           >
             <FormControl variant="outlined" margin="normal">
-              <TextField
+              <HotkeyFocusTextField
                 id="search"
                 type="search"
                 label="Search for custom model name"
                 value={searchTerm}
                 onChange={handleChange}
                 size="small"
+                hotkey="/"
               />
             </FormControl>
           </div>
@@ -216,13 +218,14 @@ const LaunchCustom = ({ gpuAvailable }) => {
             }}
           >
             <FormControl variant="outlined" margin="normal">
-              <TextField
+              <HotkeyFocusTextField
                 id="search"
                 type="search"
                 label="Search for custom model name"
                 value={searchTerm}
                 onChange={handleChange}
                 size="small"
+                hotkey="/"
               />
             </FormControl>
           </div>
@@ -256,13 +259,14 @@ const LaunchCustom = ({ gpuAvailable }) => {
             }}
           >
             <FormControl variant="outlined" margin="normal">
-              <TextField
+              <HotkeyFocusTextField
                 id="search"
                 type="search"
                 label="Search for custom model name"
                 value={searchTerm}
                 onChange={handleChange}
                 size="small"
+                hotkey="/"
               />
             </FormControl>
           </div>
