@@ -1391,7 +1391,7 @@
           "none"
         ],
         "model_id": "meta-llama/Meta-Llama-3-70B-Instruct"
-      },
+      }
     ],
     "prompt_style": {
       "style_name": "LLAMA3",
