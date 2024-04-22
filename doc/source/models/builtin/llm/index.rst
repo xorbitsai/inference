@@ -106,6 +106,11 @@ The following is a list of built-in LLM in Xinference:
      - 100000
      - Code-Llama-Python is a fine-tuned version of the Code-Llama LLM, specializing in Python.
 
+   * - :ref:`codeqwen1.5-chat <models_llm_codeqwen1.5-chat>`
+     - chat
+     - 65536
+     - CodeQwen1.5 is the Code-Specific version of Qwen1.5. It is a transformer-based decoder-only language model pretrained on a large amount of data of codes.
+
    * - :ref:`codeshell <models_llm_codeshell>`
      - generate
      - 8194
@@ -466,6 +471,8 @@ The following is a list of built-in LLM in Xinference:
    code-llama-instruct
   
    code-llama-python
+  
+   codeqwen1.5-chat
   
    codeshell
   
