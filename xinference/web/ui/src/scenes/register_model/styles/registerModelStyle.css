@@ -1,0 +1,111 @@
+.formBox {
+  position: relative;
+  max-width: 50vw;
+  min-width: 50vw;
+  max-height: 80vh;
+  overflow: auto;
+  padding: 40px 20px 0 0;
+  transition: all 0.4s ease-in-out;
+}
+
+.broaden {
+  max-width: 78vw;
+  min-width: 78vw;
+}
+
+.icon {
+  cursor: pointer;
+  position: fixed;
+  top: 110px;
+  right: 26px;
+}
+
+.icon:hover {
+  color: #1976d2;
+}
+
+.arrow {
+  font-size: 24px !important;
+}
+
+.jsonBox {
+  position: relative;
+  min-height: 80vh;
+  width: 100%;
+  transition: all 0.4s ease-in-out;
+}
+
+.hide {
+  width: 0;
+  transform: translate(30vw, 0);
+  overflow: hidden;
+}
+
+.jsonBox-header {
+  line-height: 40px;
+  font-weight: 700;
+}
+
+.textarea {
+  width: 100%;
+  height: calc(100% - 40px);
+  padding: 5px 10px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  resize: none;
+  color: #444;
+}
+
+.copyIcon {
+  cursor: pointer;
+  position: absolute;
+  top: 13px;
+  right: 5px;
+  font-size: 16px !important;
+  color: #555;
+}
+
+.copyIcon:hover {
+  color: #1976d2;
+}
+
+.addBtn {
+  margin-left: 20px !important;
+}
+
+.item {
+  position: relative;
+  background-color: #eee;
+  margin: 10px 50px 0;
+  padding: 20px;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.item:hover .deleteBtn {
+  transform: translateX(-50px);
+}
+
+.deleteBtn {
+  position: absolute;
+  right: 20px;
+  top: calc(50% - 25px);
+  width: 50px;
+  height: 50px;
+  transform: translateX(80px);
+  text-align: center;
+  line-height: 70px;
+  border-radius: 25px;
+  background-color: #1976d2;
+  transition: all 0.3s ease-in-out;
+}
+
+.deleteBtn:hover {
+  cursor: pointer;
+  box-shadow: 0 0 10px #aaa;
+}
+
+.deleteIcon {
+  font-size: 28px !important;
+  color: #fff;
+}
