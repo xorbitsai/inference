@@ -41,6 +41,7 @@ potential of cutting-edge AI models.
 - Built-in support for [OmniLMM](https://github.com/OpenBMB/OmniLMM): [#1171](https://github.com/xorbitsai/inference/pull/1171)
 - Built-in support for [Gemma](https://github.com/google-deepmind/gemma): [#1024](https://github.com/xorbitsai/inference/pull/1024)
 ### Integrations
+- [FastGPT](https://github.com/labring/FastGPT): a knowledge-based platform built on the LLM, offers out-of-the-box data processing and model invocation capabilities, allows for workflow orchestration through Flow visualization.
 - [Dify](https://docs.dify.ai/advanced/model-configuration/xinference): an LLMOps platform that enables developers (and even non-developers) to quickly build useful applications based on large language models, ensuring they are visual, operable, and improvable.
 - [Chatbox](https://chatboxai.app/): a desktop client for multiple cutting-edge LLM models, available on Windows, Mac and Linux.
 
