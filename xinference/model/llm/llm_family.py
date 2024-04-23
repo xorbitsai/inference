@@ -999,7 +999,7 @@ def match_llm_cls(
                 return cls
     else:
         return check_engine_by_spec_parameters(
-            llm_spec.model_engine,
+            model_engine,
             family.model_name,
             llm_spec.model_format,
             llm_spec.model_size_in_billions,
