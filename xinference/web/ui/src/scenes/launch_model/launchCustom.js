@@ -44,6 +44,28 @@ const LaunchCustom = ({ gpuAvailable }) => {
     try {
       setIsCallingApi(true)
 
+      const audioResponse = await fetcher(
+        `${endPoint}/v1/model_registrations/audio`,
+        {
+          method: 'GET',
+        }
+      )
+      const audioRegistrations = await audioResponse.json()
+      const customAudioRegistrations = audioRegistrations.filter(
+        (data) => !data.is_builtin
+      )
+
+      const imageResponse = await fetcher(
+        `${endPoint}/v1/model_registrations/image`,
+        {
+          method: 'GET',
+        }
+      )
+      const imageRegistrations = await imageResponse.json()
+      const customImageRegistrations = imageRegistrations.filter(
+        (data) => !data.is_builtin
+      )
+
       const rerankResponse = await fetcher(
         `${endPoint}/v1/model_registrations/rerank`,
         {
@@ -126,8 +148,40 @@ const LaunchCustom = ({ gpuAvailable }) => {
         })
       )
 
+      const newImageData = await Promise.all(
+        customImageRegistrations.map(async (registration) => {
+          const desc = await fetcher(
+            `${endPoint}/v1/model_registrations/image/${registration.model_name}`,
+            {
+              method: 'GET',
+            }
+          )
+
+          return {
+            ...(await desc.json()),
+            is_builtin: registration.is_builtin,
+          }
+        })
+      )
+
+      const newAudioData = await Promise.all(
+        customAudioRegistrations.map(async (registration) => {
+          const desc = await fetcher(
+            `${endPoint}/v1/model_registrations/audio/${registration.model_name}`,
+            {
+              method: 'GET',
+            }
+          )
+
+          return {
+            ...(await desc.json()),
+            is_builtin: registration.is_builtin,
+          }
+        })
+      )
+
       setRegistrationData(
-        newLLMData.concat(newEmbeddingData).concat(newRerankData)
+        newLLMData.concat(newEmbeddingData).concat(newRerankData).concat(newImageData).concat(newAudioData)
       )
     } catch (error) {
       console.error('Error:', error)
@@ -159,6 +213,8 @@ const LaunchCustom = ({ gpuAvailable }) => {
               value="/launch_model/custom/embedding"
             />
             <Tab label="Rerank Models" value="/launch_model/custom/rerank" />
+            <Tab label="Image Models" value="/launch_model/custom/image" />
+            <Tab label="Audio Models" value="/launch_model/custom/audio" />
           </TabList>
         </Box>
         <TabPanel value="/launch_model/custom/llm" sx={{ padding: 0 }}>
@@ -285,6 +341,84 @@ const LaunchCustom = ({ gpuAvailable }) => {
                       modelData={filteredRegistration}
                       is_custom={true}
                       modelType="rerank"
+                    />
+                  )
+                }
+              })}
+          </div>
+        </TabPanel>
+        <TabPanel value="/launch_model/custom/image" sx={{ padding: 0 }}>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr',
+              margin: '30px 2rem',
+            }}
+          >
+            <FormControl variant="outlined" margin="normal">
+              <TextField
+                id="search"
+                type="search"
+                label="Search for custom model name"
+                value={searchTerm}
+                onChange={handleChange}
+                size="small"
+              />
+            </FormControl>
+          </div>
+          <div style={style}>
+            {registrationData
+              .filter((registration) => filter(registration))
+              .map((filteredRegistration) => {
+                if (
+                  filteredRegistration.model_family === 'stable_diffusion'
+                ) {
+                  return (
+                    <ModelCard
+                      key={filteredRegistration.model_name}
+                      url={endPoint}
+                      modelData={filteredRegistration}
+                      is_custom={true}
+                      modelType="image"
+                    />
+                  )
+                }
+              })}
+          </div>
+        </TabPanel>
+        <TabPanel value="/launch_model/custom/audio" sx={{ padding: 0 }}>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr',
+              margin: '30px 2rem',
+            }}
+          >
+            <FormControl variant="outlined" margin="normal">
+              <TextField
+                id="search"
+                type="search"
+                label="Search for custom model name"
+                value={searchTerm}
+                onChange={handleChange}
+                size="small"
+              />
+            </FormControl>
+          </div>
+          <div style={style}>
+            {registrationData
+              .filter((registration) => filter(registration))
+              .map((filteredRegistration) => {
+                if (
+                  filteredRegistration.model_family === 'whisper'
+                ) {
+                  return (
+                    <ModelCard
+                      key={filteredRegistration.model_name}
+                      url={endPoint}
+                      modelData={filteredRegistration}
+                      is_custom={true}
+                      modelType="audio"
                     />
                   )
                 }
