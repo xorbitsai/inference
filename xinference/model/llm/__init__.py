@@ -32,7 +32,6 @@ from .llm_family import (
     BUILTIN_LLM_PROMPT_STYLE,
     BUILTIN_MODELSCOPE_LLM_FAMILIES,
     LLAMA_CLASSES,
-    LLM_CLASSES,
     LLM_ENGINES,
     PEFT_SUPPORTED_CLASSES,
     PYTORCH_CLASSES,
@@ -116,17 +115,6 @@ def _install():
     from .vllm.core import VLLMChatModel, VLLMModel
 
     # register llm classes.
-    LLM_CLASSES.extend(
-        [
-            LlamaCppChatModel,
-            LlamaCppModel,
-        ]
-    )
-    LLM_CLASSES.extend(
-        [
-            ChatglmCppChatModel,
-        ]
-    )
     LLAMA_CLASSES.extend(
         [
             ChatglmCppChatModel,
@@ -134,28 +122,8 @@ def _install():
             LlamaCppModel,
         ]
     )
-    LLM_CLASSES.extend([SGLANGModel, SGLANGChatModel])
     SGLANG_CLASSES.extend([SGLANGModel, SGLANGChatModel])
-    LLM_CLASSES.extend([VLLMModel, VLLMChatModel])
     VLLM_CLASSES.extend([VLLMModel, VLLMChatModel])
-    LLM_CLASSES.extend(
-        [
-            BaichuanPytorchChatModel,
-            VicunaPytorchChatModel,
-            FalconPytorchChatModel,
-            ChatglmPytorchChatModel,
-            LlamaPytorchModel,
-            LlamaPytorchChatModel,
-            PytorchChatModel,
-            FalconPytorchModel,
-            Internlm2PytorchChatModel,
-            QwenVLChatModel,
-            OmniLMMModel,
-            YiVLChatModel,
-            DeepSeekVLChatModel,
-            PytorchModel,
-        ]
-    )
     PYTORCH_CLASSES.extend(
         [
             BaichuanPytorchChatModel,

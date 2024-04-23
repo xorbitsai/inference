@@ -228,7 +228,6 @@ CustomLLMFamilyV1.update_forward_refs()
 
 
 LLAMA_CLASSES: List[Type[LLM]] = []
-LLM_CLASSES: List[Type[LLM]] = []
 PEFT_SUPPORTED_CLASSES: List[Type[LLM]] = []
 
 BUILTIN_LLM_FAMILIES: List["LLMFamilyV1"] = []
@@ -986,6 +985,7 @@ def unregister_llm(model_name: str, raise_error: bool = True):
 
 def match_llm_cls(
     family: LLMFamilyV1,
+    model_engine: str,
     llm_spec: "LLMSpecV1",
     quantization: str,
     peft_model: Optional[List[LoRA]] = None,
@@ -998,9 +998,13 @@ def match_llm_cls(
             if cls.match(family, llm_spec, quantization):
                 return cls
     else:
-        for cls in LLM_CLASSES:
-            if cls.match(family, llm_spec, quantization):
-                return cls
+        return check_engine_by_spec_parameters(
+            model_engine,
+            family.model_name,
+            llm_spec.model_format,
+            llm_spec.model_size_in_billions,
+            quantization,
+        )
     return None
 
 

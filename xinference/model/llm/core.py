@@ -178,6 +178,7 @@ def create_llm_model_instance(
     devices: List[str],
     model_uid: str,
     model_name: str,
+    model_engine: str,
     model_format: Optional[str] = None,
     model_size_in_billions: Optional[Union[int, str]] = None,
     quantization: Optional[str] = None,
@@ -195,6 +196,7 @@ def create_llm_model_instance(
         quantization,
         is_local_deployment,
     )
+
     if not match_result:
         raise ValueError(
             f"Model not found, name: {model_name}, format: {model_format},"
@@ -207,7 +209,9 @@ def create_llm_model_instance(
 
     peft_model = peft_model_config.peft_model if peft_model_config else None
 
-    llm_cls = match_llm_cls(llm_family, llm_spec, quantization, peft_model=peft_model)
+    llm_cls = match_llm_cls(
+        llm_family, model_engine, llm_spec, quantization, peft_model=peft_model
+    )
     if not llm_cls:
         raise ValueError(
             f"Model not supported, name: {model_name}, format: {model_format},"
