@@ -12,12 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import gc
 import logging
+import os
 from collections import defaultdict
 from typing import Dict, List, Optional, Tuple, Union, no_type_check
 
 import numpy as np
 
+from ...device_utils import empty_cache
 from ...types import Embedding, EmbeddingData, EmbeddingUsage
 from ..core import CacheableModelSpec, ModelDescription
 from ..utils import get_cache_dir, is_model_cached
@@ -28,6 +31,10 @@ logger = logging.getLogger(__name__)
 # Init when registering all the builtin models.
 MODEL_NAME_TO_REVISION: Dict[str, List[str]] = defaultdict(list)
 EMBEDDING_MODEL_DESCRIPTIONS: Dict[str, List[Dict]] = defaultdict(list)
+EMBEDDING_EMPTY_CACHE_COUNT = int(
+    os.getenv("XINFERENCE_EMBEDDING_EMPTY_CACHE_COUNT", "10")
+)
+assert EMBEDDING_EMPTY_CACHE_COUNT > 0
 
 
 def get_embedding_model_descriptions():
@@ -116,6 +123,7 @@ class EmbeddingModel:
         self._model_path = model_path
         self._device = device
         self._model = None
+        self._counter = 0
 
     def load(self):
         try:
@@ -134,6 +142,11 @@ class EmbeddingModel:
         self._model = SentenceTransformer(self._model_path, device=self._device)
 
     def create_embedding(self, sentences: Union[str, List[str]], **kwargs):
+        self._counter += 1
+        if self._counter % EMBEDDING_EMPTY_CACHE_COUNT == 0:
+            logger.debug("Empty embedding cache.")
+            gc.collect()
+            empty_cache()
         from sentence_transformers import SentenceTransformer
 
         kwargs.setdefault("normalize_embeddings", True)
