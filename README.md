@@ -34,13 +34,14 @@ potential of cutting-edge AI models.
 - Docker image: [#855](https://github.com/xorbitsai/inference/pull/855)
 - Support multimodal: [#829](https://github.com/xorbitsai/inference/pull/829)
 ### New Models
+- Built-in support for [Llama 3](https://github.com/meta-llama/llama3): [#1332](https://github.com/xorbitsai/inference/pull/1332)
+- Built-in support for [Command-R](https://huggingface.co/CohereForAI/c4ai-command-r-v01): [#1310](https://github.com/xorbitsai/inference/pull/1310)
 - Built-in support for [Qwen1.5 MOE](https://huggingface.co/Qwen/Qwen1.5-MoE-A2.7B-Chat): [#1263](https://github.com/xorbitsai/inference/pull/1263)
 - Built-in support for [Qwen1.5 32B](https://huggingface.co/Qwen/Qwen1.5-32B-Chat): [#1249](https://github.com/xorbitsai/inference/pull/1249)
 - Built-in support for [OmniLMM](https://github.com/OpenBMB/OmniLMM): [#1171](https://github.com/xorbitsai/inference/pull/1171)
 - Built-in support for [Gemma](https://github.com/google-deepmind/gemma): [#1024](https://github.com/xorbitsai/inference/pull/1024)
-- Built-in support for [Qwen1.5](https://github.com/QwenLM/Qwen1.5): [#994](https://github.com/xorbitsai/inference/pull/994)
-- Built-in support for [Yi-VL](https://github.com/01-ai/Yi): [#946](https://github.com/xorbitsai/inference/pull/946)
 ### Integrations
+- [FastGPT](https://github.com/labring/FastGPT): a knowledge-based platform built on the LLM, offers out-of-the-box data processing and model invocation capabilities, allows for workflow orchestration through Flow visualization.
 - [Dify](https://docs.dify.ai/advanced/model-configuration/xinference): an LLMOps platform that enables developers (and even non-developers) to quickly build useful applications based on large language models, ensuring they are visual, operable, and improvable.
 - [Chatbox](https://chatboxai.app/): a desktop client for multiple cutting-edge LLM models, available on Windows, Mac and Linux.
 

@@ -612,6 +612,14 @@ class WorkerActor(xo.StatelessActor):
         gpu_idx: Optional[Union[int, List[int]]] = None,
         **kwargs,
     ):
+        # !!! Note that The following code must be placed at the very beginning of this function,
+        # or there will be problems with auto-recovery.
+        # Because `locals()` will collect all the local parameters of this function and pass to this function again.
+        launch_args = locals()
+        launch_args.pop("self")
+        launch_args.pop("kwargs")
+        launch_args.update(kwargs)
+
         event_model_uid, _, __ = parse_replica_model_uid(model_uid)
         await self._event_collector_ref.report_event(
             event_model_uid,
@@ -621,10 +629,6 @@ class WorkerActor(xo.StatelessActor):
                 event_content="Launch model",
             ),
         )
-        launch_args = locals()
-        launch_args.pop("self")
-        launch_args.pop("kwargs")
-        launch_args.update(kwargs)
 
         if gpu_idx is not None:
             logger.info(
