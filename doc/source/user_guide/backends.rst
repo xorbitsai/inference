@@ -45,7 +45,7 @@ Currently, supported model includes:
 
 .. vllm_start
 
-- ``llama-2``, ``llama-2-chat``
+- ``llama-2``, ``llama-3``, ``llama-2-chat``, ``llama-3-instruct``
 - ``baichuan``, ``baichuan-chat``, ``baichuan-2-chat``
 - ``internlm-16k``, ``internlm-chat-7b``, ``internlm-chat-8k``, ``internlm-chat-20b``
 - ``mistral-v0.1``, ``mistral-instruct-v0.1``, ``mistral-instruct-v0.2``
