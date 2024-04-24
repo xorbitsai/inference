@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import gc
 import logging
 import os
 import uuid
@@ -21,6 +22,7 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 
 from ...constants import XINFERENCE_CACHE_DIR
+from ...device_utils import empty_cache
 from ...types import Document, DocumentObj, Rerank
 from ..core import CacheableModelSpec, ModelDescription
 from ..utils import is_model_cached
@@ -31,6 +33,8 @@ logger = logging.getLogger(__name__)
 # Init when registering all the builtin models.
 MODEL_NAME_TO_REVISION: Dict[str, List[str]] = defaultdict(list)
 RERANK_MODEL_DESCRIPTIONS: Dict[str, List[Dict]] = defaultdict(list)
+RERANK_EMPTY_CACHE_COUNT = int(os.getenv("XINFERENCE_RERANK_EMPTY_CACHE_COUNT", "10"))
+assert RERANK_EMPTY_CACHE_COUNT > 0
 
 
 def get_rerank_model_descriptions():
@@ -113,6 +117,7 @@ class RerankModel:
         self._model_config = model_config or dict()
         self._use_fp16 = use_fp16
         self._model = None
+        self._counter = 0
 
     def load(self):
         if self._model_spec.type == "normal":
@@ -160,6 +165,11 @@ class RerankModel:
         return_documents: Optional[bool],
         **kwargs,
     ) -> Rerank:
+        self._counter += 1
+        if self._counter % RERANK_EMPTY_CACHE_COUNT == 0:
+            logger.debug("Empty rerank cache.")
+            gc.collect()
+            empty_cache()
         assert self._model is not None
         if kwargs:
             raise ValueError("rerank hasn't support extra parameter.")
