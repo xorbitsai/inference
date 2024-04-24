@@ -234,10 +234,17 @@ const RegisterModelComponent = ({ modelType, customData }) => {
     setIsMaxTokensAlert(false)
     setFormData({ ...formData, [parameterName]: value })
 
-    if (value !== '' && (!Number(value) || Number(value) <= 0)) {
+    // if(value !== '' && Number(value) > 0) {
+    //   console.log(111);
+    //   setFormData({ ...formData, [parameterName]: Number(value) })
+    // }
+
+    if (value !== '' && (!Number(value) || Number(value) <= 0 || parseInt(value) !== parseFloat(value))) {
       parameterName === 'context_length' ? setIsContextLengthAlert(true) : ''
       parameterName === 'dimensions' ? setIsDimensionsAlert(true) : ''
       parameterName === 'max_tokens' ? setIsMaxTokensAlert(true) : ''
+    } else if (value !== '') {
+      setFormData({ ...formData, [parameterName]: Number(value) })
     }
   }
 
