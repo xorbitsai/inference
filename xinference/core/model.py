@@ -125,6 +125,18 @@ class ModelActor(xo.StatelessActor):
         from ..model.llm.pytorch.core import PytorchModel as LLMPytorchModel
         from ..model.llm.vllm.core import VLLMModel as LLMVLLMModel
 
+        try:
+            assert self._scheduler_ref is not None
+            assert self._isolation is not None
+            self._isolation.stop()
+            await xo.destroy_actor(self._scheduler_ref)
+            del self._scheduler_ref
+            del self._isolation
+        except Exception as e:
+            logger.debug(
+                f"Destroy scheduler actor failed, address: {self.address}, error: {e}"
+            )
+
         if (
             isinstance(self._model, (LLMPytorchModel, LLMVLLMModel))
             and self._model.model_spec.model_format == "pytorch"
@@ -181,8 +193,25 @@ class ModelActor(xo.StatelessActor):
         }
         self._loop: Optional[asyncio.AbstractEventLoop] = None
 
+        self._scheduler_ref = None
+        self._isolation = None
+
     async def __post_create__(self):
+        from ..isolation import Isolation
+        from .scheduler import SchedulerActor
+
         self._loop = asyncio.get_running_loop()
+
+        self._scheduler_ref = await xo.create_actor(
+            SchedulerActor,
+            address=self.address,
+            uid=SchedulerActor.gen_uid(self.model_uid(), self._model.rep_id),
+        )
+        self._isolation = Isolation(asyncio.new_event_loop(), threaded=True)
+        self._isolation.start()
+        asyncio.run_coroutine_threadsafe(
+            self._scheduler_ref.run(), loop=self._isolation.loop
+        )
 
     async def _record_completion_metrics(
         self, duration, completion_tokens, prompt_tokens
