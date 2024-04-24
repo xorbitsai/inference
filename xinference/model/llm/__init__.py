@@ -47,13 +47,12 @@ from .llm_family import (
     get_cache_status,
     get_user_defined_llm_families,
     match_llm,
-    match_llm_cls,
     register_llm,
     unregister_llm,
 )
 
 
-def generate_engine_config_by_model_family(model_family: LLMFamilyV1):
+def generate_engine_config_by_model_family(model_family):
     model_name = model_family.model_name
     specs = model_family.model_specs
     engines = {}  # structure for engine query

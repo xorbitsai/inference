@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Union
 
 import requests
 
+from ...types import LoRA, PeftModelConfig
 from ..common import streaming_response_iterator
 
 if TYPE_CHECKING:
