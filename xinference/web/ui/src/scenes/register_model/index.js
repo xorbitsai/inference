@@ -6,7 +6,6 @@ import { useNavigate } from 'react-router-dom'
 
 import ErrorMessageSnackBar from '../../components/errorMessageSnackBar'
 import Title from '../../components/Title'
-// import RegisterLLM from './register_llm'
 import RegisterModelComponent from './registerModel'
 
 const RegisterModel = () => {
@@ -45,7 +44,6 @@ const RegisterModel = () => {
           </TabList>
         </Box>
         <TabPanel value="/register_model/llm" sx={{ padding: 0 }}>
-          {/* <RegisterLLM /> */}
           <RegisterModelComponent
             modelType="LLM"
             customData={{
