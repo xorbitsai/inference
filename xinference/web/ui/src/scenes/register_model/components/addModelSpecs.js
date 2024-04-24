@@ -93,10 +93,10 @@ const AddModelSpecs = ({ formData, onGetArr, scrollRef }) => {
     setSpecsArr(
       specsArr.map((item, subIndex) => {
         if (subIndex === index) {
-          if(type === 'quantizations') {
+          if (type === 'quantizations') {
             return { ...item, [type]: [newValue] }
           } else if (type === 'model_format') {
-            if(newValue === 'ggmlv3' || newValue === 'ggufv2') {
+            if (newValue === 'ggmlv3' || newValue === 'ggufv2') {
               const filename = getPathComponents(path)
               const obj = {
                 ...item,
@@ -106,12 +106,22 @@ const AddModelSpecs = ({ formData, onGetArr, scrollRef }) => {
               }
               return obj
             } else {
-              const {id, model_size_in_billions, model_format} = item
-              return {id, model_uri: path, model_size_in_billions, model_format, [type]: newValue, quantizations: ['']}
+              const { id, model_size_in_billions, model_format } = item
+              return {
+                id,
+                model_uri: path,
+                model_size_in_billions,
+                model_format,
+                [type]: newValue,
+                quantizations: [''],
+              }
             }
           } else if (type === 'model_uri') {
             setPath(newValue)
-            if(item.model_format === 'ggmlv3' || item.model_format === 'ggufv2') {
+            if (
+              item.model_format === 'ggmlv3' ||
+              item.model_format === 'ggufv2'
+            ) {
               const filename = getPathComponents(newValue)
               const obj = {
                 ...item,
