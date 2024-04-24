@@ -190,7 +190,12 @@ const RegisterModelComponent = ({ modelType, customData }) => {
       }
     }
 
-    if (isSpecsArrError) {
+    if (
+      isSpecsArrError ||
+      isContextLengthAlert ||
+      isDimensionsAlert ||
+      isMaxTokensAlert
+    ) {
       setErrorMsg('Please fill in valid value for all fields')
       return
     }

@@ -523,7 +523,10 @@ const ModelCard = ({
       )}
       <Drawer
         open={selected}
-        onClose={() => setSelected(false)}
+        onClose={() => {
+          setSelected(false)
+          setHover(false)
+        }}
         anchor={'right'}
       >
         <div style={styles.drawerCard}>
@@ -924,7 +927,10 @@ const ModelCard = ({
             <button
               title="Go Back"
               style={styles.buttonContainer}
-              onClick={() => setSelected(false)}
+              onClick={() => {
+                setSelected(false)
+                setHover(false)
+              }}
             >
               <Box style={styles.buttonItem}>
                 <UndoOutlined color="#000000" size="20px" />
