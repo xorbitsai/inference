@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import abc
+import inspect
 import logging
 import os
 import platform
@@ -186,7 +187,7 @@ def create_llm_model_instance(
     is_local_deployment: bool = False,
     **kwargs,
 ) -> Tuple[LLM, LLMDescription]:
-    from .llm_family import match_llm,cache,check_engine_by_spec_parameters
+    from .llm_family import cache, check_engine_by_spec_parameters, match_llm
 
     match_result = match_llm(
         model_name,
@@ -216,20 +217,23 @@ def create_llm_model_instance(
         quantization,
     )
 
-    if not llm_cls:
-        raise ValueError(
-            f"Model not supported, name: {model_name}, format: {model_format},"
-            f" size: {model_size_in_billions}, quantization: {quantization}"
-        )
     logger.debug(f"Launching {model_uid} with {llm_cls.__name__}")
 
     if peft_model is not None:
-        if hasattr(llm_cls, 'peft_model'):
+        if "peft_model" in inspect.signature(llm_cls.__init__).parameters:
             model = llm_cls(
-                model_uid, llm_family, llm_spec, quantization, save_path, kwargs, peft_model
+                model_uid,
+                llm_family,
+                llm_spec,
+                quantization,
+                save_path,
+                kwargs,
+                peft_model,
             )
         else:
-            logger.warning(f"Model not supported with lora, name: {model_name}, format: {model_format}, engine: {model_engine}")
+            logger.warning(
+                f"Model not supported with lora, name: {model_name}, format: {model_format}, engine: {model_engine}"
+            )
             model = llm_cls(
                 model_uid, llm_family, llm_spec, quantization, save_path, kwargs
             )

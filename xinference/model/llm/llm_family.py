@@ -33,7 +33,6 @@ from ..._compat import (
     validator,
 )
 from ...constants import XINFERENCE_CACHE_DIR, XINFERENCE_MODEL_DIR
-from ...types import LoRA
 from ..utils import (
     download_from_modelscope,
     is_valid_model_uri,
@@ -982,19 +981,18 @@ def unregister_llm(model_name: str, raise_error: bool = True):
             else:
                 logger.warning(f"Custom model {model_name} not found")
 
+
 def check_engine_by_spec_parameters(
     model_engine: str,
     model_name: str,
     model_format: str,
     model_size_in_billions: Union[str, int],
     quantization: str,
-) -> Optional[Type[LLM]]:
+) -> Type[LLM]:
     if model_name not in LLM_ENGINES:
-        logger.debug(f"Cannot find model {model_name}.")
-        return None
+        raise ValueError(f"Model {model_name} not found.")
     if model_engine not in LLM_ENGINES[model_name]:
-        logger.debug(f"Model {model_name} cannot be run on engine {model_engine}.")
-        return None
+        raise ValueError(f"Model {model_name} cannot be run on engine {model_engine}.")
     match_params = LLM_ENGINES[model_name][model_engine]
     for param in match_params:
         if (
@@ -1004,7 +1002,6 @@ def check_engine_by_spec_parameters(
             and quantization in param["quantizations"]
         ):
             return param["llm_class"]
-    logger.debug(
-        f"Model {model_name} with format {model_format}, size {model_size_in_billions} and quantization {quantization} cannot be run on engine {model_engine}."
+    raise ValueError(
+        f"Model {model_name} cannot be run on engine {model_engine}, with format {model_format}, size {model_size_in_billions} and quantization {quantization}."
     )
-    return None
