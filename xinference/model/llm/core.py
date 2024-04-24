@@ -186,8 +186,7 @@ def create_llm_model_instance(
     is_local_deployment: bool = False,
     **kwargs,
 ) -> Tuple[LLM, LLMDescription]:
-    from . import match_llm, match_llm_cls
-    from .llm_family import cache
+    from .llm_family import match_llm,cache,check_engine_by_spec_parameters
 
     match_result = match_llm(
         model_name,
@@ -209,9 +208,14 @@ def create_llm_model_instance(
 
     peft_model = peft_model_config.peft_model if peft_model_config else None
 
-    llm_cls = match_llm_cls(
-        llm_family, model_engine, llm_spec, quantization, peft_model=peft_model
+    llm_cls = check_engine_by_spec_parameters(
+        model_engine,
+        llm_family.model_name,
+        llm_spec.model_format,
+        llm_spec.model_size_in_billions,
+        quantization,
     )
+
     if not llm_cls:
         raise ValueError(
             f"Model not supported, name: {model_name}, format: {model_format},"
@@ -220,9 +224,15 @@ def create_llm_model_instance(
     logger.debug(f"Launching {model_uid} with {llm_cls.__name__}")
 
     if peft_model is not None:
-        model = llm_cls(
-            model_uid, llm_family, llm_spec, quantization, save_path, kwargs, peft_model
-        )
+        if hasattr(llm_cls, 'peft_model'):
+            model = llm_cls(
+                model_uid, llm_family, llm_spec, quantization, save_path, kwargs, peft_model
+            )
+        else:
+            logger.warning(f"Model not supported with lora, name: {model_name}, format: {model_format}, engine: {model_engine}")
+            model = llm_cls(
+                model_uid, llm_family, llm_spec, quantization, save_path, kwargs
+            )
     else:
         model = llm_cls(
             model_uid, llm_family, llm_spec, quantization, save_path, kwargs

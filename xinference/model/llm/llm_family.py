@@ -982,32 +982,6 @@ def unregister_llm(model_name: str, raise_error: bool = True):
             else:
                 logger.warning(f"Custom model {model_name} not found")
 
-
-def match_llm_cls(
-    family: LLMFamilyV1,
-    model_engine: str,
-    llm_spec: "LLMSpecV1",
-    quantization: str,
-    peft_model: Optional[List[LoRA]] = None,
-) -> Optional[Type[LLM]]:
-    """
-    Find an LLM implementation for given LLM family and spec.
-    """
-    if peft_model is not None:
-        for cls in PEFT_SUPPORTED_CLASSES:
-            if cls.match(family, llm_spec, quantization):
-                return cls
-    else:
-        return check_engine_by_spec_parameters(
-            model_engine,
-            family.model_name,
-            llm_spec.model_format,
-            llm_spec.model_size_in_billions,
-            quantization,
-        )
-    return None
-
-
 def check_engine_by_spec_parameters(
     model_engine: str,
     model_name: str,

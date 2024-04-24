@@ -33,7 +33,6 @@ from .llm_family import (
     BUILTIN_MODELSCOPE_LLM_FAMILIES,
     LLAMA_CLASSES,
     LLM_ENGINES,
-    PEFT_SUPPORTED_CLASSES,
     PYTORCH_CLASSES,
     SGLANG_CLASSES,
     SUPPORTED_ENGINES,
@@ -53,7 +52,7 @@ from .llm_family import (
 )
 
 
-def generate_engine_config_by_model_family(model_family):
+def generate_engine_config_by_model_family(model_family: LLMFamilyV1):
     model_name = model_family.model_name
     specs = model_family.model_specs
     engines = {}  # structure for engine query
@@ -139,22 +138,6 @@ def _install():
             OmniLMMModel,
             YiVLChatModel,
             DeepSeekVLChatModel,
-            PytorchModel,
-        ]
-    )
-    PEFT_SUPPORTED_CLASSES.extend(
-        [
-            BaichuanPytorchChatModel,
-            VicunaPytorchChatModel,
-            FalconPytorchChatModel,
-            ChatglmPytorchChatModel,
-            LlamaPytorchModel,
-            LlamaPytorchChatModel,
-            PytorchChatModel,
-            FalconPytorchModel,
-            Internlm2PytorchChatModel,
-            QwenVLChatModel,
-            YiVLChatModel,
             PytorchModel,
         ]
     )
