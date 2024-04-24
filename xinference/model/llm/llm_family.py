@@ -227,7 +227,6 @@ CustomLLMFamilyV1.update_forward_refs()
 
 
 LLAMA_CLASSES: List[Type[LLM]] = []
-PEFT_SUPPORTED_CLASSES: List[Type[LLM]] = []
 
 BUILTIN_LLM_FAMILIES: List["LLMFamilyV1"] = []
 BUILTIN_MODELSCOPE_LLM_FAMILIES: List["LLMFamilyV1"] = []
