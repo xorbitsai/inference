@@ -283,15 +283,20 @@ const ModelCard = ({
   const handeCustomDelete = (e) => {
     e.stopPropagation()
     const subType = sessionStorage.getItem('subType').split('/')
-    if(subType) {
-
+    if (subType) {
       subType[3]
-      fetcher(url + `/v1/model_registrations/${subType[3] === 'llm'? 'LLM' : subType[3]}/${modelData.model_name}`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      })
+      fetcher(
+        url +
+          `/v1/model_registrations/${
+            subType[3] === 'llm' ? 'LLM' : subType[3]
+          }/${modelData.model_name}`,
+        {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      )
         .then(() => {
           setCustomDeleted(true)
         })
@@ -378,15 +383,19 @@ const ModelCard = ({
             flexWrap="wrap"
             sx={{ marginLeft: 1 }}
           >
-            {modelData.model_lang && (() => {
-              return modelData.model_lang.map((v) => {
-                return (
-                  <Chip key={v} label={v} variant="outlined" size="small" />
-                )
-              })
-            })()}
+            {modelData.model_lang &&
+              (() => {
+                return modelData.model_lang.map((v) => {
+                  return (
+                    <Chip key={v} label={v} variant="outlined" size="small" />
+                  )
+                })
+              })()}
             {(() => {
-              if (modelData.model_specs && modelData.model_specs.some((spec) => isCached(spec))) {
+              if (
+                modelData.model_specs &&
+                modelData.model_specs.some((spec) => isCached(spec))
+              ) {
                 return <Chip label="Cached" variant="outlined" size="small" />
               }
             })()}
@@ -410,14 +419,20 @@ const ModelCard = ({
               <small style={styles.smallText}>context length</small>
             </div>
             {(() => {
-              if (modelData.model_ability && modelData.model_ability.includes('chat')) {
+              if (
+                modelData.model_ability &&
+                modelData.model_ability.includes('chat')
+              ) {
                 return (
                   <div style={styles.iconItem}>
                     <ChatOutlined style={styles.muiIcon} />
                     <small style={styles.smallText}>chat model</small>
                   </div>
                 )
-              } else if (modelData.model_ability && modelData.model_ability.includes('generate')) {
+              } else if (
+                modelData.model_ability &&
+                modelData.model_ability.includes('generate')
+              ) {
                 return (
                   <div style={styles.iconItem}>
                     <EditNoteOutlined style={styles.muiIcon} />

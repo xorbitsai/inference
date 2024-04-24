@@ -179,7 +179,9 @@ const RegisterModelComponent = ({ modelType, customData }) => {
       const type = Object.prototype.toString.call(formData[key]).slice(8, -1)
       if (
         key !== 'model_description' &&
-        ((type === 'Array' && key !== 'controlnet' && formData[key].length === 0) ||
+        ((type === 'Array' &&
+          key !== 'controlnet' &&
+          formData[key].length === 0) ||
           (type === 'String' && formData[key] === '') ||
           (type === 'Number' && formData[key] <= 0))
       ) {
@@ -239,7 +241,12 @@ const RegisterModelComponent = ({ modelType, customData }) => {
     //   setFormData({ ...formData, [parameterName]: Number(value) })
     // }
 
-    if (value !== '' && (!Number(value) || Number(value) <= 0 || parseInt(value) !== parseFloat(value))) {
+    if (
+      value !== '' &&
+      (!Number(value) ||
+        Number(value) <= 0 ||
+        parseInt(value) !== parseFloat(value))
+    ) {
       parameterName === 'context_length' ? setIsContextLengthAlert(true) : ''
       parameterName === 'dimensions' ? setIsDimensionsAlert(true) : ''
       parameterName === 'max_tokens' ? setIsMaxTokensAlert(true) : ''
@@ -249,7 +256,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
   }
 
   const toggleLanguage = (lang) => {
-    if(modelType === 'LLM') {
+    if (modelType === 'LLM') {
       if (formData.model_lang.includes(lang)) {
         setFormData({
           ...formData,
@@ -321,12 +328,12 @@ const RegisterModelComponent = ({ modelType, customData }) => {
   const handleSelectLanguages = (value) => {
     const arr = [...languagesArr, value]
     setLanguagesArr(arr)
-    if(modelType === 'LLM') {
+    if (modelType === 'LLM') {
       setFormData({
         ...formData,
         model_lang: Array.from(new Set([...formData.model_lang, ...arr])),
       })
-    }else {
+    } else {
       setFormData({
         ...formData,
         language: Array.from(new Set([...formData.language, ...arr])),
@@ -337,7 +344,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
   const handleDeleteLanguages = (item) => {
     const arr = languagesArr.filter((subItem) => subItem !== item)
     setLanguagesArr(arr)
-    if(modelType === 'LLM') {
+    if (modelType === 'LLM') {
       setFormData({
         ...formData,
         model_lang: formData.model_lang.filter((subItem) => subItem !== item),
@@ -351,7 +358,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
   }
 
   const getSpecsArr = (arr, isSpecsArrError) => {
-    console.log('isSpecsArrError', isSpecsArrError);
+    console.log('isSpecsArrError', isSpecsArrError)
     setFormData({ ...formData, model_specs: arr })
     setIsSpecsArrError(isSpecsArrError)
   }
@@ -506,9 +513,13 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                 style={{
                   paddingLeft: 5,
                   color:
-                  modelType === 'LLM' ?
-                  (formData.model_lang.length === 0 ? '#d32f2f' : 'inherit') :
-                  (formData.language.length === 0 ? '#d32f2f' : 'inherit'),
+                    modelType === 'LLM'
+                      ? formData.model_lang.length === 0
+                        ? '#d32f2f'
+                        : 'inherit'
+                      : formData.language.length === 0
+                      ? '#d32f2f'
+                      : 'inherit',
                 }}
               >
                 Model Languages
@@ -519,7 +530,11 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                     <FormControlLabel
                       control={
                         <Checkbox
-                          checked={modelType === 'LLM' ? formData.model_lang.includes(lang) : formData.language.includes(lang)}
+                          checked={
+                            modelType === 'LLM'
+                              ? formData.model_lang.includes(lang)
+                              : formData.language.includes(lang)
+                          }
                           onChange={() => toggleLanguage(lang)}
                           name={lang}
                         />
@@ -663,7 +678,6 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                       </Box>
                     ))}
                   {(modelType === 'image' || modelType === 'audio') && (
-                    
                     <FormControlLabel
                       value={formData.model_family}
                       checked

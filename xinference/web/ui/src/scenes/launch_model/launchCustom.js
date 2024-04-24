@@ -22,7 +22,8 @@ const LaunchCustom = ({ gpuAvailable }) => {
 
   const navigate = useNavigate()
   const handleTabChange = async (_, newValue) => {
-    const type = newValue.split('/')[3] === 'llm' ? 'LLM' : newValue.split('/')[3]
+    const type =
+      newValue.split('/')[3] === 'llm' ? 'LLM' : newValue.split('/')[3]
     getData(type)
     setValue(newValue)
     navigate(newValue)
@@ -43,7 +44,7 @@ const LaunchCustom = ({ gpuAvailable }) => {
 
   useEffect(() => {
     const type = sessionStorage.getItem('subType').split('/')[3]
-    getData(type=== 'llm' ? 'LLM' : type)
+    getData(type === 'llm' ? 'LLM' : type)
   }, [])
 
   const getData = async (type) => {
@@ -77,7 +78,7 @@ const LaunchCustom = ({ gpuAvailable }) => {
         })
       )
       setRegistrationData(newData)
-    }catch (error) {
+    } catch (error) {
       console.error('Error:', error)
     } finally {
       setIsCallingApi(false)
@@ -107,8 +108,12 @@ const LaunchCustom = ({ gpuAvailable }) => {
             <Tab label="Audio Models" value="/launch_model/custom/audio" />
           </TabList>
         </Box>
-        {customType.map(item => (
-          <TabPanel key={item} value={`/launch_model/custom/${item}`} sx={{ padding: 0 }}>
+        {customType.map((item) => (
+          <TabPanel
+            key={item}
+            value={`/launch_model/custom/${item}`}
+            sx={{ padding: 0 }}
+          >
             <div
               style={{
                 display: 'grid',
@@ -139,8 +144,8 @@ const LaunchCustom = ({ gpuAvailable }) => {
                     gpuAvailable={gpuAvailable}
                     is_custom={true}
                     modelType={item === 'llm' ? 'LLM' : item}
-                  />)
-                )}
+                  />
+                ))}
             </div>
           </TabPanel>
         ))}
