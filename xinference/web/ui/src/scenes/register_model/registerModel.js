@@ -378,7 +378,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
 
   return (
     <Box style={{ display: 'flex', overFlow: 'hidden', maxWidth: '100%' }}>
-      <div className='show-json'>
+      <div className="show-json">
         <p>Show custom json config used by api</p>
         {isShow ? (
           <Tooltip title="Pack up" placement="top">
@@ -396,7 +396,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
           </Tooltip>
         )}
       </div>
-      <div ref={scrollRef} className={isShow ? 'formBox' : 'formBox broaden'}> 
+      <div ref={scrollRef} className={isShow ? 'formBox' : 'formBox broaden'}>
         {/* Base Information */}
         <FormControl sx={styles.baseFormControl}>
           {/* name */}
@@ -662,12 +662,14 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                 Model Family
               </label>
               {modelType === 'LLM' && formData.model_family && (
-                <Alert icon={<CheckIcon fontSize="inherit" />} severity="success">
+                <Alert
+                  icon={<CheckIcon fontSize="inherit" />}
+                  severity="success"
+                >
                   Please be careful to select the family name corresponding to
                   the model you want to register. If not found, please choose
                   `other`.
                 </Alert>
-                
               )}
               {modelType === 'LLM' && !formData.model_family && (
                 <Alert severity="error">

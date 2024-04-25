@@ -97,7 +97,7 @@ const AddModelSpecs = ({ formData, onGetArr, scrollRef }) => {
             return { ...item, [type]: [newValue] }
           } else if (type === 'model_format') {
             if (newValue === 'ggmlv3' || newValue === 'ggufv2') {
-              const {baseDir, filename} = getPathComponents(path)
+              const { baseDir, filename } = getPathComponents(path)
               const obj = {
                 ...item,
                 model_format: newValue,
@@ -123,7 +123,7 @@ const AddModelSpecs = ({ formData, onGetArr, scrollRef }) => {
               item.model_format === 'ggmlv3' ||
               item.model_format === 'ggufv2'
             ) {
-              const {baseDir, filename} = getPathComponents(newValue)
+              const { baseDir, filename } = getPathComponents(newValue)
               const obj = {
                 ...item,
                 model_uri: baseDir,
