@@ -76,7 +76,7 @@ const AddControlnet = ({ onGetControlnetArr, scrollRef }) => {
           className="addBtn"
           onClick={handleAddControlnet}
         >
-          add Controlnet
+          more
         </Button>
       </div>
       <div className="specs_container">

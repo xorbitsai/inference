@@ -1,5 +1,6 @@
 import './styles/registerModelStyle.css'
 
+import CheckIcon from '@mui/icons-material/Check'
 import FilterNoneIcon from '@mui/icons-material/FilterNone'
 import KeyboardDoubleArrowRightIcon from '@mui/icons-material/KeyboardDoubleArrowRight'
 import NotesIcon from '@mui/icons-material/Notes'
@@ -11,7 +12,6 @@ import {
   Chip,
   FormControl,
   FormControlLabel,
-  FormHelperText,
   InputLabel,
   MenuItem,
   Radio,
@@ -378,22 +378,25 @@ const RegisterModelComponent = ({ modelType, customData }) => {
 
   return (
     <Box style={{ display: 'flex', overFlow: 'hidden', maxWidth: '100%' }}>
-      {isShow ? (
-        <Tooltip title="Pack up" placement="top">
-          <KeyboardDoubleArrowRightIcon
-            className="icon arrow"
-            onClick={() => setIsShow(!isShow)}
-          />
-        </Tooltip>
-      ) : (
-        <Tooltip title="Unfold" placement="top">
-          <NotesIcon
-            className="icon notes"
-            onClick={() => setIsShow(!isShow)}
-          />
-        </Tooltip>
-      )}
-      <div ref={scrollRef} className={isShow ? 'formBox' : 'formBox broaden'}>
+      <div className='show-json'>
+        <p>Show custom json config used by api</p>
+        {isShow ? (
+          <Tooltip title="Pack up" placement="top">
+            <KeyboardDoubleArrowRightIcon
+              className="icon arrow"
+              onClick={() => setIsShow(!isShow)}
+            />
+          </Tooltip>
+        ) : (
+          <Tooltip title="Unfold" placement="top">
+            <NotesIcon
+              className="icon notes"
+              onClick={() => setIsShow(!isShow)}
+            />
+          </Tooltip>
+        )}
+      </div>
+      <div ref={scrollRef} className={isShow ? 'formBox' : 'formBox broaden'}> 
         {/* Base Information */}
         <FormControl sx={styles.baseFormControl}>
           {/* name */}
@@ -653,17 +656,25 @@ const RegisterModelComponent = ({ modelType, customData }) => {
               <label
                 style={{
                   paddingLeft: 5,
-                  color: formData.model_family ? 'inherit' : '#d32f2f',
+                  color: 'inherit',
                 }}
               >
                 Model Family
               </label>
-              {modelType === 'LLM' && (
-                <FormHelperText>
+              {modelType === 'LLM' && formData.model_family && (
+                <Alert icon={<CheckIcon fontSize="inherit" />} severity="success">
                   Please be careful to select the family name corresponding to
                   the model you want to register. If not found, please choose
                   `other`.
-                </FormHelperText>
+                </Alert>
+                
+              )}
+              {modelType === 'LLM' && !formData.model_family && (
+                <Alert severity="error">
+                  Please be careful to select the family name corresponding to
+                  the model you want to register. If not found, please choose
+                  `other`.
+                </Alert>
               )}
               <RadioGroup
                 value={formData.model_family}

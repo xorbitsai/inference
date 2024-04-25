@@ -9,15 +9,25 @@
 }
 
 .broaden {
-  max-width: 78vw;
-  min-width: 78vw;
+  max-width: 100%;
+  min-width: 100%;
+  padding-right: 0;
+}
+
+.show-json {
+  display: flex;
+  align-items: center;
+  position: fixed;
+  top: 90px;
+  right: 60px;
+  color: #444;
 }
 
 .icon {
+  position: absolute;
+  right: -40px;
   cursor: pointer;
-  position: fixed;
-  top: 110px;
-  right: 26px;
+  margin-left: 20px;
 }
 
 .icon:hover {

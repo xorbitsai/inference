@@ -97,11 +97,12 @@ const AddModelSpecs = ({ formData, onGetArr, scrollRef }) => {
             return { ...item, [type]: [newValue] }
           } else if (type === 'model_format') {
             if (newValue === 'ggmlv3' || newValue === 'ggufv2') {
-              const filename = getPathComponents(path)
+              const {baseDir, filename} = getPathComponents(path)
               const obj = {
                 ...item,
                 model_format: newValue,
                 quantizations: [''],
+                model_uri: baseDir,
                 model_file_name_template: filename,
               }
               return obj
@@ -122,10 +123,10 @@ const AddModelSpecs = ({ formData, onGetArr, scrollRef }) => {
               item.model_format === 'ggmlv3' ||
               item.model_format === 'ggufv2'
             ) {
-              const filename = getPathComponents(newValue)
+              const {baseDir, filename} = getPathComponents(newValue)
               const obj = {
                 ...item,
-                model_uri: newValue,
+                model_uri: baseDir,
                 model_file_name_template: filename,
               }
               return obj
@@ -147,10 +148,11 @@ const AddModelSpecs = ({ formData, onGetArr, scrollRef }) => {
 
   const getPathComponents = (path) => {
     const normalizedPath = path.replace(/\\/g, '/')
+    const baseDir = normalizedPath.substring(0, normalizedPath.lastIndexOf('/'))
     const filename = normalizedPath.substring(
       normalizedPath.lastIndexOf('/') + 1
     )
-    return filename
+    return { baseDir, filename }
   }
 
   const handleModelSize = (index, value, id) => {
@@ -191,7 +193,7 @@ const AddModelSpecs = ({ formData, onGetArr, scrollRef }) => {
           className="addBtn"
           onClick={handleAddSpecs}
         >
-          add Specs
+          more
         </Button>
       </div>
       <div className="specs_container">
@@ -235,7 +237,7 @@ const AddModelSpecs = ({ formData, onGetArr, scrollRef }) => {
               style={{ minWidth: '60%' }}
               label="Model Path"
               size="small"
-              value={item.model_uri}
+              value={path}
               onChange={(e) => {
                 handleUpdateSpecsArr(index, 'model_uri', e.target.value)
               }}
