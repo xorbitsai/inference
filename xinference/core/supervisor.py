@@ -693,7 +693,7 @@ class SupervisorActor(xo.StatelessActor):
         self,
         model_uid: Optional[str],
         model_type: str,
-        model_engine: str,
+        model_engine: Optional[str],
         model_version: str,
         replica: int = 1,
         n_gpu: Optional[Union[int, str]] = "auto",

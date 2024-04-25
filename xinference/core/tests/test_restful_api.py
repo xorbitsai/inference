@@ -1222,6 +1222,7 @@ def test_launch_model_by_version(setup):
 
     payload = {
         "model_uid": "test_orca",
+        "model_engine": "llama-cpp-python",
         "model_type": "LLM",
         "model_version": version_info["model_version"],
     }
