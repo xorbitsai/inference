@@ -21,7 +21,7 @@ const LaunchCustom = ({ gpuAvailable }) => {
   const [value, setValue] = useState(sessionStorage.getItem('subType'))
 
   const navigate = useNavigate()
-  const handleTabChange = async (_, newValue) => {
+  const handleTabChange = (_, newValue) => {
     const type =
       newValue.split('/')[3] === 'llm' ? 'LLM' : newValue.split('/')[3]
     getData(type)
@@ -30,7 +30,7 @@ const LaunchCustom = ({ gpuAvailable }) => {
     sessionStorage.setItem('subType', newValue)
   }
 
-  const handleChange = (event) => {
+  const handleSearchChange = (event) => {
     setSearchTerm(event.target.value)
   }
 
@@ -127,7 +127,7 @@ const LaunchCustom = ({ gpuAvailable }) => {
                   type="search"
                   label="Search for custom model name"
                   value={searchTerm}
-                  onChange={handleChange}
+                  onChange={handleSearchChange}
                   size="small"
                   hotkey="/"
                 />

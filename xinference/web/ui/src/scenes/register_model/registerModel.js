@@ -363,10 +363,10 @@ const RegisterModelComponent = ({ modelType, customData }) => {
   }
 
   const getSpecsArr = (arr, isSpecsArrError) => {
-    console.log('isSpecsArrError', isSpecsArrError)
     setFormData({ ...formData, model_specs: arr })
     setIsSpecsArrError(isSpecsArrError)
   }
+
   const getControlnetArr = (arr) => {
     setFormData({ ...formData, controlnet: arr })
   }
@@ -668,14 +668,16 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                 >
                   Please be careful to select the family name corresponding to
                   the model you want to register. If not found, please choose
-                  `other`.
+                  <i style={{ fontStyle: 'italic', fontWeight: 700 }}> other</i>
+                  .
                 </Alert>
               )}
               {modelType === 'LLM' && !formData.model_family && (
                 <Alert severity="error">
                   Please be careful to select the family name corresponding to
                   the model you want to register. If not found, please choose
-                  `other`.
+                  <i style={{ fontStyle: 'italic', fontWeight: 700 }}> other</i>
+                  .
                 </Alert>
               )}
               <RadioGroup
