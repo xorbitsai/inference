@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 4 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 4
 - **Quantizations:** 4-bit, 8-bit, none
-- **Model ID:** microsoft/phi-2
+- **Model ID:** microsoft/Phi-3-mini-128k-instruct
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/microsoft/Phi-3-mini-128k-instruct>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
