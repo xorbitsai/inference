@@ -15,6 +15,8 @@ The following is a list of built-in audio models in Xinference:
   
    belle-whisper-large-v2-zh
   
+   belle-whisper-large-v3-zh
+  
    whisper-base
   
    whisper-base.en
