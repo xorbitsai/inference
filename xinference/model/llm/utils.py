@@ -228,16 +228,14 @@ Begin!"""
                 tools_name_text = []
                 for func_info in tools:
                     parameters = []
-                    required_parameters = func_info["function"]["parameters"].get(
-                        "required", []
-                    )
-                    for name, p in func_info["function"]["parameters"][
-                        "properties"
-                    ].items():
-                        param = dict({"name": name}, **p)
-                        if name in required_parameters:
-                            param["required"] = True
-                        parameters.append(param)
+                    fp = func_info["function"].get("parameters", {})
+                    if fp:
+                        required_parameters = fp.get("required", [])
+                        for name, p in fp["properties"].items():
+                            param = dict({"name": name}, **p)
+                            if name in required_parameters:
+                                param["required"] = True
+                            parameters.append(param)
 
                     name = func_info["function"]["name"]
                     desc = func_info["function"]["description"]
