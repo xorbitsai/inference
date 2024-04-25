@@ -39,7 +39,10 @@ async def test_client(setup):
     assert len(client.list_models()) == 0
 
     model_uid = client.launch_model(
-        model_name="orca", model_size_in_billions=3, quantization="q4_0"
+        model_name="orca",
+        model_engine="llama-cpp-python",
+        model_size_in_billions=3,
+        quantization="q4_0",
     )
     assert len(client.list_models()) == 1
 
@@ -64,6 +67,7 @@ async def test_client(setup):
 
     model_uid = client.launch_model(
         model_name="orca",
+        model_engine="llama-cpp-python",
         model_size_in_billions=3,
         quantization="q4_0",
     )
@@ -75,12 +79,17 @@ async def test_client(setup):
 
     with pytest.raises(ValueError):
         client.launch_model(
-            model_name="orca", model_size_in_billions=3, quantization="q4_0", n_gpu=100
+            model_name="orca",
+            model_engine="llama-cpp-python",
+            model_size_in_billions=3,
+            quantization="q4_0",
+            n_gpu=100,
         )
 
     with pytest.raises(ValueError):
         client.launch_model(
             model_name="orca",
+            model_engine="llama-cpp-python",
             model_size_in_billions=3,
             quantization="q4_0",
             n_gpu="abcd",
@@ -93,13 +102,19 @@ def test_client_for_model_uid(setup):
     assert len(client.list_models()) == 0
 
     model_uid = client.launch_model(
-        model_name="orca", model_size_in_billions=3, quantization="q4_0"
+        model_name="orca",
+        model_engine="llama-cpp-python",
+        model_size_in_billions=3,
+        quantization="q4_0",
     )
     assert len(client.list_models()) == 1
     assert model_uid == "orca"
 
     model_uid2 = client.launch_model(
-        model_name="orca", model_size_in_billions=3, quantization="q4_0"
+        model_name="orca",
+        model_engine="llama-cpp-python",
+        model_size_in_billions=3,
+        quantization="q4_0",
     )
     assert len(client.list_models()) == 2
     assert len(model_uid2) == len("orca") + 9
@@ -147,6 +162,7 @@ def test_replica_model(setup):
     replica = 1 if os.name == "nt" else 2
     model_uid = client.launch_model(
         model_name="orca",
+        model_engine="llama-cpp-python",
         model_size_in_billions=3,
         quantization="q4_0",
         replica=replica,
@@ -310,6 +326,7 @@ def test_RESTful_client(setup):
 
     model_uid = client.launch_model(
         model_name="tiny-llama",
+        model_engine="llama-cpp-python",
         model_size_in_billions=1,
         model_format="ggufv2",
         quantization="q2_K",
@@ -356,6 +373,7 @@ def test_RESTful_client(setup):
 
     model_uid2 = client.launch_model(
         model_name="orca",
+        model_engine="llama-cpp-python",
         model_size_in_billions=3,
         quantization="q4_0",
     )
@@ -522,7 +540,9 @@ def test_client_from_modelscope(setup):
         client = RESTfulClient(endpoint)
         assert len(client.list_models()) == 0
 
-        model_uid = client.launch_model(model_name="tiny-llama")
+        model_uid = client.launch_model(
+            model_name="tiny-llama", model_engine="llama-cpp-python"
+        )
         assert len(client.list_models()) == 1
         model = client.get_model(model_uid=model_uid)
         completion = model.generate("write a poem.", generate_config={"max_tokens": 5})
@@ -636,7 +656,10 @@ def test_auto_recover(set_auto_recover_limit, setup_cluster):
     client = RESTfulClient(endpoint)
 
     model_uid = client.launch_model(
-        model_name="orca", model_size_in_billions=3, quantization="q4_0"
+        model_name="orca",
+        model_engine="llama-cpp-python",
+        model_size_in_billions=3,
+        quantization="q4_0",
     )
     new_children_proc = set(current_proc.children(recursive=True))
     model_proc = next(iter(new_children_proc - chilren_proc))
