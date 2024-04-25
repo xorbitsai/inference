@@ -1284,10 +1284,7 @@ class RESTfulAPI:
 
         messages = body.messages and list(body.messages) or None
 
-        if (
-            not messages
-            or messages[-1].get("role") not in ["user", "system", "tool"]
-        ):
+        if not messages or messages[-1].get("role") not in ["user", "system", "tool"]:
             raise HTTPException(
                 status_code=400, detail="Invalid input. Please specify the prompt."
             )
