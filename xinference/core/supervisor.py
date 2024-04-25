@@ -150,7 +150,13 @@ class SupervisorActor(xo.StatelessActor):
             register_embedding,
             unregister_embedding,
         )
-        from ..model.image import get_image_model_descriptions
+        from ..model.image import (
+            CustomImageModelFamilyV1,
+            generate_image_description,
+            get_image_model_descriptions,
+            register_image,
+            unregister_image,
+        )
         from ..model.llm import (
             CustomLLMFamilyV1,
             generate_llm_description,
@@ -184,6 +190,12 @@ class SupervisorActor(xo.StatelessActor):
                 register_rerank,
                 unregister_rerank,
                 generate_rerank_description,
+            ),
+            "image": (
+                CustomImageModelFamilyV1,
+                register_image,
+                unregister_image,
+                generate_image_description,
             ),
             "audio": (
                 CustomAudioModelFamilyV1,
@@ -486,6 +498,7 @@ class SupervisorActor(xo.StatelessActor):
             return ret
         elif model_type == "image":
             from ..model.image import BUILTIN_IMAGE_MODELS
+            from ..model.image.custom import get_user_defined_images
 
             ret = []
             for model_name, family in BUILTIN_IMAGE_MODELS.items():
@@ -493,6 +506,16 @@ class SupervisorActor(xo.StatelessActor):
                     ret.append(await self._to_image_model_reg(family, is_builtin=True))
                 else:
                     ret.append({"model_name": model_name, "is_builtin": True})
+
+            for model_spec in get_user_defined_images():
+                if detailed:
+                    ret.append(
+                        await self._to_image_model_reg(model_spec, is_builtin=False)
+                    )
+                else:
+                    ret.append(
+                        {"model_name": model_spec.model_name, "is_builtin": False}
+                    )
 
             ret.sort(key=sort_helper)
             return ret
@@ -567,8 +590,9 @@ class SupervisorActor(xo.StatelessActor):
             raise ValueError(f"Model {model_name} not found")
         elif model_type == "image":
             from ..model.image import BUILTIN_IMAGE_MODELS
+            from ..model.image.custom import get_user_defined_images
 
-            for f in BUILTIN_IMAGE_MODELS.values():
+            for f in list(BUILTIN_IMAGE_MODELS.values()) + get_user_defined_images():
                 if f.model_name == model_name:
                     return f
             raise ValueError(f"Model {model_name} not found")

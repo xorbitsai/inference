@@ -208,7 +208,12 @@ class WorkerActor(xo.StatelessActor):
             register_embedding,
             unregister_embedding,
         )
-        from ..model.image import get_image_model_descriptions
+        from ..model.image import (
+            CustomImageModelFamilyV1,
+            get_image_model_descriptions,
+            register_image,
+            unregister_image,
+        )
         from ..model.llm import (
             CustomLLMFamilyV1,
             get_llm_model_descriptions,
@@ -231,6 +236,11 @@ class WorkerActor(xo.StatelessActor):
             ),
             "rerank": (CustomRerankModelSpec, register_rerank, unregister_rerank),
             "audio": (CustomAudioModelFamilyV1, register_audio, unregister_audio),
+            "image": (
+                CustomImageModelFamilyV1,
+                register_image,
+                unregister_image,
+            ),
         }
 
         # record model version
