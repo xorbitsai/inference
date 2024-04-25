@@ -788,7 +788,7 @@ class SupervisorActor(xo.StatelessActor):
         model_size_in_billions: Optional[Union[int, str]],
         model_format: Optional[str],
         quantization: Optional[str],
-        model_engine: str,
+        model_engine: Optional[str],
         model_type: Optional[str],
         replica: int = 1,
         n_gpu: Optional[Union[int, str]] = "auto",

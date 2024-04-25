@@ -195,7 +195,7 @@ def create_llm_model_instance(
     devices: List[str],
     model_uid: str,
     model_name: str,
-    model_engine: str,
+    model_engine: Optional[str],
     model_format: Optional[str] = None,
     model_size_in_billions: Optional[Union[int, str]] = None,
     quantization: Optional[str] = None,
@@ -205,6 +205,8 @@ def create_llm_model_instance(
 ) -> Tuple[LLM, LLMDescription]:
     from .llm_family import cache, check_engine_by_spec_parameters, match_llm
 
+    if model_engine is None:
+        raise ValueError("model_engine is required for LLM model")
     match_result = match_llm(
         model_name,
         model_format,

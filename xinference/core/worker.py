@@ -616,7 +616,7 @@ class WorkerActor(xo.StatelessActor):
         model_size_in_billions: Optional[Union[int, str]],
         model_format: Optional[str],
         quantization: Optional[str],
-        model_engine: str,
+        model_engine: Optional[str],
         model_type: str = "LLM",
         n_gpu: Optional[Union[int, str]] = "auto",
         peft_model_config: Optional[PeftModelConfig] = None,

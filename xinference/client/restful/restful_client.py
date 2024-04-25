@@ -809,6 +809,7 @@ class Client:
         self,
         model_name: str,
         model_type: str = "LLM",
+        model_engine: Optional[str] = None,
         model_uid: Optional[str] = None,
         model_size_in_billions: Optional[Union[int, str, float]] = None,
         model_format: Optional[str] = None,
@@ -830,6 +831,8 @@ class Client:
             The name of model.
         model_type: str
             type of model.
+        model_engine: str
+            The way of launching model.
         model_uid: str
             UID of model, auto generate a UUID if is None.
         model_size_in_billions: Optional[Union[int, str, float]]

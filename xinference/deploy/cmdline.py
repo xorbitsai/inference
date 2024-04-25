@@ -602,7 +602,7 @@ def list_model_registrations(
     "--model-engine",
     "-en",
     type=str,
-    required=True,
+    default=None,
     help="The way of launching model.",
 )
 @click.option(
@@ -719,6 +719,9 @@ def model_launch(
             raise ValueError("You must specify extra kwargs with `--` prefix.")
         kwargs[ctx.args[i][2:]] = handle_click_args_type(ctx.args[i + 1])
     print(f"Launch model name: {model_name} with kwargs: {kwargs}", file=sys.stderr)
+
+    if model_type == "LLM" and model_engine is None:
+        raise ValueError("Model engine is required for model type LLM.")
 
     if n_gpu.lower() == "none":
         _n_gpu: Optional[Union[int, str]] = None
