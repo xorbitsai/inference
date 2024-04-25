@@ -46,7 +46,7 @@ Currently, supported models include:
 - ``vicuna-v1.3``, ``vicuna-v1.5``
 - ``internlm2-chat``
 - ``qwen-chat``
-- ``mixtral-instruct-v0.1``
+- ``mixtral-instruct-v0.1``, ``mixtral-8x22B-instruct-v0.1``
 - ``chatglm3``, ``chatglm3-32k``, ``chatglm3-128k``
 - ``deepseek-chat``, ``deepseek-coder-instruct``
 - ``qwen1.5-chat``, ``qwen1.5-moe-chat``

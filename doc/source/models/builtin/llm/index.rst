@@ -108,7 +108,7 @@ The following is a list of built-in LLM in Xinference:
 
    * - :ref:`codeqwen1.5-chat <models_llm_codeqwen1.5-chat>`
      - chat
-     - 65536
+     - 32768
      - CodeQwen1.5 is the Code-Specific version of Qwen1.5. It is a transformer-based decoder-only language model pretrained on a large amount of data of codes.
 
    * - :ref:`codeshell <models_llm_codeshell>`
@@ -255,6 +255,11 @@ The following is a list of built-in LLM in Xinference:
      - generate
      - 8192
      - Mistral-7B is a unmoderated Transformer based LLM claiming to outperform Llama2 on all benchmarks.
+
+   * - :ref:`mixtral-8x22b-instruct-v0.1 <models_llm_mixtral-8x22b-instruct-v0.1>`
+     - chat
+     - 65536
+     - The Mixtral-8x22B-Instruct-v0.1 Large Language Model (LLM) is an instruct fine-tuned version of the Mixtral-8x22B-v0.1, specializing in chatting.
 
    * - :ref:`mixtral-instruct-v0.1 <models_llm_mixtral-instruct-v0.1>`
      - chat
@@ -541,6 +546,8 @@ The following is a list of built-in LLM in Xinference:
    mistral-instruct-v0.2
   
    mistral-v0.1
+  
+   mixtral-8x22b-instruct-v0.1
   
    mixtral-instruct-v0.1
   
