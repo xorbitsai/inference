@@ -65,7 +65,10 @@ async def test_metrics_exporter_server(setup_cluster):
     client = Client(endpoint)
 
     model_uid = client.launch_model(
-        model_name="orca", model_size_in_billions=3, quantization="q4_0"
+        model_name="orca",
+        model_engine="llama-cpp-python",
+        model_size_in_billions=3,
+        quantization="q4_0",
     )
 
     # Check the supervisor metrics collected the RESTful API.
