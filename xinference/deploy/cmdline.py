@@ -1211,30 +1211,38 @@ def cluster_login(
     "--model_size_in_billions", type=str, default=None, help="Model size in billions."
 )
 @click.option("--quantization", type=str, default=None, help="Quantization.")
+@click.option("--endpoint", "-e", type=str, help="Xinference endpoint.")
+@click.option(
+    "--api-key",
+    "-ak",
+    default=None,
+    type=str,
+    help="Api-Key for access xinference api with authorization.",
+)
 def query_engine_by_model_name(
     model_name: str,
     model_engine: Optional[str],
     model_format: Optional[str],
     model_size_in_billions: Optional[Union[str, int]],
     quantization: Optional[str],
+    endpoint: Optional[str],
+    api_key: Optional[str],
 ):
     from tabulate import tabulate
 
-    from ..model.llm.llm_family import LLM_ENGINES
+    endpoint = get_endpoint(endpoint)
+    client = RESTfulClient(base_url=endpoint, api_key=api_key)
+    if api_key is None:
+        client._set_token(get_stored_token(endpoint, client))
 
-    if model_name not in LLM_ENGINES:
-        raise ValueError(f"Cannot find model {model_name}.")
-    if model_engine is not None and model_engine not in LLM_ENGINES[model_name]:
+    llm_engines = client.query_engine_by_model_name(model_name)
+    if model_engine is not None and model_engine not in llm_engines:
         raise ValueError(f"Model {model_name} cannot be run on engine {model_engine}.")
 
     table = []
-    engines = (
-        [model_engine]
-        if model_engine is not None
-        else list(LLM_ENGINES[model_name].keys())
-    )
+    engines = [model_engine] if model_engine is not None else list(llm_engines.keys())
     for engine in engines:
-        params = LLM_ENGINES[model_name][engine]
+        params = llm_engines[engine]
         for param in params:
             if (
                 (model_format is None or model_format == param["model_format"])

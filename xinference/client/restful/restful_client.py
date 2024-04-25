@@ -1157,3 +1157,26 @@ class Client:
 
         response_data = response.json()
         return response_data
+
+    def query_engine_by_model_name(self, model_name: str):
+        """
+        Get the engine parameters with the model name registered on the server.
+
+        Parameters
+        ----------
+        model_name: str
+            The name of the model.
+        Returns
+        -------
+        Dict[str, List[Dict[str, Any]]]
+            The supported engine parameters of registered models on the server.
+        """
+        url = f"{self.base_url}/v1/engines/{model_name}"
+        response = requests.get(url, headers=self._headers)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to query engine parameters by model name, detail: {_get_error_string(response)}"
+            )
+
+        response_data = response.json()
+        return response_data
