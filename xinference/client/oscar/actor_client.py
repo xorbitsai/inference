@@ -448,8 +448,8 @@ class ActorClient:
     def launch_model(
         self,
         model_name: str,
-        model_engine: str,
         model_type: str = "LLM",
+        model_engine: Optional[str] = None,
         model_size_in_billions: Optional[int] = None,
         model_format: Optional[str] = None,
         quantization: Optional[str] = None,
@@ -465,10 +465,10 @@ class ActorClient:
         ----------
         model_name: str
             The name of model.
-        model_engine: str
-            The way of launching model.
         model_type: str
             Type of model.
+        model_engine: str
+            The way of launching model.
         model_size_in_billions: Optional[int]
             The size (in billions) of the model.
         model_format: Optional[str]
