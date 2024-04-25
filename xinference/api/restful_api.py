@@ -1308,15 +1308,13 @@ class RESTfulAPI:
             {"role": "system", "content": ". ".join(system_messages_contents)}
         )
 
-        assert non_system_messages
-
         has_tool_message = messages[-1].get("role") == "tool"
         if has_tool_message:
             prompt = SPECIAL_TOOL_PROMPT
             system_prompt = system_messages[0]["content"] if system_messages else None
             chat_history = non_system_messages  # exclude the prompt
         else:
-            prompt = non_system_messages[-1]["content"]
+            prompt = non_system_messages[-1]["content"] if non_system_messages else ""
             system_prompt = system_messages[0]["content"] if system_messages else None
             chat_history = non_system_messages[:-1]  # exclude the prompt
 
