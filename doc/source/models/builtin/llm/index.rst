@@ -51,6 +51,16 @@ The following is a list of built-in LLM in Xinference:
      - 4096
      - Baichuan-chat is a fine-tuned version of the Baichuan LLM, specializing in chatting.
 
+   * - :ref:`c4ai-command-r-v01 <models_llm_c4ai-command-r-v01>`
+     - generate
+     - 131072
+     - C4AI Command-R is a research release of a 35 billion parameter highly performant generative model.
+
+   * - :ref:`c4ai-command-r-v01-4bit <models_llm_c4ai-command-r-v01-4bit>`
+     - generate
+     - 131072
+     - This model is 4bit quantized version of C4AI Command-R using bitsandbytes.
+
    * - :ref:`chatglm <models_llm_chatglm>`
      - chat
      - 2048
@@ -95,6 +105,11 @@ The following is a list of built-in LLM in Xinference:
      - generate
      - 100000
      - Code-Llama-Python is a fine-tuned version of the Code-Llama LLM, specializing in Python.
+
+   * - :ref:`codeqwen1.5-chat <models_llm_codeqwen1.5-chat>`
+     - chat
+     - 65536
+     - CodeQwen1.5 is the Code-Specific version of Qwen1.5. It is a transformer-based decoder-only language model pretrained on a large amount of data of codes.
 
    * - :ref:`codeshell <models_llm_codeshell>`
      - generate
@@ -190,6 +205,16 @@ The following is a list of built-in LLM in Xinference:
      - chat
      - 4096
      - Llama-2-Chat is a fine-tuned version of the Llama-2 LLM, specializing in chatting.
+
+   * - :ref:`llama-3 <models_llm_llama-3>`
+     - generate
+     - 8192
+     - Llama 3 is an auto-regressive language model that uses an optimized transformer architecture
+
+   * - :ref:`llama-3-instruct <models_llm_llama-3-instruct>`
+     - chat
+     - 8192
+     - The Llama 3 instruction tuned models are optimized for dialogue use cases and outperform many of the available open source chat models on common industry benchmarks..
 
    * - :ref:`minicpm-2b-dpo-bf16 <models_llm_minicpm-2b-dpo-bf16>`
      - chat
@@ -305,6 +330,16 @@ The following is a list of built-in LLM in Xinference:
      - chat
      - 32768
      - Qwen1.5-MoE is a transformer-based MoE decoder-only language model pretrained on a large amount of data.
+
+   * - :ref:`seallm_v2 <models_llm_seallm_v2>`
+     - generate
+     - 8192
+     - We introduce SeaLLM-7B-v2, the state-of-the-art multilingual LLM for Southeast Asian (SEA) languages
+
+   * - :ref:`seallm_v2.5 <models_llm_seallm_v2.5>`
+     - generate
+     - 8192
+     - We introduce SeaLLM-7B-v2.5, the state-of-the-art multilingual LLM for Southeast Asian (SEA) languages
 
    * - :ref:`skywork <models_llm_skywork>`
      - generate
@@ -425,6 +460,10 @@ The following is a list of built-in LLM in Xinference:
   
    baichuan-chat
   
+   c4ai-command-r-v01
+  
+   c4ai-command-r-v01-4bit
+  
    chatglm
   
    chatglm2
@@ -442,6 +481,8 @@ The following is a list of built-in LLM in Xinference:
    code-llama-instruct
   
    code-llama-python
+  
+   codeqwen1.5-chat
   
    codeshell
   
@@ -480,6 +521,10 @@ The following is a list of built-in LLM in Xinference:
    llama-2
   
    llama-2-chat
+  
+   llama-3
+  
+   llama-3-instruct
   
    minicpm-2b-dpo-bf16
   
@@ -526,6 +571,10 @@ The following is a list of built-in LLM in Xinference:
    qwen1.5-chat
   
    qwen1.5-moe-chat
+  
+   seallm_v2
+  
+   seallm_v2.5
   
    skywork
   

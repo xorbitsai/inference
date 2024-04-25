@@ -36,6 +36,7 @@ from ..core import ModelActor
 from ..core.status_guard import LaunchStatus
 from ..device_utils import gpu_count
 from ..model.core import ModelDescription, create_model_instance
+from ..types import PeftModelConfig
 from .event import Event, EventCollectorActor, EventType
 from .metrics import launch_metrics_export_server, record_metrics
 from .resource import gather_node_info
@@ -195,13 +196,24 @@ class WorkerActor(xo.StatelessActor):
         logger.info("Purge cache directory: %s", XINFERENCE_CACHE_DIR)
         purge_dir(XINFERENCE_CACHE_DIR)
 
+        from ..model.audio import (
+            CustomAudioModelFamilyV1,
+            get_audio_model_descriptions,
+            register_audio,
+            unregister_audio,
+        )
         from ..model.embedding import (
             CustomEmbeddingModelSpec,
             get_embedding_model_descriptions,
             register_embedding,
             unregister_embedding,
         )
-        from ..model.image import get_image_model_descriptions
+        from ..model.image import (
+            CustomImageModelFamilyV1,
+            get_image_model_descriptions,
+            register_image,
+            unregister_image,
+        )
         from ..model.llm import (
             CustomLLMFamilyV1,
             get_llm_model_descriptions,
@@ -223,6 +235,12 @@ class WorkerActor(xo.StatelessActor):
                 unregister_embedding,
             ),
             "rerank": (CustomRerankModelSpec, register_rerank, unregister_rerank),
+            "audio": (CustomAudioModelFamilyV1, register_audio, unregister_audio),
+            "image": (
+                CustomImageModelFamilyV1,
+                register_image,
+                unregister_image,
+            ),
         }
 
         # record model version
@@ -231,6 +249,7 @@ class WorkerActor(xo.StatelessActor):
         model_version_infos.update(get_embedding_model_descriptions())
         model_version_infos.update(get_rerank_model_descriptions())
         model_version_infos.update(get_image_model_descriptions())
+        model_version_infos.update(get_audio_model_descriptions())
         await self._cache_tracker_ref.record_model_version(
             model_version_infos, self.address
         )
@@ -593,18 +612,24 @@ class WorkerActor(xo.StatelessActor):
         self,
         model_uid: str,
         model_name: str,
-        model_size_in_billions: Optional[int],
+        model_size_in_billions: Optional[Union[int, str]],
         model_format: Optional[str],
         quantization: Optional[str],
         model_type: str = "LLM",
         n_gpu: Optional[Union[int, str]] = "auto",
-        peft_model_path: Optional[str] = None,
-        image_lora_load_kwargs: Optional[Dict] = None,
-        image_lora_fuse_kwargs: Optional[Dict] = None,
+        peft_model_config: Optional[PeftModelConfig] = None,
         request_limits: Optional[int] = None,
         gpu_idx: Optional[Union[int, List[int]]] = None,
         **kwargs,
     ):
+        # !!! Note that The following code must be placed at the very beginning of this function,
+        # or there will be problems with auto-recovery.
+        # Because `locals()` will collect all the local parameters of this function and pass to this function again.
+        launch_args = locals()
+        launch_args.pop("self")
+        launch_args.pop("kwargs")
+        launch_args.update(kwargs)
+
         event_model_uid, _, __ = parse_replica_model_uid(model_uid)
         await self._event_collector_ref.report_event(
             event_model_uid,
@@ -614,10 +639,6 @@ class WorkerActor(xo.StatelessActor):
                 event_content="Launch model",
             ),
         )
-        launch_args = locals()
-        launch_args.pop("self")
-        launch_args.pop("kwargs")
-        launch_args.update(kwargs)
 
         if gpu_idx is not None:
             logger.info(
@@ -638,7 +659,7 @@ class WorkerActor(xo.StatelessActor):
             if isinstance(n_gpu, str) and n_gpu != "auto":
                 raise ValueError("Currently `n_gpu` only supports `auto`.")
 
-        if peft_model_path is not None:
+        if peft_model_config is not None:
             if model_type in ("embedding", "rerank"):
                 raise ValueError(
                     f"PEFT adaptors cannot be applied to embedding or rerank models."
@@ -669,9 +690,7 @@ class WorkerActor(xo.StatelessActor):
                 model_format,
                 model_size_in_billions,
                 quantization,
-                peft_model_path,
-                image_lora_load_kwargs,
-                image_lora_fuse_kwargs,
+                peft_model_config,
                 is_local_deployment,
                 **kwargs,
             )

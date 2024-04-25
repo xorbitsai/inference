@@ -45,12 +45,13 @@ Currently, supported model includes:
 
 .. vllm_start
 
-- ``llama-2``, ``llama-2-chat``
+- ``llama-2``, ``llama-3``, ``llama-2-chat``, ``llama-3-instruct``
 - ``baichuan``, ``baichuan-chat``, ``baichuan-2-chat``
 - ``internlm-16k``, ``internlm-chat-7b``, ``internlm-chat-8k``, ``internlm-chat-20b``
 - ``mistral-v0.1``, ``mistral-instruct-v0.1``, ``mistral-instruct-v0.2``
 - ``Yi``, ``Yi-chat``
 - ``code-llama``, ``code-llama-python``, ``code-llama-instruct``
+- ``c4ai-command-r-v01``, ``c4ai-command-r-v01-4bit``
 - ``vicuna-v1.3``, ``vicuna-v1.5``
 - ``internlm2-chat``
 - ``qwen-chat``
@@ -58,6 +59,7 @@ Currently, supported model includes:
 - ``chatglm3``, ``chatglm3-32k``, ``chatglm3-128k``
 - ``deepseek-chat``, ``deepseek-coder-instruct``
 - ``qwen1.5-chat``, ``qwen1.5-moe-chat``
+- ``codeqwen1.5-chat``
 - ``gemma-it``
 - ``orion-chat``, ``orion-chat-rag``
 .. vllm_end

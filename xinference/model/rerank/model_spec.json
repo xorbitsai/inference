@@ -1,20 +1,44 @@
 [
   {
     "model_name": "bge-reranker-large",
+    "type": "normal",
     "language": ["en", "zh"],
     "model_id": "BAAI/bge-reranker-large",
     "model_revision": "27c9168d479987529781de8474dff94d69beca11"
   },
   {
     "model_name": "bge-reranker-base",
+    "type": "normal",
     "language": ["en", "zh"],
     "model_id": "BAAI/bge-reranker-base",
     "model_revision": "465b4b7ddf2be0a020c8ad6e525b9bb1dbb708ae"
   },
   {
     "model_name": "bce-reranker-base_v1",
+    "type": "normal",
     "language": ["en", "zh"],
     "model_id": "maidalun1020/bce-reranker-base_v1",
     "model_revision": "eaa31a577a0574e87a08959bd229ca14ce1b5496"
+  },
+  {
+    "model_name": "bge-reranker-v2-m3",
+    "type": "normal",
+    "language": ["en", "zh", "multilingual"],
+    "model_id": "BAAI/bge-reranker-v2-m3",
+    "model_revision": "12e974610ba9083ed95f3edf08d7e899581f4de4"
+  },
+  {
+    "model_name": "bge-reranker-v2-gemma",
+    "type": "LLM-based",
+    "language": ["en", "zh", "multilingual"],
+    "model_id": "BAAI/bge-reranker-v2-gemma",
+    "model_revision": "1787044f8b6fb740a9de4557c3a12377f84d9e17"
+  },
+  {
+    "model_name": "bge-reranker-v2-minicpm-layerwise",
+    "type": "LLM-based layerwise",
+    "language": ["en", "zh", "multilingual"],
+    "model_id": "BAAI/bge-reranker-v2-minicpm-layerwise",
+    "model_revision": "47b5332b296c4d8cb6ee2c60502cc62a0d708881"
   }
 ]

@@ -85,6 +85,7 @@ except ImportError:
 
 VLLM_SUPPORTED_MODELS = [
     "llama-2",
+    "llama-3",
     "baichuan",
     "internlm-16k",
     "mistral-v0.1",
@@ -94,6 +95,7 @@ VLLM_SUPPORTED_MODELS = [
 ]
 VLLM_SUPPORTED_CHAT_MODELS = [
     "llama-2-chat",
+    "llama-3-instruct",
     "vicuna-v1.3",
     "vicuna-v1.5",
     "baichuan-chat",
@@ -116,6 +118,7 @@ VLLM_SUPPORTED_CHAT_MODELS = [
 ]
 if VLLM_INSTALLED and vllm.__version__ >= "0.3.0":
     VLLM_SUPPORTED_CHAT_MODELS.append("qwen1.5-chat")
+    VLLM_SUPPORTED_CHAT_MODELS.append("codeqwen1.5-chat")
 
 if VLLM_INSTALLED and vllm.__version__ >= "0.3.2":
     VLLM_SUPPORTED_CHAT_MODELS.append("gemma-it")
@@ -126,6 +129,8 @@ if VLLM_INSTALLED and vllm.__version__ >= "0.3.3":
 
 if VLLM_INSTALLED and vllm.__version__ >= "0.4.0":
     VLLM_SUPPORTED_CHAT_MODELS.append("qwen1.5-moe-chat")
+    VLLM_SUPPORTED_MODELS.append("c4ai-command-r-v01")
+    VLLM_SUPPORTED_MODELS.append("c4ai-command-r-v01-4bit")
 
 
 class VLLMModel(LLM):

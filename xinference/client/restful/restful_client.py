@@ -35,6 +35,17 @@ if TYPE_CHECKING:
     )
 
 
+def convert_float_to_int_or_str(model_size: float) -> Union[int, str]:
+    """convert float to int or string
+
+    if float can be presented as int, convert it to int, otherwise convert it to string
+    """
+    if int(model_size) == model_size:
+        return int(model_size)
+    else:
+        return str(model_size)
+
+
 def _get_error_string(response: requests.Response) -> str:
     try:
         if response.content:
@@ -746,7 +757,7 @@ class Client:
     def launch_speculative_llm(
         self,
         model_name: str,
-        model_size_in_billions: Optional[int],
+        model_size_in_billions: Optional[Union[int, str, float]],
         quantization: Optional[str],
         draft_model_name: str,
         draft_model_size_in_billions: Optional[int],
@@ -766,6 +777,10 @@ class Client:
         warnings.warn(
             "`launch_speculative_llm` is an experimental feature and the API may change in the future."
         )
+
+        # convert float to int or string since the RESTful API does not accept float.
+        if isinstance(model_size_in_billions, float):
+            model_size_in_billions = convert_float_to_int_or_str(model_size_in_billions)
 
         payload = {
             "model_uid": None,
@@ -794,15 +809,13 @@ class Client:
         model_name: str,
         model_type: str = "LLM",
         model_uid: Optional[str] = None,
-        model_size_in_billions: Optional[Union[int, str]] = None,
+        model_size_in_billions: Optional[Union[int, str, float]] = None,
         model_format: Optional[str] = None,
         quantization: Optional[str] = None,
         replica: int = 1,
         n_gpu: Optional[Union[int, str]] = "auto",
+        peft_model_config: Optional[Dict] = None,
         request_limits: Optional[int] = None,
-        peft_model_path: Optional[str] = None,
-        image_lora_load_kwargs: Optional[Dict] = None,
-        image_lora_fuse_kwargs: Optional[Dict] = None,
         worker_ip: Optional[str] = None,
         gpu_idx: Optional[Union[int, List[int]]] = None,
         **kwargs,
@@ -818,7 +831,7 @@ class Client:
             type of model.
         model_uid: str
             UID of model, auto generate a UUID if is None.
-        model_size_in_billions: Optional[int]
+        model_size_in_billions: Optional[Union[int, str, float]]
             The size (in billions) of the model.
         model_format: Optional[str]
             The format of the model.
@@ -829,15 +842,13 @@ class Client:
         n_gpu: Optional[Union[int, str]],
             The number of GPUs used by the model, default is "auto".
             ``n_gpu=None`` means cpu only, ``n_gpu=auto`` lets the system automatically determine the best number of GPUs to use.
+        peft_model_config: Optional[Dict]
+            - "lora_list": A List of PEFT (Parameter-Efficient Fine-Tuning) model and path.
+            - "image_lora_load_kwargs": A Dict of lora load parameters for image model
+            - "image_lora_fuse_kwargs": A Dict of lora fuse parameters for image model
         request_limits: Optional[int]
-            The number of request limits for this model， default is None.
+            The number of request limits for this model, default is None.
             ``request_limits=None`` means no limits for this model.
-        peft_model_path: Optional[str]
-            PEFT (Parameter-Efficient Fine-Tuning) model path.
-        image_lora_load_kwargs: Optional[Dict]
-            lora load parameters for image model
-        image_lora_fuse_kwargs: Optional[Dict]
-            lora fuse parameters for image model
         worker_ip: Optional[str]
             Specify the worker ip where the model is located in a distributed scenario.
         gpu_idx: Optional[Union[int, List[int]]]
@@ -854,9 +865,14 @@ class Client:
 
         url = f"{self.base_url}/v1/models"
 
+        # convert float to int or string since the RESTful API does not accept float.
+        if isinstance(model_size_in_billions, float):
+            model_size_in_billions = convert_float_to_int_or_str(model_size_in_billions)
+
         payload = {
             "model_uid": model_uid,
             "model_name": model_name,
+            "peft_model_config": peft_model_config,
             "model_type": model_type,
             "model_size_in_billions": model_size_in_billions,
             "model_format": model_format,
@@ -864,9 +880,6 @@ class Client:
             "replica": replica,
             "n_gpu": n_gpu,
             "request_limits": request_limits,
-            "peft_model_path": peft_model_path,
-            "image_lora_load_kwargs": image_lora_load_kwargs,
-            "image_lora_fuse_kwargs": image_lora_fuse_kwargs,
             "worker_ip": worker_ip,
             "gpu_idx": gpu_idx,
         }

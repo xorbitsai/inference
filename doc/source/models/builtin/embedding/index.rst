@@ -51,6 +51,12 @@ The following is a list of built-in embedding models in Xinference:
   
    jina-embeddings-v2-small-en
   
+   m3e-base
+  
+   m3e-large
+  
+   m3e-small
+  
    multilingual-e5-large
   
    text2vec-base-chinese

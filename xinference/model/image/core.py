@@ -18,6 +18,7 @@ from collections import defaultdict
 from typing import Dict, List, Optional, Tuple
 
 from ...constants import XINFERENCE_CACHE_DIR
+from ...types import PeftModelConfig
 from ..core import CacheableModelSpec, ModelDescription
 from ..utils import valid_model_revision
 from .stable_diffusion.core import DiffusionModel
@@ -26,6 +27,7 @@ MAX_ATTEMPTS = 3
 
 logger = logging.getLogger(__name__)
 
+MODEL_NAME_TO_REVISION: Dict[str, List[str]] = defaultdict(list)
 IMAGE_MODEL_DESCRIPTIONS: Dict[str, List[Dict]] = defaultdict(list)
 BUILTIN_IMAGE_MODELS: Dict[str, "ImageModelFamilyV1"] = {}
 MODELSCOPE_IMAGE_MODELS: Dict[str, "ImageModelFamilyV1"] = {}
@@ -118,6 +120,11 @@ def generate_image_description(
 def match_diffusion(model_name: str) -> ImageModelFamilyV1:
     from ..utils import download_from_modelscope
     from . import BUILTIN_IMAGE_MODELS, MODELSCOPE_IMAGE_MODELS
+    from .custom import get_user_defined_images
+
+    for model_spec in get_user_defined_images():
+        if model_spec.model_name == model_name:
+            return model_spec
 
     if download_from_modelscope():
         if model_name in MODELSCOPE_IMAGE_MODELS:
@@ -175,9 +182,7 @@ def create_image_model_instance(
     devices: List[str],
     model_uid: str,
     model_name: str,
-    lora_model_path: Optional[str] = None,
-    lora_load_kwargs: Optional[Dict] = None,
-    lora_fuse_kwargs: Optional[Dict] = None,
+    peft_model_config: Optional[PeftModelConfig] = None,
     **kwargs,
 ) -> Tuple[DiffusionModel, ImageModelDescription]:
     model_spec = match_diffusion(model_name)
@@ -210,10 +215,19 @@ def create_image_model_instance(
         else:
             kwargs["controlnet"] = controlnet_model_paths
     model_path = cache(model_spec)
+    if peft_model_config is not None:
+        lora_model = peft_model_config.peft_model
+        lora_load_kwargs = peft_model_config.image_lora_load_kwargs
+        lora_fuse_kwargs = peft_model_config.image_lora_fuse_kwargs
+    else:
+        lora_model = None
+        lora_load_kwargs = None
+        lora_fuse_kwargs = None
+
     model = DiffusionModel(
         model_uid,
         model_path,
-        lora_model_path=lora_model_path,
+        lora_model_paths=lora_model,
         lora_load_kwargs=lora_load_kwargs,
         lora_fuse_kwargs=lora_fuse_kwargs,
         **kwargs,

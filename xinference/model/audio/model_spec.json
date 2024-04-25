@@ -75,5 +75,12 @@
     "model_id": "BELLE-2/Belle-whisper-large-v2-zh",
     "model_revision": "ec5bd5d78598545b7585814edde86dac2002b5b9",
     "multilingual": false
+  },
+  {
+    "model_name": "Belle-whisper-large-v3-zh",
+    "model_family": "whisper",
+    "model_id": "BELLE-2/Belle-whisper-large-v3-zh",
+    "model_revision": "3bebc7247696b39f5ab9ed22db426943ac33f600",
+    "multilingual": false
   }
 ]

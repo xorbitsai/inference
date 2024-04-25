@@ -208,5 +208,29 @@
     "language": ["zh", "en"],
     "model_id": "maidalun/bce-embedding-base_v1",
     "model_hub": "modelscope"
+  },
+  {
+    "model_name": "m3e-small",
+    "dimensions": 512,
+    "max_tokens": 512,
+    "language": ["zh", "en"],
+    "model_id": "AI-ModelScope/m3e-small",
+    "model_hub": "modelscope"
+  },
+  {
+    "model_name": "m3e-base",
+    "dimensions": 768,
+    "max_tokens": 512,
+    "language": ["zh", "en"],
+    "model_id": "AI-ModelScope/m3e-base",
+    "model_hub": "modelscope"
+  },
+  {
+    "model_name": "m3e-large",
+    "dimensions": 1024,
+    "max_tokens": 512,
+    "language": ["zh", "en"],
+    "model_id": "AI-ModelScope/m3e-large",
+    "model_hub": "modelscope"
   }
 ]

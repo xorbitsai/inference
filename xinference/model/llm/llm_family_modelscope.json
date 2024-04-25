@@ -86,6 +86,96 @@
   },
   {
     "version": 1,
+    "context_length": 8192,
+    "model_name": "llama-3",
+    "model_lang": [
+      "en"
+    ],
+    "model_ability": [
+      "generate"
+    ],
+    "model_description": "Llama 3 is an auto-regressive language model that uses an optimized transformer architecture",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 8,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "LLM-Research/Meta-Llama-3-8B",
+        "model_hub": "modelscope"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 70,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "LLM-Research/Meta-Llama-3-70B",
+        "model_hub": "modelscope"
+      }
+    ]
+  },
+  {
+    "version": 1,
+    "context_length": 8192,
+    "model_name": "llama-3-instruct",
+    "model_lang": [
+      "en"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "The Llama 3 instruction tuned models are optimized for dialogue use cases and outperform many of the available open source chat models on common industry benchmarks..",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 8,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "LLM-Research/Meta-Llama-3-8B-Instruct",
+        "model_hub": "modelscope"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 70,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "LLM-Research/Meta-Llama-3-70B-Instruct",
+        "model_hub": "modelscope"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "LLAMA3",
+      "system_prompt": "You are a helpful assistant.",
+      "roles": [
+        "user",
+        "assistant"
+      ],
+      "intra_message_sep": "\n\n",
+      "inter_message_sep": "<|eot_id|>",
+      "stop_token_ids": [
+        128001,
+        128009
+      ],
+      "stop": [
+        "<|end_of_text|>",
+        "<|eot_id|>"
+      ]
+    }
+  },
+  {
+    "version": 1,
     "context_length": 2048,
     "model_name": "tiny-llama",
     "model_lang": [
@@ -2177,6 +2267,77 @@
   },
   {
     "version": 1,
+    "context_length": 32768,
+    "model_name": "codeqwen1.5-chat",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "CodeQwen1.5 is the Code-Specific version of Qwen1.5. It is a transformer-based decoder-only language model pretrained on a large amount of data of codes.",
+    "model_specs": [
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "q2_k",
+          "q3_k_m",
+          "q4_0",
+          "q4_k_m",
+          "q5_0",
+          "q5_k_m",
+          "q6_k",
+          "q8_0"
+        ],
+        "model_id": "qwen/CodeQwen1.5-7B-Chat-GGUF",
+        "model_hub": "modelscope",
+        "model_file_name_template": "codeqwen-1_5-7b-chat-{quantization}.gguf"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "qwen/CodeQwen1.5-7B-Chat",
+        "model_hub": "modelscope"
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "qwen/CodeQwen1.5-7B-Chat-AWQ",
+        "model_hub": "modelscope"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "QWEN",
+      "system_prompt": "You are a helpful assistant.",
+      "roles": [
+        "user",
+        "assistant"
+      ],
+      "intra_message_sep": "\n",
+      "stop_token_ids": [
+        151643,
+        151644,
+        151645
+      ],
+      "stop": [
+        "<|endoftext|>",
+        "<|im_start|>",
+        "<|im_end|>"
+      ]
+    }
+  },
+  {
+    "version": 1,
     "context_length": 4096,
     "model_name": "deepseek-vl-chat",
     "model_lang": [
@@ -3045,5 +3206,94 @@
         "</s>"
       ]
     }
+  },
+  {
+    "version": 1,
+    "context_length": 131072,
+    "model_name": "c4ai-command-r-v01",
+    "model_lang": [
+      "en",
+      "fr",
+      "de",
+      "es",
+      "it",
+      "pt",
+      "ja",
+      "ko",
+      "zh",
+      "ar"
+    ],
+    "model_ability": [
+      "generate"
+    ],
+    "model_description": "C4AI Command-R is a research release of a 35 billion parameter highly performant generative model.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 35,
+        "quantizations": [
+          "none"
+        ],
+        "model_hub": "modelscope",
+        "model_id": "AI-ModelScope/c4ai-command-r-v01",
+        "model_revision": "master"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 35,
+        "quantizations": [
+          "Q2_K",
+          "Q4_K_M",
+          "Q5_K_M"
+        ],
+        "model_id": "mirror013/C4AI-Command-R-v01-GGUF",
+        "model_file_name_template": "c4ai-command-r-v01.{quantization}.gguf",
+        "model_hub": "modelscope",
+        "model_revision": "master"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 104,
+        "quantizations": [
+          "none"
+        ],
+        "model_hub": "modelscope",
+        "model_id": "AI-ModelScope/c4ai-command-r-plus",
+        "model_revision": "master"
+      }
+    ]
+  },
+  {
+    "version": 1,
+    "context_length": 131072,
+    "model_name": "c4ai-command-r-v01-4bit",
+    "model_lang": [
+      "en",
+      "fr",
+      "de",
+      "es",
+      "it",
+      "pt",
+      "ja",
+      "ko",
+      "zh",
+      "ar"
+    ],
+    "model_ability": [
+      "generate"
+    ],
+    "model_description": "This model is 4bit quantized version of C4AI Command-R using bitsandbytes.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 35,
+        "quantizations": [
+          "none"
+        ],
+        "model_hub": "modelscope",
+        "model_id": "mirror013/c4ai-command-r-v01-4bit",
+        "model_revision": "master"
+      }
+    ]
   }
 ]
