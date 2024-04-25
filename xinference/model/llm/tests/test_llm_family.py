@@ -1242,7 +1242,7 @@ def test_query_engine_general():
         )
         is LlamaCppChatModel
     )
-    assert (
+    with pytest.raises(ValueError) as exif:
         check_engine_by_spec_parameters(
             model_engine="llama-cpp-python",
             model_name=model_name,
@@ -1250,7 +1250,9 @@ def test_query_engine_general():
             model_size_in_billions="1_8",
             quantization="q2_k",
         )
-        is None
+    assert (
+        str(exif.value)
+        == "Model any_model_name cannot be run on engine llama-cpp-python, with format ggmlv3, size 1_8 and quantization q2_k."
     )
 
     assert (
