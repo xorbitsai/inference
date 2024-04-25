@@ -1330,7 +1330,7 @@
           "Q4_K_M"
         ],
         "model_id": "lmstudio-community/Meta-Llama-3-70B-Instruct-GGUF",
-        "model_file_name_template": "Meta-Llama-3-8B-Instruct-{quantization}.gguf"
+        "model_file_name_template": "Meta-Llama-3-70B-Instruct-{quantization}.gguf"
       },
       {
         "model_format": "pytorch",
@@ -2074,7 +2074,7 @@
   },
   {
     "version": 1,
-    "context_length": 65536,
+    "context_length": 32768,
     "model_name": "codeqwen1.5-chat",
     "model_lang": [
       "en",

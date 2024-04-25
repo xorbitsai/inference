@@ -27,6 +27,7 @@ MAX_ATTEMPTS = 3
 
 logger = logging.getLogger(__name__)
 
+MODEL_NAME_TO_REVISION: Dict[str, List[str]] = defaultdict(list)
 IMAGE_MODEL_DESCRIPTIONS: Dict[str, List[Dict]] = defaultdict(list)
 BUILTIN_IMAGE_MODELS: Dict[str, "ImageModelFamilyV1"] = {}
 MODELSCOPE_IMAGE_MODELS: Dict[str, "ImageModelFamilyV1"] = {}
@@ -119,6 +120,11 @@ def generate_image_description(
 def match_diffusion(model_name: str) -> ImageModelFamilyV1:
     from ..utils import download_from_modelscope
     from . import BUILTIN_IMAGE_MODELS, MODELSCOPE_IMAGE_MODELS
+    from .custom import get_user_defined_images
+
+    for model_spec in get_user_defined_images():
+        if model_spec.model_name == model_name:
+            return model_spec
 
     if download_from_modelscope():
         if model_name in MODELSCOPE_IMAGE_MODELS:

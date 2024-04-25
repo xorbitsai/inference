@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import gc
 import logging
 import os
 import uuid
@@ -21,6 +22,7 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 
 from ...constants import XINFERENCE_CACHE_DIR
+from ...device_utils import empty_cache
 from ...types import Document, DocumentObj, Rerank
 from ..core import CacheableModelSpec, ModelDescription
 from ..utils import is_model_cached
@@ -31,6 +33,8 @@ logger = logging.getLogger(__name__)
 # Init when registering all the builtin models.
 MODEL_NAME_TO_REVISION: Dict[str, List[str]] = defaultdict(list)
 RERANK_MODEL_DESCRIPTIONS: Dict[str, List[Dict]] = defaultdict(list)
+RERANK_EMPTY_CACHE_COUNT = int(os.getenv("XINFERENCE_RERANK_EMPTY_CACHE_COUNT", "10"))
+assert RERANK_EMPTY_CACHE_COUNT > 0
 
 
 def get_rerank_model_descriptions():
@@ -113,28 +117,44 @@ class RerankModel:
         self._model_config = model_config or dict()
         self._use_fp16 = use_fp16
         self._model = None
+        self._counter = 0
 
     def load(self):
-        try:
-            if self._model_spec.type == "normal":
-                from FlagEmbedding import FlagReranker
-            elif self._model_spec.type == "LLM-based":
-                from FlagEmbedding import FlagLLMReranker as FlagReranker
-            elif self._model_spec.type == "LLM-based layerwise":
-                from FlagEmbedding import LayerWiseFlagLLMReranker as FlagReranker
-            else:
-                raise RuntimeError(
-                    f"Unsupported Rank model type: {self._model_spec.type}"
-                )
-        except ImportError:
-            error_message = "Failed to import module 'FlagEmbedding'"
-            installation_guide = [
-                "Please make sure 'FlagEmbedding' is installed. ",
-                "You can install it by `pip install FlagEmbedding`\n",
-            ]
+        if self._model_spec.type == "normal":
+            try:
+                from sentence_transformers.cross_encoder import CrossEncoder
+            except ImportError:
+                error_message = "Failed to import module 'sentence-transformers'"
+                installation_guide = [
+                    "Please make sure 'sentence-transformers' is installed. ",
+                    "You can install it by `pip install sentence-transformers`\n",
+                ]
 
-            raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
-        self._model = FlagReranker(self._model_path, use_fp16=True)
+                raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
+            self._model = CrossEncoder(
+                self._model_path, device=self._device, **self._model_config
+            )
+            if self._use_fp16:
+                self._model.model.half()
+        else:
+            try:
+                if self._model_spec.type == "LLM-based":
+                    from FlagEmbedding import FlagLLMReranker as FlagReranker
+                elif self._model_spec.type == "LLM-based layerwise":
+                    from FlagEmbedding import LayerWiseFlagLLMReranker as FlagReranker
+                else:
+                    raise RuntimeError(
+                        f"Unsupported Rank model type: {self._model_spec.type}"
+                    )
+            except ImportError:
+                error_message = "Failed to import module 'FlagEmbedding'"
+                installation_guide = [
+                    "Please make sure 'FlagEmbedding' is installed. ",
+                    "You can install it by `pip install FlagEmbedding`\n",
+                ]
+
+                raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
+            self._model = FlagReranker(self._model_path, use_fp16=self._use_fp16)
 
     def rerank(
         self,
@@ -145,13 +165,21 @@ class RerankModel:
         return_documents: Optional[bool],
         **kwargs,
     ) -> Rerank:
+        self._counter += 1
+        if self._counter % RERANK_EMPTY_CACHE_COUNT == 0:
+            logger.debug("Empty rerank cache.")
+            gc.collect()
+            empty_cache()
         assert self._model is not None
         if kwargs:
             raise ValueError("rerank hasn't support extra parameter.")
         if max_chunks_per_doc is not None:
             raise ValueError("rerank hasn't support `max_chunks_per_doc` parameter.")
         sentence_combinations = [[query, doc] for doc in documents]
-        similarity_scores = self._model.compute_score(sentence_combinations)
+        if self._model_spec.type == "normal":
+            similarity_scores = self._model.predict(sentence_combinations)
+        else:
+            similarity_scores = self._model.compute_score(sentence_combinations)
         sim_scores_argsort = list(reversed(np.argsort(similarity_scores)))
         if top_n is not None:
             sim_scores_argsort = sim_scores_argsort[:top_n]
