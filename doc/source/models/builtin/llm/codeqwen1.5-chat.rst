@@ -4,7 +4,7 @@
 codeqwen1.5-chat
 ========================================
 
-- **Context Length:** 65536
+- **Context Length:** 32768
 - **Model Name:** codeqwen1.5-chat
 - **Languages:** en, zh
 - **Abilities:** chat
