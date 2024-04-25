@@ -1330,7 +1330,7 @@
           "Q4_K_M"
         ],
         "model_id": "lmstudio-community/Meta-Llama-3-70B-Instruct-GGUF",
-        "model_file_name_template": "Meta-Llama-3-8B-Instruct-{quantization}.gguf"
+        "model_file_name_template": "Meta-Llama-3-70B-Instruct-{quantization}.gguf"
       },
       {
         "model_format": "pytorch",
