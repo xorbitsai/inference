@@ -5320,14 +5320,14 @@
       }
     ],
     "prompt_style": {
-      "style_name": "Starling",
+      "style_name": "ADD_COLON_SINGLE",
       "system_prompt": "",
       "roles": [
-        "GPT4 Correct User: ",
-        "GPT4 Correct Assistant: "
+        "GPT4 Correct User",
+        "GPT4 Correct Assistant"
       ],
-      "intra_message_sep": "",
-      "inter_message_sep": "<|end_of_turn|>",
+      "intra_message_sep": "<|end_of_turn|>",
+      "inter_message_sep": "",
       "stop_token_ids": [
         2,
         32000
