@@ -311,6 +311,16 @@ The following is a list of built-in LLM in Xinference:
      - 2048
      - Phi-2 is a 2.7B Transformer based LLM used for research on model safety, trained with data similar to Phi-1.5 but augmented with synthetic texts and curated websites.
 
+   * - :ref:`phi-3-mini-128k-instruct <models_llm_phi-3-mini-128k-instruct>`
+     - chat
+     - 128000
+     - The Phi-3-Mini-128K-Instruct is a 3.8 billion-parameter, lightweight, state-of-the-art open model trained using the Phi-3 datasets.
+
+   * - :ref:`phi-3-mini-4k-instruct <models_llm_phi-3-mini-4k-instruct>`
+     - chat
+     - 4096
+     - The Phi-3-Mini-4k-Instruct is a 3.8 billion-parameter, lightweight, state-of-the-art open model trained using the Phi-3 datasets.
+
    * - :ref:`platypus2-70b-instruct <models_llm_platypus2-70b-instruct>`
      - generate
      - 4096
@@ -568,6 +578,10 @@ The following is a list of built-in LLM in Xinference:
    orion-chat-rag
   
    phi-2
+  
+   phi-3-mini-128k-instruct
+  
+   phi-3-mini-4k-instruct
   
    platypus2-70b-instruct
   

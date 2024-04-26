@@ -447,6 +447,17 @@ Begin!"""
                 else:
                     ret += "<AI>" + content.strip()
             return ret
+        elif prompt_style.style_name == "PHI3":
+            ret = f"<|system|>{prompt_style.intra_message_sep}{prompt_style.system_prompt}{prompt_style.inter_message_sep}"
+            for message in chat_history:
+                content = message["content"] or ""
+                role = get_role(message["role"])
+                if content:
+                    ret += f"<|{role}|>{prompt_style.intra_message_sep}{content}{prompt_style.inter_message_sep}"
+                else:
+                    ret += f"<|{role}|>{prompt_style.intra_message_sep}"
+            ret += "<|assistant|>\n"
+            return ret
         else:
             raise ValueError(f"Invalid prompt style: {prompt_style.style_name}")
 
