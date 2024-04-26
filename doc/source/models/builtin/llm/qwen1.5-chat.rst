@@ -119,7 +119,22 @@ chosen quantization method from the options listed above::
    xinference launch --model-name qwen1.5-chat --size-in-billions 72 --model-format pytorch --quantization ${quantization}
 
 
-Model Spec 8 (gptq, 0_5 Billion)
+Model Spec 8 (pytorch, 110 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** pytorch
+- **Model Size (in billions):** 110
+- **Quantizations:** 4-bit, 8-bit, none
+- **Model ID:** Qwen/Qwen1.5-110B-Chat
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen1.5-110B-Chat>`__, `ModelScope <https://modelscope.cn/models/qwen/Qwen1.5-110B-Chat>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-name qwen1.5-chat --size-in-billions 110 --model-format pytorch --quantization ${quantization}
+
+
+Model Spec 9 (gptq, 0_5 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** gptq
@@ -134,7 +149,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-name qwen1.5-chat --size-in-billions 0_5 --model-format gptq --quantization ${quantization}
 
 
-Model Spec 9 (gptq, 1_8 Billion)
+Model Spec 10 (gptq, 1_8 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** gptq
@@ -149,7 +164,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-name qwen1.5-chat --size-in-billions 1_8 --model-format gptq --quantization ${quantization}
 
 
-Model Spec 10 (gptq, 4 Billion)
+Model Spec 11 (gptq, 4 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** gptq
@@ -164,7 +179,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-name qwen1.5-chat --size-in-billions 4 --model-format gptq --quantization ${quantization}
 
 
-Model Spec 11 (gptq, 7 Billion)
+Model Spec 12 (gptq, 7 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** gptq
@@ -179,7 +194,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-name qwen1.5-chat --size-in-billions 7 --model-format gptq --quantization ${quantization}
 
 
-Model Spec 12 (gptq, 14 Billion)
+Model Spec 13 (gptq, 14 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** gptq
@@ -194,7 +209,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-name qwen1.5-chat --size-in-billions 14 --model-format gptq --quantization ${quantization}
 
 
-Model Spec 13 (gptq, 32 Billion)
+Model Spec 14 (gptq, 32 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** gptq
@@ -209,7 +224,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-name qwen1.5-chat --size-in-billions 32 --model-format gptq --quantization ${quantization}
 
 
-Model Spec 14 (gptq, 72 Billion)
+Model Spec 15 (gptq, 72 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** gptq
@@ -224,7 +239,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-name qwen1.5-chat --size-in-billions 72 --model-format gptq --quantization ${quantization}
 
 
-Model Spec 15 (awq, 0_5 Billion)
+Model Spec 16 (awq, 0_5 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** awq
@@ -239,7 +254,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-name qwen1.5-chat --size-in-billions 0_5 --model-format awq --quantization ${quantization}
 
 
-Model Spec 16 (awq, 1_8 Billion)
+Model Spec 17 (awq, 1_8 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** awq
@@ -254,7 +269,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-name qwen1.5-chat --size-in-billions 1_8 --model-format awq --quantization ${quantization}
 
 
-Model Spec 17 (awq, 4 Billion)
+Model Spec 18 (awq, 4 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** awq
@@ -269,7 +284,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-name qwen1.5-chat --size-in-billions 4 --model-format awq --quantization ${quantization}
 
 
-Model Spec 18 (awq, 7 Billion)
+Model Spec 19 (awq, 7 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** awq
@@ -284,7 +299,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-name qwen1.5-chat --size-in-billions 7 --model-format awq --quantization ${quantization}
 
 
-Model Spec 19 (awq, 14 Billion)
+Model Spec 20 (awq, 14 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** awq
@@ -299,7 +314,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-name qwen1.5-chat --size-in-billions 14 --model-format awq --quantization ${quantization}
 
 
-Model Spec 20 (awq, 32 Billion)
+Model Spec 21 (awq, 32 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** awq
@@ -314,7 +329,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-name qwen1.5-chat --size-in-billions 32 --model-format awq --quantization ${quantization}
 
 
-Model Spec 21 (awq, 72 Billion)
+Model Spec 22 (awq, 72 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** awq
@@ -329,7 +344,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-name qwen1.5-chat --size-in-billions 72 --model-format awq --quantization ${quantization}
 
 
-Model Spec 22 (ggufv2, 0_5 Billion)
+Model Spec 23 (ggufv2, 0_5 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** ggufv2
@@ -344,7 +359,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-name qwen1.5-chat --size-in-billions 0_5 --model-format ggufv2 --quantization ${quantization}
 
 
-Model Spec 23 (ggufv2, 1_8 Billion)
+Model Spec 24 (ggufv2, 1_8 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** ggufv2
@@ -359,7 +374,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-name qwen1.5-chat --size-in-billions 1_8 --model-format ggufv2 --quantization ${quantization}
 
 
-Model Spec 24 (ggufv2, 4 Billion)
+Model Spec 25 (ggufv2, 4 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** ggufv2
@@ -374,7 +389,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-name qwen1.5-chat --size-in-billions 4 --model-format ggufv2 --quantization ${quantization}
 
 
-Model Spec 25 (ggufv2, 7 Billion)
+Model Spec 26 (ggufv2, 7 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** ggufv2
@@ -389,7 +404,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-name qwen1.5-chat --size-in-billions 7 --model-format ggufv2 --quantization ${quantization}
 
 
-Model Spec 26 (ggufv2, 14 Billion)
+Model Spec 27 (ggufv2, 14 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** ggufv2
@@ -404,7 +419,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-name qwen1.5-chat --size-in-billions 14 --model-format ggufv2 --quantization ${quantization}
 
 
-Model Spec 27 (ggufv2, 32 Billion)
+Model Spec 28 (ggufv2, 32 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** ggufv2
@@ -419,7 +434,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-name qwen1.5-chat --size-in-billions 32 --model-format ggufv2 --quantization ${quantization}
 
 
-Model Spec 28 (ggufv2, 72 Billion)
+Model Spec 29 (ggufv2, 72 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** ggufv2
