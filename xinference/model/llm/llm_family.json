@@ -500,7 +500,9 @@
         32007
       ],
       "stop": [
-        "<|end|>\n"
+        "<|endoftext|>",
+        "<|assistant|>",
+        "<|end|>"
       ]
     }
   },
@@ -553,7 +555,9 @@
         32007
       ],
       "stop": [
-        "<|end|>\n"
+        "<|endoftext|>",
+        "<|assistant|>",
+        "<|end|>"
       ]
     }
   },

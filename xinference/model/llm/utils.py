@@ -456,6 +456,7 @@ Begin!"""
                     ret += f"<|{role}|>{prompt_style.intra_message_sep}{content}{prompt_style.inter_message_sep}"
                 else:
                     ret += f"<|{role}|>{prompt_style.intra_message_sep}"
+            ret += "<|assistant|>\n"
             return ret
         else:
             raise ValueError(f"Invalid prompt style: {prompt_style.style_name}")
