@@ -91,7 +91,7 @@ jobs:
           submodules: recursive
 
       - name: Set up conda ${{ matrix.python-version }}
-        uses: conda-incubator/setup-miniconda@v2
+        uses: conda-incubator/setup-miniconda@v3
         if: ${{ matrix.module != 'gpu' }}
         with:
           python-version: ${{ matrix.python-version }}
