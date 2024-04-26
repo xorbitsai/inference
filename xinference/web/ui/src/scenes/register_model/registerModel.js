@@ -376,8 +376,8 @@ const RegisterModelComponent = ({ modelType, customData }) => {
       text: () => jsonData,
     })
 
-    clipboard.on('success', function(event) {
-      event.clearSelection();
+    clipboard.on('success', function (event) {
+      event.clearSelection()
       setIsCopySuccess(true)
     })
   }
