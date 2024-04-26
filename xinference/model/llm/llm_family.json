@@ -5231,7 +5231,7 @@
           "Q8_0"
         ],
         "model_id": "andrewcanis/c4ai-command-r-v01-GGUF",
-        "model_file_name_template": "c4ai-command-r-v01.{quantization}.gguf"
+        "model_file_name_template": "c4ai-command-r-v01-{quantization}.gguf"
       },
       {
         "model_format": "pytorch",
