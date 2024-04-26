@@ -8,7 +8,7 @@ phi-3-mini-4k-instruct
 - **Model Name:** phi-3-mini-4k-instruct
 - **Languages:** en
 - **Abilities:** chat
-- **Description:** The Phi-3-Mini-4K-Instruct is a 3.8 billion-parameter, lightweight, state-of-the-art open model trained using the Phi-3 datasets.
+- **Description:** The Phi-3-Mini-4k-Instruct is a 3.8 billion-parameter, lightweight, state-of-the-art open model trained using the Phi-3 datasets.
 
 Specifications
 ^^^^^^^^^^^^^^
@@ -36,7 +36,7 @@ Model Spec 2 (pytorch, 4 Billion)
 - **Model Size (in billions):** 4
 - **Quantizations:** 4-bit, 8-bit, none
 - **Model ID:** microsoft/Phi-3-mini-4k-instruct
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/microsoft/Phi-3-mini-4k-instruct>`__
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/microsoft/Phi-3-mini-4k-instruct>`__, `ModelScope <https://modelscope.cn/models/LLM-Research/Phi-3-mini-4k-instruct>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
