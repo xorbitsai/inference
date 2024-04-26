@@ -469,7 +469,7 @@
       "en"
     ],
     "model_ability": [
-      "generate"
+      "chat"
     ],
     "model_description": "The Phi-3-Mini-128K-Instruct is a 3.8 billion-parameter, lightweight, state-of-the-art open model trained using the Phi-3 datasets.",
     "model_specs": [
@@ -484,7 +484,25 @@
         "model_id": "microsoft/Phi-3-mini-128k-instruct",
         "model_revision": "ebee18c488086b396dde649f2aa6548b9b8d2404"
       }
-    ]
+    ],
+    "prompt_style": {
+      "style_name": "PHI3",
+      "system_prompt": "You are a helpful AI assistant.",
+      "roles": [
+        "user",
+        "assistant"
+      ],
+      "intra_message_sep": "\n",
+      "inter_message_sep": "<|end|>\n",
+      "stop_token_ids":[
+        32000,
+        32001,
+        32007
+      ],
+      "stop": [
+        "<|end|>\n"
+      ]
+    }
   },
   {
     "version": 1,
@@ -494,7 +512,7 @@
       "en"
     ],
     "model_ability": [
-      "generate"
+      "chat"
     ],
     "model_description": "The Phi-3-Mini-4k-Instruct is a 3.8 billion-parameter, lightweight, state-of-the-art open model trained using the Phi-3 datasets.",
     "model_specs": [
@@ -519,7 +537,25 @@
         "model_id": "microsoft/Phi-3-mini-4k-instruct",
         "model_revision": "b86bcaf57ea4dfdec5dbe12a377028b2fab0d480"
       }
-    ]
+    ],
+    "prompt_style": {
+      "style_name": "PHI3",
+      "system_prompt": "You are a helpful AI assistant.",
+      "roles": [
+        "user",
+        "assistant"
+      ],
+      "intra_message_sep": "\n",
+      "inter_message_sep": "<|end|>\n",
+      "stop_token_ids":[
+        32000,
+        32001,
+        32007
+      ],
+      "stop": [
+        "<|end|>\n"
+      ]
+    }
   },
   {
     "version": 1,

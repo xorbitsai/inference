@@ -7,7 +7,7 @@ phi-3-mini-128k-instruct
 - **Context Length:** 128000
 - **Model Name:** phi-3-mini-128k-instruct
 - **Languages:** en
-- **Abilities:** generate
+- **Abilities:** chat
 - **Description:** The Phi-3-Mini-128K-Instruct is a 3.8 billion-parameter, lightweight, state-of-the-art open model trained using the Phi-3 datasets.
 
 Specifications
