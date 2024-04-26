@@ -23,6 +23,7 @@ import {
   TextField,
   Tooltip,
 } from '@mui/material'
+import ClipboardJS from 'clipboard'
 import React, { useContext, useEffect, useRef, useState } from 'react'
 import { useCookies } from 'react-cookie'
 import { useNavigate } from 'react-router-dom'
@@ -32,7 +33,6 @@ import fetcher from '../../components/fetcher'
 import AddControlnet from './components/addControlnet'
 import AddModelSpecs from './components/addModelSpecs'
 import languages from './data/languages'
-
 const SUPPORTED_LANGUAGES_DICT = { en: 'English', zh: 'Chinese' }
 const SUPPORTED_FEATURES = ['Generate', 'Chat', 'Vision']
 
@@ -372,8 +372,14 @@ const RegisterModelComponent = ({ modelType, customData }) => {
   }
 
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(jsonData)
-    setIsCopySuccess(true)
+    const clipboard = new ClipboardJS('.copyIcon', {
+      text: () => jsonData,
+    })
+
+    clipboard.on('success', function(event) {
+      event.clearSelection();
+      setIsCopySuccess(true)
+    })
   }
 
   return (
@@ -763,7 +769,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
         onClose={() => setIsCopySuccess(false)}
       >
         <Alert severity="success" variant="filled" sx={{ width: '100%' }}>
-          Successful replication
+          Copied to clipboard!
         </Alert>
       </Snackbar>
     </Box>

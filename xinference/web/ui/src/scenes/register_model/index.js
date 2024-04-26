@@ -48,7 +48,7 @@ const RegisterModel = () => {
             modelType="LLM"
             customData={{
               version: 1,
-              model_name: 'custom-llama-2',
+              model_name: 'custom-llm',
               model_description: 'This is a custom model description.',
               context_length: 2048,
               model_lang: ['en'],
