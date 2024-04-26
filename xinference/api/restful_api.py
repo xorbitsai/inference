@@ -1284,11 +1284,7 @@ class RESTfulAPI:
 
         messages = body.messages and list(body.messages) or None
 
-        if (
-            not messages
-            or messages[-1].get("role") not in ["user", "system", "tool"]
-            or not messages[-1].get("content")
-        ):
+        if not messages or messages[-1].get("role") not in ["user", "system", "tool"]:
             raise HTTPException(
                 status_code=400, detail="Invalid input. Please specify the prompt."
             )
@@ -1308,15 +1304,15 @@ class RESTfulAPI:
             {"role": "system", "content": ". ".join(system_messages_contents)}
         )
 
-        assert non_system_messages
-
         has_tool_message = messages[-1].get("role") == "tool"
         if has_tool_message:
             prompt = SPECIAL_TOOL_PROMPT
             system_prompt = system_messages[0]["content"] if system_messages else None
             chat_history = non_system_messages  # exclude the prompt
         else:
-            prompt = non_system_messages[-1]["content"]
+            prompt = None
+            if non_system_messages:
+                prompt = non_system_messages[-1]["content"]
             system_prompt = system_messages[0]["content"] if system_messages else None
             chat_history = non_system_messages[:-1]  # exclude the prompt
 

@@ -104,6 +104,22 @@ async def test_restful_api(setup):
     response = requests.post(url, json=payload)
     assert response.status_code == 500
 
+    # chat without user messages
+    url = f"{endpoint}/v1/chat/completions"
+    payload = {
+        "model": model_uid_res,
+        "messages": [
+            {
+                "role": "system",
+                "content": "<任务> 识别用户输入的技术术语。请用{XXX} -> {XXX}的格式展示翻译前后的技术术语对应关系。\n<输入文本>\n今天天气\n<示例>\nTransformer -> Transformer\nToken -> Token\nZero Shot -> 零样本\nFew Shot -> 少样本\n<专有名词>",
+            }
+        ],
+        "stop": ["\n"],
+    }
+    response = requests.post(url, json=payload)
+    completion = response.json()
+    assert "content" in completion["choices"][0]["message"]
+
     # chat
     url = f"{endpoint}/v1/chat/completions"
     payload = {
