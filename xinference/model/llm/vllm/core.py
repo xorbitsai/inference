@@ -244,12 +244,12 @@ class VLLMModel(LLM):
             if "4" not in quantization:
                 return False
         if llm_spec.model_format == "gptq":
-            if (
-                "3" not in quantization
-                and "4" not in quantization
-                and "8" not in quantization
-            ):
-                return False
+            if VLLM_INSTALLED and vllm.__version__ >= "0.3.3":
+                if not any(q in quantization for q in ("3", "4", "8")):
+                    return False
+            else:
+                if "4" not in quantization:
+                    return False
         if isinstance(llm_family, CustomLLMFamilyV1):
             if llm_family.model_family not in VLLM_SUPPORTED_MODELS:
                 return False
@@ -428,12 +428,12 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
             if "4" not in quantization:
                 return False
         if llm_spec.model_format == "gptq":
-            if (
-                "3" not in quantization
-                and "4" not in quantization
-                and "8" not in quantization
-            ):
-                return False
+            if VLLM_INSTALLED and vllm.__version__ >= "0.3.3":
+                if not any(q in quantization for q in ("3", "4", "8")):
+                    return False
+            else:
+                if "4" not in quantization:
+                    return False
         if isinstance(llm_family, CustomLLMFamilyV1):
             if llm_family.model_family not in VLLM_SUPPORTED_CHAT_MODELS:
                 return False
