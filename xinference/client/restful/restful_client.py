@@ -18,7 +18,6 @@ from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Union
 
 import requests
 
-from ...types import LoRA, PeftModelConfig
 from ..common import streaming_response_iterator
 
 if TYPE_CHECKING:
@@ -831,8 +830,8 @@ class Client:
             The name of model.
         model_type: str
             type of model.
-        model_engine: str
-            The way of launching model.
+        model_engine: Optional[str]
+            Specify the inference engine of the model when launching LLM.
         model_uid: str
             UID of model, auto generate a UUID if is None.
         model_size_in_billions: Optional[Union[int, str, float]]
@@ -876,6 +875,7 @@ class Client:
         payload = {
             "model_uid": model_uid,
             "model_name": model_name,
+            "model_engine": model_engine,
             "peft_model_config": peft_model_config,
             "model_type": model_type,
             "model_size_in_billions": model_size_in_billions,

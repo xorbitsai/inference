@@ -467,8 +467,8 @@ class ActorClient:
             The name of model.
         model_type: str
             Type of model.
-        model_engine: str
-            The way of launching model.
+        model_engine: Optional[str]
+            Specify the inference engine of the model when launching LLM.
         model_size_in_billions: Optional[int]
             The size (in billions) of the model.
         model_format: Optional[str]
