@@ -2,13 +2,11 @@
 # Copyright (C) 2023, Xorbits Inc.
 # This file is distributed under the same license as the Xinference package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
-#
-#, fuzzy
 msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-12-27 15:43+0800\n"
+"POT-Creation-Date: 2024-04-28 14:43+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: ja_JP\n"
@@ -131,109 +129,120 @@ msgstr ""
 #: ../../source/getting_started/using_xinference.rst:118
 msgid ""
 "We can specify the model's UID using the ``--model-uid`` or ``-u`` flag. "
-"If not specified, Xinference will generate a random ID. This create a new"
+"If not specified, Xinference will generate a unique ID. This create a new"
 " model instance with unique ID ``my-llama-2``:"
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:156
+#: ../../source/getting_started/using_xinference.rst:157
 msgid ""
-"Congrats! You now have ``llama-2-chat`` running by Xinference. Once the "
-"model is running, we can try it out either command line, via cURL, or via"
-" Xinference's python client:"
+"For some engines, such as vllm, users need to specify the engine-related "
+"parameters when running models. In this case, you can directly specify "
+"the parameter name and value in the command line, for example:"
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:221
+#: ../../source/getting_started/using_xinference.rst:165
+msgid "`gpu_memory_utilization=0.9` will pass to vllm when launching model."
+msgstr ""
+
+#: ../../source/getting_started/using_xinference.rst:167
+msgid ""
+"Congrats! You now have ``llama-2-chat`` running by Xinference. Once the "
+"model is running, we can try it out either via cURL, or via Xinference's "
+"python client:"
+msgstr ""
+
+#: ../../source/getting_started/using_xinference.rst:227
 msgid ""
 "Xinference provides OpenAI-compatible APIs for its supported models, so "
 "you can use Xinference as a local drop-in replacement for OpenAI APIs. "
 "For example:"
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:237
+#: ../../source/getting_started/using_xinference.rst:243
 msgid "The following OpenAI APIs are supported:"
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:239
+#: ../../source/getting_started/using_xinference.rst:245
 msgid ""
 "Chat Completions: `https://platform.openai.com/docs/api-reference/chat "
 "<https://platform.openai.com/docs/api-reference/chat>`_"
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:241
+#: ../../source/getting_started/using_xinference.rst:247
 msgid ""
 "Completions: `https://platform.openai.com/docs/api-reference/completions "
 "<https://platform.openai.com/docs/api-reference/completions>`_"
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:243
+#: ../../source/getting_started/using_xinference.rst:249
 msgid ""
 "Embeddings: `https://platform.openai.com/docs/api-reference/embeddings "
 "<https://platform.openai.com/docs/api-reference/embeddings>`_"
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:246
+#: ../../source/getting_started/using_xinference.rst:252
 msgid "Manage Models"
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:248
+#: ../../source/getting_started/using_xinference.rst:254
 msgid ""
 "In addition to launching models, Xinference offers various ways to manage"
 " the entire lifecycle of models. You can manage models in Xinference "
 "through the command line, cURL, or Xinference's python client."
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:251
+#: ../../source/getting_started/using_xinference.rst:257
 msgid ""
 "You can list all models of a certain type that are available to launch in"
 " Xinference:"
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:269
+#: ../../source/getting_started/using_xinference.rst:275
 msgid ""
 "The following command gives you the currently running models in "
 "Xinference:"
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:287
+#: ../../source/getting_started/using_xinference.rst:293
 msgid ""
 "When you no longer need a model that is currently running, you can remove"
 " it in the following way to free up the resources it occupies:"
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:306
+#: ../../source/getting_started/using_xinference.rst:312
 msgid "Deploy Xinference In a Cluster"
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:308
+#: ../../source/getting_started/using_xinference.rst:314
 msgid ""
 "To deploy Xinference in a cluster, you need to start a Xinference "
 "supervisor on one server and Xinference workers on the other servers."
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:311
+#: ../../source/getting_started/using_xinference.rst:317
 msgid ""
 "First, make sure you have already installed Xinference on each of the "
 "servers according to the instructions provided :ref:`here "
 "<installation>`. Then follow the steps below:"
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:315
+#: ../../source/getting_started/using_xinference.rst:321
 msgid "Start the Supervisor"
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:316
+#: ../../source/getting_started/using_xinference.rst:322
 msgid ""
 "On the server where you want to run the Xinference supervisor, run the "
 "following command:"
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:322
+#: ../../source/getting_started/using_xinference.rst:328
 msgid ""
 "Replace ``${supervisor_host}`` with the actual host of your supervisor "
 "server."
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:325
+#: ../../source/getting_started/using_xinference.rst:331
 msgid ""
 "You can the supervisor's web UI at `http://${supervisor_host}:9997/ui "
 "<http://${supervisor_host}:9997/ui>`_ and visit "
@@ -241,107 +250,113 @@ msgid ""
 "<http://${supervisor_host}:9997/docs>`_ to inspect the API docs."
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:329
+#: ../../source/getting_started/using_xinference.rst:335
 msgid "Start the Workers"
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:331
+#: ../../source/getting_started/using_xinference.rst:337
 msgid ""
 "On each of the other servers where you want to run Xinference workers, "
 "run the following command:"
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:339
+#: ../../source/getting_started/using_xinference.rst:344
+msgid ""
+"Note that you must replace ``${worker_host}``  with the actual host of "
+"your worker server."
+msgstr ""
+
+#: ../../source/getting_started/using_xinference.rst:347
 msgid ""
 "Note that if you need to interact with the Xinference in a cluster via "
 "the command line, you should include the ``-e`` or ``--endpoint`` flag to"
 " specify the supervisor server's endpoint. For example:"
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:347
+#: ../../source/getting_started/using_xinference.rst:355
 msgid "Using Xinference With Docker"
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:349
+#: ../../source/getting_started/using_xinference.rst:357
 msgid "To start Xinference in a Docker container, run the following command:"
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:352
+#: ../../source/getting_started/using_xinference.rst:360
 msgid "Run On Nvidia GPU Host"
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:359
+#: ../../source/getting_started/using_xinference.rst:367
 msgid "Run On CPU Only Host"
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:367
+#: ../../source/getting_started/using_xinference.rst:375
 msgid "Using Xinference On Kubernetes"
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:369
+#: ../../source/getting_started/using_xinference.rst:377
 msgid ""
 "To use Xinference on Kubernetes, `KubeBlocks <https://kubeblocks.io/>`_ "
 "is required to help the installation."
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:371
+#: ../../source/getting_started/using_xinference.rst:379
 msgid "The following steps assume Kubernetes is already installed."
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:373
+#: ../../source/getting_started/using_xinference.rst:381
 msgid ""
 "Download cli tool kbcli for KubeBlocks, see `install kbcli "
 "<https://kubeblocks.io/docs/preview/user_docs/installation/install-with-"
 "kbcli/install-kbcli/>`_."
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:375
+#: ../../source/getting_started/using_xinference.rst:383
 msgid "Make sure kbcli version is at least v0.7.1."
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:377
+#: ../../source/getting_started/using_xinference.rst:385
 msgid ""
 "Install KubeBlocks using kbcli command, see `install KubeBlocks with "
 "kbcli <https://kubeblocks.io/docs/preview/user_docs/installation/install-"
 "with-kbcli/install-kubeblocks-with-kbcli/>`_."
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:379
+#: ../../source/getting_started/using_xinference.rst:387
 msgid "Enable Xinference addon, run the following command:"
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:385
+#: ../../source/getting_started/using_xinference.rst:393
 msgid "Use kbcli to start Xinference cluster, run the following command:"
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:391
+#: ../../source/getting_started/using_xinference.rst:399
 msgid ""
 "If the Kubernetes node doesn't have GPU on it, run the command with extra"
 " flag:"
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:397
+#: ../../source/getting_started/using_xinference.rst:405
 msgid "Use -h to read the help documentation for more options:"
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:404
+#: ../../source/getting_started/using_xinference.rst:412
 msgid "What's Next?"
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:406
+#: ../../source/getting_started/using_xinference.rst:414
 msgid ""
 "Congratulations on getting started with Xinference! To help you navigate "
 "and make the most out of this powerful tool, here are some resources and "
 "guides:"
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:409
+#: ../../source/getting_started/using_xinference.rst:417
 msgid ""
 ":ref:`How to Use Client APIs for Different Types of Models "
 "<user_guide_client_api>`"
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:411
+#: ../../source/getting_started/using_xinference.rst:419
 msgid ":ref:`Choosing the Right Backends for Your Needs <user_guide_backends>`"
 msgstr ""
 
@@ -380,4 +395,45 @@ msgstr ""
 #~ "Once Xinference is running, an endpoint"
 #~ " will be accessible for model "
 #~ "management via CLI or Xinference client."
+#~ msgstr ""
+
+#~ msgid ""
+#~ "We can specify the model's UID "
+#~ "using the ``--model-uid`` or ``-u`` "
+#~ "flag. If not specified, Xinference will"
+#~ " generate a random ID. This create"
+#~ " a new model instance with unique "
+#~ "ID ``my-llama-2``:"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "Congrats! You now have ``llama-2-chat`` "
+#~ "running by Xinference. Once the model"
+#~ " is running, we can try it out"
+#~ " either command line, via cURL, or"
+#~ " via Xinference's python client:"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "On each of the other servers where"
+#~ " you want to run Xinference workers,"
+#~ " run the following command:"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "On each of the other servers where"
+#~ " you want to run Xinference workers,"
+#~ " run the following command: .. note::"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "Note that you must to replace "
+#~ "``${worker_host}``  with the actual host "
+#~ "of your supervisor server."
+#~ msgstr ""
+
+#~ msgid ""
+#~ "Note that you must to replace "
+#~ "``${worker_host}``  with the actual host "
+#~ "of your worker server."
 #~ msgstr ""
