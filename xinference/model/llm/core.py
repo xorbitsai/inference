@@ -82,9 +82,9 @@ class LLM(abc.ABC):
 
     @staticmethod
     def _has_cuda_device():
-        from ...utils import cuda_count
+        import torch
 
-        return cuda_count() > 0
+        return torch.cuda.is_available()
 
     @staticmethod
     def _get_cuda_count():
