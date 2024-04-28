@@ -341,7 +341,7 @@ On each of the other servers where you want to run Xinference workers, run the f
   xinference-worker -e "http://${supervisor_host}:9997" -H "${worker_host}"
 
 .. note::
-    Note that you must to replace ``${worker_host}``  with the actual host of your worker server.
+    Note that you must replace ``${worker_host}``  with the actual host of your worker server.
 
 .. note::
   Note that if you need to interact with the Xinference in a cluster via the command line,
