@@ -336,9 +336,12 @@ Start the Workers
 
 On each of the other servers where you want to run Xinference workers, run the following command:
 
+.. note::
+    Note that you must to replace ``${worker_host}``  with the actual host of your worker server.
+
 .. code-block:: bash
 
-  xinference-worker -e "http://${supervisor_host}:9997"
+  xinference-worker -e "http://${supervisor_host}:9997" -H "${worker_host}"
 
 
 .. note::
