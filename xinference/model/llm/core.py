@@ -82,9 +82,25 @@ class LLM(abc.ABC):
 
     @staticmethod
     def _has_cuda_device():
-        import torch
+        """
+        Use pynvml to impl this interface.
+        DO NOT USE torch to impl this, which will lead to some unexpected errors.
+        """
+        from pynvml import nvmlDeviceGetCount, nvmlInit, nvmlShutdown
 
-        return torch.cuda.is_available()
+        device_count = 0
+        try:
+            nvmlInit()
+            device_count = nvmlDeviceGetCount()
+        except:
+            pass
+        finally:
+            try:
+                nvmlShutdown()
+            except:
+                pass
+
+        return device_count > 0
 
     @staticmethod
     def _get_cuda_count():
