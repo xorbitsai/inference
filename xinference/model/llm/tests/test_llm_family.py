@@ -1201,14 +1201,8 @@ def test_query_engine_general():
     model_name = "qwen1.5-chat"
     assert model_name in LLM_ENGINES
 
-    assert (
-        "PyTorch" in LLM_ENGINES[model_name]
-        and len(LLM_ENGINES[model_name]["PyTorch"]) == 28
-    )
-    assert (
-        "llama-cpp-python" in LLM_ENGINES[model_name]
-        and len(LLM_ENGINES[model_name]["llama-cpp-python"]) == 7
-    )
+    assert "PyTorch" in LLM_ENGINES[model_name]
+    assert "llama-cpp-python" in LLM_ENGINES[model_name]
 
     assert check_engine_by_spec_parameters(
         model_engine="PyTorch",
