@@ -611,7 +611,9 @@ class RESTfulAudioModelHandle(RESTfulModelHandle):
         }
         files: List[Any] = []
         files.append(("file", ("file", audio, "application/octet-stream")))
-        response = requests.post(url, data=params, files=files, headers=self.auth_headers)
+        response = requests.post(
+            url, data=params, files=files, headers=self.auth_headers
+        )
         if response.status_code != 200:
             raise RuntimeError(
                 f"Failed to transcribe the audio, detail: {_get_error_string(response)}"
