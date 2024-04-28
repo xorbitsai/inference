@@ -624,7 +624,7 @@
           "none"
         ],
         "model_id": "THUDM/chatglm3-6b",
-        "model_revision": "b098244a71fbe69ce149682d9072a7629f7e908c"
+        "model_revision": "103caa40027ebfd8450289ca2f278eac4ff26405"
       }
     ],
     "prompt_style": {
