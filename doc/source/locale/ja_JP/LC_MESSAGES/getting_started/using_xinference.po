@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-04-28 10:54+0800\n"
+"POT-Creation-Date: 2024-04-28 14:43+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: ja_JP\n"
@@ -15,7 +15,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Generated-By: Babel 2.14.0\n"
+"Generated-By: Babel 2.12.1\n"
 
 #: ../../source/getting_started/using_xinference.rst:5
 msgid "Using Xinference"
@@ -260,103 +260,103 @@ msgid ""
 "run the following command:"
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:340
+#: ../../source/getting_started/using_xinference.rst:344
 msgid ""
-"Note that you must to replace ``${worker_host}``  with the actual host of"
-" your worker server."
+"Note that you must replace ``${worker_host}``  with the actual host of "
+"your worker server."
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:348
+#: ../../source/getting_started/using_xinference.rst:347
 msgid ""
 "Note that if you need to interact with the Xinference in a cluster via "
 "the command line, you should include the ``-e`` or ``--endpoint`` flag to"
 " specify the supervisor server's endpoint. For example:"
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:356
+#: ../../source/getting_started/using_xinference.rst:355
 msgid "Using Xinference With Docker"
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:358
+#: ../../source/getting_started/using_xinference.rst:357
 msgid "To start Xinference in a Docker container, run the following command:"
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:361
+#: ../../source/getting_started/using_xinference.rst:360
 msgid "Run On Nvidia GPU Host"
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:368
+#: ../../source/getting_started/using_xinference.rst:367
 msgid "Run On CPU Only Host"
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:376
+#: ../../source/getting_started/using_xinference.rst:375
 msgid "Using Xinference On Kubernetes"
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:378
+#: ../../source/getting_started/using_xinference.rst:377
 msgid ""
 "To use Xinference on Kubernetes, `KubeBlocks <https://kubeblocks.io/>`_ "
 "is required to help the installation."
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:380
+#: ../../source/getting_started/using_xinference.rst:379
 msgid "The following steps assume Kubernetes is already installed."
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:382
+#: ../../source/getting_started/using_xinference.rst:381
 msgid ""
 "Download cli tool kbcli for KubeBlocks, see `install kbcli "
 "<https://kubeblocks.io/docs/preview/user_docs/installation/install-with-"
 "kbcli/install-kbcli/>`_."
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:384
+#: ../../source/getting_started/using_xinference.rst:383
 msgid "Make sure kbcli version is at least v0.7.1."
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:386
+#: ../../source/getting_started/using_xinference.rst:385
 msgid ""
 "Install KubeBlocks using kbcli command, see `install KubeBlocks with "
 "kbcli <https://kubeblocks.io/docs/preview/user_docs/installation/install-"
 "with-kbcli/install-kubeblocks-with-kbcli/>`_."
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:388
+#: ../../source/getting_started/using_xinference.rst:387
 msgid "Enable Xinference addon, run the following command:"
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:394
+#: ../../source/getting_started/using_xinference.rst:393
 msgid "Use kbcli to start Xinference cluster, run the following command:"
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:400
+#: ../../source/getting_started/using_xinference.rst:399
 msgid ""
 "If the Kubernetes node doesn't have GPU on it, run the command with extra"
 " flag:"
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:406
+#: ../../source/getting_started/using_xinference.rst:405
 msgid "Use -h to read the help documentation for more options:"
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:413
+#: ../../source/getting_started/using_xinference.rst:412
 msgid "What's Next?"
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:415
+#: ../../source/getting_started/using_xinference.rst:414
 msgid ""
 "Congratulations on getting started with Xinference! To help you navigate "
 "and make the most out of this powerful tool, here are some resources and "
 "guides:"
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:418
+#: ../../source/getting_started/using_xinference.rst:417
 msgid ""
 ":ref:`How to Use Client APIs for Different Types of Models "
 "<user_guide_client_api>`"
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:420
+#: ../../source/getting_started/using_xinference.rst:419
 msgid ":ref:`Choosing the Right Backends for Your Needs <user_guide_backends>`"
 msgstr ""
 
@@ -430,4 +430,10 @@ msgstr ""
 #~ "Note that you must to replace "
 #~ "``${worker_host}``  with the actual host "
 #~ "of your supervisor server."
+#~ msgstr ""
+
+#~ msgid ""
+#~ "Note that you must to replace "
+#~ "``${worker_host}``  with the actual host "
+#~ "of your worker server."
 #~ msgstr ""
