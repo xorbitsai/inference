@@ -309,7 +309,6 @@ msgid ""
 msgstr "在需要启动 Xinference worker 的机器上执行以下命令："
 
 #: ../../source/getting_started/using_xinference.rst:344
-#, fuzzy
 msgid ""
 "Note that you must replace ``${worker_host}``  with the actual host of "
 "your worker server."
