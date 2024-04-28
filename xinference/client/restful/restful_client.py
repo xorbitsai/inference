@@ -566,6 +566,7 @@ class RESTfulAudioModelHandle(RESTfulModelHandle):
         prompt: Optional[str] = None,
         response_format: Optional[str] = "json",
         temperature: Optional[float] = 0,
+        timestamp_granularities: Optional[List[str]] = None,
     ):
         """
         Transcribes audio into the input language.
@@ -589,6 +590,11 @@ class RESTfulAudioModelHandle(RESTfulModelHandle):
             while lower values like 0.2 will make it more focused and deterministic.
             If set to 0, the model will use log probability to automatically increase the temperature
             until certain thresholds are hit.
+        timestamp_granularities: Optional[List[str]], default is None.
+            The timestamp granularities to populate for this transcription. response_format must be set verbose_json
+            to use timestamp granularities. Either or both of these options are supported: word, or segment.
+            Note: There is no additional latency for segment timestamps, but generating word timestamps incurs
+            additional latency.
 
         Returns
         -------
@@ -601,12 +607,11 @@ class RESTfulAudioModelHandle(RESTfulModelHandle):
             "prompt": prompt,
             "response_format": response_format,
             "temperature": temperature,
+            "timestamp_granularities": timestamp_granularities,
         }
         files: List[Any] = []
-        for key, value in params.items():
-            files.append((key, (None, value)))
         files.append(("file", ("file", audio, "application/octet-stream")))
-        response = requests.post(url, files=files, headers=self.auth_headers)
+        response = requests.post(url, data=params, files=files, headers=self.auth_headers)
         if response.status_code != 200:
             raise RuntimeError(
                 f"Failed to transcribe the audio, detail: {_get_error_string(response)}"

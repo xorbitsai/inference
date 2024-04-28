@@ -436,6 +436,7 @@ class ModelActor(xo.StatelessActor):
         prompt: Optional[str] = None,
         response_format: str = "json",
         temperature: float = 0,
+        timestamp_granularities: Optional[List[str]] = None,
     ):
         if hasattr(self._model, "transcriptions"):
             return await self._call_wrapper(
@@ -445,6 +446,7 @@ class ModelActor(xo.StatelessActor):
                 prompt,
                 response_format,
                 temperature,
+                timestamp_granularities,
             )
         raise AttributeError(
             f"Model {self._model.model_spec} is not for creating transcriptions."

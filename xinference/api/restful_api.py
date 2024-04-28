@@ -1101,6 +1101,7 @@ class RESTfulAPI:
         prompt: Optional[str] = Form(None),
         response_format: Optional[str] = Form("json"),
         temperature: Optional[float] = Form(0),
+        timestamp_granularities: Optional[List[str]] = Form(None),
         kwargs: Optional[str] = Form(None),
     ) -> Response:
         model_uid = model
@@ -1126,6 +1127,7 @@ class RESTfulAPI:
                 prompt=prompt,
                 response_format=response_format,
                 temperature=temperature,
+                timestamp_granularities=timestamp_granularities,
                 **parsed_kwargs,
             )
             return Response(content=transcription, media_type="application/json")

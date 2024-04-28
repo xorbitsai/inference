@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import logging
-from typing import TYPE_CHECKING, Dict, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional
 
 from xinference.device_utils import (
     get_available_device,
@@ -76,20 +76,6 @@ class WhisperModel:
             device=self._device,
         )
 
-    def _call_model(
-        self,
-        audio: bytes,
-        generate_kwargs: Dict,
-        response_format: str,
-    ):
-        if response_format == "json":
-            logger.debug("Call whisper model with generate_kwargs: %s", generate_kwargs)
-            assert callable(self._model)
-            result = self._model(audio, generate_kwargs=generate_kwargs)
-            return {"text": result["text"]}
-        else:
-            raise ValueError(f"Unsupported response format: {response_format}")
-
     def transcriptions(
         self,
         audio: bytes,
@@ -97,7 +83,10 @@ class WhisperModel:
         prompt: Optional[str] = None,
         response_format: str = "json",
         temperature: float = 0,
+        timestamp_granularities: Optional[List[str]] = None,
     ):
+        if response_format not in ["json", "verbose_json"]:
+            raise ValueError(f"Unsupported response format: {response_format}")
         if temperature != 0:
             logger.warning(
                 "Temperature for whisper transcriptions will be ignored: %s.",
@@ -107,15 +96,87 @@ class WhisperModel:
             logger.warning(
                 "Prompt for whisper transcriptions will be ignored: %s", prompt
             )
-        return self._call_model(
-            audio=audio,
-            generate_kwargs=(
-                {"language": language, "task": "transcribe"}
-                if language is not None
-                else {"task": "transcribe"}
-            ),
-            response_format=response_format,
-        )
+        if response_format == "verbose_json":
+            if not timestamp_granularities:
+                return_timestamps = True
+            elif timestamp_granularities == ["segment"]:
+                return_timestamps = True
+            elif timestamp_granularities == ["word"]:
+                return_timestamps = "word"
+            else:
+                raise Exception(
+                    f"Unsupported timestamp_granularities: {timestamp_granularities}"
+                )
+
+            results = self._model(
+                audio,
+                generate_kwargs=(
+                    {"language": language, "task": "transcribe"}
+                    if language is not None
+                    else {"task": "transcribe"}
+                ),
+                return_timestamps=return_timestamps,
+            )
+
+            if return_timestamps is True:
+                segments = []
+
+                def _get_chunk_segment_json(idx, text, start, end):
+                    find_start = 0
+                    if segments:
+                        find_start = segments[-1]["seek"] + len(segments[-1]["text"])
+                    return {
+                        "id": idx,
+                        "seek": results["text"].find(text, find_start),
+                        "start": start,
+                        "end": end,
+                        "text": text,
+                        "tokens": [],
+                        "temperature": temperature,
+                        # We can't provide these values.
+                        "avg_logprob": 0.0,
+                        "compression_ratio": 0.0,
+                        "no_speech_prob": 0.0,
+                    }
+
+                for idx, c in enumerate(results.get("chunks", [])):
+                    text = c["text"]
+                    start, end = c["timestamp"]
+                    segments.append(_get_chunk_segment_json(idx, text, start, end))
+
+                return {
+                    "task": "transcribe",
+                    "language": language,
+                    "duration": segments[-1]["end"] if segments else 0,
+                    "text": results["text"],
+                    "segments": segments,
+                }
+            else:
+                assert return_timestamps == "word"
+
+                words = []
+                for idx, c in enumerate(results.get("chunks", [])):
+                    text = c["text"]
+                    start, end = c["timestamp"]
+                    words.append({"word": text, "start": start, "end": end})
+
+                return {
+                    "task": "transcribe",
+                    "language": language,
+                    "duration": words[-1]["end"] if words else 0,
+                    "text": results["text"],
+                    "words": words,
+                }
+        else:
+            result = self._model(
+                audio,
+                generate_kwargs=(
+                    {"language": language, "task": "transcribe"}
+                    if language is not None
+                    else {"task": "transcribe"}
+                ),
+            )
+            return {"text": result["text"]}
 
     def translations(
         self,
@@ -124,6 +185,8 @@ class WhisperModel:
         response_format: str = "json",
         temperature: float = 0,
     ):
+        if response_format not in ["json", "verbose_json"]:
+            raise ValueError(f"Unsupported response format: {response_format}")
         if not self._model_spec.multilingual:
             raise RuntimeError(
                 f"Model {self._model_spec.model_name} is not suitable for translations."
@@ -137,8 +200,8 @@ class WhisperModel:
             logger.warning(
                 "Prompt for whisper transcriptions will be ignored: %s", prompt
             )
-        return self._call_model(
-            audio=audio,
+        result = self._model(
+            audio,
             generate_kwargs={"task": "translate"},
-            response_format=response_format,
         )
+        return {"text": result["text"]}
