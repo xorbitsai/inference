@@ -120,17 +120,6 @@ def _install():
         warnings.warn(f"Cannot import OmniLLMModel due to reason: {e}")
 
     # register llm classes.
-    LLM_CLASSES.extend(
-        [
-            LlamaCppChatModel,
-            LlamaCppModel,
-        ]
-    )
-    LLM_CLASSES.extend(
-        [
-            ChatglmCppChatModel,
-        ]
-    )
     LLAMA_CLASSES.extend(
         [
             ChatglmCppChatModel,
@@ -138,27 +127,8 @@ def _install():
             LlamaCppModel,
         ]
     )
-    LLM_CLASSES.extend([SGLANGModel, SGLANGChatModel])
     SGLANG_CLASSES.extend([SGLANGModel, SGLANGChatModel])
-    LLM_CLASSES.extend([VLLMModel, VLLMChatModel])
     VLLM_CLASSES.extend([VLLMModel, VLLMChatModel])
-    LLM_CLASSES.extend(
-        [
-            BaichuanPytorchChatModel,
-            VicunaPytorchChatModel,
-            FalconPytorchChatModel,
-            ChatglmPytorchChatModel,
-            LlamaPytorchModel,
-            LlamaPytorchChatModel,
-            PytorchChatModel,
-            FalconPytorchModel,
-            Internlm2PytorchChatModel,
-            QwenVLChatModel,
-            YiVLChatModel,
-            DeepSeekVLChatModel,
-            PytorchModel,
-        ]
-    )
     PYTORCH_CLASSES.extend(
         [
             BaichuanPytorchChatModel,
@@ -177,7 +147,6 @@ def _install():
         ]
     )
     if OmniLMMModel:  # type: ignore
-        LLM_CLASSES.append(OmniLMMModel)
         PYTORCH_CLASSES.append(OmniLMMModel)
 
     # support 4 engines for now
