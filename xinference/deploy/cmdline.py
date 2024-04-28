@@ -603,7 +603,7 @@ def list_model_registrations(
     "-en",
     type=str,
     default=None,
-    help="The way of launching model.",
+    help="Specify the inference engine of the model when launching LLM.",
 )
 @click.option(
     "--model-uid",
@@ -698,7 +698,7 @@ def model_launch(
     endpoint: Optional[str],
     model_name: str,
     model_type: str,
-    model_engine: str,
+    model_engine: Optional[str],
     model_uid: str,
     size_in_billions: str,
     model_format: str,
@@ -721,7 +721,7 @@ def model_launch(
     print(f"Launch model name: {model_name} with kwargs: {kwargs}", file=sys.stderr)
 
     if model_type == "LLM" and model_engine is None:
-        raise ValueError("Model engine is required for model type LLM.")
+        raise ValueError("--model-engine is required for LLM models.")
 
     if n_gpu.lower() == "none":
         _n_gpu: Optional[Union[int, str]] = None
