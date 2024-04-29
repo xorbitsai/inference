@@ -216,11 +216,7 @@ def create_llm_model_instance(
             f" size: {model_size_in_billions}, quantization: {quantization}"
         )
     llm_family, llm_spec, quantization = match_result
-
     assert quantization is not None
-    save_path = cache(llm_family, llm_spec, quantization)
-
-    peft_model = peft_model_config.peft_model if peft_model_config else None
 
     llm_cls = check_engine_by_spec_parameters(
         model_engine,
@@ -229,9 +225,11 @@ def create_llm_model_instance(
         llm_spec.model_size_in_billions,
         quantization,
     )
-
     logger.debug(f"Launching {model_uid} with {llm_cls.__name__}")
 
+    save_path = cache(llm_family, llm_spec, quantization)
+
+    peft_model = peft_model_config.peft_model if peft_model_config else None
     if peft_model is not None:
         if "peft_model" in inspect.signature(llm_cls.__init__).parameters:
             model = llm_cls(
