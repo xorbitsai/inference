@@ -4,7 +4,6 @@ import json
 import os
 
 import torch
-from accelerate import init_empty_weights, load_checkpoint_and_dispatch
 from PIL import Image
 from transformers import AutoModel, AutoTokenizer
 
@@ -20,6 +19,8 @@ DEFAULT_IM_END_TOKEN = "<im_end>"
 
 
 def init_omni_lmm(model_path, device_map):
+    from accelerate import init_empty_weights, load_checkpoint_and_dispatch
+
     torch.backends.cuda.matmul.allow_tf32 = True
     disable_torch_init()
     model_name = os.path.expanduser(model_path)
