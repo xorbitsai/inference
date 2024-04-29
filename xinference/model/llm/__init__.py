@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import codecs
-import gc
 import json
 import os
 
@@ -266,11 +265,3 @@ def _install():
     # register model description
     for ud_llm in get_user_defined_llm_families():
         LLM_MODEL_DESCRIPTIONS.update(generate_llm_description(ud_llm))
-
-    # Have to empty_cache here to reset CUDA status.
-    # Because `generate_engine_config_by_model_family` above has already initialized CUDA,
-    # which leads to torch initialization error in subprocess.
-    from ...device_utils import empty_cache
-
-    gc.collect()
-    empty_cache()
