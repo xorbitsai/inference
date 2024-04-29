@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import logging
-from typing import TYPE_CHECKING, Dict, List, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional, Union
 
 from xinference.device_utils import (
     get_available_device,
@@ -93,6 +93,7 @@ class WhisperModel:
             result = self._model(audio, generate_kwargs=generate_kwargs)
             return {"text": result["text"]}
         elif response_format == "verbose_json":
+            return_timestamps: Union[bool, str] = False
             if not timestamp_granularities:
                 return_timestamps = True
             elif timestamp_granularities == ["segment"]:
@@ -103,7 +104,7 @@ class WhisperModel:
                 raise Exception(
                     f"Unsupported timestamp_granularities: {timestamp_granularities}"
                 )
-
+            assert callable(self._model)
             results = self._model(
                 audio,
                 generate_kwargs=generate_kwargs,
@@ -113,7 +114,7 @@ class WhisperModel:
             language = generate_kwargs.get("language", "english")
 
             if return_timestamps is True:
-                segments = []
+                segments: List[dict] = []
 
                 def _get_chunk_segment_json(idx, text, start, end):
                     find_start = 0
