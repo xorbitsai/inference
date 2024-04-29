@@ -413,7 +413,7 @@
         ],
         "model_hub": "modelscope",
         "model_id": "ZhipuAI/chatglm3-6b",
-        "model_revision": "v1.0.0"
+        "model_revision": "v1.0.2"
       }
     ],
     "prompt_style": {
