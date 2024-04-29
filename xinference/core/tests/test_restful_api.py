@@ -480,7 +480,6 @@ def test_restful_api_for_tool_calls(setup, model_format, quantization):
     }
     response = requests.post(url, json=payload)
     completion = response.json()
-    print(completion)
 
     assert (
         "get_current_weather"
