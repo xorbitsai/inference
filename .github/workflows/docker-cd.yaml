@@ -69,9 +69,3 @@ jobs:
             docker tag "$DOCKER_ORG/xinference:${GIT_TAG}-cpu" "$DOCKER_ORG/xinference:latest-cpu"
             docker push "$DOCKER_ORG/xinference:latest-cpu"
           fi
-
-      - name: Clean docker image
-        shell: bash
-        if: ${{ github.repository == 'xorbitsai/inference' }}
-        run: |
-          docker rmi -f $(docker images "$DOCKER_ORG/xinference" -q)
