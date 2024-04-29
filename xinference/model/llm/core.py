@@ -243,7 +243,8 @@ def create_llm_model_instance(
             )
         else:
             logger.warning(
-                f"Model not supported with lora, name: {model_name}, format: {model_format}, engine: {model_engine}"
+                f"Model not supported with lora, name: {model_name}, format: {model_format}, engine: {model_engine}. "
+                f"Load this without lora."
             )
             model = llm_cls(
                 model_uid, llm_family, llm_spec, quantization, save_path, kwargs
