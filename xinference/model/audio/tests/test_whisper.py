@@ -94,9 +94,7 @@ def test_transcriptions_for_whisper(setup):
     response = requests.get("https://github.com/openai/whisper/raw/main/tests/jfk.flac")
     audio = response.content
 
-    response = model.transcriptions(
-        audio, response_format="verbose_json", timestamp_granularities=["segment"]
-    )
+    response = model.transcriptions(audio, response_format="verbose_json")
     assert response["text"]
     assert len(response["segments"]) == 3
 
@@ -128,10 +126,14 @@ def test_transcriptions_for_whisper(setup):
             timestamp_granularities=["segment"],
         )
         assert len(completion.segments) == 1
-        #
-        # completion = client.audio.transcriptions.create(model=model_uid, file=f, response_format="verbose_json",
-        #                                                 timestamp_granularities=["word"])
-        # assert len(completion.word) == 10
+
+        completion = client.audio.transcriptions.create(
+            model=model_uid,
+            file=f,
+            response_format="verbose_json",
+            timestamp_granularities=["word"],
+        )
+        assert len(completion.words) == 11
 
 
 def test_register_custom_audio():

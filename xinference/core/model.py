@@ -457,17 +457,21 @@ class ModelActor(xo.StatelessActor):
     async def translations(
         self,
         audio: bytes,
+        language: Optional[str] = None,
         prompt: Optional[str] = None,
         response_format: str = "json",
         temperature: float = 0,
+        timestamp_granularities: Optional[List[str]] = None,
     ):
         if hasattr(self._model, "translations"):
             return await self._call_wrapper(
                 self._model.translations,
                 audio,
+                language,
                 prompt,
                 response_format,
                 temperature,
+                timestamp_granularities,
             )
         raise AttributeError(
             f"Model {self._model.model_spec} is not for creating translations."

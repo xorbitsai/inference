@@ -192,10 +192,11 @@ class WhisperModel:
     def translations(
         self,
         audio: bytes,
+        language: Optional[str] = None,
         prompt: Optional[str] = None,
         response_format: str = "json",
         temperature: float = 0,
-        **kwargs,
+        timestamp_granularities: Optional[List[str]] = None,
     ):
         if not self._model_spec.multilingual:
             raise RuntimeError(
@@ -205,8 +206,6 @@ class WhisperModel:
             logger.warning(
                 "Prompt for whisper transcriptions will be ignored: %s", prompt
             )
-        language = kwargs.get("language")
-        timestamp_granularities = kwargs.get("timestamp_granularities")
         return self._call_model(
             audio=audio,
             generate_kwargs=(
