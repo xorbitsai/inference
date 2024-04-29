@@ -828,7 +828,6 @@ def match_llm(
     model_format: Optional[str] = None,
     model_size_in_billions: Optional[Union[int, str]] = None,
     quantization: Optional[str] = None,
-    is_local_deployment: bool = False,
 ) -> Optional[Tuple[LLMFamilyV1, LLMSpecV1, str]]:
     """
     Find an LLM family, spec, and quantization that satisfy given criteria.
@@ -886,25 +885,9 @@ def match_llm(
                     matched_quantization,
                 )
             else:
-                if spec.model_format == "pytorch":
-                    return family, _apply_format_to_model_id(spec, "none"), "none"
-                else:
-                    # by default, choose the most coarse-grained quantization.
-                    # TODO: too hacky.
-                    quantizations = spec.quantizations
-                    quantizations.sort()
-                    for q in quantizations:
-                        if (
-                            is_local_deployment
-                            and not (_is_linux() and _has_cuda_device())
-                            and q == "4-bit"
-                        ):
-                            logger.warning(
-                                "Skipping %s for non-linux or non-cuda local deployment .",
-                                q,
-                            )
-                            continue
-                        return family, _apply_format_to_model_id(spec, q), q
+                # TODO: If user does not specify quantization, just use the first one
+                _q = "none" if spec.model_format == "pytorch" else spec.quantizations[0]
+                return family, _apply_format_to_model_id(spec, _q), _q
     return None
 
 

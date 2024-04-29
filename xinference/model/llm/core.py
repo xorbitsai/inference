@@ -200,7 +200,6 @@ def create_llm_model_instance(
     model_size_in_billions: Optional[Union[int, str]] = None,
     quantization: Optional[str] = None,
     peft_model_config: Optional[PeftModelConfig] = None,
-    is_local_deployment: bool = False,
     **kwargs,
 ) -> Tuple[LLM, LLMDescription]:
     from .llm_family import cache, check_engine_by_spec_parameters, match_llm
@@ -208,11 +207,7 @@ def create_llm_model_instance(
     if model_engine is None:
         raise ValueError("model_engine is required for LLM model")
     match_result = match_llm(
-        model_name,
-        model_format,
-        model_size_in_billions,
-        quantization,
-        is_local_deployment,
+        model_name, model_format, model_size_in_billions, quantization
     )
 
     if not match_result:
@@ -274,17 +269,12 @@ def create_speculative_llm_model_instance(
     draft_model_name: str,
     draft_model_size_in_billions: Optional[int],
     draft_quantization: Optional[str],
-    is_local_deployment: bool = False,
 ) -> Tuple[LLM, LLMDescription]:
     from . import match_llm
     from .llm_family import cache
 
     match_result = match_llm(
-        model_name,
-        "pytorch",
-        model_size_in_billions,
-        quantization,
-        is_local_deployment,
+        model_name, "pytorch", model_size_in_billions, quantization
     )
 
     if not match_result:
@@ -297,11 +287,7 @@ def create_speculative_llm_model_instance(
     save_path = cache(llm_family, llm_spec, quantization)
 
     draft_match_result = match_llm(
-        draft_model_name,
-        "pytorch",
-        draft_model_size_in_billions,
-        draft_quantization,
-        is_local_deployment,
+        draft_model_name, "pytorch", draft_model_size_in_billions, draft_quantization
     )
 
     if not draft_match_result:
