@@ -80,12 +80,12 @@ class ReplicaInfo:
 class SupervisorActor(xo.StatelessActor):
     def __init__(self):
         super().__init__()
-        self._worker_address_to_worker: Dict[str, xo.ActorRefType["WorkerActor"]] = {}
-        self._worker_status: Dict[str, WorkerStatus] = {}
-        self._replica_model_uid_to_worker: Dict[
+        self._worker_address_to_worker: Dict[str, xo.ActorRefType["WorkerActor"]] = {}  # type: ignore
+        self._worker_status: Dict[str, WorkerStatus] = {}  # type: ignore
+        self._replica_model_uid_to_worker: Dict[  # type: ignore
             str, xo.ActorRefType["WorkerActor"]
         ] = {}
-        self._model_uid_to_replica_info: Dict[str, ReplicaInfo] = {}
+        self._model_uid_to_replica_info: Dict[str, ReplicaInfo] = {}  # type: ignore
         self._uptime = None
         self._lock = asyncio.Lock()
 
@@ -117,12 +117,12 @@ class SupervisorActor(xo.StatelessActor):
         from .cache_tracker import CacheTrackerActor
         from .status_guard import StatusGuardActor
 
-        self._status_guard_ref: xo.ActorRefType[
+        self._status_guard_ref: xo.ActorRefType[  # type: ignore
             "StatusGuardActor"
         ] = await xo.create_actor(
             StatusGuardActor, address=self.address, uid=StatusGuardActor.uid()
         )
-        self._cache_tracker_ref: xo.ActorRefType[
+        self._cache_tracker_ref: xo.ActorRefType[  # type: ignore
             "CacheTrackerActor"
         ] = await xo.create_actor(
             CacheTrackerActor, address=self.address, uid=CacheTrackerActor.uid()
@@ -130,7 +130,7 @@ class SupervisorActor(xo.StatelessActor):
 
         from .event import EventCollectorActor
 
-        self._event_collector_ref: xo.ActorRefType[
+        self._event_collector_ref: xo.ActorRefType[  # type: ignore
             EventCollectorActor
         ] = await xo.create_actor(
             EventCollectorActor, address=self.address, uid=EventCollectorActor.uid()
@@ -172,7 +172,7 @@ class SupervisorActor(xo.StatelessActor):
             unregister_rerank,
         )
 
-        self._custom_register_type_to_cls: Dict[str, Tuple] = {
+        self._custom_register_type_to_cls: Dict[str, Tuple] = {  # type: ignore
             "LLM": (
                 CustomLLMFamilyV1,
                 register_llm,
@@ -206,7 +206,7 @@ class SupervisorActor(xo.StatelessActor):
         }
 
         # record model version
-        model_version_infos: Dict[str, List[Dict]] = {}
+        model_version_infos: Dict[str, List[Dict]] = {}  # type: ignore
         model_version_infos.update(get_llm_model_descriptions())
         model_version_infos.update(get_embedding_model_descriptions())
         model_version_infos.update(get_rerank_model_descriptions())

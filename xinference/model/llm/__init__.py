@@ -179,7 +179,7 @@ def _install():
             PytorchModel,
         ]
     )
-    if OmniLMMModel:
+    if OmniLMMModel:  # type: ignore
         LLM_CLASSES.append(OmniLMMModel)
         PYTORCH_CLASSES.append(OmniLMMModel)
     PEFT_SUPPORTED_CLASSES.extend(

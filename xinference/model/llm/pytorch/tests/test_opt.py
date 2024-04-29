@@ -102,7 +102,7 @@ async def test_opt_pytorch_model(setup, quantization):
         )
         actual_revision = os.listdir(snapshot_address)
         model_name = "opt"
-        expected_revision: Union[str, None] = ""
+        expected_revision: Union[str, None] = ""  # type: ignore
 
         for family in BUILTIN_LLM_FAMILIES:
             if model_name != family.model_name:
