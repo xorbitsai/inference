@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import logging
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional
 
 from xinference.device_utils import (
     get_available_device,
@@ -76,27 +76,23 @@ class WhisperModel:
             device=self._device,
         )
 
-    def transcriptions(
+    def _call_model(
         self,
         audio: bytes,
-        language: Optional[str] = None,
-        prompt: Optional[str] = None,
-        response_format: str = "json",
+        generate_kwargs: Dict,
+        response_format: str,
         temperature: float = 0,
         timestamp_granularities: Optional[List[str]] = None,
     ):
-        if response_format not in ["json", "verbose_json"]:
-            raise ValueError(f"Unsupported response format: {response_format}")
         if temperature != 0:
-            logger.warning(
-                "Temperature for whisper transcriptions will be ignored: %s.",
-                temperature,
-            )
-        if prompt is not None:
-            logger.warning(
-                "Prompt for whisper transcriptions will be ignored: %s", prompt
-            )
-        if response_format == "verbose_json":
+            generate_kwargs.update({"temperature": temperature, "do_sample": True})
+
+        if response_format == "json":
+            logger.debug("Call whisper model with generate_kwargs: %s", generate_kwargs)
+            assert callable(self._model)
+            result = self._model(audio, generate_kwargs=generate_kwargs)
+            return {"text": result["text"]}
+        elif response_format == "verbose_json":
             if not timestamp_granularities:
                 return_timestamps = True
             elif timestamp_granularities == ["segment"]:
@@ -110,13 +106,11 @@ class WhisperModel:
 
             results = self._model(
                 audio,
-                generate_kwargs=(
-                    {"language": language, "task": "transcribe"}
-                    if language is not None
-                    else {"task": "transcribe"}
-                ),
+                generate_kwargs=generate_kwargs,
                 return_timestamps=return_timestamps,
             )
+
+            language = generate_kwargs.get("language", "english")
 
             if return_timestamps is True:
                 segments = []
@@ -168,15 +162,32 @@ class WhisperModel:
                     "words": words,
                 }
         else:
-            result = self._model(
-                audio,
-                generate_kwargs=(
-                    {"language": language, "task": "transcribe"}
-                    if language is not None
-                    else {"task": "transcribe"}
-                ),
+            raise ValueError(f"Unsupported response format: {response_format}")
+
+    def transcriptions(
+        self,
+        audio: bytes,
+        language: Optional[str] = None,
+        prompt: Optional[str] = None,
+        response_format: str = "json",
+        temperature: float = 0,
+        timestamp_granularities: Optional[List[str]] = None,
+    ):
+        if prompt is not None:
+            logger.warning(
+                "Prompt for whisper transcriptions will be ignored: %s", prompt
             )
-            return {"text": result["text"]}
+        return self._call_model(
+            audio=audio,
+            generate_kwargs=(
+                {"language": language, "task": "transcribe"}
+                if language is not None
+                else {"task": "transcribe"}
+            ),
+            response_format=response_format,
+            temperature=temperature,
+            timestamp_granularities=timestamp_granularities,
+        )
 
     def translations(
         self,
@@ -184,24 +195,26 @@ class WhisperModel:
         prompt: Optional[str] = None,
         response_format: str = "json",
         temperature: float = 0,
+        **kwargs,
     ):
-        if response_format not in ["json", "verbose_json"]:
-            raise ValueError(f"Unsupported response format: {response_format}")
         if not self._model_spec.multilingual:
             raise RuntimeError(
                 f"Model {self._model_spec.model_name} is not suitable for translations."
-            )
-        if temperature != 0:
-            logger.warning(
-                "Temperature for whisper transcriptions will be ignored: %s.",
-                temperature,
             )
         if prompt is not None:
             logger.warning(
                 "Prompt for whisper transcriptions will be ignored: %s", prompt
             )
-        result = self._model(
-            audio,
-            generate_kwargs={"task": "translate"},
+        language = kwargs.get("language")
+        timestamp_granularities = kwargs.get("timestamp_granularities")
+        return self._call_model(
+            audio=audio,
+            generate_kwargs=(
+                {"language": language, "task": "translate"}
+                if language is not None
+                else {"task": "translate"}
+            ),
+            response_format=response_format,
+            temperature=temperature,
+            timestamp_granularities=timestamp_granularities,
         )
-        return {"text": result["text"]}
