@@ -17,7 +17,7 @@ import asyncio
 import logging
 import random
 import time
-from typing import AsyncGenerator, List, Tuple
+from typing import List, Tuple
 
 import numpy as np
 
@@ -27,52 +27,71 @@ from utils import sample_requests, get_tokenizer, send_request
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-
 REQUEST_LATENCY: List[Tuple[int, int, float]] = []
 
 
-async def get_request(
-    input_requests: List[Tuple[str, int, int]],
-    request_rate: float,
-) -> AsyncGenerator[Tuple[str, int, int], None]:
-    it = iter(input_requests)
-    for request in it:
-        yield request
+class BenchmarkRunner:
 
-        if request_rate == float("inf"):
-            # If the request rate is infinity, then we don't need to wait.
-            continue
-        # Sample the request interval from the exponential distribution.
-        interval = np.random.exponential(1.0 / request_rate)
-        # The next request will be sent after the interval.
-        await asyncio.sleep(interval)
+    def __init__(
+        self,
+        api_url: str,
+        model_uid: str,
+        input_requests: List[Tuple[str, int, int]],
+        request_rate: float,
+        concurrency: int,
+    ):
 
+        self.api_url = api_url
+        self.model_uid = model_uid
+        self.input_requests = input_requests
+        self.concurrency = concurrency
+        self.request_rate = request_rate
+        self.queue = asyncio.Queue(concurrency or 100)
+        self.left = len(input_requests)
 
-async def benchmark(
-    api_url: str,
-    model_uid: str,
-    input_requests: List[Tuple[str, int, int]],
-    request_rate: float,
-) -> None:
-    tasks: List[asyncio.Task] = []
-    async for request in get_request(input_requests, request_rate):
-        prompt, prompt_len, output_len = request
-        task = asyncio.create_task(
-            send_request(
-                api_url,
-                model_uid,
+    async def run(self):
+        tasks = []
+        for _i in range(0, self.concurrency):
+            tasks.append(asyncio.create_task(self.worker()))
+
+        for req in iter(self.input_requests):
+            if self.request_rate != float("inf"):
+                # If the request rate is infinity, then we don't need to wait.
+                # Sample the request interval from the exponential distribution.
+                interval = np.random.exponential(1.0 / self.request_rate)
+                # The next request will be sent after the interval.
+                await asyncio.sleep(interval)
+            await self.queue.put(req)
+        await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+
+    async def worker(self):
+        """
+        wait request dispatch by run(), and then send_request.
+        When all request is done, most worker will hang on self.queue,
+        but at least one worker will exit"""
+        while self.left > 0:
+            prompt, prompt_len, output_len = await self.queue.get()
+            await send_request(
+                self.api_url,
+                self.model_uid,
                 prompt,
                 prompt_len,
                 output_len,
                 REQUEST_LATENCY,
             )
-        )
-        tasks.append(task)
-    await asyncio.gather(*tasks)
+            self.left -= 1
+            # pring longer space to overwrite the previous when left decrease
+            print("\rdone_request, left %d    " % (self.left), end="")
+        # The last one
+        print("")
 
 
 def main(args: argparse.Namespace):
+    if args.concurrency > args.num_prompts:
+        print("Fix concurrency with num_prompts %d" % (args.num_prompts))
+        args.concurrency = args.num_prompts
     print(args)
+
     random.seed(args.seed)
     np.random.seed(args.seed)
 
@@ -85,14 +104,15 @@ def main(args: argparse.Namespace):
 
     logger.info("Benchmark starts.")
     benchmark_start_time = time.time()
-    asyncio.run(
-        benchmark(
-            api_url,
-            model_uid,
-            input_requests,
-            args.request_rate,
-        )
+
+    benchmark = BenchmarkRunner(
+        api_url,
+        model_uid,
+        input_requests,
+        request_rate=args.request_rate,
+        concurrency=args.concurrency,
     )
+    asyncio.run(benchmark.run())
     benchmark_end_time = time.time()
     benchmark_time = benchmark_end_time - benchmark_start_time
     print(f"Total time: {benchmark_time:.2f} s")
@@ -132,6 +152,13 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--num-prompts", type=int, default=100, help="Number of prompts to process."
+    )
+    parser.add_argument(
+        "--concurrency",
+        "-c",
+        type=int,
+        default=100,
+        help="Set the concurrency of request to send",
     )
     parser.add_argument(
         "--request-rate",
