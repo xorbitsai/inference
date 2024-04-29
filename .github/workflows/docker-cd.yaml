@@ -14,10 +14,10 @@ concurrency:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     strategy:
       matrix:
-        python-version: [ "3.10" ]
+        python-version: [ "3.9" ]
     steps:
       - name: Check out code
         uses: actions/checkout@v3
@@ -38,10 +38,6 @@ jobs:
           DOCKER_ORG: ${{ secrets.DOCKERHUB_USERNAME }}
           PY_VERSION: ${{ matrix.python-version }}
         run: |
-          sudo rm -rf /usr/share/dotnet
-          sudo rm -rf /opt/ghc
-          sudo rm -rf "/usr/local/share/boost"
-          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
           if [[ "$GITHUB_REF" =~ ^"refs/tags/" ]]; then
             export GIT_TAG=$(echo "$GITHUB_REF" | sed -e "s/refs\/tags\///g")
           fi
@@ -73,3 +69,9 @@ jobs:
             docker tag "$DOCKER_ORG/xinference:${GIT_TAG}-cpu" "$DOCKER_ORG/xinference:latest-cpu"
             docker push "$DOCKER_ORG/xinference:latest-cpu"
           fi
+
+      - name: Clean docker image
+        shell: bash
+        if: ${{ github.repository == 'xorbitsai/inference' }}
+        run: |
+          docker rmi -f $(docker images "$DOCKER_ORG/xinference" -q)
