@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-04-28 14:43+0800\n"
+"POT-Creation-Date: 2024-04-30 13:23+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: ja_JP\n"
@@ -15,7 +15,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Generated-By: Babel 2.12.1\n"
+"Generated-By: Babel 2.14.0\n"
 
 #: ../../source/getting_started/using_xinference.rst:5
 msgid "Using Xinference"
@@ -289,74 +289,86 @@ msgstr ""
 msgid "Run On CPU Only Host"
 msgstr ""
 
+#: ../../source/getting_started/using_xinference.rst:373
+msgid ""
+"Replace ``<your_version>`` with Xinference versions, e.g. ``v0.10.3``, "
+"``latest`` can be used for the latest version."
+msgstr ""
+
 #: ../../source/getting_started/using_xinference.rst:375
+msgid ""
+"For more docker usage, refer to :ref:`Using Docker Image "
+"<using_docker_image>`."
+msgstr ""
+
+#: ../../source/getting_started/using_xinference.rst:379
 msgid "Using Xinference On Kubernetes"
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:377
+#: ../../source/getting_started/using_xinference.rst:381
 msgid ""
 "To use Xinference on Kubernetes, `KubeBlocks <https://kubeblocks.io/>`_ "
 "is required to help the installation."
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:379
+#: ../../source/getting_started/using_xinference.rst:383
 msgid "The following steps assume Kubernetes is already installed."
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:381
+#: ../../source/getting_started/using_xinference.rst:385
 msgid ""
 "Download cli tool kbcli for KubeBlocks, see `install kbcli "
 "<https://kubeblocks.io/docs/preview/user_docs/installation/install-with-"
 "kbcli/install-kbcli/>`_."
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:383
+#: ../../source/getting_started/using_xinference.rst:387
 msgid "Make sure kbcli version is at least v0.7.1."
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:385
+#: ../../source/getting_started/using_xinference.rst:389
 msgid ""
 "Install KubeBlocks using kbcli command, see `install KubeBlocks with "
 "kbcli <https://kubeblocks.io/docs/preview/user_docs/installation/install-"
 "with-kbcli/install-kubeblocks-with-kbcli/>`_."
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:387
+#: ../../source/getting_started/using_xinference.rst:391
 msgid "Enable Xinference addon, run the following command:"
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:393
+#: ../../source/getting_started/using_xinference.rst:397
 msgid "Use kbcli to start Xinference cluster, run the following command:"
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:399
+#: ../../source/getting_started/using_xinference.rst:403
 msgid ""
 "If the Kubernetes node doesn't have GPU on it, run the command with extra"
 " flag:"
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:405
+#: ../../source/getting_started/using_xinference.rst:409
 msgid "Use -h to read the help documentation for more options:"
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:412
+#: ../../source/getting_started/using_xinference.rst:416
 msgid "What's Next?"
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:414
+#: ../../source/getting_started/using_xinference.rst:418
 msgid ""
 "Congratulations on getting started with Xinference! To help you navigate "
 "and make the most out of this powerful tool, here are some resources and "
 "guides:"
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:417
+#: ../../source/getting_started/using_xinference.rst:421
 msgid ""
 ":ref:`How to Use Client APIs for Different Types of Models "
 "<user_guide_client_api>`"
 msgstr ""
 
-#: ../../source/getting_started/using_xinference.rst:419
+#: ../../source/getting_started/using_xinference.rst:423
 msgid ":ref:`Choosing the Right Backends for Your Needs <user_guide_backends>`"
 msgstr ""
 
