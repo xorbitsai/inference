@@ -701,7 +701,8 @@ Begin!"""
                     "finish_reason": finish_reason,
                 }
             ],
-            "usage": {
+            "usage": c.get("usage")
+            or {
                 "prompt_tokens": -1,
                 "completion_tokens": -1,
                 "total_tokens": -1,
