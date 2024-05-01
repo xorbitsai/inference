@@ -689,6 +689,15 @@ Begin!"""
         else:
             m = {"role": "assistant", "content": content, "tool_calls": []}
             finish_reason = "stop"
+        try:
+            usage = c.get("usage")
+            assert "prompt_tokens" in usage
+        except Exception:
+            usage = {
+                "prompt_tokens": -1,
+                "completion_tokens": -1,
+                "total_tokens": -1,
+            }
         return {
             "id": "chat" + f"cmpl-{_id}",
             "model": model_uid,
@@ -701,12 +710,7 @@ Begin!"""
                     "finish_reason": finish_reason,
                 }
             ],
-            "usage": c.get("usage")
-            or {
-                "prompt_tokens": -1,
-                "completion_tokens": -1,
-                "total_tokens": -1,
-            },
+            "usage": usage,
         }
 
 
