@@ -82,3 +82,25 @@ async def test_metrics_exporter_server(setup_cluster):
     response = requests.get(metrics_exporter_address)
     assert response.ok
     assert 'xinference:input_tokens_total_counter{model="orca"} 1' in response.text
+
+
+async def test_metrics_exporter_data(setup_cluster):
+    endpoint, metrics_exporter_address, supervisor_address = setup_cluster
+
+    from ...client import Client
+
+    client = Client(endpoint)
+
+    model_uid = client.launch_model(
+        model_name="orca",
+        model_size_in_billions=3,
+        model_format="ggmlv3",
+        quantization="q4_0",
+    )
+
+    model = client.get_model(model_uid)
+    response = model.chat("write a poem.")
+
+    response = requests.get(metrics_exporter_address)
+    assert response.ok
+    assert 'format="ggmlv3",model="orca"' in response.text
