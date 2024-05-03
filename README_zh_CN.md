@@ -32,11 +32,11 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 - 支持多模态模型：[#829](https://github.com/xorbitsai/inference/pull/829)
 ### 新模型
 - 内置 [Llama 3](https://github.com/meta-llama/llama3): [#1332](https://github.com/xorbitsai/inference/pull/1332)
+- 内置 [Qwen1.5 110B](https://huggingface.co/Qwen/Qwen1.5-110B-Chat): [#1388](https://github.com/xorbitsai/inference/pull/1388)
 - 内置 [Mixtral-8x22B-instruct-v0.1](https://huggingface.co/mistralai/Mixtral-8x22B-Instruct-v0.1): [#1340](https://github.com/xorbitsai/inference/pull/1340)
 - 内置 [Command-R](https://huggingface.co/CohereForAI/c4ai-command-r-v01): [#1310](https://github.com/xorbitsai/inference/pull/1310)
 - 内置 [Qwen1.5 MOE](https://huggingface.co/Qwen/Qwen1.5-MoE-A2.7B-Chat): [#1263](https://github.com/xorbitsai/inference/pull/1263)
 - 内置 [Qwen1.5 32B](https://huggingface.co/Qwen/Qwen1.5-32B-Chat): [#1249](https://github.com/xorbitsai/inference/pull/1249)
-- 内置 [OmniLMM](https://github.com/OpenBMB/OmniLMM): [#1171](https://github.com/xorbitsai/inference/pull/1171)
 ### 集成
 - [FastGPT](https://doc.fastai.site/docs/development/custom-models/xinference/)：一个基于 LLM 大模型的开源 AI 知识库构建平台。提供了开箱即用的数据处理、模型调用、RAG 检索、可视化 AI 工作流编排等能力，帮助您轻松实现复杂的问答场景。
 - [Dify](https://docs.dify.ai/advanced/model-configuration/xinference): 一个涵盖了大型语言模型开发、部署、维护和优化的 LLMOps 平台。

@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-04-28 14:43+0800\n"
+"POT-Creation-Date: 2024-04-30 13:23+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -15,7 +15,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Generated-By: Babel 2.12.1\n"
+"Generated-By: Babel 2.14.0\n"
 
 #: ../../source/getting_started/using_xinference.rst:5
 msgid "Using Xinference"
@@ -339,11 +339,24 @@ msgstr "在拥有英伟达显卡的机器上运行"
 msgid "Run On CPU Only Host"
 msgstr "在只有 CPU 的机器上运行"
 
+#: ../../source/getting_started/using_xinference.rst:373
+msgid ""
+"Replace ``<your_version>`` with Xinference versions, e.g. ``v0.10.3``, "
+"``latest`` can be used for the latest version."
+msgstr "将 ``<your_version>`` 替换为 Xinference 的版本，比如 ``v0.10.3``，"
+"可以用 ``latest`` 来用于最新版本。"
+
 #: ../../source/getting_started/using_xinference.rst:375
+msgid ""
+"For more docker usage, refer to :ref:`Using Docker Image "
+"<using_docker_image>`."
+msgstr "更多 docker 使用，请参考 :ref:`使用 docker 镜像 <using_docker_image>`。"
+
+#: ../../source/getting_started/using_xinference.rst:379
 msgid "Using Xinference On Kubernetes"
 msgstr "在 Kubernetes 环境中运行 Xinference"
 
-#: ../../source/getting_started/using_xinference.rst:377
+#: ../../source/getting_started/using_xinference.rst:381
 msgid ""
 "To use Xinference on Kubernetes, `KubeBlocks <https://kubeblocks.io/>`_ "
 "is required to help the installation."
@@ -351,11 +364,11 @@ msgstr ""
 "如果想在 Kubernetes 中运行 Xinference，需要通过 `KubeBlocks <https://"
 "kubeblocks.io/>`_ 来帮助安装。"
 
-#: ../../source/getting_started/using_xinference.rst:379
+#: ../../source/getting_started/using_xinference.rst:383
 msgid "The following steps assume Kubernetes is already installed."
 msgstr "假设已经有一个可以使用的 Kubernetes 环境。"
 
-#: ../../source/getting_started/using_xinference.rst:381
+#: ../../source/getting_started/using_xinference.rst:385
 msgid ""
 "Download cli tool kbcli for KubeBlocks, see `install kbcli "
 "<https://kubeblocks.io/docs/preview/user_docs/installation/install-with-"
@@ -364,11 +377,11 @@ msgstr ""
 "下载 KubeBlocks 的命令行工具，可以参考 `文档 <https://kubeblocks.io/docs/"
 "preview/user_docs/installation/install-with-kbcli/install-kbcli/>`_. "
 
-#: ../../source/getting_started/using_xinference.rst:383
+#: ../../source/getting_started/using_xinference.rst:387
 msgid "Make sure kbcli version is at least v0.7.1."
 msgstr "确保 kbcli 的版本至少为 v0.7.1。"
 
-#: ../../source/getting_started/using_xinference.rst:385
+#: ../../source/getting_started/using_xinference.rst:389
 msgid ""
 "Install KubeBlocks using kbcli command, see `install KubeBlocks with "
 "kbcli <https://kubeblocks.io/docs/preview/user_docs/installation/install-"
@@ -378,29 +391,29 @@ msgstr ""
 "preview/user_docs/installation/install-with-kbcli/install-kubeblocks-with"
 "-kbcli/>`_."
 
-#: ../../source/getting_started/using_xinference.rst:387
+#: ../../source/getting_started/using_xinference.rst:391
 msgid "Enable Xinference addon, run the following command:"
 msgstr "用以下命令打开 Xinference 插件："
 
-#: ../../source/getting_started/using_xinference.rst:393
+#: ../../source/getting_started/using_xinference.rst:397
 msgid "Use kbcli to start Xinference cluster, run the following command:"
 msgstr "使用 kbcli 来拉起 Xinference 集群："
 
-#: ../../source/getting_started/using_xinference.rst:399
+#: ../../source/getting_started/using_xinference.rst:403
 msgid ""
 "If the Kubernetes node doesn't have GPU on it, run the command with extra"
 " flag:"
 msgstr "如果 Kubernetes 节点没有 GPU 设备，需要加上额外的参数："
 
-#: ../../source/getting_started/using_xinference.rst:405
+#: ../../source/getting_started/using_xinference.rst:409
 msgid "Use -h to read the help documentation for more options:"
 msgstr "使用 -h 获取帮助文档"
 
-#: ../../source/getting_started/using_xinference.rst:412
+#: ../../source/getting_started/using_xinference.rst:416
 msgid "What's Next?"
 msgstr "更多"
 
-#: ../../source/getting_started/using_xinference.rst:414
+#: ../../source/getting_started/using_xinference.rst:418
 msgid ""
 "Congratulations on getting started with Xinference! To help you navigate "
 "and make the most out of this powerful tool, here are some resources and "
@@ -409,13 +422,13 @@ msgstr ""
 "恭喜你，已经初步掌握了 Xinference 的用法！为了帮助你更好地使用工具，下面"
 "是其他的一些文档和指导资源："
 
-#: ../../source/getting_started/using_xinference.rst:417
+#: ../../source/getting_started/using_xinference.rst:421
 msgid ""
 ":ref:`How to Use Client APIs for Different Types of Models "
 "<user_guide_client_api>`"
 msgstr ":ref:`如何使用 Python 创建不同类型的模型 <user_guide_client_api>`"
 
-#: ../../source/getting_started/using_xinference.rst:419
+#: ../../source/getting_started/using_xinference.rst:423
 msgid ":ref:`Choosing the Right Backends for Your Needs <user_guide_backends>`"
 msgstr ":ref:`选择正确的推理引擎 <user_guide_backends>` "
 

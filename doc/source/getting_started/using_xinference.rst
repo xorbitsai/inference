@@ -361,14 +361,18 @@ Run On Nvidia GPU Host
 
 .. code-block:: bash
 
-  docker run -p 9997:9997 --rm --gpus all xprobe/xinference:latest
+  docker run -e XINFERENCE_MODEL_SRC=modelscope -p 9998:9997 --gpus all xprobe/xinference:<your_version> xinference-local -H 0.0.0.0 --log-level debug
 
 Run On CPU Only Host
 -----------------------
 
 .. code-block:: bash
 
-  docker run -p 9997:9997 --rm xprobe/xinference:latest-cpu
+  docker run -e XINFERENCE_MODEL_SRC=modelscope -p 9998:9997 xprobe/xinference:<your_version>-cpu xinference-local -H 0.0.0.0 --log-level debug
+
+Replace ``<your_version>`` with Xinference versions, e.g. ``v0.10.3``, ``latest`` can be used for the latest version.
+
+For more docker usage, refer to :ref:`Using Docker Image <using_docker_image>`.
 
 
 Using Xinference On Kubernetes
