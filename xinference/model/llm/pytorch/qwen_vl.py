@@ -25,6 +25,9 @@ from ....types import (
     ChatCompletionChoice,
     ChatCompletionChunk,
     ChatCompletionMessage,
+    Completion,
+    CompletionChoice,
+    CompletionChunk,
     CompletionUsage,
 )
 from ..llm_family import LLMFamilyV1, LLMSpecV1
@@ -116,10 +119,6 @@ class QwenVLChatModel(PytorchChatModel):
         chat_history: Optional[List[ChatCompletionMessage]] = None,
         generate_config: Optional[PytorchGenerateConfig] = None,
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
-        if generate_config and generate_config.get("stream"):
-            raise Exception(
-                f"Chat with model {self.model_family.model_name} does not support stream."
-            )
         prompt = self._message_content_to_qwen(prompt)
         # Convert openai history to qwen vl history
         qwen_history = []
@@ -134,18 +133,29 @@ class QwenVLChatModel(PytorchChatModel):
             if len(query_to_response) == 2:
                 qwen_history.append(query_to_response)
                 query_to_response = []
+
+        stream = generate_config.get("stream", False)
+
+        if stream:
+            it = self._generate_stream(prompt, qwen_history)
+            return self._to_chat_completion_chunks(it)
+        else:
+            c = self._generate(prompt, qwen_history)
+            return self._to_chat_completion(c)
+
+    def _generate(self, prompt: str, qwen_history: List)->ChatCompletion:
         response, history = self._model.chat(
-            self._tokenizer, query=prompt, history=qwen_history
-        )
-        return ChatCompletion(
-            id="chat" + str(uuid.uuid1()),
+                self._tokenizer, query=prompt, history=qwen_history
+            )
+        c = Completion(
+            id=str(uuid.uuid1()),
             object="chat.completion",
             created=int(time.time()),
             model=self.model_uid,
             choices=[
-                ChatCompletionChoice(
+                CompletionChoice(
                     index=0,
-                    message={"role": "assistant", "content": response},
+                    text=response,
                     finish_reason="stop",
                 )
             ],
@@ -153,3 +163,47 @@ class QwenVLChatModel(PytorchChatModel):
                 prompt_tokens=-1, completion_tokens=-1, total_tokens=-1
             ),
         )
+        return c
+
+    def _generate_stream(self, prompt: str, qwen_history: List)-> Iterator[ChatCompletionChunk]:
+            # response, history = model.chat(tokenizer, message, history=history)
+            response_generator = self._model.chat_stream(self._tokenizer, query=prompt, history=qwen_history)
+            full_response = ''
+            for response in response_generator:
+                inc_content = response[len(full_response):]
+                full_response = response
+                completion_choice = CompletionChoice(
+                    text=inc_content, index=0, logprobs=None, finish_reason=None
+                )
+                completion_chunk = CompletionChunk(
+                    id=str(uuid.uuid1()),
+                    object="text_completion",
+                    created=int(time.time()),
+                    model=self.model_uid,
+                    choices=[completion_choice],
+                )
+                completion_usage = CompletionUsage(
+                    prompt_tokens=-1,
+                    completion_tokens=-1,
+                    total_tokens=-1,
+                )
+                completion_chunk["usage"] = completion_usage
+                yield completion_chunk
+
+            completion_choice = CompletionChoice(
+                text="", index=0, logprobs=None, finish_reason="stop"
+            )
+            completion_chunk = CompletionChunk(
+                id=str(uuid.uuid1()),
+                object="text_completion",
+                created=int(time.time()),
+                model=self.model_uid,
+                choices=[completion_choice],
+            )
+            completion_usage = CompletionUsage(
+                prompt_tokens=-1,
+                completion_tokens=-1,
+                total_tokens=-1,
+            )
+            completion_chunk["usage"] = completion_usage
+            yield completion_chunk
