@@ -57,6 +57,7 @@ async def test_opt_pytorch_model(setup, quantization):
         with pytest.raises(ValueError):
             client.launch_model(
                 model_name="opt",
+                model_engine="PyTorch",
                 model_size_in_billions=1,
                 model_format="pytorch",
                 quantization=quantization,
@@ -65,6 +66,7 @@ async def test_opt_pytorch_model(setup, quantization):
     else:
         model_uid = client.launch_model(
             model_name="opt",
+            model_engine="PyTorch",
             model_size_in_billions=1,
             model_format="pytorch",
             quantization=quantization,

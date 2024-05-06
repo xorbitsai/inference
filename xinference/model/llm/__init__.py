@@ -32,9 +32,7 @@ from .llm_family import (
     BUILTIN_LLM_PROMPT_STYLE,
     BUILTIN_MODELSCOPE_LLM_FAMILIES,
     LLAMA_CLASSES,
-    LLM_CLASSES,
     LLM_ENGINES,
-    PEFT_SUPPORTED_CLASSES,
     PYTORCH_CLASSES,
     SGLANG_CLASSES,
     SUPPORTED_ENGINES,
@@ -48,7 +46,6 @@ from .llm_family import (
     get_cache_status,
     get_user_defined_llm_families,
     match_llm,
-    match_llm_cls,
     register_llm,
     unregister_llm,
 )
@@ -123,17 +120,6 @@ def _install():
         warnings.warn(f"Cannot import OmniLLMModel due to reason: {e}")
 
     # register llm classes.
-    LLM_CLASSES.extend(
-        [
-            LlamaCppChatModel,
-            LlamaCppModel,
-        ]
-    )
-    LLM_CLASSES.extend(
-        [
-            ChatglmCppChatModel,
-        ]
-    )
     LLAMA_CLASSES.extend(
         [
             ChatglmCppChatModel,
@@ -141,27 +127,8 @@ def _install():
             LlamaCppModel,
         ]
     )
-    LLM_CLASSES.extend([SGLANGModel, SGLANGChatModel])
     SGLANG_CLASSES.extend([SGLANGModel, SGLANGChatModel])
-    LLM_CLASSES.extend([VLLMModel, VLLMChatModel])
     VLLM_CLASSES.extend([VLLMModel, VLLMChatModel])
-    LLM_CLASSES.extend(
-        [
-            BaichuanPytorchChatModel,
-            VicunaPytorchChatModel,
-            FalconPytorchChatModel,
-            ChatglmPytorchChatModel,
-            LlamaPytorchModel,
-            LlamaPytorchChatModel,
-            PytorchChatModel,
-            FalconPytorchModel,
-            Internlm2PytorchChatModel,
-            QwenVLChatModel,
-            YiVLChatModel,
-            DeepSeekVLChatModel,
-            PytorchModel,
-        ]
-    )
     PYTORCH_CLASSES.extend(
         [
             BaichuanPytorchChatModel,
@@ -180,24 +147,7 @@ def _install():
         ]
     )
     if OmniLMMModel:  # type: ignore
-        LLM_CLASSES.append(OmniLMMModel)
         PYTORCH_CLASSES.append(OmniLMMModel)
-    PEFT_SUPPORTED_CLASSES.extend(
-        [
-            BaichuanPytorchChatModel,
-            VicunaPytorchChatModel,
-            FalconPytorchChatModel,
-            ChatglmPytorchChatModel,
-            LlamaPytorchModel,
-            LlamaPytorchChatModel,
-            PytorchChatModel,
-            FalconPytorchModel,
-            Internlm2PytorchChatModel,
-            QwenVLChatModel,
-            YiVLChatModel,
-            PytorchModel,
-        ]
-    )
 
     # support 4 engines for now
     SUPPORTED_ENGINES["vLLM"] = VLLM_CLASSES

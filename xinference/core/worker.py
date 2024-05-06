@@ -80,7 +80,7 @@ class WorkerActor(xo.StatelessActor):
             int, Set[Tuple[str, str]]
         ] = defaultdict(set)
         self._model_uid_to_addr: Dict[str, str] = {}
-        self._model_uid_to_recover_count: Dict[str, int] = {}
+        self._model_uid_to_recover_count: Dict[str, Optional[int]] = {}
         self._model_uid_to_launch_args: Dict[str, Dict] = {}
 
         # metrics export server.
@@ -550,7 +550,6 @@ class WorkerActor(xo.StatelessActor):
             draft_model_name=draft_model_name,
             draft_model_size_in_billions=draft_model_size_in_billions,
             draft_quantization=draft_quantization,
-            is_local_deployment=True,
         )
 
         try:
@@ -616,6 +615,7 @@ class WorkerActor(xo.StatelessActor):
         model_size_in_billions: Optional[Union[int, str]],
         model_format: Optional[str],
         quantization: Optional[str],
+        model_engine: Optional[str],
         model_type: str = "LLM",
         n_gpu: Optional[Union[int, str]] = "auto",
         peft_model_config: Optional[PeftModelConfig] = None,
@@ -672,8 +672,6 @@ class WorkerActor(xo.StatelessActor):
 
         assert model_uid not in self._model_uid_to_model
         self._check_model_is_valid(model_name, model_format)
-        assert self._supervisor_ref is not None
-        is_local_deployment = await self._supervisor_ref.is_local_deployment()
 
         subpool_address, devices = await self._create_subpool(
             model_uid, model_type, n_gpu=n_gpu, gpu_idx=gpu_idx
@@ -688,11 +686,11 @@ class WorkerActor(xo.StatelessActor):
                 model_uid,
                 model_type,
                 model_name,
+                model_engine,
                 model_format,
                 model_size_in_billions,
                 quantization,
                 peft_model_config,
-                is_local_deployment,
                 **kwargs,
             )
             await self.update_cache_status(model_name, model_description)
