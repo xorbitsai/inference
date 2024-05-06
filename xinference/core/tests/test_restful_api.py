@@ -813,6 +813,8 @@ def test_restful_api_for_qwen_tool_calls(setup, model_format, quantization):
         "arguments"
     ]
     assert not json.loads(arguments)
+    assert completion["usage"]
+    assert completion["usage"]["prompt_tokens"] != -1
 
     # tool
     tools = [
