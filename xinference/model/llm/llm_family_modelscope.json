@@ -2296,7 +2296,7 @@
   },
   {
     "version": 1,
-    "context_length": 32768,
+    "context_length": 65536,
     "model_name": "codeqwen1.5-chat",
     "model_lang": [
       "en",
