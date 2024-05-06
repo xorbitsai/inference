@@ -129,7 +129,7 @@ def health_check(address: str, max_attempts: int, sleep_interval: int = 3) -> bo
             try:
                 from xinference.core.supervisor import SupervisorActor
 
-                supervisor_ref: xo.ActorRefType[SupervisorActor] = await xo.actor_ref(
+                supervisor_ref: xo.ActorRefType[SupervisorActor] = await xo.actor_ref(  # type: ignore
                     address=address, uid=SupervisorActor.uid()
                 )
 

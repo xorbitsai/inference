@@ -599,6 +599,13 @@ def list_model_registrations(
     help="Specify type of model, LLM as default.",
 )
 @click.option(
+    "--model-engine",
+    "-en",
+    type=str,
+    default=None,
+    help="Specify the inference engine of the model when launching LLM.",
+)
+@click.option(
     "--model-uid",
     "-u",
     type=str,
@@ -691,6 +698,7 @@ def model_launch(
     endpoint: Optional[str],
     model_name: str,
     model_type: str,
+    model_engine: Optional[str],
     model_uid: str,
     size_in_billions: str,
     model_format: str,
@@ -711,6 +719,9 @@ def model_launch(
             raise ValueError("You must specify extra kwargs with `--` prefix.")
         kwargs[ctx.args[i][2:]] = handle_click_args_type(ctx.args[i + 1])
     print(f"Launch model name: {model_name} with kwargs: {kwargs}", file=sys.stderr)
+
+    if model_type == "LLM" and model_engine is None:
+        raise ValueError("--model-engine is required for LLM models.")
 
     if n_gpu.lower() == "none":
         _n_gpu: Optional[Union[int, str]] = None
@@ -765,6 +776,7 @@ def model_launch(
     model_uid = client.launch_model(
         model_name=model_name,
         model_type=model_type,
+        model_engine=model_engine,
         model_uid=model_uid,
         model_size_in_billions=model_size,
         model_format=model_format,
@@ -1201,6 +1213,96 @@ def cluster_login(
         hashed_ep = get_hash_endpoint(endpoint)
         with open(os.path.join(XINFERENCE_AUTH_DIR, hashed_ep), "w") as f:
             f.write(access_token)
+
+
+@cli.command(name="engine", help="Query engine parameters by model name.")
+@click.option("--model-name", type=str, required=True, help="Model name.")
+@click.option("--model_engine", type=str, default=None, help="Model engine.")
+@click.option("--model_format", type=str, default=None, help="Model format.")
+@click.option(
+    "--model_size_in_billions", type=str, default=None, help="Model size in billions."
+)
+@click.option("--quantization", type=str, default=None, help="Quantization.")
+@click.option("--endpoint", "-e", type=str, help="Xinference endpoint.")
+@click.option(
+    "--api-key",
+    "-ak",
+    default=None,
+    type=str,
+    help="Api-Key for access xinference api with authorization.",
+)
+def query_engine_by_model_name(
+    model_name: str,
+    model_engine: Optional[str],
+    model_format: Optional[str],
+    model_size_in_billions: Optional[Union[str, int]],
+    quantization: Optional[str],
+    endpoint: Optional[str],
+    api_key: Optional[str],
+):
+    from tabulate import tabulate
+
+    endpoint = get_endpoint(endpoint)
+    client = RESTfulClient(base_url=endpoint, api_key=api_key)
+    if api_key is None:
+        client._set_token(get_stored_token(endpoint, client))
+
+    llm_engines = client.query_engine_by_model_name(model_name)
+    if model_engine is not None and model_engine not in llm_engines:
+        raise ValueError(f"Model {model_name} cannot be run on engine {model_engine}.")
+
+    table = []
+    engines = [model_engine] if model_engine is not None else list(llm_engines.keys())
+    for engine in engines:
+        params = llm_engines[engine]
+        for param in params:
+            if (
+                (model_format is None or model_format == param["model_format"])
+                and (
+                    model_size_in_billions is None
+                    or model_size_in_billions == str(param["model_size_in_billions"])
+                )
+                and (quantization is None or quantization in param["quantizations"])
+            ):
+                if quantization is not None:
+                    table.append(
+                        [
+                            model_name,
+                            engine,
+                            param["model_format"],
+                            param["model_size_in_billions"],
+                            quantization,
+                        ]
+                    )
+                else:
+                    for quant in param["quantizations"]:
+                        table.append(
+                            [
+                                model_name,
+                                engine,
+                                param["model_format"],
+                                param["model_size_in_billions"],
+                                quant,
+                            ]
+                        )
+    if len(table) == 0:
+        raise ValueError(
+            f"Cannot find parameters for Model {model_name} with format {model_format}, size {model_size_in_billions} and quantization {quantization} on engine {model_engine}."
+        )
+    else:
+        print(
+            tabulate(
+                table,
+                headers=[
+                    "Name",
+                    "Engine",
+                    "Format",
+                    "Size (in billions)",
+                    "Quantization",
+                ],
+            ),
+            file=sys.stderr,
+        )
 
 
 if __name__ == "__main__":

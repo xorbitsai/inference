@@ -65,6 +65,7 @@ def test_cmdline(setup, stream, model_uid):
     original_model_uid = model_uid
     model_uid = client.launch_model(
         model_name="orca",
+        model_engine="llama-cpp-python",
         model_uid=model_uid,
         model_size_in_billions=3,
         quantization="q4_0",
@@ -247,6 +248,7 @@ def test_rotate_logs(setup_with_file_logging):
     replica = 1 if os.name == "nt" else 2
     model_uid = client.launch_model(
         model_name="orca",
+        model_engine="llama-cpp-python",
         model_uid=None,
         model_size_in_billions=3,
         quantization="q4_0",

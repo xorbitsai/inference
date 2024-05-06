@@ -808,6 +808,7 @@ class Client:
         self,
         model_name: str,
         model_type: str = "LLM",
+        model_engine: Optional[str] = None,
         model_uid: Optional[str] = None,
         model_size_in_billions: Optional[Union[int, str, float]] = None,
         model_format: Optional[str] = None,
@@ -829,6 +830,8 @@ class Client:
             The name of model.
         model_type: str
             type of model.
+        model_engine: Optional[str]
+            Specify the inference engine of the model when launching LLM.
         model_uid: str
             UID of model, auto generate a UUID if is None.
         model_size_in_billions: Optional[Union[int, str, float]]
@@ -872,6 +875,7 @@ class Client:
         payload = {
             "model_uid": model_uid,
             "model_name": model_name,
+            "model_engine": model_engine,
             "peft_model_config": peft_model_config,
             "model_type": model_type,
             "model_size_in_billions": model_size_in_billions,
@@ -1153,6 +1157,29 @@ class Client:
         if response.status_code != 200:
             raise RuntimeError(
                 f"Failed to list model registration, detail: {_get_error_string(response)}"
+            )
+
+        response_data = response.json()
+        return response_data
+
+    def query_engine_by_model_name(self, model_name: str):
+        """
+        Get the engine parameters with the model name registered on the server.
+
+        Parameters
+        ----------
+        model_name: str
+            The name of the model.
+        Returns
+        -------
+        Dict[str, List[Dict[str, Any]]]
+            The supported engine parameters of registered models on the server.
+        """
+        url = f"{self.base_url}/v1/engines/{model_name}"
+        response = requests.get(url, headers=self._headers)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to query engine parameters by model name, detail: {_get_error_string(response)}"
             )
 
         response_data = response.json()

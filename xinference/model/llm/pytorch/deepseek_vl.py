@@ -67,12 +67,12 @@ class DeepSeekVLChatModel(PytorchChatModel):
         self._type = torch.float16 if self._device == "mps" else torch.bfloat16
 
         # specify the path to the model
-        self._vl_chat_processor: VLChatProcessor = VLChatProcessor.from_pretrained(
+        self._vl_chat_processor: VLChatProcessor = VLChatProcessor.from_pretrained(  # type: ignore
             self.model_path
         )
         self._tokenizer = self._vl_chat_processor.tokenizer
 
-        vl_gpt: MultiModalityCausalLM = AutoModelForCausalLM.from_pretrained(
+        vl_gpt: MultiModalityCausalLM = AutoModelForCausalLM.from_pretrained(  # type: ignore
             self.model_path, trust_remote_code=True, device_map=self._device
         )
         self._model = vl_gpt.to(self._type).eval()
