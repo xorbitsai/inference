@@ -15,6 +15,7 @@
 import codecs
 import json
 import os
+import warnings
 
 from .core import (
     LLM,
@@ -107,12 +108,19 @@ def _install():
     from .pytorch.falcon import FalconPytorchChatModel, FalconPytorchModel
     from .pytorch.internlm2 import Internlm2PytorchChatModel
     from .pytorch.llama_2 import LlamaPytorchChatModel, LlamaPytorchModel
-    from .pytorch.omnilmm import OmniLMMModel
     from .pytorch.qwen_vl import QwenVLChatModel
     from .pytorch.vicuna import VicunaPytorchChatModel
     from .pytorch.yi_vl import YiVLChatModel
     from .sglang.core import SGLANGChatModel, SGLANGModel
     from .vllm.core import VLLMChatModel, VLLMModel
+
+    try:
+        from .pytorch.omnilmm import OmniLMMModel
+    except ImportError as e:
+        # For quite old transformers version,
+        # import will generate error
+        OmniLMMModel = None
+        warnings.warn(f"Cannot import OmniLLMModel due to reason: {e}")
 
     # register llm classes.
     LLM_CLASSES.extend(
@@ -149,7 +157,6 @@ def _install():
             FalconPytorchModel,
             Internlm2PytorchChatModel,
             QwenVLChatModel,
-            OmniLMMModel,
             YiVLChatModel,
             DeepSeekVLChatModel,
             PytorchModel,
@@ -167,12 +174,14 @@ def _install():
             FalconPytorchModel,
             Internlm2PytorchChatModel,
             QwenVLChatModel,
-            OmniLMMModel,
             YiVLChatModel,
             DeepSeekVLChatModel,
             PytorchModel,
         ]
     )
+    if OmniLMMModel:  # type: ignore
+        LLM_CLASSES.append(OmniLMMModel)
+        PYTORCH_CLASSES.append(OmniLMMModel)
     PEFT_SUPPORTED_CLASSES.extend(
         [
             BaichuanPytorchChatModel,

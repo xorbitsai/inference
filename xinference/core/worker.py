@@ -34,7 +34,7 @@ from ..constants import (
 )
 from ..core import ModelActor
 from ..core.status_guard import LaunchStatus
-from ..device_utils import gpu_count
+from ..device_utils import get_available_device_env_name, gpu_count
 from ..model.core import ModelDescription, create_model_instance
 from ..types import PeftModelConfig
 from .event import Event, EventCollectorActor, EventType
@@ -166,22 +166,22 @@ class WorkerActor(xo.StatelessActor):
         from .status_guard import StatusGuardActor
         from .supervisor import SupervisorActor
 
-        self._status_guard_ref: xo.ActorRefType[
+        self._status_guard_ref: xo.ActorRefType[  # type: ignore
             "StatusGuardActor"
         ] = await xo.actor_ref(
             address=self._supervisor_address, uid=StatusGuardActor.uid()
         )
-        self._event_collector_ref: xo.ActorRefType[
+        self._event_collector_ref: xo.ActorRefType[  # type: ignore
             EventCollectorActor
         ] = await xo.actor_ref(
             address=self._supervisor_address, uid=EventCollectorActor.uid()
         )
-        self._cache_tracker_ref: xo.ActorRefType[
+        self._cache_tracker_ref: xo.ActorRefType[  # type: ignore
             "CacheTrackerActor"
         ] = await xo.actor_ref(
             address=self._supervisor_address, uid=CacheTrackerActor.uid()
         )
-        self._supervisor_ref: xo.ActorRefType["SupervisorActor"] = await xo.actor_ref(
+        self._supervisor_ref: xo.ActorRefType["SupervisorActor"] = await xo.actor_ref(  # type: ignore
             address=self._supervisor_address, uid=SupervisorActor.uid()
         )
         await self._supervisor_ref.add_worker(self.address)
@@ -227,7 +227,7 @@ class WorkerActor(xo.StatelessActor):
             unregister_rerank,
         )
 
-        self._custom_register_type_to_cls: Dict[str, Tuple] = {
+        self._custom_register_type_to_cls: Dict[str, Tuple] = {  # type: ignore
             "LLM": (CustomLLMFamilyV1, register_llm, unregister_llm),
             "embedding": (
                 CustomEmbeddingModelSpec,
@@ -244,7 +244,7 @@ class WorkerActor(xo.StatelessActor):
         }
 
         # record model version
-        model_version_infos: Dict[str, List[Dict]] = {}
+        model_version_infos: Dict[str, List[Dict]] = {}  # type: ignore
         model_version_infos.update(get_llm_model_descriptions())
         model_version_infos.update(get_embedding_model_descriptions())
         model_version_infos.update(get_rerank_model_descriptions())
@@ -447,6 +447,7 @@ class WorkerActor(xo.StatelessActor):
     ) -> Tuple[str, List[str]]:
         env = {}
         devices = []
+        env_name = get_available_device_env_name()
         if gpu_idx is None:
             if isinstance(n_gpu, int) or (n_gpu == "auto" and gpu_count() > 0):
                 # Currently, n_gpu=auto means using 1 GPU
@@ -456,17 +457,17 @@ class WorkerActor(xo.StatelessActor):
                     if model_type in ["embedding", "rerank"]
                     else self.allocate_devices(model_uid=model_uid, n_gpu=gpu_cnt)
                 )
-                env["CUDA_VISIBLE_DEVICES"] = ",".join([str(dev) for dev in devices])
+                env[env_name] = ",".join([str(dev) for dev in devices])
                 logger.debug(f"GPU selected: {devices} for model {model_uid}")
             if n_gpu is None:
-                env["CUDA_VISIBLE_DEVICES"] = "-1"
+                env[env_name] = "-1"
                 logger.debug(f"GPU disabled for model {model_uid}")
         else:
             assert isinstance(gpu_idx, list)
             devices = await self.allocate_devices_with_gpu_idx(
                 model_uid, model_type, gpu_idx  # type: ignore
             )
-            env["CUDA_VISIBLE_DEVICES"] = ",".join([str(dev) for dev in devices])
+            env[env_name] = ",".join([str(dev) for dev in devices])
 
         if os.name != "nt" and platform.system() != "Darwin":
             # Linux
