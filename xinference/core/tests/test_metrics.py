@@ -96,6 +96,7 @@ async def test_metrics_exporter_data(setup_cluster):
 
     model_uid = client.launch_model(
         model_name="orca",
+        model_engine="llama-cpp-python",
         model_size_in_billions=3,
         model_format="ggmlv3",
         quantization="q4_0",
