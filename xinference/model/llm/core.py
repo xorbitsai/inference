@@ -19,6 +19,7 @@ import os
 import platform
 from abc import abstractmethod
 from collections import defaultdict
+from functools import lru_cache
 from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, Union
 
 from ...core.utils import parse_replica_model_uid
@@ -82,6 +83,7 @@ class LLM(abc.ABC):
         return platform.system() == "Linux"
 
     @staticmethod
+    @lru_cache
     def _has_cuda_device():
         """
         Use pynvml to impl this interface.
@@ -104,6 +106,7 @@ class LLM(abc.ABC):
         return device_count > 0
 
     @staticmethod
+    @lru_cache
     def _get_cuda_count():
         from ...utils import cuda_count
 
