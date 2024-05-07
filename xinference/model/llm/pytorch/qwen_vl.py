@@ -142,20 +142,18 @@ class QwenVLChatModel(PytorchChatModel):
             c = self._generate(prompt, qwen_history)
             return self._to_chat_completion(c)
 
-    def _generate(self, prompt: str, qwen_history: List) -> ChatCompletion:
+    def _generate(self, prompt: str, qwen_history: List) -> Completion:
         response, history = self._model.chat(
             self._tokenizer, query=prompt, history=qwen_history
         )
         c = Completion(
             id=str(uuid.uuid1()),
-            object="chat.completion",
+            object="text_completion",
             created=int(time.time()),
             model=self.model_uid,
             choices=[
                 CompletionChoice(
-                    index=0,
-                    text=response,
-                    finish_reason="stop",
+                    index=0, text=response, finish_reason="stop", logprobs=None
                 )
             ],
             usage=CompletionUsage(
@@ -166,7 +164,7 @@ class QwenVLChatModel(PytorchChatModel):
 
     def _generate_stream(
         self, prompt: str, qwen_history: List
-    ) -> Iterator[ChatCompletionChunk]:
+    ) -> Iterator[CompletionChunk]:
         # response, history = model.chat(tokenizer, message, history=history)
         response_generator = self._model.chat_stream(
             self._tokenizer, query=prompt, history=qwen_history
