@@ -27,9 +27,11 @@ from PIL import Image
 from ....model.utils import select_device
 from ....types import (
     ChatCompletion,
-    ChatCompletionChoice,
     ChatCompletionChunk,
     ChatCompletionMessage,
+    Completion,
+    CompletionChoice,
+    CompletionChunk,
     CompletionUsage,
 )
 from ..llm_family import LLMFamilyV1, LLMSpecV1
@@ -122,38 +124,6 @@ class YiVLChatModel(PytorchChatModel):
                 raise RuntimeError("Only one image per message is supported by Yi VL.")
         return content
 
-    @staticmethod
-    def _parse_text(text):
-        lines = text.split("\n")
-        lines = [line for line in lines if line != ""]
-        count = 0
-        for i, line in enumerate(lines):
-            if "```" in line:
-                count += 1
-                items = line.split("`")
-                if count % 2 == 1:
-                    lines[i] = f'<pre><code class="language-{items[-1]}">'
-                else:
-                    lines[i] = f"<br></code></pre>"
-            else:
-                if i > 0:
-                    if count % 2 == 1:
-                        line = line.replace("`", r"\`")
-                        line = line.replace("<", "&lt;")
-                        line = line.replace(">", "&gt;")
-                        line = line.replace(" ", "&nbsp;")
-                        line = line.replace("*", "&ast;")
-                        line = line.replace("_", "&lowbar;")
-                        line = line.replace("-", "&#45;")
-                        line = line.replace(".", "&#46;")
-                        line = line.replace("!", "&#33;")
-                        line = line.replace("(", "&#40;")
-                        line = line.replace(")", "&#41;")
-                        line = line.replace("$", "&#36;")
-                    lines[i] = "<br>" + line
-        text = "".join(lines)
-        return text
-
     def chat(
         self,
         prompt: Union[str, List[Dict]],
@@ -164,12 +134,12 @@ class YiVLChatModel(PytorchChatModel):
         from transformers import TextIteratorStreamer
 
         # TODO(codingl2k1): implement stream mode.
-        if generate_config and generate_config.get("stream"):
-            raise Exception(
-                f"Chat with model {self.model_family.model_name} does not support stream."
-            )
+
         if not generate_config:
             generate_config = {}
+
+        stream = generate_config.get("stream", False)
+
         from ....thirdparty.llava.conversation import conv_templates
         from ....thirdparty.llava.mm_utils import (
             KeywordsStoppingCriteria,
@@ -229,21 +199,29 @@ class YiVLChatModel(PytorchChatModel):
         t = Thread(target=self._model.generate, kwargs=generate_kwargs)
         t.start()
 
+        if stream:
+            it = self._generate_stream(streamer, stop_str)
+            return self._to_chat_completion_chunks(it)
+        else:
+            c = self._generate(streamer, stop_str)
+            return self._to_chat_completion(c)
+
+
+    def _generate(self, streamer, stop_str)->Completion:
         generated_text = ""
         for new_text in streamer:
             generated_text += new_text
             if generated_text.endswith(stop_str):
                 generated_text = generated_text[: -len(stop_str)]
-        r = self._parse_text(generated_text)
-        return ChatCompletion(
-            id="chat" + str(uuid.uuid1()),
-            object="chat.completion",
+
+        c = Completion(
+            id=str(uuid.uuid1()),
             created=int(time.time()),
             model=self.model_uid,
             choices=[
-                ChatCompletionChoice(
+                CompletionChoice(
                     index=0,
-                    message={"role": "assistant", "content": r},
+                    text=generated_text,
                     finish_reason="stop",
                 )
             ],
@@ -251,3 +229,42 @@ class YiVLChatModel(PytorchChatModel):
                 prompt_tokens=-1, completion_tokens=-1, total_tokens=-1
             ),
         )
+        return c
+
+    def _generate_stream(self, streamer, stop_str)-> Iterator[CompletionChunk]:
+        completion_id = str(uuid.uuid1())
+        for i, new_text in enumerate(streamer):
+            if not new_text.endswith(stop_str):
+                completion_choice = CompletionChoice(
+                    text=new_text, index=0, logprobs=None, finish_reason=None
+                )
+                chunk = CompletionChunk(
+                    id=completion_id,
+                    created=int(time.time()),
+                    model=self.model_uid,
+                    choices=[completion_choice],
+                )
+                completion_usage = CompletionUsage(
+                    prompt_tokens=-1,
+                    completion_tokens=-1,
+                    total_tokens=-1,
+                )
+                chunk["usage"] = completion_usage
+                yield chunk
+
+        completion_choice = CompletionChoice(
+            text="", index=0, logprobs=None, finish_reason="stop"
+        )
+        chunk = CompletionChunk(
+            id=completion_id,
+            created=int(time.time()),
+            model=self.model_uid,
+            choices=[completion_choice],
+        )
+        completion_usage = CompletionUsage(
+            prompt_tokens=-1,
+            completion_tokens=-1,
+            total_tokens=-1,
+        )
+        chunk["usage"] = completion_usage
+        yield chunk
