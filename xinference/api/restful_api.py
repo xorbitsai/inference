@@ -1100,6 +1100,7 @@ class RESTfulAPI:
 
     async def create_transcriptions(
         self,
+        request: Request,
         model: str = Form(...),
         file: UploadFile = File(media_type="application/octet-stream"),
         language: Optional[str] = Form(None),
@@ -1108,6 +1109,10 @@ class RESTfulAPI:
         temperature: Optional[float] = Form(0),
         kwargs: Optional[str] = Form(None),
     ) -> Response:
+        form = await request.form()
+        timestamp_granularities = form.get("timestamp_granularities[]")
+        if timestamp_granularities:
+            timestamp_granularities = [timestamp_granularities]
         model_uid = model
         try:
             model_ref = await (await self._get_supervisor_ref()).get_model(model_uid)
@@ -1131,6 +1136,7 @@ class RESTfulAPI:
                 prompt=prompt,
                 response_format=response_format,
                 temperature=temperature,
+                timestamp_granularities=timestamp_granularities,
                 **parsed_kwargs,
             )
             return Response(content=transcription, media_type="application/json")
@@ -1145,13 +1151,19 @@ class RESTfulAPI:
 
     async def create_translations(
         self,
+        request: Request,
         model: str = Form(...),
         file: UploadFile = File(media_type="application/octet-stream"),
+        language: Optional[str] = Form(None),
         prompt: Optional[str] = Form(None),
         response_format: Optional[str] = Form("json"),
         temperature: Optional[float] = Form(0),
         kwargs: Optional[str] = Form(None),
     ) -> Response:
+        form = await request.form()
+        timestamp_granularities = form.get("timestamp_granularities[]")
+        if timestamp_granularities:
+            timestamp_granularities = [timestamp_granularities]
         model_uid = model
         try:
             model_ref = await (await self._get_supervisor_ref()).get_model(model_uid)
@@ -1171,9 +1183,11 @@ class RESTfulAPI:
                 parsed_kwargs = {}
             translation = await model_ref.translations(
                 audio=await file.read(),
+                language=language,
                 prompt=prompt,
                 response_format=response_format,
                 temperature=temperature,
+                timestamp_granularities=timestamp_granularities,
                 **parsed_kwargs,
             )
             return Response(content=translation, media_type="application/json")
