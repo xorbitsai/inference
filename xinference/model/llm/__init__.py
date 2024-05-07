@@ -54,7 +54,7 @@ from .llm_family import (
 def generate_engine_config_by_model_family(model_family):
     model_name = model_family.model_name
     specs = model_family.model_specs
-    engines = {}  # structure for engine query
+    engines = LLM_ENGINES.get(model_name, {})  # structure for engine query
     for spec in specs:
         model_format = spec.model_format
         model_size_in_billions = spec.model_size_in_billions
@@ -74,9 +74,9 @@ def generate_engine_config_by_model_family(model_family):
                                 and model_format == param["model_format"]
                                 and model_size_in_billions
                                 == param["model_size_in_billions"]
-                                and quantization not in param["quantizations"]
                             ):
-                                param["quantizations"].append(quantization)
+                                if quantization not in param["quantizations"]:
+                                    param["quantizations"].append(quantization)
                                 already_exists = True
                                 break
                         # successfully match the params for the first time, add to the structure
