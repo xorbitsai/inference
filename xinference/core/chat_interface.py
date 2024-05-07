@@ -109,6 +109,7 @@ class GradioInterface:
             history: List[List[str]],
             max_tokens: int,
             temperature: float,
+            lora_name: str,
         ) -> Generator:
             from ..client import RESTfulClient
 
@@ -127,6 +128,7 @@ class GradioInterface:
                     "max_tokens": int(max_tokens),
                     "temperature": temperature,
                     "stream": True,
+                    "lora_name": lora_name,
                 },
             ):
                 assert isinstance(chunk, dict)
@@ -152,6 +154,7 @@ class GradioInterface:
                 gr.Slider(
                     minimum=0, maximum=2, value=1, step=0.01, label="Temperature"
                 ),
+                gr.Text(label="LoRA Name for vLLM"),
             ],
             title=f"🚀 Xinference Chat Bot : {self.model_name} 🚀",
             css="""
