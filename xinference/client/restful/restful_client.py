@@ -18,8 +18,6 @@ from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Union
 
 import requests
 
-from ...model.utils import convert_float_to_int_or_str
-from ...types import LoRA, PeftModelConfig
 from ..common import streaming_response_iterator
 
 if TYPE_CHECKING:
@@ -35,6 +33,17 @@ if TYPE_CHECKING:
         LlamaCppGenerateConfig,
         PytorchGenerateConfig,
     )
+
+
+def convert_float_to_int_or_str(model_size: float) -> Union[int, str]:
+    """convert float to int or string
+
+    if float can be presented as int, convert it to int, otherwise convert it to string
+    """
+    if int(model_size) == model_size:
+        return int(model_size)
+    else:
+        return str(model_size)
 
 
 def _get_error_string(response: requests.Response) -> str:
@@ -799,6 +808,7 @@ class Client:
         self,
         model_name: str,
         model_type: str = "LLM",
+        model_engine: Optional[str] = None,
         model_uid: Optional[str] = None,
         model_size_in_billions: Optional[Union[int, str, float]] = None,
         model_format: Optional[str] = None,
@@ -820,6 +830,8 @@ class Client:
             The name of model.
         model_type: str
             type of model.
+        model_engine: Optional[str]
+            Specify the inference engine of the model when launching LLM.
         model_uid: str
             UID of model, auto generate a UUID if is None.
         model_size_in_billions: Optional[Union[int, str, float]]
@@ -856,18 +868,6 @@ class Client:
 
         url = f"{self.base_url}/v1/models"
 
-        if peft_model_config is not None:
-            lora_list = [
-                LoRA.from_dict(model) for model in peft_model_config["lora_list"]
-            ]
-            peft_model = PeftModelConfig(
-                lora_list,
-                peft_model_config["image_lora_load_kwargs"],
-                peft_model_config["image_lora_fuse_kwargs"],
-            )
-        else:
-            peft_model = None
-
         # convert float to int or string since the RESTful API does not accept float.
         if isinstance(model_size_in_billions, float):
             model_size_in_billions = convert_float_to_int_or_str(model_size_in_billions)
@@ -875,7 +875,8 @@ class Client:
         payload = {
             "model_uid": model_uid,
             "model_name": model_name,
-            "peft_model_config": peft_model.to_dict() if peft_model else None,
+            "model_engine": model_engine,
+            "peft_model_config": peft_model_config,
             "model_type": model_type,
             "model_size_in_billions": model_size_in_billions,
             "model_format": model_format,
@@ -1156,6 +1157,29 @@ class Client:
         if response.status_code != 200:
             raise RuntimeError(
                 f"Failed to list model registration, detail: {_get_error_string(response)}"
+            )
+
+        response_data = response.json()
+        return response_data
+
+    def query_engine_by_model_name(self, model_name: str):
+        """
+        Get the engine parameters with the model name registered on the server.
+
+        Parameters
+        ----------
+        model_name: str
+            The name of the model.
+        Returns
+        -------
+        Dict[str, List[Dict[str, Any]]]
+            The supported engine parameters of registered models on the server.
+        """
+        url = f"{self.base_url}/v1/engines/{model_name}"
+        response = requests.get(url, headers=self._headers)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to query engine parameters by model name, detail: {_get_error_string(response)}"
             )
 
         response_data = response.json()

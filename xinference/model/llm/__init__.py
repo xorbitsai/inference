@@ -15,6 +15,7 @@
 import codecs
 import json
 import os
+import warnings
 
 from .core import (
     LLM,
@@ -30,8 +31,12 @@ from .llm_family import (
     BUILTIN_LLM_MODEL_TOOL_CALL_FAMILIES,
     BUILTIN_LLM_PROMPT_STYLE,
     BUILTIN_MODELSCOPE_LLM_FAMILIES,
-    LLM_CLASSES,
-    PEFT_SUPPORTED_CLASSES,
+    LLAMA_CLASSES,
+    LLM_ENGINES,
+    PYTORCH_CLASSES,
+    SGLANG_CLASSES,
+    SUPPORTED_ENGINES,
+    VLLM_CLASSES,
     CustomLLMFamilyV1,
     GgmlLLMSpecV1,
     LLMFamilyV1,
@@ -41,10 +46,53 @@ from .llm_family import (
     get_cache_status,
     get_user_defined_llm_families,
     match_llm,
-    match_llm_cls,
     register_llm,
     unregister_llm,
 )
+
+
+def generate_engine_config_by_model_family(model_family):
+    model_name = model_family.model_name
+    specs = model_family.model_specs
+    engines = {}  # structure for engine query
+    for spec in specs:
+        model_format = spec.model_format
+        model_size_in_billions = spec.model_size_in_billions
+        quantizations = spec.quantizations
+        for quantization in quantizations:
+            # traverse all supported engines to match the name, format, size in billions and quatization of model
+            for engine in SUPPORTED_ENGINES:
+                CLASSES = SUPPORTED_ENGINES[engine]
+                for cls in CLASSES:
+                    if cls.match(model_family, spec, quantization):
+                        engine_params = engines.get(engine, [])
+                        already_exists = False
+                        # if the name, format and size in billions of model already exists in the structure, add the new quantization
+                        for param in engine_params:
+                            if (
+                                model_name == param["model_name"]
+                                and model_format == param["model_format"]
+                                and model_size_in_billions
+                                == param["model_size_in_billions"]
+                                and quantization not in param["quantizations"]
+                            ):
+                                param["quantizations"].append(quantization)
+                                already_exists = True
+                                break
+                        # successfully match the params for the first time, add to the structure
+                        if not already_exists:
+                            engine_params.append(
+                                {
+                                    "model_name": model_name,
+                                    "model_format": model_format,
+                                    "model_size_in_billions": model_size_in_billions,
+                                    "quantizations": [quantization],
+                                    "llm_class": cls,
+                                }
+                            )
+                        engines[engine] = engine_params
+                        break
+    LLM_ENGINES[model_name] = engines
 
 
 def _install():
@@ -57,28 +105,31 @@ def _install():
     from .pytorch.falcon import FalconPytorchChatModel, FalconPytorchModel
     from .pytorch.internlm2 import Internlm2PytorchChatModel
     from .pytorch.llama_2 import LlamaPytorchChatModel, LlamaPytorchModel
-    from .pytorch.omnilmm import OmniLMMModel
     from .pytorch.qwen_vl import QwenVLChatModel
     from .pytorch.vicuna import VicunaPytorchChatModel
     from .pytorch.yi_vl import YiVLChatModel
     from .sglang.core import SGLANGChatModel, SGLANGModel
     from .vllm.core import VLLMChatModel, VLLMModel
 
+    try:
+        from .pytorch.omnilmm import OmniLMMModel
+    except ImportError as e:
+        # For quite old transformers version,
+        # import will generate error
+        OmniLMMModel = None
+        warnings.warn(f"Cannot import OmniLLMModel due to reason: {e}")
+
     # register llm classes.
-    LLM_CLASSES.extend(
+    LLAMA_CLASSES.extend(
         [
+            ChatglmCppChatModel,
             LlamaCppChatModel,
             LlamaCppModel,
         ]
     )
-    LLM_CLASSES.extend(
-        [
-            ChatglmCppChatModel,
-        ]
-    )
-    LLM_CLASSES.extend([SGLANGModel, SGLANGChatModel])
-    LLM_CLASSES.extend([VLLMModel, VLLMChatModel])
-    LLM_CLASSES.extend(
+    SGLANG_CLASSES.extend([SGLANGModel, SGLANGChatModel])
+    VLLM_CLASSES.extend([VLLMModel, VLLMChatModel])
+    PYTORCH_CLASSES.extend(
         [
             BaichuanPytorchChatModel,
             VicunaPytorchChatModel,
@@ -90,30 +141,19 @@ def _install():
             FalconPytorchModel,
             Internlm2PytorchChatModel,
             QwenVLChatModel,
-            OmniLMMModel,
             YiVLChatModel,
             DeepSeekVLChatModel,
             PytorchModel,
         ]
     )
-    PEFT_SUPPORTED_CLASSES.extend(
-        [
-            VLLMModel,
-            VLLMChatModel,
-            BaichuanPytorchChatModel,
-            VicunaPytorchChatModel,
-            FalconPytorchChatModel,
-            ChatglmPytorchChatModel,
-            LlamaPytorchModel,
-            LlamaPytorchChatModel,
-            PytorchChatModel,
-            FalconPytorchModel,
-            Internlm2PytorchChatModel,
-            QwenVLChatModel,
-            YiVLChatModel,
-            PytorchModel,
-        ]
-    )
+    if OmniLMMModel:  # type: ignore
+        PYTORCH_CLASSES.append(OmniLMMModel)
+
+    # support 4 engines for now
+    SUPPORTED_ENGINES["vLLM"] = VLLM_CLASSES
+    SUPPORTED_ENGINES["SGLang"] = SGLANG_CLASSES
+    SUPPORTED_ENGINES["PyTorch"] = PYTORCH_CLASSES
+    SUPPORTED_ENGINES["llama-cpp-python"] = LLAMA_CLASSES
 
     json_path = os.path.join(
         os.path.dirname(os.path.abspath(__file__)), "llm_family.json"
@@ -164,6 +204,11 @@ def _install():
         for llm_spec in llm_specs:
             if llm_spec.model_name not in LLM_MODEL_DESCRIPTIONS:
                 LLM_MODEL_DESCRIPTIONS.update(generate_llm_description(llm_spec))
+
+    # traverse all families and add engine parameters corresponding to the model name
+    for families in [BUILTIN_LLM_FAMILIES, BUILTIN_MODELSCOPE_LLM_FAMILIES]:
+        for family in families:
+            generate_engine_config_by_model_family(family)
 
     from ...constants import XINFERENCE_MODEL_DIR
 

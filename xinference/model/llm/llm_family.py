@@ -33,7 +33,6 @@ from ..._compat import (
     validator,
 )
 from ...constants import XINFERENCE_CACHE_DIR, XINFERENCE_MODEL_DIR
-from ...types import LoRA
 from ..utils import (
     download_from_modelscope,
     is_valid_model_uri,
@@ -227,15 +226,22 @@ LLMFamilyV1.update_forward_refs()
 CustomLLMFamilyV1.update_forward_refs()
 
 
-LLM_CLASSES: List[Type[LLM]] = []
-PEFT_SUPPORTED_CLASSES: List[Type[LLM]] = []
+LLAMA_CLASSES: List[Type[LLM]] = []
 
 BUILTIN_LLM_FAMILIES: List["LLMFamilyV1"] = []
 BUILTIN_MODELSCOPE_LLM_FAMILIES: List["LLMFamilyV1"] = []
 
+SGLANG_CLASSES: List[Type[LLM]] = []
+PYTORCH_CLASSES: List[Type[LLM]] = []
+
 UD_LLM_FAMILIES: List["LLMFamilyV1"] = []
 
 UD_LLM_FAMILIES_LOCK = Lock()
+
+VLLM_CLASSES: List[Type[LLM]] = []
+
+LLM_ENGINES: Dict[str, Dict[str, List[Dict[str, Any]]]] = {}
+SUPPORTED_ENGINES: Dict[str, List[Type[LLM]]] = {}
 
 LLM_LAUNCH_VERSIONS: Dict[str, List[str]] = {}
 
@@ -822,7 +828,6 @@ def match_llm(
     model_format: Optional[str] = None,
     model_size_in_billions: Optional[Union[int, str]] = None,
     quantization: Optional[str] = None,
-    is_local_deployment: bool = False,
 ) -> Optional[Tuple[LLMFamilyV1, LLMSpecV1, str]]:
     """
     Find an LLM family, spec, and quantization that satisfy given criteria.
@@ -880,30 +885,15 @@ def match_llm(
                     matched_quantization,
                 )
             else:
-                if spec.model_format == "pytorch":
-                    return family, _apply_format_to_model_id(spec, "none"), "none"
-                else:
-                    # by default, choose the most coarse-grained quantization.
-                    # TODO: too hacky.
-                    quantizations = spec.quantizations
-                    quantizations.sort()
-                    for q in quantizations:
-                        if (
-                            is_local_deployment
-                            and not (_is_linux() and _has_cuda_device())
-                            and q == "4-bit"
-                        ):
-                            logger.warning(
-                                "Skipping %s for non-linux or non-cuda local deployment .",
-                                q,
-                            )
-                            continue
-                        return family, _apply_format_to_model_id(spec, q), q
+                # TODO: If user does not specify quantization, just use the first one
+                _q = "none" if spec.model_format == "pytorch" else spec.quantizations[0]
+                return family, _apply_format_to_model_id(spec, _q), _q
     return None
 
 
 def register_llm(llm_family: LLMFamilyV1, persist: bool):
     from ..utils import is_valid_model_name
+    from . import generate_engine_config_by_model_family
 
     if not is_valid_model_name(llm_family.model_name):
         raise ValueError(f"Invalid model name {llm_family.model_name}.")
@@ -916,6 +906,7 @@ def register_llm(llm_family: LLMFamilyV1, persist: bool):
                 )
 
         UD_LLM_FAMILIES.append(llm_family)
+        generate_engine_config_by_model_family(llm_family)
 
     if persist:
         # We only validate model URL when persist is True.
@@ -941,6 +932,7 @@ def unregister_llm(model_name: str, raise_error: bool = True):
                 break
         if llm_family:
             UD_LLM_FAMILIES.remove(llm_family)
+            del LLM_ENGINES[model_name]
 
             persist_path = os.path.join(
                 XINFERENCE_MODEL_DIR, "llm", f"{llm_family.model_name}.json"
@@ -972,21 +964,33 @@ def unregister_llm(model_name: str, raise_error: bool = True):
                 logger.warning(f"Custom model {model_name} not found")
 
 
-def match_llm_cls(
-    family: LLMFamilyV1,
-    llm_spec: "LLMSpecV1",
+def check_engine_by_spec_parameters(
+    model_engine: str,
+    model_name: str,
+    model_format: str,
+    model_size_in_billions: Union[str, int],
     quantization: str,
-    peft_model: Optional[List[LoRA]] = None,
-) -> Optional[Type[LLM]]:
-    """
-    Find an LLM implementation for given LLM family and spec.
-    """
-    if peft_model is not None:
-        for cls in PEFT_SUPPORTED_CLASSES:
-            if cls.match(family, llm_spec, quantization):
-                return cls
-    else:
-        for cls in LLM_CLASSES:
-            if cls.match(family, llm_spec, quantization):
-                return cls
-    return None
+) -> Type[LLM]:
+    def get_model_engine_from_spell(engine_str: str) -> str:
+        for engine in LLM_ENGINES[model_name].keys():
+            if engine.lower() == engine_str.lower():
+                return engine
+        return engine_str
+
+    if model_name not in LLM_ENGINES:
+        raise ValueError(f"Model {model_name} not found.")
+    model_engine = get_model_engine_from_spell(model_engine)
+    if model_engine not in LLM_ENGINES[model_name]:
+        raise ValueError(f"Model {model_name} cannot be run on engine {model_engine}.")
+    match_params = LLM_ENGINES[model_name][model_engine]
+    for param in match_params:
+        if (
+            model_name == param["model_name"]
+            and model_format == param["model_format"]
+            and model_size_in_billions == param["model_size_in_billions"]
+            and quantization in param["quantizations"]
+        ):
+            return param["llm_class"]
+    raise ValueError(
+        f"Model {model_name} cannot be run on engine {model_engine}, with format {model_format}, size {model_size_in_billions} and quantization {quantization}."
+    )

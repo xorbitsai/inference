@@ -25,6 +25,7 @@ from typing import (
     AsyncGenerator,
     Callable,
     Dict,
+    Generator,
     Iterator,
     List,
     Optional,
@@ -379,8 +380,13 @@ class ModelActor(xo.StatelessActor):
             raise AttributeError(f"Model {self._model.model_spec} is not for chat.")
         finally:
             # For the non stream result.
-            if response is not None and isinstance(response, dict):
-                usage = response["usage"]
+            record = None
+            if isinstance(response, Generator) or isinstance(response, AsyncGenerator):
+                record = response
+            elif isinstance(response, bytes):
+                record = json.loads(response)
+            if record and isinstance(record, dict):
+                usage = record["usage"]
                 # Some backends may not have a valid usage, we just skip them.
                 completion_tokens = usage["completion_tokens"]
                 prompt_tokens = usage["prompt_tokens"]

@@ -87,6 +87,7 @@ except ImportError:
 
 VLLM_SUPPORTED_MODELS = [
     "llama-2",
+    "llama-3",
     "baichuan",
     "internlm-16k",
     "mistral-v0.1",
@@ -96,6 +97,7 @@ VLLM_SUPPORTED_MODELS = [
 ]
 VLLM_SUPPORTED_CHAT_MODELS = [
     "llama-2-chat",
+    "llama-3-instruct",
     "vicuna-v1.3",
     "vicuna-v1.5",
     "baichuan-chat",
@@ -110,6 +112,7 @@ VLLM_SUPPORTED_CHAT_MODELS = [
     "mistral-instruct-v0.1",
     "mistral-instruct-v0.2",
     "mixtral-instruct-v0.1",
+    "mixtral-8x22B-instruct-v0.1",
     "chatglm3",
     "chatglm3-32k",
     "chatglm3-128k",
@@ -118,6 +121,7 @@ VLLM_SUPPORTED_CHAT_MODELS = [
 ]
 if VLLM_INSTALLED and vllm.__version__ >= "0.3.0":
     VLLM_SUPPORTED_CHAT_MODELS.append("qwen1.5-chat")
+    VLLM_SUPPORTED_CHAT_MODELS.append("codeqwen1.5-chat")
 
 if VLLM_INSTALLED and vllm.__version__ >= "0.3.2":
     VLLM_SUPPORTED_CHAT_MODELS.append("gemma-it")
@@ -183,9 +187,6 @@ class VLLMModel(LLM):
             multiprocessing.set_start_method("fork", force=True)
 
         self._model_config = self._sanitize_model_config(self._model_config)
-        logger.info(
-            f"Loading {self.model_uid} with following model config: {self._model_config}"
-        )
 
         if self.lora_modules is None:
             self.lora_requests = []
@@ -202,11 +203,16 @@ class VLLMModel(LLM):
         enable_lora = len(self.lora_requests) > 0
         max_loras = len(self.lora_requests)
 
+        logger.info(
+            f"Loading {self.model_uid} with following model config: {self._model_config}"
+            f"Enable lora: {enable_lora}. Lora count: {max_loras}."
+        )
+
         engine_args = AsyncEngineArgs(
             model=self.model_path,
-            **self._model_config,
             enable_lora=enable_lora,
             max_loras=max_loras,
+            **self._model_config,
         )
         self._engine = AsyncLLMEngine.from_engine_args(engine_args)
 
@@ -273,10 +279,17 @@ class VLLMModel(LLM):
         if llm_spec.model_format == "pytorch":
             if quantization != "none" and not (quantization is None):
                 return False
-        if llm_spec.model_format in ["gptq", "awq"]:
-            # Currently, only 4-bit weight quantization is supported for GPTQ, but got 8 bits.
+        if llm_spec.model_format == "awq":
+            # Currently, only 4-bit weight quantization is supported for AWQ, but got 8 bits.
             if "4" not in quantization:
                 return False
+        if llm_spec.model_format == "gptq":
+            if VLLM_INSTALLED and vllm.__version__ >= "0.3.3":
+                if not any(q in quantization for q in ("3", "4", "8")):
+                    return False
+            else:
+                if "4" not in quantization:
+                    return False
         if isinstance(llm_family, CustomLLMFamilyV1):
             if llm_family.model_family not in VLLM_SUPPORTED_MODELS:
                 return False
@@ -379,7 +392,7 @@ class VLLMModel(LLM):
 
         assert self._engine is not None
         results_generator = self._engine.generate(
-            prompt, sampling_params, request_id, lora_request
+            prompt, sampling_params, request_id, lora_request=lora_request
         )
 
         async def stream_results() -> AsyncGenerator[CompletionChunk, None]:
@@ -461,10 +474,17 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
         if llm_spec.model_format == "pytorch":
             if quantization != "none" and not (quantization is None):
                 return False
-        if llm_spec.model_format in ["gptq", "awq"]:
-            # Currently, only 4-bit weight quantization is supported for GPTQ, but got 8 bits.
+        if llm_spec.model_format == "awq":
+            # Currently, only 4-bit weight quantization is supported for AWQ, but got 8 bits.
             if "4" not in quantization:
                 return False
+        if llm_spec.model_format == "gptq":
+            if VLLM_INSTALLED and vllm.__version__ >= "0.3.3":
+                if not any(q in quantization for q in ("3", "4", "8")):
+                    return False
+            else:
+                if "4" not in quantization:
+                    return False
         if isinstance(llm_family, CustomLLMFamilyV1):
             if llm_family.model_family not in VLLM_SUPPORTED_CHAT_MODELS:
                 return False

@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import abc
+import inspect
 import logging
 import os
 import platform
@@ -82,9 +83,25 @@ class LLM(abc.ABC):
 
     @staticmethod
     def _has_cuda_device():
-        from ...utils import cuda_count
+        """
+        Use pynvml to impl this interface.
+        DO NOT USE torch to impl this, which will lead to some unexpected errors.
+        """
+        from pynvml import nvmlDeviceGetCount, nvmlInit, nvmlShutdown
 
-        return cuda_count() > 0
+        device_count = 0
+        try:
+            nvmlInit()
+            device_count = nvmlDeviceGetCount()
+        except:
+            pass
+        finally:
+            try:
+                nvmlShutdown()
+            except:
+                pass
+
+        return device_count > 0
 
     @staticmethod
     def _get_cuda_count():
@@ -178,47 +195,60 @@ def create_llm_model_instance(
     devices: List[str],
     model_uid: str,
     model_name: str,
+    model_engine: Optional[str],
     model_format: Optional[str] = None,
     model_size_in_billions: Optional[Union[int, str]] = None,
     quantization: Optional[str] = None,
     peft_model_config: Optional[PeftModelConfig] = None,
-    is_local_deployment: bool = False,
     **kwargs,
 ) -> Tuple[LLM, LLMDescription]:
-    from . import match_llm, match_llm_cls
-    from .llm_family import cache
+    from .llm_family import cache, check_engine_by_spec_parameters, match_llm
 
+    if model_engine is None:
+        raise ValueError("model_engine is required for LLM model")
     match_result = match_llm(
-        model_name,
-        model_format,
-        model_size_in_billions,
-        quantization,
-        is_local_deployment,
+        model_name, model_format, model_size_in_billions, quantization
     )
+
     if not match_result:
         raise ValueError(
             f"Model not found, name: {model_name}, format: {model_format},"
             f" size: {model_size_in_billions}, quantization: {quantization}"
         )
     llm_family, llm_spec, quantization = match_result
-
     assert quantization is not None
+
+    llm_cls = check_engine_by_spec_parameters(
+        model_engine,
+        llm_family.model_name,
+        llm_spec.model_format,
+        llm_spec.model_size_in_billions,
+        quantization,
+    )
+    logger.debug(f"Launching {model_uid} with {llm_cls.__name__}")
+
     save_path = cache(llm_family, llm_spec, quantization)
 
     peft_model = peft_model_config.peft_model if peft_model_config else None
-
-    llm_cls = match_llm_cls(llm_family, llm_spec, quantization, peft_model=peft_model)
-    if not llm_cls:
-        raise ValueError(
-            f"Model not supported, name: {model_name}, format: {model_format},"
-            f" size: {model_size_in_billions}, quantization: {quantization}"
-        )
-    logger.debug(f"Launching {model_uid} with {llm_cls.__name__}")
-
     if peft_model is not None:
-        model = llm_cls(
-            model_uid, llm_family, llm_spec, quantization, save_path, kwargs, peft_model
-        )
+        if "peft_model" in inspect.signature(llm_cls.__init__).parameters:
+            model = llm_cls(
+                model_uid,
+                llm_family,
+                llm_spec,
+                quantization,
+                save_path,
+                kwargs,
+                peft_model,
+            )
+        else:
+            logger.warning(
+                f"Model not supported with lora, name: {model_name}, format: {model_format}, engine: {model_engine}. "
+                f"Load this without lora."
+            )
+            model = llm_cls(
+                model_uid, llm_family, llm_spec, quantization, save_path, kwargs
+            )
     else:
         model = llm_cls(
             model_uid, llm_family, llm_spec, quantization, save_path, kwargs
@@ -238,17 +268,12 @@ def create_speculative_llm_model_instance(
     draft_model_name: str,
     draft_model_size_in_billions: Optional[int],
     draft_quantization: Optional[str],
-    is_local_deployment: bool = False,
 ) -> Tuple[LLM, LLMDescription]:
     from . import match_llm
     from .llm_family import cache
 
     match_result = match_llm(
-        model_name,
-        "pytorch",
-        model_size_in_billions,
-        quantization,
-        is_local_deployment,
+        model_name, "pytorch", model_size_in_billions, quantization
     )
 
     if not match_result:
@@ -261,11 +286,7 @@ def create_speculative_llm_model_instance(
     save_path = cache(llm_family, llm_spec, quantization)
 
     draft_match_result = match_llm(
-        draft_model_name,
-        "pytorch",
-        draft_model_size_in_billions,
-        draft_quantization,
-        is_local_deployment,
+        draft_model_name, "pytorch", draft_model_size_in_billions, draft_quantization
     )
 
     if not draft_match_result:

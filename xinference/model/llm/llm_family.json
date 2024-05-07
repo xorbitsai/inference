@@ -463,6 +463,106 @@
   },
   {
     "version": 1,
+    "context_length": 128000,
+    "model_name": "phi-3-mini-128k-instruct",
+    "model_lang": [
+      "en"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "The Phi-3-Mini-128K-Instruct is a 3.8 billion-parameter, lightweight, state-of-the-art open model trained using the Phi-3 datasets.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 4,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "microsoft/Phi-3-mini-128k-instruct",
+        "model_revision": "ebee18c488086b396dde649f2aa6548b9b8d2404"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "PHI3",
+      "system_prompt": "You are a helpful AI assistant.",
+      "roles": [
+        "user",
+        "assistant"
+      ],
+      "intra_message_sep": "\n",
+      "inter_message_sep": "<|end|>\n",
+      "stop_token_ids":[
+        32000,
+        32001,
+        32007
+      ],
+      "stop": [
+        "<|endoftext|>",
+        "<|assistant|>",
+        "<|end|>"
+      ]
+    }
+  },
+  {
+    "version": 1,
+    "context_length": 4096,
+    "model_name": "phi-3-mini-4k-instruct",
+    "model_lang": [
+      "en"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "The Phi-3-Mini-4k-Instruct is a 3.8 billion-parameter, lightweight, state-of-the-art open model trained using the Phi-3 datasets.",
+    "model_specs": [
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 4,
+        "quantizations": [
+          "fp16",
+          "q4"
+        ],
+        "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
+        "model_file_name_template": "Phi-3-mini-4k-instruct-{quantization}.gguf"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 4,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "microsoft/Phi-3-mini-4k-instruct",
+        "model_revision": "b86bcaf57ea4dfdec5dbe12a377028b2fab0d480"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "PHI3",
+      "system_prompt": "You are a helpful AI assistant.",
+      "roles": [
+        "user",
+        "assistant"
+      ],
+      "intra_message_sep": "\n",
+      "inter_message_sep": "<|end|>\n",
+      "stop_token_ids":[
+        32000,
+        32001,
+        32007
+      ],
+      "stop": [
+        "<|endoftext|>",
+        "<|assistant|>",
+        "<|end|>"
+      ]
+    }
+  },
+  {
+    "version": 1,
     "context_length": 2048,
     "model_name": "chatglm",
     "model_lang": [
@@ -624,7 +724,7 @@
           "none"
         ],
         "model_id": "THUDM/chatglm3-6b",
-        "model_revision": "b098244a71fbe69ce149682d9072a7629f7e908c"
+        "model_revision": "103caa40027ebfd8450289ca2f278eac4ff26405"
       }
     ],
     "prompt_style": {
@@ -1222,6 +1322,148 @@
   },
   {
     "version": 1,
+    "context_length": 8192,
+    "model_name": "llama-3",
+    "model_lang": [
+      "en"
+    ],
+    "model_ability": [
+      "generate"
+    ],
+    "model_description": "Llama 3 is an auto-regressive language model that uses an optimized transformer architecture",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 8,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "meta-llama/Meta-Llama-3-8B"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 8,
+        "quantizations": [
+          "Q2_K",
+          "Q3_K_L",
+          "Q3_K_M",
+          "Q3_K_S",
+          "Q4_0",
+          "Q4_1",
+          "Q4_K_M",
+          "Q4_K_S",
+          "Q5_0",
+          "Q5_1",
+          "Q5_K_M",
+          "Q5_K_S",
+          "Q6_K",
+          "Q8_0"
+        ],
+        "model_id": "QuantFactory/Meta-Llama-3-8B-GGUF",
+        "model_file_name_template": "Meta-Llama-3-8B.{quantization}.gguf"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 70,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "meta-llama/Meta-Llama-3-70B"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 70,
+        "quantizations": [
+          "Q4_K_M",
+          "Q5_K_M"
+        ],
+        "model_id": "NousResearch/Meta-Llama-3-70B-GGUF",
+        "model_file_name_template": "Meta-Llama-3-70B-{quantization}.gguf"
+      }
+    ]
+  },
+  {
+    "version": 1,
+    "context_length": 8192,
+    "model_name": "llama-3-instruct",
+    "model_lang": [
+      "en"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "The Llama 3 instruction tuned models are optimized for dialogue use cases and outperform many of the available open source chat models on common industry benchmarks..",
+    "model_specs": [
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 8,
+        "quantizations": [
+          "IQ3_M",
+          "Q4_K_M",
+          "Q5_K_M",
+          "Q6_K",
+          "Q8_0"
+        ],
+        "model_id": "lmstudio-community/Meta-Llama-3-8B-Instruct-GGUF",
+        "model_file_name_template": "Meta-Llama-3-8B-Instruct-{quantization}.gguf"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 8,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "meta-llama/Meta-Llama-3-8B-Instruct"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 70,
+        "quantizations": [
+          "IQ1_M",
+          "IQ2_XS",
+          "Q4_K_M"
+        ],
+        "model_id": "lmstudio-community/Meta-Llama-3-70B-Instruct-GGUF",
+        "model_file_name_template": "Meta-Llama-3-70B-Instruct-{quantization}.gguf"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 70,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "meta-llama/Meta-Llama-3-70B-Instruct"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "LLAMA3",
+      "system_prompt": "You are a helpful assistant.",
+      "roles": [
+        "user",
+        "assistant"
+      ],
+      "intra_message_sep": "\n\n",
+      "inter_message_sep": "<|eot_id|>",
+      "stop_token_ids": [
+        128001,
+        128009
+      ],
+      "stop": [
+        "<|end_of_text|>",
+        "<|eot_id|>"
+      ]
+    }
+  },
+  {
+    "version": 1,
     "context_length": 2048,
     "model_name": "opt",
     "model_lang": [
@@ -1626,6 +1868,16 @@
         "model_id": "Qwen/Qwen1.5-72B-Chat"
       },
       {
+        "model_format": "pytorch",
+        "model_size_in_billions": 110,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "Qwen/Qwen1.5-110B-Chat"
+      },
+      {
         "model_format": "gptq",
         "model_size_in_billions": "0_5",
         "quantizations": [
@@ -1688,6 +1940,14 @@
         "model_id": "Qwen/Qwen1.5-72B-Chat-GPTQ-{quantization}"
       },
       {
+        "model_format": "gptq",
+        "model_size_in_billions": 110,
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "Qwen/Qwen1.5-110B-Chat-GPTQ-Int4"
+      },
+      {
         "model_format": "awq",
         "model_size_in_billions": "0_5",
         "quantizations": [
@@ -1742,6 +2002,14 @@
           "Int4"
         ],
         "model_id": "Qwen/Qwen1.5-72B-Chat-AWQ"
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 110,
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "Qwen/Qwen1.5-110B-Chat-AWQ"
       },
       {
         "model_format": "ggufv2",
@@ -1908,6 +2176,74 @@
           "Int4"
         ],
         "model_id": "Qwen/Qwen1.5-MoE-A2.7B-Chat-GPTQ-Int4"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "QWEN",
+      "system_prompt": "You are a helpful assistant.",
+      "roles": [
+        "user",
+        "assistant"
+      ],
+      "intra_message_sep": "\n",
+      "stop_token_ids": [
+        151643,
+        151644,
+        151645
+      ],
+      "stop": [
+        "<|endoftext|>",
+        "<|im_start|>",
+        "<|im_end|>"
+      ]
+    }
+  },
+  {
+    "version": 1,
+    "context_length": 32768,
+    "model_name": "codeqwen1.5-chat",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "CodeQwen1.5 is the Code-Specific version of Qwen1.5. It is a transformer-based decoder-only language model pretrained on a large amount of data of codes.",
+    "model_specs": [
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "q2_k",
+          "q3_k_m",
+          "q4_0",
+          "q4_k_m",
+          "q5_0",
+          "q5_k_m",
+          "q6_k",
+          "q8_0"
+        ],
+        "model_id": "Qwen/CodeQwen1.5-7B-Chat-GGUF",
+        "model_file_name_template": "codeqwen-1_5-7b-chat-{quantization}.gguf"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "Qwen/CodeQwen1.5-7B-Chat"
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "Qwen/CodeQwen1.5-7B-Chat-AWQ"
       }
     ],
     "prompt_style": {
@@ -3096,6 +3432,142 @@
         ],
         "model_id": "TheBloke/Mixtral-8x7B-Instruct-v0.1-GGUF",
         "model_file_name_template": "mixtral-8x7b-instruct-v0.1.{quantization}.gguf"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "MIXTRAL_V01",
+      "system_prompt": "",
+      "roles": [
+        "user",
+        "assistant"
+      ],
+      "intra_message_sep": "",
+      "inter_message_sep": ""
+    }
+  },
+  {
+    "version": 1,
+    "context_length": 65536,
+    "model_name": "mixtral-8x22B-instruct-v0.1",
+    "model_lang": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "The Mixtral-8x22B-Instruct-v0.1 Large Language Model (LLM) is an instruct fine-tuned version of the Mixtral-8x22B-v0.1, specializing in chatting.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": "141",
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "mistralai/Mixtral-8x22B-Instruct-v0.1",
+        "model_revision": "ebb919ac9e9f7f9a900644621bae7963bc593f4f"
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": "141",
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "MaziyarPanahi/Mixtral-8x22B-Instruct-v0.1-AWQ"
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": "141",
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "jarrelscy/Mixtral-8x22B-Instruct-v0.1-GPTQ-4bit"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": "141",
+        "quantizations": [
+          "Q2_K",
+          "Q3_K_L",
+          "Q3_K_M",
+          "Q3_K_S",
+          "Q4_K_M",
+          "Q4_K_S",
+          "Q5_K_M",
+          "Q5_K_S",
+          "Q6",
+          "Q8_0",
+          "fp16"
+        ],
+        "model_id": "MaziyarPanahi/Mixtral-8x22B-Instruct-v0.1-GGUF",
+        "model_file_name_template": "Mixtral-8x22B-Instruct-{quantization}.gguf",
+        "model_file_name_split_template": "Mixtral-8x22B-Instruct-v0.1.{quantization}-{part}.gguf",
+        "quantization_parts": {
+          "Q2_K": [
+            "00001-of-00003",
+            "00002-of-00003",
+            "00003-of-00003"
+          ],
+          "Q3_K_L": [
+            "00001-of-00002",
+            "00002-of-00002"
+          ],
+          "Q3_K_M": [
+            "00001-of-00002",
+            "00002-of-00002"
+          ],
+          "Q3_K_S": [
+            "00001-of-00003",
+            "00002-of-00003",
+            "00003-of-00003"
+          ],
+          "Q4_K_M": [
+            "00001-of-00002",
+            "00002-of-00002"
+          ],
+          "Q4_K_S": [
+            "00001-of-00002",
+            "00002-of-00002"
+          ],
+          "Q5_K_M": [
+            "00001-of-00004",
+            "00002-of-00004",
+            "00003-of-00004",
+            "00004-of-00004"
+          ],
+          "Q5_K_S": [
+            "00001-of-00004",
+            "00002-of-00004",
+            "00003-of-00004",
+            "00004-of-00004"
+          ],
+          "Q6": [
+            "00001-of-00004",
+            "00002-of-00004",
+            "00003-of-00004",
+            "00004-of-00004"
+          ],
+          "Q8_0": [
+            "00001-of-00004",
+            "00002-of-00004",
+            "00003-of-00004",
+            "00004-of-00004"
+          ],
+          "fp16": [
+            "00001-of-00007",
+            "00002-of-00007",
+            "00003-of-00007",
+            "00004-of-00007",
+            "00005-of-00007",
+            "00006-of-00007",
+            "00007-of-00007"
+          ]
+        }
       }
     ],
     "prompt_style": {
@@ -4885,7 +5357,7 @@
           "Q8_0"
         ],
         "model_id": "andrewcanis/c4ai-command-r-v01-GGUF",
-        "model_file_name_template": "c4ai-command-r-v01.{quantization}.gguf"
+        "model_file_name_template": "c4ai-command-r-v01-{quantization}.gguf"
       },
       {
         "model_format": "pytorch",
@@ -4947,5 +5419,45 @@
         "model_revision": "bb63b5b7005ecedb30b0cfd0d5953b02a5817f7b"
       }
     ]
+  },
+  {
+    "version": 1,
+    "context_length": 4096,
+    "model_name": "Starling-LM",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "We introduce Starling-7B, an open large language model (LLM) trained by Reinforcement Learning from AI Feedback (RLAIF). The model harnesses the power of our new GPT-4 labeled ranking dataset",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "berkeley-nest/Starling-LM-7B-alpha",
+        "model_revision": "1dddf3b95bc1391f6307299eb1c162c194bde9bd"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "ADD_COLON_SINGLE",
+      "system_prompt": "",
+      "roles": [
+        "GPT4 Correct User",
+        "GPT4 Correct Assistant"
+      ],
+      "intra_message_sep": "<|end_of_turn|>",
+      "inter_message_sep": "",
+      "stop_token_ids": [
+        2,
+        32000
+      ]
+    }
   }
 ]

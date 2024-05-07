@@ -206,5 +206,29 @@
     "language": ["zh", "en"],
     "model_id": "maidalun1020/bce-embedding-base_v1",
     "model_revision": "236d9024fc1b4046f03848723f934521a66a9323"
+  },
+  {
+    "model_name": "m3e-small",
+    "dimensions": 512,
+    "max_tokens": 512,
+    "language": ["zh", "en"],
+    "model_id": "moka-ai/m3e-small",
+    "model_revision": "44c696631b2a8c200220aaaad5f987f096e986df"
+  },
+  {
+    "model_name": "m3e-base",
+    "dimensions": 768,
+    "max_tokens": 512,
+    "language": ["zh", "en"],
+    "model_id": "moka-ai/m3e-base",
+    "model_revision": "764b537a0e50e5c7d64db883f2d2e051cbe3c64c"
+  },
+  {
+    "model_name": "m3e-large",
+    "dimensions": 1024,
+    "max_tokens": 512,
+    "language": ["zh", "en"],
+    "model_id": "moka-ai/m3e-large",
+    "model_revision": "12900375086c37ba5d83d1e417b21dc7d1d1f388"
   }
 ]

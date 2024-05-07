@@ -2,7 +2,6 @@ import gc
 import math
 from typing import List, Optional, Tuple, Union
 
-import timm
 import torch
 import torch.nn as nn
 from torch import Tensor
@@ -37,6 +36,8 @@ class Identity(torch.nn.Identity):
 
 
 def create_vision_module(config):
+    import timm
+
     vision_tower = timm.create_model(
         "eva02_enormous_patch14_clip_224.laion2b_plus",
         pretrained=False,

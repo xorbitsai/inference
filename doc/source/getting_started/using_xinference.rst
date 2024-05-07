@@ -338,8 +338,10 @@ On each of the other servers where you want to run Xinference workers, run the f
 
 .. code-block:: bash
 
-  xinference-worker -e "http://${supervisor_host}:9997"
+  xinference-worker -e "http://${supervisor_host}:9997" -H "${worker_host}"
 
+.. note::
+    Note that you must replace ``${worker_host}``  with the actual host of your worker server.
 
 .. note::
   Note that if you need to interact with the Xinference in a cluster via the command line,
@@ -359,14 +361,18 @@ Run On Nvidia GPU Host
 
 .. code-block:: bash
 
-  docker run -p 9997:9997 --rm --gpus all xprobe/xinference:latest
+  docker run -e XINFERENCE_MODEL_SRC=modelscope -p 9998:9997 --gpus all xprobe/xinference:<your_version> xinference-local -H 0.0.0.0 --log-level debug
 
 Run On CPU Only Host
 -----------------------
 
 .. code-block:: bash
 
-  docker run -p 9997:9997 --rm xprobe/xinference:latest-cpu
+  docker run -e XINFERENCE_MODEL_SRC=modelscope -p 9998:9997 xprobe/xinference:<your_version>-cpu xinference-local -H 0.0.0.0 --log-level debug
+
+Replace ``<your_version>`` with Xinference versions, e.g. ``v0.10.3``, ``latest`` can be used for the latest version.
+
+For more docker usage, refer to :ref:`Using Docker Image <using_docker_image>`.
 
 
 Using Xinference On Kubernetes

@@ -44,7 +44,7 @@ def setup_cluster():
             logging_conf=TEST_FILE_LOGGING_CONF,
         )
         endpoint = f"http://localhost:{port}"
-        if not api_health_check(endpoint, max_attempts=3, sleep_interval=5):
+        if not api_health_check(endpoint, max_attempts=10, sleep_interval=5):
             raise RuntimeError("Endpoint is not available after multiple attempts")
 
         yield f"http://localhost:{port}", f"http://localhost:{metrics_port}/metrics", supervisor_address
@@ -65,7 +65,10 @@ async def test_metrics_exporter_server(setup_cluster):
     client = Client(endpoint)
 
     model_uid = client.launch_model(
-        model_name="orca", model_size_in_billions=3, quantization="q4_0"
+        model_name="orca",
+        model_engine="llama-cpp-python",
+        model_size_in_billions=3,
+        quantization="q4_0",
     )
 
     # Check the supervisor metrics collected the RESTful API.
@@ -82,3 +85,26 @@ async def test_metrics_exporter_server(setup_cluster):
     response = requests.get(metrics_exporter_address)
     assert response.ok
     assert 'xinference:input_tokens_total_counter{model="orca"} 1' in response.text
+
+
+async def test_metrics_exporter_data(setup_cluster):
+    endpoint, metrics_exporter_address, supervisor_address = setup_cluster
+
+    from ...client import Client
+
+    client = Client(endpoint)
+
+    model_uid = client.launch_model(
+        model_name="orca",
+        model_engine="llama-cpp-python",
+        model_size_in_billions=3,
+        model_format="ggmlv3",
+        quantization="q4_0",
+    )
+
+    model = client.get_model(model_uid)
+    response = model.chat("write a poem.")
+
+    response = requests.get(metrics_exporter_address)
+    assert response.ok
+    assert 'format="ggmlv3",model="orca"' in response.text

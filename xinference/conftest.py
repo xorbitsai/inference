@@ -237,7 +237,7 @@ def setup_with_file_logging():
         logging_conf=TEST_FILE_LOGGING_CONF,
     )
     endpoint = f"http://localhost:{port}"
-    if not api_health_check(endpoint, max_attempts=3, sleep_interval=5):
+    if not api_health_check(endpoint, max_attempts=10, sleep_interval=5):
         raise RuntimeError("Endpoint is not available after multiple attempts")
 
     try:

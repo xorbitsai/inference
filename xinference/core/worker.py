@@ -34,7 +34,7 @@ from ..constants import (
 )
 from ..core import ModelActor
 from ..core.status_guard import LaunchStatus
-from ..device_utils import gpu_count
+from ..device_utils import get_available_device_env_name, gpu_count
 from ..model.core import ModelDescription, create_model_instance
 from ..types import PeftModelConfig
 from .event import Event, EventCollectorActor, EventType
@@ -80,7 +80,7 @@ class WorkerActor(xo.StatelessActor):
             int, Set[Tuple[str, str]]
         ] = defaultdict(set)
         self._model_uid_to_addr: Dict[str, str] = {}
-        self._model_uid_to_recover_count: Dict[str, int] = {}
+        self._model_uid_to_recover_count: Dict[str, Optional[int]] = {}
         self._model_uid_to_launch_args: Dict[str, Dict] = {}
 
         # metrics export server.
@@ -166,22 +166,22 @@ class WorkerActor(xo.StatelessActor):
         from .status_guard import StatusGuardActor
         from .supervisor import SupervisorActor
 
-        self._status_guard_ref: xo.ActorRefType[
+        self._status_guard_ref: xo.ActorRefType[  # type: ignore
             "StatusGuardActor"
         ] = await xo.actor_ref(
             address=self._supervisor_address, uid=StatusGuardActor.uid()
         )
-        self._event_collector_ref: xo.ActorRefType[
+        self._event_collector_ref: xo.ActorRefType[  # type: ignore
             EventCollectorActor
         ] = await xo.actor_ref(
             address=self._supervisor_address, uid=EventCollectorActor.uid()
         )
-        self._cache_tracker_ref: xo.ActorRefType[
+        self._cache_tracker_ref: xo.ActorRefType[  # type: ignore
             "CacheTrackerActor"
         ] = await xo.actor_ref(
             address=self._supervisor_address, uid=CacheTrackerActor.uid()
         )
-        self._supervisor_ref: xo.ActorRefType["SupervisorActor"] = await xo.actor_ref(
+        self._supervisor_ref: xo.ActorRefType["SupervisorActor"] = await xo.actor_ref(  # type: ignore
             address=self._supervisor_address, uid=SupervisorActor.uid()
         )
         await self._supervisor_ref.add_worker(self.address)
@@ -208,7 +208,12 @@ class WorkerActor(xo.StatelessActor):
             register_embedding,
             unregister_embedding,
         )
-        from ..model.image import get_image_model_descriptions
+        from ..model.image import (
+            CustomImageModelFamilyV1,
+            get_image_model_descriptions,
+            register_image,
+            unregister_image,
+        )
         from ..model.llm import (
             CustomLLMFamilyV1,
             get_llm_model_descriptions,
@@ -222,7 +227,7 @@ class WorkerActor(xo.StatelessActor):
             unregister_rerank,
         )
 
-        self._custom_register_type_to_cls: Dict[str, Tuple] = {
+        self._custom_register_type_to_cls: Dict[str, Tuple] = {  # type: ignore
             "LLM": (CustomLLMFamilyV1, register_llm, unregister_llm),
             "embedding": (
                 CustomEmbeddingModelSpec,
@@ -231,10 +236,15 @@ class WorkerActor(xo.StatelessActor):
             ),
             "rerank": (CustomRerankModelSpec, register_rerank, unregister_rerank),
             "audio": (CustomAudioModelFamilyV1, register_audio, unregister_audio),
+            "image": (
+                CustomImageModelFamilyV1,
+                register_image,
+                unregister_image,
+            ),
         }
 
         # record model version
-        model_version_infos: Dict[str, List[Dict]] = {}
+        model_version_infos: Dict[str, List[Dict]] = {}  # type: ignore
         model_version_infos.update(get_llm_model_descriptions())
         model_version_infos.update(get_embedding_model_descriptions())
         model_version_infos.update(get_rerank_model_descriptions())
@@ -437,6 +447,7 @@ class WorkerActor(xo.StatelessActor):
     ) -> Tuple[str, List[str]]:
         env = {}
         devices = []
+        env_name = get_available_device_env_name()
         if gpu_idx is None:
             if isinstance(n_gpu, int) or (n_gpu == "auto" and gpu_count() > 0):
                 # Currently, n_gpu=auto means using 1 GPU
@@ -446,17 +457,17 @@ class WorkerActor(xo.StatelessActor):
                     if model_type in ["embedding", "rerank"]
                     else self.allocate_devices(model_uid=model_uid, n_gpu=gpu_cnt)
                 )
-                env["CUDA_VISIBLE_DEVICES"] = ",".join([str(dev) for dev in devices])
+                env[env_name] = ",".join([str(dev) for dev in devices])
                 logger.debug(f"GPU selected: {devices} for model {model_uid}")
             if n_gpu is None:
-                env["CUDA_VISIBLE_DEVICES"] = "-1"
+                env[env_name] = "-1"
                 logger.debug(f"GPU disabled for model {model_uid}")
         else:
             assert isinstance(gpu_idx, list)
             devices = await self.allocate_devices_with_gpu_idx(
                 model_uid, model_type, gpu_idx  # type: ignore
             )
-            env["CUDA_VISIBLE_DEVICES"] = ",".join([str(dev) for dev in devices])
+            env[env_name] = ",".join([str(dev) for dev in devices])
 
         if os.name != "nt" and platform.system() != "Darwin":
             # Linux
@@ -539,7 +550,6 @@ class WorkerActor(xo.StatelessActor):
             draft_model_name=draft_model_name,
             draft_model_size_in_billions=draft_model_size_in_billions,
             draft_quantization=draft_quantization,
-            is_local_deployment=True,
         )
 
         try:
@@ -605,6 +615,7 @@ class WorkerActor(xo.StatelessActor):
         model_size_in_billions: Optional[Union[int, str]],
         model_format: Optional[str],
         quantization: Optional[str],
+        model_engine: Optional[str],
         model_type: str = "LLM",
         n_gpu: Optional[Union[int, str]] = "auto",
         peft_model_config: Optional[PeftModelConfig] = None,
@@ -612,6 +623,14 @@ class WorkerActor(xo.StatelessActor):
         gpu_idx: Optional[Union[int, List[int]]] = None,
         **kwargs,
     ):
+        # !!! Note that The following code must be placed at the very beginning of this function,
+        # or there will be problems with auto-recovery.
+        # Because `locals()` will collect all the local parameters of this function and pass to this function again.
+        launch_args = locals()
+        launch_args.pop("self")
+        launch_args.pop("kwargs")
+        launch_args.update(kwargs)
+
         event_model_uid, _, __ = parse_replica_model_uid(model_uid)
         await self._event_collector_ref.report_event(
             event_model_uid,
@@ -621,10 +640,6 @@ class WorkerActor(xo.StatelessActor):
                 event_content="Launch model",
             ),
         )
-        launch_args = locals()
-        launch_args.pop("self")
-        launch_args.pop("kwargs")
-        launch_args.update(kwargs)
 
         if gpu_idx is not None:
             logger.info(
@@ -657,8 +672,6 @@ class WorkerActor(xo.StatelessActor):
 
         assert model_uid not in self._model_uid_to_model
         self._check_model_is_valid(model_name, model_format)
-        assert self._supervisor_ref is not None
-        is_local_deployment = await self._supervisor_ref.is_local_deployment()
 
         subpool_address, devices = await self._create_subpool(
             model_uid, model_type, n_gpu=n_gpu, gpu_idx=gpu_idx
@@ -673,11 +686,11 @@ class WorkerActor(xo.StatelessActor):
                 model_uid,
                 model_type,
                 model_name,
+                model_engine,
                 model_format,
                 model_size_in_billions,
                 quantization,
                 peft_model_config,
-                is_local_deployment,
                 **kwargs,
             )
             await self.update_cache_status(model_name, model_description)

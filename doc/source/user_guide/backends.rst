@@ -37,7 +37,8 @@ When the following conditions are met, Xinference will choose vLLM as the infere
 
 - The model format is ``pytorch``, ``gptq`` or ``awq``.
 - When the model format is ``pytorch``, the quantization is ``none``.
-- When the model format is ``gptq`` or ``awq``, the quantization is ``Int4``.
+- When the model format is ``awq``, the quantization is ``Int4``.
+- When the model format is ``gptq``, the quantization is ``Int3``, ``Int4`` or ``Int8``.
 - The system is Linux and has at least one CUDA device
 - The model family (for custom models) / model name (for builtin models) is within the list of models supported by vLLM
 
@@ -45,19 +46,21 @@ Currently, supported model includes:
 
 .. vllm_start
 
-- ``llama-2``, ``llama-2-chat``
+- ``llama-2``, ``llama-3``, ``llama-2-chat``, ``llama-3-instruct``
 - ``baichuan``, ``baichuan-chat``, ``baichuan-2-chat``
 - ``internlm-16k``, ``internlm-chat-7b``, ``internlm-chat-8k``, ``internlm-chat-20b``
 - ``mistral-v0.1``, ``mistral-instruct-v0.1``, ``mistral-instruct-v0.2``
 - ``Yi``, ``Yi-chat``
 - ``code-llama``, ``code-llama-python``, ``code-llama-instruct``
+- ``c4ai-command-r-v01``, ``c4ai-command-r-v01-4bit``
 - ``vicuna-v1.3``, ``vicuna-v1.5``
 - ``internlm2-chat``
 - ``qwen-chat``
-- ``mixtral-instruct-v0.1``
+- ``mixtral-instruct-v0.1``, ``mixtral-8x22B-instruct-v0.1``
 - ``chatglm3``, ``chatglm3-32k``, ``chatglm3-128k``
 - ``deepseek-chat``, ``deepseek-coder-instruct``
 - ``qwen1.5-chat``, ``qwen1.5-moe-chat``
+- ``codeqwen1.5-chat``
 - ``gemma-it``
 - ``orion-chat``, ``orion-chat-rag``
 .. vllm_end

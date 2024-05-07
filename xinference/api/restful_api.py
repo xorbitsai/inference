@@ -275,6 +275,16 @@ class RESTfulAPI:
         self._router.add_api_route(
             "/v1/cluster/auth", self.is_cluster_authenticated, methods=["GET"]
         )
+        self._router.add_api_route(
+            "/v1/engines/{model_name}",
+            self.query_engines_by_model_name,
+            methods=["GET"],
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:list"])]
+                if self.is_authenticated()
+                else None
+            ),
+        )
         # running instances
         self._router.add_api_route(
             "/v1/models/instances",
@@ -686,6 +696,7 @@ class RESTfulAPI:
         payload = await request.json()
         model_uid = payload.get("model_uid")
         model_name = payload.get("model_name")
+        model_engine = payload.get("model_engine")
         model_size_in_billions = payload.get("model_size_in_billions")
         model_format = payload.get("model_format")
         quantization = payload.get("quantization")
@@ -700,6 +711,7 @@ class RESTfulAPI:
         exclude_keys = {
             "model_uid",
             "model_name",
+            "model_engine",
             "model_size_in_billions",
             "model_format",
             "quantization",
@@ -731,6 +743,7 @@ class RESTfulAPI:
             model_uid = await (await self._get_supervisor_ref()).launch_builtin_model(
                 model_uid=model_uid,
                 model_name=model_name,
+                model_engine=model_engine,
                 model_size_in_billions=model_size_in_billions,
                 model_format=model_format,
                 quantization=quantization,
@@ -776,6 +789,7 @@ class RESTfulAPI:
     ) -> JSONResponse:
         payload = await request.json()
         model_uid = payload.get("model_uid")
+        model_engine = payload.get("model_engine")
         model_type = payload.get("model_type")
         model_version = payload.get("model_version")
         replica = payload.get("replica", 1)
@@ -786,6 +800,7 @@ class RESTfulAPI:
                 await self._get_supervisor_ref()
             ).launch_model_by_version(
                 model_uid=model_uid,
+                model_engine=model_engine,
                 model_type=model_type,
                 model_version=model_version,
                 replica=replica,
@@ -1274,11 +1289,7 @@ class RESTfulAPI:
 
         messages = body.messages and list(body.messages) or None
 
-        if (
-            not messages
-            or messages[-1].get("role") not in ["user", "system", "tool"]
-            or not messages[-1].get("content")
-        ):
+        if not messages or messages[-1].get("role") not in ["user", "system", "tool"]:
             raise HTTPException(
                 status_code=400, detail="Invalid input. Please specify the prompt."
             )
@@ -1298,15 +1309,15 @@ class RESTfulAPI:
             {"role": "system", "content": ". ".join(system_messages_contents)}
         )
 
-        assert non_system_messages
-
         has_tool_message = messages[-1].get("role") == "tool"
         if has_tool_message:
             prompt = SPECIAL_TOOL_PROMPT
             system_prompt = system_messages[0]["content"] if system_messages else None
             chat_history = non_system_messages  # exclude the prompt
         else:
-            prompt = non_system_messages[-1]["content"]
+            prompt = None
+            if non_system_messages:
+                prompt = non_system_messages[-1]["content"]
             system_prompt = system_messages[0]["content"] if system_messages else None
             chat_history = non_system_messages[:-1]  # exclude the prompt
 
@@ -1417,6 +1428,19 @@ class RESTfulAPI:
                 await self._report_error_event(model_uid, str(e))
                 self.handle_request_limit_error(e)
                 raise HTTPException(status_code=500, detail=str(e))
+
+    async def query_engines_by_model_name(self, model_name: str) -> JSONResponse:
+        try:
+            content = await (
+                await self._get_supervisor_ref()
+            ).query_engines_by_model_name(model_name)
+            return JSONResponse(content=content)
+        except ValueError as re:
+            logger.error(re, exc_info=True)
+            raise HTTPException(status_code=400, detail=str(re))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
 
     async def register_model(self, model_type: str, request: Request) -> JSONResponse:
         body = RegisterModelRequest.parse_obj(await request.json())

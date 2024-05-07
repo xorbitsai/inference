@@ -154,7 +154,7 @@ class GradioInterface:
                 gr.Slider(
                     minimum=0, maximum=2, value=1, step=0.01, label="Temperature"
                 ),
-                gr.Text(label="LoRAName"),
+                gr.Text(label="LoRA Name for vLLM"),
             ],
             title=f"🚀 Xinference Chat Bot : {self.model_name} 🚀",
             css="""
