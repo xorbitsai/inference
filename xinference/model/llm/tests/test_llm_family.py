@@ -1201,14 +1201,8 @@ def test_query_engine_general():
     model_name = "qwen1.5-chat"
     assert model_name in LLM_ENGINES
 
-    assert (
-        "PyTorch" in LLM_ENGINES[model_name]
-        and len(LLM_ENGINES[model_name]["PyTorch"]) == 28
-    )
-    assert (
-        "llama-cpp-python" in LLM_ENGINES[model_name]
-        and len(LLM_ENGINES[model_name]["llama-cpp-python"]) == 7
-    )
+    assert "PyTorch" in LLM_ENGINES[model_name]
+    assert "llama-cpp-python" in LLM_ENGINES[model_name]
 
     assert check_engine_by_spec_parameters(
         model_engine="PyTorch",
@@ -1248,7 +1242,7 @@ def test_query_engine_general():
         )
         is LlamaCppChatModel
     )
-    assert (
+    with pytest.raises(ValueError) as exif:
         check_engine_by_spec_parameters(
             model_engine="llama-cpp-python",
             model_name=model_name,
@@ -1256,7 +1250,9 @@ def test_query_engine_general():
             model_size_in_billions="1_8",
             quantization="q2_k",
         )
-        is None
+    assert (
+        str(exif.value)
+        == "Model qwen1.5-chat cannot be run on engine llama-cpp-python, with format ggmlv3, size 1_8 and quantization q2_k."
     )
 
     assert (

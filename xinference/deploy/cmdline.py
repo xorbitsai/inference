@@ -599,6 +599,13 @@ def list_model_registrations(
     help="Specify type of model, LLM as default.",
 )
 @click.option(
+    "--model-engine",
+    "-en",
+    type=str,
+    default=None,
+    help="Specify the inference engine of the model when launching LLM.",
+)
+@click.option(
     "--model-uid",
     "-u",
     type=str,
@@ -691,6 +698,7 @@ def model_launch(
     endpoint: Optional[str],
     model_name: str,
     model_type: str,
+    model_engine: Optional[str],
     model_uid: str,
     size_in_billions: str,
     model_format: str,
@@ -711,6 +719,9 @@ def model_launch(
             raise ValueError("You must specify extra kwargs with `--` prefix.")
         kwargs[ctx.args[i][2:]] = handle_click_args_type(ctx.args[i + 1])
     print(f"Launch model name: {model_name} with kwargs: {kwargs}", file=sys.stderr)
+
+    if model_type == "LLM" and model_engine is None:
+        raise ValueError("--model-engine is required for LLM models.")
 
     if n_gpu.lower() == "none":
         _n_gpu: Optional[Union[int, str]] = None
@@ -765,6 +776,7 @@ def model_launch(
     model_uid = client.launch_model(
         model_name=model_name,
         model_type=model_type,
+        model_engine=model_engine,
         model_uid=model_uid,
         model_size_in_billions=model_size,
         model_format=model_format,

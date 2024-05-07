@@ -228,16 +228,14 @@ Begin!"""
                 tools_name_text = []
                 for func_info in tools:
                     parameters = []
-                    required_parameters = func_info["function"]["parameters"].get(
-                        "required", []
-                    )
-                    for name, p in func_info["function"]["parameters"][
-                        "properties"
-                    ].items():
-                        param = dict({"name": name}, **p)
-                        if name in required_parameters:
-                            param["required"] = True
-                        parameters.append(param)
+                    fp = func_info["function"].get("parameters", {})
+                    if fp:
+                        required_parameters = fp.get("required", [])
+                        for name, p in fp["properties"].items():
+                            param = dict({"name": name}, **p)
+                            if name in required_parameters:
+                                param["required"] = True
+                            parameters.append(param)
 
                     name = func_info["function"]["name"]
                     desc = func_info["function"]["description"]
@@ -446,6 +444,17 @@ Begin!"""
                     ret += "<用户>" + content.strip()
                 else:
                     ret += "<AI>" + content.strip()
+            return ret
+        elif prompt_style.style_name == "PHI3":
+            ret = f"<|system|>{prompt_style.intra_message_sep}{prompt_style.system_prompt}{prompt_style.inter_message_sep}"
+            for message in chat_history:
+                content = message["content"] or ""
+                role = get_role(message["role"])
+                if content:
+                    ret += f"<|{role}|>{prompt_style.intra_message_sep}{content}{prompt_style.inter_message_sep}"
+                else:
+                    ret += f"<|{role}|>{prompt_style.intra_message_sep}"
+            ret += "<|assistant|>\n"
             return ret
         else:
             raise ValueError(f"Invalid prompt style: {prompt_style.style_name}")
@@ -680,6 +689,15 @@ Begin!"""
         else:
             m = {"role": "assistant", "content": content, "tool_calls": []}
             finish_reason = "stop"
+        try:
+            usage = c.get("usage")
+            assert "prompt_tokens" in usage
+        except Exception:
+            usage = {
+                "prompt_tokens": -1,
+                "completion_tokens": -1,
+                "total_tokens": -1,
+            }
         return {
             "id": "chat" + f"cmpl-{_id}",
             "model": model_uid,
@@ -692,11 +710,7 @@ Begin!"""
                     "finish_reason": finish_reason,
                 }
             ],
-            "usage": {
-                "prompt_tokens": -1,
-                "completion_tokens": -1,
-                "total_tokens": -1,
-            },
+            "usage": usage,
         }
 
 

@@ -449,6 +449,7 @@ class ActorClient:
         self,
         model_name: str,
         model_type: str = "LLM",
+        model_engine: Optional[str] = None,
         model_size_in_billions: Optional[int] = None,
         model_format: Optional[str] = None,
         quantization: Optional[str] = None,
@@ -466,6 +467,8 @@ class ActorClient:
             The name of model.
         model_type: str
             Type of model.
+        model_engine: Optional[str]
+            Specify the inference engine of the model when launching LLM.
         model_size_in_billions: Optional[int]
             The size (in billions) of the model.
         model_format: Optional[str]
@@ -493,6 +496,7 @@ class ActorClient:
         coro = self._supervisor_ref.launch_builtin_model(
             model_uid=None,
             model_name=model_name,
+            model_engine=model_engine,
             model_type=model_type,
             model_size_in_billions=model_size_in_billions,
             model_format=model_format,

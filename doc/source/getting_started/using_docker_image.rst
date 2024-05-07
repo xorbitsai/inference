@@ -17,10 +17,12 @@ Prerequisites
 Docker Image
 ============
 The official image of Xinference is available on DockerHub in the repository ``xprobe/xinference``.
-There are two kinds of image tags available:
+Available tags include:
 
 * ``nightly-main``: This image is built daily from the `GitHub main branch <https://github.com/xorbitsai/inference>`_ and generally does not guarantee stability.
 * ``v<release version>``: This image is built each time a Xinference release version is published, and it is typically more stable.
+* ``latest``: This image is built with the latest Xinference release version.
+* For CPU version, add ``-cpu`` suffix, e.g. ``nightly-main-cpu``.
 
 
 Dockerfile for custom build

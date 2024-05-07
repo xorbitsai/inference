@@ -37,7 +37,8 @@ When the following conditions are met, Xinference will choose vLLM as the infere
 
 - The model format is ``pytorch``, ``gptq`` or ``awq``.
 - When the model format is ``pytorch``, the quantization is ``none``.
-- When the model format is ``gptq`` or ``awq``, the quantization is ``Int4``.
+- When the model format is ``awq``, the quantization is ``Int4``.
+- When the model format is ``gptq``, the quantization is ``Int3``, ``Int4`` or ``Int8``.
 - The system is Linux and has at least one CUDA device
 - The model family (for custom models) / model name (for builtin models) is within the list of models supported by vLLM
 

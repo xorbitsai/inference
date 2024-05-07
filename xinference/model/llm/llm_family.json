@@ -463,6 +463,106 @@
   },
   {
     "version": 1,
+    "context_length": 128000,
+    "model_name": "phi-3-mini-128k-instruct",
+    "model_lang": [
+      "en"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "The Phi-3-Mini-128K-Instruct is a 3.8 billion-parameter, lightweight, state-of-the-art open model trained using the Phi-3 datasets.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 4,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "microsoft/Phi-3-mini-128k-instruct",
+        "model_revision": "ebee18c488086b396dde649f2aa6548b9b8d2404"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "PHI3",
+      "system_prompt": "You are a helpful AI assistant.",
+      "roles": [
+        "user",
+        "assistant"
+      ],
+      "intra_message_sep": "\n",
+      "inter_message_sep": "<|end|>\n",
+      "stop_token_ids":[
+        32000,
+        32001,
+        32007
+      ],
+      "stop": [
+        "<|endoftext|>",
+        "<|assistant|>",
+        "<|end|>"
+      ]
+    }
+  },
+  {
+    "version": 1,
+    "context_length": 4096,
+    "model_name": "phi-3-mini-4k-instruct",
+    "model_lang": [
+      "en"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "The Phi-3-Mini-4k-Instruct is a 3.8 billion-parameter, lightweight, state-of-the-art open model trained using the Phi-3 datasets.",
+    "model_specs": [
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 4,
+        "quantizations": [
+          "fp16",
+          "q4"
+        ],
+        "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
+        "model_file_name_template": "Phi-3-mini-4k-instruct-{quantization}.gguf"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 4,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "microsoft/Phi-3-mini-4k-instruct",
+        "model_revision": "b86bcaf57ea4dfdec5dbe12a377028b2fab0d480"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "PHI3",
+      "system_prompt": "You are a helpful AI assistant.",
+      "roles": [
+        "user",
+        "assistant"
+      ],
+      "intra_message_sep": "\n",
+      "inter_message_sep": "<|end|>\n",
+      "stop_token_ids":[
+        32000,
+        32001,
+        32007
+      ],
+      "stop": [
+        "<|endoftext|>",
+        "<|assistant|>",
+        "<|end|>"
+      ]
+    }
+  },
+  {
+    "version": 1,
     "context_length": 2048,
     "model_name": "chatglm",
     "model_lang": [
@@ -624,7 +724,7 @@
           "none"
         ],
         "model_id": "THUDM/chatglm3-6b",
-        "model_revision": "b098244a71fbe69ce149682d9072a7629f7e908c"
+        "model_revision": "103caa40027ebfd8450289ca2f278eac4ff26405"
       }
     ],
     "prompt_style": {
@@ -1768,6 +1868,16 @@
         "model_id": "Qwen/Qwen1.5-72B-Chat"
       },
       {
+        "model_format": "pytorch",
+        "model_size_in_billions": 110,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "Qwen/Qwen1.5-110B-Chat"
+      },
+      {
         "model_format": "gptq",
         "model_size_in_billions": "0_5",
         "quantizations": [
@@ -1830,6 +1940,14 @@
         "model_id": "Qwen/Qwen1.5-72B-Chat-GPTQ-{quantization}"
       },
       {
+        "model_format": "gptq",
+        "model_size_in_billions": 110,
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "Qwen/Qwen1.5-110B-Chat-GPTQ-Int4"
+      },
+      {
         "model_format": "awq",
         "model_size_in_billions": "0_5",
         "quantizations": [
@@ -1884,6 +2002,14 @@
           "Int4"
         ],
         "model_id": "Qwen/Qwen1.5-72B-Chat-AWQ"
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 110,
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "Qwen/Qwen1.5-110B-Chat-AWQ"
       },
       {
         "model_format": "ggufv2",
@@ -5231,7 +5357,7 @@
           "Q8_0"
         ],
         "model_id": "andrewcanis/c4ai-command-r-v01-GGUF",
-        "model_file_name_template": "c4ai-command-r-v01.{quantization}.gguf"
+        "model_file_name_template": "c4ai-command-r-v01-{quantization}.gguf"
       },
       {
         "model_format": "pytorch",
@@ -5293,5 +5419,45 @@
         "model_revision": "bb63b5b7005ecedb30b0cfd0d5953b02a5817f7b"
       }
     ]
+  },
+  {
+    "version": 1,
+    "context_length": 4096,
+    "model_name": "Starling-LM",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "We introduce Starling-7B, an open large language model (LLM) trained by Reinforcement Learning from AI Feedback (RLAIF). The model harnesses the power of our new GPT-4 labeled ranking dataset",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "berkeley-nest/Starling-LM-7B-alpha",
+        "model_revision": "1dddf3b95bc1391f6307299eb1c162c194bde9bd"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "ADD_COLON_SINGLE",
+      "system_prompt": "",
+      "roles": [
+        "GPT4 Correct User",
+        "GPT4 Correct Assistant"
+      ],
+      "intra_message_sep": "<|end_of_turn|>",
+      "inter_message_sep": "",
+      "stop_token_ids": [
+        2,
+        32000
+      ]
+    }
   }
 ]

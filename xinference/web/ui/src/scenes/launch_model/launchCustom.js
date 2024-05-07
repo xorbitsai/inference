@@ -8,6 +8,8 @@ import fetcher from '../../components/fetcher'
 import HotkeyFocusTextField from '../../components/hotkeyFocusTextField'
 import ModelCard from './modelCard'
 
+const customType = ['llm', 'embedding', 'rerank', 'image', 'audio']
+
 const LaunchCustom = ({ gpuAvailable }) => {
   let endPoint = useContext(ApiContext).endPoint
   const [registrationData, setRegistrationData] = useState([])
@@ -19,14 +21,16 @@ const LaunchCustom = ({ gpuAvailable }) => {
   const [value, setValue] = useState(sessionStorage.getItem('subType'))
 
   const navigate = useNavigate()
-  const handleTabChange = (event, newValue) => {
+  const handleTabChange = (_, newValue) => {
+    const type =
+      newValue.split('/')[3] === 'llm' ? 'LLM' : newValue.split('/')[3]
+    getData(type)
     setValue(newValue)
-    update()
     navigate(newValue)
     sessionStorage.setItem('subType', newValue)
   }
 
-  const handleChange = (event) => {
+  const handleSearchChange = (event) => {
     setSearchTerm(event.target.value)
   }
 
@@ -38,50 +42,30 @@ const LaunchCustom = ({ gpuAvailable }) => {
     return modelName.includes(searchTerm.toLowerCase())
   }
 
-  const update = async () => {
-    if (isCallingApi || isUpdatingModel) return
+  useEffect(() => {
+    const type = sessionStorage.getItem('subType').split('/')[3]
+    getData(type === 'llm' ? 'LLM' : type)
+  }, [])
 
+  const getData = async (type) => {
+    if (isCallingApi || isUpdatingModel) return
     try {
       setIsCallingApi(true)
-
-      const rerankResponse = await fetcher(
-        `${endPoint}/v1/model_registrations/rerank`,
+      const response = await fetcher(
+        `${endPoint}/v1/model_registrations/${type}`,
         {
           method: 'GET',
         }
       )
-      const rerankRegistrations = await rerankResponse.json()
-      const customRerankRegistrations = rerankRegistrations.filter(
+      const registrations = await response.json()
+      const customRegistrations = registrations.filter(
         (data) => !data.is_builtin
       )
 
-      const embeddingResponse = await fetcher(
-        `${endPoint}/v1/model_registrations/embedding`,
-        {
-          method: 'GET',
-        }
-      )
-
-      const embeddingRegistrations = await embeddingResponse.json()
-      const customEmbeddingRegistrations = embeddingRegistrations.filter(
-        (data) => !data.is_builtin
-      )
-
-      const llmResponse = await fetcher(
-        `${endPoint}/v1/model_registrations/LLM`,
-        {
-          method: 'GET',
-        }
-      )
-      const llmRegistrations = await llmResponse.json()
-      const customLLMRegistrations = llmRegistrations.filter(
-        (data) => !data.is_builtin
-      )
-
-      const newEmbeddingData = await Promise.all(
-        customEmbeddingRegistrations.map(async (registration) => {
+      const newData = await Promise.all(
+        customRegistrations.map(async (registration) => {
           const desc = await fetcher(
-            `${endPoint}/v1/model_registrations/embedding/${registration.model_name}`,
+            `${endPoint}/v1/model_registrations/${type}/${registration.model_name}`,
             {
               method: 'GET',
             }
@@ -93,52 +77,13 @@ const LaunchCustom = ({ gpuAvailable }) => {
           }
         })
       )
-
-      const newLLMData = await Promise.all(
-        customLLMRegistrations.map(async (registration) => {
-          const desc = await fetcher(
-            `${endPoint}/v1/model_registrations/LLM/${registration.model_name}`,
-            {
-              method: 'GET',
-            }
-          )
-
-          return {
-            ...(await desc.json()),
-            is_builtin: registration.is_builtin,
-          }
-        })
-      )
-
-      const newRerankData = await Promise.all(
-        customRerankRegistrations.map(async (registration) => {
-          const desc = await fetcher(
-            `${endPoint}/v1/model_registrations/rerank/${registration.model_name}`,
-            {
-              method: 'GET',
-            }
-          )
-
-          return {
-            ...(await desc.json()),
-            is_builtin: registration.is_builtin,
-          }
-        })
-      )
-
-      setRegistrationData(
-        newLLMData.concat(newEmbeddingData).concat(newRerankData)
-      )
+      setRegistrationData(newData)
     } catch (error) {
       console.error('Error:', error)
     } finally {
       setIsCallingApi(false)
     }
   }
-
-  useEffect(() => {
-    update()
-  }, [])
 
   const style = {
     display: 'grid',
@@ -159,138 +104,51 @@ const LaunchCustom = ({ gpuAvailable }) => {
               value="/launch_model/custom/embedding"
             />
             <Tab label="Rerank Models" value="/launch_model/custom/rerank" />
+            <Tab label="Image Models" value="/launch_model/custom/image" />
+            <Tab label="Audio Models" value="/launch_model/custom/audio" />
           </TabList>
         </Box>
-        <TabPanel value="/launch_model/custom/llm" sx={{ padding: 0 }}>
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: '1fr',
-              margin: '30px 2rem',
-            }}
+        {customType.map((item) => (
+          <TabPanel
+            key={item}
+            value={`/launch_model/custom/${item}`}
+            sx={{ padding: 0 }}
           >
-            <FormControl variant="outlined" margin="normal">
-              <HotkeyFocusTextField
-                id="search"
-                type="search"
-                label="Search for custom model name"
-                value={searchTerm}
-                onChange={handleChange}
-                size="small"
-                hotkey="/"
-              />
-            </FormControl>
-          </div>
-          <div style={style}>
-            {registrationData
-              .filter((registration) => filter(registration))
-              .map((filteredRegistration) => {
-                if (
-                  !(
-                    filteredRegistration.max_tokens &&
-                    filteredRegistration.dimensions
-                  ) &&
-                  !(
-                    filteredRegistration.model_type &&
-                    filteredRegistration.model_type === 'rerank'
-                  )
-                ) {
-                  return (
-                    <ModelCard
-                      key={filteredRegistration.model_name}
-                      url={endPoint}
-                      modelData={filteredRegistration}
-                      gpuAvailable={gpuAvailable}
-                      is_custom={true}
-                      modelType="LLM"
-                    />
-                  )
-                }
-              })}
-          </div>
-        </TabPanel>
-        <TabPanel value="/launch_model/custom/embedding" sx={{ padding: 0 }}>
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: '1fr',
-              margin: '30px 2rem',
-            }}
-          >
-            <FormControl variant="outlined" margin="normal">
-              <HotkeyFocusTextField
-                id="search"
-                type="search"
-                label="Search for custom model name"
-                value={searchTerm}
-                onChange={handleChange}
-                size="small"
-                hotkey="/"
-              />
-            </FormControl>
-          </div>
-          <div style={style}>
-            {registrationData
-              .filter((registration) => filter(registration))
-              .map((filteredRegistration) => {
-                if (
-                  filteredRegistration.max_tokens &&
-                  filteredRegistration.dimensions
-                ) {
-                  return (
-                    <ModelCard
-                      key={filteredRegistration.model_name}
-                      url={endPoint}
-                      modelData={filteredRegistration}
-                      is_custom={true}
-                      modelType="embedding"
-                    />
-                  )
-                }
-              })}
-          </div>
-        </TabPanel>
-        <TabPanel value="/launch_model/custom/rerank" sx={{ padding: 0 }}>
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: '1fr',
-              margin: '30px 2rem',
-            }}
-          >
-            <FormControl variant="outlined" margin="normal">
-              <HotkeyFocusTextField
-                id="search"
-                type="search"
-                label="Search for custom model name"
-                value={searchTerm}
-                onChange={handleChange}
-                size="small"
-                hotkey="/"
-              />
-            </FormControl>
-          </div>
-          <div style={style}>
-            {registrationData
-              .filter((registration) => filter(registration))
-              .map((filteredRegistration) => {
-                if (
-                  filteredRegistration.model_type &&
-                  filteredRegistration.model_type === 'rerank'
-                ) {
-                  return (
-                    <ModelCard
-                      key={filteredRegistration.model_name}
-                      url={endPoint}
-                      modelData={filteredRegistration}
-                      is_custom={true}
-                      modelType="rerank"
-                    />
-                  )
-                }
-              })}
-          </div>
-        </TabPanel>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr',
+                margin: '30px 2rem',
+              }}
+            >
+              <FormControl variant="outlined" margin="normal">
+                <HotkeyFocusTextField
+                  id="search"
+                  type="search"
+                  label="Search for custom model name"
+                  value={searchTerm}
+                  onChange={handleSearchChange}
+                  size="small"
+                  hotkey="/"
+                />
+              </FormControl>
+            </div>
+            <div style={style}>
+              {registrationData
+                .filter((registration) => filter(registration))
+                .map((filteredRegistration) => (
+                  <ModelCard
+                    key={filteredRegistration.model_name}
+                    url={endPoint}
+                    modelData={filteredRegistration}
+                    gpuAvailable={gpuAvailable}
+                    is_custom={true}
+                    modelType={item === 'llm' ? 'LLM' : item}
+                  />
+                ))}
+            </div>
+          </TabPanel>
+        ))}
       </TabContext>
     </Box>
   )

@@ -80,12 +80,12 @@ class ReplicaInfo:
 class SupervisorActor(xo.StatelessActor):
     def __init__(self):
         super().__init__()
-        self._worker_address_to_worker: Dict[str, xo.ActorRefType["WorkerActor"]] = {}
-        self._worker_status: Dict[str, WorkerStatus] = {}
-        self._replica_model_uid_to_worker: Dict[
+        self._worker_address_to_worker: Dict[str, xo.ActorRefType["WorkerActor"]] = {}  # type: ignore
+        self._worker_status: Dict[str, WorkerStatus] = {}  # type: ignore
+        self._replica_model_uid_to_worker: Dict[  # type: ignore
             str, xo.ActorRefType["WorkerActor"]
         ] = {}
-        self._model_uid_to_replica_info: Dict[str, ReplicaInfo] = {}
+        self._model_uid_to_replica_info: Dict[str, ReplicaInfo] = {}  # type: ignore
         self._uptime = None
         self._lock = asyncio.Lock()
 
@@ -117,12 +117,12 @@ class SupervisorActor(xo.StatelessActor):
         from .cache_tracker import CacheTrackerActor
         from .status_guard import StatusGuardActor
 
-        self._status_guard_ref: xo.ActorRefType[
+        self._status_guard_ref: xo.ActorRefType[  # type: ignore
             "StatusGuardActor"
         ] = await xo.create_actor(
             StatusGuardActor, address=self.address, uid=StatusGuardActor.uid()
         )
-        self._cache_tracker_ref: xo.ActorRefType[
+        self._cache_tracker_ref: xo.ActorRefType[  # type: ignore
             "CacheTrackerActor"
         ] = await xo.create_actor(
             CacheTrackerActor, address=self.address, uid=CacheTrackerActor.uid()
@@ -130,7 +130,7 @@ class SupervisorActor(xo.StatelessActor):
 
         from .event import EventCollectorActor
 
-        self._event_collector_ref: xo.ActorRefType[
+        self._event_collector_ref: xo.ActorRefType[  # type: ignore
             EventCollectorActor
         ] = await xo.create_actor(
             EventCollectorActor, address=self.address, uid=EventCollectorActor.uid()
@@ -172,7 +172,7 @@ class SupervisorActor(xo.StatelessActor):
             unregister_rerank,
         )
 
-        self._custom_register_type_to_cls: Dict[str, Tuple] = {
+        self._custom_register_type_to_cls: Dict[str, Tuple] = {  # type: ignore
             "LLM": (
                 CustomLLMFamilyV1,
                 register_llm,
@@ -206,7 +206,7 @@ class SupervisorActor(xo.StatelessActor):
         }
 
         # record model version
-        model_version_infos: Dict[str, List[Dict]] = {}
+        model_version_infos: Dict[str, List[Dict]] = {}  # type: ignore
         model_version_infos.update(get_llm_model_descriptions())
         model_version_infos.update(get_embedding_model_descriptions())
         model_version_infos.update(get_rerank_model_descriptions())
@@ -693,6 +693,7 @@ class SupervisorActor(xo.StatelessActor):
         self,
         model_uid: Optional[str],
         model_type: str,
+        model_engine: Optional[str],
         model_version: str,
         replica: int = 1,
         n_gpu: Optional[Union[int, str]] = "auto",
@@ -708,6 +709,7 @@ class SupervisorActor(xo.StatelessActor):
         return await self.launch_builtin_model(
             model_uid=model_uid,
             model_name=parse_results[0],
+            model_engine=model_engine,
             model_size_in_billions=parse_results[1] if model_type == "LLM" else None,
             model_format=parse_results[2] if model_type == "LLM" else None,
             quantization=parse_results[3] if model_type == "LLM" else None,
@@ -786,6 +788,7 @@ class SupervisorActor(xo.StatelessActor):
         model_size_in_billions: Optional[Union[int, str]],
         model_format: Optional[str],
         quantization: Optional[str],
+        model_engine: Optional[str],
         model_type: Optional[str],
         replica: int = 1,
         n_gpu: Optional[Union[int, str]] = "auto",
@@ -841,6 +844,7 @@ class SupervisorActor(xo.StatelessActor):
                 model_size_in_billions=model_size_in_billions,
                 model_format=model_format,
                 quantization=quantization,
+                model_engine=model_engine,
                 model_type=model_type,
                 n_gpu=n_gpu,
                 request_limits=request_limits,
