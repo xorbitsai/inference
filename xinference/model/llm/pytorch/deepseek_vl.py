@@ -223,7 +223,7 @@ class DeepSeekVLChatModel(PytorchChatModel):
             c = self._generate(streamer, stop_str)
             return self._to_chat_completion(c)
 
-    def _generate(self, streamer, stop_str)->Completion:
+    def _generate(self, streamer, stop_str) -> Completion:
         generated_text = ""
         for new_text in streamer:
             if new_text.endswith(stop_str):
@@ -247,7 +247,7 @@ class DeepSeekVLChatModel(PytorchChatModel):
         )
         return c
 
-    def _generate_stream(self, streamer, stop_str)-> Iterator[CompletionChunk]:
+    def _generate_stream(self, streamer, stop_str) -> Iterator[CompletionChunk]:
         completion_id = str(uuid.uuid1())
         for i, new_text in enumerate(streamer):
             if new_text.endswith(stop_str):
