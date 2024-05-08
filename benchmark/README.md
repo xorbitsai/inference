@@ -11,7 +11,7 @@ wget https://huggingface.co/datasets/anon8231489123/ShareGPT_Vicuna_unfiltered/r
 ```bash
 python benchmark_latency.py --dataset /path/to/ShareGPT_V3_unfiltered_cleaned_split.json \
                             --tokenizer /path/to/tokenizer \
-                            --num-prompt 100
+                            --num-prompt 100 \
                             --model-uid ${model_uid}
 ```
 
@@ -19,6 +19,6 @@ python benchmark_latency.py --dataset /path/to/ShareGPT_V3_unfiltered_cleaned_sp
 ```bash
 python benchmark_serving.py --dataset /path/to/ShareGPT_V3_unfiltered_cleaned_split.json \
                             --tokenizer /path/to/tokenizer \
-                            --num-prompt 100
+                            --num-prompt 100 \
                             --model-uid ${model_uid}
 ```
