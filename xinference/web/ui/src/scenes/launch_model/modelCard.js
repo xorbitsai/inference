@@ -58,6 +58,7 @@ const ModelCard = ({
 
   // Model parameter selections
   const [modelUID, setModelUID] = useState('')
+  const [modelEngine, setModelEngine] = useState('')
   const [modelFormat, setModelFormat] = useState('')
   const [modelSize, setModelSize] = useState('')
   const [quantization, setQuantization] = useState('')
@@ -68,6 +69,8 @@ const ModelCard = ({
   const [workerIp, setWorkerIp] = useState('')
   const [GPUIdx, setGPUIdx] = useState('')
 
+  const [enginesObj, setEnginesObj] = useState({})
+  const [engineOptions, setEngineOptions] = useState([])
   const [formatOptions, setFormatOptions] = useState([])
   const [sizeOptions, setSizeOptions] = useState([])
   const [quantizationOptions, setQuantizationOptions] = useState([])
@@ -96,50 +99,59 @@ const ModelCard = ({
     return size.toString().includes('_') ? size : parseInt(size, 10)
   }
 
-  // UseEffects for parameter selection, change options based on previous selections
   useEffect(() => {
-    if (modelData) {
-      if (modelData.model_specs) {
-        const modelFamily = modelData.model_specs
-        const formats = [
-          ...new Set(modelFamily.map((spec) => spec.model_format)),
-        ]
-        setFormatOptions(formats)
+    setModelFormat('')
+    if (modelEngine) {
+      const format = [
+        ...new Set(
+          enginesObj[modelEngine]
+            .map((item) => item.model_format)
+        ),
+      ]
+      setFormatOptions(format)
+      if(format.length === 1) {
+        setModelFormat(format[0])
       }
     }
-  }, [modelData])
+  }, [modelEngine])
 
   useEffect(() => {
-    if (modelFormat && modelData) {
-      const modelFamily = modelData.model_specs
+    setModelSize('')
+    if (modelEngine && modelFormat) {
       const sizes = [
         ...new Set(
-          modelFamily
-            .filter((spec) => spec.model_format === modelFormat)
-            .map((spec) => spec.model_size_in_billions)
+          enginesObj[modelEngine]
+            .filter(item => item.model_format === modelFormat)
+            .map((item) => item.model_size_in_billions)
         ),
       ]
       setSizeOptions(sizes)
+      if(sizes.length === 1) {
+        setModelSize(sizes[0])
+      }
     }
-  }, [modelFormat, modelData])
+  }, [modelEngine, modelFormat])
 
   useEffect(() => {
-    if (modelFormat && modelSize && modelData) {
-      const modelFamily = modelData.model_specs
+    setQuantization('')
+    if (modelEngine && modelFormat && modelSize) {
       const quants = [
         ...new Set(
-          modelFamily
+          enginesObj[modelEngine]
             .filter(
-              (spec) =>
-                spec.model_format === modelFormat &&
-                spec.model_size_in_billions === convertModelSize(modelSize)
+              (item) =>
+                item.model_format === modelFormat &&
+                item.model_size_in_billions === convertModelSize(modelSize)
             )
-            .flatMap((spec) => spec.quantizations)
+            .flatMap((item) => item.quantizations)
         ),
       ]
       setQuantizationOptions(quants)
+      if(quants.length === 1) {
+        setQuantization(quants[0])
+      }
     }
-  }, [modelFormat, modelSize, modelData])
+  }, [modelEngine, modelFormat, modelSize])
 
   useEffect(() => {
     if (parentRef.current) {
@@ -158,6 +170,38 @@ const ModelCard = ({
     return ['auto', 'CPU'].concat(range(1, gpuAvailable))
   }
 
+  const getModelEngine = (model_name) => {
+    fetcher(url + `/v1/engines/${model_name}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+      .then((response) => {
+        if (!response.ok) {
+          // Assuming the server returns error details in JSON format
+          response.json().then((errorData) => {
+            setErrorMsg(
+              `Server error: ${response.status} - ${
+                errorData.detail || 'Unknown error'
+              }`
+            )
+          })
+        } else {
+          response.json().then((data) => {
+            console.log('engine', data);
+            setEnginesObj(data)
+            setEngineOptions(Object.keys(data))
+          })
+        }
+        setIsCallingApi(false)
+      })
+      .catch((error) => {
+        console.error('Error:', error)
+        setIsCallingApi(false)
+      })
+  }
+
   const launchModel = (url) => {
     if (isCallingApi || isUpdatingModel) {
       return
@@ -170,6 +214,7 @@ const ModelCard = ({
       model_uid: modelUID.trim() === '' ? null : modelUID.trim(),
       model_name: modelData.model_name,
       model_type: modelType,
+      model_engine: modelEngine,
       model_format: modelFormat,
       model_size_in_billions: convertModelSize(modelSize),
       quantization: quantization,
@@ -355,8 +400,10 @@ const ModelCard = ({
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       onClick={() => {
+        console.log('modelData',modelData);
         if (!selected && !customDeleted) {
           setSelected(true)
+          getModelEngine(modelData.model_name)
         }
       }}
       elevation={hover ? 24 : 4}
@@ -542,7 +589,48 @@ const ModelCard = ({
             >
               <Grid rowSpacing={0} columnSpacing={1}>
                 <Grid item xs={12}>
-                  <FormControl variant="outlined" margin="normal" fullWidth>
+                  <FormControl
+                    variant="outlined"
+                    margin="normal"
+                    fullWidth
+                  >
+                    <InputLabel id="modelEngine-label">Model Engine</InputLabel>
+                    <Select
+                      labelId="modelEngine-label"
+                      value={modelEngine}
+                      onChange={(e) => setModelEngine(e.target.value)}
+                      label="Model Engine"
+                    >
+                      {engineOptions.map((engine) => {
+                        const arr = []
+                        enginesObj[engine].forEach(item => {
+                          arr.push(item.model_format)
+                        })
+                        const specs = modelData.model_specs.filter(
+                          (spec) => arr.includes(spec.model_format)
+                        )
+
+                        const cached = specs.some((spec) => isCached(spec))
+                        const displayedEngine = cached
+                          ? engine + ' (cached)'
+                          : engine
+
+                        return (
+                          <MenuItem key={engine} value={engine}>
+                            {displayedEngine}
+                          </MenuItem>
+                        )
+                      })}
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12}>
+                  <FormControl
+                    variant="outlined"
+                    margin="normal"
+                    fullWidth
+                    disabled={!modelEngine}
+                  >
                     <InputLabel id="modelFormat-label">Model Format</InputLabel>
                     <Select
                       labelId="modelFormat-label"
@@ -822,7 +910,7 @@ const ModelCard = ({
                 <AddPair
                   customData={{
                     title:
-                      'Additional parameters passed to the inference engine',
+                      `Additional parameters passed to the inference engine${modelEngine ? ': ' + modelEngine : ''}`,
                     key: 'key',
                     value: 'value',
                   }}
