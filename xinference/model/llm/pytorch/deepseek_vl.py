@@ -240,6 +240,7 @@ class DeepSeekVLChatModel(PytorchChatModel):
                     index=0,
                     text=generated_text,
                     finish_reason="stop",
+                    logprobs=None
                 )
             ],
             usage=CompletionUsage(
