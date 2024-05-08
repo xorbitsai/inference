@@ -103,13 +103,10 @@ const ModelCard = ({
     setModelFormat('')
     if (modelEngine) {
       const format = [
-        ...new Set(
-          enginesObj[modelEngine]
-            .map((item) => item.model_format)
-        ),
+        ...new Set(enginesObj[modelEngine].map((item) => item.model_format)),
       ]
       setFormatOptions(format)
-      if(format.length === 1) {
+      if (format.length === 1) {
         setModelFormat(format[0])
       }
     }
@@ -121,12 +118,12 @@ const ModelCard = ({
       const sizes = [
         ...new Set(
           enginesObj[modelEngine]
-            .filter(item => item.model_format === modelFormat)
+            .filter((item) => item.model_format === modelFormat)
             .map((item) => item.model_size_in_billions)
         ),
       ]
       setSizeOptions(sizes)
-      if(sizes.length === 1) {
+      if (sizes.length === 1) {
         setModelSize(sizes[0])
       }
     }
@@ -147,7 +144,7 @@ const ModelCard = ({
         ),
       ]
       setQuantizationOptions(quants)
-      if(quants.length === 1) {
+      if (quants.length === 1) {
         setQuantization(quants[0])
       }
     }
@@ -189,7 +186,6 @@ const ModelCard = ({
           })
         } else {
           response.json().then((data) => {
-            console.log('engine', data);
             setEnginesObj(data)
             setEngineOptions(Object.keys(data))
           })
@@ -400,7 +396,6 @@ const ModelCard = ({
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       onClick={() => {
-        console.log('modelData',modelData);
         if (!selected && !customDeleted) {
           setSelected(true)
           getModelEngine(modelData.model_name)
@@ -589,11 +584,7 @@ const ModelCard = ({
             >
               <Grid rowSpacing={0} columnSpacing={1}>
                 <Grid item xs={12}>
-                  <FormControl
-                    variant="outlined"
-                    margin="normal"
-                    fullWidth
-                  >
+                  <FormControl variant="outlined" margin="normal" fullWidth>
                     <InputLabel id="modelEngine-label">Model Engine</InputLabel>
                     <Select
                       labelId="modelEngine-label"
@@ -603,11 +594,11 @@ const ModelCard = ({
                     >
                       {engineOptions.map((engine) => {
                         const arr = []
-                        enginesObj[engine].forEach(item => {
+                        enginesObj[engine].forEach((item) => {
                           arr.push(item.model_format)
                         })
-                        const specs = modelData.model_specs.filter(
-                          (spec) => arr.includes(spec.model_format)
+                        const specs = modelData.model_specs.filter((spec) =>
+                          arr.includes(spec.model_format)
                         )
 
                         const cached = specs.some((spec) => isCached(spec))
@@ -909,8 +900,9 @@ const ModelCard = ({
                 </Collapse>
                 <AddPair
                   customData={{
-                    title:
-                      `Additional parameters passed to the inference engine${modelEngine ? ': ' + modelEngine : ''}`,
+                    title: `Additional parameters passed to the inference engine${
+                      modelEngine ? ': ' + modelEngine : ''
+                    }`,
                     key: 'key',
                     value: 'value',
                   }}
