@@ -187,8 +187,8 @@ class DeepSeekVLChatModel(PytorchChatModel):
 
         deepseek_history.extend(prompt_messages)
 
-        from ....thirdparty.deepseek_vl.utils.io import load_pil_images
         from ....thirdparty.deepseek_vl.serve.inference import generate
+        from ....thirdparty.deepseek_vl.utils.io import load_pil_images
 
         # load images and prepare for inputs
         pil_images = load_pil_images(deepseek_history)
