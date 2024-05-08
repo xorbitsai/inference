@@ -13,8 +13,18 @@
 # limitations under the License.
 
 import asyncio
+from collections import deque
 
 import xoscar as xo
+
+
+class InferenceRequest:
+    def __init__(self, prompt, is_prefill, *args, **kwargs):
+        self._prompt = prompt
+        self._is_prefill = is_prefill
+        self._new_tokens = []
+        self._inference_args = args
+        self._inference_kwargs = kwargs
 
 
 class SchedulerActor(xo.Actor):
@@ -24,9 +34,27 @@ class SchedulerActor(xo.Actor):
 
     def __init__(self):
         super().__init__()
+        self._waiting_queue = deque()
+        self._running_queue = deque()
+        self._model = None
+
+    def _handle_request(self):
+        res = []
+        while len(self._waiting_queue) > 0:
+            res.append(self._waiting_queue.popleft())
+        while len(self._running_queue) > 0:
+            res.append(self._running_queue.popleft())
+        return res
 
     async def step(self):
-        print("===========This is a step!!!!")
+        req_list = self._handle_request()
+        if not req_list:
+            return
+        self._model.batch_inference(req_list)
+
+    async def add_request(self, prompt: str, *args, **kwargs):
+        req = InferenceRequest(prompt, True, *args, **kwargs)
+        self._waiting_queue.append(req)
 
     async def run(self):
         while True:
