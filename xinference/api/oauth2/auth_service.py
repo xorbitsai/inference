@@ -48,7 +48,7 @@ class AuthService:
 
     def init_auth_config(self):
         if self._auth_config_file:
-            config: AuthStartupConfig = parse_file_as(
+            config: AuthStartupConfig = parse_file_as(  # type: ignore
                 path=self._auth_config_file, type_=AuthStartupConfig
             )
             all_api_keys = set()
