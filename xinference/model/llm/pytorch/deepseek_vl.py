@@ -237,10 +237,7 @@ class DeepSeekVLChatModel(PytorchChatModel):
             model=self.model_uid,
             choices=[
                 CompletionChoice(
-                    index=0,
-                    text=generated_text,
-                    finish_reason="stop",
-                    logprobs=None
+                    index=0, text=generated_text, finish_reason="stop", logprobs=None
                 )
             ],
             usage=CompletionUsage(
