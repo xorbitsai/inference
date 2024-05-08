@@ -213,7 +213,7 @@ class DeepSeekVLChatModel(PytorchChatModel):
             temperature=temperature,
             repetition_penalty=repetition_penalty,
             top_p=top_p,
-            stop_words=stop_words
+            stop_words=stop_words,
         )
 
         if stream:
