@@ -232,6 +232,7 @@ class DeepSeekVLChatModel(PytorchChatModel):
 
         c = Completion(
             id=str(uuid.uuid1()),
+            object="text_completion",
             created=int(time.time()),
             model=self.model_uid,
             choices=[
@@ -257,6 +258,7 @@ class DeepSeekVLChatModel(PytorchChatModel):
             )
             chunk = CompletionChunk(
                 id=completion_id,
+                object="text_completion",
                 created=int(time.time()),
                 model=self.model_uid,
                 choices=[completion_choice],
@@ -274,6 +276,7 @@ class DeepSeekVLChatModel(PytorchChatModel):
         )
         chunk = CompletionChunk(
             id=completion_id,
+            object="text_completion",
             created=int(time.time()),
             model=self.model_uid,
             choices=[completion_choice],
