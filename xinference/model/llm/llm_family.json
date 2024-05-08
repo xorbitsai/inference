@@ -2291,7 +2291,16 @@
         "model_id": "TheBloke/starcoder-GGML",
         "model_file_name_template": "starcoder.ggmlv3.{quantization}.bin"
       }
-    ]
+    ],
+    "code_prompt_style": {
+      "style_name": "STARCODER",
+      "fim_spec": {
+        "style": "PMS",
+        "prefix": "<fim_prefix>",
+        "middle": "<fim_middle>",
+        "suffix": "<fim_suffix>"
+      }
+    }
   },
   {
     "version": 1,

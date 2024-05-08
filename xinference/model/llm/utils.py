@@ -17,7 +17,17 @@ import logging
 import os
 import time
 import uuid
-from typing import AsyncGenerator, Dict, Iterator, List, Optional, Tuple, cast
+from typing import (
+    AsyncGenerator,
+    Dict,
+    Iterator,
+    List,
+    Literal,
+    Mapping,
+    Optional,
+    Tuple,
+    cast,
+)
 
 from ...types import (
     SPECIAL_TOOL_PROMPT,
@@ -28,6 +38,7 @@ from ...types import (
     CompletionChunk,
 )
 from .llm_family import (
+    CodePromptStyleV1,
     GgmlLLMSpecV1,
     LLMFamilyV1,
     LLMSpecV1,
@@ -712,6 +723,80 @@ Begin!"""
             ],
             "usage": usage,
         }
+
+
+class CodeModelMixin:
+    @staticmethod
+    def get_code_prompt(
+        generate_type: Literal["completion", "fim"],
+        prompt: str,
+        code_prompt_style: CodePromptStyleV1,
+        suffix: Optional[str],
+        repo_name: Optional[str],
+        files: Optional[Mapping[str, str]],
+    ) -> str:
+        if generate_type == "completion":
+            if suffix is not None:
+                logger.warning(
+                    "Suffix is only required on generate type is infill, ignored"
+                )
+
+            if files is None or len(files) == 0:
+                return prompt
+
+            spec = code_prompt_style.repo_level_spec
+            if spec is None:
+                raise ValueError(
+                    "The model does not support repository level code completion"
+                )
+
+            ret_val = ""
+            spec = code_prompt_style.repo_level_spec
+            if spec.repo_name is None:
+                if repo_name is not None:
+                    logger.warning(
+                        "repo_name is provided but it will not be used in this model, ignored"
+                    )
+            else:
+                if repo_name is None:
+                    raise ValueError(
+                        "The repo_name is required for repository level code completion for this model"
+                    )
+                ret_val = f"{spec.repo_name}{repo_name}\n"
+
+            for filepath, content in files.items():
+                repo_file = (
+                    filepath
+                    if spec.file_type == "filepath"
+                    else CodeModelMixin._path_to_name(filepath)
+                )
+                ret_val += f"{spec.file_separator}{repo_file}\n{content}\n"
+            return ret_val + prompt
+
+        elif generate_type == "fim":
+            spec = code_prompt_style.fim_spec
+            if spec is None:
+                raise ValueError("This model is not support FIM mode generate")
+
+            if suffix is None:
+                raise ValueError("suffix is required in FIM mode")
+
+            if files is not None and len(files) > 0:
+                logger.warning(
+                    "files is only required in repository level code completion, ignored"
+                )
+
+            if spec.style == "PSM":
+                return f"{spec.prefix}{prompt}{spec.suffix}{suffix}{spec.middle}"
+            else:
+                return f"{spec.prefix}{prompt}{spec.middle}{suffix}{spec.suffix}"
+
+        else:
+            raise ValueError(f"Unsupported generate type: {generate_type}")
+
+    @staticmethod
+    def _path_to_name(filepath: str) -> str:
+        return os.path.split(filepath)[1]
 
 
 def get_file_location(
