@@ -48,7 +48,7 @@ class InstanceInfo(BaseModel):
 class StatusGuardActor(xo.StatelessActor):
     def __init__(self):
         super().__init__()
-        self._model_uid_to_info: Dict[str, InstanceInfo] = {}
+        self._model_uid_to_info: Dict[str, InstanceInfo] = {}  # type: ignore
 
     @classmethod
     def uid(cls) -> str:
