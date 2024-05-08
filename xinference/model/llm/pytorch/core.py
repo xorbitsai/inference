@@ -152,7 +152,6 @@ class PytorchModel(LLM):
                     )
                 else:
                     self._model.load_adapter(
-                        self._model,
                         peft_model.local_path,
                         adapter_name=peft_model.lora_name,
                     )
