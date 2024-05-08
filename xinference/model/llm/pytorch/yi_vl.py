@@ -215,13 +215,12 @@ class YiVLChatModel(PytorchChatModel):
 
         c = Completion(
             id=str(uuid.uuid1()),
+            object="text_completion",
             created=int(time.time()),
             model=self.model_uid,
             choices=[
                 CompletionChoice(
-                    index=0,
-                    text=generated_text,
-                    finish_reason="stop",
+                    index=0, text=generated_text, finish_reason="stop", logprobs=None
                 )
             ],
             usage=CompletionUsage(
@@ -239,6 +238,7 @@ class YiVLChatModel(PytorchChatModel):
                 )
                 chunk = CompletionChunk(
                     id=completion_id,
+                    object="text_completion",
                     created=int(time.time()),
                     model=self.model_uid,
                     choices=[completion_choice],
@@ -256,6 +256,7 @@ class YiVLChatModel(PytorchChatModel):
         )
         chunk = CompletionChunk(
             id=completion_id,
+            object="text_completion",
             created=int(time.time()),
             model=self.model_uid,
             choices=[completion_choice],
