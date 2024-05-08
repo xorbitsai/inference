@@ -447,6 +447,61 @@ def cache_from_uri(
         raise ValueError(f"Unsupported URL scheme: {src_scheme}")
 
 
+def cache_model_config(
+    llm_family: LLMFamilyV1,
+    llm_spec: "LLMSpecV1",
+):
+    """Download model config.json into cache_dir,
+    returns local filepath
+    """
+    cache_dir = _get_cache_dir_for_model_mem(llm_family, llm_spec)
+    config_file = os.path.join(cache_dir, "config.json")
+    if not os.path.islink(config_file) and not os.path.exists(config_file):
+        os.makedirs(cache_dir, exist_ok=True)
+        if llm_spec.model_hub == "huggingface":
+            from huggingface_hub import hf_hub_download
+
+            hf_hub_download(
+                repo_id=llm_spec.model_id, filename="config.json", local_dir=cache_dir
+            )
+        else:
+            from modelscope.hub.file_download import model_file_download
+
+            download_path = model_file_download(
+                model_id=llm_spec.model_id, file_path="config.json"
+            )
+            os.symlink(download_path, config_file)
+    return config_file
+
+
+def _get_cache_dir_for_model_mem(
+    llm_family: LLMFamilyV1,
+    llm_spec: "LLMSpecV1",
+    create_if_not_exist=True,
+):
+    """
+    For cal-model-mem only. (might called from supervisor / cli)
+    Temporary use separate dir from worker's cache_dir, due to issue of different style of symlink.
+    """
+    quant_suffix = ""
+    for q in llm_spec.quantizations:
+        if llm_spec.model_id and q in llm_spec.model_id:
+            quant_suffix = q
+            break
+    cache_dir_name = (
+        f"{llm_family.model_name}-{llm_spec.model_format}"
+        f"-{llm_spec.model_size_in_billions}b"
+    )
+    if quant_suffix:
+        cache_dir_name += f"-{quant_suffix}"
+    cache_dir = os.path.realpath(
+        os.path.join(XINFERENCE_CACHE_DIR, "model_mem", cache_dir_name)
+    )
+    if create_if_not_exist and not os.path.exists(cache_dir):
+        os.makedirs(cache_dir, exist_ok=True)
+    return cache_dir
+
+
 def _get_cache_dir(
     llm_family: LLMFamilyV1,
     llm_spec: "LLMSpecV1",
@@ -821,6 +876,20 @@ def match_model_size(
         return ms == ss
     except ValueError:
         return False
+
+
+def convert_model_size_to_float(
+    model_size_in_billions: Union[float, int, str]
+) -> float:
+    if isinstance(model_size_in_billions, str):
+        if "_" in model_size_in_billions:
+            ms = model_size_in_billions.replace("_", ".")
+            return float(ms)
+        elif "." in model_size_in_billions:
+            return float(model_size_in_billions)
+        else:
+            return int(model_size_in_billions)
+    return model_size_in_billions
 
 
 def match_llm(
