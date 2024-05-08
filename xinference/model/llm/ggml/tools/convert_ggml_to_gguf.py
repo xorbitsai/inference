@@ -116,7 +116,7 @@ class Vocab:
 class Tensor:
     def __init__(self, use_padding=True):
         self.name = None
-        self.dims: tuple[int, ...] = ()
+        self.dims: tuple[int, ...] = ()  # type: ignore
         self.dtype = None
         self.start_offset = 0
         self.len_bytes = np.int64(0)
@@ -211,7 +211,7 @@ class GGMLModel:
         self.validate_conversion(hp.ftype)
         vocab = Vocab(load_scores=self.file_format > GGMLFormat.GGML)
         offset += vocab.load(data, offset, hp.n_vocab)
-        tensors: list[Tensor] = []
+        tensors: list[Tensor] = []  # type: ignore
         tensor_map = {}
         while offset < len(data):
             tensor = Tensor(use_padding=self.file_format > GGMLFormat.GGMF)

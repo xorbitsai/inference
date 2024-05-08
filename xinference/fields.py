@@ -75,6 +75,11 @@ stream_field = Field(
     description="Whether to stream the results as they are generated. Useful for chatbots.",
 )
 
+stream_option_field = Field(
+    default={},
+    description="If set, an additional chunk will be streamed before the `data: [DONE]` message.",
+)
+
 top_k_field = Field(
     default=40,
     ge=0,
