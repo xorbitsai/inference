@@ -27,9 +27,11 @@ import torch
 from ....model.utils import select_device
 from ....types import (
     ChatCompletion,
-    ChatCompletionChoice,
     ChatCompletionChunk,
     ChatCompletionMessage,
+    Completion,
+    CompletionChoice,
+    CompletionChunk,
     CompletionUsage,
 )
 from ..llm_family import LLMFamilyV1, LLMSpecV1
@@ -149,10 +151,11 @@ class DeepSeekVLChatModel(PytorchChatModel):
         chat_history: Optional[List[ChatCompletionMessage]] = None,
         generate_config: Optional[PytorchGenerateConfig] = None,
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
-        if generate_config and generate_config.get("stream"):
-            raise Exception(
-                f"Chat with model {self.model_family.model_name} does not support stream."
-            )
+        if not generate_config:
+            generate_config = {}
+
+        stream = generate_config.get("stream", False)
+
         prompt, images = self._message_content_to_deepseek(prompt)
         prompt_messages: List[Dict[str, Any]] = [
             {
@@ -185,6 +188,7 @@ class DeepSeekVLChatModel(PytorchChatModel):
         deepseek_history.extend(prompt_messages)
 
         from ....thirdparty.deepseek_vl.utils.io import load_pil_images
+        from ....thirdparty.deepseek_vl.serve.inference import generate
 
         # load images and prepare for inputs
         pil_images = load_pil_images(deepseek_history)
@@ -192,37 +196,48 @@ class DeepSeekVLChatModel(PytorchChatModel):
             conversations=deepseek_history, images=pil_images, force_batchify=True
         ).to(self._model.device, self._model.dtype)
 
-        # run image encoder to get the image embeddings
-        inputs_embeds = self._model.prepare_inputs_embeds(**prepare_inputs)
+        temperature = generate_config.get("temperature", 0.2)
+        top_p = generate_config.get("top_p", 0.95)
+        max_new_tokens = generate_config.get("max_tokens", 512)
+        repetition_penalty = generate_config.get("repetition_penalty", 1.1)
 
-        # run the model to get the response
-        outputs = self._model.language_model.generate(
-            inputs_embeds=inputs_embeds,
-            attention_mask=prepare_inputs.attention_mask,
-            pad_token_id=self._tokenizer.eos_token_id,
-            bos_token_id=self._tokenizer.bos_token_id,
-            eos_token_id=self._tokenizer.eos_token_id,
-            max_new_tokens=512,
-            do_sample=True,
-            top_p=0.95,
-            temperature=0.2,
-            repetition_penalty=1.1,
-            use_cache=True,
+        conversation = self._vl_chat_processor.new_chat_template()
+        stop_str = conversation.sep2
+        stop_words = [stop_str]
+
+        streamer = generate(
+            vl_gpt=self._model,
+            tokenizer=self._tokenizer,
+            prepare_inputs=prepare_inputs,
+            max_gen_len=max_new_tokens,
+            temperature=temperature,
+            repetition_penalty=repetition_penalty,
+            top_p=top_p,
+            stop_words=stop_words
         )
 
-        answer = self._tokenizer.decode(
-            outputs[0].cpu().tolist(), skip_special_tokens=True
-        )
+        if stream:
+            it = self._generate_stream(streamer, stop_str)
+            return self._to_chat_completion_chunks(it)
+        else:
+            c = self._generate(streamer, stop_str)
+            return self._to_chat_completion(c)
 
-        return ChatCompletion(
-            id="chat" + str(uuid.uuid1()),
-            object="chat.completion",
+    def _generate(self, streamer, stop_str)->Completion:
+        generated_text = ""
+        for new_text in streamer:
+            if new_text.endswith(stop_str):
+                new_text = new_text[: -len(stop_str)]
+            generated_text += new_text
+
+        c = Completion(
+            id=str(uuid.uuid1()),
             created=int(time.time()),
             model=self.model_uid,
             choices=[
-                ChatCompletionChoice(
+                CompletionChoice(
                     index=0,
-                    message={"role": "assistant", "content": answer},
+                    text=generated_text,
                     finish_reason="stop",
                 )
             ],
@@ -230,3 +245,43 @@ class DeepSeekVLChatModel(PytorchChatModel):
                 prompt_tokens=-1, completion_tokens=-1, total_tokens=-1
             ),
         )
+        return c
+
+    def _generate_stream(self, streamer, stop_str)-> Iterator[CompletionChunk]:
+        completion_id = str(uuid.uuid1())
+        for i, new_text in enumerate(streamer):
+            if new_text.endswith(stop_str):
+                new_text = new_text[: -len(stop_str)]
+            completion_choice = CompletionChoice(
+                text=new_text, index=0, logprobs=None, finish_reason=None
+            )
+            chunk = CompletionChunk(
+                id=completion_id,
+                created=int(time.time()),
+                model=self.model_uid,
+                choices=[completion_choice],
+            )
+            completion_usage = CompletionUsage(
+                prompt_tokens=-1,
+                completion_tokens=-1,
+                total_tokens=-1,
+            )
+            chunk["usage"] = completion_usage
+            yield chunk
+
+        completion_choice = CompletionChoice(
+            text="", index=0, logprobs=None, finish_reason="stop"
+        )
+        chunk = CompletionChunk(
+            id=completion_id,
+            created=int(time.time()),
+            model=self.model_uid,
+            choices=[completion_choice],
+        )
+        completion_usage = CompletionUsage(
+            prompt_tokens=-1,
+            completion_tokens=-1,
+            total_tokens=-1,
+        )
+        chunk["usage"] = completion_usage
+        yield chunk
