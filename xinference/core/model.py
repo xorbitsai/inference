@@ -154,7 +154,6 @@ class ModelActor(xo.StatelessActor):
     ):
         super().__init__()
         from ..model.llm.pytorch.core import PytorchModel
-        from ..model.llm.pytorch.spec_model import SpeculativeModel
         from ..model.llm.vllm.core import VLLMModel
 
         self._worker_address = worker_address
@@ -168,7 +167,7 @@ class ModelActor(xo.StatelessActor):
         self._current_generator = lambda: None
         self._lock = (
             None
-            if isinstance(self._model, (PytorchModel, SpeculativeModel, VLLMModel))
+            if isinstance(self._model, (PytorchModel, VLLMModel))
             else asyncio.locks.Lock()
         )
         self._worker_ref = None
