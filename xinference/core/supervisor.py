@@ -284,7 +284,7 @@ class SupervisorActor(xo.StatelessActor):
         return {
             "chat": list(BUILTIN_LLM_MODEL_CHAT_FAMILIES),
             "generate": list(BUILTIN_LLM_MODEL_GENERATE_FAMILIES),
-            "tool_call": list(BUILTIN_LLM_MODEL_TOOL_CALL_FAMILIES),
+            "tools": list(BUILTIN_LLM_MODEL_TOOL_CALL_FAMILIES),
         }
 
     async def get_devices_count(self) -> int:
@@ -720,66 +720,6 @@ class SupervisorActor(xo.StatelessActor):
             model_version=model_version,
             **kwargs,
         )
-
-    async def launch_speculative_llm(
-        self,
-        model_uid: Optional[str],
-        model_name: str,
-        model_size_in_billions: Optional[Union[int, str]],
-        quantization: Optional[str],
-        draft_model_name: str,
-        draft_model_size_in_billions: Optional[int],
-        draft_quantization: Optional[str],
-        n_gpu: Optional[Union[int, str]] = "auto",
-    ) -> str:
-        if model_uid is None:
-            model_uid = self._gen_model_uid(model_name)
-        logger.debug(
-            (
-                f"Enter launch_speculative_llm, model_uid: %s, model_name: %s, model_size: %s, "
-                f"draft_model_name: %s, draft_model_size: %s"
-            ),
-            model_uid,
-            model_name,
-            str(model_size_in_billions) if model_size_in_billions else "",
-            draft_model_name,
-            draft_model_size_in_billions,
-        )
-
-        # TODO: the draft and target model must be on the same worker.
-        if not self.is_local_deployment():
-            raise ValueError(
-                "Speculative model is not supported in distributed deployment yet."
-            )
-
-        if model_uid in self._model_uid_to_replica_info:
-            raise ValueError(f"Model is already in the model list, uid: {model_uid}")
-
-        worker_ref = await self._choose_worker()
-        replica = 1
-        self._model_uid_to_replica_info[model_uid] = ReplicaInfo(
-            replica=replica, scheduler=itertools.cycle(range(replica))
-        )
-
-        try:
-            rep_model_uid = f"{model_uid}-{1}-{0}"
-            await worker_ref.launch_speculative_model(
-                model_uid=rep_model_uid,
-                model_name=model_name,
-                model_size_in_billions=model_size_in_billions,
-                quantization=quantization,
-                draft_model_name=draft_model_name,
-                draft_model_size_in_billions=draft_model_size_in_billions,
-                draft_quantization=draft_quantization,
-                n_gpu=n_gpu,
-            )
-            self._replica_model_uid_to_worker[rep_model_uid] = worker_ref
-
-        except Exception:
-            # terminate_model will remove the replica info.
-            await self.terminate_model(model_uid, suppress_exception=True)
-            raise
-        return model_uid
 
     async def launch_builtin_model(
         self,

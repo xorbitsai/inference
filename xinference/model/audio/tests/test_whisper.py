@@ -18,6 +18,7 @@ import pytest
 import requests
 
 
+@pytest.mark.skip(reason="Too large model to be tested")
 def test_restful_api_for_whisper(setup):
     endpoint, _ = setup
     from ....client import Client
@@ -79,6 +80,7 @@ def test_restful_api_for_whisper(setup):
         assert "hong kong" in translation
 
 
+@pytest.mark.skip(reason="Too large model to be tested")
 def test_transcriptions_for_whisper(setup):
     endpoint, _ = setup
     from ....client import Client
