@@ -52,6 +52,7 @@ from .llm_family import (
 
 
 def check_format_with_engine(model_format, engine):
+    # only llama-cpp-python supoort and only support ggufv2 and ggmlv3
     if model_format in ["ggufv2", "ggmlv3"] and engine != "llama-cpp-python":
         return False
     if model_format not in ["ggufv2", "ggmlv3"] and engine == "llama-cpp-python":
@@ -70,7 +71,9 @@ def generate_engine_config_by_model_family(model_family):
         for quantization in quantizations:
             # traverse all supported engines to match the name, format, size in billions and quatization of model
             for engine in SUPPORTED_ENGINES:
-                if not check_format_with_engine(model_format, engine):
+                if not check_format_with_engine(
+                    model_format, engine
+                ):  # match the format of model with engine
                     continue
                 CLASSES = SUPPORTED_ENGINES[engine]
                 for cls in CLASSES:
