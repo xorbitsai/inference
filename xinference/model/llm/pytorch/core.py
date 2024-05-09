@@ -152,8 +152,7 @@ class PytorchModel(LLM):
                     )
                 else:
                     self._model.load_adapter(
-                        peft_model.local_path,
-                        adapter_name=peft_model.lora_name,
+                        peft_model.local_path, adapter_name=peft_model.lora_name
                     )
                 logger.info(
                     f"PEFT adaptor '{peft_model.lora_name}' successfully loaded for model '{self.model_uid}'."
@@ -317,6 +316,7 @@ class PytorchModel(LLM):
                     logger.info(f"Set lora model to {lora_model}")
                     break
             else:
+                self._model.disable_adapter()
                 logger.info(f"No lora model {lora_model} found, skip setting")
 
         stream = generate_config.get("stream", False)
