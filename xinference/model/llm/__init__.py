@@ -52,7 +52,7 @@ from .llm_family import (
 
 
 def check_format_with_engine(model_format, engine):
-    # only llama-cpp-python supoort and only support ggufv2 and ggmlv3
+    # only llama-cpp-python support and only support ggufv2 and ggmlv3
     if model_format in ["ggufv2", "ggmlv3"] and engine != "llama-cpp-python":
         return False
     if model_format not in ["ggufv2", "ggmlv3"] and engine == "llama-cpp-python":
