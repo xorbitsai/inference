@@ -284,7 +284,7 @@ class SupervisorActor(xo.StatelessActor):
         return {
             "chat": list(BUILTIN_LLM_MODEL_CHAT_FAMILIES),
             "generate": list(BUILTIN_LLM_MODEL_GENERATE_FAMILIES),
-            "tool_call": list(BUILTIN_LLM_MODEL_TOOL_CALL_FAMILIES),
+            "tools": list(BUILTIN_LLM_MODEL_TOOL_CALL_FAMILIES),
         }
 
     async def get_devices_count(self) -> int:
