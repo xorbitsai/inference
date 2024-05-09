@@ -137,14 +137,19 @@ class WorkerActor(xo.StatelessActor):
                                 recover_count - 1,
                             )
                             event_model_uid, _, __ = parse_replica_model_uid(model_uid)
-                            await self._event_collector_ref.report_event(
-                                event_model_uid,
-                                Event(
-                                    event_type=EventType.WARNING,
-                                    event_ts=int(time.time()),
-                                    event_content="Recreate model",
-                                ),
-                            )
+                            try:
+                                await self._event_collector_ref.report_event(
+                                    event_model_uid,
+                                    Event(
+                                        event_type=EventType.WARNING,
+                                        event_ts=int(time.time()),
+                                        event_content="Recreate model",
+                                    ),
+                                )
+                            except Exception as e:
+                                # Report callback error can be log and ignore, should not interrupt the Process
+                                logger.error("report_event error: %s" % (e))
+
                             self._model_uid_to_recover_count[model_uid] = (
                                 recover_count - 1
                             )
@@ -258,7 +263,11 @@ class WorkerActor(xo.StatelessActor):
         if os.name != "nt":
 
             async def signal_handler():
-                await self._supervisor_ref.remove_worker(self.address)
+                try:
+                    await self._supervisor_ref.remove_worker(self.address)
+                except Exception as e:
+                    # Ignore the error of rpc, anyway we are exiting
+                    logger.exception("remove worker rpc error: %s", e)
                 os._exit(0)
 
             loop = asyncio.get_running_loop()
@@ -572,14 +581,18 @@ class WorkerActor(xo.StatelessActor):
         launch_args.update(kwargs)
 
         event_model_uid, _, __ = parse_replica_model_uid(model_uid)
-        await self._event_collector_ref.report_event(
-            event_model_uid,
-            Event(
-                event_type=EventType.INFO,
-                event_ts=int(time.time()),
-                event_content="Launch model",
-            ),
-        )
+        try:
+            await self._event_collector_ref.report_event(
+                event_model_uid,
+                Event(
+                    event_type=EventType.INFO,
+                    event_ts=int(time.time()),
+                    event_content="Launch model",
+                ),
+            )
+        except Exception as e:
+            # Report callback error can be log and ignore, should not interrupt the Process
+            logger.error("report_event error: %s" % (e))
 
         if gpu_idx is not None:
             logger.info(
@@ -668,14 +681,19 @@ class WorkerActor(xo.StatelessActor):
     @log_async(logger=logger)
     async def terminate_model(self, model_uid: str):
         event_model_uid, _, __ = parse_replica_model_uid(model_uid)
-        await self._event_collector_ref.report_event(
-            event_model_uid,
-            Event(
-                event_type=EventType.INFO,
-                event_ts=int(time.time()),
-                event_content="Terminate model",
-            ),
-        )
+        try:
+            await self._event_collector_ref.report_event(
+                event_model_uid,
+                Event(
+                    event_type=EventType.INFO,
+                    event_ts=int(time.time()),
+                    event_content="Terminate model",
+                ),
+            )
+        except Exception as e:
+            # Report callback error can be log and ignore, should not interrupt the Process
+            logger.error("report_event error: %s" % (e))
+
         origin_uid, _, _ = parse_replica_model_uid(model_uid)
         await self._status_guard_ref.update_instance_info(
             origin_uid, {"status": LaunchStatus.TERMINATING.name}
