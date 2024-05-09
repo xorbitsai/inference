@@ -274,9 +274,19 @@ class SupervisorActor(xo.StatelessActor):
         return data
 
     @staticmethod
+    async def get_builtin_code_prompts() -> Dict[str, Any]:
+        from ..model.llm.llm_family import BUILTIN_LLM_CODE_PROMPT_STYLE
+
+        data = {}
+        for k, v in BUILTIN_LLM_CODE_PROMPT_STYLE.items():
+            data[k] = v.dict()
+        return data
+
+    @staticmethod
     async def get_builtin_families() -> Dict[str, List[str]]:
         from ..model.llm.llm_family import (
             BUILTIN_LLM_MODEL_CHAT_FAMILIES,
+            BUILTIN_LLM_MODEL_CODE_FAMILIES,
             BUILTIN_LLM_MODEL_GENERATE_FAMILIES,
             BUILTIN_LLM_MODEL_TOOL_CALL_FAMILIES,
         )
@@ -285,6 +295,7 @@ class SupervisorActor(xo.StatelessActor):
             "chat": list(BUILTIN_LLM_MODEL_CHAT_FAMILIES),
             "generate": list(BUILTIN_LLM_MODEL_GENERATE_FAMILIES),
             "tools": list(BUILTIN_LLM_MODEL_TOOL_CALL_FAMILIES),
+            "code": list(BUILTIN_LLM_MODEL_CODE_FAMILIES),
         }
 
     async def get_devices_count(self) -> int:

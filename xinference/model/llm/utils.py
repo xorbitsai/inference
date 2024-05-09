@@ -17,23 +17,14 @@ import logging
 import os
 import time
 import uuid
-from typing import (
-    AsyncGenerator,
-    Dict,
-    Iterator,
-    List,
-    Literal,
-    Mapping,
-    Optional,
-    Tuple,
-    cast,
-)
+from typing import AsyncGenerator, Dict, Iterator, List, Mapping, Optional, Tuple, cast
 
 from ...types import (
     SPECIAL_TOOL_PROMPT,
     ChatCompletion,
     ChatCompletionChunk,
     ChatCompletionMessage,
+    CodeGenerateMode,
     Completion,
     CompletionChunk,
 )
@@ -728,14 +719,14 @@ Begin!"""
 class CodeModelMixin:
     @staticmethod
     def get_code_prompt(
-        generate_type: Literal["completion", "fim"],
+        generate_mode: CodeGenerateMode,
         prompt: str,
         code_prompt_style: CodePromptStyleV1,
-        suffix: Optional[str],
-        repo_name: Optional[str],
-        files: Optional[Mapping[str, str]],
+        suffix: Optional[str] = None,
+        repo_name: Optional[str] = None,
+        files: Optional[Mapping[str, str]] = None,
     ) -> str:
-        if generate_type == "completion":
+        if generate_mode == "completion":
             if suffix is not None:
                 logger.warning(
                     "Suffix is only required on generate type is infill, ignored"
@@ -746,23 +737,23 @@ class CodeModelMixin:
 
             spec = code_prompt_style.repo_level_spec
             if spec is None:
-                raise ValueError(
-                    "The model does not support repository level code completion"
+                logger.warning(
+                    "The model does not support repository level code completion, 'repo_name' and 'files' are ignored"
                 )
+                return prompt
 
-            ret_val = ""
-            spec = code_prompt_style.repo_level_spec
+            chunks = []
             if spec.repo_name is None:
                 if repo_name is not None:
                     logger.warning(
-                        "repo_name is provided but it will not be used in this model, ignored"
+                        "'repo_name' is provided but it will not be used in this model, ignored"
                     )
             else:
                 if repo_name is None:
                     raise ValueError(
-                        "The repo_name is required for repository level code completion for this model"
+                        "The 'repo_name' is required for repository level code completion for this model"
                     )
-                ret_val = f"{spec.repo_name}{repo_name}\n"
+                chunks.append(f"{spec.repo_name}{repo_name}")
 
             for filepath, content in files.items():
                 repo_file = (
@@ -770,16 +761,20 @@ class CodeModelMixin:
                     if spec.file_type == "filepath"
                     else CodeModelMixin._path_to_name(filepath)
                 )
-                ret_val += f"{spec.file_separator}{repo_file}\n{content}\n"
-            return ret_val + prompt
+                chunks.append(f"{spec.file_separator}{repo_file}\n{content}")
 
-        elif generate_type == "fim":
+            if len(prompt.strip()) > 0:
+                chunks.append(prompt)
+
+            return "\n".join(chunks)
+
+        elif generate_mode == "infill":
             spec = code_prompt_style.fim_spec
             if spec is None:
-                raise ValueError("This model is not support FIM mode generate")
+                raise ValueError("This model is not support infill mode generate")
 
             if suffix is None:
-                raise ValueError("suffix is required in FIM mode")
+                raise ValueError("suffix is required in infill mode")
 
             if files is not None and len(files) > 0:
                 logger.warning(
@@ -792,7 +787,7 @@ class CodeModelMixin:
                 return f"{spec.prefix}{prompt}{spec.middle}{suffix}{spec.suffix}"
 
         else:
-            raise ValueError(f"Unsupported generate type: {generate_type}")
+            raise ValueError(f"Unsupported generate mode: {generate_mode}")
 
     @staticmethod
     def _path_to_name(filepath: str) -> str:

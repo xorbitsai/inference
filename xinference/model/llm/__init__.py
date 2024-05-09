@@ -25,8 +25,10 @@ from .core import (
     get_llm_model_descriptions,
 )
 from .llm_family import (
+    BUILTIN_LLM_CODE_PROMPT_STYLE,
     BUILTIN_LLM_FAMILIES,
     BUILTIN_LLM_MODEL_CHAT_FAMILIES,
+    BUILTIN_LLM_MODEL_CODE_FAMILIES,
     BUILTIN_LLM_MODEL_GENERATE_FAMILIES,
     BUILTIN_LLM_MODEL_TOOL_CALL_FAMILIES,
     BUILTIN_LLM_PROMPT_STYLE,
@@ -37,6 +39,7 @@ from .llm_family import (
     SGLANG_CLASSES,
     SUPPORTED_ENGINES,
     VLLM_CLASSES,
+    CodePromptStyleV1,
     CustomLLMFamilyV1,
     GgmlLLMSpecV1,
     LLMFamilyV1,
@@ -97,10 +100,10 @@ def generate_engine_config_by_model_family(model_family):
 
 def _install():
     from .ggml.chatglm import ChatglmCppChatModel
-    from .ggml.llamacpp import LlamaCppChatModel, LlamaCppModel
+    from .ggml.llamacpp import LlamaCppChatModel, LlamaCppCodeModel, LlamaCppModel
     from .pytorch.baichuan import BaichuanPytorchChatModel
     from .pytorch.chatglm import ChatglmPytorchChatModel
-    from .pytorch.core import PytorchChatModel, PytorchModel
+    from .pytorch.core import PytorchChatModel, PytorchCodeModel, PytorchModel
     from .pytorch.deepseek_vl import DeepSeekVLChatModel
     from .pytorch.falcon import FalconPytorchChatModel, FalconPytorchModel
     from .pytorch.internlm2 import Internlm2PytorchChatModel
@@ -109,7 +112,7 @@ def _install():
     from .pytorch.vicuna import VicunaPytorchChatModel
     from .pytorch.yi_vl import YiVLChatModel
     from .sglang.core import SGLANGChatModel, SGLANGModel
-    from .vllm.core import VLLMChatModel, VLLMModel
+    from .vllm.core import VLLMChatModel, VLLMCodeModel, VLLMModel
 
     try:
         from .pytorch.omnilmm import OmniLMMModel
@@ -124,11 +127,12 @@ def _install():
         [
             ChatglmCppChatModel,
             LlamaCppChatModel,
+            LlamaCppCodeModel,
             LlamaCppModel,
         ]
     )
     SGLANG_CLASSES.extend([SGLANGModel, SGLANGChatModel])
-    VLLM_CLASSES.extend([VLLMModel, VLLMChatModel])
+    VLLM_CLASSES.extend([VLLMModel, VLLMChatModel, VLLMCodeModel])
     PYTORCH_CLASSES.extend(
         [
             BaichuanPytorchChatModel,
@@ -138,6 +142,7 @@ def _install():
             LlamaPytorchModel,
             LlamaPytorchChatModel,
             PytorchChatModel,
+            PytorchCodeModel,
             FalconPytorchModel,
             Internlm2PytorchChatModel,
             QwenVLChatModel,
@@ -177,6 +182,16 @@ def _install():
         if "tools" in model_spec.model_ability:
             BUILTIN_LLM_MODEL_TOOL_CALL_FAMILIES.add(model_spec.model_name)
 
+        if "code" in model_spec.model_ability and isinstance(
+            model_spec.code_prompt_style, CodePromptStyleV1
+        ):
+            BUILTIN_LLM_CODE_PROMPT_STYLE[
+                model_spec.model_name
+            ] = model_spec.code_prompt_style
+
+        if "code" in model_spec.model_ability:
+            BUILTIN_LLM_MODEL_CODE_FAMILIES.add(model_spec.model_name)
+
     modelscope_json_path = os.path.join(
         os.path.dirname(os.path.abspath(__file__)), "llm_family_modelscope.json"
     )
@@ -199,6 +214,8 @@ def _install():
             BUILTIN_LLM_MODEL_GENERATE_FAMILIES.add(model_spec.model_name)
         if "tools" in model_spec.model_ability:
             BUILTIN_LLM_MODEL_TOOL_CALL_FAMILIES.add(model_spec.model_name)
+        if "code" in model_spec.model_ability:
+            BUILTIN_LLM_MODEL_CODE_FAMILIES.add(model_spec.model_name)
 
     for llm_specs in [BUILTIN_LLM_FAMILIES, BUILTIN_MODELSCOPE_LLM_FAMILIES]:
         for llm_spec in llm_specs:

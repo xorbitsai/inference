@@ -47,9 +47,11 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_CONTEXT_LENGTH = 2048
 BUILTIN_LLM_PROMPT_STYLE: Dict[str, "PromptStyleV1"] = {}
+BUILTIN_LLM_CODE_PROMPT_STYLE: Dict[str, "CodePromptStyleV1"] = {}
 BUILTIN_LLM_MODEL_CHAT_FAMILIES: Set[str] = set()
 BUILTIN_LLM_MODEL_GENERATE_FAMILIES: Set[str] = set()
 BUILTIN_LLM_MODEL_TOOL_CALL_FAMILIES: Set[str] = set()
+BUILTIN_LLM_MODEL_CODE_FAMILIES: Set[str] = set()
 
 
 class GgmlLLMSpecV1(BaseModel):
@@ -133,7 +135,7 @@ class LLMFamilyV1(BaseModel):
     context_length: Optional[int] = DEFAULT_CONTEXT_LENGTH
     model_name: str
     model_lang: List[str]
-    model_ability: List[Literal["embed", "generate", "chat", "tools", "vision"]]
+    model_ability: List[Literal["embed", "generate", "chat", "tools", "vision", "code"]]
     model_description: Optional[str]
     # reason for not required str here: legacy registration
     model_family: Optional[str]

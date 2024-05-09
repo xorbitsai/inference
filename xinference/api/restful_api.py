@@ -62,6 +62,7 @@ from ..types import (
     ChatCompletionMessage,
     Completion,
     CreateChatCompletion,
+    CreateCodeCompletion,
     CreateCompletion,
     ImageList,
     PeftModelConfig,
@@ -228,6 +229,9 @@ class RESTfulAPI:
         # conflict with /v1/models/{model_uid} below, so register this first
         self._router.add_api_route(
             "/v1/models/prompts", self._get_builtin_prompts, methods=["GET"]
+        )
+        self._router.add_api_route(
+            "/v1/models/code_prompts", self._get_builtin_code_prompts, methods=["GET"]
         )
         self._router.add_api_route(
             "/v1/models/families", self._get_builtin_families, methods=["GET"]
@@ -452,6 +456,18 @@ class RESTfulAPI:
             ),
         )
 
+        self._router.add_api_route(
+            "v1/code/completions",
+            self.create_code_completion,
+            methods=["POST"],
+            response_model=Completion,
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:read"])]
+                if self.is_authenticated()
+                else None
+            ),
+        )
+
         # for custom models
         self._router.add_api_route(
             "/v1/model_registrations/{model_type}",
@@ -570,6 +586,18 @@ class RESTfulAPI:
         """
         try:
             data = await (await self._get_supervisor_ref()).get_builtin_prompts()
+            return JSONResponse(content=data)
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def _get_builtin_code_prompts(self) -> JSONResponse:
+        """
+        For internal usage
+        :return:
+        """
+        try:
+            data = await (await self._get_supervisor_ref()).get_builtin_code_prompts()
             return JSONResponse(content=data)
         except Exception as e:
             logger.error(e, exc_info=True)
@@ -1391,6 +1419,77 @@ class RESTfulAPI:
                 await self._report_error_event(model_uid, str(e))
                 self.handle_request_limit_error(e)
                 raise HTTPException(status_code=500, detail=str(e))
+
+    async def create_code_completion(self, request: Request) -> Response:
+        json_data = await request.json()
+        if "mode" not in json_data:
+            raise HTTPException(
+                status_code=400, detail="mode is required in code completion request"
+            )
+
+        if json_data["mode"] not in ("completion", "infill", "repo-level-completion"):
+            raise HTTPException(
+                status_code=400,
+                detail="mode must be one of 'completion', 'infill' or 'repo-level-completion",
+            )
+
+        if json_data.get("stream", False):
+            json_data["stream"] = False
+
+        body = CreateCodeCompletion.parse_obj(json_data)
+        exclude = {
+            "generate_mode",
+            "prompt",
+            "suffix",
+            "repo_name",
+            "files",
+            "model",
+            "n",
+            "messages",
+            "logit_bias",
+            "logit_bias_type",
+            "user",
+        }
+
+        kwargs = body.dict(exclude_unset=True, exclude=exclude)
+
+        # TODO: Decide if this default value override is necessary #1061
+        if body.max_tokens is None:
+            kwargs["max_tokens"] = max_tokens_field.default
+
+        if body.logit_bias is not None:
+            raise HTTPException(status_code=501, detail="Not implemented")
+
+        model_uid = body.model
+
+        try:
+            model = await (await self._get_supervisor_ref()).get_model(model_uid)
+        except ValueError as ve:
+            logger.error(str(ve), exc_info=True)
+            await self._report_error_event(model_uid, str(ve))
+            raise HTTPException(status_code=400, detail=str(ve))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            await self._report_error_event(model_uid, str(e))
+            raise HTTPException(status_code=500, detail=str(e))
+
+        assert not body.stream
+
+        try:
+            data = await model.code_generate(
+                body.generate_mode,
+                body.prompt,
+                body.suffix,
+                body.repo_name,
+                body.files,
+                kwargs,
+            )
+            return Response(content=data, media_type="application/json")
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            await self._report_error_event(model_uid, str(e))
+            self.handle_request_limit_error(e)
+            raise HTTPException(status_code=500, detail=str(e))
 
     async def query_engines_by_model_name(self, model_name: str) -> JSONResponse:
         try:

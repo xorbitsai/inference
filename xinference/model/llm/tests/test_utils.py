@@ -13,8 +13,9 @@
 # limitations under the License.
 
 from ....types import ChatCompletionMessage
-from ..llm_family import PromptStyleV1
-from ..utils import ChatModelMixin
+from ..llm_family import CodePromptStyleV1, FIMSpecV1, PromptStyleV1
+from ..llm_family import RepoLevelCodeCompletionSpecV1 as RepoLevelSpecV1
+from ..utils import ChatModelMixin, CodeModelMixin
 
 
 def test_prompt_style_add_colon_single():
@@ -463,3 +464,232 @@ def test_is_valid_model_name():
     assert not is_valid_model_name("foo/bar")
     assert not is_valid_model_name("   ")
     assert not is_valid_model_name("")
+
+
+def test_code_prompt_style_starcoder():
+    code_prompt_style = CodePromptStyleV1(
+        style_name="STARCODER",
+        fim_spec=FIMSpecV1(
+            style="PSM",
+            prefix="<fim_prefix>",
+            middle="<fim_middle>",
+            suffix="<fim_suffix>",
+        ),
+    )
+    prompt = "def print_hello_world():"
+    expected = prompt
+    assert expected == CodeModelMixin.get_code_prompt(
+        "completion", prompt, code_prompt_style
+    )
+
+    prompt = "def print_hello_world():\n    "
+    suffix = "\n    print('Hello world!')"
+    expected = "<fim_prefix>def print_hello_world():\n    <fim_suffix>\n    print('Hello world!')<fim_middle>"
+    assert expected == CodeModelMixin.get_code_prompt(
+        "infill", prompt, code_prompt_style, suffix
+    )
+
+
+def test_code_prompt_style_deepseek_coder():
+    code_prompt_style = CodePromptStyleV1(
+        style_name="DEEPSEEK_CODER",
+        fim_spec=FIMSpecV1(
+            style="PMS",
+            prefix="<｜fim▁begin｜>",
+            middle="<｜fim▁hole｜>",
+            suffix="<｜fim▁end｜>",
+        ),
+        repo_level_spec=RepoLevelSpecV1(file_type="filename", file_separator="#"),
+    )
+
+    prompt = "#write a quick sort algorithm"
+    expected = prompt
+
+    assert expected == CodeModelMixin.get_code_prompt(
+        "completion", prompt, code_prompt_style
+    )
+
+    prompt = """def quick_sort(arr):
+    if len(arr) <= 1:
+        return arr
+    pivot = arr[0]
+    left = []
+    right = []
+"""
+    suffix = """
+        if arr[i] < pivot:
+            left.append(arr[i])
+        else:
+            right.append(arr[i])
+    return quick_sort(left) + [pivot] + quick_sort(right)"""
+
+    expected = """<｜fim▁begin｜>def quick_sort(arr):
+    if len(arr) <= 1:
+        return arr
+    pivot = arr[0]
+    left = []
+    right = []
+<｜fim▁hole｜>
+        if arr[i] < pivot:
+            left.append(arr[i])
+        else:
+            right.append(arr[i])
+    return quick_sort(left) + [pivot] + quick_sort(right)<｜fim▁end｜>"""
+
+    assert expected == CodeModelMixin.get_code_prompt(
+        "infill", prompt, code_prompt_style, suffix
+    )
+
+    files = {
+        "utils.py": """import torch
+from sklearn import datasets
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import accuracy_score
+
+def load_data():
+    iris = datasets.load_iris()
+    X = iris.data
+    y = iris.target
+
+    # Standardize the data
+    scaler = StandardScaler()
+    X = scaler.fit_transform(X)
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+
+    # Convert numpy data to PyTorch tensors
+    X_train = torch.tensor(X_train, dtype=torch.float32)
+    X_test = torch.tensor(X_test, dtype=torch.float32)
+    y_train = torch.tensor(y_train, dtype=torch.int64)
+    y_test = torch.tensor(y_test, dtype=torch.int64)
+
+    return X_train, X_test, y_train, y_test
+
+def evaluate_predictions(y_test, y_pred):
+    return accuracy_score(y_test, y_pred)""",
+        "model.py": """import torch
+import torch.nn as nn
+import torch.optim as optim
+from torch.utils.data import DataLoader, TensorDataset
+
+class IrisClassifier(nn.Module):
+    def __init__(self):
+        super(IrisClassifier, self).__init__()
+        self.fc = nn.Sequential(
+            nn.Linear(4, 16),
+            nn.ReLU(),
+            nn.Linear(16, 3)
+        )
+
+    def forward(self, x):
+        return self.fc(x)
+
+    def train_model(self, X_train, y_train, epochs, lr, batch_size):
+        criterion = nn.CrossEntropyLoss()
+        optimizer = optim.Adam(self.parameters(), lr=lr)
+
+        # Create DataLoader for batches
+        dataset = TensorDataset(X_train, y_train)
+        dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+
+        for epoch in range(epochs):
+            for batch_X, batch_y in dataloader:
+                optimizer.zero_grad()
+                outputs = self(batch_X)
+                loss = criterion(outputs, batch_y)
+                loss.backward()
+                optimizer.step()
+
+    def predict(self, X_test):
+        with torch.no_grad():
+            outputs = self(X_test)
+            _, predicted = outputs.max(1)
+        return predicted.numpy()""",
+        "main.py": """from utils import load_data, evaluate_predictions
+from model import IrisClassifier as Classifier
+
+def main():
+    # Model training and evaluation
+""",
+    }
+
+    prompt = ""
+
+    expected = """#utils.py
+import torch
+from sklearn import datasets
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import accuracy_score
+
+def load_data():
+    iris = datasets.load_iris()
+    X = iris.data
+    y = iris.target
+
+    # Standardize the data
+    scaler = StandardScaler()
+    X = scaler.fit_transform(X)
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+
+    # Convert numpy data to PyTorch tensors
+    X_train = torch.tensor(X_train, dtype=torch.float32)
+    X_test = torch.tensor(X_test, dtype=torch.float32)
+    y_train = torch.tensor(y_train, dtype=torch.int64)
+    y_test = torch.tensor(y_test, dtype=torch.int64)
+
+    return X_train, X_test, y_train, y_test
+
+def evaluate_predictions(y_test, y_pred):
+    return accuracy_score(y_test, y_pred)
+#model.py
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from torch.utils.data import DataLoader, TensorDataset
+
+class IrisClassifier(nn.Module):
+    def __init__(self):
+        super(IrisClassifier, self).__init__()
+        self.fc = nn.Sequential(
+            nn.Linear(4, 16),
+            nn.ReLU(),
+            nn.Linear(16, 3)
+        )
+
+    def forward(self, x):
+        return self.fc(x)
+
+    def train_model(self, X_train, y_train, epochs, lr, batch_size):
+        criterion = nn.CrossEntropyLoss()
+        optimizer = optim.Adam(self.parameters(), lr=lr)
+
+        # Create DataLoader for batches
+        dataset = TensorDataset(X_train, y_train)
+        dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+
+        for epoch in range(epochs):
+            for batch_X, batch_y in dataloader:
+                optimizer.zero_grad()
+                outputs = self(batch_X)
+                loss = criterion(outputs, batch_y)
+                loss.backward()
+                optimizer.step()
+
+    def predict(self, X_test):
+        with torch.no_grad():
+            outputs = self(X_test)
+            _, predicted = outputs.max(1)
+        return predicted.numpy()
+#main.py
+from utils import load_data, evaluate_predictions
+from model import IrisClassifier as Classifier
+
+def main():
+    # Model training and evaluation
+"""
+    assert expected == CodeModelMixin.get_code_prompt(
+        "completion", prompt, code_prompt_style, None, None, files
+    )

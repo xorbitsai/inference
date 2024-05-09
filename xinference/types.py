@@ -509,14 +509,10 @@ class PeftModelConfig:
         )
 
 
+CodeGenerateMode = Literal["completion", "infill"]
+
+
 class CreateCodeCompletion(CreateCompletion):
-    mode: Literal["completion"] = "completion"
-
-
-class CreateCodeInFill(CreateCompletion):
-    mode: Literal["infill"] = "infill"
-
-
-class CreateCodeRepoLevelCompletion(CreateCompletion):
-    mode: Literal["repo-level-completion"] = "repo-level-completion"
-    files: Mapping[str, str]
+    mode: CodeGenerateMode = "completion"
+    repo_name: Optional[str] = none_field
+    files: Optional[Mapping[str, str]] = none_field
