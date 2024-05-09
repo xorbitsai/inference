@@ -13,7 +13,6 @@
 # limitations under the License.
 import json
 import typing
-import warnings
 from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Union
 
 import requests
@@ -772,56 +771,6 @@ class Client:
         response_data = response.json()
         model_list = response_data["data"]
         return {item["id"]: item for item in model_list}
-
-    def launch_speculative_llm(
-        self,
-        model_name: str,
-        model_size_in_billions: Optional[Union[int, str, float]],
-        quantization: Optional[str],
-        draft_model_name: str,
-        draft_model_size_in_billions: Optional[int],
-        draft_quantization: Optional[str],
-        n_gpu: Optional[Union[int, str]] = "auto",
-    ):
-        """
-        Launch the LLM along with a draft model based on the parameters on the server via RESTful APIs. This is an
-        experimental feature and the API may change in the future.
-
-        Returns
-        -------
-        str
-            The unique model_uid for the launched model.
-
-        """
-        warnings.warn(
-            "`launch_speculative_llm` is an experimental feature and the API may change in the future."
-        )
-
-        # convert float to int or string since the RESTful API does not accept float.
-        if isinstance(model_size_in_billions, float):
-            model_size_in_billions = convert_float_to_int_or_str(model_size_in_billions)
-
-        payload = {
-            "model_uid": None,
-            "model_name": model_name,
-            "model_size_in_billions": model_size_in_billions,
-            "quantization": quantization,
-            "draft_model_name": draft_model_name,
-            "draft_model_size_in_billions": draft_model_size_in_billions,
-            "draft_quantization": draft_quantization,
-            "n_gpu": n_gpu,
-        }
-
-        url = f"{self.base_url}/experimental/speculative_llms"
-        response = requests.post(url, json=payload, headers=self._headers)
-        if response.status_code != 200:
-            raise RuntimeError(
-                f"Failed to launch model, detail: {_get_error_string(response)}"
-            )
-
-        response_data = response.json()
-        model_uid = response_data["model_uid"]
-        return model_uid
 
     def launch_model(
         self,

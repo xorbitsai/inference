@@ -21,7 +21,7 @@ from typing import List, Tuple
 
 import numpy as np
 
-from utils import sample_requests, get_tokenizer, send_request
+from utils import generate_sorting_prompts, get_tokenizer, send_request
 
 
 logging.basicConfig(level=logging.INFO)
@@ -37,7 +37,6 @@ class BenchmarkRunner:
         api_url: str,
         model_uid: str,
         input_requests: List[Tuple[str, int, int]],
-        request_rate: float,
         concurrency: int,
     ):
 
@@ -45,32 +44,23 @@ class BenchmarkRunner:
         self.model_uid = model_uid
         self.input_requests = input_requests
         self.concurrency = concurrency
-        self.request_rate = request_rate
-        self.queue = asyncio.Queue(concurrency or 100)
+        self.sent = 0
         self.left = len(input_requests)
 
     async def run(self):
         tasks = []
-        for _i in range(0, self.concurrency):
-            tasks.append(asyncio.create_task(self.worker()))
+        for i in range(0, self.concurrency):
+            tasks.append(asyncio.create_task(self.worker(i)))
+        await asyncio.gather(*tasks)
 
-        for req in iter(self.input_requests):
-            if self.request_rate != float("inf"):
-                # If the request rate is infinity, then we don't need to wait.
-                # Sample the request interval from the exponential distribution.
-                interval = np.random.exponential(1.0 / self.request_rate)
-                # The next request will be sent after the interval.
-                await asyncio.sleep(interval)
-            await self.queue.put(req)
-        await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
-
-    async def worker(self):
-        """
-        wait request dispatch by run(), and then send_request.
-        When all request is done, most worker will hang on self.queue,
-        but at least one worker will exit"""
-        while self.left > 0:
-            prompt, prompt_len, output_len = await self.queue.get()
+    async def worker(self, i: int):
+        r = random.Random(i)
+        index = r.randint(0, len(self.input_requests) - 1)
+        while self.sent < len(self.input_requests):
+            prompt, prompt_len, output_len = self.input_requests[index]
+            index += 1
+            self.sent += 1
+            index = index % len(self.input_requests)
             await send_request(
                 self.api_url,
                 self.model_uid,
@@ -92,15 +82,16 @@ def main(args: argparse.Namespace):
         args.concurrency = args.num_prompts
     print(args)
 
-    random.seed(args.seed)
-    np.random.seed(args.seed)
-
     api_url = f"http://{args.host}:{args.port}/v1/chat/completions"
     model_uid = args.model_uid
 
     logger.info("Preparing for benchmark.")
     tokenizer = get_tokenizer(args.tokenizer, trust_remote_code=args.trust_remote_code)
-    input_requests = sample_requests(args.dataset, args.num_prompts, tokenizer)
+    # XXX: generate_sorting_prompts() currently only generate prompts 1/2 to 2/3 of context_length,
+    # because tokenizers vary by models, consider improve in the future.
+    input_requests = generate_sorting_prompts(
+        args.concurrency, args.context_length, args.context_length / 2 - 20, tokenizer
+    )
 
     logger.info("Benchmark starts.")
     benchmark_start_time = time.time()
@@ -109,7 +100,6 @@ def main(args: argparse.Namespace):
         api_url,
         model_uid,
         input_requests,
-        request_rate=args.request_rate,
         concurrency=args.concurrency,
     )
     asyncio.run(benchmark.run())
@@ -132,6 +122,10 @@ def main(args: argparse.Namespace):
         [latency / output_len for _, output_len, latency in REQUEST_LATENCY]
     )
     print("Average latency per output token: " f"{avg_per_output_token_latency:.2f} s")
+    average_io_tokens = np.average(
+        [(prompt_len + output_len) for prompt_len, output_len, _ in REQUEST_LATENCY]
+    )
+    print(f"Average io length:" f"{average_io_tokens}")
     throughput = (
         sum([output_len for _, output_len, _ in REQUEST_LATENCY]) / benchmark_time
     )
@@ -140,36 +134,26 @@ def main(args: argparse.Namespace):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Benchmark the online serving throughput."
+        description="Benchmark the online serving throughput with long context."
     )
     parser.add_argument("--host", type=str, default="localhost")
     parser.add_argument("--port", type=int, default=9997)
     parser.add_argument(
-        "--dataset", type=str, required=True, help="Path to the dataset."
-    )
-    parser.add_argument(
         "--tokenizer", type=str, required=True, help="Name or path of the tokenizer."
     )
     parser.add_argument(
-        "--num-prompts", type=int, default=100, help="Number of prompts to process."
+        "--context-length", type=int, default=32768, help="model context_length."
+    )
+    parser.add_argument(
+        "--num-prompts", type=int, default=16, help="Number of prompts to process."
     )
     parser.add_argument(
         "--concurrency",
         "-c",
         type=int,
-        default=100,
+        default=16,
         help="Set the concurrency of request to send",
     )
-    parser.add_argument(
-        "--request-rate",
-        type=float,
-        default=float("inf"),
-        help="Number of requests per second. If this is inf, "
-        "then all the requests are sent at time 0. "
-        "Otherwise, we use Poisson process to synthesize "
-        "the request arrival times.",
-    )
-    parser.add_argument("--seed", type=int, default=0)
     parser.add_argument(
         "--trust-remote-code",
         action="store_true",

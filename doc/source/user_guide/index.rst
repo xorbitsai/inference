@@ -9,6 +9,5 @@ User Guide
 
    backends
    client_api
-   spec_decoding
    auth_system
    metrics

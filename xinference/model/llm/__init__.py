@@ -184,7 +184,7 @@ def _install():
             BUILTIN_LLM_MODEL_CHAT_FAMILIES.add(model_spec.model_name)
         else:
             BUILTIN_LLM_MODEL_GENERATE_FAMILIES.add(model_spec.model_name)
-        if "tool_call" in model_spec.model_ability:
+        if "tools" in model_spec.model_ability:
             BUILTIN_LLM_MODEL_TOOL_CALL_FAMILIES.add(model_spec.model_name)
 
     modelscope_json_path = os.path.join(
@@ -207,7 +207,7 @@ def _install():
             BUILTIN_LLM_MODEL_CHAT_FAMILIES.add(model_spec.model_name)
         else:
             BUILTIN_LLM_MODEL_GENERATE_FAMILIES.add(model_spec.model_name)
-        if "tool_call" in model_spec.model_ability:
+        if "tools" in model_spec.model_ability:
             BUILTIN_LLM_MODEL_TOOL_CALL_FAMILIES.add(model_spec.model_name)
 
     for llm_specs in [BUILTIN_LLM_FAMILIES, BUILTIN_MODELSCOPE_LLM_FAMILIES]:

@@ -166,7 +166,7 @@ class CustomLLMFamilyV1(LLMFamilyV1):
             )
         if (
             llm_spec.model_family != "other"
-            and "tool_call" in llm_spec.model_ability
+            and "tools" in llm_spec.model_ability
             and llm_spec.model_family not in BUILTIN_LLM_MODEL_TOOL_CALL_FAMILIES
         ):
             raise ValueError(
