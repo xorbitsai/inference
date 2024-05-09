@@ -132,6 +132,9 @@ dmypy.json
 .vscode
 *.iml
 
+# VIM
+*.sw*
+
 # web staff
 node_modules/
 static/
