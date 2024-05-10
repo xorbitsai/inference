@@ -1279,6 +1279,22 @@ def query_engine_by_model_name(
                 return True, t
         return False, value
 
+    def handle_user_passed_parameters() -> List[str]:
+        user_specified_parameters = []
+        if model_engine is not None:
+            user_specified_parameters.append(f"--model-engine {model_engine}")
+        if model_format is not None:
+            user_specified_parameters.append(f"--model-format {model_format}")
+        if model_size_in_billions is not None:
+            user_specified_parameters.append(
+                f"--model-size-in-billions {model_size_in_billions}"
+            )
+        if quantization is not None:
+            user_specified_parameters.append(f"--quantization {quantization}")
+        return user_specified_parameters
+
+    user_specified_params = handle_user_passed_parameters()
+
     endpoint = get_endpoint(endpoint)
     client = RESTfulClient(base_url=endpoint, api_key=api_key)
     if api_key is None:
@@ -1332,8 +1348,8 @@ def query_engine_by_model_name(
                         )
     if len(table) == 0:
         print(
-            f"Cannot find parameters for Model {model_name} with format {model_format}, size {model_size_in_billions} "
-            f"and quantization {quantization} on engine {model_engine}.",
+            f"Xinference does not support "
+            f"your provided params: {', '.join(user_specified_params)} for the model {model_name}.",
             file=sys.stderr,
         )
     else:
