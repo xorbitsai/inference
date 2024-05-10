@@ -35,9 +35,9 @@ from .llm_family import (
     BUILTIN_MODELSCOPE_LLM_FAMILIES,
     LLAMA_CLASSES,
     LLM_ENGINES,
-    PYTORCH_CLASSES,
     SGLANG_CLASSES,
     SUPPORTED_ENGINES,
+    TRANSFORMERS_CLASSES,
     VLLM_CLASSES,
     CodePromptStyleV1,
     CustomLLMFamilyV1,
@@ -56,9 +56,9 @@ from .llm_family import (
 
 def check_format_with_engine(model_format, engine):
     # only llama-cpp-python support and only support ggufv2 and ggmlv3
-    if model_format in ["ggufv2", "ggmlv3"] and engine != "llama-cpp-python":
+    if model_format in ["ggufv2", "ggmlv3"] and engine != "llama.cpp":
         return False
-    if model_format not in ["ggufv2", "ggmlv3"] and engine == "llama-cpp-python":
+    if model_format not in ["ggufv2", "ggmlv3"] and engine == "llama.cpp":
         return False
     return True
 
@@ -146,7 +146,7 @@ def _install():
     )
     SGLANG_CLASSES.extend([SGLANGModel, SGLANGChatModel])
     VLLM_CLASSES.extend([VLLMModel, VLLMChatModel, VLLMCodeModel])
-    PYTORCH_CLASSES.extend(
+    TRANSFORMERS_CLASSES.extend(
         [
             BaichuanPytorchChatModel,
             VicunaPytorchChatModel,
@@ -165,13 +165,13 @@ def _install():
         ]
     )
     if OmniLMMModel:  # type: ignore
-        PYTORCH_CLASSES.append(OmniLMMModel)
+        TRANSFORMERS_CLASSES.append(OmniLMMModel)
 
     # support 4 engines for now
     SUPPORTED_ENGINES["vLLM"] = VLLM_CLASSES
     SUPPORTED_ENGINES["SGLang"] = SGLANG_CLASSES
-    SUPPORTED_ENGINES["PyTorch"] = PYTORCH_CLASSES
-    SUPPORTED_ENGINES["llama-cpp-python"] = LLAMA_CLASSES
+    SUPPORTED_ENGINES["Transformers"] = TRANSFORMERS_CLASSES
+    SUPPORTED_ENGINES["llama.cpp"] = LLAMA_CLASSES
 
     json_path = os.path.join(
         os.path.dirname(os.path.abspath(__file__)), "llm_family.json"

@@ -39,7 +39,7 @@ async def test_restful_api(setup):
     # launch
     payload = {
         "model_uid": "test_restful_api",
-        "model_engine": "llama-cpp-python",
+        "model_engine": "llama.cpp",
         "model_name": "orca",
         "quantization": "q4_0",
     }
@@ -983,7 +983,7 @@ def test_restful_api_with_request_limits(setup):
     url = f"{endpoint}/v1/models"
     payload = {
         "model_uid": "test_restful_api",
-        "model_engine": "llama-cpp-python",
+        "model_engine": "llama.cpp",
         "model_name": "orca",
         "quantization": "q4_0",
         "request_limits": 0,
@@ -1021,7 +1021,7 @@ async def test_openai(setup):
     # launch
     payload = {
         "model_uid": "test_restful_api",
-        "model_engine": "llama-cpp-python",
+        "model_engine": "llama.cpp",
         "model_name": "orca",
         "quantization": "q4_0",
     }
@@ -1080,7 +1080,7 @@ def test_lang_chain(setup):
     # launch
     payload = {
         "model_uid": "test_restful_api",
-        "model_engine": "llama-cpp-python",
+        "model_engine": "llama.cpp",
         "model_name": "orca",
         "quantization": "q4_0",
     }
@@ -1148,7 +1148,7 @@ def test_launch_model_async(setup):
 
     payload = {
         "model_uid": "test_orca",
-        "model_engine": "llama-cpp-python",
+        "model_engine": "llama.cpp",
         "model_name": "orca",
         "quantization": "q4_0",
     }
@@ -1183,7 +1183,7 @@ def test_events(setup):
 
     payload = {
         "model_uid": "test_orca",
-        "model_engine": "llama-cpp-python",
+        "model_engine": "llama.cpp",
         "model_name": "orca",
         "quantization": "q4_0",
     }
@@ -1222,7 +1222,7 @@ def test_launch_model_by_version(setup):
 
     payload = {
         "model_uid": "test_orca",
-        "model_engine": "llama-cpp-python",
+        "model_engine": "llama.cpp",
         "model_type": "LLM",
         "model_version": version_info["model_version"],
     }
