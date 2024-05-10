@@ -1228,7 +1228,7 @@ def cluster_login(
     "-en",
     type=str,
     default=None,
-    help="Specify the inference engine to query the corresponding combination of other parameters.",
+    help="Specify the `model_engine` to query the corresponding combination of other parameters.",
 )
 @click.option(
     "--model-format",
@@ -1314,8 +1314,10 @@ def query_engine_by_model_name(
                             ]
                         )
     if len(table) == 0:
-        raise ValueError(
-            f"Cannot find parameters for Model {model_name} with format {model_format}, size {model_size_in_billions} and quantization {quantization} on engine {model_engine}."
+        print(
+            f"Cannot find parameters for Model {model_name} with format {model_format}, size {model_size_in_billions} "
+            f"and quantization {quantization} on engine {model_engine}.",
+            file=sys.stderr,
         )
     else:
         print(
