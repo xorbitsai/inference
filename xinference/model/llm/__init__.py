@@ -54,10 +54,19 @@ from .llm_family import (
 )
 
 
+def check_format_with_engine(model_format, engine):
+    # only llama-cpp-python support and only support ggufv2 and ggmlv3
+    if model_format in ["ggufv2", "ggmlv3"] and engine != "llama-cpp-python":
+        return False
+    if model_format not in ["ggufv2", "ggmlv3"] and engine == "llama-cpp-python":
+        return False
+    return True
+
+
 def generate_engine_config_by_model_family(model_family):
     model_name = model_family.model_name
     specs = model_family.model_specs
-    engines = {}  # structure for engine query
+    engines = LLM_ENGINES.get(model_name, {})  # structure for engine query
     for spec in specs:
         model_format = spec.model_format
         model_size_in_billions = spec.model_size_in_billions
@@ -65,6 +74,10 @@ def generate_engine_config_by_model_family(model_family):
         for quantization in quantizations:
             # traverse all supported engines to match the name, format, size in billions and quatization of model
             for engine in SUPPORTED_ENGINES:
+                if not check_format_with_engine(
+                    model_format, engine
+                ):  # match the format of model with engine
+                    continue
                 CLASSES = SUPPORTED_ENGINES[engine]
                 for cls in CLASSES:
                     if cls.match(model_family, spec, quantization):
@@ -77,9 +90,9 @@ def generate_engine_config_by_model_family(model_family):
                                 and model_format == param["model_format"]
                                 and model_size_in_billions
                                 == param["model_size_in_billions"]
-                                and quantization not in param["quantizations"]
                             ):
-                                param["quantizations"].append(quantization)
+                                if quantization not in param["quantizations"]:
+                                    param["quantizations"].append(quantization)
                                 already_exists = True
                                 break
                         # successfully match the params for the first time, add to the structure
