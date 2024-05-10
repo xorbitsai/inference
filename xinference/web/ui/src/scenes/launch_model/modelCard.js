@@ -476,11 +476,11 @@ const ModelCard = ({
                 )
               } else if (
                 modelData.model_ability &&
-                modelData.model_ability.includes("code")
+                modelData.model_ability.includes('code')
               ) {
                 return (
                   <div style={styles.iconItem}>
-                    <LogoDevOutlined style={styles.muiIcon}/>
+                    <LogoDevOutlined style={styles.muiIcon} />
                     <small style={styles.smallText}>code model</small>
                   </div>
                 )
