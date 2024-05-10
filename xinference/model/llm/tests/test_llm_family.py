@@ -1260,7 +1260,7 @@ def test_query_engine_general():
         )
     assert (
         str(exif.value)
-        == "Model qwen1.5-chat cannot be run on engine llama-cpp-python, with format ggmlv3, size 1_8 and quantization q2_k."
+        == "Model qwen1.5-chat cannot be run on engine llama.cpp, with format ggmlv3, size 1_8 and quantization q2_k."
     )
 
     assert (
