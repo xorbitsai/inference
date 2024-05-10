@@ -4,6 +4,7 @@ import {
   ExpandLess,
   ExpandMore,
   HelpCenterOutlined,
+  LogoDevOutlined,
   RocketLaunchOutlined,
   UndoOutlined,
 } from '@mui/icons-material'
@@ -471,6 +472,16 @@ const ModelCard = ({
                   <div style={styles.iconItem}>
                     <ChatOutlined style={styles.muiIcon} />
                     <small style={styles.smallText}>chat model</small>
+                  </div>
+                )
+              } else if (
+                modelData.model_ability &&
+                modelData.model_ability.includes("code")
+              ) {
+                return (
+                  <div style={styles.iconItem}>
+                    <LogoDevOutlined style={styles.muiIcon}/>
+                    <small style={styles.smallText}>code model</small>
                   </div>
                 )
               } else if (
