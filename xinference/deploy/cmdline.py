@@ -17,7 +17,7 @@ import logging
 import os
 import sys
 import warnings
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Sequence, Tuple, Union
 
 import click
 from xoscar.utils import get_next_port
@@ -1270,14 +1270,31 @@ def query_engine_by_model_name(
 ):
     from tabulate import tabulate
 
+    def match_engine_from_spell(value: str, target: Sequence[str]) -> Tuple[bool, str]:
+        """
+        For better usage experience.
+        """
+        for t in target:
+            if value.lower() == t.lower():
+                return True, t
+        return False, value
+
     endpoint = get_endpoint(endpoint)
     client = RESTfulClient(base_url=endpoint, api_key=api_key)
     if api_key is None:
         client._set_token(get_stored_token(endpoint, client))
 
     llm_engines = client.query_engine_by_model_name(model_name)
-    if model_engine is not None and model_engine not in llm_engines:
-        raise ValueError(f"Model {model_name} cannot be run on engine {model_engine}.")
+    if model_engine is not None:
+        is_matched, model_engine = match_engine_from_spell(
+            model_engine, list(llm_engines.keys())
+        )
+        if not is_matched:
+            print(
+                f'Xinference does not support this inference engine "{model_engine}".',
+                file=sys.stderr,
+            )
+            return
 
     table = []
     engines = [model_engine] if model_engine is not None else list(llm_engines.keys())

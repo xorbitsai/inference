@@ -1209,7 +1209,7 @@ def test_query_engine_general():
     model_name = "qwen1.5-chat"
     assert model_name in LLM_ENGINES
 
-    assert "transformers" in LLM_ENGINES[model_name]
+    assert "Transformers" in LLM_ENGINES[model_name]
     assert "llama.cpp" in LLM_ENGINES[model_name]
 
     assert check_engine_by_spec_parameters(
