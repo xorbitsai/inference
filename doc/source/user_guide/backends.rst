@@ -67,7 +67,7 @@ Currently, supported model includes:
 
 SGLang
 ~~~~~~
-`SGLang <https://github.com/sgl-project/sglang>_` has a high-performance inference runtime with RadixAttention.
+`SGLang <https://github.com/sgl-project/sglang>`_ has a high-performance inference runtime with RadixAttention.
 It significantly accelerates the execution of complex LLM programs by automatic KV cache reuse across multiple calls.
 And it also supports other common techniques like continuous batching and tensor parallelism.
 
