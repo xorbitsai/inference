@@ -21,7 +21,7 @@ def test_load_ggmlv3(setup):
 
     model_uid = client.launch_model(
         model_name="orca",
-        model_engine="llama-cpp-python",
+        model_engine="llama.cpp",
         model_size_in_billions=3,
         model_format="ggmlv3",
         quantization="q4_0",
@@ -55,7 +55,7 @@ def test_gguf(setup):
 
     model_uid = client.launch_model(
         model_name="tiny-llama",
-        model_engine="llama-cpp-python",
+        model_engine="llama.cpp",
         model_size_in_billions=1,
         model_format="ggufv2",
         quantization="q2_K",
