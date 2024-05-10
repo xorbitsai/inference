@@ -1215,14 +1215,42 @@ def cluster_login(
             f.write(access_token)
 
 
-@cli.command(name="engine", help="Query engine parameters by model name.")
-@click.option("--model-name", type=str, required=True, help="Model name.")
-@click.option("--model_engine", type=str, default=None, help="Model engine.")
-@click.option("--model_format", type=str, default=None, help="Model format.")
+@cli.command(name="engine", help="Query the applicable inference engine by model name.")
 @click.option(
-    "--model_size_in_billions", type=str, default=None, help="Model size in billions."
+    "--model-name",
+    "-n",
+    type=str,
+    required=True,
+    help="The model name you want to query.",
 )
-@click.option("--quantization", type=str, default=None, help="Quantization.")
+@click.option(
+    "--model-engine",
+    "-en",
+    type=str,
+    default=None,
+    help="Specify the inference engine to query the corresponding combination of other parameters.",
+)
+@click.option(
+    "--model-format",
+    "-f",
+    type=str,
+    default=None,
+    help="Specify the `model_format` to query the corresponding combination of other parameters.",
+)
+@click.option(
+    "--model-size-in-billions",
+    "-s",
+    type=str,
+    default=None,
+    help="Specify the `model_size_in_billions` to query the corresponding combination of other parameters.",
+)
+@click.option(
+    "--quantization",
+    "-q",
+    type=str,
+    default=None,
+    help="Specify the `quantization` to query the corresponding combination of other parameters.",
+)
 @click.option("--endpoint", "-e", type=str, help="Xinference endpoint.")
 @click.option(
     "--api-key",
