@@ -721,11 +721,16 @@ class CodeModelMixin:
     def get_code_prompt(
         mode: CodeGenerateMode,
         prompt: str,
-        code_prompt_style: CodePromptStyleV1,
+        code_prompt_style: Optional[CodePromptStyleV1],
         suffix: Optional[str] = None,
         repo_name: Optional[str] = None,
         files: Optional[Mapping[str, str]] = None,
     ) -> str:
+        if code_prompt_style is None:
+            raise ValueError(
+                "code prompt style is not provided, the model spec is wrong."
+            )
+
         if mode == "completion":
             if suffix is not None:
                 logger.warning(
