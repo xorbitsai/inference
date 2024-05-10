@@ -550,7 +550,7 @@ class PytorchCodeModel(PytorchModel, CodeModelMixin):
 
     def code_generate(
         self,
-        generate_mode: CodeGenerateMode,
+        mode: CodeGenerateMode,
         prompt: str,
         suffix: Optional[str],
         repo_name: Optional[str],
@@ -558,9 +558,9 @@ class PytorchCodeModel(PytorchModel, CodeModelMixin):
         generate_config: Optional[PytorchGenerateConfig] = None,
     ) -> Union[Completion, Iterator[CompletionChunk]]:
         code_prompt = self.get_code_prompt(
-            generate_mode,
+            mode,
             prompt,
-            self.model_spec.code_prompt_style,
+            self.model_family.code_prompt_style,
             suffix,
             repo_name,
             files,

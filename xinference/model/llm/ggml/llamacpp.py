@@ -332,7 +332,7 @@ class LlamaCppCodeModel(LlamaCppModel, CodeModelMixin):
             return False
         if "chatglm" in llm_family.model_name:
             return False
-        return "code" not in llm_family.model_ability
+        return "code" in llm_family.model_ability
 
     def code_generate(
         self,
@@ -346,7 +346,7 @@ class LlamaCppCodeModel(LlamaCppModel, CodeModelMixin):
         code_prompt = self.get_code_prompt(
             generate_model,
             prompt,
-            self.model_spec.code_prompt_style,
+            self.model_family.code_prompt_style,
             suffix,
             repo_name,
             files,

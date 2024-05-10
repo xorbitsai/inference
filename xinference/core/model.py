@@ -333,7 +333,7 @@ class ModelActor(xo.StatelessActor):
                 if inspect.iscoroutinefunction(fn):
                     ret = await fn(*args, **kwargs)
                 else:
-                    ret = await asyncio.to_thread(fn, *args, **kwargs)
+                    ret = await asyncio.to_thread(fn, *args, **kwargs)  # type: ignore[attr-defined]
 
         if self._lock is not None and self._current_generator():
             raise Exception("Parallel generation is not supported by ggml.")
@@ -403,7 +403,7 @@ class ModelActor(xo.StatelessActor):
     @xo.generator
     async def code_generate(
         self,
-        generate_mode: CodeGenerateMode,
+        mode: CodeGenerateMode,
         prompt: str,
         suffix: Optional[str],
         repo_name: Optional[str],
@@ -417,7 +417,7 @@ class ModelActor(xo.StatelessActor):
             if hasattr(self._model, "code_generate"):
                 response = await self._call_wrapper(
                     self._model.code_generate,
-                    generate_mode,
+                    mode,
                     prompt,
                     suffix,
                     repo_name,
@@ -429,7 +429,7 @@ class ModelActor(xo.StatelessActor):
             if hasattr(self._model, "async_code_generate"):
                 response = await self._call_wrapper(
                     self._model.async_code_generate,
-                    generate_mode,
+                    mode,
                     prompt,
                     suffix,
                     repo_name,
@@ -459,148 +459,145 @@ class ModelActor(xo.StatelessActor):
                     prompt_tokens,
                 )
 
+    @log_async(logger=logger)
+    @request_limit
+    async def create_embedding(self, input: Union[str, List[str]], *args, **kwargs):
+        if hasattr(self._model, "create_embedding"):
+            return await self._call_wrapper(
+                self._model.create_embedding, input, *args, **kwargs
+            )
 
-@log_async(logger=logger)
-@request_limit
-async def create_embedding(self, input: Union[str, List[str]], *args, **kwargs):
-    if hasattr(self._model, "create_embedding"):
-        return await self._call_wrapper(
-            self._model.create_embedding, input, *args, **kwargs
+        raise AttributeError(
+            f"Model {self._model.model_spec} is not for creating embedding."
         )
 
-    raise AttributeError(
-        f"Model {self._model.model_spec} is not for creating embedding."
-    )
+    @log_async(logger=logger)
+    @request_limit
+    async def rerank(
+        self,
+        documents: List[str],
+        query: str,
+        top_n: Optional[int],
+        max_chunks_per_doc: Optional[int],
+        return_documents: Optional[bool],
+        *args,
+        **kwargs,
+    ):
+        if hasattr(self._model, "rerank"):
+            return await self._call_wrapper(
+                self._model.rerank,
+                documents,
+                query,
+                top_n,
+                max_chunks_per_doc,
+                return_documents,
+                *args,
+                **kwargs,
+            )
+        raise AttributeError(f"Model {self._model.model_spec} is not for reranking.")
 
-
-@log_async(logger=logger)
-@request_limit
-async def rerank(
-    self,
-    documents: List[str],
-    query: str,
-    top_n: Optional[int],
-    max_chunks_per_doc: Optional[int],
-    return_documents: Optional[bool],
-    *args,
-    **kwargs,
-):
-    if hasattr(self._model, "rerank"):
-        return await self._call_wrapper(
-            self._model.rerank,
-            documents,
-            query,
-            top_n,
-            max_chunks_per_doc,
-            return_documents,
-            *args,
-            **kwargs,
+    @log_async(logger=logger, args_formatter=lambda _, kwargs: kwargs.pop("audio"))
+    @request_limit
+    async def transcriptions(
+        self,
+        audio: bytes,
+        language: Optional[str] = None,
+        prompt: Optional[str] = None,
+        response_format: str = "json",
+        temperature: float = 0,
+        timestamp_granularities: Optional[List[str]] = None,
+    ):
+        if hasattr(self._model, "transcriptions"):
+            return await self._call_wrapper(
+                self._model.transcriptions,
+                audio,
+                language,
+                prompt,
+                response_format,
+                temperature,
+                timestamp_granularities,
+            )
+        raise AttributeError(
+            f"Model {self._model.model_spec} is not for creating transcriptions."
         )
-    raise AttributeError(f"Model {self._model.model_spec} is not for reranking.")
 
-
-@log_async(logger=logger, args_formatter=lambda _, kwargs: kwargs.pop("audio"))
-@request_limit
-async def transcriptions(
-    self,
-    audio: bytes,
-    language: Optional[str] = None,
-    prompt: Optional[str] = None,
-    response_format: str = "json",
-    temperature: float = 0,
-    timestamp_granularities: Optional[List[str]] = None,
-):
-    if hasattr(self._model, "transcriptions"):
-        return await self._call_wrapper(
-            self._model.transcriptions,
-            audio,
-            language,
-            prompt,
-            response_format,
-            temperature,
-            timestamp_granularities,
+    @log_async(logger=logger, args_formatter=lambda _, kwargs: kwargs.pop("audio"))
+    @request_limit
+    async def translations(
+        self,
+        audio: bytes,
+        language: Optional[str] = None,
+        prompt: Optional[str] = None,
+        response_format: str = "json",
+        temperature: float = 0,
+        timestamp_granularities: Optional[List[str]] = None,
+    ):
+        if hasattr(self._model, "translations"):
+            return await self._call_wrapper(
+                self._model.translations,
+                audio,
+                language,
+                prompt,
+                response_format,
+                temperature,
+                timestamp_granularities,
+            )
+        raise AttributeError(
+            f"Model {self._model.model_spec} is not for creating translations."
         )
-    raise AttributeError(
-        f"Model {self._model.model_spec} is not for creating transcriptions."
-    )
 
-
-@log_async(logger=logger, args_formatter=lambda _, kwargs: kwargs.pop("audio"))
-@request_limit
-async def translations(
-    self,
-    audio: bytes,
-    language: Optional[str] = None,
-    prompt: Optional[str] = None,
-    response_format: str = "json",
-    temperature: float = 0,
-    timestamp_granularities: Optional[List[str]] = None,
-):
-    if hasattr(self._model, "translations"):
-        return await self._call_wrapper(
-            self._model.translations,
-            audio,
-            language,
-            prompt,
-            response_format,
-            temperature,
-            timestamp_granularities,
+    @log_async(logger=logger)
+    @request_limit
+    async def text_to_image(
+        self,
+        prompt: str,
+        n: int = 1,
+        size: str = "1024*1024",
+        response_format: str = "url",
+        *args,
+        **kwargs,
+    ):
+        if hasattr(self._model, "text_to_image"):
+            return await self._call_wrapper(
+                self._model.text_to_image,
+                prompt,
+                n,
+                size,
+                response_format,
+                *args,
+                **kwargs,
+            )
+        raise AttributeError(
+            f"Model {self._model.model_spec} is not for creating image."
         )
-    raise AttributeError(
-        f"Model {self._model.model_spec} is not for creating translations."
-    )
 
-
-@log_async(logger=logger)
-@request_limit
-async def text_to_image(
-    self,
-    prompt: str,
-    n: int = 1,
-    size: str = "1024*1024",
-    response_format: str = "url",
-    *args,
-    **kwargs,
-):
-    if hasattr(self._model, "text_to_image"):
-        return await self._call_wrapper(
-            self._model.text_to_image,
-            prompt,
-            n,
-            size,
-            response_format,
-            *args,
-            **kwargs,
+    async def image_to_image(
+        self,
+        image: "PIL.Image",
+        prompt: str,
+        negative_prompt: str,
+        n: int = 1,
+        size: str = "1024*1024",
+        response_format: str = "url",
+        *args,
+        **kwargs,
+    ):
+        if hasattr(self._model, "image_to_image"):
+            return await self._call_wrapper(
+                self._model.image_to_image,
+                image,
+                prompt,
+                negative_prompt,
+                n,
+                size,
+                response_format,
+                *args,
+                **kwargs,
+            )
+        raise AttributeError(
+            f"Model {self._model.model_spec} is not for creating image."
         )
-    raise AttributeError(f"Model {self._model.model_spec} is not for creating image.")
 
-
-async def image_to_image(
-    self,
-    image: "PIL.Image",
-    prompt: str,
-    negative_prompt: str,
-    n: int = 1,
-    size: str = "1024*1024",
-    response_format: str = "url",
-    *args,
-    **kwargs,
-):
-    if hasattr(self._model, "image_to_image"):
-        return await self._call_wrapper(
-            self._model.image_to_image,
-            image,
-            prompt,
-            negative_prompt,
-            n,
-            size,
-            response_format,
-            *args,
-            **kwargs,
-        )
-    raise AttributeError(f"Model {self._model.model_spec} is not for creating image.")
-
-
-async def record_metrics(self, name, op, kwargs):
-    worker_ref = await self._get_worker_ref()
-    await worker_ref.record_metrics(name, op, kwargs)
+    async def record_metrics(self, name, op, kwargs):
+        worker_ref = await self._get_worker_ref()
+        await worker_ref.record_metrics(name, op, kwargs)

@@ -126,8 +126,8 @@ class RepoLevelCodeCompletionSpecV1(BaseModel):
 
 class CodePromptStyleV1(BaseModel):
     style_name: str
-    fim_spec: Optional[FIMSpecV1]
-    repo_level_spec: Optional[RepoLevelCodeCompletionSpecV1]
+    fim_spec: Optional["FIMSpecV1"]
+    repo_level_spec: Optional["RepoLevelCodeCompletionSpecV1"]
 
 
 class LLMFamilyV1(BaseModel):
@@ -141,7 +141,7 @@ class LLMFamilyV1(BaseModel):
     model_family: Optional[str]
     model_specs: List["LLMSpecV1"]
     prompt_style: Optional["PromptStyleV1"]
-    code_prompt_style: Optional[CodePromptStyleV1]
+    code_prompt_style: Optional["CodePromptStyleV1"]
 
 
 class CustomLLMFamilyV1(LLMFamilyV1):

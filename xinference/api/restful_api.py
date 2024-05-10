@@ -457,7 +457,7 @@ class RESTfulAPI:
         )
 
         self._router.add_api_route(
-            "v1/code/completions",
+            "/v1/code/completions",
             self.create_code_completion,
             methods=["POST"],
             response_model=Completion,
@@ -1422,15 +1422,11 @@ class RESTfulAPI:
 
     async def create_code_completion(self, request: Request) -> Response:
         json_data = await request.json()
-        if "mode" not in json_data:
-            raise HTTPException(
-                status_code=400, detail="mode is required in code completion request"
-            )
 
-        if json_data["mode"] not in ("completion", "infill", "repo-level-completion"):
+        if "mode" in json_data and json_data["mode"] not in ("completion", "infill"):
             raise HTTPException(
                 status_code=400,
-                detail="mode must be one of 'completion', 'infill' or 'repo-level-completion",
+                detail="mode must be one of 'completion' or 'infill'",
             )
 
         if json_data.get("stream", False):
@@ -1438,7 +1434,7 @@ class RESTfulAPI:
 
         body = CreateCodeCompletion.parse_obj(json_data)
         exclude = {
-            "generate_mode",
+            "mode",
             "prompt",
             "suffix",
             "repo_name",
@@ -1477,7 +1473,7 @@ class RESTfulAPI:
 
         try:
             data = await model.code_generate(
-                body.generate_mode,
+                body.mode,
                 body.prompt,
                 body.suffix,
                 body.repo_name,

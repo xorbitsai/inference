@@ -719,14 +719,14 @@ Begin!"""
 class CodeModelMixin:
     @staticmethod
     def get_code_prompt(
-        generate_mode: CodeGenerateMode,
+        mode: CodeGenerateMode,
         prompt: str,
         code_prompt_style: CodePromptStyleV1,
         suffix: Optional[str] = None,
         repo_name: Optional[str] = None,
         files: Optional[Mapping[str, str]] = None,
     ) -> str:
-        if generate_mode == "completion":
+        if mode == "completion":
             if suffix is not None:
                 logger.warning(
                     "Suffix is only required on generate type is infill, ignored"
@@ -768,7 +768,7 @@ class CodeModelMixin:
 
             return "\n".join(chunks)
 
-        elif generate_mode == "infill":
+        elif mode == "infill":
             spec = code_prompt_style.fim_spec
             if spec is None:
                 raise ValueError("This model is not support infill mode generate")
@@ -788,7 +788,7 @@ class CodeModelMixin:
 
         else:
             raise ValueError(
-                f"Unsupported generate mode: {generate_mode}, only 'PSM' and 'PMS' are supported now"
+                f"Unsupported generate mode: {mode}, only 'PSM' and 'PMS' are supported now"
             )
 
     @staticmethod
