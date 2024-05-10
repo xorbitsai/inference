@@ -1199,7 +1199,7 @@ def test_query_engine_general():
     )
 
     assert check_engine_by_spec_parameters(
-        model_engine="PyTorch",
+        model_engine="transformers",
         model_name="aquila2",
         model_format="pytorch",
         model_size_in_billions=7,
@@ -1209,32 +1209,32 @@ def test_query_engine_general():
     model_name = "qwen1.5-chat"
     assert model_name in LLM_ENGINES
 
-    assert "PyTorch" in LLM_ENGINES[model_name]
-    assert "llama-cpp-python" in LLM_ENGINES[model_name]
+    assert "transformers" in LLM_ENGINES[model_name]
+    assert "llama.cpp" in LLM_ENGINES[model_name]
 
     assert check_engine_by_spec_parameters(
-        model_engine="PyTorch",
+        model_engine="transformers",
         model_name=model_name,
         model_format="gptq",
         model_size_in_billions="1_8",
         quantization="Int4",
     )
     assert check_engine_by_spec_parameters(
-        model_engine="PyTorch",
+        model_engine="transformers",
         model_name=model_name,
         model_format="gptq",
         model_size_in_billions="1_8",
         quantization="Int8",
     )
     assert check_engine_by_spec_parameters(
-        model_engine="PyTorch",
+        model_engine="transformers",
         model_name=model_name,
         model_format="pytorch",
         model_size_in_billions="1_8",
         quantization="none",
     )
     assert check_engine_by_spec_parameters(
-        model_engine="PyTorch",
+        model_engine="transformers",
         model_name=model_name,
         model_format="pytorch",
         model_size_in_billions="1_8",
@@ -1242,7 +1242,7 @@ def test_query_engine_general():
     )
     assert (
         check_engine_by_spec_parameters(
-            model_engine="llama-cpp-python",
+            model_engine="llama.cpp",
             model_name=model_name,
             model_format="ggufv2",
             model_size_in_billions="1_8",
@@ -1252,7 +1252,7 @@ def test_query_engine_general():
     )
     with pytest.raises(ValueError) as exif:
         check_engine_by_spec_parameters(
-            model_engine="llama-cpp-python",
+            model_engine="llama.cpp",
             model_name=model_name,
             model_format="ggmlv3",
             model_size_in_billions="1_8",
@@ -1265,7 +1265,7 @@ def test_query_engine_general():
 
     assert (
         check_engine_by_spec_parameters(
-            model_engine="llama-cpp-python",
+            model_engine="llama.cpp",
             model_name="chatglm",
             model_format="ggmlv3",
             model_size_in_billions=6,
@@ -1295,12 +1295,9 @@ def test_query_engine_general():
     register_llm(family, False)
 
     assert family in get_user_defined_llm_families()
-    assert (
-        "custom_model" in LLM_ENGINES
-        and "llama-cpp-python" in LLM_ENGINES["custom_model"]
-    )
+    assert "custom_model" in LLM_ENGINES and "llama.cpp" in LLM_ENGINES["custom_model"]
     assert check_engine_by_spec_parameters(
-        model_engine="llama-cpp-python",
+        model_engine="llama.cpp",
         model_name="custom_model",
         model_format="ggmlv3",
         model_size_in_billions=3,
@@ -1340,7 +1337,7 @@ def test_query_engine_general():
     register_llm(family, False)
 
     assert family in get_user_defined_llm_families()
-    assert "custom-qwen1.5-chat" in LLM_ENGINES and ["llama-cpp-python"] == list(
+    assert "custom-qwen1.5-chat" in LLM_ENGINES and ["llama.cpp"] == list(
         LLM_ENGINES["custom-qwen1.5-chat"].keys()
     )
 
