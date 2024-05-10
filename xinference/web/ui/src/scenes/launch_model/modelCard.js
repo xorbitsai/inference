@@ -398,7 +398,9 @@ const ModelCard = ({
       onClick={() => {
         if (!selected && !customDeleted) {
           setSelected(true)
-          getModelEngine(modelData.model_name)
+          if (modelType === 'LLM') {
+            getModelEngine(modelData.model_name)
+          }
         }
       }}
       elevation={hover ? 24 : 4}
