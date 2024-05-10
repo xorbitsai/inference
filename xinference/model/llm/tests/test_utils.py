@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import pytest
 
 from ....types import ChatCompletionMessage
 from ..llm_family import CodePromptStyleV1, FIMSpecV1, PromptStyleV1
@@ -466,6 +467,26 @@ def test_is_valid_model_name():
     assert not is_valid_model_name("")
 
 
+def test_path_to_name():
+    path = "/home/test/works/project/main.py"
+    assert "main.py" == CodeModelMixin._path_to_name(path)
+
+    path = "/main.py"
+    assert "main.py" == CodeModelMixin._path_to_name(path)
+
+    path = "main.py"
+    assert "main.py" == CodeModelMixin._path_to_name(path)
+
+    path = ".main.py"
+    assert ".main.py" == CodeModelMixin._path_to_name(path)
+
+    path = r"\main.py"
+    assert "main.py" == CodeModelMixin._path_to_name(path)
+
+    path = r"C:\works\main.py"
+    assert "main.py" == CodeModelMixin._path_to_name(path)
+
+
 def test_code_prompt_style_starcoder():
     code_prompt_style = CodePromptStyleV1(
         style_name="STARCODER",
@@ -488,6 +509,17 @@ def test_code_prompt_style_starcoder():
     assert expected == CodeModelMixin.get_code_prompt(
         "infill", prompt, code_prompt_style, suffix
     )
+
+    suffix = None
+    with pytest.raises(ValueError) as exc_info:
+        CodeModelMixin.get_code_prompt("infill", prompt, code_prompt_style, suffix)
+        assert exc_info.value == ValueError("suffix is required in infill mode")
+
+    with pytest.raises(ValueError) as exc_info:
+        CodeModelMixin.get_code_prompt("test", prompt, code_prompt_style)
+        assert exc_info.value == ValueError(
+            "Unsupported generate mode: test, only 'PSM' and 'PMS' are supported now"
+        )
 
 
 def test_code_prompt_style_deepseek_coder():
@@ -693,3 +725,16 @@ def main():
     assert expected == CodeModelMixin.get_code_prompt(
         "completion", prompt, code_prompt_style, None, None, files
     )
+
+
+def test_code_prompt_style_without_fim():
+    code_prompt_style = CodePromptStyleV1(
+        style_name="NO_FIM_CODER",
+    )
+    prompt = "def print_hello_world():\n    "
+    suffix = "\n    print('Hello world!')"
+    with pytest.raises(ValueError) as exc_info:
+        CodeModelMixin.get_code_prompt("infill", prompt, code_prompt_style, suffix)
+        assert exc_info.value == ValueError(
+            "This model is not support infill mode generate"
+        )

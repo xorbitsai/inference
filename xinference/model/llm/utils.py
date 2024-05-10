@@ -787,10 +787,13 @@ class CodeModelMixin:
                 return f"{spec.prefix}{prompt}{spec.middle}{suffix}{spec.suffix}"
 
         else:
-            raise ValueError(f"Unsupported generate mode: {generate_mode}")
+            raise ValueError(
+                f"Unsupported generate mode: {generate_mode}, only 'PSM' and 'PMS' are supported now"
+            )
 
     @staticmethod
     def _path_to_name(filepath: str) -> str:
+        filepath = filepath.replace("\\", "/")
         return os.path.split(filepath)[1]
 
 
