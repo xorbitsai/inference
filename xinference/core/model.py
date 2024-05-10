@@ -154,7 +154,6 @@ class ModelActor(xo.StatelessActor):
     ):
         super().__init__()
         from ..model.llm.pytorch.core import PytorchModel
-        from ..model.llm.pytorch.spec_model import SpeculativeModel
         from ..model.llm.vllm.core import VLLMModel
 
         self._worker_address = worker_address
@@ -168,7 +167,7 @@ class ModelActor(xo.StatelessActor):
         self._current_generator = lambda: None
         self._lock = (
             None
-            if isinstance(self._model, (PytorchModel, SpeculativeModel, VLLMModel))
+            if isinstance(self._model, (PytorchModel, VLLMModel))
             else asyncio.locks.Lock()
         )
         self._worker_ref = None
@@ -442,6 +441,7 @@ class ModelActor(xo.StatelessActor):
         prompt: Optional[str] = None,
         response_format: str = "json",
         temperature: float = 0,
+        timestamp_granularities: Optional[List[str]] = None,
     ):
         if hasattr(self._model, "transcriptions"):
             return await self._call_wrapper(
@@ -451,6 +451,7 @@ class ModelActor(xo.StatelessActor):
                 prompt,
                 response_format,
                 temperature,
+                timestamp_granularities,
             )
         raise AttributeError(
             f"Model {self._model.model_spec} is not for creating transcriptions."
@@ -461,17 +462,21 @@ class ModelActor(xo.StatelessActor):
     async def translations(
         self,
         audio: bytes,
+        language: Optional[str] = None,
         prompt: Optional[str] = None,
         response_format: str = "json",
         temperature: float = 0,
+        timestamp_granularities: Optional[List[str]] = None,
     ):
         if hasattr(self._model, "translations"):
             return await self._call_wrapper(
                 self._model.translations,
                 audio,
+                language,
                 prompt,
                 response_format,
                 temperature,
+                timestamp_granularities,
             )
         raise AttributeError(
             f"Model {self._model.model_spec} is not for creating translations."

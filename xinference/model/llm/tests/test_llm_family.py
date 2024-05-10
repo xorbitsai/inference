@@ -1198,35 +1198,43 @@ def test_query_engine_general():
         unregister_llm,
     )
 
+    assert check_engine_by_spec_parameters(
+        model_engine="transformers",
+        model_name="aquila2",
+        model_format="pytorch",
+        model_size_in_billions=7,
+        quantization="none",
+    )
+
     model_name = "qwen1.5-chat"
     assert model_name in LLM_ENGINES
 
-    assert "PyTorch" in LLM_ENGINES[model_name]
-    assert "llama-cpp-python" in LLM_ENGINES[model_name]
+    assert "Transformers" in LLM_ENGINES[model_name]
+    assert "llama.cpp" in LLM_ENGINES[model_name]
 
     assert check_engine_by_spec_parameters(
-        model_engine="PyTorch",
+        model_engine="transformers",
         model_name=model_name,
         model_format="gptq",
         model_size_in_billions="1_8",
         quantization="Int4",
     )
     assert check_engine_by_spec_parameters(
-        model_engine="PyTorch",
+        model_engine="transformers",
         model_name=model_name,
         model_format="gptq",
         model_size_in_billions="1_8",
         quantization="Int8",
     )
     assert check_engine_by_spec_parameters(
-        model_engine="PyTorch",
+        model_engine="transformers",
         model_name=model_name,
         model_format="pytorch",
         model_size_in_billions="1_8",
         quantization="none",
     )
     assert check_engine_by_spec_parameters(
-        model_engine="PyTorch",
+        model_engine="transformers",
         model_name=model_name,
         model_format="pytorch",
         model_size_in_billions="1_8",
@@ -1234,7 +1242,7 @@ def test_query_engine_general():
     )
     assert (
         check_engine_by_spec_parameters(
-            model_engine="llama-cpp-python",
+            model_engine="llama.cpp",
             model_name=model_name,
             model_format="ggufv2",
             model_size_in_billions="1_8",
@@ -1244,7 +1252,7 @@ def test_query_engine_general():
     )
     with pytest.raises(ValueError) as exif:
         check_engine_by_spec_parameters(
-            model_engine="llama-cpp-python",
+            model_engine="llama.cpp",
             model_name=model_name,
             model_format="ggmlv3",
             model_size_in_billions="1_8",
@@ -1252,12 +1260,12 @@ def test_query_engine_general():
         )
     assert (
         str(exif.value)
-        == "Model qwen1.5-chat cannot be run on engine llama-cpp-python, with format ggmlv3, size 1_8 and quantization q2_k."
+        == "Model qwen1.5-chat cannot be run on engine llama.cpp, with format ggmlv3, size 1_8 and quantization q2_k."
     )
 
     assert (
         check_engine_by_spec_parameters(
-            model_engine="llama-cpp-python",
+            model_engine="llama.cpp",
             model_name="chatglm",
             model_format="ggmlv3",
             model_size_in_billions=6,
@@ -1287,12 +1295,9 @@ def test_query_engine_general():
     register_llm(family, False)
 
     assert family in get_user_defined_llm_families()
-    assert (
-        "custom_model" in LLM_ENGINES
-        and "llama-cpp-python" in LLM_ENGINES["custom_model"]
-    )
+    assert "custom_model" in LLM_ENGINES and "llama.cpp" in LLM_ENGINES["custom_model"]
     assert check_engine_by_spec_parameters(
-        model_engine="llama-cpp-python",
+        model_engine="llama.cpp",
         model_name="custom_model",
         model_format="ggmlv3",
         model_size_in_billions=3,
@@ -1302,3 +1307,40 @@ def test_query_engine_general():
     unregister_llm(family.model_name)
     assert family not in get_user_defined_llm_families()
     assert "custom_model" not in LLM_ENGINES
+
+    spec = GgmlLLMSpecV1(
+        model_format="ggufv2",
+        model_size_in_billions="1_8",
+        model_id="null",
+        quantizations=["default"],
+        model_file_name_template="qwen1_5-1_8b-chat-q4_0.gguf",
+    )
+    family = LLMFamilyV1(
+        version=1,
+        context_length=2048,
+        model_type="LLM",
+        model_name="custom-qwen1.5-chat",
+        model_lang=["en", "zh"],
+        model_ability=["generate", "chat"],
+        model_specs=[spec],
+        prompt_style={
+            "style_name": "QWEN",
+            "system_prompt": "You are a helpful assistant.",
+            "roles": ["user", "assistant"],
+            "intra_message_sep": "\n",
+            "inter_message_sep": "",
+            "stop": ["<|endoftext|>", "<|im_start|>", "<|im_end|>"],
+            "stop_token_ids": [151643, 151644, 151645],
+        },
+    )
+
+    register_llm(family, False)
+
+    assert family in get_user_defined_llm_families()
+    assert "custom-qwen1.5-chat" in LLM_ENGINES and ["llama.cpp"] == list(
+        LLM_ENGINES["custom-qwen1.5-chat"].keys()
+    )
+
+    unregister_llm(family.model_name)
+    assert family not in get_user_defined_llm_families()
+    assert "custom-qwen1.5-chat" not in LLM_ENGINES

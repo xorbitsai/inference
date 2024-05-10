@@ -33,6 +33,7 @@ from .fields import (
     stop_field,
     stream_field,
     stream_interval_field,
+    stream_option_field,
     temperature_field,
     top_k_field,
     top_p_field,
@@ -395,6 +396,7 @@ class _CreateCompletionOpenAIFallback(BaseModel):
     seed: Optional[int] = none_field
     stop: Optional[Union[str, List[str]]] = stop_field
     stream: bool = stream_field
+    stream_options: Optional[dict] = stream_option_field
     suffix: Optional[str] = none_field
     temperature: float = temperature_field
     top_p: float = top_p_field

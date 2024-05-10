@@ -37,7 +37,7 @@ class Event(TypedDict):
 class EventCollectorActor(xo.StatelessActor):
     def __init__(self):
         super().__init__()
-        self._model_uid_to_events: Dict[str, queue.Queue] = defaultdict(
+        self._model_uid_to_events: Dict[str, queue.Queue] = defaultdict(  # type: ignore
             lambda: queue.Queue(maxsize=MAX_EVENT_COUNT_PER_MODEL)
         )
 
