@@ -119,6 +119,9 @@ VLLM_SUPPORTED_CHAT_MODELS = [
     "deepseek-chat",
     "deepseek-coder-instruct",
 ]
+VLLM_SUPPORTED_CODE_MODELS = [
+    "deepseek-coder-base",
+]
 if VLLM_INSTALLED and vllm.__version__ >= "0.3.0":
     VLLM_SUPPORTED_CHAT_MODELS.append("qwen1.5-chat")
     VLLM_SUPPORTED_CHAT_MODELS.append("codeqwen1.5-chat")
@@ -533,10 +536,10 @@ class VLLMCodeModel(VLLMModel, CodeModelMixin):
                 if "4" not in quantization:
                     return False
         if isinstance(llm_family, CustomLLMFamilyV1):
-            if llm_family.model_family not in VLLM_SUPPORTED_MODELS:
+            if llm_family.model_family not in VLLM_SUPPORTED_CODE_MODELS:
                 return False
         else:
-            if llm_family.model_name not in VLLM_SUPPORTED_MODELS:
+            if llm_family.model_name not in VLLM_SUPPORTED_CODE_MODELS:
                 return False
         if "code" not in llm_family.model_ability:
             return False
