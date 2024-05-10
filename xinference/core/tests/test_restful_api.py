@@ -1266,3 +1266,82 @@ def test_cluster_info(setup):
     assert result[1]["node_type"] == "Worker"
     assert result[1]["gpu_count"] == 0
     assert result[1]["gpu_vram_total"] == 0
+
+
+def test_restful_api_for_code_completions(setup):
+    model_name = "deepseek-coder-base"
+
+    endpoint, _ = setup
+    url = f"{endpoint}/v1/models"
+
+    # list
+    response = requests.get(url)
+    response_data = response.json()
+    assert len(response_data["data"]) == 0
+
+    # launch
+    payload = {
+        "model_uid": "deepseek-coder-base",
+        "model_name": model_name,
+        "model_type": "LLM",
+        "model_engine": "llama.cpp",
+        "model_size_in_billions": "1_3",
+        "quantization": "q4_k_m",
+    }
+
+    response = requests.post(url, json=payload)
+    response_data = response.json()
+    model_uid_res = response_data["model_uid"]
+    assert model_uid_res == "deepseek-coder-base"
+
+    response = requests.get(url)
+    response_data = response.json()
+    assert len(response_data["data"]) == 1
+
+    # test embedding
+    url = f"{endpoint}/v1/code/completions"
+    payload = {
+        "model": "deepseek-coder-base",
+        "prompt": "#write a quick sort algorithm",
+        "max_tokens": 4096,
+    }
+    response = requests.post(url, json=payload)
+    coding_res = response.json()
+
+    assert len(coding_res["choices"]) == 1
+    assert "text" in coding_res["choices"][0]
+    assert coding_res["choices"][0]["finish_reason"] == "stop"
+
+    # test multiple
+    payload = {
+        "model": "deepseek-coder-base",
+        "mode": "infill",
+        "prompt": """def quick_sort(arr):
+    if len(arr) <= 1:
+        return arr
+    pivot = arr[0]
+    left = []
+    right = []
+""",
+        "suffix": """        if arr[i] < pivot:
+            left.append(arr[i])
+        else:
+            right.append(arr[i])
+    return quick_sort(left) + [pivot] + quick_sort(right)""",
+        "max_tokens": 4096,
+    }
+    response = requests.post(url, json=payload)
+    coding_res = response.json()
+
+    assert len(coding_res["choices"]) == 1
+    assert "text" in coding_res["choices"][0]
+    assert coding_res["choices"][0]["finish_reason"] == "stop"
+
+    # delete model
+    url = f"{endpoint}/v1/models/deepseek-coder-base"
+    response = requests.delete(url)
+    assert response.status_code == 200
+
+    response = requests.get(f"{endpoint}/v1/models")
+    response_data = response.json()
+    assert len(response_data["data"]) == 0
