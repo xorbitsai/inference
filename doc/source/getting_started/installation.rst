@@ -93,4 +93,4 @@ SGLang has a high-performance inference runtime with RadixAttention. It signific
 
 Initial setup::
 
-   pip install 'xinference[all]'
+   pip install 'xinference[sglang]'
