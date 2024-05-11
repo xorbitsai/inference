@@ -500,6 +500,65 @@ class RESTfulCodeModelHandle(RESTfulGenerateModelHandle):
         response_data = response.json()
         return response_data
 
+    def get_code_prompt(
+        self,
+        mode: "CodeGenerateMode",
+        prompt: str,
+        suffix: Optional[str] = None,
+        repo_name: Optional[str] = None,
+        files: Optional[typing.Mapping] = None,
+    ) -> str:
+        """
+        Given code generating prompt which can be used to complete the code, the model will return a response via
+        RESTful APIs.
+
+        Parameters
+        ----------
+        mode: Literal["completion", "infill"]
+            Code Generation mode
+            Completion includes code fragment completion and repository level code completion
+            Infill is fill in middle completion, complete the code according provided prefix and suffix content.
+        prompt: str
+            The user's input, it presents prefix content in infill mode.
+        suffix: Optional[str]
+            The suffix content in infill mode.
+        repo_name: Optional[str]
+            The repository name in repository level code completion mode.
+        files: Optional[Mapping]
+            The file name/path and its content key values in repository level code completion mode
+
+        Returns
+        -------
+        str: generated prompt for code generating
+
+        Raises
+        ------
+        RuntimeError
+            Report the failure to generate the code prompt from the server.
+            Detailed information provided in error message.
+
+        """
+
+        url = f"{self._base_url}/v1/code/prompt"
+
+        request_body: Dict[str, Any] = {
+            "model": self._model_uid,
+            "mode": mode,
+            "prompt": prompt,
+            "suffix": suffix,
+            "repo_name": repo_name,
+            "files": files,
+        }
+
+        response = requests.post(url, json=request_body, headers=self.auth_headers)
+
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to generate code prompt generating, detail: {_get_error_string(response)}"
+            )
+
+        return response.text
+
 
 class RESTfulChatglmCppChatModelHandle(RESTfulModelHandle):
     def chat(

@@ -557,7 +557,6 @@ class VLLMCodeModel(VLLMModel, CodeModelMixin):
         code_prompt = self.get_code_prompt(
             mode,
             prompt,
-            self.model_family.code_prompt_style,
             suffix,
             repo_name,
             files,

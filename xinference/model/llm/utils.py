@@ -28,6 +28,7 @@ from ...types import (
     Completion,
     CompletionChunk,
 )
+from .core import LLM
 from .llm_family import (
     CodePromptStyleV1,
     GgmlLLMSpecV1,
@@ -717,11 +718,26 @@ Begin!"""
 
 
 class CodeModelMixin:
-    @staticmethod
     def get_code_prompt(
+        self: "LLM",
         mode: CodeGenerateMode,
         prompt: str,
-        code_prompt_style: Optional[CodePromptStyleV1],
+        suffix: Optional[str] = None,
+        repo_name: Optional[str] = None,
+        files: Optional[Mapping[str, str]] = None,
+    ):
+        code_prompt_style = self.model_family.code_prompt_style
+        return {
+            "prompt": CodeModelMixin._get_code_prompt(
+                mode, prompt, code_prompt_style, suffix, repo_name, files
+            )
+        }
+
+    @staticmethod
+    def _get_code_prompt(
+        mode: CodeGenerateMode,
+        prompt: str,
+        code_prompt_style: Optional["CodePromptStyleV1"],
         suffix: Optional[str] = None,
         repo_name: Optional[str] = None,
         files: Optional[Mapping[str, str]] = None,

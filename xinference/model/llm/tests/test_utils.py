@@ -499,24 +499,24 @@ def test_code_prompt_style_starcoder():
     )
     prompt = "def print_hello_world():"
     expected = prompt
-    assert expected == CodeModelMixin.get_code_prompt(
+    assert expected == CodeModelMixin._get_code_prompt(
         "completion", prompt, code_prompt_style
     )
 
     prompt = "def print_hello_world():\n    "
     suffix = "\n    print('Hello world!')"
     expected = "<fim_prefix>def print_hello_world():\n    <fim_suffix>\n    print('Hello world!')<fim_middle>"
-    assert expected == CodeModelMixin.get_code_prompt(
+    assert expected == CodeModelMixin._get_code_prompt(
         "infill", prompt, code_prompt_style, suffix
     )
 
     suffix = None
     with pytest.raises(ValueError) as exc_info:
-        CodeModelMixin.get_code_prompt("infill", prompt, code_prompt_style, suffix)
+        CodeModelMixin._get_code_prompt("infill", prompt, code_prompt_style, suffix)
         assert exc_info.value == ValueError("suffix is required in infill mode")
 
     with pytest.raises(ValueError) as exc_info:
-        CodeModelMixin.get_code_prompt("test", prompt, code_prompt_style)
+        CodeModelMixin._get_code_prompt("test", prompt, code_prompt_style)
         assert exc_info.value == ValueError(
             "Unsupported generate mode: test, only 'PSM' and 'PMS' are supported now"
         )
@@ -537,7 +537,7 @@ def test_code_prompt_style_deepseek_coder():
     prompt = "#write a quick sort algorithm"
     expected = prompt
 
-    assert expected == CodeModelMixin.get_code_prompt(
+    assert expected == CodeModelMixin._get_code_prompt(
         "completion", prompt, code_prompt_style
     )
 
@@ -568,7 +568,7 @@ def test_code_prompt_style_deepseek_coder():
             right.append(arr[i])
     return quick_sort(left) + [pivot] + quick_sort(right)<｜fim▁end｜>"""
 
-    assert expected == CodeModelMixin.get_code_prompt(
+    assert expected == CodeModelMixin._get_code_prompt(
         "infill", prompt, code_prompt_style, suffix
     )
 
@@ -722,7 +722,7 @@ from model import IrisClassifier as Classifier
 def main():
     # Model training and evaluation
 """
-    assert expected == CodeModelMixin.get_code_prompt(
+    assert expected == CodeModelMixin._get_code_prompt(
         "completion", prompt, code_prompt_style, None, None, files
     )
 
@@ -734,7 +734,7 @@ def test_code_prompt_style_without_fim():
     prompt = "def print_hello_world():\n    "
     suffix = "\n    print('Hello world!')"
     with pytest.raises(ValueError) as exc_info:
-        CodeModelMixin.get_code_prompt("infill", prompt, code_prompt_style, suffix)
+        CodeModelMixin._get_code_prompt("infill", prompt, code_prompt_style, suffix)
         assert exc_info.value == ValueError(
             "This model is not support infill mode generate"
         )

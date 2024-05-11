@@ -461,6 +461,33 @@ class ModelActor(xo.StatelessActor):
 
     @log_async(logger=logger)
     @request_limit
+    @xo.generator
+    async def get_code_prompt(
+        self,
+        mode: CodeGenerateMode,
+        prompt: str,
+        suffix: Optional[str],
+        repo_name: Optional[str],
+        files: Optional[Mapping[str, str]],
+    ):
+        from ..model.llm.utils import CodeModelMixin
+
+        if isinstance(self._model, CodeModelMixin):
+            return await self._call_wrapper(
+                self._model.get_code_prompt,
+                mode,
+                prompt,
+                suffix,
+                repo_name,
+                files,
+            )
+        else:
+            raise ValueError(
+                f"Model {self._model.model_family.model_name} does not support code generating"
+            )
+
+    @log_async(logger=logger)
+    @request_limit
     async def create_embedding(self, input: Union[str, List[str]], *args, **kwargs):
         if hasattr(self._model, "create_embedding"):
             return await self._call_wrapper(

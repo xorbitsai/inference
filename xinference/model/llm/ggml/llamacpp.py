@@ -346,7 +346,6 @@ class LlamaCppCodeModel(LlamaCppModel, CodeModelMixin):
         code_prompt = self.get_code_prompt(
             generate_model,
             prompt,
-            self.model_family.code_prompt_style,
             suffix,
             repo_name,
             files,
