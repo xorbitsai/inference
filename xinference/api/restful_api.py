@@ -649,7 +649,7 @@ class RESTfulAPI:
         model_size_in_billions = payload.get("model_size_in_billions")
         model_format = payload.get("model_format")
         quantization = payload.get("quantization")
-        model_type = payload.get("model_type")
+        model_type = payload.get("model_type", "LLM")
         replica = payload.get("replica", 1)
         n_gpu = payload.get("n_gpu", "auto")
         request_limits = payload.get("request_limits", None)
@@ -680,7 +680,12 @@ class RESTfulAPI:
         if not model_name:
             raise HTTPException(
                 status_code=400,
-                detail="Invalid input. Please specify the model name",
+                detail="Invalid input. Please specify the `model_name` field.",
+            )
+        if not model_engine and model_type == "LLM":
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid input. Please specify the `model_engine` field.",
             )
 
         if peft_model_config is not None:
