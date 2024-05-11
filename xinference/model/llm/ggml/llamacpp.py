@@ -349,7 +349,7 @@ class LlamaCppCodeModel(LlamaCppModel, CodeModelMixin):
             suffix,
             repo_name,
             files,
-        )
+        )["prompt"]
 
         if generate_config is not None and generate_config.get("stream", False):
             generate_config["stream"] = False
