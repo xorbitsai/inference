@@ -529,7 +529,7 @@ class RESTfulCodeModelHandle(RESTfulGenerateModelHandle):
 
         Returns
         -------
-        str: generated prompt for code generating
+        {"prompt": "generated prompt"}
 
         Raises
         ------
@@ -557,7 +557,7 @@ class RESTfulCodeModelHandle(RESTfulGenerateModelHandle):
                 f"Failed to generate code prompt generating, detail: {_get_error_string(response)}"
             )
 
-        return response.text
+        return response.json()
 
 
 class RESTfulChatglmCppChatModelHandle(RESTfulModelHandle):

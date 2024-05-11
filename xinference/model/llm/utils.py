@@ -719,14 +719,14 @@ Begin!"""
 
 class CodeModelMixin:
     def get_code_prompt(
-        self: "LLM",
+        self,
         mode: CodeGenerateMode,
         prompt: str,
         suffix: Optional[str] = None,
         repo_name: Optional[str] = None,
         files: Optional[Mapping[str, str]] = None,
     ):
-        code_prompt_style = self.model_family.code_prompt_style
+        code_prompt_style = cast(LLM, self).model_family.code_prompt_style
         return {
             "prompt": CodeModelMixin._get_code_prompt(
                 mode, prompt, code_prompt_style, suffix, repo_name, files
