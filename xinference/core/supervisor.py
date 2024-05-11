@@ -41,7 +41,7 @@ from .utils import (
     log_async,
     log_sync,
     parse_model_version,
-    parse_replica_model_uid,
+    parse_replica_model_uid, assign_replica_gpu,
 )
 
 if TYPE_CHECKING:
@@ -830,6 +830,8 @@ class SupervisorActor(xo.StatelessActor):
                     f"Model is already in the model list, uid: {_replica_model_uid}"
                 )
 
+            replica_gpu_idx, replica_n_gpu = assign_replica_gpu(_replica_model_uid, gpu_idx, n_gpu)
+
             nonlocal model_type
             worker_ref = (
                 target_ip_worker_ref
@@ -846,10 +848,10 @@ class SupervisorActor(xo.StatelessActor):
                 quantization=quantization,
                 model_engine=model_engine,
                 model_type=model_type,
-                n_gpu=n_gpu,
+                n_gpu=replica_n_gpu,
                 request_limits=request_limits,
                 peft_model_config=peft_model_config,
-                gpu_idx=gpu_idx,
+                gpu_idx=replica_gpu_idx,
                 **kwargs,
             )
             self._replica_model_uid_to_worker[_replica_model_uid] = worker_ref

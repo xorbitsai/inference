@@ -129,7 +129,7 @@ def purge_dir(d):
         subdir = os.path.join(d, name)
         try:
             if (os.path.islink(subdir) and not os.path.exists(subdir)) or (
-                len(os.listdir(subdir)) == 0
+                    len(os.listdir(subdir)) == 0
             ):
                 logger.info("Remove empty directory: %s", subdir)
                 os.rmdir(subdir)
@@ -191,3 +191,17 @@ def get_nvidia_gpu_info() -> Dict:
             nvmlShutdown()
         except:
             pass
+
+
+def assign_replica_gpu(_replica_model_uid: str, gpu_idx: Union[int, List[int]], n_gpu: Union[int, str]) -> Tuple[List[int], Union[int, str]]:
+    model_uid, replica, rep_id = parse_replica_model_uid(
+                _replica_model_uid
+            )
+    rep_id,replica = int(rep_id), int(replica)
+    if isinstance(gpu_idx, int):
+        gpu_idx = [gpu_idx]
+    if isinstance(gpu_idx, list) and gpu_idx:
+        return gpu_idx[rep_id :: replica], n_gpu
+    if isinstance(n_gpu, int):
+        return gpu_idx, n_gpu // int(replica)
+    return gpu_idx, n_gpu
