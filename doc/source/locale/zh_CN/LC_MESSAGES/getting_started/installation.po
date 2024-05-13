@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-04-02 15:27+0800\n"
+"POT-Creation-Date: 2024-05-11 10:26+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -16,7 +16,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Generated-By: Babel 2.14.0\n"
+"Generated-By: Babel 2.11.0\n"
 
 #: ../../source/getting_started/installation.rst:5
 msgid "Installation"
@@ -54,11 +54,11 @@ msgid ""
 " how to do it."
 msgstr "如果你只想安装必要的依赖，接下来是如何操作的详细步骤。"
 
-#: ../../source/getting_started/installation.rst:19
+#: ../../source/getting_started/installation.rst:21
 msgid "Transformers Backend"
 msgstr "Transformers 引擎"
 
-#: ../../source/getting_started/installation.rst:20
+#: ../../source/getting_started/installation.rst:22
 msgid ""
 "PyTorch (transformers) supports the inference of most state-of-art "
 "models. It is the default backend for models in PyTorch format::"
@@ -66,11 +66,11 @@ msgstr ""
 "PyTorch(transformers) 引擎支持几乎有所的最新模型，这是 Pytorch 模型默认"
 "使用的引擎："
 
-#: ../../source/getting_started/installation.rst:26
+#: ../../source/getting_started/installation.rst:28
 msgid "vLLM Backend"
 msgstr "vLLM 引擎"
 
-#: ../../source/getting_started/installation.rst:27
+#: ../../source/getting_started/installation.rst:29
 msgid ""
 "vLLM is a fast and easy-to-use library for LLM inference and serving. "
 "Xinference will choose vLLM as the backend to achieve better throughput "
@@ -79,133 +79,158 @@ msgstr ""
 "vLLM 是一个支持高并发的高性能大模型推理引擎。当满足以下条件时，Xinference"
 " 会自动选择 vllm 作为引擎来达到更高的吞吐量："
 
-#: ../../source/getting_started/installation.rst:29
+#: ../../source/getting_started/installation.rst:31
 msgid "The model format is ``pytorch``, ``gptq`` or ``awq``."
 msgstr "模型格式为 ``pytorch`` ， ``gptq`` 或者 ``awq`` 。"
 
-#: ../../source/getting_started/installation.rst:30
+#: ../../source/getting_started/installation.rst:32
 msgid "When the model format is ``pytorch``, the quantization is ``none``."
 msgstr "当模型格式为 ``pytorch`` 时，量化选项需为 ``none`` 。"
 
-#: ../../source/getting_started/installation.rst:31
-msgid ""
-"When the model format is ``gptq`` or ``awq``, the quantization is "
-"``Int4``."
-msgstr "当模型格式为 ``gptq`` 或 ``awq`` 时，量化选项需为 ``Int4`` 。"
+#: ../../source/getting_started/installation.rst:33
+msgid "When the model format is ``awq``, the quantization is ``Int4``."
+msgstr "当模型格式为 ``awq`` 时，量化选项需为 ``Int4`` 。"
 
-#: ../../source/getting_started/installation.rst:32
+#: ../../source/getting_started/installation.rst:34
+msgid ""
+"When the model format is ``gptq``, the quantization is ``Int3``, ``Int4``"
+" or ``Int8``."
+msgstr "当模型格式为 ``gptq`` 时，量化选项需为 ``Int3`` 、 ``Int4`` 或者 ``Int8`` 。"
+
+#: ../../source/getting_started/installation.rst:35
 msgid "The system is Linux and has at least one CUDA device"
 msgstr "操作系统为 Linux 并且至少有一个支持 CUDA 的设备"
 
-#: ../../source/getting_started/installation.rst:33
+#: ../../source/getting_started/installation.rst:36
 msgid ""
 "The model family (for custom models) / model name (for builtin models) is"
 " within the list of models supported by vLLM"
-msgstr "自定义模型的 ``model_family`` 字段和内置模型的 ``model_name`` 字段在 vLLM"
+msgstr ""
+"自定义模型的 ``model_family`` 字段和内置模型的 ``model_name`` 字段在 vLLM"
 " 的支持列表中。"
 
-#: ../../source/getting_started/installation.rst:35
+#: ../../source/getting_started/installation.rst:38
 msgid "Currently, supported models include:"
 msgstr "目前，支持的模型包括："
 
-#: ../../source/getting_started/installation.rst:39
-msgid "``llama-2``, ``llama-2-chat``"
-msgstr "``llama-2``, ``llama-2-chat``"
-
-#: ../../source/getting_started/installation.rst:40
-msgid "``baichuan``, ``baichuan-chat``, ``baichuan-2-chat``"
-msgstr "``baichuan``, ``baichuan-chat``, ``baichuan-2-chat``"
-
-#: ../../source/getting_started/installation.rst:41
-msgid ""
-"``internlm-16k``, ``internlm-chat-7b``, ``internlm-chat-8k``, ``internlm-"
-"chat-20b``"
-msgstr "``internlm-16k``, ``internlm-chat-7b``, ``internlm-chat-8k``, ``internlm-"
-"chat-20b``"
-
 #: ../../source/getting_started/installation.rst:42
-msgid "``mistral-v0.1``, ``mistral-instruct-v0.1``, ``mistral-instruct-v0.2``"
+msgid "``llama-2``, ``llama-3``, ``llama-2-chat``, ``llama-3-instruct``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:43
-msgid "``Yi``, ``Yi-chat``"
-msgstr "``Yi``, ``Yi-chat``"
+msgid "``baichuan``, ``baichuan-chat``, ``baichuan-2-chat``"
+msgstr ""
 
 #: ../../source/getting_started/installation.rst:44
-msgid "``code-llama``, ``code-llama-python``, ``code-llama-instruct``"
-msgstr "``code-llama``, ``code-llama-python``, ``code-llama-instruct``"
+msgid ""
+"``internlm-16k``, ``internlm-chat-7b``, ``internlm-chat-8k``, ``internlm-"
+"chat-20b``"
+msgstr ""
 
 #: ../../source/getting_started/installation.rst:45
-msgid "``vicuna-v1.3``, ``vicuna-v1.5``"
-msgstr "``vicuna-v1.3``, ``vicuna-v1.5``"
+msgid "``mistral-v0.1``, ``mistral-instruct-v0.1``, ``mistral-instruct-v0.2``"
+msgstr ""
 
 #: ../../source/getting_started/installation.rst:46
-msgid "``qwen-chat``"
-msgstr "``qwen-chat``"
+msgid "``Yi``, ``Yi-chat``"
+msgstr ""
 
 #: ../../source/getting_started/installation.rst:47
-msgid "``mixtral-instruct-v0.1``"
-msgstr "``mistral-instruct-v0.1``"
+msgid "``code-llama``, ``code-llama-python``, ``code-llama-instruct``"
+msgstr ""
 
 #: ../../source/getting_started/installation.rst:48
-msgid "``chatglm3``, ``chatglm3-32k``, ``chatglm3-128k``"
+msgid "``c4ai-command-r-v01``, ``c4ai-command-r-v01-4bit``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:49
-msgid "``deepseek-chat``, ``deepseek-coder-instruct``"
+msgid "``vicuna-v1.3``, ``vicuna-v1.5``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:50
-msgid "``qwen1.5-chat``"
-msgstr "``qwen1.5-chat``"
+msgid "``internlm2-chat``"
+msgstr ""
 
 #: ../../source/getting_started/installation.rst:51
-msgid "``gemma-it``"
+msgid "``qwen-chat``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:52
-msgid "``orion-chat``, ``orion-chat-rag``"
+msgid "``mixtral-instruct-v0.1``, ``mixtral-8x22B-instruct-v0.1``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:53
+msgid "``chatglm3``, ``chatglm3-32k``, ``chatglm3-128k``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:54
+msgid "``deepseek-chat``, ``deepseek-coder-instruct``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:55
+msgid "``qwen1.5-chat``, ``qwen1.5-moe-chat``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:56
+msgid "``codeqwen1.5-chat``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:57
+msgid "``gemma-it``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:58
+msgid "``orion-chat``, ``orion-chat-rag``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:61
 msgid "To install Xinference and vLLM::"
 msgstr "安装 xinference 和 vLLM："
 
-#: ../../source/getting_started/installation.rst:62
-msgid "GGML Backend"
-msgstr "GGML 引擎"
+#: ../../source/getting_started/installation.rst:68
+msgid "Llama.cpp Backend"
+msgstr "Llama.cpp 引擎"
 
-#: ../../source/getting_started/installation.rst:63
+#: ../../source/getting_started/installation.rst:69
 msgid ""
-"It's advised to install the GGML dependencies manually based on your "
-"hardware specifications to enable acceleration."
+"Xinference supports models in ``gguf`` and ``ggml`` format via ``llama-"
+"cpp-python``. It's advised to install the llama.cpp-related dependencies "
+"manually based on your hardware specifications to enable acceleration."
 msgstr ""
-"当使用 GGML 引擎时，建议根据当前使用的硬件手动安装依赖，从而获得最佳的"
+"Xinference 通过 ``llama-cpp-python`` 支持 ``gguf`` 和 ``ggml`` 格式的模型。建议根据当前使用的硬件手动安装依赖，从而获得最佳的"
 "加速效果。"
 
-#: ../../source/getting_started/installation.rst:65
+#: ../../source/getting_started/installation.rst:71
+#: ../../source/getting_started/installation.rst:94
 msgid "Initial setup::"
 msgstr "初始步骤："
 
-#: ../../source/getting_started/installation.rst:70
+#: ../../source/getting_started/installation.rst:75
 msgid "Hardware-Specific installations:"
 msgstr "不同硬件的安装方式："
 
-#: ../../source/getting_started/installation.rst:72
+#: ../../source/getting_started/installation.rst:77
 msgid "Apple Silicon::"
 msgstr "Apple M系列"
 
-#: ../../source/getting_started/installation.rst:76
+#: ../../source/getting_started/installation.rst:81
 msgid "Nvidia cards::"
 msgstr "英伟达显卡："
 
-#: ../../source/getting_started/installation.rst:80
+#: ../../source/getting_started/installation.rst:85
 msgid "AMD cards::"
 msgstr "AMD 显卡："
 
-#~ msgid "The quantization method is GPTQ 4 bit or none"
-#~ msgstr "量化方式必须是 GPTQ 4 bit 或者 none"
+#: ../../source/getting_started/installation.rst:91
+msgid "SGLang Backend"
+msgstr "SGLang 引擎"
 
-#~ msgid "``chatglm3``"
-#~ msgstr "``chatglm3``"
-
+#: ../../source/getting_started/installation.rst:92
+msgid ""
+"SGLang has a high-performance inference runtime with RadixAttention. It "
+"significantly accelerates the execution of complex LLM programs by "
+"automatic KV cache reuse across multiple calls. And it also supports "
+"other common techniques like continuous batching and tensor parallelism."
+msgstr ""
+"SGLang 具有基于 RadixAttention 的高性能推理运行时。它通过在多个调用之间自动重用KV缓存，显著加速了复杂 LLM 程序的执行。"
+"它还支持其他常见推理技术，如连续批处理和张量并行处理。"

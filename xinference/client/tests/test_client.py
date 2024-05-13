@@ -38,7 +38,7 @@ def test_RESTful_client(setup):
 
     model_uid = client.launch_model(
         model_name="orca",
-        model_engine="llama-cpp-python",
+        model_engine="llama.cpp",
         model_size_in_billions=3,
         quantization="q4_0",
     )
@@ -111,7 +111,7 @@ def test_RESTful_client(setup):
 
     model_uid = client.launch_model(
         model_name="tiny-llama",
-        model_engine="llama-cpp-python",
+        model_engine="llama.cpp",
         model_size_in_billions=1,
         model_format="ggufv2",
         quantization="q2_K",
@@ -158,7 +158,7 @@ def test_RESTful_client(setup):
 
     model_uid2 = client.launch_model(
         model_name="orca",
-        model_engine="llama-cpp-python",
+        model_engine="llama.cpp",
         model_size_in_billions=3,
         quantization="q4_0",
     )
@@ -326,7 +326,7 @@ def test_client_from_modelscope(setup):
         assert len(client.list_models()) == 0
 
         model_uid = client.launch_model(
-            model_name="tiny-llama", model_engine="llama-cpp-python"
+            model_name="tiny-llama", model_engine="llama.cpp"
         )
         assert len(client.list_models()) == 1
         model = client.get_model(model_uid=model_uid)
@@ -442,7 +442,7 @@ def test_auto_recover(set_auto_recover_limit, setup_cluster):
 
     model_uid = client.launch_model(
         model_name="orca",
-        model_engine="llama-cpp-python",
+        model_engine="llama.cpp",
         model_size_in_billions=3,
         quantization="q4_0",
     )

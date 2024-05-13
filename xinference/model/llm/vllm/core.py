@@ -70,6 +70,7 @@ class VLLMGenerateConfig(TypedDict, total=False):
     frequency_penalty: float
     temperature: float
     top_p: float
+    top_k: int
     max_tokens: int
     stop_token_ids: Optional[List[int]]
     stop: Optional[Union[str, List[str]]]
@@ -216,6 +217,7 @@ class VLLMModel(LLM):
         )
         sanitized.setdefault("temperature", generate_config.get("temperature", 1.0))
         sanitized.setdefault("top_p", generate_config.get("top_p", 1.0))
+        sanitized.setdefault("top_k", generate_config.get("top_k", -1))
         sanitized.setdefault("max_tokens", generate_config.get("max_tokens", 1024))
         sanitized.setdefault("stop", generate_config.get("stop", None))
         sanitized.setdefault(
