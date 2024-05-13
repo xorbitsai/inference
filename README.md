@@ -41,8 +41,8 @@ potential of cutting-edge AI models.
 - Built-in support for [Qwen1.5 MOE](https://huggingface.co/Qwen/Qwen1.5-MoE-A2.7B-Chat): [#1263](https://github.com/xorbitsai/inference/pull/1263)
 - Built-in support for [Qwen1.5 32B](https://huggingface.co/Qwen/Qwen1.5-32B-Chat): [#1249](https://github.com/xorbitsai/inference/pull/1249)
 ### Integrations
-- [FastGPT](https://github.com/labring/FastGPT): a knowledge-based platform built on the LLM, offers out-of-the-box data processing and model invocation capabilities, allows for workflow orchestration through Flow visualization.
 - [Dify](https://docs.dify.ai/advanced/model-configuration/xinference): an LLMOps platform that enables developers (and even non-developers) to quickly build useful applications based on large language models, ensuring they are visual, operable, and improvable.
+- [FastGPT](https://github.com/labring/FastGPT): a knowledge-based platform built on the LLM, offers out-of-the-box data processing and model invocation capabilities, allows for workflow orchestration through Flow visualization.
 - [Chatbox](https://chatboxai.app/): a desktop client for multiple cutting-edge LLM models, available on Windows, Mac and Linux.
 
 
