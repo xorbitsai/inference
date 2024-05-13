@@ -99,6 +99,53 @@ Please ensure that the version of the client matches the version of the Xinferen
 
    pip install xinference-client==${SERVER_VERSION}
 
+.. _about_model_engine:
+
+About Model Engine
+------------------
+Since ``v0.11.0`` , before launching the LLM model, you need to specify the inference engine you want to run.
+Currently, xinference supports the following inference engines:
+
+* ``vllm``
+* ``sglang``
+* ``llama.cpp``
+* ``transformers``
+
+About the details of these inference engine, please refer to :ref:`here <inference_backend>`.
+
+Note that when launching a LLM model, the ``model_format`` and ``quantization`` of the model you want to launch
+is closely related to the inference engine.
+
+You can use ``xinference engine`` command to query the combination of parameters of the model you want to launch.
+This will demonstrate under what conditions a model can run on which inference engines.
+
+For example:
+
+#. I would like to query about which inference engines the ``qwen-chat`` model can run on, and what are their respective parameters.
+
+.. code-block:: bash
+
+    xinference engine -e <xinference_endpoint> --model-name qwen-chat
+
+#. I want to run ``qwen-chat`` with ``VLLM`` as the inference engine, but I don't know how to configure the other parameters.
+
+.. code-block:: bash
+
+    xinference engine -e <xinference_endpoint> --model-name qwen-chat --model-engine vllm
+
+#. I want to launch the ``qwen-chat`` model in the ``GGUF`` format, and I need to know how to configure the remaining parameters.
+
+.. code-block:: bash
+
+    xinference engine -e <xinference_endpoint> --model-name qwen-chat -f ggufv2
+
+
+In summary, compared to previous versions, when launching LLM models,
+you need to additionally pass the ``model_engine`` parameter.
+You can retrieve information about the supported inference engines and their related parameter combinations
+through the ``xinference engine`` command.
+
+
 Run Llama-2
 -----------
 
@@ -122,7 +169,7 @@ This create a new model instance with unique ID ``my-llama-2``:
 
   .. code-tab:: bash shell
 
-    xinference launch -u my-llama-2 -n llama-2-chat -s 13 -f pytorch
+    xinference launch --model-engine <inference_engine> -u my-llama-2 -n llama-2-chat -s 13 -f pytorch
 
   .. code-tab:: bash cURL
 
@@ -131,6 +178,7 @@ This create a new model instance with unique ID ``my-llama-2``:
       -H 'accept: application/json' \
       -H 'Content-Type: application/json' \
       -d '{
+      "model_engine": "<inference_engine>",
       "model_uid": "my-llama-2",
       "model_name": "llama-2-chat",
       "model_format": "pytorch",
@@ -142,6 +190,7 @@ This create a new model instance with unique ID ``my-llama-2``:
     from xinference.client import RESTfulClient
     client = RESTfulClient("http://127.0.0.1:9997")
     model_uid = client.launch_model(
+      model_engine="<inference_engine>",
       model_uid="my-llama-2",
       model_name="llama-2-chat",
       model_format="pytorch",
@@ -160,7 +209,7 @@ This create a new model instance with unique ID ``my-llama-2``:
 
   .. code-block:: bash
 
-    xinference launch -u my-llama-2 -n llama-2-chat -s 13 -f pytorch --gpu_memory_utilization 0.9
+    xinference launch --model-engine vllm -u my-llama-2 -n llama-2-chat -s 13 -f pytorch --gpu_memory_utilization 0.9
 
   `gpu_memory_utilization=0.9` will pass to vllm when launching model.
 
