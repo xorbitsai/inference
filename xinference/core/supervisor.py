@@ -34,6 +34,7 @@ from ..types import PeftModelConfig
 from .metrics import record_metrics
 from .resource import GPUStatus, ResourceStatus
 from .utils import (
+    assign_replica_gpu,
     build_replica_model_uid,
     gen_random_string,
     is_valid_model_uid,
@@ -41,7 +42,7 @@ from .utils import (
     log_async,
     log_sync,
     parse_model_version,
-    parse_replica_model_uid, assign_replica_gpu,
+    parse_replica_model_uid,
 )
 
 if TYPE_CHECKING:
@@ -829,9 +830,9 @@ class SupervisorActor(xo.StatelessActor):
                 raise ValueError(
                     f"Model is already in the model list, uid: {_replica_model_uid}"
                 )
-
-            replica_gpu_idx, replica_n_gpu = assign_replica_gpu(_replica_model_uid, gpu_idx, n_gpu)
-
+            replica_gpu_idx, replica_n_gpu = assign_replica_gpu(
+                _replica_model_uid, gpu_idx, n_gpu
+            )
             nonlocal model_type
             worker_ref = (
                 target_ip_worker_ref
