@@ -458,7 +458,7 @@ The following is a list of built-in LLM in Xinference:
 
    * - :ref:`yi-vl-chat <models_llm_yi-vl-chat>`
      - chat, vision
-     - 204800
+     - 4096
      - Yi Vision Language (Yi-VL) model is the open-source, multimodal version of the Yi Large Language Model (LLM) series, enabling content comprehension, recognition, and multi-round conversations about images.
 
    * - :ref:`zephyr-7b-alpha <models_llm_zephyr-7b-alpha>`

@@ -4,7 +4,7 @@
 yi-vl-chat
 ========================================
 
-- **Context Length:** 204800
+- **Context Length:** 4096
 - **Model Name:** yi-vl-chat
 - **Languages:** en, zh
 - **Abilities:** chat, vision
