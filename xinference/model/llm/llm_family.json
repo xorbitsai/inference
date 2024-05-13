@@ -4813,7 +4813,7 @@
   },
   {
     "version": 1,
-    "context_length": 204800,
+    "context_length": 4096,
     "model_name": "yi-vl-chat",
     "model_lang": [
       "en",
