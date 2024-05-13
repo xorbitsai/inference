@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-02-05 11:25+0800\n"
+"POT-Creation-Date: 2024-05-11 10:26+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -17,7 +17,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Generated-By: Babel 2.13.1\n"
+"Generated-By: Babel 2.11.0\n"
 
 #: ../../source/getting_started/troubleshooting.rst:5
 msgid "Troubleshooting"
@@ -125,16 +125,18 @@ msgstr "在启动 Xinference 时记得要加上 ``-H 0.0.0.0`` 参数:"
 msgid ""
 "Then Xinference service will listen on all network interfaces (not "
 "limited to ``127.0.0.1`` or ``localhost``)."
-msgstr "那么 Xinference 服务将监听所有网络接口（而不仅限于 ``127.0.0.1`` 或 ``localhost``）。"
-
+msgstr ""
+"那么 Xinference 服务将监听所有网络接口（而不仅限于 ``127.0.0.1`` 或 ``"
+"localhost``）。"
 
 #: ../../source/getting_started/troubleshooting.rst:73
 msgid ""
 "If you are using the :ref:`using_docker_image`, please add ``-p "
 "<PORT>:9997`` during the docker run command, then access is available "
 "through ``<IP>:<PORT>`` of the local machine."
-msgstr "如果使用的是 :ref:`using_docker_image`，请在 Docker 运行命令中 加上 ``-p <PORT>:9997`` ，"
-"，你就可以通过本地机器的 ``<IP>:<PORT>`` 进行访问。"
+msgstr ""
+"如果使用的是 :ref:`using_docker_image`，请在 Docker 运行命令中 加上 ``-p "
+"<PORT>:9997`` ，，你就可以通过本地机器的 ``<IP>:<PORT>`` 进行访问。"
 
 #: ../../source/getting_started/troubleshooting.rst:78
 msgid ""
@@ -147,7 +149,9 @@ msgid ""
 "Xinference by default uses HuggingFace as the source for models. If your "
 "machines are in Mainland China, there might be accessibility issues when "
 "using built-in models."
-msgstr "Xinference 默认使用 HuggingFace作为模型源。如果你的机器在中国大陆，使用内置模型可能会有访问问题。"
+msgstr ""
+"Xinference 默认使用 HuggingFace作为模型源。如果你的机器在中国大陆，使用"
+"内置模型可能会有访问问题。"
 
 #: ../../source/getting_started/troubleshooting.rst:84
 msgid ""
@@ -155,15 +159,17 @@ msgid ""
 "``XINFERENCE_MODEL_SRC=modelscope`` when starting the Xinference to "
 "change the model source to ModelScope, which is optimized for Mainland "
 "China."
-msgstr "要解决这个问题，可以在启动 Xinference 时添加环境变量 ``XINFERENCE_MODEL_SRC=modelscope``，"
-"将模型源更改为 ModelScope，在中国大陆速度下载更快。"
-
+msgstr ""
+"要解决这个问题，可以在启动 Xinference 时添加环境变量 ``XINFERENCE_MODEL_"
+"SRC=modelscope``，将模型源更改为 ModelScope，在中国大陆速度下载更快。"
 
 #: ../../source/getting_started/troubleshooting.rst:88
 msgid ""
 "If you’re starting Xinference with Docker, include ``-e XINFERENCE_MODEL"
 "_SRC=modelscope`` during the docker run command."
-msgstr "如果你用 Docker 启动 Xinference，可以在 Docker 命令中包含 ``-e XINFERENCE_MODEL_SRC=modelscope`` 选项。"
+msgstr ""
+"如果你用 Docker 启动 Xinference，可以在 Docker 命令中包含 ``-e XINFERENCE"
+"_MODEL_SRC=modelscope`` 选项。"
 
 #: ../../source/getting_started/troubleshooting.rst:92
 msgid ""
@@ -186,3 +192,15 @@ msgid ""
 "follows:"
 msgstr "你可以通过设置参数 ``--shm-size`` 来增加它的大小："
 
+#: ../../source/getting_started/troubleshooting.rst:106
+msgid "Missing ``model_engine`` parameter when launching LLM models"
+msgstr "加载 LLM 模型时提示缺失 ``model_engine`` 参数"
+
+#: ../../source/getting_started/troubleshooting.rst:108
+msgid ""
+"Since version ``v0.11.0``, launching LLM models requires an additional "
+"``model_engine`` parameter. For specific information, please refer to "
+":ref:`here <about_model_engine>`."
+msgstr ""
+"自 ``v0.11.0`` 版本开始，加载 LLM 模型时需要传入额外参数 ``model_engine`` 。"
+"具体信息请参考 :ref:`这里 <about_model_engine>` 。"

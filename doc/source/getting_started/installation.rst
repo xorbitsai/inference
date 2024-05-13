@@ -15,6 +15,8 @@ If you aim to serve all supported models, you can install all the necessary depe
 
 If you want to install only the necessary backends, here's a breakdown of how to do it.
 
+.. _inference_backend:
+
 Transformers Backend
 ~~~~~~~~~~~~~~~~~~~~
 PyTorch (transformers) supports the inference of most state-of-art models. It is the default backend for models in PyTorch format::
@@ -62,9 +64,9 @@ To install Xinference and vLLM::
 
 .. _installation_ggml:
 
-GGML Backend
-~~~~~~~~~~~~
-It's advised to install the GGML dependencies manually based on your hardware specifications to enable acceleration.
+Llama.cpp Backend
+~~~~~~~~~~~~~~~~~
+Xinference supports models in ``gguf`` and ``ggml`` format via ``llama-cpp-python``. It's advised to install the llama.cpp-related dependencies manually based on your hardware specifications to enable acceleration.
 
 Initial setup::
 
@@ -83,3 +85,12 @@ Hardware-Specific installations:
 - AMD cards::
 
    CMAKE_ARGS="-DLLAMA_HIPBLAS=on" pip install llama-cpp-python
+
+
+SGLang Backend
+~~~~~~~~~~~~~~
+SGLang has a high-performance inference runtime with RadixAttention. It significantly accelerates the execution of complex LLM programs by automatic KV cache reuse across multiple calls. And it also supports other common techniques like continuous batching and tensor parallelism.
+
+Initial setup::
+
+   pip install 'xinference[sglang]'
