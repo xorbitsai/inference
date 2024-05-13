@@ -1418,6 +1418,7 @@
           "8-bit",
           "none"
         ],
+        "model_hub": "modelscope",
         "model_id": "01ai/Yi-1.5-6B",
         "model_revision": "master"
       },
@@ -1429,6 +1430,7 @@
           "8-bit",
           "none"
         ],
+        "model_hub": "modelscope",
         "model_id": "01ai/Yi-1.5-9B",
         "model_revision": "master"
       },
@@ -1440,6 +1442,7 @@
           "8-bit",
           "none"
         ],
+        "model_hub": "modelscope",
         "model_id": "01ai/Yi-1.5-34B",
         "model_revision": "master"
       }
@@ -1466,6 +1469,7 @@
           "8-bit",
           "none"
         ],
+        "model_hub": "modelscope",
         "model_id": "01ai/Yi-1.5-6B-Chat",
         "model_revision": "master"
       },
@@ -1477,6 +1481,7 @@
           "8-bit",
           "none"
         ],
+        "model_hub": "modelscope",
         "model_id": "01ai/Yi-1.5-9B-Chat",
         "model_revision": "master"
       },
@@ -1488,6 +1493,7 @@
           "8-bit",
           "none"
         ],
+        "model_hub": "modelscope",
         "model_id": "01ai/Yi-1.5-34B-Chat",
         "model_revision": "master"
       }
