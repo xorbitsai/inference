@@ -108,7 +108,7 @@ The following is a list of built-in LLM in Xinference:
 
    * - :ref:`codeqwen1.5-chat <models_llm_codeqwen1.5-chat>`
      - chat
-     - 32768
+     - 65536
      - CodeQwen1.5 is the Code-Specific version of Qwen1.5. It is a transformer-based decoder-only language model pretrained on a large amount of data of codes.
 
    * - :ref:`codeshell <models_llm_codeshell>`
@@ -381,6 +381,11 @@ The following is a list of built-in LLM in Xinference:
      - 8192
      - Starcoderplus is an open-source LLM trained by fine-tuning Starcoder on RedefinedWeb and StarCoderData datasets.
 
+   * - :ref:`starling-lm <models_llm_starling-lm>`
+     - chat
+     - 4096
+     - We introduce Starling-7B, an open large language model (LLM) trained by Reinforcement Learning from AI Feedback (RLAIF). The model harnesses the power of our new GPT-4 labeled ranking dataset
+
    * - :ref:`tiny-llama <models_llm_tiny-llama>`
      - generate
      - 2048
@@ -431,14 +436,24 @@ The following is a list of built-in LLM in Xinference:
      - 4096
      - The Yi series models are large language models trained from scratch by developers at 01.AI.
 
+   * - :ref:`yi-1.5 <models_llm_yi-1.5>`
+     - generate
+     - 4096
+     - Yi-1.5 is an upgraded version of Yi. It is continuously pre-trained on Yi with a high-quality corpus of 500B tokens and fine-tuned on 3M diverse fine-tuning samples.
+
+   * - :ref:`yi-1.5-chat <models_llm_yi-1.5-chat>`
+     - chat
+     - 4096
+     - Yi-1.5 is an upgraded version of Yi. It is continuously pre-trained on Yi with a high-quality corpus of 500B tokens and fine-tuned on 3M diverse fine-tuning samples.
+
    * - :ref:`yi-200k <models_llm_yi-200k>`
      - generate
-     - 204800
+     - 262144
      - The Yi series models are large language models trained from scratch by developers at 01.AI.
 
    * - :ref:`yi-chat <models_llm_yi-chat>`
      - chat
-     - 204800
+     - 4096
      - The Yi series models are large language models trained from scratch by developers at 01.AI.
 
    * - :ref:`yi-vl-chat <models_llm_yi-vl-chat>`
@@ -607,6 +622,8 @@ The following is a list of built-in LLM in Xinference:
   
    starcoderplus
   
+   starling-lm
+  
    tiny-llama
   
    vicuna-v1.3
@@ -626,6 +643,10 @@ The following is a list of built-in LLM in Xinference:
    xverse-chat
   
    yi
+  
+   yi-1.5
+  
+   yi-1.5-chat
   
    yi-200k
   
