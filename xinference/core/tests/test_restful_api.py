@@ -1271,7 +1271,7 @@ def test_cluster_info(setup):
     assert result[1]["gpu_vram_total"] == 0
 
 
-def test_restfule_api_for_code_prompt(setup):
+def test_restful_api_for_code_prompt(setup):
     model_name = "deepseek-coder-base"
 
     endpoint, _ = setup

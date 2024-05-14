@@ -1537,6 +1537,7 @@ class RESTfulAPI:
             code_prompt = await model.get_code_prompt(
                 body.mode,
                 body.prompt,
+                body.file_path,
                 body.suffix,
                 body.repo_name,
                 body.files,
