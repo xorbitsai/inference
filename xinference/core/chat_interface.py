@@ -41,6 +41,9 @@ def compare_history(current, hist):
     if current["prompt"] != hist["prompt"]:
         return False
 
+    if current["file_path"] != hist["file_path"]:
+        return False
+
     if current["suffix"] != hist["suffix"]:
         return False
 
@@ -53,6 +56,7 @@ def compare_history(current, hist):
 EMPTY = {
     "mode": "Code Completion",
     "prompt": "",
+    "file_path": "",
     "suffix": "",
     "files": None,
 }
@@ -339,10 +343,11 @@ class GradioInterface:
     def build_code_generate_interface(
         self,
     ):
-        def undo(g_mode, text, g_suffix, g_files, hist):
+        def undo(g_mode, text, g_file_path, g_suffix, g_files, hist):
             current = {
                 "mode": g_mode,
                 "prompt": text,
+                "file_path": g_file_path,
                 "suffix": g_suffix,
                 "files": g_files,
             }
@@ -351,6 +356,7 @@ class GradioInterface:
                 return {
                     generate_mode: "Code Completion",
                     prompt: "",
+                    file_path: "",
                     suffix: "",
                     files: None,
                     history: [current],
@@ -363,15 +369,17 @@ class GradioInterface:
             return {
                 generate_mode: req["mode"],
                 prompt: req["prompt"],
+                file_path: req["file_path"],
                 suffix: req["suffix"],
                 files: g_files,
                 history: hist,
             }
 
-        def clear(g_mode, text, g_suffix, g_files, hist):
+        def clear(g_mode, text, g_file_path, g_suffix, g_files, hist):
             current = {
                 "mode": g_mode,
                 "prompt": text,
+                "file_path": g_file_path,
                 "suffix": g_suffix,
                 "files": g_files,
             }
@@ -383,12 +391,15 @@ class GradioInterface:
             return {
                 generate_mode: "Code Completion",
                 prompt: "",
+                file_path: "",
                 suffix: "",
                 files: None,
                 history: hist,
             }
 
-        def complete(g_mode, text, g_suffix, g_files, hist, max_tokens, temperature):
+        def complete(
+            g_mode, text, g_file_path, g_suffix, g_files, hist, max_tokens, temperature
+        ):
             from ..client import RESTfulClient
 
             client = RESTfulClient(self.endpoint)
@@ -402,9 +413,11 @@ class GradioInterface:
                 if g_files
                 else None
             )
+
             current = {
                 "mode": g_mode,
                 "prompt": text,
+                "file_path": g_file_path,
                 "suffix": g_suffix,
                 "files": g_files,
             }
@@ -420,6 +433,7 @@ class GradioInterface:
                     resp = model.code_generate(
                         "completion",
                         prompt=text,
+                        file_path=g_file_path,
                         files=repo_files,
                         generate_config={
                             "max_tokens": max_tokens,
@@ -430,6 +444,7 @@ class GradioInterface:
                     resp = model.code_generate(
                         mode="completion",
                         prompt=text,
+                        file_path=g_file_path,
                         generate_config={
                             "max_tokens": max_tokens,
                             "temperature": temperature,
@@ -453,6 +468,7 @@ class GradioInterface:
             current = {
                 "mode": g_mode,
                 "prompt": response_content,
+                "file_path": g_file_path,
                 "suffix": g_suffix,
                 "files": g_files,
             }
@@ -463,7 +479,9 @@ class GradioInterface:
                 history: hist,
             }
 
-        def retry(g_mode, text, g_suffix, g_files, hist, max_tokens, temperature):
+        def retry(
+            g_mode, text, g_suffix, g_file_path, g_files, hist, max_tokens, temperature
+        ):
             from ..client import RESTfulClient
 
             client = RESTfulClient(self.endpoint)
@@ -475,6 +493,7 @@ class GradioInterface:
             current = {
                 "mode": g_mode,
                 "prompt": text,
+                "file_path": g_file_path,
                 "suffix": g_suffix,
                 "files": g_files,
             }
@@ -497,6 +516,7 @@ class GradioInterface:
             resp = model.code_generate(
                 mode="completion" if req["mode"] == "Code Completion" else "infill",
                 prompt=req["prompt"],
+                file_path=req["file_path"],
                 suffix=req["suffix"],
                 files=repo_files,
                 generate_config={
@@ -514,6 +534,7 @@ class GradioInterface:
             return {
                 generate_mode: req["mode"],
                 prompt: response_content,
+                file_path: req["file_path"],
                 suffix: req["suffix"],
                 files: req["files"],
                 history: hist,
@@ -522,6 +543,12 @@ class GradioInterface:
         def mode_change(generate_mode):
             if generate_mode == "Code Completion":
                 return {
+                    file_path: Textbox(
+                        container=True,
+                        show_label=True,
+                        label="Prompt file path",
+                        interactive=self.repo_level_supported,
+                    ),
                     suffix: Code(
                         container=True,
                         show_label=True,
@@ -539,6 +566,13 @@ class GradioInterface:
                 }
             else:
                 return {
+                    file_path: Textbox(
+                        container=True,
+                        show_label=True,
+                        label="Prompt file path",
+                        interactive=True,
+                        visible=False,
+                    ),
                     suffix: Code(
                         container=True,
                         show_label=True,
@@ -630,6 +664,13 @@ class GradioInterface:
                     visible=False,
                 )
 
+                file_path = Textbox(
+                    container=True,
+                    show_label=True,
+                    label="Prompt file path",
+                    interactive=True,
+                )
+
                 files = File(
                     container=True,
                     show_label=True,
@@ -658,7 +699,9 @@ class GradioInterface:
                     )
 
                 generate_mode.change(
-                    fn=mode_change, inputs=[generate_mode], outputs=[suffix, files]
+                    fn=mode_change,
+                    inputs=[generate_mode],
+                    outputs=[file_path, suffix, files],
                 )
 
                 btn_generate.click(
@@ -666,6 +709,7 @@ class GradioInterface:
                     inputs=[
                         generate_mode,
                         prompt,
+                        file_path,
                         suffix,
                         files,
                         history,
@@ -677,8 +721,8 @@ class GradioInterface:
 
                 btn_undo.click(
                     fn=undo,
-                    inputs=[generate_mode, prompt, suffix, files, history],
-                    outputs=[generate_mode, prompt, suffix, files, history],
+                    inputs=[generate_mode, prompt, file_path, suffix, files, history],
+                    outputs=[generate_mode, prompt, file_path, suffix, files, history],
                 )
 
                 btn_retry.click(
@@ -686,19 +730,20 @@ class GradioInterface:
                     inputs=[
                         generate_mode,
                         prompt,
+                        file_path,
                         suffix,
                         files,
                         history,
                         length,
                         temperature,
                     ],
-                    outputs=[generate_mode, prompt, suffix, files, history],
+                    outputs=[generate_mode, prompt, file_path, suffix, files, history],
                 )
 
                 btn_clear.click(
                     fn=clear,
-                    inputs=[generate_mode, prompt, suffix, files, history],
-                    outputs=[generate_mode, prompt, suffix, files, history],
+                    inputs=[generate_mode, prompt, file_path, suffix, files, history],
+                    outputs=[generate_mode, prompt, file_path, suffix, files, history],
                 )
 
         return code_generate_interface

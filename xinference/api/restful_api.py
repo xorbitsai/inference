@@ -1456,6 +1456,7 @@ class RESTfulAPI:
         exclude = {
             "mode",
             "prompt",
+            "file_path",
             "suffix",
             "repo_name",
             "files",
@@ -1495,6 +1496,7 @@ class RESTfulAPI:
             data = await model.code_generate(
                 body.mode,
                 body.prompt,
+                body.file_path,
                 body.suffix,
                 body.repo_name,
                 body.files,

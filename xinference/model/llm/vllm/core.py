@@ -122,6 +122,7 @@ VLLM_SUPPORTED_CHAT_MODELS = [
 ]
 VLLM_SUPPORTED_CODE_MODELS = [
     "deepseek-coder-base",
+    "codeqwen1.5",
 ]
 if VLLM_INSTALLED and vllm.__version__ >= "0.3.0":
     VLLM_SUPPORTED_CHAT_MODELS.append("qwen1.5-chat")
@@ -551,6 +552,7 @@ class VLLMCodeModel(VLLMModel, CodeModelMixin):
         self,
         mode: CodeGenerateMode,
         prompt: str,
+        file_path: Optional[str],
         suffix: Optional[str],
         repo_name: Optional[str],
         files: Optional[Mapping[str, str]],
@@ -559,6 +561,7 @@ class VLLMCodeModel(VLLMModel, CodeModelMixin):
         code_prompt = self.get_code_prompt(
             mode,
             prompt,
+            file_path,
             suffix,
             repo_name,
             files,

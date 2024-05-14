@@ -435,6 +435,7 @@ class RESTfulCodeModelHandle(RESTfulGenerateModelHandle):
         self,
         mode: "CodeGenerateMode",
         prompt: str,
+        file_path: Optional[str] = None,
         suffix: Optional[str] = None,
         repo_name: Optional[str] = None,
         files: Optional[typing.Mapping] = None,
@@ -453,6 +454,8 @@ class RESTfulCodeModelHandle(RESTfulGenerateModelHandle):
             Infill is fill in middle completion, complete the code according provided prefix and suffix content.
         prompt: str
             The user's input, it presents prefix content in infill mode.
+        file_path: Optional[str]
+            The file path for prompt content file.
         suffix: Optional[str]
             The suffix content in infill mode.
         repo_name: Optional[str]
@@ -481,6 +484,7 @@ class RESTfulCodeModelHandle(RESTfulGenerateModelHandle):
             "model": self._model_uid,
             "mode": mode,
             "prompt": prompt,
+            "file_path": file_path,
             "suffix": suffix,
             "repo_name": repo_name,
             "files": files,
@@ -504,6 +508,7 @@ class RESTfulCodeModelHandle(RESTfulGenerateModelHandle):
         self,
         mode: "CodeGenerateMode",
         prompt: str,
+        file_path: Optional[str] = None,
         suffix: Optional[str] = None,
         repo_name: Optional[str] = None,
         files: Optional[typing.Mapping] = None,
@@ -520,6 +525,8 @@ class RESTfulCodeModelHandle(RESTfulGenerateModelHandle):
             Infill is fill in middle completion, complete the code according provided prefix and suffix content.
         prompt: str
             The user's input, it presents prefix content in infill mode.
+        file_path: Optional[str]
+            The file path for prompt
         suffix: Optional[str]
             The suffix content in infill mode.
         repo_name: Optional[str]
@@ -545,6 +552,7 @@ class RESTfulCodeModelHandle(RESTfulGenerateModelHandle):
             "model": self._model_uid,
             "mode": mode,
             "prompt": prompt,
+            "file_path": file_path,
             "suffix": suffix,
             "repo_name": repo_name,
             "files": files,

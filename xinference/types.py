@@ -513,6 +513,7 @@ CodeGenerateMode = Literal["completion", "infill"]
 
 
 class CreateCodeCompletion(CreateCompletion):
+    file_path: Optional[str] = none_field
     mode: CodeGenerateMode = "completion"
     repo_name: Optional[str] = none_field
     files: Optional[Mapping[str, str]] = none_field

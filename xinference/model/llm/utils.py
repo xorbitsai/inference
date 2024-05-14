@@ -29,6 +29,7 @@ from ...types import (
     CompletionChunk,
 )
 from .core import LLM
+from .lang_utils import get_file_separator
 from .llm_family import (
     CodePromptStyleV1,
     GgmlLLMSpecV1,
@@ -722,6 +723,7 @@ class CodeModelMixin:
         self,
         mode: CodeGenerateMode,
         prompt: str,
+        file_path: Optional[str] = None,
         suffix: Optional[str] = None,
         repo_name: Optional[str] = None,
         files: Optional[Mapping[str, str]] = None,
@@ -729,7 +731,7 @@ class CodeModelMixin:
         code_prompt_style = cast(LLM, self).model_family.code_prompt_style
         return {
             "prompt": CodeModelMixin._get_code_prompt(
-                mode, prompt, code_prompt_style, suffix, repo_name, files
+                mode, prompt, code_prompt_style, file_path, suffix, repo_name, files
             )
         }
 
@@ -738,6 +740,7 @@ class CodeModelMixin:
         mode: CodeGenerateMode,
         prompt: str,
         code_prompt_style: Optional["CodePromptStyleV1"],
+        file_path: Optional[str] = None,
         suffix: Optional[str] = None,
         repo_name: Optional[str] = None,
         files: Optional[Mapping[str, str]] = None,
@@ -753,10 +756,25 @@ class CodeModelMixin:
                     "Suffix is only required on generate type is infill, ignored"
                 )
 
-            if files is None or len(files) == 0:
-                return prompt
-
             spec = code_prompt_style.repo_level_spec
+
+            if files is None or len(files) == 0:
+                if file_path is None or len(file_path.strip()) == 0:
+                    return prompt
+                else:
+                    if spec is None:
+                        logger.warning(
+                            "repository level file separator not defined, but file_path provided, ignored"
+                        )
+                        return prompt
+                    else:
+                        repo_file = (
+                            file_path
+                            if spec.file_type == "filepath"
+                            else CodeModelMixin._path_to_name(file_path)
+                        )
+                        return get_file_separator(spec, repo_file)
+
             if spec is None:
                 logger.warning(
                     "The model does not support repository level code completion, 'repo_name' and 'files' are ignored"
@@ -782,10 +800,17 @@ class CodeModelMixin:
                     if spec.file_type == "filepath"
                     else CodeModelMixin._path_to_name(filepath)
                 )
-                chunks.append(f"{spec.file_separator}{repo_file}\n{content}")
+                chunks.append(get_file_separator(spec, repo_file))
+                chunks.append(content)
 
-            if len(prompt.strip()) > 0:
-                chunks.append(prompt)
+            if file_path is not None and len(file_path.strip()) > 0:
+                repo_file = (
+                    file_path
+                    if spec.file_type == "filepath"
+                    else CodeModelMixin._path_to_name(file_path)
+                )
+                chunks.append(get_file_separator(spec, repo_file))
+            chunks.append(prompt)
 
             return "\n".join(chunks)
 
@@ -809,7 +834,7 @@ class CodeModelMixin:
 
         else:
             raise ValueError(
-                f"Unsupported generate mode: {mode}, only 'PSM' and 'PMS' are supported now"
+                f"Unsupported generate mode: {mode}, only 'completion' and 'infill' are supported now"
             )
 
     @staticmethod

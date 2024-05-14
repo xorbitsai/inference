@@ -338,6 +338,7 @@ class LlamaCppCodeModel(LlamaCppModel, CodeModelMixin):
         self,
         generate_model: CodeGenerateMode,
         prompt: str,
+        file_path: Optional[str],
         suffix: Optional[str],
         repo_name: Optional[str],
         files: Optional[Mapping[str, str]],
@@ -346,6 +347,7 @@ class LlamaCppCodeModel(LlamaCppModel, CodeModelMixin):
         code_prompt = self.get_code_prompt(
             generate_model,
             prompt,
+            file_path,
             suffix,
             repo_name,
             files,

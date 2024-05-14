@@ -552,6 +552,7 @@ class PytorchCodeModel(PytorchModel, CodeModelMixin):
         self,
         mode: CodeGenerateMode,
         prompt: str,
+        file_path: Optional[str],
         suffix: Optional[str],
         repo_name: Optional[str],
         files: Optional[Mapping[str, str]],
@@ -560,6 +561,7 @@ class PytorchCodeModel(PytorchModel, CodeModelMixin):
         code_prompt = self.get_code_prompt(
             mode,
             prompt,
+            file_path,
             suffix,
             repo_name,
             files,
