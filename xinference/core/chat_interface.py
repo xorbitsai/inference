@@ -20,17 +20,42 @@ from typing import Generator, List, Optional
 
 import gradio as gr
 import PIL.Image
-from gradio.components import Markdown, Textbox
+from gradio.components import Code, Dropdown, File, Markdown, Textbox
 from gradio.layouts import Accordion, Column, Row
 
 from ..client.restful.restful_client import (
     RESTfulChatglmCppChatModelHandle,
     RESTfulChatModelHandle,
+    RESTfulCodeModelHandle,
     RESTfulGenerateModelHandle,
 )
 from ..types import ChatCompletionMessage
 
 logger = logging.getLogger(__name__)
+
+
+def compare_history(current, hist):
+    if current["mode"] != hist["mode"]:
+        return False
+
+    if current["prompt"] != hist["prompt"]:
+        return False
+
+    if current["suffix"] != hist["suffix"]:
+        return False
+
+    if current["files"] != current["files"]:
+        return False
+
+    return True
+
+
+EMPTY = {
+    "mode": "Code Completion",
+    "prompt": "",
+    "suffix": "",
+    "files": None,
+}
 
 
 class GradioInterface:
@@ -48,6 +73,8 @@ class GradioInterface:
         model_description: str,
         model_lang: List[str],
         access_token: Optional[str],
+        infill_supported: Optional[bool],
+        repo_level_supported: Optional[bool],
     ):
         self.endpoint = endpoint
         self.model_uid = model_uid
@@ -63,12 +90,16 @@ class GradioInterface:
         self._access_token = (
             access_token.replace("Bearer ", "") if access_token is not None else None
         )
+        self.infill_supported = infill_supported
+        self.repo_level_supported = repo_level_supported
 
     def build(self) -> "gr.Blocks":
         if "vision" in self.model_ability:
             interface = self.build_chat_vl_interface()
         elif "chat" in self.model_ability:
             interface = self.build_chat_interface()
+        elif "code" in self.model_ability:
+            interface = self.build_code_generate_interface()
         else:
             interface = self.build_generate_interface()
 
@@ -304,6 +335,373 @@ class GradioInterface:
             )
 
         return chat_vl_interface
+
+    def build_code_generate_interface(
+        self,
+    ):
+        def undo(g_mode, text, g_suffix, g_files, hist):
+            current = {
+                "mode": g_mode,
+                "prompt": text,
+                "suffix": g_suffix,
+                "files": g_files,
+            }
+
+            if len(hist) == 0:
+                return {
+                    generate_mode: "Code Completion",
+                    prompt: "",
+                    suffix: "",
+                    files: None,
+                    history: [current],
+                }
+            if compare_history(current, hist[-1]):
+                hist = hist[:-1]
+
+            req = hist[-1] if len(hist) > 0 else EMPTY
+
+            return {
+                generate_mode: req["mode"],
+                prompt: req["prompt"],
+                suffix: req["suffix"],
+                files: g_files,
+                history: hist,
+            }
+
+        def clear(g_mode, text, g_suffix, g_files, hist):
+            current = {
+                "mode": g_mode,
+                "prompt": text,
+                "suffix": g_suffix,
+                "files": g_files,
+            }
+            if len(hist) == 0 or (
+                len(hist) > 0 and not compare_history(current, hist[-1])
+            ):
+                hist.append(current)
+            hist.append(EMPTY)
+            return {
+                generate_mode: "Code Completion",
+                prompt: "",
+                suffix: "",
+                files: None,
+                history: hist,
+            }
+
+        def complete(g_mode, text, g_suffix, g_files, hist, max_tokens, temperature):
+            from ..client import RESTfulClient
+
+            client = RESTfulClient(self.endpoint)
+            client._set_token(self._access_token)
+
+            model = client.get_model(self.model_uid)
+            assert isinstance(model, RESTfulCodeModelHandle)
+
+            repo_files = (
+                {k: open(k, mode="r", encoding="utf8").read() for k in g_files}
+                if g_files
+                else None
+            )
+            current = {
+                "mode": g_mode,
+                "prompt": text,
+                "suffix": g_suffix,
+                "files": g_files,
+            }
+            if len(hist) == 0 or (
+                len(hist) > 0 and not compare_history(current, hist[-1])
+            ):
+                hist.append(current)
+
+            response_content = text
+
+            if g_mode == "Code Completion":
+                if self.repo_level_supported:
+                    resp = model.code_generate(
+                        "completion",
+                        prompt=text,
+                        files=repo_files,
+                        generate_config={
+                            "max_tokens": max_tokens,
+                            "temperature": temperature,
+                        },
+                    )
+                else:
+                    resp = model.code_generate(
+                        mode="completion",
+                        prompt=text,
+                        generate_config={
+                            "max_tokens": max_tokens,
+                            "temperature": temperature,
+                        },
+                    )
+            else:
+                resp = model.code_generate(
+                    mode="infill",
+                    prompt=text,
+                    suffix=g_suffix,
+                    generate_config={
+                        "max_tokens": max_tokens,
+                        "temperature": temperature,
+                    },
+                )
+            assert isinstance(resp, dict)
+            choice = resp["choices"][0]
+
+            response_content += choice["text"]
+
+            current = {
+                "mode": g_mode,
+                "prompt": response_content,
+                "suffix": g_suffix,
+                "files": g_files,
+            }
+
+            hist.append(current)
+            return {
+                prompt: response_content,
+                history: hist,
+            }
+
+        def retry(g_mode, text, g_suffix, g_files, hist, max_tokens, temperature):
+            from ..client import RESTfulClient
+
+            client = RESTfulClient(self.endpoint)
+            client._set_token(self._access_token)
+
+            model = client.get_model(self.model_uid)
+            assert isinstance(model, RESTfulCodeModelHandle)
+
+            current = {
+                "mode": g_mode,
+                "prompt": text,
+                "suffix": g_suffix,
+                "files": g_files,
+            }
+
+            if len(hist) == 0 or (
+                len(hist) > 0 and not compare_history(current, hist[-1])
+            ):
+                hist.append(current)
+
+            req = hist[-2] if len(hist) > 1 else EMPTY
+
+            response_content = req["prompt"]
+
+            repo_files = (
+                {k: open(k, mode="r", encoding="utf8").read() for k in req["files"]}
+                if req["files"]
+                else None
+            )
+
+            resp = model.code_generate(
+                mode="completion" if req["mode"] == "Code Completion" else "infill",
+                prompt=req["prompt"],
+                suffix=req["suffix"],
+                files=repo_files,
+                generate_config={
+                    "max_tokens": max_tokens,
+                    "temperature": temperature,
+                },
+            )
+            assert isinstance(resp, dict)
+            choice = resp["choices"][0]
+            response_content += choice["text"]
+
+            req["prompt"] = response_content
+
+            hist.append(req)
+            return {
+                generate_mode: req["mode"],
+                prompt: response_content,
+                suffix: req["suffix"],
+                files: req["files"],
+                history: hist,
+            }
+
+        def mode_change(generate_mode):
+            if generate_mode == "Code Completion":
+                return {
+                    suffix: Code(
+                        container=True,
+                        show_label=True,
+                        label="Suffix",
+                        lines=21,
+                        visible=False,
+                    ),
+                    files: File(
+                        container=False,
+                        show_label=False,
+                        label="Files",
+                        file_count="multiple",
+                        visible=self.repo_level_supported,
+                    ),
+                }
+            else:
+                return {
+                    suffix: Code(
+                        container=True,
+                        show_label=True,
+                        label="Suffix",
+                        lines=21,
+                        interactive=True,
+                        visible=self.infill_supported,
+                    ),
+                    files: File(
+                        container=False,
+                        show_label=False,
+                        label="Files",
+                        file_count="multiple",
+                        visible=False,
+                    ),
+                }
+
+        with gr.Blocks(
+            title=f"🚀 Xinference Code Generate Bot : {self.model_name} 🚀",
+            css="""
+            .center{
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                padding: 0px;
+                color: #9ea4b0 !important;
+            }
+            """,
+            analytics_enabled=False,
+        ) as code_generate_interface:
+            modes = (
+                ["Code Completion", "Code Infill Completion"]
+                if self.infill_supported
+                else ["Code Completion"]
+            )
+
+            history = gr.State([])
+
+            Markdown(
+                f"""
+                <h1 style='text-align: center; margin-bottom: 1rem'>🚀 Xinference Code Generate Bot : {self.model_name} 🚀</h1>
+                """
+            )
+            Markdown(
+                f"""
+                <div class="center">
+                Model ID: {self.model_uid}
+                </div>
+                <div class="center">
+                Model Size: {self.model_size_in_billions} Billion Parameters
+                </div>
+                <div class="center">
+                Model Format: {self.model_format}
+                </div>
+                <div class="center">
+                Model Quantization: {self.quantization}
+                </div>
+                <div class="center">
+                Support Infill Code Completion: {self.infill_supported}
+                </div>
+                <div class="center">
+                Support Repository Level Code Completion: {self.repo_level_supported}
+                </div>
+                """
+            )
+
+            with Column(variant="panel"):
+                generate_mode = Dropdown(
+                    container=True,
+                    show_label=True,
+                    label="Code Generate Mode",
+                    choices=modes,
+                    value=modes[0],
+                )
+
+                prompt = Code(
+                    container=True,
+                    show_label=True,
+                    label="Prompt",
+                    lines=21,
+                    interactive=True,
+                )
+
+                suffix = Code(
+                    container=True,
+                    show_label=True,
+                    label="Suffix",
+                    lines=21,
+                    visible=False,
+                )
+
+                files = File(
+                    container=True,
+                    show_label=True,
+                    label="Repository Files",
+                    file_count="multiple",
+                    interactive=True,
+                    visible=self.repo_level_supported,
+                )
+
+                with Row():
+                    btn_generate = gr.Button("Generate", variant="primary")
+                with Row():
+                    btn_undo = gr.Button("↩️  Undo")
+                    btn_retry = gr.Button("🔄  Retry")
+                    btn_clear = gr.Button("🗑️  Clear")
+                with Accordion("Additional Inputs", open=False):
+                    length = gr.Slider(
+                        minimum=1,
+                        maximum=self.context_length,
+                        value=1024,
+                        step=1,
+                        label="Max Tokens",
+                    )
+                    temperature = gr.Slider(
+                        minimum=0, maximum=2, value=1, step=0.01, label="Temperature"
+                    )
+
+                generate_mode.change(
+                    fn=mode_change, inputs=[generate_mode], outputs=[suffix, files]
+                )
+
+                btn_generate.click(
+                    fn=complete,
+                    inputs=[
+                        generate_mode,
+                        prompt,
+                        suffix,
+                        files,
+                        history,
+                        length,
+                        temperature,
+                    ],
+                    outputs=[prompt, history],
+                )
+
+                btn_undo.click(
+                    fn=undo,
+                    inputs=[generate_mode, prompt, suffix, files, history],
+                    outputs=[generate_mode, prompt, suffix, files, history],
+                )
+
+                btn_retry.click(
+                    fn=retry,
+                    inputs=[
+                        generate_mode,
+                        prompt,
+                        suffix,
+                        files,
+                        history,
+                        length,
+                        temperature,
+                    ],
+                    outputs=[generate_mode, prompt, suffix, files, history],
+                )
+
+                btn_clear.click(
+                    fn=clear,
+                    inputs=[generate_mode, prompt, suffix, files, history],
+                    outputs=[generate_mode, prompt, suffix, files, history],
+                )
+
+        return code_generate_interface
 
     def build_generate_interface(
         self,

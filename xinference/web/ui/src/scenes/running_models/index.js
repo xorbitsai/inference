@@ -14,7 +14,7 @@ import Title from '../../components/Title'
 
 const RunningModels = () => {
   const [tabValue, setTabValue] = React.useState(
-    sessionStorage.getItem('runningModelType')
+    sessionStorage.getItem('runningModelType'),
   )
   const [llmData, setLlmData] = useState([])
   const [embeddingModelData, setEmbeddingModelData] = useState([])
@@ -32,6 +32,63 @@ const RunningModels = () => {
     setTabValue(newValue)
     navigate(newValue)
     sessionStorage.setItem('runningModelType', newValue)
+  }
+
+  function get_models(code_prompts) {
+    fetcher(`${endPoint}/v1/models`, {
+      method: 'GET',
+    })
+      .then((response) => {
+        if (!response.ok) {
+          response.json().then((errorData) => {
+            setErrorMsg(
+              `Login failed: ${response.status} - ${
+                errorData.detail || 'Unknown error'
+              }`,
+            )
+          })
+        } else {
+          response.json().then((response) => {
+            const newLlmData = []
+            const newEmbeddingModelData = []
+            const newImageModelData = []
+            const newAudioModelData = []
+            const newRerankModelData = []
+            response.data.forEach((model) => {
+              let newValue = {
+                ...model,
+                id: model.id,
+                url: model.id,
+              }
+              if (newValue.model_type === 'LLM') {
+                if (model.model_name in code_prompts) {
+                  newValue['infill_supported'] = 'fim_spec' in code_prompts[model.model_name]
+                  newValue['repo_level_supported'] = 'repo_level_spec' in code_prompts[model.model_name]
+                }
+                newLlmData.push(newValue)
+              } else if (newValue.model_type === 'embedding') {
+                newEmbeddingModelData.push(newValue)
+              } else if (newValue.model_type === 'audio') {
+                newAudioModelData.push(newValue)
+              } else if (newValue.model_type === 'image') {
+                newImageModelData.push(newValue)
+              } else if (newValue.model_type === 'rerank') {
+                newRerankModelData.push(newValue)
+              }
+            })
+            setLlmData(newLlmData)
+            setEmbeddingModelData(newEmbeddingModelData)
+            setAudioModelData(newAudioModelData)
+            setImageModelData(newImageModelData)
+            setRerankModelData(newRerankModelData)
+            setIsUpdatingModel(false)
+          })
+        }
+      })
+      .catch((error) => {
+        console.error('Error:', error)
+        setIsUpdatingModel(false)
+      })
   }
 
   const update = (isCallingApi) => {
@@ -58,52 +115,24 @@ const RunningModels = () => {
       ])
     } else {
       setIsUpdatingModel(true)
-      fetcher(`${endPoint}/v1/models`, {
+
+      fetcher(`${endPoint}/v1/models/code_prompts`, {
         method: 'GET',
+      }).then((response) => {
+        if (!response.ok) {
+          response.json().then((errorData) => {
+            setErrorMsg(
+              `Login failed: ${response.status} - ${
+                errorData.detail || 'Unknown error'
+              }`,
+            )
+          })
+        } else {
+          response.json().then((code_prompts) => {
+            get_models(code_prompts)
+          })
+        }
       })
-        .then((response) => {
-          if (!response.ok) {
-            response.json().then((errorData) => {
-              setErrorMsg(
-                `Login failed: ${response.status} - ${
-                  errorData.detail || 'Unknown error'
-                }`
-              )
-            })
-          } else {
-            response.json().then((response) => {
-              const newLlmData = []
-              const newEmbeddingModelData = []
-              const newImageModelData = []
-              const newAudioModelData = []
-              const newRerankModelData = []
-              response.data.forEach((model) => {
-                let newValue = {
-                  ...model,
-                  id: model.id,
-                  url: model.id,
-                }
-                if (newValue.model_type === 'LLM') {
-                  newLlmData.push(newValue)
-                } else if (newValue.model_type === 'embedding') {
-                  newEmbeddingModelData.push(newValue)
-                } else if (newValue.model_type === 'audio') {
-                  newAudioModelData.push(newValue)
-                } else if (newValue.model_type === 'image') {
-                  newImageModelData.push(newValue)
-                } else if (newValue.model_type === 'rerank') {
-                  newRerankModelData.push(newValue)
-                }
-              })
-              setLlmData(newLlmData)
-              setEmbeddingModelData(newEmbeddingModelData)
-              setAudioModelData(newAudioModelData)
-              setImageModelData(newImageModelData)
-              setRerankModelData(newRerankModelData)
-              setIsUpdatingModel(false)
-            })
-          }
-        })
         .catch((error) => {
           console.error('Error:', error)
           setIsUpdatingModel(false)
@@ -218,11 +247,13 @@ const RunningModels = () => {
                           model_ability: row.model_ability,
                           model_description: row.model_description,
                           model_lang: row.model_lang,
+                          infill_supported: row.infill_supported,
+                          repo_level_supported: row.repo_level_supported,
                         }),
                       })
                         .then((response) => response.json())
                         .then(() =>
-                          window.open(openUrl, '_blank', 'noopener noreferrer')
+                          window.open(openUrl, '_blank', 'noopener noreferrer'),
                         )
                         .finally(() => setIsCallingApi(false))
                     } else if (response.ok) {
@@ -233,7 +264,7 @@ const RunningModels = () => {
                     } else {
                       // Other HTTP errors
                       console.error(
-                        `Unexpected response status: ${response.status}`
+                        `Unexpected response status: ${response.status}`,
                       )
                       setIsCallingApi(false)
                     }
@@ -501,7 +532,7 @@ const RunningModels = () => {
                       })
                         .then((response) => response.json())
                         .then(() =>
-                          window.open(openUrl, '_blank', 'noopener noreferrer')
+                          window.open(openUrl, '_blank', 'noopener noreferrer'),
                         )
                         .finally(() => setIsCallingApi(false))
                     } else if (response.ok) {
@@ -512,7 +543,7 @@ const RunningModels = () => {
                     } else {
                       // Other HTTP errors
                       console.error(
-                        `Unexpected response status: ${response.status}`
+                        `Unexpected response status: ${response.status}`,
                       )
                       setIsCallingApi(false)
                     }

@@ -138,6 +138,8 @@ class BuildGradioInterfaceRequest(BaseModel):
     model_ability: List[str]
     model_description: str
     model_lang: List[str]
+    infill_supported: Optional[bool]
+    repo_level_supported: Optional[bool]
 
 
 class BuildGradioImageInterfaceRequest(BaseModel):
@@ -860,6 +862,8 @@ class RESTfulAPI:
                 model_description=body.model_description,
                 model_lang=body.model_lang,
                 access_token=access_token,
+                infill_supported=body.infill_supported,
+                repo_level_supported=body.repo_level_supported,
             ).build()
             gr.mount_gradio_app(self._app, interface, f"/{model_uid}")
         except ValueError as ve:

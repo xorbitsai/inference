@@ -1287,3 +1287,33 @@ class Client:
 
         response_data = response.json()
         return response_data
+
+    def list_builtin_prompts(self):
+        """
+        Get the builtin prompts
+        :return: List[Dict[str, Any]]
+          The builtin prompts
+        """
+        url = f"{self.base_url}/v1/models/prompts"
+        response = requests.get(url, headers=self._headers)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to get builtin prompts, details: {_get_error_string(response)}"
+            )
+        response_data = response.json()
+        return response_data
+
+    def list_builtin_code_prompts(self):
+        """
+        Get the builtin code prompts
+        :return: List[Dict[str, Any]]
+          The builtin code prompts
+        """
+        url = f"{self.base_url}/v1/models/code_prompts"
+        response = requests.get(url, headers=self._headers)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to get builtin code prompts, details: {_get_error_string(response)}"
+            )
+        response_data = response.json()
+        return response_data
