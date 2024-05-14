@@ -171,8 +171,9 @@ const ModelCard = ({
   const getNewNGPURange = () => {
     if (gpuAvailable === 0) {
       return ['CPU']
+    } else {
+      return ['GPU', 'CPU']
     }
-    return ['GPU', 'CPU']
   }
 
   const getModelEngine = (model_name) => {
