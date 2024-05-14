@@ -14,7 +14,7 @@ import Title from '../../components/Title'
 
 const RunningModels = () => {
   const [tabValue, setTabValue] = React.useState(
-    sessionStorage.getItem('runningModelType'),
+    sessionStorage.getItem('runningModelType')
   )
   const [llmData, setLlmData] = useState([])
   const [embeddingModelData, setEmbeddingModelData] = useState([])
@@ -44,7 +44,7 @@ const RunningModels = () => {
             setErrorMsg(
               `Login failed: ${response.status} - ${
                 errorData.detail || 'Unknown error'
-              }`,
+              }`
             )
           })
         } else {
@@ -62,8 +62,10 @@ const RunningModels = () => {
               }
               if (newValue.model_type === 'LLM') {
                 if (model.model_name in code_prompts) {
-                  newValue['infill_supported'] = 'fim_spec' in code_prompts[model.model_name]
-                  newValue['repo_level_supported'] = 'repo_level_spec' in code_prompts[model.model_name]
+                  newValue['infill_supported'] =
+                    'fim_spec' in code_prompts[model.model_name]
+                  newValue['repo_level_supported'] =
+                    'repo_level_spec' in code_prompts[model.model_name]
                 }
                 newLlmData.push(newValue)
               } else if (newValue.model_type === 'embedding') {
@@ -118,21 +120,22 @@ const RunningModels = () => {
 
       fetcher(`${endPoint}/v1/models/code_prompts`, {
         method: 'GET',
-      }).then((response) => {
-        if (!response.ok) {
-          response.json().then((errorData) => {
-            setErrorMsg(
-              `Login failed: ${response.status} - ${
-                errorData.detail || 'Unknown error'
-              }`,
-            )
-          })
-        } else {
-          response.json().then((code_prompts) => {
-            get_models(code_prompts)
-          })
-        }
       })
+        .then((response) => {
+          if (!response.ok) {
+            response.json().then((errorData) => {
+              setErrorMsg(
+                `Login failed: ${response.status} - ${
+                  errorData.detail || 'Unknown error'
+                }`
+              )
+            })
+          } else {
+            response.json().then((code_prompts) => {
+              get_models(code_prompts)
+            })
+          }
+        })
         .catch((error) => {
           console.error('Error:', error)
           setIsUpdatingModel(false)
@@ -253,7 +256,7 @@ const RunningModels = () => {
                       })
                         .then((response) => response.json())
                         .then(() =>
-                          window.open(openUrl, '_blank', 'noopener noreferrer'),
+                          window.open(openUrl, '_blank', 'noopener noreferrer')
                         )
                         .finally(() => setIsCallingApi(false))
                     } else if (response.ok) {
@@ -264,7 +267,7 @@ const RunningModels = () => {
                     } else {
                       // Other HTTP errors
                       console.error(
-                        `Unexpected response status: ${response.status}`,
+                        `Unexpected response status: ${response.status}`
                       )
                       setIsCallingApi(false)
                     }
@@ -532,7 +535,7 @@ const RunningModels = () => {
                       })
                         .then((response) => response.json())
                         .then(() =>
-                          window.open(openUrl, '_blank', 'noopener noreferrer'),
+                          window.open(openUrl, '_blank', 'noopener noreferrer')
                         )
                         .finally(() => setIsCallingApi(false))
                     } else if (response.ok) {
@@ -543,7 +546,7 @@ const RunningModels = () => {
                     } else {
                       // Other HTTP errors
                       console.error(
-                        `Unexpected response status: ${response.status}`,
+                        `Unexpected response status: ${response.status}`
                       )
                       setIsCallingApi(false)
                     }
