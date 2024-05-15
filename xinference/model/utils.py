@@ -311,7 +311,7 @@ def cache(model_spec: CacheableModelSpec, model_description_type: type):
                 relpath = os.path.relpath(os.path.join(subdir, file), download_dir)
                 symlink_local_file(os.path.join(subdir, file), cache_dir, relpath)
     else:
-        import huggingface_hub
+        # import huggingface_hub
         from huggingface_hub import snapshot_download as hf_download
 
         download_dir = retry_download(
@@ -323,11 +323,11 @@ def cache(model_spec: CacheableModelSpec, model_description_type: type):
             local_dir=cache_dir,
             local_dir_use_symlinks=True,
         )
-        if huggingface_hub.__version__ >= "0.23.0":
-            for subdir, dirs, files in os.walk(download_dir):
-                for file in files:
-                    relpath = os.path.relpath(os.path.join(subdir, file), download_dir)
-                    symlink_local_file(os.path.join(subdir, file), cache_dir, relpath)
+        # if huggingface_hub.__version__ >= "0.23.0":
+        #     for subdir, dirs, files in os.walk(download_dir):
+        #         for file in files:
+        #             relpath = os.path.relpath(os.path.join(subdir, file), download_dir)
+        #             symlink_local_file(os.path.join(subdir, file), cache_dir, relpath)
     with open(meta_path, "w") as f:
         import json
 

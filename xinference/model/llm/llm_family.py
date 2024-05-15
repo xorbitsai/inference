@@ -682,7 +682,7 @@ def cache_from_huggingface(
     ):
         return cache_dir
 
-    need_symlinks = huggingface_hub.__version__ >= "0.23.0"
+    # need_symlinks = huggingface_hub.__version__ >= "0.23.0"
 
     if llm_spec.model_format in ["pytorch", "gptq", "awq"]:
         assert isinstance(llm_spec, PytorchLLMSpecV1)
@@ -698,11 +698,12 @@ def cache_from_huggingface(
             local_dir=cache_dir,
             local_dir_use_symlinks=True,
         )
-        if need_symlinks:
-            for subdir, dirs, files in os.walk(download_dir):
-                for file in files:
-                    relpath = os.path.relpath(os.path.join(subdir, file), download_dir)
-                    symlink_local_file(os.path.join(subdir, file), cache_dir, relpath)
+        logger.debug(f"Cached {llm_spec.model_id} from huggingface in {download_dir}")
+        # if need_symlinks:
+        #     for subdir, dirs, files in os.walk(download_dir):
+        #         for file in files:
+        #             relpath = os.path.relpath(os.path.join(subdir, file), download_dir)
+        #             symlink_local_file(os.path.join(subdir, file), cache_dir, relpath)
 
     elif llm_spec.model_format in ["ggmlv3", "ggufv2"]:
         assert isinstance(llm_spec, GgmlLLMSpecV1)
@@ -724,8 +725,11 @@ def cache_from_huggingface(
                 local_dir=cache_dir,
                 local_dir_use_symlinks=True,
             )
-            if need_symlinks:
-                symlink_local_file(download_path, cache_dir, file_name)
+            logger.debug(
+                f"Cached {llm_spec.model_id} from huggingface in {download_path}"
+            )
+            # if need_symlinks:
+            #     symlink_local_file(download_path, cache_dir, file_name)
 
         if need_merge:
             _merge_cached_files(cache_dir, file_names, final_file_name)
