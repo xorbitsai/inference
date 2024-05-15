@@ -17,7 +17,7 @@ import logging
 import time
 import uuid
 from threading import Thread
-from typing import Iterable, Iterator, Tuple
+from typing import Iterable, Iterator, List, Tuple
 
 import torch
 from transformers import GenerationConfig, TextIteratorStreamer
@@ -29,8 +29,10 @@ from transformers.generation.logits_process import (
     TopPLogitsWarper,
 )
 
+from ....core.scheduler import InferenceRequest
 from ....device_utils import empty_cache
 from ....types import (
+    Completion,
     CompletionChoice,
     CompletionChunk,
     CompletionUsage,
@@ -528,3 +530,124 @@ def generate_stream_falcon(
     # clean
     gc.collect()
     empty_cache()
+
+
+def _get_tokens_from_logits(logits, temperature=None, top_p=None):
+    last_token_logits = logits[:, -1, :]
+
+    # # TODO verify correction
+    # if temperature < 1e-5 or top_p < 1e-8:  # greedy
+    #     _, indices = torch.topk(last_token_logits, 2)
+    #     tokens = [int(index[0]) for index in indices.tolist()]
+    # else:
+    probs = torch.softmax(last_token_logits, dim=-1)
+    indices = torch.multinomial(probs, num_samples=2)
+    tokens = [int(token[0]) for token in indices.tolist()]
+    return tokens
+
+
+@torch.inference_mode()
+def batch_inference_one_step(
+    req_list: List[InferenceRequest], model_uid, model, tokenizer, device
+):
+    # TODO: handle generate config by each request
+    # max_new_tokens = int(generate_config.get("max_tokens", max_tokens_field.default))
+    # temperature = float(generate_config.get("temperature", 1.0))
+    # repetition_penalty = float(generate_config.get("repetition_penalty", 1.0))
+    # top_p = float(generate_config.get("top_p", 1.0))
+    # top_k = int(generate_config.get("top_k", -1))  # -1 means disable
+
+    prompts = [r.full_prompt for r in req_list if r.is_prefill]
+    if prompts:
+        input_ids: List[List[int]] = tokenizer(prompts, padding=False).input_ids
+
+        for i, input_id in enumerate(input_ids):
+            req_list[i].prompt_tokens = input_id
+
+        to_decodes: List[List[int]] = [
+            r.prompt_tokens if r.is_prefill else r.prompt_tokens + r.new_tokens
+            for r in req_list
+        ]
+        # TODO: padding
+        out = model(torch.as_tensor(to_decodes, device=device), use_cache=True)
+    else:
+        decodes: List[List[int]] = [[r.new_tokens[-1]] for r in req_list]
+        kv_cache = req_list[0].kv_cache
+        out = model(
+            input_ids=torch.as_tensor(decodes, device=device),
+            use_cache=True,
+            past_key_values=kv_cache,
+        )
+    logits = out.logits
+    past_key_values = out.past_key_values
+    tokens = _get_tokens_from_logits(logits)
+
+    for i, r in enumerate(req_list):
+        r.kv_cache = past_key_values
+        r.is_prefill = False
+        r.append_new_token(tokens[i])
+
+        if r.stream:
+            output = tokenizer.decode(
+                r.new_tokens[-1],
+                skip_special_tokens=True,
+                spaces_between_special_tokens=False,
+                clean_up_tokenization_spaces=True,
+            )
+            completion_choice = CompletionChoice(
+                text=output, index=0, logprobs=None, finish_reason=None
+            )
+            completion_chunk = CompletionChunk(
+                id=str(uuid.uuid1()),
+                object="text_completion",
+                created=int(time.time()),
+                model=model_uid,
+                choices=[completion_choice],
+            )
+            completion_usage = CompletionUsage(
+                prompt_tokens=len(r.prompt_tokens),
+                completion_tokens=len(r.new_tokens),
+                total_tokens=len(r.prompt_tokens) + len(r.new_tokens),
+            )
+            completion_chunk["usage"] = completion_usage
+            r.completion = [completion_chunk]
+            # r.completion_usage = completion_usage
+
+        # TODO: how to judge stop
+        if len(r.new_tokens) == 20:
+            r.stopped = True
+            outputs = tokenizer.decode(
+                r.new_tokens,
+                skip_special_tokens=True,
+                spaces_between_special_tokens=False,
+                clean_up_tokenization_spaces=True,
+            )
+            r.outputs = outputs
+
+            completion_choice = CompletionChoice(
+                text=outputs, index=0, logprobs=None, finish_reason="stop"
+            )
+
+            completion_chunk = CompletionChunk(
+                id=str(uuid.uuid1()),
+                object="text_completion",
+                created=int(time.time()),
+                model=model_uid,
+                choices=[completion_choice],
+            )
+            completion_usage = CompletionUsage(
+                prompt_tokens=len(r.prompt_tokens),
+                completion_tokens=len(r.new_tokens),
+                total_tokens=len(r.prompt_tokens) + len(r.new_tokens),
+            )
+            completion = Completion(
+                id=completion_chunk["id"],
+                object=completion_chunk["object"],
+                created=completion_chunk["created"],
+                model=completion_chunk["model"],
+                choices=completion_chunk["choices"],
+                usage=completion_usage,
+            )
+            # r.completion_chunk = completion_chunk
+            # r.completion_usage = completion_usage
+            r.completion = [completion]

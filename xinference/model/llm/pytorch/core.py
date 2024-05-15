@@ -17,6 +17,7 @@ import logging
 import os
 from typing import Iterable, Iterator, List, Optional, Union
 
+from ....core.scheduler import InferenceRequest
 from ....device_utils import (
     get_device_preferred_dtype,
     gpu_count,
@@ -361,6 +362,45 @@ class PytorchModel(LLM):
             return completion
         else:
             return generator_wrapper(prompt, generate_config)
+
+    def _get_full_prompt(self, prompt, system_prompt, chat_history):
+        assert self.model_family.prompt_style is not None
+        prompt_style = self.model_family.prompt_style.copy()
+        if system_prompt:
+            prompt_style.system_prompt = system_prompt
+        chat_history = chat_history or []
+        full_prompt = ChatModelMixin.get_prompt(
+            prompt, chat_history, prompt_style, tools=None
+        )
+        return full_prompt
+
+    def batch_inference(self, req_list: List[InferenceRequest]):
+        from .utils import batch_inference_one_step
+
+        for r in req_list:
+            if r.is_prefill:
+                r.full_prompt = self._get_full_prompt(
+                    r.prompt, r.system_prompt, r.chat_history
+                )
+
+        batch_inference_one_step(
+            req_list, self.model_uid, self._model, self._tokenizer, self._device
+        )
+        for req in req_list:
+            if req.stream:
+                if len(req.new_tokens) == 1:
+                    completion = req.completion[0]
+                    first_chunk_completion = (
+                        ChatModelMixin._get_first_chat_completion_chunk(completion)
+                    )
+                    chunk_completion = ChatModelMixin._to_chat_completion_chunk(
+                        completion
+                    )
+                    req.completion = [first_chunk_completion, chunk_completion]
+                else:
+                    req.completion[0] = ChatModelMixin._to_chat_completion_chunk(
+                        req.completion[0]
+                    )
 
     def create_embedding(self, input: Union[str, List[str]]) -> Embedding:
         try:

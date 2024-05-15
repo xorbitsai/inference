@@ -20,9 +20,13 @@ import os
 import time
 import types
 import weakref
+from asyncio.queues import Queue
+from asyncio.tasks import wait_for
 from typing import (
     TYPE_CHECKING,
+    Any,
     AsyncGenerator,
+    AsyncIterator,
     Callable,
     Dict,
     Generator,
@@ -264,8 +268,9 @@ class ModelActor(xo.StatelessActor):
 
         return isinstance(self._model, VLLMModel)
 
-    def load(self):
+    async def load(self):
         self._model.load()
+        await self._scheduler_ref.set_model(self._model)
 
     def model_uid(self):
         return (
@@ -380,6 +385,14 @@ class ModelActor(xo.StatelessActor):
     @request_limit
     @xo.generator
     async def generate(self, prompt: str, *args, **kwargs):
+        # if True:
+        #     print("Here!!!!!!!!!!!!!!!")
+        #     future = self._loop.create_future()
+        #     print(f"======Create future: {future}")
+        #     await self._scheduler_ref.add_request(prompt, future, *args, **kwargs)
+        #     result = await future
+        #     return await asyncio.to_thread(json_dumps, result)
+        # else:
         if hasattr(self._model, "generate"):
             return await self._call_wrapper(
                 self._model.generate, prompt, *args, **kwargs
@@ -390,6 +403,20 @@ class ModelActor(xo.StatelessActor):
             )
         raise AttributeError(f"Model {self._model.model_spec} is not for generate.")
 
+    async def _queue_consumer(
+        self, queue: Queue[Any], timeout: Optional[float] = None
+    ) -> AsyncIterator[Any]:
+        while True:
+            # try:
+            # TODO: timeout
+            res = await wait_for(queue.get(), timeout)
+            if res == "xinference_done":
+                break
+            else:
+                yield res
+            # except TimeoutError:
+            #     break
+
     @log_async(logger=logger)
     @request_limit
     @xo.generator
@@ -397,17 +424,33 @@ class ModelActor(xo.StatelessActor):
         start_time = time.time()
         response = None
         try:
-            if hasattr(self._model, "chat"):
-                response = await self._call_wrapper(
-                    self._model.chat, prompt, *args, **kwargs
-                )
-                return response
-            if hasattr(self._model, "async_chat"):
-                response = await self._call_wrapper(
-                    self._model.async_chat, prompt, *args, **kwargs
-                )
-                return response
-            raise AttributeError(f"Model {self._model.model_spec} is not for chat.")
+            if True:
+                assert self._scheduler_ref is not None
+                queue: Queue[Any] = Queue()
+                ret = self._queue_consumer(queue)
+                await self._scheduler_ref.add_request(prompt, queue, *args, **kwargs)
+                gen = self._to_json_async_gen(ret)
+                self._current_generator = weakref.ref(gen)
+                return gen
+            elif 1 + 1 == 3:
+                print("Here Chat!!!!!!!!!!!!!!!")
+                future = self._loop.create_future()
+                print(f"======Create future for chat: {future}")
+                await self._scheduler_ref.add_request(prompt, future, *args, **kwargs)
+                result = await future
+                return await asyncio.to_thread(json_dumps, result)
+            else:
+                if hasattr(self._model, "chat"):
+                    response = await self._call_wrapper(
+                        self._model.chat, prompt, *args, **kwargs
+                    )
+                    return response
+                if hasattr(self._model, "async_chat"):
+                    response = await self._call_wrapper(
+                        self._model.async_chat, prompt, *args, **kwargs
+                    )
+                    return response
+                raise AttributeError(f"Model {self._model.model_spec} is not for chat.")
         finally:
             # For the non stream result.
             record = None
