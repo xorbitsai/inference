@@ -91,6 +91,7 @@ VLLM_SUPPORTED_MODELS = [
     "internlm-16k",
     "mistral-v0.1",
     "Yi",
+    "Yi-1.5",
     "code-llama",
     "code-llama-python",
 ]
@@ -107,6 +108,7 @@ VLLM_SUPPORTED_CHAT_MODELS = [
     "internlm2-chat",
     "qwen-chat",
     "Yi-chat",
+    "Yi-1.5-chat",
     "code-llama-instruct",
     "mistral-instruct-v0.1",
     "mistral-instruct-v0.2",

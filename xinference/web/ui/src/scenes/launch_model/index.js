@@ -87,10 +87,16 @@ const LaunchModel = () => {
           <LaunchLLM gpuAvailable={gpuAvailable} />
         </TabPanel>
         <TabPanel value="/launch_model/embedding" sx={{ padding: 0 }}>
-          <LaunchModelComponent modelType={'embedding'} />
+          <LaunchModelComponent
+            modelType={'embedding'}
+            gpuAvailable={gpuAvailable}
+          />
         </TabPanel>
         <TabPanel value="/launch_model/rerank" sx={{ padding: 0 }}>
-          <LaunchModelComponent modelType={'rerank'} />
+          <LaunchModelComponent
+            modelType={'rerank'}
+            gpuAvailable={gpuAvailable}
+          />
         </TabPanel>
         <TabPanel value="/launch_model/image" sx={{ padding: 0 }}>
           <LaunchModelComponent modelType={'image'} />

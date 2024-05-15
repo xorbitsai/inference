@@ -4,7 +4,7 @@
 Yi-200k
 ========================================
 
-- **Context Length:** 204800
+- **Context Length:** 262144
 - **Model Name:** Yi-200k
 - **Languages:** en, zh
 - **Abilities:** generate
