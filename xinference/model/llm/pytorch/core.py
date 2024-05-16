@@ -143,12 +143,17 @@ class PytorchModel(LLM):
                     f"Failed to import 'PeftModel' from 'peft'. Please make sure 'peft' is installed.\n\n"
                 )
 
-            for peft_model in self._peft_model:
-                # Apply LoRA
-                self._model = PeftModel.from_pretrained(
-                    self._model,
-                    peft_model.local_path,
-                )
+            for i, peft_model in enumerate(self._peft_model):
+                if i == 0:
+                    self._model = PeftModel.from_pretrained(
+                        self._model,
+                        peft_model.local_path,
+                        adapter_name=peft_model.lora_name,
+                    )
+                else:
+                    self._model.load_adapter(
+                        peft_model.local_path, adapter_name=peft_model.lora_name
+                    )
                 logger.info(
                     f"PEFT adaptor '{peft_model.lora_name}' successfully loaded for model '{self.model_uid}'."
                 )
@@ -301,6 +306,18 @@ class PytorchModel(LLM):
 
         assert self._model is not None
         assert self._tokenizer is not None
+
+        lora_model = generate_config.pop("lora_name")
+
+        if lora_model is not None and self._peft_model is not None:
+            for lora in self._peft_model:
+                if lora_model == lora.lora_name:
+                    self._model.set_adapter(lora_model)
+                    logger.info(f"Set lora model to {lora_model}")
+                    break
+            else:
+                self._model.disable_adapter()
+                logger.info(f"No lora model {lora_model} found, skip setting")
 
         stream = generate_config.get("stream", False)
         if not stream:
