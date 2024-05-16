@@ -317,20 +317,9 @@ def cache(model_spec: CacheableModelSpec, model_description_type: type):
         if huggingface_hub.__version__ >= "0.23.0":
             from pathlib import Path
 
-            # If the model id contains quantization, then we should give each
-            # quantization a dedicated cache dir.
-            quant_suffix = ""
-            for q in model_spec.quantizations:
-                if model_spec.model_id and q in model_spec.model_id:
-                    quant_suffix = q
-                    break
-            cache_dir_name = (
-                f"{model_spec.model_name}-{model_spec.model_format}"
-                f"-{model_spec.model_size_in_billions}b"
+            real_path = (
+                str(Path.home()) + "/.cache/huggingface/hub/" + model_spec.model_name
             )
-            if quant_suffix:
-                cache_dir_name += f"-{quant_suffix}"
-            real_path = str(Path.home()) + "/.cache/huggingface/hub/" + cache_dir_name
 
             download_dir = retry_download(
                 hf_download,
