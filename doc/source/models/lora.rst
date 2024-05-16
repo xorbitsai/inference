@@ -54,6 +54,8 @@ Note
   They correspond to the parameters in the ``load_lora_weights`` and ``fuse_lora`` interfaces of the ``diffusers`` library.
   If launching an LLM model, these parameters are not required.
 
+* You need to add the parameter lora_name during inference to specify the corresponding lora model. You can specify it in the Additional Inputs option.
+
 * For LLM chat models, currently only LoRA models are supported that do not change the prompt style.
 
 * When using GPU, both LoRA and its base model occupy the same devices.
