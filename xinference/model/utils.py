@@ -317,9 +317,12 @@ def cache(model_spec: CacheableModelSpec, model_description_type: type):
         if huggingface_hub.__version__ >= "0.23.0":
             from pathlib import Path
 
-            real_path = (
-                str(Path.home()) + "/.cache/huggingface/hub/" + model_spec.model_name
-            )
+            from ..constants import XINFERENCE_ENV_HOME_PATH
+
+            home_path = os.environ.get(XINFERENCE_ENV_HOME_PATH)
+            if home_path is None:
+                home_path = str(Path.home())
+            real_path = home_path + "/.cache/huggingface/hub/" + model_spec.model_name
 
             download_dir = retry_download(
                 hf_download,

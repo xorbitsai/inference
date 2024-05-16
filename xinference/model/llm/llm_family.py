@@ -689,6 +689,8 @@ def cache_from_huggingface(
         if is_new_huggingface:
             from pathlib import Path
 
+            from ...constants import XINFERENCE_ENV_HOME_PATH
+
             # If the model id contains quantization, then we should give each
             # quantization a dedicated cache dir.
             quant_suffix = ""
@@ -702,7 +704,10 @@ def cache_from_huggingface(
             )
             if quant_suffix:
                 cache_dir_name += f"-{quant_suffix}"
-            real_path = str(Path.home()) + "/.cache/huggingface/hub/" + cache_dir_name
+            home_path = os.environ.get(XINFERENCE_ENV_HOME_PATH)
+            if home_path is None:
+                home_path = str(Path.home())
+            real_path = home_path + "/.cache/huggingface/hub/" + cache_dir_name
 
             download_dir = retry_download(
                 huggingface_hub.snapshot_download,
@@ -742,6 +747,8 @@ def cache_from_huggingface(
         if is_new_huggingface:
             from pathlib import Path
 
+            from ...constants import XINFERENCE_ENV_HOME_PATH
+
             # If the model id contains quantization, then we should give each
             # quantization a dedicated cache dir.
             quant_suffix = ""
@@ -755,7 +762,10 @@ def cache_from_huggingface(
             )
             if quant_suffix:
                 cache_dir_name += f"-{quant_suffix}"
-            real_path = str(Path.home()) + "/.cache/huggingface/hub/" + cache_dir_name
+            home_path = os.environ.get(XINFERENCE_ENV_HOME_PATH)
+            if home_path is None:
+                home_path = str(Path.home())
+            real_path = home_path + "/.cache/huggingface/hub/" + cache_dir_name
 
             for file_name in file_names:
                 download_path = retry_download(

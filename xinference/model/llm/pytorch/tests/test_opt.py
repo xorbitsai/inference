@@ -97,22 +97,25 @@ async def test_opt_pytorch_model(setup, quantization):
         assert len(client.list_models()) == 0
 
         # check for cached revision
-        home_address = str(Path.home())
-        snapshot_address = (
-            home_address
-            + "/.cache/huggingface/hub/models--facebook--opt-125m/snapshots"
-        )
-        actual_revision = os.listdir(snapshot_address)
-        model_name = "opt"
-        expected_revision: Union[str, None] = ""  # type: ignore
+        import huggingface_hub
 
-        for family in BUILTIN_LLM_FAMILIES:
-            if model_name != family.model_name:
-                continue
-            for spec in family.model_specs:
-                expected_revision = spec.model_revision
+        if huggingface_hub.__version__ < "0.23.0":
+            home_address = str(Path.home())
+            snapshot_address = (
+                home_address
+                + "/.cache/huggingface/hub/models--facebook--opt-125m/snapshots"
+            )
+            actual_revision = os.listdir(snapshot_address)
+            model_name = "opt"
+            expected_revision: Union[str, None] = ""  # type: ignore
 
-        assert [expected_revision] == actual_revision
+            for family in BUILTIN_LLM_FAMILIES:
+                if model_name != family.model_name:
+                    continue
+                for spec in family.model_specs:
+                    expected_revision = spec.model_revision
+
+            assert [expected_revision] == actual_revision
 
 
 @pytest.mark.asyncio
