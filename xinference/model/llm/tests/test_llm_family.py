@@ -18,6 +18,7 @@ import shutil
 import tempfile
 from unittest.mock import MagicMock, Mock, patch
 
+import huggingface_hub
 import pytest
 
 from ....constants import XINFERENCE_ENV_MODEL_SRC
@@ -185,6 +186,10 @@ def test_builtin_llm_families():
         LLMFamilyV1.parse_obj(json_obj)
 
 
+@pytest.mark.skipif(
+    huggingface_hub.__version__ >= "0.23.0",
+    reason="Latest huggingface update download logic",
+)
 def test_cache_from_huggingface_pytorch():
     from ..llm_family import cache_from_huggingface
 
@@ -213,6 +218,10 @@ def test_cache_from_huggingface_pytorch():
     shutil.rmtree(cache_dir)
 
 
+@pytest.mark.skipif(
+    huggingface_hub.__version__ >= "0.23.0",
+    reason="Latest huggingface update download logic",
+)
 def test_cache_from_huggingface_ggml():
     from ..llm_family import cache_from_huggingface
 
@@ -243,6 +252,97 @@ def test_cache_from_huggingface_ggml():
     assert os.path.exists(os.path.join(cache_dir, "README.md"))
     assert os.path.islink(os.path.join(cache_dir, "README.md"))
     shutil.rmtree(cache_dir)
+
+
+@pytest.mark.skipif(
+    huggingface_hub.__version__ < "0.23.0",
+    reason="Latest huggingface update download logic",
+)
+def test_cache_from_huggingface_pytorch_with_new_huggingface():
+    from pathlib import Path
+
+    from ....constants import XINFERENCE_ENV_HOME_PATH
+    from ..llm_family import cache_from_huggingface
+
+    spec = PytorchLLMSpecV1(
+        model_format="pytorch",
+        model_size_in_billions=1,
+        quantizations=["4-bit", "8-bit", "none"],
+        model_id="facebook/opt-125m",
+    )
+    family = LLMFamilyV1(
+        version=1,
+        context_length=2048,
+        model_type="LLM",
+        model_name="opt",
+        model_lang=["en"],
+        model_ability=["embed", "generate"],
+        model_specs=[spec],
+        prompt_style=None,
+    )
+
+    cache_dir = cache_from_huggingface(family, spec, quantization=None)
+
+    cache_dir_name = (
+        f"{family.model_name}-{spec.model_format}" f"-{spec.model_size_in_billions}b"
+    )
+    home_path = os.environ.get(XINFERENCE_ENV_HOME_PATH)
+    if home_path is None:
+        home_path = str(Path.home())
+    real_path = home_path + "/.cache/huggingface/hub/" + cache_dir_name
+
+    assert os.path.exists(cache_dir)
+    assert os.path.exists(os.path.join(cache_dir, "README.md"))
+    assert os.path.islink(os.path.join(cache_dir, "README.md"))
+    assert os.path.exists(os.path.join(real_path, "README.md"))
+    shutil.rmtree(cache_dir)
+    shutil.rmtree(real_path)
+
+
+@pytest.mark.skipif(
+    huggingface_hub.__version__ < "0.23.0",
+    reason="Latest huggingface update download logic",
+)
+def test_cache_from_huggingface_ggml_with_new_huggingface():
+    from pathlib import Path
+
+    from ....constants import XINFERENCE_ENV_HOME_PATH
+    from ..llm_family import cache_from_huggingface
+
+    spec = GgmlLLMSpecV1(
+        model_format="ggmlv3",
+        model_size_in_billions=3,
+        model_id="TheBloke/orca_mini_3B-GGML",
+        quantizations=["q4_0"],
+        model_file_name_template="README.md",
+    )
+    family = LLMFamilyV1(
+        version=1,
+        context_length=2048,
+        model_type="LLM",
+        model_name="orca",
+        model_lang=["en"],
+        model_ability=["embed", "chat"],
+        model_specs=[spec],
+        prompt_style=None,
+    )
+
+    cache_dir = cache_from_huggingface(family, spec, quantization=None)
+
+    cache_dir_name = (
+        f"{family.model_name}-{spec.model_format}" f"-{spec.model_size_in_billions}b"
+    )
+    home_path = os.environ.get(XINFERENCE_ENV_HOME_PATH)
+    if home_path is None:
+        home_path = str(Path.home())
+    real_path = home_path + "/.cache/huggingface/hub/" + cache_dir_name
+
+    assert os.path.exists(cache_dir)
+    assert os.path.exists(os.path.join(cache_dir, "README.md"))
+    assert os.path.islink(os.path.join(cache_dir, "README.md"))
+    assert os.path.exists(os.path.join(real_path, "README.md"))
+    shutil.rmtree(cache_dir)
+    shutil.rmtree(real_path)
 
 
 def test_cache_from_uri_local():

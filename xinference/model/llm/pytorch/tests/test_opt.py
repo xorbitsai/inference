@@ -20,6 +20,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Union
 
+import huggingface_hub
 import pytest
 import xoscar
 
@@ -48,6 +49,10 @@ class MockPytorchModel(MockNonPytorchModel, PytorchModel):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("quantization", ["none"])
+@pytest.mark.skipif(
+    huggingface_hub.__version__ >= "0.23.0",
+    reason="Latest huggingface will not generate snapshots",
+)
 async def test_opt_pytorch_model(setup, quantization):
     endpoint, _ = setup
     client = Client(endpoint)
@@ -97,25 +102,77 @@ async def test_opt_pytorch_model(setup, quantization):
         assert len(client.list_models()) == 0
 
         # check for cached revision
-        import huggingface_hub
+        home_address = str(Path.home())
+        snapshot_address = (
+            home_address
+            + "/.cache/huggingface/hub/models--facebook--opt-125m/snapshots"
+        )
+        actual_revision = os.listdir(snapshot_address)
+        model_name = "opt"
+        expected_revision: Union[str, None] = ""  # type: ignore
 
-        if huggingface_hub.__version__ < "0.23.0":
-            home_address = str(Path.home())
-            snapshot_address = (
-                home_address
-                + "/.cache/huggingface/hub/models--facebook--opt-125m/snapshots"
+        for family in BUILTIN_LLM_FAMILIES:
+            if model_name != family.model_name:
+                continue
+            for spec in family.model_specs:
+                expected_revision = spec.model_revision
+
+        assert [expected_revision] == actual_revision
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("quantization", ["none"])
+@pytest.mark.skipif(
+    huggingface_hub.__version__ < "0.23.0",
+    reason="Latest huggingface will not generate snapshots",
+)
+async def test_opt_pytorch_model_with_new_huggingface(setup, quantization):
+    endpoint, _ = setup
+    client = Client(endpoint)
+    assert len(client.list_models()) == 0
+
+    if quantization == "4-bit":
+        with pytest.raises(ValueError):
+            client.launch_model(
+                model_name="opt",
+                model_engine="transformers",
+                model_size_in_billions=1,
+                model_format="pytorch",
+                quantization=quantization,
+                device="cpu",
             )
-            actual_revision = os.listdir(snapshot_address)
-            model_name = "opt"
-            expected_revision: Union[str, None] = ""  # type: ignore
+    else:
+        model_uid = client.launch_model(
+            model_name="opt",
+            model_engine="transformers",
+            model_size_in_billions=1,
+            model_format="pytorch",
+            quantization=quantization,
+            device="cpu",
+        )
+        assert len(client.list_models()) == 1
 
-            for family in BUILTIN_LLM_FAMILIES:
-                if model_name != family.model_name:
-                    continue
-                for spec in family.model_specs:
-                    expected_revision = spec.model_revision
+        model = client.get_model(model_uid=model_uid)
+        assert isinstance(model, RESTfulGenerateModelHandle)
 
-            assert [expected_revision] == actual_revision
+        # Test concurrent generate is OK.
+        def _check():
+            completion = model.generate(
+                "Once upon a time, there was a very old computer"
+            )
+            assert isinstance(completion, dict)
+            assert "text" in completion["choices"][0]
+
+        results = []
+        with ThreadPoolExecutor() as executor:
+            for _ in range(3):
+                r = executor.submit(_check)
+                results.append(r)
+        for r in results:
+            r.result()
+
+        client.terminate_model(model_uid=model_uid)
+        assert len(client.list_models()) == 0
 
 
 @pytest.mark.asyncio
