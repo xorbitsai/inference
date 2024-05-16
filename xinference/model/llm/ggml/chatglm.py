@@ -17,7 +17,7 @@ import os
 import time
 import uuid
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Iterator, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Iterator, List, Optional, Union, cast
 
 from ....types import (
     SPECIAL_TOOL_PROMPT,
@@ -108,10 +108,11 @@ class ChatglmCppChatModel(LLM):
 
     @staticmethod
     def _convert_raw_text_chunks_to_chat(
-        tokens: Iterator[Any], model_name: str
+        tokens: Iterator[Any], model_name: str, include_usage: bool, input_ids
     ) -> Iterator[ChatCompletionChunk]:
+        request_id = str(uuid.uuid4())
         yield {
-            "id": "chat" + f"cmpl-{str(uuid.uuid4())}",
+            "id": "chat" + f"cmpl-{request_id}",
             "model": model_name,
             "object": "chat.completion.chunk",
             "created": int(time.time()),
@@ -125,9 +126,13 @@ class ChatglmCppChatModel(LLM):
                 }
             ],
         }
+        prompt_tokens, completion_tokens, total_tokens = 0, 0, 0
         for token in tokens:
+            prompt_tokens = len(input_ids)
+            completion_tokens += len(token.token_ids)
+            total_tokens = prompt_tokens + completion_tokens
             yield {
-                "id": "chat" + f"cmpl-{str(uuid.uuid4())}",
+                "id": "chat" + f"cmpl-{request_id}",
                 "model": model_name,
                 "object": "chat.completion.chunk",
                 "created": int(time.time()),
@@ -142,6 +147,36 @@ class ChatglmCppChatModel(LLM):
                         "finish_reason": None,
                     }
                 ],
+            }
+        # stop
+        chunk = {
+            "id": "chat" + f"cmpl-{request_id}",
+            "model": model_name,
+            "object": "chat.completion.chunk",
+            "created": int(time.time()),
+            "choices": [
+                {
+                    "index": 0,
+                    "delta": {
+                        "content": None,
+                    },
+                    "finish_reason": "stop",
+                }
+            ],
+        }
+        yield cast(CompletionChunk, chunk)
+        if include_usage:
+            yield {
+                "id": "chat" + f"cmpl-{request_id}",
+                "model": model_name,
+                "object": "chat.completion.chunk",
+                "created": int(time.time()),
+                "choices": [],
+                "usage": {
+                    "prompt_tokens": prompt_tokens,
+                    "completion_tokens": completion_tokens,
+                    "total_tokens": total_tokens,
+                },
             }
 
     @classmethod
@@ -286,13 +321,27 @@ class ChatglmCppChatModel(LLM):
         assert self._llm is not None
         chat_history_messages = self._to_chatglm_chat_messages(chat_history_list)
 
-        if generate_config["stream"]:
+        stream = generate_config.get("stream")
+        stream_options = generate_config.get("stream_options", None)
+        include_usage = (
+            stream_options["include_usage"]
+            if isinstance(stream_options, dict)
+            else False
+        )
+
+        if stream:
             it = self._llm.chat(
                 chat_history_messages,
                 **params,
             )
             assert not isinstance(it, str)
-            return self._convert_raw_text_chunks_to_chat(it, self.model_uid)
+            input_ids = self._llm.tokenizer.encode_messages(
+                chat_history_messages, params["max_context_length"]
+            )
+            return self._convert_raw_text_chunks_to_chat(
+                it, self.model_uid, include_usage, input_ids
+            )
+
         else:
             c = self._llm.chat(
                 chat_history_messages,
@@ -320,17 +369,52 @@ class ChatglmCppChatModel(LLM):
 
     @staticmethod
     def _convert_str_to_completion_chunk(
-        tokens: Iterator[str], model_name: str
+        tokens: Iterator[str], model_name: str, include_usage: bool, input_ids
     ) -> Iterator[CompletionChunk]:
-        for token in tokens:
+        request_id = str(uuid.uuid4())
+        prompt_tokens, completion_tokens, total_tokens = 0, 0, 0
+        for i, token in enumerate(tokens):
             yield {
-                "id": "generate" + f"-{str(uuid.uuid4())}",
+                "id": "generate" + f"-{request_id}",
                 "model": model_name,
                 "object": "text_completion",
                 "created": int(time.time()),
                 "choices": [
                     {"index": 0, "text": token, "finish_reason": None, "logprobs": None}
                 ],
+            }
+            prompt_tokens = len(input_ids)
+            completion_tokens = i
+            total_tokens = prompt_tokens + completion_tokens
+        # stop
+        chunk = {
+            "id": "chat" + f"cmpl-{request_id}",
+            "model": model_name,
+            "object": "chat.completion.chunk",
+            "created": int(time.time()),
+            "choices": [
+                {
+                    "index": 0,
+                    "delta": {
+                        "content": None,
+                    },
+                    "finish_reason": "stop",
+                }
+            ],
+        }
+        yield cast(CompletionChunk, chunk)
+        if include_usage:
+            yield {
+                "id": "chat" + f"cmpl-{request_id}",
+                "model": model_name,
+                "object": "text_completion",
+                "created": int(time.time()),
+                "choices": [],
+                "usage": {
+                    "prompt_tokens": prompt_tokens,
+                    "completion_tokens": completion_tokens,
+                    "total_tokens": total_tokens,
+                },
             }
 
     def generate(
@@ -355,14 +439,23 @@ class ChatglmCppChatModel(LLM):
         params = {k: v for k, v in params.items() if v is not None}
 
         assert self._llm is not None
-
-        if generate_config["stream"]:
+        stream = generate_config.get("stream")
+        stream_options = generate_config.get("stream_options", None)
+        include_usage = (
+            stream_options["include_usage"]
+            if isinstance(stream_options, dict)
+            else False
+        )
+        if stream:
             it = self._llm.generate(
                 prompt,
                 **params,
             )
             assert not isinstance(it, str)
-            return self._convert_str_to_completion_chunk(it, self.model_uid)
+            input_ids = self._llm.tokenizer.encode(prompt, params["max_context_length"])
+            return self._convert_str_to_completion_chunk(
+                it, self.model_uid, include_usage, input_ids
+            )
         else:
             c = self._llm.generate(
                 prompt,
