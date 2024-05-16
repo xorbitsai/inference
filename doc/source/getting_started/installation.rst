@@ -43,7 +43,7 @@ Currently, supported models include:
 - ``baichuan``, ``baichuan-chat``, ``baichuan-2-chat``
 - ``internlm-16k``, ``internlm-chat-7b``, ``internlm-chat-8k``, ``internlm-chat-20b``
 - ``mistral-v0.1``, ``mistral-instruct-v0.1``, ``mistral-instruct-v0.2``
-- ``Yi``, ``Yi-chat``
+- ``Yi``, ``Yi-1.5``, ``Yi-chat``, ``Yi-1.5-chat``
 - ``code-llama``, ``code-llama-python``, ``code-llama-instruct``
 - ``c4ai-command-r-v01``, ``c4ai-command-r-v01-4bit``
 - ``vicuna-v1.3``, ``vicuna-v1.5``

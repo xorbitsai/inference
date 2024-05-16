@@ -63,6 +63,7 @@ const ModelCard = ({
   const [modelSize, setModelSize] = useState('')
   const [quantization, setQuantization] = useState('')
   const [nGPU, setNGPU] = useState('auto')
+  const [nGpu, setNGpu] = useState(gpuAvailable === 0 ? 'CPU' : 'GPU')
   const [nGPULayers, setNGPULayers] = useState(-1)
   const [replica, setReplica] = useState(1)
   const [requestLimits, setRequestLimits] = useState('')
@@ -167,6 +168,14 @@ const ModelCard = ({
     return ['auto', 'CPU'].concat(range(1, gpuAvailable))
   }
 
+  const getNewNGPURange = () => {
+    if (gpuAvailable === 0) {
+      return ['CPU']
+    } else {
+      return ['GPU', 'CPU']
+    }
+  }
+
   const getModelEngine = (model_name) => {
     fetcher(url + `/v1/engines/${model_name}`, {
       method: 'GET',
@@ -227,10 +236,20 @@ const ModelCard = ({
       gpu_idx: GPUIdx.trim() === '' ? null : handleGPUIdx(GPUIdx.trim()),
     }
 
-    const modelDataWithID_other = {
+    let modelDataWithID_other = {
       model_uid: modelUID.trim() === '' ? null : modelUID.trim(),
       model_name: modelData.model_name,
       model_type: modelType,
+    }
+
+    if (modelType === 'embedding' || modelType === 'rerank') {
+      modelDataWithID_other = {
+        ...modelDataWithID_other,
+        replica: replica,
+        n_gpu: nGpu === 'GPU' ? 'auto' : null,
+        worker_ip: workerIp.trim() === '' ? null : workerIp.trim(),
+        gpu_idx: GPUIdx.trim() === '' ? null : handleGPUIdx(GPUIdx.trim()),
+      }
     }
 
     if (nGPULayers >= 0) {
@@ -274,11 +293,7 @@ const ModelCard = ({
     }
 
     const modelDataWithID =
-      modelType === 'LLM'
-        ? modelDataWithID_LLM
-        : modelType === 'embedding' || modelType === 'rerank'
-        ? { ...modelDataWithID_other, replica }
-        : modelDataWithID_other
+      modelType === 'LLM' ? modelDataWithID_LLM : modelDataWithID_other
 
     // First fetcher request to initiate the model
     fetcher(url + '/v1/models', {
@@ -922,18 +937,70 @@ const ModelCard = ({
                 onChange={(e) => setModelUID(e.target.value)}
               />
               {(modelType === 'embedding' || modelType === 'rerank') && (
-                <TextField
-                  style={{ marginTop: '25px' }}
-                  type="number"
-                  InputProps={{
-                    inputProps: {
-                      min: 1,
-                    },
-                  }}
-                  label="Replica"
-                  value={replica}
-                  onChange={(e) => setReplica(parseInt(e.target.value, 10))}
-                />
+                <>
+                  <TextField
+                    style={{ marginTop: '25px' }}
+                    type="number"
+                    InputProps={{
+                      inputProps: {
+                        min: 1,
+                      },
+                    }}
+                    label="Replica"
+                    value={replica}
+                    onChange={(e) => setReplica(parseInt(e.target.value, 10))}
+                  />
+                  <FormControl variant="outlined" margin="normal" fullWidth>
+                    <InputLabel id="n-gpu-label">Device</InputLabel>
+                    <Select
+                      labelId="n-gpu-label"
+                      value={nGpu}
+                      onChange={(e) => setNGpu(e.target.value)}
+                      label="N-GPU"
+                    >
+                      {getNewNGPURange().map((v) => {
+                        return (
+                          <MenuItem key={v} value={v}>
+                            {v}
+                          </MenuItem>
+                        )
+                      })}
+                    </Select>
+                  </FormControl>
+                  {nGpu === 'GPU' && (
+                    <FormControl variant="outlined" margin="normal" fullWidth>
+                      <TextField
+                        value={GPUIdx}
+                        label="GPU Idx, Specify the GPU index where the model is located"
+                        onChange={(e) => {
+                          setGPUIdxAlert(false)
+                          setGPUIdx(e.target.value)
+                          const regular = /^\d+(?:,\d+)*$/
+                          if (
+                            e.target.value !== '' &&
+                            !regular.test(e.target.value)
+                          ) {
+                            setGPUIdxAlert(true)
+                          }
+                        }}
+                      />
+                      {GPUIdxAlert && (
+                        <Alert severity="error">
+                          Please enter numeric data separated by commas, for
+                          example: 0,1,2
+                        </Alert>
+                      )}
+                    </FormControl>
+                  )}
+                  <FormControl variant="outlined" margin="normal" fullWidth>
+                    <TextField
+                      variant="outlined"
+                      value={workerIp}
+                      label="Worker Ip, specify the worker ip where the model is located in a distributed scenario"
+                      onChange={(e) => setWorkerIp(e.target.value)}
+                    />
+                  </FormControl>
+                </>
               )}
             </FormControl>
           )}
@@ -943,21 +1010,23 @@ const ModelCard = ({
               style={styles.buttonContainer}
               onClick={() => launchModel(url, modelData)}
               disabled={
-                modelType === 'LLM' &&
-                (isCallingApi ||
-                  isUpdatingModel ||
-                  !(
-                    modelFormat &&
-                    modelSize &&
-                    modelData &&
-                    (quantization ||
-                      (!modelData.is_builtin && modelFormat !== 'pytorch'))
-                  ) ||
-                  !judgeArr(customParametersArr, ['key', 'value']) ||
-                  !judgeArr(loraListArr, ['lora_name', 'local_path']) ||
-                  !judgeArr(imageLoraLoadKwargsArr, ['key', 'value']) ||
-                  !judgeArr(imageLoraFuseKwargsArr, ['key', 'value']) ||
-                  requestLimitsAlert ||
+                (modelType === 'LLM' &&
+                  (isCallingApi ||
+                    isUpdatingModel ||
+                    !(
+                      modelFormat &&
+                      modelSize &&
+                      modelData &&
+                      (quantization ||
+                        (!modelData.is_builtin && modelFormat !== 'pytorch'))
+                    ) ||
+                    !judgeArr(customParametersArr, ['key', 'value']) ||
+                    !judgeArr(loraListArr, ['lora_name', 'local_path']) ||
+                    !judgeArr(imageLoraLoadKwargsArr, ['key', 'value']) ||
+                    !judgeArr(imageLoraFuseKwargsArr, ['key', 'value']) ||
+                    requestLimitsAlert ||
+                    GPUIdxAlert)) ||
+                ((modelType === 'embedding' || modelType === 'rerank') &&
                   GPUIdxAlert)
               }
             >
