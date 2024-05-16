@@ -682,38 +682,30 @@ def cache_from_huggingface(
     ):
         return cache_dir
 
-    # need_symlinks = huggingface_hub.__version__ >= "0.23.0"
+    is_new_huggingface = huggingface_hub.__version__ >= "0.23.0"
 
     if llm_spec.model_format in ["pytorch", "gptq", "awq"]:
         assert isinstance(llm_spec, PytorchLLMSpecV1)
-        download_dir = retry_download(
-            huggingface_hub.snapshot_download,
-            llm_family.model_name,
-            {
-                "model_size": llm_spec.model_size_in_billions,
-                "model_format": llm_spec.model_format,
-            },
-            llm_spec.model_id,
-            revision=llm_spec.model_revision,
-            local_dir=cache_dir,
-            local_dir_use_symlinks=True,
-        )
-        logger.debug(f"Cached {llm_spec.model_id} from huggingface in {download_dir}")
-        # if need_symlinks:
-        #     for subdir, dirs, files in os.walk(download_dir):
-        #         for file in files:
-        #             relpath = os.path.relpath(os.path.join(subdir, file), download_dir)
-        #             symlink_local_file(os.path.join(subdir, file), cache_dir, relpath)
+        if is_new_huggingface:
+            from pathlib import Path
 
-    elif llm_spec.model_format in ["ggmlv3", "ggufv2"]:
-        assert isinstance(llm_spec, GgmlLLMSpecV1)
-        file_names, final_file_name, need_merge = _generate_model_file_names(
-            llm_spec, quantization
-        )
+            # If the model id contains quantization, then we should give each
+            # quantization a dedicated cache dir.
+            quant_suffix = ""
+            for q in llm_spec.quantizations:
+                if llm_spec.model_id and q in llm_spec.model_id:
+                    quant_suffix = q
+                    break
+            cache_dir_name = (
+                f"{llm_family.model_name}-{llm_spec.model_format}"
+                f"-{llm_spec.model_size_in_billions}b"
+            )
+            if quant_suffix:
+                cache_dir_name += f"-{quant_suffix}"
+            real_path = str(Path.home()) + "/.cache/huggingface/hub/" + cache_dir_name
 
-        for file_name in file_names:
-            download_path = retry_download(
-                huggingface_hub.hf_hub_download,
+            download_dir = retry_download(
+                huggingface_hub.snapshot_download,
                 llm_family.model_name,
                 {
                     "model_size": llm_spec.model_size_in_billions,
@@ -721,15 +713,79 @@ def cache_from_huggingface(
                 },
                 llm_spec.model_id,
                 revision=llm_spec.model_revision,
-                filename=file_name,
+                local_dir=real_path,
+            )
+            for subdir, dirs, files in os.walk(download_dir):
+                for file in files:
+                    relpath = os.path.relpath(os.path.join(subdir, file), download_dir)
+                    symlink_local_file(os.path.join(subdir, file), cache_dir, relpath)
+        else:
+            retry_download(
+                huggingface_hub.snapshot_download,
+                llm_family.model_name,
+                {
+                    "model_size": llm_spec.model_size_in_billions,
+                    "model_format": llm_spec.model_format,
+                },
+                llm_spec.model_id,
+                revision=llm_spec.model_revision,
                 local_dir=cache_dir,
                 local_dir_use_symlinks=True,
             )
-            logger.debug(
-                f"Cached {llm_spec.model_id} from huggingface in {download_path}"
+
+    elif llm_spec.model_format in ["ggmlv3", "ggufv2"]:
+        assert isinstance(llm_spec, GgmlLLMSpecV1)
+        file_names, final_file_name, need_merge = _generate_model_file_names(
+            llm_spec, quantization
+        )
+
+        if is_new_huggingface:
+            from pathlib import Path
+
+            # If the model id contains quantization, then we should give each
+            # quantization a dedicated cache dir.
+            quant_suffix = ""
+            for q in llm_spec.quantizations:
+                if llm_spec.model_id and q in llm_spec.model_id:
+                    quant_suffix = q
+                    break
+            cache_dir_name = (
+                f"{llm_family.model_name}-{llm_spec.model_format}"
+                f"-{llm_spec.model_size_in_billions}b"
             )
-            # if need_symlinks:
-            #     symlink_local_file(download_path, cache_dir, file_name)
+            if quant_suffix:
+                cache_dir_name += f"-{quant_suffix}"
+            real_path = str(Path.home()) + "/.cache/huggingface/hub/" + cache_dir_name
+
+            for file_name in file_names:
+                download_path = retry_download(
+                    huggingface_hub.hf_hub_download,
+                    llm_family.model_name,
+                    {
+                        "model_size": llm_spec.model_size_in_billions,
+                        "model_format": llm_spec.model_format,
+                    },
+                    llm_spec.model_id,
+                    revision=llm_spec.model_revision,
+                    filename=file_name,
+                    local_dir=real_path,
+                )
+                symlink_local_file(download_path, cache_dir, file_name)
+        else:
+            for file_name in file_names:
+                retry_download(
+                    huggingface_hub.hf_hub_download,
+                    llm_family.model_name,
+                    {
+                        "model_size": llm_spec.model_size_in_billions,
+                        "model_format": llm_spec.model_format,
+                    },
+                    llm_spec.model_id,
+                    revision=llm_spec.model_revision,
+                    filename=file_name,
+                    local_dir=cache_dir,
+                    local_dir_use_symlinks=True,
+                )
 
         if need_merge:
             _merge_cached_files(cache_dir, file_names, final_file_name)
