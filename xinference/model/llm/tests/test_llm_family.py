@@ -330,7 +330,7 @@ def test_cache_from_huggingface_ggml_with_new_huggingface():
     cache_dir = _get_cache_dir(family, spec)
     shutil.rmtree(cache_dir)
 
-    cache_dir = cache_from_huggingface(family, spec, quantization=None)
+    cache_dir = cache_from_huggingface(family, spec, quantization="q4_0")
 
     cache_dir_name = (
         f"{family.model_name}-{spec.model_format}" f"-{spec.model_size_in_billions}b"
