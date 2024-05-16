@@ -503,6 +503,16 @@ class RESTfulAPI:
                 else None
             ),
         )
+        self._router.add_api_route(
+            "/v1/cached/list_cached_model",
+            self.list_cached_model,
+            methods=["GET"],
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:list"])]
+                if self.is_authenticated()
+                else None
+            ),
+        )
 
         # Clear the global Registry for the MetricsMiddleware, or
         # the MetricsMiddleware will register duplicated metrics if the port
@@ -1494,6 +1504,17 @@ class RESTfulAPI:
             data = await (await self._get_supervisor_ref()).get_model_registration(
                 model_type, model_name
             )
+            return JSONResponse(content=data)
+        except ValueError as re:
+            logger.error(re, exc_info=True)
+            raise HTTPException(status_code=400, detail=str(re))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def list_cached_model(self) -> JSONResponse:
+        try:
+            data = await (await self._get_supervisor_ref()).list_cached_models()
             return JSONResponse(content=data)
         except ValueError as re:
             logger.error(re, exc_info=True)

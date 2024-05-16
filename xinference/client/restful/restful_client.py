@@ -1134,6 +1134,35 @@ class Client:
         response_data = response.json()
         return response_data
 
+    def list_model_cahced(self):
+        """
+        Get a list of cached models.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        List[Dict[str, Any]]
+            The collection of cached models on the server.
+
+        Raises
+        ------
+        RuntimeError
+            Raised when the request fails, including the reason for the failure.
+        """
+
+        url = f"{self.base_url}/v1/cached/list_cached_model"
+        response = requests.get(url, headers=self._headers)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to list cached model, detail: {_get_error_string(response)}"
+            )
+
+        response_data = response.json()
+        return response_data
+
     def get_model_registration(
         self, model_type: str, model_name: str
     ) -> Dict[str, Any]:

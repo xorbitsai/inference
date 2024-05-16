@@ -570,6 +570,35 @@ def list_model_registrations(
         raise NotImplementedError(f"List {model_type} is not implemented.")
 
 
+@cli.command("cached", help="List all cached models in Xinference.")
+@click.option(
+    "--endpoint",
+    "-e",
+    type=str,
+    help="Xinference endpoint.",
+)
+@click.option(
+    "--api-key",
+    "-ak",
+    default=None,
+    type=str,
+    help="Api-Key for access xinference api with authorization.",
+)
+def list_cached_model(
+    endpoint: Optional[str],
+    api_key: Optional[str],
+):
+    endpoint = get_endpoint(endpoint)
+    client = RESTfulClient(base_url=endpoint, api_key=api_key)
+    if api_key is None:
+        client._set_token(get_stored_token(endpoint, client))
+
+    cached_models = client.list_model_cahced()
+    print("cached_model: ")
+    for cache_model in cached_models:
+        print(cache_model["model_type"] + cache_model["model_name"])
+
+
 @cli.command(
     "launch",
     help="Launch a model with the Xinference framework with the given parameters.",
