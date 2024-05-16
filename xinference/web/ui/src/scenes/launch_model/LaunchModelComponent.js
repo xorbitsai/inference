@@ -7,7 +7,7 @@ import HotkeyFocusTextField from '../../components/hotkeyFocusTextField'
 import ModelCard from './modelCard'
 import style from './styles/launchModelStyle'
 
-const LaunchModelComponent = ({ modelType }) => {
+const LaunchModelComponent = ({ modelType, gpuAvailable }) => {
   let endPoint = useContext(ApiContext).endPoint
   const [registrationData, setRegistrationData] = useState([])
   const [searchTerm, setSearchTerm] = useState('')
@@ -87,6 +87,7 @@ const LaunchModelComponent = ({ modelType }) => {
               url={endPoint}
               modelData={filteredRegistration}
               modelType={modelType}
+              gpuAvailable={gpuAvailable}
             />
           ))}
       </div>
