@@ -109,6 +109,7 @@ class GradioInterface:
             history: List[List[str]],
             max_tokens: int,
             temperature: float,
+            lora_name: str,
         ) -> Generator:
             from ..client import RESTfulClient
 
@@ -127,6 +128,7 @@ class GradioInterface:
                     "max_tokens": int(max_tokens),
                     "temperature": temperature,
                     "stream": True,
+                    "lora_name": lora_name,
                 },
             ):
                 assert isinstance(chunk, dict)
@@ -152,6 +154,7 @@ class GradioInterface:
                 gr.Slider(
                     minimum=0, maximum=2, value=1, step=0.01, label="Temperature"
                 ),
+                gr.Text(label="LoRA Name"),
             ],
             title=f"🚀 Xinference Chat Bot : {self.model_name} 🚀",
             css="""
@@ -331,7 +334,7 @@ class GradioInterface:
                 history: hist,
             }
 
-        def complete(text, hist, max_tokens, temperature) -> Generator:
+        def complete(text, hist, max_tokens, temperature, lora_name) -> Generator:
             from ..client import RESTfulClient
 
             client = RESTfulClient(self.endpoint)
@@ -349,6 +352,7 @@ class GradioInterface:
                     "max_tokens": max_tokens,
                     "temperature": temperature,
                     "stream": True,
+                    "lora_name": lora_name,
                 },
             ):
                 assert isinstance(chunk, dict)
@@ -368,7 +372,7 @@ class GradioInterface:
                 history: hist,
             }
 
-        def retry(text, hist, max_tokens, temperature) -> Generator:
+        def retry(text, hist, max_tokens, temperature, lora_name) -> Generator:
             from ..client import RESTfulClient
 
             client = RESTfulClient(self.endpoint)
@@ -387,6 +391,7 @@ class GradioInterface:
                     "max_tokens": max_tokens,
                     "temperature": temperature,
                     "stream": True,
+                    "lora_name": lora_name,
                 },
             ):
                 assert isinstance(chunk, dict)
@@ -470,10 +475,11 @@ class GradioInterface:
                     temperature = gr.Slider(
                         minimum=0, maximum=2, value=1, step=0.01, label="Temperature"
                     )
+                    lora_name = gr.Text(label="LoRA Name")
 
                 btn_generate.click(
                     fn=complete,
-                    inputs=[textbox, history, length, temperature],
+                    inputs=[textbox, history, length, temperature, lora_name],
                     outputs=[textbox, history],
                 )
 
@@ -485,7 +491,7 @@ class GradioInterface:
 
                 btn_retry.click(
                     fn=retry,
-                    inputs=[textbox, history, length, temperature],
+                    inputs=[textbox, history, length, temperature, lora_name],
                     outputs=[textbox, history],
                 )
 
