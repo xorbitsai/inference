@@ -7,7 +7,10 @@ LoRA Integration
 Currently, Xinference supports launching ``LLM`` and ``image`` models with an attached LoRA fine-tuned model.
 
 Usage
-^^^^^
+#####
+
+Launch
+======
 Different from built-in models, xinference currently does not involve managing LoRA models.
 Users need to first download the LoRA model themselves and then provide the storage path of the model files to xinference.
 
@@ -47,8 +50,29 @@ Users need to first download the LoRA model themselves and then provide the stor
     )
 
 
+Apply
+=====
+For LLM models, you can only configure one lora model you want when you use the model.
+Specifically, specify that the ``lora_name`` parameter be configured in the ``generate_config``.
+``lora_name`` corresponds to the name of the lora in the LAUNCH procedure described above.
+
+.. tabs::
+
+  .. code-tab:: python
+
+    from xinference.client import Client
+
+    client = Client("http://<XINFERENCE_HOST>:<XINFERENCE_PORT>")
+    model = client.get_model("<model_uid>")
+    model.chat(
+        "<prompt>",
+        <other_options>,
+        generate_config={"lora_name": "<your_lora_name>"}
+    )
+
+
 Note
-^^^^
+####
 
 * The options ``image_lora_load_kwargs`` and ``image_lora_fuse_kwargs`` are only applicable to models with model_type ``image``.
   They correspond to the parameters in the ``load_lora_weights`` and ``fuse_lora`` interfaces of the ``diffusers`` library.
