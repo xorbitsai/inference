@@ -327,6 +327,9 @@ def test_cache_from_huggingface_ggml_with_new_huggingface():
         prompt_style=None,
     )
 
+    cache_dir = _get_cache_dir(family, spec)
+    shutil.rmtree(cache_dir)
+
     cache_dir = cache_from_huggingface(family, spec, quantization=None)
 
     cache_dir_name = (
