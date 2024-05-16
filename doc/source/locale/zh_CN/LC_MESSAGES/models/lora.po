@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-03-08 12:40+0800\n"
+"POT-Creation-Date: 2024-05-16 14:18+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -25,27 +25,47 @@ msgstr "集成LoRA"
 msgid ""
 "Currently, Xinference supports launching ``LLM`` and ``image`` models "
 "with an attached LoRA fine-tuned model."
-msgstr "当前，Xinference 可以在启动 ``LLM`` 和 ``image`` 模型时连带一个 LoRA 微调模型用以辅助基础模型。"
+msgstr ""
+"当前，Xinference 可以在启动 ``LLM`` 和 ``image`` 模型时连带一个 LoRA 微调"
+"模型用以辅助基础模型。"
 
 #: ../../source/models/lora.rst:10
 msgid "Usage"
 msgstr "使用方式"
 
-#: ../../source/models/lora.rst:11
+#: ../../source/models/lora.rst:13
+msgid "Launch"
+msgstr "启动"
+
+#: ../../source/models/lora.rst:14
 msgid ""
 "Different from built-in models, xinference currently does not involve "
 "managing LoRA models. Users need to first download the LoRA model "
 "themselves and then provide the storage path of the model files to "
 "xinference."
 msgstr ""
-"不同于内置模型，Xinference 目前不会涉及管理 LoRA 模型。用户需要首先下载对应的 LoRA 模型，"
-"然后将模型存储路径提供给 Xinference 。"
+"不同于内置模型，Xinference 目前不会涉及管理 LoRA 模型。用户需要首先下载"
+"对应的 LoRA 模型，然后将模型存储路径提供给 Xinference 。"
 
-#: ../../source/models/lora.rst:38
+#: ../../source/models/lora.rst:54
+msgid "Apply"
+msgstr "应用"
+
+#: ../../source/models/lora.rst:55
+msgid ""
+"For LLM models, you can only configure one lora model you want when you "
+"use the model. Specifically, specify that the ``lora_name`` parameter be "
+"configured in the ``generate_config``. ``lora_name`` corresponds to the "
+"name of the lora in the LAUNCH procedure described above."
+msgstr ""
+"对于大语言模型，使用时指定其中一个 lora 。具体地，在 ``generate_config`` 参数中配置 ``lora_name`` 参数。"
+"``lora_name`` 对应 launch 过程中你的配置。"
+
+#: ../../source/models/lora.rst:75
 msgid "Note"
 msgstr "注意事项"
 
-#: ../../source/models/lora.rst:40
+#: ../../source/models/lora.rst:77
 msgid ""
 "The options ``image_lora_load_kwargs`` and ``image_lora_fuse_kwargs`` are"
 " only applicable to models with model_type ``image``. They correspond to "
@@ -53,18 +73,27 @@ msgid ""
 "of the ``diffusers`` library. If launching an LLM model, these parameters"
 " are not required."
 msgstr ""
-"上述 ``image_lora_load_kwargs`` 和 ``image_lora_fuse_kwargs`` 选项只应用于 ``image`` 模型。它们对应"
-"于 ``diffusers`` 库的 ``load_lora_weights`` 和 ``fuse_lora`` 接口中的额外参数。"
-"如果启动的是 ``LLM`` 模型，则无需设置这些选项。"
+"上述 ``image_lora_load_kwargs`` 和 ``image_lora_fuse_kwargs`` 选项只应用"
+"于 ``image`` 模型。它们对应于 ``diffusers`` 库的 ``load_lora_weights`` 和"
+" ``fuse_lora`` 接口中的额外参数。如果启动的是 ``LLM`` 模型，则无需设置"
+"这些选项。"
 
-#: ../../source/models/lora.rst:44
+#: ../../source/models/lora.rst:81
+msgid ""
+"You need to add the parameter lora_name during inference to specify the "
+"corresponding lora model. You can specify it in the Additional Inputs "
+"option."
+msgstr ""
+
+#: ../../source/models/lora.rst:83
 msgid ""
 "For LLM chat models, currently only LoRA models are supported that do not"
 " change the prompt style."
 msgstr ""
-"对于 ``LLM`` 聊天模型，当前仅支持那些微调后不更改原始基础模型的提示词模版的 LoRA 模型。"
+"对于 ``LLM`` 聊天模型，当前仅支持那些微调后不更改原始基础模型的提示词模版"
+"的 LoRA 模型。"
 
-#: ../../source/models/lora.rst:46
+#: ../../source/models/lora.rst:85
 msgid "When using GPU, both LoRA and its base model occupy the same devices."
-msgstr ""
-"使用 GPU 时，LoRA 模型与其基础模型在同样的设备上，不会对其他模型造成影响。"
+msgstr "使用 GPU 时，LoRA 模型与其基础模型在同样的设备上，不会对其他模型造成影响。"
+
