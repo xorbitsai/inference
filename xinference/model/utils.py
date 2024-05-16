@@ -19,6 +19,7 @@ from json import JSONDecodeError
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional, Tuple, Union
 
+import huggingface_hub
 from fsspec import AbstractFileSystem
 
 from ..constants import XINFERENCE_CACHE_DIR, XINFERENCE_ENV_MODEL_SRC
@@ -27,6 +28,7 @@ from .core import CacheableModelSpec
 
 logger = logging.getLogger(__name__)
 MAX_ATTEMPTS = 3
+IS_NEW_HUGGINGFACE = huggingface_hub.__version__ >= "0.23.0"
 
 
 def is_locale_chinese_simplified() -> bool:
@@ -311,31 +313,17 @@ def cache(model_spec: CacheableModelSpec, model_description_type: type):
                 relpath = os.path.relpath(os.path.join(subdir, file), download_dir)
                 symlink_local_file(os.path.join(subdir, file), cache_dir, relpath)
     else:
-        import huggingface_hub
         from huggingface_hub import snapshot_download as hf_download
 
-        if huggingface_hub.__version__ >= "0.23.0":
-            from pathlib import Path
-
-            from ..constants import XINFERENCE_ENV_HOME_PATH
-
-            home_path = os.environ.get(XINFERENCE_ENV_HOME_PATH)
-            if home_path is None:
-                home_path = str(Path.home())
-            real_path = home_path + "/.cache/huggingface/hub/" + model_spec.model_name
-
-            download_dir = retry_download(
+        if IS_NEW_HUGGINGFACE:
+            retry_download(
                 hf_download,
                 model_spec.model_name,
                 None,
                 model_spec.model_id,
                 revision=model_spec.model_revision,
-                local_dir=real_path,
+                local_dir=cache_dir,
             )
-            for subdir, dirs, files in os.walk(download_dir):
-                for file in files:
-                    relpath = os.path.relpath(os.path.join(subdir, file), download_dir)
-                    symlink_local_file(os.path.join(subdir, file), cache_dir, relpath)
         else:
             retry_download(
                 hf_download,

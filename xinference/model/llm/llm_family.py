@@ -34,6 +34,7 @@ from ..._compat import (
 )
 from ...constants import XINFERENCE_CACHE_DIR, XINFERENCE_MODEL_DIR
 from ..utils import (
+    IS_NEW_HUGGINGFACE,
     download_from_modelscope,
     is_valid_model_uri,
     parse_uri,
@@ -682,34 +683,10 @@ def cache_from_huggingface(
     ):
         return cache_dir
 
-    is_new_huggingface = huggingface_hub.__version__ >= "0.23.0"
-
     if llm_spec.model_format in ["pytorch", "gptq", "awq"]:
         assert isinstance(llm_spec, PytorchLLMSpecV1)
-        if is_new_huggingface:
-            from pathlib import Path
-
-            from ...constants import XINFERENCE_ENV_HOME_PATH
-
-            # If the model id contains quantization, then we should give each
-            # quantization a dedicated cache dir.
-            quant_suffix = ""
-            for q in llm_spec.quantizations:
-                if llm_spec.model_id and q in llm_spec.model_id:
-                    quant_suffix = q
-                    break
-            cache_dir_name = (
-                f"{llm_family.model_name}-{llm_spec.model_format}"
-                f"-{llm_spec.model_size_in_billions}b"
-            )
-            if quant_suffix:
-                cache_dir_name += f"-{quant_suffix}"
-            home_path = os.environ.get(XINFERENCE_ENV_HOME_PATH)
-            if home_path is None:
-                home_path = str(Path.home())
-            real_path = home_path + "/.cache/huggingface/hub/" + cache_dir_name
-
-            download_dir = retry_download(
+        if IS_NEW_HUGGINGFACE:
+            retry_download(
                 huggingface_hub.snapshot_download,
                 llm_family.model_name,
                 {
@@ -718,12 +695,8 @@ def cache_from_huggingface(
                 },
                 llm_spec.model_id,
                 revision=llm_spec.model_revision,
-                local_dir=real_path,
+                local_dir=cache_dir,
             )
-            for subdir, dirs, files in os.walk(download_dir):
-                for file in files:
-                    relpath = os.path.relpath(os.path.join(subdir, file), download_dir)
-                    symlink_local_file(os.path.join(subdir, file), cache_dir, relpath)
         else:
             retry_download(
                 huggingface_hub.snapshot_download,
@@ -744,31 +717,9 @@ def cache_from_huggingface(
             llm_spec, quantization
         )
 
-        if is_new_huggingface:
-            from pathlib import Path
-
-            from ...constants import XINFERENCE_ENV_HOME_PATH
-
-            # If the model id contains quantization, then we should give each
-            # quantization a dedicated cache dir.
-            quant_suffix = ""
-            for q in llm_spec.quantizations:
-                if llm_spec.model_id and q in llm_spec.model_id:
-                    quant_suffix = q
-                    break
-            cache_dir_name = (
-                f"{llm_family.model_name}-{llm_spec.model_format}"
-                f"-{llm_spec.model_size_in_billions}b"
-            )
-            if quant_suffix:
-                cache_dir_name += f"-{quant_suffix}"
-            home_path = os.environ.get(XINFERENCE_ENV_HOME_PATH)
-            if home_path is None:
-                home_path = str(Path.home())
-            real_path = home_path + "/.cache/huggingface/hub/" + cache_dir_name
-
-            for file_name in file_names:
-                download_path = retry_download(
+        for file_name in file_names:
+            if IS_NEW_HUGGINGFACE:
+                retry_download(
                     huggingface_hub.hf_hub_download,
                     llm_family.model_name,
                     {
@@ -778,11 +729,9 @@ def cache_from_huggingface(
                     llm_spec.model_id,
                     revision=llm_spec.model_revision,
                     filename=file_name,
-                    local_dir=real_path,
+                    local_dir=cache_dir,
                 )
-                symlink_local_file(download_path, cache_dir, file_name)
-        else:
-            for file_name in file_names:
+            else:
                 retry_download(
                     huggingface_hub.hf_hub_download,
                     llm_family.model_name,

@@ -259,9 +259,6 @@ def test_cache_from_huggingface_ggml():
     reason="Latest huggingface update download logic",
 )
 def test_cache_from_huggingface_pytorch_with_new_huggingface():
-    from pathlib import Path
-
-    from ....constants import XINFERENCE_ENV_HOME_PATH
     from ..llm_family import cache_from_huggingface
 
     spec = PytorchLLMSpecV1(
@@ -283,20 +280,10 @@ def test_cache_from_huggingface_pytorch_with_new_huggingface():
 
     cache_dir = cache_from_huggingface(family, spec, quantization=None)
 
-    cache_dir_name = (
-        f"{family.model_name}-{spec.model_format}" f"-{spec.model_size_in_billions}b"
-    )
-    home_path = os.environ.get(XINFERENCE_ENV_HOME_PATH)
-    if home_path is None:
-        home_path = str(Path.home())
-    real_path = home_path + "/.cache/huggingface/hub/" + cache_dir_name
-
     assert os.path.exists(cache_dir)
     assert os.path.exists(os.path.join(cache_dir, "README.md"))
-    assert os.path.islink(os.path.join(cache_dir, "README.md"))
-    assert os.path.exists(os.path.join(real_path, "README.md"))
+    assert not os.path.islink(os.path.join(cache_dir, "README.md"))
     shutil.rmtree(cache_dir)
-    shutil.rmtree(real_path)
 
 
 @pytest.mark.skipif(
@@ -304,9 +291,6 @@ def test_cache_from_huggingface_pytorch_with_new_huggingface():
     reason="Latest huggingface update download logic",
 )
 def test_cache_from_huggingface_ggml_with_new_huggingface():
-    from pathlib import Path
-
-    from ....constants import XINFERENCE_ENV_HOME_PATH
     from ..llm_family import cache_from_huggingface
 
     spec = GgmlLLMSpecV1(
@@ -332,20 +316,10 @@ def test_cache_from_huggingface_ggml_with_new_huggingface():
 
     cache_dir = cache_from_huggingface(family, spec, quantization="q4_0")
 
-    cache_dir_name = (
-        f"{family.model_name}-{spec.model_format}" f"-{spec.model_size_in_billions}b"
-    )
-    home_path = os.environ.get(XINFERENCE_ENV_HOME_PATH)
-    if home_path is None:
-        home_path = str(Path.home())
-    real_path = home_path + "/.cache/huggingface/hub/" + cache_dir_name
-
     assert os.path.exists(cache_dir)
     assert os.path.exists(os.path.join(cache_dir, "README.md"))
-    assert os.path.islink(os.path.join(cache_dir, "README.md"))
-    assert os.path.exists(os.path.join(real_path, "README.md"))
+    assert not os.path.islink(os.path.join(cache_dir, "README.md"))
     shutil.rmtree(cache_dir)
-    shutil.rmtree(real_path)
 
 
 def test_cache_from_uri_local():
