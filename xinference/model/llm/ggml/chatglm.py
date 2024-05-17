@@ -129,7 +129,7 @@ class ChatglmCppChatModel(LLM):
         prompt_tokens, completion_tokens, total_tokens = 0, 0, 0
         for token in tokens:
             prompt_tokens = len(input_ids)
-            completion_tokens += len(token.token_ids)
+            completion_tokens = completion_tokens + 1
             total_tokens = prompt_tokens + completion_tokens
             yield {
                 "id": "chat" + f"cmpl-{request_id}",
@@ -307,7 +307,7 @@ class ChatglmCppChatModel(LLM):
 
         params = {
             "max_length": generate_config.get("max_tokens"),
-            "max_context_length": generate_config.get("max_tokens"),
+            "max_context_length": generate_config.get("max_tokens", 1024),
             "top_k": generate_config.get("top_k"),
             "top_p": generate_config.get("top_p"),
             "temperature": generate_config.get("temperature"),
@@ -420,7 +420,7 @@ class ChatglmCppChatModel(LLM):
 
         params = {
             "max_length": generate_config.get("max_tokens"),
-            "max_context_length": generate_config.get("max_tokens"),
+            "max_context_length": generate_config.get("max_tokens", 1024),
             "top_k": generate_config.get("top_k"),
             "top_p": generate_config.get("top_p"),
             "temperature": generate_config.get("temperature"),
