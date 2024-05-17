@@ -316,19 +316,10 @@ def cache(model_spec: CacheableModelSpec, model_description_type: type):
         from huggingface_hub import snapshot_download as hf_download
 
         if IS_NEW_HUGGINGFACE:
-            # If the model id contains quantization, then we should give each
-            # quantization a dedicated cache dir.
-            quant_suffix = ""
-            for q in model_spec.quantizations:
-                if model_spec.model_id and q in model_spec.model_id:
-                    quant_suffix = q
-                    break
             cache_dir_name = (
                 f"{model_spec.model_name}-{model_spec.model_format}"
                 f"-{model_spec.model_size_in_billions}b"
             )
-            if quant_suffix:
-                cache_dir_name += f"-{quant_suffix}"
             real_dir = os.path.realpath(
                 os.path.join(XINFERENCE_HOME, "huggingface", cache_dir_name)
             )
