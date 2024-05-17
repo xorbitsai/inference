@@ -389,16 +389,10 @@ class ChatglmCppChatModel(LLM):
         yield {
             "id": "chat" + f"cmpl-{request_id}",
             "model": model_name,
-            "object": "chat.completion.chunk",
+            "object": "text_completion",
             "created": int(time.time()),
             "choices": [
-                {
-                    "index": 0,
-                    "delta": {
-                        "content": "",
-                    },
-                    "finish_reason": "stop",
-                }
+                {"index": 0, "text": "", "finish_reason": "stop", "logprobs": None}
             ],
         }
         if include_usage:
