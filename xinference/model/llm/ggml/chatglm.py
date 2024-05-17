@@ -164,7 +164,7 @@ class ChatglmCppChatModel(LLM):
                 }
             ],
         }
-        yield cast(CompletionChunk, chunk)
+        yield cast(ChatCompletionChunk, chunk)
         if include_usage:
             yield {
                 "id": "chat" + f"cmpl-{request_id}",
