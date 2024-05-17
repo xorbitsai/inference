@@ -22,7 +22,7 @@ from typing import Any, Callable, Dict, Optional, Tuple, Union
 import huggingface_hub
 from fsspec import AbstractFileSystem
 
-from ..constants import XINFERENCE_CACHE_DIR, XINFERENCE_ENV_MODEL_SRC
+from ..constants import XINFERENCE_CACHE_DIR, XINFERENCE_ENV_MODEL_SRC, XINFERENCE_HOME
 from ..device_utils import get_available_device, is_device_available
 from .core import CacheableModelSpec
 
@@ -316,14 +316,35 @@ def cache(model_spec: CacheableModelSpec, model_description_type: type):
         from huggingface_hub import snapshot_download as hf_download
 
         if IS_NEW_HUGGINGFACE:
-            retry_download(
+            # If the model id contains quantization, then we should give each
+            # quantization a dedicated cache dir.
+            quant_suffix = ""
+            for q in model_spec.quantizations:
+                if model_spec.model_id and q in model_spec.model_id:
+                    quant_suffix = q
+                    break
+            cache_dir_name = (
+                f"{model_spec.model_name}-{model_spec.model_format}"
+                f"-{model_spec.model_size_in_billions}b"
+            )
+            if quant_suffix:
+                cache_dir_name += f"-{quant_suffix}"
+            real_dir = os.path.realpath(
+                os.path.join(XINFERENCE_HOME, "huggingface", cache_dir_name)
+            )
+
+            download_dir = retry_download(
                 hf_download,
                 model_spec.model_name,
                 None,
                 model_spec.model_id,
                 revision=model_spec.model_revision,
-                local_dir=cache_dir,
+                local_dir=real_dir,
             )
+            for subdir, dirs, files in os.walk(download_dir):
+                for file in files:
+                    relpath = os.path.relpath(os.path.join(subdir, file), download_dir)
+                    symlink_local_file(os.path.join(subdir, file), cache_dir, relpath)
         else:
             retry_download(
                 hf_download,

@@ -32,7 +32,7 @@ from ..._compat import (
     load_str_bytes,
     validator,
 )
-from ...constants import XINFERENCE_CACHE_DIR, XINFERENCE_MODEL_DIR
+from ...constants import XINFERENCE_CACHE_DIR, XINFERENCE_HOME, XINFERENCE_MODEL_DIR
 from ..utils import (
     IS_NEW_HUGGINGFACE,
     download_from_modelscope,
@@ -686,7 +686,24 @@ def cache_from_huggingface(
     if llm_spec.model_format in ["pytorch", "gptq", "awq"]:
         assert isinstance(llm_spec, PytorchLLMSpecV1)
         if IS_NEW_HUGGINGFACE:
-            retry_download(
+            # If the model id contains quantization, then we should give each
+            # quantization a dedicated cache dir.
+            quant_suffix = ""
+            for q in llm_spec.quantizations:
+                if llm_spec.model_id and q in llm_spec.model_id:
+                    quant_suffix = q
+                    break
+            cache_dir_name = (
+                f"{llm_family.model_name}-{llm_spec.model_format}"
+                f"-{llm_spec.model_size_in_billions}b"
+            )
+            if quant_suffix:
+                cache_dir_name += f"-{quant_suffix}"
+
+            real_dir = os.path.realpath(
+                os.path.join(XINFERENCE_HOME, "huggingface", cache_dir_name)
+            )
+            download_dir = retry_download(
                 huggingface_hub.snapshot_download,
                 llm_family.model_name,
                 {
@@ -695,8 +712,12 @@ def cache_from_huggingface(
                 },
                 llm_spec.model_id,
                 revision=llm_spec.model_revision,
-                local_dir=cache_dir,
+                local_dir=real_dir,
             )
+            for subdir, dirs, files in os.walk(download_dir):
+                for file in files:
+                    relpath = os.path.relpath(os.path.join(subdir, file), download_dir)
+                    symlink_local_file(os.path.join(subdir, file), cache_dir, relpath)
         else:
             retry_download(
                 huggingface_hub.snapshot_download,
@@ -719,7 +740,24 @@ def cache_from_huggingface(
 
         for file_name in file_names:
             if IS_NEW_HUGGINGFACE:
-                retry_download(
+                # If the model id contains quantization, then we should give each
+                # quantization a dedicated cache dir.
+                quant_suffix = ""
+                for q in llm_spec.quantizations:
+                    if llm_spec.model_id and q in llm_spec.model_id:
+                        quant_suffix = q
+                        break
+                cache_dir_name = (
+                    f"{llm_family.model_name}-{llm_spec.model_format}"
+                    f"-{llm_spec.model_size_in_billions}b"
+                )
+                if quant_suffix:
+                    cache_dir_name += f"-{quant_suffix}"
+                real_dir = os.path.realpath(
+                    os.path.join(XINFERENCE_HOME, "huggingface", cache_dir_name)
+                )
+
+                download_path = retry_download(
                     huggingface_hub.hf_hub_download,
                     llm_family.model_name,
                     {
@@ -729,8 +767,10 @@ def cache_from_huggingface(
                     llm_spec.model_id,
                     revision=llm_spec.model_revision,
                     filename=file_name,
-                    local_dir=cache_dir,
+                    local_dir=real_dir,
                 )
+                symlink_local_file(download_path, cache_dir, file_name)
+
             else:
                 retry_download(
                     huggingface_hub.hf_hub_download,
