@@ -470,9 +470,7 @@ Begin!"""
                 {
                     "index": i,
                     "delta": {
-                        "content": None
-                        if choice["finish_reason"] is not None
-                        else choice["text"],
+                        "content": choice["text"],
                         **(
                             {"tool_calls": choice["tool_calls"]}
                             if "tool_calls" in choice

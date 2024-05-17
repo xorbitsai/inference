@@ -17,7 +17,7 @@ import os
 import time
 import uuid
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Iterator, List, Optional, Union, cast
+from typing import TYPE_CHECKING, Any, Iterator, List, Optional, Union
 
 from ....types import (
     SPECIAL_TOOL_PROMPT,
@@ -149,7 +149,7 @@ class ChatglmCppChatModel(LLM):
                 ],
             }
         # stop
-        chunk = {
+        yield {
             "id": "chat" + f"cmpl-{request_id}",
             "model": model_name,
             "object": "chat.completion.chunk",
@@ -158,13 +158,12 @@ class ChatglmCppChatModel(LLM):
                 {
                     "index": 0,
                     "delta": {
-                        "content": None,
+                        "content": "",
                     },
                     "finish_reason": "stop",
                 }
             ],
         }
-        yield cast(ChatCompletionChunk, chunk)
         if include_usage:
             yield {
                 "id": "chat" + f"cmpl-{request_id}",
@@ -387,7 +386,7 @@ class ChatglmCppChatModel(LLM):
             completion_tokens = i
             total_tokens = prompt_tokens + completion_tokens
         # stop
-        chunk = {
+        yield {
             "id": "chat" + f"cmpl-{request_id}",
             "model": model_name,
             "object": "chat.completion.chunk",
@@ -396,13 +395,12 @@ class ChatglmCppChatModel(LLM):
                 {
                     "index": 0,
                     "delta": {
-                        "content": None,
+                        "content": "",
                     },
                     "finish_reason": "stop",
                 }
             ],
         }
-        yield cast(CompletionChunk, chunk)
         if include_usage:
             yield {
                 "id": "chat" + f"cmpl-{request_id}",
