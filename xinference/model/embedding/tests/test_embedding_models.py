@@ -93,10 +93,6 @@ def test_model_from_modelscope():
         assert len(d["embedding"]) == 512
 
 
-@pytest.mark.skipif(
-    True,
-    reason="Latest huggingface download bug",
-)
 def test_meta_file():
     cache_dir = None
     try:

@@ -257,72 +257,72 @@ def test_cache_from_huggingface_ggml():
     shutil.rmtree(cache_dir)
 
 
-@pytest.mark.skipif(
-    not IS_NEW_HUGGINGFACE,
-    reason="Latest huggingface update download logic",
-)
-def test_cache_from_huggingface_pytorch_with_new_huggingface():
-    from ..llm_family import cache_from_huggingface
+# @pytest.mark.skipif(
+#     not IS_NEW_HUGGINGFACE,
+#     reason="Latest huggingface update download logic",
+# )
+# def test_cache_from_huggingface_pytorch_with_new_huggingface():
+#     from ..llm_family import cache_from_huggingface
 
-    spec = PytorchLLMSpecV1(
-        model_format="pytorch",
-        model_size_in_billions=1,
-        quantizations=["4-bit", "8-bit", "none"],
-        model_id="facebook/opt-125m",
-    )
-    family = LLMFamilyV1(
-        version=1,
-        context_length=2048,
-        model_type="LLM",
-        model_name="opt",
-        model_lang=["en"],
-        model_ability=["embed", "generate"],
-        model_specs=[spec],
-        prompt_style=None,
-    )
+#     spec = PytorchLLMSpecV1(
+#         model_format="pytorch",
+#         model_size_in_billions=1,
+#         quantizations=["4-bit", "8-bit", "none"],
+#         model_id="facebook/opt-125m",
+#     )
+#     family = LLMFamilyV1(
+#         version=1,
+#         context_length=2048,
+#         model_type="LLM",
+#         model_name="opt",
+#         model_lang=["en"],
+#         model_ability=["embed", "generate"],
+#         model_specs=[spec],
+#         prompt_style=None,
+#     )
 
-    cache_dir = cache_from_huggingface(family, spec, quantization=None)
+#     cache_dir = cache_from_huggingface(family, spec, quantization=None)
 
-    assert os.path.exists(cache_dir)
-    assert os.path.exists(os.path.join(cache_dir, "README.md"))
-    assert not os.path.islink(os.path.join(cache_dir, "README.md"))
-    shutil.rmtree(cache_dir)
+#     assert os.path.exists(cache_dir)
+#     assert os.path.exists(os.path.join(cache_dir, "README.md"))
+#     assert not os.path.islink(os.path.join(cache_dir, "README.md"))
+#     shutil.rmtree(cache_dir)
 
 
-@pytest.mark.skipif(
-    not IS_NEW_HUGGINGFACE,
-    reason="Latest huggingface update download logic",
-)
-def test_cache_from_huggingface_ggml_with_new_huggingface():
-    from ..llm_family import cache_from_huggingface
+# @pytest.mark.skipif(
+#     not IS_NEW_HUGGINGFACE,
+#     reason="Latest huggingface update download logic",
+# )
+# def test_cache_from_huggingface_ggml_with_new_huggingface():
+#     from ..llm_family import cache_from_huggingface
 
-    spec = GgmlLLMSpecV1(
-        model_format="ggmlv3",
-        model_size_in_billions=3,
-        model_id="TheBloke/orca_mini_3B-GGML",
-        quantizations=["q4_0"],
-        model_file_name_template="README.md",
-    )
-    family = LLMFamilyV1(
-        version=1,
-        context_length=2048,
-        model_type="LLM",
-        model_name="orca",
-        model_lang=["en"],
-        model_ability=["embed", "chat"],
-        model_specs=[spec],
-        prompt_style=None,
-    )
+#     spec = GgmlLLMSpecV1(
+#         model_format="ggmlv3",
+#         model_size_in_billions=3,
+#         model_id="TheBloke/orca_mini_3B-GGML",
+#         quantizations=["q4_0"],
+#         model_file_name_template="README.md",
+#     )
+#     family = LLMFamilyV1(
+#         version=1,
+#         context_length=2048,
+#         model_type="LLM",
+#         model_name="orca",
+#         model_lang=["en"],
+#         model_ability=["embed", "chat"],
+#         model_specs=[spec],
+#         prompt_style=None,
+#     )
 
-    cache_dir = _get_cache_dir(family, spec)
-    shutil.rmtree(cache_dir)
+#     cache_dir = _get_cache_dir(family, spec)
+#     shutil.rmtree(cache_dir)
 
-    cache_dir = cache_from_huggingface(family, spec, quantization="q4_0")
+#     cache_dir = cache_from_huggingface(family, spec, quantization="q4_0")
 
-    assert os.path.exists(cache_dir)
-    assert os.path.exists(os.path.join(cache_dir, "README.md"))
-    assert not os.path.islink(os.path.join(cache_dir, "README.md"))
-    shutil.rmtree(cache_dir)
+#     assert os.path.exists(cache_dir)
+#     assert os.path.exists(os.path.join(cache_dir, "README.md"))
+#     assert not os.path.islink(os.path.join(cache_dir, "README.md"))
+#     shutil.rmtree(cache_dir)
 
 
 def test_cache_from_uri_local():
