@@ -77,6 +77,7 @@ class VLLMGenerateConfig(TypedDict, total=False):
     stop_token_ids: Optional[List[int]]
     stop: Optional[Union[str, List[str]]]
     stream: bool  # non-sampling param, should not be passed to the engine.
+    stream_options: Optional[Union[dict, None]]
 
 
 try:
@@ -264,7 +265,10 @@ class VLLMModel(LLM):
         sanitized.setdefault(
             "stop_token_ids", generate_config.get("stop_token_ids", None)
         )
-        sanitized.setdefault("stream", generate_config.get("stream", None))
+        sanitized.setdefault("stream", generate_config.get("stream", False))
+        sanitized.setdefault(
+            "stream_options", generate_config.get("stream_options", None)
+        )
 
         return sanitized
 
@@ -391,6 +395,12 @@ class VLLMModel(LLM):
                     break
 
         stream = sanitized_generate_config.pop("stream")
+        stream_options = sanitized_generate_config.pop("stream_options", None)
+        include_usage = (
+            stream_options["include_usage"]
+            if isinstance(stream_options, dict)
+            else False
+        )
         sampling_params = SamplingParams(**sanitized_generate_config)
         request_id = str(uuid.uuid1())
 
@@ -402,6 +412,7 @@ class VLLMModel(LLM):
         async def stream_results() -> AsyncGenerator[CompletionChunk, None]:
             previous_texts = [""] * sanitized_generate_config["n"]
             tools_token_filter = ChatModelMixin._tools_token_filter(self.model_family)
+            prompt_tokens, completion_tokens, total_tokens = 0, 0, 0
             async for _request_output in results_generator:
                 chunk = self._convert_request_output_to_completion_chunk(
                     request_id=request_id,
@@ -446,6 +457,20 @@ class VLLMModel(LLM):
                     len(output.token_ids) for output in _request_output.outputs
                 )
                 total_tokens = prompt_tokens + completion_tokens
+                chunk["usage"] = CompletionUsage(
+                    prompt_tokens=prompt_tokens,
+                    completion_tokens=completion_tokens,
+                    total_tokens=total_tokens,
+                )
+                yield chunk
+            if include_usage:
+                chunk = CompletionChunk(
+                    id=request_id,
+                    object="text_completion",
+                    created=int(time.time()),
+                    model=self.model_uid,
+                    choices=[],
+                )
                 chunk["usage"] = CompletionUsage(
                     prompt_tokens=prompt_tokens,
                     completion_tokens=completion_tokens,

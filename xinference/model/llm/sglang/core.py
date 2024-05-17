@@ -53,6 +53,7 @@ class SGLANGGenerateConfig(TypedDict, total=False):
     stop: Optional[Union[str, List[str]]]
     ignore_eos: bool
     stream: bool
+    stream_options: Optional[Union[dict, None]]
 
 
 try:
@@ -157,6 +158,8 @@ class SGLANGModel(LLM):
         )
         generate_config.setdefault("stop", [])
         generate_config.setdefault("stream", False)
+        stream_options = generate_config.get("stream_options")
+        generate_config.setdefault("stream_options", stream_options)
         generate_config.setdefault("ignore_eos", False)
 
         return generate_config
@@ -192,7 +195,7 @@ class SGLANGModel(LLM):
 
     @staticmethod
     def _convert_state_to_completion_chunk(
-        request_id: str, model: str, output_text: str, meta_info: Dict
+        request_id: str, model: str, output_text: str
     ) -> CompletionChunk:
         choices: List[CompletionChoice] = [
             CompletionChoice(
@@ -208,13 +211,6 @@ class SGLANGModel(LLM):
             created=int(time.time()),
             model=model,
             choices=choices,
-        )
-        prompt_tokens = meta_info["prompt_tokens"]
-        completion_tokens = meta_info["completion_tokens"]
-        chunk["usage"] = CompletionUsage(
-            prompt_tokens=prompt_tokens,
-            completion_tokens=completion_tokens,
-            total_tokens=prompt_tokens + completion_tokens,
         )
         return chunk
 
@@ -272,6 +268,9 @@ class SGLANGModel(LLM):
             "Enter generate, prompt: %s, generate config: %s", prompt, generate_config
         )
         stream = sanitized_generate_config.pop("stream")
+        stream_options = sanitized_generate_config.pop("stream_options")
+        if isinstance(stream_options, dict):
+            include_usage = stream_options.pop("include_usage", False)
         request_id = str(uuid.uuid1())
         state = pipeline.run(
             question=prompt,
@@ -289,11 +288,34 @@ class SGLANGModel(LLM):
         else:
 
             async def stream_results() -> AsyncGenerator[CompletionChunk, None]:
+                prompt_tokens, completion_tokens, total_tokens = 0, 0, 0
                 async for out, meta_info in state.text_async_iter(
                     var_name="answer", return_meta_data=True
                 ):
                     chunk = self._convert_state_to_completion_chunk(
-                        request_id, self.model_uid, output_text=out, meta_info=meta_info
+                        request_id, self.model_uid, output_text=out
+                    )
+                    prompt_tokens = meta_info["prompt_tokens"]
+                    completion_tokens = meta_info["completion_tokens"]
+                    total_tokens = prompt_tokens + completion_tokens
+                    chunk["usage"] = CompletionUsage(
+                        prompt_tokens=prompt_tokens,
+                        completion_tokens=completion_tokens,
+                        total_tokens=total_tokens,
+                    )
+                    yield chunk
+                if include_usage:
+                    chunk = CompletionChunk(
+                        id=request_id,
+                        object="text_completion",
+                        created=int(time.time()),
+                        model=self.model_uid,
+                        choices=[],
+                    )
+                    chunk["usage"] = CompletionUsage(
+                        prompt_tokens=prompt_tokens,
+                        completion_tokens=completion_tokens,
+                        total_tokens=total_tokens,
                     )
                     yield chunk
 

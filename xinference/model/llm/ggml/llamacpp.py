@@ -14,6 +14,7 @@
 import datetime
 import logging
 import os
+import time
 from typing import Iterable, Iterator, List, Optional, Union
 
 from ....types import (
@@ -22,6 +23,7 @@ from ....types import (
     ChatCompletionMessage,
     Completion,
     CompletionChunk,
+    CompletionUsage,
     CreateCompletionLlamaCpp,
     Embedding,
     LlamaCppGenerateConfig,
@@ -195,16 +197,59 @@ class LlamaCppModel(LLM):
             _generate_config: LlamaCppGenerateConfig,
         ) -> Iterator[CompletionChunk]:
             assert self._llm is not None
-            for _completion_chunk in self._llm(prompt=_prompt, **_generate_config):
+            prompt_token_ids: List[int] = (
+                (
+                    self._llm.tokenize(prompt.encode("utf-8"), special=True)
+                    if prompt != ""
+                    else [self._llm.token_bos()]
+                )
+                if isinstance(prompt, str)
+                else prompt
+            )
+            prompt_tokens = len(prompt_token_ids)
+            completion_tokens, total_tokens = 0, 0
+            request_id = 0
+            for index, _completion_chunk in enumerate(
+                self._llm(prompt=_prompt, **_generate_config)
+            ):
+                request_id = _completion_chunk["id"]
+                choice = _completion_chunk["choices"][0]
+                if choice["finish_reason"] is not None:
+                    completion_tokens = index
+                total_tokens = prompt_tokens + completion_tokens
+                _completion_chunk["usage"] = CompletionUsage(
+                    prompt_tokens=total_tokens,
+                    completion_tokens=completion_tokens,
+                    total_tokens=total_tokens,
+                )
                 yield _completion_chunk
+            if include_usage:
+                chunk = CompletionChunk(
+                    id=request_id,
+                    object="text_completion",
+                    created=int(time.time()),
+                    model=self.model_uid,
+                    choices=[],
+                )
+                chunk["usage"] = CompletionUsage(
+                    prompt_tokens=prompt_tokens,
+                    completion_tokens=completion_tokens,
+                    total_tokens=total_tokens,
+                )
+                yield chunk
 
         logger.debug(
             "Enter generate, prompt: %s, generate config: %s", prompt, generate_config
         )
 
         generate_config = self._sanitize_generate_config(generate_config)
-
         stream = generate_config.get("stream", False)
+        stream_options = generate_config.pop("stream_options", None)
+        include_usage = (
+            stream_options["include_usage"]
+            if isinstance(stream_options, dict)
+            else False
+        )
 
         if not stream:
             assert self._llm is not None
