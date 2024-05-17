@@ -34,6 +34,7 @@ from ..._compat import (
 )
 from ...constants import XINFERENCE_CACHE_DIR, XINFERENCE_MODEL_DIR
 from ..utils import (
+    IS_NEW_HUGGINGFACE_HUB,
     download_from_modelscope,
     is_valid_model_uri,
     parse_uri,
@@ -682,6 +683,10 @@ def cache_from_huggingface(
     ):
         return cache_dir
 
+    use_symlinks = {}
+    if not IS_NEW_HUGGINGFACE_HUB:
+        use_symlinks = {"local_dir_use_symlinks": True}
+
     if llm_spec.model_format in ["pytorch", "gptq", "awq"]:
         assert isinstance(llm_spec, PytorchLLMSpecV1)
         retry_download(
@@ -694,7 +699,7 @@ def cache_from_huggingface(
             llm_spec.model_id,
             revision=llm_spec.model_revision,
             local_dir=cache_dir,
-            local_dir_use_symlinks=True,
+            **use_symlinks,
         )
 
     elif llm_spec.model_format in ["ggmlv3", "ggufv2"]:
@@ -715,7 +720,7 @@ def cache_from_huggingface(
                 revision=llm_spec.model_revision,
                 filename=file_name,
                 local_dir=cache_dir,
-                local_dir_use_symlinks=True,
+                **use_symlinks,
             )
 
         if need_merge:

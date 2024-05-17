@@ -186,6 +186,7 @@ def test_builtin_llm_families():
 
 
 def test_cache_from_huggingface_pytorch():
+    from ...utils import IS_NEW_HUGGINGFACE_HUB
     from ..llm_family import cache_from_huggingface
 
     spec = PytorchLLMSpecV1(
@@ -209,11 +210,13 @@ def test_cache_from_huggingface_pytorch():
 
     assert os.path.exists(cache_dir)
     assert os.path.exists(os.path.join(cache_dir, "README.md"))
-    assert os.path.islink(os.path.join(cache_dir, "README.md"))
+    if not IS_NEW_HUGGINGFACE_HUB:
+        assert os.path.islink(os.path.join(cache_dir, "README.md"))
     shutil.rmtree(cache_dir)
 
 
 def test_cache_from_huggingface_ggml():
+    from ...utils import IS_NEW_HUGGINGFACE_HUB
     from ..llm_family import cache_from_huggingface
 
     spec = GgmlLLMSpecV1(
@@ -241,7 +244,8 @@ def test_cache_from_huggingface_ggml():
 
     assert os.path.exists(cache_dir)
     assert os.path.exists(os.path.join(cache_dir, "README.md"))
-    assert os.path.islink(os.path.join(cache_dir, "README.md"))
+    if not IS_NEW_HUGGINGFACE_HUB:
+        assert os.path.islink(os.path.join(cache_dir, "README.md"))
     shutil.rmtree(cache_dir)
 
 
@@ -880,6 +884,7 @@ def test_skip_download_ggml():
 
 
 def test_get_cache_status_pytorch():
+    from ...utils import IS_NEW_HUGGINGFACE_HUB
     from ..llm_family import cache_from_huggingface, get_cache_status
 
     spec = PytorchLLMSpecV1(
@@ -911,11 +916,13 @@ def test_get_cache_status_pytorch():
 
     assert os.path.exists(cache_dir)
     assert os.path.exists(os.path.join(cache_dir, "README.md"))
-    assert os.path.islink(os.path.join(cache_dir, "README.md"))
+    if not IS_NEW_HUGGINGFACE_HUB:
+        assert os.path.islink(os.path.join(cache_dir, "README.md"))
     shutil.rmtree(cache_dir)
 
 
 def test_get_cache_status_ggml():
+    from ...utils import IS_NEW_HUGGINGFACE_HUB
     from ..llm_family import cache_from_huggingface, get_cache_status
 
     spec = GgmlLLMSpecV1(
@@ -948,7 +955,8 @@ def test_get_cache_status_ggml():
 
     assert os.path.exists(cache_dir)
     assert os.path.exists(os.path.join(cache_dir, "README.md"))
-    assert os.path.islink(os.path.join(cache_dir, "README.md"))
+    if not IS_NEW_HUGGINGFACE_HUB:
+        assert os.path.islink(os.path.join(cache_dir, "README.md"))
     shutil.rmtree(cache_dir)
 
 

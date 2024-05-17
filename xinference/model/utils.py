@@ -19,6 +19,7 @@ from json import JSONDecodeError
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional, Tuple, Union
 
+import huggingface_hub
 from fsspec import AbstractFileSystem
 
 from ..constants import XINFERENCE_CACHE_DIR, XINFERENCE_ENV_MODEL_SRC
@@ -27,6 +28,7 @@ from .core import CacheableModelSpec
 
 logger = logging.getLogger(__name__)
 MAX_ATTEMPTS = 3
+IS_NEW_HUGGINGFACE_HUB: bool = huggingface_hub.__version__ >= "0.23.0"
 
 
 def is_locale_chinese_simplified() -> bool:
@@ -313,6 +315,9 @@ def cache(model_spec: CacheableModelSpec, model_description_type: type):
     else:
         from huggingface_hub import snapshot_download as hf_download
 
+        use_symlinks = {}
+        if not IS_NEW_HUGGINGFACE_HUB:
+            use_symlinks = {"local_dir_use_symlinks": True}
         retry_download(
             hf_download,
             model_spec.model_name,
@@ -320,7 +325,7 @@ def cache(model_spec: CacheableModelSpec, model_description_type: type):
             model_spec.model_id,
             revision=model_spec.model_revision,
             local_dir=cache_dir,
-            local_dir_use_symlinks=True,
+            **use_symlinks,
         )
     with open(meta_path, "w") as f:
         import json

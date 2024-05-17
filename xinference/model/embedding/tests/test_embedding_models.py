@@ -155,7 +155,7 @@ def test_from_local_uri():
 
 def test_register_custom_embedding():
     from ....constants import XINFERENCE_CACHE_DIR
-    from ...utils import cache_from_uri
+    from ...utils import IS_NEW_HUGGINGFACE_HUB, cache_from_uri
     from ..custom import (
         CustomEmbeddingModelSpec,
         register_embedding,
@@ -178,7 +178,8 @@ def test_register_custom_embedding():
     cache_from_uri(model_spec)
     model_cache_path = os.path.join(XINFERENCE_CACHE_DIR, model_spec.model_name)
     assert os.path.exists(model_cache_path)
-    assert os.path.islink(model_cache_path)
+    if not IS_NEW_HUGGINGFACE_HUB:
+        assert os.path.islink(model_cache_path)
     os.remove(model_cache_path)
 
     # Invalid path
