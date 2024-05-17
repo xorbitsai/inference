@@ -35,6 +35,8 @@ from ..._compat import (
 from ...constants import XINFERENCE_CACHE_DIR, XINFERENCE_MODEL_DIR
 from ..utils import (
     IS_NEW_HUGGINGFACE_HUB,
+    create_symlink,
+    create_symlink_for_file,
     download_from_modelscope,
     is_valid_model_uri,
     parse_uri,
@@ -685,11 +687,11 @@ def cache_from_huggingface(
 
     use_symlinks = {}
     if not IS_NEW_HUGGINGFACE_HUB:
-        use_symlinks = {"local_dir_use_symlinks": True}
+        use_symlinks = {"local_dir_use_symlinks": True, "local_dir": cache_dir}
 
     if llm_spec.model_format in ["pytorch", "gptq", "awq"]:
         assert isinstance(llm_spec, PytorchLLMSpecV1)
-        retry_download(
+        download_dir = retry_download(
             huggingface_hub.snapshot_download,
             llm_family.model_name,
             {
@@ -698,9 +700,10 @@ def cache_from_huggingface(
             },
             llm_spec.model_id,
             revision=llm_spec.model_revision,
-            local_dir=cache_dir,
             **use_symlinks,
         )
+        if IS_NEW_HUGGINGFACE_HUB:
+            create_symlink(download_dir, cache_dir)
 
     elif llm_spec.model_format in ["ggmlv3", "ggufv2"]:
         assert isinstance(llm_spec, GgmlLLMSpecV1)
@@ -709,7 +712,7 @@ def cache_from_huggingface(
         )
 
         for file_name in file_names:
-            retry_download(
+            download_file_path = retry_download(
                 huggingface_hub.hf_hub_download,
                 llm_family.model_name,
                 {
@@ -719,9 +722,10 @@ def cache_from_huggingface(
                 llm_spec.model_id,
                 revision=llm_spec.model_revision,
                 filename=file_name,
-                local_dir=cache_dir,
                 **use_symlinks,
             )
+            if IS_NEW_HUGGINGFACE_HUB:
+                create_symlink_for_file(download_file_path, cache_dir)
 
         if need_merge:
             _merge_cached_files(cache_dir, file_names, final_file_name)

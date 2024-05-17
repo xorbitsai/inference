@@ -17,7 +17,6 @@ import os
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
-from pathlib import Path
 from typing import Union
 
 import pytest
@@ -49,6 +48,8 @@ class MockPytorchModel(MockNonPytorchModel, PytorchModel):
 @pytest.mark.asyncio
 @pytest.mark.parametrize("quantization", ["none"])
 async def test_opt_pytorch_model(setup, quantization):
+    from .....constants import XINFERENCE_CACHE_DIR
+
     endpoint, _ = setup
     client = Client(endpoint)
     assert len(client.list_models()) == 0
@@ -97,12 +98,11 @@ async def test_opt_pytorch_model(setup, quantization):
         assert len(client.list_models()) == 0
 
         # check for cached revision
-        home_address = str(Path.home())
-        snapshot_address = (
-            home_address
-            + "/.cache/huggingface/hub/models--facebook--opt-125m/snapshots"
+        valid_file = os.path.join(
+            XINFERENCE_CACHE_DIR, "opt-pytorch-1b", "__valid_download"
         )
-        actual_revision = os.listdir(snapshot_address)
+        with open(valid_file, "r") as f:
+            actual_revision = json.load(f)["revision"]
         model_name = "opt"
         expected_revision: Union[str, None] = ""  # type: ignore
 
@@ -112,7 +112,7 @@ async def test_opt_pytorch_model(setup, quantization):
             for spec in family.model_specs:
                 expected_revision = spec.model_revision
 
-        assert [expected_revision] == actual_revision
+        assert expected_revision == actual_revision
 
 
 @pytest.mark.asyncio

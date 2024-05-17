@@ -78,6 +78,18 @@ def symlink_local_file(path: str, local_dir: str, relpath: str) -> str:
     return local_dir_filepath
 
 
+def create_symlink(download_dir: str, cache_dir: str):
+    for subdir, dirs, files in os.walk(download_dir):
+        for file in files:
+            relpath = os.path.relpath(os.path.join(subdir, file), download_dir)
+            symlink_local_file(os.path.join(subdir, file), cache_dir, relpath)
+
+
+def create_symlink_for_file(file_path: str, cache_dir: str):
+    _, full_file_name = os.path.split(file_path)
+    os.symlink(file_path, os.path.join(cache_dir, full_file_name))
+
+
 def retry_download(
     download_func: Callable,
     model_name: str,
@@ -308,25 +320,23 @@ def cache(model_spec: CacheableModelSpec, model_description_type: type):
             model_spec.model_id,
             revision=model_spec.model_revision,
         )
-        for subdir, dirs, files in os.walk(download_dir):
-            for file in files:
-                relpath = os.path.relpath(os.path.join(subdir, file), download_dir)
-                symlink_local_file(os.path.join(subdir, file), cache_dir, relpath)
+        create_symlink(download_dir, cache_dir)
     else:
         from huggingface_hub import snapshot_download as hf_download
 
         use_symlinks = {}
         if not IS_NEW_HUGGINGFACE_HUB:
-            use_symlinks = {"local_dir_use_symlinks": True}
-        retry_download(
+            use_symlinks = {"local_dir_use_symlinks": True, "local_dir": cache_dir}
+        download_dir = retry_download(
             hf_download,
             model_spec.model_name,
             None,
             model_spec.model_id,
             revision=model_spec.model_revision,
-            local_dir=cache_dir,
             **use_symlinks,
         )
+        if IS_NEW_HUGGINGFACE_HUB:
+            create_symlink(download_dir, cache_dir)
     with open(meta_path, "w") as f:
         import json
 
