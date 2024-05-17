@@ -32,4 +32,4 @@ RUN python -m pip install --upgrade -i "$PIP_INDEX" pip && \
     pip install -i "$PIP_INDEX" opencv-contrib-python-headless && \
     # clean packages
     pip cache purge && \
-    conda clean --force-pkgs-dirs
+    conda clean --force-pkgs-dirs -y
