@@ -77,7 +77,7 @@ class VLLMGenerateConfig(TypedDict, total=False):
     stop_token_ids: Optional[List[int]]
     stop: Optional[Union[str, List[str]]]
     stream: bool  # non-sampling param, should not be passed to the engine.
-    stream_options: Optional[Union[dict | None]]
+    stream_options: Optional[Union[dict, None]]
 
 
 try:

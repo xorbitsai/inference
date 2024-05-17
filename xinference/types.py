@@ -188,7 +188,7 @@ class ChatglmCppGenerateConfig(TypedDict, total=False):
     temperature: float
     stream: bool
     lora_name: Optional[str]
-    stream_options: Optional[Union[dict | None]]
+    stream_options: Optional[Union[dict, None]]
 
 
 class QWenCppModelConfig(TypedDict, total=False):
@@ -233,7 +233,7 @@ class LlamaCppGenerateConfig(TypedDict, total=False):
     repetition_penalty: float
     top_k: int
     stream: bool
-    stream_options: Optional[Union[dict | None]]
+    stream_options: Optional[Union[dict, None]]
     tfs_z: float
     mirostat_mode: int
     mirostat_tau: float
@@ -283,7 +283,7 @@ class PytorchGenerateConfig(TypedDict, total=False):
     model: Optional[str]
     tools: Optional[List[Dict]]
     lora_name: Optional[str]
-    stream_options: Optional[Union[dict | None]]
+    stream_options: Optional[Union[dict, None]]
 
 
 class PytorchModelConfig(TypedDict, total=False):
@@ -355,7 +355,7 @@ class CreateCompletionTorch(BaseModel):
     stop: Optional[Union[str, List[str]]] = stop_field
     stop_token_ids: Optional[Union[int, List[int]]] = none_field
     stream: bool = stream_field
-    stream_options: Optional[dict] = stream_option_field
+    stream_options: Optional[Union[dict, None]] = stream_option_field
     stream_interval: int = stream_interval_field
     temperature: float = temperature_field
     top_p: float = top_p_field
@@ -373,7 +373,7 @@ try:
         include_fields={
             "grammar": (Optional[Any], None),
             "max_tokens": (Optional[int], max_tokens_field),
-            "stream_options": (Optional[dict], None),
+            "stream_options": (Optional[Union[dict, None]], None),
         },
     )
 except ImportError:
@@ -401,7 +401,7 @@ class _CreateCompletionOpenAIFallback(BaseModel):
     seed: Optional[int] = none_field
     stop: Optional[Union[str, List[str]]] = stop_field
     stream: bool = stream_field
-    stream_options: Optional[dict] = stream_option_field
+    stream_options: Optional[Union[dict, None]] = stream_option_field
     suffix: Optional[str] = none_field
     temperature: float = temperature_field
     top_p: float = top_p_field

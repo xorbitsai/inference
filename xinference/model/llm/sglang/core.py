@@ -53,7 +53,7 @@ class SGLANGGenerateConfig(TypedDict, total=False):
     stop: Optional[Union[str, List[str]]]
     ignore_eos: bool
     stream: bool
-    stream_options: Optional[Union[dict | None]]
+    stream_options: Optional[Union[dict, None]]
 
 
 try:
