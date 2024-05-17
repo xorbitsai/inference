@@ -102,6 +102,8 @@ class LlamaCppModel(LLM):
             generate_config = LlamaCppGenerateConfig(
                 **CreateCompletionLlamaCpp(**generate_config).dict()
             )
+        # Currently, llama.cpp does not support lora
+        generate_config.pop("lora_name", None)  # type: ignore
         return generate_config
 
     def _convert_ggml_to_gguf(self, model_path: str) -> str:

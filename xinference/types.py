@@ -373,6 +373,7 @@ try:
         include_fields={
             "grammar": (Optional[Any], None),
             "max_tokens": (Optional[int], max_tokens_field),
+            "lora_name": (Optional[str], None),
             "stream_options": (Optional[Union[dict, None]], None),
         },
     )
