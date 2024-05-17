@@ -85,11 +85,6 @@ def create_symlink(download_dir: str, cache_dir: str):
             symlink_local_file(os.path.join(subdir, file), cache_dir, relpath)
 
 
-def create_symlink_for_file(file_path: str, cache_dir: str):
-    _, full_file_name = os.path.split(file_path)
-    os.symlink(file_path, os.path.join(cache_dir, full_file_name))
-
-
 def retry_download(
     download_func: Callable,
     model_name: str,
