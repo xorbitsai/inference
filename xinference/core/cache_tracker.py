@@ -109,4 +109,5 @@ class CacheTrackerActor(xo.Actor):
                 if version_info["cache_status"]:
                     ret.append(version_info)
             cached_models[model_name] = ret
+            ret = []
         return cached_models
