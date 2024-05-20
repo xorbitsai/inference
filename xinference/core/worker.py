@@ -823,6 +823,9 @@ class WorkerActor(xo.StatelessActor):
             except asyncio.CancelledError:  # pragma: no cover
                 break
 
+    async def list_cached_models(self):
+        return self._cache_tracker_ref.list_cached_models()
+
     @staticmethod
     def record_metrics(name, op, kwargs):
         record_metrics(name, op, kwargs)

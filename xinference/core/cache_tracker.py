@@ -100,3 +100,13 @@ class CacheTrackerActor(xo.Actor):
 
     def get_model_version_count(self, model_name: str) -> int:
         return len(self.get_model_versions(model_name))
+
+    def list_cached_models(self):
+        cached_models = {}
+        ret = []
+        for model_name, model_versions in self._model_name_to_version_info.items():
+            for version_info in model_versions:
+                if version_info["cache_status"]:
+                    ret.append(version_info)
+            cached_models[model_name] = ret
+        return cached_models

@@ -588,15 +588,24 @@ def list_cached_model(
     endpoint: Optional[str],
     api_key: Optional[str],
 ):
+    from tabulate import tabulate
+
     endpoint = get_endpoint(endpoint)
     client = RESTfulClient(base_url=endpoint, api_key=api_key)
     if api_key is None:
         client._set_token(get_stored_token(endpoint, client))
 
     cached_models = client.list_model_cahced()
+
     print("cached_model: ")
-    for cache_model in cached_models:
-        print(cache_model["model_type"] + cache_model["model_name"])
+    headers = list(cached_models[0].keys())
+    table_data = []
+    for model in cached_models:
+        row_data = [
+            str(value) if value is not None else "-" for value in model.values()
+        ]
+        table_data.append(row_data)
+    print(tabulate(table_data, headers=headers, tablefmt="pretty"))
 
 
 @cli.command(

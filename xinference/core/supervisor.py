@@ -1043,94 +1043,30 @@ class SupervisorActor(xo.StatelessActor):
     @log_async(logger=logger)
     async def list_cached_models(self) -> List[Dict[str, Any]]:
         cached_models = []
-        # supervisor
-        supervisor_cached_models = await self._get_supervisor_cached_models()
-        cached_models = supervisor_cached_models
+        for worker in self._worker_address_to_worker.values():
+            ret = await worker.list_cached_models()
+            for model_name, model_versions in ret.items():
+                for model_version in model_versions:
+                    model_format = model_version.get("model_format", None)
+                    model_size_in_billions = model_version.get(
+                        "model_size_in_billions", None
+                    )
+                    quantizations = model_version.get("quantizations", None)
+                    re_dict = model_version.get("model_file_location", None)
+                    actor_ip_address, path = next(iter(re_dict.items()))
 
-        # worker
+                    cache_entry = {
+                        "model_family": model_name + " " + " family",
+                        "model_name": model_name,
+                        "model_format": model_format,
+                        "model_size_in_billions": model_size_in_billions,
+                        "quantizations": quantizations,
+                        "path": path,
+                        "Actor IP Address": actor_ip_address,
+                    }
+
+                    cached_models.append(cache_entry)
         return cached_models
-
-    @log_async(logger=logger)
-    async def _get_supervisor_cached_models(self) -> List[Dict[str, Any]]:
-        def sort_func(item):
-            assert isinstance(item["model_type"], str)
-            return item.get("model_type").lower()
-
-        from ..model.llm import BUILTIN_LLM_FAMILIES, get_user_defined_llm_families
-
-        ret = []
-        for family in BUILTIN_LLM_FAMILIES + get_user_defined_llm_families():
-            from ..model.llm import get_cache_status
-
-            specs = []
-            for spec in family.model_specs:
-                if get_cache_status(family, spec):
-                    specs.append({**spec.dict()})
-            if specs != []:
-                ret.append({"model_type": "LLM", **family.dict(), "specs": specs})
-
-        from ..model.embedding import BUILTIN_EMBEDDING_MODELS
-        from ..model.embedding.custom import get_user_defined_embeddings
-
-        for model_name, family in BUILTIN_EMBEDDING_MODELS.items():
-            from ..model.embedding import get_cache_status
-
-            if self.is_local_deployment():
-                if get_cache_status(family):
-                    ret.append({"model_type": "EMBEDDING", **family.dict()})
-
-        for family in get_user_defined_embeddings():
-            if self.is_local_deployment():
-                if get_cache_status(family):
-                    ret.append({"model_type": "EMBEDDING", **family.dict()})
-
-        from ..model.image import BUILTIN_IMAGE_MODELS
-        from ..model.image.custom import get_user_defined_images
-
-        for model_name, family in BUILTIN_IMAGE_MODELS.items():
-            from ..model.image import get_cache_status
-
-            if self.is_local_deployment():
-                if get_cache_status(family):
-                    ret.append({"model_type": "IMAGE", **family.dict()})
-
-        for family in get_user_defined_images():
-            if self.is_local_deployment():
-                if get_cache_status(family):
-                    ret.append({"model_type": "IMAGE", **family.dict()})
-
-        from ..model.audio import BUILTIN_AUDIO_MODELS
-        from ..model.audio.custom import get_user_defined_audios
-
-        for model_name, family in BUILTIN_AUDIO_MODELS.items():
-            from ..model.audio import get_cache_status
-
-            if self.is_local_deployment():
-                if get_cache_status(family):
-                    ret.append({"model_type": "AUDIO", **family.dict()})
-
-        for family in get_user_defined_audios():
-            if self.is_local_deployment():
-                if get_cache_status(family):
-                    ret.append({"model_type": "AUDIO", **family.dict()})
-
-        from ..model.rerank import BUILTIN_RERANK_MODELS
-        from ..model.rerank.custom import get_user_defined_reranks
-
-        for model_name, family in BUILTIN_RERANK_MODELS.items():
-            from ..model.rerank import get_cache_status
-
-            if self.is_local_deployment():
-                if get_cache_status(family):
-                    ret.append({"model_type": "RERANK", **family.dict()})
-
-        for family in get_user_defined_reranks():
-            if self.is_local_deployment():
-                if get_cache_status(family):
-                    ret.append({"model_type": "RERANK", **family.dict()})
-
-        ret.sort(key=sort_func)
-        return ret
 
     @log_async(logger=logger)
     async def add_worker(self, worker_address: str):
