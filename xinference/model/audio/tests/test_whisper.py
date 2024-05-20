@@ -18,6 +18,7 @@ import pytest
 import requests
 
 
+@pytest.mark.skip(reason="Too large model to be tested")
 def test_restful_api_for_whisper(setup):
     endpoint, _ = setup
     from ....client import Client
@@ -77,6 +78,64 @@ def test_restful_api_for_whisper(setup):
         assert "list" in translation
         assert "airlines" in translation
         assert "hong kong" in translation
+
+
+@pytest.mark.skip(reason="Too large model to be tested")
+def test_transcriptions_for_whisper(setup):
+    endpoint, _ = setup
+    from ....client import Client
+
+    client = Client(endpoint)
+
+    model_uid = client.launch_model(
+        model_uid="whisper-1",
+        model_name="whisper-large-v3",
+        model_type="audio",
+    )
+    model = client.get_model(model_uid)
+    response = requests.get("https://github.com/openai/whisper/raw/main/tests/jfk.flac")
+    audio = response.content
+
+    response = model.transcriptions(audio, response_format="verbose_json")
+    assert response["text"]
+    assert len(response["segments"]) == 3
+
+    seek_set = set()
+    for s in response["segments"]:
+        if s["seek"] in seek_set:
+            assert False, "incorrect seek"
+        seek_set.add(s["seek"])
+
+    response = model.transcriptions(
+        audio, response_format="verbose_json", timestamp_granularities=["word"]
+    )
+    assert response["text"]
+    assert len(response["words"]) == 22
+
+    zh_cn_audio_path = os.path.join(
+        os.path.dirname(__file__), "common_voice_zh-CN_38026095.mp3"
+    )
+
+    # Test openai API
+    import openai
+
+    client = openai.Client(api_key="not empty", base_url=f"{endpoint}/v1")
+    with open(zh_cn_audio_path, "rb") as f:
+        completion = client.audio.transcriptions.create(
+            model=model_uid,
+            file=f,
+            response_format="verbose_json",
+            timestamp_granularities=["segment"],
+        )
+        assert len(completion.segments) == 1
+
+        completion = client.audio.transcriptions.create(
+            model=model_uid,
+            file=f,
+            response_format="verbose_json",
+            timestamp_granularities=["word"],
+        )
+        assert len(completion.words) == 11
 
 
 def test_register_custom_audio():

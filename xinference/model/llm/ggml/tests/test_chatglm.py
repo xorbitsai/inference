@@ -22,9 +22,28 @@ from ...ggml.chatglm import ChatglmCppChatModel
 from ...llm_family import GgmlLLMSpecV1, LLMFamilyV1
 
 
+class MockTokenizer:
+    def __init__(self):
+        pass
+
+    def encode_messages(
+        self, text, max_length
+    ):  # real signature unknown; NOTE: unreliably restored from __doc__
+        """encode_messages(self: chatglm_cpp._C.BaseTokenizer, messages: List[chatglm_cpp._C.ChatMessage], max_length: int) -> List[int]"""
+        return []
+
+    def encode(self, text, max_length):  # real signature unknown; restored from __doc__
+        """encode(self: chatglm_cpp._C.BaseTokenizer, text: str, max_length: int) -> List[int]"""
+        return []
+
+
 class MockPipeline:
     def __init__(self) -> None:
         pass
+
+    tokenizer = property(
+        lambda self: MockTokenizer(), lambda self, v: None, lambda self: None
+    )  # default
 
     def chat(self, *args, **kwargs) -> Union[str, Iterator[str]]:
         stream = kwargs.get("stream", False)

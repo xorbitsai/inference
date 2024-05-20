@@ -69,3 +69,11 @@ jobs:
             docker tag "$DOCKER_ORG/xinference:${GIT_TAG}-cpu" "$DOCKER_ORG/xinference:latest-cpu"
             docker push "$DOCKER_ORG/xinference:latest-cpu"
           fi
+
+      - name: Clean docker image cache
+        shell: bash
+        if: ${{ github.repository == 'xorbitsai/inference' }}
+        env:
+          DOCKER_ORG: ${{ secrets.DOCKERHUB_USERNAME }}
+        run: |
+          docker system prune -f

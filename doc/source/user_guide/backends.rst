@@ -7,8 +7,8 @@ Backends
 Xinference supports multiple backends for different models. After the user specifies the model,
 xinference will automatically select the appropriate backend.
 
-llama-cpp-python
-~~~~~~~~~~~~~~~~
+llama.cpp
+~~~~~~~~~
 `llama-cpp-python <https://github.com/abetlen/llama-cpp-python>`_ is the python binding of
 `llama.cpp`. `llama-cpp` is developed based on the tensor library `ggml`, supporting inference of
 the LLaMA series models and their variants.
@@ -50,7 +50,7 @@ Currently, supported model includes:
 - ``baichuan``, ``baichuan-chat``, ``baichuan-2-chat``
 - ``internlm-16k``, ``internlm-chat-7b``, ``internlm-chat-8k``, ``internlm-chat-20b``
 - ``mistral-v0.1``, ``mistral-instruct-v0.1``, ``mistral-instruct-v0.2``
-- ``Yi``, ``Yi-chat``
+- ``Yi``, ``Yi-1.5``, ``Yi-chat``, ``Yi-1.5-chat``
 - ``code-llama``, ``code-llama-python``, ``code-llama-instruct``
 - ``c4ai-command-r-v01``, ``c4ai-command-r-v01-4bit``
 - ``vicuna-v1.3``, ``vicuna-v1.5``
@@ -64,3 +64,11 @@ Currently, supported model includes:
 - ``gemma-it``
 - ``orion-chat``, ``orion-chat-rag``
 .. vllm_end
+
+SGLang
+~~~~~~
+`SGLang <https://github.com/sgl-project/sglang>`_ has a high-performance inference runtime with RadixAttention.
+It significantly accelerates the execution of complex LLM programs by automatic KV cache reuse across multiple calls.
+And it also supports other common techniques like continuous batching and tensor parallelism.
+
+

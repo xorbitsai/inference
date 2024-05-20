@@ -22,7 +22,7 @@ logger = getLogger(__name__)
 class CacheTrackerActor(xo.Actor):
     def __init__(self):
         super().__init__()
-        self._model_name_to_version_info: Dict[str, List[Dict]] = {}
+        self._model_name_to_version_info: Dict[str, List[Dict]] = {}  # type: ignore
 
     @classmethod
     def uid(cls) -> str:

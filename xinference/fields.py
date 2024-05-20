@@ -32,7 +32,6 @@ logprobs_field = Field(
 max_tokens_field = Field(
     default=1024,
     ge=1,
-    le=32768,
     description="The maximum number of tokens to generate.",
 )
 
@@ -73,6 +72,13 @@ stop_field = Field(
 stream_field = Field(
     default=False,
     description="Whether to stream the results as they are generated. Useful for chatbots.",
+)
+
+stream_option_field = Field(
+    default={
+        "include_usage": False,
+    },
+    description="If set, an additional chunk will be streamed before the `data: [DONE]` message.",
 )
 
 top_k_field = Field(

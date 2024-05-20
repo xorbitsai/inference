@@ -13,7 +13,6 @@
 # limitations under the License.
 import json
 import typing
-import warnings
 from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Union
 
 import requests
@@ -566,6 +565,7 @@ class RESTfulAudioModelHandle(RESTfulModelHandle):
         prompt: Optional[str] = None,
         response_format: Optional[str] = "json",
         temperature: Optional[float] = 0,
+        timestamp_granularities: Optional[List[str]] = None,
     ):
         """
         Transcribes audio into the input language.
@@ -589,6 +589,11 @@ class RESTfulAudioModelHandle(RESTfulModelHandle):
             while lower values like 0.2 will make it more focused and deterministic.
             If set to 0, the model will use log probability to automatically increase the temperature
             until certain thresholds are hit.
+        timestamp_granularities: Optional[List[str]], default is None.
+            The timestamp granularities to populate for this transcription. response_format must be set verbose_json
+            to use timestamp granularities. Either or both of these options are supported: word, or segment.
+            Note: There is no additional latency for segment timestamps, but generating word timestamps incurs
+            additional latency.
 
         Returns
         -------
@@ -601,12 +606,13 @@ class RESTfulAudioModelHandle(RESTfulModelHandle):
             "prompt": prompt,
             "response_format": response_format,
             "temperature": temperature,
+            "timestamp_granularities[]": timestamp_granularities,
         }
         files: List[Any] = []
-        for key, value in params.items():
-            files.append((key, (None, value)))
         files.append(("file", ("file", audio, "application/octet-stream")))
-        response = requests.post(url, files=files, headers=self.auth_headers)
+        response = requests.post(
+            url, data=params, files=files, headers=self.auth_headers
+        )
         if response.status_code != 200:
             raise RuntimeError(
                 f"Failed to transcribe the audio, detail: {_get_error_string(response)}"
@@ -618,9 +624,11 @@ class RESTfulAudioModelHandle(RESTfulModelHandle):
     def translations(
         self,
         audio: bytes,
+        language: Optional[str] = None,
         prompt: Optional[str] = None,
         response_format: Optional[str] = "json",
         temperature: Optional[float] = 0,
+        timestamp_granularities: Optional[List[str]] = None,
     ):
         """
         Translates audio into English.
@@ -631,6 +639,9 @@ class RESTfulAudioModelHandle(RESTfulModelHandle):
         audio: bytes
             The audio file object (not file name) to transcribe, in one of these formats: flac, mp3, mp4, mpeg,
             mpga, m4a, ogg, wav, or webm.
+        language: Optional[str]
+            The language of the input audio. Supplying the input language in ISO-639-1
+            (https://en.wikipedia.org/wiki/List_of_ISO_639_language_codes) format will improve accuracy and latency.
         prompt: Optional[str]
             An optional text to guide the model's style or continue a previous audio segment.
             The prompt should match the audio language.
@@ -641,6 +652,11 @@ class RESTfulAudioModelHandle(RESTfulModelHandle):
             while lower values like 0.2 will make it more focused and deterministic.
             If set to 0, the model will use log probability to automatically increase the temperature
             until certain thresholds are hit.
+        timestamp_granularities: Optional[List[str]], default is None.
+            The timestamp granularities to populate for this transcription. response_format must be set verbose_json
+            to use timestamp granularities. Either or both of these options are supported: word, or segment.
+            Note: There is no additional latency for segment timestamps, but generating word timestamps incurs
+            additional latency.
 
         Returns
         -------
@@ -649,15 +665,17 @@ class RESTfulAudioModelHandle(RESTfulModelHandle):
         url = f"{self._base_url}/v1/audio/translations"
         params = {
             "model": self._model_uid,
+            "language": language,
             "prompt": prompt,
             "response_format": response_format,
             "temperature": temperature,
+            "timestamp_granularities[]": timestamp_granularities,
         }
         files: List[Any] = []
-        for key, value in params.items():
-            files.append((key, (None, value)))
         files.append(("file", ("file", audio, "application/octet-stream")))
-        response = requests.post(url, files=files, headers=self.auth_headers)
+        response = requests.post(
+            url, data=params, files=files, headers=self.auth_headers
+        )
         if response.status_code != 200:
             raise RuntimeError(
                 f"Failed to translate the audio, detail: {_get_error_string(response)}"
@@ -753,56 +771,6 @@ class Client:
         response_data = response.json()
         model_list = response_data["data"]
         return {item["id"]: item for item in model_list}
-
-    def launch_speculative_llm(
-        self,
-        model_name: str,
-        model_size_in_billions: Optional[Union[int, str, float]],
-        quantization: Optional[str],
-        draft_model_name: str,
-        draft_model_size_in_billions: Optional[int],
-        draft_quantization: Optional[str],
-        n_gpu: Optional[Union[int, str]] = "auto",
-    ):
-        """
-        Launch the LLM along with a draft model based on the parameters on the server via RESTful APIs. This is an
-        experimental feature and the API may change in the future.
-
-        Returns
-        -------
-        str
-            The unique model_uid for the launched model.
-
-        """
-        warnings.warn(
-            "`launch_speculative_llm` is an experimental feature and the API may change in the future."
-        )
-
-        # convert float to int or string since the RESTful API does not accept float.
-        if isinstance(model_size_in_billions, float):
-            model_size_in_billions = convert_float_to_int_or_str(model_size_in_billions)
-
-        payload = {
-            "model_uid": None,
-            "model_name": model_name,
-            "model_size_in_billions": model_size_in_billions,
-            "quantization": quantization,
-            "draft_model_name": draft_model_name,
-            "draft_model_size_in_billions": draft_model_size_in_billions,
-            "draft_quantization": draft_quantization,
-            "n_gpu": n_gpu,
-        }
-
-        url = f"{self.base_url}/experimental/speculative_llms"
-        response = requests.post(url, json=payload, headers=self._headers)
-        if response.status_code != 200:
-            raise RuntimeError(
-                f"Failed to launch model, detail: {_get_error_string(response)}"
-            )
-
-        response_data = response.json()
-        model_uid = response_data["model_uid"]
-        return model_uid
 
     def launch_model(
         self,

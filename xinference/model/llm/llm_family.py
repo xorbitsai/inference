@@ -166,7 +166,7 @@ class CustomLLMFamilyV1(LLMFamilyV1):
             )
         if (
             llm_spec.model_family != "other"
-            and "tool_call" in llm_spec.model_ability
+            and "tools" in llm_spec.model_ability
             and llm_spec.model_family not in BUILTIN_LLM_MODEL_TOOL_CALL_FAMILIES
         ):
             raise ValueError(
@@ -232,7 +232,7 @@ BUILTIN_LLM_FAMILIES: List["LLMFamilyV1"] = []
 BUILTIN_MODELSCOPE_LLM_FAMILIES: List["LLMFamilyV1"] = []
 
 SGLANG_CLASSES: List[Type[LLM]] = []
-PYTORCH_CLASSES: List[Type[LLM]] = []
+TRANSFORMERS_CLASSES: List[Type[LLM]] = []
 
 UD_LLM_FAMILIES: List["LLMFamilyV1"] = []
 

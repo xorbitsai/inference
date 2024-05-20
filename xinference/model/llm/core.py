@@ -19,6 +19,7 @@ import os
 import platform
 from abc import abstractmethod
 from collections import defaultdict
+from functools import lru_cache
 from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, Union
 
 from ...core.utils import parse_replica_model_uid
@@ -64,16 +65,6 @@ class LLM(abc.ABC):
             raise ValueError(f"Unrecognized keyword arguments: {kwargs}")
 
     @staticmethod
-    def handle_model_size(model_size_in_billions: Union[str, int]) -> Union[int, float]:
-        if isinstance(model_size_in_billions, str):
-            if "_" in model_size_in_billions:
-                ms = model_size_in_billions.replace("_", ".")
-                return float(ms)
-            else:
-                raise ValueError("Invalid format for `model_size_in_billions`")
-        return model_size_in_billions
-
-    @staticmethod
     def _is_darwin_and_apple_silicon():
         return platform.system() == "Darwin" and platform.processor() == "arm"
 
@@ -82,6 +73,7 @@ class LLM(abc.ABC):
         return platform.system() == "Linux"
 
     @staticmethod
+    @lru_cache
     def _has_cuda_device():
         """
         Use pynvml to impl this interface.
@@ -104,6 +96,7 @@ class LLM(abc.ABC):
         return device_count > 0
 
     @staticmethod
+    @lru_cache
     def _get_cuda_count():
         from ...utils import cuda_count
 
@@ -253,65 +246,6 @@ def create_llm_model_instance(
         model = llm_cls(
             model_uid, llm_family, llm_spec, quantization, save_path, kwargs
         )
-    return model, LLMDescription(
-        subpool_addr, devices, llm_family, llm_spec, quantization
-    )
-
-
-def create_speculative_llm_model_instance(
-    subpool_addr: str,
-    devices: List[str],
-    model_uid: str,
-    model_name: str,
-    model_size_in_billions: Optional[Union[int, str]],
-    quantization: Optional[str],
-    draft_model_name: str,
-    draft_model_size_in_billions: Optional[int],
-    draft_quantization: Optional[str],
-) -> Tuple[LLM, LLMDescription]:
-    from . import match_llm
-    from .llm_family import cache
-
-    match_result = match_llm(
-        model_name, "pytorch", model_size_in_billions, quantization
-    )
-
-    if not match_result:
-        raise ValueError(
-            f"Model not found, name: {model_name}, format: pytorch,"
-            f" size: {model_size_in_billions}, quantization: {quantization}"
-        )
-    llm_family, llm_spec, quantization = match_result
-    assert quantization is not None
-    save_path = cache(llm_family, llm_spec, quantization)
-
-    draft_match_result = match_llm(
-        draft_model_name, "pytorch", draft_model_size_in_billions, draft_quantization
-    )
-
-    if not draft_match_result:
-        raise ValueError(
-            f"Model not found, name: {draft_model_name}, format: pytorch,"
-            f" size: {draft_model_size_in_billions}, quantization: {draft_quantization}"
-        )
-    draft_llm_family, draft_llm_spec, draft_quantization = draft_match_result
-    assert draft_quantization is not None
-    draft_save_path = cache(draft_llm_family, draft_llm_spec, draft_quantization)
-
-    from .pytorch.spec_model import SpeculativeModel
-
-    model = SpeculativeModel(
-        model_uid,
-        model_family=llm_family,
-        model_spec=llm_spec,
-        quantization=quantization,
-        model_path=save_path,
-        draft_model_family=draft_llm_family,
-        draft_model_spec=draft_llm_spec,
-        draft_quantization=draft_quantization,
-        draft_model_path=draft_save_path,
-    )
-
     return model, LLMDescription(
         subpool_addr, devices, llm_family, llm_spec, quantization
     )

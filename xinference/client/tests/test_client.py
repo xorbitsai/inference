@@ -22,230 +22,12 @@ import pytest
 import requests
 
 from ...constants import XINFERENCE_ENV_MODEL_SRC
-from ..oscar.actor_client import ActorClient, ChatModelHandle, EmbeddingModelHandle
 from ..restful.restful_client import Client as RESTfulClient
 from ..restful.restful_client import (
     RESTfulChatModelHandle,
     RESTfulEmbeddingModelHandle,
     _get_error_string,
 )
-
-
-@pytest.mark.skipif(os.name == "nt", reason="Skip windows")
-@pytest.mark.asyncio
-async def test_client(setup):
-    endpoint, _ = setup
-    client = ActorClient(endpoint)
-    assert len(client.list_models()) == 0
-
-    model_uid = client.launch_model(
-        model_name="orca",
-        model_engine="llama-cpp-python",
-        model_size_in_billions=3,
-        quantization="q4_0",
-    )
-    assert len(client.list_models()) == 1
-
-    model = client.get_model(model_uid=model_uid)
-    assert isinstance(model, ChatModelHandle)
-
-    completion = model.chat("write a poem.")
-    assert "content" in completion["choices"][0]["message"]
-
-    completion = model.chat("write a poem.", generate_config={"stream": True})
-    with pytest.raises(Exception, match="Parallel generation"):
-        model.chat("write a poem.", generate_config={"stream": True})
-    del completion
-    completion = model.chat("write a poem.", generate_config={"stream": True})
-    async for chunk in completion:
-        assert chunk
-        assert isinstance(chunk, dict)
-    del completion
-
-    client.terminate_model(model_uid=model_uid)
-    assert len(client.list_models()) == 0
-
-    model_uid = client.launch_model(
-        model_name="orca",
-        model_engine="llama-cpp-python",
-        model_size_in_billions=3,
-        quantization="q4_0",
-    )
-
-    model = client.get_model(model_uid=model_uid)
-
-    client.terminate_model(model_uid=model_uid)
-    assert len(client.list_models()) == 0
-
-    with pytest.raises(ValueError):
-        client.launch_model(
-            model_name="orca",
-            model_engine="llama-cpp-python",
-            model_size_in_billions=3,
-            quantization="q4_0",
-            n_gpu=100,
-        )
-
-    with pytest.raises(ValueError):
-        client.launch_model(
-            model_name="orca",
-            model_engine="llama-cpp-python",
-            model_size_in_billions=3,
-            quantization="q4_0",
-            n_gpu="abcd",
-        )
-
-
-def test_client_for_model_uid(setup):
-    endpoint, _ = setup
-    client = ActorClient(endpoint)
-    assert len(client.list_models()) == 0
-
-    model_uid = client.launch_model(
-        model_name="orca",
-        model_engine="llama-cpp-python",
-        model_size_in_billions=3,
-        quantization="q4_0",
-    )
-    assert len(client.list_models()) == 1
-    assert model_uid == "orca"
-
-    model_uid2 = client.launch_model(
-        model_name="orca",
-        model_engine="llama-cpp-python",
-        model_size_in_billions=3,
-        quantization="q4_0",
-    )
-    assert len(client.list_models()) == 2
-    assert len(model_uid2) == len("orca") + 9
-    assert model_uid2.startswith("orca")
-
-    client.terminate_model(model_uid=model_uid)
-    client.terminate_model(model_uid=model_uid2)
-    assert len(client.list_models()) == 0
-
-
-def test_client_for_embedding(setup):
-    endpoint, _ = setup
-    client = ActorClient(endpoint)
-    assert len(client.list_models()) == 0
-
-    model_uid = client.launch_model(
-        model_name="bge-small-en-v1.5", model_type="embedding"
-    )
-    assert len(client.list_models()) == 1
-
-    model = client.get_model(model_uid=model_uid)
-    assert isinstance(model, EmbeddingModelHandle)
-
-    completion = model.create_embedding("write a poem.")
-    assert len(completion["data"][0]["embedding"]) == 384
-
-    kwargs = {
-        "invalid": "invalid",
-    }
-    with pytest.raises(TypeError) as err:
-        completion = model.create_embedding("write a poem.", **kwargs)
-    assert "unexpected" in str(err.value)
-
-    client.terminate_model(model_uid=model_uid)
-    assert len(client.list_models()) == 0
-
-
-@pytest.mark.skipif(os.name == "nt", reason="Skip windows")
-def test_replica_model(setup):
-    endpoint, _ = setup
-    client = ActorClient(endpoint)
-    assert len(client.list_models()) == 0
-
-    # Windows CI has limited resources, use replica 1
-    replica = 1 if os.name == "nt" else 2
-    model_uid = client.launch_model(
-        model_name="orca",
-        model_engine="llama-cpp-python",
-        model_size_in_billions=3,
-        quantization="q4_0",
-        replica=replica,
-    )
-    # Only one model with 2 replica
-    assert len(client.list_models()) == 1
-
-    replica_uids = set()
-    while len(replica_uids) != replica:
-        model = client.get_model(model_uid=model_uid)
-        replica_uids.add(model._model_ref.uid)
-
-    client2 = RESTfulClient(endpoint)
-    info = client2.describe_model(model_uid=model_uid)
-    assert "address" in info
-    assert "accelerators" in info
-    assert info["replica"] == replica
-
-    client.terminate_model(model_uid=model_uid)
-    assert len(client.list_models()) == 0
-
-
-def test_client_custom_model(setup):
-    endpoint, _ = setup
-    client = ActorClient(endpoint)
-
-    model_regs = client.list_model_registrations(model_type="LLM")
-    assert len(model_regs) > 0
-    for model_reg in model_regs:
-        assert model_reg["is_builtin"]
-
-    model = """{
-  "version": 1,
-  "context_length":2048,
-  "model_name": "custom_model",
-  "model_lang": [
-    "en", "zh"
-  ],
-  "model_ability": [
-    "embed",
-    "chat"
-  ],
-  "model_family": "other",
-  "model_specs": [
-    {
-      "model_format": "pytorch",
-      "model_size_in_billions": 7,
-      "quantizations": [
-        "4-bit",
-        "8-bit",
-        "none"
-      ],
-      "model_id": "ziqingyang/chinese-alpaca-2-7b"
-    }
-  ],
-  "prompt_style": {
-    "style_name": "ADD_COLON_SINGLE",
-    "system_prompt": "Below is an instruction that describes a task. Write a response that appropriately completes the request.",
-    "roles": [
-      "Instruction",
-      "Response"
-    ],
-    "intra_message_sep": "\\n\\n### "
-  }
-}"""
-    client.register_model(model_type="LLM", model=model, persist=False)
-
-    new_model_regs = client.list_model_registrations(model_type="LLM")
-    assert len(new_model_regs) == len(model_regs) + 1
-    custom_model_reg = None
-    for model_reg in new_model_regs:
-        if model_reg["model_name"] == "custom_model":
-            custom_model_reg = model_reg
-    assert custom_model_reg is not None
-
-    client.unregister_model(model_type="LLM", model_name="custom_model")
-    new_model_regs = client.list_model_registrations(model_type="LLM")
-    assert len(new_model_regs) == len(model_regs)
-    custom_model_reg = None
-    for model_reg in new_model_regs:
-        if model_reg["model_name"] == "custom_model":
-            custom_model_reg = model_reg
-    assert custom_model_reg is None
 
 
 @pytest.mark.skipif(os.name == "nt", reason="Skip windows")
@@ -256,7 +38,7 @@ def test_RESTful_client(setup):
 
     model_uid = client.launch_model(
         model_name="orca",
-        model_engine="llama-cpp-python",
+        model_engine="llama.cpp",
         model_size_in_billions=3,
         quantization="q4_0",
     )
@@ -329,7 +111,7 @@ def test_RESTful_client(setup):
 
     model_uid = client.launch_model(
         model_name="tiny-llama",
-        model_engine="llama-cpp-python",
+        model_engine="llama.cpp",
         model_size_in_billions=1,
         model_format="ggufv2",
         quantization="q2_K",
@@ -376,7 +158,7 @@ def test_RESTful_client(setup):
 
     model_uid2 = client.launch_model(
         model_name="orca",
-        model_engine="llama-cpp-python",
+        model_engine="llama.cpp",
         model_size_in_billions=3,
         quantization="q4_0",
     )
@@ -544,7 +326,7 @@ def test_client_from_modelscope(setup):
         assert len(client.list_models()) == 0
 
         model_uid = client.launch_model(
-            model_name="tiny-llama", model_engine="llama-cpp-python"
+            model_name="tiny-llama", model_engine="llama.cpp"
         )
         assert len(client.list_models()) == 1
         model = client.get_model(model_uid=model_uid)
@@ -660,7 +442,7 @@ def test_auto_recover(set_auto_recover_limit, setup_cluster):
 
     model_uid = client.launch_model(
         model_name="orca",
-        model_engine="llama-cpp-python",
+        model_engine="llama.cpp",
         model_size_in_billions=3,
         quantization="q4_0",
     )

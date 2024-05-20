@@ -58,16 +58,20 @@ const ModelCard = ({
 
   // Model parameter selections
   const [modelUID, setModelUID] = useState('')
+  const [modelEngine, setModelEngine] = useState('')
   const [modelFormat, setModelFormat] = useState('')
   const [modelSize, setModelSize] = useState('')
   const [quantization, setQuantization] = useState('')
   const [nGPU, setNGPU] = useState('auto')
+  const [nGpu, setNGpu] = useState(gpuAvailable === 0 ? 'CPU' : 'GPU')
   const [nGPULayers, setNGPULayers] = useState(-1)
   const [replica, setReplica] = useState(1)
   const [requestLimits, setRequestLimits] = useState('')
   const [workerIp, setWorkerIp] = useState('')
   const [GPUIdx, setGPUIdx] = useState('')
 
+  const [enginesObj, setEnginesObj] = useState({})
+  const [engineOptions, setEngineOptions] = useState([])
   const [formatOptions, setFormatOptions] = useState([])
   const [sizeOptions, setSizeOptions] = useState([])
   const [quantizationOptions, setQuantizationOptions] = useState([])
@@ -96,50 +100,56 @@ const ModelCard = ({
     return size.toString().includes('_') ? size : parseInt(size, 10)
   }
 
-  // UseEffects for parameter selection, change options based on previous selections
   useEffect(() => {
-    if (modelData) {
-      if (modelData.model_specs) {
-        const modelFamily = modelData.model_specs
-        const formats = [
-          ...new Set(modelFamily.map((spec) => spec.model_format)),
-        ]
-        setFormatOptions(formats)
+    setModelFormat('')
+    if (modelEngine) {
+      const format = [
+        ...new Set(enginesObj[modelEngine].map((item) => item.model_format)),
+      ]
+      setFormatOptions(format)
+      if (format.length === 1) {
+        setModelFormat(format[0])
       }
     }
-  }, [modelData])
+  }, [modelEngine])
 
   useEffect(() => {
-    if (modelFormat && modelData) {
-      const modelFamily = modelData.model_specs
+    setModelSize('')
+    if (modelEngine && modelFormat) {
       const sizes = [
         ...new Set(
-          modelFamily
-            .filter((spec) => spec.model_format === modelFormat)
-            .map((spec) => spec.model_size_in_billions)
+          enginesObj[modelEngine]
+            .filter((item) => item.model_format === modelFormat)
+            .map((item) => item.model_size_in_billions)
         ),
       ]
       setSizeOptions(sizes)
+      if (sizes.length === 1) {
+        setModelSize(sizes[0])
+      }
     }
-  }, [modelFormat, modelData])
+  }, [modelEngine, modelFormat])
 
   useEffect(() => {
-    if (modelFormat && modelSize && modelData) {
-      const modelFamily = modelData.model_specs
+    setQuantization('')
+    if (modelEngine && modelFormat && modelSize) {
       const quants = [
         ...new Set(
-          modelFamily
+          enginesObj[modelEngine]
             .filter(
-              (spec) =>
-                spec.model_format === modelFormat &&
-                spec.model_size_in_billions === convertModelSize(modelSize)
+              (item) =>
+                item.model_format === modelFormat &&
+                item.model_size_in_billions === convertModelSize(modelSize)
             )
-            .flatMap((spec) => spec.quantizations)
+            .flatMap((item) => item.quantizations)
         ),
       ]
       setQuantizationOptions(quants)
+      if (quants.length === 1) {
+        setQuantization(quants[0])
+      }
     }
-  }, [modelFormat, modelSize, modelData])
+  }, [modelEngine, modelFormat, modelSize])
 
   useEffect(() => {
     if (parentRef.current) {
@@ -158,6 +168,45 @@ const ModelCard = ({
     return ['auto', 'CPU'].concat(range(1, gpuAvailable))
   }
 
+  const getNewNGPURange = () => {
+    if (gpuAvailable === 0) {
+      return ['CPU']
+    } else {
+      return ['GPU', 'CPU']
+    }
+  }
+
+  const getModelEngine = (model_name) => {
+    fetcher(url + `/v1/engines/${model_name}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+      .then((response) => {
+        if (!response.ok) {
+          // Assuming the server returns error details in JSON format
+          response.json().then((errorData) => {
+            setErrorMsg(
+              `Server error: ${response.status} - ${
+                errorData.detail || 'Unknown error'
+              }`
+            )
+          })
+        } else {
+          response.json().then((data) => {
+            setEnginesObj(data)
+            setEngineOptions(Object.keys(data))
+          })
+        }
+        setIsCallingApi(false)
+      })
+      .catch((error) => {
+        console.error('Error:', error)
+        setIsCallingApi(false)
+      })
+  }
+
   const launchModel = (url) => {
     if (isCallingApi || isUpdatingModel) {
       return
@@ -170,6 +219,7 @@ const ModelCard = ({
       model_uid: modelUID.trim() === '' ? null : modelUID.trim(),
       model_name: modelData.model_name,
       model_type: modelType,
+      model_engine: modelEngine,
       model_format: modelFormat,
       model_size_in_billions: convertModelSize(modelSize),
       quantization: quantization,
@@ -186,10 +236,20 @@ const ModelCard = ({
       gpu_idx: GPUIdx.trim() === '' ? null : handleGPUIdx(GPUIdx.trim()),
     }
 
-    const modelDataWithID_other = {
+    let modelDataWithID_other = {
       model_uid: modelUID.trim() === '' ? null : modelUID.trim(),
       model_name: modelData.model_name,
       model_type: modelType,
+    }
+
+    if (modelType === 'embedding' || modelType === 'rerank') {
+      modelDataWithID_other = {
+        ...modelDataWithID_other,
+        replica: replica,
+        n_gpu: nGpu === 'GPU' ? 'auto' : null,
+        worker_ip: workerIp.trim() === '' ? null : workerIp.trim(),
+        gpu_idx: GPUIdx.trim() === '' ? null : handleGPUIdx(GPUIdx.trim()),
+      }
     }
 
     if (nGPULayers >= 0) {
@@ -233,11 +293,7 @@ const ModelCard = ({
     }
 
     const modelDataWithID =
-      modelType === 'LLM'
-        ? modelDataWithID_LLM
-        : modelType === 'embedding' || modelType === 'rerank'
-        ? { ...modelDataWithID_other, replica }
-        : modelDataWithID_other
+      modelType === 'LLM' ? modelDataWithID_LLM : modelDataWithID_other
 
     // First fetcher request to initiate the model
     fetcher(url + '/v1/models', {
@@ -357,6 +413,9 @@ const ModelCard = ({
       onClick={() => {
         if (!selected && !customDeleted) {
           setSelected(true)
+          if (modelType === 'LLM') {
+            getModelEngine(modelData.model_name)
+          }
         }
       }}
       elevation={hover ? 24 : 4}
@@ -543,6 +602,43 @@ const ModelCard = ({
               <Grid rowSpacing={0} columnSpacing={1}>
                 <Grid item xs={12}>
                   <FormControl variant="outlined" margin="normal" fullWidth>
+                    <InputLabel id="modelEngine-label">Model Engine</InputLabel>
+                    <Select
+                      labelId="modelEngine-label"
+                      value={modelEngine}
+                      onChange={(e) => setModelEngine(e.target.value)}
+                      label="Model Engine"
+                    >
+                      {engineOptions.map((engine) => {
+                        const arr = []
+                        enginesObj[engine].forEach((item) => {
+                          arr.push(item.model_format)
+                        })
+                        const specs = modelData.model_specs.filter((spec) =>
+                          arr.includes(spec.model_format)
+                        )
+
+                        const cached = specs.some((spec) => isCached(spec))
+                        const displayedEngine = cached
+                          ? engine + ' (cached)'
+                          : engine
+
+                        return (
+                          <MenuItem key={engine} value={engine}>
+                            {displayedEngine}
+                          </MenuItem>
+                        )
+                      })}
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12}>
+                  <FormControl
+                    variant="outlined"
+                    margin="normal"
+                    fullWidth
+                    disabled={!modelEngine}
+                  >
                     <InputLabel id="modelFormat-label">Model Format</InputLabel>
                     <Select
                       labelId="modelFormat-label"
@@ -821,8 +917,9 @@ const ModelCard = ({
                 </Collapse>
                 <AddPair
                   customData={{
-                    title:
-                      'Additional parameters passed to the inference engine',
+                    title: `Additional parameters passed to the inference engine${
+                      modelEngine ? ': ' + modelEngine : ''
+                    }`,
                     key: 'key',
                     value: 'value',
                   }}
@@ -840,18 +937,70 @@ const ModelCard = ({
                 onChange={(e) => setModelUID(e.target.value)}
               />
               {(modelType === 'embedding' || modelType === 'rerank') && (
-                <TextField
-                  style={{ marginTop: '25px' }}
-                  type="number"
-                  InputProps={{
-                    inputProps: {
-                      min: 1,
-                    },
-                  }}
-                  label="Replica"
-                  value={replica}
-                  onChange={(e) => setReplica(parseInt(e.target.value, 10))}
-                />
+                <>
+                  <TextField
+                    style={{ marginTop: '25px' }}
+                    type="number"
+                    InputProps={{
+                      inputProps: {
+                        min: 1,
+                      },
+                    }}
+                    label="Replica"
+                    value={replica}
+                    onChange={(e) => setReplica(parseInt(e.target.value, 10))}
+                  />
+                  <FormControl variant="outlined" margin="normal" fullWidth>
+                    <InputLabel id="n-gpu-label">Device</InputLabel>
+                    <Select
+                      labelId="n-gpu-label"
+                      value={nGpu}
+                      onChange={(e) => setNGpu(e.target.value)}
+                      label="N-GPU"
+                    >
+                      {getNewNGPURange().map((v) => {
+                        return (
+                          <MenuItem key={v} value={v}>
+                            {v}
+                          </MenuItem>
+                        )
+                      })}
+                    </Select>
+                  </FormControl>
+                  {nGpu === 'GPU' && (
+                    <FormControl variant="outlined" margin="normal" fullWidth>
+                      <TextField
+                        value={GPUIdx}
+                        label="GPU Idx, Specify the GPU index where the model is located"
+                        onChange={(e) => {
+                          setGPUIdxAlert(false)
+                          setGPUIdx(e.target.value)
+                          const regular = /^\d+(?:,\d+)*$/
+                          if (
+                            e.target.value !== '' &&
+                            !regular.test(e.target.value)
+                          ) {
+                            setGPUIdxAlert(true)
+                          }
+                        }}
+                      />
+                      {GPUIdxAlert && (
+                        <Alert severity="error">
+                          Please enter numeric data separated by commas, for
+                          example: 0,1,2
+                        </Alert>
+                      )}
+                    </FormControl>
+                  )}
+                  <FormControl variant="outlined" margin="normal" fullWidth>
+                    <TextField
+                      variant="outlined"
+                      value={workerIp}
+                      label="Worker Ip, specify the worker ip where the model is located in a distributed scenario"
+                      onChange={(e) => setWorkerIp(e.target.value)}
+                    />
+                  </FormControl>
+                </>
               )}
             </FormControl>
           )}
@@ -861,21 +1010,23 @@ const ModelCard = ({
               style={styles.buttonContainer}
               onClick={() => launchModel(url, modelData)}
               disabled={
-                modelType === 'LLM' &&
-                (isCallingApi ||
-                  isUpdatingModel ||
-                  !(
-                    modelFormat &&
-                    modelSize &&
-                    modelData &&
-                    (quantization ||
-                      (!modelData.is_builtin && modelFormat !== 'pytorch'))
-                  ) ||
-                  !judgeArr(customParametersArr, ['key', 'value']) ||
-                  !judgeArr(loraListArr, ['lora_name', 'local_path']) ||
-                  !judgeArr(imageLoraLoadKwargsArr, ['key', 'value']) ||
-                  !judgeArr(imageLoraFuseKwargsArr, ['key', 'value']) ||
-                  requestLimitsAlert ||
+                (modelType === 'LLM' &&
+                  (isCallingApi ||
+                    isUpdatingModel ||
+                    !(
+                      modelFormat &&
+                      modelSize &&
+                      modelData &&
+                      (quantization ||
+                        (!modelData.is_builtin && modelFormat !== 'pytorch'))
+                    ) ||
+                    !judgeArr(customParametersArr, ['key', 'value']) ||
+                    !judgeArr(loraListArr, ['lora_name', 'local_path']) ||
+                    !judgeArr(imageLoraLoadKwargsArr, ['key', 'value']) ||
+                    !judgeArr(imageLoraFuseKwargsArr, ['key', 'value']) ||
+                    requestLimitsAlert ||
+                    GPUIdxAlert)) ||
+                ((modelType === 'embedding' || modelType === 'rerank') &&
                   GPUIdxAlert)
               }
             >
