@@ -486,9 +486,6 @@ Begin!"""
                 for i, choice in enumerate(chunk["choices"])
             ],
         }
-        usage = chunk.get("usage")
-        if usage is not None:
-            chat_chunk["usage"] = usage
         return cast(ChatCompletionChunk, chat_chunk)
 
     @classmethod
@@ -512,6 +509,19 @@ Begin!"""
                 for i, choice in enumerate(chunk["choices"])
             ],
         }
+        return cast(ChatCompletionChunk, chat_chunk)
+
+    @classmethod
+    def _get_final_chat_completion_chunk(
+        cls, chunk: CompletionChunk
+    ) -> ChatCompletionChunk:
+        chat_chunk = {
+            "id": "chat" + chunk["id"],
+            "model": chunk["model"],
+            "created": chunk["created"],
+            "object": "chat.completion.chunk",
+            "choices": [],
+        }
         usage = chunk.get("usage")
         if usage is not None:
             chat_chunk["usage"] = usage
@@ -525,7 +535,12 @@ Begin!"""
         for i, chunk in enumerate(chunks):
             if i == 0:
                 yield cls._get_first_chat_completion_chunk(chunk)
-            yield cls._to_chat_completion_chunk(chunk)
+            # usage
+            choices = chunk.get("choices")
+            if not choices:
+                yield cls._get_final_chat_completion_chunk(chunk)
+            else:
+                yield cls._to_chat_completion_chunk(chunk)
 
     @classmethod
     async def _async_to_chat_completion_chunks(
@@ -536,7 +551,12 @@ Begin!"""
         async for chunk in chunks:
             if i == 0:
                 yield cls._get_first_chat_completion_chunk(chunk)
-            yield cls._to_chat_completion_chunk(chunk)
+            # usage
+            choices = chunk.get("choices")
+            if not choices:
+                yield cls._get_final_chat_completion_chunk(chunk)
+            else:
+                yield cls._to_chat_completion_chunk(chunk)
             i += 1
 
     @staticmethod
