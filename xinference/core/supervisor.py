@@ -996,7 +996,6 @@ class SupervisorActor(xo.StatelessActor):
                     actor_ip_address, path = next(iter(re_dict.items()))
 
                     cache_entry = {
-                        "model_family": model_name + " " + " family",
                         "model_name": model_name,
                         "model_format": model_format,
                         "model_size_in_billions": model_size_in_billions,
