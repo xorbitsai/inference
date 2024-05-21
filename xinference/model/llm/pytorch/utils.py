@@ -546,6 +546,20 @@ def _get_tokens_from_logits(logits, temperature=None, top_p=None):
     return tokens
 
 
+def _pad_to_max_length(x: List[int], max_len: int, pad: int) -> List[int]:
+    assert len(x) <= max_len
+    return [pad] * (max_len - len(x)) + x
+
+
+def pad_seqs_inplace(seqs: List[List[int]], pad: int):
+    max_len = max(len(seq) for seq in seqs)
+    n = len(seqs)
+    i = 0
+    while i < n:
+        seqs[i] = _pad_to_max_length(seqs[i], max_len, pad)
+        i += 1
+
+
 @torch.inference_mode()
 def batch_inference_one_step(
     req_list: List[InferenceRequest], model_uid, model, tokenizer, device
@@ -558,23 +572,32 @@ def batch_inference_one_step(
     # top_k = int(generate_config.get("top_k", -1))  # -1 means disable
 
     prompts = [r.full_prompt for r in req_list if r.is_prefill]
+    use_complete = any(r.use_complete for r in req_list)
     if prompts:
         input_ids: List[List[int]] = tokenizer(prompts, padding=False).input_ids
 
-        for i, input_id in enumerate(input_ids):
-            req_list[i].prompt_tokens = input_id
-
-        to_decodes: List[List[int]] = [
-            r.prompt_tokens if r.is_prefill else r.prompt_tokens + r.new_tokens
-            for r in req_list
-        ]
-        # TODO: padding
-        out = model(torch.as_tensor(to_decodes, device=device), use_cache=True)
+        prompt_tokens: List[List[int]] = []
+        for i, r in enumerate(req_list):
+            r.kv_cache = None
+            if i < len(input_ids):
+                r.prompt_tokens = input_ids[i]
+            prompt_tokens.append(
+                r.prompt_tokens if r.is_prefill else r.prompt_tokens + r.new_tokens
+            )
+        pad_seqs_inplace(prompt_tokens, 0)
+        out = model(torch.as_tensor(prompt_tokens, device=device), use_cache=True)
+    elif use_complete:
+        decodes: List[List[int]] = []
+        for i, r in enumerate(req_list):
+            r.kv_cache = None
+            decodes.append(r.prompt_tokens + r.new_tokens)
+        pad_seqs_inplace(decodes, 0)
+        out = model(torch.as_tensor(decodes, device=device), use_cache=True)
     else:
-        decodes: List[List[int]] = [[r.new_tokens[-1]] for r in req_list]
+        decode_tokens: List[List[int]] = [[r.new_tokens[-1]] for r in req_list]
         kv_cache = req_list[0].kv_cache
         out = model(
-            input_ids=torch.as_tensor(decodes, device=device),
+            input_ids=torch.as_tensor(decode_tokens, device=device),
             use_cache=True,
             past_key_values=kv_cache,
         )
@@ -596,6 +619,7 @@ def batch_inference_one_step(
 
         r.kv_cache = past_key_values
         r.is_prefill = False
+        r.use_complete = False
         r.append_new_token(token)
 
         if stopped:

@@ -374,6 +374,27 @@ class PytorchModel(LLM):
         )
         return full_prompt
 
+    def _sanitize_chat_config(
+        self, generate_config: Optional[PytorchGenerateConfig]
+    ) -> PytorchGenerateConfig:
+        generate_config = self._sanitize_generate_config(generate_config)
+        if (
+            (not generate_config.get("stop"))
+            and self.model_family.prompt_style
+            and self.model_family.prompt_style.stop
+        ):
+            generate_config["stop"] = self.model_family.prompt_style.stop.copy()
+        if (
+            generate_config.get("stop_token_ids", None) is None
+            and self.model_family.prompt_style
+            and self.model_family.prompt_style.stop_token_ids
+        ):
+            generate_config[
+                "stop_token_ids"
+            ] = self.model_family.prompt_style.stop_token_ids.copy()
+
+        return generate_config
+
     def batch_inference(self, req_list: List[InferenceRequest]):
         from .utils import batch_inference_one_step
 
@@ -383,7 +404,7 @@ class PytorchModel(LLM):
                     r.prompt, r.system_prompt, r.chat_history
                 )
             if r.sanitized_generate_config is None:
-                r.sanitized_generate_config = self._sanitize_generate_config(
+                r.sanitized_generate_config = self._sanitize_chat_config(
                     r.generate_config
                 )
 

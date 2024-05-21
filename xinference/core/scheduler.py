@@ -35,6 +35,7 @@ class InferenceRequest:
         self._sanitized_generate_config = None
         self.completion = []
         self.future_or_queue = future_or_queue
+        self.use_complete = False
 
     def _check_args(self):
         assert len(self._inference_args) == 3
@@ -146,8 +147,8 @@ class SchedulerActor(xo.StatelessActor):
 
     def __init__(self):
         super().__init__()
-        self._waiting_queue = deque()
-        self._running_queue = deque()
+        self._waiting_queue: deque[InferenceRequest] = deque()
+        self._running_queue: deque[InferenceRequest] = deque()
         self._model = None
 
     def set_model(self, model):
@@ -165,9 +166,9 @@ class SchedulerActor(xo.StatelessActor):
         req_list = self._handle_request()
         if not req_list:
             return
+        batch_size = len(req_list)
         self._model.batch_inference(req_list)
 
-        # TODO: handle stopped request
         for r in req_list:
             if r.stream:
                 for completion in r.completion:
@@ -181,6 +182,14 @@ class SchedulerActor(xo.StatelessActor):
                 else:
                     # TODO: done str
                     await r.future_or_queue.put("xinference_done")
+
+        if len(self._running_queue) > 0:
+            new_batch_size = len(self._running_queue)
+            if batch_size != new_batch_size:
+                assert new_batch_size < batch_size
+                for r in self._running_queue:
+                    r.kv_cache = None
+                    r.use_complete = True
 
     async def add_request(self, prompt: str, future_or_queue, *args, **kwargs):
         req = InferenceRequest(prompt, future_or_queue, True, *args, **kwargs)
