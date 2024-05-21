@@ -7,9 +7,9 @@ The internals of Xinference
 
 Overview
 ========
-Xinference leverages `Xoscar <https://github.com/xorbitsai/xoscar>`_, an actor programming framework we designed, 
+Xinference leverages `Xoscar <https://github.com/xorbitsai/xoscar>`_, an actor programming framework we designed,
 as its core component to manage machines, devices, and model inference processes. Each actor serves as a basic
-unit for model inference and various inference backends can be integrate into the actor, enabling us to support 
+unit for model inference and various inference backends can be integrate into the actor, enabling us to support
 multiple inference engines and hardware. These actors are hosted and scheduled within actor pools, which are
 designed to be asynchronous and non-blocking and function as resource pools.
 
@@ -46,7 +46,7 @@ Entry Points
 Take the command-lines we implemented as examples:
 
 - ``xinference``: Provides commands for model management, including registering/unregistering models, listing all
-  registered/running models, and launching or terminating specific models. 
+  registered/running models, and launching or terminating specific models.
   It also features interactive commands like generate and chat for testing and interacting with deployed models in real-time.
 
 - ``xinference-local``: Starts a local Xinference service.
@@ -69,11 +69,11 @@ Python projects define command-line console entry points in `setup.cfg` or `setu
       xinference-supervisor = xinference.deploy.cmdline:supervisor
       xinference-worker = xinference.deploy.cmdline:worker
 
-The command-line ``xinference`` can be refered to code in ``xinference.deploy.cmdline:cli``.
+The command-line ``xinference`` can be referred to code in ``xinference.deploy.cmdline:cli``.
 
 Click
 -----
-We use Click to implement a specific command-line: 
+We use Click to implement a specific command-line:
 
 ::
 
@@ -96,7 +96,7 @@ For example, the ``xinference-local`` command allows you to define the host addr
 
 Actor
 =====
-Xinference is fundamentally based on `Xoscar <https://github.com/xorbitsai/xoscar>`_, our actor framework, 
+Xinference is fundamentally based on `Xoscar <https://github.com/xorbitsai/xoscar>`_, our actor framework,
 which can manage computational resources and Python processes to support scalable and concurrent programming.
 The following is a pseudocode demonstrating how our Worker Actor works, the actual Worker Actor is more complex than this.
 
@@ -106,14 +106,14 @@ The following is a pseudocode demonstrating how our Worker Actor works, the actu
 
   class WorkerActor(xo.Actor):
       def __init__(self, *args, **kwargs):
-          ... 
-      async def launch_model(self, model_id, n_gpu, ...):  
+          ...
+      async def launch_model(self, model_id, n_gpu, ...):
           # launch an inference engine, use specific model class to load model checkpoints
           ...
-      async def list_models(self):  
+      async def list_models(self):
           # list models on this actor
           ...
-      async def terminate_model(self, model_id):  
+      async def terminate_model(self, model_id):
           # terminate the model
           ...
       async def __post_create__(self):
@@ -121,7 +121,7 @@ The following is a pseudocode demonstrating how our Worker Actor works, the actu
           ...
       async def __pre_destroy__(self):
           # called before the actor instance is destroyed
-          ... 
+          ...
 
 We use the ``WorkerActor`` as an example to illustrate how we build the Xinference. Each actor class
 is a standard Python class that inherits from ``xoscar.Actor``. An instance of this class is a specific actor
@@ -131,13 +131,13 @@ within the actor pool.
   For instance, the model inference ``WorkerActor`` needs to launch the model (``launch_model``), list the models
   in this actor (``list_models``), terminate a model (``terminate_model``). There are two special methods worth
   noting. The ``__post_create__`` is invoked before the actor is created, allowing for necessary initializations.
-  The ``__pre_destroy__`` is called after the actor is destroyed, allowing for cleanup or finalization tasks. 
+  The ``__pre_destroy__`` is called after the actor is destroyed, allowing for cleanup or finalization tasks.
 
 - **Reference Actor and Invoke Methods**: When an actor is created, it yields a reference variable so that other
   actors can reference it. The actor reference can also be referenced with the address. Suppose the ``WorkerActor``
   is created and the reference variable is ``worker_ref``,  the ``launch_model`` method of this actor class can
-  be invoked by calling ``worker_ref.launch_model()``. 
-  Even if the actor's method is originally a synchronized method, when called with an actor reference, it will 
+  be invoked by calling ``worker_ref.launch_model()``.
+  Even if the actor's method is originally a synchronized method, when called with an actor reference, it will
   become as an asynchronous method.
 
 - **Inference Engine**: The actor can manage the process, and the inference engine is also a process. In the launch
@@ -152,12 +152,12 @@ Asynchronous Programming
 
 Both Xinference and Xoscar highly utilize asynchronous programming of ``asyncio``.
 Asynchronous programming is a programming paradigm that does not block.
-Instead, requests and function calls are issued and executed in the background 
-and results are returned in the future. This enables us to perform 
+Instead, requests and function calls are issued and executed in the background
+and results are returned in the future. This enables us to perform
 activities concurrently.
 
-If you're not familiar with Pythons's ``asyncio``, you can see more tutorials for help: 
-  
+If you're not familiar with Pythons's ``asyncio``, you can see more tutorials for help:
+
   - `Python Asyncio Tutorial <https://bbc.github.io/cloudfit-public-docs/asyncio/asyncio-part-1.html>`__
 
   - `Real Python's asyncio Tutorial <https://realpython.com/async-io-python/>`__
@@ -168,7 +168,7 @@ If you're not familiar with Pythons's ``asyncio``, you can see more tutorials fo
 Model
 =====
 
-Xinference supports different types of models including large language models (LLMs), image models, audio models, embedding models, etc. 
+Xinference supports different types of models including large language models (LLMs), image models, audio models, embedding models, etc.
 All models are implemented in `model/ <https://github.com/xorbitsai/inference/tree/main/xinference/model>`_.
 
 LLM
@@ -216,46 +216,46 @@ usually comes with various sizes, quantization methods, and file formats.
 For instance, the ``model_format`` could be ``pytorch`` (using Hugging Face Transformers or vLLM as backend),
 ``ggmlv3`` (a tensor library associated with llama.cpp), or ``gptq`` (a post-training quantization framework).
 The ``model_id`` defines the repository of the model hub from which Xinference downloads the checkpoint files.
-Furthermore, due to distinct instruction-tuning processes, different model families have varying prompt styles. 
+Furthermore, due to distinct instruction-tuning processes, different model families have varying prompt styles.
 The ``prompt_style`` in the JSON file specifies how to format prompts for this particular model.
 For example, ``system_prompt`` and ``roles`` are used to specify the instructions and personality of the model.
 
 Code Walkthrough
 ================
 
-The main code is located in the `xinference/ <https://github.com/xorbitsai/inference/tree/main/xinference>`_: 
+The main code is located in the `xinference/ <https://github.com/xorbitsai/inference/tree/main/xinference>`_:
 
-- `api/ <https://github.com/xorbitsai/inference/tree/main/xinference/api>`_: `restful_api.py <https://github.com/xorbitsai/inference/tree/main/xinference/api/restful_api.py>`_ 
+- `api/ <https://github.com/xorbitsai/inference/tree/main/xinference/api>`_: `restful_api.py <https://github.com/xorbitsai/inference/tree/main/xinference/api/restful_api.py>`_
   is the core part that sets up and runs the RESTful APIs.
   It integrates an authentication service (the specific code is located in `oauth2/ <https://github.com/xorbitsai/inference/tree/main/xinference/api/oauth2>`_),
   as some or all endpointsrequire user authentication.
 
-- `client/ <https://github.com/xorbitsai/inference/tree/main/xinference/client>`_: This is the client of Xinference. 
-  
+- `client/ <https://github.com/xorbitsai/inference/tree/main/xinference/client>`_: This is the client of Xinference.
+
   - `oscar/ <https://github.com/xorbitsai/inference/tree/main/xinference/client/oscar>`_ defines the Actor Client which acts as
     a client interface for interacting with models deployed in a Xinference cluster.
-  
+
   - `restful/ <https://github.com/xorbitsai/inference/tree/main/xinference/client/restful>`_ implements a RESTful client for
     interacting with a Xinference service.
 
-- `core/ <https://github.com/xorbitsai/inference/tree/main/xinference/core>`_: This is the core part of Xinference. 
-  
+- `core/ <https://github.com/xorbitsai/inference/tree/main/xinference/core>`_: This is the core part of Xinference.
+
   - `metrics.py <https://github.com/xorbitsai/inference/tree/main/xinference/core/metrics.py>`_ and
     `resource.py <https://github.com/xorbitsai/inference/tree/main/xinference/core/resource.py>`_
     defines a set of tools for collecting and reporting metrics and the status of node resources, including model throughput,
     latency, the usage of CPU and GPU, memory usage, and more.
-  
+
   - `image_interface.py <https://github.com/xorbitsai/inference/tree/main/xinference/core/image_interface.py>`_ and
-    `chat_interface.py <https://github.com/xorbitsai/inference/tree/main/xinference/core/chat_interface.py>`_ 
-    implement `Gradio <https://github.com/gradio-app/gradio>`_ interfaces for image and chat models, respectively. 
-    These interfaces allow users to interact with models through a Web UI, such as generating images or engaging in chat. 
+    `chat_interface.py <https://github.com/xorbitsai/inference/tree/main/xinference/core/chat_interface.py>`_
+    implement `Gradio <https://github.com/gradio-app/gradio>`_ interfaces for image and chat models, respectively.
+    These interfaces allow users to interact with models through a Web UI, such as generating images or engaging in chat.
     They build user interfaces using the gradio package and communicate with backend models through our RESTful APIs.
-  
+
   - `worker.py <https://github.com/xorbitsai/inference/tree/main/xinference/core/worker.py>`_ and
-    `supervisor.py <https://github.com/xorbitsai/inference/tree/main/xinference/core/supervisor.py>`_ 
+    `supervisor.py <https://github.com/xorbitsai/inference/tree/main/xinference/core/supervisor.py>`_
     respectively define the logic for worker actors and supervisor actor. Worker actors are responsible for carrying out specific
     model computation tasks, while supervisor actors manage the lifecycle of worker nodes, schedule tasks, and monitor system states.
-  
+
   - `status_guard.py <https://github.com/xorbitsai/inference/tree/main/xinference/core/status_guard.py>`_ implements a status monitor
     to track the status of models (like creating, updating, terminating, etc.). It allows querying status information of model instances
     and managing these statuses based on the model's UID.
@@ -265,7 +265,7 @@ The main code is located in the `xinference/ <https://github.com/xorbitsai/infer
     versions and querying model version information based on model names.
 
   - `event.py <https://github.com/xorbitsai/inference/tree/main/xinference/core/event.py>`_ defines an event collector for gathering and
-    reporting various runtime events of models, such as information, warnings, and errors. 
+    reporting various runtime events of models, such as information, warnings, and errors.
     `model.py <https://github.com/xorbitsai/inference/tree/main/xinference/core/model.py>`_ defines a Model Actor, the core component for
     direct model interactions. The Model Actor is responsible for executing model inference requests, handling input and output data streams,
     and supports various types of model operations.
