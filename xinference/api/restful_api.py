@@ -742,11 +742,6 @@ class RESTfulAPI:
                     status_code=400,
                     detail="Invalid input. Allocated gpu must be a multiple of replica.",
                 )
-        elif isinstance(n_gpu, int) and n_gpu % replica:
-            raise HTTPException(
-                status_code=400,
-                detail="Invalid input. Allocated gpu must be a multiple of replica.",
-            )
 
         if peft_model_config is not None:
             peft_model_config = PeftModelConfig.from_dict(peft_model_config)
