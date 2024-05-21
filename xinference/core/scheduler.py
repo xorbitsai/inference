@@ -20,7 +20,7 @@ import xoscar as xo
 
 
 class InferenceRequest:
-    def __init__(self, prompt, future, is_prefill, *args, **kwargs):
+    def __init__(self, prompt, future_or_queue, is_prefill, *args, **kwargs):
         self._prompt = prompt
         self._full_prompt = None
         self._is_prefill = is_prefill
@@ -31,11 +31,10 @@ class InferenceRequest:
         self._inference_args = args
         self._inference_kwargs = kwargs
         self._stopped = False
-        # self.completion_chunk = None
-        # self.completion_usage = None
-        self.completion = []
-        self.future = future
         self._check_args()
+        self._sanitized_generate_config = None
+        self.completion = []
+        self.future_or_queue = future_or_queue
 
     def _check_args(self):
         assert len(self._inference_args) == 3
@@ -108,6 +107,14 @@ class InferenceRequest:
         return self._inference_args[2]
 
     @property
+    def sanitized_generate_config(self):
+        return self._sanitized_generate_config
+
+    @sanitized_generate_config.setter
+    def sanitized_generate_config(self, value: dict):
+        self._sanitized_generate_config = value
+
+    @property
     def stopped(self):
         return self._stopped
 
@@ -164,23 +171,22 @@ class SchedulerActor(xo.StatelessActor):
         for r in req_list:
             if r.stream:
                 for completion in r.completion:
-                    await r.future.put(completion)
+                    await r.future_or_queue.put(completion)
 
             if not r.stopped:
                 self._running_queue.append(r)
             else:
                 if not r.stream:
-                    r.future.set_result(r.completion[0])
+                    r.future_or_queue.set_result(r.completion[0])
                 else:
                     # TODO: done str
-                    await r.future.put("xinference_done")
+                    await r.future_or_queue.put("xinference_done")
 
-    async def add_request(self, prompt: str, future, *args, **kwargs):
-        req = InferenceRequest(prompt, future, True, *args, **kwargs)
+    async def add_request(self, prompt: str, future_or_queue, *args, **kwargs):
+        req = InferenceRequest(prompt, future_or_queue, True, *args, **kwargs)
         self._waiting_queue.append(req)
-        print("========Add request done!!!!")
 
     async def run(self):
         while True:
             await self.step()
-            await asyncio.sleep(0.1)
+            await asyncio.sleep(0.01)

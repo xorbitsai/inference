@@ -583,19 +583,43 @@ def batch_inference_one_step(
     tokens = _get_tokens_from_logits(logits)
 
     for i, r in enumerate(req_list):
+        max_new_tokens = int(
+            r.sanitized_generate_config.get("max_tokens", max_tokens_field.default)
+        )
+        # TODO: handle stop str
+        # stop_str = r.sanitized_generate_config.get("stop", None)
+        stop_token_ids = r.sanitized_generate_config.get("stop_token_ids", None) or []
+        stop_token_ids.append(tokenizer.eos_token_id)
+
+        token = tokens[i]
+        stopped = token in stop_token_ids
+
         r.kv_cache = past_key_values
         r.is_prefill = False
-        r.append_new_token(tokens[i])
+        r.append_new_token(token)
+
+        if stopped:
+            finish_reason = "stop"
+        elif len(r.new_tokens) == max_new_tokens:
+            finish_reason = "length"
+        else:
+            finish_reason = None
+
+        r.stopped = stopped
 
         if r.stream:
-            output = tokenizer.decode(
-                r.new_tokens[-1],
-                skip_special_tokens=True,
-                spaces_between_special_tokens=False,
-                clean_up_tokenization_spaces=True,
+            output = (
+                tokenizer.decode(
+                    r.new_tokens[-1],
+                    skip_special_tokens=True,
+                    spaces_between_special_tokens=False,
+                    clean_up_tokenization_spaces=True,
+                )
+                if not r.stopped
+                else ""
             )
             completion_choice = CompletionChoice(
-                text=output, index=0, logprobs=None, finish_reason=None
+                text=output, index=0, logprobs=None, finish_reason=finish_reason
             )
             completion_chunk = CompletionChunk(
                 id=str(uuid.uuid1()),
@@ -611,43 +635,38 @@ def batch_inference_one_step(
             )
             completion_chunk["usage"] = completion_usage
             r.completion = [completion_chunk]
-            # r.completion_usage = completion_usage
+        else:
+            if r.stopped:
+                outputs = tokenizer.decode(
+                    r.new_tokens[:-1],
+                    skip_special_tokens=True,
+                    spaces_between_special_tokens=False,
+                    clean_up_tokenization_spaces=True,
+                )
+                r.outputs = outputs
 
-        # TODO: how to judge stop
-        if len(r.new_tokens) == 20:
-            r.stopped = True
-            outputs = tokenizer.decode(
-                r.new_tokens,
-                skip_special_tokens=True,
-                spaces_between_special_tokens=False,
-                clean_up_tokenization_spaces=True,
-            )
-            r.outputs = outputs
+                completion_choice = CompletionChoice(
+                    text=outputs, index=0, logprobs=None, finish_reason=finish_reason
+                )
 
-            completion_choice = CompletionChoice(
-                text=outputs, index=0, logprobs=None, finish_reason="stop"
-            )
-
-            completion_chunk = CompletionChunk(
-                id=str(uuid.uuid1()),
-                object="text_completion",
-                created=int(time.time()),
-                model=model_uid,
-                choices=[completion_choice],
-            )
-            completion_usage = CompletionUsage(
-                prompt_tokens=len(r.prompt_tokens),
-                completion_tokens=len(r.new_tokens),
-                total_tokens=len(r.prompt_tokens) + len(r.new_tokens),
-            )
-            completion = Completion(
-                id=completion_chunk["id"],
-                object=completion_chunk["object"],
-                created=completion_chunk["created"],
-                model=completion_chunk["model"],
-                choices=completion_chunk["choices"],
-                usage=completion_usage,
-            )
-            # r.completion_chunk = completion_chunk
-            # r.completion_usage = completion_usage
-            r.completion = [completion]
+                completion_chunk = CompletionChunk(
+                    id=str(uuid.uuid1()),
+                    object="text_completion",
+                    created=int(time.time()),
+                    model=model_uid,
+                    choices=[completion_choice],
+                )
+                completion_usage = CompletionUsage(
+                    prompt_tokens=len(r.prompt_tokens),
+                    completion_tokens=len(r.new_tokens),
+                    total_tokens=len(r.prompt_tokens) + len(r.new_tokens),
+                )
+                completion = Completion(
+                    id=completion_chunk["id"],
+                    object=completion_chunk["object"],
+                    created=completion_chunk["created"],
+                    model=completion_chunk["model"],
+                    choices=completion_chunk["choices"],
+                    usage=completion_usage,
+                )
+                r.completion = [completion]

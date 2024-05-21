@@ -382,6 +382,10 @@ class PytorchModel(LLM):
                 r.full_prompt = self._get_full_prompt(
                     r.prompt, r.system_prompt, r.chat_history
                 )
+            if r.sanitized_generate_config is None:
+                r.sanitized_generate_config = self._sanitize_generate_config(
+                    r.generate_config
+                )
 
         batch_inference_one_step(
             req_list, self.model_uid, self._model, self._tokenizer, self._device
