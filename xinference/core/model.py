@@ -385,14 +385,6 @@ class ModelActor(xo.StatelessActor):
     @request_limit
     @xo.generator
     async def generate(self, prompt: str, *args, **kwargs):
-        # if True:
-        #     print("Here!!!!!!!!!!!!!!!")
-        #     future = self._loop.create_future()
-        #     print(f"======Create future: {future}")
-        #     await self._scheduler_ref.add_request(prompt, future, *args, **kwargs)
-        #     result = await future
-        #     return await asyncio.to_thread(json_dumps, result)
-        # else:
         if hasattr(self._model, "generate"):
             return await self._call_wrapper(
                 self._model.generate, prompt, *args, **kwargs
@@ -417,14 +409,21 @@ class ModelActor(xo.StatelessActor):
             # except TimeoutError:
             #     break
 
+    @staticmethod
+    def get_stream_from_args(*args) -> bool:
+        assert args[2] is None or isinstance(args[2], dict)
+        return False if args[2] is None else args[2].get("stream", False)
+
     @log_async(logger=logger)
     @request_limit
     @xo.generator
     async def chat(self, prompt: str, *args, **kwargs):
         start_time = time.time()
         response = None
+        stream = self.get_stream_from_args(*args)
+        assert self._scheduler_ref is not None
         try:
-            if True:
+            if stream:
                 assert self._scheduler_ref is not None
                 queue: Queue[Any] = Queue()
                 ret = self._queue_consumer(queue)
@@ -432,10 +431,9 @@ class ModelActor(xo.StatelessActor):
                 gen = self._to_json_async_gen(ret)
                 self._current_generator = weakref.ref(gen)
                 return gen
-            elif 1 + 1 == 3:
-                print("Here Chat!!!!!!!!!!!!!!!")
+            elif stream is False:
+                assert self._loop is not None
                 future = self._loop.create_future()
-                print(f"======Create future for chat: {future}")
                 await self._scheduler_ref.add_request(prompt, future, *args, **kwargs)
                 result = await future
                 return await asyncio.to_thread(json_dumps, result)

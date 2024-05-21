@@ -602,6 +602,7 @@ def batch_inference_one_step(
             finish_reason = "stop"
         elif len(r.new_tokens) == max_new_tokens:
             finish_reason = "length"
+            stopped = True
         else:
             finish_reason = None
 
@@ -615,7 +616,7 @@ def batch_inference_one_step(
                     spaces_between_special_tokens=False,
                     clean_up_tokenization_spaces=True,
                 )
-                if not r.stopped
+                if not r.stopped or finish_reason == "length"
                 else ""
             )
             completion_choice = CompletionChoice(
@@ -638,7 +639,7 @@ def batch_inference_one_step(
         else:
             if r.stopped:
                 outputs = tokenizer.decode(
-                    r.new_tokens[:-1],
+                    r.new_tokens[:-1] if finish_reason == "stop" else r.new_tokens,
                     skip_special_tokens=True,
                     spaces_between_special_tokens=False,
                     clean_up_tokenization_spaces=True,
