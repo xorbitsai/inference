@@ -1102,7 +1102,7 @@ class Client:
         response_data = response.json()
         return response_data
 
-    def list_model_cahced(self):
+    def list_cahced_models(self):
         """
         Get a list of cached models.
 
@@ -1121,7 +1121,7 @@ class Client:
             Raised when the request fails, including the reason for the failure.
         """
 
-        url = f"{self.base_url}/v1/cached/list_cached_model"
+        url = f"{self.base_url}/v1/cached/list_cached_models"
         response = requests.get(url, headers=self._headers)
         if response.status_code != 200:
             raise RuntimeError(

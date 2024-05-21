@@ -494,8 +494,8 @@ class RESTfulAPI:
             ),
         )
         self._router.add_api_route(
-            "/v1/cached/list_cached_model",
-            self.list_cached_model,
+            "/v1/cached/list_cached_models",
+            self.list_cached_models,
             methods=["GET"],
             dependencies=(
                 [Security(self._auth_service, scopes=["models:list"])]
@@ -1480,7 +1480,7 @@ class RESTfulAPI:
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
 
-    async def list_cached_model(self) -> JSONResponse:
+    async def list_cached_models(self) -> JSONResponse:
         try:
             data = await (await self._get_supervisor_ref()).list_cached_models()
             return JSONResponse(content=data)

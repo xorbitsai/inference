@@ -584,7 +584,7 @@ def list_model_registrations(
     type=str,
     help="Api-Key for access xinference api with authorization.",
 )
-def list_cached_model(
+def list_cached_models(
     endpoint: Optional[str],
     api_key: Optional[str],
 ):
@@ -595,7 +595,7 @@ def list_cached_model(
     if api_key is None:
         client._set_token(get_stored_token(endpoint, client))
 
-    cached_models = client.list_model_cahced()
+    cached_models = client.list_cahced_models()
 
     print("cached_model: ")
     headers = list(cached_models[0].keys())
