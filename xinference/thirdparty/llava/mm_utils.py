@@ -2,10 +2,11 @@ import base64
 from io import BytesIO
 
 import torch
-from .model import LlavaLlamaForCausalLM
-from .model.constants import IMAGE_TOKEN_INDEX
 from PIL import Image
 from transformers import AutoTokenizer, StoppingCriteria
+
+from .model import LlavaLlamaForCausalLM
+from .model.constants import IMAGE_TOKEN_INDEX
 
 
 def load_image_from_base64(image):
