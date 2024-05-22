@@ -572,7 +572,7 @@ def batch_inference_one_step(
     # top_k = int(generate_config.get("top_k", -1))  # -1 means disable
 
     prompts = [r.full_prompt for r in req_list if r.is_prefill]
-    use_complete = any(r.use_complete for r in req_list)
+    not_use_kv_cache_in_decode = all(r.kv_cache is None for r in req_list)
     if prompts:
         input_ids: List[List[int]] = tokenizer(prompts, padding=False).input_ids
 
@@ -586,7 +586,7 @@ def batch_inference_one_step(
             )
         pad_seqs_inplace(prompt_tokens, 0)
         out = model(torch.as_tensor(prompt_tokens, device=device), use_cache=True)
-    elif use_complete:
+    elif not_use_kv_cache_in_decode:
         decodes: List[List[int]] = []
         for i, r in enumerate(req_list):
             r.kv_cache = None
@@ -619,7 +619,6 @@ def batch_inference_one_step(
 
         r.kv_cache = past_key_values
         r.is_prefill = False
-        r.use_complete = False
         r.append_new_token(token)
 
         if stopped:

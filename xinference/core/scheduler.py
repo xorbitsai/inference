@@ -35,7 +35,6 @@ class InferenceRequest:
         self._sanitized_generate_config = None
         self.completion = []
         self.future_or_queue = future_or_queue
-        self.use_complete = False
 
     def _check_args(self):
         assert len(self._inference_args) == 3
@@ -189,7 +188,6 @@ class SchedulerActor(xo.StatelessActor):
                 assert new_batch_size < batch_size
                 for r in self._running_queue:
                     r.kv_cache = None
-                    r.use_complete = True
 
     async def add_request(self, prompt: str, future_or_queue, *args, **kwargs):
         req = InferenceRequest(prompt, future_or_queue, True, *args, **kwargs)

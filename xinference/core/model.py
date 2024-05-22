@@ -39,6 +39,8 @@ from typing import (
 import sse_starlette.sse
 import xoscar as xo
 
+from ..constants import XINFERENCE_TRANSFORMERS_ENABLE_BATCHING
+
 if TYPE_CHECKING:
     from .worker import WorkerActor
     from ..model.llm.core import LLM
@@ -201,21 +203,22 @@ class ModelActor(xo.StatelessActor):
         self._isolation = None
 
     async def __post_create__(self):
-        from ..isolation import Isolation
-        from .scheduler import SchedulerActor
-
         self._loop = asyncio.get_running_loop()
 
-        self._scheduler_ref = await xo.create_actor(
-            SchedulerActor,
-            address=self.address,
-            uid=SchedulerActor.gen_uid(self.model_uid(), self._model.rep_id),
-        )
-        self._isolation = Isolation(asyncio.new_event_loop(), threaded=True)
-        self._isolation.start()
-        asyncio.run_coroutine_threadsafe(
-            self._scheduler_ref.run(), loop=self._isolation.loop
-        )
+        if XINFERENCE_TRANSFORMERS_ENABLE_BATCHING and self.allow_batching():
+            from ..isolation import Isolation
+            from .scheduler import SchedulerActor
+
+            self._scheduler_ref = await xo.create_actor(
+                SchedulerActor,
+                address=self.address,
+                uid=SchedulerActor.gen_uid(self.model_uid(), self._model.rep_id),
+            )
+            self._isolation = Isolation(asyncio.new_event_loop(), threaded=True)
+            self._isolation.start()
+            asyncio.run_coroutine_threadsafe(
+                self._scheduler_ref.run(), loop=self._isolation.loop
+            )
 
     async def _record_completion_metrics(
         self, duration, completion_tokens, prompt_tokens
@@ -268,9 +271,15 @@ class ModelActor(xo.StatelessActor):
 
         return isinstance(self._model, VLLMModel)
 
+    def allow_batching(self) -> bool:
+        from ..model.llm.pytorch.core import PytorchChatModel
+
+        return isinstance(self._model, PytorchChatModel)
+
     async def load(self):
         self._model.load()
-        await self._scheduler_ref.set_model(self._model)
+        if XINFERENCE_TRANSFORMERS_ENABLE_BATCHING and self.allow_batching():
+            await self._scheduler_ref.set_model(self._model)
 
     def model_uid(self):
         return (
@@ -420,23 +429,28 @@ class ModelActor(xo.StatelessActor):
     async def chat(self, prompt: str, *args, **kwargs):
         start_time = time.time()
         response = None
-        stream = self.get_stream_from_args(*args)
-        assert self._scheduler_ref is not None
         try:
-            if stream:
+            if XINFERENCE_TRANSFORMERS_ENABLE_BATCHING and self.allow_batching():
+                stream = self.get_stream_from_args(*args)
                 assert self._scheduler_ref is not None
-                queue: Queue[Any] = Queue()
-                ret = self._queue_consumer(queue)
-                await self._scheduler_ref.add_request(prompt, queue, *args, **kwargs)
-                gen = self._to_json_async_gen(ret)
-                self._current_generator = weakref.ref(gen)
-                return gen
-            elif stream is False:
-                assert self._loop is not None
-                future = self._loop.create_future()
-                await self._scheduler_ref.add_request(prompt, future, *args, **kwargs)
-                result = await future
-                return await asyncio.to_thread(json_dumps, result)
+                if stream:
+                    assert self._scheduler_ref is not None
+                    queue: Queue[Any] = Queue()
+                    ret = self._queue_consumer(queue)
+                    await self._scheduler_ref.add_request(
+                        prompt, queue, *args, **kwargs
+                    )
+                    gen = self._to_json_async_gen(ret)
+                    self._current_generator = weakref.ref(gen)
+                    return gen
+                else:
+                    assert self._loop is not None
+                    future = self._loop.create_future()
+                    await self._scheduler_ref.add_request(
+                        prompt, future, *args, **kwargs
+                    )
+                    result = await future
+                    return await asyncio.to_thread(json_dumps, result)
             else:
                 if hasattr(self._model, "chat"):
                     response = await self._call_wrapper(
