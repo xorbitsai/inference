@@ -103,6 +103,7 @@ class PytorchModel(LLM):
         pytorch_model_config.setdefault("gptq_act_order", False)
         pytorch_model_config.setdefault("device", "auto")
         pytorch_model_config.setdefault("trust_remote_code", True)
+        pytorch_model_config.setdefault("max_num_seqs", 16)
         return pytorch_model_config
 
     def _sanitize_generate_config(
@@ -394,6 +395,9 @@ class PytorchModel(LLM):
             ] = self.model_family.prompt_style.stop_token_ids.copy()
 
         return generate_config
+
+    def get_max_num_seqs(self) -> int:
+        return self._pytorch_model_config.get("max_num_seqs")  # type: ignore
 
     def batch_inference(self, req_list: List[InferenceRequest]):
         from .utils import batch_inference_one_step

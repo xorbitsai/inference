@@ -274,7 +274,10 @@ class ModelActor(xo.StatelessActor):
     def allow_batching(self) -> bool:
         from ..model.llm.pytorch.core import PytorchChatModel
 
-        return isinstance(self._model, PytorchChatModel)
+        return (
+            isinstance(self._model, PytorchChatModel)
+            and self._model.__class__.__name__ == PytorchChatModel.__name__
+        )
 
     async def load(self):
         self._model.load()
@@ -407,16 +410,15 @@ class ModelActor(xo.StatelessActor):
     async def _queue_consumer(
         self, queue: Queue[Any], timeout: Optional[float] = None
     ) -> AsyncIterator[Any]:
+        from .scheduler import XINFERENCE_STREAMING_DOME_FLAG
+
         while True:
-            # try:
-            # TODO: timeout
+            # TODO: timeout setting
             res = await wait_for(queue.get(), timeout)
-            if res == "xinference_done":
+            if res == XINFERENCE_STREAMING_DOME_FLAG:
                 break
             else:
                 yield res
-            # except TimeoutError:
-            #     break
 
     @staticmethod
     def get_stream_from_args(*args) -> bool:

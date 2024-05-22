@@ -14,9 +14,11 @@
 
 import asyncio
 from collections import deque
-from typing import List
+from typing import List, Optional
 
 import xoscar as xo
+
+XINFERENCE_STREAMING_DOME_FLAG = "<XINFERENCE_STREAMING_DONE>"
 
 
 class InferenceRequest:
@@ -153,13 +155,29 @@ class SchedulerActor(xo.StatelessActor):
     def set_model(self, model):
         self._model = model
 
-    def _handle_request(self) -> List[InferenceRequest]:
-        res = []
-        while len(self._waiting_queue) > 0:
-            res.append(self._waiting_queue.popleft())
+    def get_max_num_seqs(self):
+        assert self._model is not None
+        return self._model.get_max_num_seqs()
+
+    def _handle_request(self) -> Optional[List[InferenceRequest]]:
+        if self._model is None:
+            return None
+        max_num_seqs = self.get_max_num_seqs()
+        # currently, FCFS strategy
+        running_list = []
         while len(self._running_queue) > 0:
-            res.append(self._running_queue.popleft())
-        return res
+            running_list.append(self._running_queue.popleft())
+            if len(running_list) == max_num_seqs:
+                break
+
+        waiting_list = []
+        if len(running_list) < max_num_seqs:
+            while len(self._waiting_queue) > 0:
+                waiting_list.append(self._waiting_queue.popleft())
+                if len(running_list) + len(waiting_list) == max_num_seqs:
+                    break
+        # must waiting_list in front
+        return waiting_list + running_list
 
     async def step(self):
         req_list = self._handle_request()
@@ -180,12 +198,12 @@ class SchedulerActor(xo.StatelessActor):
                     r.future_or_queue.set_result(r.completion[0])
                 else:
                     # TODO: done str
-                    await r.future_or_queue.put("xinference_done")
+                    await r.future_or_queue.put(XINFERENCE_STREAMING_DOME_FLAG)
 
         if len(self._running_queue) > 0:
-            new_batch_size = len(self._running_queue)
-            if batch_size != new_batch_size:
-                assert new_batch_size < batch_size
+            batch_size_after_one_step = len(self._running_queue)
+            if batch_size != batch_size_after_one_step:
+                assert batch_size_after_one_step < batch_size
                 for r in self._running_queue:
                     r.kv_cache = None
 

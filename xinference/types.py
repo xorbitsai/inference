@@ -297,6 +297,7 @@ class PytorchModelConfig(TypedDict, total=False):
     gptq_groupsize: int
     gptq_act_order: bool
     trust_remote_code: bool
+    max_num_seqs: int
 
 
 def get_pydantic_model_from_method(
