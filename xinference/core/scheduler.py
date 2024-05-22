@@ -164,13 +164,13 @@ class SchedulerActor(xo.StatelessActor):
             return None
         max_num_seqs = self.get_max_num_seqs()
         # currently, FCFS strategy
-        running_list = []
+        running_list: List[InferenceRequest] = []
         while len(self._running_queue) > 0:
-            running_list.append(self._running_queue.popleft())
             if len(running_list) == max_num_seqs:
                 break
+            running_list.append(self._running_queue.popleft())
 
-        waiting_list = []
+        waiting_list: List[InferenceRequest] = []
         if len(running_list) < max_num_seqs:
             while len(self._waiting_queue) > 0:
                 waiting_list.append(self._waiting_queue.popleft())

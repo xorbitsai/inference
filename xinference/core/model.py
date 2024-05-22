@@ -283,6 +283,9 @@ class ModelActor(xo.StatelessActor):
         self._model.load()
         if XINFERENCE_TRANSFORMERS_ENABLE_BATCHING and self.allow_batching():
             await self._scheduler_ref.set_model(self._model)
+            logger.debug(
+                f"Batching enabled for model: {self.model_uid()}, max_num_seqs: {self._model.get_max_num_seqs()}"
+            )
 
     def model_uid(self):
         return (
