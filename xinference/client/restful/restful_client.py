@@ -1152,3 +1152,58 @@ class Client:
 
         response_data = response.json()
         return response_data
+
+    def get_remove_cached_models(
+        self, model_name: str, checked: bool = False
+    ) -> Dict[str, List[Any]]:
+        """
+        Get the cached models with the model name cached on the server.
+
+        Parameters
+        ----------
+        model_name: str
+            The name of the model.
+
+        Returns
+        -------
+        Dict[str, List[Any]]
+            Dictionary with keys "model_name" and values model_file_location.
+        """
+        url = f"{self.base_url}/v1/get_remove_cached_models/{model_name}"
+        response = requests.get(url, headers=self._headers)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to get paths by model name, detail: {_get_error_string(response)}"
+            )
+
+        response_data = response.json()
+        return response_data
+
+    def remove_cached_models(
+        self, model_name: str, model_file_location: Dict[str, Dict[str, str]]
+    ) -> str:
+        """
+        Remove the cached models with the model name cached on the server.
+
+        Parameters
+        ----------
+        model_name: str
+           The name of the model.
+        model_file_location: Dict[str,Dict[Any]]
+            Dictionary with keys IP and values file_path.
+
+        Returns
+        -------
+        str
+            The response of the server.
+        """
+        url = f"{self.base_url}/v1/remove_cached_models/{model_name}"
+        payload = model_file_location
+        response = requests.post(url, headers=self._headers, json=payload)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to remove cached models, detail: {_get_error_string(response)}"
+            )
+
+        response_data = response.json()
+        return response_data

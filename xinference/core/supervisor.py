@@ -1027,6 +1027,24 @@ class SupervisorActor(xo.StatelessActor):
             worker_status.update_time = time.time()
             worker_status.status = status
 
+    async def get_remove_cached_models(
+        self, model_name: str, checked: bool = False
+    ) -> Dict[str, Dict[str, str]]:
+        for worker in self._worker_address_to_worker.values():
+            ret = await worker.get_remove_cached_models(
+                model_name=model_name, checked=checked
+            )
+        return ret
+
+    async def remove_cached_models(
+        self, model_name: str, model_file_location: Dict[str, str]
+    ) -> str:
+        for worker in self._worker_address_to_worker.values():
+            ret = await worker.remove_cached_models(
+                model_name=model_name, model_file_location=model_file_location
+            )
+        return ret
+
     @staticmethod
     def record_metrics(name, op, kwargs):
         record_metrics(name, op, kwargs)

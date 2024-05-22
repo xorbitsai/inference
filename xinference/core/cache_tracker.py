@@ -100,3 +100,43 @@ class CacheTrackerActor(xo.Actor):
 
     def get_model_version_count(self, model_name: str) -> int:
         return len(self.get_model_versions(model_name))
+
+    def list_cached_models(self):
+        cached_models = {}
+        ret = []
+        for model_name, model_versions in self._model_name_to_version_info.items():
+            for version_info in model_versions:
+                if version_info["cache_status"]:
+                    ret.append(version_info)
+            cached_models[model_name] = ret
+            ret = []
+        return cached_models
+
+    def get_remove_cached_models(
+        self, model_name: str, checked: bool = False
+    ) -> Dict[str, Dict[str, str]]:
+        assert checked == False
+        model_file_location = {}
+        for model, model_versions in self._model_name_to_version_info.items():
+            if model_name.lower() == model.lower():
+                for version_info in model_versions:
+                    if version_info["cache_status"]:
+                        model_file_location = version_info["model_file_location"]
+
+        return {model_name: model_file_location}
+
+    def remove_cached_models(
+        self, model_name: str, model_file_location: Dict[str, str]
+    ) -> str:
+        for model, model_versions in self._model_name_to_version_info.items():
+            if model_name.lower() == model.lower():
+                for version_info in model_versions:
+                    if version_info["model_file_location"] == model_file_location:
+                        try:
+                            import shutil
+
+                            shutil.rmtree(next(iter(model_file_location.values())))
+                            return "Success"
+                        except OSError as e:
+                            logger.error(f"Error: {e.filename} - {e.strerror}")
+        return "Failed"

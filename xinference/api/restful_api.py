@@ -493,6 +493,26 @@ class RESTfulAPI:
                 else None
             ),
         )
+        self._router.add_api_route(
+            "/v1/get_remove_cached_models/{model_name}",
+            self.get_remove_cached_models,
+            methods=["GET"],
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:list"])]
+                if self.is_authenticated()
+                else None
+            ),
+        )
+        self._router.add_api_route(
+            "/v1/remove_cached_models/{model_name}",
+            self.remove_cached_models,
+            methods=["POST"],
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:list"])]
+                if self.is_authenticated()
+                else None
+            ),
+        )
 
         # Clear the global Registry for the MetricsMiddleware, or
         # the MetricsMiddleware will register duplicated metrics if the port
@@ -1514,6 +1534,38 @@ class RESTfulAPI:
         try:
             data = get_versions()
             return JSONResponse(content=data)
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def get_remove_cached_models(
+        self, model_name: str, checked: bool = Query(False)
+    ) -> JSONResponse:
+        try:
+            data = await (await self._get_supervisor_ref()).get_remove_cached_models(
+                model_name, checked=checked
+            )
+            return JSONResponse(content=data)
+        except ValueError as re:
+            logger.error(re, exc_info=True)
+            raise HTTPException(status_code=400, detail=str(re))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def remove_cached_models(
+        self, model_name: str, request: Request
+    ) -> JSONResponse:
+        payload = await request.json()
+        model_file_location = payload.get(model_name)
+        try:
+            data = await (await self._get_supervisor_ref()).remove_cached_models(
+                model_name=model_name, model_file_location=model_file_location
+            )
+            return JSONResponse(content=data)
+        except ValueError as re:
+            logger.error(re, exc_info=True)
+            raise HTTPException(status_code=400, detail=str(re))
         except Exception as e:
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))

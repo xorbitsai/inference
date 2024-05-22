@@ -781,6 +781,20 @@ class WorkerActor(xo.StatelessActor):
             except asyncio.CancelledError:  # pragma: no cover
                 break
 
+    async def get_remove_cached_models(
+        self, model_name: str, checked: bool = False
+    ) -> Dict[str, Dict[str, str]]:
+        return self._cache_tracker_ref.get_remove_cached_models(
+            model_name=model_name, checked=False
+        )
+
+    async def remove_cached_models(
+        self, model_name: str, model_file_location: Dict[str, str]
+    ) -> str:
+        return self._cache_tracker_ref.remove_cached_models(
+            model_name=model_name, model_file_location=model_file_location
+        )
+
     @staticmethod
     def record_metrics(name, op, kwargs):
         record_metrics(name, op, kwargs)

@@ -570,6 +570,53 @@ def list_model_registrations(
         raise NotImplementedError(f"List {model_type} is not implemented.")
 
 
+@cli.command("remove-cache", help="Remove selected cached models in Xinference.")
+@click.option(
+    "--endpoint",
+    "-e",
+    type=str,
+    help="Xinference endpoint.",
+)
+@click.option(
+    "--model_name",
+    "-n",
+    type=str,
+    help="Provide the name of the models to be removed.",
+)
+@click.option(
+    "--api-key",
+    "-ak",
+    default=None,
+    type=str,
+    help="Api-Key for access xinference api with authorization.",
+)
+@click.option("--check", is_flag=True, help="Confirm the deletion of the cache.")
+def remove_cache(
+    endpoint: Optional[str], model_name: str, api_key: Optional[str], check: bool
+):
+    endpoint = get_endpoint(endpoint)
+    client = RESTfulClient(base_url=endpoint, api_key=api_key)
+    if api_key is None:
+        client._set_token(get_stored_token(endpoint, client))
+
+    if not check:
+        model_file_location = client.get_remove_cached_models(
+            model_name=model_name, checked=check
+        )
+        click.echo(f"Cache directory to be deleted: {model_file_location}")
+        if click.confirm("Do you want to proceed with the deletion?", abort=True):
+            check = True
+    try:
+        Result = client.remove_cached_models(
+            model_name=model_name, model_file_location=model_file_location
+        )
+        click.echo(
+            f"Cache directory {model_name} has been deleted, Result is {Result}."
+        )
+    except Exception as e:
+        click.echo(f"An error occurred while deleting the cache: {e}")
+
+
 @cli.command(
     "launch",
     help="Launch a model with the Xinference framework with the given parameters.",
