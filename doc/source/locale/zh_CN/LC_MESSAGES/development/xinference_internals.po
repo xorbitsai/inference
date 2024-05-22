@@ -732,4 +732,3 @@ msgstr ""
 #~ "Both Xinference and Xoscar highly "
 #~ "utilize coroutine programming of ``asyncio``."
 #~ msgstr "Xinference 和 Xoscar 都高度利用了 ``asyncio`` 进行协程编程。"
-
