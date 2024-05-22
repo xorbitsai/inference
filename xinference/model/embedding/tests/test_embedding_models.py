@@ -91,6 +91,7 @@ def test_model_from_modelscope():
     assert len(r["data"]) == 1
     for d in r["data"]:
         assert len(d["embedding"]) == 512
+    shutil.rmtree(model_path, ignore_errors=True)
 
 
 def test_meta_file():

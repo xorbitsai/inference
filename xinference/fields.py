@@ -75,7 +75,9 @@ stream_field = Field(
 )
 
 stream_option_field = Field(
-    default={},
+    default={
+        "include_usage": False,
+    },
     description="If set, an additional chunk will be streamed before the `data: [DONE]` message.",
 )
 

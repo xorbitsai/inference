@@ -19,6 +19,7 @@ from json import JSONDecodeError
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional, Tuple, Union
 
+import huggingface_hub
 from fsspec import AbstractFileSystem
 
 from ..constants import XINFERENCE_CACHE_DIR, XINFERENCE_ENV_MODEL_SRC
@@ -27,6 +28,7 @@ from .core import CacheableModelSpec
 
 logger = logging.getLogger(__name__)
 MAX_ATTEMPTS = 3
+IS_NEW_HUGGINGFACE_HUB: bool = huggingface_hub.__version__ >= "0.23.0"
 
 
 def is_locale_chinese_simplified() -> bool:
@@ -74,6 +76,13 @@ def symlink_local_file(path: str, local_dir: str, relpath: str) -> str:
     real_blob_path = os.path.realpath(path)
     _create_symlink(real_blob_path, local_dir_filepath, new_blob=False)
     return local_dir_filepath
+
+
+def create_symlink(download_dir: str, cache_dir: str):
+    for subdir, dirs, files in os.walk(download_dir):
+        for file in files:
+            relpath = os.path.relpath(os.path.join(subdir, file), download_dir)
+            symlink_local_file(os.path.join(subdir, file), cache_dir, relpath)
 
 
 def retry_download(
@@ -306,22 +315,23 @@ def cache(model_spec: CacheableModelSpec, model_description_type: type):
             model_spec.model_id,
             revision=model_spec.model_revision,
         )
-        for subdir, dirs, files in os.walk(download_dir):
-            for file in files:
-                relpath = os.path.relpath(os.path.join(subdir, file), download_dir)
-                symlink_local_file(os.path.join(subdir, file), cache_dir, relpath)
+        create_symlink(download_dir, cache_dir)
     else:
         from huggingface_hub import snapshot_download as hf_download
 
-        retry_download(
+        use_symlinks = {}
+        if not IS_NEW_HUGGINGFACE_HUB:
+            use_symlinks = {"local_dir_use_symlinks": True, "local_dir": cache_dir}
+        download_dir = retry_download(
             hf_download,
             model_spec.model_name,
             None,
             model_spec.model_id,
             revision=model_spec.model_revision,
-            local_dir=cache_dir,
-            local_dir_use_symlinks=True,
+            **use_symlinks,
         )
+        if IS_NEW_HUGGINGFACE_HUB:
+            create_symlink(download_dir, cache_dir)
     with open(meta_path, "w") as f:
         import json
 

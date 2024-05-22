@@ -257,7 +257,7 @@ class ModelActor(xo.StatelessActor):
             for v in gen:
                 if time_to_first_token is None:
                     time_to_first_token = (time.time() - start_time) * 1000
-                final_usage = v.pop("usage", None)
+                final_usage = v.get("usage", None)
                 v = dict(data=json.dumps(v))
                 yield sse_starlette.sse.ensure_bytes(v, None)
         except OutOfMemoryError:
@@ -289,7 +289,7 @@ class ModelActor(xo.StatelessActor):
             async for v in gen:
                 if time_to_first_token is None:
                     time_to_first_token = (time.time() - start_time) * 1000
-                final_usage = v.pop("usage", None)
+                final_usage = v.get("usage", None)
                 v = await asyncio.to_thread(json.dumps, v)
                 v = dict(data=v)  # noqa: F821
                 yield await asyncio.to_thread(sse_starlette.sse.ensure_bytes, v, None)

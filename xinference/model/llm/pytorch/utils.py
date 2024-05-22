@@ -106,6 +106,10 @@ def generate_stream(
     context_len = get_context_length(model.config)
     stream_interval = generate_config.get("stream_interval", 2)
     stream = generate_config.get("stream", False)
+    stream_options = generate_config.pop("stream_options", None)
+    include_usage = (
+        stream_options["include_usage"] if isinstance(stream_options, dict) else False
+    )
 
     len_prompt = len(prompt)
 
@@ -333,6 +337,21 @@ def generate_stream(
 
     yield completion_chunk, completion_usage
 
+    if include_usage:
+        completion_chunk = CompletionChunk(
+            id=str(uuid.uuid1()),
+            object="text_completion",
+            created=int(time.time()),
+            model=model_uid,
+            choices=[],
+        )
+        completion_usage = CompletionUsage(
+            prompt_tokens=input_echo_len,
+            completion_tokens=i,
+            total_tokens=(input_echo_len + i),
+        )
+        yield completion_chunk, completion_usage
+
     # clean
     del past_key_values, out
     gc.collect()
@@ -352,7 +371,10 @@ def generate_stream_falcon(
     context_len = get_context_length(model.config)
     stream_interval = generate_config.get("stream_interval", 2)
     stream = generate_config.get("stream", False)
-
+    stream_options = generate_config.pop("stream_options", None)
+    include_usage = (
+        stream_options["include_usage"] if isinstance(stream_options, dict) else False
+    )
     len_prompt = len(prompt)
 
     temperature = float(generate_config.get("temperature", 1.0))
@@ -487,6 +509,21 @@ def generate_stream_falcon(
     )
 
     yield completion_chunk, completion_usage
+
+    if include_usage:
+        completion_chunk = CompletionChunk(
+            id=str(uuid.uuid1()),
+            object="text_completion",
+            created=int(time.time()),
+            model=model_uid,
+            choices=[],
+        )
+        completion_usage = CompletionUsage(
+            prompt_tokens=input_echo_len,
+            completion_tokens=i,
+            total_tokens=(input_echo_len + i),
+        )
+        yield completion_chunk, completion_usage
 
     # clean
     gc.collect()

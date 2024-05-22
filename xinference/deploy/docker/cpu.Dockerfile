@@ -32,7 +32,7 @@ RUN python -m pip install --upgrade -i "$PIP_INDEX" pip && \
       pydantic \
       fastapi \
       uvicorn \
-      "huggingface-hub>=0.19.4,<0.23.0" \
+      "huggingface-hub>=0.19.4" \
       typing_extensions \
       "fsspec>=2023.1.0,<=2023.10.0" \
       s3fs \

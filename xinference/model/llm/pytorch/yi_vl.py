@@ -139,6 +139,12 @@ class YiVLChatModel(PytorchChatModel):
             generate_config = {}
 
         stream = generate_config.get("stream", False)
+        stream_options = generate_config.pop("stream_options", None)
+        include_usage = (
+            stream_options["include_usage"]
+            if isinstance(stream_options, dict)
+            else False
+        )
 
         from ....thirdparty.llava.conversation import conv_templates
         from ....thirdparty.llava.mm_utils import (
@@ -166,11 +172,11 @@ class YiVLChatModel(PytorchChatModel):
         )
 
         images = state.get_images(return_pil=True)
-        image = images[0]
-
-        image_tensor = self._image_processor.preprocess(image, return_tensors="pt")[
-            "pixel_values"
-        ][0]
+        if images:
+            image = images[0]
+            image_tensor = self._image_processor.preprocess(image, return_tensors="pt")[
+                "pixel_values"
+            ][0]
 
         stop_str = state.sep
         keywords = [stop_str]
@@ -187,7 +193,9 @@ class YiVLChatModel(PytorchChatModel):
             "input_ids": input_ids,
             "images": image_tensor.unsqueeze(0)
             .to(dtype=torch.bfloat16)
-            .to(self._model.device),
+            .to(self._model.device)
+            if images
+            else None,
             "streamer": streamer,
             "do_sample": True,
             "top_p": float(top_p),
@@ -200,7 +208,7 @@ class YiVLChatModel(PytorchChatModel):
         t.start()
 
         if stream:
-            it = self._generate_stream(streamer, stop_str)
+            it = self._generate_stream(streamer, stop_str, input_ids, include_usage)
             return self._to_chat_completion_chunks(it)
         else:
             c = self._generate(streamer, stop_str)
@@ -229,8 +237,12 @@ class YiVLChatModel(PytorchChatModel):
         )
         return c
 
-    def _generate_stream(self, streamer, stop_str) -> Iterator[CompletionChunk]:
+    def _generate_stream(
+        self, streamer, stop_str, input_ids, include_usage
+    ) -> Iterator[CompletionChunk]:
         completion_id = str(uuid.uuid1())
+        prompt_tokens, completion_tokens, total_tokens = 0, 0, 0
+        prompt_tokens = len(input_ids[0])
         for i, new_text in enumerate(streamer):
             if not new_text.endswith(stop_str):
                 completion_choice = CompletionChoice(
@@ -243,10 +255,12 @@ class YiVLChatModel(PytorchChatModel):
                     model=self.model_uid,
                     choices=[completion_choice],
                 )
+                completion_tokens = i
+                total_tokens = prompt_tokens + completion_tokens
                 completion_usage = CompletionUsage(
-                    prompt_tokens=-1,
-                    completion_tokens=-1,
-                    total_tokens=-1,
+                    prompt_tokens=prompt_tokens,
+                    completion_tokens=completion_tokens,
+                    total_tokens=total_tokens,
                 )
                 chunk["usage"] = completion_usage
                 yield chunk
@@ -262,9 +276,23 @@ class YiVLChatModel(PytorchChatModel):
             choices=[completion_choice],
         )
         completion_usage = CompletionUsage(
-            prompt_tokens=-1,
-            completion_tokens=-1,
-            total_tokens=-1,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            total_tokens=total_tokens,
         )
         chunk["usage"] = completion_usage
         yield chunk
+        if include_usage:
+            chunk = CompletionChunk(
+                id=completion_id,
+                object="text_completion",
+                created=int(time.time()),
+                model=self.model_uid,
+                choices=[],
+            )
+            chunk["usage"] = CompletionUsage(
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                total_tokens=total_tokens,
+            )
+            yield chunk
