@@ -2644,7 +2644,7 @@
       "zh"
     ],
     "model_ability": [
-      "chat"
+      "generate"
     ],
     "model_description": "Deepseek Coder is composed of a series of code language models, each trained from scratch on 2T tokens, with a composition of 87% code and 13% natural language in both English and Chinese.",
     "model_specs": [
