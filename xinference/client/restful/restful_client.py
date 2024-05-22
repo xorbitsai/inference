@@ -1155,7 +1155,7 @@ class Client:
 
     def get_remove_cached_models(
         self, model_name: str, checked: bool = False
-    ) -> Dict[str, List[Any]]:
+    ) -> Dict[str, Dict[str, str]]:
         """
         Get the cached models with the model name cached on the server.
 
@@ -1166,7 +1166,7 @@ class Client:
 
         Returns
         -------
-        Dict[str, List[Any]]
+        Dict[str, Dict[str,str]]]
             Dictionary with keys "model_name" and values model_file_location.
         """
         url = f"{self.base_url}/v1/get_remove_cached_models/{model_name}"
