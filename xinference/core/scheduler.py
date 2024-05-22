@@ -197,7 +197,6 @@ class SchedulerActor(xo.StatelessActor):
                 if not r.stream:
                     r.future_or_queue.set_result(r.completion[0])
                 else:
-                    # TODO: done str
                     await r.future_or_queue.put(XINFERENCE_STREAMING_DOME_FLAG)
 
         if len(self._running_queue) > 0:

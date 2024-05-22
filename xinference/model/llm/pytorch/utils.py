@@ -532,18 +532,33 @@ def generate_stream_falcon(
     empty_cache()
 
 
-def _get_tokens_from_logits(logits, temperature=None, top_p=None):
-    last_token_logits = logits[:, -1, :]
+def get_token_from_logits(
+    req: InferenceRequest, i: int, logits, temperature, repetition_penalty, top_p, top_k
+):
+    logits_processor = prepare_logits_processor(
+        temperature, repetition_penalty, top_p, top_k
+    )
 
-    # # TODO verify correction
-    # if temperature < 1e-5 or top_p < 1e-8:  # greedy
-    #     _, indices = torch.topk(last_token_logits, 2)
-    #     tokens = [int(index[0]) for index in indices.tolist()]
-    # else:
-    probs = torch.softmax(last_token_logits, dim=-1)
-    indices = torch.multinomial(probs, num_samples=2)
-    tokens = [int(token[0]) for token in indices.tolist()]
-    return tokens
+    if logits_processor:
+        if repetition_penalty > 1.0:
+            tmp_output_ids = torch.as_tensor(
+                [req.prompt_tokens + req.new_tokens], device=logits.device
+            )
+        else:
+            tmp_output_ids = None
+        last_token_logits = logits_processor(tmp_output_ids, logits[i : i + 1, -1, :])[
+            0
+        ]
+    else:
+        last_token_logits = logits[i : i + 1, -1, :]
+
+    if temperature < 1e-5 or top_p < 1e-8:  # greedy
+        _, indices = torch.topk(last_token_logits, 2)
+    else:
+        probs = torch.softmax(last_token_logits, dim=-1)
+        indices = torch.multinomial(probs, num_samples=2)
+    token = indices[0].int().item()
+    return token
 
 
 def _pad_to_max_length(x: List[int], max_len: int, pad: int) -> List[int]:
@@ -564,13 +579,6 @@ def pad_seqs_inplace(seqs: List[List[int]], pad: int):
 def batch_inference_one_step(
     req_list: List[InferenceRequest], model_uid, model, tokenizer, device
 ):
-    # TODO: handle generate config by each request
-    # max_new_tokens = int(generate_config.get("max_tokens", max_tokens_field.default))
-    # temperature = float(generate_config.get("temperature", 1.0))
-    # repetition_penalty = float(generate_config.get("repetition_penalty", 1.0))
-    # top_p = float(generate_config.get("top_p", 1.0))
-    # top_k = int(generate_config.get("top_k", -1))  # -1 means disable
-
     prompts = [r.full_prompt for r in req_list if r.is_prefill]
     not_use_kv_cache_in_decode = all(r.kv_cache is None for r in req_list)
     if prompts:
@@ -603,7 +611,6 @@ def batch_inference_one_step(
         )
     logits = out.logits
     past_key_values = out.past_key_values
-    tokens = _get_tokens_from_logits(logits)
 
     for i, r in enumerate(req_list):
         max_new_tokens = int(
@@ -613,8 +620,16 @@ def batch_inference_one_step(
         # stop_str = r.sanitized_generate_config.get("stop", None)
         stop_token_ids = r.sanitized_generate_config.get("stop_token_ids", None) or []
         stop_token_ids.append(tokenizer.eos_token_id)
+        temperature = float(r.sanitized_generate_config.get("temperature", 1.0))
+        repetition_penalty = float(
+            r.sanitized_generate_config.get("repetition_penalty", 1.0)
+        )
+        top_p = float(r.sanitized_generate_config.get("top_p", 1.0))
+        top_k = int(r.sanitized_generate_config.get("top_k", -1))  # -1 means disable
 
-        token = tokens[i]
+        token = get_token_from_logits(
+            r, i, logits, temperature, repetition_penalty, top_p, top_k
+        )
         stopped = token in stop_token_ids
 
         r.kv_cache = past_key_values
