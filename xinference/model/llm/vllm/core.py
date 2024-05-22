@@ -37,6 +37,7 @@ from ....types import (
     CompletionChoice,
     CompletionChunk,
     CompletionUsage,
+    LoRA,
     ToolCallFunction,
     ToolCalls,
 )
@@ -64,6 +65,7 @@ class VLLMModelConfig(TypedDict, total=False):
 
 
 class VLLMGenerateConfig(TypedDict, total=False):
+    lora_name: Optional[str]
     n: int
     best_of: Optional[int]
     presence_penalty: float
@@ -75,6 +77,7 @@ class VLLMGenerateConfig(TypedDict, total=False):
     stop_token_ids: Optional[List[int]]
     stop: Optional[Union[str, List[str]]]
     stream: bool  # non-sampling param, should not be passed to the engine.
+    stream_options: Optional[Union[dict, None]]
 
 
 try:
@@ -146,16 +149,30 @@ class VLLMModel(LLM):
         quantization: str,
         model_path: str,
         model_config: Optional[VLLMModelConfig],
+        peft_model: Optional[List[LoRA]] = None,
     ):
+        try:
+            from vllm.lora.request import LoRARequest
+        except ImportError:
+            error_message = "Failed to import module 'vllm'"
+            installation_guide = [
+                "Please make sure 'vllm' is installed. ",
+                "You can install it by `pip install vllm`\n",
+            ]
+
+            raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
         super().__init__(model_uid, model_family, model_spec, quantization, model_path)
         self._model_config = model_config
         self._engine = None
+        self.lora_modules = peft_model
+        self.lora_requests: List[LoRARequest] = []
 
     def load(self):
         try:
             import vllm
             from vllm.engine.arg_utils import AsyncEngineArgs
             from vllm.engine.async_llm_engine import AsyncLLMEngine
+            from vllm.lora.request import LoRARequest
         except ImportError:
             error_message = "Failed to import module 'vllm'"
             installation_guide = [
@@ -174,11 +191,33 @@ class VLLMModel(LLM):
             multiprocessing.set_start_method("fork", force=True)
 
         self._model_config = self._sanitize_model_config(self._model_config)
+
+        if self.lora_modules is None:
+            self.lora_requests = []
+        else:
+            self.lora_requests = [
+                LoRARequest(
+                    lora_name=lora.lora_name,
+                    lora_int_id=i,
+                    lora_local_path=lora.local_path,
+                )
+                for i, lora in enumerate(self.lora_modules, start=1)
+            ]
+
+        enable_lora = len(self.lora_requests) > 0
+        max_loras = len(self.lora_requests)
+
         logger.info(
             f"Loading {self.model_uid} with following model config: {self._model_config}"
+            f"Enable lora: {enable_lora}. Lora count: {max_loras}."
         )
 
-        engine_args = AsyncEngineArgs(model=self.model_path, **self._model_config)
+        engine_args = AsyncEngineArgs(
+            model=self.model_path,
+            enable_lora=enable_lora,
+            max_loras=max_loras,
+            **self._model_config,
+        )
         self._engine = AsyncLLMEngine.from_engine_args(engine_args)
 
     def _sanitize_model_config(
@@ -209,6 +248,7 @@ class VLLMModel(LLM):
             generate_config = {}
 
         sanitized = VLLMGenerateConfig()
+        sanitized.setdefault("lora_name", generate_config.get("lora_name", None))
         sanitized.setdefault("n", generate_config.get("n", 1))
         sanitized.setdefault("best_of", generate_config.get("best_of", None))
         sanitized.setdefault(
@@ -225,7 +265,10 @@ class VLLMModel(LLM):
         sanitized.setdefault(
             "stop_token_ids", generate_config.get("stop_token_ids", None)
         )
-        sanitized.setdefault("stream", generate_config.get("stream", None))
+        sanitized.setdefault("stream", generate_config.get("stream", False))
+        sanitized.setdefault(
+            "stream_options", generate_config.get("stream_options", None)
+        )
 
         return sanitized
 
@@ -342,16 +385,34 @@ class VLLMModel(LLM):
             "Enter generate, prompt: %s, generate config: %s", prompt, generate_config
         )
 
+        lora_model = sanitized_generate_config.pop("lora_name")
+
+        lora_request = None
+        if lora_model is not None:
+            for lora in self.lora_requests:
+                if lora_model == lora.lora_name:
+                    lora_request = lora
+                    break
+
         stream = sanitized_generate_config.pop("stream")
+        stream_options = sanitized_generate_config.pop("stream_options", None)
+        include_usage = (
+            stream_options["include_usage"]
+            if isinstance(stream_options, dict)
+            else False
+        )
         sampling_params = SamplingParams(**sanitized_generate_config)
         request_id = str(uuid.uuid1())
 
         assert self._engine is not None
-        results_generator = self._engine.generate(prompt, sampling_params, request_id)
+        results_generator = self._engine.generate(
+            prompt, sampling_params, request_id, lora_request=lora_request
+        )
 
         async def stream_results() -> AsyncGenerator[CompletionChunk, None]:
             previous_texts = [""] * sanitized_generate_config["n"]
             tools_token_filter = ChatModelMixin._tools_token_filter(self.model_family)
+            prompt_tokens, completion_tokens, total_tokens = 0, 0, 0
             async for _request_output in results_generator:
                 chunk = self._convert_request_output_to_completion_chunk(
                     request_id=request_id,
@@ -396,6 +457,20 @@ class VLLMModel(LLM):
                     len(output.token_ids) for output in _request_output.outputs
                 )
                 total_tokens = prompt_tokens + completion_tokens
+                chunk["usage"] = CompletionUsage(
+                    prompt_tokens=prompt_tokens,
+                    completion_tokens=completion_tokens,
+                    total_tokens=total_tokens,
+                )
+                yield chunk
+            if include_usage:
+                chunk = CompletionChunk(
+                    id=request_id,
+                    object="text_completion",
+                    created=int(time.time()),
+                    model=self.model_uid,
+                    choices=[],
+                )
                 chunk["usage"] = CompletionUsage(
                     prompt_tokens=prompt_tokens,
                     completion_tokens=completion_tokens,

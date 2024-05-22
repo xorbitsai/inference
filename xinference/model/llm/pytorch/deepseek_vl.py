@@ -155,7 +155,12 @@ class DeepSeekVLChatModel(PytorchChatModel):
             generate_config = {}
 
         stream = generate_config.get("stream", False)
-
+        stream_options = generate_config.pop("stream_options", None)
+        include_usage = (
+            stream_options["include_usage"]
+            if isinstance(stream_options, dict)
+            else False
+        )
         prompt, images = self._message_content_to_deepseek(prompt)
         prompt_messages: List[Dict[str, Any]] = [
             {
@@ -217,7 +222,7 @@ class DeepSeekVLChatModel(PytorchChatModel):
         )
 
         if stream:
-            it = self._generate_stream(streamer, stop_str)
+            it = self._generate_stream(streamer, stop_str, include_usage, prompt)
             return self._to_chat_completion_chunks(it)
         else:
             c = self._generate(streamer, stop_str)
@@ -246,8 +251,13 @@ class DeepSeekVLChatModel(PytorchChatModel):
         )
         return c
 
-    def _generate_stream(self, streamer, stop_str) -> Iterator[CompletionChunk]:
+    def _generate_stream(
+        self, streamer, stop_str, include_usage, prompt
+    ) -> Iterator[CompletionChunk]:
         completion_id = str(uuid.uuid1())
+        prompt_tokens, completion_tokens, total_tokens = 0, 0, 0
+        input_ids = self._tokenizer(prompt).input_ids
+        prompt_tokens = len(input_ids)
         for i, new_text in enumerate(streamer):
             if new_text.endswith(stop_str):
                 new_text = new_text[: -len(stop_str)]
@@ -261,10 +271,12 @@ class DeepSeekVLChatModel(PytorchChatModel):
                 model=self.model_uid,
                 choices=[completion_choice],
             )
+            completion_tokens = i
+            total_tokens = prompt_tokens + completion_tokens
             completion_usage = CompletionUsage(
-                prompt_tokens=-1,
-                completion_tokens=-1,
-                total_tokens=-1,
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                total_tokens=total_tokens,
             )
             chunk["usage"] = completion_usage
             yield chunk
@@ -280,9 +292,23 @@ class DeepSeekVLChatModel(PytorchChatModel):
             choices=[completion_choice],
         )
         completion_usage = CompletionUsage(
-            prompt_tokens=-1,
-            completion_tokens=-1,
-            total_tokens=-1,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            total_tokens=total_tokens,
         )
         chunk["usage"] = completion_usage
         yield chunk
+        if include_usage:
+            chunk = CompletionChunk(
+                id=completion_id,
+                object="text_completion",
+                created=int(time.time()),
+                model=self.model_uid,
+                choices=[],
+            )
+            chunk["usage"] = CompletionUsage(
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                total_tokens=total_tokens,
+            )
+            yield chunk

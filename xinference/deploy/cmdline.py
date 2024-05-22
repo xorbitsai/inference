@@ -1415,5 +1415,93 @@ def query_engine_by_model_name(
         )
 
 
+@cli.command(
+    "cal-model-mem",
+    help="calculate gpu mem usage with specified model size and context_length",
+)
+@click.option(
+    "--model-name",
+    "-n",
+    type=str,
+    help="The model name is optional.\
+    If provided, fetch model config from huggingface/modelscope;\
+    If not specified, use default model layer to estimate.",
+)
+@click.option(
+    "--size-in-billions",
+    "-s",
+    type=str,
+    required=True,
+    help="Specify the model size in billions of parameters. Format accept 1_8 and 1.8",
+)
+@click.option(
+    "--model-format",
+    "-f",
+    type=str,
+    required=True,
+    help="Specify the format of the model, e.g. pytorch, ggmlv3, etc.",
+)
+@click.option(
+    "--quantization",
+    "-q",
+    type=str,
+    default=None,
+    help="Define the quantization settings for the model.",
+)
+@click.option(
+    "--context-length",
+    "-c",
+    type=int,
+    required=True,
+    help="Specify the context length",
+)
+@click.option(
+    "--kv-cache-dtype",
+    type=int,
+    default=16,
+    help="Specified the kv_cache_dtype, one of: 8, 16, 32",
+)
+def cal_model_mem(
+    model_name: Optional[str],
+    size_in_billions: str,
+    model_format: str,
+    quantization: Optional[str],
+    context_length: int,
+    kv_cache_dtype: int,
+):
+    if kv_cache_dtype not in [8, 16, 32]:
+        print("Invalid kv_cache_dtype:", kv_cache_dtype)
+        os._exit(1)
+
+    import math
+
+    from ..model.llm.llm_family import convert_model_size_to_float
+    from ..model.llm.memory import estimate_llm_gpu_memory
+
+    mem_info = estimate_llm_gpu_memory(
+        model_size_in_billions=size_in_billions,
+        quantization=quantization,
+        context_length=context_length,
+        model_format=model_format,
+        model_name=model_name,
+        kv_cache_dtype=kv_cache_dtype,
+    )
+    if mem_info is None:
+        print("The Specified model parameters is not match: `%s`" % model_name)
+        os._exit(1)
+    total_mem_g = math.ceil(mem_info.total / 1024.0)
+    print("model_name:", model_name)
+    print("kv_cache_dtype:", kv_cache_dtype)
+    print("model size: %.1f B" % (convert_model_size_to_float(size_in_billions)))
+    print("quant: %s" % (quantization))
+    print("context: %d" % (context_length))
+    print("gpu mem usage:")
+    print("  model mem: %d MB" % (mem_info.model_mem))
+    print("  kv_cache: %d MB" % (mem_info.kv_cache_mem))
+    print("  overhead: %d MB" % (mem_info.overhead))
+    print("  active: %d MB" % (mem_info.activation_mem))
+    print("  total: %d MB (%d GB)" % (mem_info.total, total_mem_g))
+
+
 if __name__ == "__main__":
     cli()
