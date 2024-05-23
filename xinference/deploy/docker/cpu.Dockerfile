@@ -19,7 +19,7 @@ ENV PATH $NVM_DIR/versions/node/v$NODE_VERSION/bin:$PATH
 
 ARG PIP_INDEX=https://pypi.org/simple
 RUN python -m pip install --upgrade -i "$PIP_INDEX" pip && \
-    pip install "torch<2.3.0" torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu && \
+    pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu && \
     pip install -i "$PIP_INDEX" \
       "xoscar>=0.3.0" \
       "gradio>=3.39.0" \
@@ -32,7 +32,7 @@ RUN python -m pip install --upgrade -i "$PIP_INDEX" pip && \
       pydantic \
       fastapi \
       uvicorn \
-      "huggingface-hub>=0.19.4,<0.23.0" \
+      "huggingface-hub>=0.19.4" \
       typing_extensions \
       "fsspec>=2023.1.0,<=2023.10.0" \
       s3fs \

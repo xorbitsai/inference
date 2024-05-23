@@ -33,6 +33,7 @@ from ..llm_family import (
     _get_cache_dir,
     _get_meta_path,
     _skip_download,
+    convert_model_size_to_float,
     is_self_hosted,
     is_valid_model_uri,
     match_llm,
@@ -1064,6 +1065,13 @@ def test_match_model_size():
     assert not match_model_size("1.8", 18)
     assert not match_model_size("1.8", 1)
     assert match_model_size("001", 1)
+
+
+def test_convert_model_size_to_float():
+    assert convert_model_size_to_float("1_8") == 1.8
+    assert convert_model_size_to_float("1.8") == 1.8
+    assert convert_model_size_to_float(7) == float(7)
+    assert convert_model_size_to_float(1.8) == 1.8
 
 
 @pytest.mark.skipif(

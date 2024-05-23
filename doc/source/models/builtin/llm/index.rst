@@ -106,6 +106,11 @@ The following is a list of built-in LLM in Xinference:
      - 100000
      - Code-Llama-Python is a fine-tuned version of the Code-Llama LLM, specializing in Python.
 
+   * - :ref:`codeqwen1.5 <models_llm_codeqwen1.5>`
+     - generate
+     - 65536
+     - CodeQwen1.5 is the Code-Specific version of Qwen1.5. It is a transformer-based decoder-only language model pretrained on a large amount of data of codes.
+
    * - :ref:`codeqwen1.5-chat <models_llm_codeqwen1.5-chat>`
      - chat
      - 65536
@@ -121,14 +126,24 @@ The following is a list of built-in LLM in Xinference:
      - 8194
      - CodeShell is a multi-language code LLM developed by the Knowledge Computing Lab of Peking University.
 
+   * - :ref:`deepseek <models_llm_deepseek>`
+     - generate
+     - 4096
+     - DeepSeek LLM, trained from scratch on a vast dataset of 2 trillion tokens in both English and Chinese. 
+
    * - :ref:`deepseek-chat <models_llm_deepseek-chat>`
      - chat
      - 4096
      - DeepSeek LLM is an advanced language model comprising 67 billion parameters. It has been trained from scratch on a vast dataset of 2 trillion tokens in both English and Chinese.
 
+   * - :ref:`deepseek-coder <models_llm_deepseek-coder>`
+     - generate
+     - 16384
+     - Deepseek Coder is composed of a series of code language models, each trained from scratch on 2T tokens, with a composition of 87% code and 13% natural language in both English and Chinese. 
+
    * - :ref:`deepseek-coder-instruct <models_llm_deepseek-coder-instruct>`
      - chat
-     - 4096
+     - 16384
      - deepseek-coder-instruct is a model initialized from deepseek-coder-base and fine-tuned on 2B tokens of instruction data.
 
    * - :ref:`deepseek-vl-chat <models_llm_deepseek-vl-chat>`
@@ -512,13 +527,19 @@ The following is a list of built-in LLM in Xinference:
   
    code-llama-python
   
+   codeqwen1.5
+  
    codeqwen1.5-chat
   
    codeshell
   
    codeshell-chat
   
+   deepseek
+  
    deepseek-chat
+  
+   deepseek-coder
   
    deepseek-coder-instruct
   
