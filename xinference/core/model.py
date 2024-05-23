@@ -205,7 +205,7 @@ class ModelActor(xo.StatelessActor):
     async def __post_create__(self):
         self._loop = asyncio.get_running_loop()
 
-        if XINFERENCE_TRANSFORMERS_ENABLE_BATCHING and self.allow_batching():
+        if self.allow_batching():
             from ..isolation import Isolation
             from .scheduler import SchedulerActor
 
@@ -275,13 +275,14 @@ class ModelActor(xo.StatelessActor):
         from ..model.llm.pytorch.core import PytorchChatModel
 
         return (
-            isinstance(self._model, PytorchChatModel)
+            XINFERENCE_TRANSFORMERS_ENABLE_BATCHING
+            and isinstance(self._model, PytorchChatModel)
             and self._model.__class__.__name__ == PytorchChatModel.__name__
         )
 
     async def load(self):
         self._model.load()
-        if XINFERENCE_TRANSFORMERS_ENABLE_BATCHING and self.allow_batching():
+        if self.allow_batching():
             await self._scheduler_ref.set_model(self._model)
             logger.debug(
                 f"Batching enabled for model: {self.model_uid()}, max_num_seqs: {self._model.get_max_num_seqs()}"
@@ -442,7 +443,7 @@ class ModelActor(xo.StatelessActor):
         start_time = time.time()
         response = None
         try:
-            if XINFERENCE_TRANSFORMERS_ENABLE_BATCHING and self.allow_batching():
+            if self.allow_batching():
                 stream = self.get_stream_from_args(*args)
                 assert self._scheduler_ref is not None
                 if stream:
