@@ -167,6 +167,25 @@ def test_RESTful_client(setup):
     assert len(client.list_models()) == 0
 
 
+@pytest.mark.skipif(os.name == "nt", reason="Skip windows")
+def test_list_cached_models(setup):
+    endpoint, _ = setup
+    client = RESTfulClient(endpoint)
+
+    assert len(client.list_cached_models()) == 0
+
+    model_uid = client.launch_model(
+        model_name="orca",
+        model_engine="llama.cpp",
+        model_size_in_billions=3,
+        quantization="q4_0",
+    )
+
+    cached_models = client.list_cached_models()
+    assert len(cached_models) == 1
+    assert cached_models[0]["uid"] == model_uid
+
+
 def test_RESTful_client_for_embedding(setup):
     endpoint, _ = setup
     client = RESTfulClient(endpoint)
