@@ -116,6 +116,7 @@ def _install():
     from .pytorch.core import PytorchChatModel, PytorchModel
     from .pytorch.deepseek_vl import DeepSeekVLChatModel
     from .pytorch.falcon import FalconPytorchChatModel, FalconPytorchModel
+    from .pytorch.intern_vl import InternVLChatModel
     from .pytorch.internlm2 import Internlm2PytorchChatModel
     from .pytorch.llama_2 import LlamaPytorchChatModel, LlamaPytorchModel
     from .pytorch.qwen_vl import QwenVLChatModel
@@ -123,7 +124,6 @@ def _install():
     from .pytorch.yi_vl import YiVLChatModel
     from .sglang.core import SGLANGChatModel, SGLANGModel
     from .vllm.core import VLLMChatModel, VLLMModel
-    from .pytorch.intern_vl import InternVLChatModel
 
     try:
         from .pytorch.omnilmm import OmniLMMModel

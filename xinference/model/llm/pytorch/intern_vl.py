@@ -13,19 +13,17 @@
 # limitations under the License.
 import base64
 import logging
-from concurrent.futures import ThreadPoolExecutor
-from io import BytesIO
-
-import requests
 import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor
+from io import BytesIO
 from typing import Dict, Iterator, List, Optional, Union
+
+import requests
+import torch
 import torchvision.transforms as T
 from PIL import Image
-
 from torchvision.transforms.functional import InterpolationMode
-
-import torch
 
 from ....model.utils import select_device
 from ....types import (
@@ -53,7 +51,7 @@ class InternVLChatModel(PytorchChatModel):
 
     @classmethod
     def match(
-            cls, model_family: "LLMFamilyV1", model_spec: "LLMSpecV1", quantization: str
+        cls, model_family: "LLMFamilyV1", model_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         if ("internvl") in model_family.model_name:
             return True
@@ -81,17 +79,16 @@ class InternVLChatModel(PytorchChatModel):
         }
 
         if "Int8" in self.model_spec.quantizations:
-            kwargs.update({
-                "load_in_8bit": True,
-                "device_map": device,
-            })
+            kwargs.update(
+                {
+                    "load_in_8bit": True,
+                    "device_map": device,
+                }
+            )
         elif "mini" in self.model_family.model_name:
             kwargs.pop("device_map")
 
-        self._model = AutoModel.from_pretrained(
-            self.model_path,
-            **kwargs
-        ).eval()
+        self._model = AutoModel.from_pretrained(self.model_path, **kwargs).eval()
 
         if "Int8" not in self.model_spec.quantizations:
             self._model.cuda()
@@ -103,8 +100,8 @@ class InternVLChatModel(PytorchChatModel):
         )
 
     def _sanitize_generate_config(
-            self,
-            generate_config: Dict,
+        self,
+        generate_config: Optional[PytorchGenerateConfig],
     ) -> PytorchGenerateConfig:
         if not generate_config:
             generate_config = {}
@@ -123,7 +120,7 @@ class InternVLChatModel(PytorchChatModel):
                 # e.g. f"data:image/jpeg;base64,{base64_image}"
                 _type, data = _url.split(";")
                 _, ext = _type.split("/")
-                data = data[len("base64,"):]
+                data = data[len("base64,") :]
                 data = base64.b64decode(data.encode("utf-8"))
 
                 return Image.open(BytesIO(data)).convert("RGB")
@@ -157,8 +154,10 @@ class InternVLChatModel(PytorchChatModel):
                 return text, images
         return content
 
-    def _find_closest_aspect_ratio(self, aspect_ratio, target_ratios, width, height, image_size):
-        best_ratio_diff = float('inf')
+    def _find_closest_aspect_ratio(
+        self, aspect_ratio, target_ratios, width, height, image_size
+    ):
+        best_ratio_diff = float("inf")
         best_ratio = (1, 1)
         area = width * height
         for ratio in target_ratios:
@@ -172,19 +171,26 @@ class InternVLChatModel(PytorchChatModel):
                     best_ratio = ratio
         return best_ratio
 
-    def _dynamic_preprocess(self, image, min_num=1, max_num=6, image_size=448, use_thumbnail=False):
+    def _dynamic_preprocess(
+        self, image, min_num=1, max_num=6, image_size=448, use_thumbnail=False
+    ):
         orig_width, orig_height = image.size
         aspect_ratio = orig_width / orig_height
 
         # calculate the existing image aspect ratio
         target_ratios = set(
-            (i, j) for n in range(min_num, max_num + 1) for i in range(1, n + 1) for j in range(1, n + 1) if
-            i * j <= max_num and i * j >= min_num)
+            (i, j)
+            for n in range(min_num, max_num + 1)
+            for i in range(1, n + 1)
+            for j in range(1, n + 1)
+            if i * j <= max_num and i * j >= min_num
+        )
         target_ratios = sorted(target_ratios, key=lambda x: x[0] * x[1])
 
         # find the closest aspect ratio to the target
         target_aspect_ratio = self._find_closest_aspect_ratio(
-            aspect_ratio, target_ratios, orig_width, orig_height, image_size)
+            aspect_ratio, target_ratios, orig_width, orig_height, image_size
+        )
 
         # calculate the target width and height
         target_width = image_size * target_aspect_ratio[0]
@@ -199,7 +205,7 @@ class InternVLChatModel(PytorchChatModel):
                 (i % (target_width // image_size)) * image_size,
                 (i // (target_width // image_size)) * image_size,
                 ((i % (target_width // image_size)) + 1) * image_size,
-                ((i // (target_width // image_size)) + 1) * image_size
+                ((i // (target_width // image_size)) + 1) * image_size,
             )
             # split the image
             split_img = resized_img.crop(box)
@@ -212,27 +218,33 @@ class InternVLChatModel(PytorchChatModel):
 
     def _build_transform(self, input_size):
         MEAN, STD = IMAGENET_MEAN, IMAGENET_STD
-        transform = T.Compose([
-            T.Lambda(lambda img: img.convert('RGB') if img.mode != 'RGB' else img),
-            T.Resize((input_size, input_size), interpolation=InterpolationMode.BICUBIC),
-            T.ToTensor(),
-            T.Normalize(mean=MEAN, std=STD)
-        ])
+        transform = T.Compose(
+            [
+                T.Lambda(lambda img: img.convert("RGB") if img.mode != "RGB" else img),
+                T.Resize(
+                    (input_size, input_size), interpolation=InterpolationMode.BICUBIC
+                ),
+                T.ToTensor(),
+                T.Normalize(mean=MEAN, std=STD),
+            ]
+        )
         return transform
 
     def _load_image(self, image_file, input_size=448, max_num=6):
         transform = self._build_transform(input_size=input_size)
-        images = self._dynamic_preprocess(image_file, image_size=input_size, use_thumbnail=True, max_num=max_num)
+        images = self._dynamic_preprocess(
+            image_file, image_size=input_size, use_thumbnail=True, max_num=max_num
+        )
         pixel_values = [transform(image) for image in images]
         pixel_values = torch.stack(pixel_values)
         return pixel_values
 
     def chat(
-            self,
-            prompt: Union[str, List[Dict]],
-            system_prompt: Optional[str] = None,
-            chat_history: Optional[List[ChatCompletionMessage]] = None,
-            generate_config: Optional[PytorchGenerateConfig] = None,
+        self,
+        prompt: Union[str, List[Dict]],
+        system_prompt: Optional[str] = None,
+        chat_history: Optional[List[ChatCompletionMessage]] = None,
+        generate_config: Optional[PytorchGenerateConfig] = None,
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
         if generate_config and generate_config.pop("stream"):
             raise Exception(
@@ -248,9 +260,15 @@ class InternVLChatModel(PytorchChatModel):
             load_images.append(pixel_value)
         pixel_values = torch.cat(tuple(load_images), dim=0)
 
-        response = self._model.chat(self._tokenizer, pixel_values, content, generate_config, history=None,
-                                    return_history=False)
-        chunck = Completion(
+        response = self._model.chat(
+            self._tokenizer,
+            pixel_values,
+            content,
+            generate_config,
+            history=None,
+            return_history=False,
+        )
+        chunk = Completion(
             id=str(uuid.uuid1()),
             object="text_completion",
             created=int(time.time()),
@@ -264,4 +282,4 @@ class InternVLChatModel(PytorchChatModel):
                 prompt_tokens=-1, completion_tokens=-1, total_tokens=-1
             ),
         )
-        return self._to_chat_completion(chunck)
+        return self._to_chat_completion(chunk)
