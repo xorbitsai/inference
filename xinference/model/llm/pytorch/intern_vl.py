@@ -34,7 +34,6 @@ from ....types import (
     ChatCompletionMessage,
     Completion,
     CompletionChoice,
-    CompletionChunk,
     CompletionUsage,
 )
 from ..llm_family import LLMFamilyV1, LLMSpecV1
@@ -137,8 +136,6 @@ class InternVLChatModel(PytorchChatModel):
                     return Image.open(BytesIO(response.content)).convert("RGB")
 
         if not isinstance(content, str):
-            from ....thirdparty.llava.model.constants import DEFAULT_IMAGE_TOKEN
-
             texts = []
             image_urls = []
             for c in content:
