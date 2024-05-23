@@ -595,7 +595,7 @@ def list_cached_models(
     if api_key is None:
         client._set_token(get_stored_token(endpoint, client))
 
-    cached_models = client.list_cahced_models()
+    cached_models = client.list_cached_models()
 
     print("cached_model: ")
     headers = list(cached_models[0].keys())
