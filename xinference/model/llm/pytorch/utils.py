@@ -701,7 +701,6 @@ def batch_inference_one_step(
                     spaces_between_special_tokens=False,
                     clean_up_tokenization_spaces=True,
                 )
-                r.outputs = outputs
 
                 completion_choice = CompletionChoice(
                     text=outputs, index=0, logprobs=None, finish_reason=finish_reason

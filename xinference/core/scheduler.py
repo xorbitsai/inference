@@ -24,21 +24,39 @@ XINFERENCE_STREAMING_ERROR_FLAG = "<XINFERENCE_STREAMING_ERROR>"
 
 class InferenceRequest:
     def __init__(self, prompt, future_or_queue, is_prefill, *args, **kwargs):
+        # original prompt
         self._prompt = prompt
+        # full prompt that contains chat history and applies chat template
         self._full_prompt = None
+        # whether the current request is in the prefill phase
         self._is_prefill = is_prefill
+        # full prompt tokens
         self._prompt_tokens = None
+        # all new generated tokens during decode phase
         self._new_tokens = []
-        self._outputs = None
+        # kv_cache used in decode phase
         self._kv_cache = None
+        # use passed args from `chat` interface
         self._inference_args = args
+        # use passed kwargs from `chat` interface, basically not used for now
         self._inference_kwargs = kwargs
+        # should this request be stopped
         self._stopped = False
-        self._check_args()
+        # sanitized generate config
         self._sanitized_generate_config = None
+        # inference results,
+        # it is a list type because when stream=True, for the first time you need to return two chunks
         self.completion = []
+        # The way upstream gets the returned results,
+        # when stream=True, it is an asyncio.Queue,
+        # and when stream=False, it is an asyncio future.
         self.future_or_queue = future_or_queue
+        # Record error message when this request has error.
+        # Must set stopped=True when this field is set.
         self.error_msg: Optional[str] = None
+
+        # check the integrity of args passed upstream
+        self._check_args()
 
     def _check_args(self):
         assert len(self._inference_args) == 3
@@ -125,14 +143,6 @@ class InferenceRequest:
     @stopped.setter
     def stopped(self, value: bool):
         self._stopped = value
-
-    @property
-    def outputs(self):
-        return self._outputs
-
-    @outputs.setter
-    def outputs(self, value):
-        self._outputs = value
 
     @property
     def stream(self) -> bool:
