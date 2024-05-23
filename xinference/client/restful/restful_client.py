@@ -1102,7 +1102,7 @@ class Client:
         response_data = response.json()
         return response_data
 
-    def list_cahced_models(self):
+    def list_cached_models(self):
         """
         Get a list of cached models.
 
