@@ -46,6 +46,7 @@ Currently, supported models include:
 - ``Yi``, ``Yi-1.5``, ``Yi-chat``, ``Yi-1.5-chat``
 - ``code-llama``, ``code-llama-python``, ``code-llama-instruct``
 - ``deepseek``, ``deepseek-coder``, ``deepseek-chat``, ``deepseek-coder-instruct``
+- ``codeqwen1.5``, ``codeqwen1.5-chat``
 - ``c4ai-command-r-v01``, ``c4ai-command-r-v01-4bit``
 - ``vicuna-v1.3``, ``vicuna-v1.5``
 - ``internlm2-chat``
@@ -53,7 +54,6 @@ Currently, supported models include:
 - ``mixtral-instruct-v0.1``, ``mixtral-8x22B-instruct-v0.1``
 - ``chatglm3``, ``chatglm3-32k``, ``chatglm3-128k``
 - ``qwen1.5-chat``, ``qwen1.5-moe-chat``
-- ``codeqwen1.5-chat``
 - ``gemma-it``
 - ``orion-chat``, ``orion-chat-rag``
 .. vllm_end
