@@ -97,6 +97,8 @@ VLLM_SUPPORTED_MODELS = [
     "Yi-1.5",
     "code-llama",
     "code-llama-python",
+    "deepseek",
+    "deepseek-coder",
 ]
 VLLM_SUPPORTED_CHAT_MODELS = [
     "llama-2-chat",

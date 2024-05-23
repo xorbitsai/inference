@@ -121,14 +121,24 @@ The following is a list of built-in LLM in Xinference:
      - 8194
      - CodeShell is a multi-language code LLM developed by the Knowledge Computing Lab of Peking University.
 
+   * - :ref:`deepseek <models_llm_deepseek>`
+     - generate
+     - 4096
+     - DeepSeek LLM, trained from scratch on a vast dataset of 2 trillion tokens in both English and Chinese. 
+
    * - :ref:`deepseek-chat <models_llm_deepseek-chat>`
      - chat
      - 4096
      - DeepSeek LLM is an advanced language model comprising 67 billion parameters. It has been trained from scratch on a vast dataset of 2 trillion tokens in both English and Chinese.
 
+   * - :ref:`deepseek-coder <models_llm_deepseek-coder>`
+     - generate
+     - 16384
+     - Deepseek Coder is composed of a series of code language models, each trained from scratch on 2T tokens, with a composition of 87% code and 13% natural language in both English and Chinese. 
+
    * - :ref:`deepseek-coder-instruct <models_llm_deepseek-coder-instruct>`
      - chat
-     - 4096
+     - 16384
      - deepseek-coder-instruct is a model initialized from deepseek-coder-base and fine-tuned on 2B tokens of instruction data.
 
    * - :ref:`deepseek-vl-chat <models_llm_deepseek-vl-chat>`
@@ -518,7 +528,11 @@ The following is a list of built-in LLM in Xinference:
   
    codeshell-chat
   
+   deepseek
+  
    deepseek-chat
+  
+   deepseek-coder
   
    deepseek-coder-instruct
   
