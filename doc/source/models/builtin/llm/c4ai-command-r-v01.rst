@@ -7,8 +7,8 @@ c4ai-command-r-v01
 - **Context Length:** 131072
 - **Model Name:** c4ai-command-r-v01
 - **Languages:** en, fr, de, es, it, pt, ja, ko, zh, ar
-- **Abilities:** generate
-- **Description:** C4AI Command-R is a research release of a 35 billion parameter highly performant generative model.
+- **Abilities:** chat
+- **Description:** C4AI Command-R(+) is a research release of a 35 and 104 billion parameter highly performant generative model.
 
 Specifications
 ^^^^^^^^^^^^^^
