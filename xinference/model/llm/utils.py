@@ -456,6 +456,19 @@ Begin!"""
                     ret += f"<|{role}|>{prompt_style.intra_message_sep}"
             ret += "<|assistant|>\n"
             return ret
+        elif prompt_style.style_name == "c4ai-command-r":
+            ret = (
+                f"<BOS_TOKEN><|START_OF_TURN_TOKEN|><|SYSTEM_TOKEN|>"
+                f"{prompt_style.system_prompt}{prompt_style.inter_message_sep}"
+            )
+            for i, message in enumerate(chat_history):
+                role = get_role(message["role"])
+                content = message["content"]
+                if content:
+                    ret += f"{role}{content}{prompt_style.inter_message_sep}"
+                else:
+                    ret += role
+            return ret
         else:
             raise ValueError(f"Invalid prompt style: {prompt_style.style_name}")
 

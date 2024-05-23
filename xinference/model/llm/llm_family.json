@@ -5833,9 +5833,9 @@
       "ar"
     ],
     "model_ability": [
-      "generate"
+      "chat"
     ],
-    "model_description": "C4AI Command-R is a research release of a 35 billion parameter highly performant generative model.",
+    "model_description": "C4AI Command-R(+) is a research release of a 35 and 104 billion parameter highly performant generative model.",
     "model_specs": [
       {
         "model_format": "pytorch",
@@ -5884,7 +5884,21 @@
         "model_id": "alpindale/c4ai-command-r-plus-GPTQ",
         "model_revision": "35febfc08f723ac0df32480eb4af349a7d08656e"
       }
-    ]
+    ],
+    "prompt_style": {
+      "style_name": "c4ai-command-r",
+      "system_prompt": "You are Command-R, a brilliant, sophisticated, AI-assistant trained to assist human users by providing thorough responses. You are trained by Cohere.",
+      "roles": [
+        "<|USER_TOKEN|>",
+        "<|CHATBOT_TOKEN|>"
+      ],
+      "intra_message_sep": "",
+      "inter_message_sep": "<|END_OF_TURN_TOKEN|><|START_OF_TURN_TOKEN|>",
+      "stop_token_ids": [
+        6,
+        255001
+      ]
+    }
   },
   {
     "version": 1,
@@ -5925,7 +5939,21 @@
         "model_id": "CohereForAI/c4ai-command-r-plus-4bit",
         "model_revision": "bb63b5b7005ecedb30b0cfd0d5953b02a5817f7b"
       }
-    ]
+    ],
+    "prompt_style": {
+      "style_name": "c4ai-command-r",
+      "system_prompt": "You are Command-R, a brilliant, sophisticated, AI-assistant trained to assist human users by providing thorough responses. You are trained by Cohere.",
+      "roles": [
+        "<|USER_TOKEN|>",
+        "<|CHATBOT_TOKEN|>"
+      ],
+      "intra_message_sep": "",
+      "inter_message_sep": "<|END_OF_TURN_TOKEN|><|START_OF_TURN_TOKEN|>",
+      "stop_token_ids": [
+        6,
+        255001
+      ]
+    }
   },
   {
     "version": 1,
