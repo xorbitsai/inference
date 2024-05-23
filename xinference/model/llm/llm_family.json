@@ -5588,5 +5588,94 @@
         32000
       ]
     }
-  }
+  },
+  {
+    "version": 1,
+    "context_length": 32768,
+    "model_name": "internvl−chat−v1-5",
+    "model_lang": [
+        "en",
+        "zh"
+    ],
+    "model_ability": [
+        "chat",
+        "vision"
+    ],
+    "model_description": "InternVL 1.5 is an open-source multimodal large language model (MLLM) to bridge the capability gap between open-source and proprietary commercial models in multimodal understanding. ",
+    "model_specs": [
+        {
+            "model_format": "pytorch",
+            "model_size_in_billions": 25,
+            "quantizations": [
+                "none"
+            ],
+            "model_id": "OpenGVLab/InternVL-Chat-V1-5",
+            "model_revision": "e822119e5806946ce128043023a73d715ecabf8d"
+        },
+        {
+            "model_format": "pytorch",
+            "model_size_in_billions": 25,
+            "quantizations": [
+                "Int8"
+            ],
+            "model_id": "OpenGVLab/InternVL-Chat-V1-5-{quantization}",
+            "model_revision": "acaaed06937c603ab04f084216ecb0268160f538"
+        }
+    ],
+    "prompt_style": {
+        "style_name": "INTERNLM2",
+        "system_prompt": "You are InternLM (书生·浦语), a helpful, honest, and harmless AI assistant developed by Shanghai AI Laboratory (上海人工智能实验室).",
+        "roles": [
+            "<|im_start|>user",
+            "<|im_start|>assistant"
+        ],
+        "intra_message_sep": "<|im_end|>",
+        "stop_token_ids": [
+            92542
+        ],
+        "stop": [
+            "<|im_end|>"
+        ]
+    }
+},
+  {
+    "version": 1,
+    "context_length": 32768,
+    "model_name": "mini-internvl−chat−v1-5",
+    "model_lang": [
+        "en",
+        "zh"
+    ],
+    "model_ability": [
+        "chat",
+        "vision"
+    ],
+    "model_description": "InternVL 1.5 is an open-source multimodal large language model (MLLM) to bridge the capability gap between open-source and proprietary commercial models in multimodal understanding. ",
+    "model_specs": [
+        {
+            "model_format": "pytorch",
+            "model_size_in_billions": 2,
+            "quantizations": [
+                "none"
+            ],
+            "model_id": "OpenGVLab/Mini-InternVL-Chat-2B-V1-5",
+            "model_revision": "ce3f67acff17281bacbf4b156f402a0580fb9605"
+        }
+    ],
+    "prompt_style": {
+        "style_name": "INTERNLM2",
+        "system_prompt": "You are InternLM (书生·浦语), a helpful, honest, and harmless AI assistant developed by Shanghai AI Laboratory (上海人工智能实验室).",
+        "roles": [
+            "<|im_start|>user",
+            "<|im_start|>assistant"
+        ],
+        "intra_message_sep": "<|im_end|>",
+        "stop_token_ids": [
+            92542
+        ],
+        "stop": [
+            "<|im_end|>"
+        ]
+    }
+}
 ]
