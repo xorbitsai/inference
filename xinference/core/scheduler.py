@@ -18,7 +18,8 @@ from typing import List, Optional
 
 import xoscar as xo
 
-XINFERENCE_STREAMING_DOME_FLAG = "<XINFERENCE_STREAMING_DONE>"
+XINFERENCE_STREAMING_DONE_FLAG = "<XINFERENCE_STREAMING_DONE>"
+XINFERENCE_STREAMING_ERROR_FLAG = "<XINFERENCE_STREAMING_ERROR>"
 
 
 class InferenceRequest:
@@ -37,6 +38,7 @@ class InferenceRequest:
         self._sanitized_generate_config = None
         self.completion = []
         self.future_or_queue = future_or_queue
+        self.error_msg: Optional[str] = None
 
     def _check_args(self):
         assert len(self._inference_args) == 3
@@ -186,6 +188,7 @@ class SchedulerActor(xo.StatelessActor):
         batch_size = len(req_list)
         self._model.batch_inference(req_list)
 
+        stop_before_prefill_cnt = 0
         for r in req_list:
             if r.stream:
                 for completion in r.completion:
@@ -194,15 +197,27 @@ class SchedulerActor(xo.StatelessActor):
             if not r.stopped:
                 self._running_queue.append(r)
             else:
-                if not r.stream:
-                    r.future_or_queue.set_result(r.completion[0])
+                if r.error_msg is None:  # normal stop
+                    if not r.stream:
+                        r.future_or_queue.set_result(r.completion[0])
+                    else:
+                        await r.future_or_queue.put(XINFERENCE_STREAMING_DONE_FLAG)
+                # Abnormal stop, currently indicates that the parameter check does not pass,
+                # and does not participate in the inference
                 else:
-                    await r.future_or_queue.put(XINFERENCE_STREAMING_DOME_FLAG)
+                    stop_before_prefill_cnt += 1
+                    if not r.stream:
+                        r.future_or_queue.set_exception(ValueError(r.error_msg))
+                    else:
+                        await r.future_or_queue.put(
+                            XINFERENCE_STREAMING_ERROR_FLAG + r.error_msg
+                        )
 
         if len(self._running_queue) > 0:
             batch_size_after_one_step = len(self._running_queue)
-            if batch_size != batch_size_after_one_step:
-                assert batch_size_after_one_step < batch_size
+            batch_size_before_one_step = batch_size - stop_before_prefill_cnt
+            if batch_size_before_one_step != batch_size_after_one_step:
+                assert batch_size_after_one_step < batch_size_before_one_step
                 for r in self._running_queue:
                     r.kv_cache = None
 

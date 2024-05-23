@@ -413,13 +413,20 @@ class ModelActor(xo.StatelessActor):
     async def _queue_consumer(
         self, queue: Queue[Any], timeout: Optional[float] = None
     ) -> AsyncIterator[Any]:
-        from .scheduler import XINFERENCE_STREAMING_DOME_FLAG
+        from .scheduler import (
+            XINFERENCE_STREAMING_DONE_FLAG,
+            XINFERENCE_STREAMING_ERROR_FLAG,
+        )
 
         while True:
             # TODO: timeout setting
             res = await wait_for(queue.get(), timeout)
-            if res == XINFERENCE_STREAMING_DOME_FLAG:
+            if res == XINFERENCE_STREAMING_DONE_FLAG:
                 break
+            elif isinstance(res, str) and res.startswith(
+                XINFERENCE_STREAMING_ERROR_FLAG
+            ):
+                raise RuntimeError(res[len(XINFERENCE_STREAMING_ERROR_FLAG) :])
             else:
                 yield res
 

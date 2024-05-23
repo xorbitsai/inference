@@ -56,7 +56,7 @@ def is_partial_stop(output: str, stop_str: str):
     return False
 
 
-def get_context_length(config):
+def get_context_length(config) -> int:
     """Get the context length of a model from a huggingface model config."""
     if (
         hasattr(config, "max_sequence_length")
@@ -575,20 +575,39 @@ def pad_seqs_inplace(seqs: List[List[int]], pad: int):
         i += 1
 
 
+def get_max_src_len(context_len: int, r: InferenceRequest) -> int:
+    max_new_tokens = int(
+        r.sanitized_generate_config.get("max_tokens", max_tokens_field.default)
+    )
+    return context_len - max_new_tokens - 8
+
+
 @torch.inference_mode()
 def batch_inference_one_step(
-    req_list: List[InferenceRequest], model_uid, model, tokenizer, device
+    req_list: List[InferenceRequest],
+    model_uid,
+    model,
+    tokenizer,
+    device,
+    context_len: int,
 ):
-    prompts = [r.full_prompt for r in req_list if r.is_prefill]
-    not_use_kv_cache_in_decode = all(r.kv_cache is None for r in req_list)
+    # need to judge stopped here,
+    # since some requests state may change to stopped due to invalid parameters, e.g. max_src_len
+    valid_req_list = [r for r in req_list if not r.stopped]
+    if not valid_req_list:
+        return
+    prompts = [r.full_prompt for r in valid_req_list if r.is_prefill and not r.stopped]
+    not_use_kv_cache_in_decode = all(r.kv_cache is None for r in valid_req_list)
     if prompts:
         input_ids: List[List[int]] = tokenizer(prompts, padding=False).input_ids
 
         prompt_tokens: List[List[int]] = []
-        for i, r in enumerate(req_list):
+        for i, r in enumerate(valid_req_list):
             r.kv_cache = None
             if i < len(input_ids):
-                r.prompt_tokens = input_ids[i]
+                input_id = input_ids[i]
+                max_src_len = get_max_src_len(context_len, r)
+                r.prompt_tokens = input_id[-max_src_len:]
             prompt_tokens.append(
                 r.prompt_tokens if r.is_prefill else r.prompt_tokens + r.new_tokens
             )
@@ -596,14 +615,14 @@ def batch_inference_one_step(
         out = model(torch.as_tensor(prompt_tokens, device=device), use_cache=True)
     elif not_use_kv_cache_in_decode:
         decodes: List[List[int]] = []
-        for i, r in enumerate(req_list):
+        for i, r in enumerate(valid_req_list):
             r.kv_cache = None
             decodes.append(r.prompt_tokens + r.new_tokens)
         pad_seqs_inplace(decodes, 0)
         out = model(torch.as_tensor(decodes, device=device), use_cache=True)
     else:
-        decode_tokens: List[List[int]] = [[r.new_tokens[-1]] for r in req_list]
-        kv_cache = req_list[0].kv_cache
+        decode_tokens: List[List[int]] = [[r.new_tokens[-1]] for r in valid_req_list]
+        kv_cache = valid_req_list[0].kv_cache
         out = model(
             input_ids=torch.as_tensor(decode_tokens, device=device),
             use_cache=True,
@@ -612,7 +631,7 @@ def batch_inference_one_step(
     logits = out.logits
     past_key_values = out.past_key_values
 
-    for i, r in enumerate(req_list):
+    for i, r in enumerate(valid_req_list):
         max_new_tokens = int(
             r.sanitized_generate_config.get("max_tokens", max_tokens_field.default)
         )

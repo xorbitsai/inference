@@ -41,6 +41,7 @@ from ...utils import select_device
 from ..core import LLM
 from ..llm_family import LLMFamilyV1, LLMSpecV1
 from ..utils import ChatModelMixin
+from .utils import get_context_length, get_max_src_len
 
 logger = logging.getLogger(__name__)
 
@@ -364,73 +365,6 @@ class PytorchModel(LLM):
         else:
             return generator_wrapper(prompt, generate_config)
 
-    def _get_full_prompt(self, prompt, system_prompt, chat_history):
-        assert self.model_family.prompt_style is not None
-        prompt_style = self.model_family.prompt_style.copy()
-        if system_prompt:
-            prompt_style.system_prompt = system_prompt
-        chat_history = chat_history or []
-        full_prompt = ChatModelMixin.get_prompt(
-            prompt, chat_history, prompt_style, tools=None
-        )
-        return full_prompt
-
-    def _sanitize_chat_config(
-        self, generate_config: Optional[PytorchGenerateConfig]
-    ) -> PytorchGenerateConfig:
-        generate_config = self._sanitize_generate_config(generate_config)
-        if (
-            (not generate_config.get("stop"))
-            and self.model_family.prompt_style
-            and self.model_family.prompt_style.stop
-        ):
-            generate_config["stop"] = self.model_family.prompt_style.stop.copy()
-        if (
-            generate_config.get("stop_token_ids", None) is None
-            and self.model_family.prompt_style
-            and self.model_family.prompt_style.stop_token_ids
-        ):
-            generate_config[
-                "stop_token_ids"
-            ] = self.model_family.prompt_style.stop_token_ids.copy()
-
-        return generate_config
-
-    def get_max_num_seqs(self) -> int:
-        return self._pytorch_model_config.get("max_num_seqs")  # type: ignore
-
-    def batch_inference(self, req_list: List[InferenceRequest]):
-        from .utils import batch_inference_one_step
-
-        for r in req_list:
-            if r.is_prefill:
-                r.full_prompt = self._get_full_prompt(
-                    r.prompt, r.system_prompt, r.chat_history
-                )
-            if r.sanitized_generate_config is None:
-                r.sanitized_generate_config = self._sanitize_chat_config(
-                    r.generate_config
-                )
-
-        batch_inference_one_step(
-            req_list, self.model_uid, self._model, self._tokenizer, self._device
-        )
-        for req in req_list:
-            if req.stream:
-                if len(req.new_tokens) == 1:
-                    completion = req.completion[0]
-                    first_chunk_completion = (
-                        ChatModelMixin._get_first_chat_completion_chunk(completion)
-                    )
-                    chunk_completion = ChatModelMixin._to_chat_completion_chunk(
-                        completion
-                    )
-                    req.completion = [first_chunk_completion, chunk_completion]
-                else:
-                    req.completion[0] = ChatModelMixin._to_chat_completion_chunk(
-                        req.completion[0]
-                    )
-
     def create_embedding(self, input: Union[str, List[str]]) -> Embedding:
         try:
             import torch
@@ -529,6 +463,7 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
             pytorch_model_config,
             peft_model,
         )
+        self._context_len = None
 
     def _sanitize_generate_config(
         self,
@@ -572,13 +507,8 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
         chat_history: Optional[List[ChatCompletionMessage]] = None,
         generate_config: Optional[PytorchGenerateConfig] = None,
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
-        assert self.model_family.prompt_style is not None
-        prompt_style = self.model_family.prompt_style.copy()
-        if system_prompt:
-            prompt_style.system_prompt = system_prompt
-        chat_history = chat_history or []
         tools = generate_config.pop("tools", []) if generate_config else None
-        full_prompt = self.get_prompt(prompt, chat_history, prompt_style, tools=tools)
+        full_prompt = self._get_full_prompt(prompt, system_prompt, chat_history, tools)
 
         generate_config = self._sanitize_generate_config(generate_config)
         # TODO(codingl2k1): qwen hacky to set stop for function call.
@@ -606,3 +536,64 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
                     self.model_family, self.model_uid, c, tools
                 )
             return self._to_chat_completion(c)
+
+    def load(self):
+        super().load()
+        self._context_len = get_context_length(self._model.config)
+
+    def _get_full_prompt(self, prompt, system_prompt, chat_history, tools):
+        assert self.model_family.prompt_style is not None
+        prompt_style = self.model_family.prompt_style.copy()
+        if system_prompt:
+            prompt_style.system_prompt = system_prompt
+        chat_history = chat_history or []
+        full_prompt = ChatModelMixin.get_prompt(
+            prompt, chat_history, prompt_style, tools=tools
+        )
+        return full_prompt
+
+    def get_max_num_seqs(self) -> int:
+        return self._pytorch_model_config.get("max_num_seqs")  # type: ignore
+
+    def batch_inference(self, req_list: List[InferenceRequest]):
+        from .utils import batch_inference_one_step
+
+        for r in req_list:
+            if r.sanitized_generate_config is None:
+                r.sanitized_generate_config = self._sanitize_generate_config(
+                    r.generate_config
+                )
+            if r.is_prefill:
+                max_src_len = get_max_src_len(self._context_len, r)  # type: ignore
+                if max_src_len < 0:
+                    r.stopped = True
+                    r.error_msg = "Max tokens exceeds model's max length"
+                    continue
+                r.full_prompt = self._get_full_prompt(
+                    r.prompt, r.system_prompt, r.chat_history, None
+                )
+
+        assert isinstance(self._context_len, int)
+        batch_inference_one_step(
+            req_list,
+            self.model_uid,
+            self._model,
+            self._tokenizer,
+            self._device,
+            self._context_len,
+        )
+        for req in req_list:
+            if req.stream and req.error_msg is None:
+                if len(req.new_tokens) == 1:
+                    completion = req.completion[0]
+                    first_chunk_completion = (
+                        ChatModelMixin._get_first_chat_completion_chunk(completion)
+                    )
+                    chunk_completion = ChatModelMixin._to_chat_completion_chunk(
+                        completion
+                    )
+                    req.completion = [first_chunk_completion, chunk_completion]
+                else:
+                    req.completion[0] = ChatModelMixin._to_chat_completion_chunk(
+                        req.completion[0]
+                    )
