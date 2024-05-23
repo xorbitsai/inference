@@ -7,11 +7,6 @@ import torch
 from PIL import Image
 from transformers import AutoModel, AutoTokenizer
 
-from .model.omnilmm import OmniLMMForCausalLM
-from .model.utils import build_transform
-from .train.train_utils import omni_preprocess
-from .utils import disable_torch_init
-
 DEFAULT_IMAGE_TOKEN = "<image>"
 DEFAULT_IMAGE_PATCH_TOKEN = "<im_patch>"
 DEFAULT_IM_START_TOKEN = "<im_start>"
@@ -20,6 +15,10 @@ DEFAULT_IM_END_TOKEN = "<im_end>"
 
 def init_omni_lmm(model_path, device_map):
     from accelerate import init_empty_weights, load_checkpoint_and_dispatch
+
+    from .model.omnilmm import OmniLMMForCausalLM
+    from .model.utils import build_transform
+    from .utils import disable_torch_init
 
     torch.backends.cuda.matmul.allow_tf32 = True
     disable_torch_init()
@@ -98,6 +97,8 @@ def expand_question_into_multimodal(
 
 
 def wrap_question_for_omni_lmm(question, image_token_len, tokenizer):
+    from .train.train_utils import omni_preprocess
+
     question = expand_question_into_multimodal(
         question,
         image_token_len,
