@@ -1102,7 +1102,7 @@ class Client:
         response_data = response.json()
         return response_data
 
-    def list_cached_models(self):
+    def list_cached_models(self) -> List[Dict[Any, Any]]:
         """
         Get a list of cached models.
 
@@ -1112,7 +1112,7 @@ class Client:
 
         Returns
         -------
-        List[Dict[str, Any]]
+        List[Dict[Any, Any]]
             The collection of cached models on the server.
 
         Raises
