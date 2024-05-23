@@ -238,7 +238,7 @@ class InternVLChatModel(PytorchChatModel):
                 f"Chat with model {self.model_family.model_name} does not support stream."
             )
 
-        generate_config = {
+        sanitized_config = {
             "num_beams": 1,
             "max_new_tokens": generate_config.get("max_tokens", 512)
             if generate_config
@@ -257,7 +257,7 @@ class InternVLChatModel(PytorchChatModel):
             self._tokenizer,
             pixel_values,
             content,
-            generate_config,
+            sanitized_config,
             history=None,
             return_history=False,
         )
