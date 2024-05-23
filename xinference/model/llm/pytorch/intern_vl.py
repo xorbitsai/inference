@@ -99,19 +99,6 @@ class InternVLChatModel(PytorchChatModel):
             trust_remote_code=True,
         )
 
-    def _sanitize_generate_config(
-        self,
-        generate_config: Optional[PytorchGenerateConfig],
-    ) -> PytorchGenerateConfig:
-        if not generate_config:
-            generate_config = {}
-
-        generate_config["num_beams"] = generate_config.get("num_beams", 1)
-        generate_config["max_new_tokens"] = generate_config.get("max_tokens", 512)
-        generate_config["do_sample"] = generate_config.get("do_sample", False)
-
-        return generate_config
-
     def _message_content_to_intern(self, content):
         def _load_image(_url):
             if _url.startswith("data:"):
@@ -251,7 +238,13 @@ class InternVLChatModel(PytorchChatModel):
                 f"Chat with model {self.model_family.model_name} does not support stream."
             )
 
-        generate_config = self._sanitize_generate_config(generate_config)
+        generate_config = {
+            "num_beams": 1,
+            "max_new_tokens": generate_config.get("max_tokens", 512)
+            if generate_config
+            else 1,
+            "do_sample": False,
+        }
 
         content, image = self._message_content_to_intern(prompt)
         load_images = []
