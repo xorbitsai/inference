@@ -108,6 +108,7 @@ class CacheTrackerActor(xo.Actor):
             for version_info in model_versions:
                 if version_info["cache_status"]:
                     ret.append(version_info)
-            cached_models[model_name] = ret
-            ret = []
+                    cached_models[model_name] = ret
+                    ret = []
+        cached_models = dict(sorted(cached_models.items()))
         return cached_models

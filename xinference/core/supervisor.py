@@ -991,7 +991,7 @@ class SupervisorActor(xo.StatelessActor):
                     model_size_in_billions = model_version.get(
                         "model_size_in_billions", None
                     )
-                    quantizations = model_version.get("quantizations", None)
+                    quantizations = model_version.get("quantization", None)
                     re_dict = model_version.get("model_file_location", None)
                     actor_ip_address, path = next(iter(re_dict.items()))
 
