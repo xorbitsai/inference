@@ -692,9 +692,7 @@ def batch_inference_one_step(
             remain_num = len(r.new_tokens) % stream_interval
             if remain_num == 0:
                 keep_token_num = (
-                    stream_interval
-                    if not stopped or finish_reason == "length"
-                    else stream_interval - 1
+                    stream_interval - 1 if finish_reason == "stop" else stream_interval
                 )
                 output = (
                     tokenizer.decode(
@@ -717,7 +715,7 @@ def batch_inference_one_step(
                     r.completion = []
                 else:
                     keep_token_num = (
-                        remain_num if finish_reason == "length" else remain_num - 1
+                        remain_num - 1 if finish_reason == "stop" else remain_num
                     )
                     output = (
                         tokenizer.decode(
