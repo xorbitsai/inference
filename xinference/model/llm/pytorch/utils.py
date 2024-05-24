@@ -583,17 +583,27 @@ def get_max_src_len(context_len: int, r: InferenceRequest) -> int:
 
 
 def get_completion_chunk(
-    output: str, finish_reason: Optional[str], model_uid: str, r: InferenceRequest
+    output: str,
+    finish_reason: Optional[str],
+    model_uid: str,
+    r: InferenceRequest,
+    just_usage: bool,
 ):
-    completion_choice = CompletionChoice(
-        text=output, index=0, logprobs=None, finish_reason=finish_reason
+    completion_choice = (
+        [
+            CompletionChoice(
+                text=output, index=0, logprobs=None, finish_reason=finish_reason
+            )
+        ]
+        if not just_usage
+        else []
     )
     completion_chunk = CompletionChunk(
         id=str(uuid.uuid1()),
         object="text_completion",
         created=int(time.time()),
         model=model_uid,
-        choices=[completion_choice],
+        choices=completion_choice,
     )
     completion_usage = CompletionUsage(
         prompt_tokens=len(r.prompt_tokens),
@@ -658,6 +668,12 @@ def batch_inference_one_step(
             r.sanitized_generate_config.get("max_tokens", max_tokens_field.default)
         )
         stream_interval = r.sanitized_generate_config.get("stream_interval", 2)
+        stream_options = r.sanitized_generate_config.get("stream_options", None)
+        include_usage = (
+            stream_options["include_usage"]
+            if isinstance(stream_options, dict)
+            else False
+        )
         # TODO: handle stop str
         # stop_str = r.sanitized_generate_config.get("stop", None)
         stop_token_ids = r.sanitized_generate_config.get("stop_token_ids", None) or []
@@ -710,9 +726,13 @@ def batch_inference_one_step(
                 r.last_output_length += len(output)
 
                 completion_chunk = get_completion_chunk(
-                    output, finish_reason, model_uid, r
+                    output, finish_reason, model_uid, r, False
                 )
                 r.completion = [completion_chunk]
+                if stopped and include_usage:
+                    r.completion.append(
+                        get_completion_chunk("", finish_reason, model_uid, r, True)
+                    )
             else:  # not stopped and not in stream_interval, just not yield to upstream
                 r.completion = []
         else:
