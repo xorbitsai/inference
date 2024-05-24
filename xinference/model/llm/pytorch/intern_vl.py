@@ -183,21 +183,24 @@ class InternVLChatModel(PytorchChatModel):
             tmp = []
             images = []
             user = chat_history[i]["content"]
-            for content in user:
-                c_type = content.get("type")
-                if c_type == "text":
-                    tmp.append(content["text"])
-                elif c_type == "image_url" and not history:
-                    images.append(content["image_url"]["url"])
-            if not history:
-                pixel_values = _image_to_piexl_values(images)
-                image_bs = pixel_values.shape[0]
-                image_tokens = (
-                    IMG_START_TOKEN
-                    + IMG_CONTEXT_TOKEN * self._model.num_image_token * image_bs
-                    + IMG_END_TOKEN
-                )
-                tmp[0] = image_tokens + "\n" + tmp[0]
+            if isinstance(user, List):
+                for content in user:
+                    c_type = content.get("type")
+                    if c_type == "text":
+                        tmp.append(content["text"])
+                    elif c_type == "image_url" and not history:
+                        images.append(content["image_url"]["url"])
+                if not history:
+                    pixel_values = _image_to_piexl_values(images)
+                    image_bs = pixel_values.shape[0]
+                    image_tokens = (
+                        IMG_START_TOKEN
+                        + IMG_CONTEXT_TOKEN * self._model.num_image_token * image_bs
+                        + IMG_END_TOKEN
+                    )
+                    tmp[0] = image_tokens + "\n" + tmp[0]
+            else:
+                tmp.append(user)
             tmp.append(chat_history[i + 1]["content"])
             history.append(tuple(tmp))
         return history, pixel_values
