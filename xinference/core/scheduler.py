@@ -158,6 +158,16 @@ class InferenceRequest:
     def stream_interval(self) -> int:
         return self.sanitized_generate_config.get("stream_interval", 2)
 
+    @property
+    def include_usage(self) -> bool:
+        stream_options = self.sanitized_generate_config.get("stream_options", None)
+        include_usage = (
+            stream_options["include_usage"]
+            if isinstance(stream_options, dict)
+            else False
+        )
+        return include_usage
+
 
 class SchedulerActor(xo.StatelessActor):
     @classmethod

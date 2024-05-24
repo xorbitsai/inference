@@ -591,17 +591,29 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
             if req.stream and req.error_msg is None:
                 # first chunk case or stopped in the first stream_interval,
                 # must yield two chunks according to OPENAI API
-                if (
-                    len(req.completion) > 0
-                    and len(req.new_tokens) <= req.stream_interval
-                ):
+                if req.completion and len(req.new_tokens) <= req.stream_interval:
                     completion = req.completion[0]
                     first_chunk_completion = self._get_first_chat_completion_chunk(
                         completion
                     )
                     chunk_completion = self._to_chat_completion_chunk(completion)
-                    req.completion = [first_chunk_completion, chunk_completion]
-                elif len(req.completion) > 0:
+
+                    usage_chunk = []
+                    if req.stopped and req.include_usage:
+                        usage_chunk = [
+                            self._get_final_chat_completion_chunk(req.completion[-1])
+                        ]
+
+                    req.completion = [
+                        first_chunk_completion,
+                        chunk_completion,
+                        *usage_chunk,
+                    ]
+                elif req.completion:
                     req.completion[0] = self._to_chat_completion_chunk(
                         req.completion[0]
                     )
+                    if req.stopped and req.include_usage:
+                        req.completion[-1] = self._get_final_chat_completion_chunk(
+                            req.completion[-1]
+                        )

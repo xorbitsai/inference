@@ -668,12 +668,7 @@ def batch_inference_one_step(
             r.sanitized_generate_config.get("max_tokens", max_tokens_field.default)
         )
         stream_interval = r.sanitized_generate_config.get("stream_interval", 2)
-        stream_options = r.sanitized_generate_config.get("stream_options", None)
-        include_usage = (
-            stream_options["include_usage"]
-            if isinstance(stream_options, dict)
-            else False
-        )
+        include_usage = r.include_usage
         # TODO: handle stop str
         # stop_str = r.sanitized_generate_config.get("stop", None)
         stop_token_ids = r.sanitized_generate_config.get("stop_token_ids", None) or []
