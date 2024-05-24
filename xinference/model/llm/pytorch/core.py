@@ -589,8 +589,12 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
         )
         for req in req_list:
             if req.stream and req.error_msg is None:
-                # first chunk case, must yield two chunks according to OPENAI API
-                if len(req.new_tokens) == req.stream_interval:
+                # first chunk case or stopped in the first stream_interval,
+                # must yield two chunks according to OPENAI API
+                if (
+                    len(req.completion) > 0
+                    and len(req.new_tokens) <= req.stream_interval
+                ):
                     completion = req.completion[0]
                     first_chunk_completion = self._get_first_chat_completion_chunk(
                         completion
