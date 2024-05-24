@@ -54,7 +54,6 @@ Currently, supported model includes:
 - ``code-llama``, ``code-llama-python``, ``code-llama-instruct``
 - ``deepseek``, ``deepseek-coder``, ``deepseek-chat``, ``deepseek-coder-instruct``
 - ``codeqwen1.5``, ``codeqwen1.5-chat``
-- ``c4ai-command-r-v01``, ``c4ai-command-r-v01-4bit``
 - ``vicuna-v1.3``, ``vicuna-v1.5``
 - ``internlm2-chat``
 - ``qwen-chat``
@@ -63,6 +62,7 @@ Currently, supported model includes:
 - ``qwen1.5-chat``, ``qwen1.5-moe-chat``
 - ``gemma-it``
 - ``orion-chat``, ``orion-chat-rag``
+- ``c4ai-command-r-v01``, ``c4ai-command-r-v01-4bit``
 .. vllm_end
 
 SGLang

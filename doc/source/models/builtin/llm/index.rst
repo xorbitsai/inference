@@ -52,9 +52,9 @@ The following is a list of built-in LLM in Xinference:
      - Baichuan-chat is a fine-tuned version of the Baichuan LLM, specializing in chatting.
 
    * - :ref:`c4ai-command-r-v01 <models_llm_c4ai-command-r-v01>`
-     - generate
+     - chat
      - 131072
-     - C4AI Command-R is a research release of a 35 billion parameter highly performant generative model.
+     - C4AI Command-R(+) is a research release of a 35 and 104 billion parameter highly performant generative model.
 
    * - :ref:`c4ai-command-r-v01-4bit <models_llm_c4ai-command-r-v01-4bit>`
      - generate
