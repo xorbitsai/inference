@@ -5592,7 +5592,7 @@
   {
     "version": 1,
     "context_length": 32768,
-    "model_name": "internvl−chat−v1-5",
+    "model_name": "internvl-chat",
     "model_lang": [
         "en",
         "zh"
@@ -5641,7 +5641,7 @@
   {
     "version": 1,
     "context_length": 32768,
-    "model_name": "mini-internvl−chat−v1-5",
+    "model_name": "mini-internvl-chat",
     "model_lang": [
         "en",
         "zh"
