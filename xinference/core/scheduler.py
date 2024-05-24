@@ -238,4 +238,5 @@ class SchedulerActor(xo.StatelessActor):
     async def run(self):
         while True:
             await self.step()
+            # wait 10ms
             await asyncio.sleep(0.01)
