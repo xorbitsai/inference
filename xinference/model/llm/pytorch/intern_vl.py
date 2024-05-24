@@ -181,7 +181,7 @@ class InternVLChatModel(PytorchChatModel):
         pixel_values = None
         for i in range(0, len(chat_history), 2):
             tmp = []
-            images = []
+            images: List[str] = []
             user = chat_history[i]["content"]
             if isinstance(user, List):
                 for content in user:
