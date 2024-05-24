@@ -152,6 +152,10 @@ class InferenceRequest:
             else self.generate_config.get("stream", False)
         )
 
+    @property
+    def stream_interval(self) -> int:
+        return self.sanitized_generate_config.get("stream_interval", 2)
+
 
 class SchedulerActor(xo.StatelessActor):
     @classmethod

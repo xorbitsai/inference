@@ -17,7 +17,7 @@ import logging
 import time
 import uuid
 from threading import Thread
-from typing import Iterable, Iterator, List, Tuple
+from typing import Iterable, Iterator, List, Optional, Tuple
 
 import torch
 from transformers import GenerationConfig, TextIteratorStreamer
@@ -582,6 +582,28 @@ def get_max_src_len(context_len: int, r: InferenceRequest) -> int:
     return context_len - max_new_tokens - 8
 
 
+def get_completion_chunk(
+    output: str, finish_reason: Optional[str], model_uid: str, r: InferenceRequest
+):
+    completion_choice = CompletionChoice(
+        text=output, index=0, logprobs=None, finish_reason=finish_reason
+    )
+    completion_chunk = CompletionChunk(
+        id=str(uuid.uuid1()),
+        object="text_completion",
+        created=int(time.time()),
+        model=model_uid,
+        choices=[completion_choice],
+    )
+    completion_usage = CompletionUsage(
+        prompt_tokens=len(r.prompt_tokens),
+        completion_tokens=len(r.new_tokens),
+        total_tokens=len(r.prompt_tokens) + len(r.new_tokens),
+    )
+    completion_chunk["usage"] = completion_usage
+    return completion_chunk
+
+
 @torch.inference_mode()
 def batch_inference_one_step(
     req_list: List[InferenceRequest],
@@ -667,36 +689,50 @@ def batch_inference_one_step(
         r.stopped = stopped
 
         if r.stream:
-            if len(r.new_tokens) % stream_interval == 0:
+            remain_num = len(r.new_tokens) % stream_interval
+            if remain_num == 0:
+                keep_token_num = (
+                    stream_interval
+                    if not stopped or finish_reason == "length"
+                    else stream_interval - 1
+                )
                 output = (
                     tokenizer.decode(
-                        r.new_tokens[-stream_interval:],
+                        r.new_tokens[-keep_token_num:],
                         skip_special_tokens=True,
                         spaces_between_special_tokens=False,
                         clean_up_tokenization_spaces=True,
                     )
-                    if not r.stopped or finish_reason == "length"
+                    if keep_token_num > 0
                     else ""
                 )
-                completion_choice = CompletionChoice(
-                    text=output, index=0, logprobs=None, finish_reason=finish_reason
+                completion_chunk = get_completion_chunk(
+                    output, finish_reason, model_uid, r
                 )
-                completion_chunk = CompletionChunk(
-                    id=str(uuid.uuid1()),
-                    object="text_completion",
-                    created=int(time.time()),
-                    model=model_uid,
-                    choices=[completion_choice],
-                )
-                completion_usage = CompletionUsage(
-                    prompt_tokens=len(r.prompt_tokens),
-                    completion_tokens=len(r.new_tokens),
-                    total_tokens=len(r.prompt_tokens) + len(r.new_tokens),
-                )
-                completion_chunk["usage"] = completion_usage
                 r.completion = [completion_chunk]
-            else:  # not in stream_interval, make r.completion empty list, and not yield to upstream
-                r.completion = []
+            else:
+                if (
+                    not stopped
+                ):  # not stop and not in stream_interval, not yield to upstream
+                    r.completion = []
+                else:
+                    keep_token_num = (
+                        remain_num if finish_reason == "length" else remain_num - 1
+                    )
+                    output = (
+                        tokenizer.decode(
+                            r.new_tokens[-keep_token_num:],
+                            skip_special_tokens=True,
+                            spaces_between_special_tokens=False,
+                            clean_up_tokenization_spaces=True,
+                        )
+                        if keep_token_num > 0
+                        else ""
+                    )
+                    completion_chunk = get_completion_chunk(
+                        output, finish_reason, model_uid, r
+                    )
+                    r.completion = [completion_chunk]
         else:
             if r.stopped:
                 outputs = tokenizer.decode(

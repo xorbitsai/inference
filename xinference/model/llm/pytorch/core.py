@@ -564,10 +564,15 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
                     r.generate_config
                 )
             if r.is_prefill:
+                # check some generate params
                 max_src_len = get_max_src_len(self._context_len, r)  # type: ignore
                 if max_src_len < 0:
                     r.stopped = True
                     r.error_msg = "Max tokens exceeds model's max length"
+                    continue
+                if r.stream_interval <= 0:
+                    r.stopped = True
+                    r.error_msg = "`stream_interval` must be greater than 0"
                     continue
                 r.full_prompt = self._get_full_prompt(
                     r.prompt, r.system_prompt, r.chat_history, None
@@ -584,16 +589,15 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
         )
         for req in req_list:
             if req.stream and req.error_msg is None:
-                if len(req.new_tokens) == 1:
+                # first chunk case, must yield two chunks according to OPENAI API
+                if len(req.new_tokens) == req.stream_interval:
                     completion = req.completion[0]
-                    first_chunk_completion = (
-                        ChatModelMixin._get_first_chat_completion_chunk(completion)
-                    )
-                    chunk_completion = ChatModelMixin._to_chat_completion_chunk(
+                    first_chunk_completion = self._get_first_chat_completion_chunk(
                         completion
                     )
+                    chunk_completion = self._to_chat_completion_chunk(completion)
                     req.completion = [first_chunk_completion, chunk_completion]
-                else:
-                    req.completion[0] = ChatModelMixin._to_chat_completion_chunk(
+                elif len(req.completion) > 0:
+                    req.completion[0] = self._to_chat_completion_chunk(
                         req.completion[0]
                     )
