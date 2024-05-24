@@ -21,9 +21,7 @@ from typing import Dict, Iterator, List, Optional, Tuple, Union
 
 import requests
 import torch
-import torchvision.transforms as T
 from PIL import Image
-from torchvision.transforms.functional import InterpolationMode
 
 from ....model.utils import select_device
 from ....types import (
@@ -205,47 +203,6 @@ class InternVLChatModel(PytorchChatModel):
             history.append(tuple(tmp))
         return history, pixel_values
 
-        def _load_image(_url):
-            if _url.startswith("data:"):
-                logging.info("Parse url by base64 decoder.")
-                # https://platform.openai.com/docs/guides/vision/uploading-base-64-encoded-images
-                # e.g. f"data:image/jpeg;base64,{base64_image}"
-                _type, data = _url.split(";")
-                _, ext = _type.split("/")
-                data = data[len("base64,") :]
-                data = base64.b64decode(data.encode("utf-8"))
-
-                return Image.open(BytesIO(data)).convert("RGB")
-            else:
-                try:
-                    response = requests.get(_url)
-                except requests.exceptions.MissingSchema:
-                    return Image.open(_url).convert("RGB")
-                else:
-                    return Image.open(BytesIO(response.content)).convert("RGB")
-
-        if not isinstance(content, str):
-            texts = []
-            image_urls = []
-            for c in content:
-                c_type = c.get("type")
-                if c_type == "text":
-                    texts.append(c["text"])
-                elif c_type == "image_url":
-                    image_urls.append(c["image_url"]["url"])
-            image_futures = []
-            with ThreadPoolExecutor() as executor:
-                for image_url in image_urls:
-                    fut = executor.submit(_load_image, image_url)
-                    image_futures.append(fut)
-            images = [fut.result() for fut in image_futures]
-            text = " ".join(texts)
-            if len(images) == 0:
-                return text
-            else:
-                return text, images
-        return content
-
     def _find_closest_aspect_ratio(
         self, aspect_ratio, target_ratios, width, height, image_size
     ):
@@ -309,6 +266,9 @@ class InternVLChatModel(PytorchChatModel):
         return processed_images
 
     def _build_transform(self, input_size):
+        import torchvision.transforms as T
+        from torchvision.transforms.functional import InterpolationMode
+
         MEAN, STD = IMAGENET_MEAN, IMAGENET_STD
         transform = T.Compose(
             [
