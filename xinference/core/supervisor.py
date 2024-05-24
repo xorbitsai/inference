@@ -982,6 +982,33 @@ class SupervisorActor(xo.StatelessActor):
         )
 
     @log_async(logger=logger)
+    async def list_cached_models(self) -> List[Dict[str, Any]]:
+        cached_models = []
+        for worker in self._worker_address_to_worker.values():
+            ret = await worker.list_cached_models()
+            for model_version in ret:
+                model_name = model_version.get("model_name", None)
+                model_format = model_version.get("model_format", None)
+                model_size_in_billions = model_version.get(
+                    "model_size_in_billions", None
+                )
+                quantizations = model_version.get("quantization", None)
+                re_dict = model_version.get("model_file_location", None)
+                actor_ip_address, path = next(iter(re_dict.items()))
+
+                cache_entry = {
+                    "model_name": model_name,
+                    "model_format": model_format,
+                    "model_size_in_billions": model_size_in_billions,
+                    "quantizations": quantizations,
+                    "path": path,
+                    "Actor IP Address": actor_ip_address,
+                }
+
+                cached_models.append(cache_entry)
+        return cached_models
+
+    @log_async(logger=logger)
     async def add_worker(self, worker_address: str):
         from .worker import WorkerActor
 
