@@ -2294,7 +2294,7 @@
   {
     "version": 1,
     "context_length": 65536,
-    "model_name": "codeqwen1.5",
+    "model_name": "codeqwen1.5-base",
     "model_lang": [
       "en",
       "zh"
