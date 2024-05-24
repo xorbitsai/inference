@@ -456,10 +456,8 @@ class WorkerActor(xo.StatelessActor):
     ) -> Tuple[str, List[str]]:
         env = {}
         devices = []
-        env_name = get_available_device_env_name()
-        if env_name is None:
-            logger.warning("Got a None device env name, not set the GPU env.")
-        elif gpu_idx is None:
+        env_name = get_available_device_env_name() or "CUDA_VISIBLE_DEVICES"
+        if gpu_idx is None:
             if isinstance(n_gpu, int) or (n_gpu == "auto" and gpu_count() > 0):
                 # Currently, n_gpu=auto means using 1 GPU
                 gpu_cnt = n_gpu if isinstance(n_gpu, int) else 1
