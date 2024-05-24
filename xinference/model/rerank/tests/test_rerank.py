@@ -136,4 +136,8 @@ def test_auto_detect_type():
     with open(rerank_model_json, "r") as f:
         rerank_models = json.load(f)
     for m in rerank_models:
-        assert m["type"] == RerankModel._auto_detect_type(m["model_id"])
+        try:
+            assert m["type"] == RerankModel._auto_detect_type(m["model_id"])
+        except EnvironmentError:
+            # gated repo, ignore
+            continue
