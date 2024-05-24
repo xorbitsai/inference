@@ -60,8 +60,8 @@ NON_DEFAULT_MODEL_LIST: List[str] = [
     "OmniLMM",
     "yi-vl-chat",
     "deepseek-vl-chat",
-    "internvl−chat−v1-5",
-    "mini-internvl−chat−v1-5",
+    "internvl-chat",
+    "mini-internvl-chat",
 ]
 
 

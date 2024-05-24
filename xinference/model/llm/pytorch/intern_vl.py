@@ -17,7 +17,7 @@ import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
-from typing import Dict, Iterator, List, Optional, Union
+from typing import Dict, Iterator, List, Optional, Tuple, Union
 
 import requests
 import torch
@@ -53,7 +53,8 @@ class InternVLChatModel(PytorchChatModel):
     def match(
         cls, model_family: "LLMFamilyV1", model_spec: "LLMSpecV1", quantization: str
     ) -> bool:
-        if ("internvl") in model_family.model_name:
+        family = model_family.model_family or model_family.model_name
+        if "internvl" in family.lower():
             return True
         return False
 
@@ -100,6 +101,107 @@ class InternVLChatModel(PytorchChatModel):
         )
 
     def _message_content_to_intern(self, content):
+        def _load_image(_url):
+            if _url.startswith("data:"):
+                logging.info("Parse url by base64 decoder.")
+                # https://platform.openai.com/docs/guides/vision/uploading-base-64-encoded-images
+                # e.g. f"data:image/jpeg;base64,{base64_image}"
+                _type, data = _url.split(";")
+                _, ext = _type.split("/")
+                data = data[len("base64,") :]
+                data = base64.b64decode(data.encode("utf-8"))
+                return Image.open(BytesIO(data)).convert("RGB")
+            else:
+                try:
+                    response = requests.get(_url)
+                except requests.exceptions.MissingSchema:
+                    return Image.open(_url).convert("RGB")
+                else:
+                    return Image.open(BytesIO(response.content)).convert("RGB")
+
+        if not isinstance(content, str):
+            texts = []
+            image_urls = []
+            for c in content:
+                c_type = c.get("type")
+                if c_type == "text":
+                    texts.append(c["text"])
+                elif c_type == "image_url":
+                    image_urls.append(c["image_url"]["url"])
+            image_futures = []
+            with ThreadPoolExecutor() as executor:
+                for image_url in image_urls:
+                    fut = executor.submit(_load_image, image_url)
+                    image_futures.append(fut)
+            images = [fut.result() for fut in image_futures]
+            text = " ".join(texts)
+            if len(images) == 0:
+                return text, None
+            else:
+                return text, images
+        return content, None
+
+    def _history_content_to_intern(
+        self,
+        chat_history: List[ChatCompletionMessage],
+        IMG_START_TOKEN="<img>",
+        IMG_END_TOKEN="</img>",
+        IMG_CONTEXT_TOKEN="<IMG_CONTEXT>",
+    ):
+        def _image_to_piexl_values(images):
+            load_images = []
+            for image in images:
+                if image.startswith("data:"):
+                    logging.info("Parse url by base64 decoder.")
+                    # https://platform.openai.com/docs/guides/vision/uploading-base-64-encoded-images
+                    # e.g. f"data:image/jpeg;base64,{base64_image}"
+                    _type, data = image.split(";")
+                    _, ext = _type.split("/")
+                    data = data[len("base64,") :]
+                    data = base64.b64decode(data.encode("utf-8"))
+                    img = Image.open(BytesIO(data)).convert("RGB")
+                    pixel_value = (
+                        self._load_image(img, max_num=6).to(torch.bfloat16).cuda()
+                    )
+                    load_images.append(pixel_value)
+                else:
+                    try:
+                        response = requests.get(image)
+                    except requests.exceptions.MissingSchema:
+                        img = Image.open(image).convert("RGB")
+                    else:
+                        img = Image.open(BytesIO(response.content)).convert("RGB")
+                    pixel_value = (
+                        self._load_image(img, max_num=6).to(torch.bfloat16).cuda()
+                    )
+                    load_images.append(pixel_value)
+            return torch.cat(tuple(load_images), dim=0)
+
+        history: List[Tuple] = []
+        pixel_values = None
+        for i in range(0, len(chat_history), 2):
+            tmp = []
+            images = []
+            user = chat_history[i]["content"]
+            for content in user:
+                c_type = content.get("type")
+                if c_type == "text":
+                    tmp.append(content["text"])
+                elif c_type == "image_url" and not history:
+                    images.append(content["image_url"]["url"])
+            if not history:
+                pixel_values = _image_to_piexl_values(images)
+                image_bs = pixel_values.shape[0]
+                image_tokens = (
+                    IMG_START_TOKEN
+                    + IMG_CONTEXT_TOKEN * self._model.num_image_token * image_bs
+                    + IMG_END_TOKEN
+                )
+                tmp[0] = image_tokens + "\n" + tmp[0]
+            tmp.append(chat_history[i + 1]["content"])
+            history.append(tuple(tmp))
+        return history, pixel_values
+
         def _load_image(_url):
             if _url.startswith("data:"):
                 logging.info("Parse url by base64 decoder.")
@@ -237,29 +339,33 @@ class InternVLChatModel(PytorchChatModel):
             raise Exception(
                 f"Chat with model {self.model_family.model_name} does not support stream."
             )
-
         sanitized_config = {
             "num_beams": 1,
             "max_new_tokens": generate_config.get("max_tokens", 512)
             if generate_config
-            else 1,
+            else 512,
             "do_sample": False,
         }
 
         content, image = self._message_content_to_intern(prompt)
-        load_images = []
-        for img in image:
-            pixel_value = self._load_image(img, max_num=6).to(torch.bfloat16).cuda()
-            load_images.append(pixel_value)
-        pixel_values = torch.cat(tuple(load_images), dim=0)
 
-        response = self._model.chat(
+        history = None
+        if chat_history:
+            history, pixel_values = self._history_content_to_intern(chat_history)
+        else:
+            load_images = []
+            for img in image:
+                pixel_value = self._load_image(img, max_num=6).to(torch.bfloat16).cuda()
+                load_images.append(pixel_value)
+            pixel_values = torch.cat(tuple(load_images), dim=0)
+
+        response, history = self._model.chat(
             self._tokenizer,
             pixel_values,
             content,
             sanitized_config,
-            history=None,
-            return_history=False,
+            history=history,
+            return_history=True,
         )
         chunk = Completion(
             id=str(uuid.uuid1()),
