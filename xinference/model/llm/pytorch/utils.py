@@ -690,9 +690,11 @@ def batch_inference_one_step(
 
         if r.stream:
             """
-            Note that you can't just decode based on r.new_tokens here,
+            Note that you can't just decode based on the newest r.new_tokens here,
             which may destroy the integrity of the parsed characters,
             and at the same time is not good at handling some special characters.
+            So the implementation here is to decode all the tokens that have been generated each time,
+            and then take the slice.
             """
             remain_num = len(r.new_tokens) % stream_interval
             if stopped or remain_num == 0:
