@@ -44,6 +44,8 @@ class InferenceRequest:
         self._stopped = False
         # sanitized generate config
         self._sanitized_generate_config = None
+        # Use in stream mode
+        self.last_output_length = 0
         # inference results,
         # it is a list type because when stream=True, for the first time you need to return two chunks
         self.completion = []

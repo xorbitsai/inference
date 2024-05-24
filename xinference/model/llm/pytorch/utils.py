@@ -689,48 +689,30 @@ def batch_inference_one_step(
         r.stopped = stopped
 
         if r.stream:
+            """
+            Note that you can't just decode based on r.new_tokens here,
+            which may destroy the integrity of the parsed characters,
+            and at the same time is not good at handling some special characters.
+            """
             remain_num = len(r.new_tokens) % stream_interval
-            if remain_num == 0:
-                keep_token_num = (
-                    stream_interval - 1 if finish_reason == "stop" else stream_interval
+            if stopped or remain_num == 0:
+                output = tokenizer.decode(
+                    r.new_tokens,
+                    skip_special_tokens=True,
+                    spaces_between_special_tokens=False,
+                    clean_up_tokenization_spaces=True,
                 )
-                output = (
-                    tokenizer.decode(
-                        r.new_tokens[-keep_token_num:],
-                        skip_special_tokens=True,
-                        spaces_between_special_tokens=False,
-                        clean_up_tokenization_spaces=True,
-                    )
-                    if keep_token_num > 0
-                    else ""
-                )
+                # this special character is mainly for qwen
+                output = output.strip("�")
+                output = output[r.last_output_length :]
+                r.last_output_length += len(output)
+
                 completion_chunk = get_completion_chunk(
                     output, finish_reason, model_uid, r
                 )
                 r.completion = [completion_chunk]
-            else:
-                if (
-                    not stopped
-                ):  # not stop and not in stream_interval, not yield to upstream
-                    r.completion = []
-                else:
-                    keep_token_num = (
-                        remain_num - 1 if finish_reason == "stop" else remain_num
-                    )
-                    output = (
-                        tokenizer.decode(
-                            r.new_tokens[-keep_token_num:],
-                            skip_special_tokens=True,
-                            spaces_between_special_tokens=False,
-                            clean_up_tokenization_spaces=True,
-                        )
-                        if keep_token_num > 0
-                        else ""
-                    )
-                    completion_chunk = get_completion_chunk(
-                        output, finish_reason, model_uid, r
-                    )
-                    r.completion = [completion_chunk]
+            else:  # not stopped and not in stream_interval, just not yield to upstream
+                r.completion = []
         else:
             if r.stopped:
                 outputs = tokenizer.decode(
