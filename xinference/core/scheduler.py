@@ -47,7 +47,8 @@ class InferenceRequest:
         # Use in stream mode
         self.last_output_length = 0
         # inference results,
-        # it is a list type because when stream=True, for the first time you need to return two chunks
+        # it is a list type because when stream=True, for the first time you need to return two chunks,
+        # or when include_usage is True, the last results should contain usage information
         self.completion = []
         # The way upstream gets the returned results,
         # when stream=True, it is an asyncio.Queue,
