@@ -114,6 +114,7 @@ VLLM_SUPPORTED_CHAT_MODELS = [
     "qwen-chat",
     "Yi-chat",
     "Yi-1.5-chat",
+    "Yi-1.5-chat-16k",
     "code-llama-instruct",
     "mistral-instruct-v0.1",
     "mistral-instruct-v0.2",
