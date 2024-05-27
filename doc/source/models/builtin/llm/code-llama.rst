@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 7 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 7
 - **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: vLLM, Transformers
+- **Engines**: vLLM, Transformers (vllm only available for quantization none)
 - **Model ID:** TheBloke/CodeLlama-7B-fp16
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/CodeLlama-7B-fp16>`__, `ModelScope <https://modelscope.cn/models/AI-ModelScope/CodeLlama-7b-hf>`__
 
@@ -36,7 +36,7 @@ Model Spec 2 (pytorch, 13 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 13
 - **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: vLLM, Transformers
+- **Engines**: vLLM, Transformers (vllm only available for quantization none)
 - **Model ID:** TheBloke/CodeLlama-13B-fp16
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/CodeLlama-13B-fp16>`__, `ModelScope <https://modelscope.cn/models/AI-ModelScope/CodeLlama-13b-hf>`__
 
@@ -52,7 +52,7 @@ Model Spec 3 (pytorch, 34 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 34
 - **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: vLLM, Transformers
+- **Engines**: vLLM, Transformers (vllm only available for quantization none)
 - **Model ID:** TheBloke/CodeLlama-34B-fp16
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/CodeLlama-34B-fp16>`__, `ModelScope <https://modelscope.cn/models/AI-ModelScope/CodeLlama-34b-hf>`__
 

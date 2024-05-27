@@ -36,7 +36,7 @@ Model Spec 2 (pytorch, 7 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 7
 - **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: vLLM, Transformers
+- **Engines**: vLLM, Transformers (vllm only available for quantization none)
 - **Model ID:** Qwen/CodeQwen1.5-7B-Chat
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/CodeQwen1.5-7B-Chat>`__, `ModelScope <https://modelscope.cn/models/qwen/CodeQwen1.5-7B-Chat>`__
 

@@ -36,7 +36,7 @@ Model Spec 2 (pytorch, 8 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 8
 - **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: vLLM, Transformers
+- **Engines**: vLLM, Transformers (vllm only available for quantization none)
 - **Model ID:** meta-llama/Meta-Llama-3-8B-Instruct
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/meta-llama/Meta-Llama-3-8B-Instruct>`__, `ModelScope <https://modelscope.cn/models/LLM-Research/Meta-Llama-3-8B-Instruct>`__
 
@@ -68,7 +68,7 @@ Model Spec 4 (pytorch, 70 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 70
 - **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: vLLM, Transformers
+- **Engines**: vLLM, Transformers (vllm only available for quantization none)
 - **Model ID:** meta-llama/Meta-Llama-3-70B-Instruct
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/meta-llama/Meta-Llama-3-70B-Instruct>`__, `ModelScope <https://modelscope.cn/models/LLM-Research/Meta-Llama-3-70B-Instruct>`__
 

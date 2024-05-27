@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 35 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 35
 - **Quantizations:** none
-- **Engines**: vLLM, Transformers
+- **Engines**: Transformers
 - **Model ID:** CohereForAI/c4ai-command-r-v01-4bit
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/CohereForAI/c4ai-command-r-v01-4bit>`__, `ModelScope <https://modelscope.cn/models/mirror013/c4ai-command-r-v01-4bit>`__
 

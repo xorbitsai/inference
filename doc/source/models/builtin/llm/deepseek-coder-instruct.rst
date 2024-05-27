@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 1_3 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 1_3
 - **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: vLLM, Transformers
+- **Engines**: vLLM, Transformers (vllm only available for quantization none)
 - **Model ID:** deepseek-ai/deepseek-coder-1.3b-instruct
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/deepseek-ai/deepseek-coder-1.3b-instruct>`__, `ModelScope <https://modelscope.cn/models/deepseek-ai/deepseek-coder-1.3b-instruct>`__
 
@@ -36,7 +36,7 @@ Model Spec 2 (pytorch, 6_7 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 6_7
 - **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: vLLM, Transformers
+- **Engines**: vLLM, Transformers (vllm only available for quantization none)
 - **Model ID:** deepseek-ai/deepseek-coder-6.7b-instruct
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/deepseek-ai/deepseek-coder-6.7b-instruct>`__, `ModelScope <https://modelscope.cn/models/deepseek-ai/deepseek-coder-6.7b-instruct>`__
 
@@ -52,7 +52,7 @@ Model Spec 3 (pytorch, 7 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 7
 - **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: vLLM, Transformers
+- **Engines**: vLLM, Transformers (vllm only available for quantization none)
 - **Model ID:** deepseek-ai/deepseek-coder-7b-instruct-v1.5
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/deepseek-ai/deepseek-coder-7b-instruct-v1.5>`__
 
@@ -68,7 +68,7 @@ Model Spec 4 (pytorch, 33 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 33
 - **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: vLLM, Transformers
+- **Engines**: vLLM, Transformers (vllm only available for quantization none)
 - **Model ID:** deepseek-ai/deepseek-coder-33b-instruct
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/deepseek-ai/deepseek-coder-33b-instruct>`__, `ModelScope <https://modelscope.cn/models/deepseek-ai/deepseek-coder-33b-instruct>`__
 

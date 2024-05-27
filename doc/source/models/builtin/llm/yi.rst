@@ -36,7 +36,7 @@ Model Spec 2 (pytorch, 6 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 6
 - **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: vLLM, Transformers
+- **Engines**: vLLM, Transformers (vllm only available for quantization none)
 - **Model ID:** 01-ai/Yi-6B
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/01-ai/Yi-6B>`__, `ModelScope <https://modelscope.cn/models/01ai/Yi-6B>`__
 
@@ -52,7 +52,7 @@ Model Spec 3 (pytorch, 9 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 9
 - **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: vLLM, Transformers
+- **Engines**: vLLM, Transformers (vllm only available for quantization none)
 - **Model ID:** 01-ai/Yi-9B
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/01-ai/Yi-9B>`__, `ModelScope <https://modelscope.cn/models/01ai/Yi-9B>`__
 
@@ -68,7 +68,7 @@ Model Spec 4 (pytorch, 34 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 34
 - **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: vLLM, Transformers
+- **Engines**: vLLM, Transformers (vllm only available for quantization none)
 - **Model ID:** 01-ai/Yi-34B
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/01-ai/Yi-34B>`__, `ModelScope <https://modelscope.cn/models/01ai/Yi-34B>`__
 
