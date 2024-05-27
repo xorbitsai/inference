@@ -68,7 +68,7 @@ Model Spec 4 (awq, 34 Billion)
 - **Model Format:** awq
 - **Model Size (in billions):** 34
 - **Quantizations:** Int4
-- **Engines**: 
+- **Engines**: Transformers
 - **Model ID:** TheBloke/AquilaChat2-34B-AWQ
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/AquilaChat2-34B-AWQ>`__
 

@@ -77,10 +77,12 @@ def main():
                 engines = []
                 for engine in SUPPORTED_ENGINES:
                     for quantization in model_spec['quantizations']:
+                        size = model_spec['model_size_in_billions']
+                        if isinstance(size, str) and '_' not in size:
+                            size = int(size)
                         try:
                             check_engine_by_spec_parameters(engine, model_name, model_spec['model_format'],
-                                                            model_spec['model_size_in_billions'],
-                                                            quantization)
+                                                            size, quantization)
                         except ValueError:
                             continue
                         else:
