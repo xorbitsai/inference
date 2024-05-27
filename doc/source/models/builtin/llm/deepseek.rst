@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 7 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 7
 - **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: vLLM, Transformers (vllm only available for quantization none)
+- **Engines**: Transformers, vLLM (vLLM only available for quantization none)
 - **Model ID:** deepseek-ai/deepseek-llm-7b-base
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/deepseek-ai/deepseek-llm-7b-base>`__, `ModelScope <https://modelscope.cn/models/deepseek-ai/deepseek-llm-7b-base>`__
 
@@ -36,7 +36,7 @@ Model Spec 2 (pytorch, 67 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 67
 - **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: vLLM, Transformers (vllm only available for quantization none)
+- **Engines**: Transformers, vLLM (vLLM only available for quantization none)
 - **Model ID:** deepseek-ai/deepseek-llm-67b-base
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/deepseek-ai/deepseek-llm-67b-base>`__, `ModelScope <https://modelscope.cn/models/deepseek-ai/deepseek-llm-67b-base>`__
 

@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 1_3 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 1_3
 - **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: vLLM, Transformers (vllm only available for quantization none)
+- **Engines**: Transformers, vLLM (vLLM only available for quantization none)
 - **Model ID:** deepseek-ai/deepseek-coder-1.3b-base
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/deepseek-ai/deepseek-coder-1.3b-base>`__, `ModelScope <https://modelscope.cn/models/deepseek-ai/deepseek-coder-1.3b-base>`__
 
@@ -36,7 +36,7 @@ Model Spec 2 (pytorch, 6_7 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 6_7
 - **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: vLLM, Transformers (vllm only available for quantization none)
+- **Engines**: Transformers, vLLM (vLLM only available for quantization none)
 - **Model ID:** deepseek-ai/deepseek-coder-6.7b-base
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/deepseek-ai/deepseek-coder-6.7b-base>`__, `ModelScope <https://modelscope.cn/models/deepseek-ai/deepseek-coder-6.7b-base>`__
 
@@ -52,7 +52,7 @@ Model Spec 3 (pytorch, 7 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 7
 - **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: vLLM, Transformers (vllm only available for quantization none)
+- **Engines**: Transformers, vLLM (vLLM only available for quantization none)
 - **Model ID:** deepseek-ai/deepseek-coder-7b-base-v1.5
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/deepseek-ai/deepseek-coder-7b-base-v1.5>`__
 
@@ -68,7 +68,7 @@ Model Spec 4 (pytorch, 33 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 33
 - **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: vLLM, Transformers (vllm only available for quantization none)
+- **Engines**: Transformers, vLLM (vLLM only available for quantization none)
 - **Model ID:** deepseek-ai/deepseek-coder-33b-base
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/deepseek-ai/deepseek-coder-33b-base>`__, `ModelScope <https://modelscope.cn/models/deepseek-ai/deepseek-coder-33b-base>`__
 
@@ -148,7 +148,7 @@ Model Spec 9 (gptq, 1_3 Billion)
 - **Model Format:** gptq
 - **Model Size (in billions):** 1_3
 - **Quantizations:** Int4
-- **Engines**: vLLM, Transformers
+- **Engines**: Transformers, vLLM
 - **Model ID:** TheBloke/deepseek-coder-1.3b-base-GPTQ
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/deepseek-coder-1.3b-base-GPTQ>`__
 
@@ -164,7 +164,7 @@ Model Spec 10 (gptq, 6_7 Billion)
 - **Model Format:** gptq
 - **Model Size (in billions):** 6_7
 - **Quantizations:** Int4
-- **Engines**: vLLM, Transformers
+- **Engines**: Transformers, vLLM
 - **Model ID:** TheBloke/deepseek-coder-6.7B-base-GPTQ
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/deepseek-coder-6.7B-base-GPTQ>`__
 
@@ -180,7 +180,7 @@ Model Spec 11 (gptq, 33 Billion)
 - **Model Format:** gptq
 - **Model Size (in billions):** 33
 - **Quantizations:** Int4
-- **Engines**: vLLM, Transformers
+- **Engines**: Transformers, vLLM
 - **Model ID:** TheBloke/deepseek-coder-33B-base-GPTQ
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/deepseek-coder-33B-base-GPTQ>`__
 
@@ -196,7 +196,7 @@ Model Spec 12 (awq, 1_3 Billion)
 - **Model Format:** awq
 - **Model Size (in billions):** 1_3
 - **Quantizations:** Int4
-- **Engines**: vLLM, Transformers
+- **Engines**: Transformers, vLLM
 - **Model ID:** TheBloke/deepseek-coder-1.3b-base-AWQ
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/deepseek-coder-1.3b-base-AWQ>`__
 
@@ -212,7 +212,7 @@ Model Spec 13 (awq, 6_7 Billion)
 - **Model Format:** awq
 - **Model Size (in billions):** 6_7
 - **Quantizations:** Int4
-- **Engines**: vLLM, Transformers
+- **Engines**: Transformers, vLLM
 - **Model ID:** TheBloke/deepseek-coder-6.7B-base-AWQ
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/deepseek-coder-6.7B-base-AWQ>`__
 
@@ -228,7 +228,7 @@ Model Spec 14 (awq, 33 Billion)
 - **Model Format:** awq
 - **Model Size (in billions):** 33
 - **Quantizations:** Int4
-- **Engines**: vLLM, Transformers
+- **Engines**: Transformers, vLLM
 - **Model ID:** TheBloke/deepseek-coder-33B-base-AWQ
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/deepseek-coder-33B-base-AWQ>`__
 

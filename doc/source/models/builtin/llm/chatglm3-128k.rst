@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 6 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 6
 - **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: vLLM, Transformers (vllm only available for quantization none)
+- **Engines**: Transformers, vLLM (vLLM only available for quantization none)
 - **Model ID:** THUDM/chatglm3-6b-128k
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/THUDM/chatglm3-6b-128k>`__, `ModelScope <https://modelscope.cn/models/ZhipuAI/chatglm3-6b-128k>`__
 

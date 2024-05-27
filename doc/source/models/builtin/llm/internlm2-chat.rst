@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 7 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 7
 - **Quantizations:** none
-- **Engines**: vLLM, Transformers
+- **Engines**: Transformers, vLLM
 - **Model ID:** internlm/internlm2-chat-7b
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/internlm/internlm2-chat-7b>`__, `ModelScope <https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm2-chat-7b>`__
 
@@ -36,7 +36,7 @@ Model Spec 2 (pytorch, 20 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 20
 - **Quantizations:** none
-- **Engines**: vLLM, Transformers
+- **Engines**: Transformers, vLLM
 - **Model ID:** internlm/internlm2-chat-20b
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/internlm/internlm2-chat-20b>`__, `ModelScope <https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm2-chat-20b>`__
 
