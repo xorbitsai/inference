@@ -93,9 +93,13 @@ def main():
             engines = []
             for engine in SUPPORTED_ENGINES:
                 for quantization in model_spec['quantizations']:
-                    if check_engine_by_spec_parameters(engine, model_name, model_spec['model_format'],
-                                                       model_spec['model_size_in_billions'],
-                                                       quantization):
+                    try:
+                        check_engine_by_spec_parameters(engine, model_name, model_spec['model_format'],
+                                                        model_spec['model_size_in_billions'],
+                                                        quantization)
+                    except ValueError:
+                        continue
+                    else:
                         engines.append(engine)
             model['engines'] = list(set(engines))
 

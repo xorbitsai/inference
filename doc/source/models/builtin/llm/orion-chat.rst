@@ -20,13 +20,14 @@ Model Spec 1 (pytorch, 14 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 14
 - **Quantizations:** none, 4-bit, 8-bit
+- **Engines**: vLLM, Transformers
 - **Model ID:** OrionStarAI/Orion-14B-Chat
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/OrionStarAI/Orion-14B-Chat>`__, `ModelScope <https://modelscope.cn/models/OrionStarAI/Orion-14B-Chat>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
 
-   xinference launch --model-name orion-chat --size-in-billions 14 --model-format pytorch --quantization ${quantization}
+   xinference launch --model-engine ${engine} --model-name orion-chat --size-in-billions 14 --model-format pytorch --quantization ${quantization}
 
 
 Model Spec 2 (awq, 14 Billion)
@@ -35,11 +36,12 @@ Model Spec 2 (awq, 14 Billion)
 - **Model Format:** awq
 - **Model Size (in billions):** 14
 - **Quantizations:** Int4
+- **Engines**: vLLM, Transformers
 - **Model ID:** OrionStarAI/Orion-14B-Chat-{quantization}
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/OrionStarAI/Orion-14B-Chat-{quantization}>`__, `ModelScope <https://modelscope.cn/models/OrionStarAI/Orion-14B-Chat-{quantization}>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
 
-   xinference launch --model-name orion-chat --size-in-billions 14 --model-format awq --quantization ${quantization}
+   xinference launch --model-engine ${engine} --model-name orion-chat --size-in-billions 14 --model-format awq --quantization ${quantization}
 
