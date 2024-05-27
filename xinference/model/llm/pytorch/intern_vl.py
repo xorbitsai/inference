@@ -77,14 +77,14 @@ class InternVLChatModel(PytorchChatModel):
             "device_map": device,
         }
 
-        if "Int8" in self.model_spec.quantizations:
+        if "Int8" in self.model_spec.model_id:
             kwargs.update(
                 {
                     "load_in_8bit": True,
                     "device_map": device,
                 }
             )
-        elif "mini" in self.model_family.model_name:
+        elif "Mini-InternVL-Chat" in self.model_spec.model_id:
             kwargs.pop("device_map")
 
         self._model = AutoModel.from_pretrained(self.model_path, **kwargs).eval()
