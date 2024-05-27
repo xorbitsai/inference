@@ -575,7 +575,9 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
                     r.error_msg = "`stream_interval` must be greater than 0"
                     continue
                 stop_str = r.sanitized_generate_config.get("stop", None)
-                if not (isinstance(stop_str, str) or isinstance(stop_str, Iterable)):
+                if stop_str and (
+                    not (isinstance(stop_str, str) or isinstance(stop_str, Iterable))
+                ):
                     r.stopped = True
                     r.error_msg = "Invalid `stop` field type"
                     continue
