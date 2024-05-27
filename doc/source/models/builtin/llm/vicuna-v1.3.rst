@@ -20,7 +20,7 @@ Model Spec 1 (ggmlv3, 7 Billion)
 - **Model Format:** ggmlv3
 - **Model Size (in billions):** 7
 - **Quantizations:** q2_K, q3_K_L, q3_K_M, q3_K_S, q4_0, q4_1, q4_K_M, q4_K_S, q5_0, q5_1, q5_K_M, q5_K_S, q6_K, q8_0
-- **Engines**: 
+- **Engines**: llama.cpp
 - **Model ID:** TheBloke/vicuna-7B-v1.3-GGML
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/vicuna-7B-v1.3-GGML>`__
 
@@ -36,7 +36,7 @@ Model Spec 2 (ggmlv3, 13 Billion)
 - **Model Format:** ggmlv3
 - **Model Size (in billions):** 13
 - **Quantizations:** q2_K, q3_K_L, q3_K_M, q3_K_S, q4_0, q4_1, q4_K_M, q4_K_S, q5_0, q5_1, q5_K_M, q5_K_S, q6_K, q8_0
-- **Engines**: 
+- **Engines**: llama.cpp
 - **Model ID:** TheBloke/vicuna-13b-v1.3.0-GGML
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/vicuna-13b-v1.3.0-GGML>`__
 
@@ -52,7 +52,7 @@ Model Spec 3 (ggmlv3, 33 Billion)
 - **Model Format:** ggmlv3
 - **Model Size (in billions):** 33
 - **Quantizations:** q2_K, q3_K_L, q3_K_M, q3_K_S, q4_0, q4_1, q4_K_M, q4_K_S, q5_0, q5_1, q5_K_M, q5_K_S, q6_K, q8_0
-- **Engines**: 
+- **Engines**: llama.cpp
 - **Model ID:** TheBloke/vicuna-33B-GGML
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/vicuna-33B-GGML>`__
 
@@ -68,7 +68,7 @@ Model Spec 4 (pytorch, 33 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 33
 - **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: 
+- **Engines**: vLLM, Transformers (vLLM only available for quantization none)
 - **Model ID:** lmsys/vicuna-33b-v1.3
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/lmsys/vicuna-33b-v1.3>`__
 
@@ -84,7 +84,7 @@ Model Spec 5 (pytorch, 13 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 13
 - **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: 
+- **Engines**: vLLM, Transformers (vLLM only available for quantization none)
 - **Model ID:** lmsys/vicuna-13b-v1.3
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/lmsys/vicuna-13b-v1.3>`__
 
@@ -100,7 +100,7 @@ Model Spec 6 (pytorch, 7 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 7
 - **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: 
+- **Engines**: vLLM, Transformers (vLLM only available for quantization none)
 - **Model ID:** lmsys/vicuna-7b-v1.3
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/lmsys/vicuna-7b-v1.3>`__
 

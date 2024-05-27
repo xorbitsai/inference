@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 16 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 16
 - **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: 
+- **Engines**: Transformers
 - **Model ID:** bigcode/starcoderplus
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/bigcode/starcoderplus>`__
 

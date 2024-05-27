@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 7 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 7
 - **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: 
+- **Engines**: Transformers
 - **Model ID:** lmsys/vicuna-7b-v1.5-16k
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/lmsys/vicuna-7b-v1.5-16k>`__
 
@@ -36,7 +36,7 @@ Model Spec 2 (pytorch, 13 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 13
 - **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: 
+- **Engines**: Transformers
 - **Model ID:** lmsys/vicuna-13b-v1.5-16k
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/lmsys/vicuna-13b-v1.5-16k>`__
 

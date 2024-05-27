@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 7 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 7
 - **Quantizations:** none
-- **Engines**: 
+- **Engines**: Transformers
 - **Model ID:** SeaLLMs/SeaLLM-7B-v2
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/SeaLLMs/SeaLLM-7B-v2>`__
 
@@ -36,7 +36,7 @@ Model Spec 2 (ggufv2, 7 Billion)
 - **Model Format:** ggufv2
 - **Model Size (in billions):** 7
 - **Quantizations:** Q4_0, Q8_0
-- **Engines**: 
+- **Engines**: llama.cpp
 - **Model ID:** SeaLLMs/SeaLLM-7B-v2-gguf
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/SeaLLMs/SeaLLM-7B-v2-gguf>`__
 

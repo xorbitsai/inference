@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 40 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 40
 - **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: 
+- **Engines**: Transformers
 - **Model ID:** tiiuae/falcon-40b
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/tiiuae/falcon-40b>`__
 
@@ -36,7 +36,7 @@ Model Spec 2 (pytorch, 7 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 7
 - **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: 
+- **Engines**: Transformers
 - **Model ID:** tiiuae/falcon-7b
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/tiiuae/falcon-7b>`__
 

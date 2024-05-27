@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 20 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 20
 - **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: Transformers, vLLM (vLLM only available for quantization none)
+- **Engines**: vLLM, Transformers (vLLM only available for quantization none)
 - **Model ID:** internlm/internlm-chat-20b
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/internlm/internlm-chat-20b>`__, `ModelScope <https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm-chat-20b>`__
 

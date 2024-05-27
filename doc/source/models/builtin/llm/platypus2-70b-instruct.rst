@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 70 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 70
 - **Quantizations:** none
-- **Engines**: 
+- **Engines**: Transformers
 - **Model ID:** garage-bAInd/Platypus2-70B-instruct
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/garage-bAInd/Platypus2-70B-instruct>`__
 

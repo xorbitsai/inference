@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 13 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 13
 - **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: 
+- **Engines**: vLLM, Transformers (vLLM only available for quantization none)
 - **Model ID:** baichuan-inc/Baichuan-13B-Chat
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/baichuan-inc/Baichuan-13B-Chat>`__
 

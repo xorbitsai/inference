@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 1_5 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 1_5
 - **Quantizations:** none
-- **Engines**: 
+- **Engines**: Transformers
 - **Model ID:** openai-community/gpt2
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/openai-community/gpt2>`__
 

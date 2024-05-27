@@ -73,6 +73,20 @@ def main():
                     'url': f"https://huggingface.co/{model_spec['model_id']}"
                 }]
 
+                # model engines
+                engines = []
+                for engine in SUPPORTED_ENGINES:
+                    for quantization in model_spec['quantizations']:
+                        try:
+                            check_engine_by_spec_parameters(engine, model_name, model_spec['model_format'],
+                                                            model_spec['model_size_in_billions'],
+                                                            quantization)
+                        except ValueError:
+                            continue
+                        else:
+                            engines.append(engine)
+                model_spec['engines'] = list(set(engines))
+
             # manual merge
             if model_name in model_by_names_modelscope.keys():
 
@@ -88,20 +102,6 @@ def main():
                             'name': MODEL_HUB_MODELSCOPE,
                             'url': f"https://modelscope.cn/models/{model_by_ids_modelscope[spec_id]['model_id']}"
                         })
-
-                    # model engines
-                    engines = []
-                    for engine in SUPPORTED_ENGINES:
-                        for quantization in model_spec['quantizations']:
-                            try:
-                                check_engine_by_spec_parameters(engine, model_name, model_spec['model_format'],
-                                                                model_spec['model_size_in_billions'],
-                                                                quantization)
-                            except ValueError:
-                                continue
-                            else:
-                                engines.append(engine)
-                    model_spec['engines'] = list(set(engines))
 
             rendered = env.get_template('llm.rst.jinja').render(model)
             output_file_path = os.path.join(output_dir, f"{model['model_name'].lower()}.rst")
