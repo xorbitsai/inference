@@ -17,6 +17,7 @@ import os
 from collections import defaultdict
 
 from jinja2 import Environment, FileSystemLoader
+from xinference.model.llm.llm_family import SUPPORTED_ENGINES, check_engine_by_spec_parameters
 from xinference.model.llm.vllm.core import VLLM_INSTALLED, VLLM_SUPPORTED_MODELS, VLLM_SUPPORTED_CHAT_MODELS
 
 MODEL_HUB_HUGGING_FACE = "Hugging Face"
@@ -87,6 +88,16 @@ def main():
                             'name': MODEL_HUB_MODELSCOPE,
                             'url': f"https://modelscope.cn/models/{model_by_ids_modelscope[spec_id]['model_id']}"
                         })
+
+            # model engines
+            engines = []
+            for engine in SUPPORTED_ENGINES:
+                for quantization in model_spec['quantizations']:
+                    if check_engine_by_spec_parameters(engine, model_name, model_spec['model_format'],
+                                                       model_spec['model_size_in_billions'],
+                                                       quantization):
+                        engines.append(engine)
+            model['engines'] = list(set(engines))
 
             rendered = env.get_template('llm.rst.jinja').render(model)
             output_file_path = os.path.join(output_dir, f"{model['model_name'].lower()}.rst")
