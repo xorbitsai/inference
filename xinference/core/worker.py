@@ -32,7 +32,7 @@ from ..constants import (
     XINFERENCE_DISABLE_HEALTH_CHECK,
     XINFERENCE_HEALTH_CHECK_INTERVAL,
 )
-from ..core import ModelActor
+from ..core.model import ModelActor
 from ..core.status_guard import LaunchStatus
 from ..device_utils import get_available_device_env_name, gpu_count
 from ..model.core import ModelDescription, create_model_instance
