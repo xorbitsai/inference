@@ -20,7 +20,7 @@ Model Spec 1 (ggufv2, 7 Billion)
 - **Model Format:** ggufv2
 - **Model Size (in billions):** 7
 - **Quantizations:** Q4_K_M
-- **Engines**: vLLM, Transformers
+- **Engines**: llama.cpp
 - **Model ID:** Xorbits/Qwen-7B-Chat-GGUF
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Xorbits/Qwen-7B-Chat-GGUF>`__, `ModelScope <https://modelscope.cn/models/Xorbits/Qwen-7B-Chat-GGUF>`__
 
@@ -36,7 +36,7 @@ Model Spec 2 (ggufv2, 14 Billion)
 - **Model Format:** ggufv2
 - **Model Size (in billions):** 14
 - **Quantizations:** Q4_K_M
-- **Engines**: vLLM, Transformers
+- **Engines**: llama.cpp
 - **Model ID:** Xorbits/Qwen-14B-Chat-GGUF
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Xorbits/Qwen-14B-Chat-GGUF>`__, `ModelScope <https://modelscope.cn/models/Xorbits/Qwen-14B-Chat-GGUF>`__
 

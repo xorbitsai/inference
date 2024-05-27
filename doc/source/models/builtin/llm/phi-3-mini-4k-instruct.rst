@@ -20,7 +20,7 @@ Model Spec 1 (ggufv2, 4 Billion)
 - **Model Format:** ggufv2
 - **Model Size (in billions):** 4
 - **Quantizations:** fp16, q4
-- **Engines**: Transformers
+- **Engines**: llama.cpp
 - **Model ID:** microsoft/Phi-3-mini-4k-instruct-gguf
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/microsoft/Phi-3-mini-4k-instruct-gguf>`__
 

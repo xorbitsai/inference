@@ -20,7 +20,7 @@ Model Spec 1 (ggmlv3, 3 Billion)
 - **Model Format:** ggmlv3
 - **Model Size (in billions):** 3
 - **Quantizations:** q4_0, q4_1, q5_0, q5_1, q8_0
-- **Engines**: llama.cpp
+- **Engines**: 
 - **Model ID:** TheBloke/orca_mini_3B-GGML
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/orca_mini_3B-GGML>`__
 
@@ -36,7 +36,7 @@ Model Spec 2 (ggmlv3, 7 Billion)
 - **Model Format:** ggmlv3
 - **Model Size (in billions):** 7
 - **Quantizations:** q4_0, q4_1, q5_0, q5_1, q8_0
-- **Engines**: llama.cpp
+- **Engines**: 
 - **Model ID:** TheBloke/orca_mini_7B-GGML
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/orca_mini_7B-GGML>`__
 
@@ -52,7 +52,7 @@ Model Spec 3 (ggmlv3, 13 Billion)
 - **Model Format:** ggmlv3
 - **Model Size (in billions):** 13
 - **Quantizations:** q4_0, q4_1, q5_0, q5_1, q8_0
-- **Engines**: llama.cpp
+- **Engines**: 
 - **Model ID:** TheBloke/orca_mini_13B-GGML
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/orca_mini_13B-GGML>`__
 

@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 7 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 7
 - **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: Transformers
+- **Engines**: 
 - **Model ID:** glaiveai/glaive-coder-7b
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/glaiveai/glaive-coder-7b>`__
 

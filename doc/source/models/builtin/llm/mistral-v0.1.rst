@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 7 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 7
 - **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: llama.cpp
+- **Engines**: vLLM, Transformers
 - **Model ID:** mistralai/Mistral-7B-v0.1
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/mistralai/Mistral-7B-v0.1>`__, `ModelScope <https://modelscope.cn/models/Xorbits/Mistral-7B-v0.1>`__
 

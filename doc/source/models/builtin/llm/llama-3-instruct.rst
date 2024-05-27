@@ -20,7 +20,7 @@ Model Spec 1 (ggufv2, 8 Billion)
 - **Model Format:** ggufv2
 - **Model Size (in billions):** 8
 - **Quantizations:** IQ3_M, Q4_K_M, Q5_K_M, Q6_K, Q8_0
-- **Engines**: vLLM, Transformers
+- **Engines**: llama.cpp
 - **Model ID:** lmstudio-community/Meta-Llama-3-8B-Instruct-GGUF
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/lmstudio-community/Meta-Llama-3-8B-Instruct-GGUF>`__
 
@@ -52,7 +52,7 @@ Model Spec 3 (ggufv2, 70 Billion)
 - **Model Format:** ggufv2
 - **Model Size (in billions):** 70
 - **Quantizations:** IQ1_M, IQ2_XS, Q4_K_M
-- **Engines**: vLLM, Transformers
+- **Engines**: llama.cpp
 - **Model ID:** lmstudio-community/Meta-Llama-3-70B-Instruct-GGUF
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/lmstudio-community/Meta-Llama-3-70B-Instruct-GGUF>`__
 

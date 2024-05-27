@@ -84,7 +84,7 @@ Model Spec 5 (ggufv2, 1_3 Billion)
 - **Model Format:** ggufv2
 - **Model Size (in billions):** 1_3
 - **Quantizations:** Q2_K, Q3_K_L, Q3_K_M, Q3_K_S, Q4_0, Q4_K_M, Q4_K_S, Q5_0, Q5_K_M, Q5_K_S, Q6_K, Q8_0
-- **Engines**: vLLM, Transformers
+- **Engines**: llama.cpp
 - **Model ID:** TheBloke/deepseek-coder-1.3b-base-GGUF
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/deepseek-coder-1.3b-base-GGUF>`__
 
@@ -100,7 +100,7 @@ Model Spec 6 (ggufv2, 6_7 Billion)
 - **Model Format:** ggufv2
 - **Model Size (in billions):** 6_7
 - **Quantizations:** Q2_K, Q3_K_L, Q3_K_M, Q3_K_S, Q4_0, Q4_K_M, Q4_K_S, Q5_0, Q5_K_M, Q5_K_S, Q6_K, Q8_0
-- **Engines**: vLLM, Transformers
+- **Engines**: llama.cpp
 - **Model ID:** TheBloke/deepseek-coder-6.7B-base-GGUF
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/deepseek-coder-6.7B-base-GGUF>`__
 
@@ -116,7 +116,7 @@ Model Spec 7 (ggufv2, 7 Billion)
 - **Model Format:** ggufv2
 - **Model Size (in billions):** 7
 - **Quantizations:** Q2_K, Q3_K_L, Q3_K_M, Q3_K_S, Q4_K_M, Q4_K_S, Q5_0, Q5_K_M, Q5_K_S, Q6_K, Q8_0
-- **Engines**: vLLM, Transformers
+- **Engines**: llama.cpp
 - **Model ID:** dagbs/deepseek-coder-7b-base-v1.5-GGUF
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/dagbs/deepseek-coder-7b-base-v1.5-GGUF>`__
 
@@ -132,7 +132,7 @@ Model Spec 8 (ggufv2, 33 Billion)
 - **Model Format:** ggufv2
 - **Model Size (in billions):** 33
 - **Quantizations:** Q2_K, Q3_K_L, Q3_K_M, Q3_K_S, Q4_0, Q4_K_M, Q4_K_S, Q5_0, Q5_K_M, Q5_K_S, Q6_K, Q8_0
-- **Engines**: vLLM, Transformers
+- **Engines**: llama.cpp
 - **Model ID:** TheBloke/deepseek-coder-33B-base-GGUF
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/deepseek-coder-33B-base-GGUF>`__
 

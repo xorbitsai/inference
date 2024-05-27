@@ -20,7 +20,7 @@ Model Spec 1 (ggmlv3, 6 Billion)
 - **Model Format:** ggmlv3
 - **Model Size (in billions):** 6
 - **Quantizations:** q4_0
-- **Engines**: vLLM, Transformers
+- **Engines**: llama.cpp
 - **Model ID:** Xorbits/chatglm3-6B-GGML
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Xorbits/chatglm3-6B-GGML>`__, `ModelScope <https://modelscope.cn/models/Xorbits/chatglm3-ggml>`__
 

@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 46_7 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 46_7
 - **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: llama.cpp
+- **Engines**: vLLM, Transformers
 - **Model ID:** mistralai/Mixtral-8x7B-Instruct-v0.1
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/mistralai/Mixtral-8x7B-Instruct-v0.1>`__, `ModelScope <https://modelscope.cn/models/AI-ModelScope/Mixtral-8x7B-Instruct-v0.1>`__
 
@@ -36,7 +36,7 @@ Model Spec 2 (awq, 46_7 Billion)
 - **Model Format:** awq
 - **Model Size (in billions):** 46_7
 - **Quantizations:** Int4
-- **Engines**: llama.cpp
+- **Engines**: vLLM, Transformers
 - **Model ID:** TheBloke/Mixtral-8x7B-Instruct-v0.1-AWQ
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/Mixtral-8x7B-Instruct-v0.1-AWQ>`__
 
@@ -52,7 +52,7 @@ Model Spec 3 (gptq, 46_7 Billion)
 - **Model Format:** gptq
 - **Model Size (in billions):** 46_7
 - **Quantizations:** Int4
-- **Engines**: llama.cpp
+- **Engines**: vLLM, Transformers
 - **Model ID:** TheBloke/Mixtral-8x7B-Instruct-v0.1-GPTQ
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/Mixtral-8x7B-Instruct-v0.1-GPTQ>`__
 

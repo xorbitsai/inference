@@ -20,7 +20,7 @@ Model Spec 1 (ggufv2, 7 Billion)
 - **Model Format:** ggufv2
 - **Model Size (in billions):** 7
 - **Quantizations:** q2_k, q3_k_m, q4_0, q4_k_m, q5_0, q5_k_m, q6_k, q8_0
-- **Engines**: vLLM, Transformers
+- **Engines**: llama.cpp
 - **Model ID:** Qwen/CodeQwen1.5-7B-Chat-GGUF
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/CodeQwen1.5-7B-Chat-GGUF>`__, `ModelScope <https://modelscope.cn/models/qwen/CodeQwen1.5-7B-Chat-GGUF>`__
 
