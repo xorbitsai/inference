@@ -669,8 +669,7 @@ def batch_inference_one_step(
         )
         stream_interval = r.sanitized_generate_config.get("stream_interval", 2)
         include_usage = r.include_usage
-        # TODO: handle stop str
-        # stop_str = r.sanitized_generate_config.get("stop", None)
+        stop_str = r.sanitized_generate_config.get("stop", None)
         stop_token_ids = r.sanitized_generate_config.get("stop_token_ids", None) or []
         stop_token_ids.append(tokenizer.eos_token_id)
         temperature = float(r.sanitized_generate_config.get("temperature", 1.0))
@@ -697,6 +696,25 @@ def batch_inference_one_step(
         else:
             finish_reason = None
 
+        # handle stop str
+        output = None
+        if stop_str:
+            output = tokenizer.decode(
+                r.new_tokens,
+                skip_special_tokens=True,
+                spaces_between_special_tokens=False,
+                clean_up_tokenization_spaces=True,
+            )
+            if isinstance(stop_str, str):
+                stop_str = [stop_str]
+            for stop in stop_str:
+                pos = output.rfind(stop)
+                if pos != -1:
+                    output = output[:pos]
+                    stopped = True
+                    finish_reason = "stop"
+                    break
+
         r.stopped = stopped
 
         if r.stream:
@@ -709,12 +727,13 @@ def batch_inference_one_step(
             """
             remain_num = len(r.new_tokens) % stream_interval
             if stopped or remain_num == 0:
-                output = tokenizer.decode(
-                    r.new_tokens,
-                    skip_special_tokens=True,
-                    spaces_between_special_tokens=False,
-                    clean_up_tokenization_spaces=True,
-                )
+                if output is None:
+                    output = tokenizer.decode(
+                        r.new_tokens,
+                        skip_special_tokens=True,
+                        spaces_between_special_tokens=False,
+                        clean_up_tokenization_spaces=True,
+                    )
                 # this special character is mainly for qwen
                 output = output.strip("�")
                 output = output[r.last_output_length :]
@@ -732,11 +751,15 @@ def batch_inference_one_step(
                 r.completion = []
         else:
             if r.stopped:
-                outputs = tokenizer.decode(
-                    r.new_tokens[:-1] if finish_reason == "stop" else r.new_tokens,
-                    skip_special_tokens=True,
-                    spaces_between_special_tokens=False,
-                    clean_up_tokenization_spaces=True,
+                outputs = (
+                    tokenizer.decode(
+                        r.new_tokens[:-1] if finish_reason == "stop" else r.new_tokens,
+                        skip_special_tokens=True,
+                        spaces_between_special_tokens=False,
+                        clean_up_tokenization_spaces=True,
+                    )
+                    if output is None
+                    else output
                 )
 
                 completion_choice = CompletionChoice(
