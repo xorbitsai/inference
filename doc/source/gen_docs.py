@@ -87,7 +87,7 @@ def main():
                             continue
                         else:
                             engines.append(engine)
-                model_spec['engines'] = list(set(engines))
+                model_spec['engines'] = sorted(list(set(engines)), reverse=True)
 
             # manual merge
             if model_name in model_by_names_modelscope.keys():

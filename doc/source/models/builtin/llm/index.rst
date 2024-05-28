@@ -471,6 +471,11 @@ The following is a list of built-in LLM in Xinference:
      - 4096
      - Yi-1.5 is an upgraded version of Yi. It is continuously pre-trained on Yi with a high-quality corpus of 500B tokens and fine-tuned on 3M diverse fine-tuning samples.
 
+   * - :ref:`yi-1.5-chat-16k <models_llm_yi-1.5-chat-16k>`
+     - chat
+     - 16384
+     - Yi-1.5 is an upgraded version of Yi. It is continuously pre-trained on Yi with a high-quality corpus of 500B tokens and fine-tuned on 3M diverse fine-tuning samples.
+
    * - :ref:`yi-200k <models_llm_yi-200k>`
      - generate
      - 262144
@@ -682,6 +687,8 @@ The following is a list of built-in LLM in Xinference:
    yi-1.5
   
    yi-1.5-chat
+  
+   yi-1.5-chat-16k
   
    yi-200k
   
