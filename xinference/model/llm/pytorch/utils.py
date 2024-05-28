@@ -630,7 +630,7 @@ def batch_inference_one_step(
         return
     prompts = [r.full_prompt for r in valid_req_list if r.is_prefill and not r.stopped]
     not_use_kv_cache_in_decode = all(r.kv_cache is None for r in valid_req_list)
-    if prompts:
+    if prompts:  # prefill
         input_ids: List[List[int]] = tokenizer(prompts, padding=False).input_ids
 
         prompt_tokens: List[List[int]] = []
@@ -645,6 +645,10 @@ def batch_inference_one_step(
             )
         pad_seqs_inplace(prompt_tokens, 0)
         out = model(torch.as_tensor(prompt_tokens, device=device), use_cache=True)
+    # decode, cannot use kv_cache, since some requests stop and
+    # kv_cache dimensions are inconsistent because some requests have ended.
+    # TODO: In the future, if fine-grained control over kv cache is possible,
+    #  this case can also continue to use kv cache
     elif not_use_kv_cache_in_decode:
         decodes: List[List[int]] = []
         for i, r in enumerate(valid_req_list):
@@ -652,7 +656,7 @@ def batch_inference_one_step(
             decodes.append(r.prompt_tokens + r.new_tokens)
         pad_seqs_inplace(decodes, 0)
         out = model(torch.as_tensor(decodes, device=device), use_cache=True)
-    else:
+    else:  # decode, use kv_cache
         decode_tokens: List[List[int]] = [[r.new_tokens[-1]] for r in valid_req_list]
         kv_cache = valid_req_list[0].kv_cache
         out = model(
