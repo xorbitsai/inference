@@ -363,6 +363,7 @@ class CreateCompletionTorch(BaseModel):
     top_p: float = top_p_field
     top_k: int = top_k_field
     lora_name: Optional[str]
+    request_id: Optional[str]
 
 
 CreateCompletionLlamaCpp: BaseModel

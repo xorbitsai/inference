@@ -497,6 +497,15 @@ class ModelActor(xo.StatelessActor):
                     prompt_tokens,
                 )
 
+    async def abort_request(self, request_id: str) -> str:
+        from .scheduler import AbortRequestMessage
+
+        if self.allow_batching():
+            if self._scheduler_ref is None:
+                return AbortRequestMessage.NOT_FOUND.name
+            return await self._scheduler_ref.abort_request(request_id)
+        return AbortRequestMessage.NO_OP.name
+
     @log_async(logger=logger)
     @request_limit
     async def create_embedding(self, input: Union[str, List[str]], *args, **kwargs):

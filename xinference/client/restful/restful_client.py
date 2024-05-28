@@ -1224,3 +1224,30 @@ class Client:
 
         response_data = response.json()
         return response_data
+
+    def abort_request(self, model_uid: str, request_id: str):
+        """
+        Abort a request.
+        Abort a submitted request. If the request is finished or not found, this method will be a no-op.
+        Currently, this interface is only supported when batching is enabled for models on transformers backend.
+
+        Parameters
+        ----------
+        model_uid: str
+            Model uid.
+        request_id: str
+            Request id.
+        Returns
+        -------
+        Dict
+            Return empty dict.
+        """
+        url = f"{self.base_url}/v1/models/{model_uid}/requests/{request_id}/abort"
+        response = requests.post(url, headers=self._headers)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to abort request, detail: {_get_error_string(response)}"
+            )
+
+        response_data = response.json()
+        return response_data

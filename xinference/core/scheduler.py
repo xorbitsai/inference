@@ -15,6 +15,7 @@
 import asyncio
 import logging
 from collections import deque
+from enum import Enum
 from typing import List, Optional, Set
 
 import xoscar as xo
@@ -24,6 +25,12 @@ logger = logging.getLogger(__name__)
 XINFERENCE_STREAMING_DONE_FLAG = "<XINFERENCE_STREAMING_DONE>"
 XINFERENCE_STREAMING_ERROR_FLAG = "<XINFERENCE_STREAMING_ERROR>"
 XINFERENCE_STREAMING_ABORT_FLAG = "<XINFERENCE_STREAMING_ABORT>"
+
+
+class AbortRequestMessage(Enum):
+    NOT_FOUND = 1
+    DONE = 2
+    NO_OP = 3
 
 
 class InferenceRequest:
@@ -304,16 +311,18 @@ class SchedulerActor(xo.StatelessActor):
             self._id_to_req[rid] = req
         self._waiting_queue.append(req)
 
-    async def abort_request(self, req_id: str):
+    async def abort_request(self, req_id: str) -> str:
         """
         Abort a request.
         Abort a submitted request. If the request is finished or not found, this method will be a no-op.
         """
         if req_id not in self._id_to_req:
             logger.info(f"Request id: {req_id} not found. No-op for xinference.")
+            return AbortRequestMessage.NOT_FOUND.name
         else:
             self._abort_req_ids.add(req_id)
             logger.info(f"Request id: {req_id} found to be aborted.")
+            return AbortRequestMessage.DONE.name
 
     async def run(self):
         while True:

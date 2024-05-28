@@ -346,6 +346,16 @@ class RESTfulAPI:
             ),
         )
         self._router.add_api_route(
+            "/v1/models/{model_uid}/requests/{request_id}/abort",
+            self.abort_request,
+            methods=["POST"],
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:read"])]
+                if self.is_authenticated()
+                else None
+            ),
+        )
+        self._router.add_api_route(
             "/v1/models/instance",
             self.launch_model_by_version,
             methods=["POST"],
@@ -1564,6 +1574,15 @@ class RESTfulAPI:
         except ValueError as re:
             logger.error(re, exc_info=True)
             raise HTTPException(status_code=400, detail=str(re))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def abort_request(self, model_uid: str, request_id: str) -> JSONResponse:
+        try:
+            supervisor_ref = await self._get_supervisor_ref()
+            res = await supervisor_ref.abort_request(model_uid, request_id)
+            return JSONResponse(content=res)
         except Exception as e:
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
