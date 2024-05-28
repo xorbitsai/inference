@@ -1304,7 +1304,7 @@ def test_restful_api_for_code_prompt(setup):
     # test embedding
     url = f"{endpoint}/v1/code/prompt"
     payload = {
-        "model": "deepseek-coder-base",
+        "model": "deepseek-coder",
         "prompt": "#write a quick sort algorithm",
     }
     response = requests.post(url, json=payload)
@@ -1395,7 +1395,7 @@ def test_restful_api_for_code_completions(setup):
     # test embedding
     url = f"{endpoint}/v1/code/completions"
     payload = {
-        "model": "deepseek-coder-base",
+        "model": "deepseek-coder",
         "prompt": "#write a quick sort algorithm",
         "max_tokens": 4096,
     }
