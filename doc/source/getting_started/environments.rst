@@ -43,6 +43,6 @@ Setting this environment to 1 can disable the use of vLLM.
 
 XINFERENCE_DISABLE_METRICS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
-Xinference will disable the metrics exporter on the supervisor and worker.
+Xinference will by default enable the metrics exporter on the supervisor and worker.
 Setting this environment to 1 will disable the /metrics endpoint on the supervisor
 and the HTTP service (only provide the /metrics endpoint) on the worker.
