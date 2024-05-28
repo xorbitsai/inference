@@ -412,7 +412,7 @@ class ModelActor(xo.StatelessActor):
         raise AttributeError(f"Model {self._model.model_spec} is not for generate.")
 
     async def _queue_consumer(
-        self, queue: Queue[Any], timeout: Optional[float] = None
+        self, queue: Queue, timeout: Optional[float] = None
     ) -> AsyncIterator[Any]:
         from .scheduler import (
             XINFERENCE_STREAMING_ABORT_FLAG,
