@@ -258,13 +258,13 @@ class SchedulerActor(xo.StatelessActor):
             if not r.stopped:
                 self._running_queue.append(r)
             else:
+                rid = r.request_id
+                # clear data structure
+                if rid is not None:
+                    self._id_to_req.pop(rid, None)
+                    self._abort_req_ids.discard(rid)
+
                 if r.aborted:  # stop due to abort
-                    rid = r.request_id
-                    # clear data structure
-                    self._id_to_req.pop(
-                        rid
-                    )  # rid must in self._id_to_req, not passing the second param to pop func
-                    self._abort_req_ids.remove(rid)
                     # handle abort result
                     if r.stream:
                         await r.future_or_queue.put(XINFERENCE_STREAMING_ABORT_FLAG)
@@ -313,7 +313,7 @@ class SchedulerActor(xo.StatelessActor):
             logger.info(f"Request id: {req_id} not found. No-op for xinference.")
         else:
             self._abort_req_ids.add(req_id)
-            logger.info(f"Request id: {req_id} found.")
+            logger.info(f"Request id: {req_id} found to be aborted.")
 
     async def run(self):
         while True:
