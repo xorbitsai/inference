@@ -19,6 +19,7 @@ from click.testing import CliRunner
 
 from ...client import Client
 from ..cmdline import (
+    list_cached_models,
     list_model_registrations,
     model_chat,
     model_generate,
@@ -278,3 +279,26 @@ def test_rotate_logs(setup_with_file_logging):
     with open(log_file, "r") as f:
         content = f.read()
         assert len(content) > 0
+
+
+def test_list_cached_models(setup):
+    endpoint, _ = setup
+    runner = CliRunner()
+
+    result = runner.invoke(
+        list_cached_models,
+        [
+            "--endpoint",
+            endpoint,
+        ],
+    )
+    assert result.exit_code == 0
+    assert "cached_model: " in result.stdout
+
+    # check if the output is in tabular format
+    assert "model_name" in result.stdout
+    assert "model_format" in result.stdout
+    assert "model_size_in_billions" in result.stdout
+    assert "quantizations" in result.stdout
+    assert "path" in result.stdout
+    assert "Actor IP Address" in result.stdout

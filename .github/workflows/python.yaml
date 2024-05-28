@@ -47,7 +47,7 @@ jobs:
       - name: mypy
         run: pip install mypy && mypy --install-types --non-interactive xinference
       - name: codespell
-        run: pip install codespell && codespell xinference
+        run: pip install codespell && codespell --ignore-words-list thirdparty xinference
       - name: Set up Node.js
         uses: actions/setup-node@v1
         with:
