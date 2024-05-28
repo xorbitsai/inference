@@ -1272,7 +1272,7 @@ def test_cluster_info(setup):
 
 
 def test_restful_api_for_code_prompt(setup):
-    model_name = "deepseek-coder-base"
+    model_name = "deepseek-coder"
 
     endpoint, _ = setup
     url = f"{endpoint}/v1/models"
@@ -1284,7 +1284,7 @@ def test_restful_api_for_code_prompt(setup):
 
     # launch
     payload = {
-        "model_uid": "deepseek-coder-base",
+        "model_uid": "deepseek-coder",
         "model_name": model_name,
         "model_type": "LLM",
         "model_engine": "llama.cpp",
@@ -1295,7 +1295,7 @@ def test_restful_api_for_code_prompt(setup):
     response = requests.post(url, json=payload)
     response_data = response.json()
     model_uid_res = response_data["model_uid"]
-    assert model_uid_res == "deepseek-coder-base"
+    assert model_uid_res == "deepseek-coder"
 
     response = requests.get(url)
     response_data = response.json()
@@ -1316,7 +1316,7 @@ def test_restful_api_for_code_prompt(setup):
 
     # test multiple
     payload = {
-        "model": "deepseek-coder-base",
+        "model": "deepseek-coder",
         "mode": "infill",
         "prompt": """def quick_sort(arr):
     if len(arr) <= 1:
@@ -1353,7 +1353,7 @@ def test_restful_api_for_code_prompt(setup):
     )
 
     # delete model
-    url = f"{endpoint}/v1/models/deepseek-coder-base"
+    url = f"{endpoint}/v1/models/deepseek-coder"
     response = requests.delete(url)
     assert response.status_code == 200
 
@@ -1363,7 +1363,7 @@ def test_restful_api_for_code_prompt(setup):
 
 
 def test_restful_api_for_code_completions(setup):
-    model_name = "deepseek-coder-base"
+    model_name = "deepseek-coder"
 
     endpoint, _ = setup
     url = f"{endpoint}/v1/models"
@@ -1375,7 +1375,7 @@ def test_restful_api_for_code_completions(setup):
 
     # launch
     payload = {
-        "model_uid": "deepseek-coder-base",
+        "model_uid": "deepseek-coder",
         "model_name": model_name,
         "model_type": "LLM",
         "model_engine": "llama.cpp",
@@ -1386,7 +1386,7 @@ def test_restful_api_for_code_completions(setup):
     response = requests.post(url, json=payload)
     response_data = response.json()
     model_uid_res = response_data["model_uid"]
-    assert model_uid_res == "deepseek-coder-base"
+    assert model_uid_res == "deepseek-coder"
 
     response = requests.get(url)
     response_data = response.json()
@@ -1408,7 +1408,7 @@ def test_restful_api_for_code_completions(setup):
 
     # test multiple
     payload = {
-        "model": "deepseek-coder-base",
+        "model": "deepseek-coder",
         "mode": "infill",
         "prompt": """def quick_sort(arr):
     if len(arr) <= 1:
@@ -1433,7 +1433,7 @@ def test_restful_api_for_code_completions(setup):
     assert coding_res["choices"][0]["finish_reason"] == "stop"
 
     # delete model
-    url = f"{endpoint}/v1/models/deepseek-coder-base"
+    url = f"{endpoint}/v1/models/deepseek-coder"
     response = requests.delete(url)
     assert response.status_code == 200
 
