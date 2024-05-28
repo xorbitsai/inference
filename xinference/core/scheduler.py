@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 XINFERENCE_STREAMING_DONE_FLAG = "<XINFERENCE_STREAMING_DONE>"
 XINFERENCE_STREAMING_ERROR_FLAG = "<XINFERENCE_STREAMING_ERROR>"
 XINFERENCE_STREAMING_ABORT_FLAG = "<XINFERENCE_STREAMING_ABORT>"
+XINFERENCE_NON_STREAMING_ABORT_FLAG = "<XINFERENCE_NON_STREAMING_ABORT>"
 
 
 class AbortRequestMessage(Enum):
@@ -276,7 +277,9 @@ class SchedulerActor(xo.StatelessActor):
                     if r.stream:
                         await r.future_or_queue.put(XINFERENCE_STREAMING_ABORT_FLAG)
                     else:
-                        r.future_or_queue.cancel()
+                        r.future_or_queue.set_result(
+                            XINFERENCE_NON_STREAMING_ABORT_FLAG
+                        )
                 else:
                     if r.error_msg is None:  # normal stop
                         if not r.stream:

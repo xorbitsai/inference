@@ -460,12 +460,18 @@ class ModelActor(xo.StatelessActor):
                     self._current_generator = weakref.ref(gen)
                     return gen
                 else:
+                    from .scheduler import XINFERENCE_NON_STREAMING_ABORT_FLAG
+
                     assert self._loop is not None
                     future = self._loop.create_future()
                     await self._scheduler_ref.add_request(
                         prompt, future, *args, **kwargs
                     )
                     result = await future
+                    if result == XINFERENCE_NON_STREAMING_ABORT_FLAG:
+                        raise RuntimeError(
+                            f"This request has been cancelled by another `abort_request` request."
+                        )
                     return await asyncio.to_thread(json_dumps, result)
             else:
                 if hasattr(self._model, "chat"):
