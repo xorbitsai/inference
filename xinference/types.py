@@ -284,6 +284,7 @@ class PytorchGenerateConfig(TypedDict, total=False):
     tools: Optional[List[Dict]]
     lora_name: Optional[str]
     stream_options: Optional[Union[dict, None]]
+    request_id: Optional[str]
 
 
 class PytorchModelConfig(TypedDict, total=False):

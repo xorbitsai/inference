@@ -13,13 +13,17 @@
 # limitations under the License.
 
 import asyncio
+import logging
 from collections import deque
-from typing import List, Optional
+from typing import List, Optional, Set
 
 import xoscar as xo
 
+logger = logging.getLogger(__name__)
+
 XINFERENCE_STREAMING_DONE_FLAG = "<XINFERENCE_STREAMING_DONE>"
 XINFERENCE_STREAMING_ERROR_FLAG = "<XINFERENCE_STREAMING_ERROR>"
+XINFERENCE_STREAMING_ABORT_FLAG = "<XINFERENCE_STREAMING_ABORT>"
 
 
 class InferenceRequest:
@@ -42,6 +46,9 @@ class InferenceRequest:
         self._inference_kwargs = kwargs
         # should this request be stopped
         self._stopped = False
+        # should this request be aborted
+        # note that when this flag is True, assert self._stopped is True
+        self._aborted = False
         # sanitized generate config
         self._sanitized_generate_config = None
         # Use in stream mode
@@ -169,6 +176,22 @@ class InferenceRequest:
         )
         return include_usage
 
+    @property
+    def aborted(self) -> bool:
+        return self._aborted
+
+    @aborted.setter
+    def aborted(self, value: bool):
+        self._aborted = value
+
+    @property
+    def request_id(self) -> Optional[str]:
+        return (
+            None
+            if self.generate_config is None
+            else self.generate_config.get("request_id", None)
+        )
+
 
 class SchedulerActor(xo.StatelessActor):
     @classmethod
@@ -180,6 +203,8 @@ class SchedulerActor(xo.StatelessActor):
         self._waiting_queue: deque[InferenceRequest] = deque()
         self._running_queue: deque[InferenceRequest] = deque()
         self._model = None
+        self._id_to_req = {}
+        self._abort_req_ids: Set[str] = set()
 
     def set_model(self, model):
         self._model = model
@@ -187,6 +212,11 @@ class SchedulerActor(xo.StatelessActor):
     def get_max_num_seqs(self):
         assert self._model is not None
         return self._model.get_max_num_seqs()
+
+    def _check_request_aborted(self, req: InferenceRequest):
+        if req.request_id and req.request_id in self._abort_req_ids:
+            req.aborted = True
+            req.stopped = True
 
     def _handle_request(self) -> Optional[List[InferenceRequest]]:
         if self._model is None:
@@ -197,12 +227,16 @@ class SchedulerActor(xo.StatelessActor):
         while len(self._running_queue) > 0:
             if len(running_list) == max_num_seqs:
                 break
-            running_list.append(self._running_queue.popleft())
+            req = self._running_queue.popleft()
+            self._check_request_aborted(req)
+            running_list.append(req)
 
         waiting_list: List[InferenceRequest] = []
         if len(running_list) < max_num_seqs:
             while len(self._waiting_queue) > 0:
-                waiting_list.append(self._waiting_queue.popleft())
+                req = self._waiting_queue.popleft()
+                self._check_request_aborted(req)
+                waiting_list.append(req)
                 if len(running_list) + len(waiting_list) == max_num_seqs:
                     break
         # must waiting_list in front
@@ -224,21 +258,34 @@ class SchedulerActor(xo.StatelessActor):
             if not r.stopped:
                 self._running_queue.append(r)
             else:
-                if r.error_msg is None:  # normal stop
-                    if not r.stream:
-                        r.future_or_queue.set_result(r.completion[0])
+                if r.aborted:  # stop due to abort
+                    rid = r.request_id
+                    # clear data structure
+                    self._id_to_req.pop(
+                        rid
+                    )  # rid must in self._id_to_req, not passing the second param to pop func
+                    self._abort_req_ids.remove(rid)
+                    # handle abort result
+                    if r.stream:
+                        await r.future_or_queue.put(XINFERENCE_STREAMING_ABORT_FLAG)
                     else:
-                        await r.future_or_queue.put(XINFERENCE_STREAMING_DONE_FLAG)
-                # Abnormal stop, currently indicates that the parameter check does not pass,
-                # and does not participate in the inference
+                        r.future_or_queue.cancel()
                 else:
-                    stop_before_prefill_cnt += 1
-                    if not r.stream:
-                        r.future_or_queue.set_exception(ValueError(r.error_msg))
+                    if r.error_msg is None:  # normal stop
+                        if not r.stream:
+                            r.future_or_queue.set_result(r.completion[0])
+                        else:
+                            await r.future_or_queue.put(XINFERENCE_STREAMING_DONE_FLAG)
+                    # Abnormal stop, currently indicates that the parameter check does not pass,
+                    # and does not participate in the inference
                     else:
-                        await r.future_or_queue.put(
-                            XINFERENCE_STREAMING_ERROR_FLAG + r.error_msg
-                        )
+                        stop_before_prefill_cnt += 1
+                        if not r.stream:
+                            r.future_or_queue.set_exception(ValueError(r.error_msg))
+                        else:
+                            await r.future_or_queue.put(
+                                XINFERENCE_STREAMING_ERROR_FLAG + r.error_msg
+                            )
 
         if len(self._running_queue) > 0:
             batch_size_after_one_step = len(self._running_queue)
@@ -250,7 +297,23 @@ class SchedulerActor(xo.StatelessActor):
 
     async def add_request(self, prompt: str, future_or_queue, *args, **kwargs):
         req = InferenceRequest(prompt, future_or_queue, True, *args, **kwargs)
+        rid = req.request_id
+        if rid is not None:
+            if rid in self._id_to_req:
+                raise KeyError(f"Request id: {rid} has already existed!")
+            self._id_to_req[rid] = req
         self._waiting_queue.append(req)
+
+    async def abort_request(self, req_id: str):
+        """
+        Abort a request.
+        Abort a submitted request. If the request is finished or not found, this method will be a no-op.
+        """
+        if req_id not in self._id_to_req:
+            logger.info(f"Request id: {req_id} not found. No-op for xinference.")
+        else:
+            self._abort_req_ids.add(req_id)
+            logger.info(f"Request id: {req_id} found.")
 
     async def run(self):
         while True:

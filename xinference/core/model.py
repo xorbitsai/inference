@@ -415,6 +415,7 @@ class ModelActor(xo.StatelessActor):
         self, queue: Queue[Any], timeout: Optional[float] = None
     ) -> AsyncIterator[Any]:
         from .scheduler import (
+            XINFERENCE_STREAMING_ABORT_FLAG,
             XINFERENCE_STREAMING_DONE_FLAG,
             XINFERENCE_STREAMING_ERROR_FLAG,
         )
@@ -423,6 +424,8 @@ class ModelActor(xo.StatelessActor):
             # TODO: timeout setting
             res = await wait_for(queue.get(), timeout)
             if res == XINFERENCE_STREAMING_DONE_FLAG:
+                break
+            elif res == XINFERENCE_STREAMING_ABORT_FLAG:
                 break
             elif isinstance(res, str) and res.startswith(
                 XINFERENCE_STREAMING_ERROR_FLAG
