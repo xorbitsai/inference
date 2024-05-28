@@ -62,7 +62,7 @@ Currently, supported model includes:
 - ``qwen1.5-chat``, ``qwen1.5-moe-chat``
 - ``gemma-it``
 - ``orion-chat``, ``orion-chat-rag``
-- ``c4ai-command-r-v01``, ``c4ai-command-r-v01-4bit``
+- ``c4ai-command-r-v01``
 .. vllm_end
 
 SGLang

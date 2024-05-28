@@ -211,6 +211,11 @@ The following is a list of built-in LLM in Xinference:
      - 204800
      - The second generation of the InternLM model, InternLM2.
 
+   * - :ref:`internvl-chat <models_llm_internvl-chat>`
+     - chat, vision
+     - 32768
+     - InternVL 1.5 is an open-source multimodal large language model (MLLM) to bridge the capability gap between open-source and proprietary commercial models in multimodal understanding. 
+
    * - :ref:`llama-2 <models_llm_llama-2>`
      - generate
      - 4096
@@ -230,6 +235,11 @@ The following is a list of built-in LLM in Xinference:
      - chat
      - 8192
      - The Llama 3 instruction tuned models are optimized for dialogue use cases and outperform many of the available open source chat models on common industry benchmarks..
+
+   * - :ref:`mini-internvl-chat <models_llm_mini-internvl-chat>`
+     - chat, vision
+     - 32768
+     - InternVL 1.5 is an open-source multimodal large language model (MLLM) to bridge the capability gap between open-source and proprietary commercial models in multimodal understanding. 
 
    * - :ref:`minicpm-2b-dpo-bf16 <models_llm_minicpm-2b-dpo-bf16>`
      - chat
@@ -569,6 +579,8 @@ The following is a list of built-in LLM in Xinference:
   
    internlm2-chat
   
+   internvl-chat
+  
    llama-2
   
    llama-2-chat
@@ -576,6 +588,8 @@ The following is a list of built-in LLM in Xinference:
    llama-3
   
    llama-3-instruct
+  
+   mini-internvl-chat
   
    minicpm-2b-dpo-bf16
   
