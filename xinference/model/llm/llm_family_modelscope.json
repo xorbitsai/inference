@@ -2433,32 +2433,6 @@
   {
     "version": 1,
     "context_length": 65536,
-    "model_name": "codeqwen1.5",
-    "model_lang": [
-      "en",
-      "zh"
-    ],
-    "model_ability": [
-      "generate"
-    ],
-    "model_description": "CodeQwen1.5 is the Code-Specific version of Qwen1.5. It is a transformer-based decoder-only language model pretrained on a large amount of data of codes.",
-    "model_specs": [
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": 7,
-        "quantizations": [
-          "4-bit",
-          "8-bit",
-          "none"
-        ],
-        "model_id": "qwen/CodeQwen1.5-7B",
-        "model_hub": "modelscope"
-      }
-    ]
-  },
-  {
-    "version": 1,
-    "context_length": 65536,
     "model_name": "codeqwen1.5-chat",
     "model_lang": [
       "en",
@@ -2530,12 +2504,13 @@
   {
     "version": 1,
     "context_length": 65536,
-    "model_name": "codeqwen1.5-base",
+    "model_name": "codeqwen1.5",
     "model_lang": [
       "en",
       "zh"
     ],
     "model_ability": [
+      "generate",
       "code"
     ],
     "model_description": "CodeQwen1.5 is the Code-Specific version of Qwen1.5. It is a transformer-based decoder-only language model pretrained on a large amount of data of codes.",
@@ -2728,7 +2703,8 @@
       "zh"
     ],
     "model_ability": [
-      "generate"
+      "generate",
+      "code"
     ],
     "model_description": "Deepseek Coder is composed of a series of code language models, each trained from scratch on 2T tokens, with a composition of 87% code and 13% natural language in both English and Chinese.",
     "model_specs": [
@@ -2765,7 +2741,20 @@
         "model_id": "deepseek-ai/deepseek-coder-33b-base",
         "model_hub": "modelscope"
       }
-    ]
+    ],
+    "code_prompt_style": {
+      "style_name": "DEEPSEEK_CODER",
+      "fim_spec": {
+        "style": "PMS",
+        "prefix": "<｜fim▁begin｜>",
+        "middle": "<｜fim▁hole｜>",
+        "suffix": "<｜fim▁end｜>"
+      },
+      "repo_level_spec": {
+        "file_type": "filename",
+        "file_separator": "<XINF-SPE>"
+      }
+    }
   },
   {
     "version": 1,
@@ -2825,68 +2814,6 @@
       "stop": [
         "<|EOT|>"
       ]
-    }
-  },
-  {
-    "version": 1,
-    "context_length": 16384,
-    "model_name": "deepseek-coder-base",
-    "model_lang": [
-      "en",
-      "zh"
-    ],
-    "model_ability": [
-      "generate",
-      "code"
-    ],
-    "model_description": "deepseek-coder-base is pre-trained on project-level code corpus by employing a window size of 16K and a extra fill-in-the-blank task, to support project-level code completion and infilling.",
-    "model_specs": [
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": "1_3",
-        "quantizations": [
-          "4-bit",
-          "8-bit",
-          "none"
-        ],
-        "model_id": "deepseek-ai/deepseek-coder-1.3b-base",
-        "model_hub": "modelscope"
-      },
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": "6_7",
-        "quantizations": [
-          "4-bit",
-          "8-bit",
-          "none"
-        ],
-        "model_id": "deepseek-ai/deepseek-coder-6.7b-base",
-        "model_hub": "modelscope"
-      },
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": 33,
-        "quantizations": [
-          "4-bit",
-          "8-bit",
-          "none"
-        ],
-        "model_id": "deepseek-ai/deepseek-coder-33b-base",
-        "model_hub": "modelscope"
-      }
-    ],
-    "code_prompt_style": {
-      "style_name": "DEEPSEEK_CODER",
-      "fim_spec": {
-        "style": "PMS",
-        "prefix": "<｜fim▁begin｜>",
-        "middle": "<｜fim▁hole｜>",
-        "suffix": "<｜fim▁end｜>"
-      },
-      "repo_level_spec": {
-        "file_type": "filename",
-        "file_separator": "<XINF-SPE>"
-      }
     }
   },
   {
@@ -3224,44 +3151,44 @@
     }
   },
   {
-    "version":1,
-    "context_length":2048,
-    "model_name":"OmniLMM",
-    "model_lang":[
+    "version": 1,
+    "context_length": 2048,
+    "model_name": "OmniLMM",
+    "model_lang": [
       "en",
       "zh"
     ],
-    "model_ability":[
+    "model_ability": [
       "chat",
       "vision"
     ],
-    "model_description":"mniLMM is a family of open-source large multimodal models (LMMs) adept at vision & language modeling.",
-    "model_specs":[
+    "model_description": "mniLMM is a family of open-source large multimodal models (LMMs) adept at vision & language modeling.",
+    "model_specs": [
       {
-        "model_format":"pytorch",
-        "model_size_in_billions":3,
-        "quantizations":[
+        "model_format": "pytorch",
+        "model_size_in_billions": 3,
+        "quantizations": [
           "none"
         ],
-        "model_id":"OpenBMB/MiniCPM-V",
-        "model_hub":"modelscope",
-        "model_revision":"master"
+        "model_id": "OpenBMB/MiniCPM-V",
+        "model_hub": "modelscope",
+        "model_revision": "master"
       },
       {
-        "model_format":"pytorch",
-        "model_size_in_billions":12,
-        "quantizations":[
+        "model_format": "pytorch",
+        "model_size_in_billions": 12,
+        "quantizations": [
           "none"
         ],
-        "model_id":"OpenBMB/OmniLMM-12B",
-        "model_hub":"modelscope",
-        "model_revision":"master"
+        "model_id": "OpenBMB/OmniLMM-12B",
+        "model_hub": "modelscope",
+        "model_revision": "master"
       }
     ],
-    "prompt_style":{
-      "style_name":"OmniLMM",
-      "system_prompt":"The role of first msg should be user",
-      "roles":[
+    "prompt_style": {
+      "style_name": "OmniLMM",
+      "system_prompt": "The role of first msg should be user",
+      "roles": [
         "user",
         "assistant"
       ]
@@ -3726,7 +3653,7 @@
       ],
       "intra_message_sep": "\n",
       "inter_message_sep": "<|end|>\n",
-      "stop_token_ids":[
+      "stop_token_ids": [
         32000,
         32007
       ],
@@ -3770,7 +3697,7 @@
       ],
       "intra_message_sep": "\n",
       "inter_message_sep": "<|end|>\n",
-      "stop_token_ids":[
+      "stop_token_ids": [
         32000,
         32007
       ],

@@ -128,8 +128,8 @@ VLLM_SUPPORTED_CHAT_MODELS = [
     "deepseek-coder-instruct",
 ]
 VLLM_SUPPORTED_CODE_MODELS = [
-    "deepseek-coder-base",
-    "codeqwen1.5-base",
+    "deepseek-coder",
+    "codeqwen1.5",
 ]
 if VLLM_INSTALLED and vllm.__version__ >= "0.3.0":
     VLLM_SUPPORTED_CHAT_MODELS.append("qwen1.5-chat")

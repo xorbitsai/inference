@@ -2201,31 +2201,6 @@
   {
     "version": 1,
     "context_length": 65536,
-    "model_name": "codeqwen1.5",
-    "model_lang": [
-      "en",
-      "zh"
-    ],
-    "model_ability": [
-      "generate"
-    ],
-    "model_description": "CodeQwen1.5 is the Code-Specific version of Qwen1.5. It is a transformer-based decoder-only language model pretrained on a large amount of data of codes.",
-    "model_specs": [
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": 7,
-        "quantizations": [
-          "4-bit",
-          "8-bit",
-          "none"
-        ],
-        "model_id": "Qwen/CodeQwen1.5-7B"
-      }
-    ]
-  },
-  {
-    "version": 1,
-    "context_length": 65536,
     "model_name": "codeqwen1.5-chat",
     "model_lang": [
       "en",
@@ -2294,7 +2269,7 @@
   {
     "version": 1,
     "context_length": 65536,
-    "model_name": "codeqwen1.5-base",
+    "model_name": "codeqwen1.5",
     "model_lang": [
       "en",
       "zh"
@@ -2323,25 +2298,6 @@
         "model_id": "Qwen/CodeQwen1.5-7B-AWQ"
       }
     ],
-    "prompt_style": {
-      "style_name": "QWEN",
-      "system_prompt": "You are a helpful assistant.",
-      "roles": [
-        "user",
-        "assistant"
-      ],
-      "intra_message_sep": "\n",
-      "stop_token_ids": [
-        2,
-        3,
-        4
-      ],
-      "stop": [
-        "<|endoftext|>",
-        "<|im_start|>",
-        "<|im_end|>"
-      ]
-    },
     "code_prompt_style": {
       "style_name": "CODEQWEN",
       "fim_spec": {
@@ -4612,7 +4568,8 @@
       "zh"
     ],
     "model_ability": [
-      "generate"
+      "generate",
+      "code"
     ],
     "model_description": "Deepseek Coder is composed of a series of code language models, each trained from scratch on 2T tokens, with a composition of 87% code and 13% natural language in both English and Chinese. ",
     "model_specs": [
@@ -4793,7 +4750,20 @@
         "model_id": "TheBloke/deepseek-coder-33B-base-AWQ",
         "model_revision": "c7edb2d5868d61a5dcf2591933a8992c8cbe3ef4"
       }
-    ]
+    ],
+    "code_prompt_style": {
+      "style_name": "DEEPSEEK_CODER",
+      "fim_spec": {
+        "style": "PMS",
+        "prefix": "<｜fim▁begin｜>",
+        "middle": "<｜fim▁hole｜>",
+        "suffix": "<｜fim▁end｜>"
+      },
+      "repo_level_spec": {
+        "file_type": "filename",
+        "file_separator": "<XINF-SPE>"
+      }
+    }
   },
   {
     "version": 1,
@@ -4997,155 +4967,6 @@
       "stop": [
         "<|EOT|>"
       ]
-    }
-  },
-  {
-    "version": 1,
-    "context_length": 16384,
-    "model_name": "deepseek-coder-base",
-    "model_lang": [
-      "en",
-      "zh"
-    ],
-    "model_ability": [
-      "generate",
-      "code"
-    ],
-    "model_description": "deepseek-coder-base is pre-trained on project-level code corpus by employing a window size of 16K and a extra fill-in-the-blank task, to support project-level code completion and infilling.",
-    "model_specs": [
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": "1_3",
-        "quantizations": [
-          "4-bit",
-          "8-bit",
-          "none"
-        ],
-        "model_id": "deepseek-ai/deepseek-coder-1.3b-base",
-        "model_revision": "c919139c3a9b4070729c8b2cca4847ab29ca8d94"
-      },
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": "6_7",
-        "quantizations": [
-          "4-bit",
-          "8-bit",
-          "none"
-        ],
-        "model_id": "deepseek-ai/deepseek-coder-6.7b-base",
-        "model_revision": "ce2207a8bfef3ee92bd7dd4cc31c52cfa0046912"
-      },
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": 33,
-        "quantizations": [
-          "4-bit",
-          "8-bit",
-          "none"
-        ],
-        "model_id": "deepseek-ai/deepseek-coder-33b-base",
-        "model_revision": "45c85cadf3720ef3e85a492e24fd4b8c5d21d8ac"
-      },
-      {
-        "model_format": "ggufv2",
-        "model_size_in_billions": "1_3",
-        "quantizations": [
-          "Q2_K",
-          "Q3_K_L",
-          "Q3_K_M",
-          "Q3_K_S",
-          "Q4_0",
-          "Q4_K_M",
-          "Q4_K_S",
-          "Q5_0",
-          "Q5_K_M",
-          "Q5_K_S",
-          "Q6_K",
-          "Q8_0"
-        ],
-        "model_id": "TheBloke/deepseek-coder-1.3b-base-GGUF",
-        "model_file_name_template": "deepseek-coder-1.3b-base.{quantization}.gguf"
-      },
-      {
-        "model_format": "ggufv2",
-        "model_size_in_billions": "6_7",
-        "quantizations": [
-          "Q2_K",
-          "Q3_K_L",
-          "Q3_K_M",
-          "Q3_K_S",
-          "Q4_0",
-          "Q4_K_M",
-          "Q4_K_S",
-          "Q5_0",
-          "Q5_K_M",
-          "Q5_K_S",
-          "Q6_K",
-          "Q8_0"
-        ],
-        "model_id": "TheBloke/deepseek-coder-6.7B-base-GGUF",
-        "model_file_name_template": "deepseek-coder-6.7b-base.{quantization}.gguf"
-      },
-      {
-        "model_format": "ggufv2",
-        "model_size_in_billions": 33,
-        "quantizations": [
-          "Q2_K",
-          "Q3_K_L",
-          "Q3_K_M",
-          "Q3_K_S",
-          "Q4_0",
-          "Q4_K_M",
-          "Q4_K_S",
-          "Q5_0",
-          "Q5_K_M",
-          "Q5_K_S",
-          "Q6_K",
-          "Q8_0"
-        ],
-        "model_id": "TheBloke/deepseek-coder-33B-base-GGUF",
-        "model_file_name_template": "deepseek-coder-33b-base.{quantization}.gguf"
-      },
-      {
-        "model_format": "awq",
-        "model_size_in_billions": "1_3",
-        "quantizations": [
-          "Int4"
-        ],
-        "model_id": "TheBloke/deepseek-coder-1.3b-base-AWQ",
-        "model_revision": "ffb66f1a2a194401b4f29025edcd261d7f0a08a7"
-      },
-      {
-        "model_format": "awq",
-        "model_size_in_billions": "6_7",
-        "quantizations": [
-          "Int4"
-        ],
-        "model_id": "TheBloke/deepseek-coder-6.7B-base-AWQ",
-        "model_revision": "e3d4bdf39712665f5e9d5c05c9df6f20fe1e2d5a"
-      },
-      {
-        "model_format": "awq",
-        "model_size_in_billions": "33",
-        "quantizations": [
-          "Int4"
-        ],
-        "model_id": "TheBloke/deepseek-coder-33B-base-AWQ",
-        "model_revision": "c7edb2d5868d61a5dcf2591933a8992c8cbe3ef4"
-      }
-    ],
-    "code_prompt_style": {
-      "style_name": "DEEPSEEK_CODER",
-      "fim_spec": {
-        "style": "PMS",
-        "prefix": "<｜fim▁begin｜>",
-        "middle": "<｜fim▁hole｜>",
-        "suffix": "<｜fim▁end｜>"
-      },
-      "repo_level_spec": {
-        "file_type": "filename",
-        "file_separator": "<XINF-SPE>"
-      }
     }
   },
   {
