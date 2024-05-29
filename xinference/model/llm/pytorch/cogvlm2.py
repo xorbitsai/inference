@@ -77,6 +77,7 @@ class CogVLM2Model(PytorchChatModel):
             self.model_path,
             torch_dtype=self._torch_type,
             trust_remote_code=True,
+            low_cpu_mem_usage=True,
             device_map="auto",
         ).eval()
 
