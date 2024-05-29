@@ -113,6 +113,7 @@ def _install():
     from .ggml.llamacpp import LlamaCppChatModel, LlamaCppModel
     from .pytorch.baichuan import BaichuanPytorchChatModel
     from .pytorch.chatglm import ChatglmPytorchChatModel
+    from .pytorch.cogvlm2 import CogVLM2Model
     from .pytorch.core import PytorchChatModel, PytorchModel
     from .pytorch.deepseek_vl import DeepSeekVLChatModel
     from .pytorch.falcon import FalconPytorchChatModel, FalconPytorchModel
@@ -159,6 +160,7 @@ def _install():
             DeepSeekVLChatModel,
             InternVLChatModel,
             PytorchModel,
+            CogVLM2Model,
         ]
     )
     if OmniLMMModel:  # type: ignore
