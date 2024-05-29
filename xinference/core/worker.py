@@ -456,7 +456,7 @@ class WorkerActor(xo.StatelessActor):
     ) -> Tuple[str, List[str]]:
         env = {}
         devices = []
-        env_name = get_available_device_env_name()
+        env_name = get_available_device_env_name() or "CUDA_VISIBLE_DEVICES"
         if gpu_idx is None:
             if isinstance(n_gpu, int) or (n_gpu == "auto" and gpu_count() > 0):
                 # Currently, n_gpu=auto means using 1 GPU
@@ -780,6 +780,9 @@ class WorkerActor(xo.StatelessActor):
                 await asyncio.sleep(XINFERENCE_HEALTH_CHECK_INTERVAL)
             except asyncio.CancelledError:  # pragma: no cover
                 break
+
+    async def list_cached_models(self) -> List[Dict[Any, Any]]:
+        return self._cache_tracker_ref.list_cached_models()
 
     async def get_remove_cached_models(
         self, model_name: str, checked: bool = False

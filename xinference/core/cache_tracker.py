@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from logging import getLogger
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 import xoscar as xo
 
@@ -101,15 +101,15 @@ class CacheTrackerActor(xo.Actor):
     def get_model_version_count(self, model_name: str) -> int:
         return len(self.get_model_versions(model_name))
 
-    def list_cached_models(self):
-        cached_models = {}
-        ret = []
+    def list_cached_models(self) -> List[Dict[Any, Any]]:
+        cached_models = []
         for model_name, model_versions in self._model_name_to_version_info.items():
             for version_info in model_versions:
                 if version_info["cache_status"]:
-                    ret.append(version_info)
-            cached_models[model_name] = ret
-            ret = []
+                    ret = version_info.copy()
+                    ret["model_name"] = model_name
+                    cached_models.append(ret)
+        cached_models = sorted(cached_models, key=lambda x: x["model_name"])
         return cached_models
 
     def get_remove_cached_models(

@@ -494,6 +494,16 @@ class RESTfulAPI:
             ),
         )
         self._router.add_api_route(
+            "/v1/cached/list_cached_models",
+            self.list_cached_models,
+            methods=["GET"],
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:list"])]
+                if self.is_authenticated()
+                else None
+            ),
+        )
+        self._router.add_api_route(
             "/v1/get_remove_cached_models/{model_name}",
             self.get_remove_cached_models,
             methods=["GET"],
@@ -707,6 +717,15 @@ class RESTfulAPI:
                 status_code=400,
                 detail="Invalid input. Please specify the `model_engine` field.",
             )
+
+        if isinstance(gpu_idx, int):
+            gpu_idx = [gpu_idx]
+        if gpu_idx:
+            if len(gpu_idx) % replica:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Invalid input. Allocated gpu must be a multiple of replica.",
+                )
 
         if peft_model_config is not None:
             peft_model_config = PeftModelConfig.from_dict(peft_model_config)
@@ -1482,6 +1501,17 @@ class RESTfulAPI:
             data = await (await self._get_supervisor_ref()).get_model_registration(
                 model_type, model_name
             )
+            return JSONResponse(content=data)
+        except ValueError as re:
+            logger.error(re, exc_info=True)
+            raise HTTPException(status_code=400, detail=str(re))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def list_cached_models(self) -> JSONResponse:
+        try:
+            data = await (await self._get_supervisor_ref()).list_cached_models()
             return JSONResponse(content=data)
         except ValueError as re:
             logger.error(re, exc_info=True)

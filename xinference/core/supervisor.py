@@ -34,6 +34,7 @@ from ..types import PeftModelConfig
 from .metrics import record_metrics
 from .resource import GPUStatus, ResourceStatus
 from .utils import (
+    assign_replica_gpu,
     build_replica_model_uid,
     gen_random_string,
     is_valid_model_uid,
@@ -769,7 +770,7 @@ class SupervisorActor(xo.StatelessActor):
                 raise ValueError(
                     f"Model is already in the model list, uid: {_replica_model_uid}"
                 )
-
+            replica_gpu_idx = assign_replica_gpu(_replica_model_uid, gpu_idx)
             nonlocal model_type
             worker_ref = (
                 target_ip_worker_ref
@@ -789,7 +790,7 @@ class SupervisorActor(xo.StatelessActor):
                 n_gpu=n_gpu,
                 request_limits=request_limits,
                 peft_model_config=peft_model_config,
-                gpu_idx=gpu_idx,
+                gpu_idx=replica_gpu_idx,
                 **kwargs,
             )
             self._replica_model_uid_to_worker[_replica_model_uid] = worker_ref
@@ -979,6 +980,33 @@ class SupervisorActor(xo.StatelessActor):
             len(self._worker_address_to_worker) == 1
             and list(self._worker_address_to_worker)[0] == self.address
         )
+
+    @log_async(logger=logger)
+    async def list_cached_models(self) -> List[Dict[str, Any]]:
+        cached_models = []
+        for worker in self._worker_address_to_worker.values():
+            ret = await worker.list_cached_models()
+            for model_version in ret:
+                model_name = model_version.get("model_name", None)
+                model_format = model_version.get("model_format", None)
+                model_size_in_billions = model_version.get(
+                    "model_size_in_billions", None
+                )
+                quantizations = model_version.get("quantization", None)
+                re_dict = model_version.get("model_file_location", None)
+                actor_ip_address, path = next(iter(re_dict.items()))
+
+                cache_entry = {
+                    "model_name": model_name,
+                    "model_format": model_format,
+                    "model_size_in_billions": model_size_in_billions,
+                    "quantizations": quantizations,
+                    "path": path,
+                    "Actor IP Address": actor_ip_address,
+                }
+
+                cached_models.append(cache_entry)
+        return cached_models
 
     @log_async(logger=logger)
     async def add_worker(self, worker_address: str):

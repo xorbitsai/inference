@@ -167,6 +167,14 @@ def test_RESTful_client(setup):
     assert len(client.list_models()) == 0
 
 
+@pytest.mark.skipif(os.name == "nt", reason="Skip windows")
+def test_list_cached_models(setup):
+    endpoint, _ = setup
+    client = RESTfulClient(endpoint)
+
+    assert len(client.list_cached_models()) == 2
+
+
 def test_RESTful_client_for_embedding(setup):
     endpoint, _ = setup
     client = RESTfulClient(endpoint)

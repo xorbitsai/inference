@@ -46,7 +46,7 @@ def get_rerank_model_descriptions():
 class RerankModelSpec(CacheableModelSpec):
     model_name: str
     language: List[str]
-    type: Optional[str] = "normal"
+    type: Optional[str] = "unknown"
     model_id: str
     model_revision: Optional[str]
     model_hub: str = "huggingface"
@@ -118,6 +118,28 @@ class RerankModel:
         self._use_fp16 = use_fp16
         self._model = None
         self._counter = 0
+        if model_spec.type == "unknown":
+            model_spec.type = self._auto_detect_type(model_path)
+
+    @staticmethod
+    def _auto_detect_type(model_path):
+        """This method may not be stable due to the fact that the tokenizer name may be changed.
+        Therefore, we only use this method for unknown model types."""
+        from transformers import AutoTokenizer
+
+        type_mapper = {
+            "LlamaTokenizerFast": "LLM-based layerwise",
+            "GemmaTokenizerFast": "LLM-based",
+            "XLMRobertaTokenizerFast": "normal",
+        }
+
+        tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
+        rerank_type = type_mapper.get(type(tokenizer).__name__)
+        if rerank_type is None:
+            raise Exception(
+                f"Can't determine the rerank type based on the tokenizer {tokenizer}"
+            )
+        return rerank_type
 
     def load(self):
         if self._model_spec.type == "normal":

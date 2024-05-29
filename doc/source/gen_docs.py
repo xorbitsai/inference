@@ -17,6 +17,7 @@ import os
 from collections import defaultdict
 
 from jinja2 import Environment, FileSystemLoader
+from xinference.model.llm.llm_family import SUPPORTED_ENGINES, check_engine_by_spec_parameters
 from xinference.model.llm.vllm.core import VLLM_INSTALLED, VLLM_SUPPORTED_MODELS, VLLM_SUPPORTED_CHAT_MODELS
 
 MODEL_HUB_HUGGING_FACE = "Hugging Face"
@@ -71,6 +72,22 @@ def main():
                     'name': MODEL_HUB_HUGGING_FACE, 
                     'url': f"https://huggingface.co/{model_spec['model_id']}"
                 }]
+
+                # model engines
+                engines = []
+                for engine in SUPPORTED_ENGINES:
+                    for quantization in model_spec['quantizations']:
+                        size = model_spec['model_size_in_billions']
+                        if isinstance(size, str) and '_' not in size:
+                            size = int(size)
+                        try:
+                            check_engine_by_spec_parameters(engine, model_name, model_spec['model_format'],
+                                                            size, quantization)
+                        except ValueError:
+                            continue
+                        else:
+                            engines.append(engine)
+                model_spec['engines'] = list(set(engines))
 
             # manual merge
             if model_name in model_by_names_modelscope.keys():
