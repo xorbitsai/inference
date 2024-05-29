@@ -40,15 +40,10 @@ class InferenceThread(threading.Thread):
             for res in self._model.chat(
                 self._prompt, generate_config=self._generate_config
             ):
-                print(res)
                 results.append(res)
-            print("=======Done!!! stream")
             assert len(results) > 0
-            assert results[-1]
         else:
             res = self._model.chat(self._prompt, generate_config=self._generate_config)
-            print(res)
-            print("===========dONE!")
             assert isinstance(res, dict)
             choices = res["choices"]
             assert isinstance(choices, list)
@@ -70,9 +65,14 @@ def test_continuous_batching(enable_batch, setup):
     # launch
     payload = {
         "model_engine": "transformers",
+        "model_type": "LLM",
         "model_name": "qwen1.5-chat",
         "quantization": "none",
+        "model_format": "pytorch",
         "model_size_in_billions": "0_5",
+        # here note that device must be `cpu` for macOS,
+        # since torch mps may have some issues for batch tensor calculation
+        "device": "cpu",
     }
 
     response = requests.post(url, json=payload)
@@ -84,8 +84,15 @@ def test_continuous_batching(enable_batch, setup):
 
     # test correct
     thread1 = InferenceThread("1+1=3正确吗？", {"stream": True}, client, model)
-    thread2 = InferenceThread("中国的首都是哪座城市？", {}, client, model)
+    thread2 = InferenceThread("中国的首都是哪座城市？", {"stream": False}, client, model)
     thread1.start()
     thread2.start()
     thread1.join()
     thread2.join()
+
+    # test error generate config
+    with pytest.raises(RuntimeError):
+        model.chat("你好", generate_config={"max_tokens": 99999999999999999})
+
+    with pytest.raises(RuntimeError):
+        model.chat("你好", generate_config={"stream_interval": 0})

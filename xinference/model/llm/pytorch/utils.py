@@ -675,7 +675,8 @@ def batch_inference_one_step(
         include_usage = r.include_usage
         stop_str = r.sanitized_generate_config.get("stop", None)
         stop_token_ids = r.sanitized_generate_config.get("stop_token_ids", None) or []
-        stop_token_ids.append(tokenizer.eos_token_id)
+        stop_token_ids = set(stop_token_ids)
+        stop_token_ids.add(tokenizer.eos_token_id)
         temperature = float(r.sanitized_generate_config.get("temperature", 1.0))
         repetition_penalty = float(
             r.sanitized_generate_config.get("repetition_penalty", 1.0)
