@@ -11,6 +11,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import os
+import shutil
 from logging import getLogger
 from typing import Any, Dict, List, Optional
 
@@ -133,9 +135,33 @@ class CacheTrackerActor(xo.Actor):
                 for version_info in model_versions:
                     if version_info["model_file_location"] == model_file_location:
                         try:
-                            import shutil
-
-                            shutil.rmtree(next(iter(model_file_location.values())))
+                            target_dir = next(iter(model_file_location.values()))
+                            if os.path.exists(target_dir):
+                                if os.path.isdir(target_dir):
+                                    for root, dirs, files in os.walk(
+                                        target_dir, topdown=False
+                                    ):
+                                        for name in files:
+                                            file_path = os.path.join(root, name)
+                                            if os.path.islink(file_path):
+                                                real_path = os.path.realpath(file_path)
+                                                os.unlink(file_path)
+                                                os.remove(real_path)
+                                        for name in dirs:
+                                            dir_path = os.path.join(root, name)
+                                            if os.path.islink(dir_path):
+                                                real_path = os.path.realpath(file_path)
+                                                os.unlink(dir_path)
+                                                os.remove(real_path)
+                                    shutil.rmtree(target_dir)
+                                else:
+                                    if os.path.islink(target_dir):
+                                        real_path = os.path.realpath(target_dir)
+                                        os.unlink(target_dir)
+                                        if os.path.exists(real_path):
+                                            shutil.rmtree(os.path.dirname(real_path))
+                            else:
+                                os.remove(target_dir)
                             return "Success"
                         except OSError as e:
                             logger.error(f"Error: {e.filename} - {e.strerror}")
