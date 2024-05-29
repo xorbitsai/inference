@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import os
 from logging import getLogger
 from typing import Any, Dict, List, Optional
 
@@ -108,6 +109,17 @@ class CacheTrackerActor(xo.Actor):
                 if version_info["cache_status"]:
                     ret = version_info.copy()
                     ret["model_name"] = model_name
+                    re_dict = version_info.get("model_file_location", None)
+                    actor_ip_address, path = next(iter(re_dict.items()))
+                    ret["actor_ip_address"] = actor_ip_address
+                    ret["path"] = path
+                    if os.path.isdir(path):
+                        files = os.listdir(path)
+                        resolved_file = os.path.realpath(os.path.join(path, files[0]))
+                        if resolved_file:
+                            ret["real_path"] = os.path.dirname(resolved_file)
+                    else:
+                        ret["real_path"] = os.path.realpath(path)
                     cached_models.append(ret)
         cached_models = sorted(cached_models, key=lambda x: x["model_name"])
         return cached_models
