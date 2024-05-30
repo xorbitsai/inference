@@ -175,6 +175,19 @@ def test_list_cached_models(setup):
     assert len(client.list_cached_models()) == 2
 
 
+@pytest.mark.skipif(os.name == "nt", reason="Skip windows")
+def test_get_remove_cached_models(setup):
+    endpoint, _ = setup
+    client = RESTfulClient(endpoint)
+
+    response = client.get_remove_cached_models("orca")
+
+    assert response == {
+        "model_name": "orca",
+        "model_file_location": {"file_path": "/path/to/model"},
+    }
+
+
 def test_RESTful_client_for_embedding(setup):
     endpoint, _ = setup
     client = RESTfulClient(endpoint)
