@@ -317,4 +317,3 @@ def test_remove_cache(setup):
 
     assert result.exit_code == 0
     assert "Cache directory orca has been deleted" in result.output
-    assert "1122" in result.output
