@@ -15,6 +15,7 @@
 
 import os
 import threading
+import time
 
 import pytest
 import requests
@@ -50,6 +51,25 @@ class InferenceThread(threading.Thread):
             choice = choices[0]
             assert isinstance(choice, str)
             assert len(choice) > 0
+
+
+class InferenceThreadWithError(InferenceThread):
+    def __init__(self, prompt, generate_config, client, model, sleep=None):
+        super().__init__(prompt, generate_config, client, model)
+        self._sleep = sleep
+
+    def run(self):
+        if self._sleep is not None:
+            time.sleep(self._sleep)
+        if self.stream:
+            with pytest.raises(RuntimeError):
+                for res in self._model.chat(
+                    self._prompt, generate_config=self._generate_config
+                ):
+                    print(res)
+        else:
+            with pytest.raises(RuntimeError):
+                self._model.chat(self._prompt, generate_config=self._generate_config)
 
 
 @pytest.fixture
@@ -98,3 +118,37 @@ def test_continuous_batching(enable_batch, setup):
 
     with pytest.raises(RuntimeError):
         model.chat("你好", generate_config={"stream_interval": 0})
+
+    # test error with other correct requests
+    thread1 = InferenceThread("1+1=3正确吗？", {"stream": True}, client, model)
+    thread2 = InferenceThread("中国的首都是哪座城市？", {"stream": False}, client, model)
+    thread3 = InferenceThreadWithError(
+        "猫和狗有什么区别？", {"stream": True, "max_tokens": 99999999999999}, client, model
+    )
+    thread4 = InferenceThreadWithError(
+        "简介篮球的发展历史。", {"stream": False, "stream_interval": 0}, client, model
+    )
+
+    thread1.start()
+    thread2.start()
+    thread3.start()
+    thread4.start()
+    thread1.join()
+    thread2.join()
+    thread3.join()
+    thread4.join()
+
+    # test same request ids
+    thread1 = InferenceThread(
+        "1+1=3正确吗？", {"stream": True, "request_id": "aaabbb"}, client, model
+    )
+    thread2 = InferenceThreadWithError(
+        "中国的首都是哪座城市？", {"stream": False, "request_id": "aaabbb"}, client, model, 0.03
+    )
+    thread1.start()
+    thread2.start()
+    thread1.join()
+    thread2.join()
+
+    # correctly terminate model
+    client.terminate_model(model_uid_res)
