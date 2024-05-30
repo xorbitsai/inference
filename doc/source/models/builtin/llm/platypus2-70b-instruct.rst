@@ -20,11 +20,12 @@ Model Spec 1 (pytorch, 70 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 70
 - **Quantizations:** none
+- **Engines**: Transformers
 - **Model ID:** garage-bAInd/Platypus2-70B-instruct
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/garage-bAInd/Platypus2-70B-instruct>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
 
-   xinference launch --model-name platypus2-70b-instruct --size-in-billions 70 --model-format pytorch --quantization ${quantization}
+   xinference launch --model-engine ${engine} --model-name platypus2-70b-instruct --size-in-billions 70 --model-format pytorch --quantization ${quantization}
 

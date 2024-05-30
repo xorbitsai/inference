@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import json
 import os
 import shutil
 import tempfile
@@ -126,3 +127,17 @@ def test_register_custom_rerank():
         unregister_rerank("custom_test_d")
 
     shutil.rmtree(tmp_dir, ignore_errors=True)
+
+
+def test_auto_detect_type():
+    from ..core import RerankModel
+
+    rerank_model_json = os.path.join(os.path.dirname(__file__), "../model_spec.json")
+    with open(rerank_model_json, "r") as f:
+        rerank_models = json.load(f)
+    for m in rerank_models:
+        try:
+            assert m["type"] == RerankModel._auto_detect_type(m["model_id"])
+        except EnvironmentError:
+            # gated repo, ignore
+            continue

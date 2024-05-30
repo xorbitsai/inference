@@ -52,7 +52,7 @@ from xoscar.utils import get_next_port
 
 from .._compat import BaseModel, Field
 from .._version import get_versions
-from ..constants import XINFERENCE_DEFAULT_ENDPOINT_PORT
+from ..constants import XINFERENCE_DEFAULT_ENDPOINT_PORT, XINFERENCE_DISABLE_METRICS
 from ..core.event import Event, EventCollectorActor, EventType
 from ..core.supervisor import SupervisorActor
 from ..core.utils import json_dumps
@@ -493,14 +493,30 @@ class RESTfulAPI:
                 else None
             ),
         )
+        self._router.add_api_route(
+            "/v1/cached/list_cached_models",
+            self.list_cached_models,
+            methods=["GET"],
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:list"])]
+                if self.is_authenticated()
+                else None
+            ),
+        )
 
-        # Clear the global Registry for the MetricsMiddleware, or
-        # the MetricsMiddleware will register duplicated metrics if the port
-        # conflict (This serve method run more than once).
-        REGISTRY.clear()
-        self._app.add_middleware(MetricsMiddleware)
-        self._app.include_router(self._router)
-        self._app.add_route("/metrics", metrics)
+        if XINFERENCE_DISABLE_METRICS:
+            logger.info(
+                "Supervisor metrics is disabled due to the environment XINFERENCE_DISABLE_METRICS=1"
+            )
+            self._app.include_router(self._router)
+        else:
+            # Clear the global Registry for the MetricsMiddleware, or
+            # the MetricsMiddleware will register duplicated metrics if the port
+            # conflict (This serve method run more than once).
+            REGISTRY.clear()
+            self._app.add_middleware(MetricsMiddleware)
+            self._app.include_router(self._router)
+            self._app.add_route("/metrics", metrics)
 
         # Check all the routes returns Response.
         # This is to avoid `jsonable_encoder` performance issue:
@@ -687,6 +703,15 @@ class RESTfulAPI:
                 status_code=400,
                 detail="Invalid input. Please specify the `model_engine` field.",
             )
+
+        if isinstance(gpu_idx, int):
+            gpu_idx = [gpu_idx]
+        if gpu_idx:
+            if len(gpu_idx) % replica:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Invalid input. Allocated gpu must be a multiple of replica.",
+                )
 
         if peft_model_config is not None:
             peft_model_config = PeftModelConfig.from_dict(peft_model_config)
@@ -1462,6 +1487,17 @@ class RESTfulAPI:
             data = await (await self._get_supervisor_ref()).get_model_registration(
                 model_type, model_name
             )
+            return JSONResponse(content=data)
+        except ValueError as re:
+            logger.error(re, exc_info=True)
+            raise HTTPException(status_code=400, detail=str(re))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def list_cached_models(self) -> JSONResponse:
+        try:
+            data = await (await self._get_supervisor_ref()).list_cached_models()
             return JSONResponse(content=data)
         except ValueError as re:
             logger.error(re, exc_info=True)

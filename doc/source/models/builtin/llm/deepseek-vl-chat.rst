@@ -20,13 +20,14 @@ Model Spec 1 (pytorch, 1_3 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 1_3
 - **Quantizations:** none
+- **Engines**: Transformers
 - **Model ID:** deepseek-ai/deepseek-vl-1.3b-chat
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/deepseek-ai/deepseek-vl-1.3b-chat>`__, `ModelScope <https://modelscope.cn/models/deepseek-ai/deepseek-vl-1.3b-chat>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
 
-   xinference launch --model-name deepseek-vl-chat --size-in-billions 1_3 --model-format pytorch --quantization ${quantization}
+   xinference launch --model-engine ${engine} --model-name deepseek-vl-chat --size-in-billions 1_3 --model-format pytorch --quantization ${quantization}
 
 
 Model Spec 2 (pytorch, 7 Billion)
@@ -35,11 +36,12 @@ Model Spec 2 (pytorch, 7 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 7
 - **Quantizations:** none
+- **Engines**: Transformers
 - **Model ID:** deepseek-ai/deepseek-vl-7b-chat
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/deepseek-ai/deepseek-vl-7b-chat>`__, `ModelScope <https://modelscope.cn/models/deepseek-ai/deepseek-vl-7b-chat>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
 
-   xinference launch --model-name deepseek-vl-chat --size-in-billions 7 --model-format pytorch --quantization ${quantization}
+   xinference launch --model-engine ${engine} --model-name deepseek-vl-chat --size-in-billions 7 --model-format pytorch --quantization ${quantization}
 

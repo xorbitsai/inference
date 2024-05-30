@@ -217,7 +217,12 @@ class GradioInterface:
                     "role": "user",
                     "content": [
                         {"type": "text", "text": text},
-                        {"type": "image_url", "image_url": {"url": image}},
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/png;base64,{img_b64_str}"
+                            },
+                        },
                     ],
                 }
             else:

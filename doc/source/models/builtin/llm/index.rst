@@ -52,9 +52,9 @@ The following is a list of built-in LLM in Xinference:
      - Baichuan-chat is a fine-tuned version of the Baichuan LLM, specializing in chatting.
 
    * - :ref:`c4ai-command-r-v01 <models_llm_c4ai-command-r-v01>`
-     - generate
+     - chat
      - 131072
-     - C4AI Command-R is a research release of a 35 billion parameter highly performant generative model.
+     - C4AI Command-R(+) is a research release of a 35 and 104 billion parameter highly performant generative model.
 
    * - :ref:`c4ai-command-r-v01-4bit <models_llm_c4ai-command-r-v01-4bit>`
      - generate
@@ -106,6 +106,11 @@ The following is a list of built-in LLM in Xinference:
      - 100000
      - Code-Llama-Python is a fine-tuned version of the Code-Llama LLM, specializing in Python.
 
+   * - :ref:`codeqwen1.5 <models_llm_codeqwen1.5>`
+     - generate
+     - 65536
+     - CodeQwen1.5 is the Code-Specific version of Qwen1.5. It is a transformer-based decoder-only language model pretrained on a large amount of data of codes.
+
    * - :ref:`codeqwen1.5-chat <models_llm_codeqwen1.5-chat>`
      - chat
      - 65536
@@ -121,14 +126,24 @@ The following is a list of built-in LLM in Xinference:
      - 8194
      - CodeShell is a multi-language code LLM developed by the Knowledge Computing Lab of Peking University.
 
+   * - :ref:`deepseek <models_llm_deepseek>`
+     - generate
+     - 4096
+     - DeepSeek LLM, trained from scratch on a vast dataset of 2 trillion tokens in both English and Chinese. 
+
    * - :ref:`deepseek-chat <models_llm_deepseek-chat>`
      - chat
      - 4096
      - DeepSeek LLM is an advanced language model comprising 67 billion parameters. It has been trained from scratch on a vast dataset of 2 trillion tokens in both English and Chinese.
 
+   * - :ref:`deepseek-coder <models_llm_deepseek-coder>`
+     - generate
+     - 16384
+     - Deepseek Coder is composed of a series of code language models, each trained from scratch on 2T tokens, with a composition of 87% code and 13% natural language in both English and Chinese. 
+
    * - :ref:`deepseek-coder-instruct <models_llm_deepseek-coder-instruct>`
      - chat
-     - 4096
+     - 16384
      - deepseek-coder-instruct is a model initialized from deepseek-coder-base and fine-tuned on 2B tokens of instruction data.
 
    * - :ref:`deepseek-vl-chat <models_llm_deepseek-vl-chat>`
@@ -196,6 +211,11 @@ The following is a list of built-in LLM in Xinference:
      - 204800
      - The second generation of the InternLM model, InternLM2.
 
+   * - :ref:`internvl-chat <models_llm_internvl-chat>`
+     - chat, vision
+     - 32768
+     - InternVL 1.5 is an open-source multimodal large language model (MLLM) to bridge the capability gap between open-source and proprietary commercial models in multimodal understanding. 
+
    * - :ref:`llama-2 <models_llm_llama-2>`
      - generate
      - 4096
@@ -215,6 +235,11 @@ The following is a list of built-in LLM in Xinference:
      - chat
      - 8192
      - The Llama 3 instruction tuned models are optimized for dialogue use cases and outperform many of the available open source chat models on common industry benchmarks..
+
+   * - :ref:`mini-internvl-chat <models_llm_mini-internvl-chat>`
+     - chat, vision
+     - 32768
+     - InternVL 1.5 is an open-source multimodal large language model (MLLM) to bridge the capability gap between open-source and proprietary commercial models in multimodal understanding. 
 
    * - :ref:`minicpm-2b-dpo-bf16 <models_llm_minicpm-2b-dpo-bf16>`
      - chat
@@ -446,6 +471,11 @@ The following is a list of built-in LLM in Xinference:
      - 4096
      - Yi-1.5 is an upgraded version of Yi. It is continuously pre-trained on Yi with a high-quality corpus of 500B tokens and fine-tuned on 3M diverse fine-tuning samples.
 
+   * - :ref:`yi-1.5-chat-16k <models_llm_yi-1.5-chat-16k>`
+     - chat
+     - 16384
+     - Yi-1.5 is an upgraded version of Yi. It is continuously pre-trained on Yi with a high-quality corpus of 500B tokens and fine-tuned on 3M diverse fine-tuning samples.
+
    * - :ref:`yi-200k <models_llm_yi-200k>`
      - generate
      - 262144
@@ -512,13 +542,19 @@ The following is a list of built-in LLM in Xinference:
   
    code-llama-python
   
+   codeqwen1.5
+  
    codeqwen1.5-chat
   
    codeshell
   
    codeshell-chat
   
+   deepseek
+  
    deepseek-chat
+  
+   deepseek-coder
   
    deepseek-coder-instruct
   
@@ -548,6 +584,8 @@ The following is a list of built-in LLM in Xinference:
   
    internlm2-chat
   
+   internvl-chat
+  
    llama-2
   
    llama-2-chat
@@ -555,6 +593,8 @@ The following is a list of built-in LLM in Xinference:
    llama-3
   
    llama-3-instruct
+  
+   mini-internvl-chat
   
    minicpm-2b-dpo-bf16
   
@@ -647,6 +687,8 @@ The following is a list of built-in LLM in Xinference:
    yi-1.5
   
    yi-1.5-chat
+  
+   yi-1.5-chat-16k
   
    yi-200k
   
