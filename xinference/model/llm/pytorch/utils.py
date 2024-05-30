@@ -14,6 +14,7 @@
 
 import gc
 import logging
+import os
 import time
 import uuid
 from threading import Thread
@@ -532,7 +533,7 @@ def generate_stream_falcon(
     empty_cache()
 
 
-def get_token_from_logits(
+def _get_token_from_logits(
     req: InferenceRequest, i: int, logits, temperature, repetition_penalty, top_p, top_k
 ):
     logits_processor = prepare_logits_processor(
@@ -566,7 +567,7 @@ def _pad_to_max_length(x: List[int], max_len: int, pad: int) -> List[int]:
     return [pad] * (max_len - len(x)) + x
 
 
-def pad_seqs_inplace(seqs: List[List[int]], pad: int):
+def _pad_seqs_inplace(seqs: List[List[int]], pad: int):
     max_len = max(len(seq) for seq in seqs)
     n = len(seqs)
     i = 0
@@ -582,7 +583,7 @@ def get_max_src_len(context_len: int, r: InferenceRequest) -> int:
     return context_len - max_new_tokens - 8
 
 
-def get_completion_chunk(
+def _get_completion_chunk(
     output: str,
     finish_reason: Optional[str],
     model_uid: str,
@@ -615,7 +616,7 @@ def get_completion_chunk(
 
 
 @torch.inference_mode()
-def batch_inference_one_step(
+def _batch_inference_one_step_internal(
     req_list: List[InferenceRequest],
     model_uid,
     model,
@@ -643,7 +644,7 @@ def batch_inference_one_step(
             prompt_tokens.append(
                 r.prompt_tokens if r.is_prefill else r.prompt_tokens + r.new_tokens
             )
-        pad_seqs_inplace(prompt_tokens, 0)
+        _pad_seqs_inplace(prompt_tokens, 0)
         out = model(torch.as_tensor(prompt_tokens, device=device), use_cache=True)
     # decode, cannot use kv_cache, since some requests stop and
     # kv_cache dimensions are inconsistent because some requests have ended.
@@ -654,7 +655,7 @@ def batch_inference_one_step(
         for i, r in enumerate(valid_req_list):
             r.kv_cache = None
             decodes.append(r.prompt_tokens + r.new_tokens)
-        pad_seqs_inplace(decodes, 0)
+        _pad_seqs_inplace(decodes, 0)
         out = model(torch.as_tensor(decodes, device=device), use_cache=True)
     else:  # decode, use kv_cache
         decode_tokens: List[List[int]] = [[r.new_tokens[-1]] for r in valid_req_list]
@@ -684,7 +685,7 @@ def batch_inference_one_step(
         top_p = float(r.sanitized_generate_config.get("top_p", 1.0))
         top_k = int(r.sanitized_generate_config.get("top_k", -1))  # -1 means disable
 
-        token = get_token_from_logits(
+        token = _get_token_from_logits(
             r, i, logits, temperature, repetition_penalty, top_p, top_k
         )
         stopped = token in stop_token_ids
@@ -744,13 +745,13 @@ def batch_inference_one_step(
                 output = output[r.last_output_length :]
                 r.last_output_length += len(output)
 
-                completion_chunk = get_completion_chunk(
+                completion_chunk = _get_completion_chunk(
                     output, finish_reason, model_uid, r, False
                 )
                 r.completion = [completion_chunk]
                 if stopped and include_usage:
                     r.completion.append(
-                        get_completion_chunk("", finish_reason, model_uid, r, True)
+                        _get_completion_chunk("", finish_reason, model_uid, r, True)
                     )
             else:  # not stopped and not in stream_interval, just not yield to upstream
                 r.completion = []
@@ -792,3 +793,30 @@ def batch_inference_one_step(
                     usage=completion_usage,
                 )
                 r.completion = [completion]
+
+
+def batch_inference_one_step(
+    req_list: List[InferenceRequest],
+    model_uid,
+    model,
+    tokenizer,
+    device,
+    context_len: int,
+):
+    from ....core.model import OutOfMemoryError
+
+    try:
+        _batch_inference_one_step_internal(
+            req_list, model_uid, model, tokenizer, device, context_len
+        )
+    except OutOfMemoryError:
+        logger.exception(
+            f"Batch inference out of memory. "
+            f"Xinference will restart the model: {model_uid}. "
+            f"Please be patient for a few moments."
+        )
+        # Just kill the process and let xinference auto-recover the model
+        os._exit(1)
+    except Exception as e:
+        logger.exception(f"Internal error for batch inference: {e}.")
+        # TODO: handle this
