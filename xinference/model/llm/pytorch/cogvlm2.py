@@ -44,6 +44,8 @@ IMAGENET_STD = (0.229, 0.224, 0.225)
 class CogVLM2Model(PytorchChatModel):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self._torch_type = None
+        self._device = None
         self._tokenizer = None
         self._model = None
 
@@ -132,7 +134,7 @@ class CogVLM2Model(PytorchChatModel):
                 )
         return content, None
 
-    def _history_content_to_intern(
+    def _history_content_to_cogvlm2(
         self, system_prompt: str, chat_history: List[ChatCompletionMessage]
     ):
         def _image_to_piexl_values(image):
@@ -199,7 +201,7 @@ class CogVLM2Model(PytorchChatModel):
         query = ""
         history_image = None
         if chat_history:
-            query, history, history_image = self._history_content_to_intern(
+            query, history, history_image = self._history_content_to_cogvlm2(
                 system_prompt, chat_history
             )
 
