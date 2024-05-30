@@ -265,7 +265,6 @@ class SchedulerActor(xo.StatelessActor):
         self._iter_cnt += 1
 
         stop_before_prefill_cnt = 0
-        force_clear_cache: bool = False
         for r in req_list:
             if r.stream:
                 for completion in r.completion:
@@ -307,6 +306,7 @@ class SchedulerActor(xo.StatelessActor):
                                 XINFERENCE_STREAMING_ERROR_FLAG + r.error_msg
                             )
 
+        force_clear_cache: bool = False
         if len(self._running_queue) > 0:
             batch_size_after_one_step = len(self._running_queue)
             batch_size_before_one_step = batch_size - stop_before_prefill_cnt
