@@ -426,7 +426,9 @@ class ModelActor(xo.StatelessActor):
             if res == XINFERENCE_STREAMING_DONE_FLAG:
                 break
             elif res == XINFERENCE_STREAMING_ABORT_FLAG:
-                break
+                raise RuntimeError(
+                    f"This request has been cancelled by another `abort_request` request."
+                )
             elif isinstance(res, str) and res.startswith(
                 XINFERENCE_STREAMING_ERROR_FLAG
             ):

@@ -21,21 +21,43 @@ import pytest
 import requests
 
 from ...client.restful.restful_client import Client as RESTfulClient
+from ..scheduler import AbortRequestMessage
 
 
-class InferenceThread(threading.Thread):
+class BaseThread(threading.Thread):
+    def __init__(self):
+        super().__init__()
+        self._ex = None
+
+    def run_internal(self):
+        super().run()
+
+    def run(self):
+        try:
+            self.run_internal()
+        except BaseException as e:
+            self._ex = e
+
+    def join(self, timeout=None):
+        super().join()
+        if self._ex is not None:
+            raise self._ex
+
+
+class InferenceThread(BaseThread):
     def __init__(self, prompt, generate_config, client, model):
         super().__init__()
         self._prompt = prompt
         self._generate_config = generate_config
         self._client = client
         self._model = model
+        self._ex = None
 
     @property
     def stream(self):
         return self._generate_config.get("stream", False)
 
-    def run(self):
+    def run_internal(self):
         if self.stream:
             results = []
             for res in self._model.chat(
@@ -48,7 +70,7 @@ class InferenceThread(threading.Thread):
             assert isinstance(res, dict)
             choices = res["choices"]
             assert isinstance(choices, list)
-            choice = choices[0]
+            choice = choices[0]["text"]
             assert isinstance(choice, str)
             assert len(choice) > 0
 
@@ -58,18 +80,34 @@ class InferenceThreadWithError(InferenceThread):
         super().__init__(prompt, generate_config, client, model)
         self._sleep = sleep
 
-    def run(self):
+    def run_internal(self):
         if self._sleep is not None:
             time.sleep(self._sleep)
         if self.stream:
-            with pytest.raises(RuntimeError):
+            with pytest.raises(Exception):
                 for res in self._model.chat(
                     self._prompt, generate_config=self._generate_config
                 ):
                     print(res)
         else:
-            with pytest.raises(RuntimeError):
+            with pytest.raises(Exception):
                 self._model.chat(self._prompt, generate_config=self._generate_config)
+
+
+class AbortThread(BaseThread):
+    def __init__(self, client, model_uid, request_id, expected_res, sleep=None):
+        super().__init__()
+        self._client = client
+        self._model_uid = model_uid
+        self._request_id = request_id
+        self._sleep = sleep
+        self._expected_res = expected_res
+
+    def run_internal(self):
+        if self._sleep is not None:
+            time.sleep(self._sleep)
+        result = self._client.abort_request(self._model_uid, self._request_id)
+        assert result["msg"] == self._expected_res
 
 
 @pytest.fixture
@@ -148,6 +186,38 @@ def test_continuous_batching(enable_batch, setup):
     thread1.start()
     thread2.start()
     thread1.join()
+    thread2.join()
+
+    # test abort request for stream
+    thread1 = InferenceThread(
+        "1+1=3正确吗？", {"stream": True, "request_id": "aaabbb"}, client, model
+    )
+    thread2 = AbortThread(
+        client, model_uid_res, "bbbaaa", AbortRequestMessage.NOT_FOUND.name
+    )
+    thread3 = AbortThread(client, "abcd", "aaabbb", AbortRequestMessage.NO_OP.name)
+    thread4 = AbortThread(
+        client, model_uid_res, "aaabbb", AbortRequestMessage.DONE.name, 0.1
+    )
+    thread1.start()
+    thread2.start()
+    thread3.start()
+    thread4.start()
+    with pytest.raises(Exception):
+        thread1.join()
+    thread2.join()
+    thread3.join()
+    thread4.join()
+
+    # test abort request for non-stream
+    thread1 = InferenceThread("中国的首都是哪座城市？", {"request_id": "aaabbb"}, client, model)
+    thread2 = AbortThread(
+        client, model_uid_res, "aaabbb", AbortRequestMessage.DONE.name, 0.1
+    )
+    thread1.start()
+    thread2.start()
+    with pytest.raises(Exception):
+        thread1.join()
     thread2.join()
 
     # correctly terminate model

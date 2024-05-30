@@ -1014,9 +1014,10 @@ class SupervisorActor(xo.StatelessActor):
     async def abort_request(self, model_uid: str, request_id: str) -> Dict:
         from .scheduler import AbortRequestMessage
 
+        res = {"msg": AbortRequestMessage.NO_OP.name}
         replica_info = self._model_uid_to_replica_info.get(model_uid, None)
         if not replica_info:
-            return {}
+            return res
         replica_cnt = replica_info.replica
 
         # Query all replicas
@@ -1026,13 +1027,14 @@ class SupervisorActor(xo.StatelessActor):
                 continue
             model_ref = await worker_ref.get_model(model_uid=rep_mid)
             result_info = await model_ref.abort_request(request_id)
+            res["msg"] = result_info
             if result_info == AbortRequestMessage.DONE.name:
                 break
             elif result_info == AbortRequestMessage.NOT_FOUND.name:
                 logger.debug(f"Request id: {request_id} not found for model {rep_mid}")
             else:
                 logger.debug(f"No-op for model {rep_mid}")
-        return {}
+        return res
 
     @log_async(logger=logger)
     async def add_worker(self, worker_address: str):
