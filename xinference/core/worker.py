@@ -30,6 +30,7 @@ from xoscar import MainActorPoolType
 from ..constants import (
     XINFERENCE_CACHE_DIR,
     XINFERENCE_DISABLE_HEALTH_CHECK,
+    XINFERENCE_DISABLE_METRICS,
     XINFERENCE_HEALTH_CHECK_INTERVAL,
 )
 from ..core.model import ModelActor
@@ -83,8 +84,12 @@ class WorkerActor(xo.StatelessActor):
         self._model_uid_to_recover_count: Dict[str, Optional[int]] = {}
         self._model_uid_to_launch_args: Dict[str, Dict] = {}
 
-        # metrics export server.
-        if metrics_exporter_host is not None or metrics_exporter_port is not None:
+        if XINFERENCE_DISABLE_METRICS:
+            logger.info(
+                "Worker metrics is disabled due to the environment XINFERENCE_DISABLE_METRICS=1"
+            )
+        elif metrics_exporter_host is not None or metrics_exporter_port is not None:
+            # metrics export server.
             logger.info(
                 f"Starting metrics export server at {metrics_exporter_host}:{metrics_exporter_port}"
             )
