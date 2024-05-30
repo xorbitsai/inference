@@ -321,6 +321,11 @@ class SchedulerActor(xo.StatelessActor):
             force_clear_cache
             or self._iter_cnt % XINFERENCE_BATCHING_CLEAN_CACHE_INTERVAL == 0
         ):
+            """
+            Clear unused kv_cache.
+            - force_clear_cache=True indicates that some requests quit and their kv_cache can be cleared.
+            - self._iter_cnt means that no need to empty the cache every step.
+            """
             gc.collect()
             empty_cache()
 
