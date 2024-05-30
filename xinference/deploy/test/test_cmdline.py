@@ -26,6 +26,7 @@ from ..cmdline import (
     model_list,
     model_terminate,
     register_model,
+    remove_cache,
     unregister_model,
 )
 
@@ -302,3 +303,17 @@ def test_list_cached_models(setup):
     assert "quantizations" in result.stdout
     assert "path" in result.stdout
     assert "Actor IP Address" in result.stdout
+
+
+def test_remove_cache(setup):
+    endpoint, _ = setup
+    runner = CliRunner()
+
+    result = runner.invoke(
+        remove_cache,
+        ["--endpoint", endpoint, "--model_name", "orca", "--check"],
+        input="y\n",
+    )
+
+    assert result.exit_code == 0
+    assert f"Cache directory orca has been deleted" in result.output
