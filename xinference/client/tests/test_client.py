@@ -183,9 +183,25 @@ def test_get_remove_cached_models(setup):
     response = client.get_remove_cached_models("orca")
 
     assert response == {
-        "model_name": "orca",
-        "model_file_location": {"file_path": "/path/to/model"},
+        "orca": {
+            "localhost:34585": "/home/runner/.xinference/cache/orca-ggmlv3-3b/orca-mini-3b.ggmlv3.q4_0.bin"
+        }
     }
+
+
+@pytest.mark.skipif(os.name == "nt", reason="Skip windows")
+def test_remove_cached_models(setup):
+    endpoint, _ = setup
+    client = RESTfulClient(endpoint)
+
+    responses = client.remove_cached_models(
+        model_name="orca",
+        model_file_location={
+            "localhost:34585": "/home/runner/.xinference/cache/orca-ggmlv3-3b/orca-mini-3b.ggmlv3.q4_0.bin"
+        },
+    )
+
+    assert responses == "Success"
 
 
 def test_RESTful_client_for_embedding(setup):

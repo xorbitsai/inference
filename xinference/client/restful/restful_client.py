@@ -1209,7 +1209,7 @@ class Client:
         return response_data
 
     def remove_cached_models(
-        self, model_name: str, model_file_location: Dict[str, Dict[str, str]]
+        self, model_name: str, model_file_location: Dict[str, str]
     ) -> str:
         """
         Remove the cached models with the model name cached on the server.
@@ -1218,7 +1218,7 @@ class Client:
         ----------
         model_name: str
            The name of the model.
-        model_file_location: Dict[str,Dict[Any]]
+        model_file_location: Dict[str, str]
             Dictionary with keys IP and values file_path.
 
         Returns
