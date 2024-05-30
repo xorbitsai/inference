@@ -73,10 +73,8 @@ class BaichuanPytorchChatModel(PytorchChatModel):
     ) -> bool:
         if llm_spec.model_format != "pytorch":
             return False
-        if all(
-            baichuan_chat_name not in llm_family.model_name
-            for baichuan_chat_name in ["baichuan-chat", "baichuan-2-chat"]
-        ):
+        model_family = llm_family.model_family or llm_family.model_name
+        if model_family not in ["baichuan-chat", "baichuan-2-chat"]:
             return False
         if "chat" not in llm_family.model_ability:
             return False
