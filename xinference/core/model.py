@@ -214,7 +214,9 @@ class ModelActor(xo.StatelessActor):
                 address=self.address,
                 uid=SchedulerActor.gen_uid(self.model_uid(), self._model.rep_id),
             )
-            self._isolation = Isolation(asyncio.new_event_loop(), threaded=True)
+            self._isolation = Isolation(
+                asyncio.new_event_loop(), threaded=True, daemon=False
+            )
             self._isolation.start()
             asyncio.run_coroutine_threadsafe(
                 self._scheduler_ref.run(), loop=self._isolation.loop

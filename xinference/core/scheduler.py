@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import asyncio
+import gc
 import logging
 from collections import deque
 from enum import Enum
@@ -22,6 +23,7 @@ import xoscar as xo
 
 logger = logging.getLogger(__name__)
 
+XINFERENCE_BATCHING_CLEAN_CACHE_INTERVAL = 5
 XINFERENCE_STREAMING_DONE_FLAG = "<XINFERENCE_STREAMING_DONE>"
 XINFERENCE_STREAMING_ERROR_FLAG = "<XINFERENCE_STREAMING_ERROR>"
 XINFERENCE_STREAMING_ABORT_FLAG = "<XINFERENCE_STREAMING_ABORT>"
@@ -213,6 +215,7 @@ class SchedulerActor(xo.StatelessActor):
         self._model = None
         self._id_to_req = {}
         self._abort_req_ids: Set[str] = set()
+        self._iter_cnt = 0  # for cache clear
 
     def set_model(self, model):
         self._model = model
@@ -251,13 +254,18 @@ class SchedulerActor(xo.StatelessActor):
         return waiting_list + running_list
 
     async def step(self):
+        from ..model.llm.pytorch.utils import empty_cache
+
         req_list = self._handle_request()
         if not req_list:
+            self._iter_cnt = 0
             return
         batch_size = len(req_list)
         self._model.batch_inference(req_list)
+        self._iter_cnt += 1
 
         stop_before_prefill_cnt = 0
+        force_clear_cache: bool = False
         for r in req_list:
             if r.stream:
                 for completion in r.completion:
@@ -266,6 +274,8 @@ class SchedulerActor(xo.StatelessActor):
             if not r.stopped:
                 self._running_queue.append(r)
             else:
+                # set kv_cache to None for collection
+                r.kv_cache = None
                 rid = r.request_id
                 # clear data structure
                 if rid is not None:
@@ -302,8 +312,17 @@ class SchedulerActor(xo.StatelessActor):
             batch_size_before_one_step = batch_size - stop_before_prefill_cnt
             if batch_size_before_one_step != batch_size_after_one_step:
                 assert batch_size_after_one_step < batch_size_before_one_step
+                force_clear_cache = True
                 for r in self._running_queue:
                     r.kv_cache = None
+
+        # clean cuda cache
+        if (
+            force_clear_cache
+            or self._iter_cnt % XINFERENCE_BATCHING_CLEAN_CACHE_INTERVAL == 0
+        ):
+            gc.collect()
+            empty_cache()
 
     async def add_request(self, prompt: str, future_or_queue, *args, **kwargs):
         req = InferenceRequest(prompt, future_or_queue, True, *args, **kwargs)
