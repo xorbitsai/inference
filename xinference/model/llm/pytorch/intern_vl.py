@@ -77,19 +77,14 @@ class InternVLChatModel(PytorchChatModel):
             "device_map": device,
         }
 
-        if "Int8" in self.model_spec.model_id:
-            kwargs.update(
-                {
-                    "load_in_8bit": True,
-                    "device_map": device,
-                }
-            )
-        elif "Mini-InternVL-Chat" in self.model_spec.model_id:
+        if "int8" in self.quantization.lower():
+            kwargs["load_in_8bit"] = True
+        elif 2 == self.model_spec.model_size_in_billions:
             kwargs.pop("device_map")
 
         self._model = AutoModel.from_pretrained(self.model_path, **kwargs).eval()
 
-        if "Int8" not in self.model_spec.quantizations:
+        if "int8" not in self.quantization.lower():
             self._model.cuda()
 
         # Specify hyperparameters for generation
