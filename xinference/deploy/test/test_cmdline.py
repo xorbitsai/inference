@@ -311,7 +311,7 @@ def test_remove_cache(setup):
 
     result = runner.invoke(
         remove_cache,
-        ["--endpoint", endpoint, "--model_name", "orca", "--check"],
+        ["--endpoint", endpoint, "--model_name", "orca"],
         input="y\n",
     )
 
