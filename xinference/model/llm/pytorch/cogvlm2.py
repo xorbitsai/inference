@@ -183,7 +183,7 @@ class CogVLM2Model(PytorchChatModel):
         generate_config: Optional[PytorchGenerateConfig] = None,
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
         system_prompt = system_prompt if system_prompt else ""
-        if generate_config and generate_config.pop("stream"):
+        if generate_config and generate_config.get("stream"):
             raise Exception(
                 f"Chat with model {self.model_family.model_name} does not support stream."
             )
