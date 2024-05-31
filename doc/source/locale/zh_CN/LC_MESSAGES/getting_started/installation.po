@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-05-11 10:26+0800\n"
+"POT-Creation-Date: 2024-05-31 11:46+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -16,7 +16,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Generated-By: Babel 2.11.0\n"
+"Generated-By: Babel 2.14.0\n"
 
 #: ../../source/getting_started/installation.rst:5
 msgid "Installation"
@@ -95,7 +95,9 @@ msgstr "当模型格式为 ``awq`` 时，量化选项需为 ``Int4`` 。"
 msgid ""
 "When the model format is ``gptq``, the quantization is ``Int3``, ``Int4``"
 " or ``Int8``."
-msgstr "当模型格式为 ``gptq`` 时，量化选项需为 ``Int3`` 、 ``Int4`` 或者 ``Int8`` 。"
+msgstr ""
+"当模型格式为 ``gptq`` 时，量化选项需为 ``Int3`` 、 ``Int4`` 或者 ``Int8``"
+" 。"
 
 #: ../../source/getting_started/installation.rst:35
 msgid "The system is Linux and has at least one CUDA device"
@@ -132,7 +134,7 @@ msgid "``mistral-v0.1``, ``mistral-instruct-v0.1``, ``mistral-instruct-v0.2``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:46
-msgid "``Yi``, ``Yi-chat``"
+msgid "``Yi``, ``Yi-1.5``, ``Yi-chat``, ``Yi-1.5-chat``, ``Yi-1.5-chat-16k``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:47
@@ -140,31 +142,33 @@ msgid "``code-llama``, ``code-llama-python``, ``code-llama-instruct``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:48
-msgid "``c4ai-command-r-v01``, ``c4ai-command-r-v01-4bit``"
+msgid ""
+"``deepseek``, ``deepseek-coder``, ``deepseek-chat``, ``deepseek-coder-"
+"instruct``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:49
-msgid "``vicuna-v1.3``, ``vicuna-v1.5``"
+msgid "``codeqwen1.5``, ``codeqwen1.5-chat``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:50
-msgid "``internlm2-chat``"
+msgid "``vicuna-v1.3``, ``vicuna-v1.5``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:51
-msgid "``qwen-chat``"
+msgid "``internlm2-chat``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:52
-msgid "``mixtral-instruct-v0.1``, ``mixtral-8x22B-instruct-v0.1``"
+msgid "``qwen-chat``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:53
-msgid "``chatglm3``, ``chatglm3-32k``, ``chatglm3-128k``"
+msgid "``mixtral-instruct-v0.1``, ``mixtral-8x22B-instruct-v0.1``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:54
-msgid "``deepseek-chat``, ``deepseek-coder-instruct``"
+msgid "``chatglm3``, ``chatglm3-32k``, ``chatglm3-128k``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:55
@@ -172,15 +176,15 @@ msgid "``qwen1.5-chat``, ``qwen1.5-moe-chat``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:56
-msgid "``codeqwen1.5-chat``"
-msgstr ""
-
-#: ../../source/getting_started/installation.rst:57
 msgid "``gemma-it``"
 msgstr ""
 
-#: ../../source/getting_started/installation.rst:58
+#: ../../source/getting_started/installation.rst:57
 msgid "``orion-chat``, ``orion-chat-rag``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:58
+msgid "``c4ai-command-r-v01``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:61
@@ -197,8 +201,8 @@ msgid ""
 "cpp-python``. It's advised to install the llama.cpp-related dependencies "
 "manually based on your hardware specifications to enable acceleration."
 msgstr ""
-"Xinference 通过 ``llama-cpp-python`` 支持 ``gguf`` 和 ``ggml`` 格式的模型。建议根据当前使用的硬件手动安装依赖，从而获得最佳的"
-"加速效果。"
+"Xinference 通过 ``llama-cpp-python`` 支持 ``gguf`` 和 ``ggml`` 格式的模型"
+"。建议根据当前使用的硬件手动安装依赖，从而获得最佳的加速效果。"
 
 #: ../../source/getting_started/installation.rst:71
 #: ../../source/getting_started/installation.rst:94
@@ -232,5 +236,19 @@ msgid ""
 "automatic KV cache reuse across multiple calls. And it also supports "
 "other common techniques like continuous batching and tensor parallelism."
 msgstr ""
-"SGLang 具有基于 RadixAttention 的高性能推理运行时。它通过在多个调用之间自动重用KV缓存，显著加速了复杂 LLM 程序的执行。"
-"它还支持其他常见推理技术，如连续批处理和张量并行处理。"
+"SGLang 具有基于 RadixAttention 的高性能推理运行时。它通过在多个调用之间"
+"自动重用KV缓存，显著加速了复杂 LLM 程序的执行。它还支持其他常见推理技术，"
+"如连续批处理和张量并行处理。"
+
+#~ msgid "``Yi``, ``Yi-chat``"
+#~ msgstr ""
+
+#~ msgid "``c4ai-command-r-v01``, ``c4ai-command-r-v01-4bit``"
+#~ msgstr ""
+
+#~ msgid "``deepseek-chat``, ``deepseek-coder-instruct``"
+#~ msgstr ""
+
+#~ msgid "``codeqwen1.5-chat``"
+#~ msgstr ""
+
