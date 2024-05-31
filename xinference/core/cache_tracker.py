@@ -106,11 +106,20 @@ class CacheTrackerActor(xo.Actor):
         cached_models = []
         for model_name, model_versions in self._model_name_to_version_info.items():
             for version_info in model_versions:
-                if version_info["cache_status"]:
+                cache_status = version_info.get("cache_status", None)
+                if cache_status == True:
                     ret = version_info.copy()
                     ret["model_name"] = model_name
+
                     re_dict = version_info.get("model_file_location", None)
-                    actor_ip_address, path = next(iter(re_dict.items()))
+                    if re_dict is not None and isinstance(re_dict, dict):
+                        if re_dict:
+                            actor_ip_address, path = next(iter(re_dict.items()))
+                        else:
+                            raise ValueError("The dictionary is empty.")
+                    else:
+                        raise ValueError("re_dict must be a non-empty dictionary.")
+
                     ret["actor_ip_address"] = actor_ip_address
                     ret["path"] = path
                     if os.path.isdir(path):
