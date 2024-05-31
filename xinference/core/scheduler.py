@@ -352,7 +352,12 @@ class SchedulerActor(xo.StatelessActor):
             return AbortRequestMessage.DONE.name
 
     async def run(self):
-        while True:
-            await self.step()
-            # wait 10ms
-            await asyncio.sleep(0.01)
+        try:
+            while True:
+                await self.step()
+                # wait 10ms
+                await asyncio.sleep(0.01)
+        except Exception as e:
+            logger.exception(
+                f"Scheduler actor uid: {self.uid}, address: {self.address} run with error: {e}"
+            )
