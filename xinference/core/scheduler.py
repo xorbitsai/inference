@@ -216,6 +216,26 @@ class SchedulerActor(xo.StatelessActor):
         self._id_to_req = {}
         self._abort_req_ids: Set[str] = set()
         self._iter_cnt = 0  # for cache clear
+        self._isolation = None
+
+    async def __post_create__(self):
+        from ..isolation import Isolation
+
+        self._isolation = Isolation(
+            asyncio.new_event_loop(), threaded=True, daemon=False
+        )
+        self._isolation.start()
+        asyncio.run_coroutine_threadsafe(self.run(), loop=self._isolation.loop)
+
+    async def __pre_destroy__(self):
+        try:
+            assert self._isolation is not None
+            self._isolation.stop()
+            del self._isolation
+        except Exception as e:
+            logger.debug(
+                f"Destroy scheduler actor failed, address: {self.address}, error: {e}"
+            )
 
     def set_model(self, model):
         self._model = model
