@@ -28,7 +28,7 @@ from ..constants import (
     XINFERENCE_HEALTH_CHECK_INTERVAL,
     XINFERENCE_HEALTH_CHECK_TIMEOUT,
 )
-from ..core import ModelActor
+from ..core.model import ModelActor
 from ..core.status_guard import InstanceInfo, LaunchStatus
 from ..types import PeftModelConfig
 from .metrics import record_metrics

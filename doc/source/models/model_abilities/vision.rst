@@ -20,7 +20,12 @@ Supported models
 
 The ``vision`` ability is supported with the following models in Xinference:
 
-* qwen-vl-chat
+* :ref:`qwen-vl-chat <models_llm_qwen-vl-chat>`
+* :ref:`deepseek-vl-chat <models_llm_deepseek-vl-chat>`
+* :ref:`yi-vl-chat <models_llm_yi-vl-chat>`
+* :ref:`omnilmm <models_llm_omnilmm>`
+* :ref:`internvl-chat <models_llm_internvl-chat>`
+* :ref:`cogvlm2 <models_llm_cogvlm2>`
 
 
 Quickstart
