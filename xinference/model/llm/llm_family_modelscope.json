@@ -3860,5 +3860,60 @@
             "<|im_end|>"
         ]
     }
+},
+  {
+    "version": 1,
+    "context_length": 8192,
+    "model_name": "cogvlm2",
+    "model_lang": [
+        "en",
+        "zh"
+    ],
+    "model_ability": [
+        "chat",
+        "vision"
+    ],
+    "model_description": "CogVLM2 have achieved good results in many lists compared to the previous generation of CogVLM open source models. Its excellent performance can compete with some non-open source models.",
+    "model_specs": [
+        {
+            "model_format": "pytorch",
+            "model_size_in_billions": 20,
+            "quantizations": [
+                "none"
+            ],
+          "model_hub": "modelscope",
+
+            "model_id": "ZhipuAI/cogvlm2-llama3-chinese-chat-19B",
+            "model_revision": "master"
+        },
+      {
+            "model_format": "pytorch",
+            "model_size_in_billions": 20,
+            "quantizations": [
+                "int4"
+            ],
+          "model_hub": "modelscope",
+            "model_id": "ZhipuAI/cogvlm2-llama3-chinese-chat-19B-{quantization}",
+            "model_revision": "master"
+        }
+    ],
+    "prompt_style": {
+      "style_name": "LLAMA3",
+      "system_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions.",
+      "roles": [
+        "user",
+        "assistant"
+      ],
+      "intra_message_sep": "\n\n",
+      "inter_message_sep": "<|eot_id|>",
+      "stop_token_ids": [
+        128001,
+        128009
+      ],
+      "stop": [
+        "<|end_of_text|>",
+        "<|eot_id|>"
+      ]
+    }
 }
 ]
