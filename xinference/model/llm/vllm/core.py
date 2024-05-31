@@ -114,6 +114,7 @@ VLLM_SUPPORTED_CHAT_MODELS = [
     "qwen-chat",
     "Yi-chat",
     "Yi-1.5-chat",
+    "Yi-1.5-chat-16k",
     "code-llama-instruct",
     "mistral-instruct-v0.1",
     "mistral-instruct-v0.2",
@@ -140,7 +141,6 @@ if VLLM_INSTALLED and vllm.__version__ >= "0.3.3":
 if VLLM_INSTALLED and vllm.__version__ >= "0.4.0":
     VLLM_SUPPORTED_CHAT_MODELS.append("qwen1.5-moe-chat")
     VLLM_SUPPORTED_CHAT_MODELS.append("c4ai-command-r-v01")
-    VLLM_SUPPORTED_CHAT_MODELS.append("c4ai-command-r-v01-4bit")
 
 
 class VLLMModel(LLM):

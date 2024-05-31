@@ -20,11 +20,12 @@ Model Spec 1 (pytorch, 13 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 13
 - **Quantizations:** 4-bit, 8-bit, none
+- **Engines**: vLLM, Transformers (vLLM only available for quantization none)
 - **Model ID:** baichuan-inc/Baichuan-13B-Chat
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/baichuan-inc/Baichuan-13B-Chat>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
 
-   xinference launch --model-name baichuan-chat --size-in-billions 13 --model-format pytorch --quantization ${quantization}
+   xinference launch --model-engine ${engine} --model-name baichuan-chat --size-in-billions 13 --model-format pytorch --quantization ${quantization}
 

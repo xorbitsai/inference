@@ -52,7 +52,7 @@ from xoscar.utils import get_next_port
 
 from .._compat import BaseModel, Field
 from .._version import get_versions
-from ..constants import XINFERENCE_DEFAULT_ENDPOINT_PORT
+from ..constants import XINFERENCE_DEFAULT_ENDPOINT_PORT, XINFERENCE_DISABLE_METRICS
 from ..core.event import Event, EventCollectorActor, EventType
 from ..core.supervisor import SupervisorActor
 from ..core.utils import json_dumps
@@ -504,13 +504,19 @@ class RESTfulAPI:
             ),
         )
 
-        # Clear the global Registry for the MetricsMiddleware, or
-        # the MetricsMiddleware will register duplicated metrics if the port
-        # conflict (This serve method run more than once).
-        REGISTRY.clear()
-        self._app.add_middleware(MetricsMiddleware)
-        self._app.include_router(self._router)
-        self._app.add_route("/metrics", metrics)
+        if XINFERENCE_DISABLE_METRICS:
+            logger.info(
+                "Supervisor metrics is disabled due to the environment XINFERENCE_DISABLE_METRICS=1"
+            )
+            self._app.include_router(self._router)
+        else:
+            # Clear the global Registry for the MetricsMiddleware, or
+            # the MetricsMiddleware will register duplicated metrics if the port
+            # conflict (This serve method run more than once).
+            REGISTRY.clear()
+            self._app.add_middleware(MetricsMiddleware)
+            self._app.include_router(self._router)
+            self._app.add_route("/metrics", metrics)
 
         # Check all the routes returns Response.
         # This is to avoid `jsonable_encoder` performance issue:
