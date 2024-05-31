@@ -3959,7 +3959,7 @@
           "8-bit",
           "none"
         ],
-        "model_id": "Tele-AI/TeleChat-12B",
+        "model_id": "TeleAI/TeleChat-12B",
         "model_hub": "modelscope",
         "model_revision": "master"
       },
@@ -3970,7 +3970,7 @@
           "int4",
           "int8"
         ],
-        "model_id": "Tele-AI/TeleChat-12B-{quantization}",
+        "model_id": "TeleAI/TeleChat-12B-{quantization}",
         "model_hub": "modelscope",
         "model_revision": "master"
       },
@@ -3982,7 +3982,7 @@
           "8-bit",
           "none"
         ],
-        "model_id": "Tele-AI/TeleChat-52B",
+        "model_id": "TeleAI/TeleChat-52B",
         "model_hub": "modelscope",
         "model_revision": "master"
       }
