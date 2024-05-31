@@ -6205,31 +6205,31 @@
     "model_description": "InternVL 1.5 is an open-source multimodal large language model (MLLM) to bridge the capability gap between open-source and proprietary commercial models in multimodal understanding. ",
     "model_specs": [
       {
-            "model_format": "pytorch",
-            "model_size_in_billions": 2,
-            "quantizations": [
-                "none"
-            ],
-            "model_id": "OpenGVLab/Mini-InternVL-Chat-2B-V1-5",
-            "model_revision": "ce3f67acff17281bacbf4b156f402a0580fb9605"
+          "model_format": "pytorch",
+          "model_size_in_billions": 2,
+          "quantizations": [
+              "none"
+          ],
+          "model_id": "OpenGVLab/Mini-InternVL-Chat-2B-V1-5",
+          "model_revision": "ce3f67acff17281bacbf4b156f402a0580fb9605"
         },
         {
-            "model_format": "pytorch",
-            "model_size_in_billions": 26,
-            "quantizations": [
-                "none"
-            ],
-            "model_id": "OpenGVLab/InternVL-Chat-V1-5",
-            "model_revision": "e822119e5806946ce128043023a73d715ecabf8d"
+          "model_format": "pytorch",
+          "model_size_in_billions": 26,
+          "quantizations": [
+              "none"
+          ],
+          "model_id": "OpenGVLab/InternVL-Chat-V1-5",
+          "model_revision": "e822119e5806946ce128043023a73d715ecabf8d"
         },
         {
-            "model_format": "pytorch",
-            "model_size_in_billions": 26,
-            "quantizations": [
-                "Int8"
-            ],
-            "model_id": "OpenGVLab/InternVL-Chat-V1-5-{quantization}",
-            "model_revision": "acaaed06937c603ab04f084216ecb0268160f538"
+          "model_format": "pytorch",
+          "model_size_in_billions": 26,
+          "quantizations": [
+              "Int8"
+          ],
+          "model_id": "OpenGVLab/InternVL-Chat-V1-5-{quantization}",
+          "model_revision": "acaaed06937c603ab04f084216ecb0268160f538"
         }
     ],
     "prompt_style": {
@@ -6247,7 +6247,7 @@
             "<|im_end|>"
         ]
     }
-},
+  },
   {
     "version": 1,
     "context_length": 8192,
@@ -6262,24 +6262,24 @@
     ],
     "model_description": "CogVLM2 have achieved good results in many lists compared to the previous generation of CogVLM open source models. Its excellent performance can compete with some non-open source models.",
     "model_specs": [
-        {
-            "model_format": "pytorch",
-            "model_size_in_billions": 20,
-            "quantizations": [
-                "none"
-            ],
-            "model_id": "THUDM/cogvlm2-llama3-chinese-chat-19B",
-            "model_revision": "d88b352bce5ee58a289b1ac8328553eb31efa2ef"
-        },
       {
-            "model_format": "pytorch",
-            "model_size_in_billions": 20,
-            "quantizations": [
-                "int4"
-            ],
-            "model_id": "THUDM/cogvlm2-llama3-chinese-chat-19B-{quantizations}",
-            "model_revision": "7863e362174f4718c2fe9cba4befd0b580a3194f"
-        }
+        "model_format": "pytorch",
+        "model_size_in_billions": 20,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "THUDM/cogvlm2-llama3-chinese-chat-19B",
+        "model_revision": "d88b352bce5ee58a289b1ac8328553eb31efa2ef"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 20,
+        "quantizations": [
+          "int4"
+        ],
+        "model_id": "THUDM/cogvlm2-llama3-chinese-chat-19B-{quantizations}",
+        "model_revision": "7863e362174f4718c2fe9cba4befd0b580a3194f"
+      }
     ],
     "prompt_style": {
       "style_name": "LLAMA3",
@@ -6299,5 +6299,86 @@
         "<|eot_id|>"
       ]
     }
-}
+  },
+  {
+    "version": 1,
+    "context_length": 8192,
+    "model_name": "telechat",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "The TeleChat is a large language model developed and trained by China Telecom Artificial Intelligence Technology Co., LTD. The 7B model base is trained with 1.5 trillion Tokens and 3 trillion Tokens and Chinese high-quality corpus.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "Tele-AI/telechat-7B"
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "int4",
+          "int8"
+        ],
+        "model_id": "Tele-AI/telechat-7B-{quantization}"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 12,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "Tele-AI/TeleChat-12B"
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 12,
+        "quantizations": [
+          "int4",
+          "int8"
+        ],
+        "model_id": "Tele-AI/TeleChat-12B-{quantization}"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 52,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "Tele-AI/TeleChat-52B"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "NO_COLON_TWO",
+      "system_prompt": "You are a helpful assistant.",
+      "roles": [
+        "<_user>",
+        "<_bot>"
+      ],
+      "intra_message_sep": "",
+      "inter_message_sep": "",
+      "stop": [
+        "<_end>",
+        "<_start>"
+      ],
+      "stop_token_ids": [
+        160133,
+        160132
+      ]
+    }
+  }
 ]

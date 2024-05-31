@@ -411,6 +411,11 @@ The following is a list of built-in LLM in Xinference:
      - 4096
      - We introduce Starling-7B, an open large language model (LLM) trained by Reinforcement Learning from AI Feedback (RLAIF). The model harnesses the power of our new GPT-4 labeled ranking dataset
 
+   * - :ref:`telechat <models_llm_telechat>`
+     - chat
+     - 8192
+     - The TeleChat is a large language model developed and trained by China Telecom Artificial Intelligence Technology Co., LTD. The 7B model base is trained with 1.5 trillion Tokens and 3 trillion Tokens and Chinese high-quality corpus.
+
    * - :ref:`tiny-llama <models_llm_tiny-llama>`
      - generate
      - 2048
@@ -663,6 +668,8 @@ The following is a list of built-in LLM in Xinference:
    starcoderplus
   
    starling-lm
+  
+   telechat
   
    tiny-llama
   
