@@ -3875,27 +3875,26 @@
     ],
     "model_description": "CogVLM2 have achieved good results in many lists compared to the previous generation of CogVLM open source models. Its excellent performance can compete with some non-open source models.",
     "model_specs": [
-        {
-            "model_format": "pytorch",
-            "model_size_in_billions": 20,
-            "quantizations": [
-                "none"
-            ],
-          "model_hub": "modelscope",
-
-            "model_id": "ZhipuAI/cogvlm2-llama3-chinese-chat-19B",
-            "model_revision": "master"
-        },
       {
-            "model_format": "pytorch",
-            "model_size_in_billions": 20,
-            "quantizations": [
-                "int4"
-            ],
-          "model_hub": "modelscope",
-            "model_id": "ZhipuAI/cogvlm2-llama3-chinese-chat-19B-{quantization}",
-            "model_revision": "master"
-        }
+        "model_format": "pytorch",
+        "model_size_in_billions": 20,
+        "quantizations": [
+          "none"
+        ],
+        "model_hub": "modelscope",
+        "model_id": "ZhipuAI/cogvlm2-llama3-chinese-chat-19B",
+        "model_revision": "master"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 20,
+        "quantizations": [
+          "int4"
+        ],
+        "model_hub": "modelscope",
+        "model_id": "ZhipuAI/cogvlm2-llama3-chinese-chat-19B-{quantization}",
+        "model_revision": "master"
+      }
     ],
     "prompt_style": {
       "style_name": "LLAMA3",
@@ -3915,7 +3914,8 @@
         "<|eot_id|>"
       ]
     }
-},{
+  },
+  {
     "version": 1,
     "context_length": 8192,
     "model_name": "telechat",
@@ -3936,7 +3936,9 @@
           "8-bit",
           "none"
         ],
-        "model_id": "Tele-AI/telechat-7B"
+        "model_id": "TeleAI/telechat-7B",
+        "model_hub": "modelscope",
+        "model_revision": "master"
       },
       {
         "model_format": "gptq",
@@ -3945,7 +3947,9 @@
           "int4",
           "int8"
         ],
-        "model_id": "Tele-AI/telechat-7B-{quantization}"
+        "model_id": "TeleAI/telechat-7B-{quantization}",
+        "model_hub": "modelscope",
+        "model_revision": "master"
       },
       {
         "model_format": "pytorch",
@@ -3955,7 +3959,9 @@
           "8-bit",
           "none"
         ],
-        "model_id": "Tele-AI/TeleChat-12B"
+        "model_id": "Tele-AI/TeleChat-12B",
+        "model_hub": "modelscope",
+        "model_revision": "master"
       },
       {
         "model_format": "gptq",
@@ -3964,7 +3970,9 @@
           "int4",
           "int8"
         ],
-        "model_id": "Tele-AI/TeleChat-12B-{quantization}"
+        "model_id": "Tele-AI/TeleChat-12B-{quantization}",
+        "model_hub": "modelscope",
+        "model_revision": "master"
       },
       {
         "model_format": "pytorch",
@@ -3974,7 +3982,9 @@
           "8-bit",
           "none"
         ],
-        "model_id": "Tele-AI/TeleChat-52B"
+        "model_id": "Tele-AI/TeleChat-52B",
+        "model_hub": "modelscope",
+        "model_revision": "master"
       }
     ],
     "prompt_style": {
