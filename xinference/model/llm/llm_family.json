@@ -6277,7 +6277,7 @@
         "quantizations": [
           "int4"
         ],
-        "model_id": "THUDM/cogvlm2-llama3-chinese-chat-19B-{quantizations}",
+        "model_id": "THUDM/cogvlm2-llama3-chinese-chat-19B-{quantization}",
         "model_revision": "7863e362174f4718c2fe9cba4befd0b580a3194f"
       }
     ],
