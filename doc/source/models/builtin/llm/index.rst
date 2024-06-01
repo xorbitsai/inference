@@ -126,6 +126,11 @@ The following is a list of built-in LLM in Xinference:
      - 8194
      - CodeShell is a multi-language code LLM developed by the Knowledge Computing Lab of Peking University.
 
+   * - :ref:`codestral-v0.1 <models_llm_codestral-v0.1>`
+     - generate
+     - 32768
+     - Codestrall-22B-v0.1 is trained on a diverse dataset of 80+ programming languages, including the most popular ones, such as Python, Java, C, C++, JavaScript, and Bash
+
    * - :ref:`cogvlm2 <models_llm_cogvlm2>`
      - chat, vision
      - 8192
@@ -569,6 +574,8 @@ The following is a list of built-in LLM in Xinference:
    codeshell
   
    codeshell-chat
+  
+   codestral-v0.1
   
    cogvlm2
   
