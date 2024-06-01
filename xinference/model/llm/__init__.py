@@ -114,6 +114,7 @@ def _install():
     from .pytorch.baichuan import BaichuanPytorchChatModel
     from .pytorch.chatglm import ChatglmPytorchChatModel
     from .pytorch.cogvlm2 import CogVLM2Model
+    from .pytorch.minicpmv25 import MiniCPMV25Model
     from .pytorch.core import PytorchChatModel, PytorchModel
     from .pytorch.deepseek_vl import DeepSeekVLChatModel
     from .pytorch.falcon import FalconPytorchChatModel, FalconPytorchModel
@@ -161,6 +162,7 @@ def _install():
             InternVLChatModel,
             PytorchModel,
             CogVLM2Model,
+            MiniCPMV25Model,
         ]
     )
     if OmniLMMModel:  # type: ignore
