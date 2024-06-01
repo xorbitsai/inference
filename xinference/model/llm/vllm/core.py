@@ -118,6 +118,7 @@ VLLM_SUPPORTED_CHAT_MODELS = [
     "code-llama-instruct",
     "mistral-instruct-v0.1",
     "mistral-instruct-v0.2",
+    "mistral-instruct-v0.3",
     "mixtral-instruct-v0.1",
     "mixtral-8x22B-instruct-v0.1",
     "chatglm3",

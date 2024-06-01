@@ -3253,6 +3253,82 @@
   },
   {
     "version": 1,
+    "context_length": 32768,
+    "model_name": "mistral-instruct-v0.3",
+    "model_lang": [
+      "en"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "The Mistral-7B-Instruct-v0.2 Large Language Model (LLM) is an improved instruct fine-tuned version of Mistral-7B-Instruct-v0.1.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "mistralai/Mistral-7B-Instruct-v0.3",
+        "model_revision": "83e9aa141f2e28c82232fea5325f54edf17c43de"
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "neuralmagic/Mistral-7B-Instruct-v0.3-GPTQ-4bit"
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "solidrust/Mistral-7B-Instruct-v0.3-AWQ"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "Q2_K",
+          "Q3_K_S",
+          "Q3_K_M",
+          "Q3_K_L",
+          "Q4_K_S",
+          "Q4_K_M",
+          "Q5_K_S",
+          "Q5_K_M",
+          "Q6_K",
+          "Q8_0",
+          "fp16"
+        ],
+        "model_id": "MaziyarPanahi/Mistral-7B-Instruct-v0.3-GGUF",
+        "model_file_name_template": "Mistral-7B-Instruct-v0.3.{quantization}.gguf"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "LLAMA2",
+      "system_prompt": "[INST] ",
+      "roles": [
+        "[INST]",
+        "[/INST]"
+      ],
+      "intra_message_sep": " ",
+      "inter_message_sep": "<s>",
+      "stop_token_ids": [
+        2
+      ],
+      "stop": [
+        "</s>"
+      ]
+    }
+  },
+  {
+    "version": 1,
     "context_length": 8192,
     "model_name": "openhermes-2.5",
     "model_lang": [
