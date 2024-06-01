@@ -261,7 +261,7 @@ class CogVLM2Model(PytorchChatModel):
 
     def _streaming_chat_response(
         self, inputs: Dict, config: Dict
-    ) -> Iterator[ChatCompletionChunk]:
+    ) -> Iterator[CompletionChunk]:
         from threading import Thread
 
         from transformers import TextIteratorStreamer
