@@ -19,6 +19,7 @@ from typing import Dict, List, Optional, Tuple
 from ...constants import XINFERENCE_CACHE_DIR
 from ..core import CacheableModelSpec, ModelDescription
 from ..utils import valid_model_revision
+from .chattts import ChatTTSModel
 from .whisper import WhisperModel
 
 MAX_ATTEMPTS = 3
@@ -133,7 +134,12 @@ def create_audio_model_instance(
 ) -> Tuple[WhisperModel, AudioModelDescription]:
     model_spec = match_audio(model_name)
     model_path = cache(model_spec)
-    model = WhisperModel(model_uid, model_path, model_spec, **kwargs)
+    if model_spec.model_family == "whisper":
+        model = WhisperModel(model_uid, model_path, model_spec, **kwargs)
+    elif model_spec.model_family == "ChatTTS":
+        model = ChatTTSModel(model_uid, model_path, model_spec, **kwargs)
+    else:
+        raise Exception(f"Unsupported audio model family: {model_spec.model_family}")
     model_description = AudioModelDescription(
         subpool_addr, devices, model_spec, model_path=model_path
     )

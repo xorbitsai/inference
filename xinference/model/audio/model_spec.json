@@ -82,5 +82,12 @@
     "model_id": "BELLE-2/Belle-whisper-large-v3-zh",
     "model_revision": "3bebc7247696b39f5ab9ed22db426943ac33f600",
     "multilingual": false
+  },
+  {
+    "model_name": "ChatTTS",
+    "model_family": "ChatTTS",
+    "model_id": "2Noise/ChatTTS",
+    "model_revision": "ce5913842aebd78e4a01a02d47244b8d62ac4ee3",
+    "multilingual": true
   }
 ]
