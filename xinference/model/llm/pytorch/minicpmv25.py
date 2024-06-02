@@ -24,7 +24,6 @@ import requests
 import torch
 from PIL import Image
 
-from ...utils import select_device
 from ....types import (
     ChatCompletion,
     ChatCompletionChunk,
@@ -34,6 +33,7 @@ from ....types import (
     CompletionChunk,
     CompletionUsage,
 )
+from ...utils import select_device
 from ..llm_family import LLMFamilyV1, LLMSpecV1
 from .core import PytorchChatModel, PytorchGenerateConfig
 
@@ -52,7 +52,7 @@ class MiniCPMV25Model(PytorchChatModel):
         cls, model_family: "LLMFamilyV1", model_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         family = model_family.model_family or model_family.model_name
-        if "MiniCPM-Llama3-V-2_5".lower() in family.lower():
+        if "MiniCPM-Llama3-V-2.5".lower() in family.lower():
             return True
         return False
 
