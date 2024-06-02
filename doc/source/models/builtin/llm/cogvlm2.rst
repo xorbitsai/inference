@@ -37,8 +37,8 @@ Model Spec 2 (pytorch, 20 Billion)
 - **Model Size (in billions):** 20
 - **Quantizations:** int4
 - **Engines**: Transformers
-- **Model ID:** THUDM/cogvlm2-llama3-chinese-chat-19B-{quantizations}
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/THUDM/cogvlm2-llama3-chinese-chat-19B-{quantizations}>`__, `ModelScope <https://modelscope.cn/models/ZhipuAI/cogvlm2-llama3-chinese-chat-19B-{quantization}>`__
+- **Model ID:** THUDM/cogvlm2-llama3-chinese-chat-19B-{quantization}
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/THUDM/cogvlm2-llama3-chinese-chat-19B-{quantization}>`__, `ModelScope <https://modelscope.cn/models/ZhipuAI/cogvlm2-llama3-chinese-chat-19B-{quantization}>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::

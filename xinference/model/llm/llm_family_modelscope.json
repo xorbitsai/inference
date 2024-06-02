@@ -3904,7 +3904,7 @@
             "<|im_end|>"
         ]
     }
-},
+  },
   {
     "version": 1,
     "context_length": 8192,

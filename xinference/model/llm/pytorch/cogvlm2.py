@@ -30,6 +30,7 @@ from ....types import (
     ChatCompletionMessage,
     Completion,
     CompletionChoice,
+    CompletionChunk,
     CompletionUsage,
 )
 from ..llm_family import LLMFamilyV1, LLMSpecV1
@@ -183,10 +184,7 @@ class CogVLM2Model(PytorchChatModel):
         generate_config: Optional[PytorchGenerateConfig] = None,
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
         system_prompt = system_prompt if system_prompt else ""
-        if generate_config and generate_config.get("stream"):
-            raise Exception(
-                f"Chat with model {self.model_family.model_name} does not support stream."
-            )
+        stream = generate_config.get("stream", False) if generate_config else False
 
         sanitized_config = {
             "pad_token_id": 128002,
@@ -234,24 +232,85 @@ class CogVLM2Model(PytorchChatModel):
             if image is not None
             else None,
         }
-        with torch.no_grad():
-            outputs = self._model.generate(**inputs, **sanitized_config)
-            outputs = outputs[:, inputs["input_ids"].shape[1] :]
-            response = self._tokenizer.decode(outputs[0])
-            response = response.split("<|end_of_text|>")[0]
 
-        chunk = Completion(
-            id=str(uuid.uuid1()),
+        if stream:
+            it = self._streaming_chat_response(inputs, sanitized_config)
+            return self._to_chat_completion_chunks(it)
+        else:
+            with torch.no_grad():
+                outputs = self._model.generate(**inputs, **sanitized_config)
+                outputs = outputs[:, inputs["input_ids"].shape[1] :]
+                response = self._tokenizer.decode(outputs[0])
+                response = response.split("<|end_of_text|>")[0]
+
+            chunk = Completion(
+                id=str(uuid.uuid1()),
+                object="text_completion",
+                created=int(time.time()),
+                model=self.model_uid,
+                choices=[
+                    CompletionChoice(
+                        index=0, text=response, finish_reason="stop", logprobs=None
+                    )
+                ],
+                usage=CompletionUsage(
+                    prompt_tokens=-1, completion_tokens=-1, total_tokens=-1
+                ),
+            )
+            return self._to_chat_completion(chunk)
+
+    def _streaming_chat_response(
+        self, inputs: Dict, config: Dict
+    ) -> Iterator[CompletionChunk]:
+        from threading import Thread
+
+        from transformers import TextIteratorStreamer
+
+        streamer = TextIteratorStreamer(
+            self._tokenizer, skip_prompt=True, skip_special_tokens=True
+        )
+        generation_kwargs = {
+            "input_ids": inputs["input_ids"],
+            "attention_mask": inputs["attention_mask"],
+            "token_type_ids": inputs["token_type_ids"],
+            "images": inputs["images"],
+            "max_new_tokens": config["max_new_tokens"],
+            "pad_token_id": config["pad_token_id"],
+            "streamer": streamer,
+        }
+
+        thread = Thread(target=self._model.generate, kwargs=generation_kwargs)
+        thread.start()
+
+        completion_id = str(uuid.uuid1())
+        for new_text in streamer:
+            chunk = CompletionChunk(
+                id=completion_id,
+                object="text_completion",
+                created=int(time.time()),
+                model=self.model_uid,
+                choices=[
+                    CompletionChoice(
+                        index=0, text=new_text, finish_reason=None, logprobs=None
+                    )
+                ],
+                usage=CompletionUsage(
+                    prompt_tokens=-1, completion_tokens=-1, total_tokens=-1
+                ),
+            )
+            yield chunk
+
+        completion_choice = CompletionChoice(
+            text="", index=0, logprobs=None, finish_reason="stop"
+        )
+        chunk = CompletionChunk(
+            id=completion_id,
             object="text_completion",
             created=int(time.time()),
             model=self.model_uid,
-            choices=[
-                CompletionChoice(
-                    index=0, text=response, finish_reason="stop", logprobs=None
-                )
-            ],
+            choices=[completion_choice],
             usage=CompletionUsage(
                 prompt_tokens=-1, completion_tokens=-1, total_tokens=-1
             ),
         )
-        return self._to_chat_completion(chunk)
+        yield chunk
