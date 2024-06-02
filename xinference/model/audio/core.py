@@ -14,7 +14,7 @@
 import logging
 import os
 from collections import defaultdict
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 
 from ...constants import XINFERENCE_CACHE_DIR
 from ..core import CacheableModelSpec, ModelDescription
@@ -131,9 +131,10 @@ def get_cache_status(
 
 def create_audio_model_instance(
     subpool_addr: str, devices: List[str], model_uid: str, model_name: str, **kwargs
-) -> Tuple[WhisperModel, AudioModelDescription]:
+) -> Tuple[Union[WhisperModel, ChatTTSModel], AudioModelDescription]:
     model_spec = match_audio(model_name)
     model_path = cache(model_spec)
+    model: Union[WhisperModel, ChatTTSModel]
     if model_spec.model_family == "whisper":
         model = WhisperModel(model_uid, model_path, model_spec, **kwargs)
     elif model_spec.model_family == "ChatTTS":

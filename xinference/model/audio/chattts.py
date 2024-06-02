@@ -56,6 +56,7 @@ class ChatTTSModel:
         import torch
         import torchaudio
 
+        assert self._model is not None
         wavs = self._model.infer([input])
 
         # Save the generated audio
