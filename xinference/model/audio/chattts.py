@@ -15,8 +15,6 @@ import logging
 from io import BytesIO
 from typing import TYPE_CHECKING, Optional
 
-from xinference.thirdparty import ChatTTS
-
 if TYPE_CHECKING:
     from .core import AudioModelFamilyV1
 
@@ -41,6 +39,8 @@ class ChatTTSModel:
 
     def load(self):
         import torch
+
+        from xinference.thirdparty import ChatTTS
 
         torch._dynamo.config.cache_size_limit = 64
         torch._dynamo.config.suppress_errors = True
