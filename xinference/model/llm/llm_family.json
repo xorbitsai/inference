@@ -5261,7 +5261,7 @@
   {
     "version":1,
     "context_length":2048,
-    "model_name":"MiniCPM-Llama3-V-2.5",
+    "model_name":"MiniCPM-Llama3-V-2_5",
     "model_lang":[
       "en",
       "zh"

@@ -63,7 +63,7 @@ NON_DEFAULT_MODEL_LIST: List[str] = [
     "internvl-chat",
     "mini-internvl-chat",
     "cogvlm2",
-    "MiniCPM-Llama3-V-2.5",
+    "MiniCPM-Llama3-V-2_5",
 ]
 
 
