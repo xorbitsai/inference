@@ -143,18 +143,27 @@ jobs:
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U "aioprometheus[starlette]"
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U "pynvml"
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U "transformers"
+            ${{ env.SELF_HOST_PYTHON }} -m conda install -c conda-forge pynini=2.1.5
+            ${{ env.SELF_HOST_PYTHON }} -m pip install -U nemo_text_processing
+            ${{ env.SELF_HOST_PYTHON }} -m pip install -U omegaconf~=2.3.0
+            ${{ env.SELF_HOST_PYTHON }} -m pip install -U vector_quantize_pytorch
+            ${{ env.SELF_HOST_PYTHON }} -m pip install -U vocos
+            ${{ env.SELF_HOST_PYTHON }} -m pip install -U WeTextProcessing
             ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=1500 \
               -W ignore::PendingDeprecationWarning \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/image/tests/test_stable_diffusion.py
             ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=1500 \
               -W ignore::PendingDeprecationWarning \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/audio/tests/test_whisper.py
+            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=1500 \
+              -W ignore::PendingDeprecationWarning \
+              --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/audio/tests/test_chattts.py
           else
             pytest --timeout=1500 \
               -W ignore::PendingDeprecationWarning \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/client/tests/test_client.py
             pytest --timeout=1500 \
               -W ignore::PendingDeprecationWarning \
-              --cov-config=setup.cfg --cov-report=xml --cov=xinference --ignore xinference/client/tests/test_client.py --ignore xinference/model/image/tests/test_stable_diffusion.py --ignore xinference/model/audio/tests/test_whisper.py xinference
+              --cov-config=setup.cfg --cov-report=xml --cov=xinference --ignore xinference/client/tests/test_client.py --ignore xinference/model/image/tests/test_stable_diffusion.py --ignore xinference/model/audio/tests/test_whisper.py  xinference/model/audio/tests/test_chattts.py xinference
           fi
         working-directory: .
