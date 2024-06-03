@@ -15,8 +15,11 @@
 import json
 import logging
 import os
-from typing import Iterable, Iterator, List, Optional, Union
+from typing import Any, Iterable, Iterator, List, Optional, Union
 
+from tensorizer import TensorSerializer
+
+from ....constants import XINFERENCE_TENSORIZER_DIR
 from ....device_utils import (
     get_device_preferred_dtype,
     gpu_count,
@@ -64,6 +67,17 @@ NON_DEFAULT_MODEL_LIST: List[str] = [
     "mini-internvl-chat",
     "cogvlm2",
 ]
+
+
+def get_tensorizer_file_path(
+    model_name: str,
+    model_format: str,
+    model_size_in_billions: Optional[Union[str, int]] = None,
+    quantization: Optional[str] = None,
+) -> str:
+    # qwen-chat-pytorch-1_8b
+    full_name = f"{model_name}-{model_format}-{model_size_in_billions}b-{quantization}"
+    return os.path.join(XINFERENCE_TENSORIZER_DIR, full_name, "model.tensors")
 
 
 class PytorchModel(LLM):
@@ -124,6 +138,13 @@ class PytorchModel(LLM):
 
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
+        tensor_file_path = get_tensorizer_file_path(
+            self.model_family.model_name,
+            self.model_spec.model_format,
+            self.model_spec.model_size_in_billions,
+            self.quantization,
+        )
+
         tokenizer = AutoTokenizer.from_pretrained(
             self.model_path,
             use_fast=self._use_fast_tokenizer,
@@ -135,7 +156,20 @@ class PytorchModel(LLM):
             low_cpu_mem_usage=True,
             **kwargs,
         )
+        self._tensorizer_serialize(model, tensor_file_path)
         return model, tokenizer
+
+    def _tensorizer_serialize(
+        self,
+        model: Any,
+        tensor_file_path: str,
+    ):
+        logger.info(f"Tensorizer path: {tensor_file_path}")
+        serializer = TensorSerializer(tensor_file_path)
+        serializer.write_module(model)
+        serializer.close()
+        logger.info(f"Tensorizer serialize done: {tensor_file_path}")
+        return tensor_file_path
 
     def _apply_lora(self):
         if self._peft_model is not None:
