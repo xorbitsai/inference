@@ -787,6 +787,7 @@ class Client:
         request_limits: Optional[int] = None,
         worker_ip: Optional[str] = None,
         gpu_idx: Optional[Union[int, List[int]]] = None,
+        enable_tensorizer: bool = False,
         **kwargs,
     ) -> str:
         """
@@ -824,6 +825,8 @@ class Client:
             Specify the worker ip where the model is located in a distributed scenario.
         gpu_idx: Optional[Union[int, List[int]]]
             Specify the GPU index where the model is located.
+        enable_tensorizer: bool
+            Enable tensorizer for the model.
         **kwargs:
             Any other parameters been specified.
 
@@ -854,6 +857,7 @@ class Client:
             "request_limits": request_limits,
             "worker_ip": worker_ip,
             "gpu_idx": gpu_idx,
+            "enable_tensorizer": enable_tensorizer,
         }
 
         for key, value in kwargs.items():

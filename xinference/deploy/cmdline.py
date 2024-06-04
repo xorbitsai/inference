@@ -718,6 +718,12 @@ def list_cached_models(
     help="Specify which GPUs of a worker this model can run on, separated with commas.",
 )
 @click.option(
+    "--enable_tensorizer",
+    default=None,
+    type=str,
+    help="Whether to enable tensorizer for the model, default is False.",
+)
+@click.option(
     "--trust-remote-code",
     default=True,
     type=bool,

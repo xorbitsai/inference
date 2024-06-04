@@ -575,6 +575,7 @@ class WorkerActor(xo.StatelessActor):
         peft_model_config: Optional[PeftModelConfig] = None,
         request_limits: Optional[int] = None,
         gpu_idx: Optional[Union[int, List[int]]] = None,
+        enable_tensorizer: bool = False,
         **kwargs,
     ):
         # !!! Note that The following code must be placed at the very beginning of this function,
@@ -634,6 +635,8 @@ class WorkerActor(xo.StatelessActor):
         subpool_address, devices = await self._create_subpool(
             model_uid, model_type, n_gpu=n_gpu, gpu_idx=gpu_idx
         )
+
+        kwargs["enable_tensorizer"] = enable_tensorizer
 
         try:
             origin_uid, _, _ = parse_replica_model_uid(model_uid)

@@ -15,9 +15,13 @@
 import json
 import logging
 import os
-from typing import Any, Iterable, Iterator, List, Optional, Union
+import tempfile
+import zipfile
+from functools import partial
+from pathlib import Path
+from typing import Iterable, Iterator, List, Optional, Union
 
-from tensorizer import TensorSerializer
+from tensorizer import TensorSerializer, stream_io
 
 from ....constants import XINFERENCE_TENSORIZER_DIR
 from ....device_utils import (
@@ -45,6 +49,8 @@ from ..llm_family import LLMFamilyV1, LLMSpecV1
 from ..utils import ChatModelMixin
 
 logger = logging.getLogger(__name__)
+
+_write_stream = partial(stream_io.open_stream, mode="wb+")
 
 NON_DEFAULT_MODEL_LIST: List[str] = [
     "baichuan-chat",
@@ -90,6 +96,7 @@ class PytorchModel(LLM):
         model_path: str,
         pytorch_model_config: Optional[PytorchModelConfig] = None,
         peft_model: Optional[List[LoRA]] = None,
+        enable_tensorizer: bool = False,
     ):
         super().__init__(model_uid, model_family, model_spec, quantization, model_path)
         self._use_fast_tokenizer = True
@@ -138,13 +145,6 @@ class PytorchModel(LLM):
 
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
-        tensor_file_path = get_tensorizer_file_path(
-            self.model_family.model_name,
-            self.model_spec.model_format,
-            self.model_spec.model_size_in_billions,
-            self.quantization,
-        )
-
         tokenizer = AutoTokenizer.from_pretrained(
             self.model_path,
             use_fast=self._use_fast_tokenizer,
@@ -156,20 +156,52 @@ class PytorchModel(LLM):
             low_cpu_mem_usage=True,
             **kwargs,
         )
-        self._tensorizer_serialize(model, tensor_file_path)
+
+        if kwargs["enable_tensorizer"]:
+            save_dir = get_tensorizer_file_path(
+                self.model_family.model_name,
+                self.model_spec.model_format,
+                self.model_spec.model_size_in_billions,
+                self.quantization,
+            )
+            self._tensorizer_serialize_model(model, save_dir)
+            self._tensorizer_serialize_pretrained(tokenizer, save_dir, "tokenizer")
+
         return model, tokenizer
 
-    def _tensorizer_serialize(
+    from pytorch import torch
+
+    def _tensorizer_serialize_model(
         self,
-        model: Any,
-        tensor_file_path: str,
+        model: torch.nn.Module,
+        tensor_directory: str,
+        model_prefix: str = "model",
     ):
-        logger.info(f"Tensorizer path: {tensor_file_path}")
-        serializer = TensorSerializer(tensor_file_path)
-        serializer.write_module(model)
-        serializer.close()
-        logger.info(f"Tensorizer serialize done: {tensor_file_path}")
-        return tensor_file_path
+        dir_prefix: str = f"{tensor_directory}/{model_prefix}"
+        save_path: str = f"{dir_prefix}.tensors"
+        logger.info(f"Tensorizer serialize model: {save_path}")
+
+        with _write_stream(save_path) as f:
+            serializer = TensorSerializer(f)
+            serializer.write_module(model, include_non_persistent_buffers=False)
+            serializer.close()
+
+        logger.info(f"Tensorizer serialize done: {save_path}")
+        return save_path
+
+    def _tensorizer_serialize_pretrained(
+        component, zip_directory: str, prefix: str = "pretrained"
+    ):
+        save_path: str = f"{zip_directory.rstrip('/')}/{prefix}.zip"
+        with _write_stream(save_path) as stream, zipfile.ZipFile(
+            stream, mode="w", compression=zipfile.ZIP_DEFLATED, compresslevel=5
+        ) as file, tempfile.TemporaryDirectory() as directory:
+            if hasattr(component, "save_pretrained"):
+                component.save_pretrained(directory)
+            else:
+                print("The component does not have a 'save_pretrained' method.")
+            for path in Path(directory).iterdir():
+                file.write(filename=path, arcname=path.name)
 
     def _apply_lora(self):
         if self._peft_model is not None:
@@ -210,7 +242,7 @@ class PytorchModel(LLM):
         self._pytorch_model_config["device"] = select_device(device)
         self._device = self._pytorch_model_config["device"]
 
-        kwargs = {}
+        kwargs = {"enable_tensorizer": self.kwargs["enable_tensorizer"]}
 
         dtype = get_device_preferred_dtype(self._device)
 
@@ -268,7 +300,10 @@ class PytorchModel(LLM):
                         f"Only 8-bit quantization is supported if it is not linux system or cuda device"
                     )
                 else:
-                    self._model, self._tokenizer = load_compress_model(
+                    (
+                        self._model,
+                        self._tokenizer,
+                    ) = load_compress_model(
                         model_path=self.model_path,
                         device=self._device,
                         torch_dtype=kwargs["torch_dtype"],

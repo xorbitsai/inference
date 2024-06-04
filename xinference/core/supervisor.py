@@ -739,6 +739,7 @@ class SupervisorActor(xo.StatelessActor):
         peft_model_config: Optional[PeftModelConfig] = None,
         worker_ip: Optional[str] = None,
         gpu_idx: Optional[Union[int, List[int]]] = None,
+        enable_tensorizer: bool = False,
         **kwargs,
     ) -> str:
         target_ip_worker_ref = (
@@ -763,6 +764,7 @@ class SupervisorActor(xo.StatelessActor):
         logger.debug(
             f"Enter launch_builtin_model, model_uid: {model_uid}, model_name: {model_name}, model_size: {model_size}, "
             f"model_format: {model_format}, quantization: {quantization}, replica: {replica}"
+            f"enable_tensorizer: {enable_tensorizer}"
         )
 
         async def _launch_one_model(_replica_model_uid):
@@ -791,6 +793,7 @@ class SupervisorActor(xo.StatelessActor):
                 request_limits=request_limits,
                 peft_model_config=peft_model_config,
                 gpu_idx=replica_gpu_idx,
+                enable_tensorizer=enable_tensorizer,
                 **kwargs,
             )
             self._replica_model_uid_to_worker[_replica_model_uid] = worker_ref
