@@ -66,6 +66,7 @@ class ChatTTSModel:
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
 
+        assert self._model is not None
         rnd_spk_emb = self._model.sample_random_speaker()
 
         default = 5
