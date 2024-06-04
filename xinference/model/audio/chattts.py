@@ -53,10 +53,10 @@ class ChatTTSModel:
     def speech(
         self, input: str, voice: str, response_format: str = "mp3", speed: float = 1.0
     ):
+        import numpy as np
         import torch
         import torchaudio
         import xxhash
-        import numpy as np
 
         seed = xxhash.xxh32_intdigest(voice)
 
