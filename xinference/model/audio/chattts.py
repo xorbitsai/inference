@@ -56,8 +56,12 @@ class ChatTTSModel:
         import torch
         import torchaudio
 
+        default = 5
+        infer_speed = int(default * speed)
+        params_infer_code = {"prompt": f"[speed_{infer_speed}]"}
+
         assert self._model is not None
-        wavs = self._model.infer([input])
+        wavs = self._model.infer([input], params_infer_code=params_infer_code)
 
         # Save the generated audio
         with BytesIO() as out:
