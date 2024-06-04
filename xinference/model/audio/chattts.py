@@ -55,10 +55,22 @@ class ChatTTSModel:
     ):
         import torch
         import torchaudio
+        import xxhash
+        import numpy as np
+
+        seed = xxhash.xxh32_intdigest(voice)
+
+        torch.manual_seed(seed)
+        np.random.seed(seed)
+        torch.cuda.manual_seed(seed)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+
+        rnd_spk_emb = self._model.sample_random_speaker()
 
         default = 5
         infer_speed = int(default * speed)
-        params_infer_code = {"prompt": f"[speed_{infer_speed}]"}
+        params_infer_code = {"spk_emb": rnd_spk_emb, "prompt": f"[speed_{infer_speed}]"}
 
         assert self._model is not None
         wavs = self._model.infer([input], params_infer_code=params_infer_code)
