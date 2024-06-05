@@ -176,6 +176,16 @@ The following is a list of built-in LLM in Xinference:
      - 16384
      - A code model trained on a dataset of ~140k programming related problems and solutions generated from Glaive’s synthetic data generation platform.
 
+   * - :ref:`glm4-chat <models_llm_glm4-chat>`
+     - chat, tools
+     - 131072
+     - GLM4 is the open source version of the latest generation of pre-trained models in the GLM-4 series launched by Zhipu AI.
+
+   * - :ref:`glm4-chat-1m <models_llm_glm4-chat-1m>`
+     - chat, tools
+     - 1048576
+     - GLM4 is the open source version of the latest generation of pre-trained models in the GLM-4 series launched by Zhipu AI.
+
    * - :ref:`gorilla-openfunctions-v1 <models_llm_gorilla-openfunctions-v1>`
      - chat
      - 4096
@@ -574,6 +584,10 @@ The following is a list of built-in LLM in Xinference:
    gemma-it
   
    glaive-coder
+  
+   glm4-chat
+  
+   glm4-chat-1m
   
    gorilla-openfunctions-v1
   
