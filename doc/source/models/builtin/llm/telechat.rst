@@ -54,7 +54,7 @@ Model Spec 3 (pytorch, 12 Billion)
 - **Quantizations:** 4-bit, 8-bit, none
 - **Engines**: Transformers
 - **Model ID:** Tele-AI/TeleChat-12B
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/Tele-AI/TeleChat-12B>`__, `ModelScope <https://modelscope.cn/models/Tele-AI/TeleChat-12B>`__
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/Tele-AI/TeleChat-12B>`__, `ModelScope <https://modelscope.cn/models/TeleAI/TeleChat-12B>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
@@ -70,7 +70,7 @@ Model Spec 4 (gptq, 12 Billion)
 - **Quantizations:** int4, int8
 - **Engines**: Transformers
 - **Model ID:** Tele-AI/TeleChat-12B-{quantization}
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/Tele-AI/TeleChat-12B-{quantization}>`__, `ModelScope <https://modelscope.cn/models/Tele-AI/TeleChat-12B-{quantization}>`__
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/Tele-AI/TeleChat-12B-{quantization}>`__, `ModelScope <https://modelscope.cn/models/TeleAI/TeleChat-12B-{quantization}>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
@@ -86,7 +86,7 @@ Model Spec 5 (pytorch, 52 Billion)
 - **Quantizations:** 4-bit, 8-bit, none
 - **Engines**: Transformers
 - **Model ID:** Tele-AI/TeleChat-52B
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/Tele-AI/TeleChat-52B>`__, `ModelScope <https://modelscope.cn/models/Tele-AI/TeleChat-52B>`__
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/Tele-AI/TeleChat-52B>`__, `ModelScope <https://modelscope.cn/models/TeleAI/TeleChat-52B>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::

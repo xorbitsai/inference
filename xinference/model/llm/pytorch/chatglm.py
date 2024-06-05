@@ -83,7 +83,7 @@ class ChatglmPytorchChatModel(PytorchChatModel):
         if llm_spec.model_format != "pytorch":
             return False
         model_family = llm_family.model_family or llm_family.model_name
-        if "chatglm" not in model_family or "glm4" not in model_family:
+        if "chatglm" not in model_family and "glm4" not in model_family:
             return False
         if "chat" not in llm_family.model_ability:
             return False
