@@ -18,10 +18,11 @@ import os
 import time
 import uuid
 from threading import Thread
-from typing import Iterable, Iterator, List, Optional, Tuple
+from typing import Dict, Iterable, Iterator, List, Optional, Tuple
 
 import torch
 from transformers import GenerationConfig, TextIteratorStreamer
+from transformers.cache_utils import DynamicCache
 from transformers.generation.logits_process import (
     LogitsProcessorList,
     RepetitionPenaltyLogitsProcessor,
@@ -615,6 +616,64 @@ def _get_completion_chunk(
     return completion_chunk
 
 
+def _get_completion(
+    output: str, finish_reason: Optional[str], model_uid: str, r: InferenceRequest
+):
+    completion_choice = CompletionChoice(
+        text=output, index=0, logprobs=None, finish_reason=finish_reason
+    )
+
+    completion_chunk = CompletionChunk(
+        id=str(uuid.uuid1()),
+        object="text_completion",
+        created=int(time.time()),
+        model=model_uid,
+        choices=[completion_choice],
+    )
+    completion_usage = CompletionUsage(
+        prompt_tokens=len(r.prompt_tokens),
+        completion_tokens=len(r.new_tokens),
+        total_tokens=len(r.prompt_tokens) + len(r.new_tokens),
+    )
+    completion = Completion(
+        id=completion_chunk["id"],
+        object=completion_chunk["object"],
+        created=completion_chunk["created"],
+        model=completion_chunk["model"],
+        choices=completion_chunk["choices"],
+        usage=completion_usage,
+    )
+    return completion
+
+
+def _merge_kv_cache(
+    past_kv: Tuple[Tuple[torch.Tensor]], new_kv: Tuple[Tuple[torch.Tensor]]
+):
+    from torch.nn.functional import pad
+
+    past_cache = DynamicCache.from_legacy_cache(past_kv)
+    new_cache = DynamicCache.from_legacy_cache(new_kv)
+    past_seq_len = past_cache.get_seq_length()
+    new_seq_len = new_cache.get_seq_length()
+    if past_seq_len != new_seq_len:
+        padding_target = new_cache if past_seq_len > new_seq_len else past_cache
+        padding_len = abs(past_seq_len - new_seq_len)
+        for idx in range(len(padding_target)):
+            k = padding_target.key_cache[idx]
+            v = padding_target.value_cache[idx]
+            _k = pad(k, (0, 0, padding_len, 0))
+            _v = pad(v, (0, 0, padding_len, 0))
+            padding_target.key_cache[idx] = _k
+            padding_target.value_cache[idx] = _v
+
+    ret_kv = DynamicCache()
+    for idx in range(len(past_cache)):
+        k1, k2 = new_cache.key_cache[idx], past_cache.key_cache[idx]
+        v1, v2 = new_cache.value_cache[idx], past_cache.value_cache[idx]
+        ret_kv.update(torch.cat((k1, k2), 0), torch.cat((v1, v2), 0), idx)
+    return ret_kv.to_legacy_cache()
+
+
 @torch.inference_mode()
 def _batch_inference_one_step_internal(
     req_list: List[InferenceRequest],
@@ -623,176 +682,193 @@ def _batch_inference_one_step_internal(
     tokenizer,
     device,
     context_len: int,
+    decode_round: int = 16,
 ):
     # need to judge stopped here,
     # since some requests state may change to stopped due to invalid parameters, e.g. max_src_len
     valid_req_list = [r for r in req_list if not r.stopped]
     if not valid_req_list:
         return
-    prompts = [r.full_prompt for r in valid_req_list if r.is_prefill and not r.stopped]
-    not_use_kv_cache_in_decode = all(r.kv_cache is None for r in valid_req_list)
-    if prompts:  # prefill
-        input_ids: List[List[int]] = tokenizer(prompts, padding=False).input_ids
+    generate_config_mapping: Dict[InferenceRequest, Tuple] = {
+        r: r.get_generate_configs(tokenizer.eos_token_id) for r in valid_req_list
+    }
+    s_time = time.time()
 
-        prompt_tokens: List[List[int]] = []
-        for i, r in enumerate(valid_req_list):
-            r.kv_cache = None
-            if i < len(input_ids):
-                input_id = input_ids[i]
-                max_src_len = get_max_src_len(context_len, r)
-                r.prompt_tokens = input_id[-max_src_len:]
-            prompt_tokens.append(
-                r.prompt_tokens if r.is_prefill else r.prompt_tokens + r.new_tokens
-            )
+    prefill_reqs = []
+    prompts = []
+    decode_reqs = []
+    for r in valid_req_list:
+        if r.is_prefill:
+            prompts.append(r.full_prompt)
+            prefill_reqs.append(r)
+        else:
+            decode_reqs.append(r)
+
+    if prompts:
+        input_ids: List[List[int]] = tokenizer(prompts, padding=False).input_ids
+        prompt_tokens = []
+        for i, input_id in enumerate(input_ids):
+            req = valid_req_list[i]
+            max_src_len = get_max_src_len(context_len, req)
+            req.prompt_tokens = input_id[-max_src_len:]
+            prompt_tokens.append(req.prompt_tokens)
         _pad_seqs_inplace(prompt_tokens, 0)
         out = model(torch.as_tensor(prompt_tokens, device=device), use_cache=True)
-    # decode, cannot use kv_cache, since some requests stop and
-    # kv_cache dimensions are inconsistent because some requests have ended.
-    # TODO: In the future, if fine-grained control over kv cache is possible,
-    #  this case can also continue to use kv cache
-    elif not_use_kv_cache_in_decode:
-        decodes: List[List[int]] = []
-        for i, r in enumerate(valid_req_list):
-            r.kv_cache = None
-            decodes.append(r.prompt_tokens + r.new_tokens)
-        _pad_seqs_inplace(decodes, 0)
-        out = model(torch.as_tensor(decodes, device=device), use_cache=True)
-    else:  # decode, use kv_cache
+
+        logits = out.logits
+        past_key_values = out.past_key_values
+
+        for i, r in enumerate(prefill_reqs):
+            (
+                max_new_tokens,
+                stream_interval,
+                include_usage,
+                stop_str,
+                stop_token_ids,
+                temperature,
+                repetition_penalty,
+                top_p,
+                top_k,
+            ) = generate_config_mapping[r]
+
+            token = _get_token_from_logits(
+                r, i, logits, temperature, repetition_penalty, top_p, top_k
+            )
+            r.is_prefill = False
+            r.append_new_token(token)
+
+        if decode_reqs:
+            decode_kv = decode_reqs[0].kv_cache
+            merged_kv_cache = _merge_kv_cache(decode_kv, past_key_values)
+            for r in valid_req_list:
+                r.kv_cache = merged_kv_cache
+            empty_cache()
+        else:
+            for r in valid_req_list:
+                r.kv_cache = past_key_values
+
+    past_key_values = valid_req_list[0].kv_cache
+    stop_token_mapping: Dict[InferenceRequest, int] = {}
+    output_mapping: Dict[InferenceRequest, str] = {}
+    for _i in range(decode_round):
         decode_tokens: List[List[int]] = [[r.new_tokens[-1]] for r in valid_req_list]
-        kv_cache = valid_req_list[0].kv_cache
         out = model(
             input_ids=torch.as_tensor(decode_tokens, device=device),
             use_cache=True,
-            past_key_values=kv_cache,
+            past_key_values=past_key_values,
         )
-    logits = out.logits
-    past_key_values = out.past_key_values
+        logits = out.logits
+        past_key_values = out.past_key_values
 
-    for i, r in enumerate(valid_req_list):
-        max_new_tokens = int(
-            r.sanitized_generate_config.get("max_tokens", max_tokens_field.default)
-        )
-        stream_interval = r.sanitized_generate_config.get("stream_interval", 2)
-        include_usage = r.include_usage
-        stop_str = r.sanitized_generate_config.get("stop", None)
-        stop_token_ids = r.sanitized_generate_config.get("stop_token_ids", None) or []
-        stop_token_ids = set(stop_token_ids)
-        stop_token_ids.add(tokenizer.eos_token_id)
-        temperature = float(r.sanitized_generate_config.get("temperature", 1.0))
-        repetition_penalty = float(
-            r.sanitized_generate_config.get("repetition_penalty", 1.0)
-        )
-        top_p = float(r.sanitized_generate_config.get("top_p", 1.0))
-        top_k = int(r.sanitized_generate_config.get("top_k", -1))  # -1 means disable
+        for i, r in enumerate(valid_req_list):
+            (
+                max_new_tokens,
+                stream_interval,
+                include_usage,
+                stop_str,
+                stop_token_ids,
+                temperature,
+                repetition_penalty,
+                top_p,
+                top_k,
+            ) = generate_config_mapping[r]
 
-        token = _get_token_from_logits(
-            r, i, logits, temperature, repetition_penalty, top_p, top_k
-        )
-        stopped = token in stop_token_ids
-
-        r.kv_cache = past_key_values
-        r.is_prefill = False
-        r.append_new_token(token)
-
-        if stopped:
-            finish_reason = "stop"
-        elif len(r.new_tokens) == max_new_tokens:
-            finish_reason = "length"
-            stopped = True
-        else:
-            finish_reason = None
-
-        # handle stop str
-        output = None
-        if stop_str:
-            output = tokenizer.decode(
-                r.new_tokens,
-                skip_special_tokens=True,
-                spaces_between_special_tokens=False,
-                clean_up_tokenization_spaces=True,
+            token = _get_token_from_logits(
+                r, i, logits, temperature, repetition_penalty, top_p, top_k
             )
-            if isinstance(stop_str, str):
-                stop_str = [stop_str]
-            for stop in stop_str:
-                pos = output.rfind(stop)
-                if pos != -1:
-                    output = output[:pos]
-                    stopped = True
-                    finish_reason = "stop"
-                    break
+            stopped = token in stop_token_ids
 
-        r.stopped = stopped
+            r.kv_cache = past_key_values
+            r.append_new_token(token)
 
-        if r.stream:
-            """
-            Note that you can't just decode based on the newest r.new_tokens here,
-            which may destroy the integrity of the parsed characters,
-            and at the same time is not good at handling some special characters.
-            So the implementation here is to decode all the tokens that have been generated each time,
-            and then take the slice.
-            """
-            remain_num = len(r.new_tokens) % stream_interval
-            if stopped or remain_num == 0:
-                if output is None:
-                    output = tokenizer.decode(
-                        r.new_tokens,
-                        skip_special_tokens=True,
-                        spaces_between_special_tokens=False,
-                        clean_up_tokenization_spaces=True,
+            if stopped:
+                finish_reason = "stop"
+            elif len(r.new_tokens) == max_new_tokens:
+                finish_reason = "length"
+                stopped = True
+            else:
+                finish_reason = None
+
+            output = None
+            # handle stop str
+            if stop_str and r not in output_mapping:
+                output = tokenizer.decode(
+                    r.new_tokens,
+                    skip_special_tokens=True,
+                    spaces_between_special_tokens=False,
+                    clean_up_tokenization_spaces=True,
+                )
+                if isinstance(stop_str, str):
+                    stop_str = [stop_str]
+                for stop in stop_str:
+                    pos = output.rfind(stop)
+                    if pos != -1:
+                        output = output[:pos]
+                        output_mapping[r] = output
+                        stopped = True
+                        finish_reason = "stop"
+                        break
+
+            r.stopped = stopped
+
+            if stopped and r not in stop_token_mapping and r not in output_mapping:
+                stop_token_mapping[r] = _i + 1
+
+            if r.stream:
+                """
+                Note that you can't just decode based on the newest r.new_tokens here,
+                which may destroy the integrity of the parsed characters,
+                and at the same time is not good at handling some special characters.
+                So the implementation here is to decode all the tokens that have been generated each time,
+                and then take the slice.
+                """
+                remain_num = len(r.new_tokens) % stream_interval
+                if stopped or remain_num == 0:
+                    if output is None:
+                        output = tokenizer.decode(
+                            r.new_tokens,
+                            skip_special_tokens=True,
+                            spaces_between_special_tokens=False,
+                            clean_up_tokenization_spaces=True,
+                        )
+                    # this special character is mainly for qwen
+                    output = output.strip("�")
+                    output = output[r.last_output_length :]
+                    r.last_output_length += len(output)
+
+                    completion_chunk = _get_completion_chunk(
+                        output, finish_reason, model_uid, r, False
                     )
-                # this special character is mainly for qwen
-                output = output.strip("�")
-                output = output[r.last_output_length :]
-                r.last_output_length += len(output)
-
-                completion_chunk = _get_completion_chunk(
-                    output, finish_reason, model_uid, r, False
-                )
-                r.completion = [completion_chunk]
-                if stopped and include_usage:
-                    r.completion.append(
-                        _get_completion_chunk("", finish_reason, model_uid, r, True)
+                    r.completion = [completion_chunk]
+                    if stopped and include_usage:
+                        r.completion.append(
+                            _get_completion_chunk("", finish_reason, model_uid, r, True)
+                        )
+                else:  # not stopped and not in stream_interval, just not yield to upstream
+                    r.completion = []
+            else:
+                # last round, handle non-stream result
+                if r.stopped and _i == decode_round - 1:
+                    invalid_token_num = decode_round - stop_token_mapping[r]
+                    outputs = (
+                        tokenizer.decode(
+                            r.new_tokens[: -(invalid_token_num + 1)]
+                            if finish_reason == "stop"
+                            else r.new_tokens[:-invalid_token_num],
+                            skip_special_tokens=True,
+                            spaces_between_special_tokens=False,
+                            clean_up_tokenization_spaces=True,
+                        )
+                        if r not in output_mapping
+                        else output_mapping[r]
                     )
-            else:  # not stopped and not in stream_interval, just not yield to upstream
-                r.completion = []
-        else:
-            if r.stopped:
-                outputs = (
-                    tokenizer.decode(
-                        r.new_tokens[:-1] if finish_reason == "stop" else r.new_tokens,
-                        skip_special_tokens=True,
-                        spaces_between_special_tokens=False,
-                        clean_up_tokenization_spaces=True,
-                    )
-                    if output is None
-                    else output
-                )
+                    completion = _get_completion(outputs, finish_reason, model_uid, r)
+                    r.completion = [completion]
 
-                completion_choice = CompletionChoice(
-                    text=outputs, index=0, logprobs=None, finish_reason=finish_reason
-                )
-
-                completion_chunk = CompletionChunk(
-                    id=str(uuid.uuid1()),
-                    object="text_completion",
-                    created=int(time.time()),
-                    model=model_uid,
-                    choices=[completion_choice],
-                )
-                completion_usage = CompletionUsage(
-                    prompt_tokens=len(r.prompt_tokens),
-                    completion_tokens=len(r.new_tokens),
-                    total_tokens=len(r.prompt_tokens) + len(r.new_tokens),
-                )
-                completion = Completion(
-                    id=completion_chunk["id"],
-                    object=completion_chunk["object"],
-                    created=completion_chunk["created"],
-                    model=completion_chunk["model"],
-                    choices=completion_chunk["choices"],
-                    usage=completion_usage,
-                )
-                r.completion = [completion]
+    e_time = time.time()
+    logger.debug(
+        f"Average throughput for a step: {(len(valid_req_list) * decode_round + len(prompts)) / (e_time - s_time)} token/s."
+    )
 
 
 def batch_inference_one_step(

@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import asyncio
-import gc
+import functools
 import logging
 from collections import deque
 from enum import Enum
@@ -202,6 +202,51 @@ class InferenceRequest:
             else self.generate_config.get("request_id", None)
         )
 
+    @functools.lru_cache
+    def get_generate_configs(self, eos_token_id: int):
+        from ..types import max_tokens_field
+
+        max_new_tokens = int(
+            self.sanitized_generate_config.get("max_tokens", max_tokens_field.default)
+        )
+        stream_interval = self.sanitized_generate_config.get("stream_interval", 2)
+        include_usage = self.include_usage
+        stop_str = self.sanitized_generate_config.get("stop", None)
+        stop_token_ids = (
+            self.sanitized_generate_config.get("stop_token_ids", None) or []
+        )
+        stop_token_ids = set(stop_token_ids)
+        stop_token_ids.add(eos_token_id)
+        temperature = float(self.sanitized_generate_config.get("temperature", 1.0))
+        repetition_penalty = float(
+            self.sanitized_generate_config.get("repetition_penalty", 1.0)
+        )
+        top_p = float(self.sanitized_generate_config.get("top_p", 1.0))
+        top_k = int(self.sanitized_generate_config.get("top_k", -1))  # -1 means disable
+        return (
+            max_new_tokens,
+            stream_interval,
+            include_usage,
+            stop_str,
+            stop_token_ids,
+            temperature,
+            repetition_penalty,
+            top_p,
+            top_k,
+        )
+
+
+def _get_valid_batch_kv_cache(data, skipped_indexes: Set[int]):
+    from transformers.cache_utils import DynamicCache
+
+    cache = DynamicCache.from_legacy_cache(data)
+    batch_size = cache.key_cache[0].shape[0]
+    batch_slices = [num for num in range(batch_size) if num not in skipped_indexes]
+    for idx in range(len(cache)):
+        cache.key_cache[idx] = cache.key_cache[idx][batch_slices, ::]
+        cache.value_cache[idx] = cache.value_cache[idx][batch_slices, ::]
+    return cache.to_legacy_cache()
+
 
 class SchedulerActor(xo.StatelessActor):
     @classmethod
@@ -215,7 +260,6 @@ class SchedulerActor(xo.StatelessActor):
         self._model = None
         self._id_to_req = {}
         self._abort_req_ids: Set[str] = set()
-        self._iter_cnt = 0  # for cache clear
         self._isolation = None
 
     async def __post_create__(self):
@@ -273,19 +317,21 @@ class SchedulerActor(xo.StatelessActor):
         # must waiting_list in front
         return waiting_list + running_list
 
-    async def step(self):
+    @staticmethod
+    def _empty_cache():
         from ..model.llm.pytorch.utils import empty_cache
 
+        empty_cache()
+
+    async def step(self):
         req_list = self._handle_request()
         if not req_list:
-            self._iter_cnt = 0
+            self._empty_cache()
             return
-        batch_size = len(req_list)
         self._model.batch_inference(req_list)
-        self._iter_cnt += 1
 
-        stop_before_prefill_cnt = 0
-        for r in req_list:
+        stopped_batch_indexes = set()
+        for idx, r in enumerate(req_list):
             if r.stream:
                 for completion in r.completion:
                     await r.future_or_queue.put(completion)
@@ -293,6 +339,8 @@ class SchedulerActor(xo.StatelessActor):
             if not r.stopped:
                 self._running_queue.append(r)
             else:
+                if r.new_tokens:
+                    stopped_batch_indexes.add(idx)
                 # set kv_cache to None for collection
                 r.kv_cache = None
                 rid = r.request_id
@@ -318,7 +366,6 @@ class SchedulerActor(xo.StatelessActor):
                     # Abnormal stop, currently indicates that the parameter check does not pass,
                     # and does not participate in the inference
                     else:
-                        stop_before_prefill_cnt += 1
                         if not r.stream:
                             r.future_or_queue.set_exception(ValueError(r.error_msg))
                         else:
@@ -326,28 +373,15 @@ class SchedulerActor(xo.StatelessActor):
                                 XINFERENCE_STREAMING_ERROR_FLAG + r.error_msg
                             )
 
-        force_clear_cache: bool = False
-        if len(self._running_queue) > 0:
-            batch_size_after_one_step = len(self._running_queue)
-            batch_size_before_one_step = batch_size - stop_before_prefill_cnt
-            if batch_size_before_one_step != batch_size_after_one_step:
-                assert batch_size_after_one_step < batch_size_before_one_step
-                force_clear_cache = True
-                for r in self._running_queue:
-                    r.kv_cache = None
+        if stopped_batch_indexes and len(self._running_queue) > 0:
+            kv_cache = self._running_queue[0].kv_cache
+            reduced_kv_cache = _get_valid_batch_kv_cache(
+                kv_cache, stopped_batch_indexes
+            )
+            for r in self._running_queue:
+                r.kv_cache = reduced_kv_cache
 
-        # clean cuda cache
-        if (
-            force_clear_cache
-            or self._iter_cnt % XINFERENCE_BATCHING_CLEAN_CACHE_INTERVAL == 0
-        ):
-            """
-            Clear unused kv_cache.
-            - force_clear_cache=True indicates that some requests quit and their kv_cache can be cleared.
-            - self._iter_cnt means that no need to empty the cache every step.
-            """
-            gc.collect()
-            empty_cache()
+        self._empty_cache()
 
     async def add_request(self, prompt: str, future_or_queue, *args, **kwargs):
         req = InferenceRequest(prompt, future_or_queue, True, *args, **kwargs)
@@ -374,9 +408,9 @@ class SchedulerActor(xo.StatelessActor):
     async def run(self):
         try:
             while True:
-                await self.step()
                 # wait 10ms
                 await asyncio.sleep(0.01)
+                await self.step()
         except Exception as e:
             logger.exception(
                 f"Scheduler actor uid: {self.uid}, address: {self.address} run with error: {e}"
