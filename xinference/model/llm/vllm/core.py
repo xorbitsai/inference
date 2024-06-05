@@ -93,6 +93,7 @@ VLLM_SUPPORTED_MODELS = [
     "baichuan",
     "internlm-16k",
     "mistral-v0.1",
+    "codestral-v0.1",
     "Yi",
     "Yi-1.5",
     "code-llama",

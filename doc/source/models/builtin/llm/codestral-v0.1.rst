@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 22 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 22
 - **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers (vLLM only available for quantization none)
 - **Model ID:** mistralai/Mistral-7B-Instruct-v0.2
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.2>`__
 
