@@ -190,14 +190,14 @@ def test_continuous_batching(enable_batch, setup):
 
     # test abort request for stream
     thread1 = InferenceThread(
-        "1+1=3正确吗？", {"stream": True, "request_id": "aaabbb"}, client, model
+        "猫和狗有什么区别吗？", {"stream": True, "request_id": "aaabbb"}, client, model
     )
     thread2 = AbortThread(
         client, model_uid_res, "bbbaaa", AbortRequestMessage.NOT_FOUND.name
     )
     thread3 = AbortThread(client, "abcd", "aaabbb", AbortRequestMessage.NO_OP.name)
     thread4 = AbortThread(
-        client, model_uid_res, "aaabbb", AbortRequestMessage.DONE.name, 0.1
+        client, model_uid_res, "aaabbb", AbortRequestMessage.DONE.name, 0.01
     )
     thread1.start()
     thread2.start()
@@ -210,9 +210,9 @@ def test_continuous_batching(enable_batch, setup):
     thread4.join()
 
     # test abort request for non-stream
-    thread1 = InferenceThread("中国的首都是哪座城市？", {"request_id": "aaabbb"}, client, model)
+    thread1 = InferenceThread("猫和狗有什么区别吗？", {"request_id": "aaabbb"}, client, model)
     thread2 = AbortThread(
-        client, model_uid_res, "aaabbb", AbortRequestMessage.DONE.name, 0.1
+        client, model_uid_res, "aaabbb", AbortRequestMessage.DONE.name, 0.01
     )
     thread1.start()
     thread2.start()
