@@ -706,7 +706,7 @@ def _batch_inference_one_step_internal(
         else:
             decode_reqs.append(r)
 
-    if prompts:
+    if prompts:  # prefill first
         input_ids: List[List[int]] = tokenizer(prompts, padding=False).input_ids
         prompt_tokens = []
         for i, input_id in enumerate(input_ids):
@@ -740,6 +740,7 @@ def _batch_inference_one_step_internal(
 
         if decode_reqs:
             decode_kv = decode_reqs[0].kv_cache
+            # prefill and decode kv cache need to be merged at `batch_size` and `seq_len` dimensions.
             merged_kv_cache = _merge_kv_cache(decode_kv, past_key_values)
             for r in valid_req_list:
                 r.kv_cache = merged_kv_cache
@@ -751,6 +752,7 @@ def _batch_inference_one_step_internal(
     past_key_values = valid_req_list[0].kv_cache
     stop_token_mapping: Dict[InferenceRequest, int] = {}
     output_mapping: Dict[InferenceRequest, str] = {}
+    # here, only decode phase, just run some rounds
     for _i in range(decode_round):
         decode_tokens: List[List[int]] = [[r.new_tokens[-1]] for r in valid_req_list]
         out = model(
@@ -847,6 +849,10 @@ def _batch_inference_one_step_internal(
                 if r.stopped:
                     r.completion.append(eos_flag)
 
+                # last round, handle stream result
+                # append usage information when enable `include_usage` for OPENAI API compatibility
+                # The reason for counting the usage in the last round of the iteration is that,
+                # these tokens are real generated and should be counted.
                 if r.stopped and _i == decode_round - 1 and include_usage:
                     r.completion.append(
                         _get_completion_chunk("", r.finish_reason, model_uid, r, True)

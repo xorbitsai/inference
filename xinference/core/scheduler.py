@@ -382,6 +382,7 @@ class SchedulerActor(xo.StatelessActor):
                                 XINFERENCE_STREAMING_ERROR_FLAG + r.error_msg
                             )
 
+        # Some requests have been completed. Batch size needs to be reduced for kv cache.
         if stopped_batch_indexes and len(self._running_queue) > 0:
             kv_cache = self._running_queue[0].kv_cache
             reduced_kv_cache = _get_valid_batch_kv_cache(
