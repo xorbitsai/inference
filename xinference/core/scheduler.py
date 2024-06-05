@@ -66,8 +66,8 @@ class InferenceRequest:
         # Use in stream mode
         self.last_output_length = 0
         # inference results,
-        # it is a list type because when stream=True, for the first time you need to return two chunks,
-        # or when include_usage is True, the last results should contain usage information
+        # it is a list type because when stream=True,
+        # self.completion contains all the results in a decode round.
         self.completion = []
         # The way upstream gets the returned results,
         # when stream=True, it is an asyncio.Queue,
@@ -219,7 +219,6 @@ class InferenceRequest:
         max_new_tokens = int(
             self.sanitized_generate_config.get("max_tokens", max_tokens_field.default)
         )
-        stream_interval = self.sanitized_generate_config.get("stream_interval", 2)
         include_usage = self.include_usage
         stop_str = self.sanitized_generate_config.get("stop", None)
         stop_token_ids = (
@@ -235,7 +234,6 @@ class InferenceRequest:
         top_k = int(self.sanitized_generate_config.get("top_k", -1))  # -1 means disable
         return (
             max_new_tokens,
-            stream_interval,
             include_usage,
             stop_str,
             stop_token_ids,
@@ -276,7 +274,7 @@ class SchedulerActor(xo.StatelessActor):
         from ..isolation import Isolation
 
         self._isolation = Isolation(
-            asyncio.new_event_loop(), threaded=True, daemon=False
+            asyncio.new_event_loop(), threaded=True, daemon=True
         )
         self._isolation.start()
         asyncio.run_coroutine_threadsafe(self.run(), loop=self._isolation.loop)
@@ -345,6 +343,7 @@ class SchedulerActor(xo.StatelessActor):
             if r.stream:
                 for completion in r.completion:
                     await r.future_or_queue.put(completion)
+                r.completion = []
 
             if not r.stopped:
                 self._running_queue.append(r)

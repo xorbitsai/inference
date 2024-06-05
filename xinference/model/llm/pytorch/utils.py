@@ -683,6 +683,8 @@ def _batch_inference_one_step_internal(
     device,
     context_len: int,
     decode_round: int = 16,
+    bos_flag: str = "<bos_stream>",
+    eos_flag: str = "<eos_stream>",
 ):
     # need to judge stopped here,
     # since some requests state may change to stopped due to invalid parameters, e.g. max_src_len
@@ -721,7 +723,6 @@ def _batch_inference_one_step_internal(
         for i, r in enumerate(prefill_reqs):
             (
                 max_new_tokens,
-                stream_interval,
                 include_usage,
                 stop_str,
                 stop_token_ids,
@@ -763,7 +764,6 @@ def _batch_inference_one_step_internal(
         for i, r in enumerate(valid_req_list):
             (
                 max_new_tokens,
-                stream_interval,
                 include_usage,
                 stop_str,
                 stop_token_ids,
@@ -779,6 +779,7 @@ def _batch_inference_one_step_internal(
             r.kv_cache = past_key_values
             r.append_new_token(token)
 
+            output = None
             if not r.stopped:
                 stopped = token in stop_token_ids
 
@@ -790,7 +791,6 @@ def _batch_inference_one_step_internal(
                 else:
                     finish_reason = None
 
-                output = None
                 # handle stop str
                 if stop_str and r not in output_mapping:
                     output = tokenizer.decode(
@@ -824,30 +824,33 @@ def _batch_inference_one_step_internal(
                 So the implementation here is to decode all the tokens that have been generated each time,
                 and then take the slice.
                 """
-                remain_num = len(r.new_tokens) % stream_interval
-                if stopped or remain_num == 0:
-                    if output is None:
-                        output = tokenizer.decode(
-                            r.new_tokens,
-                            skip_special_tokens=True,
-                            spaces_between_special_tokens=False,
-                            clean_up_tokenization_spaces=True,
-                        )
-                    # this special character is mainly for qwen
-                    output = output.strip("�")
-                    output = output[r.last_output_length :]
-                    r.last_output_length += len(output)
-
-                    completion_chunk = _get_completion_chunk(
-                        output, finish_reason, model_uid, r, False
+                if output is None:
+                    output = tokenizer.decode(
+                        r.new_tokens,
+                        skip_special_tokens=True,
+                        spaces_between_special_tokens=False,
+                        clean_up_tokenization_spaces=True,
                     )
-                    r.completion = [completion_chunk]
-                    if stopped and include_usage:
-                        r.completion.append(
-                            _get_completion_chunk("", finish_reason, model_uid, r, True)
-                        )
-                else:  # not stopped and not in stream_interval, just not yield to upstream
-                    r.completion = []
+
+                if r.last_output_length == 0:
+                    r.completion.append(bos_flag)
+
+                # this special character is mainly for qwen
+                output = output.strip("�")
+                output = output[r.last_output_length :]
+                r.last_output_length += len(output)
+
+                completion_chunk = _get_completion_chunk(
+                    output, r.finish_reason, model_uid, r, False
+                )
+                r.completion.append(completion_chunk)
+                if r.stopped:
+                    r.completion.append(eos_flag)
+
+                if r.stopped and _i == decode_round - 1 and include_usage:
+                    r.completion.append(
+                        _get_completion_chunk("", r.finish_reason, model_uid, r, True)
+                    )
             else:
                 # last round, handle non-stream result
                 if r.stopped and _i == decode_round - 1:

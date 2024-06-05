@@ -596,31 +596,22 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
         )
         for req in req_list:
             if req.stream and req.error_msg is None:
-                # first chunk case or stopped in the first stream_interval,
-                # must yield two chunks according to OPENAI API
-                if req.completion and len(req.new_tokens) <= req.stream_interval:
-                    completion = req.completion[0]
-                    first_chunk_completion = self._get_first_chat_completion_chunk(
-                        completion
-                    )
-                    chunk_completion = self._to_chat_completion_chunk(completion)
+                if req.completion:
+                    results = []
+                    for i, c in enumerate(req.completion):
+                        if c == "<bos_stream>":
+                            results.append(
+                                self._get_first_chat_completion_chunk(
+                                    req.completion[i + 1]
+                                )
+                            )
+                        elif c == "<eos_stream>":
+                            break
+                        else:
+                            results.append(self._to_chat_completion_chunk(c))
 
-                    usage_chunk = []
                     if req.stopped and req.include_usage:
-                        usage_chunk = [
+                        results.append(
                             self._get_final_chat_completion_chunk(req.completion[-1])
-                        ]
-
-                    req.completion = [
-                        first_chunk_completion,
-                        chunk_completion,
-                        *usage_chunk,
-                    ]
-                elif req.completion:
-                    req.completion[0] = self._to_chat_completion_chunk(
-                        req.completion[0]
-                    )
-                    if req.stopped and req.include_usage:
-                        req.completion[-1] = self._get_final_chat_completion_chunk(
-                            req.completion[-1]
                         )
+                    req.completion = results
