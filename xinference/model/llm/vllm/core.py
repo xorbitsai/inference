@@ -414,7 +414,6 @@ class VLLMModel(LLM):
 
         async def stream_results() -> AsyncGenerator[CompletionChunk, None]:
             previous_texts = [""] * sanitized_generate_config["n"]
-            tools_token_filter = ChatModelMixin._tools_token_filter(self.model_family)
             prompt_tokens, completion_tokens, total_tokens = 0, 0, 0
             async for _request_output in results_generator:
                 chunk = self._convert_request_output_to_completion_chunk(
@@ -452,9 +451,6 @@ class VLLMModel(LLM):
                                     ),
                                 )
                             ]
-                    # use a filter function to skip Qwen's react thought process
-                    elif not tools_token_filter(previous_texts[0]):
-                        continue
                 prompt_tokens = len(_request_output.prompt_token_ids)
                 completion_tokens = sum(
                     len(output.token_ids) for output in _request_output.outputs
