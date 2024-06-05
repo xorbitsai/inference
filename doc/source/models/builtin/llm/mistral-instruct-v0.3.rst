@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 7 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 7
 - **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers (vLLM only available for quantization none)
 - **Model ID:** mistralai/Mistral-7B-Instruct-v0.3
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.3>`__
 
@@ -36,7 +36,7 @@ Model Spec 2 (gptq, 7 Billion)
 - **Model Format:** gptq
 - **Model Size (in billions):** 7
 - **Quantizations:** Int4
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers
 - **Model ID:** neuralmagic/Mistral-7B-Instruct-v0.3-GPTQ-4bit
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/neuralmagic/Mistral-7B-Instruct-v0.3-GPTQ-4bit>`__
 
@@ -52,7 +52,7 @@ Model Spec 3 (awq, 7 Billion)
 - **Model Format:** awq
 - **Model Size (in billions):** 7
 - **Quantizations:** Int4
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers
 - **Model ID:** solidrust/Mistral-7B-Instruct-v0.3-AWQ
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/solidrust/Mistral-7B-Instruct-v0.3-AWQ>`__
 
