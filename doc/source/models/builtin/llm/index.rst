@@ -266,6 +266,11 @@ The following is a list of built-in LLM in Xinference:
      - 4096
      - MiniCPM is an End-Size LLM developed by ModelBest Inc. and TsinghuaNLP, with only 2.4B parameters excluding embeddings.
 
+   * - :ref:`minicpm-llama3-v-2_5 <models_llm_minicpm-llama3-v-2_5>`
+     - chat, vision
+     - 2048
+     - MiniCPM-Llama3-V 2.5 is the latest model in the MiniCPM-V series. The model is built on SigLip-400M and Llama3-8B-Instruct with a total of 8B parameters.
+
    * - :ref:`mistral-instruct-v0.1 <models_llm_mistral-instruct-v0.1>`
      - chat
      - 8192
@@ -610,6 +615,8 @@ The following is a list of built-in LLM in Xinference:
    minicpm-2b-sft-bf16
   
    minicpm-2b-sft-fp32
+  
+   minicpm-llama3-v-2_5
   
    mistral-instruct-v0.1
   
