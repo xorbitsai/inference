@@ -776,42 +776,44 @@ def _batch_inference_one_step_internal(
             token = _get_token_from_logits(
                 r, i, logits, temperature, repetition_penalty, top_p, top_k
             )
-            stopped = token in stop_token_ids
-
             r.kv_cache = past_key_values
             r.append_new_token(token)
 
-            if stopped:
-                finish_reason = "stop"
-            elif len(r.new_tokens) == max_new_tokens:
-                finish_reason = "length"
-                stopped = True
-            else:
-                finish_reason = None
+            if not r.stopped:
+                stopped = token in stop_token_ids
 
-            output = None
-            # handle stop str
-            if stop_str and r not in output_mapping:
-                output = tokenizer.decode(
-                    r.new_tokens,
-                    skip_special_tokens=True,
-                    spaces_between_special_tokens=False,
-                    clean_up_tokenization_spaces=True,
-                )
-                if isinstance(stop_str, str):
-                    stop_str = [stop_str]
-                for stop in stop_str:
-                    pos = output.rfind(stop)
-                    if pos != -1:
-                        output = output[:pos]
-                        output_mapping[r] = output
-                        stopped = True
-                        finish_reason = "stop"
-                        break
+                if stopped:
+                    finish_reason = "stop"
+                elif len(r.new_tokens) == max_new_tokens:
+                    finish_reason = "length"
+                    stopped = True
+                else:
+                    finish_reason = None
 
-            r.stopped = stopped
+                output = None
+                # handle stop str
+                if stop_str and r not in output_mapping:
+                    output = tokenizer.decode(
+                        r.new_tokens,
+                        skip_special_tokens=True,
+                        spaces_between_special_tokens=False,
+                        clean_up_tokenization_spaces=True,
+                    )
+                    if isinstance(stop_str, str):
+                        stop_str = [stop_str]
+                    for stop in stop_str:
+                        pos = output.rfind(stop)
+                        if pos != -1:
+                            output = output[:pos]
+                            output_mapping[r] = output
+                            stopped = True
+                            finish_reason = "stop"
+                            break
 
-            if stopped and r not in stop_token_mapping and r not in output_mapping:
+                r.stopped = stopped
+                r.finish_reason = finish_reason
+
+            if r.stopped and r not in stop_token_mapping and r not in output_mapping:
                 stop_token_mapping[r] = _i + 1
 
             if r.stream:
@@ -853,7 +855,7 @@ def _batch_inference_one_step_internal(
                     outputs = (
                         tokenizer.decode(
                             r.new_tokens[: -(invalid_token_num + 1)]
-                            if finish_reason == "stop"
+                            if r.finish_reason == "stop"
                             else r.new_tokens[:-invalid_token_num],
                             skip_special_tokens=True,
                             spaces_between_special_tokens=False,
@@ -862,7 +864,7 @@ def _batch_inference_one_step_internal(
                         if r not in output_mapping
                         else output_mapping[r]
                     )
-                    completion = _get_completion(outputs, finish_reason, model_uid, r)
+                    completion = _get_completion(outputs, r.finish_reason, model_uid, r)
                     r.completion = [completion]
 
     e_time = time.time()

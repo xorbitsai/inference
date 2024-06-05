@@ -56,6 +56,8 @@ class InferenceRequest:
         self._inference_kwargs = kwargs
         # should this request be stopped
         self._stopped = False
+        # finish reason. If this is set, self._stopped is True.
+        self._finish_reason = None
         # should this request be aborted
         # note that when this flag is True, assert self._stopped is True
         self._aborted = False
@@ -163,6 +165,14 @@ class InferenceRequest:
     @stopped.setter
     def stopped(self, value: bool):
         self._stopped = value
+
+    @property
+    def finish_reason(self):
+        return self._finish_reason
+
+    @finish_reason.setter
+    def finish_reason(self, value: Optional[str]):
+        self._finish_reason = value
 
     @property
     def stream(self) -> bool:
