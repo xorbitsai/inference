@@ -1,0 +1,129 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2024-06-06 17:26+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: zh_CN\n"
+"Language-Team: zh_CN <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.15.0\n"
+
+#: ../../source/models/model_memory.rst:5
+msgid "Model Memory Calculation"
+msgstr "模型显存使用量计算"
+
+#: ../../source/models/model_memory.rst:7
+msgid ""
+"For better planning of VMEM usage, xinference provided tool for model "
+"memory calculation: ``cal-model-mem``"
+msgstr "为了更好规划显存使用， Xinference 提供了计算模型显存使用量的工具：``cal-model-mem``"
+
+#: ../../source/models/model_memory.rst:9
+msgid "Use algorithm from https://github.com/RahulSChand/gpu_poor"
+msgstr "算法来自：https://github.com/RahulSChand/gpu_poor"
+
+#: ../../source/models/model_memory.rst:11
+msgid "Output: model_mem, kv_cache, overhead, active_mem"
+msgstr "输出：model_mem, kv_cache, overhead, active_mem"
+
+#: ../../source/models/model_memory.rst:13
+msgid ""
+"Example: To calculate memory usage for qwen1.5-chat, run the following "
+"command:"
+msgstr "示例：计算 qwen1.5-chat 模型的显存用量，可以运行以下示例指令："
+
+#: ../../source/models/model_memory.rst:37
+msgid "Syntax"
+msgstr "语法"
+
+#: ../../source/models/model_memory.rst:39
+msgid "--size-in-billions {model_size}"
+msgstr ""
+
+#: ../../source/models/model_memory.rst:42
+msgid "-s {model_size}"
+msgstr ""
+
+#: ../../source/models/model_memory.rst:45
+msgid ""
+"Set the model size. Specify the model size in billions of parameters. "
+"Format accept 1_8 and 1.8. For example, 7 for 7.0B model size."
+msgstr "设置模型大小。以十亿个参数为单位指定模型大小。参数格式接受形式如 1_8 和 1.8. 例如，7 表示 7.0B 的模型大小。"
+
+#: ../../source/models/model_memory.rst:50
+msgid "--quantization {precision}"
+msgstr ""
+
+#: ../../source/models/model_memory.rst:53
+msgid "-q {precision} *(Optional)*"
+msgstr "-q {precision} *(可选)*"
+
+#: ../../source/models/model_memory.rst:56
+msgid ""
+"Define the quantization settings for the model. For example, Int4 for "
+"INT4 quantization."
+msgstr "指定模型的量化配置。例如：Int4 参数表示使用 INT4 量化。"
+
+#: ../../source/models/model_memory.rst:60
+msgid "--model-name {model_name}"
+msgstr ""
+
+#: ../../source/models/model_memory.rst:63
+msgid "-n {model_name} *(Optional)*"
+msgstr "-n {model_name} *(可选)*"
+
+#: ../../source/models/model_memory.rst:66
+msgid ""
+"Specify the model's name. If provided, fetch model config from "
+"huggingface/modelscope; If not specified, use default model layer to "
+"estimate."
+msgstr ""
+"指定模型名称。如果提供此参数，将从 huggingface/modelscope 中获取模型配置；如果没有指定，将使用默认的 layer "
+"参数粗略估计。"
+
+#: ../../source/models/model_memory.rst:70
+msgid "--context-length {context_length}"
+msgstr ""
+
+#: ../../source/models/model_memory.rst:73
+msgid "-c {context_length}"
+msgstr ""
+
+#: ../../source/models/model_memory.rst:76
+msgid ""
+"Specify the maximum number of tokens(context length) that your model "
+"support."
+msgstr "指定模型的最大上下文长度。"
+
+#: ../../source/models/model_memory.rst:79
+msgid "--model-format {format}"
+msgstr ""
+
+#: ../../source/models/model_memory.rst:82
+msgid "-f {format}"
+msgstr ""
+
+#: ../../source/models/model_memory.rst:85
+msgid "Specify the format of the model, e.g. pytorch, ggmlv3, etc."
+msgstr "指定模型的格式，例如：pytorch, ggmlv3, etc."
+
+#: ../../source/models/model_memory.rst:89
+msgid ""
+"The environment variable ``HF_ENDPOINT`` could set the endpoint of "
+"HuggingFace. e.g. hf-mirror, etc. Please refer to :ref:`this document "
+"<models_download>`"
+msgstr ""
+"利用环境变量 ``HF_ENDPOINT`` 可设置 HuggingFace 服务器的 Endpoint。例如，当网络不佳时可以选择 hf-"
+"mirror 作为 Endpoint. 更多请参考 :ref:`此文档 <models_download>`"
+
