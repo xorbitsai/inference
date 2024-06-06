@@ -2383,6 +2383,201 @@
   },
   {
     "version": 1,
+    "context_length": 32768,
+    "model_name": "qwen2-instruct",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat",
+      "tools"
+    ],
+    "model_description": "Qwen2 is the new series of Qwen large language models",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": "0_5",
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "Qwen/Qwen2-0.5B-Instruct"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": "1_5",
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "Qwen/Qwen2-1.5B-Instruct"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "Qwen/Qwen2-7B-Instruct"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 72,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "Qwen/Qwen2-72B-Instruct"
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": "0_5",
+        "quantizations": [
+          "Int4",
+          "Int8"
+        ],
+        "model_id": "Qwen/Qwen2-0.5B-Instruct-GPTQ-{quantization}"
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": "1_5",
+        "quantizations": [
+          "Int4",
+          "Int8"
+        ],
+        "model_id": "Qwen/Qwen2-1.5B-Instruct-GPTQ-{quantization}"
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "Int4",
+          "Int8"
+        ],
+        "model_id": "Qwen/Qwen2-7B-Instruct-GPTQ-{quantization}"
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 72,
+        "quantizations": [
+          "Int4",
+          "Int8"
+        ],
+        "model_id": "Qwen/Qwen2-72B-Instruct-GPTQ-{quantization}"
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": "0_5",
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "Qwen/Qwen2-0.5B-Instruct-AWQ"
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": "1_5",
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "Qwen/Qwen2-1.5B-Instruct-AWQ"
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "Qwen/Qwen2-7B-Instruct-AWQ"
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 72,
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "Qwen/Qwen2-72B-Instruct-AWQ"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "QWEN",
+      "system_prompt": "You are a helpful assistant.",
+      "roles": [
+        "user",
+        "assistant"
+      ],
+      "intra_message_sep": "\n",
+      "stop_token_ids": [
+        151643,
+        151644,
+        151645
+      ],
+      "stop": [
+        "<|endoftext|>",
+        "<|im_start|>",
+        "<|im_end|>"
+      ]
+    }
+  },
+  {
+    "version": 1,
+    "context_length": 32768,
+    "model_name": "qwen2-moe-instruct",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "Qwen1.5-MoE is a transformer-based MoE decoder-only language model pretrained on a large amount of data.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 14,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "Qwen/Qwen2-57B-A14B-Instruct"
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": "2_7",
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "Qwen/Qwen2-57B-A14B-Instruct-GPTQ-Int4"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "QWEN",
+      "system_prompt": "You are a helpful assistant.",
+      "roles": [
+        "user",
+        "assistant"
+      ],
+      "intra_message_sep": "\n",
+      "stop_token_ids": [
+        151643,
+        151644,
+        151645
+      ],
+      "stop": [
+        "<|endoftext|>",
+        "<|im_start|>",
+        "<|im_end|>"
+      ]
+    }
+  },
+  {
+    "version": 1,
     "context_length": 8192,
     "model_name": "starcoder",
     "model_lang": [

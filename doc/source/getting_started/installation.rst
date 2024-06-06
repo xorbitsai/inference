@@ -55,6 +55,7 @@ Currently, supported models include:
 - ``chatglm3``, ``chatglm3-32k``, ``chatglm3-128k``
 - ``glm4-chat``, ``glm4-chat-1m``
 - ``qwen1.5-chat``, ``qwen1.5-moe-chat``
+- ``qwen2-instruct``, ``qwen2-moe-instruct``
 - ``gemma-it``
 - ``orion-chat``, ``orion-chat-rag``
 - ``c4ai-command-r-v01``
