@@ -691,13 +691,25 @@ class RESTfulAudioModelHandle(RESTfulModelHandle):
         response_format: str = "mp3",
         speed: float = 1.0,
     ):
-        """Generates audio from the input text.
+        """
+        Generates audio from the input text.
 
-        :param input: The text to generate audio for. The maximum length is 4096 characters.
-        :param voice: The voice to use when generating the audio.
-        :param response_format: The format to audio in.
-        :param speed: The speed of the generated audio.
-        :return: The generated audio binary.
+        Parameters
+        ----------
+
+        input: str
+            The text to generate audio for. The maximum length is 4096 characters.
+        voice: str
+            The voice to use when generating the audio.
+        response_format: str
+            The format to audio in.
+        speed: str
+            The speed of the generated audio.
+
+        Returns
+        -------
+        bytes
+            The generated audio binary.
         """
         url = f"{self._base_url}/v1/audio/speech"
         params = {

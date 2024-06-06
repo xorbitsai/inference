@@ -58,6 +58,7 @@ Currently, supported models include:
 - ``gemma-it``
 - ``orion-chat``, ``orion-chat-rag``
 - ``c4ai-command-r-v01``
+
 .. vllm_end
 
 To install Xinference and vLLM::
