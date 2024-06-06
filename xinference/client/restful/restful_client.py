@@ -708,6 +708,7 @@ class RESTfulAudioModelHandle(RESTfulModelHandle):
 
         Returns
         -------
+        bytes
             The generated audio binary.
         """
         url = f"{self._base_url}/v1/audio/speech"
