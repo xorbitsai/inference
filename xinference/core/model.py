@@ -131,14 +131,15 @@ class ModelActor(xo.StatelessActor):
         from ..model.llm.pytorch.core import PytorchModel as LLMPytorchModel
         from ..model.llm.vllm.core import VLLMModel as LLMVLLMModel
 
-        try:
-            assert self._scheduler_ref is not None
-            await xo.destroy_actor(self._scheduler_ref)
-            del self._scheduler_ref
-        except Exception as e:
-            logger.debug(
-                f"Destroy scheduler actor failed, address: {self.address}, error: {e}"
-            )
+        if self.allow_batching():
+            try:
+                assert self._scheduler_ref is not None
+                await xo.destroy_actor(self._scheduler_ref)
+                del self._scheduler_ref
+            except Exception as e:
+                logger.debug(
+                    f"Destroy scheduler actor failed, address: {self.address}, error: {e}"
+                )
 
         if (
             isinstance(self._model, (LLMPytorchModel, LLMVLLMModel))

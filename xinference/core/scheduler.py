@@ -334,7 +334,6 @@ class SchedulerActor(xo.StatelessActor):
     async def step(self):
         req_list = self._handle_request()
         if not req_list:
-            self._empty_cache()
             return
         self._model.batch_inference(req_list)
 
