@@ -12,13 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import base64
-import json
 import logging
-from threading import Thread
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
+from threading import Thread
 from typing import Dict, Iterator, List, Optional, Union
 
 import requests
@@ -59,19 +58,18 @@ class Glm4VModel(PytorchChatModel):
 
     def load(self, **kwargs):
         from transformers import AutoModelForCausalLM, AutoTokenizer
-        from transformers.generation import GenerationConfig
 
         device = self._pytorch_model_config.get("device", "auto")
         self._device = select_device(device)
         self._device = "auto" if self._device == "cuda" else self._device
 
         model = AutoModelForCausalLM.from_pretrained(
-                self.model_path,
-                low_cpu_mem_usage=True,
-                trust_remote_code=True,
-                torch_dtype=torch.float16,
-                device_map=self._device,
-            )
+            self.model_path,
+            low_cpu_mem_usage=True,
+            trust_remote_code=True,
+            torch_dtype=torch.float16,
+            device_map=self._device,
+        )
         self._model = model.eval()
 
         tokenizer = AutoTokenizer.from_pretrained(
@@ -159,11 +157,13 @@ class Glm4VModel(PytorchChatModel):
             image = images_history[0]
         msgs.append({"role": "user", "content": content, "image": image})
 
-        inputs = self._tokenizer.apply_chat_template(msgs,
-                                    add_generation_prompt=True,
-                                    tokenize=True,
-                                    return_tensors="pt",
-                                    return_dict=True)  # chat mode
+        inputs = self._tokenizer.apply_chat_template(
+            msgs,
+            add_generation_prompt=True,
+            tokenize=True,
+            return_tensors="pt",
+            return_dict=True,
+        )  # chat mode
         inputs = inputs.to(self._model.device)
 
         generate_kwargs = {
@@ -181,7 +181,7 @@ class Glm4VModel(PytorchChatModel):
                 timeout=60,
                 skip_prompt=True,
                 skip_special_tokens=True,
-                )
+            )
             generate_kwargs = {
                 **generate_kwargs,
                 "streamer": streamer,
@@ -194,7 +194,7 @@ class Glm4VModel(PytorchChatModel):
         else:
             with torch.no_grad():
                 outputs = self._model.generate(**generate_kwargs)
-                outputs = outputs[:, inputs['input_ids'].shape[1]:]
+                outputs = outputs[:, inputs["input_ids"].shape[1] :]
                 response = self._tokenizer.decode(outputs[0])
                 if response.endswith(stop_str):
                     response = response[: -len(stop_str)]
