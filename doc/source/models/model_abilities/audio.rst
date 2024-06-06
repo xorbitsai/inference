@@ -11,11 +11,12 @@ Introduction
 ==================
 
 
-The Audio API provides two methods for interacting with audio:
+The Audio API provides three methods for interacting with audio:
 
 
 * The transcriptions endpoint transcribes audio into the input language.
 * The translations endpoint translates audio into English.
+* The speech endpoint generates audio from the input text.
 
 
 .. list-table:: 
