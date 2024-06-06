@@ -53,6 +53,11 @@ NON_DEFAULT_MODEL_LIST: List[str] = [
     "chatglm2",
     "chatglm2-32k",
     "chatglm2-128k",
+    "chatglm3",
+    "chatglm3-32k",
+    "chatglm3-128k",
+    "glm4-chat",
+    "glm4-chat-1m",
     "llama-2",
     "llama-2-chat",
     "internlm2-chat",
@@ -63,6 +68,7 @@ NON_DEFAULT_MODEL_LIST: List[str] = [
     "internvl-chat",
     "mini-internvl-chat",
     "cogvlm2",
+    "MiniCPM-Llama3-V-2_5",
 ]
 
 

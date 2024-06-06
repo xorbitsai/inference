@@ -343,6 +343,8 @@ class ModelActor(xo.StatelessActor):
             gen = self._to_json_async_gen(ret)
             self._current_generator = weakref.ref(gen)
             return gen
+        if isinstance(ret, bytes):
+            return ret
         return await asyncio.to_thread(json_dumps, ret)
 
     @log_async(logger=logger)
@@ -480,6 +482,23 @@ class ModelActor(xo.StatelessActor):
             )
         raise AttributeError(
             f"Model {self._model.model_spec} is not for creating translations."
+        )
+
+    @log_async(logger=logger)
+    @request_limit
+    async def speech(
+        self, input: str, voice: str, response_format: str = "mp3", speed: float = 1.0
+    ):
+        if hasattr(self._model, "speech"):
+            return await self._call_wrapper(
+                self._model.speech,
+                input,
+                voice,
+                response_format,
+                speed,
+            )
+        raise AttributeError(
+            f"Model {self._model.model_spec} is not for creating speech."
         )
 
     @log_async(logger=logger)

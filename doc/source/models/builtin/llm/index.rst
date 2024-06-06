@@ -126,6 +126,11 @@ The following is a list of built-in LLM in Xinference:
      - 8194
      - CodeShell is a multi-language code LLM developed by the Knowledge Computing Lab of Peking University.
 
+   * - :ref:`codestral-v0.1 <models_llm_codestral-v0.1>`
+     - generate
+     - 32768
+     - Codestrall-22B-v0.1 is trained on a diverse dataset of 80+ programming languages, including the most popular ones, such as Python, Java, C, C++, JavaScript, and Bash
+
    * - :ref:`cogvlm2 <models_llm_cogvlm2>`
      - chat, vision
      - 8192
@@ -175,6 +180,16 @@ The following is a list of built-in LLM in Xinference:
      - chat
      - 16384
      - A code model trained on a dataset of ~140k programming related problems and solutions generated from Glaive’s synthetic data generation platform.
+
+   * - :ref:`glm4-chat <models_llm_glm4-chat>`
+     - chat, tools
+     - 131072
+     - GLM4 is the open source version of the latest generation of pre-trained models in the GLM-4 series launched by Zhipu AI.
+
+   * - :ref:`glm4-chat-1m <models_llm_glm4-chat-1m>`
+     - chat, tools
+     - 1048576
+     - GLM4 is the open source version of the latest generation of pre-trained models in the GLM-4 series launched by Zhipu AI.
 
    * - :ref:`gorilla-openfunctions-v1 <models_llm_gorilla-openfunctions-v1>`
      - chat
@@ -266,6 +281,11 @@ The following is a list of built-in LLM in Xinference:
      - 4096
      - MiniCPM is an End-Size LLM developed by ModelBest Inc. and TsinghuaNLP, with only 2.4B parameters excluding embeddings.
 
+   * - :ref:`minicpm-llama3-v-2_5 <models_llm_minicpm-llama3-v-2_5>`
+     - chat, vision
+     - 2048
+     - MiniCPM-Llama3-V 2.5 is the latest model in the MiniCPM-V series. The model is built on SigLip-400M and Llama3-8B-Instruct with a total of 8B parameters.
+
    * - :ref:`mistral-instruct-v0.1 <models_llm_mistral-instruct-v0.1>`
      - chat
      - 8192
@@ -274,6 +294,11 @@ The following is a list of built-in LLM in Xinference:
    * - :ref:`mistral-instruct-v0.2 <models_llm_mistral-instruct-v0.2>`
      - chat
      - 8192
+     - The Mistral-7B-Instruct-v0.2 Large Language Model (LLM) is an improved instruct fine-tuned version of Mistral-7B-Instruct-v0.1.
+
+   * - :ref:`mistral-instruct-v0.3 <models_llm_mistral-instruct-v0.3>`
+     - chat
+     - 32768
      - The Mistral-7B-Instruct-v0.2 Large Language Model (LLM) is an improved instruct fine-tuned version of Mistral-7B-Instruct-v0.1.
 
    * - :ref:`mistral-v0.1 <models_llm_mistral-v0.1>`
@@ -555,6 +580,8 @@ The following is a list of built-in LLM in Xinference:
   
    codeshell-chat
   
+   codestral-v0.1
+  
    cogvlm2
   
    deepseek
@@ -574,6 +601,10 @@ The following is a list of built-in LLM in Xinference:
    gemma-it
   
    glaive-coder
+  
+   glm4-chat
+  
+   glm4-chat-1m
   
    gorilla-openfunctions-v1
   
@@ -611,9 +642,13 @@ The following is a list of built-in LLM in Xinference:
   
    minicpm-2b-sft-fp32
   
+   minicpm-llama3-v-2_5
+  
    mistral-instruct-v0.1
   
    mistral-instruct-v0.2
+  
+   mistral-instruct-v0.3
   
    mistral-v0.1
   
