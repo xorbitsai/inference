@@ -76,4 +76,4 @@ jobs:
         env:
           DOCKER_ORG: ${{ secrets.DOCKERHUB_USERNAME }}
         run: |
-          docker system prune -f
+          docker system prune -f -a
