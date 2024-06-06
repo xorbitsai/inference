@@ -132,7 +132,10 @@ class Glm4VModel(PytorchChatModel):
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
         from transformers import TextIteratorStreamer
 
-        stream = generate_config.get("stream", False) if generate_config else False
+        if not generate_config:
+            generate_config = {}
+
+        stream = generate_config.get("stream", False)
         content, images_chat = self._message_content_to_chat(prompt)
 
         msgs = []
