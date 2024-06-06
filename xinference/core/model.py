@@ -22,6 +22,7 @@ import types
 import weakref
 from asyncio.queues import Queue
 from asyncio.tasks import wait_for
+from concurrent.futures import Future as ConcurrentFuture
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -456,11 +457,12 @@ class ModelActor(xo.StatelessActor):
                     from .scheduler import XINFERENCE_NON_STREAMING_ABORT_FLAG
 
                     assert self._loop is not None
-                    future = self._loop.create_future()
+                    future = ConcurrentFuture()
                     await self._scheduler_ref.add_request(
                         prompt, future, *args, **kwargs
                     )
-                    result = await future
+                    fut = asyncio.wrap_future(future, loop=self._loop)
+                    result = await fut
                     if result == XINFERENCE_NON_STREAMING_ABORT_FLAG:
                         raise RuntimeError(
                             f"This request has been cancelled by another `abort_request` request."
