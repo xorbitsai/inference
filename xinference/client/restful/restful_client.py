@@ -684,6 +684,37 @@ class RESTfulAudioModelHandle(RESTfulModelHandle):
         response_data = response.json()
         return response_data
 
+    def speech(
+        self,
+        input: str,
+        voice: str = "",
+        response_format: str = "mp3",
+        speed: float = 1.0,
+    ):
+        """Generates audio from the input text.
+
+        :param input: The text to generate audio for. The maximum length is 4096 characters.
+        :param voice: The voice to use when generating the audio.
+        :param response_format: The format to audio in.
+        :param speed: The speed of the generated audio.
+        :return: The generated audio binary.
+        """
+        url = f"{self._base_url}/v1/audio/speech"
+        params = {
+            "model": self._model_uid,
+            "input": input,
+            "voice": voice,
+            "response_format": response_format,
+            "speed": speed,
+        }
+        response = requests.post(url, json=params, headers=self.auth_headers)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to speech the text, detail: {_get_error_string(response)}"
+            )
+
+        return response.content
+
 
 class Client:
     def __init__(self, base_url, api_key: Optional[str] = None):
