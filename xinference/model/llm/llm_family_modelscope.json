@@ -2979,7 +2979,7 @@
     "model_ability": [
       "chat"
     ],
-    "model_description": "Qwen1.5-MoE is a transformer-based MoE decoder-only language model pretrained on a large amount of data.",
+    "model_description": "Qwen2 is the new series of Qwen large language models. ",
     "model_specs": [
       {
         "model_format": "pytorch",
@@ -2994,7 +2994,7 @@
       },
       {
         "model_format": "gptq",
-        "model_size_in_billions": "2_7",
+        "model_size_in_billions": 14,
         "quantizations": [
           "Int4"
         ],

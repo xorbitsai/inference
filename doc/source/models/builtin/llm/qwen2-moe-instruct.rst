@@ -34,7 +34,7 @@ Model Spec 2 (gptq, 2_7 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** gptq
-- **Model Size (in billions):** 2_7
+- **Model Size (in billions):** 14
 - **Quantizations:** Int4
 - **Engines**: vLLM, Transformers
 - **Model ID:** Qwen/Qwen2-57B-A14B-Instruct-GPTQ-Int4
@@ -43,5 +43,5 @@ Model Spec 2 (gptq, 2_7 Billion)
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
 
-   xinference launch --model-engine ${engine} --model-name qwen2-moe-instruct --size-in-billions 2_7 --model-format gptq --quantization ${quantization}
+   xinference launch --model-engine ${engine} --model-name qwen2-moe-instruct --size-in-billions 14 --model-format gptq --quantization ${quantization}
 
