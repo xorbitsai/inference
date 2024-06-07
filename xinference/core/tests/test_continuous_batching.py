@@ -14,6 +14,7 @@
 
 
 import os
+import sys
 import threading
 import time
 
@@ -115,6 +116,10 @@ def enable_batch():
     os.environ["XINFERENCE_TRANSFORMERS_ENABLE_BATCHING"] = "1"
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="does not run on windows github CI due to its terrible runtime",
+)
 def test_continuous_batching(enable_batch, setup):
     endpoint, _ = setup
     url = f"{endpoint}/v1/models"
