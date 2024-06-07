@@ -27,6 +27,7 @@ The ``vision`` ability is supported with the following models in Xinference:
 * :ref:`internvl-chat <models_llm_internvl-chat>`
 * :ref:`cogvlm2 <models_llm_cogvlm2>`
 * :ref:`MiniCPM-Llama3-V 2.5 <models_llm_minicpm-llama3-v-2_5>`
+* :ref:`GLM-4V <models_llm_glm-4v>`
 
 
 Quickstart
