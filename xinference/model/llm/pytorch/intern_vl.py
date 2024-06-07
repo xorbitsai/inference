@@ -293,7 +293,7 @@ class InternVLChatModel(PytorchChatModel):
         chat_history: Optional[List[ChatCompletionMessage]] = None,
         generate_config: Optional[PytorchGenerateConfig] = None,
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
-        if generate_config and generate_config.pop("stream"):
+        if generate_config and generate_config.get("stream"):
             raise Exception(
                 f"Chat with model {self.model_family.model_name} does not support stream."
             )
