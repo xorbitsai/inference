@@ -11,3 +11,4 @@ User Guide
    client_api
    auth_system
    metrics
+   continuous_batching
