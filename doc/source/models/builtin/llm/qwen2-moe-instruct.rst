@@ -8,7 +8,7 @@ qwen2-moe-instruct
 - **Model Name:** qwen2-moe-instruct
 - **Languages:** en, zh
 - **Abilities:** chat
-- **Description:** Qwen1.5-MoE is a transformer-based MoE decoder-only language model pretrained on a large amount of data.
+- **Description:** Qwen2 is the new series of Qwen large language models. 
 
 Specifications
 ^^^^^^^^^^^^^^
@@ -30,7 +30,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name qwen2-moe-instruct --size-in-billions 14 --model-format pytorch --quantization ${quantization}
 
 
-Model Spec 2 (gptq, 2_7 Billion)
+Model Spec 2 (gptq, 14 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** gptq
