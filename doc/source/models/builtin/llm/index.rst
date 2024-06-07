@@ -396,6 +396,16 @@ The following is a list of built-in LLM in Xinference:
      - 32768
      - Qwen1.5-MoE is a transformer-based MoE decoder-only language model pretrained on a large amount of data.
 
+   * - :ref:`qwen2-instruct <models_llm_qwen2-instruct>`
+     - chat, tools
+     - 32768
+     - Qwen2 is the new series of Qwen large language models
+
+   * - :ref:`qwen2-moe-instruct <models_llm_qwen2-moe-instruct>`
+     - chat
+     - 32768
+     - Qwen2 is the new series of Qwen large language models. 
+
    * - :ref:`seallm_v2 <models_llm_seallm_v2>`
      - generate
      - 8192
@@ -687,6 +697,10 @@ The following is a list of built-in LLM in Xinference:
    qwen1.5-chat
   
    qwen1.5-moe-chat
+  
+   qwen2-instruct
+  
+   qwen2-moe-instruct
   
    seallm_v2
   
