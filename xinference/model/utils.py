@@ -330,6 +330,8 @@ def cache(model_spec: CacheableModelSpec, model_description_type: type):
             revision=model_spec.model_revision,
             **use_symlinks,
         )
+        if IS_NEW_HUGGINGFACE_HUB:
+            create_symlink(download_dir, cache_dir)
     with open(meta_path, "w") as f:
         import json
 
