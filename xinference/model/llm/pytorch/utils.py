@@ -723,6 +723,7 @@ def _batch_inference_one_step_internal(
         for i, r in enumerate(prefill_reqs):
             (
                 max_new_tokens,
+                stream_interval,
                 include_usage,
                 stop_str,
                 stop_token_ids,
@@ -766,6 +767,7 @@ def _batch_inference_one_step_internal(
         for i, r in enumerate(valid_req_list):
             (
                 max_new_tokens,
+                stream_interval,
                 include_usage,
                 stop_str,
                 stop_token_ids,
@@ -826,37 +828,40 @@ def _batch_inference_one_step_internal(
                 So the implementation here is to decode all the tokens that have been generated each time,
                 and then take the slice.
                 """
-                if output is None:
-                    output = tokenizer.decode(
-                        r.new_tokens,
-                        skip_special_tokens=True,
-                        spaces_between_special_tokens=False,
-                        clean_up_tokenization_spaces=True,
+                if r.stopped or len(r.new_tokens) % stream_interval == 0:
+                    if output is None:
+                        output = tokenizer.decode(
+                            r.new_tokens,
+                            skip_special_tokens=True,
+                            spaces_between_special_tokens=False,
+                            clean_up_tokenization_spaces=True,
+                        )
+
+                    if r.last_output_length == 0:
+                        r.completion.append(bos_flag)
+
+                    # this special character is mainly for qwen
+                    output = output.strip("�")
+                    output = output[r.last_output_length :]
+                    r.last_output_length += len(output)
+
+                    completion_chunk = _get_completion_chunk(
+                        output, r.finish_reason, model_uid, r, False
                     )
+                    r.completion.append(completion_chunk)
+                    if r.stopped:
+                        r.completion.append(eos_flag)
 
-                if r.last_output_length == 0:
-                    r.completion.append(bos_flag)
-
-                # this special character is mainly for qwen
-                output = output.strip("�")
-                output = output[r.last_output_length :]
-                r.last_output_length += len(output)
-
-                completion_chunk = _get_completion_chunk(
-                    output, r.finish_reason, model_uid, r, False
-                )
-                r.completion.append(completion_chunk)
-                if r.stopped:
-                    r.completion.append(eos_flag)
-
-                # last round, handle stream result
-                # append usage information when enable `include_usage` for OPENAI API compatibility
-                # The reason for counting the usage in the last round of the iteration is that,
-                # these tokens are real generated and should be counted.
-                if r.stopped and _i == decode_round - 1 and include_usage:
-                    r.completion.append(
-                        _get_completion_chunk("", r.finish_reason, model_uid, r, True)
-                    )
+                    # last round, handle stream result
+                    # append usage information when enable `include_usage` for OPENAI API compatibility
+                    # The reason for counting the usage in the last round of the iteration is that,
+                    # these tokens are real generated and should be counted.
+                    if r.stopped and _i == decode_round - 1 and include_usage:
+                        r.completion.append(
+                            _get_completion_chunk(
+                                "", r.finish_reason, model_uid, r, True
+                            )
+                        )
             else:
                 # last round, handle non-stream result
                 if r.stopped and _i == decode_round - 1:

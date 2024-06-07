@@ -219,6 +219,7 @@ class InferenceRequest:
         max_new_tokens = int(
             self.sanitized_generate_config.get("max_tokens", max_tokens_field.default)
         )
+        stream_interval = self.sanitized_generate_config.get("stream_interval", 2)
         include_usage = self.include_usage
         stop_str = self.sanitized_generate_config.get("stop", None)
         stop_token_ids = (
@@ -234,6 +235,7 @@ class InferenceRequest:
         top_k = int(self.sanitized_generate_config.get("top_k", -1))  # -1 means disable
         return (
             max_new_tokens,
+            stream_interval,
             include_usage,
             stop_str,
             stop_token_ids,
