@@ -186,8 +186,7 @@ class GradioInterface:
     def build_chat_vl_interface(
         self,
     ) -> "gr.Blocks":
-        def predict(history, bot):
-            logger.debug("Predict model: %s, history: %s", self.model_uid, history)
+        def predict(history, bot, max_tokens, temperature, stream):
             from ..client import RESTfulClient
 
             client = RESTfulClient(self.endpoint)
@@ -199,10 +198,46 @@ class GradioInterface:
             assert prompt["role"] == "user"
             prompt = prompt["content"]
             # multimodal chat does not support stream.
-            response = model.chat(prompt=prompt, chat_history=history[:-1])
-            history.append(response["choices"][0]["message"])
-            bot[-1][1] = history[-1]["content"]
-            return history, bot
+            if stream:
+                response_content = ""
+                for chunk in model.chat(
+                    prompt=prompt,
+                    chat_history=history[:-1],
+                    generate_config={
+                        "max_tokens": max_tokens,
+                        "temperature": temperature,
+                        "stream": stream,
+                    },
+                ):
+                    assert isinstance(chunk, dict)
+                    delta = chunk["choices"][0]["delta"]
+                    if "content" not in delta:
+                        continue
+                    else:
+                        response_content += delta["content"]
+                        bot[-1][1] = response_content
+                        yield history, bot
+                history.append(
+                    {
+                        "content": response_content,
+                        "role": "assistant",
+                    }
+                )
+                bot[-1][1] = response_content
+                yield history, bot
+            else:
+                response = model.chat(
+                    prompt=prompt,
+                    chat_history=history[:-1],
+                    generate_config={
+                        "max_tokens": max_tokens,
+                        "temperature": temperature,
+                        "stream": stream,
+                    },
+                )
+                history.append(response["choices"][0]["message"])
+                bot[-1][1] = history[-1]["content"]
+                yield history, bot
 
         def add_text(history, bot, text, image):
             logger.debug("Add text, text: %s, image: %s", text, image)
@@ -229,7 +264,7 @@ class GradioInterface:
                 display_content = text
                 message = {"role": "user", "content": text}
             history = history + [message]
-            bot = bot + [(display_content, None)]
+            bot = bot + [[display_content, None]]
             return history, bot, "", None
 
         def clear_history():
@@ -291,6 +326,19 @@ class GradioInterface:
                     )
                     clear_btn = gr.Button(value="Clear")
 
+            with gr.Accordion("Additional Inputs", open=False):
+                max_tokens = gr.Slider(
+                    minimum=1,
+                    maximum=self.context_length,
+                    value=512,
+                    step=1,
+                    label="Max Tokens",
+                )
+                temperature = gr.Slider(
+                    minimum=0, maximum=2, value=1, step=0.01, label="Temperature"
+                )
+                stream = gr.Checkbox(label="Stream", value=False)
+
             textbox.change(update_button, [textbox], [submit_btn], queue=False)
 
             textbox.submit(
@@ -298,14 +346,22 @@ class GradioInterface:
                 [state, chatbot, textbox, imagebox],
                 [state, chatbot, textbox, imagebox],
                 queue=False,
-            ).then(predict, [state, chatbot], [state, chatbot])
+            ).then(
+                predict,
+                [state, chatbot, max_tokens, temperature, stream],
+                [state, chatbot],
+            )
 
             submit_btn.click(
                 add_text,
                 [state, chatbot, textbox, imagebox],
                 [state, chatbot, textbox, imagebox],
                 queue=False,
-            ).then(predict, [state, chatbot], [state, chatbot])
+            ).then(
+                predict,
+                [state, chatbot, max_tokens, temperature, stream],
+                [state, chatbot],
+            )
 
             clear_btn.click(
                 clear_history, None, [state, chatbot, textbox, imagebox], queue=False

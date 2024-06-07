@@ -993,8 +993,9 @@ class SupervisorActor(xo.StatelessActor):
                     "model_size_in_billions", None
                 )
                 quantizations = model_version.get("quantization", None)
-                re_dict = model_version.get("model_file_location", None)
-                actor_ip_address, path = next(iter(re_dict.items()))
+                actor_ip_address = model_version.get("actor_ip_address", None)
+                path = model_version.get("path", None)
+                real_path = model_version.get("real_path", None)
 
                 cache_entry = {
                     "model_name": model_name,
@@ -1003,6 +1004,7 @@ class SupervisorActor(xo.StatelessActor):
                     "quantizations": quantizations,
                     "path": path,
                     "Actor IP Address": actor_ip_address,
+                    "real_path": real_path,
                 }
 
                 cached_models.append(cache_entry)
