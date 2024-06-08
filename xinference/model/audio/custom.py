@@ -89,8 +89,8 @@ def register_audio(model_spec: CustomAudioModelFamilyV1, persist: bool):
         raise ValueError(f"Invalid model name {model_spec.model_name}.")
 
     with UD_AUDIO_LOCK:
-        for model_name in list(
-            BUILTIN_AUDIO_MODELS.keys()
+        for model_name in (
+            list(BUILTIN_AUDIO_MODELS.keys())
             + list(MODELSCOPE_AUDIO_MODELS.keys())
             + [spec.model_name for spec in UD_AUDIOS]
         ):
