@@ -20,9 +20,14 @@ import os
 import time
 import types
 import weakref
+from asyncio.queues import Queue
+from asyncio.tasks import wait_for
+from concurrent.futures import Future as ConcurrentFuture
 from typing import (
     TYPE_CHECKING,
+    Any,
     AsyncGenerator,
+    AsyncIterator,
     Callable,
     Dict,
     Generator,
@@ -34,6 +39,8 @@ from typing import (
 
 import sse_starlette.sse
 import xoscar as xo
+
+from ..constants import XINFERENCE_TRANSFORMERS_ENABLE_BATCHING
 
 if TYPE_CHECKING:
     from .worker import WorkerActor
@@ -125,6 +132,16 @@ class ModelActor(xo.StatelessActor):
         from ..model.llm.pytorch.core import PytorchModel as LLMPytorchModel
         from ..model.llm.vllm.core import VLLMModel as LLMVLLMModel
 
+        if self.allow_batching():
+            try:
+                assert self._scheduler_ref is not None
+                await xo.destroy_actor(self._scheduler_ref)
+                del self._scheduler_ref
+            except Exception as e:
+                logger.debug(
+                    f"Destroy scheduler actor failed, address: {self.address}, error: {e}"
+                )
+
         if (
             isinstance(self._model, (LLMPytorchModel, LLMVLLMModel))
             and self._model.model_spec.model_format == "pytorch"
@@ -181,8 +198,19 @@ class ModelActor(xo.StatelessActor):
         }
         self._loop: Optional[asyncio.AbstractEventLoop] = None
 
+        self._scheduler_ref = None
+
     async def __post_create__(self):
         self._loop = asyncio.get_running_loop()
+
+        if self.allow_batching():
+            from .scheduler import SchedulerActor
+
+            self._scheduler_ref = await xo.create_actor(
+                SchedulerActor,
+                address=self.address,
+                uid=SchedulerActor.gen_uid(self.model_uid(), self._model.rep_id),
+            )
 
     async def _record_completion_metrics(
         self, duration, completion_tokens, prompt_tokens
@@ -235,8 +263,22 @@ class ModelActor(xo.StatelessActor):
 
         return isinstance(self._model, VLLMModel)
 
-    def load(self):
+    def allow_batching(self) -> bool:
+        from ..model.llm.pytorch.core import PytorchChatModel
+
+        return (
+            XINFERENCE_TRANSFORMERS_ENABLE_BATCHING
+            and isinstance(self._model, PytorchChatModel)
+            and self._model.__class__.__name__ == PytorchChatModel.__name__
+        )
+
+    async def load(self):
         self._model.load()
+        if self.allow_batching():
+            await self._scheduler_ref.set_model(self._model)
+            logger.debug(
+                f"Batching enabled for model: {self.model_uid()}, max_num_seqs: {self._model.get_max_num_seqs()}"
+            )
 
     def model_uid(self):
         return (
@@ -343,6 +385,8 @@ class ModelActor(xo.StatelessActor):
             gen = self._to_json_async_gen(ret)
             self._current_generator = weakref.ref(gen)
             return gen
+        if isinstance(ret, bytes):
+            return ret
         return await asyncio.to_thread(json_dumps, ret)
 
     @log_async(logger=logger)
@@ -359,6 +403,36 @@ class ModelActor(xo.StatelessActor):
             )
         raise AttributeError(f"Model {self._model.model_spec} is not for generate.")
 
+    async def _queue_consumer(
+        self, queue: Queue, timeout: Optional[float] = None
+    ) -> AsyncIterator[Any]:
+        from .scheduler import (
+            XINFERENCE_STREAMING_ABORT_FLAG,
+            XINFERENCE_STREAMING_DONE_FLAG,
+            XINFERENCE_STREAMING_ERROR_FLAG,
+        )
+
+        while True:
+            # TODO: timeout setting
+            res = await wait_for(queue.get(), timeout)
+            if res == XINFERENCE_STREAMING_DONE_FLAG:
+                break
+            elif res == XINFERENCE_STREAMING_ABORT_FLAG:
+                raise RuntimeError(
+                    f"This request has been cancelled by another `abort_request` request."
+                )
+            elif isinstance(res, str) and res.startswith(
+                XINFERENCE_STREAMING_ERROR_FLAG
+            ):
+                raise RuntimeError(res[len(XINFERENCE_STREAMING_ERROR_FLAG) :])
+            else:
+                yield res
+
+    @staticmethod
+    def get_stream_from_args(*args) -> bool:
+        assert args[2] is None or isinstance(args[2], dict)
+        return False if args[2] is None else args[2].get("stream", False)
+
     @log_async(logger=logger)
     @request_limit
     @xo.generator
@@ -366,17 +440,46 @@ class ModelActor(xo.StatelessActor):
         start_time = time.time()
         response = None
         try:
-            if hasattr(self._model, "chat"):
-                response = await self._call_wrapper(
-                    self._model.chat, prompt, *args, **kwargs
-                )
-                return response
-            if hasattr(self._model, "async_chat"):
-                response = await self._call_wrapper(
-                    self._model.async_chat, prompt, *args, **kwargs
-                )
-                return response
-            raise AttributeError(f"Model {self._model.model_spec} is not for chat.")
+            if self.allow_batching():
+                stream = self.get_stream_from_args(*args)
+                assert self._scheduler_ref is not None
+                if stream:
+                    assert self._scheduler_ref is not None
+                    queue: Queue[Any] = Queue()
+                    ret = self._queue_consumer(queue)
+                    await self._scheduler_ref.add_request(
+                        prompt, queue, *args, **kwargs
+                    )
+                    gen = self._to_json_async_gen(ret)
+                    self._current_generator = weakref.ref(gen)
+                    return gen
+                else:
+                    from .scheduler import XINFERENCE_NON_STREAMING_ABORT_FLAG
+
+                    assert self._loop is not None
+                    future = ConcurrentFuture()
+                    await self._scheduler_ref.add_request(
+                        prompt, future, *args, **kwargs
+                    )
+                    fut = asyncio.wrap_future(future, loop=self._loop)
+                    result = await fut
+                    if result == XINFERENCE_NON_STREAMING_ABORT_FLAG:
+                        raise RuntimeError(
+                            f"This request has been cancelled by another `abort_request` request."
+                        )
+                    return await asyncio.to_thread(json_dumps, result)
+            else:
+                if hasattr(self._model, "chat"):
+                    response = await self._call_wrapper(
+                        self._model.chat, prompt, *args, **kwargs
+                    )
+                    return response
+                if hasattr(self._model, "async_chat"):
+                    response = await self._call_wrapper(
+                        self._model.async_chat, prompt, *args, **kwargs
+                    )
+                    return response
+                raise AttributeError(f"Model {self._model.model_spec} is not for chat.")
         finally:
             # For the non stream result.
             record = None
@@ -394,6 +497,15 @@ class ModelActor(xo.StatelessActor):
                     completion_tokens,
                     prompt_tokens,
                 )
+
+    async def abort_request(self, request_id: str) -> str:
+        from .scheduler import AbortRequestMessage
+
+        if self.allow_batching():
+            if self._scheduler_ref is None:
+                return AbortRequestMessage.NOT_FOUND.name
+            return await self._scheduler_ref.abort_request(request_id)
+        return AbortRequestMessage.NO_OP.name
 
     @log_async(logger=logger)
     @request_limit
@@ -480,6 +592,23 @@ class ModelActor(xo.StatelessActor):
             )
         raise AttributeError(
             f"Model {self._model.model_spec} is not for creating translations."
+        )
+
+    @log_async(logger=logger)
+    @request_limit
+    async def speech(
+        self, input: str, voice: str, response_format: str = "mp3", speed: float = 1.0
+    ):
+        if hasattr(self._model, "speech"):
+            return await self._call_wrapper(
+                self._model.speech,
+                input,
+                voice,
+                response_format,
+                speed,
+            )
+        raise AttributeError(
+            f"Model {self._model.model_spec} is not for creating speech."
         )
 
     @log_async(logger=logger)

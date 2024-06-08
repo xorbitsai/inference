@@ -93,6 +93,7 @@ VLLM_SUPPORTED_MODELS = [
     "baichuan",
     "internlm-16k",
     "mistral-v0.1",
+    "codestral-v0.1",
     "Yi",
     "Yi-1.5",
     "code-llama",
@@ -118,11 +119,14 @@ VLLM_SUPPORTED_CHAT_MODELS = [
     "code-llama-instruct",
     "mistral-instruct-v0.1",
     "mistral-instruct-v0.2",
+    "mistral-instruct-v0.3",
     "mixtral-instruct-v0.1",
     "mixtral-8x22B-instruct-v0.1",
     "chatglm3",
     "chatglm3-32k",
     "chatglm3-128k",
+    "glm4-chat",
+    "glm4-chat-1m",
     "deepseek-chat",
     "deepseek-coder-instruct",
 ]
@@ -130,6 +134,7 @@ if VLLM_INSTALLED and vllm.__version__ >= "0.3.0":
     VLLM_SUPPORTED_CHAT_MODELS.append("qwen1.5-chat")
     VLLM_SUPPORTED_MODELS.append("codeqwen1.5")
     VLLM_SUPPORTED_CHAT_MODELS.append("codeqwen1.5-chat")
+    VLLM_SUPPORTED_CHAT_MODELS.append("qwen2-instruct")
 
 if VLLM_INSTALLED and vllm.__version__ >= "0.3.2":
     VLLM_SUPPORTED_CHAT_MODELS.append("gemma-it")
@@ -140,6 +145,7 @@ if VLLM_INSTALLED and vllm.__version__ >= "0.3.3":
 
 if VLLM_INSTALLED and vllm.__version__ >= "0.4.0":
     VLLM_SUPPORTED_CHAT_MODELS.append("qwen1.5-moe-chat")
+    VLLM_SUPPORTED_CHAT_MODELS.append("qwen2-moe-instruct")
     VLLM_SUPPORTED_CHAT_MODELS.append("c4ai-command-r-v01")
 
 

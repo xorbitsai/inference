@@ -1014,6 +1014,32 @@ class SupervisorActor(xo.StatelessActor):
         return cached_models
 
     @log_async(logger=logger)
+    async def abort_request(self, model_uid: str, request_id: str) -> Dict:
+        from .scheduler import AbortRequestMessage
+
+        res = {"msg": AbortRequestMessage.NO_OP.name}
+        replica_info = self._model_uid_to_replica_info.get(model_uid, None)
+        if not replica_info:
+            return res
+        replica_cnt = replica_info.replica
+
+        # Query all replicas
+        for rep_mid in iter_replica_model_uid(model_uid, replica_cnt):
+            worker_ref = self._replica_model_uid_to_worker.get(rep_mid, None)
+            if worker_ref is None:
+                continue
+            model_ref = await worker_ref.get_model(model_uid=rep_mid)
+            result_info = await model_ref.abort_request(request_id)
+            res["msg"] = result_info
+            if result_info == AbortRequestMessage.DONE.name:
+                break
+            elif result_info == AbortRequestMessage.NOT_FOUND.name:
+                logger.debug(f"Request id: {request_id} not found for model {rep_mid}")
+            else:
+                logger.debug(f"No-op for model {rep_mid}")
+        return res
+
+    @log_async(logger=logger)
     async def add_worker(self, worker_address: str):
         from .worker import WorkerActor
 

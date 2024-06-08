@@ -31,12 +31,14 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 - Docker 镜像支持: [#855](https://github.com/xorbitsai/inference/pull/855)
 - 支持多模态模型：[#829](https://github.com/xorbitsai/inference/pull/829)
 ### 新模型
+- 内置 [Qwen2](https://github.com/QwenLM/Qwen2): [#1509](https://github.com/xorbitsai/inference/pull/1597)
+- 内置 [ChatTTS](https://github.com/2noise/ChatTTS): [#1578](https://github.com/xorbitsai/inference/pull/1578)
+- 内置 [GLM-4 & GLM-4V](https://github.com/THUDM/GLM-4): [#1584](https://github.com/xorbitsai/inference/pull/1584) 
+- 内置 [Mistral-7B-Instruct-v0.3](https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.3): [#1576](https://github.com/xorbitsai/inference/pull/1576) 
+- 内置 [Codestral-22B-v0.1](https://huggingface.co/mistralai/Codestral-22B-v0.1): [#1575](https://github.com/xorbitsai/inference/pull/1575) 
+- 内置 [MiniCPM-Llama3-V 2.5](https://github.com/OpenBMB/MiniCPM-V): [#1577](https://github.com/xorbitsai/inference/pull/1577)
 - 内置 [CogVLM2](https://github.com/THUDM/CogVLM2): [#1551](https://github.com/xorbitsai/inference/pull/1551)
 - 内置 [InternVL-Chat-V1-5](https://github.com/OpenGVLab/InternVL): [#1536](https://github.com/xorbitsai/inference/pull/1536)
-- 内置 [Yi-1.5](https://github.com/01-ai/Yi-1.5): [#1489](https://github.com/xorbitsai/inference/pull/1489)
-- 内置 [Llama 3](https://github.com/meta-llama/llama3): [#1332](https://github.com/xorbitsai/inference/pull/1332)
-- 内置 [Qwen1.5 110B](https://huggingface.co/Qwen/Qwen1.5-110B-Chat): [#1388](https://github.com/xorbitsai/inference/pull/1388)
-- 内置 [Mixtral-8x22B-instruct-v0.1](https://huggingface.co/mistralai/Mixtral-8x22B-Instruct-v0.1): [#1340](https://github.com/xorbitsai/inference/pull/1340)
 ### 集成
 - [FastGPT](https://doc.fastai.site/docs/development/custom-models/xinference/)：一个基于 LLM 大模型的开源 AI 知识库构建平台。提供了开箱即用的数据处理、模型调用、RAG 检索、可视化 AI 工作流编排等能力，帮助您轻松实现复杂的问答场景。
 - [Dify](https://docs.dify.ai/advanced/model-configuration/xinference): 一个涵盖了大型语言模型开发、部署、维护和优化的 LLMOps 平台。

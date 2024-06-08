@@ -22,7 +22,7 @@ RUN python -m pip install --upgrade -i "$PIP_INDEX" pip && \
     pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu && \
     pip install -i "$PIP_INDEX" \
       "xoscar>=0.3.0" \
-      "gradio>=3.39.0" \
+      "gradio==4.26.0" \
       "typer[all]<0.12.0" \
       pillow \
       click \
@@ -30,12 +30,12 @@ RUN python -m pip install --upgrade -i "$PIP_INDEX" pip && \
       tabulate \
       requests \
       pydantic \
-      fastapi \
+      "fastapi==0.110.3" \
       uvicorn \
       "huggingface-hub>=0.19.4" \
       typing_extensions \
-      "fsspec>=2023.1.0,<=2023.10.0" \
-      s3fs \
+      "fsspec==2023.10.0" \
+      "s3fs==2023.10.0" \
       "modelscope>=1.10.0" \
       "sse_starlette>=1.6.5" \
       "openai>1" \
