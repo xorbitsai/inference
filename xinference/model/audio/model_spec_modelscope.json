@@ -1,0 +1,20 @@
+[
+  {
+    "model_name": "whisper-large-v3",
+    "model_family": "whisper",
+    "model_hub": "modelscope",
+    "model_id": "AI-ModelScope/whisper-large-v3",
+    "model_revision": "master",
+    "ability": "audio-to-text",
+    "multilingual": true
+  },
+  {
+    "model_name": "ChatTTS",
+    "model_family": "ChatTTS",
+    "model_hub": "modelscope",
+    "model_id": "pzc163/chatTTS",
+    "model_revision": "master",
+    "ability": "text-to-audio",
+    "multilingual": true
+  }
+]

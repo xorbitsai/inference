@@ -83,15 +83,17 @@ def get_user_defined_audios() -> List[CustomAudioModelFamilyV1]:
 def register_audio(model_spec: CustomAudioModelFamilyV1, persist: bool):
     from ...constants import XINFERENCE_MODEL_DIR
     from ..utils import is_valid_model_name, is_valid_model_uri
-    from . import BUILTIN_AUDIO_MODELS
+    from . import BUILTIN_AUDIO_MODELS, MODELSCOPE_AUDIO_MODELS
 
     if not is_valid_model_name(model_spec.model_name):
         raise ValueError(f"Invalid model name {model_spec.model_name}.")
 
     with UD_AUDIO_LOCK:
-        for model_name in list(BUILTIN_AUDIO_MODELS.keys()) + [
-            spec.model_name for spec in UD_AUDIOS
-        ]:
+        for model_name in list(
+            BUILTIN_AUDIO_MODELS.keys()
+            + list(MODELSCOPE_AUDIO_MODELS.keys())
+            + [spec.model_name for spec in UD_AUDIOS]
+        ):
             if model_spec.model_name == model_name:
                 raise ValueError(
                     f"Model name conflicts with existing model {model_spec.model_name}"
