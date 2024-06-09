@@ -31,7 +31,9 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 - Docker 镜像支持: [#855](https://github.com/xorbitsai/inference/pull/855)
 - 支持多模态模型：[#829](https://github.com/xorbitsai/inference/pull/829)
 ### 新模型
-- 内置 [GLM-4](https://github.com/THUDM/GLM-4): [#1584](https://github.com/xorbitsai/inference/pull/1584) 
+- 内置 [Qwen2](https://github.com/QwenLM/Qwen2): [#1509](https://github.com/xorbitsai/inference/pull/1597)
+- 内置 [ChatTTS](https://github.com/2noise/ChatTTS): [#1578](https://github.com/xorbitsai/inference/pull/1578)
+- 内置 [GLM-4 & GLM-4V](https://github.com/THUDM/GLM-4): [#1584](https://github.com/xorbitsai/inference/pull/1584) 
 - 内置 [Mistral-7B-Instruct-v0.3](https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.3): [#1576](https://github.com/xorbitsai/inference/pull/1576) 
 - 内置 [Codestral-22B-v0.1](https://huggingface.co/mistralai/Codestral-22B-v0.1): [#1575](https://github.com/xorbitsai/inference/pull/1575) 
 - 内置 [MiniCPM-Llama3-V 2.5](https://github.com/OpenBMB/MiniCPM-V): [#1577](https://github.com/xorbitsai/inference/pull/1577)

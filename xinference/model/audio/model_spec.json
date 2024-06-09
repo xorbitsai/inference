@@ -4,7 +4,7 @@
     "model_family": "whisper",
     "model_id": "openai/whisper-tiny",
     "model_revision": "167c219b21f11ef214220b8fdb7536b8a88c2475",
-    "ability": "text-to-audio",
+    "ability": "audio-to-text",
     "multilingual": true
   },
   {
@@ -12,7 +12,7 @@
     "model_family": "whisper",
     "model_id": "openai/whisper-tiny.en",
     "model_revision": "87c7102498dcde7456f24cfd30239ca606ed9063",
-    "ability": "text-to-audio",
+    "ability": "audio-to-text",
     "multilingual": false
   },
   {
@@ -20,7 +20,7 @@
     "model_family": "whisper",
     "model_id": "openai/whisper-base",
     "model_revision": "8c1db9b51951100007a96a525d83a8ec81b3c237",
-    "ability": "text-to-audio",
+    "ability": "audio-to-text",
     "multilingual": true
   },
   {
@@ -28,7 +28,7 @@
     "model_family": "whisper",
     "model_id": "openai/whisper-base.en",
     "model_revision": "911407f4214e0e1d82085af863093ec0b66f9cd6",
-    "ability": "text-to-audio",
+    "ability": "audio-to-text",
     "multilingual": false
   },
   {
@@ -36,7 +36,7 @@
     "model_family": "whisper",
     "model_id": "openai/whisper-small",
     "model_revision": "998cb1a777c20db53d6033a61b977ed4c3792cac",
-    "ability": "text-to-audio",
+    "ability": "audio-to-text",
     "multilingual": true
   },
   {
@@ -44,7 +44,7 @@
     "model_family": "whisper",
     "model_id": "openai/whisper-small.en",
     "model_revision": "e8727524f962ee844a7319d92be39ac1bd25655a",
-    "ability": "text-to-audio",
+    "ability": "audio-to-text",
     "multilingual": false
   },
   {
@@ -52,7 +52,7 @@
     "model_family": "whisper",
     "model_id": "openai/whisper-medium",
     "model_revision": "16688beb1294bedd0a6f5cd86fe7eec57bce41ed",
-    "ability": "text-to-audio",
+    "ability": "audio-to-text",
     "multilingual": true
   },
   {
@@ -60,7 +60,7 @@
     "model_family": "whisper",
     "model_id": "openai/whisper-medium.en",
     "model_revision": "2e98eb6279edf5095af0c8dedb36bdec0acd172b",
-    "ability": "text-to-audio",
+    "ability": "audio-to-text",
     "multilingual": false
   },
   {
@@ -68,7 +68,7 @@
     "model_family": "whisper",
     "model_id": "openai/whisper-large-v3",
     "model_revision": "6cdf07a7e3ec3806e5d55f787915b85d4cd020b1",
-    "ability": "text-to-audio",
+    "ability": "audio-to-text",
     "multilingual": true
   },
   {
@@ -76,7 +76,7 @@
     "model_family": "whisper",
     "model_id": "BELLE-2/Belle-distilwhisper-large-v2-zh",
     "model_revision": "ed25d13498fa5bac758b2fc479435b698532dfe8",
-    "ability": "text-to-audio",
+    "ability": "audio-to-text",
     "multilingual": false
   },
   {
@@ -84,7 +84,7 @@
     "model_family": "whisper",
     "model_id": "BELLE-2/Belle-whisper-large-v2-zh",
     "model_revision": "ec5bd5d78598545b7585814edde86dac2002b5b9",
-    "ability": "text-to-audio",
+    "ability": "audio-to-text",
     "multilingual": false
   },
   {
@@ -92,7 +92,7 @@
     "model_family": "whisper",
     "model_id": "BELLE-2/Belle-whisper-large-v3-zh",
     "model_revision": "3bebc7247696b39f5ab9ed22db426943ac33f600",
-    "ability": "text-to-audio",
+    "ability": "audio-to-text",
     "multilingual": false
   },
   {
@@ -100,7 +100,7 @@
     "model_family": "ChatTTS",
     "model_id": "2Noise/ChatTTS",
     "model_revision": "ce5913842aebd78e4a01a02d47244b8d62ac4ee3",
-    "ability": "audio-to-text",
+    "ability": "text-to-audio",
     "multilingual": true
   }
 ]

@@ -181,6 +181,11 @@ The following is a list of built-in LLM in Xinference:
      - 16384
      - A code model trained on a dataset of ~140k programming related problems and solutions generated from Glaive’s synthetic data generation platform.
 
+   * - :ref:`glm-4v <models_llm_glm-4v>`
+     - chat, vision
+     - 8192
+     - GLM4 is the open source version of the latest generation of pre-trained models in the GLM-4 series launched by Zhipu AI.
+
    * - :ref:`glm4-chat <models_llm_glm4-chat>`
      - chat, tools
      - 131072
@@ -396,6 +401,16 @@ The following is a list of built-in LLM in Xinference:
      - 32768
      - Qwen1.5-MoE is a transformer-based MoE decoder-only language model pretrained on a large amount of data.
 
+   * - :ref:`qwen2-instruct <models_llm_qwen2-instruct>`
+     - chat, tools
+     - 32768
+     - Qwen2 is the new series of Qwen large language models
+
+   * - :ref:`qwen2-moe-instruct <models_llm_qwen2-moe-instruct>`
+     - chat
+     - 32768
+     - Qwen2 is the new series of Qwen large language models. 
+
    * - :ref:`seallm_v2 <models_llm_seallm_v2>`
      - generate
      - 8192
@@ -602,6 +617,8 @@ The following is a list of built-in LLM in Xinference:
   
    glaive-coder
   
+   glm-4v
+  
    glm4-chat
   
    glm4-chat-1m
@@ -687,6 +704,10 @@ The following is a list of built-in LLM in Xinference:
    qwen1.5-chat
   
    qwen1.5-moe-chat
+  
+   qwen2-instruct
+  
+   qwen2-moe-instruct
   
    seallm_v2
   

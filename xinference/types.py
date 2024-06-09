@@ -284,6 +284,7 @@ class PytorchGenerateConfig(TypedDict, total=False):
     tools: Optional[List[Dict]]
     lora_name: Optional[str]
     stream_options: Optional[Union[dict, None]]
+    request_id: Optional[str]
 
 
 class PytorchModelConfig(TypedDict, total=False):
@@ -297,6 +298,7 @@ class PytorchModelConfig(TypedDict, total=False):
     gptq_groupsize: int
     gptq_act_order: bool
     trust_remote_code: bool
+    max_num_seqs: int
 
 
 def get_pydantic_model_from_method(
@@ -361,6 +363,7 @@ class CreateCompletionTorch(BaseModel):
     top_p: float = top_p_field
     top_k: int = top_k_field
     lora_name: Optional[str]
+    request_id: Optional[str]
 
 
 CreateCompletionLlamaCpp: BaseModel
