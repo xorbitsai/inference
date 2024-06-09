@@ -34,12 +34,14 @@ potential of cutting-edge AI models.
 - Docker image: [#855](https://github.com/xorbitsai/inference/pull/855)
 - Support multimodal: [#829](https://github.com/xorbitsai/inference/pull/829)
 ### New Models
+- Built-in support for [Qwen2](https://github.com/QwenLM/Qwen2): [#1509](https://github.com/xorbitsai/inference/pull/1597)
+- Built-in support for [ChatTTS](https://github.com/2noise/ChatTTS): [#1578](https://github.com/xorbitsai/inference/pull/1578)
+- Built-in support for [GLM-4 & GLM-4V](https://github.com/THUDM/GLM-4): [#1584](https://github.com/xorbitsai/inference/pull/1584) 
+- Built-in support for [Mistral-7B-Instruct-v0.3](https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.3): [#1576](https://github.com/xorbitsai/inference/pull/1576) 
+- Built-in support for [Codestral-22B-v0.1](https://huggingface.co/mistralai/Codestral-22B-v0.1): [#1575](https://github.com/xorbitsai/inference/pull/1575) 
+- Built-in support for [MiniCPM-Llama3-V 2.5](https://github.com/OpenBMB/MiniCPM-V): [#1577](https://github.com/xorbitsai/inference/pull/1577)
+- Built-in support for [CogVLM2](https://github.com/THUDM/CogVLM2): [#1551](https://github.com/xorbitsai/inference/pull/1551)
 - Built-in support for [InternVL-Chat-V1-5](https://github.com/OpenGVLab/InternVL): [#1536](https://github.com/xorbitsai/inference/pull/1536)
-- Built-in support for [Yi-1.5](https://github.com/01-ai/Yi-1.5): [#1489](https://github.com/xorbitsai/inference/pull/1489)
-- Built-in support for [Llama 3](https://github.com/meta-llama/llama3): [#1332](https://github.com/xorbitsai/inference/pull/1332)
-- Built-in support for [Qwen1.5 110B](https://huggingface.co/Qwen/Qwen1.5-110B-Chat): [#1388](https://github.com/xorbitsai/inference/pull/1388)
-- Built-in support for [Mixtral-8x22B-instruct-v0.1](https://huggingface.co/mistralai/Mixtral-8x22B-Instruct-v0.1): [#1340](https://github.com/xorbitsai/inference/pull/1340)
-- Built-in support for [Command-R](https://huggingface.co/CohereForAI/c4ai-command-r-v01): [#1310](https://github.com/xorbitsai/inference/pull/1310)
 ### Integrations
 - [Dify](https://docs.dify.ai/advanced/model-configuration/xinference): an LLMOps platform that enables developers (and even non-developers) to quickly build useful applications based on large language models, ensuring they are visual, operable, and improvable.
 - [FastGPT](https://github.com/labring/FastGPT): a knowledge-based platform built on the LLM, offers out-of-the-box data processing and model invocation capabilities, allows for workflow orchestration through Flow visualization.

@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import os
 
 import pytest
 import requests
@@ -85,6 +85,39 @@ async def test_metrics_exporter_server(setup_cluster):
     response = requests.get(metrics_exporter_address)
     assert response.ok
     assert 'xinference:input_tokens_total_counter{model="orca"} 1' in response.text
+
+
+@pytest.fixture
+def disable_metrics():
+    try:
+        os.environ["XINFERENCE_DISABLE_METRICS"] = "1"
+        yield
+    finally:
+        os.environ.pop("XINFERENCE_DISABLE_METRICS", None)
+
+
+@pytest.mark.asyncio
+async def test_disable_metrics_exporter_server(disable_metrics, setup_cluster):
+    endpoint, metrics_exporter_address, supervisor_address = setup_cluster
+
+    from ...client import Client
+
+    client = Client(endpoint)
+
+    client.launch_model(
+        model_name="orca",
+        model_engine="llama.cpp",
+        model_size_in_billions=3,
+        quantization="q4_0",
+    )
+
+    # Check the supervisor metrics collected the RESTful API.
+    response = requests.get(f"{endpoint}/metrics")
+    assert response.status_code == 404
+
+    # Check the worker metrics collected model metrics.
+    with pytest.raises(requests.exceptions.ConnectionError):
+        requests.get(metrics_exporter_address)
 
 
 async def test_metrics_exporter_data(setup_cluster):

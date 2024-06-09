@@ -17,6 +17,7 @@ import logging
 import os
 from typing import Iterable, Iterator, List, Mapping, Optional, Union
 
+from ....core.scheduler import InferenceRequest
 from ....device_utils import (
     get_device_preferred_dtype,
     gpu_count,
@@ -41,6 +42,7 @@ from ...utils import select_device
 from ..core import LLM
 from ..llm_family import LLMFamilyV1, LLMSpecV1
 from ..utils import ChatModelMixin, CodeModelMixin
+from .utils import get_context_length, get_max_src_len
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +56,11 @@ NON_DEFAULT_MODEL_LIST: List[str] = [
     "chatglm2",
     "chatglm2-32k",
     "chatglm2-128k",
+    "chatglm3",
+    "chatglm3-32k",
+    "chatglm3-128k",
+    "glm4-chat",
+    "glm4-chat-1m",
     "llama-2",
     "llama-2-chat",
     "internlm2-chat",
@@ -63,6 +70,9 @@ NON_DEFAULT_MODEL_LIST: List[str] = [
     "deepseek-vl-chat",
     "internvl-chat",
     "mini-internvl-chat",
+    "cogvlm2",
+    "MiniCPM-Llama3-V-2_5",
+    "glm-4v",
 ]
 
 
@@ -96,6 +106,7 @@ class PytorchModel(LLM):
         pytorch_model_config.setdefault("gptq_act_order", False)
         pytorch_model_config.setdefault("device", "auto")
         pytorch_model_config.setdefault("trust_remote_code", True)
+        pytorch_model_config.setdefault("max_num_seqs", 16)
         return pytorch_model_config
 
     def _sanitize_generate_config(
@@ -454,6 +465,7 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
             pytorch_model_config,
             peft_model,
         )
+        self._context_len = None
 
     def _sanitize_generate_config(
         self,
@@ -497,13 +509,8 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
         chat_history: Optional[List[ChatCompletionMessage]] = None,
         generate_config: Optional[PytorchGenerateConfig] = None,
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
-        assert self.model_family.prompt_style is not None
-        prompt_style = self.model_family.prompt_style.copy()
-        if system_prompt:
-            prompt_style.system_prompt = system_prompt
-        chat_history = chat_history or []
         tools = generate_config.pop("tools", []) if generate_config else None
-        full_prompt = self.get_prompt(prompt, chat_history, prompt_style, tools=tools)
+        full_prompt = self._get_full_prompt(prompt, system_prompt, chat_history, tools)
 
         generate_config = self._sanitize_generate_config(generate_config)
         # TODO(codingl2k1): qwen hacky to set stop for function call.
@@ -531,6 +538,85 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
                     self.model_family, self.model_uid, c, tools
                 )
             return self._to_chat_completion(c)
+
+    def load(self):
+        super().load()
+        self._context_len = get_context_length(self._model.config)
+
+    def _get_full_prompt(self, prompt, system_prompt, chat_history, tools):
+        assert self.model_family.prompt_style is not None
+        prompt_style = self.model_family.prompt_style.copy()
+        if system_prompt:
+            prompt_style.system_prompt = system_prompt
+        chat_history = chat_history or []
+        full_prompt = ChatModelMixin.get_prompt(
+            prompt, chat_history, prompt_style, tools=tools
+        )
+        return full_prompt
+
+    def get_max_num_seqs(self) -> int:
+        return self._pytorch_model_config.get("max_num_seqs")  # type: ignore
+
+    def batch_inference(self, req_list: List[InferenceRequest]):
+        from .utils import batch_inference_one_step
+
+        for r in req_list:
+            if r.sanitized_generate_config is None:
+                r.sanitized_generate_config = self._sanitize_generate_config(
+                    r.generate_config
+                )
+            if r.is_prefill:
+                # check some generate params
+                max_src_len = get_max_src_len(self._context_len, r)  # type: ignore
+                if max_src_len < 0:
+                    r.stopped = True
+                    r.error_msg = "Max tokens exceeds model's max length"
+                    continue
+                if r.stream_interval <= 0:
+                    r.stopped = True
+                    r.error_msg = "`stream_interval` must be greater than 0"
+                    continue
+                stop_str = r.sanitized_generate_config.get("stop", None)
+                if stop_str and (
+                    not (isinstance(stop_str, str) or isinstance(stop_str, Iterable))
+                ):
+                    r.stopped = True
+                    r.error_msg = "Invalid `stop` field type"
+                    continue
+                r.full_prompt = self._get_full_prompt(
+                    r.prompt, r.system_prompt, r.chat_history, None
+                )
+
+        assert isinstance(self._context_len, int)
+        batch_inference_one_step(
+            req_list,
+            self.model_uid,
+            self._model,
+            self._tokenizer,
+            self._device,
+            self._context_len,
+        )
+        for req in req_list:
+            if req.stream and req.error_msg is None:
+                if req.completion:
+                    results = []
+                    for i, c in enumerate(req.completion):
+                        if c == "<bos_stream>":
+                            results.append(
+                                self._get_first_chat_completion_chunk(
+                                    req.completion[i + 1]
+                                )
+                            )
+                        elif c == "<eos_stream>":
+                            break
+                        else:
+                            results.append(self._to_chat_completion_chunk(c))
+
+                    if req.stopped and req.include_usage:
+                        results.append(
+                            self._get_final_chat_completion_chunk(req.completion[-1])
+                        )
+                    req.completion = results
 
 
 class PytorchCodeModel(PytorchModel, CodeModelMixin):

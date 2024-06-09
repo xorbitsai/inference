@@ -1,0 +1,93 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2024-06-07 14:38+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.11.0\n"
+
+#: ../../source/user_guide/continuous_batching.rst:5
+msgid "Continuous Batching (experimental)"
+msgstr "连续批处理（实验性质）"
+
+#: ../../source/user_guide/continuous_batching.rst:7
+msgid ""
+"Continuous batching, as a means to improve throughput during model "
+"serving, has already been implemented in inference engines like ``VLLM``."
+" Xinference aims to provide this optimization capability when using the "
+"transformers engine as well."
+msgstr ""
+"连续批处理是诸如 ``VLLM`` 这样的推理引擎中提升吞吐的重要技术。Xinference 旨在"
+"通过这项技术提升 ``transformers`` 推理引擎的吞吐。"
+
+#: ../../source/user_guide/continuous_batching.rst:11
+msgid "Usage"
+msgstr "使用方式"
+
+#: ../../source/user_guide/continuous_batching.rst:12
+msgid "Currently, this feature can be enabled under the following conditions:"
+msgstr "当前，此功能在满足以下条件时开启："
+
+#: ../../source/user_guide/continuous_batching.rst:14
+msgid ""
+"First, set the environment variable "
+"``XINFERENCE_TRANSFORMERS_ENABLE_BATCHING`` to ``1`` when starting "
+"xinference. For example:"
+msgstr ""
+"首先，启动 Xinference 时需要将环境变量 ``XINFERENCE_TRANSFORMERS_ENABLE_BATCHING`` 置为 ``1`` 。"
+
+#: ../../source/user_guide/continuous_batching.rst:21
+msgid ""
+"Then, ensure that the ``transformers`` engine is selected when launching "
+"the model. For example:"
+msgstr ""
+"然后，启动 LLM 模型时选择 ``transformers`` 推理引擎。例如："
+
+#: ../../source/user_guide/continuous_batching.rst:57
+msgid ""
+"Once this feature is enabled, all ``chat`` requests will be managed by "
+"continuous batching, and the average throughput of requests made to a "
+"single model will increase. The usage of the ``chat`` interface remains "
+"exactly the same as before, with no differences."
+msgstr ""
+"一旦此功能开启，``chat`` 接口将被此功能接管，别的接口不受影响。``chat`` 接口的使用方式没有任何变化。"
+
+#: ../../source/user_guide/continuous_batching.rst:62
+msgid "Note"
+msgstr "注意事项"
+
+#: ../../source/user_guide/continuous_batching.rst:64
+msgid ""
+"Currently, this feature only supports the ``chat`` interface for ``LLM`` "
+"models."
+msgstr "当前，此功能仅支持 LLM 模型的 ``chat`` 功能。"
+
+#: ../../source/user_guide/continuous_batching.rst:66
+msgid ""
+"If using GPU inference, this method will consume more GPU memory. Please "
+"be cautious when increasing the number of concurrent requests to the same"
+" model. The ``launch_model`` interface provides the ``max_num_seqs`` "
+"parameter to adjust the concurrency level, with a default value of "
+"``16``."
+msgstr ""
+"如果使用 GPU 推理，此功能对显存要求较高。因此请谨慎提高对同一个模型的并发请求量。"
+"``launch_model`` 接口提供可选参数 ``max_num_seqs`` 用于调整并发度，默认值为 ``16`` 。"
+
+#: ../../source/user_guide/continuous_batching.rst:69
+msgid ""
+"This feature is still in the experimental stage, and we welcome your "
+"active feedback on any issues."
+msgstr ""
+"此功能仍处于实验阶段，欢迎反馈任何问题。"
+

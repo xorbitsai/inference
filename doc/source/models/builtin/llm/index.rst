@@ -126,6 +126,16 @@ The following is a list of built-in LLM in Xinference:
      - 8194
      - CodeShell is a multi-language code LLM developed by the Knowledge Computing Lab of Peking University.
 
+   * - :ref:`codestral-v0.1 <models_llm_codestral-v0.1>`
+     - generate
+     - 32768
+     - Codestrall-22B-v0.1 is trained on a diverse dataset of 80+ programming languages, including the most popular ones, such as Python, Java, C, C++, JavaScript, and Bash
+
+   * - :ref:`cogvlm2 <models_llm_cogvlm2>`
+     - chat, vision
+     - 8192
+     - CogVLM2 have achieved good results in many lists compared to the previous generation of CogVLM open source models. Its excellent performance can compete with some non-open source models.
+
    * - :ref:`deepseek <models_llm_deepseek>`
      - generate
      - 4096
@@ -170,6 +180,21 @@ The following is a list of built-in LLM in Xinference:
      - chat
      - 16384
      - A code model trained on a dataset of ~140k programming related problems and solutions generated from Glaive’s synthetic data generation platform.
+
+   * - :ref:`glm-4v <models_llm_glm-4v>`
+     - chat, vision
+     - 8192
+     - GLM4 is the open source version of the latest generation of pre-trained models in the GLM-4 series launched by Zhipu AI.
+
+   * - :ref:`glm4-chat <models_llm_glm4-chat>`
+     - chat, tools
+     - 131072
+     - GLM4 is the open source version of the latest generation of pre-trained models in the GLM-4 series launched by Zhipu AI.
+
+   * - :ref:`glm4-chat-1m <models_llm_glm4-chat-1m>`
+     - chat, tools
+     - 1048576
+     - GLM4 is the open source version of the latest generation of pre-trained models in the GLM-4 series launched by Zhipu AI.
 
    * - :ref:`gorilla-openfunctions-v1 <models_llm_gorilla-openfunctions-v1>`
      - chat
@@ -236,11 +261,6 @@ The following is a list of built-in LLM in Xinference:
      - 8192
      - The Llama 3 instruction tuned models are optimized for dialogue use cases and outperform many of the available open source chat models on common industry benchmarks..
 
-   * - :ref:`mini-internvl-chat <models_llm_mini-internvl-chat>`
-     - chat, vision
-     - 32768
-     - InternVL 1.5 is an open-source multimodal large language model (MLLM) to bridge the capability gap between open-source and proprietary commercial models in multimodal understanding. 
-
    * - :ref:`minicpm-2b-dpo-bf16 <models_llm_minicpm-2b-dpo-bf16>`
      - chat
      - 4096
@@ -266,6 +286,11 @@ The following is a list of built-in LLM in Xinference:
      - 4096
      - MiniCPM is an End-Size LLM developed by ModelBest Inc. and TsinghuaNLP, with only 2.4B parameters excluding embeddings.
 
+   * - :ref:`minicpm-llama3-v-2_5 <models_llm_minicpm-llama3-v-2_5>`
+     - chat, vision
+     - 2048
+     - MiniCPM-Llama3-V 2.5 is the latest model in the MiniCPM-V series. The model is built on SigLip-400M and Llama3-8B-Instruct with a total of 8B parameters.
+
    * - :ref:`mistral-instruct-v0.1 <models_llm_mistral-instruct-v0.1>`
      - chat
      - 8192
@@ -274,6 +299,11 @@ The following is a list of built-in LLM in Xinference:
    * - :ref:`mistral-instruct-v0.2 <models_llm_mistral-instruct-v0.2>`
      - chat
      - 8192
+     - The Mistral-7B-Instruct-v0.2 Large Language Model (LLM) is an improved instruct fine-tuned version of Mistral-7B-Instruct-v0.1.
+
+   * - :ref:`mistral-instruct-v0.3 <models_llm_mistral-instruct-v0.3>`
+     - chat
+     - 32768
      - The Mistral-7B-Instruct-v0.2 Large Language Model (LLM) is an improved instruct fine-tuned version of Mistral-7B-Instruct-v0.1.
 
    * - :ref:`mistral-v0.1 <models_llm_mistral-v0.1>`
@@ -371,6 +401,16 @@ The following is a list of built-in LLM in Xinference:
      - 32768
      - Qwen1.5-MoE is a transformer-based MoE decoder-only language model pretrained on a large amount of data.
 
+   * - :ref:`qwen2-instruct <models_llm_qwen2-instruct>`
+     - chat, tools
+     - 32768
+     - Qwen2 is the new series of Qwen large language models
+
+   * - :ref:`qwen2-moe-instruct <models_llm_qwen2-moe-instruct>`
+     - chat
+     - 32768
+     - Qwen2 is the new series of Qwen large language models. 
+
    * - :ref:`seallm_v2 <models_llm_seallm_v2>`
      - generate
      - 8192
@@ -410,6 +450,11 @@ The following is a list of built-in LLM in Xinference:
      - chat
      - 4096
      - We introduce Starling-7B, an open large language model (LLM) trained by Reinforcement Learning from AI Feedback (RLAIF). The model harnesses the power of our new GPT-4 labeled ranking dataset
+
+   * - :ref:`telechat <models_llm_telechat>`
+     - chat
+     - 8192
+     - The TeleChat is a large language model developed and trained by China Telecom Artificial Intelligence Technology Co., LTD. The 7B model base is trained with 1.5 trillion Tokens and 3 trillion Tokens and Chinese high-quality corpus.
 
    * - :ref:`tiny-llama <models_llm_tiny-llama>`
      - generate
@@ -550,6 +595,10 @@ The following is a list of built-in LLM in Xinference:
   
    codeshell-chat
   
+   codestral-v0.1
+  
+   cogvlm2
+  
    deepseek
   
    deepseek-chat
@@ -567,6 +616,12 @@ The following is a list of built-in LLM in Xinference:
    gemma-it
   
    glaive-coder
+  
+   glm-4v
+  
+   glm4-chat
+  
+   glm4-chat-1m
   
    gorilla-openfunctions-v1
   
@@ -594,8 +649,6 @@ The following is a list of built-in LLM in Xinference:
   
    llama-3-instruct
   
-   mini-internvl-chat
-  
    minicpm-2b-dpo-bf16
   
    minicpm-2b-dpo-fp16
@@ -606,9 +659,13 @@ The following is a list of built-in LLM in Xinference:
   
    minicpm-2b-sft-fp32
   
+   minicpm-llama3-v-2_5
+  
    mistral-instruct-v0.1
   
    mistral-instruct-v0.2
+  
+   mistral-instruct-v0.3
   
    mistral-v0.1
   
@@ -648,6 +705,10 @@ The following is a list of built-in LLM in Xinference:
   
    qwen1.5-moe-chat
   
+   qwen2-instruct
+  
+   qwen2-moe-instruct
+  
    seallm_v2
   
    seallm_v2.5
@@ -663,6 +724,8 @@ The following is a list of built-in LLM in Xinference:
    starcoderplus
   
    starling-lm
+  
+   telechat
   
    tiny-llama
   
