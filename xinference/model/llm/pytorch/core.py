@@ -92,7 +92,7 @@ def get_tensorizer_file_path(
 ) -> str:
     # qwen-chat-pytorch-1_8b
     full_name = f"{model_name}-{model_format}-{model_size_in_billions}b-{quantization}"
-    return os.path.join(XINFERENCE_TENSORIZER_DIR, full_name, "model.tensors")
+    return os.path.join(XINFERENCE_TENSORIZER_DIR, full_name)
 
 
 class PytorchModel(LLM):
@@ -113,6 +113,7 @@ class PytorchModel(LLM):
             pytorch_model_config
         )
         self._peft_model = peft_model
+        self.enable_tensorizer = enable_tensorizer
 
     def _sanitize_model_config(
         self, pytorch_model_config: Optional[PytorchModelConfig]
@@ -167,7 +168,7 @@ class PytorchModel(LLM):
             **kwargs,
         )
 
-        if kwargs["enable_tensorizer"]:
+        if self.enable_tensorizer:
             save_dir = get_tensorizer_file_path(
                 self.model_family.model_name,
                 self.model_spec.model_format,
@@ -191,18 +192,30 @@ class PytorchModel(LLM):
         save_path: str = f"{dir_prefix}.tensors"
         logger.info(f"Tensorizer serialize model: {save_path}")
 
+        if os.path.exists(save_path):
+            logger.info(f"Cache {save_path} exists, skip tensorizer serialize model")
+            return save_path
+
         with _write_stream(save_path) as f:
             serializer = TensorSerializer(f)
             serializer.write_module(model, include_non_persistent_buffers=False)
             serializer.close()
 
-        logger.info(f"Tensorizer serialize done: {save_path}")
+        logger.info(f"Tensorizer serialize model done: {save_path}")
         return save_path
 
     def _tensorizer_serialize_pretrained(
-        component, zip_directory: str, prefix: str = "pretrained"
+        self, component, zip_directory: str, prefix: str = "pretrained"
     ):
         save_path: str = f"{zip_directory.rstrip('/')}/{prefix}.zip"
+        logger.info(f"Tensorizer serialize pretrained: {save_path}")
+
+        if os.path.exists(save_path):
+            logger.info(
+                f"Cache {save_path} exists, skip tensorizer serialize pretrained"
+            )
+            return save_path
+
         with _write_stream(save_path) as stream, zipfile.ZipFile(
             stream, mode="w", compression=zipfile.ZIP_DEFLATED, compresslevel=5
         ) as file, tempfile.TemporaryDirectory() as directory:
@@ -212,6 +225,8 @@ class PytorchModel(LLM):
                 print("The component does not have a 'save_pretrained' method.")
             for path in Path(directory).iterdir():
                 file.write(filename=path, arcname=path.name)
+
+        logger.info(f"Tensorizer serialize pretrained done: {save_path}")
 
     def _apply_lora(self):
         if self._peft_model is not None:
@@ -252,7 +267,7 @@ class PytorchModel(LLM):
         self._pytorch_model_config["device"] = select_device(device)
         self._device = self._pytorch_model_config["device"]
 
-        kwargs = {"enable_tensorizer": self.kwargs["enable_tensorizer"]}
+        kwargs = {}
 
         dtype = get_device_preferred_dtype(self._device)
 
@@ -521,6 +536,7 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
         model_spec: "LLMSpecV1",
         quantization: str,
         model_path: str,
+        enable_tensorizer: bool = False,
         pytorch_model_config: Optional[PytorchModelConfig] = None,
         peft_model: Optional[List[LoRA]] = None,
     ):
@@ -532,6 +548,7 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
             model_path,
             pytorch_model_config,
             peft_model,
+            enable_tensorizer,
         )
         self._context_len = None
 
