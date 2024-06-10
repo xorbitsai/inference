@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import Iterable, Iterator, List, Optional, Union
 
 from tensorizer import TensorSerializer, stream_io
+
 from ....constants import XINFERENCE_TENSORIZER_DIR
 from ....core.scheduler import InferenceRequest
 from ....device_utils import (
@@ -178,7 +179,7 @@ class PytorchModel(LLM):
 
         return model, tokenizer
 
-    from pytorch import torch
+    import torch
 
     def _tensorizer_serialize_model(
         self,
