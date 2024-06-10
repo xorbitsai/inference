@@ -62,7 +62,7 @@ class Glm4VModel(PytorchChatModel):
         device = self._pytorch_model_config.get("device", "auto")
         self._device = select_device(device)
 
-        kwargs = { "device_map": self._device }
+        kwargs = {"device_map": self._device}
         quantization = self.quantization
         if quantization != "none":
             if self._device == "cuda" and self._is_linux():
