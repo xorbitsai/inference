@@ -1082,7 +1082,7 @@ class SupervisorActor(xo.StatelessActor):
             worker_status.update_time = time.time()
             worker_status.status = status
 
-    async def get_remove_cached_models(
+    async def list_deletable_models(
         self, model_version: str, worker_ip: Optional[str] = None
     ) -> List[str]:
         target_ip_worker_ref = (
@@ -1097,17 +1097,17 @@ class SupervisorActor(xo.StatelessActor):
 
         ret = []
         if target_ip_worker_ref:
-            ret = await target_ip_worker_ref.get_remove_cached_models(
+            ret = await target_ip_worker_ref.list_deletable_models(
                 model_version=model_version,
             )
             return ret
 
         for worker in self._worker_address_to_worker.values():
-            path = await worker.get_remove_cached_models(model_version=model_version)
+            path = await worker.list_deletable_models(model_version=model_version)
             ret.extend(path)
         return ret
 
-    async def remove_cached_models(
+    async def confirm_and_remove_model(
         self, model_version: str, worker_ip: Optional[str] = None
     ) -> bool:
         target_ip_worker_ref = (
@@ -1121,13 +1121,13 @@ class SupervisorActor(xo.StatelessActor):
             raise ValueError(f"Worker ip address {worker_ip} is not in the cluster.")
 
         if target_ip_worker_ref:
-            ret = await target_ip_worker_ref.remove_cached_models(
+            ret = await target_ip_worker_ref.confirm_and_remove_model(
                 model_version=model_version,
             )
             return ret
         ret = True
         for worker in self._worker_address_to_worker.values():
-            ret = ret and await worker.remove_cached_models(
+            ret = ret and await worker.confirm_and_remove_model(
                 model_version=model_version,
             )
         return ret

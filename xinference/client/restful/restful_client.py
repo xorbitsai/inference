@@ -1168,7 +1168,7 @@ class Client:
             Raised when the request fails, including the reason for the failure.
         """
 
-        url = f"{self.base_url}/v1/cached/list_cached_models"
+        url = f"{self.base_url}/v1/cached/models"
         payload = {
             "model_name": model_name,
             "worker_ip": worker_ip,
@@ -1183,11 +1183,11 @@ class Client:
         response_data = response_data.get("list")
         return response_data
 
-    def get_remove_cached_models(
+    def list_deletable_models(
         self, model_version: str, worker_ip: Optional[str] = None
     ) -> Dict[str, Any]:
         """
-        Get the cached models with the model name cached on the server.
+        Get the cached models with the model path cached on the server.
         Parameters
         ----------
         model_version: str
@@ -1199,7 +1199,7 @@ class Client:
         Dict[str, Dict[str,str]]]
             Dictionary with keys "model_name" and values model_file_location.
         """
-        url = f"{self.base_url}/v1/get_remove_cached_models"
+        url = f"{self.base_url}/v1/cached/models/status"
         payload = {
             "model_version": model_version,
             "worker_ip": worker_ip,
@@ -1213,7 +1213,7 @@ class Client:
         response_data = response.json()
         return response_data
 
-    def remove_cached_models(
+    def confirm_and_remove_model(
         self, model_version: str, worker_ip: Optional[str] = None
     ) -> bool:
         """
@@ -1229,7 +1229,7 @@ class Client:
         str
             The response of the server.
         """
-        url = f"{self.base_url}/v1/remove_cached_models"
+        url = f"{self.base_url}/v1/cached/models/deletion"
         payload = {
             "model_version": model_version,
             "worker_ip": worker_ip,

@@ -522,7 +522,7 @@ class RESTfulAPI:
             ),
         )
         self._router.add_api_route(
-            "/v1/cached/list_cached_models",
+            "/v1/cached/models",
             self.list_cached_models,
             methods=["GET"],
             dependencies=(
@@ -532,8 +532,8 @@ class RESTfulAPI:
             ),
         )
         self._router.add_api_route(
-            "/v1/get_remove_cached_models",
-            self.get_remove_cached_models,
+            "/v1/cached/models/status",
+            self.list_deletable_models,
             methods=["GET"],
             dependencies=(
                 [Security(self._auth_service, scopes=["models:list"])]
@@ -542,8 +542,8 @@ class RESTfulAPI:
             ),
         )
         self._router.add_api_route(
-            "/v1/remove_cached_models",
-            self.remove_cached_models,
+            "/v1/cached/models/deletion",
+            self.confirm_and_remove_model,
             methods=["POST"],
             dependencies=(
                 [Security(self._auth_service, scopes=["models:list"])]
@@ -1651,12 +1651,12 @@ class RESTfulAPI:
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
 
-    async def get_remove_cached_models(self, request: Request) -> JSONResponse:
+    async def list_deletable_models(self, request: Request) -> JSONResponse:
         payload = await request.json()
         worker_ip = payload.get("worker_ip", None)
         model_version = payload.get("model_version", None)
         try:
-            data = await (await self._get_supervisor_ref()).get_remove_cached_models(
+            data = await (await self._get_supervisor_ref()).list_deletable_models(
                 model_version, worker_ip
             )
             response = {
@@ -1672,12 +1672,12 @@ class RESTfulAPI:
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
 
-    async def remove_cached_models(self, request: Request) -> JSONResponse:
+    async def confirm_and_remove_model(self, request: Request) -> JSONResponse:
         payload = await request.json()
         model_version = payload.get("model_version")
         worker_ip = payload.get("worker_ip", None)
         try:
-            res = await (await self._get_supervisor_ref()).remove_cached_models(
+            res = await (await self._get_supervisor_ref()).confirm_and_remove_model(
                 model_version=model_version, worker_ip=worker_ip
             )
             return JSONResponse(content={"result": res})

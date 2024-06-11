@@ -818,9 +818,9 @@ class WorkerActor(xo.StatelessActor):
             cached_models.append(cached_model)
         return cached_models
 
-    async def get_remove_cached_models(self, model_version: str) -> List[str]:
+    async def list_deletable_models(self, model_version: str) -> List[str]:
         paths = set()
-        path = await self._cache_tracker_ref.get_remove_cached_models(
+        path = await self._cache_tracker_ref.list_deletable_models(
             model_version, self.address
         )
         if os.path.isfile(path):
@@ -835,8 +835,8 @@ class WorkerActor(xo.StatelessActor):
 
         return list(paths)
 
-    async def remove_cached_models(self, model_version: str) -> bool:
-        paths = await self.get_remove_cached_models(model_version)
+    async def confirm_and_remove_model(self, model_version: str) -> bool:
+        paths = await self.list_deletable_models(model_version)
         for path in paths:
             try:
                 if os.path.islink(path):
@@ -850,7 +850,9 @@ class WorkerActor(xo.StatelessActor):
             except Exception as e:
                 logger.error(f"Fail to delete {path} with error:{e}.")
                 return False
-        await self._cache_tracker_ref.remove_cached_models(model_version, self.address)
+        await self._cache_tracker_ref.confirm_and_remove_model(
+            model_version, self.address
+        )
         return True
 
     @staticmethod

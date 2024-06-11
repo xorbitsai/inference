@@ -123,7 +123,7 @@ class CacheTrackerActor(xo.Actor):
                         cached_models.append(res)
         return cached_models
 
-    def get_remove_cached_models(self, model_version: str, worker_ip: str) -> str:
+    def list_deletable_models(self, model_version: str, worker_ip: str) -> str:
         model_file_location = ""
         for model, model_versions in self._model_name_to_version_info.items():
             for version_info in model_versions:
@@ -137,9 +137,9 @@ class CacheTrackerActor(xo.Actor):
                             model_file_location = paths[worker_ip]
         return model_file_location
 
-    def remove_cached_models(self, model_version: str, worker_ip: str):
+    def confirm_and_remove_model(self, model_version: str, worker_ip: str):
         # find remove path
-        rm_path = self.get_remove_cached_models(model_version, worker_ip)
+        rm_path = self.list_deletable_models(model_version, worker_ip)
         # search _model_name_to_version_info if exist this path, and delete
         for model, model_versions in self._model_name_to_version_info.items():
             for version_info in model_versions:

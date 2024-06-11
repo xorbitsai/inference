@@ -665,7 +665,7 @@ def remove_cache(
         client._set_token(get_stored_token(endpoint, client))
 
     if not check:
-        response = client.get_remove_cached_models(
+        response = client.list_deletable_models(
             model_version=model_version, worker_ip=worker_ip
         )
         paths: List[str] = response.get("paths", [])
@@ -679,7 +679,7 @@ def remove_cache(
         if click.confirm("Do you want to proceed with the deletion?", abort=True):
             check = True
     try:
-        result = client.remove_cached_models(
+        result = client.confirm_and_remove_model(
             model_version=model_version, worker_ip=worker_ip
         )
         if result:
