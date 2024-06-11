@@ -629,13 +629,24 @@ class WorkerActor(xo.StatelessActor):
                     f"PEFT adaptors can only be applied to pytorch-like models"
                 )
 
+        if enable_tensorizer and (
+            model_engine != "Transformers"
+            or model_format != "pytorch"
+            or quantization != "none"
+        ):
+            logger.warn(
+                f"enable_tensorizer invalid {model_format} {quantization} {model_engine}"
+            )
+            raise ValueError(
+                "Tensorizer can only be enabled for pytorch format models with transformers engine and without quantization."
+            )
+
         assert model_uid not in self._model_uid_to_model
         self._check_model_is_valid(model_name, model_format)
 
         subpool_address, devices = await self._create_subpool(
             model_uid, model_type, n_gpu=n_gpu, gpu_idx=gpu_idx
         )
-
         kwargs["enable_tensorizer"] = enable_tensorizer
 
         try:

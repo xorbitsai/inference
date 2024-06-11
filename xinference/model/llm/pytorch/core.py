@@ -27,6 +27,7 @@ from tensorizer import TensorDeserializer, TensorSerializer, stream_io, utils
 from ....constants import XINFERENCE_TENSORIZER_DIR
 from ....core.scheduler import InferenceRequest
 from ....device_utils import (
+    get_available_device,
     get_device_preferred_dtype,
     gpu_count,
     is_hf_accelerate_supported,
@@ -221,14 +222,18 @@ class PytorchModel(LLM):
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
         output_prefix = output_dir.rstrip("/")
-        device = utils.get_device()
-        tensorizer_model = self._load_model_from_tensorizer(
-            output_prefix,
-            AutoModelForCausalLM,
-            AutoConfig,
-            None,
-            device,
-        ).eval()
+        device = get_available_device()
+        tensorizer_model = (
+            self._load_model_from_tensorizer(
+                output_prefix,
+                AutoModelForCausalLM,
+                AutoConfig,
+                None,
+                device,
+            )
+            .to(device)
+            .eval()
+        )
         deserialized_tokenizer = self._load_pretrained_from_tensorizer(
             AutoTokenizer, output_prefix, "tokenizer"
         )
@@ -263,10 +268,15 @@ class PytorchModel(LLM):
         model_class: Type[LLM],
         config_class: Optional[Type[Any]] = None,
         model_prefix: Optional[str] = "model",
-        device: torch.device = utils.get_device(),
+        device: torch.device = None,
         dtype: Optional[torch.dtype] = None,
     ) -> torch.nn.Module:
         logger.debug(f"Loading model from tensorizer: {path_uri}")
+
+        # assert device is not None
+        if device is None:
+            raise ValueError("device must be specified")
+
         import time
 
         try:
