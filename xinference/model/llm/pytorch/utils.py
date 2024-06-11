@@ -14,13 +14,15 @@
 
 import gc
 import logging
+import os
 import time
 import uuid
 from threading import Thread
-from typing import Iterable, Iterator, Tuple
+from typing import Dict, Iterable, Iterator, List, Optional, Tuple
 
 import torch
 from transformers import GenerationConfig, TextIteratorStreamer
+from transformers.cache_utils import DynamicCache
 from transformers.generation.logits_process import (
     LogitsProcessorList,
     RepetitionPenaltyLogitsProcessor,
@@ -29,8 +31,10 @@ from transformers.generation.logits_process import (
     TopPLogitsWarper,
 )
 
+from ....core.scheduler import InferenceRequest
 from ....device_utils import empty_cache
 from ....types import (
+    Completion,
     CompletionChoice,
     CompletionChunk,
     CompletionUsage,
@@ -54,7 +58,7 @@ def is_partial_stop(output: str, stop_str: str):
     return False
 
 
-def get_context_length(config):
+def get_context_length(config) -> int:
     """Get the context length of a model from a huggingface model config."""
     if (
         hasattr(config, "max_sequence_length")
@@ -528,3 +532,383 @@ def generate_stream_falcon(
     # clean
     gc.collect()
     empty_cache()
+
+
+def _get_token_from_logits(
+    req: InferenceRequest, i: int, logits, temperature, repetition_penalty, top_p, top_k
+):
+    logits_processor = prepare_logits_processor(
+        temperature, repetition_penalty, top_p, top_k
+    )
+
+    if logits_processor:
+        if repetition_penalty > 1.0:
+            tmp_output_ids = torch.as_tensor(
+                [req.prompt_tokens + req.new_tokens], device=logits.device
+            )
+        else:
+            tmp_output_ids = None
+        last_token_logits = logits_processor(tmp_output_ids, logits[i : i + 1, -1, :])[
+            0
+        ]
+    else:
+        last_token_logits = logits[i : i + 1, -1, :]
+
+    if temperature < 1e-5 or top_p < 1e-8:  # greedy
+        _, indices = torch.topk(last_token_logits, 2)
+    else:
+        probs = torch.softmax(last_token_logits, dim=-1)
+        indices = torch.multinomial(probs, num_samples=2)
+    token = indices[0].int().item()
+    return token
+
+
+def _pad_to_max_length(x: List[int], max_len: int, pad: int) -> List[int]:
+    assert len(x) <= max_len
+    return [pad] * (max_len - len(x)) + x
+
+
+def _pad_seqs_inplace(seqs: List[List[int]], pad: int):
+    max_len = max(len(seq) for seq in seqs)
+    n = len(seqs)
+    i = 0
+    while i < n:
+        seqs[i] = _pad_to_max_length(seqs[i], max_len, pad)
+        i += 1
+
+
+def get_max_src_len(context_len: int, r: InferenceRequest) -> int:
+    max_new_tokens = int(
+        r.sanitized_generate_config.get("max_tokens", max_tokens_field.default)
+    )
+    return context_len - max_new_tokens - 8
+
+
+def _get_completion_chunk(
+    output: str,
+    finish_reason: Optional[str],
+    model_uid: str,
+    r: InferenceRequest,
+    just_usage: bool,
+):
+    completion_choice = (
+        [
+            CompletionChoice(
+                text=output, index=0, logprobs=None, finish_reason=finish_reason
+            )
+        ]
+        if not just_usage
+        else []
+    )
+    completion_chunk = CompletionChunk(
+        id=str(uuid.uuid1()),
+        object="text_completion",
+        created=int(time.time()),
+        model=model_uid,
+        choices=completion_choice,
+    )
+    completion_usage = CompletionUsage(
+        prompt_tokens=len(r.prompt_tokens),
+        completion_tokens=len(r.new_tokens),
+        total_tokens=len(r.prompt_tokens) + len(r.new_tokens),
+    )
+    completion_chunk["usage"] = completion_usage
+    return completion_chunk
+
+
+def _get_completion(
+    output: str, finish_reason: Optional[str], model_uid: str, r: InferenceRequest
+):
+    completion_choice = CompletionChoice(
+        text=output, index=0, logprobs=None, finish_reason=finish_reason
+    )
+
+    completion_chunk = CompletionChunk(
+        id=str(uuid.uuid1()),
+        object="text_completion",
+        created=int(time.time()),
+        model=model_uid,
+        choices=[completion_choice],
+    )
+    completion_usage = CompletionUsage(
+        prompt_tokens=len(r.prompt_tokens),
+        completion_tokens=len(r.new_tokens),
+        total_tokens=len(r.prompt_tokens) + len(r.new_tokens),
+    )
+    completion = Completion(
+        id=completion_chunk["id"],
+        object=completion_chunk["object"],
+        created=completion_chunk["created"],
+        model=completion_chunk["model"],
+        choices=completion_chunk["choices"],
+        usage=completion_usage,
+    )
+    return completion
+
+
+def _merge_kv_cache(
+    past_kv: Tuple[Tuple[torch.Tensor]], new_kv: Tuple[Tuple[torch.Tensor]]
+):
+    from torch.nn.functional import pad
+
+    past_cache = DynamicCache.from_legacy_cache(past_kv)
+    new_cache = DynamicCache.from_legacy_cache(new_kv)
+    past_seq_len = past_cache.get_seq_length()
+    new_seq_len = new_cache.get_seq_length()
+    if past_seq_len != new_seq_len:
+        padding_target = new_cache if past_seq_len > new_seq_len else past_cache
+        padding_len = abs(past_seq_len - new_seq_len)
+        for idx in range(len(padding_target)):
+            k = padding_target.key_cache[idx]
+            v = padding_target.value_cache[idx]
+            _k = pad(k, (0, 0, padding_len, 0))
+            _v = pad(v, (0, 0, padding_len, 0))
+            padding_target.key_cache[idx] = _k
+            padding_target.value_cache[idx] = _v
+
+    ret_kv = DynamicCache()
+    for idx in range(len(past_cache)):
+        k1, k2 = new_cache.key_cache[idx], past_cache.key_cache[idx]
+        v1, v2 = new_cache.value_cache[idx], past_cache.value_cache[idx]
+        ret_kv.update(torch.cat((k1, k2), 0), torch.cat((v1, v2), 0), idx)
+    return ret_kv.to_legacy_cache()
+
+
+@torch.inference_mode()
+def _batch_inference_one_step_internal(
+    req_list: List[InferenceRequest],
+    model_uid,
+    model,
+    tokenizer,
+    device,
+    context_len: int,
+    decode_round: int = 16,
+    bos_flag: str = "<bos_stream>",
+    eos_flag: str = "<eos_stream>",
+):
+    # need to judge stopped here,
+    # since some requests state may change to stopped due to invalid parameters, e.g. max_src_len
+    valid_req_list = [r for r in req_list if not r.stopped]
+    if not valid_req_list:
+        return
+    generate_config_mapping: Dict[InferenceRequest, Tuple] = {
+        r: r.get_generate_configs(tokenizer.eos_token_id) for r in valid_req_list
+    }
+    s_time = time.time()
+
+    prefill_reqs = []
+    prompts = []
+    decode_reqs = []
+    for r in valid_req_list:
+        if r.is_prefill:
+            prompts.append(r.full_prompt)
+            prefill_reqs.append(r)
+        else:
+            decode_reqs.append(r)
+
+    if prompts:  # prefill first
+        input_ids: List[List[int]] = tokenizer(prompts, padding=False).input_ids
+        prompt_tokens = []
+        for i, input_id in enumerate(input_ids):
+            req = valid_req_list[i]
+            max_src_len = get_max_src_len(context_len, req)
+            req.prompt_tokens = input_id[-max_src_len:]
+            prompt_tokens.append(req.prompt_tokens)
+        _pad_seqs_inplace(prompt_tokens, 0)
+        out = model(torch.as_tensor(prompt_tokens, device=device), use_cache=True)
+
+        logits = out.logits
+        past_key_values = out.past_key_values
+
+        for i, r in enumerate(prefill_reqs):
+            (
+                max_new_tokens,
+                stream_interval,
+                include_usage,
+                stop_str,
+                stop_token_ids,
+                temperature,
+                repetition_penalty,
+                top_p,
+                top_k,
+            ) = generate_config_mapping[r]
+
+            token = _get_token_from_logits(
+                r, i, logits, temperature, repetition_penalty, top_p, top_k
+            )
+            r.is_prefill = False
+            r.append_new_token(token)
+
+        if decode_reqs:
+            decode_kv = decode_reqs[0].kv_cache
+            # prefill and decode kv cache need to be merged at `batch_size` and `seq_len` dimensions.
+            merged_kv_cache = _merge_kv_cache(decode_kv, past_key_values)
+            for r in valid_req_list:
+                r.kv_cache = merged_kv_cache
+            empty_cache()
+        else:
+            for r in valid_req_list:
+                r.kv_cache = past_key_values
+
+    past_key_values = valid_req_list[0].kv_cache
+    stop_token_mapping: Dict[InferenceRequest, int] = {}
+    output_mapping: Dict[InferenceRequest, str] = {}
+    # here, only decode phase, just run some rounds
+    for _i in range(decode_round):
+        decode_tokens: List[List[int]] = [[r.new_tokens[-1]] for r in valid_req_list]
+        out = model(
+            input_ids=torch.as_tensor(decode_tokens, device=device),
+            use_cache=True,
+            past_key_values=past_key_values,
+        )
+        logits = out.logits
+        past_key_values = out.past_key_values
+
+        for i, r in enumerate(valid_req_list):
+            (
+                max_new_tokens,
+                stream_interval,
+                include_usage,
+                stop_str,
+                stop_token_ids,
+                temperature,
+                repetition_penalty,
+                top_p,
+                top_k,
+            ) = generate_config_mapping[r]
+
+            token = _get_token_from_logits(
+                r, i, logits, temperature, repetition_penalty, top_p, top_k
+            )
+            r.kv_cache = past_key_values
+            r.append_new_token(token)
+
+            output = None
+            if not r.stopped:
+                stopped = token in stop_token_ids
+
+                if stopped:
+                    finish_reason = "stop"
+                elif len(r.new_tokens) == max_new_tokens:
+                    finish_reason = "length"
+                    stopped = True
+                else:
+                    finish_reason = None
+
+                # handle stop str
+                if stop_str and r not in output_mapping:
+                    output = tokenizer.decode(
+                        r.new_tokens,
+                        skip_special_tokens=True,
+                        spaces_between_special_tokens=False,
+                        clean_up_tokenization_spaces=True,
+                    )
+                    if isinstance(stop_str, str):
+                        stop_str = [stop_str]
+                    for stop in stop_str:
+                        pos = output.rfind(stop)
+                        if pos != -1:
+                            output = output[:pos]
+                            output_mapping[r] = output
+                            stopped = True
+                            finish_reason = "stop"
+                            break
+
+                r.stopped = stopped
+                r.finish_reason = finish_reason
+
+            if r.stopped and r not in stop_token_mapping and r not in output_mapping:
+                stop_token_mapping[r] = _i + 1
+
+            if r.stream:
+                """
+                Note that you can't just decode based on the newest r.new_tokens here,
+                which may destroy the integrity of the parsed characters,
+                and at the same time is not good at handling some special characters.
+                So the implementation here is to decode all the tokens that have been generated each time,
+                and then take the slice.
+                """
+                if r.stopped or len(r.new_tokens) % stream_interval == 0:
+                    if output is None:
+                        output = tokenizer.decode(
+                            r.new_tokens,
+                            skip_special_tokens=True,
+                            spaces_between_special_tokens=False,
+                            clean_up_tokenization_spaces=True,
+                        )
+
+                    if r.last_output_length == 0:
+                        r.completion.append(bos_flag)
+
+                    # this special character is mainly for qwen
+                    output = output.strip("�")
+                    output = output[r.last_output_length :]
+                    r.last_output_length += len(output)
+
+                    completion_chunk = _get_completion_chunk(
+                        output, r.finish_reason, model_uid, r, False
+                    )
+                    r.completion.append(completion_chunk)
+                    if r.stopped:
+                        r.completion.append(eos_flag)
+
+                    # last round, handle stream result
+                    # append usage information when enable `include_usage` for OPENAI API compatibility
+                    # The reason for counting the usage in the last round of the iteration is that,
+                    # these tokens are real generated and should be counted.
+                    if r.stopped and _i == decode_round - 1 and include_usage:
+                        r.completion.append(
+                            _get_completion_chunk(
+                                "", r.finish_reason, model_uid, r, True
+                            )
+                        )
+            else:
+                # last round, handle non-stream result
+                if r.stopped and _i == decode_round - 1:
+                    invalid_token_num = decode_round - stop_token_mapping[r]
+                    outputs = (
+                        tokenizer.decode(
+                            r.new_tokens[: -(invalid_token_num + 1)]
+                            if r.finish_reason == "stop"
+                            else r.new_tokens[:-invalid_token_num],
+                            skip_special_tokens=True,
+                            spaces_between_special_tokens=False,
+                            clean_up_tokenization_spaces=True,
+                        )
+                        if r not in output_mapping
+                        else output_mapping[r]
+                    )
+                    completion = _get_completion(outputs, r.finish_reason, model_uid, r)
+                    r.completion = [completion]
+
+    e_time = time.time()
+    logger.debug(
+        f"Average throughput for a step: {(len(valid_req_list) * decode_round + len(prompts)) / (e_time - s_time)} token/s."
+    )
+
+
+def batch_inference_one_step(
+    req_list: List[InferenceRequest],
+    model_uid,
+    model,
+    tokenizer,
+    device,
+    context_len: int,
+):
+    from ....core.model import OutOfMemoryError
+
+    try:
+        _batch_inference_one_step_internal(
+            req_list, model_uid, model, tokenizer, device, context_len
+        )
+    except OutOfMemoryError:
+        logger.exception(
+            f"Batch inference out of memory. "
+            f"Xinference will restart the model: {model_uid}. "
+            f"Please be patient for a few moments."
+        )
+        # Just kill the process and let xinference auto-recover the model
+        os._exit(1)
+    except Exception as e:
+        logger.exception(f"Internal error for batch inference: {e}.")
+        # TODO: handle this

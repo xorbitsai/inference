@@ -97,6 +97,7 @@ def sample_requests(
     dataset_path: str,
     num_requests: int,
     tokenizer: "PreTrainedTokenizerBase",
+    prompt_len_limit: int = 1024
 ) -> List[Tuple[str, int, int]]:
     # Load the dataset.
     with open(dataset_path) as f:
@@ -128,7 +129,7 @@ def sample_requests(
             # This is because TGI causes errors when the input or output length
             # is too short.
             continue
-        if prompt_len > 1024 or prompt_len + output_len > 2048:
+        if prompt_len > prompt_len_limit or prompt_len + output_len > prompt_len_limit * 2:
             # Prune too long sequences.
             continue
         filtered_dataset.append((prompt, prompt_len, output_len))

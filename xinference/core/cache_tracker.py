@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import os
-import shutil
 from logging import getLogger
 from typing import Any, Dict, List, Optional
 
@@ -107,62 +106,29 @@ class CacheTrackerActor(xo.Actor):
         cached_models = []
         for model_name, model_versions in self._model_name_to_version_info.items():
             for version_info in model_versions:
-                if version_info["cache_status"]:
+                cache_status = version_info.get("cache_status", None)
+                if cache_status == True:
                     ret = version_info.copy()
                     ret["model_name"] = model_name
+
+                    re_dict = version_info.get("model_file_location", None)
+                    if re_dict is not None and isinstance(re_dict, dict):
+                        if re_dict:
+                            actor_ip_address, path = next(iter(re_dict.items()))
+                        else:
+                            raise ValueError("The dictionary is empty.")
+                    else:
+                        raise ValueError("re_dict must be a non-empty dictionary.")
+
+                    ret["actor_ip_address"] = actor_ip_address
+                    ret["path"] = path
+                    if os.path.isdir(path):
+                        files = os.listdir(path)
+                        resolved_file = os.path.realpath(os.path.join(path, files[0]))
+                        if resolved_file:
+                            ret["real_path"] = os.path.dirname(resolved_file)
+                    else:
+                        ret["real_path"] = os.path.realpath(path)
                     cached_models.append(ret)
         cached_models = sorted(cached_models, key=lambda x: x["model_name"])
         return cached_models
-
-    def get_remove_cached_models(
-        self, model_name: str, checked: bool = False
-    ) -> Dict[str, Dict[str, str]]:
-        assert checked == False
-        model_file_location = {}
-        for model, model_versions in self._model_name_to_version_info.items():
-            if model_name.lower() == model.lower():
-                for version_info in model_versions:
-                    if version_info["cache_status"]:
-                        model_file_location = version_info["model_file_location"]
-
-        return {model_name: model_file_location}
-
-    def remove_cached_models(
-        self, model_name: str, model_file_location: Dict[str, str]
-    ) -> str:
-        for model, model_versions in self._model_name_to_version_info.items():
-            if model_name.lower() == model.lower():
-                for version_info in model_versions:
-                    if version_info["model_file_location"] == model_file_location:
-                        try:
-                            target_dir = next(iter(model_file_location.values()))
-                            if os.path.exists(target_dir):
-                                if os.path.isdir(target_dir):
-                                    for root, dirs, files in os.walk(
-                                        target_dir, topdown=False
-                                    ):
-                                        for name in files:
-                                            file_path = os.path.join(root, name)
-                                            if os.path.islink(file_path):
-                                                real_path = os.path.realpath(file_path)
-                                                os.unlink(file_path)
-                                                os.remove(real_path)
-                                        for name in dirs:
-                                            dir_path = os.path.join(root, name)
-                                            if os.path.islink(dir_path):
-                                                real_path = os.path.realpath(file_path)
-                                                os.unlink(dir_path)
-                                                os.remove(real_path)
-                                    shutil.rmtree(target_dir)
-                                else:
-                                    if os.path.islink(target_dir):
-                                        real_path = os.path.realpath(target_dir)
-                                        os.unlink(target_dir)
-                                        if os.path.exists(real_path):
-                                            shutil.rmtree(os.path.dirname(real_path))
-                            else:
-                                os.remove(target_dir)
-                            return "Success"
-                        except OSError as e:
-                            logger.error(f"Error: {e.filename} - {e.strerror}")
-        return "Failed"

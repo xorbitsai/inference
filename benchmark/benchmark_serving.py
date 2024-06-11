@@ -100,7 +100,7 @@ def main(args: argparse.Namespace):
 
     logger.info("Preparing for benchmark.")
     tokenizer = get_tokenizer(args.tokenizer, trust_remote_code=args.trust_remote_code)
-    input_requests = sample_requests(args.dataset, args.num_prompts, tokenizer)
+    input_requests = sample_requests(args.dataset, args.num_prompts, tokenizer, prompt_len_limit=args.prompt_len_limit)
 
     logger.info("Benchmark starts.")
     benchmark_start_time = time.time()
@@ -152,6 +152,9 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--num-prompts", type=int, default=100, help="Number of prompts to process."
+    )
+    parser.add_argument(
+        "--prompt-len-limit", type=int, default=1024, help="Prompt length limitation."
     )
     parser.add_argument(
         "--concurrency",

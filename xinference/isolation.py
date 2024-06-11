@@ -19,13 +19,19 @@ from typing import Any, Coroutine
 
 class Isolation:
     # TODO: better move isolation to xoscar.
-    def __init__(self, loop: asyncio.AbstractEventLoop, threaded: bool = True):
+    def __init__(
+        self,
+        loop: asyncio.AbstractEventLoop,
+        threaded: bool = True,
+        daemon: bool = True,
+    ):
         self._loop = loop
         self._threaded = threaded
 
         self._stopped = None
         self._thread = None
         self._thread_ident = None
+        self._daemon = daemon
 
     def _run(self):
         asyncio.set_event_loop(self._loop)
@@ -35,7 +41,8 @@ class Isolation:
     def start(self):
         if self._threaded:
             self._thread = thread = threading.Thread(target=self._run)
-            thread.daemon = True
+            if self._daemon:
+                thread.daemon = True
             thread.start()
             self._thread_ident = thread.ident
 

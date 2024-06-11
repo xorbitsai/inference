@@ -684,6 +684,49 @@ class RESTfulAudioModelHandle(RESTfulModelHandle):
         response_data = response.json()
         return response_data
 
+    def speech(
+        self,
+        input: str,
+        voice: str = "",
+        response_format: str = "mp3",
+        speed: float = 1.0,
+    ):
+        """
+        Generates audio from the input text.
+
+        Parameters
+        ----------
+
+        input: str
+            The text to generate audio for. The maximum length is 4096 characters.
+        voice: str
+            The voice to use when generating the audio.
+        response_format: str
+            The format to audio in.
+        speed: str
+            The speed of the generated audio.
+
+        Returns
+        -------
+        bytes
+            The generated audio binary.
+        """
+        url = f"{self._base_url}/v1/audio/speech"
+        params = {
+            "model": self._model_uid,
+            "input": input,
+            "voice": voice,
+            "response_format": response_format,
+            "speed": speed,
+        }
+        response = requests.post(url, json=params, headers=self.auth_headers)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to speech the text, detail: {_get_error_string(response)}"
+            )
+
+        return response.content
+
 
 class Client:
     def __init__(self, base_url, api_key: Optional[str] = None):
@@ -1182,56 +1225,28 @@ class Client:
         response_data = response.json()
         return response_data
 
-    def get_remove_cached_models(
-        self, model_name: str, checked: bool = False
-    ) -> Dict[str, Dict[str, str]]:
+    def abort_request(self, model_uid: str, request_id: str):
         """
-        Get the cached models with the model name cached on the server.
+        Abort a request.
+        Abort a submitted request. If the request is finished or not found, this method will be a no-op.
+        Currently, this interface is only supported when batching is enabled for models on transformers backend.
 
         Parameters
         ----------
-        model_name: str
-            The name of the model.
-
+        model_uid: str
+            Model uid.
+        request_id: str
+            Request id.
         Returns
         -------
-        Dict[str, Dict[str,str]]]
-            Dictionary with keys "model_name" and values model_file_location.
+        Dict
+            Return empty dict.
         """
-        url = f"{self.base_url}/v1/get_remove_cached_models/{model_name}"
-        response = requests.get(url, headers=self._headers)
+        url = f"{self.base_url}/v1/models/{model_uid}/requests/{request_id}/abort"
+        response = requests.post(url, headers=self._headers)
         if response.status_code != 200:
             raise RuntimeError(
-                f"Failed to get paths by model name, detail: {_get_error_string(response)}"
-            )
-
-        response_data = response.json()
-        return response_data
-
-    def remove_cached_models(
-        self, model_name: str, model_file_location: Dict[str, Dict[str, str]]
-    ) -> str:
-        """
-        Remove the cached models with the model name cached on the server.
-
-        Parameters
-        ----------
-        model_name: str
-           The name of the model.
-        model_file_location: Dict[str, Dict[str, str]]
-            Dictionary with keys IP and values file_path.
-
-        Returns
-        -------
-        str
-            The response of the server.
-        """
-        url = f"{self.base_url}/v1/remove_cached_models/{model_name}"
-        payload = model_file_location
-        response = requests.post(url, headers=self._headers, json=payload)
-        if response.status_code != 200:
-            raise RuntimeError(
-                f"Failed to remove cached models, detail: {_get_error_string(response)}"
+                f"Failed to abort request, detail: {_get_error_string(response)}"
             )
 
         response_data = response.json()

@@ -77,19 +77,14 @@ class InternVLChatModel(PytorchChatModel):
             "device_map": device,
         }
 
-        if "Int8" in self.model_spec.quantizations:
-            kwargs.update(
-                {
-                    "load_in_8bit": True,
-                    "device_map": device,
-                }
-            )
-        elif "mini" in self.model_family.model_name:
+        if "int8" in self.quantization.lower():
+            kwargs["load_in_8bit"] = True
+        elif 2 == self.model_spec.model_size_in_billions:
             kwargs.pop("device_map")
 
         self._model = AutoModel.from_pretrained(self.model_path, **kwargs).eval()
 
-        if "Int8" not in self.model_spec.quantizations:
+        if "int8" not in self.quantization.lower():
             self._model.cuda()
 
         # Specify hyperparameters for generation
@@ -298,7 +293,7 @@ class InternVLChatModel(PytorchChatModel):
         chat_history: Optional[List[ChatCompletionMessage]] = None,
         generate_config: Optional[PytorchGenerateConfig] = None,
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
-        if generate_config and generate_config.pop("stream"):
+        if generate_config and generate_config.get("stream"):
             raise Exception(
                 f"Chat with model {self.model_family.model_name} does not support stream."
             )
