@@ -613,6 +613,42 @@ Begin!"""
         return None, c[0]["name"], c[0]["parameters"]
 
     @staticmethod
+    def _eval_glm4_chat_arguments(c, tools):
+        if isinstance(c[0], str):
+            return c[0], None, None
+
+        output = c[0]
+        lines = output.strip().split("\n")
+        arguments_json = None
+
+        import re
+
+        tool_call_pattern = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
+
+        if len(lines) >= 2 and tool_call_pattern.match(lines[0]):
+            function_name = lines[0].strip()
+            arguments = "\n".join(lines[1:]).strip()
+
+            try:
+                arguments_json = json.loads(arguments)
+                is_tool_call = True
+            except json.JSONDecodeError:
+                is_tool_call = False
+
+            if is_tool_call and tools:
+                content = {
+                    "name": function_name,
+                    "arguments": json.dumps(
+                        arguments_json
+                        if isinstance(arguments_json, dict)
+                        else arguments,
+                        ensure_ascii=False,
+                    ),
+                }
+                return None, content["name"], content["arguments"]
+        return output.strip(), None, None
+
+    @staticmethod
     def _eval_qwen_chat_arguments(c, tools):
         text = c["choices"][0]["text"]
         try:
@@ -661,6 +697,8 @@ Begin!"""
             content, func, args = cls._eval_gorilla_openfunctions_arguments(c, tools)
         elif "chatglm3" == family:
             content, func, args = cls._eval_chatglm3_arguments(c, tools)
+        elif "glm4-chat" == family:
+            content, func, args = cls._eval_glm4_chat_arguments(c, tools)
         elif family in ["qwen-chat", "qwen1.5-chat", "qwen2-instruct"]:
             content, func, args = cls._eval_qwen_chat_arguments(c, tools)
         else:
