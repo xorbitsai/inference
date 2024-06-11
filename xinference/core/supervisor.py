@@ -982,32 +982,31 @@ class SupervisorActor(xo.StatelessActor):
         )
 
     @log_async(logger=logger)
-    async def list_cached_models(self) -> List[Dict[str, Any]]:
+    async def list_cached_models(
+        self, model_name: Optional[str] = None, worker_ip: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        target_ip_worker_ref = (
+            self._get_worker_ref_by_ip(worker_ip) if worker_ip is not None else None
+        )
+        if (
+            worker_ip is not None
+            and not self.is_local_deployment()
+            and target_ip_worker_ref is None
+        ):
+            raise ValueError(f"Worker ip address {worker_ip} is not in the cluster.")
+
+        # search assigned worker and return
+        if target_ip_worker_ref:
+            cached_models = await target_ip_worker_ref.list_cached_models(model_name)
+            cached_models = sorted(cached_models, key=lambda x: x["model_name"])
+            return cached_models
+
+        # search all worker
         cached_models = []
         for worker in self._worker_address_to_worker.values():
-            ret = await worker.list_cached_models()
-            for model_version in ret:
-                model_name = model_version.get("model_name", None)
-                model_format = model_version.get("model_format", None)
-                model_size_in_billions = model_version.get(
-                    "model_size_in_billions", None
-                )
-                quantizations = model_version.get("quantization", None)
-                actor_ip_address = model_version.get("actor_ip_address", None)
-                path = model_version.get("path", None)
-                real_path = model_version.get("real_path", None)
-
-                cache_entry = {
-                    "model_name": model_name,
-                    "model_format": model_format,
-                    "model_size_in_billions": model_size_in_billions,
-                    "quantizations": quantizations,
-                    "path": path,
-                    "Actor IP Address": actor_ip_address,
-                    "real_path": real_path,
-                }
-
-                cached_models.append(cache_entry)
+            res = await worker.list_cached_models(model_name)
+            cached_models.extend(res)
+        cached_models = sorted(cached_models, key=lambda x: x["model_name"])
         return cached_models
 
     @log_async(logger=logger)
@@ -1084,20 +1083,52 @@ class SupervisorActor(xo.StatelessActor):
             worker_status.status = status
 
     async def get_remove_cached_models(
-        self, model_name: str, checked: bool = False
-    ) -> Dict[str, Dict[str, str]]:
-        for worker in self._worker_address_to_worker.values():
-            ret = await worker.get_remove_cached_models(
-                model_name=model_name, checked=checked
+        self, model_version: str, worker_ip: Optional[str] = None
+    ) -> List[str]:
+        target_ip_worker_ref = (
+            self._get_worker_ref_by_ip(worker_ip) if worker_ip is not None else None
+        )
+        if (
+            worker_ip is not None
+            and not self.is_local_deployment()
+            and target_ip_worker_ref is None
+        ):
+            raise ValueError(f"Worker ip address {worker_ip} is not in the cluster.")
+
+        ret = []
+        if target_ip_worker_ref:
+            ret = await target_ip_worker_ref.get_remove_cached_models(
+                model_version=model_version,
             )
+            return ret
+
+        for worker in self._worker_address_to_worker.values():
+            path = await worker.get_remove_cached_models(model_version=model_version)
+            ret.extend(path)
         return ret
 
     async def remove_cached_models(
-        self, model_name: str, model_file_location: Dict[str, str]
-    ) -> str:
+        self, model_version: str, worker_ip: Optional[str] = None
+    ) -> bool:
+        target_ip_worker_ref = (
+            self._get_worker_ref_by_ip(worker_ip) if worker_ip is not None else None
+        )
+        if (
+            worker_ip is not None
+            and not self.is_local_deployment()
+            and target_ip_worker_ref is None
+        ):
+            raise ValueError(f"Worker ip address {worker_ip} is not in the cluster.")
+
+        if target_ip_worker_ref:
+            ret = await target_ip_worker_ref.remove_cached_models(
+                model_version=model_version,
+            )
+            return ret
+        ret = True
         for worker in self._worker_address_to_worker.values():
-            ret = await worker.remove_cached_models(
-                model_name=model_name, model_file_location=model_file_location
+            ret = ret and await worker.remove_cached_models(
+                model_version=model_version,
             )
         return ret
 

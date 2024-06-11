@@ -532,7 +532,7 @@ class RESTfulAPI:
             ),
         )
         self._router.add_api_route(
-            "/v1/get_remove_cached_models/{model_name}",
+            "/v1/get_remove_cached_models",
             self.get_remove_cached_models,
             methods=["GET"],
             dependencies=(
@@ -542,7 +542,7 @@ class RESTfulAPI:
             ),
         )
         self._router.add_api_route(
-            "/v1/remove_cached_models/{model_name}",
+            "/v1/remove_cached_models",
             self.remove_cached_models,
             methods=["POST"],
             dependencies=(
@@ -1575,10 +1575,18 @@ class RESTfulAPI:
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
 
-    async def list_cached_models(self) -> JSONResponse:
+    async def list_cached_models(self, request: Request) -> JSONResponse:
+        payload = await request.json()
+        model_name = payload.get("model_name")
+        worker_ip = payload.get("worker_ip")
         try:
-            data = await (await self._get_supervisor_ref()).list_cached_models()
-            return JSONResponse(content=data)
+            data = await (await self._get_supervisor_ref()).list_cached_models(
+                model_name, worker_ip
+            )
+            resp = {
+                "list": data,
+            }
+            return JSONResponse(content=resp)
         except ValueError as re:
             logger.error(re, exc_info=True)
             raise HTTPException(status_code=400, detail=str(re))
@@ -1643,14 +1651,20 @@ class RESTfulAPI:
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
 
-    async def get_remove_cached_models(
-        self, model_name: str, checked: bool = Query(False)
-    ) -> JSONResponse:
+    async def get_remove_cached_models(self, request: Request) -> JSONResponse:
+        payload = await request.json()
+        worker_ip = payload.get("worker_ip", None)
+        model_version = payload.get("model_version", None)
         try:
             data = await (await self._get_supervisor_ref()).get_remove_cached_models(
-                model_name, checked=checked
+                model_version, worker_ip
             )
-            return JSONResponse(content=data)
+            response = {
+                "model_version": model_version,
+                "worker_ip": worker_ip,
+                "paths": data,
+            }
+            return JSONResponse(content=response)
         except ValueError as re:
             logger.error(re, exc_info=True)
             raise HTTPException(status_code=400, detail=str(re))
@@ -1658,16 +1672,15 @@ class RESTfulAPI:
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
 
-    async def remove_cached_models(
-        self, model_name: str, request: Request
-    ) -> JSONResponse:
+    async def remove_cached_models(self, request: Request) -> JSONResponse:
         payload = await request.json()
-        model_file_location = payload.get(model_name)
+        model_version = payload.get("model_version")
+        worker_ip = payload.get("worker_ip", None)
         try:
-            data = await (await self._get_supervisor_ref()).remove_cached_models(
-                model_name=model_name, model_file_location=model_file_location
+            res = await (await self._get_supervisor_ref()).remove_cached_models(
+                model_version=model_version, worker_ip=worker_ip
             )
-            return JSONResponse(content=data)
+            return JSONResponse(content={"result": res})
         except ValueError as re:
             logger.error(re, exc_info=True)
             raise HTTPException(status_code=400, detail=str(re))
