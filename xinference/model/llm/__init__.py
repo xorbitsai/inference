@@ -25,6 +25,7 @@ from .core import (
     get_llm_model_descriptions,
 )
 from .llm_family import (
+    BUILTIN_CSGHUB_LLM_FAMILIES,
     BUILTIN_LLM_FAMILIES,
     BUILTIN_LLM_MODEL_CHAT_FAMILIES,
     BUILTIN_LLM_MODEL_GENERATE_FAMILIES,
@@ -117,9 +118,11 @@ def _install():
     from .pytorch.core import PytorchChatModel, PytorchModel
     from .pytorch.deepseek_vl import DeepSeekVLChatModel
     from .pytorch.falcon import FalconPytorchChatModel, FalconPytorchModel
+    from .pytorch.glm4v import Glm4VModel
     from .pytorch.intern_vl import InternVLChatModel
     from .pytorch.internlm2 import Internlm2PytorchChatModel
     from .pytorch.llama_2 import LlamaPytorchChatModel, LlamaPytorchModel
+    from .pytorch.minicpmv25 import MiniCPMV25Model
     from .pytorch.qwen_vl import QwenVLChatModel
     from .pytorch.vicuna import VicunaPytorchChatModel
     from .pytorch.yi_vl import YiVLChatModel
@@ -161,6 +164,8 @@ def _install():
             InternVLChatModel,
             PytorchModel,
             CogVLM2Model,
+            MiniCPMV25Model,
+            Glm4VModel,
         ]
     )
     if OmniLMMModel:  # type: ignore
@@ -217,13 +222,44 @@ def _install():
         if "tools" in model_spec.model_ability:
             BUILTIN_LLM_MODEL_TOOL_CALL_FAMILIES.add(model_spec.model_name)
 
-    for llm_specs in [BUILTIN_LLM_FAMILIES, BUILTIN_MODELSCOPE_LLM_FAMILIES]:
+    csghub_json_path = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "llm_family_csghub.json"
+    )
+    for json_obj in json.load(codecs.open(csghub_json_path, "r", encoding="utf-8")):
+        model_spec = LLMFamilyV1.parse_obj(json_obj)
+        BUILTIN_CSGHUB_LLM_FAMILIES.append(model_spec)
+
+        # register prompt style, in case that we have something missed
+        # if duplicated with huggingface json, keep it as the huggingface style
+        if (
+            "chat" in model_spec.model_ability
+            and isinstance(model_spec.prompt_style, PromptStyleV1)
+            and model_spec.model_name not in BUILTIN_LLM_PROMPT_STYLE
+        ):
+            BUILTIN_LLM_PROMPT_STYLE[model_spec.model_name] = model_spec.prompt_style
+        # register model family
+        if "chat" in model_spec.model_ability:
+            BUILTIN_LLM_MODEL_CHAT_FAMILIES.add(model_spec.model_name)
+        else:
+            BUILTIN_LLM_MODEL_GENERATE_FAMILIES.add(model_spec.model_name)
+        if "tools" in model_spec.model_ability:
+            BUILTIN_LLM_MODEL_TOOL_CALL_FAMILIES.add(model_spec.model_name)
+
+    for llm_specs in [
+        BUILTIN_LLM_FAMILIES,
+        BUILTIN_MODELSCOPE_LLM_FAMILIES,
+        BUILTIN_CSGHUB_LLM_FAMILIES,
+    ]:
         for llm_spec in llm_specs:
             if llm_spec.model_name not in LLM_MODEL_DESCRIPTIONS:
                 LLM_MODEL_DESCRIPTIONS.update(generate_llm_description(llm_spec))
 
     # traverse all families and add engine parameters corresponding to the model name
-    for families in [BUILTIN_LLM_FAMILIES, BUILTIN_MODELSCOPE_LLM_FAMILIES]:
+    for families in [
+        BUILTIN_LLM_FAMILIES,
+        BUILTIN_MODELSCOPE_LLM_FAMILIES,
+        BUILTIN_CSGHUB_LLM_FAMILIES,
+    ]:
         for family in families:
             generate_engine_config_by_model_family(family)
 

@@ -36,6 +36,7 @@ from ...constants import XINFERENCE_CACHE_DIR, XINFERENCE_MODEL_DIR
 from ..utils import (
     IS_NEW_HUGGINGFACE_HUB,
     create_symlink,
+    download_from_csghub,
     download_from_modelscope,
     is_valid_model_uri,
     parse_uri,
@@ -232,6 +233,7 @@ LLAMA_CLASSES: List[Type[LLM]] = []
 
 BUILTIN_LLM_FAMILIES: List["LLMFamilyV1"] = []
 BUILTIN_MODELSCOPE_LLM_FAMILIES: List["LLMFamilyV1"] = []
+BUILTIN_CSGHUB_LLM_FAMILIES: List["LLMFamilyV1"] = []
 
 SGLANG_CLASSES: List[Type[LLM]] = []
 TRANSFORMERS_CLASSES: List[Type[LLM]] = []
@@ -286,12 +288,16 @@ def cache(
             logger.info(f"Caching from URI: {llm_spec.model_uri}")
             return cache_from_uri(llm_family, llm_spec, quantization)
         else:
+            logger.info(f"llm_spec.model_uri is {llm_spec.model_hub}")
             if llm_spec.model_hub == "huggingface":
                 logger.info(f"Caching from Hugging Face: {llm_spec.model_id}")
                 return cache_from_huggingface(llm_family, llm_spec, quantization)
             elif llm_spec.model_hub == "modelscope":
                 logger.info(f"Caching from Modelscope: {llm_spec.model_id}")
                 return cache_from_modelscope(llm_family, llm_spec, quantization)
+            elif llm_spec.model_hub == "csghub":
+                logger.info(f"Caching from CSGHub: {llm_spec.model_id}")
+                return cache_from_csghub(llm_family, llm_spec, quantization)
             else:
                 raise ValueError(f"Unknown model hub: {llm_spec.model_hub}")
 
@@ -650,6 +656,72 @@ def _merge_cached_files(
     logger.info(f"Merge complete.")
 
 
+def cache_from_csghub(
+    llm_family: LLMFamilyV1,
+    llm_spec: "LLMSpecV1",
+    quantization: Optional[str] = None,
+) -> str:
+    """
+    Cache model from CSGHub. Return the cache directory.
+    """
+    from pycsghub.file_download import file_download
+    from pycsghub.snapshot_download import snapshot_download
+
+    cache_dir = _get_cache_dir(llm_family, llm_spec)
+    if _skip_download(
+        cache_dir,
+        llm_spec.model_format,
+        llm_spec.model_hub,
+        llm_spec.model_revision,
+        quantization,
+    ):
+        return cache_dir
+
+    if llm_spec.model_format in ["pytorch", "gptq", "awq"]:
+        download_dir = retry_download(
+            snapshot_download,
+            llm_family.model_name,
+            {
+                "model_size": llm_spec.model_size_in_billions,
+                "model_format": llm_spec.model_format,
+            },
+            llm_spec.model_id,
+            revision=llm_spec.model_revision,
+        )
+        create_symlink(download_dir, cache_dir)
+
+    elif llm_spec.model_format in ["ggmlv3", "ggufv2"]:
+        file_names, final_file_name, need_merge = _generate_model_file_names(
+            llm_spec, quantization
+        )
+
+        for filename in file_names:
+            download_path = retry_download(
+                file_download,
+                llm_family.model_name,
+                {
+                    "model_size": llm_spec.model_size_in_billions,
+                    "model_format": llm_spec.model_format,
+                },
+                llm_spec.model_id,
+                filename,
+                revision=llm_spec.model_revision,
+            )
+            symlink_local_file(download_path, cache_dir, filename)
+
+        if need_merge:
+            _merge_cached_files(cache_dir, file_names, final_file_name)
+    else:
+        raise ValueError(f"Unsupported format: {llm_spec.model_format}")
+
+    meta_path = _get_meta_path(
+        cache_dir, llm_spec.model_format, llm_spec.model_hub, quantization
+    )
+    _generate_meta_file(meta_path, llm_family, llm_spec, quantization)
+
+    return cache_dir
+
+
 def cache_from_modelscope(
     llm_family: LLMFamilyV1,
     llm_spec: "LLMSpecV1",
@@ -928,6 +1000,12 @@ def match_llm(
     if download_from_modelscope():
         all_families = (
             BUILTIN_MODELSCOPE_LLM_FAMILIES
+            + BUILTIN_LLM_FAMILIES
+            + user_defined_llm_families
+        )
+    elif download_from_csghub():
+        all_families = (
+            BUILTIN_CSGHUB_LLM_FAMILIES
             + BUILTIN_LLM_FAMILIES
             + user_defined_llm_families
         )

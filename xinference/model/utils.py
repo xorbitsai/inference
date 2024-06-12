@@ -50,6 +50,12 @@ def download_from_modelscope() -> bool:
         return False
 
 
+def download_from_csghub() -> bool:
+    if os.environ.get(XINFERENCE_ENV_MODEL_SRC) == "csghub":
+        return True
+    return False
+
+
 def symlink_local_file(path: str, local_dir: str, relpath: str) -> str:
     from huggingface_hub.file_download import _create_symlink
 
