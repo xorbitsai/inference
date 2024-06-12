@@ -181,10 +181,18 @@ def test_list_deletable_models(setup):
     client = RESTfulClient(endpoint)
     response = client.list_deletable_models("orca--3B--ggmlv3--q4_0")
     paths = response.get("paths", [])
-    assert (
-        "/home/runner/.xinference/cache/orca-ggmlv3-3b/orca-mini-3b.ggmlv3.q4_0.bin"
-        in paths
+
+    expected_path = os.path.join(
+        os.environ["HOME"],
+        ".xinference",
+        "cache",
+        "orca-ggmlv3-3b",
+        "orca-mini-3b.ggmlv3.q4_0.bin",
     )
+
+    normalized_expected_path = os.path.normpath(expected_path)
+
+    assert normalized_expected_path in paths
 
 
 @pytest.mark.skipif(os.name == "nt", reason="Skip windows")
