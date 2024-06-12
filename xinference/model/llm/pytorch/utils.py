@@ -911,4 +911,8 @@ def batch_inference_one_step(
         os._exit(1)
     except Exception as e:
         logger.exception(f"Internal error for batch inference: {e}.")
-        # TODO: handle this
+        # If internal error happens, just skip all the requests in this batch.
+        # If not handle here, the client will hang.
+        for r in req_list:
+            r.stopped = True
+            r.error_msg = str(e)
