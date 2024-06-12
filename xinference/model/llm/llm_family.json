@@ -833,6 +833,139 @@
   },
   {
     "version": 1,
+    "context_length": 131072,
+    "model_name": "glm4-chat",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat",
+      "tools"
+    ],
+    "model_description": "GLM4 is the open source version of the latest generation of pre-trained models in the GLM-4 series launched by Zhipu AI.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 9,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "THUDM/glm-4-9b-chat",
+        "model_revision": "b84dc74294ccd507a3d78bde8aebf628221af9bd"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "CHATGLM3",
+      "system_prompt": "",
+      "roles": [
+        "user",
+        "assistant"
+      ],
+      "stop_token_ids": [
+        151329,
+        151336,
+        151338
+      ],
+      "stop": [
+        "<|endoftext|>",
+        "<|user|>",
+        "<|observation|>"
+      ]
+    }
+  },
+  {
+    "version": 1,
+    "context_length": 1048576,
+    "model_name": "glm4-chat-1m",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat",
+      "tools"
+    ],
+    "model_description": "GLM4 is the open source version of the latest generation of pre-trained models in the GLM-4 series launched by Zhipu AI.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 9,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "THUDM/glm-4-9b-chat-1m",
+        "model_revision": "715ddbe91082f976ff6a4ca06d59e5bbff6c3642"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "CHATGLM3",
+      "system_prompt": "",
+      "roles": [
+        "user",
+        "assistant"
+      ],
+      "stop_token_ids": [
+        151329,
+        151336,
+        151338
+      ],
+      "stop": [
+        "<|endoftext|>",
+        "<|user|>",
+        "<|observation|>"
+      ]
+    }
+  },
+  {
+    "version": 1,
+    "context_length": 8192,
+    "model_name": "glm-4v",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat",
+      "vision"
+    ],
+    "model_description": "GLM4 is the open source version of the latest generation of pre-trained models in the GLM-4 series launched by Zhipu AI.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 9,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "THUDM/glm-4v-9b",
+        "model_revision": "e8b84fefc07e58a90c8489337675573fda95e289"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "CHATGLM3",
+      "system_prompt": "",
+      "roles": [
+        "user",
+        "assistant"
+      ],
+      "stop_token_ids": [
+        151329,
+        151336,
+        151338
+      ],
+      "stop": [
+        "<|endoftext|>",
+        "<|user|>",
+        "<|observation|>"
+      ]
+    }
+  },
+  {
+    "version": 1,
     "context_length": 2048,
     "model_name": "xverse-chat",
     "model_lang": [
@@ -2293,6 +2426,218 @@
   },
   {
     "version": 1,
+    "context_length": 32768,
+    "model_name": "qwen2-instruct",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat",
+      "tools"
+    ],
+    "model_description": "Qwen2 is the new series of Qwen large language models",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": "0_5",
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "Qwen/Qwen2-0.5B-Instruct"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": "1_5",
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "Qwen/Qwen2-1.5B-Instruct"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "Qwen/Qwen2-7B-Instruct"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 72,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "Qwen/Qwen2-72B-Instruct"
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": "0_5",
+        "quantizations": [
+          "Int4",
+          "Int8"
+        ],
+        "model_id": "Qwen/Qwen2-0.5B-Instruct-GPTQ-{quantization}"
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": "1_5",
+        "quantizations": [
+          "Int4",
+          "Int8"
+        ],
+        "model_id": "Qwen/Qwen2-1.5B-Instruct-GPTQ-{quantization}"
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "Int4",
+          "Int8"
+        ],
+        "model_id": "Qwen/Qwen2-7B-Instruct-GPTQ-{quantization}"
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 72,
+        "quantizations": [
+          "Int4",
+          "Int8"
+        ],
+        "model_id": "Qwen/Qwen2-72B-Instruct-GPTQ-{quantization}"
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": "0_5",
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "Qwen/Qwen2-0.5B-Instruct-AWQ"
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": "1_5",
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "Qwen/Qwen2-1.5B-Instruct-AWQ"
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "Qwen/Qwen2-7B-Instruct-AWQ"
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 72,
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "Qwen/Qwen2-72B-Instruct-AWQ"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": "0_5",
+        "quantizations": [
+          "q2_k",
+          "q3_k_m",
+          "q4_0",
+          "q4_k_m",
+          "q5_0",
+          "q5_k_m",
+          "q6_k",
+          "q8_0",
+          "fp16"
+        ],
+        "model_id": "Qwen/Qwen2-0.5B-Instruct-GGUF",
+        "model_file_name_template": "qwen2-0_5b-instruct-{quantization}.gguf"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "QWEN",
+      "system_prompt": "You are a helpful assistant.",
+      "roles": [
+        "user",
+        "assistant"
+      ],
+      "intra_message_sep": "\n",
+      "stop_token_ids": [
+        151643,
+        151644,
+        151645
+      ],
+      "stop": [
+        "<|endoftext|>",
+        "<|im_start|>",
+        "<|im_end|>"
+      ]
+    }
+  },
+  {
+    "version": 1,
+    "context_length": 32768,
+    "model_name": "qwen2-moe-instruct",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "Qwen2 is the new series of Qwen large language models. ",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 14,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "Qwen/Qwen2-57B-A14B-Instruct"
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 14,
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "Qwen/Qwen2-57B-A14B-Instruct-GPTQ-Int4"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "QWEN",
+      "system_prompt": "You are a helpful assistant.",
+      "roles": [
+        "user",
+        "assistant"
+      ],
+      "intra_message_sep": "\n",
+      "stop_token_ids": [
+        151643,
+        151644,
+        151645
+      ],
+      "stop": [
+        "<|endoftext|>",
+        "<|im_start|>",
+        "<|im_end|>"
+      ]
+    }
+  },
+  {
+    "version": 1,
     "context_length": 8192,
     "model_name": "starcoder",
     "model_lang": [
@@ -3250,6 +3595,125 @@
         "</s>"
       ]
     }
+  },
+  {
+    "version": 1,
+    "context_length": 32768,
+    "model_name": "mistral-instruct-v0.3",
+    "model_lang": [
+      "en"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "The Mistral-7B-Instruct-v0.2 Large Language Model (LLM) is an improved instruct fine-tuned version of Mistral-7B-Instruct-v0.1.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "mistralai/Mistral-7B-Instruct-v0.3",
+        "model_revision": "83e9aa141f2e28c82232fea5325f54edf17c43de"
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "neuralmagic/Mistral-7B-Instruct-v0.3-GPTQ-4bit"
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "solidrust/Mistral-7B-Instruct-v0.3-AWQ"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "Q2_K",
+          "Q3_K_S",
+          "Q3_K_M",
+          "Q3_K_L",
+          "Q4_K_S",
+          "Q4_K_M",
+          "Q5_K_S",
+          "Q5_K_M",
+          "Q6_K",
+          "Q8_0",
+          "fp16"
+        ],
+        "model_id": "MaziyarPanahi/Mistral-7B-Instruct-v0.3-GGUF",
+        "model_file_name_template": "Mistral-7B-Instruct-v0.3.{quantization}.gguf"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "LLAMA2",
+      "system_prompt": "[INST] ",
+      "roles": [
+        "[INST]",
+        "[/INST]"
+      ],
+      "intra_message_sep": " ",
+      "inter_message_sep": "<s>",
+      "stop_token_ids": [
+        2
+      ],
+      "stop": [
+        "</s>"
+      ]
+    }
+  },
+  {
+    "version": 1,
+    "context_length": 32768,
+    "model_name": "codestral-v0.1",
+    "model_lang": [
+      "en"
+    ],
+    "model_ability": [
+      "generate"
+    ],
+    "model_description": "Codestrall-22B-v0.1 is trained on a diverse dataset of 80+ programming languages, including the most popular ones, such as Python, Java, C, C++, JavaScript, and Bash",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 22,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "mistralai/Mistral-7B-Instruct-v0.2",
+        "model_revision": "9552e7b1d9b2d5bbd87a5aa7221817285dbb6366"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 22,
+        "quantizations": [
+          "Q2_K",
+          "Q3_K_S",
+          "Q3_K_M",
+          "Q3_K_L",
+          "Q4_K_S",
+          "Q4_K_M",
+          "Q5_K_S",
+          "Q5_K_M",
+          "Q6_K",
+          "Q8_0"
+        ],
+        "model_id": "bartowski/Codestral-22B-v0.1-GGUF",
+        "model_file_name_template": "Codestral-22B-v0.1-{quantization}.gguf"
+      }
+    ]
   },
   {
     "version": 1,
@@ -5259,6 +5723,48 @@
     }
   },
   {
+    "version":1,
+    "context_length":2048,
+    "model_name":"MiniCPM-Llama3-V-2_5",
+    "model_lang":[
+      "en",
+      "zh"
+    ],
+    "model_ability":[
+      "chat",
+      "vision"
+    ],
+    "model_description":"MiniCPM-Llama3-V 2.5 is the latest model in the MiniCPM-V series. The model is built on SigLip-400M and Llama3-8B-Instruct with a total of 8B parameters.",
+    "model_specs":[
+      {
+        "model_format":"pytorch",
+        "model_size_in_billions":8,
+        "quantizations":[
+          "none"
+        ],
+        "model_id":"openbmb/MiniCPM-Llama3-V-2_5",
+        "model_revision":"285a637ba8a30a0660dfcccad16f9a864f75abfd"
+      },
+      {
+        "model_format":"pytorch",
+        "model_size_in_billions":8,
+        "quantizations":[
+          "int4"
+        ],
+        "model_id":"openbmb/MiniCPM-Llama3-V-2_5-{quantization}",
+        "model_revision":"f92aff28552de35de3be204e8fe292dd4824e544"
+      }
+    ],
+    "prompt_style":{
+      "style_name":"OmniLMM",
+      "system_prompt":"The role of first msg should be user",
+      "roles":[
+        "user",
+        "assistant"
+      ]
+    }
+  },
+  {
     "version": 1,
     "context_length": 4096,
     "model_name": "qwen-vl-chat",
@@ -6205,31 +6711,31 @@
     "model_description": "InternVL 1.5 is an open-source multimodal large language model (MLLM) to bridge the capability gap between open-source and proprietary commercial models in multimodal understanding. ",
     "model_specs": [
       {
-            "model_format": "pytorch",
-            "model_size_in_billions": 2,
-            "quantizations": [
-                "none"
-            ],
-            "model_id": "OpenGVLab/Mini-InternVL-Chat-2B-V1-5",
-            "model_revision": "ce3f67acff17281bacbf4b156f402a0580fb9605"
+          "model_format": "pytorch",
+          "model_size_in_billions": 2,
+          "quantizations": [
+              "none"
+          ],
+          "model_id": "OpenGVLab/Mini-InternVL-Chat-2B-V1-5",
+          "model_revision": "ce3f67acff17281bacbf4b156f402a0580fb9605"
         },
         {
-            "model_format": "pytorch",
-            "model_size_in_billions": 26,
-            "quantizations": [
-                "none"
-            ],
-            "model_id": "OpenGVLab/InternVL-Chat-V1-5",
-            "model_revision": "e822119e5806946ce128043023a73d715ecabf8d"
+          "model_format": "pytorch",
+          "model_size_in_billions": 26,
+          "quantizations": [
+              "none"
+          ],
+          "model_id": "OpenGVLab/InternVL-Chat-V1-5",
+          "model_revision": "e822119e5806946ce128043023a73d715ecabf8d"
         },
         {
-            "model_format": "pytorch",
-            "model_size_in_billions": 26,
-            "quantizations": [
-                "Int8"
-            ],
-            "model_id": "OpenGVLab/InternVL-Chat-V1-5-{quantization}",
-            "model_revision": "acaaed06937c603ab04f084216ecb0268160f538"
+          "model_format": "pytorch",
+          "model_size_in_billions": 26,
+          "quantizations": [
+              "Int8"
+          ],
+          "model_id": "OpenGVLab/InternVL-Chat-V1-5-{quantization}",
+          "model_revision": "acaaed06937c603ab04f084216ecb0268160f538"
         }
     ],
     "prompt_style": {
@@ -6247,7 +6753,7 @@
             "<|im_end|>"
         ]
     }
-},
+  },
   {
     "version": 1,
     "context_length": 8192,
@@ -6262,24 +6768,24 @@
     ],
     "model_description": "CogVLM2 have achieved good results in many lists compared to the previous generation of CogVLM open source models. Its excellent performance can compete with some non-open source models.",
     "model_specs": [
-        {
-            "model_format": "pytorch",
-            "model_size_in_billions": 20,
-            "quantizations": [
-                "none"
-            ],
-            "model_id": "THUDM/cogvlm2-llama3-chinese-chat-19B",
-            "model_revision": "d88b352bce5ee58a289b1ac8328553eb31efa2ef"
-        },
       {
-            "model_format": "pytorch",
-            "model_size_in_billions": 20,
-            "quantizations": [
-                "int4"
-            ],
-            "model_id": "THUDM/cogvlm2-llama3-chinese-chat-19B-{quantizations}",
-            "model_revision": "7863e362174f4718c2fe9cba4befd0b580a3194f"
-        }
+        "model_format": "pytorch",
+        "model_size_in_billions": 20,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "THUDM/cogvlm2-llama3-chinese-chat-19B",
+        "model_revision": "d88b352bce5ee58a289b1ac8328553eb31efa2ef"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 20,
+        "quantizations": [
+          "int4"
+        ],
+        "model_id": "THUDM/cogvlm2-llama3-chinese-chat-19B-{quantization}",
+        "model_revision": "7863e362174f4718c2fe9cba4befd0b580a3194f"
+      }
     ],
     "prompt_style": {
       "style_name": "LLAMA3",
@@ -6299,5 +6805,86 @@
         "<|eot_id|>"
       ]
     }
-}
+  },
+  {
+    "version": 1,
+    "context_length": 8192,
+    "model_name": "telechat",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "The TeleChat is a large language model developed and trained by China Telecom Artificial Intelligence Technology Co., LTD. The 7B model base is trained with 1.5 trillion Tokens and 3 trillion Tokens and Chinese high-quality corpus.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "Tele-AI/telechat-7B"
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "int4",
+          "int8"
+        ],
+        "model_id": "Tele-AI/telechat-7B-{quantization}"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 12,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "Tele-AI/TeleChat-12B"
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 12,
+        "quantizations": [
+          "int4",
+          "int8"
+        ],
+        "model_id": "Tele-AI/TeleChat-12B-{quantization}"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 52,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "Tele-AI/TeleChat-52B"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "NO_COLON_TWO",
+      "system_prompt": "You are a helpful assistant.",
+      "roles": [
+        "<_user>",
+        "<_bot>"
+      ],
+      "intra_message_sep": "",
+      "inter_message_sep": "",
+      "stop": [
+        "<_end>",
+        "<_start>"
+      ],
+      "stop_token_ids": [
+        160133,
+        160132
+      ]
+    }
+  }
 ]

@@ -42,8 +42,8 @@ def is_locale_chinese_simplified() -> bool:
 
 
 def download_from_modelscope() -> bool:
-    if os.environ.get(XINFERENCE_ENV_MODEL_SRC) == "modelscope":
-        return True
+    if os.environ.get(XINFERENCE_ENV_MODEL_SRC):
+        return os.environ.get(XINFERENCE_ENV_MODEL_SRC) == "modelscope"
     elif is_locale_chinese_simplified():
         return True
     else:

@@ -993,8 +993,9 @@ class SupervisorActor(xo.StatelessActor):
                     "model_size_in_billions", None
                 )
                 quantizations = model_version.get("quantization", None)
-                re_dict = model_version.get("model_file_location", None)
-                actor_ip_address, path = next(iter(re_dict.items()))
+                actor_ip_address = model_version.get("actor_ip_address", None)
+                path = model_version.get("path", None)
+                real_path = model_version.get("real_path", None)
 
                 cache_entry = {
                     "model_name": model_name,
@@ -1003,10 +1004,37 @@ class SupervisorActor(xo.StatelessActor):
                     "quantizations": quantizations,
                     "path": path,
                     "Actor IP Address": actor_ip_address,
+                    "real_path": real_path,
                 }
 
                 cached_models.append(cache_entry)
         return cached_models
+
+    @log_async(logger=logger)
+    async def abort_request(self, model_uid: str, request_id: str) -> Dict:
+        from .scheduler import AbortRequestMessage
+
+        res = {"msg": AbortRequestMessage.NO_OP.name}
+        replica_info = self._model_uid_to_replica_info.get(model_uid, None)
+        if not replica_info:
+            return res
+        replica_cnt = replica_info.replica
+
+        # Query all replicas
+        for rep_mid in iter_replica_model_uid(model_uid, replica_cnt):
+            worker_ref = self._replica_model_uid_to_worker.get(rep_mid, None)
+            if worker_ref is None:
+                continue
+            model_ref = await worker_ref.get_model(model_uid=rep_mid)
+            result_info = await model_ref.abort_request(request_id)
+            res["msg"] = result_info
+            if result_info == AbortRequestMessage.DONE.name:
+                break
+            elif result_info == AbortRequestMessage.NOT_FOUND.name:
+                logger.debug(f"Request id: {request_id} not found for model {rep_mid}")
+            else:
+                logger.debug(f"No-op for model {rep_mid}")
+        return res
 
     @log_async(logger=logger)
     async def add_worker(self, worker_address: str):

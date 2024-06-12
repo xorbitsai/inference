@@ -684,6 +684,49 @@ class RESTfulAudioModelHandle(RESTfulModelHandle):
         response_data = response.json()
         return response_data
 
+    def speech(
+        self,
+        input: str,
+        voice: str = "",
+        response_format: str = "mp3",
+        speed: float = 1.0,
+    ):
+        """
+        Generates audio from the input text.
+
+        Parameters
+        ----------
+
+        input: str
+            The text to generate audio for. The maximum length is 4096 characters.
+        voice: str
+            The voice to use when generating the audio.
+        response_format: str
+            The format to audio in.
+        speed: str
+            The speed of the generated audio.
+
+        Returns
+        -------
+        bytes
+            The generated audio binary.
+        """
+        url = f"{self._base_url}/v1/audio/speech"
+        params = {
+            "model": self._model_uid,
+            "input": input,
+            "voice": voice,
+            "response_format": response_format,
+            "speed": speed,
+        }
+        response = requests.post(url, json=params, headers=self.auth_headers)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to speech the text, detail: {_get_error_string(response)}"
+            )
+
+        return response.content
+
 
 class Client:
     def __init__(self, base_url, api_key: Optional[str] = None):
@@ -1177,6 +1220,33 @@ class Client:
         if response.status_code != 200:
             raise RuntimeError(
                 f"Failed to query engine parameters by model name, detail: {_get_error_string(response)}"
+            )
+
+        response_data = response.json()
+        return response_data
+
+    def abort_request(self, model_uid: str, request_id: str):
+        """
+        Abort a request.
+        Abort a submitted request. If the request is finished or not found, this method will be a no-op.
+        Currently, this interface is only supported when batching is enabled for models on transformers backend.
+
+        Parameters
+        ----------
+        model_uid: str
+            Model uid.
+        request_id: str
+            Request id.
+        Returns
+        -------
+        Dict
+            Return empty dict.
+        """
+        url = f"{self.base_url}/v1/models/{model_uid}/requests/{request_id}/abort"
+        response = requests.post(url, headers=self._headers)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to abort request, detail: {_get_error_string(response)}"
             )
 
         response_data = response.json()

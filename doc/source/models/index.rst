@@ -217,3 +217,4 @@ Model Usage
    custom
    sources/sources
    lora
+   model_memory

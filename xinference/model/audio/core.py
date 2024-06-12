@@ -14,11 +14,12 @@
 import logging
 import os
 from collections import defaultdict
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 
 from ...constants import XINFERENCE_CACHE_DIR
 from ..core import CacheableModelSpec, ModelDescription
 from ..utils import valid_model_revision
+from .chattts import ChatTTSModel
 from .whisper import WhisperModel
 
 MAX_ATTEMPTS = 3
@@ -94,12 +95,23 @@ def generate_audio_description(
 
 
 def match_audio(model_name: str) -> AudioModelFamilyV1:
-    from . import BUILTIN_AUDIO_MODELS
+    from ..utils import download_from_modelscope
+    from . import BUILTIN_AUDIO_MODELS, MODELSCOPE_AUDIO_MODELS
     from .custom import get_user_defined_audios
 
     for model_spec in get_user_defined_audios():
         if model_spec.model_name == model_name:
             return model_spec
+
+    if download_from_modelscope():
+        if model_name in MODELSCOPE_AUDIO_MODELS:
+            logger.debug(f"Audio model {model_name} found in ModelScope.")
+            return MODELSCOPE_AUDIO_MODELS[model_name]
+        else:
+            logger.debug(
+                f"Audio model {model_name} not found in ModelScope, "
+                f"now try to load it via builtin way."
+            )
 
     if model_name in BUILTIN_AUDIO_MODELS:
         return BUILTIN_AUDIO_MODELS[model_name]
@@ -130,10 +142,16 @@ def get_cache_status(
 
 def create_audio_model_instance(
     subpool_addr: str, devices: List[str], model_uid: str, model_name: str, **kwargs
-) -> Tuple[WhisperModel, AudioModelDescription]:
+) -> Tuple[Union[WhisperModel, ChatTTSModel], AudioModelDescription]:
     model_spec = match_audio(model_name)
     model_path = cache(model_spec)
-    model = WhisperModel(model_uid, model_path, model_spec, **kwargs)
+    model: Union[WhisperModel, ChatTTSModel]
+    if model_spec.model_family == "whisper":
+        model = WhisperModel(model_uid, model_path, model_spec, **kwargs)
+    elif model_spec.model_family == "ChatTTS":
+        model = ChatTTSModel(model_uid, model_path, model_spec, **kwargs)
+    else:
+        raise Exception(f"Unsupported audio model family: {model_spec.model_family}")
     model_description = AudioModelDescription(
         subpool_addr, devices, model_spec, model_path=model_path
     )

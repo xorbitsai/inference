@@ -122,6 +122,14 @@ class TextToImageRequest(BaseModel):
     user: Optional[str] = None
 
 
+class SpeechRequest(BaseModel):
+    model: str
+    input: str
+    voice: Optional[str]
+    response_format: Optional[str] = "mp3"
+    speed: Optional[float] = 1.0
+
+
 class RegisterModelRequest(BaseModel):
     model: str
     persist: bool
@@ -338,6 +346,16 @@ class RESTfulAPI:
             ),
         )
         self._router.add_api_route(
+            "/v1/models/{model_uid}/requests/{request_id}/abort",
+            self.abort_request,
+            methods=["POST"],
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:read"])]
+                if self.is_authenticated()
+                else None
+            ),
+        )
+        self._router.add_api_route(
             "/v1/models/instance",
             self.launch_model_by_version,
             methods=["POST"],
@@ -411,6 +429,16 @@ class RESTfulAPI:
         self._router.add_api_route(
             "/v1/audio/translations",
             self.create_translations,
+            methods=["POST"],
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:read"])]
+                if self.is_authenticated()
+                else None
+            ),
+        )
+        self._router.add_api_route(
+            "/v1/audio/speech",
+            self.create_speech,
             methods=["POST"],
             dependencies=(
                 [Security(self._auth_service, scopes=["models:read"])]
@@ -1179,6 +1207,38 @@ class RESTfulAPI:
             await self._report_error_event(model_uid, str(e))
             raise HTTPException(status_code=500, detail=str(e))
 
+    async def create_speech(self, request: Request) -> Response:
+        body = SpeechRequest.parse_obj(await request.json())
+        model_uid = body.model
+        try:
+            model = await (await self._get_supervisor_ref()).get_model(model_uid)
+        except ValueError as ve:
+            logger.error(str(ve), exc_info=True)
+            await self._report_error_event(model_uid, str(ve))
+            raise HTTPException(status_code=400, detail=str(ve))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            await self._report_error_event(model_uid, str(e))
+            raise HTTPException(status_code=500, detail=str(e))
+
+        try:
+            out = await model.speech(
+                input=body.input,
+                voice=body.voice,
+                response_format=body.response_format,
+                speed=body.speed,
+            )
+            return Response(media_type="application/octet-stream", content=out)
+        except RuntimeError as re:
+            logger.error(re, exc_info=True)
+            await self._report_error_event(model_uid, str(re))
+            self.handle_request_limit_error(re)
+            raise HTTPException(status_code=400, detail=str(re))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            await self._report_error_event(model_uid, str(e))
+            raise HTTPException(status_code=500, detail=str(e))
+
     async def create_images(self, request: Request) -> Response:
         body = TextToImageRequest.parse_obj(await request.json())
         model_uid = body.model
@@ -1514,6 +1574,15 @@ class RESTfulAPI:
         except ValueError as re:
             logger.error(re, exc_info=True)
             raise HTTPException(status_code=400, detail=str(re))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def abort_request(self, model_uid: str, request_id: str) -> JSONResponse:
+        try:
+            supervisor_ref = await self._get_supervisor_ref()
+            res = await supervisor_ref.abort_request(model_uid, request_id)
+            return JSONResponse(content=res)
         except Exception as e:
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))

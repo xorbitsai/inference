@@ -87,3 +87,4 @@ AudioModelHandle
 
    xinference.client.handlers.AudioModelHandle.transcriptions
    xinference.client.handlers.AudioModelHandle.translations
+   xinference.client.handlers.AudioModelHandle.speech
