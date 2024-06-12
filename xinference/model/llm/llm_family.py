@@ -32,7 +32,11 @@ from ..._compat import (
     load_str_bytes,
     validator,
 )
-from ...constants import XINFERENCE_CACHE_DIR, XINFERENCE_MODEL_DIR
+from ...constants import (
+    XINFERENCE_CACHE_DIR,
+    XINFERENCE_ENV_SCG_TOKEN,
+    XINFERENCE_MODEL_DIR,
+)
 from ..utils import (
     IS_NEW_HUGGINGFACE_HUB,
     create_symlink,
@@ -288,7 +292,6 @@ def cache(
             logger.info(f"Caching from URI: {llm_spec.model_uri}")
             return cache_from_uri(llm_family, llm_spec, quantization)
         else:
-            logger.info(f"llm_spec.model_uri is {llm_spec.model_hub}")
             if llm_spec.model_hub == "huggingface":
                 logger.info(f"Caching from Hugging Face: {llm_spec.model_id}")
                 return cache_from_huggingface(llm_family, llm_spec, quantization)
@@ -572,6 +575,7 @@ def _skip_download(
             "modelscope": _get_meta_path(
                 cache_dir, model_format, "modelscope", quantization
             ),
+            "csghub": _get_meta_path(cache_dir, model_format, "csghub", quantization),
         }
         if valid_model_revision(model_hub_to_meta_path[model_hub], model_revision):
             logger.info(f"Cache {cache_dir} exists")
@@ -668,6 +672,7 @@ def cache_from_csghub(
     from pycsghub.snapshot_download import snapshot_download
 
     cache_dir = _get_cache_dir(llm_family, llm_spec)
+
     if _skip_download(
         cache_dir,
         llm_spec.model_format,
@@ -686,7 +691,8 @@ def cache_from_csghub(
                 "model_format": llm_spec.model_format,
             },
             llm_spec.model_id,
-            revision=llm_spec.model_revision,
+            endpoint="https://hub-stg.opencsg.com",
+            token=os.environ.get(XINFERENCE_ENV_SCG_TOKEN),
         )
         create_symlink(download_dir, cache_dir)
 
@@ -704,8 +710,9 @@ def cache_from_csghub(
                     "model_format": llm_spec.model_format,
                 },
                 llm_spec.model_id,
-                filename,
-                revision=llm_spec.model_revision,
+                file_name=filename,
+                endpoint="https://hub-stg.opencsg.com",
+                token=os.environ.get(XINFERENCE_ENV_SCG_TOKEN),
             )
             symlink_local_file(download_path, cache_dir, filename)
 
