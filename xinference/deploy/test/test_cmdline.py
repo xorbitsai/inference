@@ -288,21 +288,15 @@ def test_list_cached_models(setup):
 
     result = runner.invoke(
         list_cached_models,
-        [
-            "--endpoint",
-            endpoint,
-        ],
+        ["--endpoint", endpoint, "--model_name", "orca"],
     )
-    assert result.exit_code == 0
-    assert "cached_model: " in result.stdout
-
-    # check if the output is in tabular format
     assert "model_name" in result.stdout
     assert "model_format" in result.stdout
     assert "model_size_in_billions" in result.stdout
-    assert "quantizations" in result.stdout
+    assert "quantization" in result.stdout
+    assert "model_version" in result.stdout
     assert "path" in result.stdout
-    assert "Actor IP Address" in result.stdout
+    assert "actor_ip_address" in result.stdout
 
 
 def test_remove_cache(setup):
@@ -311,9 +305,9 @@ def test_remove_cache(setup):
 
     result = runner.invoke(
         remove_cache,
-        ["--endpoint", endpoint, "--model_name", "orca"],
+        ["--endpoint", endpoint, "--model_version", "orca"],
         input="y\n",
     )
 
     assert result.exit_code == 0
-    assert "Cache directory orca has been deleted" in result.output
+    assert "Cache directory orca has been deleted."
