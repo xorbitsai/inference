@@ -191,7 +191,7 @@ def test_list_deletable_models(setup):
 def test_remove_cached_models(setup):
     endpoint, local_host = setup
     client = RESTfulClient(endpoint)
-    responses = client.remove_cached_models("orca--3B--ggmlv3--q4_0")
+    responses = client.confirm_and_remove_model("orca--3B--ggmlv3--q4_0")
     assert responses
 
 

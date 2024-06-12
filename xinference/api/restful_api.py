@@ -1651,10 +1651,9 @@ class RESTfulAPI:
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
 
-    async def list_deletable_models(self, request: Request) -> JSONResponse:
-        payload = await request.json()
-        worker_ip = payload.get("worker_ip", None)
-        model_version = payload.get("model_version", None)
+    async def list_deletable_models(
+        self, model_version: str = Query(None), worker_ip: str = Query(None)
+    ) -> JSONResponse:
         try:
             data = await (await self._get_supervisor_ref()).list_deletable_models(
                 model_version, worker_ip

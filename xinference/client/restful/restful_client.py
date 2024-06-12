@@ -1200,11 +1200,11 @@ class Client:
             Dictionary with keys "model_name" and values model_file_location.
         """
         url = f"{self.base_url}/v1/cached/models/status"
-        payload = {
+        params = {
             "model_version": model_version,
             "worker_ip": worker_ip,
         }
-        response = requests.get(url, headers=self._headers, json=payload)
+        response = requests.get(url, headers=self._headers, params=params)
         if response.status_code != 200:
             raise RuntimeError(
                 f"Failed to get paths by model name, detail: {_get_error_string(response)}"
