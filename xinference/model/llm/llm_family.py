@@ -34,7 +34,7 @@ from ..._compat import (
 )
 from ...constants import (
     XINFERENCE_CACHE_DIR,
-    XINFERENCE_ENV_SCG_TOKEN,
+    XINFERENCE_ENV_CSG_TOKEN,
     XINFERENCE_MODEL_DIR,
 )
 from ..utils import (
@@ -692,7 +692,7 @@ def cache_from_csghub(
             },
             llm_spec.model_id,
             endpoint="https://hub-stg.opencsg.com",
-            token=os.environ.get(XINFERENCE_ENV_SCG_TOKEN),
+            token=os.environ.get(XINFERENCE_ENV_CSG_TOKEN),
         )
         create_symlink(download_dir, cache_dir)
 
@@ -712,7 +712,7 @@ def cache_from_csghub(
                 llm_spec.model_id,
                 file_name=filename,
                 endpoint="https://hub-stg.opencsg.com",
-                token=os.environ.get(XINFERENCE_ENV_SCG_TOKEN),
+                token=os.environ.get(XINFERENCE_ENV_CSG_TOKEN),
             )
             symlink_local_file(download_path, cache_dir, filename)
 
