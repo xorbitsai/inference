@@ -15,6 +15,7 @@
 import asyncio
 import functools
 import logging
+import uuid
 from collections import deque
 from enum import Enum
 from typing import List, Optional, Set
@@ -63,6 +64,8 @@ class InferenceRequest:
         self._aborted = False
         # sanitized generate config
         self._sanitized_generate_config = None
+        # Chunk id for results. In stream mode, all the chunk ids should be same.
+        self._stream_chunk_id = str(uuid.uuid4())
         # Use in stream mode
         self.last_output_length = 0
         # inference results,
@@ -184,6 +187,10 @@ class InferenceRequest:
     @finish_reason.setter
     def finish_reason(self, value: Optional[str]):
         self._finish_reason = value
+
+    @property
+    def chunk_id(self):
+        return self._stream_chunk_id
 
     @property
     def stream(self) -> bool:
