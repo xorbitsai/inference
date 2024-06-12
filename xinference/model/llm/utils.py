@@ -693,7 +693,7 @@ Begin!"""
                 final_answer_idx = tokens.lower().rfind("\nfinal answer:")
                 if final_answer_idx != -1:
                     found = True
-                    return tokens[final_answer_idx + len("\nfinal answer:"):]
+                    return tokens[final_answer_idx + len("\nfinal answer:") :]
                 return ""
 
             return process_tokens
