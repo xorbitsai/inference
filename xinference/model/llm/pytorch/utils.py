@@ -701,7 +701,7 @@ def _batch_inference_one_step_internal(
     decode_reqs = []
     for r in valid_req_list:
         if r.is_prefill:
-            prompts.append(r.full_prompt)
+            prompts.append(r.full_prompt if r.full_prompt is not None else r.prompt)
             prefill_reqs.append(r)
         else:
             decode_reqs.append(r)

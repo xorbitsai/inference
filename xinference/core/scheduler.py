@@ -50,9 +50,9 @@ class InferenceRequest:
         self._new_tokens = []
         # kv_cache used in decode phase
         self._kv_cache = None
-        # use passed args from `chat` interface
+        # use passed args from upstream interface
         self._inference_args = args
-        # use passed kwargs from `chat` interface, basically not used for now
+        # use passed kwargs from upstream interface, basically not used for now
         self._inference_kwargs = kwargs
         # should this request be stopped
         self._stopped = False
@@ -81,19 +81,26 @@ class InferenceRequest:
         self._check_args()
 
     def _check_args(self):
-        assert len(self._inference_args) == 3
-        # system prompt
-        assert self._inference_args[0] is None or isinstance(
-            self._inference_args[0], str
-        )
-        # chat history
-        assert self._inference_args[1] is None or isinstance(
-            self._inference_args[1], list
-        )
-        # generate config
-        assert self._inference_args[2] is None or isinstance(
-            self._inference_args[2], dict
-        )
+        # chat
+        if len(self._inference_args) == 3:
+            # system prompt
+            assert self._inference_args[0] is None or isinstance(
+                self._inference_args[0], str
+            )
+            # chat history
+            assert self._inference_args[1] is None or isinstance(
+                self._inference_args[1], list
+            )
+            # generate config
+            assert self._inference_args[2] is None or isinstance(
+                self._inference_args[2], dict
+            )
+        else:  # generate
+            assert len(self._inference_args) == 1
+            # generate config
+            assert self._inference_args[0] is None or isinstance(
+                self._inference_args[0], dict
+            )
 
     @property
     def prompt(self):
@@ -148,7 +155,11 @@ class InferenceRequest:
 
     @property
     def generate_config(self):
-        return self._inference_args[2]
+        return (
+            self._inference_args[2]
+            if len(self._inference_args) == 3
+            else self._inference_args[0]
+        )
 
     @property
     def sanitized_generate_config(self):
