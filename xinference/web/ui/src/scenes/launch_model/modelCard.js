@@ -103,6 +103,7 @@ const ModelCard = ({
   const [isDeleteCached, setIsDeleteCached] = useState(false)
   const [isDelete, setIsDelete] = useState(false)
   const [cachedListArr, setCachedListArr] = useState([])
+  const [deleteCacheArr, setDeleteCacheArr] = useState([])
   const [cachedKey, setCachedKey] = useState('')
   const [page, setPage] = useState(0)
   const [isCopySuccess, setIsCopySuccess] = useState(false)
@@ -429,7 +430,7 @@ const ModelCard = ({
   const getCustomParametersArr = (arr) => {
     setCustomParametersArr(arr)
   }
-  
+
   const StyledTableRow = styled(TableRow)(({ theme }) => ({
     '&:nth-of-type(odd)': {
       backgroundColor: theme.palette.action.hover,
@@ -437,7 +438,7 @@ const ModelCard = ({
   }))
 
   const emptyRows =
-    page >= 0 ? Math.max(0, (1 + page) * 5 - cachedListArr.length) : 0;
+    page >= 0 ? Math.max(0, (1 + page) * 5 - cachedListArr.length) : 0
 
   const handleChangePage = (_, newPage) => {
     setPage(newPage)
@@ -457,62 +458,142 @@ const ModelCard = ({
   const handleOpenCachedList = () => {
     setIsOpenCachedList(true)
     getCachedList()
+    document.body.style.overflow = 'hidden'
   }
 
   const handleCloseCachedList = () => {
+    document.body.style.overflow = 'auto'
     setHover(false)
     setIsOpenCachedList(false)
+    if (isDelete) {
+      let storageArr = JSON.parse(sessionStorage.getItem('deleteCacheArr'))
+      if (storageArr) {
+        const repeatArr = storageArr.filter((item) => {
+          return deleteCacheArr.some((subItem) => {
+            return item.model_version === subItem.model_version
+          })
+        })
+        if (repeatArr.length) {
+          const resArr = deleteCacheArr.filter((item) => {
+            return repeatArr.some((subItem) => {
+              return item.model_version !== subItem.model_version
+            })
+          })
+          sessionStorage.setItem(
+            'deleteCacheArr',
+            JSON.stringify(storageArr.concat(resArr))
+          )
+        } else {
+          sessionStorage.setItem(
+            'deleteCacheArr',
+            JSON.stringify(storageArr.concat(deleteCacheArr))
+          )
+        }
+      } else {
+        sessionStorage.setItem('deleteCacheArr', JSON.stringify(deleteCacheArr))
+      }
+    }
   }
 
   const getCachedList = () => {
-    fetcher(url + '/v1/cached/list_cached_models', {
+    fetcher(url + `/v1/cache/models?model_name=${modelData.model_name}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
       },
     })
-    .then((response) => {
-      if (!response.ok) {
-        response.json().then((errorData) => {
-          setErrorMsg(
-            `Server error: ${response.status} - ${
-              errorData.detail || 'Unknown error'
-            }`
-          )
-        })
-      } else {
-        response.json().then((data) => {
-          setCachedListArr(data)
-        })
-      }
-    })
-    .catch((error) => {
-      console.error('Error:', error)
-    })
+      .then((response) => {
+        if (!response.ok) {
+          response.json().then((errorData) => {
+            setErrorMsg(
+              `Server error: ${response.status} - ${
+                errorData.detail || 'Unknown error'
+              }`
+            )
+          })
+        } else {
+          response.json().then((data) => {
+            setCachedListArr(data.list)
+          })
+        }
+      })
+      .catch((error) => {
+        console.error('Error:', error)
+      })
   }
 
-  const handleOpenDeleteCachedDialog = (real_path) => {
-    // 保存下来删除所需的key
-    setCachedKey(real_path)
+  const handleOpenDeleteCachedDialog = (model_version) => {
+    setCachedKey(model_version)
     setIsDeleteCached(true)
   }
 
   const handleDeleteCached = () => {
-    setCachedListArr(cachedListArr.filter((item) => item.real_path !== cachedKey))
-    setIsDelete(true)
-    setIsDeleteCached(false)
-    if(cachedListArr.length - 1) {
-      if(((page + 1) * 5 >= cachedListArr.length) && ((cachedListArr.length - 1) % 5 === 0)) {
-        setPage((cachedListArr.length - 1) / 5 - 1)
-      }
-    }
+    fetcher(url + `/v1/cache/models?model_version=${cachedKey}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+      .then((response) => {
+        if (!response.ok) {
+          response.json().then((errorData) => {
+            setErrorMsg(
+              `Server error: ${response.status} - ${
+                errorData.detail || 'Unknown error'
+              }`
+            )
+          })
+        } else {
+          response.json().then(() => {
+            setCachedListArr(
+              cachedListArr.filter((item) => item.model_version !== cachedKey)
+            )
+            setIsDelete(true)
+            setIsDeleteCached(false)
+            if (cachedListArr.length - 1) {
+              if (
+                (page + 1) * 5 >= cachedListArr.length &&
+                (cachedListArr.length - 1) % 5 === 0
+              ) {
+                setPage((cachedListArr.length - 1) / 5 - 1)
+              }
+            }
+            const arr = cachedListArr.filter(
+              (item) => item.model_version === cachedKey
+            )
+            const {
+              model_name,
+              model_version,
+              model_format,
+              model_size_in_billions,
+              quantization,
+            } = arr[0]
+            const repeatArr = deleteCacheArr.filter((item) => {
+              return item.model_version === model_version
+            })
+            !repeatArr.length &&
+              setDeleteCacheArr(...deleteCacheArr, [
+                {
+                  model_name,
+                  model_version,
+                  model_format,
+                  model_size_in_billions,
+                  quantization,
+                },
+              ])
+          })
+        }
+      })
+      .catch((error) => {
+        console.error('Error:', error)
+      })
   }
 
   // Set two different states based on mouse hover
   return (
     <>
       <Paper
-        className='container'
+        className="container"
         onMouseEnter={() => setHover(true)}
         onMouseLeave={() => setHover(false)}
         onClick={() => {
@@ -561,18 +642,22 @@ const ModelCard = ({
                   modelData.model_specs.some((spec) => isCached(spec)) &&
                   (!isDelete || cachedListArr.length > 0)
                 ) {
-                  return <Chip
-                    label="Cached"
-                    variant="outlined"
-                    size="small"
-                    deleteIcon={<EditNote />}
-                    onDelete={handleOpenCachedList}
-                  />
+                  return (
+                    <Chip
+                      label="Cached"
+                      variant="outlined"
+                      size="small"
+                      deleteIcon={<EditNote />}
+                      onDelete={handleOpenCachedList}
+                    />
+                  )
                 }
               })()}
               {(() => {
                 if (is_custom && customDeleted) {
-                  return <Chip label="Deleted" variant="outlined" size="small" />
+                  return (
+                    <Chip label="Deleted" variant="outlined" size="small" />
+                  )
                 }
               })()}
             </Stack>
@@ -584,10 +669,10 @@ const ModelCard = ({
 
             <div className="iconRow">
               <div className="iconItem">
-                <span className='boldIconText'>
+                <span className="boldIconText">
                   {Math.floor(modelData.context_length / 1000)}K
                 </span>
-                <small className='smallText'>context length</small>
+                <small className="smallText">context length</small>
               </div>
               {(() => {
                 if (
@@ -595,9 +680,9 @@ const ModelCard = ({
                   modelData.model_ability.includes('chat')
                 ) {
                   return (
-                    <div className='iconItem'>
-                      <ChatOutlined className='muiIcon' />
-                      <small className='smallText'>chat model</small>
+                    <div className="iconItem">
+                      <ChatOutlined className="muiIcon" />
+                      <small className="smallText">chat model</small>
                     </div>
                   )
                 } else if (
@@ -605,16 +690,16 @@ const ModelCard = ({
                   modelData.model_ability.includes('generate')
                 ) {
                   return (
-                    <div className='iconItem'>
-                      <EditNoteOutlined className='muiIcon' />
-                      <small className='smallText'>generate model</small>
+                    <div className="iconItem">
+                      <EditNoteOutlined className="muiIcon" />
+                      <small className="smallText">generate model</small>
                     </div>
                   )
                 } else {
                   return (
-                    <div className='iconItem'>
-                      <HelpCenterOutlined className='muiIcon' />
-                      <small className='smallText'>other model</small>
+                    <div className="iconItem">
+                      <HelpCenterOutlined className="muiIcon" />
+                      <small className="smallText">other model</small>
                     </div>
                   )
                 }
@@ -622,8 +707,8 @@ const ModelCard = ({
             </div>
           </Box>
         ) : (
-          <Box className='descriptionCard'>
-            <div className='titleContainer'>
+          <Box className="descriptionCard">
+            <div className="titleContainer">
               {is_custom && (
                 <Stack direction="row" spacing={1} useFlexGap>
                   <TitleTypography value={modelData.model_name} />
@@ -660,14 +745,19 @@ const ModelCard = ({
                   }
                 })()}
                 {(() => {
-                  if (modelData.cache_status && (!isDelete || cachedListArr.length > 0)) {
-                    return <Chip
-                      label="Cached"
-                      variant="outlined"
-                      size="small"
-                      deleteIcon={<EditNote />}
-                      onDelete={handleOpenCachedList}
-                    />
+                  if (
+                    modelData.cache_status &&
+                    (!isDelete || cachedListArr.length > 0)
+                  ) {
+                    return (
+                      <Chip
+                        label="Cached"
+                        variant="outlined"
+                        size="small"
+                        deleteIcon={<EditNote />}
+                        onDelete={handleOpenCachedList}
+                      />
+                    )
                   }
                 })()}
                 {(() => {
@@ -680,19 +770,19 @@ const ModelCard = ({
               </Stack>
             </div>
             {modelData.dimensions && (
-              <div className='iconRow'>
-                <div className='iconItem'>
-                  <span className='boldIconText'>{modelData.dimensions}</span>
-                  <small className='smallText'>dimensions</small>
+              <div className="iconRow">
+                <div className="iconItem">
+                  <span className="boldIconText">{modelData.dimensions}</span>
+                  <small className="smallText">dimensions</small>
                 </div>
-                <div className='iconItem'>
-                  <span className='boldIconText'>{modelData.max_tokens}</span>
-                  <small className='smallText'>max tokens</small>
+                <div className="iconItem">
+                  <span className="boldIconText">{modelData.max_tokens}</span>
+                  <small className="smallText">max tokens</small>
                 </div>
               </div>
             )}
             {!selected && hover && (
-              <p className='instructionText'>
+              <p className="instructionText">
                 Click with mouse to launch the model
               </p>
             )}
@@ -706,12 +796,12 @@ const ModelCard = ({
           }}
           anchor={'right'}
         >
-          <div className='drawerCard'>
+          <div className="drawerCard">
             <TitleTypography value={modelData.model_name} />
             {modelType === 'LLM' ? (
               <Box
                 ref={parentRef}
-                className='formContainer'
+                className="formContainer"
                 display="flex"
                 flexDirection="column"
                 width="100%"
@@ -720,7 +810,9 @@ const ModelCard = ({
                 <Grid rowSpacing={0} columnSpacing={1}>
                   <Grid item xs={12}>
                     <FormControl variant="outlined" margin="normal" fullWidth>
-                      <InputLabel id="modelEngine-label">Model Engine</InputLabel>
+                      <InputLabel id="modelEngine-label">
+                        Model Engine
+                      </InputLabel>
                       <Select
                         labelId="modelEngine-label"
                         value={modelEngine}
@@ -728,18 +820,54 @@ const ModelCard = ({
                         label="Model Engine"
                       >
                         {engineOptions.map((engine) => {
-                          const arr = []
+                          const subArr = []
                           enginesObj[engine].forEach((item) => {
-                            arr.push(item.model_format)
+                            subArr.push(item.model_format)
                           })
+                          const arr = [...new Set(subArr)]
                           const specs = modelData.model_specs.filter((spec) =>
                             arr.includes(spec.model_format)
                           )
 
                           const cached = specs.some((spec) => isCached(spec))
-                          const displayedEngine = cached
-                            ? engine + ' (cached)'
-                            : engine
+
+                          let displayedEngine
+                          const deleteCacheArr = JSON.parse(
+                            sessionStorage.getItem('deleteCacheArr')
+                          )
+                          if (
+                            isDelete &&
+                            deleteCacheArr &&
+                            deleteCacheArr.length
+                          ) {
+                            const subNameArr = []
+                            const subFormatArr = []
+                            deleteCacheArr.forEach((item) => {
+                              subNameArr.push(item.model_name)
+                              subFormatArr.push(item.model_format)
+                            })
+                            const nameArr = [...new Set(subNameArr)]
+                            const formatArr = [...new Set(subFormatArr)]
+                            if (cached) {
+                              if (nameArr.includes(modelData.model_name)) {
+                                const resArr = formatArr.filter((item) =>
+                                  arr.includes(item)
+                                )
+                                displayedEngine =
+                                  resArr.length === arr.length
+                                    ? engine
+                                    : engine + ' (cached)'
+                              } else {
+                                displayedEngine = engine + ' (cached)'
+                              }
+                            } else {
+                              displayedEngine = engine
+                            }
+                          } else {
+                            displayedEngine = cached
+                              ? engine + ' (cached)'
+                              : engine
+                          }
 
                           return (
                             <MenuItem key={engine} value={engine}>
@@ -757,7 +885,9 @@ const ModelCard = ({
                       fullWidth
                       disabled={!modelEngine}
                     >
-                      <InputLabel id="modelFormat-label">Model Format</InputLabel>
+                      <InputLabel id="modelFormat-label">
+                        Model Format
+                      </InputLabel>
                       <Select
                         labelId="modelFormat-label"
                         value={modelFormat}
@@ -770,9 +900,40 @@ const ModelCard = ({
                           )
 
                           const cached = specs.some((spec) => isCached(spec))
-                          const displayedFormat = cached
-                            ? format + ' (cached)'
-                            : format
+
+                          let displayedFormat
+                          const deleteCacheArr = JSON.parse(
+                            sessionStorage.getItem('deleteCacheArr')
+                          )
+                          if (
+                            isDelete &&
+                            deleteCacheArr &&
+                            deleteCacheArr.length
+                          ) {
+                            const subNameArr = []
+                            const subFormatArr = []
+                            deleteCacheArr.forEach((item) => {
+                              subNameArr.push(item.model_name)
+                              subFormatArr.push(item.model_format)
+                            })
+                            const nameArr = [...new Set(subNameArr)]
+                            const formatArr = [...new Set(subFormatArr)]
+                            if (cached) {
+                              if (nameArr.includes(modelData.model_name)) {
+                                displayedFormat = formatArr.includes(format)
+                                  ? format
+                                  : format + ' (cached)'
+                              } else {
+                                displayedFormat = format + ' (cached)'
+                              }
+                            } else {
+                              displayedFormat = format
+                            }
+                          } else {
+                            displayedFormat = cached
+                              ? format + ' (cached)'
+                              : format
+                          }
 
                           return (
                             <MenuItem key={format} value={format}>
@@ -804,7 +965,43 @@ const ModelCard = ({
                               (spec) => spec.model_size_in_billions === size
                             )
                           const cached = specs.some((spec) => isCached(spec))
-                          const displayedSize = cached ? size + ' (cached)' : size
+
+                          let displayedSize
+                          const deleteCacheArr = JSON.parse(
+                            sessionStorage.getItem('deleteCacheArr')
+                          )
+                          if (
+                            isDelete &&
+                            deleteCacheArr &&
+                            deleteCacheArr.length
+                          ) {
+                            const subNameArr = []
+                            deleteCacheArr.forEach((item) => {
+                              subNameArr.push(item.model_name)
+                            })
+                            const nameArr = [...new Set(subNameArr)]
+                            if (cached) {
+                              if (nameArr.includes(modelData.model_name)) {
+                                const resArr = deleteCacheArr
+                                  .filter(
+                                    (item) => item.model_format === modelFormat
+                                  )
+                                  .filter(
+                                    (item) =>
+                                      item.model_size_in_billions === size
+                                  )
+                                displayedSize = resArr.length
+                                  ? size
+                                  : size + ' (cached)'
+                              } else {
+                                displayedSize = size + ' (cached)'
+                              }
+                            } else {
+                              displayedSize = size
+                            }
+                          } else {
+                            displayedSize = cached ? size + ' (cached)' : size
+                          }
 
                           return (
                             <MenuItem key={size} value={size}>
@@ -843,10 +1040,40 @@ const ModelCard = ({
                           const cached =
                             modelFormat === 'pytorch'
                               ? specs[0]?.cache_status ?? false === true
-                              : specs[0]?.cache_status?.[index] ?? false === true
-                          const displayedQuant = cached
-                            ? quant + ' (cached)'
-                            : quant
+                              : specs[0]?.cache_status?.[index] ??
+                                false === true
+
+                          let displayedQuant
+                          const deleteCacheArr = JSON.parse(
+                            sessionStorage.getItem('deleteCacheArr')
+                          )
+                          if (isDelete && deleteCacheArr && deleteCacheArr) {
+                            const subNameArr = []
+                            deleteCacheArr.forEach((item) => {
+                              subNameArr.push(item.model_name)
+                            })
+                            const nameArr = [...new Set(subNameArr)]
+                            if (cached) {
+                              if (nameArr.includes(modelData.model_name)) {
+                                const resArr = deleteCacheArr
+                                  .filter(
+                                    (item) => item.model_format === modelFormat
+                                  )
+                                  .filter((item) => item.quantization === quant)
+                                displayedQuant = resArr.length
+                                  ? quant
+                                  : quant + ' (cached)'
+                              } else {
+                                displayedQuant = quant + ' (cached)'
+                              }
+                            } else {
+                              displayedQuant = quant
+                            }
+                          } else {
+                            displayedQuant = cached
+                              ? quant + ' (cached)'
+                              : quant
+                          }
 
                           return (
                             <MenuItem key={quant} value={quant}>
@@ -912,7 +1139,9 @@ const ModelCard = ({
                         }}
                         label="Replica"
                         value={replica}
-                        onChange={(e) => setReplica(parseInt(e.target.value, 10))}
+                        onChange={(e) =>
+                          setReplica(parseInt(e.target.value, 10))
+                        }
                       />
                     </FormControl>
                   </Grid>
@@ -1122,10 +1351,10 @@ const ModelCard = ({
                 )}
               </FormControl>
             )}
-            <Box className='buttonsContainer'>
+            <Box className="buttonsContainer">
               <button
                 title="Launch"
-                className='buttonContainer'
+                className="buttonContainer"
                 onClick={() => launchModel(url, modelData)}
                 disabled={
                   (modelType === 'LLM' &&
@@ -1152,7 +1381,7 @@ const ModelCard = ({
                   if (isCallingApi || isUpdatingModel) {
                     return (
                       <Box
-                        className='buttonItem'
+                        className="buttonItem"
                         style={{
                           backgroundColor: '#f2f2f2',
                         }}
@@ -1176,7 +1405,7 @@ const ModelCard = ({
                   ) {
                     return (
                       <Box
-                        className='buttonItem'
+                        className="buttonItem"
                         style={{
                           backgroundColor: '#f2f2f2',
                         }}
@@ -1186,7 +1415,7 @@ const ModelCard = ({
                     )
                   } else {
                     return (
-                      <Box className='buttonItem'>
+                      <Box className="buttonItem">
                         <RocketLaunchOutlined color="#000000" size="20px" />
                       </Box>
                     )
@@ -1195,13 +1424,13 @@ const ModelCard = ({
               </button>
               <button
                 title="Go Back"
-                className='buttonContainer'
+                className="buttonContainer"
                 onClick={() => {
                   setSelected(false)
                   setHover(false)
                 }}
               >
-                <Box className='buttonItem'>
+                <Box className="buttonItem">
                   <UndoOutlined color="#000000" size="20px" />
                 </Box>
               </button>
@@ -1220,58 +1449,99 @@ const ModelCard = ({
         sx={{ color: '#fff', zIndex: (theme) => theme.zIndex.drawer + 1 }}
         open={isOpenCachedList}
       >
-        <div className='dialogBox'>
-          <div className='dialogTitle'>
-            <div className='dialogTitle-model_name'>{modelData.model_name}</div>
-            <Close style={{cursor: 'pointer'}} onClick={handleCloseCachedList} />
+        <div className="dialogBox">
+          <div className="dialogTitle">
+            <div className="dialogTitle-model_name">{modelData.model_name}</div>
+            <Close
+              style={{ cursor: 'pointer' }}
+              onClick={handleCloseCachedList}
+            />
           </div>
           <TableContainer component={Paper}>
-            <Table sx={{ minWidth: 500,}} style={{height: '500px', width: '100%'}} stickyHeader aria-label="simple pagination table">
+            <Table
+              sx={{ minWidth: 500 }}
+              style={{ height: '500px', width: '100%' }}
+              stickyHeader
+              aria-label="simple pagination table"
+            >
               <TableHead>
                 <TableRow>
+                  <TableCell align="left">model_version</TableCell>
                   <TableCell align="left">model_format</TableCell>
                   <TableCell align="left">model_size_in_billions</TableCell>
                   <TableCell align="left">quantizations</TableCell>
-                  <TableCell align="left" style={{width: 232}}>real_path</TableCell>
-                  <TableCell align="left" style={{width: 46}}></TableCell>
-                  <TableCell align="left" style={{width: 232}}>path</TableCell>
-                  <TableCell align="left" style={{width: 46}}></TableCell>
-                  <TableCell align="left" style={{whiteSpace: 'nowrap', minWidth: 116}}>IP Address</TableCell>
+                  <TableCell align="left" style={{ width: 192 }}>
+                    real_path
+                  </TableCell>
+                  <TableCell align="left" style={{ width: 46 }}></TableCell>
+                  <TableCell align="left" style={{ width: 192 }}>
+                    path
+                  </TableCell>
+                  <TableCell align="left" style={{ width: 46 }}></TableCell>
+                  <TableCell
+                    align="left"
+                    style={{ whiteSpace: 'nowrap', minWidth: 116 }}
+                  >
+                    IP Address
+                  </TableCell>
                   <TableCell align="left">operation</TableCell>
                 </TableRow>
               </TableHead>
-              <TableBody style={{position: 'relative'}}>
+              <TableBody style={{ position: 'relative' }}>
                 {cachedListArr.slice(page * 5, page * 5 + 5).map((row) => (
                   <StyledTableRow
-                    style={{maxHeight: 90}}
+                    style={{ maxHeight: 90 }}
                     key={row.model_name}
                   >
-                    <TableCell component="th" scope="row">{row.model_format || '—'}</TableCell>
-                    <TableCell>{row.model_size_in_billions || '—'}</TableCell>
-                    <TableCell>{row.quantizations || '—'}</TableCell>
+                    <TableCell component="th" scope="row">
+                      {row.model_version}
+                    </TableCell>
+                    <TableCell>
+                      {row.model_format === null ? '—' : row.model_format}
+                    </TableCell>
+                    <TableCell>
+                      {row.model_size_in_billions === null
+                        ? '—'
+                        : row.model_size_in_billions}
+                    </TableCell>
+                    <TableCell>
+                      {row.quantization === null ? '—' : row.quantization}
+                    </TableCell>
                     <TableCell>
                       <Tooltip title={row.real_path}>
-                        <div className='scrollable'>
-                          {row.real_path}
-                        </div>
+                        <div className="pathBox">{row.real_path}</div>
                       </Tooltip>
                     </TableCell>
                     <TableCell>
                       <Tooltip title="Copy real_path" placement="top">
-                        <FilterNoneIcon className='copyPath' onClick={() => handleCopyPath(row.real_path)} />
+                        <FilterNoneIcon
+                          className="copyPath"
+                          onClick={() => handleCopyPath(row.real_path)}
+                        />
                       </Tooltip>
                     </TableCell>
                     <TableCell>
-                      <Tooltip title={row.path}><div className='scrollable'>{row.path}</div></Tooltip>
+                      <Tooltip title={row.path}>
+                        <div className="pathBox">{row.path}</div>
+                      </Tooltip>
                     </TableCell>
                     <TableCell>
                       <Tooltip title="Copy path" placement="top">
-                        <FilterNoneIcon className="copyPath" onClick={() => handleCopyPath(row.path)} />
+                        <FilterNoneIcon
+                          className="copyPath"
+                          onClick={() => handleCopyPath(row.path)}
+                        />
                       </Tooltip>
                     </TableCell>
-                    <TableCell>{row['Actor IP Address']}</TableCell>
+                    <TableCell>{row.actor_ip_address}</TableCell>
                     <TableCell align="center">
-                      <IconButton aria-label="delete" size="large" onClick={() => handleOpenDeleteCachedDialog(row.real_path)} >
+                      <IconButton
+                        aria-label="delete"
+                        size="large"
+                        onClick={() =>
+                          handleOpenDeleteCachedDialog(row.model_version)
+                        }
+                      >
                         <DeleteIcon />
                       </IconButton>
                     </TableCell>
@@ -1283,13 +1553,13 @@ const ModelCard = ({
                   </TableRow>
                 )}
                 {cachedListArr.length === 0 && (
-                  <div className='empty'>No cache for now !</div>
+                  <div className="empty">No cache for now !</div>
                 )}
               </TableBody>
             </Table>
           </TableContainer>
           <TablePagination
-            style={{float: 'right'}}
+            style={{ float: 'right' }}
             rowsPerPageOptions={[5]}
             count={cachedListArr.length}
             rowsPerPage={5}
@@ -1304,12 +1574,16 @@ const ModelCard = ({
         aria-describedby="alert-dialog-description"
       >
         <DialogTitle id="alert-dialog-title">
-          {"Are you sure you want to delete this cache?"}
+          {'Are you sure you want to delete this cache?'}
         </DialogTitle>
         <DialogActions>
-          <Button onClick={() => {
-            setIsDeleteCached(false)
-          }}>no</Button >
+          <Button
+            onClick={() => {
+              setIsDeleteCached(false)
+            }}
+          >
+            no
+          </Button>
           <Button onClick={handleDeleteCached} autoFocus>
             yes
           </Button>

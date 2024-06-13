@@ -85,19 +85,19 @@
   font-size: 1.2em;
 }
 .muiIcon {
-  font-size: 1.5em
+  font-size: 1.5em;
 }
 .smallText {
   font-size: 0.8em;
 }
 .dialogBox {
-  width: 1141px;
+  width: 1241px;
   height: 607px;
   background-color: #fff;
   margin: 32px;
   overflow-x: scroll;
 }
-.dialogTitle{
+.dialogTitle {
   display: flex;
   justify-content: space-between;
   padding: 20px 20px 7px;
@@ -107,8 +107,8 @@
   font-size: 18px;
   font-weight: 700;
 }
-.scrollable {
-  width: 200px;
+.pathBox {
+  width: 160px;
   cursor: pointer;
   overflow: hidden;
   white-space: nowrap;

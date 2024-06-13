@@ -692,7 +692,10 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                   toggleFamily(e.target.value)
                 }}
               >
-                <Box sx={styles.checkboxWrapper} style={{ paddingLeft: '10px' }}>
+                <Box
+                  sx={styles.checkboxWrapper}
+                  style={{ paddingLeft: '10px' }}
+                >
                   {modelType === 'LLM' &&
                     sortStringsByFirstLetter(getFamilyByAbility()).map((v) => (
                       <Box sx={{ width: '20%' }} key={v}>
