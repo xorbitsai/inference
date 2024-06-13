@@ -661,7 +661,7 @@ Begin!"""
             content, func, args = cls._eval_gorilla_openfunctions_arguments(c, tools)
         elif "chatglm3" == family:
             content, func, args = cls._eval_chatglm3_arguments(c, tools)
-        elif family in ["qwen-chat", "qwen1.5-chat"]:
+        elif family in ["qwen-chat", "qwen1.5-chat", "qwen2-instruct"]:
             content, func, args = cls._eval_qwen_chat_arguments(c, tools)
         else:
             raise Exception(
