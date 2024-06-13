@@ -2780,7 +2780,8 @@
           "8-bit",
           "none"
         ],
-        "model_id": "qwen/CodeQwen1.5-7B"
+        "model_id": "qwen/CodeQwen1.5-7B",
+        "model_hub": "modelscope"
       }
     ],
     "prompt_style": {
