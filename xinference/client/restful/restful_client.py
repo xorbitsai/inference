@@ -1199,7 +1199,7 @@ class Client:
         Dict[str, Dict[str,str]]]
             Dictionary with keys "model_name" and values model_file_location.
         """
-        url = f"{self.base_url}/v1/cache/models/status"
+        url = f"{self.base_url}/v1/cache/models/files"
         params = {
             "model_version": model_version,
             "worker_ip": worker_ip,

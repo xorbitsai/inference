@@ -532,8 +532,8 @@ class RESTfulAPI:
             ),
         )
         self._router.add_api_route(
-            "/v1/cache/models/status",
-            self.list_deletable_models,
+            "/v1/cache/models/files",
+            self.list_model_files,
             methods=["GET"],
             dependencies=(
                 [Security(self._auth_service, scopes=["cache:list"])]
@@ -1650,7 +1650,7 @@ class RESTfulAPI:
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
 
-    async def list_deletable_models(
+    async def list_model_files(
         self, model_version: str = Query(None), worker_ip: str = Query(None)
     ) -> JSONResponse:
         try:
