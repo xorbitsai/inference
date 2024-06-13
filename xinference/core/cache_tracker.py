@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import os
 from logging import getLogger
 from typing import Any, Dict, List, Optional
 
@@ -102,33 +101,54 @@ class CacheTrackerActor(xo.Actor):
     def get_model_version_count(self, model_name: str) -> int:
         return len(self.get_model_versions(model_name))
 
-    def list_cached_models(self) -> List[Dict[Any, Any]]:
+    def list_cached_models(
+        self, worker_ip: str, model_name: Optional[str] = None
+    ) -> List[Dict[Any, Any]]:
         cached_models = []
-        for model_name, model_versions in self._model_name_to_version_info.items():
-            for version_info in model_versions:
-                cache_status = version_info.get("cache_status", None)
-                if cache_status == True:
-                    ret = version_info.copy()
-                    ret["model_name"] = model_name
-
-                    re_dict = version_info.get("model_file_location", None)
-                    if re_dict is not None and isinstance(re_dict, dict):
-                        if re_dict:
-                            actor_ip_address, path = next(iter(re_dict.items()))
-                        else:
-                            raise ValueError("The dictionary is empty.")
-                    else:
-                        raise ValueError("re_dict must be a non-empty dictionary.")
-
-                    ret["actor_ip_address"] = actor_ip_address
-                    ret["path"] = path
-                    if os.path.isdir(path):
-                        files = os.listdir(path)
-                        resolved_file = os.path.realpath(os.path.join(path, files[0]))
-                        if resolved_file:
-                            ret["real_path"] = os.path.dirname(resolved_file)
-                    else:
-                        ret["real_path"] = os.path.realpath(path)
-                    cached_models.append(ret)
-        cached_models = sorted(cached_models, key=lambda x: x["model_name"])
+        for name, versions in self._model_name_to_version_info.items():
+            # only return assigned cached model if model_name is not none
+            # else return all cached model
+            if model_name and model_name != name:
+                continue
+            for version_info in versions:
+                cache_status = version_info.get("cache_status", False)
+                # search cached model
+                if cache_status:
+                    res = version_info.copy()
+                    res["model_name"] = name
+                    paths = res.get("model_file_location", {})
+                    # only return assigned worker's device path
+                    if worker_ip in paths.keys():
+                        res["model_file_location"] = paths[worker_ip]
+                        cached_models.append(res)
         return cached_models
+
+    def list_deletable_models(self, model_version: str, worker_ip: str) -> str:
+        model_file_location = ""
+        for model, model_versions in self._model_name_to_version_info.items():
+            for version_info in model_versions:
+                # search assign model version
+                if model_version == version_info.get("model_version", None):
+                    # check if exist
+                    if version_info.get("cache_status", False):
+                        paths = version_info.get("model_file_location", {})
+                        # only return assigned worker's device path
+                        if worker_ip in paths.keys():
+                            model_file_location = paths[worker_ip]
+        return model_file_location
+
+    def confirm_and_remove_model(self, model_version: str, worker_ip: str):
+        # find remove path
+        rm_path = self.list_deletable_models(model_version, worker_ip)
+        # search _model_name_to_version_info if exist this path, and delete
+        for model, model_versions in self._model_name_to_version_info.items():
+            for version_info in model_versions:
+                # check if exist
+                if version_info.get("cache_status", False):
+                    paths = version_info.get("model_file_location", {})
+                    # only delete assigned worker's device path
+                    if worker_ip in paths.keys() and rm_path == paths[worker_ip]:
+                        del paths[worker_ip]
+                        # if path is empty, update cache status
+                        if not paths:
+                            version_info["cache_status"] = False

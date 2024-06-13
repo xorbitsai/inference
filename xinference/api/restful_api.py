@@ -551,11 +551,31 @@ class RESTfulAPI:
             ),
         )
         self._router.add_api_route(
-            "/v1/cached/list_cached_models",
+            "/v1/cache/models",
             self.list_cached_models,
             methods=["GET"],
             dependencies=(
-                [Security(self._auth_service, scopes=["models:list"])]
+                [Security(self._auth_service, scopes=["cache:list"])]
+                if self.is_authenticated()
+                else None
+            ),
+        )
+        self._router.add_api_route(
+            "/v1/cache/models/files",
+            self.list_model_files,
+            methods=["GET"],
+            dependencies=(
+                [Security(self._auth_service, scopes=["cache:list"])]
+                if self.is_authenticated()
+                else None
+            ),
+        )
+        self._router.add_api_route(
+            "/v1/cache/models",
+            self.confirm_and_remove_model,
+            methods=["DELETE"],
+            dependencies=(
+                [Security(self._auth_service, scopes=["cache:delete"])]
                 if self.is_authenticated()
                 else None
             ),
@@ -1707,10 +1727,17 @@ class RESTfulAPI:
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
 
-    async def list_cached_models(self) -> JSONResponse:
+    async def list_cached_models(
+        self, model_name: str = Query(None), worker_ip: str = Query(None)
+    ) -> JSONResponse:
         try:
-            data = await (await self._get_supervisor_ref()).list_cached_models()
-            return JSONResponse(content=data)
+            data = await (await self._get_supervisor_ref()).list_cached_models(
+                model_name, worker_ip
+            )
+            resp = {
+                "list": data,
+            }
+            return JSONResponse(content=resp)
         except ValueError as re:
             logger.error(re, exc_info=True)
             raise HTTPException(status_code=400, detail=str(re))
@@ -1771,6 +1798,41 @@ class RESTfulAPI:
         try:
             data = get_versions()
             return JSONResponse(content=data)
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def list_model_files(
+        self, model_version: str = Query(None), worker_ip: str = Query(None)
+    ) -> JSONResponse:
+        try:
+            data = await (await self._get_supervisor_ref()).list_deletable_models(
+                model_version, worker_ip
+            )
+            response = {
+                "model_version": model_version,
+                "worker_ip": worker_ip,
+                "paths": data,
+            }
+            return JSONResponse(content=response)
+        except ValueError as re:
+            logger.error(re, exc_info=True)
+            raise HTTPException(status_code=400, detail=str(re))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def confirm_and_remove_model(
+        self, model_version: str = Query(None), worker_ip: str = Query(None)
+    ) -> JSONResponse:
+        try:
+            res = await (await self._get_supervisor_ref()).confirm_and_remove_model(
+                model_version=model_version, worker_ip=worker_ip
+            )
+            return JSONResponse(content={"result": res})
+        except ValueError as re:
+            logger.error(re, exc_info=True)
+            raise HTTPException(status_code=400, detail=str(re))
         except Exception as e:
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
