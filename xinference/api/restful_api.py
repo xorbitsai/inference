@@ -544,7 +544,7 @@ class RESTfulAPI:
         self._router.add_api_route(
             "/v1/cached/models/deletion",
             self.confirm_and_remove_model,
-            methods=["POST"],
+            methods=["DELETE"],
             dependencies=(
                 [Security(self._auth_service, scopes=["models:list"])]
                 if self.is_authenticated()
@@ -1575,10 +1575,9 @@ class RESTfulAPI:
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
 
-    async def list_cached_models(self, request: Request) -> JSONResponse:
-        payload = await request.json()
-        model_name = payload.get("model_name")
-        worker_ip = payload.get("worker_ip")
+    async def list_cached_models(
+        self, model_name: str = Query(None), worker_ip: str = Query(None)
+    ) -> JSONResponse:
         try:
             data = await (await self._get_supervisor_ref()).list_cached_models(
                 model_name, worker_ip

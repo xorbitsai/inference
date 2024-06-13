@@ -1169,11 +1169,11 @@ class Client:
         """
 
         url = f"{self.base_url}/v1/cached/models"
-        payload = {
+        params = {
             "model_name": model_name,
             "worker_ip": worker_ip,
         }
-        response = requests.get(url, headers=self._headers, json=payload)
+        response = requests.get(url, headers=self._headers, params=params)
         if response.status_code != 200:
             raise RuntimeError(
                 f"Failed to list cached model, detail: {_get_error_string(response)}"
@@ -1234,7 +1234,7 @@ class Client:
             "model_version": model_version,
             "worker_ip": worker_ip,
         }
-        response = requests.post(url, headers=self._headers, json=payload)
+        response = requests.delete(url, headers=self._headers, json=payload)
         if response.status_code != 200:
             raise RuntimeError(
                 f"Failed to remove cached models, detail: {_get_error_string(response)}"
