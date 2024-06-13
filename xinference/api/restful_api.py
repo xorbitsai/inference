@@ -522,31 +522,31 @@ class RESTfulAPI:
             ),
         )
         self._router.add_api_route(
-            "/v1/cached/models",
+            "/v1/cache/models",
             self.list_cached_models,
             methods=["GET"],
             dependencies=(
-                [Security(self._auth_service, scopes=["models:list"])]
+                [Security(self._auth_service, scopes=["cache:list"])]
                 if self.is_authenticated()
                 else None
             ),
         )
         self._router.add_api_route(
-            "/v1/cached/models/status",
+            "/v1/cache/models/status",
             self.list_deletable_models,
             methods=["GET"],
             dependencies=(
-                [Security(self._auth_service, scopes=["models:list"])]
+                [Security(self._auth_service, scopes=["cache:list"])]
                 if self.is_authenticated()
                 else None
             ),
         )
         self._router.add_api_route(
-            "/v1/cached/models/deletion",
+            "/v1/cache/models",
             self.confirm_and_remove_model,
             methods=["DELETE"],
             dependencies=(
-                [Security(self._auth_service, scopes=["models:list"])]
+                [Security(self._auth_service, scopes=["cache:delete"])]
                 if self.is_authenticated()
                 else None
             ),
@@ -1670,10 +1670,9 @@ class RESTfulAPI:
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
 
-    async def confirm_and_remove_model(self, request: Request) -> JSONResponse:
-        payload = await request.json()
-        model_version = payload.get("model_version")
-        worker_ip = payload.get("worker_ip", None)
+    async def confirm_and_remove_model(
+        self, model_version: str = Query(None), worker_ip: str = Query(None)
+    ) -> JSONResponse:
         try:
             res = await (await self._get_supervisor_ref()).confirm_and_remove_model(
                 model_version=model_version, worker_ip=worker_ip

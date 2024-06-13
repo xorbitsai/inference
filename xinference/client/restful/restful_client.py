@@ -1168,7 +1168,7 @@ class Client:
             Raised when the request fails, including the reason for the failure.
         """
 
-        url = f"{self.base_url}/v1/cached/models"
+        url = f"{self.base_url}/v1/cache/models"
         params = {
             "model_name": model_name,
             "worker_ip": worker_ip,
@@ -1199,7 +1199,7 @@ class Client:
         Dict[str, Dict[str,str]]]
             Dictionary with keys "model_name" and values model_file_location.
         """
-        url = f"{self.base_url}/v1/cached/models/status"
+        url = f"{self.base_url}/v1/cache/models/status"
         params = {
             "model_version": model_version,
             "worker_ip": worker_ip,
@@ -1229,12 +1229,12 @@ class Client:
         str
             The response of the server.
         """
-        url = f"{self.base_url}/v1/cached/models/deletion"
-        payload = {
+        url = f"{self.base_url}/v1/cached/models"
+        params = {
             "model_version": model_version,
             "worker_ip": worker_ip,
         }
-        response = requests.delete(url, headers=self._headers, json=payload)
+        response = requests.delete(url, headers=self._headers, params=params)
         if response.status_code != 200:
             raise RuntimeError(
                 f"Failed to remove cached models, detail: {_get_error_string(response)}"
