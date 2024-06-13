@@ -740,7 +740,8 @@ def test_restful_api_for_qwen_tool_calls(setup, model_format, quantization):
     payload = {
         "model_uid": "test_tool",
         "model_name": model_name,
-        "model_size_in_billions": 4,
+        "model_engine": "transformers",
+        "model_size_in_billions": 7,
         "model_format": model_format,
         "quantization": quantization,
     }
@@ -813,7 +814,7 @@ def test_restful_api_for_qwen_tool_calls(setup, model_format, quantization):
     arguments = completion["choices"][0]["message"]["tool_calls"][0]["function"][
         "arguments"
     ]
-    assert not json.loads(arguments)
+    assert json.loads(arguments)
     assert completion["usage"]
     assert completion["usage"]["prompt_tokens"] != -1
 
