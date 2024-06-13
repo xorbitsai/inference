@@ -1229,7 +1229,7 @@ class Client:
         str
             The response of the server.
         """
-        url = f"{self.base_url}/v1/cached/models"
+        url = f"{self.base_url}/v1/cache/models"
         params = {
             "model_version": model_version,
             "worker_ip": worker_ip,
