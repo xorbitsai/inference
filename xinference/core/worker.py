@@ -16,6 +16,7 @@ import asyncio
 import os
 import platform
 import queue
+import shutil
 import signal
 import threading
 import time
@@ -786,8 +787,73 @@ class WorkerActor(xo.StatelessActor):
             except asyncio.CancelledError:  # pragma: no cover
                 break
 
-    async def list_cached_models(self) -> List[Dict[Any, Any]]:
-        return self._cache_tracker_ref.list_cached_models()
+    async def list_cached_models(
+        self, model_name: Optional[str] = None
+    ) -> List[Dict[Any, Any]]:
+        lists = await self._cache_tracker_ref.list_cached_models(
+            self.address, model_name
+        )
+        cached_models = []
+        for list in lists:
+            cached_model = {
+                "model_name": list.get("model_name"),
+                "model_size_in_billions": list.get("model_size_in_billions"),
+                "model_format": list.get("model_format"),
+                "quantization": list.get("quantization"),
+                "model_version": list.get("model_version"),
+            }
+            path = list.get("model_file_location")
+            cached_model["path"] = path
+            # parsing soft links
+            if os.path.isdir(path):
+                files = os.listdir(path)
+                # dir has files
+                if files:
+                    resolved_file = os.path.realpath(os.path.join(path, files[0]))
+                    if resolved_file:
+                        cached_model["real_path"] = os.path.dirname(resolved_file)
+            else:
+                cached_model["real_path"] = os.path.realpath(path)
+            cached_model["actor_ip_address"] = self.address
+            cached_models.append(cached_model)
+        return cached_models
+
+    async def list_deletable_models(self, model_version: str) -> List[str]:
+        paths = set()
+        path = await self._cache_tracker_ref.list_deletable_models(
+            model_version, self.address
+        )
+        if os.path.isfile(path):
+            path = os.path.dirname(path)
+
+        if os.path.isdir(path):
+            files = os.listdir(path)
+            paths.update([os.path.join(path, file) for file in files])
+            # search real path
+            if paths:
+                paths.update([os.path.realpath(path) for path in paths])
+
+        return list(paths)
+
+    async def confirm_and_remove_model(self, model_version: str) -> bool:
+        paths = await self.list_deletable_models(model_version)
+        for path in paths:
+            try:
+                if os.path.islink(path):
+                    os.unlink(path)
+                elif os.path.isfile(path):
+                    os.remove(path)
+                elif os.path.isdir(path):
+                    shutil.rmtree(path)
+                else:
+                    logger.debug(f"{path} is not a valid path.")
+            except Exception as e:
+                logger.error(f"Fail to delete {path} with error:{e}.")
+                return False
+        await self._cache_tracker_ref.confirm_and_remove_model(
+            model_version, self.address
+        )
+        return True
 
     @staticmethod
     def record_metrics(name, op, kwargs):
