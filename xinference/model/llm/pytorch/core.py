@@ -15,6 +15,7 @@
 import json
 import logging
 import os
+from functools import lru_cache
 from typing import Iterable, Iterator, List, Optional, Union
 
 from ....core.scheduler import InferenceRequest
@@ -28,6 +29,7 @@ from ....types import (
     ChatCompletionChunk,
     ChatCompletionMessage,
     Completion,
+    CompletionChoice,
     CompletionChunk,
     CreateCompletionTorch,
     Embedding,
@@ -366,6 +368,90 @@ class PytorchModel(LLM):
         else:
             return generator_wrapper(prompt, generate_config)
 
+    @lru_cache
+    def get_context_len(self):
+        return get_context_length(self._model.config)
+
+    def get_max_num_seqs(self) -> int:
+        return self._pytorch_model_config.get("max_num_seqs")  # type: ignore
+
+    def prepare_batch_inference(self, req_list: List[InferenceRequest]):
+        # check some parameters
+        for r in req_list:
+            if r.sanitized_generate_config is None:
+                r.sanitized_generate_config = self._sanitize_generate_config(
+                    r.generate_config
+                )
+            if r.is_prefill:
+                # check some generate params
+                max_src_len = get_max_src_len(self.get_context_len(), r)  # type: ignore
+                if max_src_len < 0:
+                    r.stopped = True
+                    r.error_msg = "Max tokens exceeds model's max length"
+                    continue
+                if r.stream_interval <= 0:
+                    r.stopped = True
+                    r.error_msg = "`stream_interval` must be greater than 0"
+                    continue
+                stop_str = r.sanitized_generate_config.get("stop", None)
+                if stop_str and (
+                    not (isinstance(stop_str, str) or isinstance(stop_str, Iterable))
+                ):
+                    r.stopped = True
+                    r.error_msg = "Invalid `stop` field type"
+                    continue
+
+    def handle_batch_inference_results(self, req_list: List[InferenceRequest]):
+        for req in req_list:
+            if req.error_msg is None:
+                # nothing need handle for non-stream case
+                if req.stream:
+                    results = []
+                    for i, c in enumerate(req.completion):
+                        if c == "<bos_stream>":
+                            chunk = req.completion[i + 1]
+                            results.append(
+                                CompletionChunk(
+                                    id=chunk["id"],
+                                    object=chunk["object"],
+                                    created=chunk["created"],
+                                    model=chunk["model"],
+                                    choices=[
+                                        CompletionChoice(
+                                            text="",
+                                            index=0,
+                                            logprobs=None,
+                                            finish_reason=None,
+                                        )
+                                    ],
+                                )
+                            )
+                            continue
+                        elif c == "<eos_stream>":
+                            break
+                        else:
+                            results.append(c)
+
+                    if req.stopped and req.include_usage:
+                        results.append(req.completion[-1])
+                    req.completion = results
+
+    def batch_inference(self, req_list: List[InferenceRequest]):
+        from .utils import batch_inference_one_step
+
+        self.prepare_batch_inference(req_list)
+        context_len = self.get_context_len()
+        assert isinstance(context_len, int)
+        batch_inference_one_step(
+            req_list,
+            self.model_uid,
+            self._model,
+            self._tokenizer,
+            self._device,
+            context_len,
+        )
+        self.handle_batch_inference_results(req_list)
+
     def create_embedding(self, input: Union[str, List[str]]) -> Embedding:
         try:
             import torch
@@ -464,7 +550,6 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
             pytorch_model_config,
             peft_model,
         )
-        self._context_len = None
 
     def _sanitize_generate_config(
         self,
@@ -540,7 +625,6 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
 
     def load(self):
         super().load()
-        self._context_len = get_context_length(self._model.config)
 
     def _get_full_prompt(self, prompt, system_prompt, chat_history, tools):
         assert self.model_family.prompt_style is not None
@@ -553,48 +637,14 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
         )
         return full_prompt
 
-    def get_max_num_seqs(self) -> int:
-        return self._pytorch_model_config.get("max_num_seqs")  # type: ignore
-
-    def batch_inference(self, req_list: List[InferenceRequest]):
-        from .utils import batch_inference_one_step
-
+    def prepare_batch_inference(self, req_list: List[InferenceRequest]):
+        super().prepare_batch_inference(req_list)
         for r in req_list:
-            if r.sanitized_generate_config is None:
-                r.sanitized_generate_config = self._sanitize_generate_config(
-                    r.generate_config
-                )
-            if r.is_prefill:
-                # check some generate params
-                max_src_len = get_max_src_len(self._context_len, r)  # type: ignore
-                if max_src_len < 0:
-                    r.stopped = True
-                    r.error_msg = "Max tokens exceeds model's max length"
-                    continue
-                if r.stream_interval <= 0:
-                    r.stopped = True
-                    r.error_msg = "`stream_interval` must be greater than 0"
-                    continue
-                stop_str = r.sanitized_generate_config.get("stop", None)
-                if stop_str and (
-                    not (isinstance(stop_str, str) or isinstance(stop_str, Iterable))
-                ):
-                    r.stopped = True
-                    r.error_msg = "Invalid `stop` field type"
-                    continue
-                r.full_prompt = self._get_full_prompt(
-                    r.prompt, r.system_prompt, r.chat_history, None
-                )
+            r.full_prompt = self._get_full_prompt(
+                r.prompt, r.system_prompt, r.chat_history, None
+            )
 
-        assert isinstance(self._context_len, int)
-        batch_inference_one_step(
-            req_list,
-            self.model_uid,
-            self._model,
-            self._tokenizer,
-            self._device,
-            self._context_len,
-        )
+    def handle_batch_inference_results(self, req_list: List[InferenceRequest]):
         for req in req_list:
             if req.stream and req.error_msg is None:
                 if req.completion:
