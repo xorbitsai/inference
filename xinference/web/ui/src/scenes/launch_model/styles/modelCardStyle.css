@@ -1,0 +1,129 @@
+.container {
+  display: block;
+  position: relative;
+  width: 300px;
+  height: 300px;
+  cursor: pointer;
+  border-radius: 20px;
+}
+.descriptionCard {
+  position: relative;
+  top: -1px;
+  left: -1px;
+  width: 300px;
+  height: 300px;
+  padding: 20px;
+  border-radius: 20px;
+}
+.drawerCard {
+  position: relative;
+  padding: 20px 80px 0;
+  min-height: 100%;
+  width: 60vw;
+}
+.p {
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: break-word;
+  font-size: 14px;
+  padding: 0px 10px;
+}
+.formContainer {
+  height: 80%;
+  overflow: scroll;
+  padding: 0 10px;
+}
+.buttonsContainer {
+  position: absolute;
+  bottom: 50px;
+  left: 100px;
+  right: 100px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.buttonContainer {
+  width: 45%;
+  border-width: 0px;
+  background-color: transparent;
+}
+.buttonItem {
+  width: 100%;
+  padding: 5px;
+  border-radius: 4px;
+  border: 1px solid #e5e7eb;
+  border-width: 1px;
+  border-color: #e5e7eb;
+}
+.instructionText {
+  font-size: 12px;
+  color: #666666;
+  font-style: italic;
+  margin: 30px 0;
+  text-align: center;
+}
+.iconRow {
+  position: absolute;
+  bottom: 20px;
+  left: 20px;
+  right: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.iconItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 20px;
+}
+.boldIconText {
+  font-weight: bold;
+  font-size: 1.2em;
+}
+.muiIcon {
+  font-size: 1.5em
+}
+.smallText {
+  font-size: 0.8em;
+}
+.dialogBox {
+  width: 1141px;
+  height: 607px;
+  background-color: #fff;
+  margin: 32px;
+  overflow-x: scroll;
+}
+.dialogTitle{
+  display: flex;
+  justify-content: space-between;
+  padding: 20px 20px 7px;
+  color: #000;
+}
+.dialogTitle-model_name {
+  font-size: 18px;
+  font-weight: 700;
+}
+.scrollable {
+  width: 200px;
+  cursor: pointer;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.copyPath {
+  font-size: 14px !important;
+  cursor: pointer;
+  color: #555;
+}
+.empty {
+  position: absolute;
+  left: 50%;
+  top: 30%;
+  font-size: 20px;
+  color: #555;
+  transform: translate(-50%, 0);
+}
