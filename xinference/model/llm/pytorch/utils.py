@@ -689,6 +689,7 @@ def _batch_inference_one_step_internal(
     tokenizer,
     device,
     context_len: int,
+    stop_tokens: Tuple[int],
     decode_round: int = 16,
     bos_flag: str = "<bos_stream>",
     eos_flag: str = "<eos_stream>",
@@ -699,7 +700,8 @@ def _batch_inference_one_step_internal(
     if not valid_req_list:
         return
     generate_config_mapping: Dict[InferenceRequest, Tuple] = {
-        r: r.get_generate_configs(tokenizer.eos_token_id) for r in valid_req_list
+        r: r.get_generate_configs(tokenizer.eos_token_id, stop_tokens)
+        for r in valid_req_list
     }
     s_time = time.time()
 
@@ -903,12 +905,13 @@ def batch_inference_one_step(
     tokenizer,
     device,
     context_len: int,
+    stop_token_ids: Tuple[int],
 ):
     from ....core.model import OutOfMemoryError
 
     try:
         _batch_inference_one_step_internal(
-            req_list, model_uid, model, tokenizer, device, context_len
+            req_list, model_uid, model, tokenizer, device, context_len, stop_token_ids
         )
     except OutOfMemoryError:
         logger.exception(

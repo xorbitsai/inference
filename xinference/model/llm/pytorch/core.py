@@ -16,7 +16,7 @@ import json
 import logging
 import os
 from functools import lru_cache
-from typing import Iterable, Iterator, List, Optional, Union
+from typing import Iterable, Iterator, List, Optional, Tuple, Union
 
 from ....core.scheduler import InferenceRequest
 from ....device_utils import (
@@ -375,13 +375,14 @@ class PytorchModel(LLM):
     def get_max_num_seqs(self) -> int:
         return self._pytorch_model_config.get("max_num_seqs")  # type: ignore
 
+    def prepare_sanitize_generate_config(self, req: InferenceRequest):
+        return self._sanitize_generate_config(req.generate_config)
+
     def prepare_batch_inference(self, req_list: List[InferenceRequest]):
         # check some parameters
         for r in req_list:
             if r.sanitized_generate_config is None:
-                r.sanitized_generate_config = self._sanitize_generate_config(
-                    r.generate_config
-                )
+                r.sanitized_generate_config = self.prepare_sanitize_generate_config(r)
             if r.is_prefill:
                 # check some generate params
                 max_src_len = get_max_src_len(self.get_context_len(), r)  # type: ignore
@@ -400,6 +401,14 @@ class PytorchModel(LLM):
                     r.stopped = True
                     r.error_msg = "Invalid `stop` field type"
                     continue
+
+    def _get_builtin_stop_token_ids(self) -> Tuple[int]:
+        return (
+            tuple(self.model_family.prompt_style.stop_token_ids)
+            if self.model_family.prompt_style
+            and self.model_family.prompt_style.stop_token_ids
+            else tuple()
+        )
 
     def handle_batch_inference_results(self, req_list: List[InferenceRequest]):
         for req in req_list:
@@ -449,6 +458,7 @@ class PytorchModel(LLM):
             self._tokenizer,
             self._device,
             context_len,
+            self._get_builtin_stop_token_ids(),
         )
         self.handle_batch_inference_results(req_list)
 

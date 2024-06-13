@@ -264,13 +264,10 @@ class ModelActor(xo.StatelessActor):
         return isinstance(self._model, VLLMModel)
 
     def allow_batching(self) -> bool:
-        from ..model.llm.pytorch.core import PytorchChatModel, PytorchModel
+        from ..model.llm.pytorch.core import PytorchModel
 
-        return (
-            XINFERENCE_TRANSFORMERS_ENABLE_BATCHING
-            and isinstance(self._model, PytorchModel)
-            and self._model.__class__.__name__
-            in (PytorchChatModel.__name__, PytorchModel.__name__)
+        return XINFERENCE_TRANSFORMERS_ENABLE_BATCHING and isinstance(
+            self._model, PytorchModel
         )
 
     async def load(self):
