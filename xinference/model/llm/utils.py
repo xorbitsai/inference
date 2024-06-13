@@ -676,28 +676,29 @@ Begin!"""
         Generates a filter function for Qwen series models to retain outputs after "\nFinal Answer:".
 
         Returns:
-            A function that takes tokens (string output by the model so far) as input
-            returns True if current token is after "\nFinal Answer:", else False.
+            A function that takes tokens (string output by the model so far) and delta (new tokens added) as input,
+            returns the part after "\nFinal Answer:" if found, else returns delta.
         """
         family = model_family.model_family or model_family.model_name
         if family in ["qwen-chat", "qwen1.5-chat"]:
             # Encapsulating function to reset 'found' after each call
             found = False
 
-            def process_token(tokens: str):
+            def process_tokens(tokens: str, delta: str):
                 nonlocal found
                 # Once "Final Answer:" is found, future tokens are allowed.
                 if found:
-                    return True
+                    return delta
                 # Check if the token ends with "\nFinal Answer:" and update `found`.
-                if tokens.endswith("\nFinal Answer:"):
+                final_answer_idx = tokens.lower().rfind("\nfinal answer:")
+                if final_answer_idx != -1:
                     found = True
-                return False
+                    return tokens[final_answer_idx + len("\nfinal answer:") :]
+                return ""
 
-            return process_token
+            return process_tokens
         else:
-            # For other families, allow all tokens.
-            return lambda tokens: True
+            return lambda tokens, delta: delta
 
     @classmethod
     def _tool_calls_completion(cls, model_family, model_uid, c, tools):
