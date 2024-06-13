@@ -1404,7 +1404,7 @@ class RESTfulAPI:
             "gorilla-openfunctions-v1",
             "qwen-chat",
             "qwen1.5-chat",
-            "qwen2-instruct"
+            "qwen2-instruct",
         ]
 
         is_qwen = desc.get("model_format") == "ggmlv3" and "qwen-chat" == model_family
