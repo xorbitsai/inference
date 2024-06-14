@@ -62,6 +62,7 @@ const ModelCard = ({
   gpuAvailable,
   modelType,
   is_custom = false,
+  onHandleCompleteDelete,
 }) => {
   const [hover, setHover] = useState(false)
   const [selected, setSelected] = useState(false)
@@ -101,10 +102,9 @@ const ModelCard = ({
   const [imageLoraFuseKwargsArr, setImageLoraFuseKwargsArr] = useState([])
   const [isOpenCachedList, setIsOpenCachedList] = useState(false)
   const [isDeleteCached, setIsDeleteCached] = useState(false)
-  const [isDelete, setIsDelete] = useState(false)
   const [cachedListArr, setCachedListArr] = useState([])
-  const [deleteCacheArr, setDeleteCacheArr] = useState([])
-  const [cachedKey, setCachedKey] = useState('')
+  const [cachedModelVersion, setCachedModelVersion] = useState('')
+  const [cachedRealPath, setCachedRealPath] = useState('')
   const [page, setPage] = useState(0)
   const [isCopySuccess, setIsCopySuccess] = useState(false)
 
@@ -465,33 +465,8 @@ const ModelCard = ({
     document.body.style.overflow = 'auto'
     setHover(false)
     setIsOpenCachedList(false)
-    if (isDelete) {
-      let storageArr = JSON.parse(sessionStorage.getItem('deleteCacheArr'))
-      if (storageArr) {
-        const repeatArr = storageArr.filter((item) => {
-          return deleteCacheArr.some((subItem) => {
-            return item.model_version === subItem.model_version
-          })
-        })
-        if (repeatArr.length) {
-          const resArr = deleteCacheArr.filter((item) => {
-            return repeatArr.some((subItem) => {
-              return item.model_version !== subItem.model_version
-            })
-          })
-          sessionStorage.setItem(
-            'deleteCacheArr',
-            JSON.stringify(storageArr.concat(resArr))
-          )
-        } else {
-          sessionStorage.setItem(
-            'deleteCacheArr',
-            JSON.stringify(storageArr.concat(deleteCacheArr))
-          )
-        }
-      } else {
-        sessionStorage.setItem('deleteCacheArr', JSON.stringify(deleteCacheArr))
-      }
+    if (cachedListArr.length === 0) {
+      onHandleCompleteDelete(modelData.model_name)
     }
   }
 
@@ -522,13 +497,14 @@ const ModelCard = ({
       })
   }
 
-  const handleOpenDeleteCachedDialog = (model_version) => {
-    setCachedKey(model_version)
+  const handleOpenDeleteCachedDialog = (real_path, model_version) => {
+    setCachedRealPath(real_path)
+    setCachedModelVersion(model_version)
     setIsDeleteCached(true)
   }
 
   const handleDeleteCached = () => {
-    fetcher(url + `/v1/cache/models?model_version=${cachedKey}`, {
+    fetcher(url + `/v1/cache/models?model_version=${cachedModelVersion}`, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
@@ -545,42 +521,19 @@ const ModelCard = ({
           })
         } else {
           response.json().then(() => {
-            setCachedListArr(
-              cachedListArr.filter((item) => item.model_version !== cachedKey)
+            const cachedArr = cachedListArr.filter(
+              (item) => item.real_path !== cachedRealPath
             )
-            setIsDelete(true)
+            setCachedListArr(cachedArr)
             setIsDeleteCached(false)
-            if (cachedListArr.length - 1) {
+            if (cachedArr.length) {
               if (
                 (page + 1) * 5 >= cachedListArr.length &&
-                (cachedListArr.length - 1) % 5 === 0
+                cachedArr.length % 5 === 0
               ) {
-                setPage((cachedListArr.length - 1) / 5 - 1)
+                setPage(cachedArr.length / 5 - 1)
               }
             }
-            const arr = cachedListArr.filter(
-              (item) => item.model_version === cachedKey
-            )
-            const {
-              model_name,
-              model_version,
-              model_format,
-              model_size_in_billions,
-              quantization,
-            } = arr[0]
-            const repeatArr = deleteCacheArr.filter((item) => {
-              return item.model_version === model_version
-            })
-            !repeatArr.length &&
-              setDeleteCacheArr(...deleteCacheArr, [
-                {
-                  model_name,
-                  model_version,
-                  model_format,
-                  model_size_in_billions,
-                  quantization,
-                },
-              ])
           })
         }
       })
@@ -639,8 +592,7 @@ const ModelCard = ({
               {(() => {
                 if (
                   modelData.model_specs &&
-                  modelData.model_specs.some((spec) => isCached(spec)) &&
-                  (!isDelete || cachedListArr.length > 0)
+                  modelData.model_specs.some((spec) => isCached(spec))
                 ) {
                   return (
                     <Chip
@@ -745,10 +697,7 @@ const ModelCard = ({
                   }
                 })()}
                 {(() => {
-                  if (
-                    modelData.cache_status &&
-                    (!isDelete || cachedListArr.length > 0)
-                  ) {
+                  if (modelData.cache_status) {
                     return (
                       <Chip
                         label="Cached"
@@ -788,505 +737,219 @@ const ModelCard = ({
             )}
           </Box>
         )}
-        <Drawer
-          open={selected}
-          onClose={() => {
-            setSelected(false)
-            setHover(false)
-          }}
-          anchor={'right'}
-        >
-          <div className="drawerCard">
-            <TitleTypography value={modelData.model_name} />
-            {modelType === 'LLM' ? (
-              <Box
-                ref={parentRef}
-                className="formContainer"
-                display="flex"
-                flexDirection="column"
-                width="100%"
-                mx="auto"
-              >
-                <Grid rowSpacing={0} columnSpacing={1}>
-                  <Grid item xs={12}>
-                    <FormControl variant="outlined" margin="normal" fullWidth>
-                      <InputLabel id="modelEngine-label">
-                        Model Engine
-                      </InputLabel>
-                      <Select
-                        labelId="modelEngine-label"
-                        value={modelEngine}
-                        onChange={(e) => setModelEngine(e.target.value)}
-                        label="Model Engine"
-                      >
-                        {engineOptions.map((engine) => {
-                          const subArr = []
-                          enginesObj[engine].forEach((item) => {
-                            subArr.push(item.model_format)
-                          })
-                          const arr = [...new Set(subArr)]
-                          const specs = modelData.model_specs.filter((spec) =>
-                            arr.includes(spec.model_format)
+      </Paper>
+
+      <Drawer
+        open={selected}
+        onClose={() => {
+          setSelected(false)
+          setHover(false)
+        }}
+        anchor={'right'}
+      >
+        <div className="drawerCard">
+          <TitleTypography value={modelData.model_name} />
+          {modelType === 'LLM' ? (
+            <Box
+              ref={parentRef}
+              className="formContainer"
+              display="flex"
+              flexDirection="column"
+              width="100%"
+              mx="auto"
+            >
+              <Grid rowSpacing={0} columnSpacing={1}>
+                <Grid item xs={12}>
+                  <FormControl variant="outlined" margin="normal" fullWidth>
+                    <InputLabel id="modelEngine-label">Model Engine</InputLabel>
+                    <Select
+                      labelId="modelEngine-label"
+                      value={modelEngine}
+                      onChange={(e) => setModelEngine(e.target.value)}
+                      label="Model Engine"
+                    >
+                      {engineOptions.map((engine) => {
+                        const subArr = []
+                        enginesObj[engine].forEach((item) => {
+                          subArr.push(item.model_format)
+                        })
+                        const arr = [...new Set(subArr)]
+                        const specs = modelData.model_specs.filter((spec) =>
+                          arr.includes(spec.model_format)
+                        )
+
+                        const cached = specs.some((spec) => isCached(spec))
+
+                        const displayedEngine = cached
+                          ? engine + ' (cached)'
+                          : engine
+
+                        return (
+                          <MenuItem key={engine} value={engine}>
+                            {displayedEngine}
+                          </MenuItem>
+                        )
+                      })}
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12}>
+                  <FormControl
+                    variant="outlined"
+                    margin="normal"
+                    fullWidth
+                    disabled={!modelEngine}
+                  >
+                    <InputLabel id="modelFormat-label">Model Format</InputLabel>
+                    <Select
+                      labelId="modelFormat-label"
+                      value={modelFormat}
+                      onChange={(e) => setModelFormat(e.target.value)}
+                      label="Model Format"
+                    >
+                      {formatOptions.map((format) => {
+                        const specs = modelData.model_specs.filter(
+                          (spec) => spec.model_format === format
+                        )
+
+                        const cached = specs.some((spec) => isCached(spec))
+
+                        const displayedFormat = cached
+                          ? format + ' (cached)'
+                          : format
+
+                        return (
+                          <MenuItem key={format} value={format}>
+                            {displayedFormat}
+                          </MenuItem>
+                        )
+                      })}
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12}>
+                  <FormControl
+                    variant="outlined"
+                    margin="normal"
+                    fullWidth
+                    disabled={!modelFormat}
+                  >
+                    <InputLabel id="modelSize-label">Model Size</InputLabel>
+                    <Select
+                      labelId="modelSize-label"
+                      value={modelSize}
+                      onChange={(e) => setModelSize(e.target.value)}
+                      label="Model Size"
+                    >
+                      {sizeOptions.map((size) => {
+                        const specs = modelData.model_specs
+                          .filter((spec) => spec.model_format === modelFormat)
+                          .filter(
+                            (spec) => spec.model_size_in_billions === size
+                          )
+                        const cached = specs.some((spec) => isCached(spec))
+
+                        const displayedSize = cached ? size + ' (cached)' : size
+
+                        return (
+                          <MenuItem key={size} value={size}>
+                            {displayedSize}
+                          </MenuItem>
+                        )
+                      })}
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12}>
+                  <FormControl
+                    variant="outlined"
+                    margin="normal"
+                    fullWidth
+                    disabled={!modelFormat || !modelSize}
+                  >
+                    <InputLabel id="quantization-label">
+                      Quantization
+                    </InputLabel>
+                    <Select
+                      labelId="quantization-label"
+                      value={quantization}
+                      onChange={(e) => setQuantization(e.target.value)}
+                      label="Quantization"
+                    >
+                      {quantizationOptions.map((quant, index) => {
+                        const specs = modelData.model_specs
+                          .filter((spec) => spec.model_format === modelFormat)
+                          .filter(
+                            (spec) =>
+                              spec.model_size_in_billions ===
+                              convertModelSize(modelSize)
                           )
 
-                          const cached = specs.some((spec) => isCached(spec))
+                        const cached =
+                          modelFormat === 'pytorch'
+                            ? specs[0]?.cache_status ?? false === true
+                            : specs[0]?.cache_status?.[index] ?? false === true
 
-                          let displayedEngine
-                          const deleteCacheArr = JSON.parse(
-                            sessionStorage.getItem('deleteCacheArr')
-                          )
-                          if (
-                            isDelete &&
-                            deleteCacheArr &&
-                            deleteCacheArr.length
-                          ) {
-                            const subNameArr = []
-                            const subFormatArr = []
-                            deleteCacheArr.forEach((item) => {
-                              subNameArr.push(item.model_name)
-                              subFormatArr.push(item.model_format)
-                            })
-                            const nameArr = [...new Set(subNameArr)]
-                            const formatArr = [...new Set(subFormatArr)]
-                            if (cached) {
-                              if (nameArr.includes(modelData.model_name)) {
-                                const resArr = formatArr.filter((item) =>
-                                  arr.includes(item)
-                                )
-                                displayedEngine =
-                                  resArr.length === arr.length
-                                    ? engine
-                                    : engine + ' (cached)'
-                              } else {
-                                displayedEngine = engine + ' (cached)'
-                              }
-                            } else {
-                              displayedEngine = engine
-                            }
-                          } else {
-                            displayedEngine = cached
-                              ? engine + ' (cached)'
-                              : engine
-                          }
+                        const displayedQuant = cached
+                          ? quant + ' (cached)'
+                          : quant
 
-                          return (
-                            <MenuItem key={engine} value={engine}>
-                              {displayedEngine}
-                            </MenuItem>
-                          )
-                        })}
-                      </Select>
-                    </FormControl>
-                  </Grid>
-                  <Grid item xs={12}>
+                        return (
+                          <MenuItem key={quant} value={quant}>
+                            {displayedQuant}
+                          </MenuItem>
+                        )
+                      })}
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12}>
+                  {modelFormat !== 'ggufv2' && modelFormat !== 'ggmlv3' ? (
                     <FormControl
                       variant="outlined"
                       margin="normal"
                       fullWidth
-                      disabled={!modelEngine}
+                      disabled={!modelFormat || !modelSize || !quantization}
                     >
-                      <InputLabel id="modelFormat-label">
-                        Model Format
-                      </InputLabel>
+                      <InputLabel id="n-gpu-label">N-GPU</InputLabel>
                       <Select
-                        labelId="modelFormat-label"
-                        value={modelFormat}
-                        onChange={(e) => setModelFormat(e.target.value)}
-                        label="Model Format"
+                        labelId="n-gpu-label"
+                        value={nGPU}
+                        onChange={(e) => setNGPU(e.target.value)}
+                        label="N-GPU"
                       >
-                        {formatOptions.map((format) => {
-                          const specs = modelData.model_specs.filter(
-                            (spec) => spec.model_format === format
-                          )
-
-                          const cached = specs.some((spec) => isCached(spec))
-
-                          let displayedFormat
-                          const deleteCacheArr = JSON.parse(
-                            sessionStorage.getItem('deleteCacheArr')
-                          )
-                          if (
-                            isDelete &&
-                            deleteCacheArr &&
-                            deleteCacheArr.length
-                          ) {
-                            const subNameArr = []
-                            const subFormatArr = []
-                            deleteCacheArr.forEach((item) => {
-                              subNameArr.push(item.model_name)
-                              subFormatArr.push(item.model_format)
-                            })
-                            const nameArr = [...new Set(subNameArr)]
-                            const formatArr = [...new Set(subFormatArr)]
-                            if (cached) {
-                              if (nameArr.includes(modelData.model_name)) {
-                                displayedFormat = formatArr.includes(format)
-                                  ? format
-                                  : format + ' (cached)'
-                              } else {
-                                displayedFormat = format + ' (cached)'
-                              }
-                            } else {
-                              displayedFormat = format
-                            }
-                          } else {
-                            displayedFormat = cached
-                              ? format + ' (cached)'
-                              : format
-                          }
-
+                        {getNGPURange().map((v) => {
                           return (
-                            <MenuItem key={format} value={format}>
-                              {displayedFormat}
+                            <MenuItem key={v} value={v}>
+                              {v}
                             </MenuItem>
                           )
                         })}
                       </Select>
                     </FormControl>
-                  </Grid>
-                  <Grid item xs={12}>
-                    <FormControl
-                      variant="outlined"
-                      margin="normal"
-                      fullWidth
-                      disabled={!modelFormat}
-                    >
-                      <InputLabel id="modelSize-label">Model Size</InputLabel>
-                      <Select
-                        labelId="modelSize-label"
-                        value={modelSize}
-                        onChange={(e) => setModelSize(e.target.value)}
-                        label="Model Size"
-                      >
-                        {sizeOptions.map((size) => {
-                          const specs = modelData.model_specs
-                            .filter((spec) => spec.model_format === modelFormat)
-                            .filter(
-                              (spec) => spec.model_size_in_billions === size
-                            )
-                          const cached = specs.some((spec) => isCached(spec))
-
-                          let displayedSize
-                          const deleteCacheArr = JSON.parse(
-                            sessionStorage.getItem('deleteCacheArr')
-                          )
-                          if (
-                            isDelete &&
-                            deleteCacheArr &&
-                            deleteCacheArr.length
-                          ) {
-                            const subNameArr = []
-                            deleteCacheArr.forEach((item) => {
-                              subNameArr.push(item.model_name)
-                            })
-                            const nameArr = [...new Set(subNameArr)]
-                            if (cached) {
-                              if (nameArr.includes(modelData.model_name)) {
-                                const resArr = deleteCacheArr
-                                  .filter(
-                                    (item) => item.model_format === modelFormat
-                                  )
-                                  .filter(
-                                    (item) =>
-                                      item.model_size_in_billions === size
-                                  )
-                                displayedSize = resArr.length
-                                  ? size
-                                  : size + ' (cached)'
-                              } else {
-                                displayedSize = size + ' (cached)'
-                              }
-                            } else {
-                              displayedSize = size
-                            }
-                          } else {
-                            displayedSize = cached ? size + ' (cached)' : size
-                          }
-
-                          return (
-                            <MenuItem key={size} value={size}>
-                              {displayedSize}
-                            </MenuItem>
-                          )
-                        })}
-                      </Select>
-                    </FormControl>
-                  </Grid>
-                  <Grid item xs={12}>
-                    <FormControl
-                      variant="outlined"
-                      margin="normal"
-                      fullWidth
-                      disabled={!modelFormat || !modelSize}
-                    >
-                      <InputLabel id="quantization-label">
-                        Quantization
-                      </InputLabel>
-                      <Select
-                        labelId="quantization-label"
-                        value={quantization}
-                        onChange={(e) => setQuantization(e.target.value)}
-                        label="Quantization"
-                      >
-                        {quantizationOptions.map((quant, index) => {
-                          const specs = modelData.model_specs
-                            .filter((spec) => spec.model_format === modelFormat)
-                            .filter(
-                              (spec) =>
-                                spec.model_size_in_billions ===
-                                convertModelSize(modelSize)
-                            )
-
-                          const cached =
-                            modelFormat === 'pytorch'
-                              ? specs[0]?.cache_status ?? false === true
-                              : specs[0]?.cache_status?.[index] ??
-                                false === true
-
-                          let displayedQuant
-                          const deleteCacheArr = JSON.parse(
-                            sessionStorage.getItem('deleteCacheArr')
-                          )
-                          if (isDelete && deleteCacheArr && deleteCacheArr) {
-                            const subNameArr = []
-                            deleteCacheArr.forEach((item) => {
-                              subNameArr.push(item.model_name)
-                            })
-                            const nameArr = [...new Set(subNameArr)]
-                            if (cached) {
-                              if (nameArr.includes(modelData.model_name)) {
-                                const resArr = deleteCacheArr
-                                  .filter(
-                                    (item) => item.model_format === modelFormat
-                                  )
-                                  .filter((item) => item.quantization === quant)
-                                displayedQuant = resArr.length
-                                  ? quant
-                                  : quant + ' (cached)'
-                              } else {
-                                displayedQuant = quant + ' (cached)'
-                              }
-                            } else {
-                              displayedQuant = quant
-                            }
-                          } else {
-                            displayedQuant = cached
-                              ? quant + ' (cached)'
-                              : quant
-                          }
-
-                          return (
-                            <MenuItem key={quant} value={quant}>
-                              {displayedQuant}
-                            </MenuItem>
-                          )
-                        })}
-                      </Select>
-                    </FormControl>
-                  </Grid>
-                  <Grid item xs={12}>
-                    {modelFormat !== 'ggufv2' && modelFormat !== 'ggmlv3' ? (
-                      <FormControl
-                        variant="outlined"
-                        margin="normal"
-                        fullWidth
-                        disabled={!modelFormat || !modelSize || !quantization}
-                      >
-                        <InputLabel id="n-gpu-label">N-GPU</InputLabel>
-                        <Select
-                          labelId="n-gpu-label"
-                          value={nGPU}
-                          onChange={(e) => setNGPU(e.target.value)}
-                          label="N-GPU"
-                        >
-                          {getNGPURange().map((v) => {
-                            return (
-                              <MenuItem key={v} value={v}>
-                                {v}
-                              </MenuItem>
-                            )
-                          })}
-                        </Select>
-                      </FormControl>
-                    ) : (
-                      <FormControl variant="outlined" margin="normal" fullWidth>
-                        <TextField
-                          disabled={!modelFormat || !modelSize || !quantization}
-                          type="number"
-                          label="N GPU Layers"
-                          InputProps={{
-                            inputProps: {
-                              min: -1,
-                            },
-                          }}
-                          value={nGPULayers}
-                          onChange={(e) =>
-                            setNGPULayers(parseInt(e.target.value, 10))
-                          }
-                        />
-                      </FormControl>
-                    )}
-                  </Grid>
-                  <Grid item xs={12}>
+                  ) : (
                     <FormControl variant="outlined" margin="normal" fullWidth>
                       <TextField
                         disabled={!modelFormat || !modelSize || !quantization}
                         type="number"
+                        label="N GPU Layers"
                         InputProps={{
                           inputProps: {
-                            min: 1,
+                            min: -1,
                           },
                         }}
-                        label="Replica"
-                        value={replica}
+                        value={nGPULayers}
                         onChange={(e) =>
-                          setReplica(parseInt(e.target.value, 10))
+                          setNGPULayers(parseInt(e.target.value, 10))
                         }
                       />
                     </FormControl>
-                  </Grid>
-                  <ListItemButton onClick={() => setIsOther(!isOther)}>
-                    <ListItemText primary="Optional Configurations" />
-                    {isOther ? <ExpandLess /> : <ExpandMore />}
-                  </ListItemButton>
-                  <Collapse in={isOther} timeout="auto" unmountOnExit>
-                    <Grid item xs={12}>
-                      <FormControl variant="outlined" margin="normal" fullWidth>
-                        <TextField
-                          variant="outlined"
-                          value={modelUID}
-                          label="(Optional) Model UID, model name by default"
-                          onChange={(e) => setModelUID(e.target.value)}
-                        />
-                      </FormControl>
-                    </Grid>
-                    <Grid item xs={12}>
-                      <FormControl variant="outlined" margin="normal" fullWidth>
-                        <TextField
-                          value={requestLimits}
-                          label="(Optional) Request Limits, the number of request limits for this model，default is None"
-                          onChange={(e) => {
-                            setRequestLimitsAlert(false)
-                            setRequestLimits(e.target.value)
-                            if (
-                              e.target.value !== '' &&
-                              (!Number(e.target.value) ||
-                                Number(e.target.value) < 1 ||
-                                parseInt(e.target.value) !==
-                                  parseFloat(e.target.value))
-                            ) {
-                              setRequestLimitsAlert(true)
-                            }
-                          }}
-                        />
-                        {requestLimitsAlert && (
-                          <Alert severity="error">
-                            Please enter an integer greater than 0
-                          </Alert>
-                        )}
-                      </FormControl>
-                    </Grid>
-                    <Grid item xs={12}>
-                      <FormControl variant="outlined" margin="normal" fullWidth>
-                        <TextField
-                          variant="outlined"
-                          value={workerIp}
-                          label="(Optional) Worker Ip, specify the worker ip where the model is located in a distributed scenario"
-                          onChange={(e) => setWorkerIp(e.target.value)}
-                        />
-                      </FormControl>
-                    </Grid>
-                    <Grid item xs={12}>
-                      <FormControl variant="outlined" margin="normal" fullWidth>
-                        <TextField
-                          value={GPUIdx}
-                          label="(Optional) GPU Idx, Specify the GPU index where the model is located"
-                          onChange={(e) => {
-                            setGPUIdxAlert(false)
-                            setGPUIdx(e.target.value)
-                            const regular = /^\d+(?:,\d+)*$/
-                            if (
-                              e.target.value !== '' &&
-                              !regular.test(e.target.value)
-                            ) {
-                              setGPUIdxAlert(true)
-                            }
-                          }}
-                        />
-                        {GPUIdxAlert && (
-                          <Alert severity="error">
-                            Please enter numeric data separated by commas, for
-                            example: 0,1,2
-                          </Alert>
-                        )}
-                      </FormControl>
-                    </Grid>
-                    <ListItemButton
-                      onClick={() => setIsPeftModelConfig(!isPeftModelConfig)}
-                    >
-                      <ListItemText primary="Lora Config" />
-                      {isPeftModelConfig ? <ExpandLess /> : <ExpandMore />}
-                    </ListItemButton>
-                    <Collapse
-                      in={isPeftModelConfig}
-                      timeout="auto"
-                      unmountOnExit
-                      style={{ marginLeft: '30px' }}
-                    >
-                      <AddPair
-                        customData={{
-                          title: 'Lora Model Config',
-                          key: 'lora_name',
-                          value: 'local_path',
-                        }}
-                        onGetArr={getLoraListArr}
-                        onJudgeArr={judgeArr}
-                      />
-                      <AddPair
-                        customData={{
-                          title: 'Lora Load Kwargs for Image Model',
-                          key: 'key',
-                          value: 'value',
-                        }}
-                        onGetArr={getImageLoraLoadKwargsArr}
-                        onJudgeArr={judgeArr}
-                      />
-                      <AddPair
-                        customData={{
-                          title: 'Lora Fuse Kwargs for Image Model',
-                          key: 'key',
-                          value: 'value',
-                        }}
-                        onGetArr={getImageLoraFuseKwargsArr}
-                        onJudgeArr={judgeArr}
-                      />
-                    </Collapse>
-                  </Collapse>
-                  <AddPair
-                    customData={{
-                      title: `Additional parameters passed to the inference engine${
-                        modelEngine ? ': ' + modelEngine : ''
-                      }`,
-                      key: 'key',
-                      value: 'value',
-                    }}
-                    onGetArr={getCustomParametersArr}
-                    onJudgeArr={judgeArr}
-                  />
+                  )}
                 </Grid>
-              </Box>
-            ) : (
-              <FormControl variant="outlined" margin="normal" fullWidth>
-                <TextField
-                  variant="outlined"
-                  value={modelUID}
-                  label="(Optional) Model UID, model name by default"
-                  onChange={(e) => setModelUID(e.target.value)}
-                />
-                {(modelType === 'embedding' || modelType === 'rerank') && (
-                  <>
+                <Grid item xs={12}>
+                  <FormControl variant="outlined" margin="normal" fullWidth>
                     <TextField
-                      style={{ marginTop: '25px' }}
+                      disabled={!modelFormat || !modelSize || !quantization}
                       type="number"
                       InputProps={{
                         inputProps: {
@@ -1297,154 +960,308 @@ const ModelCard = ({
                       value={replica}
                       onChange={(e) => setReplica(parseInt(e.target.value, 10))}
                     />
+                  </FormControl>
+                </Grid>
+                <ListItemButton onClick={() => setIsOther(!isOther)}>
+                  <ListItemText primary="Optional Configurations" />
+                  {isOther ? <ExpandLess /> : <ExpandMore />}
+                </ListItemButton>
+                <Collapse in={isOther} timeout="auto" unmountOnExit>
+                  <Grid item xs={12}>
                     <FormControl variant="outlined" margin="normal" fullWidth>
-                      <InputLabel id="n-gpu-label">Device</InputLabel>
-                      <Select
-                        labelId="n-gpu-label"
-                        value={nGpu}
-                        onChange={(e) => setNGpu(e.target.value)}
-                        label="N-GPU"
-                      >
-                        {getNewNGPURange().map((v) => {
-                          return (
-                            <MenuItem key={v} value={v}>
-                              {v}
-                            </MenuItem>
-                          )
-                        })}
-                      </Select>
+                      <TextField
+                        variant="outlined"
+                        value={modelUID}
+                        label="(Optional) Model UID, model name by default"
+                        onChange={(e) => setModelUID(e.target.value)}
+                      />
                     </FormControl>
-                    {nGpu === 'GPU' && (
-                      <FormControl variant="outlined" margin="normal" fullWidth>
-                        <TextField
-                          value={GPUIdx}
-                          label="GPU Idx, Specify the GPU index where the model is located"
-                          onChange={(e) => {
-                            setGPUIdxAlert(false)
-                            setGPUIdx(e.target.value)
-                            const regular = /^\d+(?:,\d+)*$/
-                            if (
-                              e.target.value !== '' &&
-                              !regular.test(e.target.value)
-                            ) {
-                              setGPUIdxAlert(true)
-                            }
-                          }}
-                        />
-                        {GPUIdxAlert && (
-                          <Alert severity="error">
-                            Please enter numeric data separated by commas, for
-                            example: 0,1,2
-                          </Alert>
-                        )}
-                      </FormControl>
-                    )}
+                  </Grid>
+                  <Grid item xs={12}>
+                    <FormControl variant="outlined" margin="normal" fullWidth>
+                      <TextField
+                        value={requestLimits}
+                        label="(Optional) Request Limits, the number of request limits for this model，default is None"
+                        onChange={(e) => {
+                          setRequestLimitsAlert(false)
+                          setRequestLimits(e.target.value)
+                          if (
+                            e.target.value !== '' &&
+                            (!Number(e.target.value) ||
+                              Number(e.target.value) < 1 ||
+                              parseInt(e.target.value) !==
+                                parseFloat(e.target.value))
+                          ) {
+                            setRequestLimitsAlert(true)
+                          }
+                        }}
+                      />
+                      {requestLimitsAlert && (
+                        <Alert severity="error">
+                          Please enter an integer greater than 0
+                        </Alert>
+                      )}
+                    </FormControl>
+                  </Grid>
+                  <Grid item xs={12}>
                     <FormControl variant="outlined" margin="normal" fullWidth>
                       <TextField
                         variant="outlined"
                         value={workerIp}
-                        label="Worker Ip, specify the worker ip where the model is located in a distributed scenario"
+                        label="(Optional) Worker Ip, specify the worker ip where the model is located in a distributed scenario"
                         onChange={(e) => setWorkerIp(e.target.value)}
                       />
                     </FormControl>
-                  </>
-                )}
-              </FormControl>
-            )}
-            <Box className="buttonsContainer">
-              <button
-                title="Launch"
-                className="buttonContainer"
-                onClick={() => launchModel(url, modelData)}
-                disabled={
-                  (modelType === 'LLM' &&
-                    (isCallingApi ||
-                      isUpdatingModel ||
-                      !(
-                        modelFormat &&
-                        modelSize &&
-                        modelData &&
-                        (quantization ||
-                          (!modelData.is_builtin && modelFormat !== 'pytorch'))
-                      ) ||
-                      !judgeArr(customParametersArr, ['key', 'value']) ||
-                      !judgeArr(loraListArr, ['lora_name', 'local_path']) ||
-                      !judgeArr(imageLoraLoadKwargsArr, ['key', 'value']) ||
-                      !judgeArr(imageLoraFuseKwargsArr, ['key', 'value']) ||
-                      requestLimitsAlert ||
-                      GPUIdxAlert)) ||
-                  ((modelType === 'embedding' || modelType === 'rerank') &&
-                    GPUIdxAlert)
-                }
-              >
-                {(() => {
-                  if (isCallingApi || isUpdatingModel) {
-                    return (
-                      <Box
-                        className="buttonItem"
-                        style={{
-                          backgroundColor: '#f2f2f2',
+                  </Grid>
+                  <Grid item xs={12}>
+                    <FormControl variant="outlined" margin="normal" fullWidth>
+                      <TextField
+                        value={GPUIdx}
+                        label="(Optional) GPU Idx, Specify the GPU index where the model is located"
+                        onChange={(e) => {
+                          setGPUIdxAlert(false)
+                          setGPUIdx(e.target.value)
+                          const regular = /^\d+(?:,\d+)*$/
+                          if (
+                            e.target.value !== '' &&
+                            !regular.test(e.target.value)
+                          ) {
+                            setGPUIdxAlert(true)
+                          }
                         }}
-                      >
-                        <CircularProgress
-                          size="20px"
-                          sx={{
-                            color: '#000000',
-                          }}
-                        />
-                      </Box>
-                    )
-                  } else if (
+                      />
+                      {GPUIdxAlert && (
+                        <Alert severity="error">
+                          Please enter numeric data separated by commas, for
+                          example: 0,1,2
+                        </Alert>
+                      )}
+                    </FormControl>
+                  </Grid>
+                  <ListItemButton
+                    onClick={() => setIsPeftModelConfig(!isPeftModelConfig)}
+                  >
+                    <ListItemText primary="Lora Config" />
+                    {isPeftModelConfig ? <ExpandLess /> : <ExpandMore />}
+                  </ListItemButton>
+                  <Collapse
+                    in={isPeftModelConfig}
+                    timeout="auto"
+                    unmountOnExit
+                    style={{ marginLeft: '30px' }}
+                  >
+                    <AddPair
+                      customData={{
+                        title: 'Lora Model Config',
+                        key: 'lora_name',
+                        value: 'local_path',
+                      }}
+                      onGetArr={getLoraListArr}
+                      onJudgeArr={judgeArr}
+                    />
+                    <AddPair
+                      customData={{
+                        title: 'Lora Load Kwargs for Image Model',
+                        key: 'key',
+                        value: 'value',
+                      }}
+                      onGetArr={getImageLoraLoadKwargsArr}
+                      onJudgeArr={judgeArr}
+                    />
+                    <AddPair
+                      customData={{
+                        title: 'Lora Fuse Kwargs for Image Model',
+                        key: 'key',
+                        value: 'value',
+                      }}
+                      onGetArr={getImageLoraFuseKwargsArr}
+                      onJudgeArr={judgeArr}
+                    />
+                  </Collapse>
+                </Collapse>
+                <AddPair
+                  customData={{
+                    title: `Additional parameters passed to the inference engine${
+                      modelEngine ? ': ' + modelEngine : ''
+                    }`,
+                    key: 'key',
+                    value: 'value',
+                  }}
+                  onGetArr={getCustomParametersArr}
+                  onJudgeArr={judgeArr}
+                />
+              </Grid>
+            </Box>
+          ) : (
+            <FormControl variant="outlined" margin="normal" fullWidth>
+              <TextField
+                variant="outlined"
+                value={modelUID}
+                label="(Optional) Model UID, model name by default"
+                onChange={(e) => setModelUID(e.target.value)}
+              />
+              {(modelType === 'embedding' || modelType === 'rerank') && (
+                <>
+                  <TextField
+                    style={{ marginTop: '25px' }}
+                    type="number"
+                    InputProps={{
+                      inputProps: {
+                        min: 1,
+                      },
+                    }}
+                    label="Replica"
+                    value={replica}
+                    onChange={(e) => setReplica(parseInt(e.target.value, 10))}
+                  />
+                  <FormControl variant="outlined" margin="normal" fullWidth>
+                    <InputLabel id="n-gpu-label">Device</InputLabel>
+                    <Select
+                      labelId="n-gpu-label"
+                      value={nGpu}
+                      onChange={(e) => setNGpu(e.target.value)}
+                      label="N-GPU"
+                    >
+                      {getNewNGPURange().map((v) => {
+                        return (
+                          <MenuItem key={v} value={v}>
+                            {v}
+                          </MenuItem>
+                        )
+                      })}
+                    </Select>
+                  </FormControl>
+                  {nGpu === 'GPU' && (
+                    <FormControl variant="outlined" margin="normal" fullWidth>
+                      <TextField
+                        value={GPUIdx}
+                        label="GPU Idx, Specify the GPU index where the model is located"
+                        onChange={(e) => {
+                          setGPUIdxAlert(false)
+                          setGPUIdx(e.target.value)
+                          const regular = /^\d+(?:,\d+)*$/
+                          if (
+                            e.target.value !== '' &&
+                            !regular.test(e.target.value)
+                          ) {
+                            setGPUIdxAlert(true)
+                          }
+                        }}
+                      />
+                      {GPUIdxAlert && (
+                        <Alert severity="error">
+                          Please enter numeric data separated by commas, for
+                          example: 0,1,2
+                        </Alert>
+                      )}
+                    </FormControl>
+                  )}
+                  <FormControl variant="outlined" margin="normal" fullWidth>
+                    <TextField
+                      variant="outlined"
+                      value={workerIp}
+                      label="Worker Ip, specify the worker ip where the model is located in a distributed scenario"
+                      onChange={(e) => setWorkerIp(e.target.value)}
+                    />
+                  </FormControl>
+                </>
+              )}
+            </FormControl>
+          )}
+          <Box className="buttonsContainer">
+            <button
+              title="Launch"
+              className="buttonContainer"
+              onClick={() => launchModel(url, modelData)}
+              disabled={
+                (modelType === 'LLM' &&
+                  (isCallingApi ||
+                    isUpdatingModel ||
                     !(
                       modelFormat &&
                       modelSize &&
                       modelData &&
                       (quantization ||
                         (!modelData.is_builtin && modelFormat !== 'pytorch'))
-                    )
-                  ) {
-                    return (
-                      <Box
-                        className="buttonItem"
-                        style={{
-                          backgroundColor: '#f2f2f2',
+                    ) ||
+                    !judgeArr(customParametersArr, ['key', 'value']) ||
+                    !judgeArr(loraListArr, ['lora_name', 'local_path']) ||
+                    !judgeArr(imageLoraLoadKwargsArr, ['key', 'value']) ||
+                    !judgeArr(imageLoraFuseKwargsArr, ['key', 'value']) ||
+                    requestLimitsAlert ||
+                    GPUIdxAlert)) ||
+                ((modelType === 'embedding' || modelType === 'rerank') &&
+                  GPUIdxAlert)
+              }
+            >
+              {(() => {
+                if (isCallingApi || isUpdatingModel) {
+                  return (
+                    <Box
+                      className="buttonItem"
+                      style={{
+                        backgroundColor: '#f2f2f2',
+                      }}
+                    >
+                      <CircularProgress
+                        size="20px"
+                        sx={{
+                          color: '#000000',
                         }}
-                      >
-                        <RocketLaunchOutlined size="20px" />
-                      </Box>
-                    )
-                  } else {
-                    return (
-                      <Box className="buttonItem">
-                        <RocketLaunchOutlined color="#000000" size="20px" />
-                      </Box>
-                    )
-                  }
-                })()}
-              </button>
-              <button
-                title="Go Back"
-                className="buttonContainer"
-                onClick={() => {
-                  setSelected(false)
-                  setHover(false)
-                }}
-              >
-                <Box className="buttonItem">
-                  <UndoOutlined color="#000000" size="20px" />
-                </Box>
-              </button>
-            </Box>
-          </div>
-        </Drawer>
-        <Snackbar
-          anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-          open={openSnackbar}
-          onClose={() => setOpenSnackbar(false)}
-          message="Please fill in the complete parameters before adding!!"
-          key={'top' + 'center'}
-        />
-      </Paper>
+                      />
+                    </Box>
+                  )
+                } else if (
+                  !(
+                    modelFormat &&
+                    modelSize &&
+                    modelData &&
+                    (quantization ||
+                      (!modelData.is_builtin && modelFormat !== 'pytorch'))
+                  )
+                ) {
+                  return (
+                    <Box
+                      className="buttonItem"
+                      style={{
+                        backgroundColor: '#f2f2f2',
+                      }}
+                    >
+                      <RocketLaunchOutlined size="20px" />
+                    </Box>
+                  )
+                } else {
+                  return (
+                    <Box className="buttonItem">
+                      <RocketLaunchOutlined color="#000000" size="20px" />
+                    </Box>
+                  )
+                }
+              })()}
+            </button>
+            <button
+              title="Go Back"
+              className="buttonContainer"
+              onClick={() => {
+                setSelected(false)
+                setHover(false)
+              }}
+            >
+              <Box className="buttonItem">
+                <UndoOutlined color="#000000" size="20px" />
+              </Box>
+            </button>
+          </Box>
+        </div>
+      </Drawer>
+      <Snackbar
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+        open={openSnackbar}
+        onClose={() => setOpenSnackbar(false)}
+        message="Please fill in the complete parameters before adding!!"
+        key={'top' + 'center'}
+      />
+
       <Backdrop
         sx={{ color: '#fff', zIndex: (theme) => theme.zIndex.drawer + 1 }}
         open={isOpenCachedList}
@@ -1466,10 +1283,13 @@ const ModelCard = ({
             >
               <TableHead>
                 <TableRow>
-                  <TableCell align="left">model_version</TableCell>
-                  <TableCell align="left">model_format</TableCell>
-                  <TableCell align="left">model_size_in_billions</TableCell>
-                  <TableCell align="left">quantizations</TableCell>
+                  {modelType === 'LLM' && (
+                    <>
+                      <TableCell align="left">model_format</TableCell>
+                      <TableCell align="left">model_size_in_billions</TableCell>
+                      <TableCell align="left">quantizations</TableCell>
+                    </>
+                  )}
                   <TableCell align="left" style={{ width: 192 }}>
                     real_path
                   </TableCell>
@@ -1493,23 +1313,30 @@ const ModelCard = ({
                     style={{ maxHeight: 90 }}
                     key={row.model_name}
                   >
-                    <TableCell component="th" scope="row">
-                      {row.model_version}
-                    </TableCell>
-                    <TableCell>
-                      {row.model_format === null ? '—' : row.model_format}
-                    </TableCell>
-                    <TableCell>
-                      {row.model_size_in_billions === null
-                        ? '—'
-                        : row.model_size_in_billions}
-                    </TableCell>
-                    <TableCell>
-                      {row.quantization === null ? '—' : row.quantization}
-                    </TableCell>
+                    {modelType === 'LLM' && (
+                      <>
+                        <TableCell component="th" scope="row">
+                          {row.model_format === null ? '—' : row.model_format}
+                        </TableCell>
+                        <TableCell>
+                          {row.model_size_in_billions === null
+                            ? '—'
+                            : row.model_size_in_billions}
+                        </TableCell>
+                        <TableCell>
+                          {row.quantization === null ? '—' : row.quantization}
+                        </TableCell>
+                      </>
+                    )}
                     <TableCell>
                       <Tooltip title={row.real_path}>
-                        <div className="pathBox">{row.real_path}</div>
+                        <div
+                          className={
+                            modelType === 'LLM' ? 'pathBox' : 'pathBox pathBox2'
+                          }
+                        >
+                          {row.real_path}
+                        </div>
                       </Tooltip>
                     </TableCell>
                     <TableCell>
@@ -1522,7 +1349,13 @@ const ModelCard = ({
                     </TableCell>
                     <TableCell>
                       <Tooltip title={row.path}>
-                        <div className="pathBox">{row.path}</div>
+                        <div
+                          className={
+                            modelType === 'LLM' ? 'pathBox' : 'pathBox pathBox2'
+                          }
+                        >
+                          {row.path}
+                        </div>
                       </Tooltip>
                     </TableCell>
                     <TableCell>
@@ -1534,12 +1367,15 @@ const ModelCard = ({
                       </Tooltip>
                     </TableCell>
                     <TableCell>{row.actor_ip_address}</TableCell>
-                    <TableCell align="center">
+                    <TableCell align={modelType === 'LLM' ? 'center' : 'left'}>
                       <IconButton
                         aria-label="delete"
                         size="large"
                         onClick={() =>
-                          handleOpenDeleteCachedDialog(row.model_version)
+                          handleOpenDeleteCachedDialog(
+                            row.real_path,
+                            row.model_version
+                          )
                         }
                       >
                         <DeleteIcon />

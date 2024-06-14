@@ -114,6 +114,9 @@
   white-space: nowrap;
   text-overflow: ellipsis;
 }
+.pathBox2 {
+  width: 300px;
+}
 .copyPath {
   font-size: 14px !important;
   cursor: pointer;
