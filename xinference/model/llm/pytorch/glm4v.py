@@ -64,6 +64,8 @@ class Glm4VModel(PytorchChatModel):
 
         kwargs = {"device_map": self._device}
         quantization = self.quantization
+
+        # referenced from PytorchModel.load
         if quantization != "none":
             if self._device == "cuda" and self._is_linux():
                 kwargs["device_map"] = "auto"
@@ -72,6 +74,15 @@ class Glm4VModel(PytorchChatModel):
                     kwargs["load_in_4bit"] = True
                 elif quantization == "8-bit":
                     kwargs["load_in_8bit"] = True
+                else:
+                    raise ValueError(
+                        f"Quantization {quantization} is not supported in temporary"
+                    )
+            else:
+                if quantization != "8-bit":
+                    raise ValueError(
+                        f"Only 8-bit quantization is supported if it is not linux system or cuda device"
+                    )
 
         model = AutoModelForCausalLM.from_pretrained(
             self.model_path,
