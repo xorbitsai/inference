@@ -24,7 +24,7 @@ import numpy as np
 import pandas as pd
 import datetime
 import os
-
+import textwrap
 
 from typing import List, Tuple
 from utils import sample_requests, get_tokenizer, send_request
@@ -38,10 +38,10 @@ logger = logging.getLogger(__name__)
 class AutoBenchmarkRunner(BenchmarkRunner):
 
 
-    def __init__(self,  folder="./"):
-
-        self.json_filename:str = None
-        self.folder:str = folder
+    def __init__(self, args):
+        self.inf = args.inf
+        self.json_filename:str = args.file
+        self.folder:str = args.folder
         self.configs = []
 
         # Benchmark Result
@@ -117,14 +117,27 @@ class AutoBenchmarkRunner(BenchmarkRunner):
         timestamp = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
         csv_filename = f'{self.model_uid}_output_{timestamp}.csv'
         dataframe.to_csv(csv_filename)
-
+    
+    def read_file(self, filename:str):
+        if filename.endswith('.json'):
+            self.configs.append(filename)
+        else:
+            logger.error("Invalid config file")
+    
     def read_json(self):
-        self.json_filename = self.configs.pop()
+        if self.inf:
+            logger.info("Infinite Benchmark Enabled!")
+            # Never Pop() for infinite benchmark
+            self.json_filename = self.configs[0]
+        else:
+            self.json_filename = self.configs.pop()
+        
         print(f"Loading file: {self.json_filename!r}")
         with open(self.json_filename, "r") as f:
             data = json.load(f)
         
         print(f"Read from {self.json_filename!r}\n")
+
         self.host = data.get("host", "localhost")
         self.port = data.get("port", "9997")
         self.dataset:str = data.get("dataset")
@@ -136,6 +149,7 @@ class AutoBenchmarkRunner(BenchmarkRunner):
         self.tokenizer = data.get("tokenizer")
         self.model_uid = data.get("model_uid")
         self.api_url = f"http://{self.host}:{self.port}/v1/chat/completions"
+
         print(f"Tokenizer: {self.tokenizer!r}")
         print(f"Model_UID: {self.model_uid!r}")
         
@@ -156,8 +170,16 @@ class AutoBenchmarkRunner(BenchmarkRunner):
 
 
 def main(args: argparse.Namespace):
-    benchmark = AutoBenchmarkRunner(folder=args.folder)
-    benchmark.traverse_json_configs()
+    benchmark = AutoBenchmarkRunner(args)
+    if args.file is None and args.folder is not None:
+        benchmark.traverse_json_configs()
+    elif args.file is not None and args.folder is None:
+        benchmark.read_file(args.file)
+    elif args.file is None and args.folder is None:
+        logger.error("Please provide a folder or a file parameter.")
+    else:
+        logger.error("Cannot provide both folder and file parameters at the same time.")
+
     
     while benchmark.configs != []:
         benchmark.read_json()
@@ -211,7 +233,6 @@ def main(args: argparse.Namespace):
         )
 
         print(f"Benchmark avg per token output latency: {benchmark.avg_per_output_token_latency!r}")
-        
         print("Result generation finished\n")
         
         benchmark.write_result()
@@ -219,12 +240,27 @@ def main(args: argparse.Namespace):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-    description="Benchmark the online serving throughput."
-)
-    parser.add_argument("--folder",
-                        type=str, default="./",
-                        help=""
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description=textwrap.dedent('''\
+        Xinfernece Benchmark Suit
+        -------------------------
+                                    
+        Benchmark Suit for online inference serving.
+        ''')
+        )
+    parser.add_argument('-f', '--file',
+                        type=str,
+                        help="Set the config file to benchmark"
                         )
     
+    parser.add_argument('-F', '--folder',
+                        type=str, 
+                        help="Set the folder containing test configurations"
+                        )
+    
+    parser.add_argument('-I', '--inf',
+                        action='store_true',
+                        help='Allow infinite benchmark. Should provide a file argument.'
+                        )
     args = parser.parse_args()
     main(args)
