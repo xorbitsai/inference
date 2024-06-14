@@ -1421,6 +1421,7 @@ class RESTfulAPI:
         model_family = desc.get("model_family", "")
         function_call_models = [
             "chatglm3",
+            "glm4-chat",
             "gorilla-openfunctions-v1",
             "qwen-chat",
             "qwen1.5-chat",

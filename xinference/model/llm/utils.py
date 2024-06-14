@@ -607,7 +607,7 @@ Begin!"""
             return arguments, None, None
 
     @staticmethod
-    def _eval_chatglm3_arguments(c, tools):
+    def _eval_glm_chat_arguments(c, tools):
         if isinstance(c[0], str):
             return c[0], None, None
         return None, c[0]["name"], c[0]["parameters"]
@@ -659,8 +659,8 @@ Begin!"""
         family = model_family.model_family or model_family.model_name
         if family in ["gorilla-openfunctions-v1", "gorilla-openfunctions-v2"]:
             content, func, args = cls._eval_gorilla_openfunctions_arguments(c, tools)
-        elif "chatglm3" == family:
-            content, func, args = cls._eval_chatglm3_arguments(c, tools)
+        elif family in ["chatglm3", "glm4-chat"]:
+            content, func, args = cls._eval_glm_chat_arguments(c, tools)
         elif family in ["qwen-chat", "qwen1.5-chat", "qwen2-instruct"]:
             content, func, args = cls._eval_qwen_chat_arguments(c, tools)
         else:
