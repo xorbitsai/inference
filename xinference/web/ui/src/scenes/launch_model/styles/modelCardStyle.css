@@ -130,3 +130,12 @@
   color: #555;
   transform: translate(-50%, 0);
 }
+.deleteDialog {
+  display: flex;
+  align-items: center;
+}
+
+.warningIcon {
+  margin-right: 10px;
+  color: rgb(237, 108, 2);
+}

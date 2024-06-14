@@ -10,6 +10,7 @@ import {
   HelpCenterOutlined,
   RocketLaunchOutlined,
   UndoOutlined,
+  WarningAmber,
 } from '@mui/icons-material'
 import DeleteIcon from '@mui/icons-material/Delete'
 import FilterNoneIcon from '@mui/icons-material/FilterNone'
@@ -23,6 +24,8 @@ import {
   Collapse,
   Dialog,
   DialogActions,
+  DialogContent,
+  DialogContentText,
   DialogTitle,
   Drawer,
   FormControl,
@@ -1409,9 +1412,16 @@ const ModelCard = ({
         aria-labelledby="alert-dialog-title"
         aria-describedby="alert-dialog-description"
       >
-        <DialogTitle id="alert-dialog-title">
-          {'Are you sure you want to delete this cache?'}
-        </DialogTitle>
+        <DialogTitle id="alert-dialog-title">Warning</DialogTitle>
+        <DialogContent>
+          <DialogContentText
+            className="deleteDialog"
+            id="alert-dialog-description"
+          >
+            <WarningAmber className="warningIcon" />
+            <p>Confirm deletion of cache files? This action is irreversible.</p>
+          </DialogContentText>
+        </DialogContent>
         <DialogActions>
           <Button
             onClick={() => {
