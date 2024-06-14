@@ -56,19 +56,29 @@ class Glm4VModel(PytorchChatModel):
             return True
         return False
 
-    def load(self, **kwargs):
+    def load(self):
         from transformers import AutoModelForCausalLM, AutoTokenizer
 
         device = self._pytorch_model_config.get("device", "auto")
         self._device = select_device(device)
-        self._device = "auto" if self._device == "cuda" else self._device
+
+        kwargs = {"device_map": self._device}
+        quantization = self.quantization
+        if quantization != "none":
+            if self._device == "cuda" and self._is_linux():
+                kwargs["device_map"] = "auto"
+                self._device = "auto"
+                if quantization == "4-bit":
+                    kwargs["load_in_4bit"] = True
+                elif quantization == "8-bit":
+                    kwargs["load_in_8bit"] = True
 
         model = AutoModelForCausalLM.from_pretrained(
             self.model_path,
             low_cpu_mem_usage=True,
             trust_remote_code=True,
             torch_dtype=torch.float16,
-            device_map=self._device,
+            **kwargs,
         )
         self._model = model.eval()
 
