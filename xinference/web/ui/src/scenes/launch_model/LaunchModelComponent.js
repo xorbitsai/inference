@@ -34,10 +34,15 @@ const LaunchModelComponent = ({ modelType, gpuAvailable }) => {
       return false
     }
     if (completeDeleteArr.includes(registration.model_name)) {
-      registration.cache_status = Array.isArray(registration.cache_status) ? [false] : false
+      registration.cache_status = Array.isArray(registration.cache_status)
+        ? [false]
+        : false
     }
     if (status && status !== 'all') {
-      if (registration.cache_status && !completeDeleteArr.includes(registration.model_name)) {
+      if (
+        registration.cache_status &&
+        !completeDeleteArr.includes(registration.model_name)
+      ) {
         return true
       } else {
         return false
@@ -45,7 +50,6 @@ const LaunchModelComponent = ({ modelType, gpuAvailable }) => {
     }
     return true
   }
-
 
   const handleCompleteDelete = (model_name) => {
     setCompleteDeleteArr([...completeDeleteArr, model_name])
