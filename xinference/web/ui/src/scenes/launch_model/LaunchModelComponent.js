@@ -1,4 +1,4 @@
-import { Box, FormControl } from '@mui/material'
+import { Box, FormControl, InputLabel, MenuItem, Select } from '@mui/material'
 import React, { useContext, useEffect, useState } from 'react'
 
 import { ApiContext } from '../../components/apiContext'
@@ -11,6 +11,8 @@ const LaunchModelComponent = ({ modelType, gpuAvailable }) => {
   let endPoint = useContext(ApiContext).endPoint
   const [registrationData, setRegistrationData] = useState([])
   const [searchTerm, setSearchTerm] = useState('')
+  const [status, setStatus] = useState('all')
+  const [completeDeleteArr, setCompleteDeleteArr] = useState([])
 
   const { isCallingApi, setIsCallingApi } = useContext(ApiContext)
   const { isUpdatingModel } = useContext(ApiContext)
@@ -19,12 +21,34 @@ const LaunchModelComponent = ({ modelType, gpuAvailable }) => {
     setSearchTerm(e.target.value)
   }
 
+  const handleStatusChange = (event) => {
+    setStatus(event.target.value)
+  }
+
   const filter = (registration) => {
     if (!registration || typeof searchTerm !== 'string') return false
     const modelName = registration.model_name
       ? registration.model_name.toLowerCase()
       : ''
-    return modelName.includes(searchTerm.toLowerCase())
+    if (!modelName.includes(searchTerm.toLowerCase())) {
+      return false
+    }
+    if (completeDeleteArr.includes(registration.model_name)) {
+      registration.cache_status = Array.isArray(registration.cache_status) ? [false] : false
+    }
+    if (status && status !== 'all') {
+      if (registration.cache_status && !completeDeleteArr.includes(registration.model_name)) {
+        return true
+      } else {
+        return false
+      }
+    }
+    return true
+  }
+
+
+  const handleCompleteDelete = (model_name) => {
+    setCompleteDeleteArr([...completeDeleteArr, model_name])
   }
 
   const update = async () => {
@@ -62,10 +86,26 @@ const LaunchModelComponent = ({ modelType, gpuAvailable }) => {
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: '1fr',
+          gridTemplateColumns: '150px 1fr',
+          columnGap: '20px',
           margin: '30px 2rem',
         }}
       >
+        <FormControl variant="outlined" margin="normal">
+          <InputLabel id="select-status">Status</InputLabel>
+          <Select
+            id="status"
+            labelId="select-status"
+            label="Status"
+            onChange={handleStatusChange}
+            value={status}
+            size="small"
+            sx={{ width: '150px' }}
+          >
+            <MenuItem value="all">all</MenuItem>
+            <MenuItem value="cached">cached</MenuItem>
+          </Select>
+        </FormControl>
         <FormControl variant="outlined" margin="normal">
           <HotkeyFocusTextField
             id="search"
@@ -88,6 +128,7 @@ const LaunchModelComponent = ({ modelType, gpuAvailable }) => {
               modelData={filteredRegistration}
               modelType={modelType}
               gpuAvailable={gpuAvailable}
+              onHandleCompleteDelete={handleCompleteDelete}
             />
           ))}
       </div>
