@@ -16,12 +16,11 @@ import io
 import json
 import logging
 import os
-
 import tempfile
 import zipfile
+from functools import lru_cache, partial
 from pathlib import Path
 from typing import Any, Iterable, Iterator, List, Optional, Type, Union
-from functools import lru_cache, partial
 
 from tensorizer import TensorDeserializer, TensorSerializer, stream_io, utils
 
