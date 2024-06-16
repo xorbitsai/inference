@@ -264,12 +264,13 @@ class ModelActor(xo.StatelessActor):
         return isinstance(self._model, VLLMModel)
 
     def allow_batching(self) -> bool:
-        from ..model.llm.pytorch.core import PytorchChatModel
+        from ..model.llm.pytorch.core import PytorchChatModel, PytorchModel
 
         return (
             XINFERENCE_TRANSFORMERS_ENABLE_BATCHING
-            and isinstance(self._model, PytorchChatModel)
-            and self._model.__class__.__name__ == PytorchChatModel.__name__
+            and isinstance(self._model, PytorchModel)
+            and self._model.__class__.__name__
+            in (PytorchChatModel.__name__, PytorchModel.__name__)
         )
 
     async def load(self):
@@ -393,18 +394,24 @@ class ModelActor(xo.StatelessActor):
     @request_limit
     @xo.generator
     async def generate(self, prompt: str, *args, **kwargs):
-        if hasattr(self._model, "generate"):
-            return await self._call_wrapper(
-                self._model.generate, prompt, *args, **kwargs
+        if self.allow_batching():
+            return await self.handle_batching_request(
+                prompt, "generate", *args, **kwargs
             )
-        if hasattr(self._model, "async_generate"):
-            return await self._call_wrapper(
-                self._model.async_generate, prompt, *args, **kwargs
-            )
-        raise AttributeError(f"Model {self._model.model_spec} is not for generate.")
+        else:
+            if hasattr(self._model, "generate"):
+                return await self._call_wrapper(
+                    self._model.generate, prompt, *args, **kwargs
+                )
+            if hasattr(self._model, "async_generate"):
+                return await self._call_wrapper(
+                    self._model.async_generate, prompt, *args, **kwargs
+                )
+            raise AttributeError(f"Model {self._model.model_spec} is not for generate.")
 
+    @staticmethod
     async def _queue_consumer(
-        self, queue: Queue, timeout: Optional[float] = None
+        queue: Queue, timeout: Optional[float] = None
     ) -> AsyncIterator[Any]:
         from .scheduler import (
             XINFERENCE_STREAMING_ABORT_FLAG,
@@ -429,9 +436,38 @@ class ModelActor(xo.StatelessActor):
                 yield res
 
     @staticmethod
-    def get_stream_from_args(*args) -> bool:
-        assert args[2] is None or isinstance(args[2], dict)
-        return False if args[2] is None else args[2].get("stream", False)
+    def _get_stream_from_args(ability: str, *args) -> bool:
+        if ability == "chat":
+            assert args[2] is None or isinstance(args[2], dict)
+            return False if args[2] is None else args[2].get("stream", False)
+        else:
+            assert args[0] is None or isinstance(args[0], dict)
+            return False if args[0] is None else args[0].get("stream", False)
+
+    async def handle_batching_request(self, prompt: str, ability: str, *args, **kwargs):
+        stream = self._get_stream_from_args(ability, *args)
+        assert self._scheduler_ref is not None
+        if stream:
+            assert self._scheduler_ref is not None
+            queue: Queue[Any] = Queue()
+            ret = self._queue_consumer(queue)
+            await self._scheduler_ref.add_request(prompt, queue, *args, **kwargs)
+            gen = self._to_json_async_gen(ret)
+            self._current_generator = weakref.ref(gen)
+            return gen
+        else:
+            from .scheduler import XINFERENCE_NON_STREAMING_ABORT_FLAG
+
+            assert self._loop is not None
+            future = ConcurrentFuture()
+            await self._scheduler_ref.add_request(prompt, future, *args, **kwargs)
+            fut = asyncio.wrap_future(future, loop=self._loop)
+            result = await fut
+            if result == XINFERENCE_NON_STREAMING_ABORT_FLAG:
+                raise RuntimeError(
+                    f"This request has been cancelled by another `abort_request` request."
+                )
+            return await asyncio.to_thread(json_dumps, result)
 
     @log_async(logger=logger)
     @request_limit
@@ -441,33 +477,9 @@ class ModelActor(xo.StatelessActor):
         response = None
         try:
             if self.allow_batching():
-                stream = self.get_stream_from_args(*args)
-                assert self._scheduler_ref is not None
-                if stream:
-                    assert self._scheduler_ref is not None
-                    queue: Queue[Any] = Queue()
-                    ret = self._queue_consumer(queue)
-                    await self._scheduler_ref.add_request(
-                        prompt, queue, *args, **kwargs
-                    )
-                    gen = self._to_json_async_gen(ret)
-                    self._current_generator = weakref.ref(gen)
-                    return gen
-                else:
-                    from .scheduler import XINFERENCE_NON_STREAMING_ABORT_FLAG
-
-                    assert self._loop is not None
-                    future = ConcurrentFuture()
-                    await self._scheduler_ref.add_request(
-                        prompt, future, *args, **kwargs
-                    )
-                    fut = asyncio.wrap_future(future, loop=self._loop)
-                    result = await fut
-                    if result == XINFERENCE_NON_STREAMING_ABORT_FLAG:
-                        raise RuntimeError(
-                            f"This request has been cancelled by another `abort_request` request."
-                        )
-                    return await asyncio.to_thread(json_dumps, result)
+                return await self.handle_batching_request(
+                    prompt, "chat", *args, **kwargs
+                )
             else:
                 if hasattr(self._model, "chat"):
                     response = await self._call_wrapper(

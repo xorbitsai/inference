@@ -18,6 +18,8 @@ const LaunchLLM = ({ gpuAvailable }) => {
   // States used for filtering
   const [searchTerm, setSearchTerm] = useState('')
   const [modelAbility, setModelAbility] = useState('all')
+  const [status, setStatus] = useState('all')
+  const [completeDeleteArr, setCompleteDeleteArr] = useState([])
 
   const handleChange = (event) => {
     setSearchTerm(event.target.value)
@@ -25,6 +27,10 @@ const LaunchLLM = ({ gpuAvailable }) => {
 
   const handleAbilityChange = (event) => {
     setModelAbility(event.target.value)
+  }
+
+  const handleStatusChange = (event) => {
+    setStatus(event.target.value)
   }
 
   const filter = (registration) => {
@@ -47,7 +53,34 @@ const LaunchLLM = ({ gpuAvailable }) => {
         return false
       }
     }
+    if (completeDeleteArr.includes(registration.model_name)) {
+      registration.model_specs.forEach((item) => {
+        item.cache_status = Array.isArray(item) ? [false] : false
+      })
+    }
+    if (status && status !== 'all') {
+      const judge = registration.model_specs.some((spec) => {
+        return filterCache(spec)
+      })
+      if (judge && !completeDeleteArr.includes(registration.model_name)) {
+        return true
+      } else {
+        return false
+      }
+    }
     return true
+  }
+
+  const filterCache = (spec) => {
+    if (spec.model_format === 'pytorch') {
+      return spec.cache_status && spec.cache_status === true
+    } else {
+      return spec.cache_status && spec.cache_status.some((cs) => cs)
+    }
+  }
+
+  const handleCompleteDelete = (model_name) => {
+    setCompleteDeleteArr([...completeDeleteArr, model_name])
   }
 
   const update = () => {
@@ -104,7 +137,7 @@ const LaunchLLM = ({ gpuAvailable }) => {
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: '150px 1fr',
+          gridTemplateColumns: '150px 150px 1fr',
           columnGap: '20px',
           margin: '30px 2rem',
         }}
@@ -124,6 +157,21 @@ const LaunchLLM = ({ gpuAvailable }) => {
             <MenuItem value="generate">generate</MenuItem>
             <MenuItem value="chat">chat</MenuItem>
             <MenuItem value="vision">vl-chat</MenuItem>
+          </Select>
+        </FormControl>
+        <FormControl variant="outlined" margin="normal">
+          <InputLabel id="select-status">Status</InputLabel>
+          <Select
+            id="status"
+            labelId="select-status"
+            label="Status"
+            onChange={handleStatusChange}
+            value={status}
+            size="small"
+            sx={{ width: '150px' }}
+          >
+            <MenuItem value="all">all</MenuItem>
+            <MenuItem value="cached">cached</MenuItem>
           </Select>
         </FormControl>
         <FormControl variant="outlined" margin="normal">
@@ -148,6 +196,7 @@ const LaunchLLM = ({ gpuAvailable }) => {
               modelData={filteredRegistration}
               gpuAvailable={gpuAvailable}
               modelType={'LLM'}
+              onHandleCompleteDelete={handleCompleteDelete}
             />
           ))}
       </div>

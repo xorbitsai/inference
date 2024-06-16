@@ -21,7 +21,7 @@ const ClusterInfo = () => {
       }}
     >
       <Title title="Cluster Information" />
-      <Grid container spacing={3}>
+      <Grid container spacing={3} style={{ width: '100%' }}>
         <Grid item xs={12}>
           <Paper
             sx={{

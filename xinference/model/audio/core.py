@@ -95,12 +95,23 @@ def generate_audio_description(
 
 
 def match_audio(model_name: str) -> AudioModelFamilyV1:
-    from . import BUILTIN_AUDIO_MODELS
+    from ..utils import download_from_modelscope
+    from . import BUILTIN_AUDIO_MODELS, MODELSCOPE_AUDIO_MODELS
     from .custom import get_user_defined_audios
 
     for model_spec in get_user_defined_audios():
         if model_spec.model_name == model_name:
             return model_spec
+
+    if download_from_modelscope():
+        if model_name in MODELSCOPE_AUDIO_MODELS:
+            logger.debug(f"Audio model {model_name} found in ModelScope.")
+            return MODELSCOPE_AUDIO_MODELS[model_name]
+        else:
+            logger.debug(
+                f"Audio model {model_name} not found in ModelScope, "
+                f"now try to load it via builtin way."
+            )
 
     if model_name in BUILTIN_AUDIO_MODELS:
         return BUILTIN_AUDIO_MODELS[model_name]

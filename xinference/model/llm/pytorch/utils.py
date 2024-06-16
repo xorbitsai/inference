@@ -126,6 +126,7 @@ def generate_stream(
     stop_str = generate_config.get("stop", None)
     stop_token_ids = generate_config.get("stop_token_ids", None) or []
     stop_token_ids.append(tokenizer.eos_token_id)
+    chunk_id = str(uuid.uuid4())
 
     logits_processor = prepare_logits_processor(
         temperature, repetition_penalty, top_p, top_k
@@ -289,7 +290,7 @@ def generate_stream(
                     text=output, index=0, logprobs=None, finish_reason=None
                 )
                 completion_chunk = CompletionChunk(
-                    id=str(uuid.uuid1()),
+                    id=chunk_id,
                     object="text_completion",
                     created=int(time.time()),
                     model=model_uid,
@@ -327,7 +328,7 @@ def generate_stream(
         )
 
     completion_chunk = CompletionChunk(
-        id=str(uuid.uuid1()),
+        id=chunk_id,
         object="text_completion",
         created=int(time.time()),
         model=model_uid,
@@ -343,7 +344,7 @@ def generate_stream(
 
     if include_usage:
         completion_chunk = CompletionChunk(
-            id=str(uuid.uuid1()),
+            id=chunk_id,
             object="text_completion",
             created=int(time.time()),
             model=model_uid,
@@ -390,6 +391,7 @@ def generate_stream_falcon(
     stop_str = generate_config.get("stop", None)
     stop_token_ids = generate_config.get("stop_token_ids", None) or []
     stop_token_ids.append(tokenizer.eos_token_id)
+    chunk_id = str(uuid.uuid4())
 
     inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
     input_ids = inputs["input_ids"]
@@ -473,7 +475,7 @@ def generate_stream_falcon(
                     text=output, index=0, logprobs=None, finish_reason=None
                 )
                 completion_chunk = CompletionChunk(
-                    id=str(uuid.uuid1()),
+                    id=chunk_id,
                     object="text_completion",
                     created=int(time.time()),
                     model=model_uid,
@@ -500,7 +502,7 @@ def generate_stream_falcon(
         text=output, index=0, logprobs=None, finish_reason=finish_reason
     )
     completion_chunk = CompletionChunk(
-        id=str(uuid.uuid1()),
+        id=chunk_id,
         object="text_completion",
         created=int(time.time()),
         model=model_uid,
@@ -516,7 +518,7 @@ def generate_stream_falcon(
 
     if include_usage:
         completion_chunk = CompletionChunk(
-            id=str(uuid.uuid1()),
+            id=chunk_id,
             object="text_completion",
             created=int(time.time()),
             model=model_uid,
@@ -586,6 +588,7 @@ def get_max_src_len(context_len: int, r: InferenceRequest) -> int:
 
 def _get_completion_chunk(
     output: str,
+    chunk_id: str,
     finish_reason: Optional[str],
     model_uid: str,
     r: InferenceRequest,
@@ -601,7 +604,7 @@ def _get_completion_chunk(
         else []
     )
     completion_chunk = CompletionChunk(
-        id=str(uuid.uuid1()),
+        id=chunk_id,
         object="text_completion",
         created=int(time.time()),
         model=model_uid,
@@ -617,14 +620,18 @@ def _get_completion_chunk(
 
 
 def _get_completion(
-    output: str, finish_reason: Optional[str], model_uid: str, r: InferenceRequest
+    output: str,
+    chunk_id: str,
+    finish_reason: Optional[str],
+    model_uid: str,
+    r: InferenceRequest,
 ):
     completion_choice = CompletionChoice(
         text=output, index=0, logprobs=None, finish_reason=finish_reason
     )
 
     completion_chunk = CompletionChunk(
-        id=str(uuid.uuid1()),
+        id=chunk_id,
         object="text_completion",
         created=int(time.time()),
         model=model_uid,
@@ -701,7 +708,7 @@ def _batch_inference_one_step_internal(
     decode_reqs = []
     for r in valid_req_list:
         if r.is_prefill:
-            prompts.append(r.full_prompt)
+            prompts.append(r.full_prompt if r.full_prompt is not None else r.prompt)
             prefill_reqs.append(r)
         else:
             decode_reqs.append(r)
@@ -846,7 +853,7 @@ def _batch_inference_one_step_internal(
                     r.last_output_length += len(output)
 
                     completion_chunk = _get_completion_chunk(
-                        output, r.finish_reason, model_uid, r, False
+                        output, r.chunk_id, r.finish_reason, model_uid, r, False
                     )
                     r.completion.append(completion_chunk)
                     if r.stopped:
@@ -859,7 +866,7 @@ def _batch_inference_one_step_internal(
                     if r.stopped and _i == decode_round - 1 and include_usage:
                         r.completion.append(
                             _get_completion_chunk(
-                                "", r.finish_reason, model_uid, r, True
+                                "", r.chunk_id, r.finish_reason, model_uid, r, True
                             )
                         )
             else:
@@ -878,7 +885,9 @@ def _batch_inference_one_step_internal(
                         if r not in output_mapping
                         else output_mapping[r]
                     )
-                    completion = _get_completion(outputs, r.finish_reason, model_uid, r)
+                    completion = _get_completion(
+                        outputs, r.chunk_id, r.finish_reason, model_uid, r
+                    )
                     r.completion = [completion]
 
     e_time = time.time()
@@ -911,4 +920,8 @@ def batch_inference_one_step(
         os._exit(1)
     except Exception as e:
         logger.exception(f"Internal error for batch inference: {e}.")
-        # TODO: handle this
+        # If internal error happens, just skip all the requests in this batch.
+        # If not handle here, the client will hang.
+        for r in req_list:
+            r.stopped = True
+            r.error_msg = str(e)
