@@ -136,9 +136,10 @@ class RerankModel:
         tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
         rerank_type = type_mapper.get(type(tokenizer).__name__)
         if rerank_type is None:
-            raise Exception(
-                f"Can't determine the rerank type based on the tokenizer {tokenizer}"
+            logger.warning(
+                f"Can't determine the rerank type based on the tokenizer {tokenizer}, use normal type by default."
             )
+            return "normal"
         return rerank_type
 
     def load(self):
