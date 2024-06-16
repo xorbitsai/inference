@@ -39,6 +39,9 @@ from .llm_family import (
 logger = logging.getLogger(__name__)
 
 
+QWEN_TOOL_CALL_FAMILY = ["qwen-chat", "qwen1.5-chat", "qwen2-instruct"]
+
+
 class ChatModelMixin:
     @staticmethod
     def get_prompt(
@@ -661,7 +664,7 @@ Begin!"""
             content, func, args = cls._eval_gorilla_openfunctions_arguments(c, tools)
         elif family in ["chatglm3", "glm4-chat"]:
             content, func, args = cls._eval_glm_chat_arguments(c, tools)
-        elif family in ["qwen-chat", "qwen1.5-chat", "qwen2-instruct"]:
+        elif family in QWEN_TOOL_CALL_FAMILY:
             content, func, args = cls._eval_qwen_chat_arguments(c, tools)
         else:
             raise Exception(
@@ -680,7 +683,7 @@ Begin!"""
             returns the part after "\nFinal Answer:" if found, else returns delta.
         """
         family = model_family.model_family or model_family.model_name
-        if family in ["qwen-chat", "qwen1.5-chat"]:
+        if family in QWEN_TOOL_CALL_FAMILY:
             # Encapsulating function to reset 'found' after each call
             found = False
 
