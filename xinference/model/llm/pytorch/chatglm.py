@@ -89,30 +89,119 @@ class ChatglmPytorchChatModel(PytorchChatModel):
             return False
         return True
 
-    def _handle_tools(self, generate_config) -> Optional[dict]:
+    def _handle_tools(self, chat_history, generate_config) -> bool:
         """Convert openai tools to ChatGLM tools."""
         if generate_config is None:
-            return None
+            return False
         tools = generate_config.pop("tools", None)
         if tools is None:
-            return None
+            return False
+        tool_choice = generate_config.pop("tool_choice", "none")
         if self.model_family.model_name == "glm4-chat":
-            return {
-                "role": "system",
-                "content": None,
-                "tools": tools,
-            }
+            chat_history[:] = self.process_messages(
+                chat_history, tools=tools, tool_choice=tool_choice
+            )
+            return True
         else:
             chatglm_tools = []
             for elem in tools:
                 if elem.get("type") != "function" or "function" not in elem:
                     raise ValueError("ChatGLM tools only support function type.")
                 chatglm_tools.append(elem["function"])
-            return {
+            tool_prompt_message = {
                 "role": "system",
                 "content": f"Answer the following questions as best as you can. You have access to the following tools:",
                 "tools": chatglm_tools,
             }
+            chat_history.insert(0, tool_prompt_message)
+            return True
+
+    @staticmethod
+    def process_messages(messages, tools=None, tool_choice="none"):
+        # This method is adapted from https://github.com/THUDM/GLM-4/blob/main/basic_demo/openai_api_server.py
+        _messages = messages
+        processed_messages = []
+        msg_has_sys = False
+
+        def _filter_tools(_tool_choice, _tools):
+            function_name = _tool_choice.get("function", {}).get("name", None)
+            if not function_name:
+                return []
+            filtered_tools = [
+                tool
+                for tool in _tools
+                if tool.get("function", {}).get("name") == function_name
+            ]
+            return filtered_tools
+
+        if tool_choice != "none":
+            if isinstance(tool_choice, dict):
+                tools = _filter_tools(tool_choice, tools)
+
+        if tools:
+            processed_messages.append(
+                {"role": "system", "content": None, "tools": tools}
+            )
+            msg_has_sys = True
+
+        if isinstance(tool_choice, dict) and tools:
+            processed_messages.append(
+                {
+                    "role": "assistant",
+                    "metadata": tool_choice["function"]["name"],
+                    "content": "",
+                }
+            )
+
+        for m in _messages:
+            role, content = m["role"], m["content"] or ""
+            tool_calls = m.get("tool_calls")
+
+            if role == "function":
+                processed_messages.append({"role": "observation", "content": content})
+            elif role == "tool":
+                processed_messages.append(
+                    {"role": "observation", "content": content, "function_call": True}
+                )
+            elif role == "assistant":
+                if tool_calls:
+                    for tool_call in tool_calls:
+                        processed_messages.append(
+                            {
+                                "role": "assistant",
+                                "metadata": tool_call.get("function", {}).get("name"),
+                                "content": tool_call.get("function", {}).get(
+                                    "arguments"
+                                ),
+                            }
+                        )
+                else:
+                    for response in content.split("\n"):
+                        if "\n" in response:
+                            metadata, sub_content = response.split("\n", maxsplit=1)
+                        else:
+                            metadata, sub_content = "", response
+                        processed_messages.append(
+                            {
+                                "role": role,
+                                "metadata": metadata,
+                                "content": sub_content.strip(),
+                            }
+                        )
+            else:
+                if role == "system" and msg_has_sys:
+                    msg_has_sys = False
+                    continue
+                processed_messages.append({"role": role, "content": content})
+
+        if not tools or tool_choice == "none":
+            for m in _messages:
+                if m["role"] == "system":
+                    processed_messages.insert(
+                        0, {"role": m["role"], "content": m["content"]}
+                    )
+                    break
+        return processed_messages
 
     def chat(
         self,
@@ -121,7 +210,6 @@ class ChatglmPytorchChatModel(PytorchChatModel):
         chat_history: Optional[List[ChatCompletionMessage]] = None,
         generate_config: Optional[PytorchGenerateConfig] = None,
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
-        tools = self._handle_tools(generate_config)
         kwargs: Dict[str, Any] = {}
         generate_config = generate_config or {}
         temperature = generate_config.get("temperature")
@@ -133,6 +221,8 @@ class ChatglmPytorchChatModel(PytorchChatModel):
         max_new_tokens = generate_config.get("max_tokens")
         if max_new_tokens is not None:
             kwargs["max_new_tokens"] = int(max_new_tokens)
+        chat_history = chat_history or []
+        tools = self._handle_tools(chat_history, generate_config)
         # Tool calls only works for non stream, so we call chat directly.
         if prompt == SPECIAL_TOOL_PROMPT and chat_history:
             tool_message = chat_history.pop()
@@ -141,93 +231,87 @@ class ChatglmPytorchChatModel(PytorchChatModel):
             prompt = content
             kwargs["role"] = "observation"
             chat_history = [h for h in chat_history if not h.get("tool_calls")]
-        if not chat_history:
-            chat_history = []
         if system_prompt:
             chat_history.append({"role": "system", "content": system_prompt})
-        if tools:
-            msg = self._model.chat(
-                self._tokenizer, prompt, [tools] + chat_history, **kwargs
-            )
-            return self._tool_calls_completion(
-                self.model_family, self.model_uid, msg, tools
-            )
-        else:
-            stream = generate_config.get("stream", False)
-            stream_options = generate_config.pop("stream_options", None)
-            include_usage = (
-                stream_options["include_usage"]
-                if isinstance(stream_options, dict)
-                else False
-            )
-            if stream:
+        stream = generate_config.get("stream", False)
+        stream_options = generate_config.pop("stream_options", None)
+        include_usage = (
+            stream_options["include_usage"]
+            if isinstance(stream_options, dict)
+            else False
+        )
+        if stream and not tools:
 
-                def _stream_generator():
-                    last_chunk_text_length = 0
-                    chunk_id = "chat-" + str(uuid.uuid1())
-                    prompt_tokens, completion_tokens, total_tokens = 0, 0, 0
-                    inputs = self._tokenizer([prompt], return_tensors="pt")
-                    inputs = inputs.to(self._model.device)
-                    prompt_tokens = len(inputs["input_ids"][0])
-                    for chunk_text, _ in self._model.stream_chat(
-                        self._tokenizer, prompt, chat_history, **kwargs
-                    ):
-                        completion_tokens = completion_tokens + 1
-                        total_tokens = prompt_tokens + completion_tokens
-                        chunk_text = chunk_text[last_chunk_text_length:]
-                        last_chunk_text_length += len(chunk_text)
-                        completion_choice = CompletionChoice(
-                            text=chunk_text, index=0, logprobs=None, finish_reason=None
-                        )
-                        yield CompletionChunk(
-                            id=chunk_id,
-                            object="text_completion",
-                            created=int(time.time()),
-                            model=self.model_uid,
-                            choices=[completion_choice],
-                            usage=CompletionUsage(
-                                prompt_tokens=prompt_tokens,
-                                completion_tokens=completion_tokens,
-                                total_tokens=total_tokens,
-                            ),
-                        )
+            def _stream_generator():
+                last_chunk_text_length = 0
+                chunk_id = "chat-" + str(uuid.uuid1())
+                prompt_tokens, completion_tokens, total_tokens = 0, 0, 0
+                inputs = self._tokenizer([prompt], return_tensors="pt")
+                inputs = inputs.to(self._model.device)
+                prompt_tokens = len(inputs["input_ids"][0])
+                for chunk_text, _ in self._model.stream_chat(
+                    self._tokenizer, prompt, chat_history, **kwargs
+                ):
+                    completion_tokens = completion_tokens + 1
+                    total_tokens = prompt_tokens + completion_tokens
+                    chunk_text = chunk_text[last_chunk_text_length:]
+                    last_chunk_text_length += len(chunk_text)
                     completion_choice = CompletionChoice(
-                        text="", index=0, logprobs=None, finish_reason="stop"
+                        text=chunk_text, index=0, logprobs=None, finish_reason=None
                     )
-                    chunk = CompletionChunk(
+                    yield CompletionChunk(
                         id=chunk_id,
                         object="text_completion",
                         created=int(time.time()),
                         model=self.model_uid,
                         choices=[completion_choice],
+                        usage=CompletionUsage(
+                            prompt_tokens=prompt_tokens,
+                            completion_tokens=completion_tokens,
+                            total_tokens=total_tokens,
+                        ),
                     )
-                    completion_usage = CompletionUsage(
+                completion_choice = CompletionChoice(
+                    text="", index=0, logprobs=None, finish_reason="stop"
+                )
+                chunk = CompletionChunk(
+                    id=chunk_id,
+                    object="text_completion",
+                    created=int(time.time()),
+                    model=self.model_uid,
+                    choices=[completion_choice],
+                )
+                completion_usage = CompletionUsage(
+                    prompt_tokens=prompt_tokens,
+                    completion_tokens=completion_tokens,
+                    total_tokens=total_tokens,
+                )
+                chunk["usage"] = completion_usage
+                yield chunk
+                if include_usage:
+                    chunk = CompletionChunk(
+                        id=chunk_id,
+                        object="text_completion",
+                        created=int(time.time()),
+                        model=self.model_uid,
+                        choices=[],
+                    )
+                    chunk["usage"] = CompletionUsage(
                         prompt_tokens=prompt_tokens,
                         completion_tokens=completion_tokens,
                         total_tokens=total_tokens,
                     )
-                    chunk["usage"] = completion_usage
                     yield chunk
-                    if include_usage:
-                        chunk = CompletionChunk(
-                            id=chunk_id,
-                            object="text_completion",
-                            created=int(time.time()),
-                            model=self.model_uid,
-                            choices=[],
-                        )
-                        chunk["usage"] = CompletionUsage(
-                            prompt_tokens=prompt_tokens,
-                            completion_tokens=completion_tokens,
-                            total_tokens=total_tokens,
-                        )
-                        yield chunk
 
-                return self._to_chat_completion_chunks(_stream_generator())
-            else:
-                response, _ = self._model.chat(
-                    self._tokenizer, prompt, chat_history, **kwargs
+            return self._to_chat_completion_chunks(_stream_generator())
+        else:
+            response = self._model.chat(self._tokenizer, prompt, chat_history, **kwargs)
+            if tools:
+                return self._tool_calls_completion(
+                    self.model_family, self.model_uid, response, tools
                 )
+            else:
+                content, _ = response
                 return ChatCompletion(
                     id="chat" + str(uuid.uuid1()),
                     object="chat.completion",
@@ -236,7 +320,7 @@ class ChatglmPytorchChatModel(PytorchChatModel):
                     choices=[
                         ChatCompletionChoice(
                             index=0,
-                            message={"role": "assistant", "content": response},
+                            message={"role": "assistant", "content": content},
                             finish_reason="stop",
                         )
                     ],
