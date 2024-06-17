@@ -343,6 +343,10 @@ class PytorchModel(LLM):
         else:
             return generator_wrapper(prompt, generate_config)
 
+    @staticmethod
+    def require_attention_mask():
+        return False
+
     @lru_cache
     def get_context_len(self):
         return get_context_length(self._model.config)
@@ -434,6 +438,7 @@ class PytorchModel(LLM):
             self._device,
             context_len,
             self._get_builtin_stop_token_ids(),
+            require_attention_mask=self.require_attention_mask(),
         )
         self.handle_batch_inference_results(req_list)
 

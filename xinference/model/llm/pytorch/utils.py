@@ -387,19 +387,6 @@ def _get_token_from_logits(
         probs = torch.softmax(last_token_logits, dim=-1)
         indices = torch.multinomial(probs, num_samples=2)
     token = indices[0].int().item()
-
-    # next_token_logits = logits[i : i + 1, -1, :]
-    #
-    # # pre-process distribution
-    # input_ids = torch.as_tensor([req.prompt_tokens + req.new_tokens], device=logits.device)
-    # next_token_scores = logits_processor(input_ids, next_token_logits)
-    # # next_token_scores = logits_warper(input_ids, next_token_scores)
-    #
-    # # sample
-    # probs = torch.nn.functional.softmax(next_token_scores, dim=-1)
-    # next_tokens = torch.multinomial(probs, num_samples=1).squeeze(1)
-    # # print(next_tokens, next_tokens.shape)
-    # # raise ValueError("111")
     return token
 
 
@@ -408,12 +395,15 @@ def _pad_to_max_length(x: List[int], max_len: int, pad: int) -> List[int]:
     return [pad] * (max_len - len(x)) + x
 
 
-def _pad_seqs_inplace(seqs: List[List[int]], pad: int):
+def _pad_seqs_inplace(seqs: List[List[int]], reqs: List[InferenceRequest], pad: int):
     max_len = max(len(seq) for seq in seqs)
     n = len(seqs)
     i = 0
     while i < n:
+        prev_seq_len = len(seqs[i])
         seqs[i] = _pad_to_max_length(seqs[i], max_len, pad)
+        padding_len = len(seqs[i]) - prev_seq_len
+        reqs[i].padding_len = padding_len
         i += 1
 
 
@@ -519,6 +509,22 @@ def _merge_kv_cache(
     return ret_kv.to_legacy_cache()
 
 
+def _get_attention_mask_and_position_ids(kv, reqs: List[InferenceRequest]):
+    batch_size, seq_length, device = (
+        kv[0][0].shape[0],
+        kv[0][0].shape[2],
+        kv[0][0].device,
+    )
+    position_ids = torch.as_tensor([[seq_length - 1]], dtype=torch.long, device=device)
+    attention_mask = torch.ones((batch_size, seq_length), dtype=torch.long)
+    padding_lens = torch.as_tensor([r.padding_len for r in reqs])
+    mask = torch.arange(seq_length).expand(
+        batch_size, seq_length
+    ) < padding_lens.unsqueeze(1)
+    attention_mask[mask] = 0
+    return attention_mask, position_ids
+
+
 @torch.inference_mode()
 def _batch_inference_one_step_internal(
     req_list: List[InferenceRequest],
@@ -529,10 +535,10 @@ def _batch_inference_one_step_internal(
     context_len: int,
     stop_tokens: Tuple[int],
     decode_round: int = 16,
+    require_attention_mask: bool = False,
     bos_flag: str = "<bos_stream>",
     eos_flag: str = "<eos_stream>",
 ):
-    print(f"=====Enter !!! {type(model), type(tokenizer)}")
     # need to judge stopped here,
     # since some requests state may change to stopped due to invalid parameters, e.g. max_src_len
     valid_req_list = [r for r in req_list if not r.stopped]
@@ -562,7 +568,7 @@ def _batch_inference_one_step_internal(
             max_src_len = get_max_src_len(context_len, req)
             req.prompt_tokens = input_id[-max_src_len:]
             prompt_tokens.append(req.prompt_tokens)
-        _pad_seqs_inplace(prompt_tokens, 0)
+        _pad_seqs_inplace(prompt_tokens, valid_req_list, 0)
         out = model(torch.as_tensor(prompt_tokens, device=device), use_cache=True)
 
         logits = out.logits
@@ -580,9 +586,6 @@ def _batch_inference_one_step_internal(
                 top_p,
                 top_k,
             ) = generate_config_mapping[r]
-            print(
-                f"========Config: {generate_config_mapping[r]}， prompt: {r.full_prompt}"
-            )
 
             token = _get_token_from_logits(
                 r, i, logits, temperature, repetition_penalty, top_p, top_k
@@ -607,10 +610,17 @@ def _batch_inference_one_step_internal(
     # here, only decode phase, just run some rounds
     for _i in range(decode_round):
         decode_tokens: List[List[int]] = [[r.new_tokens[-1]] for r in valid_req_list]
+        attention_mask, position_ids = (
+            _get_attention_mask_and_position_ids(past_key_values, valid_req_list)
+            if require_attention_mask
+            else (None, None)
+        )
         out = model(
             input_ids=torch.as_tensor(decode_tokens, device=device),
             use_cache=True,
             past_key_values=past_key_values,
+            position_ids=position_ids,
+            attention_mask=attention_mask,
         )
         logits = out.logits
         past_key_values = out.past_key_values
@@ -633,7 +643,6 @@ def _batch_inference_one_step_internal(
             )
             r.kv_cache = past_key_values
             r.append_new_token(token)
-            print(f"========output token: {token}")
 
             output = None
             if not r.stopped:
@@ -749,12 +758,20 @@ def batch_inference_one_step(
     device,
     context_len: int,
     stop_token_ids: Tuple[int],
+    require_attention_mask: bool = False,
 ):
     from ....core.model import OutOfMemoryError
 
     try:
         _batch_inference_one_step_internal(
-            req_list, model_uid, model, tokenizer, device, context_len, stop_token_ids
+            req_list,
+            model_uid,
+            model,
+            tokenizer,
+            device,
+            context_len,
+            stop_token_ids,
+            require_attention_mask=require_attention_mask,
         )
     except OutOfMemoryError:
         logger.exception(

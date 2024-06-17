@@ -67,6 +67,8 @@ class InferenceRequest:
         self._sanitized_generate_config = None
         # Chunk id for results. In stream mode, all the chunk ids should be same.
         self._stream_chunk_id = str(uuid.uuid4())
+        # For calculate attention mask if needed
+        self.padding_len = 0
         # Use in stream mode
         self.last_output_length = 0
         # inference results,
