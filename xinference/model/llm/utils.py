@@ -39,7 +39,13 @@ from .llm_family import (
 logger = logging.getLogger(__name__)
 
 
-QWEN_TOOL_CALL_FAMILY = ["qwen-chat", "qwen1.5-chat", "qwen2-instruct"]
+QWEN_TOOL_CALL_FAMILY = [
+    "qwen-chat",
+    "qwen1.5-chat",
+    "qwen1.5-moe-chat",
+    "qwen2-instruct",
+    "qwen2-moe-instruct",
+]
 
 
 class ChatModelMixin:
