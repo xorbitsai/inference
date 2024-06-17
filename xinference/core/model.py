@@ -400,6 +400,7 @@ class ModelActor(xo.StatelessActor):
                 prompt, "generate", *args, **kwargs
             )
         else:
+            kwargs.pop("raw_params", None)
             if hasattr(self._model, "generate"):
                 return await self._call_wrapper(
                     self._model.generate, prompt, *args, **kwargs
@@ -482,6 +483,7 @@ class ModelActor(xo.StatelessActor):
                     prompt, "chat", *args, **kwargs
                 )
             else:
+                kwargs.pop("raw_params", None)
                 if hasattr(self._model, "chat"):
                     response = await self._call_wrapper(
                         self._model.chat, prompt, *args, **kwargs

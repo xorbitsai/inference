@@ -283,35 +283,21 @@ class PytorchModel(LLM):
     def generate(
         self, prompt: str, generate_config: Optional[PytorchGenerateConfig] = None
     ) -> Union[Completion, Iterator[CompletionChunk]]:
-        from .utils import generate_stream, generate_stream_falcon
-
-        model_family_name = self.model_family.model_name.lower()
+        from .utils import generate_stream
 
         def generator_wrapper(
             prompt: str, generate_config: PytorchGenerateConfig
         ) -> Iterator[CompletionChunk]:
-            if "falcon" in model_family_name:
-                for completion_chunk, completion_usage in generate_stream_falcon(
-                    self.model_uid,
-                    self._model,
-                    self._tokenizer,
-                    prompt,
-                    self._device,
-                    generate_config,
-                ):
-                    completion_chunk["usage"] = completion_usage
-                    yield completion_chunk
-            else:
-                for completion_chunk, completion_usage in generate_stream(
-                    self.model_uid,
-                    self._model,
-                    self._tokenizer,
-                    prompt,
-                    self._device,
-                    generate_config,
-                ):
-                    completion_chunk["usage"] = completion_usage
-                    yield completion_chunk
+            for completion_chunk, completion_usage in generate_stream(
+                self.model_uid,
+                self._model,
+                self._tokenizer,
+                prompt,
+                self._device,
+                generate_config,
+            ):
+                completion_chunk["usage"] = completion_usage
+                yield completion_chunk
 
         logger.debug(
             "Enter generate, prompt: %s, generate config: %s", prompt, generate_config
@@ -336,26 +322,15 @@ class PytorchModel(LLM):
 
         stream = generate_config.get("stream", False)
         if not stream:
-            if "falcon" in model_family_name:
-                for completion_chunk, completion_usage in generate_stream_falcon(
-                    self.model_uid,
-                    self._model,
-                    self._tokenizer,
-                    prompt,
-                    self._device,
-                    generate_config,
-                ):
-                    pass
-            else:
-                for completion_chunk, completion_usage in generate_stream(
-                    self.model_uid,
-                    self._model,
-                    self._tokenizer,
-                    prompt,
-                    self._device,
-                    generate_config,
-                ):
-                    pass
+            for completion_chunk, completion_usage in generate_stream(
+                self.model_uid,
+                self._model,
+                self._tokenizer,
+                prompt,
+                self._device,
+                generate_config,
+            ):
+                pass
             completion = Completion(
                 id=completion_chunk["id"],
                 object=completion_chunk["object"],
