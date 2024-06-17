@@ -381,7 +381,7 @@ class PytorchModel(LLM):
                     r.error_msg = "Invalid `stop` field type"
                     continue
 
-    def _get_builtin_stop_token_ids(self) -> Tuple[int]:
+    def _get_builtin_stop_token_ids(self) -> Tuple:
         return (
             tuple(self.model_family.prompt_style.stop_token_ids)
             if self.model_family.prompt_style
