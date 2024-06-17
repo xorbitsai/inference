@@ -54,6 +54,12 @@ def test_restful_api(model_name, setup):
     assert scores["results"][0]["index"] == 0
     assert scores["results"][0]["document"] == corpus[0]
 
+    scores = model.rerank(corpus, query)
+    assert (
+        scores["meta"]["tokens"]["input_tokens"]
+        == scores["meta"]["tokens"]["output_tokens"]
+    )
+
     kwargs = {
         "invalid": "invalid",
     }

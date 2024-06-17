@@ -23,7 +23,7 @@ import numpy as np
 
 from ...constants import XINFERENCE_CACHE_DIR
 from ...device_utils import empty_cache
-from ...types import Document, DocumentObj, Rerank
+from ...types import Document, DocumentObj, Rerank, RerankTokens
 from ..core import CacheableModelSpec, ModelDescription
 from ..utils import is_model_cached
 
@@ -224,7 +224,32 @@ class RerankModel:
                 )
                 for arg in sim_scores_argsort
             ]
-        return Rerank(id=str(uuid.uuid1()), results=docs)
+
+        input_len = self._text_length(documents)
+
+        # Rerank Model output is just score or documents
+        # while return_documents = True
+        output_len = input_len
+
+        # api_version, billed_units, warnings
+        # is for Cohere API compatibility, set to None
+        metadata = {
+            "api_version": None,
+            "billed_units": None,
+            "tokens": RerankTokens(input_tokens=input_len, output_tokens=output_len),
+            "warnings": None,
+        }
+        return Rerank(id=str(uuid.uuid1()), results=docs, meta=metadata)
+
+    def _text_length(self, text):
+        if isinstance(text, dict):
+            return len(next(iter(text.values())))
+        elif not hasattr(text, "__len__"):
+            return 1
+        elif len(text) == 0 or isinstance(text[0], int):
+            return len(text)
+        else:
+            return sum([len(t) for t in text])
 
 
 def get_cache_dir(model_spec: RerankModelSpec):
