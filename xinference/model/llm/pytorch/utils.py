@@ -610,17 +610,18 @@ def _batch_inference_one_step_internal(
     # here, only decode phase, just run some rounds
     for _i in range(decode_round):
         decode_tokens: List[List[int]] = [[r.new_tokens[-1]] for r in valid_req_list]
-        attention_mask, position_ids = (
-            _get_attention_mask_and_position_ids(past_key_values, valid_req_list)
-            if require_attention_mask
-            else (None, None)
-        )
+        inf_kws = {}
+        if require_attention_mask:
+            attention_mask, position_ids = _get_attention_mask_and_position_ids(
+                past_key_values, valid_req_list
+            )
+            inf_kws["position_ids"] = position_ids
+            inf_kws["attention_mask"] = attention_mask
         out = model(
             input_ids=torch.as_tensor(decode_tokens, device=device),
             use_cache=True,
             past_key_values=past_key_values,
-            position_ids=position_ids,
-            attention_mask=attention_mask,
+            **inf_kws,
         )
         logits = out.logits
         past_key_values = out.past_key_values
