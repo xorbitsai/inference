@@ -611,7 +611,7 @@ Begin!"""
             return arguments, None, None
 
     @staticmethod
-    def _eval_chatglm3_arguments(c, tools):
+    def _eval_glm_chat_arguments(c, tools):
         if isinstance(c[0], str):
             return c[0], None, None
         return None, c[0]["name"], c[0]["parameters"]
@@ -663,9 +663,9 @@ Begin!"""
         family = model_family.model_family or model_family.model_name
         if family in ["gorilla-openfunctions-v1", "gorilla-openfunctions-v2"]:
             content, func, args = cls._eval_gorilla_openfunctions_arguments(c, tools)
-        elif "chatglm3" == family:
-            content, func, args = cls._eval_chatglm3_arguments(c, tools)
-        elif family in ["qwen-chat", "qwen1.5-chat"]:
+        elif family in ["chatglm3", "glm4-chat"]:
+            content, func, args = cls._eval_glm_chat_arguments(c, tools)
+        elif family in ["qwen-chat", "qwen1.5-chat", "qwen2-instruct"]:
             content, func, args = cls._eval_qwen_chat_arguments(c, tools)
         else:
             raise Exception(
@@ -680,28 +680,29 @@ Begin!"""
         Generates a filter function for Qwen series models to retain outputs after "\nFinal Answer:".
 
         Returns:
-            A function that takes tokens (string output by the model so far) as input
-            returns True if current token is after "\nFinal Answer:", else False.
+            A function that takes tokens (string output by the model so far) and delta (new tokens added) as input,
+            returns the part after "\nFinal Answer:" if found, else returns delta.
         """
         family = model_family.model_family or model_family.model_name
         if family in ["qwen-chat", "qwen1.5-chat"]:
             # Encapsulating function to reset 'found' after each call
             found = False
 
-            def process_token(tokens: str):
+            def process_tokens(tokens: str, delta: str):
                 nonlocal found
                 # Once "Final Answer:" is found, future tokens are allowed.
                 if found:
-                    return True
+                    return delta
                 # Check if the token ends with "\nFinal Answer:" and update `found`.
-                if tokens.endswith("\nFinal Answer:"):
+                final_answer_idx = tokens.lower().rfind("\nfinal answer:")
+                if final_answer_idx != -1:
                     found = True
-                return False
+                    return tokens[final_answer_idx + len("\nfinal answer:") :]
+                return ""
 
-            return process_token
+            return process_tokens
         else:
-            # For other families, allow all tokens.
-            return lambda tokens: True
+            return lambda tokens, delta: delta
 
     @classmethod
     def _tool_calls_completion(cls, model_family, model_uid, c, tools):

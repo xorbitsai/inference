@@ -447,6 +447,7 @@ def test_restful_api_for_tool_calls(setup, model_format, quantization):
     # launch
     payload = {
         "model_uid": "test_tool",
+        "model_engine": "transformers",
         "model_name": model_name,
         "model_size_in_billions": 6,
         "model_format": model_format,
@@ -500,6 +501,7 @@ def test_restful_api_for_tool_calls(setup, model_format, quantization):
     }
     response = requests.post(url, json=payload)
     completion = response.json()
+    # glm4-chat fail response: 好的，请告诉我您希望使用的温度单位是摄氏度还是华氏度？
 
     assert (
         "get_current_weather"
@@ -611,6 +613,8 @@ def test_restful_api_for_tool_calls(setup, model_format, quantization):
         },
     ]
 
+    # When kwargs is {}, the glm4-chat does not observe the output tool calls,
+    # so the test will fail.
     for kwargs in [{"tools": tools}, {}]:
         completion = client.chat.completions.create(
             model=model_uid_res, messages=messages, **kwargs
@@ -743,7 +747,8 @@ def test_restful_api_for_qwen_tool_calls(setup, model_format, quantization):
     payload = {
         "model_uid": "test_tool",
         "model_name": model_name,
-        "model_size_in_billions": 4,
+        "model_engine": "transformers",
+        "model_size_in_billions": 7,
         "model_format": model_format,
         "quantization": quantization,
     }
@@ -816,7 +821,7 @@ def test_restful_api_for_qwen_tool_calls(setup, model_format, quantization):
     arguments = completion["choices"][0]["message"]["tool_calls"][0]["function"][
         "arguments"
     ]
-    assert not json.loads(arguments)
+    assert json.loads(arguments)
     assert completion["usage"]
     assert completion["usage"]["prompt_tokens"] != -1
 

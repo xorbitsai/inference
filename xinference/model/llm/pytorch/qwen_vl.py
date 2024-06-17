@@ -45,7 +45,7 @@ class QwenVLChatModel(PytorchChatModel):
     def match(
         cls, model_family: "LLMFamilyV1", model_spec: "LLMSpecV1", quantization: str
     ) -> bool:
-        if "qwen" in model_family.model_name:
+        if "qwen" in model_family.model_name and "vision" in model_family.model_ability:
             return True
         return False
 

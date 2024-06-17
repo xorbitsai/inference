@@ -89,24 +89,30 @@ class ChatglmPytorchChatModel(PytorchChatModel):
             return False
         return True
 
-    @staticmethod
-    def _handle_tools(generate_config) -> Optional[dict]:
+    def _handle_tools(self, generate_config) -> Optional[dict]:
         """Convert openai tools to ChatGLM tools."""
         if generate_config is None:
             return None
         tools = generate_config.pop("tools", None)
         if tools is None:
             return None
-        chatglm_tools = []
-        for elem in tools:
-            if elem.get("type") != "function" or "function" not in elem:
-                raise ValueError("ChatGLM tools only support function type.")
-            chatglm_tools.append(elem["function"])
-        return {
-            "role": "system",
-            "content": f"Answer the following questions as best as you can. You have access to the following tools:",
-            "tools": chatglm_tools,
-        }
+        if self.model_family.model_name == "glm4-chat":
+            return {
+                "role": "system",
+                "content": None,
+                "tools": tools,
+            }
+        else:
+            chatglm_tools = []
+            for elem in tools:
+                if elem.get("type") != "function" or "function" not in elem:
+                    raise ValueError("ChatGLM tools only support function type.")
+                chatglm_tools.append(elem["function"])
+            return {
+                "role": "system",
+                "content": f"Answer the following questions as best as you can. You have access to the following tools:",
+                "tools": chatglm_tools,
+            }
 
     def chat(
         self,

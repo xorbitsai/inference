@@ -1,0 +1,66 @@
+[
+  {
+    "version": 1,
+    "context_length": 32768,
+    "model_name": "qwen2-instruct",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat",
+      "tools"
+    ],
+    "model_description": "Qwen2 is the new series of Qwen large language models",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": "0_5",
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "Qwen/Qwen2-0.5B-Instruct",
+        "model_hub": "csghub"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": "0_5",
+        "quantizations": [
+          "q2_k",
+          "q3_k_m",
+          "q4_0",
+          "q4_k_m",
+          "q5_0",
+          "q5_k_m",
+          "q6_k",
+          "q8_0",
+          "fp16"
+        ],
+        "model_id": "qwen/Qwen2-0.5B-Instruct-GGUF",
+        "model_file_name_template": "qwen2-0_5b-instruct-{quantization}.gguf",
+        "model_hub": "csghub"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "QWEN",
+      "system_prompt": "You are a helpful assistant.",
+      "roles": [
+        "user",
+        "assistant"
+      ],
+      "intra_message_sep": "\n",
+      "stop_token_ids": [
+        151643,
+        151644,
+        151645
+      ],
+      "stop": [
+        "<|endoftext|>",
+        "<|im_start|>",
+        "<|im_end|>"
+      ]
+    }
+  }
+]
