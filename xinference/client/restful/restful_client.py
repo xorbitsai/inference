@@ -869,7 +869,10 @@ class Client:
         gpu_idx: Optional[Union[int, List[int]]]
             Specify the GPU index where the model is located.
         enable_tensorizer: bool
-            Enable tensorizer for the model.
+            Controls the use of tensorizer for the model:
+            - True: Serialize and store the model locally if not already present. Load from local tensorizer files if available.
+            - False: Load model from Hugging Face cache.
+            Note: Applicable only to transformer engines and PyTorch models without quantization.
         **kwargs:
             Any other parameters been specified.
 
