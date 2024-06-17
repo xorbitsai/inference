@@ -85,6 +85,14 @@ const LaunchCustom = ({ gpuAvailable }) => {
     }
   }
 
+  const handlecustomDelete = (model_name) => {
+    setRegistrationData(
+      registrationData.filter((item) => {
+        return item.model_name !== model_name
+      })
+    )
+  }
+
   const style = {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
@@ -144,6 +152,7 @@ const LaunchCustom = ({ gpuAvailable }) => {
                     gpuAvailable={gpuAvailable}
                     is_custom={true}
                     modelType={item === 'llm' ? 'LLM' : item}
+                    onHandlecustomDelete={handlecustomDelete}
                   />
                 ))}
             </div>

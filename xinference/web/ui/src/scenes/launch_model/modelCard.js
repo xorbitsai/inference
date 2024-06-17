@@ -10,7 +10,6 @@ import {
   HelpCenterOutlined,
   RocketLaunchOutlined,
   UndoOutlined,
-  WarningAmber,
 } from '@mui/icons-material'
 import DeleteIcon from '@mui/icons-material/Delete'
 import FilterNoneIcon from '@mui/icons-material/FilterNone'
@@ -18,15 +17,9 @@ import {
   Alert,
   Backdrop,
   Box,
-  Button,
   Chip,
   CircularProgress,
   Collapse,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
   Drawer,
   FormControl,
   Grid,
@@ -55,6 +48,7 @@ import React, { useContext, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { ApiContext } from '../../components/apiContext'
+import DeleteDialog from '../../components/deleteDialog'
 import fetcher from '../../components/fetcher'
 import TitleTypography from '../../components/titleTypography'
 import AddPair from './components/addPair'
@@ -66,6 +60,7 @@ const ModelCard = ({
   modelType,
   is_custom = false,
   onHandleCompleteDelete,
+  onHandlecustomDelete,
 }) => {
   const [hover, setHover] = useState(false)
   const [selected, setSelected] = useState(false)
@@ -110,6 +105,7 @@ const ModelCard = ({
   const [cachedRealPath, setCachedRealPath] = useState('')
   const [page, setPage] = useState(0)
   const [isCopySuccess, setIsCopySuccess] = useState(false)
+  const [isDeleteCustomModel, setIsDeleteCustomModel] = useState(false)
 
   const parentRef = useRef(null)
 
@@ -385,6 +381,8 @@ const ModelCard = ({
       )
         .then(() => {
           setCustomDeleted(true)
+          onHandlecustomDelete(modelData.model_name)
+          setIsDeleteCustomModel(false)
         })
         .catch(console.error)
     }
@@ -569,7 +567,10 @@ const ModelCard = ({
                 <TitleTypography value={modelData.model_name} />
                 <IconButton
                   aria-label="delete"
-                  onClick={handeCustomDelete}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setIsDeleteCustomModel(true)
+                  }}
                   disabled={customDeleted}
                 >
                   <DeleteIcon />
@@ -577,6 +578,7 @@ const ModelCard = ({
               </Stack>
             )}
             {!is_custom && <TitleTypography value={modelData.model_name} />}
+
             <Stack
               spacing={1}
               direction="row"
@@ -669,7 +671,10 @@ const ModelCard = ({
                   <TitleTypography value={modelData.model_name} />
                   <IconButton
                     aria-label="delete"
-                    onClick={handeCustomDelete}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setIsDeleteCustomModel(true)
+                    }}
                     disabled={customDeleted}
                   >
                     <DeleteIcon />
@@ -742,6 +747,14 @@ const ModelCard = ({
         )}
       </Paper>
 
+      <DeleteDialog
+        text={
+          'Are you sure to delete this custom model? This behavior is irreversible.'
+        }
+        isDelete={isDeleteCustomModel}
+        onHandleIsDelete={() => setIsDeleteCustomModel(false)}
+        onHandleDelete={handeCustomDelete}
+      />
       <Drawer
         open={selected}
         onClose={() => {
@@ -1407,34 +1420,12 @@ const ModelCard = ({
           />
         </div>
       </Backdrop>
-      <Dialog
-        open={isDeleteCached}
-        aria-labelledby="alert-dialog-title"
-        aria-describedby="alert-dialog-description"
-      >
-        <DialogTitle id="alert-dialog-title">Warning</DialogTitle>
-        <DialogContent>
-          <DialogContentText
-            className="deleteDialog"
-            id="alert-dialog-description"
-          >
-            <WarningAmber className="warningIcon" />
-            <p>Confirm deletion of cache files? This action is irreversible.</p>
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button
-            onClick={() => {
-              setIsDeleteCached(false)
-            }}
-          >
-            no
-          </Button>
-          <Button onClick={handleDeleteCached} autoFocus>
-            yes
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <DeleteDialog
+        text={'Confirm deletion of cache files? This action is irreversible.'}
+        isDelete={isDeleteCached}
+        onHandleIsDelete={() => setIsDeleteCached(false)}
+        onHandleDelete={handleDeleteCached}
+      />
       <Snackbar
         anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
         open={isCopySuccess}
