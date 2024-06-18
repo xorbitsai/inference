@@ -34,40 +34,45 @@ const LaunchLLM = ({ gpuAvailable }) => {
   }
 
   const filter = (registration) => {
-    if (!registration || typeof searchTerm !== 'string') return false
-    const modelName = registration.model_name
-      ? registration.model_name.toLowerCase()
-      : ''
-    const modelDescription = registration.model_description
-      ? registration.model_description.toLowerCase()
-      : ''
+    if (searchTerm !== '') {
+      if (!registration || typeof searchTerm !== 'string') return false
+      const modelName = registration.model_name
+        ? registration.model_name.toLowerCase()
+        : ''
+      const modelDescription = registration.model_description
+        ? registration.model_description.toLowerCase()
+        : ''
 
-    if (
-      !modelName.includes(searchTerm.toLowerCase()) &&
-      !modelDescription.includes(searchTerm.toLowerCase())
-    ) {
-      return false
-    }
-    if (modelAbility && modelAbility !== 'all') {
-      if (registration.model_ability.indexOf(modelAbility) < 0) {
+      if (
+        !modelName.includes(searchTerm.toLowerCase()) &&
+        !modelDescription.includes(searchTerm.toLowerCase())
+      ) {
         return false
       }
     }
-    if (completeDeleteArr.includes(registration.model_name)) {
-      registration.model_specs.forEach((item) => {
-        item.cache_status = Array.isArray(item) ? [false] : false
-      })
-    }
-    if (status && status !== 'all') {
-      const judge = registration.model_specs.some((spec) => {
-        return filterCache(spec)
-      })
-      if (judge && !completeDeleteArr.includes(registration.model_name)) {
-        return true
-      } else {
-        return false
+
+    if (modelAbility !== 'all') {
+      if (modelAbility && modelAbility !== 'all') {
+        if (registration.model_ability.indexOf(modelAbility) < 0) {
+          return false
+        }
       }
     }
+
+    if (status !== 'all') {
+      if (completeDeleteArr.includes(registration.model_name)) {
+        registration.model_specs.forEach((item) => {
+          item.cache_status = Array.isArray(item) ? [false] : false
+        })
+      }
+      if (status && status !== 'all') {
+        const judge = registration.model_specs.some((spec) => {
+          return filterCache(spec)
+        })
+        return judge && !completeDeleteArr.includes(registration.model_name)
+      }
+    }
+
     return true
   }
 
