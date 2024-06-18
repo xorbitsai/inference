@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import asyncio
-import queue
 from collections import defaultdict
 from enum import Enum
 from typing import Dict, List, TypedDict
