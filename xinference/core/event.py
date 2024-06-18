@@ -11,8 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-import queue
+import asyncio
 from collections import defaultdict
 from enum import Enum
 from typing import Dict, List, TypedDict
@@ -37,20 +36,24 @@ class Event(TypedDict):
 class EventCollectorActor(xo.StatelessActor):
     def __init__(self):
         super().__init__()
-        self._model_uid_to_events: Dict[str, queue.Queue] = defaultdict(  # type: ignore
-            lambda: queue.Queue(maxsize=MAX_EVENT_COUNT_PER_MODEL)
+        self._model_uid_to_events: Dict[str, asyncio.Queue] = defaultdict(  # type: ignore
+            lambda: asyncio.Queue(maxsize=MAX_EVENT_COUNT_PER_MODEL)
         )
 
     @classmethod
     def uid(cls) -> str:
         return "event_collector"
 
-    def get_model_events(self, model_uid: str) -> List[Dict]:
+    async def get_model_events(self, model_uid: str) -> List[Dict]:
         event_queue = self._model_uid_to_events.get(model_uid)
         if event_queue is None:
             return []
         else:
-            return [dict(e, event_type=e["event_type"].name) for e in event_queue.queue]
+            events = []
+            while not event_queue.empty():
+                event = await event_queue.get()
+                events.append(dict(event, event_type=event["event_type"].name))
+            return events
 
-    def report_event(self, model_uid: str, event: Event):
-        self._model_uid_to_events[model_uid].put(event)
+    async def report_event(self, model_uid: str, event: Event):
+        await self._model_uid_to_events[model_uid].put(event)
