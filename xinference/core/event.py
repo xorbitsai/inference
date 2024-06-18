@@ -61,7 +61,7 @@ class EventCollectorActor(xo.StatelessActor):
             return []
         else:
             return [
-                dict(e, event_type=e["event_type"].name) for e in event_queue._queue
+                dict(e, event_type=e["event_type"].name) for e in event_queue._queue  # type: ignore[attr-defined]
             ]
 
     async def report_event(self, model_uid: str, event: Event):
