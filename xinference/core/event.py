@@ -60,7 +60,9 @@ class EventCollectorActor(xo.StatelessActor):
         if event_queue is None:
             return []
         else:
-            return [dict(e, event_type=e["event_type"].name) for e in event_queue._queue]
+            return [
+                dict(e, event_type=e["event_type"].name) for e in event_queue._queue
+            ]
 
     async def report_event(self, model_uid: str, event: Event):
         await self._model_uid_to_events[model_uid].put(event)
