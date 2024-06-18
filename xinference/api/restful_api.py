@@ -1468,7 +1468,9 @@ class RESTfulAPI:
             "gorilla-openfunctions-v1",
             "qwen-chat",
             "qwen1.5-chat",
+            "qwen1.5-moe-chat",
             "qwen2-instruct",
+            "qwen2-moe-instruct",
         ]
 
         is_qwen = desc.get("model_format") == "ggmlv3" and "qwen-chat" == model_family
@@ -1494,7 +1496,9 @@ class RESTfulAPI:
             if not is_vllm or model_family not in [
                 "qwen-chat",
                 "qwen1.5-chat",
+                "qwen1.5-moe-chat",
                 "qwen2-instruct",
+                "qwen2-moe-instruct",
             ]:
                 raise HTTPException(
                     status_code=400,
