@@ -60,6 +60,8 @@ def test_restful_api(model_name, setup):
         == scores["meta"]["tokens"]["output_tokens"]
     )
 
+    print(scores)
+
     kwargs = {
         "invalid": "invalid",
     }

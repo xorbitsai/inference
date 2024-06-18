@@ -122,10 +122,16 @@ class RerankModel:
             model_spec.type = self._auto_detect_type(model_path)
 
     @staticmethod
+    def _get_tokenizer(model_path):
+        from transformers import AutoTokenizer
+
+        tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
+        return tokenizer
+
+    @staticmethod
     def _auto_detect_type(model_path):
         """This method may not be stable due to the fact that the tokenizer name may be changed.
         Therefore, we only use this method for unknown model types."""
-        from transformers import AutoTokenizer
 
         type_mapper = {
             "LlamaTokenizerFast": "LLM-based layerwise",
@@ -133,7 +139,7 @@ class RerankModel:
             "XLMRobertaTokenizerFast": "normal",
         }
 
-        tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
+        tokenizer = RerankModel._get_tokenizer(model_path)
         rerank_type = type_mapper.get(type(tokenizer).__name__)
         if rerank_type is None:
             logger.warning(
@@ -225,7 +231,8 @@ class RerankModel:
                 for arg in sim_scores_argsort
             ]
 
-        input_len = self._text_length(documents)
+        tokenizer = self._get_tokenizer(self._model_path)
+        input_len = sum([len(tokenizer.tokenize(t)) for t in documents])
 
         # Rerank Model output is just score or documents
         # while return_documents = True
