@@ -12,8 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import asyncio
-from collections import defaultdict
+from collections import defaultdict, deque
 from enum import Enum
 from typing import Dict, List, TypedDict
 
@@ -34,21 +33,11 @@ class Event(TypedDict):
     event_content: str
 
 
-class FIFOQueue(asyncio.Queue):
-    def __init__(self, maxsize=0):
-        super().__init__(maxsize)
-
-    async def put(self, item):
-        if self.full():
-            await self.get()  # 丢弃最旧的项目
-        await super().put(item)
-
-
 class EventCollectorActor(xo.StatelessActor):
     def __init__(self):
         super().__init__()
-        self._model_uid_to_events: Dict[str, asyncio.Queue] = defaultdict(  # type: ignore
-            lambda: FIFOQueue(maxsize=MAX_EVENT_COUNT_PER_MODEL)
+        self._model_uid_to_events: Dict[str, deque] = defaultdict(  # type: ignore
+            lambda: deque(maxlen=MAX_EVENT_COUNT_PER_MODEL)
         )
 
     @classmethod
@@ -61,8 +50,8 @@ class EventCollectorActor(xo.StatelessActor):
             return []
         else:
             return [
-                dict(e, event_type=e["event_type"].name) for e in event_queue._queue  # type: ignore[attr-defined]
+                dict(e, event_type=e["event_type"].name) for e in iter(event_queue)
             ]
 
-    async def report_event(self, model_uid: str, event: Event):
-        await self._model_uid_to_events[model_uid].put(event)
+    def report_event(self, model_uid: str, event: Event):
+        self._model_uid_to_events[model_uid].append(event)
