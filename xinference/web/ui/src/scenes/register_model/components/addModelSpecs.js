@@ -249,7 +249,6 @@ const AddModelSpecs = ({ isJump, formData, specsDataArr, onGetArr, scrollRef }) 
         </Button>
       </div>
       <div className="specs_container">
-        {JSON.stringify(specsArr)}
         {specsArr.map((item, index) => (
           <div className="item" key={item.id}>
             <label
