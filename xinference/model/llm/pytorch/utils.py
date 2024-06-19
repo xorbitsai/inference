@@ -515,8 +515,11 @@ def _get_attention_mask_and_position_ids(kv, reqs: List[InferenceRequest]):
         kv[0][0].shape[2],
         kv[0][0].device,
     )
+    seq_length = seq_length + 1
     position_ids = torch.as_tensor([[seq_length - 1]], dtype=torch.long, device=device)
-    attention_mask = torch.ones((batch_size, seq_length), dtype=torch.long)
+    attention_mask = torch.ones(
+        (batch_size, seq_length), dtype=torch.long, device=device
+    )
     padding_lens = torch.as_tensor([r.padding_len for r in reqs])
     mask = torch.arange(seq_length).expand(
         batch_size, seq_length
