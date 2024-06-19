@@ -769,7 +769,10 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                 size="small"
                 helperText="A JSON-formatted dictionary representing the arguments passed to the Launcher."
                 onChange={(event) =>
-                  setFormData({ ...formData, launcher_args: event.target.value })
+                  setFormData({
+                    ...formData,
+                    launcher_args: event.target.value,
+                  })
                 }
                 multiline
                 rows={4}

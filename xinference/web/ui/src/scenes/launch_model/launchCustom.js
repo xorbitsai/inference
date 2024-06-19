@@ -114,7 +114,10 @@ const LaunchCustom = ({ gpuAvailable }) => {
             <Tab label="Rerank Models" value="/launch_model/custom/rerank" />
             <Tab label="Image Models" value="/launch_model/custom/image" />
             <Tab label="Audio Models" value="/launch_model/custom/audio" />
-            <Tab label="Flexible Models" value="/launch_model/custom/flexible" />
+            <Tab
+              label="Flexible Models"
+              value="/launch_model/custom/flexible"
+            />
           </TabList>
         </Box>
         {customType.map((item) => (
