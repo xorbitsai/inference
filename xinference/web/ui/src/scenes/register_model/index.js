@@ -30,7 +30,7 @@ const RegisterModel = () => {
   }
 
   return (
-    <Box m="20px">
+    <Box m="20px" style={{overflow: 'hidden'}}>
       <Title title="Register Model" />
       <ErrorMessageSnackBar />
       <TabContext value={tabValue}>

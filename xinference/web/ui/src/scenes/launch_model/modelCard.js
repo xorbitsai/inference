@@ -17,6 +17,7 @@ import {
   Alert,
   Backdrop,
   Box,
+  Button,
   Chip,
   CircularProgress,
   Collapse,
@@ -45,7 +46,7 @@ import {
 import { styled } from '@mui/material/styles'
 import ClipboardJS from 'clipboard'
 import React, { useContext, useEffect, useRef, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 
 import { ApiContext } from '../../components/apiContext'
 import DeleteDialog from '../../components/deleteDialog'
@@ -106,10 +107,9 @@ const ModelCard = ({
   const [page, setPage] = useState(0)
   const [isCopySuccess, setIsCopySuccess] = useState(false)
   const [isDeleteCustomModel, setIsDeleteCustomModel] = useState(false)
+  const [isJsonShow, setIsJsonShow] = useState(false)
 
   const parentRef = useRef(null)
-  const { model_name } = useParams()
-  const [isJsonShow, setIsJsonShow] = useState(model_name && modelData.model_name === model_name ? true : false)
 
   const range = (start, end) => {
     return new Array(end - start + 1).fill(undefined).map((_, i) => i + start)
@@ -572,28 +572,30 @@ const ModelCard = ({
         {modelType === 'LLM' ? (
           <Box className="descriptionCard">
             {is_custom && (
-              <Stack direction="row" spacing={1} useFlexGap>
+              <div className='cardTitle'>
                 <TitleTypography value={modelData.model_name} />
-                <IconButton
-                  aria-label="show"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setIsJsonShow(true)
-                  }}
-                >
-                  <EditNote />
-                </IconButton>
-                <IconButton
-                  aria-label="delete"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setIsDeleteCustomModel(true)
-                  }}
-                  disabled={customDeleted}
-                >
-                  <DeleteIcon />
-                </IconButton>
-              </Stack>
+                <div className='iconButtonBox'>
+                  <IconButton
+                    aria-label="show"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setIsJsonShow(true)
+                    }}
+                  >
+                    <EditNote />
+                  </IconButton>
+                  <IconButton
+                    aria-label="delete"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setIsDeleteCustomModel(true)
+                    }}
+                    disabled={customDeleted}
+                  >
+                    <DeleteIcon />
+                  </IconButton>
+                </div>
+              </div>
             )}
             {!is_custom && <TitleTypography value={modelData.model_name} />}
 
@@ -685,8 +687,9 @@ const ModelCard = ({
           <Box className="descriptionCard">
             <div className="titleContainer">
               {is_custom && (
-                <Stack direction="row" spacing={1} useFlexGap>
+                <div className='cardTitle'>
                   <TitleTypography value={modelData.model_name} />
+                  <div className='iconButtonBox'>
                   <IconButton
                     aria-label="show"
                     onClick={(e) => {
@@ -706,7 +709,8 @@ const ModelCard = ({
                   >
                     <DeleteIcon />
                   </IconButton>
-                </Stack>
+                  </div>
+                </div>
               )}
               {!is_custom && <TitleTypography value={modelData.model_name} />}
               <Stack

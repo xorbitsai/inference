@@ -15,6 +15,14 @@
   padding: 20px;
   border-radius: 20px;
 }
+.cardTitle {
+  display: flex;
+  justify-content: space-between;
+}
+.iconButtonBox {
+  display: flex;
+  align-items: center;
+}
 .drawerCard {
   position: relative;
   padding: 20px 80px 0;

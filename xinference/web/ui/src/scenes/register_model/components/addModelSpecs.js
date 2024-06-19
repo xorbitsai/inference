@@ -33,9 +33,23 @@ const AddModelSpecs = ({ isJump, formData, specsDataArr, onGetArr, scrollRef }) 
     if(isJump) {
       const dataArr = [...specsDataArr]
       dataArr.map((item) => {
+        const {
+          model_uri,
+          model_size_in_billions,
+          model_format,
+          quantizations,
+          model_file_name_template,
+        }
+         = item
         setCount(count + 1)
-        item.id = count
-        return item
+        return {
+          id: count,
+          model_uri,
+          model_size_in_billions,
+          model_format,
+          quantizations,
+          model_file_name_template,
+        }
       })
       setSpecsArr(dataArr)
 
@@ -222,7 +236,6 @@ const AddModelSpecs = ({ isJump, formData, specsDataArr, onGetArr, scrollRef }) 
 
   return (
     <>
-    {console.log('specsDataArr----', specsDataArr)}
       <div>
         <label style={{ marginBottom: '20px' }}>Model Specs</label>
         <Button
@@ -236,6 +249,7 @@ const AddModelSpecs = ({ isJump, formData, specsDataArr, onGetArr, scrollRef }) 
         </Button>
       </div>
       <div className="specs_container">
+        {JSON.stringify(specsArr)}
         {specsArr.map((item, index) => (
           <div className="item" key={item.id}>
             <label

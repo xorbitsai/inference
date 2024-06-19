@@ -62,7 +62,9 @@ const RegisterModelComponent = ({ modelType, customData }) => {
   const { registerModelType, model_name } = useParams()
   const [specsArr, setSpecsArr] = useState(model_name ? JSON.parse(sessionStorage.getItem('customJsonData')).model_specs : [])
   const [controlnetArr, setControlnetArr] = useState(model_name ? JSON.parse(sessionStorage.getItem('customJsonData')).controlnet : [])
-
+  const [contrastObj, setContrastObj] = useState({})
+  const [isEqual, setIsEqual] = useState(true)
+  
   useEffect(() => {
     if(model_name) {
       const data = JSON.parse(sessionStorage.getItem('customJsonData'))
@@ -72,6 +74,22 @@ const RegisterModelComponent = ({ modelType, customData }) => {
         setLanguagesArr(lagArr)
 
         const { version, model_name, model_description, context_length, model_lang, model_ability, model_family, model_specs, prompt_style } = data
+        const specsDataArr = model_specs.map(item => {
+          const {
+            model_uri,
+            model_size_in_billions,
+            model_format,
+            quantizations,
+            model_file_name_template,
+          } = item
+          return {
+            model_uri,
+            model_size_in_billions,
+            model_format,
+            quantizations,
+            model_file_name_template,
+          }
+        })
         const llmData = {
           version,
           model_name,
@@ -80,11 +98,12 @@ const RegisterModelComponent = ({ modelType, customData }) => {
           model_lang,
           model_ability,
           model_family,
-          model_specs,
+          model_specs: specsDataArr,
         }
         prompt_style ? llmData.prompt_style = prompt_style : ''
         setFormData(llmData)
-        setSpecsArr(model_specs)
+        setContrastObj(llmData)
+        setSpecsArr(specsDataArr)
       } else {
         if (modelType === 'embedding') {
           const lagArr = data.language.filter(item => item !== 'en' && item !== 'zh')
@@ -99,6 +118,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
             language,
           }
           setFormData(embeddingData)
+          setContrastObj(embeddingData)
         } else if (modelType === 'rerank') {
           const lagArr = data.language.filter(item => item !== 'en' && item !== 'zh')
           setLanguagesArr(lagArr)
@@ -110,16 +130,30 @@ const RegisterModelComponent = ({ modelType, customData }) => {
             language,
           }
           setFormData(rerankData)
+          setContrastObj(rerankData)
         } else if (modelType === 'image') {
           const { model_name, model_uri, model_family, controlnet } = data
+          const controlnetArr = controlnet.map(item => {
+            const {
+              model_name,
+              model_uri,
+              model_family,
+            } = item
+            return {
+              model_name,
+              model_uri,
+              model_family,
+            }
+          })
           const imageData = {
             model_name,
             model_uri,
             model_family,
-            controlnet,
+            controlnet: controlnetArr,
           }
           setFormData(imageData)
-          setControlnetArr(controlnet)
+          setContrastObj(imageData)
+          setControlnetArr(controlnetArr)
         } else if (modelType === 'audio') {
           const { model_name, model_uri, multilingual, model_family } = data
           const audioData = {
@@ -129,6 +163,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
             model_family,
           }
           setFormData(audioData)
+          setContrastObj(audioData)
         }
       }
     }
@@ -219,6 +254,9 @@ const RegisterModelComponent = ({ modelType, customData }) => {
 
   useEffect(() => {
     setJsonData(JSON.stringify(formData, null, 4))
+    if (contrastObj.model_name) {
+      deepEqual(contrastObj, formData) ? setIsEqual(true) : setIsEqual(false)
+    }
   }, [formData])
 
   const getFamilyByAbility = () => {
@@ -314,11 +352,6 @@ const RegisterModelComponent = ({ modelType, customData }) => {
     setIsDimensionsAlert(false)
     setIsMaxTokensAlert(false)
     setFormData({ ...formData, [parameterName]: value })
-
-    // if(value !== '' && Number(value) > 0) {
-    //   console.log(111);
-    //   setFormData({ ...formData, [parameterName]: Number(value) })
-    // }
 
     if (
       value !== '' &&
@@ -457,8 +490,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
   }
 
   const handleCancel = () => {
-    const model_name = JSON.parse(sessionStorage.getItem('customJsonData')).model_name
-    navigate(`/launch_model/custom/${registerModelType}/${model_name}`)
+    navigate(`/launch_model/custom/${registerModelType}`)
   }
 
   const handleModify = () => {
@@ -480,6 +512,23 @@ const RegisterModelComponent = ({ modelType, customData }) => {
       .catch((error) => {
         console.error('Error:', error)
       })
+  }
+
+  const deepEqual = (obj1, obj2) => {
+    if (obj1 === obj2) return true
+    if (typeof obj1 !== 'object' || typeof obj2 !== 'object' || obj1 == null || obj2 == null) {
+        return false
+    }
+
+    let keysA = Object.keys(obj1)
+    let keysB = Object.keys(obj2)
+    if (keysA.length !== keysB.length) return false
+    for (let key of keysA) {
+        if (!keysB.includes(key) || !deepEqual(obj1[key], obj2[key])) {
+            return false
+        }
+    }
+    return true
   }
 
   return (
@@ -854,6 +903,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
               color="primary"
               type="submit"
               onClick={handleModify}
+              disabled={isEqual}
             >
               Modify
             </Button>
