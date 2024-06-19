@@ -20,17 +20,23 @@ const modelFormatArr = [
   { value: 'awq', label: 'AWQ' },
 ]
 
-const AddModelSpecs = ({ isJump, formData, specsDataArr, onGetArr, scrollRef }) => {
+const AddModelSpecs = ({
+  isJump,
+  formData,
+  specsDataArr,
+  onGetArr,
+  scrollRef,
+}) => {
   const [count, setCount] = useState(0)
   const [specsArr, setSpecsArr] = useState([])
   const [pathArr, setPathArr] = useState([])
   const [modelSizeAlertId, setModelSizeAlertId] = useState([])
   const [quantizationAlertId, setQuantizationAlertId] = useState([])
   const [isError, setIsError] = useState(false)
-  const [isAdd, setIsAdd] = useState(false) 
+  const [isAdd, setIsAdd] = useState(false)
 
   useEffect(() => {
-    if(isJump) {
+    if (isJump) {
       const dataArr = [...specsDataArr]
       dataArr.map((item) => {
         const {
@@ -39,8 +45,7 @@ const AddModelSpecs = ({ isJump, formData, specsDataArr, onGetArr, scrollRef }) 
           model_format,
           quantizations,
           model_file_name_template,
-        }
-         = item
+        } = item
         setCount(count + 1)
         return {
           id: count,
@@ -54,8 +59,8 @@ const AddModelSpecs = ({ isJump, formData, specsDataArr, onGetArr, scrollRef }) 
       setSpecsArr(dataArr)
 
       const subPathArr = []
-      specsDataArr.forEach(item => {
-        if(item.model_format !== 'ggmlv3' && item.model_format !== 'ggufv2' ) {
+      specsDataArr.forEach((item) => {
+        if (item.model_format !== 'ggmlv3' && item.model_format !== 'ggufv2') {
           subPathArr.push(item.model_uri)
         } else {
           subPathArr.push(item.model_uri + '/' + item.model_file_name_template)
@@ -67,7 +72,7 @@ const AddModelSpecs = ({ isJump, formData, specsDataArr, onGetArr, scrollRef }) 
         {
           id: count,
           ...formData,
-        }
+        },
       ])
       setCount(count + 1)
       setPathArr([formData.model_uri])
@@ -132,14 +137,20 @@ const AddModelSpecs = ({ isJump, formData, specsDataArr, onGetArr, scrollRef }) 
   const handleUpdateSpecsArr = (index, type, newValue) => {
     if (type === 'model_format') {
       const subPathArr = [...pathArr]
-      if(specsArr[index].model_format !== 'ggmlv3' && specsArr[index].model_format !== 'ggufv2') {      
-        pathArr[index] = specsArr[index].model_uri      
+      if (
+        specsArr[index].model_format !== 'ggmlv3' &&
+        specsArr[index].model_format !== 'ggufv2'
+      ) {
+        pathArr[index] = specsArr[index].model_uri
       } else {
-        pathArr[index] = specsArr[index].model_uri + '/' + specsArr[index].model_file_name_template
+        pathArr[index] =
+          specsArr[index].model_uri +
+          '/' +
+          specsArr[index].model_file_name_template
       }
       setPathArr(subPathArr)
     }
-     
+
     setSpecsArr(
       specsArr.map((item, subIndex) => {
         if (subIndex === index) {
@@ -289,7 +300,11 @@ const AddModelSpecs = ({ isJump, formData, specsDataArr, onGetArr, scrollRef }) 
               style={{ minWidth: '60%' }}
               label="Model Path"
               size="small"
-              value={item.model_format !== 'ggmlv3' && item.model_format !== 'ggufv2' ? item.model_uri : item.model_uri + '/' + item.model_file_name_template}
+              value={
+                item.model_format !== 'ggmlv3' && item.model_format !== 'ggufv2'
+                  ? item.model_uri
+                  : item.model_uri + '/' + item.model_file_name_template
+              }
               onChange={(e) => {
                 handleUpdateSpecsArr(index, 'model_uri', e.target.value)
               }}

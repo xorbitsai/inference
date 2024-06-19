@@ -11,15 +11,19 @@ import {
 } from '@mui/material'
 import React, { useEffect, useState } from 'react'
 
-const AddControlnet = ({ controlnetDataArr, onGetControlnetArr, scrollRef }) => {
+const AddControlnet = ({
+  controlnetDataArr,
+  onGetControlnetArr,
+  scrollRef,
+}) => {
   const [count, setCount] = useState(0)
   const [controlnetArr, setControlnetArr] = useState([])
-  const [isAdd, setIsAdd] = useState(false) 
+  const [isAdd, setIsAdd] = useState(false)
 
   useEffect(() => {
-    console.log('controlnetDataArr', controlnetDataArr);
+    console.log('controlnetDataArr', controlnetDataArr)
     if (controlnetDataArr && controlnetDataArr.length) {
-      const dataArr = controlnetDataArr.map(item => {
+      const dataArr = controlnetDataArr.map((item) => {
         setCount(count + 1)
         item.id = count
         return item

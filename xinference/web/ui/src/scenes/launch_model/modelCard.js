@@ -547,7 +547,10 @@ const ModelCard = ({
 
   const handleJsonDataPresentation = () => {
     const arr = sessionStorage.getItem('subType').split('/')
-    sessionStorage.setItem('registerModelType', `/register_model/${arr[arr.length - 1]}`)
+    sessionStorage.setItem(
+      'registerModelType',
+      `/register_model/${arr[arr.length - 1]}`
+    )
     sessionStorage.setItem('customJsonData', JSON.stringify(modelData))
     navigate(`/register_model/${arr[arr.length - 1]}/${modelData.model_name}`)
   }
@@ -572,9 +575,9 @@ const ModelCard = ({
         {modelType === 'LLM' ? (
           <Box className="descriptionCard">
             {is_custom && (
-              <div className='cardTitle'>
+              <div className="cardTitle">
                 <TitleTypography value={modelData.model_name} />
-                <div className='iconButtonBox'>
+                <div className="iconButtonBox">
                   <IconButton
                     aria-label="show"
                     onClick={(e) => {
@@ -687,28 +690,28 @@ const ModelCard = ({
           <Box className="descriptionCard">
             <div className="titleContainer">
               {is_custom && (
-                <div className='cardTitle'>
+                <div className="cardTitle">
                   <TitleTypography value={modelData.model_name} />
-                  <div className='iconButtonBox'>
-                  <IconButton
-                    aria-label="show"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setIsJsonShow(true)
-                    }}
-                  >
-                    <EditNote />
-                  </IconButton>
-                  <IconButton
-                    aria-label="delete"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setIsDeleteCustomModel(true)
-                    }}
-                    disabled={customDeleted}
-                  >
-                    <DeleteIcon />
-                  </IconButton>
+                  <div className="iconButtonBox">
+                    <IconButton
+                      aria-label="show"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setIsJsonShow(true)
+                      }}
+                    >
+                      <EditNote />
+                    </IconButton>
+                    <IconButton
+                      aria-label="delete"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setIsDeleteCustomModel(true)
+                      }}
+                      disabled={customDeleted}
+                    >
+                      <DeleteIcon />
+                    </IconButton>
                   </div>
                 </div>
               )}
@@ -1305,31 +1308,35 @@ const ModelCard = ({
         sx={{ color: '#fff', zIndex: (theme) => theme.zIndex.drawer + 1 }}
         open={isJsonShow}
       >
-        <div className='jsonDialog'>
-          <div className='jsonDialog-title'>
-            <div className='title-name'>{modelData.model_name}</div>
+        <div className="jsonDialog">
+          <div className="jsonDialog-title">
+            <div className="title-name">{modelData.model_name}</div>
             <Tooltip title="Copy Json" placement="top">
               <FilterNoneIcon
                 className="copyJSON"
-                onClick={() => handleCopy('.copyJSON', JSON.stringify(modelData, null, 4))}
+                onClick={() =>
+                  handleCopy('.copyJSON', JSON.stringify(modelData, null, 4))
+                }
               />
             </Tooltip>
           </div>
-          <div className='main-box'>
-            <textarea readOnly className="textarea-box" value={JSON.stringify(modelData, null, 4)} />
+          <div className="main-box">
+            <textarea
+              readOnly
+              className="textarea-box"
+              value={JSON.stringify(modelData, null, 4)}
+            />
           </div>
-          <div className='but-box'>
+          <div className="but-box">
             <Button
               onClick={() => {
                 setIsJsonShow(false)
               }}
-              style={{marginRight: 30}}
+              style={{ marginRight: 30 }}
             >
               Cancel
             </Button>
-            <Button onClick={handleJsonDataPresentation}>
-              Modify
-            </Button>
+            <Button onClick={handleJsonDataPresentation}>Modify</Button>
           </div>
         </div>
       </Backdrop>

@@ -9,7 +9,11 @@ import Title from '../../components/Title'
 import RegisterModelComponent from './registerModel'
 
 const RegisterModel = () => {
-  const [tabValue, setTabValue] = React.useState(sessionStorage.getItem('registerModelType') ? sessionStorage.getItem('registerModelType') : '/register_model/llm')
+  const [tabValue, setTabValue] = React.useState(
+    sessionStorage.getItem('registerModelType')
+      ? sessionStorage.getItem('registerModelType')
+      : '/register_model/llm'
+  )
   const [cookie] = useCookies(['token'])
   const navigate = useNavigate()
 
@@ -30,7 +34,7 @@ const RegisterModel = () => {
   }
 
   return (
-    <Box m="20px" style={{overflow: 'hidden'}}>
+    <Box m="20px" style={{ overflow: 'hidden' }}>
       <Title title="Register Model" />
       <ErrorMessageSnackBar />
       <TabContext value={tabValue}>

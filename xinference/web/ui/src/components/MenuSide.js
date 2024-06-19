@@ -166,7 +166,10 @@ const MenuSide = () => {
                         setActive(link)
                         console.log(active)
                       } else if (link === 'register_model') {
-                        sessionStorage.setItem('registerModelType', '/register_model/llm')
+                        sessionStorage.setItem(
+                          'registerModelType',
+                          '/register_model/llm'
+                        )
                         navigate('/register_model/llm')
                         setActive(link)
                         console.log(active)

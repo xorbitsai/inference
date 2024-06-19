@@ -60,21 +60,41 @@ const RegisterModelComponent = ({ modelType, customData }) => {
   const [cookie] = useCookies(['token'])
   const navigate = useNavigate()
   const { registerModelType, model_name } = useParams()
-  const [specsArr, setSpecsArr] = useState(model_name ? JSON.parse(sessionStorage.getItem('customJsonData')).model_specs : [])
-  const [controlnetArr, setControlnetArr] = useState(model_name ? JSON.parse(sessionStorage.getItem('customJsonData')).controlnet : [])
+  const [specsArr, setSpecsArr] = useState(
+    model_name
+      ? JSON.parse(sessionStorage.getItem('customJsonData')).model_specs
+      : []
+  )
+  const [controlnetArr, setControlnetArr] = useState(
+    model_name
+      ? JSON.parse(sessionStorage.getItem('customJsonData')).controlnet
+      : []
+  )
   const [contrastObj, setContrastObj] = useState({})
   const [isEqual, setIsEqual] = useState(true)
-  
+
   useEffect(() => {
-    if(model_name) {
+    if (model_name) {
       const data = JSON.parse(sessionStorage.getItem('customJsonData'))
-      
+
       if (modelType === 'LLM') {
-        const lagArr = data.model_lang.filter(item => item !== 'en' && item !== 'zh')
+        const lagArr = data.model_lang.filter(
+          (item) => item !== 'en' && item !== 'zh'
+        )
         setLanguagesArr(lagArr)
 
-        const { version, model_name, model_description, context_length, model_lang, model_ability, model_family, model_specs, prompt_style } = data
-        const specsDataArr = model_specs.map(item => {
+        const {
+          version,
+          model_name,
+          model_description,
+          context_length,
+          model_lang,
+          model_ability,
+          model_family,
+          model_specs,
+          prompt_style,
+        } = data
+        const specsDataArr = model_specs.map((item) => {
           const {
             model_uri,
             model_size_in_billions,
@@ -100,16 +120,19 @@ const RegisterModelComponent = ({ modelType, customData }) => {
           model_family,
           model_specs: specsDataArr,
         }
-        prompt_style ? llmData.prompt_style = prompt_style : ''
+        prompt_style ? (llmData.prompt_style = prompt_style) : ''
         setFormData(llmData)
         setContrastObj(llmData)
         setSpecsArr(specsDataArr)
       } else {
         if (modelType === 'embedding') {
-          const lagArr = data.language.filter(item => item !== 'en' && item !== 'zh')
+          const lagArr = data.language.filter(
+            (item) => item !== 'en' && item !== 'zh'
+          )
           setLanguagesArr(lagArr)
 
-          const { model_name, dimensions, max_tokens, model_uri, language } = data
+          const { model_name, dimensions, max_tokens, model_uri, language } =
+            data
           const embeddingData = {
             model_name,
             dimensions,
@@ -120,7 +143,9 @@ const RegisterModelComponent = ({ modelType, customData }) => {
           setFormData(embeddingData)
           setContrastObj(embeddingData)
         } else if (modelType === 'rerank') {
-          const lagArr = data.language.filter(item => item !== 'en' && item !== 'zh')
+          const lagArr = data.language.filter(
+            (item) => item !== 'en' && item !== 'zh'
+          )
           setLanguagesArr(lagArr)
 
           const { model_name, model_uri, language } = data
@@ -133,12 +158,8 @@ const RegisterModelComponent = ({ modelType, customData }) => {
           setContrastObj(rerankData)
         } else if (modelType === 'image') {
           const { model_name, model_uri, model_family, controlnet } = data
-          const controlnetArr = controlnet.map(item => {
-            const {
-              model_name,
-              model_uri,
-              model_family,
-            } = item
+          const controlnetArr = controlnet.map((item) => {
+            const { model_name, model_uri, model_family } = item
             return {
               model_name,
               model_uri,
@@ -516,17 +537,22 @@ const RegisterModelComponent = ({ modelType, customData }) => {
 
   const deepEqual = (obj1, obj2) => {
     if (obj1 === obj2) return true
-    if (typeof obj1 !== 'object' || typeof obj2 !== 'object' || obj1 == null || obj2 == null) {
-        return false
+    if (
+      typeof obj1 !== 'object' ||
+      typeof obj2 !== 'object' ||
+      obj1 == null ||
+      obj2 == null
+    ) {
+      return false
     }
 
     let keysA = Object.keys(obj1)
     let keysB = Object.keys(obj2)
     if (keysA.length !== keysB.length) return false
     for (let key of keysA) {
-        if (!keysB.includes(key) || !deepEqual(obj1[key], obj2[key])) {
-            return false
-        }
+      if (!keysB.includes(key) || !deepEqual(obj1[key], obj2[key])) {
+        return false
+      }
     }
     return true
   }
@@ -908,7 +934,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
               Modify
             </Button>
             <Button
-              style={{marginLeft: 30}}
+              style={{ marginLeft: 30 }}
               variant="outlined"
               color="primary"
               type="submit"
@@ -917,16 +943,18 @@ const RegisterModelComponent = ({ modelType, customData }) => {
               Cancel
             </Button>
           </>
-        ) : (<Box width={'100%'}>
-          <Button
-            variant="contained"
-            color="primary"
-            type="submit"
-            onClick={handleClick}
-          >
-            Register Model
-          </Button>
-        </Box>)}
+        ) : (
+          <Box width={'100%'}>
+            <Button
+              variant="contained"
+              color="primary"
+              type="submit"
+              onClick={handleClick}
+            >
+              Register Model
+            </Button>
+          </Box>
+        )}
       </div>
 
       {/* JSON */}
