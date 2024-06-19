@@ -131,9 +131,7 @@ def test_tensorizer_serialize_uses_cache_when_files_exist_and_not_forced(
     with patch(
         "xinference.model.llm.pytorch.tensorizer_utils.file_is_non_empty",
         return_value=True,
-    ) as mock_file_is_non_empty, patch(
-        "xinference.model.llm.pytorch.tensorizer_utils._write_stream"
-    ) as mock_write_stream:
+    ) as mock_file_is_non_empty:
         model_path = tensorizer_serialize_model(
             model=model_mock,
             model_config=model_config_mock,
@@ -146,6 +144,5 @@ def test_tensorizer_serialize_uses_cache_when_files_exist_and_not_forced(
     mock_file_is_non_empty.assert_any_call(str(expected_model_path))
 
     model_config_mock.to_dict.assert_not_called()
-    mock_write_stream.assert_not_called()
 
     assert model_path == str(expected_model_path)

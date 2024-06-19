@@ -43,12 +43,6 @@ from ...utils import select_device
 from ..core import LLM
 from ..llm_family import LLMFamilyV1, LLMSpecV1
 from ..utils import ChatModelMixin
-from .tensorizer_utils import (
-    get_tensorizer_dir,
-    load_from_tensorizer,
-    tensorizer_serialize_model,
-    tensorizer_serialize_pretrained,
-)
 from .utils import get_context_length, get_max_src_len
 
 logger = logging.getLogger(__name__)
@@ -157,6 +151,12 @@ class PytorchModel(LLM):
         )
 
         if self.enable_tensorizer:
+            from .tensorizer_utils import (
+                get_tensorizer_dir,
+                tensorizer_serialize_model,
+                tensorizer_serialize_pretrained,
+            )
+
             tensorizer_dir = get_tensorizer_dir(self.model_path)
             model_config = AutoConfig.from_pretrained(self.model_path)
             tensorizer_serialize_model(model, model_config, tensorizer_dir)
@@ -277,8 +277,9 @@ class PytorchModel(LLM):
         if num_gpus > 0 and is_hf_accelerate_supported(self._device):
             kwargs.update({"device_map": "auto"})
             is_device_map_auto = True
-
         if self.enable_tensorizer:
+            from .tensorizer_utils import get_tensorizer_dir, load_from_tensorizer
+
             tensorizer_dir = get_tensorizer_dir(self.model_path)
             if os.path.exists(tensorizer_dir):
                 self._model, self._tokenizer = load_from_tensorizer(tensorizer_dir)

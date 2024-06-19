@@ -8,20 +8,10 @@ from functools import partial
 from pathlib import Path
 from typing import Any, Optional, Type
 
-from tensorizer import TensorDeserializer, TensorSerializer, stream_io, utils
-
 from ....constants import XINFERENCE_TENSORIZER_DIR
 from ....device_utils import get_available_device
 
 logger = logging.getLogger(__name__)
-
-_read_stream, _write_stream = (
-    partial(
-        stream_io.open_stream,
-        mode=mode,
-    )
-    for mode in ("rb", "wb+")
-)
 
 
 def file_is_non_empty(
@@ -76,6 +66,17 @@ def load_pretrained_from_tensorizer(
     path_uri: str,
     prefix: str,
 ):
+    try:
+        from tensorizer import stream_io
+    except ImportError:
+        error_message = "Failed to import module 'tensorizer'"
+        installation_guide = [
+            "Please make sure 'tensorizer' is installed.\n",
+        ]
+        raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
+
+    _read_stream = partial(stream_io.open_stream, mode="rb")
+
     logger.debug(f"Loading pretrained from tensorizer: {path_uri}")
     load_path: str = f"{path_uri.rstrip('/')}/{prefix}.zip"
     logger.info(f"Loading {load_path}")
@@ -130,12 +131,23 @@ def load_model_from_tensorizer(
 
         raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
+    try:
+        from tensorizer import TensorDeserializer, stream_io, utils
+    except ImportError:
+        error_message = "Failed to import module 'tensorizer'"
+        installation_guide = [
+            "Please make sure 'tensorizer' is installed.\n",
+        ]
+        raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
+
     if model_prefix is None:
         model_prefix = "model"
 
     dir: str = path_uri.rstrip("/")
     config_uri: str = f"{dir}/{model_prefix}-config.json"
     tensors_uri: str = f"{dir}/{model_prefix}.tensors"
+
+    _read_stream = partial(stream_io.open_stream, mode="rb")
 
     if config_class is None:
         config_loader = model_class.load_config
@@ -188,6 +200,15 @@ def tensorizer_serialize_model(
     model_prefix: str = "model",
     force: bool = False,
 ):
+    try:
+        from tensorizer import TensorSerializer, stream_io
+    except ImportError:
+        error_message = "Failed to import module 'tensorizer'"
+        installation_guide = [
+            "Please make sure 'tensorizer' is installed.\n",
+        ]
+        raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
+
     dir_prefix: str = f"{tensor_directory}/{model_prefix}"
     config_path: str = f"{dir_prefix}-config.json"
     model_path: str = f"{dir_prefix}.tensors"
@@ -199,6 +220,8 @@ def tensorizer_serialize_model(
     if use_cache:
         logger.info(f"Cache {model_path} exists, skip tensorizer serialize model")
         return model_path
+
+    _write_stream = partial(stream_io.open_stream, mode="wb+")
 
     if not use_cache:
         logger.info(f"Writing config to {config_path}")
@@ -222,12 +245,23 @@ def tensorizer_serialize_model(
 def tensorizer_serialize_pretrained(
     component, zip_directory: str, prefix: str = "pretrained"
 ):
+    try:
+        from tensorizer import stream_io
+    except ImportError:
+        error_message = "Failed to import module 'tensorizer'"
+        installation_guide = [
+            "Please make sure 'tensorizer' is installed.\n",
+        ]
+        raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
+
     save_path: str = f"{zip_directory.rstrip('/')}/{prefix}.zip"
     logger.info(f"Tensorizer serialize pretrained: {save_path}")
 
     if os.path.exists(save_path):
         logger.info(f"Cache {save_path} exists, skip tensorizer serialize pretrained")
         return save_path
+
+    _write_stream = partial(stream_io.open_stream, mode="wb+")
 
     with _write_stream(save_path) as stream, zipfile.ZipFile(
         stream, mode="w", compression=zipfile.ZIP_DEFLATED, compresslevel=5

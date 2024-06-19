@@ -244,7 +244,7 @@ def create_llm_model_instance(
             )
     else:
         model = llm_cls(
-            model_uid, llm_family, llm_spec, quantization, save_path, kwargs
+            model_uid, llm_family, llm_spec, quantization, save_path, **kwargs
         )
     return model, LLMDescription(
         subpool_addr, devices, llm_family, llm_spec, quantization
