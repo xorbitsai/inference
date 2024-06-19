@@ -45,7 +45,7 @@ import {
 import { styled } from '@mui/material/styles'
 import ClipboardJS from 'clipboard'
 import React, { useContext, useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 
 import { ApiContext } from '../../components/apiContext'
 import DeleteDialog from '../../components/deleteDialog'
@@ -108,6 +108,8 @@ const ModelCard = ({
   const [isDeleteCustomModel, setIsDeleteCustomModel] = useState(false)
 
   const parentRef = useRef(null)
+  const { model_name } = useParams()
+  const [isJsonShow, setIsJsonShow] = useState(model_name && modelData.model_name === model_name ? true : false)
 
   const range = (start, end) => {
     return new Array(end - start + 1).fill(undefined).map((_, i) => i + start)
@@ -445,8 +447,8 @@ const ModelCard = ({
     setPage(newPage)
   }
 
-  const handleCopyPath = (path) => {
-    const clipboard = new ClipboardJS('.copyPath', {
+  const handleCopy = (className, path) => {
+    const clipboard = new ClipboardJS(className, {
       text: () => path,
     })
 
@@ -543,6 +545,13 @@ const ModelCard = ({
       })
   }
 
+  const handleJsonDataPresentation = () => {
+    const arr = sessionStorage.getItem('subType').split('/')
+    sessionStorage.setItem('registerModelType', `/register_model/${arr[arr.length - 1]}`)
+    sessionStorage.setItem('customJsonData', JSON.stringify(modelData))
+    navigate(`/register_model/${arr[arr.length - 1]}/${modelData.model_name}`)
+  }
+
   // Set two different states based on mouse hover
   return (
     <>
@@ -565,6 +574,15 @@ const ModelCard = ({
             {is_custom && (
               <Stack direction="row" spacing={1} useFlexGap>
                 <TitleTypography value={modelData.model_name} />
+                <IconButton
+                  aria-label="show"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setIsJsonShow(true)
+                  }}
+                >
+                  <EditNote />
+                </IconButton>
                 <IconButton
                   aria-label="delete"
                   onClick={(e) => {
@@ -669,6 +687,15 @@ const ModelCard = ({
               {is_custom && (
                 <Stack direction="row" spacing={1} useFlexGap>
                   <TitleTypography value={modelData.model_name} />
+                  <IconButton
+                    aria-label="show"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setIsJsonShow(true)
+                    }}
+                  >
+                    <EditNote />
+                  </IconButton>
                   <IconButton
                     aria-label="delete"
                     onClick={(e) => {
@@ -1270,6 +1297,38 @@ const ModelCard = ({
           </Box>
         </div>
       </Drawer>
+      <Backdrop
+        sx={{ color: '#fff', zIndex: (theme) => theme.zIndex.drawer + 1 }}
+        open={isJsonShow}
+      >
+        <div className='jsonDialog'>
+          <div className='jsonDialog-title'>
+            <div className='title-name'>{modelData.model_name}</div>
+            <Tooltip title="Copy Json" placement="top">
+              <FilterNoneIcon
+                className="copyJSON"
+                onClick={() => handleCopy('.copyJSON', JSON.stringify(modelData, null, 4))}
+              />
+            </Tooltip>
+          </div>
+          <div className='main-box'>
+            <textarea readOnly className="textarea-box" value={JSON.stringify(modelData, null, 4)} />
+          </div>
+          <div className='but-box'>
+            <Button
+              onClick={() => {
+                setIsJsonShow(false)
+              }}
+              style={{marginRight: 30}}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleJsonDataPresentation}>
+              Modify
+            </Button>
+          </div>
+        </div>
+      </Backdrop>
       <Snackbar
         anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
         open={openSnackbar}
@@ -1359,7 +1418,7 @@ const ModelCard = ({
                       <Tooltip title="Copy real_path" placement="top">
                         <FilterNoneIcon
                           className="copyPath"
-                          onClick={() => handleCopyPath(row.real_path)}
+                          onClick={() => handleCopy('.copyPath', row.real_path)}
                         />
                       </Tooltip>
                     </TableCell>
@@ -1378,7 +1437,7 @@ const ModelCard = ({
                       <Tooltip title="Copy path" placement="top">
                         <FilterNoneIcon
                           className="copyPath"
-                          onClick={() => handleCopyPath(row.path)}
+                          onClick={() => handleCopy('.copyPath', row.path)}
                         />
                       </Tooltip>
                     </TableCell>

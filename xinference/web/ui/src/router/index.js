@@ -17,7 +17,7 @@ const routes = [
         element: <Navigate to="launch_model/llm" replace />,
       },
       {
-        path: 'launch_model/:Modeltype/:subType?',
+        path: 'launch_model/:Modeltype/:subType?/:model_name?',
         element: <LaunchModel />,
       },
       {
@@ -25,7 +25,7 @@ const routes = [
         element: <RunningModels />,
       },
       {
-        path: 'register_model',
+        path: 'register_model/:registerModelType/:model_name?',
         element: <RegisterModel />,
       },
       {
