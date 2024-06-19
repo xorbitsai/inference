@@ -42,7 +42,7 @@ from ....types import (
 from ...utils import select_device
 from ..core import LLM
 from ..llm_family import LLMFamilyV1, LLMSpecV1
-from ..utils import ChatModelMixin, DEFAULT_TOOL_CALL_FAMILY
+from ..utils import DEFAULT_TOOL_CALL_FAMILY, ChatModelMixin
 from .utils import get_context_length, get_max_src_len
 
 logger = logging.getLogger(__name__)
