@@ -15,6 +15,7 @@ import time
 import uuid
 from typing import Any, Dict, Iterator, List, Optional, Union
 
+from ....core.scheduler import InferenceRequest
 from ....types import (
     SPECIAL_TOOL_PROMPT,
     ChatCompletion,
@@ -244,3 +245,25 @@ class ChatglmPytorchChatModel(PytorchChatModel):
                         prompt_tokens=-1, completion_tokens=-1, total_tokens=-1
                     ),
                 )
+
+    @staticmethod
+    def require_attention_mask():
+        """
+        GLM4 needs to use attention mask and position ids during inference.
+        Otherwise, the inference result would be not available.
+        """
+        return True
+
+    def prepare_sanitize_generate_config(self, req: InferenceRequest):
+        """
+        Set temperature and top_p to 0.8 by default
+        """
+        raw_config = req.inference_kwargs.get("raw_params", {})
+        temperature = raw_config.get("temperature", None)
+        if temperature is None:
+            raw_config["temperature"] = 0.8
+        top_p = raw_config.get("top_p", None)
+        if top_p is None:
+            raw_config["top_p"] = 0.8
+
+        return raw_config

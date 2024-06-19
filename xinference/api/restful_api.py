@@ -991,7 +991,8 @@ class RESTfulAPI:
         return JSONResponse(content=self._supervisor_address)
 
     async def create_completion(self, request: Request) -> Response:
-        body = CreateCompletionRequest.parse_obj(await request.json())
+        raw_body = await request.json()
+        body = CreateCompletionRequest.parse_obj(raw_body)
         exclude = {
             "prompt",
             "model",
@@ -1001,6 +1002,7 @@ class RESTfulAPI:
             "logit_bias_type",
             "user",
         }
+        raw_kwargs = {k: v for k, v in raw_body.items() if k not in exclude}
         kwargs = body.dict(exclude_unset=True, exclude=exclude)
 
         # TODO: Decide if this default value override is necessary #1061
@@ -1030,7 +1032,9 @@ class RESTfulAPI:
                 iterator = None
                 try:
                     try:
-                        iterator = await model.generate(body.prompt, kwargs)
+                        iterator = await model.generate(
+                            body.prompt, kwargs, raw_params=raw_kwargs
+                        )
                     except RuntimeError as re:
                         self.handle_request_limit_error(re)
                     async for item in iterator:
@@ -1050,7 +1054,7 @@ class RESTfulAPI:
             return EventSourceResponse(stream_results())
         else:
             try:
-                data = await model.generate(body.prompt, kwargs)
+                data = await model.generate(body.prompt, kwargs, raw_params=raw_kwargs)
                 return Response(data, media_type="application/json")
             except Exception as e:
                 logger.error(e, exc_info=True)
@@ -1385,7 +1389,8 @@ class RESTfulAPI:
             raise HTTPException(status_code=500, detail=str(e))
 
     async def create_chat_completion(self, request: Request) -> Response:
-        body = CreateChatCompletion.parse_obj(await request.json())
+        raw_body = await request.json()
+        body = CreateChatCompletion.parse_obj(raw_body)
         exclude = {
             "prompt",
             "model",
@@ -1395,6 +1400,7 @@ class RESTfulAPI:
             "logit_bias_type",
             "user",
         }
+        raw_kwargs = {k: v for k, v in raw_body.items() if k not in exclude}
         kwargs = body.dict(exclude_unset=True, exclude=exclude)
 
         # TODO: Decide if this default value override is necessary #1061
@@ -1513,10 +1519,16 @@ class RESTfulAPI:
                 try:
                     try:
                         if is_qwen:
-                            iterator = await model.chat(prompt, chat_history, kwargs)
+                            iterator = await model.chat(
+                                prompt, chat_history, kwargs, raw_params=raw_kwargs
+                            )
                         else:
                             iterator = await model.chat(
-                                prompt, system_prompt, chat_history, kwargs
+                                prompt,
+                                system_prompt,
+                                chat_history,
+                                kwargs,
+                                raw_params=raw_kwargs,
                             )
                     except RuntimeError as re:
                         await self._report_error_event(model_uid, str(re))
@@ -1546,9 +1558,17 @@ class RESTfulAPI:
         else:
             try:
                 if is_qwen:
-                    data = await model.chat(prompt, chat_history, kwargs)
+                    data = await model.chat(
+                        prompt, chat_history, kwargs, raw_params=raw_kwargs
+                    )
                 else:
-                    data = await model.chat(prompt, system_prompt, chat_history, kwargs)
+                    data = await model.chat(
+                        prompt,
+                        system_prompt,
+                        chat_history,
+                        kwargs,
+                        raw_params=raw_kwargs,
+                    )
                 return Response(content=data, media_type="application/json")
             except Exception as e:
                 logger.error(e, exc_info=True)
