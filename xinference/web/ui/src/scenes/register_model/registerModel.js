@@ -742,6 +742,41 @@ const RegisterModelComponent = ({ modelType, customData }) => {
               <Box padding="15px"></Box>
             </>
           )}
+
+          {/* launcher */}
+          {customData.launcher && (
+            <>
+              <TextField
+                label="Launcher"
+                error={formData.launcher ? false : true}
+                value={formData.launcher}
+                size="small"
+                helperText="Provide the model launcher."
+                onChange={(event) =>
+                  setFormData({ ...formData, launcher: event.target.value })
+                }
+              />
+              <Box padding="15px"></Box>
+            </>
+          )}
+
+          {/* launcher_args */}
+          {customData.launcher_args && (
+            <>
+              <TextField
+                label="Launcher Arguments"
+                value={formData.launcher_args}
+                size="small"
+                helperText="A JSON-formatted dictionary representing the arguments passed to the Launcher."
+                onChange={(event) =>
+                  setFormData({ ...formData, launcher_args: event.target.value })
+                }
+                multiline
+                rows={4}
+              />
+              <Box padding="15px"></Box>
+            </>
+          )}
         </FormControl>
 
         <Box width={'100%'}>

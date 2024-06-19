@@ -8,7 +8,7 @@ import fetcher from '../../components/fetcher'
 import HotkeyFocusTextField from '../../components/hotkeyFocusTextField'
 import ModelCard from './modelCard'
 
-const customType = ['llm', 'embedding', 'rerank', 'image', 'audio']
+const customType = ['llm', 'embedding', 'rerank', 'image', 'audio', 'flexible']
 
 const LaunchCustom = ({ gpuAvailable }) => {
   let endPoint = useContext(ApiContext).endPoint
@@ -114,6 +114,7 @@ const LaunchCustom = ({ gpuAvailable }) => {
             <Tab label="Rerank Models" value="/launch_model/custom/rerank" />
             <Tab label="Image Models" value="/launch_model/custom/image" />
             <Tab label="Audio Models" value="/launch_model/custom/audio" />
+            <Tab label="Flexible Models" value="/launch_model/custom/flexible" />
           </TabList>
         </Box>
         {customType.map((item) => (

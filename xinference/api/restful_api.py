@@ -479,6 +479,16 @@ class RESTfulAPI:
                 else None
             ),
         )
+        self._router.add_api_route(
+            "/v1/flexible/infers",
+            self.create_flexible_infer,
+            methods=["POST"],
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:read"])]
+                if self.is_authenticated()
+                else None
+            ),
+        )
 
         # for custom models
         self._router.add_api_route(
@@ -1334,6 +1344,40 @@ class RESTfulAPI:
         except RuntimeError as re:
             logger.error(re, exc_info=True)
             await self._report_error_event(model_uid, str(re))
+            raise HTTPException(status_code=400, detail=str(re))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            await self._report_error_event(model_uid, str(e))
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def create_flexible_infer(self, request: Request) -> Response:
+        payload = await request.json()
+
+        model_uid = payload.get("model")
+
+        exclude = {
+            "model",
+        }
+        kwargs = {key: value for key, value in payload.items() if key not in exclude}
+
+        try:
+            model = await (await self._get_supervisor_ref()).get_model(model_uid)
+        except ValueError as ve:
+            logger.error(str(ve), exc_info=True)
+            await self._report_error_event(model_uid, str(ve))
+            raise HTTPException(status_code=400, detail=str(ve))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            await self._report_error_event(model_uid, str(e))
+            raise HTTPException(status_code=500, detail=str(e))
+
+        try:
+            result = await model.infer(**kwargs)
+            return Response(result, media_type="application/json")
+        except RuntimeError as re:
+            logger.error(re, exc_info=True)
+            await self._report_error_event(model_uid, str(re))
+            self.handle_request_limit_error(re)
             raise HTTPException(status_code=400, detail=str(re))
         except Exception as e:
             logger.error(e, exc_info=True)

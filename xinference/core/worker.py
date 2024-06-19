@@ -540,6 +540,8 @@ class WorkerActor(xo.StatelessActor):
             return ["text_to_image"]
         elif model_type == "audio":
             return ["audio_to_text"]
+        elif model_type == "flexible":
+            return ["flexible"]
         else:
             assert model_type == "LLM"
             assert isinstance(model, LLM)
