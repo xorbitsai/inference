@@ -564,9 +564,9 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
         model_spec: "LLMSpecV1",
         quantization: str,
         model_path: str,
-        enable_tensorizer: bool = False,
         pytorch_model_config: Optional[PytorchModelConfig] = None,
         peft_model: Optional[List[LoRA]] = None,
+        **kwargs,
     ):
         super().__init__(
             model_uid,
@@ -576,7 +576,7 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
             model_path,
             pytorch_model_config,
             peft_model,
-            enable_tensorizer,
+            **kwargs,
         )
 
     def _sanitize_generate_config(

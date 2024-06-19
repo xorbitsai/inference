@@ -754,6 +754,17 @@ class RESTfulAPI:
                 detail="Invalid input. Please specify the `model_engine` field.",
             )
 
+        if enable_tensorizer and (
+            model_engine != "Transformers"
+            or model_format != "pytorch"
+            or quantization != "none"
+            or model_type != "LLM"
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail="Tensorizer can only be enabled for LLM models with Transformers engine, PyTorch format, and no quantization.",
+            )
+
         if isinstance(gpu_idx, int):
             gpu_idx = [gpu_idx]
         if gpu_idx:

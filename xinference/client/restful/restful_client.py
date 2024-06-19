@@ -830,7 +830,7 @@ class Client:
         request_limits: Optional[int] = None,
         worker_ip: Optional[str] = None,
         gpu_idx: Optional[Union[int, List[int]]] = None,
-        enable_tensorizer: bool = False,
+        enable_tensorizer: Optional[bool] = False,
         **kwargs,
     ) -> str:
         """

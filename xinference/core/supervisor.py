@@ -739,7 +739,7 @@ class SupervisorActor(xo.StatelessActor):
         peft_model_config: Optional[PeftModelConfig] = None,
         worker_ip: Optional[str] = None,
         gpu_idx: Optional[Union[int, List[int]]] = None,
-        enable_tensorizer: bool = False,
+        enable_tensorizer: Optional[bool] = False,
         **kwargs,
     ) -> str:
         target_ip_worker_ref = (

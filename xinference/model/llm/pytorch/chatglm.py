@@ -41,6 +41,7 @@ class ChatglmPytorchChatModel(PytorchChatModel):
         model_path: str,
         pytorch_model_config: Optional[PytorchModelConfig] = None,
         peft_model: Optional[List[LoRA]] = None,
+        **kwargs,
     ):
         super().__init__(
             model_uid,
@@ -50,6 +51,7 @@ class ChatglmPytorchChatModel(PytorchChatModel):
             model_path,
             pytorch_model_config=pytorch_model_config,
             peft_model=peft_model,
+            **kwargs,
         )
 
     def _load_model(self, **kwargs):
