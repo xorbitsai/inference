@@ -42,7 +42,7 @@ from ....types import (
 from ...utils import select_device
 from ..core import LLM
 from ..llm_family import LLMFamilyV1, LLMSpecV1
-from ..utils import ChatModelMixin
+from ..utils import ChatModelMixin, DEFAULT_TOOL_CALL_FAMILY
 from .utils import get_context_length, get_max_src_len
 
 logger = logging.getLogger(__name__)
@@ -608,6 +608,14 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
                 generate_config["stop"] = list(stop) + ["Observation:"]
             else:
                 generate_config["stop"] = "Observation:"
+        if tools and model_family in DEFAULT_TOOL_CALL_FAMILY:
+            return self._handle_default_tool_call(
+                tools=tools,
+                prompt=prompt,
+                system_prompt=system_prompt,
+                chat_history=chat_history,
+                generate_config=generate_config,
+            )
 
         stream = generate_config.get("stream", False)
         if stream:
@@ -622,6 +630,34 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
                     self.model_family, self.model_uid, c, tools
                 )
             return self._to_chat_completion(c)
+
+    def _handle_default_tool_call(
+        self,
+        tools,
+        prompt: str,
+        system_prompt: Optional[str],
+        chat_history: Optional[List[ChatCompletionMessage]],
+        generate_config: Optional[PytorchGenerateConfig],
+    ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
+        messages = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": prompt})
+        messages.extend(chat_history or [])
+        # TODO(codingl2k1): I am not sure if the chat template can handle all the supported tool calls.
+        inputs = self._tokenizer.apply_chat_template(
+            messages,
+            tools=tools,
+            add_generation_prompt=True,
+            return_dict=True,
+            return_tensors="pt",
+        )
+        inputs = {k: v.to(self._model.device) for k, v in inputs.items()}
+        out = self._model.generate(
+            **inputs, max_new_tokens=generate_config.get("max_tokens", 512)
+        )
+        c = self._tokenizer.decode(out[0][len(inputs["input_ids"][0]) :])
+        return self._tool_calls_completion(self.model_family, self.model_uid, c, tools)
 
     def load(self):
         super().load()

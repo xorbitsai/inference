@@ -3621,7 +3621,7 @@
           "none"
         ],
         "model_id": "mistralai/Mistral-7B-Instruct-v0.3",
-        "model_revision": "83e9aa141f2e28c82232fea5325f54edf17c43de"
+        "model_revision": "pr/35"
       },
       {
         "model_format": "gptq",
