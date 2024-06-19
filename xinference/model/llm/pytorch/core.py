@@ -639,7 +639,7 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
         chat_history: Optional[List[ChatCompletionMessage]],
         generate_config: Optional[PytorchGenerateConfig],
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
-        messages = []
+        messages: List = []
         if system_prompt:
             messages.append({"role": "system", "content": system_prompt})
         messages.append({"role": "user", "content": prompt})
@@ -653,9 +653,10 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
             return_tensors="pt",
         )
         inputs = {k: v.to(self._model.device) for k, v in inputs.items()}
-        out = self._model.generate(
-            **inputs, max_new_tokens=generate_config.get("max_tokens", 512)
-        )
+        max_new_tokens = 512
+        if generate_config is not None:
+            max_new_tokens = generate_config.get("max_tokens", max_new_tokens)
+        out = self._model.generate(**inputs, max_new_tokens=max_new_tokens)
         c = self._tokenizer.decode(out[0][len(inputs["input_ids"][0]) :])
         return self._tool_calls_completion(self.model_family, self.model_uid, c, tools)
 
