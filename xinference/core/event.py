@@ -49,9 +49,7 @@ class EventCollectorActor(xo.StatelessActor):
         if event_queue is None:
             return []
         else:
-            return [
-                dict(e, event_type=e["event_type"].name) for e in iter(event_queue)
-            ]
+            return [dict(e, event_type=e["event_type"].name) for e in iter(event_queue)]
 
     def report_event(self, model_uid: str, event: Event):
         self._model_uid_to_events[model_uid].append(event)
