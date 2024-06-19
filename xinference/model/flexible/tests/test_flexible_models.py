@@ -48,7 +48,7 @@ def test_model():
         model_uid="flexible_model",
         model_spec=FlexibleModelSpec(
             model_name="mock",
-            model_uri=None,
+            model_uri="mock",
             launcher="xinference.model.flexible.launchers.transformers",
         ),
         task="mock",
