@@ -12,7 +12,6 @@ from tensorizer import TensorDeserializer, TensorSerializer, stream_io, utils
 
 from ....constants import XINFERENCE_TENSORIZER_DIR
 from ....device_utils import get_available_device
-from ..core import LLM
 
 logger = logging.getLogger(__name__)
 
@@ -97,7 +96,7 @@ def load_pretrained_from_tensorizer(
 
 def load_model_from_tensorizer(
     path_uri: str,
-    model_class: Type[LLM],
+    model_class,
     config_class: Optional[Type[Any]] = None,
     model_prefix: Optional[str] = "model",
     device=None,
