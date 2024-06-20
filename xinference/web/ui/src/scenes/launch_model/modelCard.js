@@ -3,6 +3,7 @@ import './styles/modelCardStyle.css'
 import {
   ChatOutlined,
   Close,
+  Delete,
   EditNote,
   EditNoteOutlined,
   ExpandLess,
@@ -11,7 +12,6 @@ import {
   RocketLaunchOutlined,
   UndoOutlined,
 } from '@mui/icons-material'
-import DeleteIcon from '@mui/icons-material/Delete'
 import {
   Alert,
   Backdrop,
@@ -585,7 +585,7 @@ const ModelCard = ({
                       }}
                       disabled={customDeleted}
                     >
-                      <DeleteIcon />
+                      <Delete />
                     </IconButton>
                   </Tooltip>
                 </div>
@@ -704,7 +704,7 @@ const ModelCard = ({
                         }}
                         disabled={customDeleted}
                       >
-                        <DeleteIcon />
+                        <Delete />
                       </IconButton>
                     </Tooltip>
                   </div>
@@ -1335,7 +1335,7 @@ const ModelCard = ({
         anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
         open={openSnackbar}
         onClose={() => setOpenSnackbar(false)}
-        message="Please fill in the complete parameters before adding!!"
+        message="Please fill in the complete parameters before adding!"
         key={'top' + 'center'}
       />
 
@@ -1448,7 +1448,7 @@ const ModelCard = ({
                           )
                         }
                       >
-                        <DeleteIcon />
+                        <Delete />
                       </IconButton>
                     </TableCell>
                   </StyledTableRow>

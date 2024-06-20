@@ -567,7 +567,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
       </div>
       <div ref={scrollRef} className={isShow ? 'formBox' : 'formBox broaden'}>
         {/* Base Information */}
-        <FormControl>
+        <FormControl style={{ width: '100%' }}>
           {/* name */}
           {customData.model_name && (
             <>
