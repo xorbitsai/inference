@@ -1306,7 +1306,10 @@ const ModelCard = ({
         <div className="jsonDialog">
           <div className="jsonDialog-title">
             <div className="title-name">{modelData.model_name}</div>
-            <CopyComponent tip={'Copy Json'} text={JSON.stringify(modelData, null, 4)} />
+            <CopyComponent
+              tip={'Copy Json'}
+              text={JSON.stringify(modelData, null, 4)}
+            />
           </div>
           <div className="main-box">
             <textarea
@@ -1414,7 +1417,10 @@ const ModelCard = ({
                       </Tooltip>
                     </TableCell>
                     <TableCell>
-                      <CopyComponent tip={'Copy real_path'} text={row.real_path} />
+                      <CopyComponent
+                        tip={'Copy real_path'}
+                        text={row.real_path}
+                      />
                     </TableCell>
                     <TableCell>
                       <Tooltip title={row.path}>

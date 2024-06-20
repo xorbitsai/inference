@@ -113,12 +113,14 @@ const LaunchModelComponent = ({ modelType, gpuAvailable }) => {
           />
         </FormControl>
       </div>
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-        paddingLeft: '2rem',
-        gridGap: '2rem 0rem'
-      }}>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+          paddingLeft: '2rem',
+          gridGap: '2rem 0rem',
+        }}
+      >
         {registrationData
           .filter((registration) => filter(registration))
           .map((filteredRegistration) => (

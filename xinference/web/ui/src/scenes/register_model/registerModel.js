@@ -701,7 +701,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
               >
                 Model Languages
               </label>
-              <Box className='checkboxWrapper'>
+              <Box className="checkboxWrapper">
                 {SUPPORTED_LANGUAGES.map((lang) => (
                   <Box key={lang} sx={{ marginRight: '10px' }}>
                     <FormControlLabel
@@ -794,7 +794,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
               >
                 Model Abilities
               </label>
-              <Box className='checkboxWrapper'>
+              <Box className="checkboxWrapper">
                 {SUPPORTED_FEATURES.map((ability) => (
                   <Box key={ability} sx={{ marginRight: '10px' }}>
                     <FormControlLabel
@@ -856,7 +856,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                 }}
               >
                 <Box
-                  className='checkboxWrapper'
+                  className="checkboxWrapper"
                   style={{ paddingLeft: '10px' }}
                 >
                   {modelType === 'LLM' &&
@@ -948,7 +948,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
       {/* JSON */}
       <div className={isShow ? 'jsonBox' : 'jsonBox hide'}>
         <div className="jsonBox-header">
-          <div className='jsonBox-title'>JSON Format</div>
+          <div className="jsonBox-title">JSON Format</div>
           <CopyComponent tip={'Copy all'} text={jsonData} />
         </div>
         <textarea readOnly className="textarea" value={jsonData} />
