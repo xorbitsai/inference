@@ -55,7 +55,6 @@ def create_model_instance(
     model_size_in_billions: Optional[Union[int, str]] = None,
     quantization: Optional[str] = None,
     peft_model_config: Optional[PeftModelConfig] = None,
-    enable_tensorizer: Optional[bool] = False,
     **kwargs,
 ) -> Tuple[Any, ModelDescription]:
     from .audio.core import create_audio_model_instance
@@ -75,7 +74,6 @@ def create_model_instance(
             model_size_in_billions,
             quantization,
             peft_model_config,
-            enable_tensorizer,
             **kwargs,
         )
     elif model_type == "embedding":

@@ -87,7 +87,6 @@ class PytorchModel(LLM):
         model_path: str,
         pytorch_model_config: Optional[PytorchModelConfig] = None,
         peft_model: Optional[List[LoRA]] = None,
-        enable_tensorizer: bool = False,
     ):
         super().__init__(model_uid, model_family, model_spec, quantization, model_path)
         self._use_fast_tokenizer = True
@@ -95,7 +94,6 @@ class PytorchModel(LLM):
             pytorch_model_config
         )
         self._peft_model = peft_model
-        self.enable_tensorizer = enable_tensorizer
 
     def _sanitize_model_config(
         self, pytorch_model_config: Optional[PytorchModelConfig]
@@ -110,6 +108,7 @@ class PytorchModel(LLM):
         pytorch_model_config.setdefault("device", "auto")
         pytorch_model_config.setdefault("trust_remote_code", True)
         pytorch_model_config.setdefault("max_num_seqs", 16)
+        pytorch_model_config.setdefault("enable_tensorizer", False)
         return pytorch_model_config
 
     def _sanitize_generate_config(
@@ -128,15 +127,40 @@ class PytorchModel(LLM):
 
     def _load_model(self, **kwargs):
         try:
-            from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
+            from transformers import AutoModelForCausalLM, AutoTokenizer
         except ImportError:
             error_message = "Failed to import module 'transformers'"
             installation_guide = [
                 "Please make sure 'transformers' is installed. ",
                 "You can install it by `pip install transformers`\n",
             ]
-
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
+
+        # load model from tensorizer
+        enable_tensorizer = self._pytorch_model_config.get("enable_tensorizer", None)
+        from .tensorizer_utils import check_tensorizer_integrity, load_from_tensorizer
+
+        if enable_tensorizer:
+            # from .tensorizer_utils import check_tensorizer_integrity, load_from_tensorizer
+            component_types = [("tokenizer", AutoTokenizer)]
+            model_prefix = "model"
+            if not check_tensorizer_integrity(
+                self.model_path,
+                model_prefix,
+                [component[0] for component in component_types],
+            ):
+                logger.info(
+                    "Tensorizer files are not complete, load model from scratch."
+                )
+            else:
+                model, tokenizer = load_from_tensorizer(
+                    self.model_path,
+                    AutoModelForCausalLM,
+                    None,
+                    model_prefix,
+                    component_types,
+                )
+                return model, tokenizer
 
         tokenizer = AutoTokenizer.from_pretrained(
             self.model_path,
@@ -150,17 +174,19 @@ class PytorchModel(LLM):
             **kwargs,
         )
 
-        if self.enable_tensorizer:
-            from .tensorizer_utils import (
-                get_tensorizer_dir,
-                tensorizer_serialize_model,
-                tensorizer_serialize_pretrained,
-            )
+        if enable_tensorizer:
+            from .tensorizer_utils import save_to_tensorizer
 
-            tensorizer_dir = get_tensorizer_dir(self.model_path)
-            model_config = AutoConfig.from_pretrained(self.model_path)
-            tensorizer_serialize_model(model, model_config, tensorizer_dir)
-            tensorizer_serialize_pretrained(tokenizer, tensorizer_dir, "tokenizer")
+            save_to_tensorizer(
+                self.model_path,
+                model,
+                None,
+                "model",
+                False,
+                [
+                    ("tokenizer", tokenizer),
+                ],
+            )
 
         return model, tokenizer
 
@@ -277,17 +303,8 @@ class PytorchModel(LLM):
         if num_gpus > 0 and is_hf_accelerate_supported(self._device):
             kwargs.update({"device_map": "auto"})
             is_device_map_auto = True
-        if self.enable_tensorizer:
-            from .tensorizer_utils import get_tensorizer_dir, load_from_tensorizer
-
-            tensorizer_dir = get_tensorizer_dir(self.model_path)
-            if os.path.exists(tensorizer_dir):
-                self._model, self._tokenizer = load_from_tensorizer(tensorizer_dir)
-                if self._model is not None and self._tokenizer is not None:
-                    return
 
         self._model, self._tokenizer = self._load_model(**kwargs)
-        self._apply_lora()
 
         if not is_device_map_auto:
             self._model.to(self._device)
@@ -566,7 +583,6 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
         model_path: str,
         pytorch_model_config: Optional[PytorchModelConfig] = None,
         peft_model: Optional[List[LoRA]] = None,
-        **kwargs,
     ):
         super().__init__(
             model_uid,
@@ -576,7 +592,6 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
             model_path,
             pytorch_model_config,
             peft_model,
-            **kwargs,
         )
 
     def _sanitize_generate_config(

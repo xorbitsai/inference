@@ -84,6 +84,33 @@ class Glm4VModel(PytorchChatModel):
                         f"Only 8-bit quantization is supported if it is not linux system or cuda device"
                     )
 
+        enable_tensorizer = self._pytorch_model_config.get("enable_tensorizer", None)
+        if enable_tensorizer:
+            from .tensorizer_utils import (
+                check_tensorizer_integrity,
+                load_from_tensorizer,
+            )
+
+            component_types = [("tokenizer", AutoTokenizer)]
+            model_prefix = "model"
+            if not check_tensorizer_integrity(
+                self.model_path,
+                model_prefix,
+                [component[0] for component in component_types],
+            ):
+                logger.info(
+                    "Tensorizer files are not complete, load model from scratch."
+                )
+            else:
+                self._model, self._tokenizer = load_from_tensorizer(
+                    self.model_path,
+                    model_prefix,
+                    AutoModelForCausalLM,
+                    None,
+                    component_types,
+                )
+                return
+
         model = AutoModelForCausalLM.from_pretrained(
             self.model_path,
             low_cpu_mem_usage=True,
@@ -97,6 +124,20 @@ class Glm4VModel(PytorchChatModel):
             self.model_path, trust_remote_code=True
         )
         self._tokenizer = tokenizer
+
+        if enable_tensorizer:
+            from .tensorizer_utils import save_to_tensorizer
+
+            save_to_tensorizer(
+                self.model_path,
+                self._model,
+                None,
+                "model",
+                False,
+                [
+                    ("tokenizer", self._tokenizer),
+                ],
+            )
 
     def _message_content_to_chat(self, content):
         def _load_image(_url):

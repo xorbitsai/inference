@@ -6,12 +6,24 @@ import tempfile
 import zipfile
 from functools import partial
 from pathlib import Path
-from typing import Any, Optional, Type
+from typing import Any, List, Optional
 
 from ....constants import XINFERENCE_TENSORIZER_DIR
 from ....device_utils import get_available_device
 
 logger = logging.getLogger(__name__)
+
+__all__ = [
+    "file_is_non_empty",
+    "get_tensorizer_dir",
+    "check_tensorizer_integrity",
+    "load_from_tensorizer",
+    "load_pretrained_from_tensorizer",
+    "load_model_from_tensorizer",
+    "save_to_tensorizer",
+    "tensorizer_serialize_model",
+    "tensorizer_serialize_pretrained",
+]
 
 
 def file_is_non_empty(
@@ -28,42 +40,80 @@ def get_tensorizer_dir(model_path: str) -> str:
     return f"{XINFERENCE_TENSORIZER_DIR}/{model_dir_name}"
 
 
-def load_from_tensorizer(output_dir: str):
-    logger.debug(f"Loading from tensorizer: {output_dir}")
+def check_tensorizer_integrity(
+    model_path: str,
+    model_prefix: Optional[str] = "model",
+    components: Optional[List[str]] = None,
+) -> bool:
+    tensorizer_dir = get_tensorizer_dir(model_path)
+    dir = tensorizer_dir.rstrip("/")
+    config_uri: str = f"{dir}/{model_prefix}-config.json"
+    tensors_uri: str = f"{dir}/{model_prefix}.tensors"
+    # iterate over components and get their paths
+    paths = [config_uri, tensors_uri]
+    if components is not None:
+        for component in components:
+            component_uri: str = f"{tensorizer_dir.rstrip('/')}/{component}.zip"
+            paths.append(component_uri)
+    return all(file_is_non_empty(path) for path in paths)
 
+
+def load_from_tensorizer(
+    model_path: str,
+    model_class,
+    config_class,
+    model_prefix: Optional[str] = "model",
+    components: Optional[List[tuple[str, Any]]] = None,
+):
     try:
-        from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
+        from transformers import AutoConfig
     except ImportError:
         error_message = "Failed to import module 'transformers'"
         installation_guide = [
             "Please make sure 'transformers' is installed. ",
             "You can install it by `pip install transformers`\n",
         ]
-
         raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
-    output_prefix = output_dir.rstrip("/")
+    tensorizer_dir = get_tensorizer_dir(model_path)
+    logger.debug(f"Loading from tensorizer: {tensorizer_dir}")
+
+    if model_class is None:
+        raise ValueError("model_class must be specified")
+
+    if config_class is None:
+        config_class = AutoConfig
+
     device = get_available_device()
     tensorizer_model = (
         load_model_from_tensorizer(
-            output_prefix,
-            AutoModelForCausalLM,
-            AutoConfig,
-            None,
+            tensorizer_dir,
+            model_class,
+            config_class,
+            model_prefix,
             device,
         )
         .to(device)
         .eval()
     )
-    deserialized_tokenizer = load_pretrained_from_tensorizer(
-        AutoTokenizer, output_prefix, "tokenizer"
-    )
-    return tensorizer_model, deserialized_tokenizer
+
+    # Initialize an empty list for deserialized components
+    tensorizer_components = []
+
+    # Iterate over components and load them, appending each to the list
+    if components is not None:
+        for component, component_class in components:
+            deserialized_component = load_pretrained_from_tensorizer(
+                component_class, tensorizer_dir, component
+            )
+            tensorizer_components.append(deserialized_component)
+
+    return tensorizer_model, *tensorizer_components
 
 
 def load_pretrained_from_tensorizer(
-    component_class: Type[Any],
-    path_uri: str,
+    component_class: Any,
+    tensorizer_dir: str,
     prefix: str,
 ):
     try:
@@ -77,8 +127,8 @@ def load_pretrained_from_tensorizer(
 
     _read_stream = partial(stream_io.open_stream, mode="rb")
 
-    logger.debug(f"Loading pretrained from tensorizer: {path_uri}")
-    load_path: str = f"{path_uri.rstrip('/')}/{prefix}.zip"
+    logger.debug(f"Loading pretrained from tensorizer: {tensorizer_dir}")
+    load_path: str = f"{tensorizer_dir.rstrip('/')}/{prefix}.zip"
     logger.info(f"Loading {load_path}")
     with io.BytesIO() as downloaded:
         # Download to a BytesIO object first, because ZipFile doesn't play nice
@@ -96,14 +146,14 @@ def load_pretrained_from_tensorizer(
 
 
 def load_model_from_tensorizer(
-    path_uri: str,
+    tensorizer_dir: str,
     model_class,
-    config_class: Optional[Type[Any]] = None,
+    config_class,
     model_prefix: Optional[str] = "model",
     device=None,
     dtype=None,
 ):
-    logger.debug(f"Loading model from tensorizer: {path_uri}")
+    logger.debug(f"Loading model from tensorizer: {tensorizer_dir}")
 
     # assert device is not None
     if device is None:
@@ -143,7 +193,7 @@ def load_model_from_tensorizer(
     if model_prefix is None:
         model_prefix = "model"
 
-    dir: str = path_uri.rstrip("/")
+    dir: str = tensorizer_dir.rstrip("/")
     config_uri: str = f"{dir}/{model_prefix}-config.json"
     tensors_uri: str = f"{dir}/{model_prefix}.tensors"
 
@@ -193,12 +243,52 @@ def load_model_from_tensorizer(
     return model
 
 
-def tensorizer_serialize_model(
+def save_to_tensorizer(
+    model_path: str,
     model,
-    model_config: Any,
-    tensor_directory: str,
-    model_prefix: str = "model",
-    force: bool = False,
+    model_config: Optional[Any] = None,
+    model_prefix: Optional[str] = "model",
+    force: Optional[bool] = False,
+    components: Optional[List[tuple[str, Any]]] = None,
+):
+    if model_config is None:
+        try:
+            from transformers import AutoConfig
+        except ImportError:
+            error_message = "Failed to import module 'transformers'"
+            installation_guide = [
+                "Please make sure 'transformers' is installed. ",
+                "You can install it by `pip install transformers`\n",
+            ]
+            raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
+
+        model_config = AutoConfig.from_pretrained(model_path)
+
+    tensorizer_serialize_model(
+        model_path,
+        model,
+        model_config,
+        model_prefix,
+        force,
+    )
+
+    keys = []
+    if components is not None:
+        keys = [component[0] for component in components]
+        for component_prefix, component in components:
+            tensorizer_serialize_pretrained(model_path, component, component_prefix)
+
+    logger.info(
+        f"Save to tensorizer done: model_path {model_path}, {model_prefix}, {keys}"
+    )
+
+
+def tensorizer_serialize_model(
+    model_path: str,
+    model,
+    model_config: Optional[Any] = None,
+    model_prefix: Optional[str] = "model",
+    force: Optional[bool] = False,
 ):
     try:
         from tensorizer import TensorSerializer, stream_io
@@ -209,17 +299,31 @@ def tensorizer_serialize_model(
         ]
         raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
-    dir_prefix: str = f"{tensor_directory}/{model_prefix}"
-    config_path: str = f"{dir_prefix}-config.json"
-    model_path: str = f"{dir_prefix}.tensors"
-    logger.info(f"Tensorizer serialize model: {model_path}")
+    try:
+        from transformers import PretrainedConfig
+    except ImportError:
+        error_message = "Failed to import module 'transformers'"
+        installation_guide = [
+            "Please make sure 'transformers' is installed. ",
+            "You can install it by `pip install transformers`\n",
+        ]
+        raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
-    paths = (config_path, model_path)
+    if model_config is None:
+        model_config = PretrainedConfig.from_pretrained(model_path)
+
+    tensorizer_dir = get_tensorizer_dir(model_path)
+    dir_prefix: str = f"{tensorizer_dir}/{model_prefix}"
+    config_path: str = f"{dir_prefix}-config.json"
+    tensor_path: str = f"{dir_prefix}.tensors"
+    logger.info(f"Tensorizer serialize model: {tensor_path}")
+
+    paths = (config_path, tensor_path)
 
     use_cache = not force and all(file_is_non_empty(path) for path in paths)
     if use_cache:
-        logger.info(f"Cache {model_path} exists, skip tensorizer serialize model")
-        return model_path
+        logger.info(f"Cache {tensor_path} exists, skip tensorizer serialize model")
+        return tensor_path
 
     _write_stream = partial(stream_io.open_stream, mode="wb+")
 
@@ -232,18 +336,18 @@ def tensorizer_serialize_model(
                 else model_config
             )
             f.write(json.dumps(config_dict, indent=2).encode("utf-8"))
-        logger.info(f"Writing tensors to {model_path}")
-        with _write_stream(model_path) as f:
+        logger.info(f"Writing tensors to {tensor_path}")
+        with _write_stream(tensor_path) as f:
             serializer = TensorSerializer(f)
             serializer.write_module(model, include_non_persistent_buffers=False)
             serializer.close()
 
-    logger.info(f"Tensorizer serialize model done: {model_path}")
-    return model_path
+    logger.info(f"Tensorizer serialize model done: {tensor_path}")
+    return tensor_path
 
 
 def tensorizer_serialize_pretrained(
-    component, zip_directory: str, prefix: str = "pretrained"
+    model_path: str, component, prefix: str = "pretrained"
 ):
     try:
         from tensorizer import stream_io
@@ -254,7 +358,8 @@ def tensorizer_serialize_pretrained(
         ]
         raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
-    save_path: str = f"{zip_directory.rstrip('/')}/{prefix}.zip"
+    tensorizer_dir = get_tensorizer_dir(model_path)
+    save_path: str = f"{tensorizer_dir.rstrip('/')}/{prefix}.zip"
     logger.info(f"Tensorizer serialize pretrained: {save_path}")
 
     if os.path.exists(save_path):

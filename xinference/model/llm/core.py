@@ -193,7 +193,6 @@ def create_llm_model_instance(
     model_size_in_billions: Optional[Union[int, str]] = None,
     quantization: Optional[str] = None,
     peft_model_config: Optional[PeftModelConfig] = None,
-    enable_tensorizer: Optional[bool] = False,
     **kwargs,
 ) -> Tuple[LLM, LLMDescription]:
     from .llm_family import cache, check_engine_by_spec_parameters, match_llm
@@ -223,9 +222,6 @@ def create_llm_model_instance(
 
     save_path = cache(llm_family, llm_spec, quantization)
 
-    if "enable_tensorizer" in inspect.signature(llm_cls.__init__).parameters:
-        kwargs["enable_tensorizer"] = enable_tensorizer
-
     peft_model = peft_model_config.peft_model if peft_model_config else None
     if peft_model is not None:
         if "peft_model" in inspect.signature(llm_cls.__init__).parameters:
@@ -235,8 +231,8 @@ def create_llm_model_instance(
                 llm_spec,
                 quantization,
                 save_path,
+                kwargs,
                 peft_model,
-                **kwargs,
             )
         else:
             logger.warning(
@@ -244,11 +240,11 @@ def create_llm_model_instance(
                 f"Load this without lora."
             )
             model = llm_cls(
-                model_uid, llm_family, llm_spec, quantization, save_path, **kwargs
+                model_uid, llm_family, llm_spec, quantization, save_path, kwargs
             )
     else:
         model = llm_cls(
-            model_uid, llm_family, llm_spec, quantization, save_path, **kwargs
+            model_uid, llm_family, llm_spec, quantization, save_path, kwargs
         )
     return model, LLMDescription(
         subpool_addr, devices, llm_family, llm_spec, quantization

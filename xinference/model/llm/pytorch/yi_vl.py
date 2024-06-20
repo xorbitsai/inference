@@ -18,7 +18,7 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
 from threading import Thread
-from typing import Dict, Iterator, List, Optional, Union
+from typing import Any, Dict, Iterator, List, Optional, Union
 
 import requests
 import torch
@@ -65,6 +65,48 @@ class YiVLChatModel(PytorchChatModel):
         self._device = "auto" if self._device == "cuda" else self._device
 
         key_info["model_path"] = self.model_path
+
+        enable_tensorizer = self._pytorch_model_config.get("enable_tensorizer", None)
+        if enable_tensorizer:
+            from transformers import AutoTokenizer
+
+            from xinference.thirdparty.llava.model.llava_llama import (
+                LlavaLlamaForCausalLM,
+            )
+
+            from .tensorizer_utils import (
+                check_tensorizer_integrity,
+                load_from_tensorizer,
+            )
+
+            component_types = [
+                ("tokenizer", AutoTokenizer),
+                ("image_processor", Any),
+            ]
+            model_prefix = "model"
+            if not check_tensorizer_integrity(
+                self.model_path,
+                model_prefix,
+                [component[0] for component in component_types],
+            ):
+                logger.info(
+                    "Tensorizer files are not complete, load model from scratch."
+                )
+            else:
+                (
+                    self._model,
+                    self._tokenizer,
+                    self._image_processor,
+                ) = load_from_tensorizer(
+                    self.model_path,
+                    model_prefix,
+                    LlavaLlamaForCausalLM,
+                    None,
+                    component_types,
+                )
+                self._apply_lora()
+                return
+
         # Default device_map is auto, it can loads model to multiple cards.
         # If the device_map is set to cuda, then only 1 card can be used.
         (
@@ -74,6 +116,21 @@ class YiVLChatModel(PytorchChatModel):
             _,
         ) = load_pretrained_model(self.model_path, device_map=self._device)
         self._apply_lora()
+
+        if enable_tensorizer:
+            from .tensorizer_utils import save_to_tensorizer
+
+            save_to_tensorizer(
+                self.model_path,
+                self._model,
+                None,
+                "model",
+                False,
+                [
+                    ("tokenizer", self._tokenizer),
+                    ("image_processor", self._image_processor),
+                ],
+            )
 
     @staticmethod
     def _message_content_to_yi(content) -> Union[str, tuple]:

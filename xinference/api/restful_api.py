@@ -720,7 +720,6 @@ class RESTfulAPI:
         peft_model_config = payload.get("peft_model_config", None)
         worker_ip = payload.get("worker_ip", None)
         gpu_idx = payload.get("gpu_idx", None)
-        enable_tensorizer = payload.get("enable_tensorizer", None)
 
         exclude_keys = {
             "model_uid",
@@ -736,7 +735,6 @@ class RESTfulAPI:
             "peft_model_config",
             "worker_ip",
             "gpu_idx",
-            "enable_tensorizer",
         }
 
         kwargs = {
@@ -754,6 +752,8 @@ class RESTfulAPI:
                 detail="Invalid input. Please specify the `model_engine` field.",
             )
 
+        # get enable_tensorizer from kwargs
+        enable_tensorizer = kwargs.get("enable_tensorizer", None)
         if enable_tensorizer and (
             model_engine != "Transformers"
             or model_format != "pytorch"
@@ -779,6 +779,7 @@ class RESTfulAPI:
         else:
             peft_model_config = None
 
+        logger.debug(f"trace kwargs: {kwargs}")
         try:
             model_uid = await (await self._get_supervisor_ref()).launch_builtin_model(
                 model_uid=model_uid,
@@ -795,7 +796,6 @@ class RESTfulAPI:
                 peft_model_config=peft_model_config,
                 worker_ip=worker_ip,
                 gpu_idx=gpu_idx,
-                enable_tensorizer=enable_tensorizer,
                 **kwargs,
             )
 

@@ -576,7 +576,6 @@ class WorkerActor(xo.StatelessActor):
         peft_model_config: Optional[PeftModelConfig] = None,
         request_limits: Optional[int] = None,
         gpu_idx: Optional[Union[int, List[int]]] = None,
-        enable_tensorizer: Optional[bool] = False,
         **kwargs,
     ):
         # !!! Note that The following code must be placed at the very beginning of this function,
@@ -651,7 +650,6 @@ class WorkerActor(xo.StatelessActor):
                 model_size_in_billions,
                 quantization,
                 peft_model_config,
-                enable_tensorizer,
                 **kwargs,
             )
             await self.update_cache_status(model_name, model_description)

@@ -299,6 +299,7 @@ class PytorchModelConfig(TypedDict, total=False):
     gptq_act_order: bool
     trust_remote_code: bool
     max_num_seqs: int
+    enable_tensorizer: Optional[bool]
 
 
 def get_pydantic_model_from_method(
