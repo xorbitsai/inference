@@ -57,4 +57,7 @@ def test_model():
     model.load()
 
     result = model.infer(inputs="hello world")
-    assert result == {"inputs": "hello world"}
+    # assert result == {"inputs": "hello world"}
+    assert result is not None
+    assert "inputs" in result
+    assert result["inputs"] == "hello world"

@@ -116,6 +116,7 @@ const RegisterModel = () => {
             modelType="flexible"
             customData={{
               model_name: 'flexible-model',
+              model_description: 'This is a model description.',
               model_uri: '/path/to/model',
               launcher: 'xinference.model.flexible.launchers.transformers',
               launcher_args: '{}',

@@ -764,7 +764,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
           {customData.launcher_args && (
             <>
               <TextField
-                label="Launcher Arguments"
+                label="Launcher Arguments (Optional)"
                 value={formData.launcher_args}
                 size="small"
                 helperText="A JSON-formatted dictionary representing the arguments passed to the Launcher."

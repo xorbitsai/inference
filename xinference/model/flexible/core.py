@@ -30,6 +30,7 @@ FLEXIBLE_MODEL_LOCK = Lock()
 
 class FlexibleModelSpec(CacheableModelSpec):
     model_id: Optional[str]  # type: ignore
+    model_description: Optional[str]
     model_uri: Optional[str]
     launcher: str
     launcher_args: Optional[str]

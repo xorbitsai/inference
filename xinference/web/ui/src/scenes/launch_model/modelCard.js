@@ -268,7 +268,11 @@ const ModelCard = ({
       model_type: modelType,
     }
 
-    if (modelType === 'embedding' || modelType === 'rerank') {
+    if (
+      modelType === 'embedding' ||
+      modelType === 'rerank' ||
+      modelType === 'flexible'
+    ) {
       modelDataWithID_other = {
         ...modelDataWithID_other,
         replica: replica,
@@ -725,6 +729,11 @@ const ModelCard = ({
                   }
                 })()}
               </Stack>
+              {modelData.model_description && (
+                <p className="p" title={modelData.model_description}>
+                  {modelData.model_description}
+                </p>
+              )}
             </div>
             {modelData.dimensions && (
               <div className="iconRow">
@@ -1116,7 +1125,9 @@ const ModelCard = ({
                 label="(Optional) Model UID, model name by default"
                 onChange={(e) => setModelUID(e.target.value)}
               />
-              {(modelType === 'embedding' || modelType === 'rerank') && (
+              {(modelType === 'embedding' ||
+                modelType === 'rerank' ||
+                modelType === 'flexible') && (
                 <>
                   <TextField
                     style={{ marginTop: '25px' }}
