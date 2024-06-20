@@ -26,27 +26,26 @@ const LaunchModelComponent = ({ modelType, gpuAvailable }) => {
   }
 
   const filter = (registration) => {
-    if (!registration || typeof searchTerm !== 'string') return false
-    const modelName = registration.model_name
-      ? registration.model_name.toLowerCase()
-      : ''
-    if (!modelName.includes(searchTerm.toLowerCase())) {
-      return false
-    }
-    if (completeDeleteArr.includes(registration.model_name)) {
-      registration.cache_status = Array.isArray(registration.cache_status)
-        ? [false]
-        : false
-    }
-    if (status && status !== 'all') {
-      if (
-        registration.cache_status &&
-        !completeDeleteArr.includes(registration.model_name)
-      ) {
-        return true
-      } else {
+    if (searchTerm !== '') {
+      if (!registration || typeof searchTerm !== 'string') return false
+      const modelName = registration.model_name
+        ? registration.model_name.toLowerCase()
+        : ''
+      if (!modelName.includes(searchTerm.toLowerCase())) {
         return false
       }
+      if (completeDeleteArr.includes(registration.model_name)) {
+        registration.cache_status = Array.isArray(registration.cache_status)
+          ? [false]
+          : false
+      }
+    }
+
+    if (status !== 'all') {
+      return (
+        registration.cache_status &&
+        !completeDeleteArr.includes(registration.model_name)
+      )
     }
     return true
   }

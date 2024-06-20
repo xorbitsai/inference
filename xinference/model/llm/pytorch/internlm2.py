@@ -16,6 +16,7 @@ import time
 import uuid
 from typing import Any, Dict, Iterator, List, Optional, Union
 
+from ....core.scheduler import InferenceRequest
 from ....types import (
     ChatCompletion,
     ChatCompletionChoice,
@@ -133,6 +134,20 @@ class Internlm2PytorchChatModel(PytorchChatModel):
         if "chat" not in llm_family.model_ability:
             return False
         return True
+
+    def prepare_sanitize_generate_config(self, req: InferenceRequest):
+        """
+        Overwrite this func for this special model.
+        Cannot use the default configuration, which works poorly on this model.
+        """
+        raw_config = req.inference_kwargs.get("raw_params", {})
+        temperature = raw_config.get("temperature", None)
+        if temperature is None:
+            raw_config["temperature"] = 0.8
+        top_p = raw_config.get("top_p", None)
+        if top_p is None:
+            raw_config["top_p"] = 0.8
+        return raw_config
 
     def chat(
         self,

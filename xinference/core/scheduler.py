@@ -18,7 +18,7 @@ import logging
 import uuid
 from collections import deque
 from enum import Enum
-from typing import List, Optional, Set
+from typing import List, Optional, Set, Tuple
 
 import xoscar as xo
 
@@ -53,7 +53,8 @@ class InferenceRequest:
         self._kv_cache = None
         # use passed args from upstream interface
         self._inference_args = args
-        # use passed kwargs from upstream interface, basically not used for now
+        # use passed kwargs from upstream interface, currently for getting raw generate config from upstream,
+        # which is useful for some special models
         self._inference_kwargs = kwargs
         # should this request be stopped
         self._stopped = False
@@ -66,6 +67,8 @@ class InferenceRequest:
         self._sanitized_generate_config = None
         # Chunk id for results. In stream mode, all the chunk ids should be same.
         self._stream_chunk_id = str(uuid.uuid4())
+        # For calculate attention mask if needed
+        self.padding_len = 0
         # Use in stream mode
         self.last_output_length = 0
         # inference results,
@@ -173,6 +176,10 @@ class InferenceRequest:
         self._sanitized_generate_config = value
 
     @property
+    def inference_kwargs(self):
+        return self._inference_kwargs
+
+    @property
     def stopped(self):
         return self._stopped
 
@@ -231,7 +238,9 @@ class InferenceRequest:
         )
 
     @functools.lru_cache
-    def get_generate_configs(self, eos_token_id: int):
+    def get_generate_configs(
+        self, eos_token_id: int, builtin_stop_token_ids: Optional[Tuple[int]] = None
+    ):
         from ..types import max_tokens_field
 
         max_new_tokens = int(
@@ -245,6 +254,7 @@ class InferenceRequest:
         )
         stop_token_ids = set(stop_token_ids)
         stop_token_ids.add(eos_token_id)
+        stop_token_ids.update(builtin_stop_token_ids or [])
         temperature = float(self.sanitized_generate_config.get("temperature", 1.0))
         repetition_penalty = float(
             self.sanitized_generate_config.get("repetition_penalty", 1.0)

@@ -2290,7 +2290,8 @@
       "zh"
     ],
     "model_ability": [
-      "chat"
+      "chat",
+      "tools"
     ],
     "model_description": "Qwen1.5-MoE is a transformer-based MoE decoder-only language model pretrained on a large amount of data.",
     "model_specs": [
@@ -2595,7 +2596,8 @@
       "zh"
     ],
     "model_ability": [
-      "chat"
+      "chat",
+      "tools"
     ],
     "model_description": "Qwen2 is the new series of Qwen large language models. ",
     "model_specs": [
@@ -5675,9 +5677,11 @@
       ],
       "intra_message_sep": "<|im_end|>",
       "stop_token_ids": [
+        2,
         92542
       ],
       "stop": [
+        "</s>",
         "<|im_end|>"
       ]
     }
