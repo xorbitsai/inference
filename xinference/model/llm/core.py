@@ -223,7 +223,8 @@ def create_llm_model_instance(
 
     save_path = cache(llm_family, llm_spec, quantization)
 
-    kwargs["enable_tensorizer"] = enable_tensorizer
+    if "enable_tensorizer" in inspect.signature(llm_cls.__init__).parameters:
+        kwargs["enable_tensorizer"] = enable_tensorizer
 
     peft_model = peft_model_config.peft_model if peft_model_config else None
     if peft_model is not None:

@@ -720,7 +720,7 @@ class RESTfulAPI:
         peft_model_config = payload.get("peft_model_config", None)
         worker_ip = payload.get("worker_ip", None)
         gpu_idx = payload.get("gpu_idx", None)
-        enable_tensorizer = payload.get("enable_tensorizer", False)
+        enable_tensorizer = payload.get("enable_tensorizer", None)
 
         exclude_keys = {
             "model_uid",

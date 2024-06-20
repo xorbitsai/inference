@@ -763,7 +763,7 @@ class SupervisorActor(xo.StatelessActor):
         model_size = str(model_size_in_billions) if model_size_in_billions else ""
         logger.debug(
             f"Enter launch_builtin_model, model_uid: {model_uid}, model_name: {model_name}, model_size: {model_size}, "
-            f"model_format: {model_format}, quantization: {quantization}, replica: {replica}"
+            f"model_format: {model_format}, quantization: {quantization}, replica: {replica}, "
             f"enable_tensorizer: {enable_tensorizer}"
         )
 
