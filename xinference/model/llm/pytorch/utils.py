@@ -509,10 +509,13 @@ def _merge_kv_cache(
     return ret_kv.to_legacy_cache()
 
 
-def _get_attention_mask_and_position_ids(kv, reqs: List[InferenceRequest]):
+def _get_attention_mask_and_position_ids(
+    kv, reqs: List[InferenceRequest], bs_idx: int, seq_len_idx: int
+):
+    # TODO
     batch_size, seq_length, device = (
-        kv[0][0].shape[0],
-        kv[0][0].shape[2],
+        kv[0][0].shape[bs_idx],
+        kv[0][0].shape[seq_len_idx],
         kv[0][0].device,
     )
     seq_length = seq_length + 1
@@ -539,6 +542,7 @@ def _batch_inference_one_step_internal(
     stop_tokens: Tuple[int],
     decode_round: int = 16,
     require_attention_mask: bool = False,
+    bs_seq_len_indexes: Tuple[int, int] = (0, 2),
     bos_flag: str = "<bos_stream>",
     eos_flag: str = "<eos_stream>",
 ):
@@ -564,7 +568,12 @@ def _batch_inference_one_step_internal(
             decode_reqs.append(r)
 
     if prompts:  # prefill first
-        input_ids: List[List[int]] = tokenizer(prompts, padding=False).input_ids
+        already_tokenized: bool = isinstance(prompts[0], list)
+        input_ids: List[List[int]] = (
+            prompts
+            if already_tokenized
+            else tokenizer(prompts, padding=False).input_ids
+        )
         prompt_tokens = []
         for i, input_id in enumerate(input_ids):
             req = valid_req_list[i]
@@ -616,7 +625,7 @@ def _batch_inference_one_step_internal(
         inf_kws = {}
         if require_attention_mask:
             attention_mask, position_ids = _get_attention_mask_and_position_ids(
-                past_key_values, valid_req_list
+                past_key_values, valid_req_list, *bs_seq_len_indexes
             )
             inf_kws["position_ids"] = position_ids
             inf_kws["attention_mask"] = attention_mask
@@ -763,6 +772,7 @@ def batch_inference_one_step(
     context_len: int,
     stop_token_ids: Tuple[int],
     require_attention_mask: bool = False,
+    bs_seq_len_indexes: Tuple[int, int] = (0, 2),
 ):
     from ....core.model import OutOfMemoryError
 
@@ -776,6 +786,7 @@ def batch_inference_one_step(
             context_len,
             stop_token_ids,
             require_attention_mask=require_attention_mask,
+            bs_seq_len_indexes=bs_seq_len_indexes,
         )
     except OutOfMemoryError:
         logger.exception(

@@ -347,6 +347,10 @@ class PytorchModel(LLM):
     def require_attention_mask():
         return False
 
+    @staticmethod
+    def get_batch_size_and_seq_len_indexes_from_kv() -> Tuple[int, int]:
+        return 0, 2
+
     @lru_cache
     def get_context_len(self):
         return get_context_length(self._model.config)
@@ -439,6 +443,7 @@ class PytorchModel(LLM):
             context_len,
             self._get_builtin_stop_token_ids(),
             require_attention_mask=self.require_attention_mask(),
+            bs_seq_len_indexes=self.get_batch_size_and_seq_len_indexes_from_kv(),
         )
         self.handle_batch_inference_results(req_list)
 
@@ -636,8 +641,8 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
 
     def handle_batch_inference_results(self, req_list: List[InferenceRequest]):
         for req in req_list:
-            if req.stream and req.error_msg is None:
-                if req.completion:
+            if req.error_msg is None and req.completion:
+                if req.stream:
                     results = []
                     for i, c in enumerate(req.completion):
                         if c == "<bos_stream>":
@@ -656,3 +661,5 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
                             self._get_final_chat_completion_chunk(req.completion[-1])
                         )
                     req.completion = results
+                else:
+                    req.completion[0] = self._to_chat_completion(req.completion[0])

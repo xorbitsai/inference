@@ -266,12 +266,10 @@ class ModelActor(xo.StatelessActor):
     def allow_batching(self) -> bool:
         from ..model.llm.pytorch.core import PytorchModel
 
-        model_ability = self._model_description.get("model_ability", [])
+        # model_ability = self._model_description.get("model_ability", [])
 
-        return (
-            XINFERENCE_TRANSFORMERS_ENABLE_BATCHING
-            and isinstance(self._model, PytorchModel)
-            and "vision" not in model_ability
+        return XINFERENCE_TRANSFORMERS_ENABLE_BATCHING and isinstance(
+            self._model, PytorchModel
         )
 
     async def load(self):

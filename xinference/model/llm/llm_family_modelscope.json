@@ -3402,6 +3402,16 @@
       "roles": [
         "user",
         "assistant"
+      ],
+      "stop_token_ids": [
+        151643,
+        151644,
+        151645
+      ],
+      "stop": [
+        "<|endoftext|>",
+        "<|im_start|>",
+        "<|im_end|>"
       ]
     }
   },
