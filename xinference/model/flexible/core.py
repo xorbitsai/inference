@@ -146,16 +146,44 @@ def unregister_flexible_model(model_name: str, raise_error: bool = True):
 
 
 class FlexibleModel:
-    def __init__(self, model_uid: str, model_path: str, device: Optional[str] = None):
+    def __init__(
+        self,
+        model_uid: str,
+        model_path: str,
+        device: Optional[str] = None,
+        config: Optional[Dict] = None,
+    ):
         self._model_uid = model_uid
         self._model_path = model_path
         self._device = device
+        self._config = config
 
     def load(self):
-        ...
+        """
+        Load the model.
+        """
 
     def infer(self, **kwargs):
+        """
+        Call model to inference.
+        """
         raise NotImplementedError("infer method not implemented.")
+
+    @property
+    def model_uid(self):
+        return self._model_uid
+
+    @property
+    def model_path(self):
+        return self.model_path
+
+    @property
+    def device(self):
+        return self._device
+
+    @property
+    def config(self):
+        return self._config
 
 
 def match_flexible_model(model_name):

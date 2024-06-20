@@ -23,24 +23,19 @@ class MockModel(FlexibleModel):
 
 
 class AutoModel(FlexibleModel):
-    def __init__(self, model_uid: str, model_path: str, device: str | None = None):
-        super().__init__(model_uid, model_path, device)
-
     def load(self):
-        self._pipeline = pipeline(model=self._model_path, device=self._device)
+        config = self.config or {}
+        self._pipeline = pipeline(model=self.model_path, device=self.device, **config)
 
     def infer(self, **kwargs):
         return self._pipeline(**kwargs)
 
 
 class TransformersTextClassificationModel(FlexibleModel):
-    def __init__(self, model_uid: str, model_path: str, device: str | None = None):
-        super().__init__(model_uid, model_path, device)
-
     def load(self):
-        self._pipeline = pipeline(
-            "text-classification", model=self._model_path, device=self._device
-        )
+        config = self.config or {}
+
+        self._pipeline = pipeline(model=self._model_path, device=self._device, **config)
 
     def infer(self, **kwargs):
         return self._pipeline(**kwargs)
@@ -56,9 +51,13 @@ def launcher(model_uid: str, model_spec: FlexibleModelSpec, **kwargs) -> Flexibl
 
     if task == "text-classification":
         return TransformersTextClassificationModel(
-            model_uid=model_uid, model_path=model_path, device=device
+            model_uid=model_uid, model_path=model_path, device=device, config=kwargs
         )
     elif task == "mock":
-        return MockModel(model_uid=model_uid, model_path=model_path, device=device)
+        return MockModel(
+            model_uid=model_uid, model_path=model_path, device=device, config=kwargs
+        )
     else:
-        return AutoModel(model_uid=model_uid, model_path=model_path, device=device)
+        return AutoModel(
+            model_uid=model_uid, model_path=model_path, device=device, config=kwargs
+        )
