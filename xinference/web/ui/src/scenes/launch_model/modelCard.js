@@ -578,25 +578,29 @@ const ModelCard = ({
               <div className="cardTitle">
                 <TitleTypography value={modelData.model_name} />
                 <div className="iconButtonBox">
-                  <IconButton
-                    aria-label="show"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setIsJsonShow(true)
-                    }}
-                  >
-                    <EditNote />
-                  </IconButton>
-                  <IconButton
-                    aria-label="delete"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setIsDeleteCustomModel(true)
-                    }}
-                    disabled={customDeleted}
-                  >
-                    <DeleteIcon />
-                  </IconButton>
+                  <Tooltip title={'Edit'} placement="top">
+                    <IconButton
+                      aria-label="show"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setIsJsonShow(true)
+                      }}
+                    >
+                      <EditNote />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title={'delete'} placement="top">
+                    <IconButton
+                      aria-label="delete"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setIsDeleteCustomModel(true)
+                      }}
+                      disabled={customDeleted}
+                    >
+                      <DeleteIcon />
+                    </IconButton>
+                  </Tooltip>
                 </div>
               </div>
             )}
@@ -693,25 +697,29 @@ const ModelCard = ({
                 <div className="cardTitle">
                   <TitleTypography value={modelData.model_name} />
                   <div className="iconButtonBox">
-                    <IconButton
-                      aria-label="show"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setIsJsonShow(true)
-                      }}
-                    >
-                      <EditNote />
-                    </IconButton>
-                    <IconButton
-                      aria-label="delete"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setIsDeleteCustomModel(true)
-                      }}
-                      disabled={customDeleted}
-                    >
-                      <DeleteIcon />
-                    </IconButton>
+                    <Tooltip title={'Edit'} placement="top">
+                      <IconButton
+                        aria-label="show"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setIsJsonShow(true)
+                        }}
+                      >
+                        <EditNote />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title={'delete'} placement="top">
+                      <IconButton
+                        aria-label="delete"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setIsDeleteCustomModel(true)
+                        }}
+                        disabled={customDeleted}
+                      >
+                        <DeleteIcon />
+                      </IconButton>
+                    </Tooltip>
                   </div>
                 </div>
               )}
@@ -1336,7 +1344,7 @@ const ModelCard = ({
             >
               Cancel
             </Button>
-            <Button onClick={handleJsonDataPresentation}>Modify</Button>
+            <Button onClick={handleJsonDataPresentation}>Edit</Button>
           </div>
         </div>
       </Backdrop>

@@ -37,8 +37,7 @@ const AddModelSpecs = ({
 
   useEffect(() => {
     if (isJump) {
-      const dataArr = [...specsDataArr]
-      dataArr.map((item) => {
+      const dataArr = specsDataArr.map((item) => {
         const {
           model_uri,
           model_size_in_billions,
@@ -46,11 +45,14 @@ const AddModelSpecs = ({
           quantizations,
           model_file_name_template,
         } = item
+        let size = model_size_in_billions
+        if(typeof size !== 'number') size = size.split('_').join('.')
+
         setCount(count + 1)
         return {
           id: count,
           model_uri,
-          model_size_in_billions,
+          model_size_in_billions: size,
           model_format,
           quantizations,
           model_file_name_template,

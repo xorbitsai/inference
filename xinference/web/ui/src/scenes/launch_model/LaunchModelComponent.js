@@ -17,14 +17,6 @@ const LaunchModelComponent = ({ modelType, gpuAvailable }) => {
   const { isCallingApi, setIsCallingApi } = useContext(ApiContext)
   const { isUpdatingModel } = useContext(ApiContext)
 
-  const handleChange = (e) => {
-    setSearchTerm(e.target.value)
-  }
-
-  const handleStatusChange = (event) => {
-    setStatus(event.target.value)
-  }
-
   const filter = (registration) => {
     if (searchTerm !== '') {
       if (!registration || typeof searchTerm !== 'string') return false
@@ -34,11 +26,12 @@ const LaunchModelComponent = ({ modelType, gpuAvailable }) => {
       if (!modelName.includes(searchTerm.toLowerCase())) {
         return false
       }
-      if (completeDeleteArr.includes(registration.model_name)) {
-        registration.cache_status = Array.isArray(registration.cache_status)
-          ? [false]
-          : false
-      }
+    }
+
+    if (completeDeleteArr.includes(registration.model_name)) {
+      registration.cache_status = Array.isArray(registration.cache_status)
+        ? [false]
+        : false
     }
 
     if (status !== 'all') {
@@ -100,7 +93,7 @@ const LaunchModelComponent = ({ modelType, gpuAvailable }) => {
             id="status"
             labelId="select-status"
             label="Status"
-            onChange={handleStatusChange}
+            onChange={(e) => setStatus(e.target.value)}
             value={status}
             size="small"
             sx={{ width: '150px' }}
@@ -115,7 +108,7 @@ const LaunchModelComponent = ({ modelType, gpuAvailable }) => {
             type="search"
             label={`Search for ${modelType} model name`}
             value={searchTerm}
-            onChange={handleChange}
+            onChange={(e) => setSearchTerm(e.target.value)}
             size="small"
             hotkey="/"
           />

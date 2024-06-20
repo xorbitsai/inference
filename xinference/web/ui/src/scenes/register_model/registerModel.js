@@ -48,7 +48,6 @@ const RegisterModelComponent = ({ modelType, customData }) => {
     chat: [],
     generate: [],
   })
-  const [isShow, setIsShow] = useState(false)
   const [languagesArr, setLanguagesArr] = useState([])
   const [isContextLengthAlert, setIsContextLengthAlert] = useState(false)
   const [isDimensionsAlert, setIsDimensionsAlert] = useState(false)
@@ -56,10 +55,13 @@ const RegisterModelComponent = ({ modelType, customData }) => {
   const [jsonData, setJsonData] = useState('')
   const [isCopySuccess, setIsCopySuccess] = useState(false)
   const [isSpecsArrError, setIsSpecsArrError] = useState(false)
+
   const scrollRef = useRef(null)
   const [cookie] = useCookies(['token'])
   const navigate = useNavigate()
+
   const { registerModelType, model_name } = useParams()
+  const [isShow, setIsShow] = useState(model_name ? true : false)
   const [specsArr, setSpecsArr] = useState(
     model_name
       ? JSON.parse(sessionStorage.getItem('customJsonData')).model_specs
@@ -514,7 +516,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
     navigate(`/launch_model/custom/${registerModelType}`)
   }
 
-  const handleModify = () => {
+  const handleEdit = () => {
     fetcher(
       endPoint +
         `/v1/model_registrations/${
@@ -928,10 +930,10 @@ const RegisterModelComponent = ({ modelType, customData }) => {
               variant="contained"
               color="primary"
               type="submit"
-              onClick={handleModify}
+              onClick={handleEdit}
               disabled={isEqual}
             >
-              Modify
+              Edit
             </Button>
             <Button
               style={{ marginLeft: 30 }}
