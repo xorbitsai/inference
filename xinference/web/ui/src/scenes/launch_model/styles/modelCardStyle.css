@@ -125,11 +125,6 @@
 .pathBox2 {
   width: 300px;
 }
-.copyPath {
-  font-size: 14px !important;
-  cursor: pointer;
-  color: #555;
-}
 .empty {
   position: absolute;
   left: 50%;
@@ -142,7 +137,6 @@
   display: flex;
   align-items: center;
 }
-
 .warningIcon {
   margin-right: 10px;
   color: rgb(237, 108, 2);
@@ -164,10 +158,6 @@
 .title-name {
   font-size: 16px;
   font-weight: 700;
-}
-.copyJSON {
-  cursor: pointer;
-  font-size: 14px !important;
 }
 .main-box {
   width: 700px;

@@ -12,7 +12,6 @@ import {
   UndoOutlined,
 } from '@mui/icons-material'
 import DeleteIcon from '@mui/icons-material/Delete'
-import FilterNoneIcon from '@mui/icons-material/FilterNone'
 import {
   Alert,
   Backdrop,
@@ -44,11 +43,11 @@ import {
   Tooltip,
 } from '@mui/material'
 import { styled } from '@mui/material/styles'
-import ClipboardJS from 'clipboard'
 import React, { useContext, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { ApiContext } from '../../components/apiContext'
+import CopyComponent from '../../components/copyComponent/copyComponent'
 import DeleteDialog from '../../components/deleteDialog'
 import fetcher from '../../components/fetcher'
 import TitleTypography from '../../components/titleTypography'
@@ -105,7 +104,6 @@ const ModelCard = ({
   const [cachedModelVersion, setCachedModelVersion] = useState('')
   const [cachedRealPath, setCachedRealPath] = useState('')
   const [page, setPage] = useState(0)
-  const [isCopySuccess, setIsCopySuccess] = useState(false)
   const [isDeleteCustomModel, setIsDeleteCustomModel] = useState(false)
   const [isJsonShow, setIsJsonShow] = useState(false)
 
@@ -445,17 +443,6 @@ const ModelCard = ({
 
   const handleChangePage = (_, newPage) => {
     setPage(newPage)
-  }
-
-  const handleCopy = (className, path) => {
-    const clipboard = new ClipboardJS(className, {
-      text: () => path,
-    })
-
-    clipboard.on('success', (e) => {
-      e.clearSelection()
-      setIsCopySuccess(true)
-    })
   }
 
   const handleOpenCachedList = () => {
@@ -1319,14 +1306,7 @@ const ModelCard = ({
         <div className="jsonDialog">
           <div className="jsonDialog-title">
             <div className="title-name">{modelData.model_name}</div>
-            <Tooltip title="Copy Json" placement="top">
-              <FilterNoneIcon
-                className="copyJSON"
-                onClick={() =>
-                  handleCopy('.copyJSON', JSON.stringify(modelData, null, 4))
-                }
-              />
-            </Tooltip>
+            <CopyComponent tip={'Copy Json'} text={JSON.stringify(modelData, null, 4)} />
           </div>
           <div className="main-box">
             <textarea
@@ -1434,12 +1414,7 @@ const ModelCard = ({
                       </Tooltip>
                     </TableCell>
                     <TableCell>
-                      <Tooltip title="Copy real_path" placement="top">
-                        <FilterNoneIcon
-                          className="copyPath"
-                          onClick={() => handleCopy('.copyPath', row.real_path)}
-                        />
-                      </Tooltip>
+                      <CopyComponent tip={'Copy real_path'} text={row.real_path} />
                     </TableCell>
                     <TableCell>
                       <Tooltip title={row.path}>
@@ -1453,12 +1428,7 @@ const ModelCard = ({
                       </Tooltip>
                     </TableCell>
                     <TableCell>
-                      <Tooltip title="Copy path" placement="top">
-                        <FilterNoneIcon
-                          className="copyPath"
-                          onClick={() => handleCopy('.copyPath', row.path)}
-                        />
-                      </Tooltip>
+                      <CopyComponent tip={'Copy path'} text={row.path} />
                     </TableCell>
                     <TableCell>{row.actor_ip_address}</TableCell>
                     <TableCell align={modelType === 'LLM' ? 'center' : 'left'}>
@@ -1504,16 +1474,6 @@ const ModelCard = ({
         onHandleIsDelete={() => setIsDeleteCached(false)}
         onHandleDelete={handleDeleteCached}
       />
-      <Snackbar
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-        open={isCopySuccess}
-        autoHideDuration={1500}
-        onClose={() => setIsCopySuccess(false)}
-      >
-        <Alert severity="success" variant="filled" sx={{ width: '100%' }}>
-          Copied to clipboard!
-        </Alert>
-      </Snackbar>
     </>
   )
 }

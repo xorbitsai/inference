@@ -1,7 +1,6 @@
 import './styles/registerModelStyle.css'
 
 import CheckIcon from '@mui/icons-material/Check'
-import FilterNoneIcon from '@mui/icons-material/FilterNone'
 import KeyboardDoubleArrowRightIcon from '@mui/icons-material/KeyboardDoubleArrowRight'
 import NotesIcon from '@mui/icons-material/Notes'
 import {
@@ -17,18 +16,17 @@ import {
   Radio,
   RadioGroup,
   Select,
-  Snackbar,
   Stack,
   Switch,
   TextField,
   Tooltip,
 } from '@mui/material'
-import ClipboardJS from 'clipboard'
 import React, { useContext, useEffect, useRef, useState } from 'react'
 import { useCookies } from 'react-cookie'
 import { useNavigate, useParams } from 'react-router-dom'
 
 import { ApiContext } from '../../components/apiContext'
+import CopyComponent from '../../components/copyComponent/copyComponent'
 import fetcher from '../../components/fetcher'
 import AddControlnet from './components/addControlnet'
 import AddModelSpecs from './components/addModelSpecs'
@@ -53,7 +51,6 @@ const RegisterModelComponent = ({ modelType, customData }) => {
   const [isDimensionsAlert, setIsDimensionsAlert] = useState(false)
   const [isMaxTokensAlert, setIsMaxTokensAlert] = useState(false)
   const [jsonData, setJsonData] = useState('')
-  const [isCopySuccess, setIsCopySuccess] = useState(false)
   const [isSpecsArrError, setIsSpecsArrError] = useState(false)
 
   const scrollRef = useRef(null)
@@ -501,17 +498,6 @@ const RegisterModelComponent = ({ modelType, customData }) => {
     setFormData({ ...formData, controlnet: arr })
   }
 
-  const handleCopy = () => {
-    const clipboard = new ClipboardJS('.copyIcon', {
-      text: () => jsonData,
-    })
-
-    clipboard.on('success', function (event) {
-      event.clearSelection()
-      setIsCopySuccess(true)
-    })
-  }
-
   const handleCancel = () => {
     navigate(`/launch_model/custom/${registerModelType}`)
   }
@@ -581,7 +567,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
       </div>
       <div ref={scrollRef} className={isShow ? 'formBox' : 'formBox broaden'}>
         {/* Base Information */}
-        <FormControl sx={styles.baseFormControl}>
+        <FormControl>
           {/* name */}
           {customData.model_name && (
             <>
@@ -715,7 +701,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
               >
                 Model Languages
               </label>
-              <Box sx={styles.checkboxWrapper}>
+              <Box className='checkboxWrapper'>
                 {SUPPORTED_LANGUAGES.map((lang) => (
                   <Box key={lang} sx={{ marginRight: '10px' }}>
                     <FormControlLabel
@@ -808,7 +794,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
               >
                 Model Abilities
               </label>
-              <Box sx={styles.checkboxWrapper}>
+              <Box className='checkboxWrapper'>
                 {SUPPORTED_FEATURES.map((ability) => (
                   <Box key={ability} sx={{ marginRight: '10px' }}>
                     <FormControlLabel
@@ -835,7 +821,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
 
           {/* family */}
           {(customData.model_family === '' || customData.model_family) && (
-            <FormControl sx={styles.baseFormControl}>
+            <FormControl>
               <label
                 style={{
                   paddingLeft: 5,
@@ -870,7 +856,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                 }}
               >
                 <Box
-                  sx={styles.checkboxWrapper}
+                  className='checkboxWrapper'
                   style={{ paddingLeft: '10px' }}
                 >
                   {modelType === 'LLM' &&
@@ -961,39 +947,14 @@ const RegisterModelComponent = ({ modelType, customData }) => {
 
       {/* JSON */}
       <div className={isShow ? 'jsonBox' : 'jsonBox hide'}>
-        <div className="jsonBox-header">JSON Format</div>
-        <Tooltip title="Copy all" placement="top">
-          <FilterNoneIcon className="copyIcon" onClick={handleCopy} />
-        </Tooltip>
+        <div className="jsonBox-header">
+          <div className='jsonBox-title'>JSON Format</div>
+          <CopyComponent tip={'Copy all'} text={jsonData} />
+        </div>
         <textarea readOnly className="textarea" value={jsonData} />
       </div>
-
-      <Snackbar
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-        open={isCopySuccess}
-        autoHideDuration={1500}
-        onClose={() => setIsCopySuccess(false)}
-      >
-        <Alert severity="success" variant="filled" sx={{ width: '100%' }}>
-          Copied to clipboard!
-        </Alert>
-      </Snackbar>
     </Box>
   )
 }
 
 export default RegisterModelComponent
-
-const styles = {
-  baseFormControl: {
-    width: '100%',
-    margin: 'normal',
-    size: 'small',
-  },
-  checkboxWrapper: {
-    display: 'flex',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    width: '100%',
-  },
-}

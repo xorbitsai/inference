@@ -9,7 +9,7 @@ import {
 } from '@mui/material'
 import React from 'react'
 
-const AddPair = ({ text, isDelete, onHandleIsDelete, onHandleDelete }) => {
+const DeleteDialog = ({ text, isDelete, onHandleIsDelete, onHandleDelete }) => {
   return (
     <Dialog
       open={isDelete}
@@ -42,4 +42,4 @@ const AddPair = ({ text, isDelete, onHandleIsDelete, onHandleDelete }) => {
   )
 }
 
-export default AddPair
+export default DeleteDialog

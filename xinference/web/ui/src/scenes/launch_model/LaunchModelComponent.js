@@ -5,7 +5,6 @@ import { ApiContext } from '../../components/apiContext'
 import fetcher from '../../components/fetcher'
 import HotkeyFocusTextField from '../../components/hotkeyFocusTextField'
 import ModelCard from './modelCard'
-import style from './styles/launchModelStyle'
 
 const LaunchModelComponent = ({ modelType, gpuAvailable }) => {
   let endPoint = useContext(ApiContext).endPoint
@@ -114,7 +113,12 @@ const LaunchModelComponent = ({ modelType, gpuAvailable }) => {
           />
         </FormControl>
       </div>
-      <div style={style}>
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+        paddingLeft: '2rem',
+        gridGap: '2rem 0rem'
+      }}>
         {registrationData
           .filter((registration) => filter(registration))
           .map((filteredRegistration) => (
