@@ -109,6 +109,7 @@ class RerankRequest(BaseModel):
     documents: List[str]
     top_n: Optional[int] = None
     return_documents: Optional[bool] = False
+    return_len: Optional[bool] = False
     max_chunks_per_doc: Optional[int] = None
 
 
@@ -1112,6 +1113,7 @@ class RESTfulAPI:
                 top_n=body.top_n,
                 max_chunks_per_doc=body.max_chunks_per_doc,
                 return_documents=body.return_documents,
+                return_len=body.return_len,
                 **kwargs,
             )
             return Response(scores, media_type="application/json")

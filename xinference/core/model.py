@@ -540,6 +540,7 @@ class ModelActor(xo.StatelessActor):
         top_n: Optional[int],
         max_chunks_per_doc: Optional[int],
         return_documents: Optional[bool],
+        return_len: Optional[bool],
         *args,
         **kwargs,
     ):
@@ -551,6 +552,7 @@ class ModelActor(xo.StatelessActor):
                 top_n,
                 max_chunks_per_doc,
                 return_documents,
+                return_len,
                 *args,
                 **kwargs,
             )

@@ -192,6 +192,7 @@ class RerankModel:
         top_n: Optional[int],
         max_chunks_per_doc: Optional[int],
         return_documents: Optional[bool],
+        return_len: Optional[bool],
         **kwargs,
     ) -> Rerank:
         self._counter += 1
@@ -230,33 +231,28 @@ class RerankModel:
                 )
                 for arg in sim_scores_argsort
             ]
+        if return_len:
+            tokenizer = self._get_tokenizer(self._model_path)
+            input_len = sum([len(tokenizer.tokenize(t)) for t in documents])
 
-        tokenizer = self._get_tokenizer(self._model_path)
-        input_len = sum([len(tokenizer.tokenize(t)) for t in documents])
-
-        # Rerank Model output is just score or documents
-        # while return_documents = True
-        output_len = input_len
+            # Rerank Model output is just score or documents
+            # while return_documents = True
+            output_len = input_len
 
         # api_version, billed_units, warnings
         # is for Cohere API compatibility, set to None
         metadata = {
             "api_version": None,
             "billed_units": None,
-            "tokens": RerankTokens(input_tokens=input_len, output_tokens=output_len),
+            "tokens": (
+                RerankTokens(input_tokens=input_len, output_tokens=output_len)
+                if return_len
+                else None
+            ),
             "warnings": None,
         }
-        return Rerank(id=str(uuid.uuid1()), results=docs, meta=metadata)
 
-    def _text_length(self, text):
-        if isinstance(text, dict):
-            return len(next(iter(text.values())))
-        elif not hasattr(text, "__len__"):
-            return 1
-        elif len(text) == 0 or isinstance(text[0], int):
-            return len(text)
-        else:
-            return sum([len(t) for t in text])
+        return Rerank(id=str(uuid.uuid1()), results=docs, meta=metadata)
 
 
 def get_cache_dir(model_spec: RerankModelSpec):
