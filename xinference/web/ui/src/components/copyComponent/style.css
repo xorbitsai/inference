@@ -1,5 +1,5 @@
 .copyText {
-  font-size: 14px;
+  font-size: 14px !important;
   color: #666;
   cursor: pointer;
 }
