@@ -12,11 +12,29 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import codecs
+import json
+import os
+
+from ...constants import XINFERENCE_MODEL_DIR
 from .core import (
+    FLEXIBLE_MODEL_DESCRIPTIONS,
     FlexibleModel,
     FlexibleModelSpec,
     generate_flexible_model_description,
+    get_flexible_model_descriptions,
     get_flexible_models,
     register_flexible_model,
     unregister_flexible_model,
 )
+
+model_dir = os.path.join(XINFERENCE_MODEL_DIR, "flexible")
+if os.path.isdir(model_dir):
+    for f in os.listdir(model_dir):
+        with codecs.open(os.path.join(model_dir, f), encoding="utf-8") as fd:
+            model_spec = FlexibleModelSpec.parse_obj(json.load(fd))
+            register_flexible_model(model_spec, persist=False)
+
+# register model description
+for model in get_flexible_models():
+    FLEXIBLE_MODEL_DESCRIPTIONS.update(generate_flexible_model_description(model))

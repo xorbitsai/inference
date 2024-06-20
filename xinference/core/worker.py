@@ -219,6 +219,12 @@ class WorkerActor(xo.StatelessActor):
             register_embedding,
             unregister_embedding,
         )
+        from ..model.flexible import (
+            FlexibleModelSpec,
+            get_flexible_model_descriptions,
+            register_flexible_model,
+            unregister_flexible_model,
+        )
         from ..model.image import (
             CustomImageModelFamilyV1,
             get_image_model_descriptions,
@@ -252,6 +258,11 @@ class WorkerActor(xo.StatelessActor):
                 register_image,
                 unregister_image,
             ),
+            "flexible": (
+                FlexibleModelSpec,
+                register_flexible_model,
+                unregister_flexible_model,
+            ),
         }
 
         # record model version
@@ -261,6 +272,7 @@ class WorkerActor(xo.StatelessActor):
         model_version_infos.update(get_rerank_model_descriptions())
         model_version_infos.update(get_image_model_descriptions())
         model_version_infos.update(get_audio_model_descriptions())
+        model_version_infos.update(get_flexible_model_descriptions())
         await self._cache_tracker_ref.record_model_version(
             model_version_infos, self.address
         )

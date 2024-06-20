@@ -56,6 +56,8 @@ class FlexibleModelDescription(ModelDescription):
             "address": self.address,
             "accelerators": self.devices,
             "model_name": self._model_spec.model_name,
+            "launcher": self._model_spec.launcher,
+            "launcher_args": self._model_spec.launcher_args,
         }
 
     def get_model_version(self) -> str:
@@ -66,6 +68,8 @@ class FlexibleModelDescription(ModelDescription):
             "model_version": self.get_model_version(),
             "cache_status": True,
             "model_file_location": self._model_spec.model_uri,
+            "launcher": self._model_spec.launcher,
+            "launcher_args": self._model_spec.launcher_args,
         }
 
 
@@ -80,11 +84,18 @@ def generate_flexible_model_description(
 
 
 FLEXIBLE_MODELS: List[FlexibleModelSpec] = []
+FLEXIBLE_MODEL_DESCRIPTIONS: Dict[str, List[Dict]] = defaultdict(list)
 
 
 def get_flexible_models():
     with FLEXIBLE_MODEL_LOCK:
         return FLEXIBLE_MODELS.copy()
+
+
+def get_flexible_model_descriptions():
+    import copy
+
+    return copy.deepcopy(FLEXIBLE_MODEL_DESCRIPTIONS)
 
 
 def register_flexible_model(model_spec: FlexibleModelSpec, persist: bool):

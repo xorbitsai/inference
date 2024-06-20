@@ -155,6 +155,7 @@ class SupervisorActor(xo.StatelessActor):
         from ..model.flexible import (
             FlexibleModelSpec,
             generate_flexible_model_description,
+            get_flexible_model_descriptions,
             register_flexible_model,
             unregister_flexible_model,
         )
@@ -226,6 +227,7 @@ class SupervisorActor(xo.StatelessActor):
         model_version_infos.update(get_rerank_model_descriptions())
         model_version_infos.update(get_image_model_descriptions())
         model_version_infos.update(get_audio_model_descriptions())
+        model_version_infos.update(get_flexible_model_descriptions())
         await self._cache_tracker_ref.record_model_version(
             model_version_infos, self.address
         )
