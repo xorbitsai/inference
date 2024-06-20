@@ -39,7 +39,11 @@ const LaunchLLM = ({ gpuAvailable }) => {
       }
     }
 
-    if (modelAbility !== 'all' && registration.model_ability.indexOf(modelAbility) < 0) return false
+    if (
+      modelAbility !== 'all' &&
+      registration.model_ability.indexOf(modelAbility) < 0
+    )
+      return false
 
     if (completeDeleteArr.includes(registration.model_name)) {
       registration.model_specs.forEach((item) => {

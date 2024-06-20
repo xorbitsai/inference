@@ -46,7 +46,7 @@ const AddModelSpecs = ({
           model_file_name_template,
         } = item
         let size = model_size_in_billions
-        if(typeof size !== 'number') size = size.split('_').join('.')
+        if (typeof size !== 'number') size = size.split('_').join('.')
 
         setCount(count + 1)
         return {
