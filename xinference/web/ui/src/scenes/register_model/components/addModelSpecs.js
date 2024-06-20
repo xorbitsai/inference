@@ -37,7 +37,7 @@ const AddModelSpecs = ({
 
   useEffect(() => {
     if (isJump) {
-      const dataArr = specsDataArr.map((item) => {
+      const dataArr = specsDataArr.map((item, index) => {
         const {
           model_uri,
           model_size_in_billions,
@@ -48,9 +48,8 @@ const AddModelSpecs = ({
         let size = model_size_in_billions
         if (typeof size !== 'number') size = size.split('_').join('.')
 
-        setCount(count + 1)
         return {
-          id: count,
+          id: index,
           model_uri,
           model_size_in_billions: size,
           model_format,
@@ -58,6 +57,7 @@ const AddModelSpecs = ({
           model_file_name_template,
         }
       })
+      setCount(dataArr.length)
       setSpecsArr(dataArr)
 
       const subPathArr = []

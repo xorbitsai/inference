@@ -21,7 +21,6 @@ const AddControlnet = ({
   const [isAdd, setIsAdd] = useState(false)
 
   useEffect(() => {
-    console.log('controlnetDataArr', controlnetDataArr)
     if (controlnetDataArr && controlnetDataArr.length) {
       const dataArr = controlnetDataArr.map((item) => {
         setCount(count + 1)
