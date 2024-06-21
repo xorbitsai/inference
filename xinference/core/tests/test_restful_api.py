@@ -429,6 +429,119 @@ def _check_invalid_tool_calls(endpoint, model_uid_res):
     assert len(completion.choices[0].message.tool_calls) == 0
 
 
+@pytest.mark.parametrize("model_format, quantization", [("pytorch", None)])
+@pytest.mark.skip(reason="Cost too many resources.")
+def test_restful_api_for_transformers_tool_calls(setup, model_format, quantization):
+    model_name = "mistral-instruct-v0.3"
+
+    endpoint, _ = setup
+    url = f"{endpoint}/v1/models"
+
+    # list
+    response = requests.get(url)
+    response_data = response.json()
+    assert len(response_data["data"]) == 0
+
+    # launch
+    payload = {
+        "model_uid": "test_tool",
+        "model_engine": "transformers",
+        "model_name": model_name,
+        "model_size_in_billions": 7,
+        "model_format": model_format,
+        "quantization": quantization,
+    }
+
+    response = requests.post(url, json=payload)
+    response_data = response.json()
+    model_uid_res = response_data["model_uid"]
+    assert model_uid_res == "test_tool"
+
+    response = requests.get(url)
+    response_data = response.json()
+    assert len(response_data["data"]) == 1
+
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "get_current_temperature",
+                "description": "Get the current temperature at a location.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "location": {
+                            "type": "string",
+                            "description": 'The location to get the temperature for, in the format "City, Country"',
+                        },
+                        "unit": {
+                            "type": "string",
+                            "enum": ["celsius", "fahrenheit"],
+                            "description": "The unit to return the temperature in.",
+                        },
+                    },
+                    "required": ["location", "unit"],
+                },
+                "return": {
+                    "type": "number",
+                    "description": "The current temperature at the specified location in the specified units, as a float.",
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "get_current_wind_speed",
+                "description": "Get the current wind speed in km/h at a given location.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "location": {
+                            "type": "string",
+                            "description": 'The location to get the temperature for, in the format "City, Country"',
+                        }
+                    },
+                    "required": ["location"],
+                },
+                "return": {
+                    "type": "number",
+                    "description": "The current wind speed at the given location in km/h, as a float.",
+                },
+            },
+        },
+    ]
+
+    url = f"{endpoint}/v1/chat/completions"
+    payload = {
+        "model": model_uid_res,
+        "messages": [
+            {
+                "role": "system",
+                "content": "You are a bot that responds to weather queries. You should reply with the unit used in the queried location.",
+            },
+            {
+                "role": "user",
+                "content": "Hey, what's the temperature in Paris right now?",
+            },
+        ],
+        "temperature": 0.7,
+        "tools": tools,
+        "stop": ["\n"],
+    }
+    response = requests.post(url, json=payload)
+    completion = response.json()
+    print(completion)
+    assert (
+        "get_current_temperature"
+        == completion["choices"][0]["message"]["tool_calls"][0]["function"]["name"]
+    )
+    arguments = completion["choices"][0]["message"]["tool_calls"][0]["function"][
+        "arguments"
+    ]
+    arg = json.loads(arguments)
+    assert arg == {"location": "Paris, France", "unit": "celsius"}
+
+
 @pytest.mark.parametrize(
     "model_format, quantization", [("ggmlv3", "q4_0"), ("pytorch", None)]
 )

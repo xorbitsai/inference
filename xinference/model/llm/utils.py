@@ -39,6 +39,9 @@ from .llm_family import (
 logger = logging.getLogger(__name__)
 
 
+DEFAULT_TOOL_CALL_FAMILY = ["mistral-instruct-v0.3"]
+
+
 class ChatModelMixin:
     @staticmethod
     def get_prompt(
@@ -654,6 +657,19 @@ Begin!"""
             ]  # There is only Thought: no Final Answer:
         return text, None, None
 
+    @staticmethod
+    def _eval_default_chat_arguments(c, tools):
+        # The tokenizer of Mistra v0.3 does not support bot_token. We have to strip the result.
+        # https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.3/discussions/35
+        try:
+            if "[TOOL_CALLS]" in c:
+                value = c[len("[TOOL_CALLS] [") : -len("]</s>")]
+                d = json.loads(value)
+                return None, d["name"], d["arguments"]
+        except Exception:
+            pass
+        return c, None, None
+
     @classmethod
     def _eval_tool_arguments(cls, model_family, c, tools):
         family = model_family.model_family or model_family.model_name
@@ -669,6 +685,8 @@ Begin!"""
             "qwen2-moe-instruct",
         ]:
             content, func, args = cls._eval_qwen_chat_arguments(c, tools)
+        elif family in DEFAULT_TOOL_CALL_FAMILY:
+            content, func, args = cls._eval_default_chat_arguments(c, tools)
         else:
             raise Exception(
                 f"Model {model_family.model_name} is not support tool calls."

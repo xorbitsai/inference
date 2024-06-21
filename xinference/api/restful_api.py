@@ -1426,6 +1426,8 @@ class RESTfulAPI:
             await self._report_error_event(model_uid, str(e))
             raise HTTPException(status_code=500, detail=str(e))
 
+        from ..model.llm.utils import DEFAULT_TOOL_CALL_FAMILY
+
         model_family = desc.get("model_family", "")
         function_call_models = [
             "chatglm3",
@@ -1436,7 +1438,7 @@ class RESTfulAPI:
             "qwen1.5-moe-chat",
             "qwen2-instruct",
             "qwen2-moe-instruct",
-        ]
+        ] + DEFAULT_TOOL_CALL_FAMILY
 
         is_qwen = desc.get("model_format") == "ggmlv3" and "qwen-chat" == model_family
 
