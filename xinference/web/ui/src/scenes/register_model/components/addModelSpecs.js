@@ -20,19 +20,66 @@ const modelFormatArr = [
   { value: 'awq', label: 'AWQ' },
 ]
 
-const AddModelSpecs = ({ formData, onGetArr, scrollRef }) => {
-  const [count, setCount] = useState(1)
-  const [specsArr, setSpecsArr] = useState([
-    {
-      id: 0,
-      ...formData,
-    },
-  ])
-  const [path, setPath] = useState('/path/to/llama-2')
+const AddModelSpecs = ({
+  isJump,
+  formData,
+  specsDataArr,
+  onGetArr,
+  scrollRef,
+}) => {
+  const [count, setCount] = useState(0)
+  const [specsArr, setSpecsArr] = useState([])
+  const [pathArr, setPathArr] = useState([])
   const [modelSizeAlertId, setModelSizeAlertId] = useState([])
   const [quantizationAlertId, setQuantizationAlertId] = useState([])
   const [isError, setIsError] = useState(false)
-  const [arrLength, setArrLength] = useState(1)
+  const [isAdd, setIsAdd] = useState(false)
+
+  useEffect(() => {
+    if (isJump) {
+      const dataArr = specsDataArr.map((item, index) => {
+        const {
+          model_uri,
+          model_size_in_billions,
+          model_format,
+          quantizations,
+          model_file_name_template,
+        } = item
+        let size = model_size_in_billions
+        if (typeof size !== 'number') size = size.split('_').join('.')
+
+        return {
+          id: index,
+          model_uri,
+          model_size_in_billions: size,
+          model_format,
+          quantizations,
+          model_file_name_template,
+        }
+      })
+      setCount(dataArr.length)
+      setSpecsArr(dataArr)
+
+      const subPathArr = []
+      specsDataArr.forEach((item) => {
+        if (item.model_format !== 'ggmlv3' && item.model_format !== 'ggufv2') {
+          subPathArr.push(item.model_uri)
+        } else {
+          subPathArr.push(item.model_uri + '/' + item.model_file_name_template)
+        }
+      })
+      setPathArr(subPathArr)
+    } else {
+      setSpecsArr([
+        {
+          id: count,
+          ...formData,
+        },
+      ])
+      setCount(count + 1)
+      setPathArr([formData.model_uri])
+    }
+  }, [])
 
   useEffect(() => {
     const arr = specsArr.map((item) => {
@@ -71,23 +118,41 @@ const AddModelSpecs = ({ formData, onGetArr, scrollRef }) => {
       setIsError(false)
     }
     onGetArr(arr, isError)
-    setArrLength(specsArr.length)
-    arrLength < specsArr.length ? handleScrollBottom() : ''
+    isAdd && handleScrollBottom()
+    setIsAdd(false)
   }, [specsArr, isError])
 
   const handleAddSpecs = () => {
     setCount(count + 1)
     const item = {
       id: count,
-      model_uri: '/path/to/llama-2',
+      model_uri: '/path/to/llama-1',
       model_size_in_billions: 7,
       model_format: 'pytorch',
       quantizations: [],
     }
     setSpecsArr([...specsArr, item])
+    setIsAdd(true)
+    setPathArr([...pathArr, '/path/to/llama-1'])
   }
 
   const handleUpdateSpecsArr = (index, type, newValue) => {
+    if (type === 'model_format') {
+      const subPathArr = [...pathArr]
+      if (
+        specsArr[index].model_format !== 'ggmlv3' &&
+        specsArr[index].model_format !== 'ggufv2'
+      ) {
+        pathArr[index] = specsArr[index].model_uri
+      } else {
+        pathArr[index] =
+          specsArr[index].model_uri +
+          '/' +
+          specsArr[index].model_file_name_template
+      }
+      setPathArr(subPathArr)
+    }
+
     setSpecsArr(
       specsArr.map((item, subIndex) => {
         if (subIndex === index) {
@@ -95,7 +160,7 @@ const AddModelSpecs = ({ formData, onGetArr, scrollRef }) => {
             return { ...item, [type]: [newValue] }
           } else if (type === 'model_format') {
             if (newValue === 'ggmlv3' || newValue === 'ggufv2') {
-              const { baseDir, filename } = getPathComponents(path)
+              const { baseDir, filename } = getPathComponents(pathArr[index])
               const obj = {
                 ...item,
                 model_format: newValue,
@@ -108,7 +173,7 @@ const AddModelSpecs = ({ formData, onGetArr, scrollRef }) => {
               const { id, model_size_in_billions, model_format } = item
               return {
                 id,
-                model_uri: path,
+                model_uri: pathArr[index],
                 model_size_in_billions,
                 model_format,
                 [type]: newValue,
@@ -116,7 +181,9 @@ const AddModelSpecs = ({ formData, onGetArr, scrollRef }) => {
               }
             }
           } else if (type === 'model_uri') {
-            setPath(newValue)
+            const subPathArr = [...pathArr]
+            subPathArr[index] = newValue
+            setPathArr(subPathArr)
             if (
               item.model_format === 'ggmlv3' ||
               item.model_format === 'ggufv2'
@@ -235,7 +302,11 @@ const AddModelSpecs = ({ formData, onGetArr, scrollRef }) => {
               style={{ minWidth: '60%' }}
               label="Model Path"
               size="small"
-              value={path}
+              value={
+                item.model_format !== 'ggmlv3' && item.model_format !== 'ggufv2'
+                  ? item.model_uri
+                  : item.model_uri + '/' + item.model_file_name_template
+              }
               onChange={(e) => {
                 handleUpdateSpecsArr(index, 'model_uri', e.target.value)
               }}

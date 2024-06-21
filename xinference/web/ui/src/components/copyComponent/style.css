@@ -1,0 +1,9 @@
+.copyText {
+  font-size: 14px !important;
+  color: #666;
+  cursor: pointer;
+}
+
+.copyText:hover {
+  color: #1976d2;
+}
