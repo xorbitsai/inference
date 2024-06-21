@@ -80,9 +80,37 @@ class DocumentObj(TypedDict):
     document: Optional[Document]
 
 
+# Cohere API compatibility
+class ApiVersion(TypedDict):
+    version: str
+    is_deprecated: bool
+    is_experimental: bool
+
+
+# Cohere API compatibility
+class BilledUnit(TypedDict):
+    input_tokens: int
+    output_tokens: int
+    search_units: int
+    classifications: int
+
+
+class RerankTokens(TypedDict):
+    input_tokens: int
+    output_tokens: int
+
+
+class Meta(TypedDict):
+    api_version: Optional[ApiVersion]
+    billed_units: Optional[BilledUnit]
+    tokens: RerankTokens
+    warnings: Optional[List[str]]
+
+
 class Rerank(TypedDict):
     id: str
     results: List[DocumentObj]
+    meta: Meta
 
 
 class CompletionLogprobs(TypedDict):
