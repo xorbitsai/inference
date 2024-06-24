@@ -9,9 +9,11 @@ import ModelCard from './modelCard'
 const LaunchModelComponent = ({ modelType, gpuAvailable }) => {
   let endPoint = useContext(ApiContext).endPoint
   const [registrationData, setRegistrationData] = useState([])
+  const [listData, setListData] = useState([])
   const [searchTerm, setSearchTerm] = useState('')
   const [status, setStatus] = useState('all')
   const [completeDeleteArr, setCompleteDeleteArr] = useState([])
+  const [collectionArr, setCollectionArr] = useState([])
 
   const { isCallingApi, setIsCallingApi } = useContext(ApiContext)
   const { isUpdatingModel } = useContext(ApiContext)
@@ -33,12 +35,15 @@ const LaunchModelComponent = ({ modelType, gpuAvailable }) => {
         : false
     }
 
-    if (status !== 'all') {
+    if (status === 'cached') {
       return (
         registration.cache_status &&
         !completeDeleteArr.includes(registration.model_name)
       )
+    } else if(status === 'collection') {
+      return collectionArr.includes(registration.model_name)
     }
+
     return true
   }
 
@@ -64,7 +69,21 @@ const LaunchModelComponent = ({ modelType, gpuAvailable }) => {
       const builtinModels = registrations.filter((v) => {
         return v.is_builtin
       })
-      setRegistrationData(builtinModels)
+      setListData(builtinModels)
+
+      const collectionData = JSON.parse(localStorage.getItem('collectionArr'))
+      setCollectionArr(collectionData)
+      if(collectionData?.length) {
+        const collection = builtinModels.filter(item => {
+          return collectionData.includes(item.model_name)
+        })
+        const notCollection = builtinModels.filter(item => {
+          return !collectionData.includes(item.model_name)
+        })
+        setRegistrationData([...collection, ...notCollection])
+      } else {
+        setRegistrationData(builtinModels)
+      }
     } catch (error) {
       console.error('Error:', error)
     } finally {
@@ -75,6 +94,17 @@ const LaunchModelComponent = ({ modelType, gpuAvailable }) => {
   useEffect(() => {
     update()
   }, [])
+
+  const getCollectionArr = (data) => {
+    setCollectionArr(data)
+    const collection = listData.filter(item => {
+      return data.includes(item.model_name)
+    })
+    const notCollection = listData.filter(item => {
+      return !data.includes(item.model_name)
+    })
+    setRegistrationData([...collection, ...notCollection])
+  }
 
   return (
     <Box m="20px">
@@ -99,6 +129,7 @@ const LaunchModelComponent = ({ modelType, gpuAvailable }) => {
           >
             <MenuItem value="all">all</MenuItem>
             <MenuItem value="cached">cached</MenuItem>
+            <MenuItem value="collection">collection</MenuItem>
           </Select>
         </FormControl>
         <FormControl variant="outlined" margin="normal">
@@ -131,6 +162,7 @@ const LaunchModelComponent = ({ modelType, gpuAvailable }) => {
               modelType={modelType}
               gpuAvailable={gpuAvailable}
               onHandleCompleteDelete={handleCompleteDelete}
+              onGetCollectionArr={getCollectionArr}
             />
           ))}
       </div>

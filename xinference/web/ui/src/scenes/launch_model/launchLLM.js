@@ -15,11 +15,13 @@ const LaunchLLM = ({ gpuAvailable }) => {
   const [cookie] = useCookies(['token'])
 
   const [registrationData, setRegistrationData] = useState([])
+  const [listData, setListData] = useState([])
   // States used for filtering
   const [searchTerm, setSearchTerm] = useState('')
   const [modelAbility, setModelAbility] = useState('all')
   const [status, setStatus] = useState('all')
   const [completeDeleteArr, setCompleteDeleteArr] = useState([])
+  const [collectionArr, setCollectionArr] = useState([])
 
   const filter = (registration) => {
     if (searchTerm !== '') {
@@ -50,9 +52,11 @@ const LaunchLLM = ({ gpuAvailable }) => {
         item.cache_status = Array.isArray(item) ? [false] : false
       })
     }
-    if (status !== 'all') {
+    if (status === 'cached') {
       const judge = registration.model_specs.some((spec) => filterCache(spec))
       return judge && !completeDeleteArr.includes(registration.model_name)
+    } else if(status === 'collection') {
+      return collectionArr.includes(registration.model_name)
     }
 
     return true
@@ -97,7 +101,22 @@ const LaunchLLM = ({ gpuAvailable }) => {
         } else {
           response.json().then((data) => {
             const builtinRegistrations = data.filter((v) => v.is_builtin)
-            setRegistrationData(builtinRegistrations)
+            setListData(builtinRegistrations)
+
+            const collectionData = JSON.parse(localStorage.getItem('collectionArr'))
+            setCollectionArr(collectionData)
+            if(collectionData?.length) {
+              const collection = builtinRegistrations.filter(item => {
+                return collectionData.includes(item.model_name)
+              })
+              const notCollection = builtinRegistrations.filter(item => {
+                return !collectionData.includes(item.model_name)
+              })
+              setRegistrationData([...collection, ...notCollection])
+            } else {
+              setRegistrationData(builtinRegistrations)
+            }
+            
           })
         }
       })
@@ -111,6 +130,17 @@ const LaunchLLM = ({ gpuAvailable }) => {
   useEffect(() => {
     update()
   }, [cookie.token])
+
+  const getCollectionArr = (data) => {
+    setCollectionArr(data)
+    const collection = listData.filter(item => {
+      return data.includes(item.model_name)
+    })
+    const notCollection = listData.filter(item => {
+      return !data.includes(item.model_name)
+    })
+    setRegistrationData([...collection, ...notCollection])
+  }
 
   const style = {
     display: 'grid',
@@ -159,6 +189,7 @@ const LaunchLLM = ({ gpuAvailable }) => {
           >
             <MenuItem value="all">all</MenuItem>
             <MenuItem value="cached">cached</MenuItem>
+            <MenuItem value="collection">collection</MenuItem>
           </Select>
         </FormControl>
         <FormControl variant="outlined" margin="normal">
@@ -176,14 +207,15 @@ const LaunchLLM = ({ gpuAvailable }) => {
       <div style={style}>
         {registrationData
           .filter((registration) => filter(registration))
-          .map((filteredRegistration) => (
+          .map((filteredRegistration, index) => (
             <ModelCard
-              key={filteredRegistration.model_name}
+              key={index}
               url={endPoint}
               modelData={filteredRegistration}
               gpuAvailable={gpuAvailable}
               modelType={'LLM'}
               onHandleCompleteDelete={handleCompleteDelete}
+              onGetCollectionArr={getCollectionArr}
             />
           ))}
       </div>
