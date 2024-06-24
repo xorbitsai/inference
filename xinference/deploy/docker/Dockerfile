@@ -21,7 +21,7 @@ ARG PIP_INDEX=https://pypi.org/simple
 RUN python -m pip install --upgrade -i "$PIP_INDEX" pip && \
     # uninstall builtin torchvision, and let xinference decide which version to be installed
     pip uninstall -y torchvision torchaudio && \
-    CMAKE_ARGS="-DGGML_CUBLAS=ON" pip install -i "$PIP_INDEX" -U chatglm-cpp && \
+    CMAKE_ARGS="-DGGML_CUDA=ON" pip install -i "$PIP_INDEX" -U "chatglm-cpp<0.4.0" && \
     # use pre-built whl package for llama-cpp-python, otherwise may core dump when init llama in some envs
     pip install llama-cpp-python --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cu121 && \
     cd /opt/inference && \

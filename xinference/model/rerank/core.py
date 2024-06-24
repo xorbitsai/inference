@@ -23,7 +23,7 @@ import numpy as np
 
 from ...constants import XINFERENCE_CACHE_DIR
 from ...device_utils import empty_cache
-from ...types import Document, DocumentObj, Rerank
+from ...types import Document, DocumentObj, Rerank, RerankTokens
 from ..core import CacheableModelSpec, ModelDescription
 from ..utils import is_model_cached
 
@@ -122,10 +122,16 @@ class RerankModel:
             model_spec.type = self._auto_detect_type(model_path)
 
     @staticmethod
+    def _get_tokenizer(model_path):
+        from transformers import AutoTokenizer
+
+        tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
+        return tokenizer
+
+    @staticmethod
     def _auto_detect_type(model_path):
         """This method may not be stable due to the fact that the tokenizer name may be changed.
         Therefore, we only use this method for unknown model types."""
-        from transformers import AutoTokenizer
 
         type_mapper = {
             "LlamaTokenizerFast": "LLM-based layerwise",
@@ -133,7 +139,7 @@ class RerankModel:
             "XLMRobertaTokenizerFast": "normal",
         }
 
-        tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
+        tokenizer = RerankModel._get_tokenizer(model_path)
         rerank_type = type_mapper.get(type(tokenizer).__name__)
         if rerank_type is None:
             logger.warning(
@@ -186,6 +192,7 @@ class RerankModel:
         top_n: Optional[int],
         max_chunks_per_doc: Optional[int],
         return_documents: Optional[bool],
+        return_len: Optional[bool],
         **kwargs,
     ) -> Rerank:
         self._counter += 1
@@ -224,7 +231,28 @@ class RerankModel:
                 )
                 for arg in sim_scores_argsort
             ]
-        return Rerank(id=str(uuid.uuid1()), results=docs)
+        if return_len:
+            tokenizer = self._get_tokenizer(self._model_path)
+            input_len = sum([len(tokenizer.tokenize(t)) for t in documents])
+
+            # Rerank Model output is just score or documents
+            # while return_documents = True
+            output_len = input_len
+
+        # api_version, billed_units, warnings
+        # is for Cohere API compatibility, set to None
+        metadata = {
+            "api_version": None,
+            "billed_units": None,
+            "tokens": (
+                RerankTokens(input_tokens=input_len, output_tokens=output_len)
+                if return_len
+                else None
+            ),
+            "warnings": None,
+        }
+
+        return Rerank(id=str(uuid.uuid1()), results=docs, meta=metadata)
 
 
 def get_cache_dir(model_spec: RerankModelSpec):

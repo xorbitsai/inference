@@ -5,7 +5,6 @@ import { ApiContext } from '../../components/apiContext'
 import fetcher from '../../components/fetcher'
 import HotkeyFocusTextField from '../../components/hotkeyFocusTextField'
 import ModelCard from './modelCard'
-import style from './styles/launchModelStyle'
 
 const LaunchModelComponent = ({ modelType, gpuAvailable }) => {
   let endPoint = useContext(ApiContext).endPoint
@@ -17,36 +16,28 @@ const LaunchModelComponent = ({ modelType, gpuAvailable }) => {
   const { isCallingApi, setIsCallingApi } = useContext(ApiContext)
   const { isUpdatingModel } = useContext(ApiContext)
 
-  const handleChange = (e) => {
-    setSearchTerm(e.target.value)
-  }
-
-  const handleStatusChange = (event) => {
-    setStatus(event.target.value)
-  }
-
   const filter = (registration) => {
-    if (!registration || typeof searchTerm !== 'string') return false
-    const modelName = registration.model_name
-      ? registration.model_name.toLowerCase()
-      : ''
-    if (!modelName.includes(searchTerm.toLowerCase())) {
-      return false
+    if (searchTerm !== '') {
+      if (!registration || typeof searchTerm !== 'string') return false
+      const modelName = registration.model_name
+        ? registration.model_name.toLowerCase()
+        : ''
+      if (!modelName.includes(searchTerm.toLowerCase())) {
+        return false
+      }
     }
+
     if (completeDeleteArr.includes(registration.model_name)) {
       registration.cache_status = Array.isArray(registration.cache_status)
         ? [false]
         : false
     }
-    if (status && status !== 'all') {
-      if (
+
+    if (status !== 'all') {
+      return (
         registration.cache_status &&
         !completeDeleteArr.includes(registration.model_name)
-      ) {
-        return true
-      } else {
-        return false
-      }
+      )
     }
     return true
   }
@@ -101,7 +92,7 @@ const LaunchModelComponent = ({ modelType, gpuAvailable }) => {
             id="status"
             labelId="select-status"
             label="Status"
-            onChange={handleStatusChange}
+            onChange={(e) => setStatus(e.target.value)}
             value={status}
             size="small"
             sx={{ width: '150px' }}
@@ -116,13 +107,20 @@ const LaunchModelComponent = ({ modelType, gpuAvailable }) => {
             type="search"
             label={`Search for ${modelType} model name`}
             value={searchTerm}
-            onChange={handleChange}
+            onChange={(e) => setSearchTerm(e.target.value)}
             size="small"
             hotkey="/"
           />
         </FormControl>
       </div>
-      <div style={style}>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+          paddingLeft: '2rem',
+          gridGap: '2rem 0rem',
+        }}
+      >
         {registrationData
           .filter((registration) => filter(registration))
           .map((filteredRegistration) => (

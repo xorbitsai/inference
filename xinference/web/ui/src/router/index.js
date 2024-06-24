@@ -25,7 +25,7 @@ const routes = [
         element: <RunningModels />,
       },
       {
-        path: 'register_model',
+        path: 'register_model/:registerModelType/:model_name?',
         element: <RegisterModel />,
       },
       {
