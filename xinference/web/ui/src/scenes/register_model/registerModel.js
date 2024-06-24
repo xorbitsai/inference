@@ -453,7 +453,25 @@ const RegisterModelComponent = ({ modelType, customData }) => {
         prompt_style,
       })
     } else {
-      setFormData({ ...formData, model_family: value })
+      const {
+        version,
+        model_name,
+        model_description,
+        context_length,
+        model_lang,
+        model_ability,
+        model_specs,
+      } = formData
+      setFormData({
+        version,
+        model_name,
+        model_description,
+        context_length,
+        model_lang,
+        model_ability,
+        model_family: value,
+        model_specs,
+      })
     }
   }
 
