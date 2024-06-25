@@ -1618,6 +1618,7 @@ def stop_cluster(endpoint: str, api_key: Optional[str], check: bool):
         click.confirm("Continue?", abort=True)
     try:
         result = client.abort_cluster()
+        result = result.get("result")
         click.echo(f"Cluster stopped: {result}")
     except Exception as e:
         click.echo(e)

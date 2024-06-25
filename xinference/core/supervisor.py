@@ -14,6 +14,8 @@
 
 import asyncio
 import itertools
+import os
+import signal
 import time
 import typing
 from dataclasses import dataclass
@@ -1144,11 +1146,22 @@ class SupervisorActor(xo.StatelessActor):
         }
         return ret
 
+    async def trigger_exit(self) -> bool:
+        try:
+            os.kill(os.getpid(), signal.SIGINT)
+        except Exception as e:
+            logger.info(f"trigger exit error: {e}")
+            return False
+        return True
+
     async def abort_cluster(self) -> bool:
         ret = True
         for worker in self._worker_address_to_worker.values():
             ret = ret and await worker.trigger_exit()
 
+        logger.info(f" ret:{ret}")
+        ret = ret and await self.trigger_exit()
+        logger.info(f" ret:{ret}")
         return ret
 
     @staticmethod

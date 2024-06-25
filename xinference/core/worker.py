@@ -285,13 +285,10 @@ class WorkerActor(xo.StatelessActor):
         self._isolation.stop()
 
     async def trigger_exit(self) -> bool:
-        logger.info("Stopping worker--beginning")
         try:
-            logger.info("Removing worker")
             os.kill(os.getpid(), signal.SIGINT)
-            logger.info("Worker===Exit signal received")
         except Exception as e:
-            logger.info(e)
+            logger.info(f"trigger exit error: {e}")
             return False
         return True
 
