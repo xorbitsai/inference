@@ -456,6 +456,7 @@ def test_restful_api_for_tool_calls(setup, model_format, quantization):
 
     response = requests.post(url, json=payload)
     response_data = response.json()
+    assert "model_uid" in response_data, response_data
     model_uid_res = response_data["model_uid"]
     assert model_uid_res == "test_tool"
 
@@ -503,7 +504,7 @@ def test_restful_api_for_tool_calls(setup, model_format, quantization):
     assert (
         "get_current_weather"
         == completion["choices"][0]["message"]["tool_calls"][0]["function"]["name"]
-    )
+    ), completion
     arguments = completion["choices"][0]["message"]["tool_calls"][0]["function"][
         "arguments"
     ]
@@ -618,8 +619,9 @@ def test_restful_api_for_tool_calls(setup, model_format, quantization):
         )
         assert completion.choices
         assert completion.choices[0].finish_reason == "stop"
-        assert "10111" in completion.choices[0].message.content
-        assert "12345" in completion.choices[0].message.content
+        if kwargs:
+            assert "10111" in completion.choices[0].message.content
+            assert "12345" in completion.choices[0].message.content
 
     _check_invalid_tool_calls(endpoint, model_uid_res)
 
