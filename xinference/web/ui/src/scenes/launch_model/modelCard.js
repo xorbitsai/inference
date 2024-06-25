@@ -548,7 +548,7 @@ const ModelCard = ({
   }
 
   const handleCollection = (bool) => {
-    // setHover(false)
+    setHover(false)
     setIsNotCollection(false)
 
     let collectionArr = JSON.parse(localStorage.getItem('collectionArr')) || []
@@ -566,23 +566,12 @@ const ModelCard = ({
     onGetCollectionArr(collectionArr)
   }
 
-  useEffect(() => {
-    if (isCollection) {
-      const offsetTop = document.getElementById(modelData.model_name).offsetTop
-      const viewportHeight = window.innerHeight
-      window.scrollTo({
-        top: offsetTop - viewportHeight / 2 + 150,
-        behavior: 'smooth',
-      })
-    }
-  }, [isCollection])
-
   // Set two different states based on mouse hover
   return (
     <>
       <Paper
         id={modelData.model_name}
-        className={isCollection ? 'container highlighted' : 'container'}
+        className="container"
         onMouseEnter={() => setHover(true)}
         onMouseLeave={() => setHover(false)}
         onClick={() => {

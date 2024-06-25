@@ -9,7 +9,6 @@ import ModelCard from './modelCard'
 const LaunchModelComponent = ({ modelType, gpuAvailable }) => {
   let endPoint = useContext(ApiContext).endPoint
   const [registrationData, setRegistrationData] = useState([])
-  const [listData, setListData] = useState([])
   const [searchTerm, setSearchTerm] = useState('')
   const [status, setStatus] = useState('all')
   const [completeDeleteArr, setCompleteDeleteArr] = useState([])
@@ -69,21 +68,10 @@ const LaunchModelComponent = ({ modelType, gpuAvailable }) => {
       const builtinModels = registrations.filter((v) => {
         return v.is_builtin
       })
-      setListData(builtinModels)
+      setRegistrationData(builtinModels)
 
       const collectionData = JSON.parse(localStorage.getItem('collectionArr'))
       setCollectionArr(collectionData)
-      if (collectionData?.length) {
-        const collection = builtinModels.filter((item) => {
-          return collectionData.includes(item.model_name)
-        })
-        const notCollection = builtinModels.filter((item) => {
-          return !collectionData.includes(item.model_name)
-        })
-        setRegistrationData([...collection, ...notCollection])
-      } else {
-        setRegistrationData(builtinModels)
-      }
     } catch (error) {
       console.error('Error:', error)
     } finally {
@@ -97,13 +85,6 @@ const LaunchModelComponent = ({ modelType, gpuAvailable }) => {
 
   const getCollectionArr = (data) => {
     setCollectionArr(data)
-    const collection = listData.filter((item) => {
-      return data.includes(item.model_name)
-    })
-    const notCollection = listData.filter((item) => {
-      return !data.includes(item.model_name)
-    })
-    setRegistrationData([...collection, ...notCollection])
   }
 
   return (

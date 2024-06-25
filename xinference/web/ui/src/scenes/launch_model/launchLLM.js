@@ -15,7 +15,6 @@ const LaunchLLM = ({ gpuAvailable }) => {
   const [cookie] = useCookies(['token'])
 
   const [registrationData, setRegistrationData] = useState([])
-  const [listData, setListData] = useState([])
   // States used for filtering
   const [searchTerm, setSearchTerm] = useState('')
   const [modelAbility, setModelAbility] = useState('all')
@@ -101,23 +100,12 @@ const LaunchLLM = ({ gpuAvailable }) => {
         } else {
           response.json().then((data) => {
             const builtinRegistrations = data.filter((v) => v.is_builtin)
-            setListData(builtinRegistrations)
+            setRegistrationData(builtinRegistrations)
 
             const collectionData = JSON.parse(
               localStorage.getItem('collectionArr')
             )
             setCollectionArr(collectionData)
-            if (collectionData?.length) {
-              const collection = builtinRegistrations.filter((item) => {
-                return collectionData.includes(item.model_name)
-              })
-              const notCollection = builtinRegistrations.filter((item) => {
-                return !collectionData.includes(item.model_name)
-              })
-              setRegistrationData([...collection, ...notCollection])
-            } else {
-              setRegistrationData(builtinRegistrations)
-            }
           })
         }
       })
@@ -134,13 +122,6 @@ const LaunchLLM = ({ gpuAvailable }) => {
 
   const getCollectionArr = (data) => {
     setCollectionArr(data)
-    const collection = listData.filter((item) => {
-      return data.includes(item.model_name)
-    })
-    const notCollection = listData.filter((item) => {
-      return !data.includes(item.model_name)
-    })
-    setRegistrationData([...collection, ...notCollection])
   }
 
   return (
