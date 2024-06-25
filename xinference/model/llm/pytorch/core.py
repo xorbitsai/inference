@@ -348,6 +348,9 @@ class PytorchModel(LLM):
     def build_attention_mask(
         self, batch_size: int, seq_length: int, reqs: List[InferenceRequest]
     ):
+        """
+        For both prefill and decode phase.
+        """
         attention_mask = torch.ones(
             (batch_size, seq_length), dtype=torch.long, device=self._device
         )
@@ -377,14 +380,23 @@ class PytorchModel(LLM):
     def build_prefill_token_type_ids(
         self, batch_size: int, seq_length: int, reqs: List[InferenceRequest]
     ):
+        """
+        For most models, `token_type_ids` is not required by default.
+        """
         return None
 
     def build_decode_token_type_ids(
         self, batch_size: int, seq_length: int, reqs: List[InferenceRequest]
     ):
+        """
+        For most models, `token_type_ids` is not required by default.
+        """
         return None
 
     def build_prefill_inputs(self, prompts: List, req_list: List[InferenceRequest]):
+        """
+        Get inputs for inference. Models may have their own impl.
+        """
         assert isinstance(prompts[0], str)
         inputs = self._tokenizer(prompts, padding=False).input_ids
         context_len = self.get_context_len()
@@ -394,6 +406,9 @@ class PytorchModel(LLM):
         return input_ids
 
     def build_prefill_kwargs(self, prompts: List, req_list: List[InferenceRequest]):
+        """
+        Get all inputs parameters for prefill phase. Models may have their own impl.
+        """
         input_ids = self.build_prefill_inputs(prompts, req_list)
         res = {"input_ids": input_ids}
         batch_size, seq_len = input_ids.shape
@@ -417,6 +432,9 @@ class PytorchModel(LLM):
         batch_size: int,
         seq_len: int,
     ):
+        """
+        Get all inputs parameters for decode phase. Models may have their own impl.
+        """
         res = {"input_ids": torch.as_tensor(prompts, device=self._device)}
         attention_mask = self.build_attention_mask(batch_size, seq_len, req_list)
         if attention_mask is not None:
