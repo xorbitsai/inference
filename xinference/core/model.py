@@ -65,6 +65,9 @@ except ImportError:
     OutOfMemoryError = _OutOfMemoryError
 
 
+XINFERENCE_BATCHING_ALLOWED_VISION_MODELS = ["qwen-vl-chat", "cogvlm2"]
+
+
 def request_limit(fn):
     """
     Used by ModelActor.
@@ -266,11 +269,27 @@ class ModelActor(xo.StatelessActor):
     def allow_batching(self) -> bool:
         from ..model.llm.pytorch.core import PytorchModel
 
-        # model_ability = self._model_description.get("model_ability", [])
+        model_ability = self._model_description.get("model_ability", [])
 
-        return XINFERENCE_TRANSFORMERS_ENABLE_BATCHING and isinstance(
+        condition = XINFERENCE_TRANSFORMERS_ENABLE_BATCHING and isinstance(
             self._model, PytorchModel
         )
+        if condition and "vision" in model_ability:
+            if (
+                self._model.model_family.model_name
+                in XINFERENCE_BATCHING_ALLOWED_VISION_MODELS
+                or self._model.model_family.model_family
+                in XINFERENCE_BATCHING_ALLOWED_VISION_MODELS
+            ):
+                return True
+            else:
+                logger.warning(
+                    f"Currently for multimodal models, "
+                    f"xinference only supports {','.join(XINFERENCE_BATCHING_ALLOWED_VISION_MODELS)} for batching. "
+                    f"Your model {self._model.model_family.model_name} with model family {self._model.model_family.model_family} is disqualified."
+                )
+                return False
+        return condition
 
     async def load(self):
         self._model.load()
