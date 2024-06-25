@@ -19,6 +19,7 @@ const LaunchLLM = ({ gpuAvailable }) => {
   const [searchTerm, setSearchTerm] = useState('')
   const [modelAbility, setModelAbility] = useState('all')
   const [status, setStatus] = useState('all')
+  const [status1, setStatus1] = useState([])
   const [completeDeleteArr, setCompleteDeleteArr] = useState([])
   const [collectionArr, setCollectionArr] = useState([])
 
@@ -123,12 +124,26 @@ const LaunchLLM = ({ gpuAvailable }) => {
     setCollectionArr(data)
   }
 
+  const handleChange = (event) => {
+    const {
+      target: { value },
+    } = event;
+    console.log('value', value);
+    if(value.length > 1 && value.includes('all') && value[value.length - 1] !== 'all') {
+      setStatus1(value.filter(item => item !== 'all'))
+    } else if ((value.length > 1 && value.includes('all') && value[value.length - 1] == 'all') || value.length === 0) {
+      setStatus1(['all'])
+    } else {
+      setStatus1(value)
+    }
+  };
+
   return (
     <Box m="20px">
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: '150px 150px 1fr',
+          gridTemplateColumns: '150px 150px 150px 1fr',
           columnGap: '20px',
           margin: '30px 2rem',
         }}
@@ -160,6 +175,29 @@ const LaunchLLM = ({ gpuAvailable }) => {
             value={status}
             size="small"
             sx={{ width: '150px' }}
+          >
+            <MenuItem value="all">all</MenuItem>
+            <MenuItem value="cached">cached</MenuItem>
+            <MenuItem value="collection">collection</MenuItem>
+          </Select>
+        </FormControl>
+        <FormControl variant="outlined" margin="normal">
+          <InputLabel id="select-status1">Status12</InputLabel>
+          <Select
+            multiple
+            displayEmpty
+            defaultValue="all"
+            id="status1"
+            labelId="select-status1"
+            label="Status12"
+            value={status1.length ? status1 : ['all']}
+            size="small"
+            sx={{ width: '150px' }}
+            onChange={handleChange}
+            renderValue={(selected) => {
+              if(selected.length === 0) return 'all'
+              return selected.join(', ')
+            }}
           >
             <MenuItem value="all">all</MenuItem>
             <MenuItem value="cached">cached</MenuItem>
