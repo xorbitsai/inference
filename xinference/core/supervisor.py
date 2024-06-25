@@ -1147,8 +1147,7 @@ class SupervisorActor(xo.StatelessActor):
     async def abort_cluster(self) -> bool:
         ret = True
         for worker in self._worker_address_to_worker.values():
-            ret = ret and await self.remove_worker(worker.address)
-            await worker.trigger_exit()
+            ret = ret and await worker.trigger_exit()
 
         return ret
 
