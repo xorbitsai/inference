@@ -55,7 +55,7 @@ const LaunchLLM = ({ gpuAvailable }) => {
     if (status === 'cached') {
       const judge = registration.model_specs.some((spec) => filterCache(spec))
       return judge && !completeDeleteArr.includes(registration.model_name)
-    } else if(status === 'collection') {
+    } else if (status === 'collection') {
       return collectionArr.includes(registration.model_name)
     }
 
@@ -103,20 +103,21 @@ const LaunchLLM = ({ gpuAvailable }) => {
             const builtinRegistrations = data.filter((v) => v.is_builtin)
             setListData(builtinRegistrations)
 
-            const collectionData = JSON.parse(localStorage.getItem('collectionArr'))
+            const collectionData = JSON.parse(
+              localStorage.getItem('collectionArr')
+            )
             setCollectionArr(collectionData)
-            if(collectionData?.length) {
-              const collection = builtinRegistrations.filter(item => {
+            if (collectionData?.length) {
+              const collection = builtinRegistrations.filter((item) => {
                 return collectionData.includes(item.model_name)
               })
-              const notCollection = builtinRegistrations.filter(item => {
+              const notCollection = builtinRegistrations.filter((item) => {
                 return !collectionData.includes(item.model_name)
               })
               setRegistrationData([...collection, ...notCollection])
             } else {
               setRegistrationData(builtinRegistrations)
             }
-            
           })
         }
       })
@@ -133,20 +134,13 @@ const LaunchLLM = ({ gpuAvailable }) => {
 
   const getCollectionArr = (data) => {
     setCollectionArr(data)
-    const collection = listData.filter(item => {
+    const collection = listData.filter((item) => {
       return data.includes(item.model_name)
     })
-    const notCollection = listData.filter(item => {
+    const notCollection = listData.filter((item) => {
       return !data.includes(item.model_name)
     })
     setRegistrationData([...collection, ...notCollection])
-  }
-
-  const style = {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-    paddingLeft: '2rem',
-    gridGap: '2rem 0rem',
   }
 
   return (
@@ -204,12 +198,19 @@ const LaunchLLM = ({ gpuAvailable }) => {
           />
         </FormControl>
       </div>
-      <div style={style}>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+          paddingLeft: '2rem',
+          gridGap: '2rem 0rem',
+        }}
+      >
         {registrationData
           .filter((registration) => filter(registration))
-          .map((filteredRegistration, index) => (
+          .map((filteredRegistration) => (
             <ModelCard
-              key={index}
+              key={filteredRegistration.model_name}
               url={endPoint}
               modelData={filteredRegistration}
               gpuAvailable={gpuAvailable}

@@ -548,12 +548,17 @@ const ModelCard = ({
   }
 
   const handleCollection = (bool) => {
+    // setHover(false)
+    setIsNotCollection(false)
+
     let collectionArr = JSON.parse(localStorage.getItem('collectionArr')) || []
-    if(bool) {
+    if (bool) {
       collectionArr.push(modelData.model_name)
       setIsCollection(true)
     } else {
-      collectionArr = collectionArr.filter(item => item !== modelData.model_name)
+      collectionArr = collectionArr.filter(
+        (item) => item !== modelData.model_name
+      )
       setIsNotCollection(true)
     }
     localStorage.setItem('collectionArr', JSON.stringify(collectionArr))
@@ -561,11 +566,23 @@ const ModelCard = ({
     onGetCollectionArr(collectionArr)
   }
 
+  useEffect(() => {
+    if (isCollection) {
+      const offsetTop = document.getElementById(modelData.model_name).offsetTop
+      const viewportHeight = window.innerHeight
+      window.scrollTo({
+        top: offsetTop - viewportHeight / 2 + 150,
+        behavior: 'smooth',
+      })
+    }
+  }, [isCollection])
+
   // Set two different states based on mouse hover
   return (
     <>
       <Paper
-        className="container"
+        id={modelData.model_name}
+        className={isCollection ? 'container highlighted' : 'container'}
         onMouseEnter={() => setHover(true)}
         onMouseLeave={() => setHover(false)}
         onClick={() => {
@@ -613,8 +630,13 @@ const ModelCard = ({
               <div className="cardTitle">
                 <TitleTypography value={modelData.model_name} />
                 <div className="iconButtonBox">
-                  { JSON.parse(localStorage.getItem('collectionArr'))?.includes(modelData.model_name) ? 
-                    <Tooltip title={'Cancellation of Collections'} placement="top">
+                  {JSON.parse(localStorage.getItem('collectionArr'))?.includes(
+                    modelData.model_name
+                  ) ? (
+                    <Tooltip
+                      title={'Cancellation of Collections'}
+                      placement="top"
+                    >
                       <IconButton
                         aria-label="collection"
                         onClick={(e) => {
@@ -622,9 +644,10 @@ const ModelCard = ({
                           handleCollection(false)
                         }}
                       >
-                        <Grade style={{color: 'rgb(255, 206, 0)'}} />
+                        <Grade style={{ color: 'rgb(255, 206, 0)' }} />
                       </IconButton>
-                    </Tooltip> : 
+                    </Tooltip>
+                  ) : (
                     <Tooltip title={'Collection'} placement="top">
                       <IconButton
                         aria-label="cancellation-of-collections"
@@ -636,7 +659,7 @@ const ModelCard = ({
                         <StarBorder />
                       </IconButton>
                     </Tooltip>
-                  }
+                  )}
                 </div>
               </div>
             )}
@@ -762,8 +785,13 @@ const ModelCard = ({
                 <div className="cardTitle">
                   <TitleTypography value={modelData.model_name} />
                   <div className="iconButtonBox">
-                    { JSON.parse(localStorage.getItem('collectionArr'))?.includes(modelData.model_name) ? 
-                      <Tooltip title={'Cancellation of Collections'} placement="top">
+                    {JSON.parse(
+                      localStorage.getItem('collectionArr')
+                    )?.includes(modelData.model_name) ? (
+                      <Tooltip
+                        title={'Cancellation of Collections'}
+                        placement="top"
+                      >
                         <IconButton
                           aria-label="collection"
                           onClick={(e) => {
@@ -771,9 +799,10 @@ const ModelCard = ({
                             handleCollection(false)
                           }}
                         >
-                          <Grade style={{color: 'rgb(255, 206, 0)'}} />
+                          <Grade style={{ color: 'rgb(255, 206, 0)' }} />
                         </IconButton>
-                      </Tooltip> : 
+                      </Tooltip>
+                    ) : (
                       <Tooltip title={'Collection'} placement="top">
                         <IconButton
                           aria-label="cancellation-of-collections"
@@ -785,7 +814,7 @@ const ModelCard = ({
                           <StarBorder />
                         </IconButton>
                       </Tooltip>
-                    }
+                    )}
                   </div>
                 </div>
               )}

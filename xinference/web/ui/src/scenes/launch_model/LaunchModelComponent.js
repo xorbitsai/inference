@@ -40,7 +40,7 @@ const LaunchModelComponent = ({ modelType, gpuAvailable }) => {
         registration.cache_status &&
         !completeDeleteArr.includes(registration.model_name)
       )
-    } else if(status === 'collection') {
+    } else if (status === 'collection') {
       return collectionArr.includes(registration.model_name)
     }
 
@@ -73,11 +73,11 @@ const LaunchModelComponent = ({ modelType, gpuAvailable }) => {
 
       const collectionData = JSON.parse(localStorage.getItem('collectionArr'))
       setCollectionArr(collectionData)
-      if(collectionData?.length) {
-        const collection = builtinModels.filter(item => {
+      if (collectionData?.length) {
+        const collection = builtinModels.filter((item) => {
           return collectionData.includes(item.model_name)
         })
-        const notCollection = builtinModels.filter(item => {
+        const notCollection = builtinModels.filter((item) => {
           return !collectionData.includes(item.model_name)
         })
         setRegistrationData([...collection, ...notCollection])
@@ -97,10 +97,10 @@ const LaunchModelComponent = ({ modelType, gpuAvailable }) => {
 
   const getCollectionArr = (data) => {
     setCollectionArr(data)
-    const collection = listData.filter(item => {
+    const collection = listData.filter((item) => {
       return data.includes(item.model_name)
     })
-    const notCollection = listData.filter(item => {
+    const notCollection = listData.filter((item) => {
       return !data.includes(item.model_name)
     })
     setRegistrationData([...collection, ...notCollection])
