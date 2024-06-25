@@ -1125,8 +1125,13 @@ const ModelCard = ({
                   </FormControl>
                 </Grid>
                 <ListItemButton onClick={() => setIsOther(!isOther)}>
-                  <ListItemText primary="Optional Configurations" />
-                  {isOther ? <ExpandLess /> : <ExpandMore />}
+                  <div style={{ display: 'flex', alignItems: 'center' }}>
+                    <ListItemText
+                      primary="Optional Configurations"
+                      style={{ marginRight: 10 }}
+                    />
+                    {isOther ? <ExpandLess /> : <ExpandMore />}
+                  </div>
                 </ListItemButton>
                 <Collapse in={isOther} timeout="auto" unmountOnExit>
                   <Grid item xs={12}>
