@@ -285,26 +285,14 @@ class WorkerActor(xo.StatelessActor):
         self._isolation.stop()
 
     async def trigger_exit(self) -> bool:
-        if os.name != "nt":
-            logger.info("Stopping worker--beginning")
-            if self._supervisor_ref is not None:
-                try:
-                    await self._supervisor_ref.remove_worker(self.address)
-                except Exception as e:
-                    logger.info(e)
-                    return False
-            else:
-                logger.info("Supervisor reference is None")
-                return False
-            try:
-                logger.info("Removing worker")
-                os.kill(os.getpid(), signal.SIGINT)
-                logger.info("Worker===Exit signal received")
-            except Exception as e:
-                logger.info(e)
-                return False
-            return True
-        logger.info("NOT LINUX")
+        logger.info("Stopping worker--beginning")
+        try:
+            logger.info("Removing worker")
+            os.kill(os.getpid(), signal.SIGINT)
+            logger.info("Worker===Exit signal received")
+        except Exception as e:
+            logger.info(e)
+            return False
         return True
 
     @staticmethod
