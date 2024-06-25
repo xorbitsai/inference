@@ -552,6 +552,36 @@ class RESTfulAPI:
                 else None
             ),
         )
+        self._router.add_api_route(
+            "/v1/workers",
+            self.get_workers_info,
+            methods=["GET"],
+            dependencies=(
+                [Security(self._auth_service, scopes=["workers:list"])]
+                if self.is_authenticated()
+                else None
+            ),
+        )
+        self._router.add_api_route(
+            "/v1/supervisor",
+            self.get_supervisor_info,
+            methods=["GET"],
+            dependencies=(
+                [Security(self._auth_service, scopes=["supervisor:list"])]
+                if self.is_authenticated()
+                else None
+            ),
+        )
+        self._router.add_api_route(
+            "/v1/clusters",
+            self.abort_cluster,
+            methods=["DELETE"],
+            dependencies=(
+                [Security(self._auth_service, scopes=["clusters:list"])]
+                if self.is_authenticated()
+                else None
+            ),
+        )
 
         if XINFERENCE_DISABLE_METRICS:
             logger.info(
@@ -1709,6 +1739,39 @@ class RESTfulAPI:
             res = await (await self._get_supervisor_ref()).confirm_and_remove_model(
                 model_version=model_version, worker_ip=worker_ip
             )
+            return JSONResponse(content={"result": res})
+        except ValueError as re:
+            logger.error(re, exc_info=True)
+            raise HTTPException(status_code=400, detail=str(re))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def get_workers_info(self) -> JSONResponse:
+        try:
+            res = await (await self._get_supervisor_ref()).get_workers_info()
+            return JSONResponse(content=res)
+        except ValueError as re:
+            logger.error(re, exc_info=True)
+            raise HTTPException(status_code=400, detail=str(re))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def get_supervisor_info(self) -> JSONResponse:
+        try:
+            res = await (await self._get_supervisor_ref()).get_supervisor_info()
+            return res
+        except ValueError as re:
+            logger.error(re, exc_info=True)
+            raise HTTPException(status_code=400, detail=str(re))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def abort_cluster(self) -> JSONResponse:
+        try:
+            res = await (await self._get_supervisor_ref()).abort_cluster()
             return JSONResponse(content={"result": res})
         except ValueError as re:
             logger.error(re, exc_info=True)

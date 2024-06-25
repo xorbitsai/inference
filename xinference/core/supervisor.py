@@ -1132,6 +1132,26 @@ class SupervisorActor(xo.StatelessActor):
             )
         return ret
 
+    async def get_workers_info(self) -> List[Dict[str, Any]]:
+        ret = []
+        for worker in self._worker_address_to_worker.values():
+            ret.append(await worker.get_workers_info())
+        return ret
+
+    async def get_supervisor_info(self) -> Dict[str, Any]:
+        ret = {
+            "supervisor_ip": self.address,
+        }
+        return ret
+
+    async def abort_cluster(self) -> bool:
+        ret = True
+        for worker in self._worker_address_to_worker.values():
+            ret = ret and await self.remove_worker(worker.address)
+            await worker.trigger_exit()
+
+        return ret
+
     @staticmethod
     def record_metrics(name, op, kwargs):
         record_metrics(name, op, kwargs)

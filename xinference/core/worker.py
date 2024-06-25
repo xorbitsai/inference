@@ -284,6 +284,16 @@ class WorkerActor(xo.StatelessActor):
     async def __pre_destroy__(self):
         self._isolation.stop()
 
+    async def trigger_exit(self) -> bool:
+        try:
+            if os.name != "nt":
+                os.kill(os.getpid(), signal.SIGINT)
+                logger.info("Worker===Exit signal received")
+            return True
+        except Exception as e:
+            logger.info(e)
+            return False
+
     @staticmethod
     def get_devices_count():
         from ..device_utils import gpu_count
@@ -854,6 +864,13 @@ class WorkerActor(xo.StatelessActor):
             model_version, self.address
         )
         return True
+
+    async def get_workers_info(self) -> Dict[str, Any]:
+        ret = {
+            "work-ip": self.address,
+            "models": await self.list_models(),
+        }
+        return ret
 
     @staticmethod
     def record_metrics(name, op, kwargs):
