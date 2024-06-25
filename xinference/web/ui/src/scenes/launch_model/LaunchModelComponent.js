@@ -69,7 +69,6 @@ const LaunchModelComponent = ({ modelType, gpuAvailable }) => {
         return v.is_builtin
       })
       setRegistrationData(builtinModels)
-
       const collectionData = JSON.parse(localStorage.getItem('collectionArr'))
       setCollectionArr(collectionData)
     } catch (error) {

@@ -101,7 +101,6 @@ const LaunchLLM = ({ gpuAvailable }) => {
           response.json().then((data) => {
             const builtinRegistrations = data.filter((v) => v.is_builtin)
             setRegistrationData(builtinRegistrations)
-
             const collectionData = JSON.parse(
               localStorage.getItem('collectionArr')
             )
