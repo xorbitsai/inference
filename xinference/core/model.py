@@ -285,7 +285,7 @@ class ModelActor(xo.StatelessActor):
             else:
                 logger.warning(
                     f"Currently for multimodal models, "
-                    f"xinference only supports {','.join(XINFERENCE_BATCHING_ALLOWED_VISION_MODELS)} for batching. "
+                    f"xinference only supports {', '.join(XINFERENCE_BATCHING_ALLOWED_VISION_MODELS)} for batching. "
                     f"Your model {self._model.model_family.model_name} with model family {self._model.model_family.model_family} is disqualified."
                 )
                 return False
