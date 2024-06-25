@@ -219,6 +219,17 @@ class SupervisorActor(xo.StatelessActor):
             model_version_infos, self.address
         )
 
+        # Windows does not have signal handler
+        if os.name != "nt":
+
+            async def signal_handler():
+                os._exit(0)
+
+            loop = asyncio.get_running_loop()
+            loop.add_signal_handler(
+                signal.SIGTERM, lambda: asyncio.create_task(signal_handler())
+            )
+
     @typing.no_type_check
     async def get_cluster_device_info(self, detailed: bool = False) -> List:
         import psutil
