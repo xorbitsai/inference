@@ -1170,9 +1170,7 @@ class SupervisorActor(xo.StatelessActor):
         for worker in self._worker_address_to_worker.values():
             ret = ret and await worker.trigger_exit()
 
-        logger.info(f" ret:{ret}")
         ret = ret and await self.trigger_exit()
-        logger.info(f" ret:{ret}")
         return ret
 
     @staticmethod
