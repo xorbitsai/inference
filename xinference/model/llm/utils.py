@@ -19,6 +19,7 @@ import time
 import uuid
 from typing import AsyncGenerator, Dict, Iterator, List, Optional, Tuple, cast
 
+from ...constants import XINFERENCE_DISABLE_QWEN_REACT_RESPONSE_FILTER
 from ...types import (
     SPECIAL_TOOL_PROMPT,
     ChatCompletion,
@@ -689,7 +690,10 @@ Begin!"""
             returns the part after "\nFinal Answer:" if found, else returns delta.
         """
         family = model_family.model_family or model_family.model_name
-        if family in QWEN_TOOL_CALL_FAMILY:
+        if (
+            family in QWEN_TOOL_CALL_FAMILY
+            and not XINFERENCE_DISABLE_QWEN_REACT_RESPONSE_FILTER
+        ):
             # Encapsulating function to reset 'found' after each call
             found = False
 

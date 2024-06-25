@@ -46,3 +46,10 @@ XINFERENCE_DISABLE_METRICS
 Xinference will by default enable the metrics exporter on the supervisor and worker.
 Setting this environment to 1 will disable the /metrics endpoint on the supervisor
 and the HTTP service (only provide the /metrics endpoint) on the worker.
+
+XINFERENCE_DISABLE_QWEN_REACT_RESPONSE_FILTER
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+Xinference will by default enable the QWEN vllm's tool call ReAct response filtering.
+Users will only see what comes after the "Final Answer" in QWEN's ReAct response.
+Setting this environment to 1 will disable the response filtering mechanism, 
+allowing raw responses from QWEN vllm tools to be returned without additional processing.
