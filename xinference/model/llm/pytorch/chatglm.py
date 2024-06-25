@@ -330,14 +330,6 @@ class ChatglmPytorchChatModel(PytorchChatModel):
                     ),
                 )
 
-    @staticmethod
-    def require_attention_mask():
-        """
-        GLM4 needs to use attention mask and position ids during inference.
-        Otherwise, the inference result would be not available.
-        """
-        return True
-
     def prepare_sanitize_generate_config(self, req: InferenceRequest):
         """
         Set temperature and top_p to 0.8 by default

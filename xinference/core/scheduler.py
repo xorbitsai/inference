@@ -69,6 +69,8 @@ class InferenceRequest:
         self._stream_chunk_id = str(uuid.uuid4())
         # For calculate attention mask if needed
         self.padding_len = 0
+        # For recording position_id if needed
+        self.max_position_id = None
         # Use in stream mode
         self.last_output_length = 0
         # inference results,

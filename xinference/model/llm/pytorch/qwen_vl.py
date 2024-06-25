@@ -20,8 +20,10 @@ import typing
 import uuid
 from typing import Dict, Iterator, List, Optional, Tuple, Union
 
+import torch
 from transformers import PreTrainedTokenizer
 
+from ....core.scheduler import InferenceRequest
 from ....model.utils import select_device
 from ....types import (
     ChatCompletion,
@@ -34,6 +36,7 @@ from ....types import (
 )
 from ..llm_family import LLMFamilyV1, LLMSpecV1
 from .core import PytorchChatModel, PytorchGenerateConfig
+from .utils import pad_prefill_tokens
 
 logger = logging.getLogger(__name__)
 
@@ -252,10 +255,6 @@ class QwenVLChatModel(PytorchChatModel):
             yield chunk
 
     @staticmethod
-    def require_attention_mask():
-        return True
-
-    @staticmethod
     def get_batch_size_and_seq_len_indexes_from_kv() -> Tuple[int, int]:
         """
         Qwen-vl is very special for its kv_cache impl.
@@ -356,3 +355,11 @@ class QwenVLChatModel(PytorchChatModel):
         )
         _, context_tokens = self.make_context(self._tokenizer, prompt, qwen_history)
         return context_tokens
+
+    def build_prefill_inputs(self, prompts: List, req_list: List[InferenceRequest]):
+        context_len = self.get_context_len()
+        inputs = pad_prefill_tokens(prompts, context_len, req_list)
+        input_ids = torch.as_tensor(
+            pad_prefill_tokens(inputs, context_len, req_list), device=self._device
+        )
+        return input_ids

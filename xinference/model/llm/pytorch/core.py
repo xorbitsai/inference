@@ -18,6 +18,8 @@ import os
 from functools import lru_cache
 from typing import Iterable, Iterator, List, Optional, Tuple, Union
 
+import torch
+
 from ....core.scheduler import InferenceRequest
 from ....device_utils import (
     get_device_preferred_dtype,
@@ -42,8 +44,8 @@ from ....types import (
 from ...utils import select_device
 from ..core import LLM
 from ..llm_family import LLMFamilyV1, LLMSpecV1
-from ..utils import QWEN_TOOL_CALL_FAMILY, ChatModelMixin
-from .utils import get_context_length, get_max_src_len
+from ..utils import ChatModelMixin, QWEN_TOOL_CALL_FAMILY
+from .utils import get_context_length, get_max_src_len, pad_prefill_tokens
 
 logger = logging.getLogger(__name__)
 
@@ -343,13 +345,96 @@ class PytorchModel(LLM):
         else:
             return generator_wrapper(prompt, generate_config)
 
-    @staticmethod
-    def require_attention_mask():
-        return False
+    def build_attention_mask(
+        self, batch_size: int, seq_length: int, reqs: List[InferenceRequest]
+    ):
+        attention_mask = torch.ones(
+            (batch_size, seq_length), dtype=torch.long, device=self._device
+        )
+        padding_lens = torch.as_tensor([r.padding_len for r in reqs])
+        mask = torch.arange(seq_length).expand(
+            batch_size, seq_length
+        ) < padding_lens.unsqueeze(1)
+        attention_mask[mask] = 0
+        return attention_mask
+
+    def build_prefill_position_ids(
+        self, batch_size: int, seq_length: int, reqs: List[InferenceRequest]
+    ):
+        position_ids = torch.arange(
+            0, seq_length, dtype=torch.long, device=self._device
+        ).repeat(batch_size, 1)
+        return position_ids
+
+    def build_decode_position_ids(
+        self, batch_size: int, seq_length: int, reqs: List[InferenceRequest]
+    ):
+        position_ids = torch.as_tensor(
+            [[seq_length - 1]], dtype=torch.long, device=self._device
+        )
+        return position_ids
+
+    def build_prefill_token_type_ids(
+        self, batch_size: int, seq_length: int, reqs: List[InferenceRequest]
+    ):
+        return None
+
+    def build_decode_token_type_ids(
+        self, batch_size: int, seq_length: int, reqs: List[InferenceRequest]
+    ):
+        return None
+
+    def build_prefill_inputs(self, prompts: List, req_list: List[InferenceRequest]):
+        assert isinstance(prompts[0], str)
+        inputs = self._tokenizer(prompts, padding=False).input_ids
+        context_len = self.get_context_len()
+        input_ids = torch.as_tensor(
+            pad_prefill_tokens(inputs, context_len, req_list), device=self._device
+        )
+        return input_ids
+
+    def build_prefill_kwargs(self, prompts: List, req_list: List[InferenceRequest]):
+        input_ids = self.build_prefill_inputs(prompts, req_list)
+        res = {"input_ids": input_ids}
+        batch_size, seq_len = input_ids.shape
+        attention_mask = self.build_attention_mask(batch_size, seq_len, req_list)
+        if attention_mask is not None:
+            res["attention_mask"] = attention_mask
+        position_ids = self.build_prefill_position_ids(batch_size, seq_len, req_list)
+        if position_ids is not None:
+            res["position_ids"] = position_ids
+        token_type_ids = self.build_prefill_token_type_ids(
+            batch_size, seq_len, req_list
+        )
+        if token_type_ids is not None:
+            res["token_type_ids"] = token_type_ids
+        return res
+
+    def build_decode_kwargs(
+        self,
+        prompts: List,
+        req_list: List[InferenceRequest],
+        batch_size: int,
+        seq_len: int,
+    ):
+        res = {"input_ids": torch.as_tensor(prompts, device=self._device)}
+        attention_mask = self.build_attention_mask(batch_size, seq_len, req_list)
+        if attention_mask is not None:
+            res["attention_mask"] = attention_mask
+        position_ids = self.build_decode_position_ids(batch_size, seq_len, req_list)
+        if position_ids is not None:
+            res["position_ids"] = position_ids
+        token_type_ids = self.build_decode_token_type_ids(batch_size, seq_len, req_list)
+        if token_type_ids is not None:
+            res["token_type_ids"] = token_type_ids
+        return res
 
     @staticmethod
     def get_batch_size_and_seq_len_indexes_from_kv() -> Tuple[int, int]:
         return 0, 2
+
+    def get_dtype(self):
+        raise NotImplementedError("Not implemented.")
 
     @lru_cache
     def get_context_len(self):
@@ -364,28 +449,38 @@ class PytorchModel(LLM):
     def prepare_batch_inference(self, req_list: List[InferenceRequest]):
         # check some parameters
         for r in req_list:
-            if r.sanitized_generate_config is None:
-                r.sanitized_generate_config = self.prepare_sanitize_generate_config(r)
-            if r.is_prefill:
-                # check some generate params
-                max_src_len = get_max_src_len(self.get_context_len(), r)  # type: ignore
-                if max_src_len < 0:
-                    r.stopped = True
-                    r.error_msg = "Max tokens exceeds model's max length"
-                    continue
-                if r.stream_interval <= 0:
-                    r.stopped = True
-                    r.error_msg = "`stream_interval` must be greater than 0"
-                    continue
-                stop_str = r.sanitized_generate_config.get("stop", None)
-                if stop_str and (
-                    not (isinstance(stop_str, str) or isinstance(stop_str, Iterable))
-                ):
-                    r.stopped = True
-                    r.error_msg = "Invalid `stop` field type"
-                    continue
+            try:
+                if r.sanitized_generate_config is None:
+                    r.sanitized_generate_config = self.prepare_sanitize_generate_config(
+                        r
+                    )
+                if r.is_prefill:
+                    # check some generate params
+                    max_src_len = get_max_src_len(self.get_context_len(), r)  # type: ignore
+                    if max_src_len < 0:
+                        r.stopped = True
+                        r.error_msg = "Max tokens exceeds model's max length"
+                        continue
+                    if r.stream_interval <= 0:
+                        r.stopped = True
+                        r.error_msg = "`stream_interval` must be greater than 0"
+                        continue
+                    stop_str = r.sanitized_generate_config.get("stop", None)
+                    if stop_str and (
+                        not (
+                            isinstance(stop_str, str) or isinstance(stop_str, Iterable)
+                        )
+                    ):
+                        r.stopped = True
+                        r.error_msg = "Invalid `stop` field type"
+                        continue
+            # Catch exception here. If not catch exception, the request would hang.
+            except Exception as e:
+                logger.exception(f"prepare inference error with {e}")
+                r.stopped = True
+                r.error_msg = str(e)
 
-    def _get_builtin_stop_token_ids(self) -> Tuple:
+    def get_builtin_stop_token_ids(self) -> Tuple:
         return (
             tuple(self.model_family.prompt_style.stop_token_ids)
             if self.model_family.prompt_style
@@ -432,18 +527,8 @@ class PytorchModel(LLM):
         from .utils import batch_inference_one_step
 
         self.prepare_batch_inference(req_list)
-        context_len = self.get_context_len()
-        assert isinstance(context_len, int)
         batch_inference_one_step(
-            req_list,
-            self.model_uid,
-            self._model,
-            self._tokenizer,
-            self._device,
-            context_len,
-            self._get_builtin_stop_token_ids(),
-            require_attention_mask=self.require_attention_mask(),
-            bs_seq_len_indexes=self.get_batch_size_and_seq_len_indexes_from_kv(),
+            self, req_list, self.model_uid, self._model, self._tokenizer
         )
         self.handle_batch_inference_results(req_list)
 
@@ -635,9 +720,15 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
     def prepare_batch_inference(self, req_list: List[InferenceRequest]):
         super().prepare_batch_inference(req_list)
         for r in req_list:
-            r.full_prompt = self._get_full_prompt(
-                r.prompt, r.system_prompt, r.chat_history, None
-            )
+            try:
+                if not r.stopped and r.is_prefill:
+                    r.full_prompt = self._get_full_prompt(
+                        r.prompt, r.system_prompt, r.chat_history, None
+                    )
+            except Exception as e:
+                logger.exception(f"prepare inference error with {e}")
+                r.stopped = True
+                r.error_msg = str(e)
 
     def handle_batch_inference_results(self, req_list: List[InferenceRequest]):
         for req in req_list:
