@@ -5723,9 +5723,11 @@
       ],
       "intra_message_sep": "<|im_end|>",
       "stop_token_ids": [
+        2,
         92542
       ],
       "stop": [
+        "</s>",
         "<|im_end|>"
       ]
     }

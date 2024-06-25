@@ -63,7 +63,7 @@ RUN python -m pip install --upgrade -i "$PIP_INDEX" pip && \
       timm \
       opencv-contrib-python-headless && \
     pip install -i "$PIP_INDEX" -U chatglm-cpp && \
-    pip install -i "$PIP_INDEX" "llama-cpp-python>=0.2.25,!=0.2.58" && \
+    pip install "llama-cpp-python>=0.2.25,!=0.2.58" --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu && \
     cd /opt/inference && \
     python setup.py build_web && \
     git restore . && \

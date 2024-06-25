@@ -21,53 +21,40 @@ const LaunchLLM = ({ gpuAvailable }) => {
   const [status, setStatus] = useState('all')
   const [completeDeleteArr, setCompleteDeleteArr] = useState([])
 
-  const handleChange = (event) => {
-    setSearchTerm(event.target.value)
-  }
-
-  const handleAbilityChange = (event) => {
-    setModelAbility(event.target.value)
-  }
-
-  const handleStatusChange = (event) => {
-    setStatus(event.target.value)
-  }
-
   const filter = (registration) => {
-    if (!registration || typeof searchTerm !== 'string') return false
-    const modelName = registration.model_name
-      ? registration.model_name.toLowerCase()
-      : ''
-    const modelDescription = registration.model_description
-      ? registration.model_description.toLowerCase()
-      : ''
+    if (searchTerm !== '') {
+      if (!registration || typeof searchTerm !== 'string') return false
+      const modelName = registration.model_name
+        ? registration.model_name.toLowerCase()
+        : ''
+      const modelDescription = registration.model_description
+        ? registration.model_description.toLowerCase()
+        : ''
 
-    if (
-      !modelName.includes(searchTerm.toLowerCase()) &&
-      !modelDescription.includes(searchTerm.toLowerCase())
-    ) {
-      return false
-    }
-    if (modelAbility && modelAbility !== 'all') {
-      if (registration.model_ability.indexOf(modelAbility) < 0) {
+      if (
+        !modelName.includes(searchTerm.toLowerCase()) &&
+        !modelDescription.includes(searchTerm.toLowerCase())
+      ) {
         return false
       }
     }
+
+    if (
+      modelAbility !== 'all' &&
+      registration.model_ability.indexOf(modelAbility) < 0
+    )
+      return false
+
     if (completeDeleteArr.includes(registration.model_name)) {
       registration.model_specs.forEach((item) => {
         item.cache_status = Array.isArray(item) ? [false] : false
       })
     }
-    if (status && status !== 'all') {
-      const judge = registration.model_specs.some((spec) => {
-        return filterCache(spec)
-      })
-      if (judge && !completeDeleteArr.includes(registration.model_name)) {
-        return true
-      } else {
-        return false
-      }
+    if (status !== 'all') {
+      const judge = registration.model_specs.some((spec) => filterCache(spec))
+      return judge && !completeDeleteArr.includes(registration.model_name)
     }
+
     return true
   }
 
@@ -148,7 +135,7 @@ const LaunchLLM = ({ gpuAvailable }) => {
             id="ability"
             labelId="ability-select-label"
             label="Model Ability"
-            onChange={handleAbilityChange}
+            onChange={(e) => setModelAbility(e.target.value)}
             value={modelAbility}
             size="small"
             sx={{ width: '150px' }}
@@ -165,7 +152,7 @@ const LaunchLLM = ({ gpuAvailable }) => {
             id="status"
             labelId="select-status"
             label="Status"
-            onChange={handleStatusChange}
+            onChange={(e) => setStatus(e.target.value)}
             value={status}
             size="small"
             sx={{ width: '150px' }}
@@ -180,7 +167,7 @@ const LaunchLLM = ({ gpuAvailable }) => {
             type="search"
             label="Search for model name and description"
             value={searchTerm}
-            onChange={handleChange}
+            onChange={(e) => setSearchTerm(e.target.value)}
             size="small"
             hotkey="/"
           />

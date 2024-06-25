@@ -114,6 +114,8 @@ class AbortThread(BaseThread):
 @pytest.fixture
 def enable_batch():
     os.environ["XINFERENCE_TRANSFORMERS_ENABLE_BATCHING"] = "1"
+    yield
+    os.environ["XINFERENCE_TRANSFORMERS_ENABLE_BATCHING"] = "0"
 
 
 @pytest.mark.skipif(

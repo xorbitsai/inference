@@ -51,7 +51,20 @@
   overflow: hidden;
 }
 
+.checkboxWrapper {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  width: 100%;
+}
+
 .jsonBox-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.jsonBox-title {
   line-height: 40px;
   font-weight: 700;
 }
@@ -64,19 +77,6 @@
   border-radius: 5px;
   resize: none;
   color: #444;
-}
-
-.copyIcon {
-  cursor: pointer;
-  position: absolute;
-  top: 13px;
-  right: 5px;
-  font-size: 16px !important;
-  color: #555;
-}
-
-.copyIcon:hover {
-  color: #1976d2;
 }
 
 .addBtn {

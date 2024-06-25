@@ -17,11 +17,9 @@ import logging
 import os
 import time
 import uuid
-from threading import Thread
 from typing import Dict, Iterable, Iterator, List, Optional, Tuple
 
 import torch
-from transformers import GenerationConfig, TextIteratorStreamer
 from transformers.cache_utils import DynamicCache
 from transformers.generation.logits_process import (
     LogitsProcessorList,
@@ -363,179 +361,6 @@ def generate_stream(
     empty_cache()
 
 
-@torch.inference_mode()
-def generate_stream_falcon(
-    model_uid,
-    model,
-    tokenizer,
-    prompt,
-    device,
-    generate_config,
-    judge_sent_end=False,
-) -> Iterator[Tuple[CompletionChunk, CompletionUsage]]:
-    context_len = get_context_length(model.config)
-    stream_interval = generate_config.get("stream_interval", 2)
-    stream = generate_config.get("stream", False)
-    stream_options = generate_config.pop("stream_options", None)
-    include_usage = (
-        stream_options["include_usage"] if isinstance(stream_options, dict) else False
-    )
-    len_prompt = len(prompt)
-
-    temperature = float(generate_config.get("temperature", 1.0))
-    repetition_penalty = float(generate_config.get("repetition_penalty", 1.0))
-    top_p = float(generate_config.get("top_p", 1.0))
-    top_k = int(generate_config.get("top_k", 50))  # -1 means disable
-    max_new_tokens = int(generate_config.get("max_tokens", max_tokens_field.default))
-    echo = bool(generate_config.get("echo", False))
-    stop_str = generate_config.get("stop", None)
-    stop_token_ids = generate_config.get("stop_token_ids", None) or []
-    stop_token_ids.append(tokenizer.eos_token_id)
-    chunk_id = str(uuid.uuid4())
-
-    inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
-    input_ids = inputs["input_ids"]
-    attention_mask = inputs["attention_mask"]
-
-    max_src_len = context_len - max_new_tokens - 8
-
-    input_ids = input_ids[-max_src_len:]  # truncate from the left
-    attention_mask = attention_mask[-max_src_len:]  # truncate from the left
-    input_echo_len = len(input_ids)
-
-    decode_config = dict(skip_special_tokens=True, clean_up_tokenization_spaces=True)
-    streamer = TextIteratorStreamer(tokenizer, skip_prompt=True, **decode_config)
-
-    generation_config = GenerationConfig(
-        max_new_tokens=max_new_tokens,
-        do_sample=temperature >= 1e-5,
-        temperature=temperature,
-        repetition_penalty=repetition_penalty,
-        no_repeat_ngram_size=10,
-        top_p=top_p,
-        top_k=top_k,
-        eos_token_id=stop_token_ids,
-    )
-
-    generation_kwargs = dict(
-        inputs=input_ids,
-        attention_mask=attention_mask,
-        streamer=streamer,
-        generation_config=generation_config,
-    )
-
-    thread = Thread(target=model.generate, kwargs=generation_kwargs)
-    thread.start()
-
-    if echo:
-        # means keep the prompt
-        output = prompt
-    else:
-        output = ""
-
-    last_output_length = 0
-    for i, new_text in enumerate(streamer):
-        output += new_text
-        if i % stream_interval == 0:
-            if echo:
-                rfind_start = len_prompt
-            else:
-                rfind_start = 0
-
-            partially_stopped = False
-            if stop_str:
-                if isinstance(stop_str, str):
-                    pos = output.rfind(stop_str, rfind_start)
-                    if pos != -1:
-                        output = output[:pos]
-                    else:
-                        partially_stopped = is_partial_stop(output, stop_str)
-                elif isinstance(stop_str, Iterable):
-                    for each_stop in stop_str:
-                        pos = output.rfind(each_stop, rfind_start)
-                        if pos != -1:
-                            output = output[:pos]
-                            break
-                        else:
-                            partially_stopped = is_partial_stop(output, each_stop)
-                            if partially_stopped:
-                                break
-                else:
-                    raise ValueError("Invalid stop field type.")
-
-            if stream:
-                output = output.strip("�")
-                tmp_output_length = len(output)
-                output = output[last_output_length:]
-                last_output_length = tmp_output_length
-
-            # prevent yielding partial stop sequence
-            if not partially_stopped:
-                completion_choice = CompletionChoice(
-                    text=output, index=0, logprobs=None, finish_reason=None
-                )
-                completion_chunk = CompletionChunk(
-                    id=chunk_id,
-                    object="text_completion",
-                    created=int(time.time()),
-                    model=model_uid,
-                    choices=[completion_choice],
-                )
-                completion_usage = CompletionUsage(
-                    prompt_tokens=input_echo_len,
-                    completion_tokens=i,
-                    total_tokens=(input_echo_len + i),
-                )
-
-                yield completion_chunk, completion_usage
-    output = output.strip()
-
-    # finish stream event, which contains finish reason
-    if i == max_new_tokens - 1:
-        finish_reason = "length"
-    elif partially_stopped:
-        finish_reason = None
-    else:
-        finish_reason = "stop"
-
-    completion_choice = CompletionChoice(
-        text=output, index=0, logprobs=None, finish_reason=finish_reason
-    )
-    completion_chunk = CompletionChunk(
-        id=chunk_id,
-        object="text_completion",
-        created=int(time.time()),
-        model=model_uid,
-        choices=[completion_choice],
-    )
-    completion_usage = CompletionUsage(
-        prompt_tokens=input_echo_len,
-        completion_tokens=i,
-        total_tokens=(input_echo_len + i),
-    )
-
-    yield completion_chunk, completion_usage
-
-    if include_usage:
-        completion_chunk = CompletionChunk(
-            id=chunk_id,
-            object="text_completion",
-            created=int(time.time()),
-            model=model_uid,
-            choices=[],
-        )
-        completion_usage = CompletionUsage(
-            prompt_tokens=input_echo_len,
-            completion_tokens=i,
-            total_tokens=(input_echo_len + i),
-        )
-        yield completion_chunk, completion_usage
-
-    # clean
-    gc.collect()
-    empty_cache()
-
-
 def _get_token_from_logits(
     req: InferenceRequest, i: int, logits, temperature, repetition_penalty, top_p, top_k
 ):
@@ -570,12 +395,15 @@ def _pad_to_max_length(x: List[int], max_len: int, pad: int) -> List[int]:
     return [pad] * (max_len - len(x)) + x
 
 
-def _pad_seqs_inplace(seqs: List[List[int]], pad: int):
+def _pad_seqs_inplace(seqs: List[List[int]], reqs: List[InferenceRequest], pad: int):
     max_len = max(len(seq) for seq in seqs)
     n = len(seqs)
     i = 0
     while i < n:
+        prev_seq_len = len(seqs[i])
         seqs[i] = _pad_to_max_length(seqs[i], max_len, pad)
+        padding_len = len(seqs[i]) - prev_seq_len
+        reqs[i].padding_len = padding_len
         i += 1
 
 
@@ -681,6 +509,25 @@ def _merge_kv_cache(
     return ret_kv.to_legacy_cache()
 
 
+def _get_attention_mask_and_position_ids(kv, reqs: List[InferenceRequest]):
+    batch_size, seq_length, device = (
+        kv[0][0].shape[0],
+        kv[0][0].shape[2],
+        kv[0][0].device,
+    )
+    seq_length = seq_length + 1
+    position_ids = torch.as_tensor([[seq_length - 1]], dtype=torch.long, device=device)
+    attention_mask = torch.ones(
+        (batch_size, seq_length), dtype=torch.long, device=device
+    )
+    padding_lens = torch.as_tensor([r.padding_len for r in reqs])
+    mask = torch.arange(seq_length).expand(
+        batch_size, seq_length
+    ) < padding_lens.unsqueeze(1)
+    attention_mask[mask] = 0
+    return attention_mask, position_ids
+
+
 @torch.inference_mode()
 def _batch_inference_one_step_internal(
     req_list: List[InferenceRequest],
@@ -689,7 +536,9 @@ def _batch_inference_one_step_internal(
     tokenizer,
     device,
     context_len: int,
+    stop_tokens: Tuple[int],
     decode_round: int = 16,
+    require_attention_mask: bool = False,
     bos_flag: str = "<bos_stream>",
     eos_flag: str = "<eos_stream>",
 ):
@@ -699,7 +548,8 @@ def _batch_inference_one_step_internal(
     if not valid_req_list:
         return
     generate_config_mapping: Dict[InferenceRequest, Tuple] = {
-        r: r.get_generate_configs(tokenizer.eos_token_id) for r in valid_req_list
+        r: r.get_generate_configs(tokenizer.eos_token_id, stop_tokens)
+        for r in valid_req_list
     }
     s_time = time.time()
 
@@ -721,7 +571,7 @@ def _batch_inference_one_step_internal(
             max_src_len = get_max_src_len(context_len, req)
             req.prompt_tokens = input_id[-max_src_len:]
             prompt_tokens.append(req.prompt_tokens)
-        _pad_seqs_inplace(prompt_tokens, 0)
+        _pad_seqs_inplace(prompt_tokens, valid_req_list, 0)
         out = model(torch.as_tensor(prompt_tokens, device=device), use_cache=True)
 
         logits = out.logits
@@ -763,10 +613,18 @@ def _batch_inference_one_step_internal(
     # here, only decode phase, just run some rounds
     for _i in range(decode_round):
         decode_tokens: List[List[int]] = [[r.new_tokens[-1]] for r in valid_req_list]
+        inf_kws = {}
+        if require_attention_mask:
+            attention_mask, position_ids = _get_attention_mask_and_position_ids(
+                past_key_values, valid_req_list
+            )
+            inf_kws["position_ids"] = position_ids
+            inf_kws["attention_mask"] = attention_mask
         out = model(
             input_ids=torch.as_tensor(decode_tokens, device=device),
             use_cache=True,
             past_key_values=past_key_values,
+            **inf_kws,
         )
         logits = out.logits
         past_key_values = out.past_key_values
@@ -903,12 +761,21 @@ def batch_inference_one_step(
     tokenizer,
     device,
     context_len: int,
+    stop_token_ids: Tuple[int],
+    require_attention_mask: bool = False,
 ):
     from ....core.model import OutOfMemoryError
 
     try:
         _batch_inference_one_step_internal(
-            req_list, model_uid, model, tokenizer, device, context_len
+            req_list,
+            model_uid,
+            model,
+            tokenizer,
+            device,
+            context_len,
+            stop_token_ids,
+            require_attention_mask=require_attention_mask,
         )
     except OutOfMemoryError:
         logger.exception(

@@ -3,6 +3,7 @@ import './styles/modelCardStyle.css'
 import {
   ChatOutlined,
   Close,
+  Delete,
   EditNote,
   EditNoteOutlined,
   ExpandLess,
@@ -11,10 +12,7 @@ import {
   LogoDevOutlined,
   RocketLaunchOutlined,
   UndoOutlined,
-  WarningAmber,
 } from '@mui/icons-material'
-import DeleteIcon from '@mui/icons-material/Delete'
-import FilterNoneIcon from '@mui/icons-material/FilterNone'
 import {
   Alert,
   Backdrop,
@@ -23,11 +21,6 @@ import {
   Chip,
   CircularProgress,
   Collapse,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
   Drawer,
   FormControl,
   Grid,
@@ -51,11 +44,12 @@ import {
   Tooltip,
 } from '@mui/material'
 import { styled } from '@mui/material/styles'
-import ClipboardJS from 'clipboard'
 import React, { useContext, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { ApiContext } from '../../components/apiContext'
+import CopyComponent from '../../components/copyComponent/copyComponent'
+import DeleteDialog from '../../components/deleteDialog'
 import fetcher from '../../components/fetcher'
 import TitleTypography from '../../components/titleTypography'
 import AddPair from './components/addPair'
@@ -67,6 +61,7 @@ const ModelCard = ({
   modelType,
   is_custom = false,
   onHandleCompleteDelete,
+  onHandlecustomDelete,
 }) => {
   const [hover, setHover] = useState(false)
   const [selected, setSelected] = useState(false)
@@ -110,7 +105,8 @@ const ModelCard = ({
   const [cachedModelVersion, setCachedModelVersion] = useState('')
   const [cachedRealPath, setCachedRealPath] = useState('')
   const [page, setPage] = useState(0)
-  const [isCopySuccess, setIsCopySuccess] = useState(false)
+  const [isDeleteCustomModel, setIsDeleteCustomModel] = useState(false)
+  const [isJsonShow, setIsJsonShow] = useState(false)
 
   const parentRef = useRef(null)
 
@@ -386,6 +382,8 @@ const ModelCard = ({
       )
         .then(() => {
           setCustomDeleted(true)
+          onHandlecustomDelete(modelData.model_name)
+          setIsDeleteCustomModel(false)
         })
         .catch(console.error)
     }
@@ -446,17 +444,6 @@ const ModelCard = ({
 
   const handleChangePage = (_, newPage) => {
     setPage(newPage)
-  }
-
-  const handleCopyPath = (path) => {
-    const clipboard = new ClipboardJS('.copyPath', {
-      text: () => path,
-    })
-
-    clipboard.on('success', (e) => {
-      e.clearSelection()
-      setIsCopySuccess(true)
-    })
   }
 
   const handleOpenCachedList = () => {
@@ -546,6 +533,16 @@ const ModelCard = ({
       })
   }
 
+  const handleJsonDataPresentation = () => {
+    const arr = sessionStorage.getItem('subType').split('/')
+    sessionStorage.setItem(
+      'registerModelType',
+      `/register_model/${arr[arr.length - 1]}`
+    )
+    sessionStorage.setItem('customJsonData', JSON.stringify(modelData))
+    navigate(`/register_model/${arr[arr.length - 1]}/${modelData.model_name}`)
+  }
+
   // Set two different states based on mouse hover
   return (
     <>
@@ -566,18 +563,37 @@ const ModelCard = ({
         {modelType === 'LLM' ? (
           <Box className="descriptionCard">
             {is_custom && (
-              <Stack direction="row" spacing={1} useFlexGap>
+              <div className="cardTitle">
                 <TitleTypography value={modelData.model_name} />
-                <IconButton
-                  aria-label="delete"
-                  onClick={handeCustomDelete}
-                  disabled={customDeleted}
-                >
-                  <DeleteIcon />
-                </IconButton>
-              </Stack>
+                <div className="iconButtonBox">
+                  <Tooltip title={'Edit'} placement="top">
+                    <IconButton
+                      aria-label="show"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setIsJsonShow(true)
+                      }}
+                    >
+                      <EditNote />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title={'delete'} placement="top">
+                    <IconButton
+                      aria-label="delete"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setIsDeleteCustomModel(true)
+                      }}
+                      disabled={customDeleted}
+                    >
+                      <Delete />
+                    </IconButton>
+                  </Tooltip>
+                </div>
+              </div>
             )}
             {!is_custom && <TitleTypography value={modelData.model_name} />}
+
             <Stack
               spacing={1}
               direction="row"
@@ -676,16 +692,34 @@ const ModelCard = ({
           <Box className="descriptionCard">
             <div className="titleContainer">
               {is_custom && (
-                <Stack direction="row" spacing={1} useFlexGap>
+                <div className="cardTitle">
                   <TitleTypography value={modelData.model_name} />
-                  <IconButton
-                    aria-label="delete"
-                    onClick={handeCustomDelete}
-                    disabled={customDeleted}
-                  >
-                    <DeleteIcon />
-                  </IconButton>
-                </Stack>
+                  <div className="iconButtonBox">
+                    <Tooltip title={'Edit'} placement="top">
+                      <IconButton
+                        aria-label="show"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setIsJsonShow(true)
+                        }}
+                      >
+                        <EditNote />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title={'delete'} placement="top">
+                      <IconButton
+                        aria-label="delete"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setIsDeleteCustomModel(true)
+                        }}
+                        disabled={customDeleted}
+                      >
+                        <Delete />
+                      </IconButton>
+                    </Tooltip>
+                  </div>
+                </div>
               )}
               {!is_custom && <TitleTypography value={modelData.model_name} />}
               <Stack
@@ -753,6 +787,14 @@ const ModelCard = ({
         )}
       </Paper>
 
+      <DeleteDialog
+        text={
+          'Are you sure to delete this custom model? This behavior is irreversible.'
+        }
+        isDelete={isDeleteCustomModel}
+        onHandleIsDelete={() => setIsDeleteCustomModel(false)}
+        onHandleDelete={handeCustomDelete}
+      />
       <Drawer
         open={selected}
         onClose={() => {
@@ -1268,11 +1310,43 @@ const ModelCard = ({
           </Box>
         </div>
       </Drawer>
+      <Backdrop
+        sx={{ color: '#fff', zIndex: (theme) => theme.zIndex.drawer + 1 }}
+        open={isJsonShow}
+      >
+        <div className="jsonDialog">
+          <div className="jsonDialog-title">
+            <div className="title-name">{modelData.model_name}</div>
+            <CopyComponent
+              tip={'Copy Json'}
+              text={JSON.stringify(modelData, null, 4)}
+            />
+          </div>
+          <div className="main-box">
+            <textarea
+              readOnly
+              className="textarea-box"
+              value={JSON.stringify(modelData, null, 4)}
+            />
+          </div>
+          <div className="but-box">
+            <Button
+              onClick={() => {
+                setIsJsonShow(false)
+              }}
+              style={{ marginRight: 30 }}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleJsonDataPresentation}>Edit</Button>
+          </div>
+        </div>
+      </Backdrop>
       <Snackbar
         anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
         open={openSnackbar}
         onClose={() => setOpenSnackbar(false)}
-        message="Please fill in the complete parameters before adding!!"
+        message="Please fill in the complete parameters before adding!"
         key={'top' + 'center'}
       />
 
@@ -1354,12 +1428,10 @@ const ModelCard = ({
                       </Tooltip>
                     </TableCell>
                     <TableCell>
-                      <Tooltip title="Copy real_path" placement="top">
-                        <FilterNoneIcon
-                          className="copyPath"
-                          onClick={() => handleCopyPath(row.real_path)}
-                        />
-                      </Tooltip>
+                      <CopyComponent
+                        tip={'Copy real_path'}
+                        text={row.real_path}
+                      />
                     </TableCell>
                     <TableCell>
                       <Tooltip title={row.path}>
@@ -1373,12 +1445,7 @@ const ModelCard = ({
                       </Tooltip>
                     </TableCell>
                     <TableCell>
-                      <Tooltip title="Copy path" placement="top">
-                        <FilterNoneIcon
-                          className="copyPath"
-                          onClick={() => handleCopyPath(row.path)}
-                        />
-                      </Tooltip>
+                      <CopyComponent tip={'Copy path'} text={row.path} />
                     </TableCell>
                     <TableCell>{row.actor_ip_address}</TableCell>
                     <TableCell align={modelType === 'LLM' ? 'center' : 'left'}>
@@ -1392,7 +1459,7 @@ const ModelCard = ({
                           )
                         }
                       >
-                        <DeleteIcon />
+                        <Delete />
                       </IconButton>
                     </TableCell>
                   </StyledTableRow>
@@ -1418,44 +1485,12 @@ const ModelCard = ({
           />
         </div>
       </Backdrop>
-      <Dialog
-        open={isDeleteCached}
-        aria-labelledby="alert-dialog-title"
-        aria-describedby="alert-dialog-description"
-      >
-        <DialogTitle id="alert-dialog-title">Warning</DialogTitle>
-        <DialogContent>
-          <DialogContentText
-            className="deleteDialog"
-            id="alert-dialog-description"
-          >
-            <WarningAmber className="warningIcon" />
-            <p>Confirm deletion of cache files? This action is irreversible.</p>
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button
-            onClick={() => {
-              setIsDeleteCached(false)
-            }}
-          >
-            no
-          </Button>
-          <Button onClick={handleDeleteCached} autoFocus>
-            yes
-          </Button>
-        </DialogActions>
-      </Dialog>
-      <Snackbar
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-        open={isCopySuccess}
-        autoHideDuration={1500}
-        onClose={() => setIsCopySuccess(false)}
-      >
-        <Alert severity="success" variant="filled" sx={{ width: '100%' }}>
-          Copied to clipboard!
-        </Alert>
-      </Snackbar>
+      <DeleteDialog
+        text={'Confirm deletion of cache files? This action is irreversible.'}
+        isDelete={isDeleteCached}
+        onHandleIsDelete={() => setIsDeleteCached(false)}
+        onHandleDelete={handleDeleteCached}
+      />
     </>
   )
 }
