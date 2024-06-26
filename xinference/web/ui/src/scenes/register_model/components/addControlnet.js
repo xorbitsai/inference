@@ -11,10 +11,25 @@ import {
 } from '@mui/material'
 import React, { useEffect, useState } from 'react'
 
-const AddControlnet = ({ onGetControlnetArr, scrollRef }) => {
+const AddControlnet = ({
+  controlnetDataArr,
+  onGetControlnetArr,
+  scrollRef,
+}) => {
   const [count, setCount] = useState(0)
   const [controlnetArr, setControlnetArr] = useState([])
-  const [arrLength, setArrLength] = useState(0)
+  const [isAdd, setIsAdd] = useState(false)
+
+  useEffect(() => {
+    if (controlnetDataArr && controlnetDataArr.length) {
+      const dataArr = controlnetDataArr.map((item) => {
+        setCount(count + 1)
+        item.id = count
+        return item
+      })
+      setControlnetArr(dataArr)
+    }
+  }, [])
 
   useEffect(() => {
     const arr = controlnetArr.map((item) => {
@@ -26,8 +41,8 @@ const AddControlnet = ({ onGetControlnetArr, scrollRef }) => {
       }
     })
     onGetControlnetArr(arr)
-    setArrLength(controlnetArr.length)
-    arrLength < controlnetArr.length ? handleScrollBottom() : ''
+    isAdd && handleScrollBottom()
+    setIsAdd(false)
   }, [controlnetArr])
 
   const handleAddControlnet = () => {
@@ -39,6 +54,7 @@ const AddControlnet = ({ onGetControlnetArr, scrollRef }) => {
       model_family: 'controlnet',
     }
     setControlnetArr([...controlnetArr, item])
+    setIsAdd(true)
   }
 
   const handleUpdateSpecsArr = (index, type, newValue) => {
