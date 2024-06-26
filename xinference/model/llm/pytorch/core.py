@@ -42,7 +42,7 @@ from ....types import (
 from ...utils import select_device
 from ..core import LLM
 from ..llm_family import LLMFamilyV1, LLMSpecV1
-from ..utils import ChatModelMixin
+from ..utils import QWEN_TOOL_CALL_FAMILY, ChatModelMixin
 from .utils import get_context_length, get_max_src_len
 
 logger = logging.getLogger(__name__)
@@ -589,7 +589,7 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
         generate_config = self._sanitize_generate_config(generate_config)
         # TODO(codingl2k1): qwen hacky to set stop for function call.
         model_family = self.model_family.model_family or self.model_family.model_name
-        if tools and model_family in ["qwen-chat", "qwen1.5-chat"]:
+        if tools and model_family in QWEN_TOOL_CALL_FAMILY:
             stop = generate_config.get("stop")
             if isinstance(stop, str):
                 generate_config["stop"] = [stop, "Observation:"]
