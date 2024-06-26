@@ -81,6 +81,7 @@ class QwenVLChatModel(PytorchChatModel):
             trust_remote_code=True,
             code_revision=self.model_spec.model_revision,
         )
+        self._apply_lora()
         self._save_tensorizer()
 
     def _message_content_to_qwen(self, content) -> str:

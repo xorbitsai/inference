@@ -75,7 +75,6 @@ class ChatglmPytorchChatModel(PytorchChatModel):
             self.model_path,
             **kwargs,
         )
-
         return model, tokenizer
 
     @classmethod
