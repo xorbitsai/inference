@@ -617,10 +617,7 @@ const ModelCard = ({
                   {JSON.parse(localStorage.getItem('collectionArr'))?.includes(
                     modelData.model_name
                   ) ? (
-                    <Tooltip
-                      title={'Unfavorite'}
-                      placement="top"
-                    >
+                    <Tooltip title={'Unfavorite'} placement="top">
                       <IconButton
                         aria-label="collection"
                         onClick={(e) => {
@@ -772,10 +769,7 @@ const ModelCard = ({
                     {JSON.parse(
                       localStorage.getItem('collectionArr')
                     )?.includes(modelData.model_name) ? (
-                      <Tooltip
-                        title={'Unfavorite'}
-                        placement="top"
-                      >
+                      <Tooltip title={'Unfavorite'} placement="top">
                         <IconButton
                           aria-label="collection"
                           onClick={(e) => {
