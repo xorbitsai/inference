@@ -424,10 +424,14 @@ class CogVLM2Model(PytorchChatModel):
             feature["input_ids"] = input_ids
             feature["token_type_ids"] = feature["token_type_ids"][-max_src_len:]
             feature["attention_mask"] = feature["attention_mask"][-max_src_len:]
+            req.extra_kwargs["attention_mask_seq_len"] = feature[
+                "attention_mask"
+            ].shape[0]
             max_length = max(len(input_ids), max_length)
 
-        def pad_to_max_length_internal(feature, max_len):
+        def pad_to_max_length_internal(feature, max_len, idx):
             padding_length = max_len - len(feature["input_ids"])
+            req_list[idx].padding_len = padding_length
             feature["input_ids"] = torch.cat(
                 [torch.full((padding_length,), 0), feature["input_ids"]]
             )
@@ -446,7 +450,8 @@ class CogVLM2Model(PytorchChatModel):
             return feature
 
         features = [
-            pad_to_max_length_internal(feature, max_length) for feature in prompts
+            pad_to_max_length_internal(feature, max_length, i)
+            for i, feature in enumerate(prompts)
         ]
         batch = {
             key: torch.stack([feature[key] for feature in features])
@@ -458,7 +463,7 @@ class CogVLM2Model(PytorchChatModel):
 
         for i in range(len(prompts)):
             req = req_list[i]
-            req.max_position_id = position_ids[i : i + 1, -1].item()
+            req.extra_kwargs["max_position_id"] = position_ids[i : i + 1, -1].item()
 
         if images:
             batch["images"] = images
@@ -488,8 +493,8 @@ class CogVLM2Model(PytorchChatModel):
     ):
         tmp = []
         for r in reqs:
-            r.max_position_id += 1
-            tmp.append(r.max_position_id)
+            r.extra_kwargs["max_position_id"] += 1
+            tmp.append(r.extra_kwargs["max_position_id"])
         position_ids = torch.as_tensor(
             tmp, device=self._device, dtype=torch.long
         ).unsqueeze(1)

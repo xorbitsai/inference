@@ -69,8 +69,6 @@ class InferenceRequest:
         self._stream_chunk_id = str(uuid.uuid4())
         # For calculate attention mask if needed
         self.padding_len = 0
-        # For recording position_id if needed
-        self.max_position_id = None
         # Use in stream mode
         self.last_output_length = 0
         # inference results,
@@ -84,6 +82,8 @@ class InferenceRequest:
         # Record error message when this request has error.
         # Must set stopped=True when this field is set.
         self.error_msg: Optional[str] = None
+        # For compatibility. Record some extra parameters for some special cases.
+        self.extra_kwargs = {}
 
         # check the integrity of args passed upstream
         self._check_args()

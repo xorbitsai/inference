@@ -356,6 +356,19 @@ class QwenVLChatModel(PytorchChatModel):
         _, context_tokens = self.make_context(self._tokenizer, prompt, qwen_history)
         return context_tokens
 
+    def prepare_sanitize_generate_config(self, req: InferenceRequest):
+        """
+        Refer to https://huggingface.co/Qwen/Qwen-VL-Chat/blob/main/generation_config.json
+        """
+        raw_config = req.inference_kwargs.get("raw_params", {})
+        top_p = raw_config.get("top_p", None)
+        if top_p is None:
+            raw_config["top_p"] = 0.3
+        top_k = raw_config.get("top_k", None)
+        if top_k is None:
+            raw_config["top_k"] = 0
+        return raw_config
+
     def build_prefill_inputs(self, prompts: List, req_list: List[InferenceRequest]):
         context_len = self.get_context_len()
         inputs = pad_prefill_tokens(prompts, context_len, req_list)
@@ -363,3 +376,23 @@ class QwenVLChatModel(PytorchChatModel):
             pad_prefill_tokens(inputs, context_len, req_list), device=self._device
         )
         return input_ids
+
+    def build_prefill_position_ids(
+        self, batch_size: int, seq_length: int, reqs: List[InferenceRequest]
+    ):
+        """
+        Qwen-vl fill `1` for position_ids padding
+        """
+        res = []
+        for r in reqs:
+            real_seq_len = seq_length - r.padding_len
+            res.append(
+                torch.cat(
+                    [
+                        torch.full((r.padding_len,), 1, dtype=torch.long),
+                        torch.arange(0, real_seq_len, dtype=torch.long),
+                    ]
+                )
+            )
+            r.extra_kwargs["max_position_id"] = real_seq_len - 1
+        return torch.stack(res).to(self._device)

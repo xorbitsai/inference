@@ -44,7 +44,7 @@ from ....types import (
 from ...utils import select_device
 from ..core import LLM
 from ..llm_family import LLMFamilyV1, LLMSpecV1
-from ..utils import ChatModelMixin, QWEN_TOOL_CALL_FAMILY
+from ..utils import QWEN_TOOL_CALL_FAMILY, ChatModelMixin
 from .utils import get_context_length, get_max_src_len, pad_prefill_tokens
 
 logger = logging.getLogger(__name__)
@@ -345,36 +345,73 @@ class PytorchModel(LLM):
         else:
             return generator_wrapper(prompt, generate_config)
 
-    def build_attention_mask(
+    def build_prefill_attention_mask(
         self, batch_size: int, seq_length: int, reqs: List[InferenceRequest]
     ):
         """
-        For both prefill and decode phase.
+        Build attention mask for prefill phase.
+        Padding `0` on the left.
         """
-        attention_mask = torch.ones(
-            (batch_size, seq_length), dtype=torch.long, device=self._device
-        )
-        padding_lens = torch.as_tensor([r.padding_len for r in reqs])
-        mask = torch.arange(seq_length).expand(
-            batch_size, seq_length
-        ) < padding_lens.unsqueeze(1)
-        attention_mask[mask] = 0
-        return attention_mask
+        data = []
+        for r in reqs:
+            real_len = seq_length - r.padding_len
+            x = torch.cat(
+                [
+                    torch.full((r.padding_len,), 0, dtype=torch.long),
+                    torch.ones((real_len,), dtype=torch.long),
+                ]
+            )
+            data.append(x)
+            r.extra_kwargs["attention_mask_seq_len"] = real_len
+        return torch.stack(data).to(self._device)
+
+    def build_decode_attention_mask(
+        self, batch_size: int, seq_length: int, reqs: List[InferenceRequest]
+    ):
+        """
+        Build attention mask for decode phase.
+        Note that the `seq_length` parameter is from merged kv_cache.
+        So we need pad `0` on the left again.
+        """
+        data = []
+        for r in reqs:
+            r.extra_kwargs["attention_mask_seq_len"] += 1
+            attention_mask_seq_len = r.extra_kwargs["attention_mask_seq_len"]
+            pad_len = seq_length - attention_mask_seq_len
+            x = torch.cat(
+                [
+                    torch.full((pad_len,), 0, dtype=torch.long),
+                    torch.ones((attention_mask_seq_len,), dtype=torch.long),
+                ]
+            )
+            data.append(x)
+        return torch.stack(data).to(self._device)
 
     def build_prefill_position_ids(
         self, batch_size: int, seq_length: int, reqs: List[InferenceRequest]
     ):
-        position_ids = torch.arange(
-            0, seq_length, dtype=torch.long, device=self._device
-        ).repeat(batch_size, 1)
-        return position_ids
+        res = []
+        for r in reqs:
+            real_seq_len = seq_length - r.padding_len
+            res.append(
+                torch.cat(
+                    [
+                        torch.full((r.padding_len,), 0, dtype=torch.long),
+                        torch.arange(0, real_seq_len, dtype=torch.long),
+                    ]
+                )
+            )
+            r.extra_kwargs["max_position_id"] = real_seq_len - 1
+        return torch.stack(res).to(self._device)
 
     def build_decode_position_ids(
         self, batch_size: int, seq_length: int, reqs: List[InferenceRequest]
     ):
-        position_ids = torch.as_tensor(
-            [[seq_length - 1]], dtype=torch.long, device=self._device
-        )
+        data = []
+        for r in reqs:
+            r.extra_kwargs["max_position_id"] += 1
+            data.append([r.extra_kwargs["max_position_id"]])
+        position_ids = torch.as_tensor(data, dtype=torch.long, device=self._device)
         return position_ids
 
     def build_prefill_token_type_ids(
@@ -412,7 +449,9 @@ class PytorchModel(LLM):
         input_ids = self.build_prefill_inputs(prompts, req_list)
         res = {"input_ids": input_ids}
         batch_size, seq_len = input_ids.shape
-        attention_mask = self.build_attention_mask(batch_size, seq_len, req_list)
+        attention_mask = self.build_prefill_attention_mask(
+            batch_size, seq_len, req_list
+        )
         if attention_mask is not None:
             res["attention_mask"] = attention_mask
         position_ids = self.build_prefill_position_ids(batch_size, seq_len, req_list)
@@ -436,7 +475,7 @@ class PytorchModel(LLM):
         Get all inputs parameters for decode phase. Models may have their own impl.
         """
         res = {"input_ids": torch.as_tensor(prompts, device=self._device)}
-        attention_mask = self.build_attention_mask(batch_size, seq_len, req_list)
+        attention_mask = self.build_decode_attention_mask(batch_size, seq_len, req_list)
         if attention_mask is not None:
             res["attention_mask"] = attention_mask
         position_ids = self.build_decode_position_ids(batch_size, seq_len, req_list)

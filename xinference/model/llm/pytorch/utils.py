@@ -498,23 +498,33 @@ def _get_completion(
     return completion
 
 
+def _get_pad_param(seq_len_idx: int, pad_len: int) -> Tuple:
+    dimensions = [0] * 8
+    dimensions[-2 * (seq_len_idx + 1)] = pad_len
+    return tuple(dimensions)
+
+
 def _merge_kv_cache(
-    past_kv: Tuple[Tuple[torch.Tensor]], new_kv: Tuple[Tuple[torch.Tensor]]
+    xinf_model_obj: "PytorchModel",
+    past_kv: Tuple[Tuple[torch.Tensor]],
+    new_kv: Tuple[Tuple[torch.Tensor]],
 ):
     from torch.nn.functional import pad
 
+    _, seq_len_idx = xinf_model_obj.get_batch_size_and_seq_len_indexes_from_kv()
     past_cache = DynamicCache.from_legacy_cache(past_kv)
     new_cache = DynamicCache.from_legacy_cache(new_kv)
-    past_seq_len = past_cache.get_seq_length()
-    new_seq_len = new_cache.get_seq_length()
+    past_seq_len = past_kv[0][0].shape[seq_len_idx]
+    new_seq_len = new_kv[0][0].shape[seq_len_idx]
     if past_seq_len != new_seq_len:
         padding_target = new_cache if past_seq_len > new_seq_len else past_cache
         padding_len = abs(past_seq_len - new_seq_len)
+        pad_param = _get_pad_param(seq_len_idx, padding_len)
         for idx in range(len(padding_target)):
             k = padding_target.key_cache[idx]
             v = padding_target.value_cache[idx]
-            _k = pad(k, (0, 0, padding_len, 0))
-            _v = pad(v, (0, 0, padding_len, 0))
+            _k = pad(k, pad_param)
+            _v = pad(v, pad_param)
             padding_target.key_cache[idx] = _k
             padding_target.value_cache[idx] = _v
 
@@ -594,7 +604,9 @@ def _batch_inference_one_step_internal(
         if decode_reqs:
             decode_kv = decode_reqs[0].kv_cache
             # prefill and decode kv cache need to be merged at `batch_size` and `seq_len` dimensions.
-            merged_kv_cache = _merge_kv_cache(decode_kv, past_key_values)
+            merged_kv_cache = _merge_kv_cache(
+                xinf_model_obj, decode_kv, past_key_values
+            )
             for r in valid_req_list:
                 r.kv_cache = merged_kv_cache
             empty_cache()
@@ -634,6 +646,7 @@ def _batch_inference_one_step_internal(
             token = _get_token_from_logits(
                 r, i, logits, temperature, repetition_penalty, top_p, top_k
             )
+            print(f"====Output token: {token}")
             r.kv_cache = past_key_values
             r.append_new_token(token)
 

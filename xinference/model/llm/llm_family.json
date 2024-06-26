@@ -944,7 +944,7 @@
           "none"
         ],
         "model_id": "THUDM/glm-4v-9b",
-        "model_revision": "e8b84fefc07e58a90c8489337675573fda95e289"
+        "model_revision": "6c2e4732db8443f64a48d5af04b74425a7d169c4"
       }
     ],
     "prompt_style": {
