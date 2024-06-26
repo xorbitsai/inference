@@ -55,31 +55,32 @@ class QwenVLChatModel(PytorchChatModel):
 
         if self._check_tensorizer_integrity():
             self._model, self._tokenizer = self._load_tensorizer()
-        else:
-            device = self._pytorch_model_config.get("device", "auto")
-            device = select_device(device)
-            # for multiple GPU, set back to auto to make multiple devices work
-            device = "auto" if device == "cuda" else device
+            self._apply_lora()
+            return
 
-            self._tokenizer = AutoTokenizer.from_pretrained(
-                self.model_path,
-                trust_remote_code=True,
-                code_revision=self.model_spec.model_revision,
-            )
-            self._model = AutoModelForCausalLM.from_pretrained(
-                self.model_path,
-                device_map=device,
-                trust_remote_code=True,
-                code_revision=self.model_spec.model_revision,
-            ).eval()
+        device = self._pytorch_model_config.get("device", "auto")
+        device = select_device(device)
+        # for multiple GPU, set back to auto to make multiple devices work
+        device = "auto" if device == "cuda" else device
 
-            # Specify hyperparameters for generation
-            self._model.generation_config = GenerationConfig.from_pretrained(
-                self.model_path,
-                trust_remote_code=True,
-                code_revision=self.model_spec.model_revision,
-            )
-        self._apply_lora()
+        self._tokenizer = AutoTokenizer.from_pretrained(
+            self.model_path,
+            trust_remote_code=True,
+            code_revision=self.model_spec.model_revision,
+        )
+        self._model = AutoModelForCausalLM.from_pretrained(
+            self.model_path,
+            device_map=device,
+            trust_remote_code=True,
+            code_revision=self.model_spec.model_revision,
+        ).eval()
+
+        # Specify hyperparameters for generation
+        self._model.generation_config = GenerationConfig.from_pretrained(
+            self.model_path,
+            trust_remote_code=True,
+            code_revision=self.model_spec.model_revision,
+        )
         self._save_tensorizer()
 
     def _message_content_to_qwen(self, content) -> str:

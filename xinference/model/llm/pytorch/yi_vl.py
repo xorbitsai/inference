@@ -79,16 +79,18 @@ class YiVLChatModel(PytorchChatModel):
                 self._tokenizer,
                 self._image_processor,
             ) = self._load_tensorizer()
-        else:
-            # Default device_map is auto, it can loads model to multiple cards.
-            # If the device_map is set to cuda, then only 1 card can be used.
-            (
-                self._tokenizer,
-                self._model,
-                self._image_processor,
-                _,
-            ) = load_pretrained_model(self.model_path, device_map=self._device)
             self._apply_lora()
+            return
+
+        # Default device_map is auto, it can loads model to multiple cards.
+        # If the device_map is set to cuda, then only 1 card can be used.
+        (
+            self._tokenizer,
+            self._model,
+            self._image_processor,
+            _,
+        ) = load_pretrained_model(self.model_path, device_map=self._device)
+        self._apply_lora()
         self._save_tensorizer()
 
     @staticmethod

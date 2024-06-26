@@ -96,7 +96,6 @@ class InternVLChatModel(PytorchChatModel):
             self.model_path,
             trust_remote_code=True,
         )
-
         self._save_tensorizer()
 
     def _message_content_to_intern(self, content):

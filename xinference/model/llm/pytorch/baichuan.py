@@ -11,15 +11,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-import logging
 from typing import List, Optional
 
 from ....types import LoRA
 from ..llm_family import LLMFamilyV1, LLMSpecV1
 from .core import PytorchChatModel, PytorchModelConfig
-
-logger = logging.getLogger(__name__)
 
 
 class BaichuanPytorchChatModel(PytorchChatModel):

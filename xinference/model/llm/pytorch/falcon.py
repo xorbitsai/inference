@@ -11,15 +11,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-import logging
 from typing import List, Optional
 
 from ....types import LoRA
 from ..llm_family import LLMFamilyV1, LLMSpecV1
 from .core import PytorchChatModel, PytorchModel, PytorchModelConfig
-
-logger = logging.getLogger(__name__)
 
 
 class FalconPytorchModel(PytorchModel):
@@ -66,7 +62,6 @@ class FalconPytorchModel(PytorchModel):
             **kwargs,
         )
         tokenizer.pad_token_id = 9
-
         return model, tokenizer
 
     @classmethod
@@ -92,7 +87,6 @@ class FalconPytorchChatModel(PytorchChatModel):
         model_path: str,
         pytorch_model_config: Optional[PytorchModelConfig] = None,
         peft_model: Optional[List[LoRA]] = None,
-        **kwargs,
     ):
         super().__init__(
             model_uid,
@@ -102,7 +96,6 @@ class FalconPytorchChatModel(PytorchChatModel):
             model_path,
             pytorch_model_config=pytorch_model_config,
             peft_model=peft_model,
-            **kwargs,
         )
 
     def _load_model(self, **kwargs):
@@ -128,7 +121,6 @@ class FalconPytorchChatModel(PytorchChatModel):
             **kwargs,
         )
         tokenizer.pad_token_id = 9
-
         return model, tokenizer
 
     @classmethod

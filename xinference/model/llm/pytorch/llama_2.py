@@ -72,7 +72,6 @@ class LlamaPytorchChatModel(PytorchChatModel):
         model_path: str,
         pytorch_model_config: Optional["PytorchModelConfig"] = None,
         peft_model: Optional[List[LoRA]] = None,
-        **kwargs,
     ):
         super().__init__(
             model_uid,
@@ -82,7 +81,6 @@ class LlamaPytorchChatModel(PytorchChatModel):
             model_path,
             peft_model=peft_model,
             pytorch_model_config=pytorch_model_config,
-            **kwargs,
         )
         self._use_fast_tokenizer = False
 

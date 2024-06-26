@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import logging
 import time
 import uuid
 from typing import Any, Dict, Iterator, List, Optional, Union
@@ -30,8 +29,6 @@ from ....types import (
 )
 from ..llm_family import LLMFamilyV1, LLMSpecV1
 from .core import PytorchChatModel, PytorchModelConfig
-
-logger = logging.getLogger(__name__)
 
 
 class Internlm2PytorchChatModel(PytorchChatModel):
@@ -77,7 +74,6 @@ class Internlm2PytorchChatModel(PytorchChatModel):
             self.model_path,
             **kwargs,
         )
-
         return model, tokenizer
 
     @classmethod
