@@ -1,6 +1,6 @@
 import os
 import shutil
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
 from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
@@ -8,9 +8,9 @@ from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
 from .....constants import XINFERENCE_CACHE_DIR
 from ...llm_family import LLMFamilyV1, PytorchLLMSpecV1, cache
 from ..tensorizer_utils import (
+    _tensorizer_serialize_model,
     get_tensorizer_dir,
-    tensorizer_serialize_model,
-    tensorizer_serialize_pretrained,
+    save_to_tensorizer,
 )
 
 
@@ -54,18 +54,19 @@ class TestTensorizerSerializeModel:
         yield
 
         # Cleanup: Remove the entire directories after the test
-        self.cleanup_directory(self.tensorizer_dir)
+        self._cleanup_directory(self.tensorizer_dir)
 
-    def cleanup_directory(self, directory):
+    def _cleanup_directory(self, directory):
         if os.path.exists(directory):
             shutil.rmtree(directory)
 
-    # Test if model.tensor file and model-config.json file generated
+    # Test if model.tensor & model-config.json & tokenizer.zip files generated
     def test_tensor_file_exists(self):
         expected_tensor_file = f"{self.tensorizer_dir}/{self.model_prefix}.tensors"
         expected_model_config_file = (
             f"{self.tensorizer_dir}/{self.model_prefix}-config.json"
         )
+        expected_tokenizer_file = f"{self.tensorizer_dir}/tokenizer.zip"
 
         if os.path.exists(expected_tensor_file):
             os.remove(expected_tensor_file)
@@ -73,12 +74,13 @@ class TestTensorizerSerializeModel:
         if os.path.exists(expected_model_config_file):
             os.remove(expected_model_config_file)
 
-        tensorizer_serialize_model(
+        if os.path.exists(expected_tokenizer_file):
+            os.remove(expected_tokenizer_file)
+
+        save_to_tensorizer(
+            self.model_path,
             self.model,
-            self.model_config,
-            self.tensorizer_dir,
-            self.model_prefix,
-            self.force,
+            [("tokenizer", self.tokenizer)],
         )
 
         assert os.path.exists(
@@ -89,16 +91,6 @@ class TestTensorizerSerializeModel:
             expected_model_config_file
         ), f"{expected_model_config_file} does not exist"
 
-    # Test if tokenizer.zip file generated
-    def test_tokenizer_file_exists(self):
-        expected_tokenizer_file = f"{self.tensorizer_dir}/tokenizer.zip"
-        if os.path.exists(expected_tokenizer_file):
-            os.remove(expected_tokenizer_file)
-
-        tensorizer_serialize_pretrained(
-            self.tokenizer, self.tensorizer_dir, "tokenizer"
-        )
-
         assert os.path.exists(
             expected_tokenizer_file
         ), f"{expected_tokenizer_file} does not exist"
@@ -106,43 +98,30 @@ class TestTensorizerSerializeModel:
 
 # case2: test if serialized file exists, load from cache
 @pytest.fixture
-def model_mock():
-    return MagicMock()
-
-
-@pytest.fixture
-def model_config_mock():
-    mock = MagicMock()
-    mock.to_dict.return_value = {"dummy_key": "dummy_value"}
-    return mock
-
-
-def test_tensorizer_serialize_uses_cache_when_files_exist_and_not_forced(
-    tmp_path, model_mock, model_config_mock
-):
-    tensor_directory = str(tmp_path)
-    model_prefix = "test_model"
-    expected_config_path = tmp_path / f"{model_prefix}-config.json"
-    expected_model_path = tmp_path / f"{model_prefix}.tensors"
-
-    expected_config_path.write_text("dummy config")
-    expected_model_path.write_text("dummy model")
-
+def mock_dependencies():
     with patch(
-        "xinference.model.llm.pytorch.tensorizer_utils.file_is_non_empty",
-        return_value=True,
-    ) as mock_file_is_non_empty:
-        model_path = tensorizer_serialize_model(
-            model=model_mock,
-            model_config=model_config_mock,
-            tensor_directory=tensor_directory,
-            model_prefix=model_prefix,
-            force=False,
-        )
+        "xinference.model.llm.pytorch.tensorizer_utils.get_tensorizer_dir",
+        return_value="/fake/dir",
+    ), patch(
+        "xinference.model.llm.pytorch.tensorizer_utils._file_is_non_empty",
+        side_effect=lambda x: True,
+    ), patch(
+        "xinference.model.llm.pytorch.tensorizer_utils.logger"
+    ) as mock_logger, patch(
+        "xinference.model.llm.pytorch.tensorizer_utils.os.makedirs", return_value=None
+    ), patch(
+        "builtins.open", mock_open(read_data="data")
+    ):
+        yield mock_logger
 
-    mock_file_is_non_empty.assert_any_call(str(expected_config_path))
-    mock_file_is_non_empty.assert_any_call(str(expected_model_path))
 
-    model_config_mock.to_dict.assert_not_called()
-
-    assert model_path == str(expected_model_path)
+def test_tensorizer_serialize_model_uses_cache_when_available(mock_dependencies):
+    mock_logger = mock_dependencies
+    model_path = "dummy_model_path"
+    model = MagicMock()
+    model_config = MagicMock()
+    model_config.to_dict.return_value = {"param": "value"}
+    _tensorizer_serialize_model(model_path, model, model_config, force=False)
+    mock_logger.info.assert_any_call(
+        "Cache /fake/dir/model.tensors exists, skip tensorizer serialize model"
+    )
