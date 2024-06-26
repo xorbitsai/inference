@@ -126,16 +126,14 @@ class PytorchModel(LLM):
         return generate_config
 
     def _check_tensorizer_integrity(self):
-        enable_tensorizer = self._pytorch_model_config.get("enable_tensorizer", None)
-        if not enable_tensorizer:
+        if not self._pytorch_model_config.get("enable_tensorizer"):
             return False
 
         from .tensorizer_utils import check_tensorizer_integrity
 
-        component_names = [row[0] for row in self._get_components()]
         integrity = check_tensorizer_integrity(
             self.model_path,
-            [component[0] for component in component_names],
+            [component[0] for component in self._get_components()],
         )
         logger.info(f"Tensorizer files integrity: {integrity} {self.model_uid}")
         return integrity
@@ -145,8 +143,10 @@ class PytorchModel(LLM):
         if enable_tensorizer:
             from .tensorizer_utils import load_from_tensorizer
 
-            component_clazz = [(row[0], row[2]) for row in self._get_components()]
-            model, tokenizer = load_from_tensorizer(self.model_path, component_clazz)
+            component_class = [(row[0], row[2]) for row in self._get_components()]
+            model, tokenizer = load_from_tensorizer(
+                self.model_path, component_class, self._get_model_class()
+            )
             return model, tokenizer
 
     def _save_tensorizer(self):
@@ -157,10 +157,15 @@ class PytorchModel(LLM):
             components = [(row[0], row[1]) for row in self._get_components()]
             save_to_tensorizer(self.model_path, self._model, components)
 
+    def _get_model_class(self):
+        from transformers import AutoModelForCausalLM
+
+        return AutoModelForCausalLM
+
     def _get_components(self):
         from transformers import AutoTokenizer
 
-        return [("tokenizer", self._tokenizer, AutoTokenizer)]
+        return [("tokenizer", getattr(self, "_tokenizer", None), AutoTokenizer)]
 
     def _load_model(self, **kwargs):
         try:

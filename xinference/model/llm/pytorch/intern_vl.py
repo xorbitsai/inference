@@ -56,6 +56,11 @@ class InternVLChatModel(PytorchChatModel):
             return True
         return False
 
+    def _get_model_class(self):
+        from transformers import AutoModel
+
+        return AutoModel
+
     def load(self, **kwargs):
         from transformers import AutoModel, AutoTokenizer
         from transformers.generation import GenerationConfig

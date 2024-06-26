@@ -53,6 +53,11 @@ class ChatglmPytorchChatModel(PytorchChatModel):
             peft_model=peft_model,
         )
 
+    def _get_model_class(self):
+        from transformers import AutoModel
+
+        return AutoModel
+
     def _load_model(self, **kwargs):
         try:
             from transformers import AutoModel, AutoTokenizer

@@ -56,13 +56,24 @@ class DeepSeekVLChatModel(PytorchChatModel):
             return True
         return False
 
+    def _get_model_class(self):
+        from ....thirdparty.deepseek_vl.models import MultiModalityCausalLM
+
+        return MultiModalityCausalLM
+
     def _get_components(self):
         from ....thirdparty.deepseek_vl.models import VLChatProcessor
 
         return (
             super()
             ._get_components()
-            .append(("vl_chat_processor", self._vl_chat_processor, VLChatProcessor))
+            .append(
+                (
+                    "vl_chat_processor",
+                    getattr(self, "_vl_chat_processor", None),
+                    VLChatProcessor,
+                )
+            )
         )
 
     def load(self):

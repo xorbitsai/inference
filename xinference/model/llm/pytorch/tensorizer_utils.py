@@ -75,10 +75,8 @@ def load_from_tensorizer(
         ]
         raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
-    if model_class is None:
-        model_class = AutoModel
-    if config_class is None:
-        config_class = AutoConfig
+    model_class = model_class or AutoModel
+    config_class = config_class or AutoConfig
 
     tensorizer_dir = get_tensorizer_dir(model_path)
     logger.debug(f"Loading from tensorizer: {tensorizer_dir}")
@@ -96,10 +94,8 @@ def load_from_tensorizer(
         .eval()
     )
 
-    # Initialize an empty list for deserialized components
     tensorizer_components = []
 
-    # Iterate over components and load them, appending each to the list
     if components is not None:
         for component, component_class in components:
             deserialized_component = _load_pretrained_from_tensorizer(
@@ -271,15 +267,9 @@ def save_to_tensorizer(
         force,
     )
 
-    keys = []
     if components is not None:
-        keys = [component[0] for component in components]
         for component_prefix, component in components:
             _tensorizer_serialize_pretrained(model_path, component, component_prefix)
-
-    logger.info(
-        f"Save to tensorizer done: model_path {model_path}, {model_prefix}, {keys}"
-    )
 
 
 def _tensorizer_serialize_model(

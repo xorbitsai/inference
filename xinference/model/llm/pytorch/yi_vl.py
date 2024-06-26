@@ -59,8 +59,13 @@ class YiVLChatModel(PytorchChatModel):
         return (
             super()
             ._get_components()
-            .append(("image_processor", self._image_processor, Any))
+            .append(("image_processor", getattr(self, "_image_processor", None), Any))
         )
+
+    def _get_model_class(self):
+        from ....thirdparty.llava.model.llava_llama import LlavaLlamaForCausalLM
+
+        return LlavaLlamaForCausalLM
 
     def load(self):
         from ....thirdparty.llava.mm_utils import load_pretrained_model
