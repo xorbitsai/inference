@@ -109,8 +109,6 @@ const ModelCard = ({
   const [page, setPage] = useState(0)
   const [isDeleteCustomModel, setIsDeleteCustomModel] = useState(false)
   const [isJsonShow, setIsJsonShow] = useState(false)
-  const [isCollection, setIsCollection] = useState(false)
-  const [isNotCollection, setIsNotCollection] = useState(false)
 
   const parentRef = useRef(null)
 
@@ -549,17 +547,14 @@ const ModelCard = ({
 
   const handleCollection = (bool) => {
     setHover(false)
-    setIsNotCollection(false)
 
     let collectionArr = JSON.parse(localStorage.getItem('collectionArr')) || []
     if (bool) {
       collectionArr.push(modelData.model_name)
-      setIsCollection(true)
     } else {
       collectionArr = collectionArr.filter(
         (item) => item !== modelData.model_name
       )
-      setIsNotCollection(true)
     }
     localStorage.setItem('collectionArr', JSON.stringify(collectionArr))
 
@@ -623,7 +618,7 @@ const ModelCard = ({
                     modelData.model_name
                   ) ? (
                     <Tooltip
-                      title={'Cancellation of Collections'}
+                      title={'Unfavorite'}
                       placement="top"
                     >
                       <IconButton
@@ -637,7 +632,7 @@ const ModelCard = ({
                       </IconButton>
                     </Tooltip>
                   ) : (
-                    <Tooltip title={'Collection'} placement="top">
+                    <Tooltip title={'Favorite'} placement="top">
                       <IconButton
                         aria-label="cancellation-of-collections"
                         onClick={(e) => {
@@ -778,7 +773,7 @@ const ModelCard = ({
                       localStorage.getItem('collectionArr')
                     )?.includes(modelData.model_name) ? (
                       <Tooltip
-                        title={'Cancellation of Collections'}
+                        title={'Unfavorite'}
                         placement="top"
                       >
                         <IconButton
@@ -792,7 +787,7 @@ const ModelCard = ({
                         </IconButton>
                       </Tooltip>
                     ) : (
-                      <Tooltip title={'Collection'} placement="top">
+                      <Tooltip title={'Favorite'} placement="top">
                         <IconButton
                           aria-label="cancellation-of-collections"
                           onClick={(e) => {
@@ -872,26 +867,6 @@ const ModelCard = ({
           </Box>
         )}
       </Paper>
-      <Snackbar
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-        open={isCollection}
-        autoHideDuration={1500}
-        onClose={() => setIsCollection(false)}
-      >
-        <Alert severity="success" variant="filled" sx={{ width: '100%' }}>
-          Collection successful!
-        </Alert>
-      </Snackbar>
-      <Snackbar
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-        open={isNotCollection}
-        autoHideDuration={1500}
-        onClose={() => setIsNotCollection(false)}
-      >
-        <Alert severity="success" variant="filled" sx={{ width: '100%' }}>
-          Successfully canceled collection!
-        </Alert>
-      </Snackbar>
 
       <DeleteDialog
         text={
