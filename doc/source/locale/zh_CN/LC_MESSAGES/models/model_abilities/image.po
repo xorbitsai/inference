@@ -128,7 +128,7 @@ msgid ""
 "#dropping-the-t5-text-encoder-during-inference>`_."
 msgstr ""
 "如果你在小于 24GB 的显卡上运行 ``sd3-medium`` 碰到内存不足的问题时，根据 "
-"`这篇w <https://huggingface.co/docs/diffusers/v0.29.1/en/api/"
+"`这篇文章 <https://huggingface.co/docs/diffusers/v0.29.1/en/api/"
 "pipelines/stable_diffusion/stable_diffusion_3#dropping-the-t5-text-"
 "encoder-during-inference>`_ 考虑在加载模型时增加额外选项。"
 
