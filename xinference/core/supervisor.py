@@ -756,6 +756,21 @@ class SupervisorActor(xo.StatelessActor):
                 f"xinference will ignore this option."
             )
 
+        if kwargs.get("enable_tensorizer", None) and (
+            (
+                model_engine != "Transformers"
+                or model_format != "pytorch"
+                or quantization != "none"
+                or model_type != "LLM"
+            )
+        ):
+            raise ValueError(
+                "Tensorizer can only be enabled for LLM models with Transformers engine, PyTorch format, and none quantization."
+            )
+
+        if kwargs.get("enable_tensorizer", None) and model_name in ["OmniLMM"]:
+            raise ValueError("Tensorizer is not supported for %s." % model_name)
+
         if model_uid is None:
             model_uid = self._gen_model_uid(model_name)
 
