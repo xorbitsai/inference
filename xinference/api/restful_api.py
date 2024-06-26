@@ -762,7 +762,7 @@ class RESTfulAPI:
         ):
             raise HTTPException(
                 status_code=400,
-                detail="Tensorizer can only be enabled for LLM models with Transformers engine, PyTorch format, and no quantization.",
+                detail="Tensorizer can only be enabled for LLM models with Transformers engine, PyTorch format, and none quantization.",
             )
 
         if isinstance(gpu_idx, int):
@@ -779,7 +779,6 @@ class RESTfulAPI:
         else:
             peft_model_config = None
 
-        logger.debug(f"trace kwargs: {kwargs}")
         try:
             model_uid = await (await self._get_supervisor_ref()).launch_builtin_model(
                 model_uid=model_uid,
