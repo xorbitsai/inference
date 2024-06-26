@@ -70,32 +70,9 @@ class MiniCPMV25Model(PytorchChatModel):
             )
             exit()
 
-        enable_tensorizer = self._pytorch_model_config.get("enable_tensorizer", None)
-        if enable_tensorizer:
-            from .tensorizer_utils import (
-                check_tensorizer_integrity,
-                load_from_tensorizer,
-            )
-
-            component_types = [("tokenizer", AutoTokenizer)]
-            model_prefix = "model"
-            if not check_tensorizer_integrity(
-                self.model_path,
-                model_prefix,
-                [component[0] for component in component_types],
-            ):
-                logger.info(
-                    "Tensorizer files are not complete, load model from scratch."
-                )
-            else:
-                self._model, self._tokenizer = load_from_tensorizer(
-                    self.model_path,
-                    model_prefix,
-                    AutoModel,
-                    GenerationConfig,
-                    component_types,
-                )
-                return
+        if self._check_tensorizer_integrity():
+            self._model, self._tokenizer = self._load_tensorizer()
+            return
 
         if "int4" in self.model_path:
             model = AutoModel.from_pretrained(self.model_path, trust_remote_code=True)
@@ -118,17 +95,7 @@ class MiniCPMV25Model(PytorchChatModel):
             trust_remote_code=True,
         )
 
-        if enable_tensorizer:
-            from .tensorizer_utils import save_to_tensorizer
-
-            save_to_tensorizer(
-                self.model_path,
-                self._model,
-                self._model.generation_config,
-                "model",
-                False,
-                [("tokenizer", self._tokenizer)],
-            )
+        self._save_tensorizer()
 
     def _message_content_to_chat(self, content):
         def _load_image(_url):

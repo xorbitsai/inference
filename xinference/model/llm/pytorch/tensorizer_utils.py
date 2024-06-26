@@ -14,19 +14,19 @@ from ....device_utils import get_available_device
 logger = logging.getLogger(__name__)
 
 __all__ = [
-    "file_is_non_empty",
     "get_tensorizer_dir",
     "check_tensorizer_integrity",
     "load_from_tensorizer",
-    "load_pretrained_from_tensorizer",
-    "load_model_from_tensorizer",
     "save_to_tensorizer",
-    "tensorizer_serialize_model",
-    "tensorizer_serialize_pretrained",
+    "_load_pretrained_from_tensorizer",
+    "_load_model_from_tensorizer",
+    "_tensorizer_serialize_model",
+    "_tensorizer_serialize_pretrained",
+    "_file_is_non_empty",
 ]
 
 
-def file_is_non_empty(
+def _file_is_non_empty(
     path: str,
 ) -> bool:
     try:
@@ -42,8 +42,8 @@ def get_tensorizer_dir(model_path: str) -> str:
 
 def check_tensorizer_integrity(
     model_path: str,
-    model_prefix: Optional[str] = "model",
     components: Optional[List[str]] = None,
+    model_prefix: Optional[str] = "model",
 ) -> bool:
     tensorizer_dir = get_tensorizer_dir(model_path)
     dir = tensorizer_dir.rstrip("/")
@@ -55,18 +55,18 @@ def check_tensorizer_integrity(
         for component in components:
             component_uri: str = f"{tensorizer_dir.rstrip('/')}/{component}.zip"
             paths.append(component_uri)
-    return all(file_is_non_empty(path) for path in paths)
+    return all(_file_is_non_empty(path) for path in paths)
 
 
 def load_from_tensorizer(
     model_path: str,
-    model_class,
-    config_class,
-    model_prefix: Optional[str] = "model",
     components: Optional[List[tuple[str, Any]]] = None,
+    model_class: Any = None,
+    config_class: Any = None,
+    model_prefix: Optional[str] = "model",
 ):
     try:
-        from transformers import AutoConfig
+        from transformers import AutoConfig, AutoModel
     except ImportError:
         error_message = "Failed to import module 'transformers'"
         installation_guide = [
@@ -75,18 +75,17 @@ def load_from_tensorizer(
         ]
         raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
-    tensorizer_dir = get_tensorizer_dir(model_path)
-    logger.debug(f"Loading from tensorizer: {tensorizer_dir}")
-
     if model_class is None:
-        raise ValueError("model_class must be specified")
-
+        model_class = AutoModel
     if config_class is None:
         config_class = AutoConfig
 
+    tensorizer_dir = get_tensorizer_dir(model_path)
+    logger.debug(f"Loading from tensorizer: {tensorizer_dir}")
+
     device = get_available_device()
     tensorizer_model = (
-        load_model_from_tensorizer(
+        _load_model_from_tensorizer(
             tensorizer_dir,
             model_class,
             config_class,
@@ -103,7 +102,7 @@ def load_from_tensorizer(
     # Iterate over components and load them, appending each to the list
     if components is not None:
         for component, component_class in components:
-            deserialized_component = load_pretrained_from_tensorizer(
+            deserialized_component = _load_pretrained_from_tensorizer(
                 component_class, tensorizer_dir, component
             )
             tensorizer_components.append(deserialized_component)
@@ -111,7 +110,7 @@ def load_from_tensorizer(
     return tensorizer_model, *tensorizer_components
 
 
-def load_pretrained_from_tensorizer(
+def _load_pretrained_from_tensorizer(
     component_class: Any,
     tensorizer_dir: str,
     prefix: str,
@@ -145,7 +144,7 @@ def load_pretrained_from_tensorizer(
             )
 
 
-def load_model_from_tensorizer(
+def _load_model_from_tensorizer(
     tensorizer_dir: str,
     model_class,
     config_class,
@@ -246,10 +245,10 @@ def load_model_from_tensorizer(
 def save_to_tensorizer(
     model_path: str,
     model,
+    components: Optional[List[tuple[str, Any]]] = None,
     model_config: Optional[Any] = None,
     model_prefix: Optional[str] = "model",
     force: Optional[bool] = False,
-    components: Optional[List[tuple[str, Any]]] = None,
 ):
     if model_config is None:
         try:
@@ -264,7 +263,7 @@ def save_to_tensorizer(
 
         model_config = AutoConfig.from_pretrained(model_path)
 
-    tensorizer_serialize_model(
+    _tensorizer_serialize_model(
         model_path,
         model,
         model_config,
@@ -276,14 +275,14 @@ def save_to_tensorizer(
     if components is not None:
         keys = [component[0] for component in components]
         for component_prefix, component in components:
-            tensorizer_serialize_pretrained(model_path, component, component_prefix)
+            _tensorizer_serialize_pretrained(model_path, component, component_prefix)
 
     logger.info(
         f"Save to tensorizer done: model_path {model_path}, {model_prefix}, {keys}"
     )
 
 
-def tensorizer_serialize_model(
+def _tensorizer_serialize_model(
     model_path: str,
     model,
     model_config: Optional[Any] = None,
@@ -320,7 +319,7 @@ def tensorizer_serialize_model(
 
     paths = (config_path, tensor_path)
 
-    use_cache = not force and all(file_is_non_empty(path) for path in paths)
+    use_cache = not force and all(_file_is_non_empty(path) for path in paths)
     if use_cache:
         logger.info(f"Cache {tensor_path} exists, skip tensorizer serialize model")
         return tensor_path
@@ -346,7 +345,7 @@ def tensorizer_serialize_model(
     return tensor_path
 
 
-def tensorizer_serialize_pretrained(
+def _tensorizer_serialize_pretrained(
     model_path: str, component, prefix: str = "pretrained"
 ):
     try:

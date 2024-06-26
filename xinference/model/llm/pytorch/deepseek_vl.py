@@ -56,8 +56,17 @@ class DeepSeekVLChatModel(PytorchChatModel):
             return True
         return False
 
+    def _get_components(self):
+        from ....thirdparty.deepseek_vl.models import VLChatProcessor
+
+        return (
+            super()
+            ._get_components()
+            .append(("vl_chat_processor", self._vl_chat_processor, VLChatProcessor))
+        )
+
     def load(self):
-        from transformers import AutoModelForCausalLM, LlamaTokenizerFast
+        from transformers import AutoModelForCausalLM
 
         from ....thirdparty.deepseek_vl.models import (
             MultiModalityCausalLM,
@@ -68,36 +77,13 @@ class DeepSeekVLChatModel(PytorchChatModel):
         self._device = select_device(self._device)
         self._type = torch.float16 if self._device == "mps" else torch.bfloat16
 
-        enable_tensorizer = self._pytorch_model_config.get("enable_tensorizer", None)
-        if enable_tensorizer:
-            from .tensorizer_utils import (
-                check_tensorizer_integrity,
-                load_from_tensorizer,
-            )
-
-            component_types = [
-                ("tokenizer", LlamaTokenizerFast),
-                ("vl_chat_processor", VLChatProcessor),
-            ]
-            model_prefix = "model"
-            if not check_tensorizer_integrity(
-                self.model_path,
-                model_prefix,
-                [component[0] for component in component_types],
-            ):
-                logger.info(
-                    "Tensorizer files are not complete, load model from scratch."
-                )
-            else:
-                vl_gpt, self._tokenizer, self._vl_chat_processor = load_from_tensorizer(
-                    self.model_path,
-                    model_prefix,
-                    AutoModelForCausalLM,
-                    None,
-                    component_types,
-                )
-                self._model = vl_gpt.to(self._type).eval()
-                return
+        if self._check_tensorizer_integrity():
+            (
+                self._model,
+                self._tokenizer,
+                self._vl_chat_processor,
+            ) = self._load_tensorizer()
+            return
 
         # specify the path to the model
         self._vl_chat_processor: VLChatProcessor = VLChatProcessor.from_pretrained(  # type: ignore
@@ -110,20 +96,7 @@ class DeepSeekVLChatModel(PytorchChatModel):
         )
         self._model = vl_gpt.to(self._type).eval()
 
-        if enable_tensorizer:
-            from .tensorizer_utils import save_to_tensorizer
-
-            save_to_tensorizer(
-                self.model_path,
-                self._model,
-                None,
-                "model",
-                False,
-                [
-                    ("tokenizer", self._tokenizer),
-                    ("vl_chat_processor", self._vl_chat_processor),
-                ],
-            )
+        self._save_tensorizer()
 
     @staticmethod
     def _message_content_to_deepseek(content) -> Tuple[str, List[str]]:

@@ -68,34 +68,6 @@ class ChatglmPytorchChatModel(PytorchChatModel):
 
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
-        # load model from tensorizer
-        enable_tensorizer = self._pytorch_model_config.get("enable_tensorizer", None)
-        if enable_tensorizer:
-            from .tensorizer_utils import (
-                check_tensorizer_integrity,
-                load_from_tensorizer,
-            )
-
-            component_types = [("tokenizer", AutoTokenizer)]
-            model_prefix = "model"
-            if not check_tensorizer_integrity(
-                self.model_path,
-                model_prefix,
-                [component[0] for component in component_types],
-            ):
-                logger.info(
-                    "Tensorizer files are not complete, load model from scratch."
-                )
-            else:
-                model, tokenizer = load_from_tensorizer(
-                    self.model_path,
-                    model_prefix,
-                    AutoModel,
-                    None,
-                    component_types,
-                )
-                return model, tokenizer
-
         tokenizer = AutoTokenizer.from_pretrained(
             self.model_path,
             trust_remote_code=kwargs["trust_remote_code"],
@@ -106,20 +78,6 @@ class ChatglmPytorchChatModel(PytorchChatModel):
             self.model_path,
             **kwargs,
         )
-
-        if enable_tensorizer:
-            from .tensorizer_utils import save_to_tensorizer
-
-            save_to_tensorizer(
-                self.model_path,
-                model,
-                None,
-                "model",
-                False,
-                [
-                    ("tokenizer", tokenizer),
-                ],
-            )
 
         return model, tokenizer
 
