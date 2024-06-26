@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-02-01 16:47+0800\n"
+"POT-Creation-Date: 2024-06-26 12:25+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -17,7 +17,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Generated-By: Babel 2.13.1\n"
+"Generated-By: Babel 2.14.0\n"
 
 #: ../../source/models/model_abilities/image.rst:5
 msgid "Images (Experimental)"
@@ -97,35 +97,58 @@ msgstr ""
 msgid "stable-diffusion-xl-base-1.0"
 msgstr ""
 
-#: ../../source/models/model_abilities/image.rst:46
+#: ../../source/models/model_abilities/image.rst:43
+msgid "sd3-medium"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:47
 msgid "Quickstart"
 msgstr "快速入门"
 
-#: ../../source/models/model_abilities/image.rst:49
+#: ../../source/models/model_abilities/image.rst:50
 msgid "Text-to-image"
 msgstr "文生图"
 
-#: ../../source/models/model_abilities/image.rst:51
+#: ../../source/models/model_abilities/image.rst:52
 msgid ""
 "The Text-to-image API mimics OpenAI's `create images API "
 "<https://platform.openai.com/docs/api-reference/images/create>`_. We can "
 "try Text-to-image API out either via cURL, OpenAI Client, or Xinference's"
 " python client:"
-msgstr "可以通过 cURL、OpenAI Client 或 Xinference 的方式尝试使用 Text-to-image API。"
+msgstr ""
+"可以通过 cURL、OpenAI Client 或 Xinference 的方式尝试使用 Text-to-image "
+"API。"
 
-#: ../../source/models/model_abilities/image.rst:107
+#: ../../source/models/model_abilities/image.rst:108
+msgid ""
+"If you are running ``sd3-medium`` on a GPU less than 24GB and "
+"encountering out of memory, consider to add an extra param for launching "
+"according to `this article "
+"<https://huggingface.co/docs/diffusers/v0.29.1/en/api/pipelines/stable_diffusion/stable_diffusion_3"
+"#dropping-the-t5-text-encoder-during-inference>`_."
+msgstr "如果你运行 ``sd3-medium`` 在小于 24GB 的显卡上碰到内存不足的问题是，根据 "
+"`this article <https://huggingface.co/docs/diffusers/v0.29.1/en/api/pipelines/stable_diffusion/stable_diffusion_3#dropping-the-t5-text-encoder-during-inference>`_"
+" 考虑在加载模型时增加额外选项。"
+
+#: ../../source/models/model_abilities/image.rst:111
+msgid ""
+"xinference launch --model-name sd3-medium --model-type image "
+"--text_encoder_3 None"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:114
 msgid "Image-to-image"
 msgstr "图生图"
 
-#: ../../source/models/model_abilities/image.rst:109
+#: ../../source/models/model_abilities/image.rst:116
 msgid "You can find more examples of Images API in the tutorial notebook:"
 msgstr "你可以在教程笔记本中找到更多 Images API 的示例。"
 
-#: ../../source/models/model_abilities/image.rst:113
+#: ../../source/models/model_abilities/image.rst:120
 msgid "Stable Diffusion ControlNet"
 msgstr ""
 
-#: ../../source/models/model_abilities/image.rst:116
+#: ../../source/models/model_abilities/image.rst:123
 msgid "Learn from a Stable Diffusion ControlNet example"
 msgstr "学习一个 Stable Diffusion 控制网络的示例"
 

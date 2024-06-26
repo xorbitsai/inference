@@ -40,6 +40,7 @@ The Text-to-image API is supported with the following models in Xinference:
 * sdxl-turbo
 * stable-diffusion-v1.5
 * stable-diffusion-xl-base-1.0
+* sd3-medium
 
 
 Quickstart
@@ -102,6 +103,12 @@ We can try Text-to-image API out either via cURL, OpenAI Client, or Xinference's
     }
 
 
+.. note::
+
+  If you are running ``sd3-medium`` on a GPU less than 24GB and encountering out of memory,
+  consider to add an extra param for launching according to `this article <https://huggingface.co/docs/diffusers/v0.29.1/en/api/pipelines/stable_diffusion/stable_diffusion_3#dropping-the-t5-text-encoder-during-inference>`_.
+
+  xinference launch --model-name sd3-medium --model-type image --text_encoder_3 None
 
 Image-to-image
 --------------------
