@@ -60,17 +60,13 @@ class TestTensorizerSerializeModel:
         if os.path.exists(directory):
             shutil.rmtree(directory)
 
-    # Test if model.tensor & config.json & tokenizer.zip files generated
+    # Test if model.tensor & tokenizer.zip files generated
     def test_tensor_file_exists(self):
         expected_tensor_file = f"{self.tensorizer_dir}/{self.model_prefix}.tensors"
-        expected_model_config_file = f"{self.tensorizer_dir}/config.json"
         expected_tokenizer_file = f"{self.tensorizer_dir}/tokenizer.zip"
 
         if os.path.exists(expected_tensor_file):
             os.remove(expected_tensor_file)
-
-        if os.path.exists(expected_model_config_file):
-            os.remove(expected_model_config_file)
 
         if os.path.exists(expected_tokenizer_file):
             os.remove(expected_tokenizer_file)
@@ -84,10 +80,6 @@ class TestTensorizerSerializeModel:
         assert os.path.exists(
             expected_tensor_file
         ), f"{expected_tensor_file} does not exist"
-
-        assert os.path.exists(
-            expected_model_config_file
-        ), f"{expected_model_config_file} does not exist"
 
         assert os.path.exists(
             expected_tokenizer_file

@@ -176,8 +176,9 @@ class PytorchModel(LLM):
                 AutoTokenizer,
                 {
                     "use_fast": self._use_fast_tokenizer,
-                    "trust_remote_code": kwargs.get("trust_remote_code"),
+                    "trust_remote_code": kwargs.get("trust_remote_code", True),
                     "revision": kwargs.get("revision"),
+                    "code_revision": kwargs.get("code_revision", None),
                 },
             )
         ]

@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import io
-import json
 import logging
 import os
 import tempfile
@@ -67,10 +66,9 @@ def check_tensorizer_integrity(
 ) -> bool:
     tensorizer_dir = get_tensorizer_dir(model_path)
     dir = tensorizer_dir.rstrip("/")
-    config_uri: str = f"{dir}/config.json"
     tensors_uri: str = f"{dir}/{model_prefix}.tensors"
     # iterate over components and get their paths
-    paths = [config_uri, tensors_uri]
+    paths = [tensors_uri]
     if components is not None:
         for component in components:
             component_uri: str = f"{tensorizer_dir.rstrip('/')}/{component}.zip"
@@ -136,6 +134,8 @@ def _load_pretrained_from_tensorizer(
     prefix: str,
     **kwargs,
 ):
+    logger.debug(f"Loading components from tensorizer: {component_class} {kwargs}")
+
     try:
         from tensorizer import stream_io
     except ImportError:
@@ -175,7 +175,7 @@ def _load_model_from_tensorizer(
     dtype=None,
     **kwargs,
 ):
-    logger.debug(f"Loading model from tensorizer: {tensorizer_dir}")
+    logger.debug(f"Loading model from tensorizer: {tensorizer_dir} {kwargs}")
 
     # assert device is not None
     if device is None:
@@ -216,7 +216,6 @@ def _load_model_from_tensorizer(
         model_prefix = "model"
 
     dir: str = tensorizer_dir.rstrip("/")
-    config_uri: str = f"{dir}/config.json"
     tensors_uri: str = f"{dir}/{model_prefix}.tensors"
 
     _read_stream = partial(stream_io.open_stream, mode="rb")
@@ -230,7 +229,7 @@ def _load_model_from_tensorizer(
         if isinstance(config, PretrainedConfig):
             config.gradient_checkpointing = True
     except ValueError:
-        config = config_loader(config_uri, **kwargs)
+        config = config_loader(model_path, **kwargs)
 
     with utils.no_init_or_tensor():
         model_loader = getattr(model_class, "from_config", model_class)
@@ -311,37 +310,21 @@ def _tensorizer_serialize_model(
         )
 
     tensorizer_dir = get_tensorizer_dir(model_path)
-    dir_prefix: str = f"{tensorizer_dir}/{model_prefix}"
-    config_path: str = f"{tensorizer_dir}/config.json"
-    tensor_path: str = f"{dir_prefix}.tensors"
-    logger.info(f"Tensorizer serialize model: {tensor_path}")
-
-    paths = (config_path, tensor_path)
-
-    use_cache = not force and all(_file_is_non_empty(path) for path in paths)
-    if use_cache:
-        logger.info(f"Cache {tensor_path} exists, skip tensorizer serialize model")
-        return tensor_path
+    tensor_path: str = f"{tensorizer_dir}/{model_prefix}.tensors"
 
     _write_stream = partial(stream_io.open_stream, mode="wb+")
 
-    if not use_cache:
-        logger.info(f"Writing config to {config_path}")
-        with _write_stream(config_path) as f:
-            config_dict = (
-                model_config.to_dict()
-                if hasattr(model_config, "to_dict")
-                else model_config
-            )
-            f.write(json.dumps(config_dict, indent=2).encode("utf-8"))
-        logger.info(f"Writing tensors to {tensor_path}")
-        with _write_stream(tensor_path) as f:
-            serializer = TensorSerializer(f)
-            serializer.write_module(model, include_non_persistent_buffers=False)
-            serializer.close()
+    if os.path.exists(tensor_path):
+        logger.info(f"Cache {tensor_path} exists, skip tensorizer serialize model")
+        return
+
+    logger.info(f"Writing tensors to {tensor_path}")
+    with _write_stream(tensor_path) as f:
+        serializer = TensorSerializer(f)
+        serializer.write_module(model, include_non_persistent_buffers=False)
+        serializer.close()
 
     logger.info(f"Tensorizer serialize model done: {tensor_path}")
-    return tensor_path
 
 
 def _tensorizer_serialize_pretrained(
@@ -358,12 +341,12 @@ def _tensorizer_serialize_pretrained(
 
     tensorizer_dir = get_tensorizer_dir(model_path)
     save_path: str = f"{tensorizer_dir.rstrip('/')}/{prefix}.zip"
-    logger.info(f"Tensorizer serialize pretrained: {save_path}")
 
     if os.path.exists(save_path):
         logger.info(f"Cache {save_path} exists, skip tensorizer serialize pretrained")
-        return save_path
+        return
 
+    logger.info(f"Writing component to {save_path}")
     _write_stream = partial(stream_io.open_stream, mode="wb+")
 
     with _write_stream(save_path) as stream, zipfile.ZipFile(
