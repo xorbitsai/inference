@@ -351,6 +351,7 @@ class PytorchModel(LLM):
         """
         Build attention mask for prefill phase.
         Padding `0` on the left.
+        Note that the parameter `seq_length` is from `input_ids`.
         """
         data = []
         for r in reqs:
@@ -390,6 +391,12 @@ class PytorchModel(LLM):
     def build_prefill_position_ids(
         self, batch_size: int, seq_length: int, reqs: List[InferenceRequest]
     ):
+        """
+        Build position ids for prefill phase.
+        Padding `0` on the left.
+        Note that the parameter `seq_length` is from `input_ids`.
+        Record the `max_position_id` on request for the decode phase.
+        """
         res = []
         for r in reqs:
             real_seq_len = seq_length - r.padding_len
@@ -407,6 +414,10 @@ class PytorchModel(LLM):
     def build_decode_position_ids(
         self, batch_size: int, seq_length: int, reqs: List[InferenceRequest]
     ):
+        """
+        Build position ids for decode phase.
+        For most models, just let the `max_position_id` in previous step += 1 and use the latest `max_position_id`
+        """
         data = []
         for r in reqs:
             r.extra_kwargs["max_position_id"] += 1
@@ -418,7 +429,8 @@ class PytorchModel(LLM):
         self, batch_size: int, seq_length: int, reqs: List[InferenceRequest]
     ):
         """
-        For most models, `token_type_ids` is not required by default.
+        Build token_type_ids for prefill phase.
+        For most models, this is not required.
         """
         return None
 
@@ -426,7 +438,8 @@ class PytorchModel(LLM):
         self, batch_size: int, seq_length: int, reqs: List[InferenceRequest]
     ):
         """
-        For most models, `token_type_ids` is not required by default.
+        Build token_type_ids for decode phase.
+        For most models, this is not required.
         """
         return None
 
@@ -488,6 +501,11 @@ class PytorchModel(LLM):
 
     @staticmethod
     def get_batch_size_and_seq_len_indexes_from_kv() -> Tuple[int, int]:
+        """
+        From huggingface transformers document, the `pask_key_values` has the shape of
+        `(batch_size, num_heads, sequence_length, embed_size_per_head)`.
+        However, for some models, the shape may be changed.
+        """
         return 0, 2
 
     def get_dtype(self):
