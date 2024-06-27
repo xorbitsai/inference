@@ -7,7 +7,7 @@ qwen1.5-moe-chat
 - **Context Length:** 32768
 - **Model Name:** qwen1.5-moe-chat
 - **Languages:** en, zh
-- **Abilities:** chat
+- **Abilities:** chat, tools
 - **Description:** Qwen1.5-MoE is a transformer-based MoE decoder-only language model pretrained on a large amount of data.
 
 Specifications
