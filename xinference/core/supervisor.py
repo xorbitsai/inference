@@ -758,7 +758,8 @@ class SupervisorActor(xo.StatelessActor):
 
         if kwargs.get("enable_tensorizer", None) and (
             (
-                model_engine != "Transformers"
+                model_engine is None
+                or model_engine.lower() != "transformers"
                 or model_format != "pytorch"
                 or quantization != "none"
                 or model_type != "LLM"
