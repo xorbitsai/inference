@@ -49,8 +49,8 @@ def _file_is_non_empty(
 
 
 def get_tensorizer_dir(model_path: str) -> str:
-    _, model_dir_name = model_path.rsplit("/", 1)
-    return f"{XINFERENCE_TENSORIZER_DIR}/{model_dir_name}"
+    model_dir = os.path.basename(model_path.rstrip("/"))
+    return f"{XINFERENCE_TENSORIZER_DIR}/{model_dir}"
 
 
 def check_tensorizer_integrity(

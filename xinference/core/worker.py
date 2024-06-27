@@ -833,7 +833,6 @@ class WorkerActor(xo.StatelessActor):
             if paths:
                 paths.update([os.path.realpath(path) for path in paths])
 
-        if path:
             # get tensorizer path
             from ..model.llm.pytorch.tensorizer_utils import get_tensorizer_dir
 
