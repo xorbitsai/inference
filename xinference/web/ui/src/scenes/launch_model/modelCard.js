@@ -482,18 +482,6 @@ const ModelCard = ({
     }
   }
 
-  // const getImageLoraLoadKwargsArr = (arr) => {
-  //   setImageLoraLoadKwargsArr(arr)
-  // }
-
-  // const getImageLoraFuseKwargsArr = (arr) => {
-  //   setImageLoraFuseKwargsArr(arr)
-  // }
-
-  // const getCustomParametersArr = (arr) => {
-  //   setCustomParametersArr(arr)
-  // }
-
   const StyledTableRow = styled(TableRow)(({ theme }) => ({
     '&:nth-of-type(odd)': {
       backgroundColor: theme.palette.action.hover,
@@ -671,14 +659,17 @@ const ModelCard = ({
       }
       setCustomArr(customData)
 
+      if (model_uid || request_limits || worker_ip || gpu_idx?.join(','))
+        setIsOther(true)
+
       if (
         loraData.length ||
         ImageLoraLoadData.length ||
         ImageLoraFuseData.length
-      )
-        setIsPeftModelConfig(true)
-      if (model_uid || request_limits || worker_ip || gpu_idx?.join(','))
+      ) {
         setIsOther(true)
+        setIsPeftModelConfig(true)
+      }
     }
   }
 
