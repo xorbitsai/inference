@@ -162,12 +162,14 @@ const ModelCard = ({
   }, [enginesObj])
 
   useEffect(() => {
-    if (!isHistory) setModelFormat('')
     if (modelEngine) {
       const format = [
         ...new Set(enginesObj[modelEngine].map((item) => item.model_format)),
       ]
       setFormatOptions(format)
+      if (!isHistory || !format.includes(modelFormat)) {
+        setModelFormat('')
+      }
       if (format.length === 1) {
         setModelFormat(format[0])
       }
@@ -175,7 +177,6 @@ const ModelCard = ({
   }, [modelEngine])
 
   useEffect(() => {
-    if (!isHistory) setModelSize('')
     if (modelEngine && modelFormat) {
       const sizes = [
         ...new Set(
@@ -185,6 +186,9 @@ const ModelCard = ({
         ),
       ]
       setSizeOptions(sizes)
+      if (!isHistory || !sizes.includes(Number(modelSize))) {
+        setModelSize('')
+      }
       if (sizes.length === 1) {
         setModelSize(sizes[0])
       }
@@ -192,7 +196,6 @@ const ModelCard = ({
   }, [modelEngine, modelFormat])
 
   useEffect(() => {
-    if (!isHistory) setQuantization('')
     if (modelEngine && modelFormat && modelSize) {
       const quants = [
         ...new Set(
@@ -206,6 +209,9 @@ const ModelCard = ({
         ),
       ]
       setQuantizationOptions(quants)
+      if (!isHistory || !quants.includes(quantization)) {
+        setQuantization('')
+      }
       if (quants.length === 1) {
         setQuantization(quants[0])
       }
@@ -362,62 +368,56 @@ const ModelCard = ({
     const modelDataWithID =
       modelType === 'LLM' ? modelDataWithID_LLM : modelDataWithID_other
 
-    console.log('modelData---------', modelDataWithID, url)
-
-    if (
-      isHistory ||
-      ((modelType === 'embedding' || modelType === 'rerank') &&
-        (modelUID !== '' || replica !== 1 || workerIp !== '')) ||
-      ((modelType === 'image' || modelType === 'audio') && modelUID !== '') ||
-      modelType === 'LLM'
-    ) {
-      let historyArr = JSON.parse(localStorage.getItem('historyArr')) || []
-      if (!historyArr.some((item) => deepEqual(item, modelDataWithID))) {
-        historyArr = historyArr.filter(
-          (item) => item.model_name !== modelDataWithID.model_name
-        )
-        historyArr.push(modelDataWithID)
-      }
-      localStorage.setItem('historyArr', JSON.stringify(historyArr))
-    }
-
     // First fetcher request to initiate the model
-    // fetcher(url + '/v1/models', {
-    //   method: 'POST',
-    //   headers: {
-    //     'Content-Type': 'application/json',
-    //   },
-    //   body: JSON.stringify(modelDataWithID),
-    // })
-    //   .then((response) => {
-    //     if (!response.ok) {
-    //       // Assuming the server returns error details in JSON format
-    //       response.json().then((errorData) => {
-    //         setErrorMsg(
-    //           `Server error: ${response.status} - ${
-    //             errorData.detail || 'Unknown error'
-    //           }`
-    //         )
-    //       })
-    //     } else {
-    //       // const historyArr = JSON.parse(localStorage.getItem('historyArr'))
-    //       // if(!historyArr.some(item => deepEqual(item, modelDataWithID))) {
-    //       //   historyArr.push(modelDataWithID)
-    //       // }
-    //       // localStorage.setItem('historyArr', JSON.stringify(historyArr))
+    fetcher(url + '/v1/models', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(modelDataWithID),
+    })
+      .then((response) => {
+        if (!response.ok) {
+          // Assuming the server returns error details in JSON format
+          response.json().then((errorData) => {
+            setErrorMsg(
+              `Server error: ${response.status} - ${
+                errorData.detail || 'Unknown error'
+              }`
+            )
+          })
+        } else {
+          navigate(`/running_models/${modelType}`)
+          sessionStorage.setItem(
+            'runningModelType',
+            `/running_models/${modelType}`
+          )
 
-    //       navigate(`/running_models/${modelType}`)
-    //       sessionStorage.setItem(
-    //         'runningModelType',
-    //         `/running_models/${modelType}`
-    //       )
-    //     }
-    //     setIsCallingApi(false)
-    //   })
-    //   .catch((error) => {
-    //     console.error('Error:', error)
-    //     setIsCallingApi(false)
-    //   })
+          if (
+            isHistory ||
+            ((modelType === 'embedding' || modelType === 'rerank') &&
+              (modelUID !== '' || replica !== 1 || workerIp !== '')) ||
+            ((modelType === 'image' || modelType === 'audio') &&
+              modelUID !== '') ||
+            modelType === 'LLM'
+          ) {
+            let historyArr =
+              JSON.parse(localStorage.getItem('historyArr')) || []
+            if (!historyArr.some((item) => deepEqual(item, modelDataWithID))) {
+              historyArr = historyArr.filter(
+                (item) => item.model_name !== modelDataWithID.model_name
+              )
+              historyArr.push(modelDataWithID)
+            }
+            localStorage.setItem('historyArr', JSON.stringify(historyArr))
+          }
+        }
+        setIsCallingApi(false)
+      })
+      .catch((error) => {
+        console.error('Error:', error)
+        setIsCallingApi(false)
+      })
   }
 
   const handleGPUIdx = (data) => {
@@ -469,6 +469,7 @@ const ModelCard = ({
   }
 
   const handleValueType = (str) => {
+    str = String(str)
     if (str.toLowerCase() === 'none') {
       return null
     } else if (str.toLowerCase() === 'true') {
@@ -626,7 +627,7 @@ const ModelCard = ({
       setGPUIdx(gpu_idx?.join(',') || '')
 
       let loraData = []
-      peft_model_config?.lora_list.forEach((item) => {
+      peft_model_config?.lora_list?.forEach((item) => {
         loraData.push({
           lora_name: item.lora_name,
           local_path: item.local_path,
