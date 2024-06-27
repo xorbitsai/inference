@@ -56,26 +56,6 @@ class DeepSeekVLChatModel(PytorchChatModel):
             return True
         return False
 
-    def _get_model_class(self):
-        from ....thirdparty.deepseek_vl.models import MultiModalityCausalLM
-
-        return MultiModalityCausalLM
-
-    def _get_components(self):
-        from ....thirdparty.deepseek_vl.models import VLChatProcessor
-
-        return (
-            super()
-            ._get_components()
-            .append(
-                (
-                    "vl_chat_processor",
-                    getattr(self, "_vl_chat_processor", None),
-                    VLChatProcessor,
-                )
-            )
-        )
-
     def load(self):
         from transformers import AutoModelForCausalLM
 
@@ -88,14 +68,6 @@ class DeepSeekVLChatModel(PytorchChatModel):
         self._device = select_device(self._device)
         self._type = torch.float16 if self._device == "mps" else torch.bfloat16
 
-        if self._check_tensorizer_integrity():
-            (
-                self._model,
-                self._tokenizer,
-                self._vl_chat_processor,
-            ) = self._load_tensorizer()
-            return
-
         # specify the path to the model
         self._vl_chat_processor: VLChatProcessor = VLChatProcessor.from_pretrained(  # type: ignore
             self.model_path
@@ -106,8 +78,6 @@ class DeepSeekVLChatModel(PytorchChatModel):
             self.model_path, trust_remote_code=True, device_map=self._device
         )
         self._model = vl_gpt.to(self._type).eval()
-
-        self._save_tensorizer()
 
     @staticmethod
     def _message_content_to_deepseek(content) -> Tuple[str, List[str]]:

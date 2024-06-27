@@ -772,6 +772,7 @@ class SupervisorActor(xo.StatelessActor):
         if kwargs.get("enable_tensorizer", None) and model_name in [
             "OmniLMM",
             "yi-vl-chat",
+            "deepseek-vl-chat",
         ]:
             raise ValueError("Tensorizer is not supported for %s." % model_name)
 
