@@ -55,11 +55,6 @@ class YiVLChatModel(PytorchChatModel):
             return True
         return False
 
-    def _get_model_class(self):
-        from ....thirdparty.llava.model.llava_llama import LlavaLlamaForCausalLM
-
-        return LlavaLlamaForCausalLM
-
     def load(self):
         from ....thirdparty.llava.mm_utils import load_pretrained_model
         from ....thirdparty.llava.model.constants import key_info
@@ -70,7 +65,6 @@ class YiVLChatModel(PytorchChatModel):
         self._device = "auto" if self._device == "cuda" else self._device
 
         key_info["model_path"] = self.model_path
-
         # Default device_map is auto, it can loads model to multiple cards.
         # If the device_map is set to cuda, then only 1 card can be used.
         (
