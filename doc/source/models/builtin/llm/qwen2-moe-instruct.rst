@@ -7,7 +7,7 @@ qwen2-moe-instruct
 - **Context Length:** 32768
 - **Model Name:** qwen2-moe-instruct
 - **Languages:** en, zh
-- **Abilities:** chat
+- **Abilities:** chat, tools
 - **Description:** Qwen2 is the new series of Qwen large language models. 
 
 Specifications
