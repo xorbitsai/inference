@@ -769,7 +769,10 @@ class SupervisorActor(xo.StatelessActor):
                 "Tensorizer can only be enabled for LLM models with Transformers engine, PyTorch format, and none quantization."
             )
 
-        if kwargs.get("enable_tensorizer", None) and model_name in ["OmniLMM"]:
+        if kwargs.get("enable_tensorizer", None) and model_name in [
+            "OmniLMM",
+            "yi-vl-chat",
+        ]:
             raise ValueError("Tensorizer is not supported for %s." % model_name)
 
         if model_uid is None:

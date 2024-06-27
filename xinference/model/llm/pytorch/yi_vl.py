@@ -18,7 +18,7 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
 from threading import Thread
-from typing import Any, Dict, Iterator, List, Optional, Union
+from typing import Dict, Iterator, List, Optional, Union
 
 import requests
 import torch
@@ -55,13 +55,6 @@ class YiVLChatModel(PytorchChatModel):
             return True
         return False
 
-    def _get_components(self):
-        return (
-            super()
-            ._get_components()
-            .append(("image_processor", getattr(self, "_image_processor", None), Any))
-        )
-
     def _get_model_class(self):
         from ....thirdparty.llava.model.llava_llama import LlavaLlamaForCausalLM
 
@@ -78,15 +71,6 @@ class YiVLChatModel(PytorchChatModel):
 
         key_info["model_path"] = self.model_path
 
-        if self._check_tensorizer_integrity():
-            (
-                self._model,
-                self._tokenizer,
-                self._image_processor,
-            ) = self._load_tensorizer()
-            self._apply_lora()
-            return
-
         # Default device_map is auto, it can loads model to multiple cards.
         # If the device_map is set to cuda, then only 1 card can be used.
         (
@@ -96,7 +80,6 @@ class YiVLChatModel(PytorchChatModel):
             _,
         ) = load_pretrained_model(self.model_path, device_map=self._device)
         self._apply_lora()
-        self._save_tensorizer()
 
     @staticmethod
     def _message_content_to_yi(content) -> Union[str, tuple]:

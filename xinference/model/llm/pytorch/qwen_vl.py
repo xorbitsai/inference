@@ -54,7 +54,9 @@ class QwenVLChatModel(PytorchChatModel):
         from transformers.generation import GenerationConfig
 
         if self._check_tensorizer_integrity():
-            self._model, self._tokenizer = self._load_tensorizer()
+            self._model, self._tokenizer = self._load_tensorizer(
+                code_revision=self.model_spec.model_revision
+            )
             self._apply_lora()
             return
 
@@ -82,7 +84,7 @@ class QwenVLChatModel(PytorchChatModel):
             code_revision=self.model_spec.model_revision,
         )
         self._apply_lora()
-        self._save_tensorizer()
+        self._save_tensorizer(code_revision=self.model_spec.model_revision)
 
     def _message_content_to_qwen(self, content) -> str:
         def _ensure_url(_url):

@@ -138,34 +138,49 @@ class PytorchModel(LLM):
         logger.info(f"Tensorizer files integrity: {integrity} {self.model_uid}")
         return integrity
 
-    def _load_tensorizer(self):
+    def _load_tensorizer(self, **kwargs):
         enable_tensorizer = self._pytorch_model_config.get("enable_tensorizer", None)
         if enable_tensorizer:
             from .tensorizer_utils import load_from_tensorizer
 
-            component_class = [(row[0], row[2]) for row in self._get_components()]
+            component_metadata = [
+                (name, type, kwargs)
+                for name, _, type, kwargs in self._get_components(**kwargs)
+            ]
             model, tokenizer = load_from_tensorizer(
-                self.model_path, component_class, self._get_model_class()
+                self.model_path, component_metadata, self._get_model_class(), **kwargs
             )
             return model, tokenizer
 
-    def _save_tensorizer(self):
+    def _save_tensorizer(self, **kwargs):
         enable_tensorizer = self._pytorch_model_config.get("enable_tensorizer", None)
         if enable_tensorizer:
             from .tensorizer_utils import save_to_tensorizer
 
-            components = [(row[0], row[1]) for row in self._get_components()]
-            save_to_tensorizer(self.model_path, self._model, components)
+            components = [(name, obj) for name, obj, _, _ in self._get_components()]
+            save_to_tensorizer(self.model_path, self._model, components, **kwargs)
 
     def _get_model_class(self):
         from transformers import AutoModelForCausalLM
 
         return AutoModelForCausalLM
 
-    def _get_components(self):
+    def _get_components(self, **kwargs):
+        print("kwargs: ", kwargs, self.model_uid)
         from transformers import AutoTokenizer
 
-        return [("tokenizer", getattr(self, "_tokenizer", None), AutoTokenizer)]
+        return [
+            (
+                "tokenizer",
+                getattr(self, "_tokenizer", None),
+                AutoTokenizer,
+                {
+                    "use_fast": self._use_fast_tokenizer,
+                    "trust_remote_code": kwargs.get("trust_remote_code"),
+                    "revision": kwargs.get("revision"),
+                },
+            )
+        ]
 
     def _load_model(self, **kwargs):
         try:
@@ -307,14 +322,14 @@ class PytorchModel(LLM):
             is_device_map_auto = True
 
         if self._check_tensorizer_integrity():
-            self._model, self._tokenizer = self._load_tensorizer()
+            self._model, self._tokenizer = self._load_tensorizer(**kwargs)
         else:
             self._model, self._tokenizer = self._load_model(**kwargs)
 
         if not is_device_map_auto:
             self._model.to(self._device)
 
-        self._save_tensorizer()
+        self._save_tensorizer(**kwargs)
 
         logger.debug(f"Model Memory: {self._model.get_memory_footprint()}")
 
