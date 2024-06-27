@@ -49,13 +49,13 @@ const LaunchModelComponent = ({ modelType, gpuAvailable }) => {
           !completeDeleteArr.includes(registration.model_name)
         )
       } else {
-        return collectionArr.includes(registration.model_name)
+        return collectionArr?.includes(registration.model_name)
       }
     } else if (filterArr.length > 1) {
       return (
         registration.cache_status &&
         !completeDeleteArr.includes(registration.model_name) &&
-        collectionArr.includes(registration.model_name)
+        collectionArr?.includes(registration.model_name)
       )
     }
 
