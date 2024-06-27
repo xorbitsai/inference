@@ -65,14 +65,14 @@ const LaunchLLM = ({ gpuAvailable }) => {
         const judge = registration.model_specs.some((spec) => filterCache(spec))
         return judge && !completeDeleteArr.includes(registration.model_name)
       } else {
-        return collectionArr.includes(registration.model_name)
+        return collectionArr?.includes(registration.model_name)
       }
     } else if (statusArr.length > 1) {
       const judge = registration.model_specs.some((spec) => filterCache(spec))
       return (
         judge &&
         !completeDeleteArr.includes(registration.model_name) &&
-        collectionArr.includes(registration.model_name)
+        collectionArr?.includes(registration.model_name)
       )
     }
 
