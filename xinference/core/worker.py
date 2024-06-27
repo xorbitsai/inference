@@ -833,13 +833,14 @@ class WorkerActor(xo.StatelessActor):
             if paths:
                 paths.update([os.path.realpath(path) for path in paths])
 
-        # get tensorizer path
-        from ..model.llm.pytorch.tensorizer_utils import get_tensorizer_dir
+        if path:
+            # get tensorizer path
+            from ..model.llm.pytorch.tensorizer_utils import get_tensorizer_dir
 
-        tensorizer_path = get_tensorizer_dir(path)
-        if os.path.isdir(tensorizer_path):
-            files = os.listdir(tensorizer_path)
-            paths.update([os.path.join(tensorizer_path, file) for file in files])
+            tensorizer_path = get_tensorizer_dir(path)
+            if os.path.isdir(tensorizer_path):
+                files = os.listdir(tensorizer_path)
+                paths.update([os.path.join(tensorizer_path, file) for file in files])
 
         return list(paths)
 
