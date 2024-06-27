@@ -55,6 +55,22 @@ import fetcher from '../../components/fetcher'
 import TitleTypography from '../../components/titleTypography'
 import AddPair from './components/addPair'
 
+const llmAllDataKey = [
+  'model_uid',
+  'model_name',
+  'model_type',
+  'model_engine',
+  'model_format',
+  'model_size_in_billions',
+  'quantization',
+  'n_gpu',
+  'replica',
+  'request_limits',
+  'worker_ip',
+  'gpu_idx',
+  'peft_model_config',
+]
+
 const ModelCard = ({
   url,
   modelData,
@@ -109,6 +125,12 @@ const ModelCard = ({
   const [page, setPage] = useState(0)
   const [isDeleteCustomModel, setIsDeleteCustomModel] = useState(false)
   const [isJsonShow, setIsJsonShow] = useState(false)
+  const [isHistory, setIsHistory] = useState(false)
+  const [customArr, setCustomArr] = useState([])
+  const [loraArr, setLoraArr] = useState([])
+  const [imageLoraLoadArr, setImageLoraLoadArr] = useState([])
+  const [imageLoraFuseArr, setImageLoraFuseArr] = useState([])
+  const [customParametersArrLength, setCustomParametersArrLength] = useState(0)
 
   const parentRef = useRef(null)
 
@@ -130,7 +152,17 @@ const ModelCard = ({
   }
 
   useEffect(() => {
-    setModelFormat('')
+    let keyArr = []
+    for (let key in enginesObj) {
+      keyArr.push(key)
+    }
+    if (keyArr.length) {
+      handleLlmHistory()
+    }
+  }, [enginesObj])
+
+  useEffect(() => {
+    if (!isHistory) setModelFormat('')
     if (modelEngine) {
       const format = [
         ...new Set(enginesObj[modelEngine].map((item) => item.model_format)),
@@ -143,7 +175,7 @@ const ModelCard = ({
   }, [modelEngine])
 
   useEffect(() => {
-    setModelSize('')
+    if (!isHistory) setModelSize('')
     if (modelEngine && modelFormat) {
       const sizes = [
         ...new Set(
@@ -160,7 +192,7 @@ const ModelCard = ({
   }, [modelEngine, modelFormat])
 
   useEffect(() => {
-    setQuantization('')
+    if (!isHistory) setQuantization('')
     if (modelEngine && modelFormat && modelSize) {
       const quants = [
         ...new Set(
@@ -181,7 +213,11 @@ const ModelCard = ({
   }, [modelEngine, modelFormat, modelSize])
 
   useEffect(() => {
-    if (parentRef.current) {
+    setCustomParametersArrLength(customParametersArr.length)
+    if (
+      parentRef.current &&
+      customParametersArr.length > customParametersArrLength
+    ) {
       parentRef.current.scrollTo({
         top: parentRef.current.scrollHeight,
         behavior: 'smooth',
@@ -260,7 +296,9 @@ const ModelCard = ({
           : parseInt(nGPU, 10),
       replica: replica,
       request_limits:
-        requestLimits.trim() === '' ? null : Number(requestLimits.trim()),
+        String(requestLimits).trim() === ''
+          ? null
+          : Number(String(requestLimits).trim()),
       worker_ip: workerIp.trim() === '' ? null : workerIp.trim(),
       gpu_idx: GPUIdx.trim() === '' ? null : handleGPUIdx(GPUIdx.trim()),
     }
@@ -324,37 +362,62 @@ const ModelCard = ({
     const modelDataWithID =
       modelType === 'LLM' ? modelDataWithID_LLM : modelDataWithID_other
 
+    console.log('modelData---------', modelDataWithID, url)
+
+    if (
+      isHistory ||
+      ((modelType === 'embedding' || modelType === 'rerank') &&
+        (modelUID !== '' || replica !== 1 || workerIp !== '')) ||
+      ((modelType === 'image' || modelType === 'audio') && modelUID !== '') ||
+      modelType === 'LLM'
+    ) {
+      let historyArr = JSON.parse(localStorage.getItem('historyArr')) || []
+      if (!historyArr.some((item) => deepEqual(item, modelDataWithID))) {
+        historyArr = historyArr.filter(
+          (item) => item.model_name !== modelDataWithID.model_name
+        )
+        historyArr.push(modelDataWithID)
+      }
+      localStorage.setItem('historyArr', JSON.stringify(historyArr))
+    }
+
     // First fetcher request to initiate the model
-    fetcher(url + '/v1/models', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(modelDataWithID),
-    })
-      .then((response) => {
-        if (!response.ok) {
-          // Assuming the server returns error details in JSON format
-          response.json().then((errorData) => {
-            setErrorMsg(
-              `Server error: ${response.status} - ${
-                errorData.detail || 'Unknown error'
-              }`
-            )
-          })
-        } else {
-          navigate(`/running_models/${modelType}`)
-          sessionStorage.setItem(
-            'runningModelType',
-            `/running_models/${modelType}`
-          )
-        }
-        setIsCallingApi(false)
-      })
-      .catch((error) => {
-        console.error('Error:', error)
-        setIsCallingApi(false)
-      })
+    // fetcher(url + '/v1/models', {
+    //   method: 'POST',
+    //   headers: {
+    //     'Content-Type': 'application/json',
+    //   },
+    //   body: JSON.stringify(modelDataWithID),
+    // })
+    //   .then((response) => {
+    //     if (!response.ok) {
+    //       // Assuming the server returns error details in JSON format
+    //       response.json().then((errorData) => {
+    //         setErrorMsg(
+    //           `Server error: ${response.status} - ${
+    //             errorData.detail || 'Unknown error'
+    //           }`
+    //         )
+    //       })
+    //     } else {
+    //       // const historyArr = JSON.parse(localStorage.getItem('historyArr'))
+    //       // if(!historyArr.some(item => deepEqual(item, modelDataWithID))) {
+    //       //   historyArr.push(modelDataWithID)
+    //       // }
+    //       // localStorage.setItem('historyArr', JSON.stringify(historyArr))
+
+    //       navigate(`/running_models/${modelType}`)
+    //       sessionStorage.setItem(
+    //         'runningModelType',
+    //         `/running_models/${modelType}`
+    //       )
+    //     }
+    //     setIsCallingApi(false)
+    //   })
+    //   .catch((error) => {
+    //     console.error('Error:', error)
+    //     setIsCallingApi(false)
+    //   })
   }
 
   const handleGPUIdx = (data) => {
@@ -419,21 +482,17 @@ const ModelCard = ({
     }
   }
 
-  const getLoraListArr = (arr) => {
-    setLoraListArr(arr)
-  }
+  // const getImageLoraLoadKwargsArr = (arr) => {
+  //   setImageLoraLoadKwargsArr(arr)
+  // }
 
-  const getImageLoraLoadKwargsArr = (arr) => {
-    setImageLoraLoadKwargsArr(arr)
-  }
+  // const getImageLoraFuseKwargsArr = (arr) => {
+  //   setImageLoraFuseKwargsArr(arr)
+  // }
 
-  const getImageLoraFuseKwargsArr = (arr) => {
-    setImageLoraFuseKwargsArr(arr)
-  }
-
-  const getCustomParametersArr = (arr) => {
-    setCustomParametersArr(arr)
-  }
+  // const getCustomParametersArr = (arr) => {
+  //   setCustomParametersArr(arr)
+  // }
 
   const StyledTableRow = styled(TableRow)(({ theme }) => ({
     '&:nth-of-type(odd)': {
@@ -545,6 +604,119 @@ const ModelCard = ({
     navigate(`/register_model/${arr[arr.length - 1]}/${modelData.model_name}`)
   }
 
+  const handleGetHistory = () => {
+    const historyArr = JSON.parse(localStorage.getItem('historyArr')) || []
+    return historyArr.filter((item) => item.model_name === modelData.model_name)
+  }
+
+  const handleLlmHistory = () => {
+    const arr = handleGetHistory()
+    if (arr.length) {
+      const {
+        model_engine,
+        model_format,
+        model_size_in_billions,
+        quantization,
+        n_gpu,
+        replica,
+        model_uid,
+        request_limits,
+        worker_ip,
+        gpu_idx,
+        peft_model_config,
+      } = arr[0]
+
+      setModelEngine(model_engine || '')
+      setModelFormat(model_format || '')
+      setModelSize(String(model_size_in_billions) || '')
+      setQuantization(quantization || '')
+      setNGPU(n_gpu || 'auto')
+      setReplica(replica || 1)
+      setModelUID(model_uid || '')
+      setRequestLimits(request_limits || '')
+      setWorkerIp(worker_ip || '')
+      setGPUIdx(gpu_idx?.join(',') || '')
+
+      let loraData = []
+      peft_model_config?.lora_list.forEach((item) => {
+        loraData.push({
+          lora_name: item.lora_name,
+          local_path: item.local_path,
+        })
+      })
+      setLoraArr(loraData)
+
+      let ImageLoraLoadData = []
+      for (let key in peft_model_config?.image_lora_load_kwargs) {
+        ImageLoraLoadData.push({
+          key: key,
+          value: peft_model_config?.image_lora_load_kwargs[key],
+        })
+      }
+      setImageLoraLoadArr(ImageLoraLoadData)
+
+      let ImageLoraFuseData = []
+      for (let key in peft_model_config?.image_lora_fuse_kwargs) {
+        ImageLoraFuseData.push({
+          key: key,
+          value: peft_model_config?.image_lora_fuse_kwargs[key],
+        })
+      }
+      setImageLoraFuseArr(ImageLoraFuseData)
+
+      let customData = []
+      for (let key in arr[0]) {
+        !llmAllDataKey.includes(key) &&
+          customData.push({ key: key, value: arr[0][key] })
+      }
+      setCustomArr(customData)
+
+      if (
+        loraData.length ||
+        ImageLoraLoadData.length ||
+        ImageLoraFuseData.length
+      )
+        setIsPeftModelConfig(true)
+      if (model_uid || request_limits || worker_ip || gpu_idx?.join(','))
+        setIsOther(true)
+    }
+  }
+
+  const handleOtherHistory = () => {
+    const arr = handleGetHistory()
+    if (arr.length) {
+      if (modelType === 'embedding' || modelType === 'rerank') {
+        setModelUID(arr[0].model_uid || '')
+        setReplica(arr[0].replica || 1)
+        setWorkerIp(arr[0].worker_ip || '')
+      } else {
+        setModelUID(arr[0].model_uid || '')
+      }
+    }
+  }
+
+  const deepEqual = (obj1, obj2) => {
+    if (obj1 === obj2) return true
+    if (
+      typeof obj1 !== 'object' ||
+      typeof obj2 !== 'object' ||
+      obj1 == null ||
+      obj2 == null
+    ) {
+      return false
+    }
+
+    let keysA = Object.keys(obj1)
+    let keysB = Object.keys(obj2)
+    if (keysA.length !== keysB.length) return false
+    for (let key of keysA) {
+      if (!keysB.includes(key) || !deepEqual(obj1[key], obj2[key])) {
+        return false
+      }
+    }
+    return true
+  }
+
   const handleCollection = (bool) => {
     setHover(false)
 
@@ -571,9 +743,13 @@ const ModelCard = ({
         onMouseLeave={() => setHover(false)}
         onClick={() => {
           if (!selected && !customDeleted) {
+            const arr = handleGetHistory()
+            if (arr.length) setIsHistory(true)
             setSelected(true)
             if (modelType === 'LLM') {
               getModelEngine(modelData.model_name)
+            } else {
+              handleOtherHistory()
             }
           }
         }}
@@ -879,7 +1055,11 @@ const ModelCard = ({
         anchor={'right'}
       >
         <div className="drawerCard">
-          <TitleTypography value={modelData.model_name} />
+          <div style={{ display: 'flex' }}>
+            <TitleTypography value={modelData.model_name} />
+            {isHistory && <p style={{ color: '#1976d2' }}>Last history</p>}
+          </div>
+
           {modelType === 'LLM' ? (
             <Box
               ref={parentRef}
@@ -1192,8 +1372,11 @@ const ModelCard = ({
                         key: 'lora_name',
                         value: 'local_path',
                       }}
-                      onGetArr={getLoraListArr}
+                      onGetArr={(arr) => {
+                        setLoraListArr(arr)
+                      }}
                       onJudgeArr={judgeArr}
+                      pairData={loraArr}
                     />
                     <AddPair
                       customData={{
@@ -1201,8 +1384,11 @@ const ModelCard = ({
                         key: 'key',
                         value: 'value',
                       }}
-                      onGetArr={getImageLoraLoadKwargsArr}
+                      onGetArr={(arr) => {
+                        setImageLoraLoadKwargsArr(arr)
+                      }}
                       onJudgeArr={judgeArr}
+                      pairData={imageLoraLoadArr}
                     />
                     <AddPair
                       customData={{
@@ -1210,8 +1396,11 @@ const ModelCard = ({
                         key: 'key',
                         value: 'value',
                       }}
-                      onGetArr={getImageLoraFuseKwargsArr}
+                      onGetArr={(arr) => {
+                        setImageLoraFuseKwargsArr(arr)
+                      }}
                       onJudgeArr={judgeArr}
+                      pairData={imageLoraFuseArr}
                     />
                   </Collapse>
                 </Collapse>
@@ -1223,8 +1412,11 @@ const ModelCard = ({
                     key: 'key',
                     value: 'value',
                   }}
-                  onGetArr={getCustomParametersArr}
+                  onGetArr={(arr) => {
+                    setCustomParametersArr(arr)
+                  }}
                   onJudgeArr={judgeArr}
+                  pairData={customArr}
                 />
               </Grid>
             </Box>
