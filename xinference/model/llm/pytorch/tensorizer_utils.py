@@ -19,7 +19,7 @@ import tempfile
 import zipfile
 from functools import partial
 from pathlib import Path
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Tuple
 
 from ....constants import XINFERENCE_TENSORIZER_DIR
 from ....device_utils import get_available_device
@@ -73,7 +73,7 @@ def check_tensorizer_integrity(
 
 def load_from_tensorizer(
     model_path: str,
-    components: Optional[List[tuple[str, Any]]] = None,
+    components: Optional[List[Tuple[str, Any]]] = None,
     model_class: Any = None,
     config_class: Any = None,
     model_prefix: Optional[str] = "model",
@@ -254,7 +254,7 @@ def _load_model_from_tensorizer(
 def save_to_tensorizer(
     model_path: str,
     model,
-    components: Optional[List[tuple[str, Any]]] = None,
+    components: Optional[List[Tuple[str, Any]]] = None,
     model_config: Optional[Any] = None,
     model_prefix: Optional[str] = "model",
     force: Optional[bool] = False,
