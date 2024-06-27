@@ -261,15 +261,12 @@ def save_to_tensorizer(
     model_path: str,
     model,
     components: Optional[List[Tuple[str, Any]]] = None,
-    model_config: Optional[dict] = None,
     model_prefix: Optional[str] = "model",
     force: Optional[bool] = False,
     **kwargs,
 ):
     kwargs = _filter_kwargs(kwargs)
-    _tensorizer_serialize_model(
-        model_path, model, model_config, model_prefix, force, **kwargs
-    )
+    _tensorizer_serialize_model(model_path, model, model_prefix, force, **kwargs)
 
     if components is not None:
         for component_prefix, component in components:
@@ -279,7 +276,6 @@ def save_to_tensorizer(
 def _tensorizer_serialize_model(
     model_path: str,
     model,
-    model_config: Optional[Any] = None,
     model_prefix: Optional[str] = "model",
     force: Optional[bool] = False,
     **kwargs,
@@ -292,22 +288,6 @@ def _tensorizer_serialize_model(
             "Please make sure 'tensorizer' is installed.\n",
         ]
         raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
-
-    try:
-        from transformers import AutoConfig
-    except ImportError:
-        error_message = "Failed to import module 'transformers'"
-        installation_guide = [
-            "Please make sure 'transformers' is installed. ",
-            "You can install it by `pip install transformers`\n",
-        ]
-        raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
-
-    if model_config is None:
-        model_config = AutoConfig.from_pretrained(
-            model_path,
-            **kwargs,
-        )
 
     tensorizer_dir = get_tensorizer_dir(model_path)
     tensor_path: str = f"{tensorizer_dir}/{model_prefix}.tensors"

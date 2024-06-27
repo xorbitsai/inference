@@ -1,6 +1,6 @@
 import os
 import shutil
-from unittest.mock import MagicMock, mock_open, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
@@ -86,32 +86,31 @@ class TestTensorizerSerializeModel:
         ), f"{expected_tokenizer_file} does not exist"
 
 
-# case2: test if serialized file exists, load from cache
 @pytest.fixture
-def mock_dependencies():
-    with patch(
-        "xinference.model.llm.pytorch.tensorizer_utils.get_tensorizer_dir",
-        return_value="/fake/dir",
-    ), patch(
-        "xinference.model.llm.pytorch.tensorizer_utils._file_is_non_empty",
-        side_effect=lambda x: True,
-    ), patch(
-        "xinference.model.llm.pytorch.tensorizer_utils.logger"
-    ) as mock_logger, patch(
-        "xinference.model.llm.pytorch.tensorizer_utils.os.makedirs", return_value=None
-    ), patch(
-        "builtins.open", mock_open(read_data="data")
-    ):
-        yield mock_logger
+def mock_environment(tmp_path):
+    model_path = str(tmp_path / "model")
+    tensorizer_dir = str(tmp_path / "tensorizer")
+    os.makedirs(tensorizer_dir, exist_ok=True)
+    tensor_path = f"{tensorizer_dir}/model.tensors"
+    # Create a dummy cache file to simulate cache existence
+    with open(tensor_path, "w") as f:
+        f.write("dummy content")
+    return model_path, tensorizer_dir, tensor_path
 
 
-def test_tensorizer_serialize_model_uses_cache_when_available(mock_dependencies):
-    mock_logger = mock_dependencies
-    model_path = "dummy_model_path"
+@patch("xinference.model.llm.pytorch.tensorizer_utils.get_tensorizer_dir")
+@patch("xinference.model.llm.pytorch.tensorizer_utils.logger")
+def test_tensorizer_serialize_model_cache_exists(
+    mock_logger, mock_get_tensorizer_dir, mock_environment
+):
+    model_path, tensorizer_dir, tensor_path = mock_environment
+    mock_get_tensorizer_dir.return_value = tensorizer_dir
     model = MagicMock()
-    model_config = MagicMock()
-    model_config.to_dict.return_value = {"param": "value"}
-    _tensorizer_serialize_model(model_path, model, model_config, force=False)
-    mock_logger.info.assert_any_call(
-        "Cache /fake/dir/model.tensors exists, skip tensorizer serialize model"
+
+    # Call the function with the mocked environment
+    _tensorizer_serialize_model(model_path, model)
+
+    # Check if the logger.info was called with the expected message, indicating early return due to cache existence
+    mock_logger.info.assert_called_with(
+        f"Cache {tensor_path} exists, skip tensorizer serialize model"
     )
