@@ -646,7 +646,6 @@ def _batch_inference_one_step_internal(
             token = _get_token_from_logits(
                 r, i, logits, temperature, repetition_penalty, top_p, top_k
             )
-            print(f"====Output token: {token}")
             r.kv_cache = past_key_values
             r.append_new_token(token)
 

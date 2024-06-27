@@ -99,7 +99,6 @@ class Glm4VModel(PytorchChatModel):
             self.model_path, trust_remote_code=True
         )
         self._tokenizer = tokenizer
-        print(f"====type: {type(self._model)}, {type(self._tokenizer)}")
 
     def _message_content_to_chat(self, content):
         def _load_image(_url):
@@ -197,11 +196,6 @@ class Glm4VModel(PytorchChatModel):
             return_dict=True,
         )  # chat mode
         inputs = inputs.to(self._model.device)
-        print(f"===== {inputs.input_ids}")
-        print(f"===== {inputs.input_ids.shape}")
-        print(f"===== {inputs.attention_mask}")
-        print(f"===== {inputs.attention_mask.shape}")
-        print(f"===== {inputs.images.shape}")
 
         generate_kwargs = {
             **inputs,
