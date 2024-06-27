@@ -1,4 +1,11 @@
-import { Box, FormControl, InputLabel, MenuItem, Select } from '@mui/material'
+import {
+  Box,
+  Chip,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Select,
+} from '@mui/material'
 import React, { useContext, useEffect, useState } from 'react'
 import { useCookies } from 'react-cookie'
 
@@ -6,6 +13,8 @@ import { ApiContext } from '../../components/apiContext'
 import fetcher from '../../components/fetcher'
 import HotkeyFocusTextField from '../../components/hotkeyFocusTextField'
 import ModelCard from './modelCard'
+
+const modelAbilityArr = ['generate', 'chat', 'vision']
 
 const LaunchLLM = ({ gpuAvailable }) => {
   let endPoint = useContext(ApiContext).endPoint
@@ -17,9 +26,12 @@ const LaunchLLM = ({ gpuAvailable }) => {
   const [registrationData, setRegistrationData] = useState([])
   // States used for filtering
   const [searchTerm, setSearchTerm] = useState('')
-  const [modelAbility, setModelAbility] = useState('all')
-  const [status, setStatus] = useState('all')
+  const [modelAbility, setModelAbility] = useState('')
+  const [status, setStatus] = useState('')
+  const [statusArr, setStatusArr] = useState([])
   const [completeDeleteArr, setCompleteDeleteArr] = useState([])
+  const [collectionArr, setCollectionArr] = useState([])
+  const [filterArr, setFilterArr] = useState([])
 
   const filter = (registration) => {
     if (searchTerm !== '') {
@@ -39,10 +51,7 @@ const LaunchLLM = ({ gpuAvailable }) => {
       }
     }
 
-    if (
-      modelAbility !== 'all' &&
-      registration.model_ability.indexOf(modelAbility) < 0
-    )
+    if (modelAbility && registration.model_ability.indexOf(modelAbility) < 0)
       return false
 
     if (completeDeleteArr.includes(registration.model_name)) {
@@ -50,9 +59,21 @@ const LaunchLLM = ({ gpuAvailable }) => {
         item.cache_status = Array.isArray(item) ? [false] : false
       })
     }
-    if (status !== 'all') {
+
+    if (statusArr.length === 1) {
+      if (statusArr[0] === 'cached') {
+        const judge = registration.model_specs.some((spec) => filterCache(spec))
+        return judge && !completeDeleteArr.includes(registration.model_name)
+      } else {
+        return collectionArr.includes(registration.model_name)
+      }
+    } else if (statusArr.length > 1) {
       const judge = registration.model_specs.some((spec) => filterCache(spec))
-      return judge && !completeDeleteArr.includes(registration.model_name)
+      return (
+        judge &&
+        !completeDeleteArr.includes(registration.model_name) &&
+        collectionArr.includes(registration.model_name)
+      )
     }
 
     return true
@@ -98,6 +119,10 @@ const LaunchLLM = ({ gpuAvailable }) => {
           response.json().then((data) => {
             const builtinRegistrations = data.filter((v) => v.is_builtin)
             setRegistrationData(builtinRegistrations)
+            const collectionData = JSON.parse(
+              localStorage.getItem('collectionArr')
+            )
+            setCollectionArr(collectionData)
           })
         }
       })
@@ -112,11 +137,52 @@ const LaunchLLM = ({ gpuAvailable }) => {
     update()
   }, [cookie.token])
 
-  const style = {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-    paddingLeft: '2rem',
-    gridGap: '2rem 0rem',
+  const getCollectionArr = (data) => {
+    setCollectionArr(data)
+  }
+
+  const handleChangeFilter = (type, value) => {
+    if (type === 'modelAbility') {
+      setModelAbility(value)
+      setFilterArr([
+        ...filterArr.filter((item) => {
+          return !modelAbilityArr.includes(item)
+        }),
+        value,
+      ])
+    } else {
+      setStatus(value)
+      const arr = [
+        ...filterArr.filter((item) => {
+          return item !== value
+        }),
+        value,
+      ]
+      setFilterArr(arr)
+      setStatusArr(
+        arr.filter((item) => {
+          return !modelAbilityArr.includes(item)
+        })
+      )
+    }
+  }
+
+  const handleDeleteChip = (item) => {
+    setFilterArr(
+      filterArr.filter((subItem) => {
+        return subItem !== item
+      })
+    )
+    if (item === modelAbility) {
+      setModelAbility('')
+    } else {
+      setStatusArr(
+        statusArr.filter((subItem) => {
+          return subItem !== item
+        })
+      )
+      if (item === status) setStatus('')
+    }
   }
 
   return (
@@ -129,38 +195,38 @@ const LaunchLLM = ({ gpuAvailable }) => {
           margin: '30px 2rem',
         }}
       >
-        <FormControl variant="outlined" margin="normal">
+        <FormControl sx={{ marginTop: 2, minWidth: 120 }} size="small">
           <InputLabel id="ability-select-label">Model Ability</InputLabel>
           <Select
             id="ability"
             labelId="ability-select-label"
             label="Model Ability"
-            onChange={(e) => setModelAbility(e.target.value)}
+            onChange={(e) => handleChangeFilter('modelAbility', e.target.value)}
             value={modelAbility}
             size="small"
             sx={{ width: '150px' }}
           >
-            <MenuItem value="all">all</MenuItem>
             <MenuItem value="generate">generate</MenuItem>
             <MenuItem value="chat">chat</MenuItem>
             <MenuItem value="vision">vl-chat</MenuItem>
           </Select>
         </FormControl>
-        <FormControl variant="outlined" margin="normal">
+        <FormControl sx={{ marginTop: 2, minWidth: 120 }} size="small">
           <InputLabel id="select-status">Status</InputLabel>
           <Select
             id="status"
             labelId="select-status"
             label="Status"
-            onChange={(e) => setStatus(e.target.value)}
+            onChange={(e) => handleChangeFilter('status', e.target.value)}
             value={status}
             size="small"
             sx={{ width: '150px' }}
           >
-            <MenuItem value="all">all</MenuItem>
             <MenuItem value="cached">cached</MenuItem>
+            <MenuItem value="favorite">favorite</MenuItem>
           </Select>
         </FormControl>
+
         <FormControl variant="outlined" margin="normal">
           <HotkeyFocusTextField
             id="search"
@@ -173,7 +239,27 @@ const LaunchLLM = ({ gpuAvailable }) => {
           />
         </FormControl>
       </div>
-      <div style={style}>
+      <div style={{ margin: '0 0 30px 30px' }}>
+        {filterArr.map((item, index) => (
+          <Chip
+            key={index}
+            label={item}
+            variant="outlined"
+            size="small"
+            color="primary"
+            style={{ marginRight: 10 }}
+            onDelete={() => handleDeleteChip(item)}
+          />
+        ))}
+      </div>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+          paddingLeft: '2rem',
+          gridGap: '2rem 0rem',
+        }}
+      >
         {registrationData
           .filter((registration) => filter(registration))
           .map((filteredRegistration) => (
@@ -184,6 +270,7 @@ const LaunchLLM = ({ gpuAvailable }) => {
               gpuAvailable={gpuAvailable}
               modelType={'LLM'}
               onHandleCompleteDelete={handleCompleteDelete}
+              onGetCollectionArr={getCollectionArr}
             />
           ))}
       </div>
