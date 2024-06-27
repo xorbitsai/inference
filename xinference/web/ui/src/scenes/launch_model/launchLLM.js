@@ -223,7 +223,7 @@ const LaunchLLM = ({ gpuAvailable }) => {
             sx={{ width: '150px' }}
           >
             <MenuItem value="cached">cached</MenuItem>
-            <MenuItem value="collection">collection</MenuItem>
+            <MenuItem value="favorite">favorite</MenuItem>
           </Select>
         </FormControl>
 
