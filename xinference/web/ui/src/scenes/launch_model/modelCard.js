@@ -8,8 +8,10 @@ import {
   EditNoteOutlined,
   ExpandLess,
   ExpandMore,
+  Grade,
   HelpCenterOutlined,
   RocketLaunchOutlined,
+  StarBorder,
   UndoOutlined,
 } from '@mui/icons-material'
 import {
@@ -61,6 +63,7 @@ const ModelCard = ({
   is_custom = false,
   onHandleCompleteDelete,
   onHandlecustomDelete,
+  onGetCollectionArr,
 }) => {
   const [hover, setHover] = useState(false)
   const [selected, setSelected] = useState(false)
@@ -542,10 +545,27 @@ const ModelCard = ({
     navigate(`/register_model/${arr[arr.length - 1]}/${modelData.model_name}`)
   }
 
+  const handleCollection = (bool) => {
+    setHover(false)
+
+    let collectionArr = JSON.parse(localStorage.getItem('collectionArr')) || []
+    if (bool) {
+      collectionArr.push(modelData.model_name)
+    } else {
+      collectionArr = collectionArr.filter(
+        (item) => item !== modelData.model_name
+      )
+    }
+    localStorage.setItem('collectionArr', JSON.stringify(collectionArr))
+
+    onGetCollectionArr(collectionArr)
+  }
+
   // Set two different states based on mouse hover
   return (
     <>
       <Paper
+        id={modelData.model_name}
         className="container"
         onMouseEnter={() => setHover(true)}
         onMouseLeave={() => setHover(false)}
@@ -583,7 +603,6 @@ const ModelCard = ({
                         e.stopPropagation()
                         setIsDeleteCustomModel(true)
                       }}
-                      disabled={customDeleted}
                     >
                       <Delete />
                     </IconButton>
@@ -591,7 +610,40 @@ const ModelCard = ({
                 </div>
               </div>
             )}
-            {!is_custom && <TitleTypography value={modelData.model_name} />}
+            {!is_custom && (
+              <div className="cardTitle">
+                <TitleTypography value={modelData.model_name} />
+                <div className="iconButtonBox">
+                  {JSON.parse(localStorage.getItem('collectionArr'))?.includes(
+                    modelData.model_name
+                  ) ? (
+                    <Tooltip title={'Unfavorite'} placement="top">
+                      <IconButton
+                        aria-label="collection"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleCollection(false)
+                        }}
+                      >
+                        <Grade style={{ color: 'rgb(255, 206, 0)' }} />
+                      </IconButton>
+                    </Tooltip>
+                  ) : (
+                    <Tooltip title={'Favorite'} placement="top">
+                      <IconButton
+                        aria-label="cancellation-of-collections"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleCollection(true)
+                        }}
+                      >
+                        <StarBorder />
+                      </IconButton>
+                    </Tooltip>
+                  )}
+                </div>
+              </div>
+            )}
 
             <Stack
               spacing={1}
@@ -710,7 +762,41 @@ const ModelCard = ({
                   </div>
                 </div>
               )}
-              {!is_custom && <TitleTypography value={modelData.model_name} />}
+              {!is_custom && (
+                <div className="cardTitle">
+                  <TitleTypography value={modelData.model_name} />
+                  <div className="iconButtonBox">
+                    {JSON.parse(
+                      localStorage.getItem('collectionArr')
+                    )?.includes(modelData.model_name) ? (
+                      <Tooltip title={'Unfavorite'} placement="top">
+                        <IconButton
+                          aria-label="collection"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleCollection(false)
+                          }}
+                        >
+                          <Grade style={{ color: 'rgb(255, 206, 0)' }} />
+                        </IconButton>
+                      </Tooltip>
+                    ) : (
+                      <Tooltip title={'Favorite'} placement="top">
+                        <IconButton
+                          aria-label="cancellation-of-collections"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleCollection(true)
+                          }}
+                        >
+                          <StarBorder />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <Stack
                 spacing={1}
                 direction="row"
@@ -1008,8 +1094,13 @@ const ModelCard = ({
                   </FormControl>
                 </Grid>
                 <ListItemButton onClick={() => setIsOther(!isOther)}>
-                  <ListItemText primary="Optional Configurations" />
-                  {isOther ? <ExpandLess /> : <ExpandMore />}
+                  <div style={{ display: 'flex', alignItems: 'center' }}>
+                    <ListItemText
+                      primary="Optional Configurations"
+                      style={{ marginRight: 10 }}
+                    />
+                    {isOther ? <ExpandLess /> : <ExpandMore />}
+                  </div>
                 </ListItemButton>
                 <Collapse in={isOther} timeout="auto" unmountOnExit>
                   <Grid item xs={12}>
