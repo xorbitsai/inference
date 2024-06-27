@@ -725,6 +725,39 @@ const ModelCard = ({
     onGetCollectionArr(collectionArr)
   }
 
+  const handleDeleteChip = () => {
+    const arr = JSON.parse(localStorage.getItem('historyArr'))
+    const newArr = arr.filter(
+      (item) => item.model_name !== modelData.model_name
+    )
+    localStorage.setItem('historyArr', JSON.stringify(newArr))
+    setIsHistory(false)
+    if (modelType === 'LLM') {
+      setModelEngine('')
+      setModelFormat('')
+      setModelSize('')
+      setQuantization('')
+      setNGPU('auto')
+      setReplica(1)
+      setModelUID('')
+      setRequestLimits('')
+      setWorkerIp('')
+      setGPUIdx('')
+      setLoraArr([])
+      setImageLoraLoadArr([])
+      setImageLoraFuseArr([])
+      setCustomArr([])
+      setIsOther(false)
+      setIsPeftModelConfig(false)
+    } else if (modelType === 'embedding' || modelType === 'rerank') {
+      setModelUID('')
+      setReplica(1)
+      setWorkerIp('')
+    } else {
+      setModelUID('')
+    }
+  }
+
   // Set two different states based on mouse hover
   return (
     <>
@@ -1047,9 +1080,17 @@ const ModelCard = ({
         anchor={'right'}
       >
         <div className="drawerCard">
-          <div style={{ display: 'flex' }}>
+          <div style={{ display: 'flex', alignItems: 'center' }}>
             <TitleTypography value={modelData.model_name} />
-            {isHistory && <p style={{ color: '#1976d2' }}>Last history</p>}
+            {isHistory && (
+              <Chip
+                label="Last Config"
+                variant="outlined"
+                size="small"
+                color="primary"
+                onDelete={handleDeleteChip}
+              />
+            )}
           </div>
 
           {modelType === 'LLM' ? (
