@@ -192,7 +192,7 @@ class CogVLM2Model(PytorchChatModel):
                         )
             assistant = chat_history[i + 1]["content"]
             history.append((user, assistant))
-            query = assistant
+            query = assistant  # type: ignore
         return query, history, [pixel_values]
 
     def get_query_and_history(
