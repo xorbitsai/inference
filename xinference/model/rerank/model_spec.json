@@ -40,5 +40,12 @@
     "language": ["en", "zh", "multilingual"],
     "model_id": "BAAI/bge-reranker-v2-minicpm-layerwise",
     "model_revision": "47b5332b296c4d8cb6ee2c60502cc62a0d708881"
+  },
+  {
+    "model_name": "jina-reranker-v2",
+    "type": "normal",
+    "language": ["en", "zh", "multilingual"],
+    "model_id": "jinaai/jina-reranker-v2-base-multilingual",
+    "model_revision": "298e48cada4a9318650d7fbd795f63827f884087"
   }
 ]

@@ -20,6 +20,7 @@ from collections import defaultdict
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
+import torch
 
 from ...constants import XINFERENCE_CACHE_DIR
 from ...device_utils import empty_cache
@@ -161,7 +162,10 @@ class RerankModel:
 
                 raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
             self._model = CrossEncoder(
-                self._model_path, device=self._device, **self._model_config
+                self._model_path,
+                device=self._device,
+                trust_remote_code=True,
+                **self._model_config,
             )
             if self._use_fp16:
                 self._model.model.half()
@@ -207,7 +211,11 @@ class RerankModel:
             raise ValueError("rerank hasn't support `max_chunks_per_doc` parameter.")
         sentence_combinations = [[query, doc] for doc in documents]
         if self._model_spec.type == "normal":
-            similarity_scores = self._model.predict(sentence_combinations)
+            similarity_scores = self._model.predict(
+                sentence_combinations, convert_to_numpy=False, convert_to_tensor=True
+            ).cpu()
+            if similarity_scores.dtype == torch.bfloat16:
+                similarity_scores = similarity_scores.float()
         else:
             similarity_scores = self._model.compute_score(sentence_combinations)
         sim_scores_argsort = list(reversed(np.argsort(similarity_scores)))
