@@ -1,4 +1,4 @@
-import { CssBaseline, ThemeProvider } from '@mui/material'
+import { CssBaseline } from '@mui/material'
 import Snackbar from '@mui/material/Snackbar'
 import React, { useEffect, useState } from 'react'
 import { useCookies } from 'react-cookie'
@@ -7,12 +7,11 @@ import { HashRouter } from 'react-router-dom'
 import { Alert } from './components/alertComponent'
 import { ApiContextProvider } from './components/apiContext'
 import AuthAlertDialog from './components/authAlertDialog'
+import { ThemeProvider } from './components/themeContext'
 import { getEndpoint } from './components/utils'
 import WraperRoutes from './router/index'
-import { useMode } from './theme'
 
 function App() {
-  const [theme] = useMode()
   const [cookie, setCookie, removeCookie] = useCookies(['token'])
   const [msg, setMsg] = useState('')
 
@@ -55,25 +54,25 @@ function App() {
 
   return (
     <div className="app">
-      <Snackbar
-        open={msg !== ''}
-        autoHideDuration={10000}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-        onClose={handleClose}
-      >
-        <Alert severity="error" onClose={handleClose} sx={{ width: '100%' }}>
-          {msg}
-        </Alert>
-      </Snackbar>
-      <HashRouter>
-        <ThemeProvider theme={theme}>
+      <ThemeProvider>
+        <Snackbar
+          open={msg !== ''}
+          autoHideDuration={10000}
+          anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+          onClose={handleClose}
+        >
+          <Alert severity="error" onClose={handleClose} sx={{ width: '100%' }}>
+            {msg}
+          </Alert>
+        </Snackbar>
+        <HashRouter>
           <ApiContextProvider>
             <CssBaseline />
             <AuthAlertDialog />
             <WraperRoutes />
           </ApiContextProvider>
-        </ThemeProvider>
-      </HashRouter>
+        </HashRouter>
+      </ThemeProvider>
     </div>
   )
 }
