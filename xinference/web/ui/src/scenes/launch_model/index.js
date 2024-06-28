@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom'
 
 import { ApiContext } from '../../components/apiContext'
 import ErrorMessageSnackBar from '../../components/errorMessageSnackBar'
+import fetcher from '../../components/fetcher'
 import Title from '../../components/Title'
 import LaunchCustom from './launchCustom'
 import LaunchLLM from './launchLLM'
@@ -43,7 +44,7 @@ const LaunchModel = () => {
     }
 
     if (gpuAvailable === -1) {
-      fetch(endPoint + '/v1/cluster/devices', {
+      fetcher(endPoint + '/v1/cluster/devices', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',

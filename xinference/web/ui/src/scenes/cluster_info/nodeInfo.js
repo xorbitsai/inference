@@ -6,6 +6,7 @@ import Grid from '@mui/material/Unstable_Grid2'
 import PropTypes from 'prop-types'
 import React from 'react'
 
+import fetcher from '../../components/fetcher'
 import { toReadableSize } from '../../components/utils'
 import { StyledTableCell, StyledTableRow } from './style'
 
@@ -21,26 +22,46 @@ class NodeInfo extends React.Component {
   }
 
   refreshInfo() {
-    fetch(`${this.endpoint}/v1/cluster/info?detailed=true`, { method: 'GET' })
-      .then((res) => res.json())
+    fetcher(`${this.endpoint}/v1/cluster/info?detailed=true`, { method: 'GET' })
       .then((res) => {
-        const { state } = this
-        state['info'] = res
-        this.setState(state)
+        if (!res.ok) {
+          res.json().then((errorData) => {
+            if (errorData.detail === 'Not enough permissions') {
+              console.log('Not enough permissions')
+              // window.history.back();
+            }
+          })
+        }
+        if (res.ok) {
+          res.json().then((data) => {
+            const { state } = this
+            state['info'] = data
+            this.setState(state)
+          })
+        }
+      })
+      .catch((err) => {
+        console.error('Error:', err)
       })
 
     if (JSON.stringify(this.state.version) === '{}') {
-      fetch(`${this.endpoint}/v1/cluster/version`, {
+      fetcher(`${this.endpoint}/v1/cluster/version`, {
         method: 'GET',
       })
-        .then((res) => res.json())
         .then((res) => {
-          const { state } = this
-          state['version'] = {
-            release: 'v' + res['version'],
-            commit: res['full-revisionid'],
+          if (res.ok) {
+            res.json().then((data) => {
+              const { state } = this
+              state['version'] = {
+                release: 'v' + data['version'],
+                commit: data['full-revisionid'],
+              }
+              this.setState(state)
+            })
           }
-          this.setState(state)
+        })
+        .catch((err) => {
+          console.error('Error:', err)
         })
     }
   }

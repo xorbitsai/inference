@@ -247,13 +247,34 @@ class RESTfulAPI:
             methods=["GET"],
         )
         self._router.add_api_route(
-            "/v1/cluster/info", self.get_cluster_device_info, methods=["GET"]
+            "/v1/cluster/info",
+            self.get_cluster_device_info,
+            methods=["GET"],
+            dependencies=(
+                [Security(self._auth_service, scopes=["admin"])]
+                if self.is_authenticated()
+                else None
+            ),
         )
         self._router.add_api_route(
-            "/v1/cluster/version", self.get_cluster_version, methods=["GET"]
+            "/v1/cluster/version",
+            self.get_cluster_version,
+            methods=["GET"],
+            dependencies=(
+                [Security(self._auth_service, scopes=["admin"])]
+                if self.is_authenticated()
+                else None
+            ),
         )
         self._router.add_api_route(
-            "/v1/cluster/devices", self._get_devices_count, methods=["GET"]
+            "/v1/cluster/devices",
+            self._get_devices_count,
+            methods=["GET"],
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:list"])]
+                if self.is_authenticated()
+                else None
+            ),
         )
         self._router.add_api_route("/v1/address", self.get_address, methods=["GET"])
 
