@@ -166,7 +166,6 @@ class PytorchModel(LLM):
         return AutoModelForCausalLM
 
     def _get_components(self, **kwargs):
-        print("kwargs: ", kwargs, self.model_uid)
         from transformers import AutoTokenizer
 
         return [

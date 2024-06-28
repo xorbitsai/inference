@@ -70,7 +70,7 @@ class MiniCPMV25Model(PytorchChatModel):
         self._device = "auto" if self._device == "cuda" else self._device
 
         if "int4" in self.model_path and device == "mps":
-            print(
+            logger.error(
                 "Error: running int4 model with bitsandbytes on Mac is not supported right now."
             )
             exit()
