@@ -14,6 +14,8 @@
 
 import asyncio
 import itertools
+import os
+import signal
 import time
 import typing
 from dataclasses import dataclass
@@ -216,6 +218,17 @@ class SupervisorActor(xo.StatelessActor):
         await self._cache_tracker_ref.record_model_version(
             model_version_infos, self.address
         )
+
+        # Windows does not have signal handler
+        if os.name != "nt":
+
+            async def signal_handler():
+                os._exit(0)
+
+            loop = asyncio.get_running_loop()
+            loop.add_signal_handler(
+                signal.SIGTERM, lambda: asyncio.create_task(signal_handler())
+            )
 
     @typing.no_type_check
     async def get_cluster_device_info(self, detailed: bool = False) -> List:
@@ -1151,6 +1164,34 @@ class SupervisorActor(xo.StatelessActor):
             ret = ret and await worker.confirm_and_remove_model(
                 model_version=model_version,
             )
+        return ret
+
+    async def get_workers_info(self) -> List[Dict[str, Any]]:
+        ret = []
+        for worker in self._worker_address_to_worker.values():
+            ret.append(await worker.get_workers_info())
+        return ret
+
+    async def get_supervisor_info(self) -> Dict[str, Any]:
+        ret = {
+            "supervisor_ip": self.address,
+        }
+        return ret
+
+    async def trigger_exit(self) -> bool:
+        try:
+            os.kill(os.getpid(), signal.SIGTERM)
+        except Exception as e:
+            logger.info(f"trigger exit error: {e}")
+            return False
+        return True
+
+    async def abort_cluster(self) -> bool:
+        ret = True
+        for worker in self._worker_address_to_worker.values():
+            ret = ret and await worker.trigger_exit()
+
+        ret = ret and await self.trigger_exit()
         return ret
 
     @staticmethod
