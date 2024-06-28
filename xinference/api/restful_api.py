@@ -1762,8 +1762,12 @@ class RESTfulAPI:
             raise HTTPException(status_code=500, detail=str(e))
 
     async def abort_cluster(self) -> JSONResponse:
+        import os
+        import signal
+
         try:
             res = await (await self._get_supervisor_ref()).abort_cluster()
+            os.kill(os.getpid(), signal.SIGINT)
             return JSONResponse(content={"result": res})
         except ValueError as re:
             logger.error(re, exc_info=True)
