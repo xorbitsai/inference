@@ -24,10 +24,10 @@ class NodeInfo extends React.Component {
   refreshInfo() {
     fetcher(`${this.endpoint}/v1/cluster/info?detailed=true`, { method: 'GET' })
       .then((res) => {
-        if(!res.ok) {
+        if (!res.ok) {
           res.json().then((errorData) => {
-            if(errorData.detail === 'Not enough permissions') {
-              console.log('Not enough permissions');
+            if (errorData.detail === 'Not enough permissions') {
+              console.log('Not enough permissions')
               // window.history.back();
             }
           })
@@ -39,7 +39,6 @@ class NodeInfo extends React.Component {
             this.setState(state)
           })
         }
-        
       })
       .catch((err) => {
         console.error('Error:', err)
