@@ -23,13 +23,23 @@ class NodeInfo extends React.Component {
 
   refreshInfo() {
     fetcher(`${this.endpoint}/v1/cluster/info?detailed=true`, { method: 'GET' })
-      .then((res) => res.json())
       .then((res) => {
-        if (res.ok) {
-          const { state } = this
-          state['info'] = res
-          this.setState(state)
+        if(!res.ok) {
+          res.json().then((errorData) => {
+            if(errorData.detail === 'Not enough permissions') {
+              console.log('Not enough permissions');
+              // window.history.back();
+            }
+          })
         }
+        if (res.ok) {
+          res.json().then((data) => {
+            const { state } = this
+            state['info'] = data
+            this.setState(state)
+          })
+        }
+        
       })
       .catch((err) => {
         console.error('Error:', err)
@@ -39,15 +49,16 @@ class NodeInfo extends React.Component {
       fetcher(`${this.endpoint}/v1/cluster/version`, {
         method: 'GET',
       })
-        .then((res) => res.json())
         .then((res) => {
           if (res.ok) {
-            const { state } = this
-            state['version'] = {
-              release: 'v' + res['version'],
-              commit: res['full-revisionid'],
-            }
-            this.setState(state)
+            res.json().then((data) => {
+              const { state } = this
+              state['version'] = {
+                release: 'v' + data['version'],
+                commit: data['full-revisionid'],
+              }
+              this.setState(state)
+            })
           }
         })
         .catch((err) => {
