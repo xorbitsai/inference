@@ -557,7 +557,7 @@ class RESTfulAPI:
             self.get_workers_info,
             methods=["GET"],
             dependencies=(
-                [Security(self._auth_service, scopes=["workers:list"])]
+                [Security(self._auth_service, scopes=["admin"])]
                 if self.is_authenticated()
                 else None
             ),
@@ -567,7 +567,7 @@ class RESTfulAPI:
             self.get_supervisor_info,
             methods=["GET"],
             dependencies=(
-                [Security(self._auth_service, scopes=["supervisor:list"])]
+                [Security(self._auth_service, scopes=["admin"])]
                 if self.is_authenticated()
                 else None
             ),
@@ -577,7 +577,7 @@ class RESTfulAPI:
             self.abort_cluster,
             methods=["DELETE"],
             dependencies=(
-                [Security(self._auth_service, scopes=["clusters:list"])]
+                [Security(self._auth_service, scopes=["admin"])]
                 if self.is_authenticated()
                 else None
             ),
