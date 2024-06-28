@@ -302,7 +302,7 @@ class ModelActor(xo.StatelessActor):
                 if time_to_first_token is None:
                     time_to_first_token = (time.time() - start_time) * 1000
                 final_usage = v.get("usage", None)
-                v = dict(data=json.dumps(v))
+                v = dict(data=json.dumps(v, ensure_ascii=False))
                 yield sse_starlette.sse.ensure_bytes(v, None)
         except OutOfMemoryError:
             logger.exception(
