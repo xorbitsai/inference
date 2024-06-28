@@ -249,6 +249,8 @@ UD_LLM_FAMILIES_LOCK = Lock()
 
 VLLM_CLASSES: List[Type[LLM]] = []
 
+OPENVINO_CLASSES: List[Type[LLM]] = []
+
 LLM_ENGINES: Dict[str, Dict[str, List[Dict[str, Any]]]] = {}
 SUPPORTED_ENGINES: Dict[str, List[Type[LLM]]] = {}
 
