@@ -1456,17 +1456,14 @@ class RESTfulAPI:
             await self._report_error_event(model_uid, str(e))
             raise HTTPException(status_code=500, detail=str(e))
 
+        from ..model.llm.utils import QWEN_TOOL_CALL_FAMILY
+
         model_family = desc.get("model_family", "")
         function_call_models = [
             "chatglm3",
             "glm4-chat",
             "gorilla-openfunctions-v1",
-            "qwen-chat",
-            "qwen1.5-chat",
-            "qwen1.5-moe-chat",
-            "qwen2-instruct",
-            "qwen2-moe-instruct",
-        ]
+        ] + QWEN_TOOL_CALL_FAMILY
 
         is_qwen = desc.get("model_format") == "ggmlv3" and "qwen-chat" == model_family
 
@@ -1488,13 +1485,8 @@ class RESTfulAPI:
                 )
         if body.tools and body.stream:
             is_vllm = await model.is_vllm_backend()
-            if not is_vllm or model_family not in [
-                "qwen-chat",
-                "qwen1.5-chat",
-                "qwen1.5-moe-chat",
-                "qwen2-instruct",
-                "qwen2-moe-instruct",
-            ]:
+
+            if not is_vllm or model_family not in QWEN_TOOL_CALL_FAMILY:
                 raise HTTPException(
                     status_code=400,
                     detail="Streaming support for tool calls is available only when using vLLM backend and Qwen models.",
