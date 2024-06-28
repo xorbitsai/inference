@@ -53,6 +53,13 @@ class QwenVLChatModel(PytorchChatModel):
         from transformers import AutoModelForCausalLM, AutoTokenizer
         from transformers.generation import GenerationConfig
 
+        if self._check_tensorizer_integrity():
+            self._model, self._tokenizer = self._load_tensorizer(
+                code_revision=self.model_spec.model_revision
+            )
+            self._apply_lora()
+            return
+
         device = self._pytorch_model_config.get("device", "auto")
         device = select_device(device)
         # for multiple GPU, set back to auto to make multiple devices work
@@ -69,6 +76,7 @@ class QwenVLChatModel(PytorchChatModel):
             trust_remote_code=True,
             code_revision=self.model_spec.model_revision,
         ).eval()
+
         # Specify hyperparameters for generation
         self._model.generation_config = GenerationConfig.from_pretrained(
             self.model_path,
@@ -76,6 +84,7 @@ class QwenVLChatModel(PytorchChatModel):
             code_revision=self.model_spec.model_revision,
         )
         self._apply_lora()
+        self._save_tensorizer(code_revision=self.model_spec.model_revision)
 
     def _message_content_to_qwen(self, content) -> str:
         def _ensure_url(_url):

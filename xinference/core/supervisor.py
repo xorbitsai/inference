@@ -756,13 +756,34 @@ class SupervisorActor(xo.StatelessActor):
                 f"xinference will ignore this option."
             )
 
+        if kwargs.get("enable_tensorizer", None) and (
+            (
+                model_engine is None
+                or model_engine.lower() != "transformers"
+                or model_format != "pytorch"
+                or quantization != "none"
+                or model_type != "LLM"
+            )
+        ):
+            raise ValueError(
+                "Tensorizer can only be enabled for LLM models with Transformers engine, PyTorch format, and none quantization."
+            )
+
+        if kwargs.get("enable_tensorizer", None) and model_name in [
+            "OmniLMM",
+            "yi-vl-chat",
+            "deepseek-vl-chat",
+        ]:
+            raise ValueError("Tensorizer is not supported for %s." % model_name)
+
         if model_uid is None:
             model_uid = self._gen_model_uid(model_name)
 
         model_size = str(model_size_in_billions) if model_size_in_billions else ""
         logger.debug(
             f"Enter launch_builtin_model, model_uid: {model_uid}, model_name: {model_name}, model_size: {model_size}, "
-            f"model_format: {model_format}, quantization: {quantization}, replica: {replica}"
+            f"model_format: {model_format}, quantization: {quantization}, replica: {replica}, "
+            f"kwargs: {kwargs}"
         )
 
         async def _launch_one_model(_replica_model_uid):

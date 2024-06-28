@@ -36,6 +36,8 @@ RUN python -m pip install --upgrade -i "$PIP_INDEX" pip && \
       typing_extensions \
       "fsspec==2023.10.0" \
       "s3fs==2023.10.0" \
+      "boto3>=1.28.55,<1.28.65" \
+      "tensorizer~=2.9.0" \
       "modelscope>=1.10.0" \
       "sse_starlette>=1.6.5" \
       "openai>1" \

@@ -51,7 +51,6 @@ class OmniLMMModel(PytorchChatModel):
     def load(self):
         device = self._pytorch_model_config.get("device", "auto")
         device = select_device(device)
-
         self._model = OmniLMMChat(self.model_path, device_map=device)
 
     def _message_content_to_OmniLMM(

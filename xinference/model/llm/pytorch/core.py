@@ -108,6 +108,7 @@ class PytorchModel(LLM):
         pytorch_model_config.setdefault("device", "auto")
         pytorch_model_config.setdefault("trust_remote_code", True)
         pytorch_model_config.setdefault("max_num_seqs", 16)
+        pytorch_model_config.setdefault("enable_tensorizer", False)
         return pytorch_model_config
 
     def _sanitize_generate_config(
@@ -124,6 +125,63 @@ class PytorchModel(LLM):
         generate_config["model"] = self.model_uid
         return generate_config
 
+    def _check_tensorizer_integrity(self):
+        if not self._pytorch_model_config.get("enable_tensorizer"):
+            return False
+
+        from .tensorizer_utils import check_tensorizer_integrity
+
+        integrity = check_tensorizer_integrity(
+            self.model_path,
+            [component[0] for component in self._get_components()],
+        )
+        logger.info(f"Tensorizer files integrity: {integrity} {self.model_uid}")
+        return integrity
+
+    def _load_tensorizer(self, **kwargs):
+        enable_tensorizer = self._pytorch_model_config.get("enable_tensorizer", None)
+        if enable_tensorizer:
+            from .tensorizer_utils import load_from_tensorizer
+
+            component_metadata = [
+                (name, type, kwargs)
+                for name, _, type, kwargs in self._get_components(**kwargs)
+            ]
+            model, tokenizer = load_from_tensorizer(
+                self.model_path, component_metadata, self._get_model_class(), **kwargs
+            )
+            return model, tokenizer
+
+    def _save_tensorizer(self, **kwargs):
+        enable_tensorizer = self._pytorch_model_config.get("enable_tensorizer", None)
+        if enable_tensorizer:
+            from .tensorizer_utils import save_to_tensorizer
+
+            components = [(name, obj) for name, obj, _, _ in self._get_components()]
+            save_to_tensorizer(self.model_path, self._model, components, **kwargs)
+
+    def _get_model_class(self):
+        from transformers import AutoModelForCausalLM
+
+        return AutoModelForCausalLM
+
+    def _get_components(self, **kwargs):
+        from transformers import AutoTokenizer
+
+        return [
+            (
+                "tokenizer",
+                getattr(self, "_tokenizer", None),
+                AutoTokenizer,
+                {
+                    "use_fast": self._use_fast_tokenizer,
+                    "trust_remote_code": kwargs.get("trust_remote_code", True),
+                    "revision": kwargs.get("revision"),
+                    "code_revision": kwargs.get("code_revision", None),
+                },
+            )
+        ]
+
     def _load_model(self, **kwargs):
         try:
             from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -133,7 +191,6 @@ class PytorchModel(LLM):
                 "Please make sure 'transformers' is installed. ",
                 "You can install it by `pip install transformers`\n",
             ]
-
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
         tokenizer = AutoTokenizer.from_pretrained(
@@ -147,6 +204,7 @@ class PytorchModel(LLM):
             low_cpu_mem_usage=True,
             **kwargs,
         )
+
         return model, tokenizer
 
     def _apply_lora(self):
@@ -246,7 +304,10 @@ class PytorchModel(LLM):
                         f"Only 8-bit quantization is supported if it is not linux system or cuda device"
                     )
                 else:
-                    self._model, self._tokenizer = load_compress_model(
+                    (
+                        self._model,
+                        self._tokenizer,
+                    ) = load_compress_model(
                         model_path=self.model_path,
                         device=self._device,
                         torch_dtype=kwargs["torch_dtype"],
@@ -260,11 +321,16 @@ class PytorchModel(LLM):
             kwargs.update({"device_map": "auto"})
             is_device_map_auto = True
 
-        self._model, self._tokenizer = self._load_model(**kwargs)
-        self._apply_lora()
+        if self._check_tensorizer_integrity():
+            self._model, self._tokenizer = self._load_tensorizer(**kwargs)
+        else:
+            self._model, self._tokenizer = self._load_model(**kwargs)
 
         if not is_device_map_auto:
             self._model.to(self._device)
+
+        self._save_tensorizer(**kwargs)
+
         logger.debug(f"Model Memory: {self._model.get_memory_footprint()}")
 
     @classmethod
