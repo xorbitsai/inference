@@ -271,7 +271,7 @@ class RESTfulAPI:
             self._get_devices_count,
             methods=["GET"],
             dependencies=(
-                [Security(self._auth_service, scopes=["models:start"])]
+                [Security(self._auth_service, scopes=["models:list"])]
                 if self.is_authenticated()
                 else None
             ),
