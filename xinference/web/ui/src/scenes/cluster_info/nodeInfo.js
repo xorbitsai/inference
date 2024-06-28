@@ -25,9 +25,14 @@ class NodeInfo extends React.Component {
     fetcher(`${this.endpoint}/v1/cluster/info?detailed=true`, { method: 'GET' })
       .then((res) => res.json())
       .then((res) => {
-        const { state } = this
-        state['info'] = res
-        this.setState(state)
+        if (res.ok) {
+          const { state } = this
+          state['info'] = res
+          this.setState(state)
+        }
+      })
+      .catch((err) => {
+        console.error('Error:', err)
       })
 
     if (JSON.stringify(this.state.version) === '{}') {
@@ -36,12 +41,17 @@ class NodeInfo extends React.Component {
       })
         .then((res) => res.json())
         .then((res) => {
-          const { state } = this
-          state['version'] = {
-            release: 'v' + res['version'],
-            commit: res['full-revisionid'],
+          if (res.ok) {
+            const { state } = this
+            state['version'] = {
+              release: 'v' + res['version'],
+              commit: res['full-revisionid'],
+            }
+            this.setState(state)
           }
-          this.setState(state)
+        })
+        .catch((err) => {
+          console.error('Error:', err)
         })
     }
   }
