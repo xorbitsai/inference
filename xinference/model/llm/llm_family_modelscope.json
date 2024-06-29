@@ -2938,6 +2938,85 @@
         "model_id": "qwen/Qwen2-0.5B-Instruct-GGUF",
         "model_file_name_template": "qwen2-0_5b-instruct-{quantization}.gguf",
         "model_hub": "modelscope"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": "1_5",
+        "quantizations": [
+          "q2_k",
+          "q3_k_m",
+          "q4_0",
+          "q4_k_m",
+          "q5_0",
+          "q5_k_m",
+          "q6_k",
+          "q8_0",
+          "fp16"
+        ],
+        "model_id": "qwen/Qwen2-1.5B-Instruct-GGUF",
+        "model_file_name_template": "qwen2-1_5b-instruct-{quantization}.gguf",
+        "model_hub": "modelscope"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "q2_k",
+          "q3_k_m",
+          "q4_0",
+          "q4_k_m",
+          "q5_0",
+          "q5_k_m",
+          "q6_k",
+          "q8_0",
+          "fp16"
+        ],
+        "model_id": "qwen/Qwen2-7B-Instruct-GGUF",
+        "model_file_name_template": "qwen2-7b-instruct-{quantization}.gguf",
+        "model_hub": "modelscope"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 72,
+        "quantizations": [
+          "q2_k",
+          "q3_k_m",
+          "q4_0",
+          "q4_k_m",
+          "q5_0",
+          "q5_k_m",
+          "q6_k",
+          "q8_0",
+          "fp16"
+        ],
+        "model_id": "qwen/Qwen2-72B-Instruct-GGUF",
+        "model_hub": "modelscope",
+        "model_file_name_template": "qwen2-72b-instruct-{quantization}.gguf",
+        "model_file_name_split_template": "qwen2-72b-instruct-{quantization}-{part}.gguf",
+        "quantization_parts": {
+          "q5_0": [
+            "00001-of-00002",
+            "00002-of-00002"
+          ],
+          "q5_k_m": [
+            "00001-of-00002",
+            "00002-of-00002"
+          ],
+          "q6_k": [
+            "00001-of-00002",
+            "00002-of-00002"
+          ],
+          "q8_0": [
+            "00001-of-00002",
+            "00002-of-00002"
+          ],
+          "fp16": [
+            "00001-of-00004",
+            "00002-of-00004",
+            "00003-of-00004",
+            "00004-of-00004"
+          ]
+        }
       }
     ],
     "prompt_style": {
@@ -2993,6 +3072,35 @@
         ],
         "model_id": "qwen/Qwen2-57B-A14B-Instruct-GPTQ-Int4",
         "model_hub": "modelscope"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 14,
+        "quantizations": [
+          "q3_k_m",
+          "q4_0",
+          "q4_k_m",
+          "q5_0",
+          "q5_k_m",
+          "q6_k",
+          "q8_0",
+          "fp16"
+        ],
+        "model_id": "qwen/Qwen2-57B-A14B-Instruct-GGUF",
+        "model_hub": "modelscope",
+        "model_file_name_template": "qwen2-57b-a14b-instruct-{quantization}.gguf",
+        "model_file_name_split_template": "qwen2-57b-a14b-instruct-{quantization}-{part}.gguf",
+        "quantization_parts": {
+          "q8_0": [
+            "00001-of-00002",
+            "00002-of-00002"
+          ],
+          "fp16": [
+            "00001-of-00003",
+            "00002-of-00003",
+            "00003-of-00003"
+          ]
+        }
       }
     ],
     "prompt_style": {
