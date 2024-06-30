@@ -617,9 +617,13 @@ Begin!"""
 
     @staticmethod
     def _eval_glm_chat_arguments(c, tools):
-        if isinstance(c[0], str):
-            return c[0], None, None
-        return None, c[0]["name"], c[0]["parameters"]
+        try:
+            if isinstance(c[0], str):
+                return c[0], None, None
+            return None, c[0]["name"], c[0]["parameters"]
+        except KeyError:
+            logger.error("Can't parse glm output: %s", c)
+            return str(c), None, None
 
     @staticmethod
     def _eval_qwen_chat_arguments(c, tools):
