@@ -29,6 +29,7 @@ from ....types import (
     PytorchGenerateConfig,
 )
 from ..llm_family import LLMFamilyV1, LLMSpecV1
+from ..utils import GLM4_TOOL_CALL_FAMILY
 from .core import PytorchChatModel, PytorchModelConfig
 
 
@@ -103,7 +104,7 @@ class ChatglmPytorchChatModel(PytorchChatModel):
         if tools is None:
             return False
         tool_choice = generate_config.pop("tool_choice", "none")
-        if self.model_family.model_name == "glm4-chat":
+        if self.model_family.model_name in GLM4_TOOL_CALL_FAMILY:
             chat_history[:] = self.process_messages(
                 chat_history, tools=tools, tool_choice=tool_choice
             )
