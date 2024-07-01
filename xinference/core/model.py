@@ -33,6 +33,7 @@ from typing import (
     Generator,
     Iterator,
     List,
+    Mapping,
     Optional,
     Union,
 )
@@ -41,6 +42,7 @@ import sse_starlette.sse
 import xoscar as xo
 
 from ..constants import XINFERENCE_TRANSFORMERS_ENABLE_BATCHING
+from ..types import CodeGenerateMode
 
 if TYPE_CHECKING:
     from .worker import WorkerActor
@@ -334,9 +336,9 @@ class ModelActor(xo.StatelessActor):
                 if time_to_first_token is None:
                     time_to_first_token = (time.time() - start_time) * 1000
                 final_usage = v.get("usage", None)
-                v = await asyncio.to_thread(json.dumps, v)
+                v = await asyncio.to_thread(json.dumps, v)  # type: ignore[attr-defined]
                 v = dict(data=v)  # noqa: F821
-                yield await asyncio.to_thread(sse_starlette.sse.ensure_bytes, v, None)
+                yield await asyncio.to_thread(sse_starlette.sse.ensure_bytes, v, None)  # type: ignore[attr-defined]
         except OutOfMemoryError:
             logger.exception(
                 "Model actor is out of memory, model id: %s", self.model_uid()
@@ -368,13 +370,13 @@ class ModelActor(xo.StatelessActor):
             if inspect.iscoroutinefunction(fn):
                 ret = await fn(*args, **kwargs)
             else:
-                ret = await asyncio.to_thread(fn, *args, **kwargs)
+                ret = await asyncio.to_thread(fn, *args, **kwargs)  # type: ignore[attr-defined]
         else:
             async with self._lock:
                 if inspect.iscoroutinefunction(fn):
                     ret = await fn(*args, **kwargs)
                 else:
-                    ret = await asyncio.to_thread(fn, *args, **kwargs)
+                    ret = await asyncio.to_thread(fn, *args, **kwargs)  # type: ignore[attr-defined]
 
         if self._lock is not None and self._current_generator():
             raise Exception("Parallel generation is not supported by ggml.")
@@ -389,7 +391,7 @@ class ModelActor(xo.StatelessActor):
             return gen
         if isinstance(ret, bytes):
             return ret
-        return await asyncio.to_thread(json_dumps, ret)
+        return await asyncio.to_thread(json_dumps, ret)  # type: ignore[attr-defined]
 
     @log_async(logger=logger)
     @request_limit
@@ -521,6 +523,99 @@ class ModelActor(xo.StatelessActor):
                 return AbortRequestMessage.NOT_FOUND.name
             return await self._scheduler_ref.abort_request(request_id)
         return AbortRequestMessage.NO_OP.name
+
+    @log_async(logger=logger)
+    @request_limit
+    @xo.generator
+    async def code_generate(
+        self,
+        mode: CodeGenerateMode,
+        prompt: str,
+        file_path: Optional[str],
+        suffix: Optional[str],
+        repo_name: Optional[str],
+        files: Optional[Mapping[str, str]],
+        *args,
+        **kwargs,
+    ):
+        start_time = time.time()
+        response = None
+        try:
+            if hasattr(self._model, "code_generate"):
+                response = await self._call_wrapper(
+                    self._model.code_generate,
+                    mode,
+                    prompt,
+                    file_path,
+                    suffix,
+                    repo_name,
+                    files,
+                    *args,
+                    **kwargs,
+                )
+                return response
+            if hasattr(self._model, "async_code_generate"):
+                response = await self._call_wrapper(
+                    self._model.async_code_generate,
+                    mode,
+                    prompt,
+                    file_path,
+                    suffix,
+                    repo_name,
+                    files,
+                    *args,
+                    **kwargs,
+                )
+                return response
+            raise AttributeError(
+                f"Model {self._model.model_spec} is not for code generate."
+            )
+        finally:
+            # For the non stream result.
+            record = None
+            if isinstance(response, (Generator, AsyncGenerator)):
+                record = response
+            elif isinstance(response, bytes):
+                record = json.loads(response)
+            if record and isinstance(record, dict):
+                usage = record["usage"]
+                # Some backends may not have a valid usage, we just skip them.
+                completion_tokens = usage["completion_tokens"]
+                prompt_tokens = usage["prompt_tokens"]
+                await self._record_completion_metrics(
+                    time.time() - start_time,
+                    completion_tokens,
+                    prompt_tokens,
+                )
+
+    @log_async(logger=logger)
+    @request_limit
+    @xo.generator
+    async def get_code_prompt(
+        self,
+        mode: CodeGenerateMode,
+        prompt: str,
+        file_path: Optional[str],
+        suffix: Optional[str],
+        repo_name: Optional[str],
+        files: Optional[Mapping[str, str]],
+    ):
+        from ..model.llm.utils import CodeModelMixin
+
+        if isinstance(self._model, CodeModelMixin):
+            return await self._call_wrapper(
+                self._model.get_code_prompt,
+                mode,
+                prompt,
+                file_path,
+                suffix,
+                repo_name,
+                files,
+            )
+        else:
+            raise ValueError(
+                f"Model {self._model.model_family.model_name} does not support code generating"
+            )
 
     @log_async(logger=logger)
     @request_limit
