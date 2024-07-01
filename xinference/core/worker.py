@@ -284,6 +284,14 @@ class WorkerActor(xo.StatelessActor):
     async def __pre_destroy__(self):
         self._isolation.stop()
 
+    async def trigger_exit(self) -> bool:
+        try:
+            os.kill(os.getpid(), signal.SIGINT)
+        except Exception as e:
+            logger.info(f"trigger exit error: {e}")
+            return False
+        return True
+
     @staticmethod
     def get_devices_count():
         from ..device_utils import gpu_count
@@ -833,6 +841,14 @@ class WorkerActor(xo.StatelessActor):
             if paths:
                 paths.update([os.path.realpath(path) for path in paths])
 
+            # get tensorizer path
+            from ..model.llm.pytorch.tensorizer_utils import get_tensorizer_dir
+
+            tensorizer_path = get_tensorizer_dir(path)
+            if os.path.isdir(tensorizer_path):
+                files = os.listdir(tensorizer_path)
+                paths.update([os.path.join(tensorizer_path, file) for file in files])
+
         return list(paths)
 
     async def confirm_and_remove_model(self, model_version: str) -> bool:
@@ -854,6 +870,13 @@ class WorkerActor(xo.StatelessActor):
             model_version, self.address
         )
         return True
+
+    async def get_workers_info(self) -> Dict[str, Any]:
+        ret = {
+            "work-ip": self.address,
+            "models": await self.list_models(),
+        }
+        return ret
 
     @staticmethod
     def record_metrics(name, op, kwargs):

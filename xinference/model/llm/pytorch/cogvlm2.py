@@ -71,6 +71,10 @@ class CogVLM2Model(PytorchChatModel):
             else torch.float16
         )
 
+        if self._check_tensorizer_integrity():
+            self._model, self._tokenizer = self._load_tensorizer()
+            return
+
         self._tokenizer = AutoTokenizer.from_pretrained(
             self.model_path,
             trust_remote_code=True,
@@ -89,6 +93,7 @@ class CogVLM2Model(PytorchChatModel):
             self.model_path,
             trust_remote_code=True,
         )
+        self._save_tensorizer()
 
     def _message_content_to_cogvlm2(self, content):
         def _load_image(_url):

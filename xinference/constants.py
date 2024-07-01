@@ -45,6 +45,7 @@ def get_xinference_home() -> str:
 
 XINFERENCE_HOME = get_xinference_home()
 XINFERENCE_CACHE_DIR = os.path.join(XINFERENCE_HOME, "cache")
+XINFERENCE_TENSORIZER_DIR = os.path.join(XINFERENCE_HOME, "tensorizer")
 XINFERENCE_MODEL_DIR = os.path.join(XINFERENCE_HOME, "model")
 XINFERENCE_LOG_DIR = os.path.join(XINFERENCE_HOME, "logs")
 XINFERENCE_IMAGE_DIR = os.path.join(XINFERENCE_HOME, "image")

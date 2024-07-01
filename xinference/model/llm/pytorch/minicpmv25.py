@@ -56,6 +56,11 @@ class MiniCPMV25Model(PytorchChatModel):
             return True
         return False
 
+    def _get_model_class(self):
+        from transformers import AutoModel
+
+        return AutoModel
+
     def load(self, **kwargs):
         from transformers import AutoModel, AutoTokenizer
         from transformers.generation import GenerationConfig
@@ -64,12 +69,17 @@ class MiniCPMV25Model(PytorchChatModel):
         self._device = select_device(device)
         self._device = "auto" if self._device == "cuda" else self._device
 
+        if "int4" in self.model_path and device == "mps":
+            logger.error(
+                "Error: running int4 model with bitsandbytes on Mac is not supported right now."
+            )
+            exit()
+
+        if self._check_tensorizer_integrity():
+            self._model, self._tokenizer = self._load_tensorizer()
+            return
+
         if "int4" in self.model_path:
-            if device == "mps":
-                print(
-                    "Error: running int4 model with bitsandbytes on Mac is not supported right now."
-                )
-                exit()
             model = AutoModel.from_pretrained(self.model_path, trust_remote_code=True)
         else:
             model = AutoModel.from_pretrained(
@@ -89,6 +99,7 @@ class MiniCPMV25Model(PytorchChatModel):
             self.model_path,
             trust_remote_code=True,
         )
+        self._save_tensorizer()
 
     def _message_content_to_chat(self, content):
         def _load_image(_url):

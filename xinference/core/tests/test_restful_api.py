@@ -490,10 +490,7 @@ def test_restful_api_for_tool_calls(setup, model_format, quantization):
     payload = {
         "model": model_uid_res,
         "messages": [
-            {
-                "role": "system",
-                "content": "你是一个有用的助手。不要对要函数调用的值做出假设。",
-            },
+            {"role": "system", "content": "你是一个有用的助手。不要对要函数调用的值做出假设。"},
             {"role": "user", "content": "上海现在的天气怎么样？"},
         ],
         "temperature": 0.7,

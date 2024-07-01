@@ -194,7 +194,7 @@ def setup():
     local_cluster_proc = run_test_cluster_in_subprocess(
         supervisor_addr, TEST_LOGGING_CONF
     )
-    if not cluster_health_check(supervisor_addr, max_attempts=10, sleep_interval=3):
+    if not cluster_health_check(supervisor_addr, max_attempts=10, sleep_interval=5):
         raise RuntimeError("Cluster is not available after multiple attempts")
 
     port = xo.utils.get_next_port()
@@ -226,7 +226,7 @@ def setup_with_file_logging():
     local_cluster_proc = run_test_cluster_in_subprocess(
         supervisor_addr, TEST_FILE_LOGGING_CONF
     )
-    if not cluster_health_check(supervisor_addr, max_attempts=3, sleep_interval=3):
+    if not cluster_health_check(supervisor_addr, max_attempts=10, sleep_interval=5):
         raise RuntimeError("Cluster is not available after multiple attempts")
 
     port = xo.utils.get_next_port()
@@ -258,7 +258,7 @@ def setup_with_auth():
     local_cluster_proc = run_test_cluster_in_subprocess(
         supervisor_addr, TEST_LOGGING_CONF
     )
-    if not cluster_health_check(supervisor_addr, max_attempts=10, sleep_interval=3):
+    if not cluster_health_check(supervisor_addr, max_attempts=10, sleep_interval=5):
         raise RuntimeError("Cluster is not available after multiple attempts")
 
     user1 = User(
