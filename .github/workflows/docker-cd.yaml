@@ -33,7 +33,7 @@ jobs:
 
       - name: Build and push Docker image
         shell: bash
-        if: ${{ github.repository == 'xorbitsai/inference' }}
+        if: ${{ github.repository == 'xorbitsai/inference11111' }}
         env:
           DOCKER_ORG: ${{ secrets.DOCKERHUB_USERNAME }}
           PY_VERSION: ${{ matrix.python-version }}
@@ -75,6 +75,7 @@ jobs:
       - name: Log in to Aliyun Docker Hub
         uses: docker/login-action@v1
         with:
+          registry: registry.cn-hangzhou.aliyuncs.com
           username: ${{ secrets.DOCKERHUB_ALIYUN_USERNAME }}
           password: ${{ secrets.DOCKERHUB_ALIYUN_PASSWORD }}
 
@@ -83,6 +84,7 @@ jobs:
         if: ${{ github.repository == 'xorbitsai/inference' }}
         env:
           DOCKER_ORG: registry.cn-hangzhou.aliyuncs.com/xprobe_xinference
+          XINFERENCE_IMAGE_TAG: nightly-enh_aliyun_docker
         run: |
           docker tag "xprobe/xinference:${XINFERENCE_IMAGE_TAG}" "${DOCKER_ORG}/xinference:${XINFERENCE_IMAGE_TAG}"
           docker push "${DOCKER_ORG}/xinference:${XINFERENCE_IMAGE_TAG}"
