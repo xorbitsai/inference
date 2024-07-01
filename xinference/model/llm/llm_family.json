@@ -2550,6 +2550,38 @@
         "model_id": "Qwen/Qwen2-72B-Instruct-AWQ"
       },
       {
+        "model_format": "mlx",
+        "model_size_in_billions": "0_5",
+        "quantizations": [
+          "4-bit"
+        ],
+        "model_id": "Qwen/Qwen2-0.5B-Instruct-MLX"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": "1_5",
+        "quantizations": [
+          "4-bit"
+        ],
+        "model_id": "Qwen/Qwen2-1.5B-Instruct-MLX"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "4-bit"
+        ],
+        "model_id": "Qwen/Qwen2-7B-Instruct-MLX"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 72,
+        "quantizations": [
+          "4-bit"
+        ],
+        "model_id": "mlx-community/Qwen2-72B-4bit"
+      },
+      {
         "model_format": "ggufv2",
         "model_size_in_billions": "0_5",
         "quantizations": [
