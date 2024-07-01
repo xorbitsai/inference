@@ -61,6 +61,7 @@ jobs:
             docker push "$DOCKER_ORG/xinference:${IMAGE_TAG}"
             docker build -t "$DOCKER_ORG/xinference:${IMAGE_TAG}-cpu" --progress=plain -f xinference/deploy/docker/cpu.Dockerfile .
             docker push "$DOCKER_ORG/xinference:${IMAGE_TAG}-cpu"
+            echo "XINFERENCE_IMAGE_TAG=${IMAGE_TAG}" >> $GITHUB_ENV
           done
           
           if [[ -n "$GIT_TAG" ]]; then
@@ -68,12 +69,35 @@ jobs:
             docker push "$DOCKER_ORG/xinference:latest"
             docker tag "$DOCKER_ORG/xinference:${GIT_TAG}-cpu" "$DOCKER_ORG/xinference:latest-cpu"
             docker push "$DOCKER_ORG/xinference:latest-cpu"
+            echo "XINFERENCE_GIT_TAG=${GIT_TAG}" >> $GITHUB_ENV
+          fi
+
+      - name: Log in to Aliyun Docker Hub
+        uses: docker/login-action@v1
+        with:
+          registry: registry.cn-hangzhou.aliyuncs.com
+          username: ${{ secrets.DOCKERHUB_ALIYUN_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_ALIYUN_PASSWORD }}
+
+      - name: Push docker image to Aliyun
+        shell: bash
+        if: ${{ github.repository == 'xorbitsai/inference' }}
+        env:
+          DOCKER_ORG: registry.cn-hangzhou.aliyuncs.com/xprobe_xinference
+        run: |
+          docker tag "xprobe/xinference:${XINFERENCE_IMAGE_TAG}" "${DOCKER_ORG}/xinference:${XINFERENCE_IMAGE_TAG}"
+          docker push "${DOCKER_ORG}/xinference:${XINFERENCE_IMAGE_TAG}"
+          docker tag "xprobe/xinference:${XINFERENCE_IMAGE_TAG}-cpu" "${DOCKER_ORG}/xinference:${XINFERENCE_IMAGE_TAG}-cpu"
+          docker push "${DOCKER_ORG}/xinference:${XINFERENCE_IMAGE_TAG}-cpu"
+          if [[ -n "$XINFERENCE_GIT_TAG" ]]; then
+            docker tag "xprobe/xinference:${XINFERENCE_GIT_TAG}" "$DOCKER_ORG/xinference:latest"
+            docker push "$DOCKER_ORG/xinference:latest"
+            docker tag "xprobe/xinference:${XINFERENCE_GIT_TAG}-cpu" "$DOCKER_ORG/xinference:latest-cpu"
+            docker push "$DOCKER_ORG/xinference:latest-cpu"
           fi
 
       - name: Clean docker image cache
         shell: bash
         if: ${{ github.repository == 'xorbitsai/inference' }}
-        env:
-          DOCKER_ORG: ${{ secrets.DOCKERHUB_USERNAME }}
         run: |
           docker system prune -f -a
