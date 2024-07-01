@@ -84,7 +84,6 @@ jobs:
         if: ${{ github.repository == 'xorbitsai/inference' }}
         env:
           DOCKER_ORG: registry.cn-hangzhou.aliyuncs.com/xprobe_xinference
-          XINFERENCE_IMAGE_TAG: nightly-enh_aliyun_docker
         run: |
           docker tag "xprobe/xinference:${XINFERENCE_IMAGE_TAG}" "${DOCKER_ORG}/xinference:${XINFERENCE_IMAGE_TAG}"
           docker push "${DOCKER_ORG}/xinference:${XINFERENCE_IMAGE_TAG}"
