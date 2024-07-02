@@ -1,0 +1,68 @@
+# required
+xoscar>=0.3.0
+gradio==4.26.0
+typer[all]<0.12.0  # fix typer required by gradio
+pillow
+click
+tqdm>=4.27
+tabulate
+requests
+pydantic
+fastapi==0.110.3
+uvicorn
+huggingface-hub>=0.19.4
+typing_extensions
+fsspec==2023.10.0
+s3fs==2023.10.0
+modelscope>=1.10.0
+sse_starlette>=1.6.5  # ensure_bytes API break change: https://github.com/sysid/sse-starlette/issues/65
+openai>1  # For typing
+python-jose[cryptography]
+passlib[bcrypt]
+aioprometheus[starlette]>=23.12.0
+pynvml
+async-timeout
+peft
+opencv-contrib-python-headless
+
+# all
+transformers>=4.34.1
+accelerate>=0.27.2
+sentencepiece
+transformers_stream_generator
+bitsandbytes
+protobuf
+einops
+tiktoken
+sentence-transformers>=2.7.0
+diffusers
+controlnet_aux
+orjson
+auto-gptq
+autoawq
+optimum
+attrdict  # For deepseek VL
+timm>=0.9.16  # For deepseek VL
+torchvision  # For deepseek VL
+FlagEmbedding  # For rerank
+omegaconf~=2.3.0  # For ChatTTS
+vector_quantize_pytorch  # For ChatTTS
+vocos  # For ChatTTS
+nemo_text_processing  # For ChatTTS
+WeTextProcessing  # For ChatTTS
+librosa  # For ChatTTS
+xxhash  # For ChatTTS
+boto3>=1.28.55,<1.28.65 # For tensorizer
+tensorizer~=2.9.0
+
+# sglang
+outlines>=0.0.44
+hf_transfer
+packaging
+interegular
+zmq
+rpyc
+psutil
+aiohttp
+anthropic>=0.20.0
+litellm>=1.0.0
