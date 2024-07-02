@@ -47,6 +47,11 @@ QWEN_TOOL_CALL_FAMILY = [
     "qwen2-moe-instruct",
 ]
 
+GLM4_TOOL_CALL_FAMILY = [
+    "glm4-chat",
+    "glm4-chat-1m",
+]
+
 
 class ChatModelMixin:
     @staticmethod
@@ -617,9 +622,13 @@ Begin!"""
 
     @staticmethod
     def _eval_glm_chat_arguments(c, tools):
-        if isinstance(c[0], str):
-            return c[0], None, None
-        return None, c[0]["name"], c[0]["parameters"]
+        try:
+            if isinstance(c[0], str):
+                return c[0], None, None
+            return None, c[0]["name"], c[0]["parameters"]
+        except KeyError:
+            logger.error("Can't parse glm output: %s", c)
+            return str(c), None, None
 
     @staticmethod
     def _eval_qwen_chat_arguments(c, tools):
@@ -668,7 +677,7 @@ Begin!"""
         family = model_family.model_family or model_family.model_name
         if family in ["gorilla-openfunctions-v1", "gorilla-openfunctions-v2"]:
             content, func, args = cls._eval_gorilla_openfunctions_arguments(c, tools)
-        elif family in ["chatglm3", "glm4-chat"]:
+        elif family in ["chatglm3"] + GLM4_TOOL_CALL_FAMILY:
             content, func, args = cls._eval_glm_chat_arguments(c, tools)
         elif family in QWEN_TOOL_CALL_FAMILY:
             content, func, args = cls._eval_qwen_chat_arguments(c, tools)

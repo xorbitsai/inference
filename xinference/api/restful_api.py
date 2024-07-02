@@ -1477,14 +1477,14 @@ class RESTfulAPI:
             await self._report_error_event(model_uid, str(e))
             raise HTTPException(status_code=500, detail=str(e))
 
-        from ..model.llm.utils import QWEN_TOOL_CALL_FAMILY
+        from ..model.llm.utils import GLM4_TOOL_CALL_FAMILY, QWEN_TOOL_CALL_FAMILY
 
         model_family = desc.get("model_family", "")
-        function_call_models = [
-            "chatglm3",
-            "glm4-chat",
-            "gorilla-openfunctions-v1",
-        ] + QWEN_TOOL_CALL_FAMILY
+        function_call_models = (
+            ["chatglm3", "gorilla-openfunctions-v1"]
+            + QWEN_TOOL_CALL_FAMILY
+            + GLM4_TOOL_CALL_FAMILY
+        )
 
         is_qwen = desc.get("model_format") == "ggmlv3" and "qwen-chat" == model_family
 
