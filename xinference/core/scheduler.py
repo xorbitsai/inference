@@ -82,6 +82,8 @@ class InferenceRequest:
         # Record error message when this request has error.
         # Must set stopped=True when this field is set.
         self.error_msg: Optional[str] = None
+        # For compatibility. Record some extra parameters for some special cases.
+        self.extra_kwargs = {}
 
         # check the integrity of args passed upstream
         self._check_args()

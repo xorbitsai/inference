@@ -17,7 +17,7 @@ import logging
 import os
 import time
 import uuid
-from typing import Dict, Iterable, Iterator, List, Optional, Tuple
+from typing import TYPE_CHECKING, Dict, Iterable, Iterator, List, Optional, Tuple
 
 import torch
 from transformers.cache_utils import DynamicCache
@@ -38,6 +38,10 @@ from ....types import (
     CompletionUsage,
     max_tokens_field,
 )
+
+if TYPE_CHECKING:
+    from ...llm.pytorch.core import PytorchModel
+
 
 logger = logging.getLogger(__name__)
 
@@ -414,6 +418,19 @@ def get_max_src_len(context_len: int, r: InferenceRequest) -> int:
     return context_len - max_new_tokens - 8
 
 
+def pad_prefill_tokens(
+    input_ids: List[List[int]], context_len: int, req_list: List[InferenceRequest]
+):
+    prompt_tokens = []
+    for i, input_id in enumerate(input_ids):
+        req = req_list[i]
+        max_src_len = get_max_src_len(context_len, req)
+        req.prompt_tokens = input_id[-max_src_len:]
+        prompt_tokens.append(req.prompt_tokens)
+    _pad_seqs_inplace(prompt_tokens, req_list, 0)
+    return prompt_tokens
+
+
 def _get_completion_chunk(
     output: str,
     chunk_id: str,
@@ -481,23 +498,33 @@ def _get_completion(
     return completion
 
 
+def _get_pad_param(seq_len_idx: int, pad_len: int) -> Tuple:
+    dimensions = [0] * 8
+    dimensions[-2 * (seq_len_idx + 1)] = pad_len
+    return tuple(dimensions)
+
+
 def _merge_kv_cache(
-    past_kv: Tuple[Tuple[torch.Tensor]], new_kv: Tuple[Tuple[torch.Tensor]]
+    xinf_model_obj: "PytorchModel",
+    past_kv: Tuple[Tuple[torch.Tensor]],
+    new_kv: Tuple[Tuple[torch.Tensor]],
 ):
     from torch.nn.functional import pad
 
+    _, seq_len_idx = xinf_model_obj.get_batch_size_and_seq_len_indexes_from_kv()
     past_cache = DynamicCache.from_legacy_cache(past_kv)
     new_cache = DynamicCache.from_legacy_cache(new_kv)
-    past_seq_len = past_cache.get_seq_length()
-    new_seq_len = new_cache.get_seq_length()
+    past_seq_len = past_kv[0][0].shape[seq_len_idx]
+    new_seq_len = new_kv[0][0].shape[seq_len_idx]
     if past_seq_len != new_seq_len:
         padding_target = new_cache if past_seq_len > new_seq_len else past_cache
         padding_len = abs(past_seq_len - new_seq_len)
+        pad_param = _get_pad_param(seq_len_idx, padding_len)
         for idx in range(len(padding_target)):
             k = padding_target.key_cache[idx]
             v = padding_target.value_cache[idx]
-            _k = pad(k, (0, 0, padding_len, 0))
-            _v = pad(v, (0, 0, padding_len, 0))
+            _k = pad(k, pad_param)
+            _v = pad(v, pad_param)
             padding_target.key_cache[idx] = _k
             padding_target.value_cache[idx] = _v
 
@@ -509,36 +536,19 @@ def _merge_kv_cache(
     return ret_kv.to_legacy_cache()
 
 
-def _get_attention_mask_and_position_ids(kv, reqs: List[InferenceRequest]):
-    batch_size, seq_length, device = (
-        kv[0][0].shape[0],
-        kv[0][0].shape[2],
-        kv[0][0].device,
-    )
-    seq_length = seq_length + 1
-    position_ids = torch.as_tensor([[seq_length - 1]], dtype=torch.long, device=device)
-    attention_mask = torch.ones(
-        (batch_size, seq_length), dtype=torch.long, device=device
-    )
-    padding_lens = torch.as_tensor([r.padding_len for r in reqs])
-    mask = torch.arange(seq_length).expand(
-        batch_size, seq_length
-    ) < padding_lens.unsqueeze(1)
-    attention_mask[mask] = 0
-    return attention_mask, position_ids
+def get_batch_size_and_seq_len_from_kv_cache(kv, xinf_model_obj: "PytorchModel"):
+    bs_idx, seq_len_idx = xinf_model_obj.get_batch_size_and_seq_len_indexes_from_kv()
+    return kv[0][0].shape[bs_idx], kv[0][0].shape[seq_len_idx] + 1
 
 
 @torch.inference_mode()
 def _batch_inference_one_step_internal(
+    xinf_model_obj: "PytorchModel",
     req_list: List[InferenceRequest],
     model_uid,
     model,
     tokenizer,
-    device,
-    context_len: int,
-    stop_tokens: Tuple[int],
     decode_round: int = 16,
-    require_attention_mask: bool = False,
     bos_flag: str = "<bos_stream>",
     eos_flag: str = "<eos_stream>",
 ):
@@ -548,7 +558,9 @@ def _batch_inference_one_step_internal(
     if not valid_req_list:
         return
     generate_config_mapping: Dict[InferenceRequest, Tuple] = {
-        r: r.get_generate_configs(tokenizer.eos_token_id, stop_tokens)
+        r: r.get_generate_configs(
+            tokenizer.eos_token_id, xinf_model_obj.get_builtin_stop_token_ids()
+        )
         for r in valid_req_list
     }
     s_time = time.time()
@@ -564,15 +576,8 @@ def _batch_inference_one_step_internal(
             decode_reqs.append(r)
 
     if prompts:  # prefill first
-        input_ids: List[List[int]] = tokenizer(prompts, padding=False).input_ids
-        prompt_tokens = []
-        for i, input_id in enumerate(input_ids):
-            req = valid_req_list[i]
-            max_src_len = get_max_src_len(context_len, req)
-            req.prompt_tokens = input_id[-max_src_len:]
-            prompt_tokens.append(req.prompt_tokens)
-        _pad_seqs_inplace(prompt_tokens, valid_req_list, 0)
-        out = model(torch.as_tensor(prompt_tokens, device=device), use_cache=True)
+        prefill_kws = xinf_model_obj.build_prefill_kwargs(prompts, prefill_reqs)
+        out = model(**prefill_kws, use_cache=True)
 
         logits = out.logits
         past_key_values = out.past_key_values
@@ -599,7 +604,9 @@ def _batch_inference_one_step_internal(
         if decode_reqs:
             decode_kv = decode_reqs[0].kv_cache
             # prefill and decode kv cache need to be merged at `batch_size` and `seq_len` dimensions.
-            merged_kv_cache = _merge_kv_cache(decode_kv, past_key_values)
+            merged_kv_cache = _merge_kv_cache(
+                xinf_model_obj, decode_kv, past_key_values
+            )
             for r in valid_req_list:
                 r.kv_cache = merged_kv_cache
             empty_cache()
@@ -612,20 +619,14 @@ def _batch_inference_one_step_internal(
     output_mapping: Dict[InferenceRequest, str] = {}
     # here, only decode phase, just run some rounds
     for _i in range(decode_round):
-        decode_tokens: List[List[int]] = [[r.new_tokens[-1]] for r in valid_req_list]
-        inf_kws = {}
-        if require_attention_mask:
-            attention_mask, position_ids = _get_attention_mask_and_position_ids(
-                past_key_values, valid_req_list
-            )
-            inf_kws["position_ids"] = position_ids
-            inf_kws["attention_mask"] = attention_mask
-        out = model(
-            input_ids=torch.as_tensor(decode_tokens, device=device),
-            use_cache=True,
-            past_key_values=past_key_values,
-            **inf_kws,
+        batch_size, seq_len = get_batch_size_and_seq_len_from_kv_cache(
+            past_key_values, xinf_model_obj
         )
+        decode_tokens: List[List[int]] = [[r.new_tokens[-1]] for r in valid_req_list]
+        inf_kws = xinf_model_obj.build_decode_kwargs(
+            decode_tokens, valid_req_list, batch_size, seq_len
+        )
+        out = model(**inf_kws, use_cache=True, past_key_values=past_key_values)
         logits = out.logits
         past_key_values = out.past_key_values
 
@@ -755,27 +756,17 @@ def _batch_inference_one_step_internal(
 
 
 def batch_inference_one_step(
+    xinf_model_obj: "PytorchModel",
     req_list: List[InferenceRequest],
     model_uid,
     model,
     tokenizer,
-    device,
-    context_len: int,
-    stop_token_ids: Tuple[int],
-    require_attention_mask: bool = False,
 ):
     from ....core.model import OutOfMemoryError
 
     try:
         _batch_inference_one_step_internal(
-            req_list,
-            model_uid,
-            model,
-            tokenizer,
-            device,
-            context_len,
-            stop_token_ids,
-            require_attention_mask=require_attention_mask,
+            xinf_model_obj, req_list, model_uid, model, tokenizer
         )
     except OutOfMemoryError:
         logger.exception(
