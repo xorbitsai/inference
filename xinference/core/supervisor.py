@@ -648,7 +648,9 @@ class SupervisorActor(xo.StatelessActor):
         return engine_params
 
     @log_async(logger=logger)
-    async def register_model(self, model_type: str, model: str, persist: bool):
+    async def register_model(
+        self, model_type: str, model: str, worker_ip: str, persist: bool
+    ):
         if model_type in self._custom_register_type_to_cls:
             (
                 model_spec_cls,
@@ -657,10 +659,20 @@ class SupervisorActor(xo.StatelessActor):
                 generate_fn,
             ) = self._custom_register_type_to_cls[model_type]
 
-            if not self.is_local_deployment():
-                workers = list(self._worker_address_to_worker.values())
-                for worker in workers:
-                    await worker.register_model(model_type, model, persist)
+            target_ip_worker_ref = (
+                self._get_worker_ref_by_ip(worker_ip) if worker_ip is not None else None
+            )
+            if (
+                worker_ip is not None
+                and not self.is_local_deployment()
+                and target_ip_worker_ref is None
+            ):
+                raise ValueError(
+                    f"Worker ip address {worker_ip} is not in the cluster."
+                )
+
+            if target_ip_worker_ref:
+                await target_ip_worker_ref.register_model(model_type, model, persist)
 
             model_spec = model_spec_cls.parse_raw(model)
             try:

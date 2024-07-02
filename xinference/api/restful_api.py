@@ -1593,11 +1593,12 @@ class RESTfulAPI:
     async def register_model(self, model_type: str, request: Request) -> JSONResponse:
         body = RegisterModelRequest.parse_obj(await request.json())
         model = body.model
+        worker_ip = body.worker_ip
         persist = body.persist
 
         try:
             await (await self._get_supervisor_ref()).register_model(
-                model_type, model, persist
+                model_type, model, worker_ip, persist
             )
         except ValueError as re:
             logger.error(re, exc_info=True)

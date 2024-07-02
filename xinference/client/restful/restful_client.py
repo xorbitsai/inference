@@ -1064,7 +1064,9 @@ class Client:
             )
         return response.json()
 
-    def register_model(self, model_type: str, model: str, persist: bool):
+    def register_model(
+        self, model_type: str, model: str, worker_ip: str, persist: bool
+    ):
         """
         Register a custom model.
 
@@ -1074,6 +1076,8 @@ class Client:
             The type of model.
         model: str
             The model definition. (refer to: https://inference.readthedocs.io/en/latest/models/custom.html)
+        worker_ip: str
+            The IP address of the worker on which the model is running.
         persist: bool
 
 
@@ -1083,7 +1087,7 @@ class Client:
             Report failure to register the custom model. Provide details of failure through error message.
         """
         url = f"{self.base_url}/v1/model_registrations/{model_type}"
-        request_body = {"model": model, "persist": persist}
+        request_body = {"model": model, "worker_ip": worker_ip, "persist": persist}
         response = requests.post(url, json=request_body, headers=self._headers)
         if response.status_code != 200:
             raise RuntimeError(
