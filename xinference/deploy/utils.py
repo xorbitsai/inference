@@ -79,6 +79,12 @@ def get_config_dict(
                 "stream": "ext://sys.stderr",
                 "filters": ["logger_name_filter"],
             },
+            "console_handler": {
+                "class": "logging.StreamHandler",
+                "formatter": "formatter",
+                "level": log_level,
+                "stream": "ext://sys.stderr",
+            },
             "file_handler": {
                 "class": "logging.handlers.RotatingFileHandler",
                 "formatter": "formatter",
@@ -95,7 +101,32 @@ def get_config_dict(
                 "handlers": ["stream_handler", "file_handler"],
                 "level": log_level,
                 "propagate": False,
-            }
+            },
+            "uvicorn": {
+                "handlers": ["stream_handler", "file_handler"],
+                "level": log_level,
+                "propagate": False,
+            },
+            "uvicorn.error": {
+                "handlers": ["stream_handler", "file_handler"],
+                "level": log_level,
+                "propagate": False,
+            },
+            "uvicorn.access": {
+                "handlers": ["stream_handler", "file_handler"],
+                "level": log_level,
+                "propagate": False,
+            },
+            "transformers": {
+                "handlers": ["console_handler", "file_handler"],
+                "level": log_level,
+                "propagate": False,
+            },
+            "vllm": {
+                "handlers": ["console_handler", "file_handler"],
+                "level": log_level,
+                "propagate": False,
+            },
         },
         "root": {
             "level": "WARN",
