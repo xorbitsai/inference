@@ -2579,7 +2579,7 @@
         "quantizations": [
           "4-bit"
         ],
-        "model_id": "mlx-community/Qwen2-72B-4bit"
+        "model_id": "mlx-community/Qwen2-72B-Instruct-4bit"
       },
       {
         "model_format": "ggufv2",
