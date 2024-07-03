@@ -133,7 +133,7 @@ class SpeechRequest(BaseModel):
 
 class RegisterModelRequest(BaseModel):
     model: str
-    worker_ip:str
+    worker_ip: str
     persist: bool
 
 
@@ -1596,6 +1596,7 @@ class RESTfulAPI:
         model = body.model
         worker_ip = body.worker_ip
         persist = body.persist
+
         try:
             await (await self._get_supervisor_ref()).register_model(
                 model_type, model, worker_ip, persist
