@@ -159,7 +159,7 @@ class MLXModel(LLM):
         tokenizer = self._tokenizer
         max_tokens = kwargs["max_tokens"]
         chunk_id = str(uuid.uuid4())
-        stop_token_ids = kwargs["stop_token_ids"] or []
+        stop_token_ids = kwargs.get("stop_token_ids", [])
         stream = kwargs.get("stream", False)
         stream_options = kwargs.pop("stream_options", None)
         include_usage = (

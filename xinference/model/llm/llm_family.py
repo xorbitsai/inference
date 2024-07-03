@@ -845,7 +845,7 @@ def cache_from_huggingface(
         use_symlinks = {"local_dir_use_symlinks": True, "local_dir": cache_dir}
 
     if llm_spec.model_format in ["pytorch", "gptq", "awq", "mlx"]:
-        assert isinstance(llm_spec, PytorchLLMSpecV1)
+        assert isinstance(llm_spec, (PytorchLLMSpecV1, MLXLLMSpecV1))
         download_dir = retry_download(
             huggingface_hub.snapshot_download,
             llm_family.model_name,
