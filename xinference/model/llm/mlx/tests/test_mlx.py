@@ -19,7 +19,10 @@ import pytest
 from .....client import Client
 
 
-@pytest.skipif(sys.platform != "darwin" or platform.processor() != "arm")
+@pytest.mark.skipif(
+    sys.platform != "darwin" or platform.processor() != "arm",
+    reason="MLX only works for Apple silicon chip",
+)
 def test_load_mlx(setup):
     endpoint, _ = setup
     client = Client(endpoint)
