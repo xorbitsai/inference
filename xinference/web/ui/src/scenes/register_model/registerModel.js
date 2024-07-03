@@ -27,7 +27,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 
 import { ApiContext } from '../../components/apiContext'
 import CopyComponent from '../../components/copyComponent/copyComponent'
-import fetcher from '../../components/fetcher'
+import fetchWrapper from '../../components/fetchWrapper'
 import AddControlnet from './components/addControlnet'
 import AddModelSpecs from './components/addModelSpecs'
 import languages from './data/languages'
@@ -191,6 +191,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
 
   useEffect(() => {
     if (cookie.token === '' || cookie.token === undefined) {
+      navigate('/login', { replace: true })
       return
     }
     if (cookie.token !== 'no_auth' && !sessionStorage.getItem('token')) {
@@ -333,34 +334,25 @@ const RegisterModelComponent = ({ modelType, customData }) => {
     }
 
     try {
-      const response = await fetcher(
-        endPoint + `/v1/model_registrations/${modelType}`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: JSON.stringify(formData),
-            persist: true,
-          }),
-        }
-      )
-      if (!response.ok) {
-        const errorData = await response.json() // Assuming the server returns error details in JSON format
-        setErrorMsg(
-          `Server error: ${response.status} - ${
-            errorData.detail || 'Unknown error'
-          }`
-        )
-      } else {
-        navigate(`/launch_model/custom/${modelType.toLowerCase()}`)
-        sessionStorage.setItem('modelType', '/launch_model/custom/llm')
-        sessionStorage.setItem(
-          'subType',
-          `/launch_model/custom/${modelType.toLowerCase()}`
-        )
-      }
+      fetchWrapper
+        .post(`/v1/model_registrations/${modelType}`, {
+          model: JSON.stringify(formData),
+          persist: true,
+        })
+        .then(() => {
+          navigate(`/launch_model/custom/${modelType.toLowerCase()}`)
+          sessionStorage.setItem('modelType', '/launch_model/custom/llm')
+          sessionStorage.setItem(
+            'subType',
+            `/launch_model/custom/${modelType.toLowerCase()}`
+          )
+        })
+        .catch((error) => {
+          console.error('Error:', error)
+          if (error.response.status !== 403) {
+            setErrorMsg(error.message)
+          }
+        })
     } catch (error) {
       console.error('There was a problem with the fetch operation:', error)
       setErrorMsg(error.message || 'An unexpected error occurred.')
@@ -521,23 +513,18 @@ const RegisterModelComponent = ({ modelType, customData }) => {
   }
 
   const handleEdit = () => {
-    fetcher(
-      endPoint +
+    fetchWrapper
+      .delete(
         `/v1/model_registrations/${
           registerModelType === 'llm' ? 'LLM' : registerModelType
-        }/${model_name}`,
-      {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      }
-    )
-      .then(() => {
-        handleClick()
-      })
+        }/${model_name}`
+      )
+      .then(() => handleClick())
       .catch((error) => {
         console.error('Error:', error)
+        if (error.response.status !== 403) {
+          setErrorMsg(error.message)
+        }
       })
   }
 

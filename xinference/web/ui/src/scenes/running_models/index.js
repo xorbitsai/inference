@@ -36,6 +36,7 @@ const RunningModels = () => {
 
   const update = (isCallingApi) => {
     if (cookie.token === '' || cookie.token === undefined) {
+      navigate('/login', { replace: true })
       return
     }
     if (cookie.token !== 'no_auth' && !sessionStorage.getItem('token')) {
@@ -632,8 +633,7 @@ const RunningModels = () => {
       sx={{
         height: '100%',
         width: '100%',
-        paddingLeft: '20px',
-        paddingTop: '20px',
+        padding: '20px 20px 0 20px',
       }}
     >
       <Title title="Running Models" />

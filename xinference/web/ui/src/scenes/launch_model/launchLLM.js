@@ -10,15 +10,14 @@ import React, { useContext, useEffect, useState } from 'react'
 import { useCookies } from 'react-cookie'
 
 import { ApiContext } from '../../components/apiContext'
-import fetcher from '../../components/fetcher'
+import fetchWrapper from '../../components/fetchWrapper'
 import HotkeyFocusTextField from '../../components/hotkeyFocusTextField'
 import ModelCard from './modelCard'
 
 const modelAbilityArr = ['generate', 'chat', 'vision']
 
 const LaunchLLM = ({ gpuAvailable }) => {
-  let endPoint = useContext(ApiContext).endPoint
-  const { isCallingApi, setIsCallingApi } = useContext(ApiContext)
+  const { isCallingApi, setIsCallingApi, endPoint } = useContext(ApiContext)
   const { isUpdatingModel } = useContext(ApiContext)
   const { setErrorMsg } = useContext(ApiContext)
   const [cookie] = useCookies(['token'])
@@ -102,30 +101,22 @@ const LaunchLLM = ({ gpuAvailable }) => {
     try {
       setIsCallingApi(true)
 
-      fetcher(`${endPoint}/v1/model_registrations/LLM?detailed=true`, {
-        method: 'GET',
-      }).then((response) => {
-        if (!response.ok) {
-          response
-            .json()
-            .then((errData) =>
-              setErrorMsg(
-                `Server error: ${response.status} - ${
-                  errData.detail || 'Unknown error'
-                }`
-              )
-            )
-        } else {
-          response.json().then((data) => {
-            const builtinRegistrations = data.filter((v) => v.is_builtin)
-            setRegistrationData(builtinRegistrations)
-            const collectionData = JSON.parse(
-              localStorage.getItem('collectionArr')
-            )
-            setCollectionArr(collectionData)
-          })
-        }
-      })
+      fetchWrapper
+        .get('/v1/model_registrations/LLM?detailed=true')
+        .then((data) => {
+          const builtinRegistrations = data.filter((v) => v.is_builtin)
+          setRegistrationData(builtinRegistrations)
+          const collectionData = JSON.parse(
+            localStorage.getItem('collectionArr')
+          )
+          setCollectionArr(collectionData)
+        })
+        .catch((error) => {
+          console.error('Error:', error)
+          if (error.response.status !== 403) {
+            setErrorMsg(error.message)
+          }
+        })
     } catch (error) {
       console.error('Error:', error)
     } finally {

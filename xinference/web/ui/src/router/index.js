@@ -1,11 +1,25 @@
+import { useContext, useEffect } from 'react'
 import { Navigate, useRoutes } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 
+import { ApiContext } from '../components/apiContext'
 import Layout from '../scenes/_layout'
 import ClusterInfo from '../scenes/cluster_info'
 import LaunchModel from '../scenes/launch_model'
 import Login from '../scenes/login/login'
 import RegisterModel from '../scenes/register_model'
 import RunningModels from '../scenes/running_models'
+
+const LoginAuth = () => {
+  const navigate = useNavigate()
+  const { auth } = useContext(ApiContext)
+
+  useEffect(() => {
+    if (!auth) navigate('/launch_model/llm')
+  }, [navigate])
+
+  return <Login />
+}
 
 const routes = [
   {
@@ -36,7 +50,7 @@ const routes = [
   },
   {
     path: '/login',
-    element: <Login />,
+    element: <LoginAuth />,
   },
   {
     path: '*',
