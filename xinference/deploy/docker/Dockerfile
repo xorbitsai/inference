@@ -23,7 +23,7 @@ ARG PIP_INDEX=https://pypi.org/simple
 RUN pip install --upgrade -i "$PIP_INDEX" pip && \
     pip install -i "$PIP_INDEX" "diskcache>=5.6.1" "jinja2>=2.11.3" && \
     # use pre-built whl package for llama-cpp-python, otherwise may core dump when init llama in some envs
-    pip install "llama-cpp-python" -i https://abetlen.github.io/llama-cpp-python/whl/cu124 && \
+    pip install "llama-cpp-python==0.2.77" -i https://abetlen.github.io/llama-cpp-python/whl/cu124 && \
     pip install -i "$PIP_INDEX" --upgrade-strategy only-if-needed -r /opt/inference/xinference/deploy/docker/requirements.txt && \
     pip install -i "$PIP_INDEX" --no-deps sglang && \
     cd /opt/inference && \
