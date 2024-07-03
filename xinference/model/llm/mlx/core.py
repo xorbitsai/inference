@@ -198,6 +198,8 @@ class MLXModel(LLM):
             )
 
             if stream:
+                # this special character is mainly for qwen
+                out = out.strip("�")
                 output = out
             else:
                 output += out
