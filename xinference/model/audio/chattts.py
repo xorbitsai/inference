@@ -38,9 +38,8 @@ class ChatTTSModel:
         self._kwargs = kwargs
 
     def load(self):
+        import ChatTTS
         import torch
-
-        from xinference.thirdparty import ChatTTS
 
         torch._dynamo.config.cache_size_limit = 64
         torch._dynamo.config.suppress_errors = True
@@ -51,12 +50,11 @@ class ChatTTSModel:
     def speech(
         self, input: str, voice: str, response_format: str = "mp3", speed: float = 1.0
     ):
+        import ChatTTS
         import numpy as np
         import torch
         import torchaudio
         import xxhash
-
-        from xinference.thirdparty import ChatTTS
 
         seed = xxhash.xxh32_intdigest(voice)
 
