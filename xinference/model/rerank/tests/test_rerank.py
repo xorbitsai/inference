@@ -47,12 +47,12 @@ def test_restful_api(model_name, setup):
 
     scores = model.rerank(corpus, query, return_documents=True)
     assert scores["results"][0]["index"] == 0
-    assert scores["results"][0]["document"] == corpus[0]
+    assert scores["results"][0]["document"]["text"] == corpus[0]
 
     scores = model.rerank(corpus, query, top_n=3, return_documents=True)
     assert len(scores["results"]) == 3
     assert scores["results"][0]["index"] == 0
-    assert scores["results"][0]["document"] == corpus[0]
+    assert scores["results"][0]["document"]["text"] == corpus[0]
 
     scores = model.rerank(corpus, query, return_len=True)
     assert (
