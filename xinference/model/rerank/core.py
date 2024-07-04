@@ -24,7 +24,7 @@ import torch
 
 from ...constants import XINFERENCE_CACHE_DIR
 from ...device_utils import empty_cache
-from ...types import Document, DocumentObj, Rerank, RerankTokens
+from ...types import DocumentObj, Rerank, RerankTokens
 from ..core import CacheableModelSpec, ModelDescription
 from ..utils import is_model_cached
 
@@ -226,7 +226,7 @@ class RerankModel:
                 DocumentObj(
                     index=int(arg),
                     relevance_score=float(similarity_scores[arg]),
-                    document=Document(text=documents[arg]),
+                    document=documents[arg],
                 )
                 for arg in sim_scores_argsort
             ]

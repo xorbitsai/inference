@@ -70,14 +70,10 @@ class Embedding(TypedDict):
     usage: EmbeddingUsage
 
 
-class Document(TypedDict):
-    text: str
-
-
 class DocumentObj(TypedDict):
     index: int
     relevance_score: float
-    document: Optional[Document]
+    document: Optional[str]
 
 
 # Cohere API compatibility
