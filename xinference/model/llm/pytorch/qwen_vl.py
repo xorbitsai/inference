@@ -16,9 +16,14 @@ import logging
 import operator
 import tempfile
 import time
+import typing
 import uuid
-from typing import Dict, Iterator, List, Optional, Union
+from typing import Dict, Iterator, List, Optional, Tuple, Union
 
+import torch
+from transformers import PreTrainedTokenizer
+
+from ....core.scheduler import InferenceRequest
 from ....model.utils import select_device
 from ....types import (
     ChatCompletion,
@@ -31,6 +36,7 @@ from ....types import (
 )
 from ..llm_family import LLMFamilyV1, LLMSpecV1
 from .core import PytorchChatModel, PytorchGenerateConfig
+from .utils import pad_prefill_tokens
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +46,7 @@ class QwenVLChatModel(PytorchChatModel):
         super().__init__(*args, **kwargs)
         self._tokenizer = None
         self._model = None
+        self._device = None
 
     @classmethod
     def match(
@@ -62,6 +69,7 @@ class QwenVLChatModel(PytorchChatModel):
 
         device = self._pytorch_model_config.get("device", "auto")
         device = select_device(device)
+        self._device = device
         # for multiple GPU, set back to auto to make multiple devices work
         device = "auto" if device == "cuda" else device
 
@@ -120,13 +128,11 @@ class QwenVLChatModel(PytorchChatModel):
             return self._tokenizer.from_list_format(content)
         return content
 
-    def chat(
+    def _get_prompt_and_chat_history(
         self,
         prompt: Union[str, List[Dict]],
-        system_prompt: Optional[str] = None,
         chat_history: Optional[List[ChatCompletionMessage]] = None,
-        generate_config: Optional[PytorchGenerateConfig] = None,
-    ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
+    ):
         prompt = self._message_content_to_qwen(prompt)
         # Convert openai history to qwen vl history
         qwen_history = []
@@ -141,6 +147,18 @@ class QwenVLChatModel(PytorchChatModel):
             if len(query_to_response) == 2:
                 qwen_history.append(query_to_response)
                 query_to_response = []
+        return prompt, qwen_history
+
+    def chat(
+        self,
+        prompt: Union[str, List[Dict]],
+        system_prompt: Optional[str] = None,
+        chat_history: Optional[List[ChatCompletionMessage]] = None,
+        generate_config: Optional[PytorchGenerateConfig] = None,
+    ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
+        prompt, qwen_history = self._get_prompt_and_chat_history(
+            prompt, chat_history=chat_history
+        )
 
         stream = generate_config.get("stream", False) if generate_config else False
         stream_options = (
@@ -152,10 +170,10 @@ class QwenVLChatModel(PytorchChatModel):
             else False
         )
         if stream:
-            it = self._generate_stream(prompt, qwen_history, include_usage)
+            it = self._generate_stream(prompt, qwen_history, include_usage)  # type: ignore
             return self._to_chat_completion_chunks(it)
         else:
-            c = self._generate(prompt, qwen_history)
+            c = self._generate(prompt, qwen_history)  # type: ignore
             return self._to_chat_completion(c)
 
     def _generate(self, prompt: str, qwen_history: List) -> Completion:
@@ -244,3 +262,146 @@ class QwenVLChatModel(PytorchChatModel):
                 total_tokens=total_tokens,
             )
             yield chunk
+
+    @staticmethod
+    def get_batch_size_and_seq_len_indexes_from_kv() -> Tuple[int, int]:
+        """
+        Qwen-vl is very special for its kv_cache impl.
+        Its dimension is `bs * seq_len * head_num * dim`.
+        See https://huggingface.co/Qwen/Qwen-VL-Chat/blob/main/modeling_qwen.py
+        """
+        return 0, 1
+
+    @staticmethod
+    @typing.no_type_check
+    def make_context(
+        tokenizer: PreTrainedTokenizer,
+        query: str,
+        history: List[Tuple[str, str]] = None,
+        system: str = "",
+        max_window_size: int = 6144,
+        chat_format: str = "chatml",
+    ):
+        """
+        This function is from https://huggingface.co/Qwen/Qwen-VL-Chat/blob/main/qwen_generation_utils.py.
+        Use this function to get input_ids with image.
+        """
+        if history is None:
+            history = []
+
+        if chat_format == "chatml":
+            im_start, im_end = "<|im_start|>", "<|im_end|>"
+            im_start_tokens = [tokenizer.im_start_id]
+            im_end_tokens = [tokenizer.im_end_id]
+            nl_tokens = tokenizer.encode("\n")
+
+            def _tokenize_str(role, content):
+                return f"{role}\n{content}", tokenizer.encode(
+                    role, allowed_special=set(tokenizer.IMAGE_ST)
+                ) + nl_tokens + tokenizer.encode(
+                    content, allowed_special=set(tokenizer.IMAGE_ST)
+                )
+
+            system_text, system_tokens_part = _tokenize_str("system", system)
+            system_tokens = im_start_tokens + system_tokens_part + im_end_tokens
+
+            raw_text = ""
+            context_tokens = []
+
+            for turn_query, turn_response in reversed(history):
+                query_text, query_tokens_part = _tokenize_str("user", turn_query)
+                query_tokens = im_start_tokens + query_tokens_part + im_end_tokens
+                if turn_response is not None:
+                    response_text, response_tokens_part = _tokenize_str(
+                        "assistant", turn_response
+                    )
+                    response_tokens = (
+                        im_start_tokens + response_tokens_part + im_end_tokens
+                    )
+
+                    next_context_tokens = (
+                        nl_tokens + query_tokens + nl_tokens + response_tokens
+                    )
+                    prev_chat = f"\n{im_start}{query_text}{im_end}\n{im_start}{response_text}{im_end}"
+                else:
+                    next_context_tokens = nl_tokens + query_tokens + nl_tokens
+                    prev_chat = f"\n{im_start}{query_text}{im_end}\n"
+
+                current_context_size = (
+                    len(system_tokens) + len(next_context_tokens) + len(context_tokens)
+                )
+                if current_context_size < max_window_size:
+                    context_tokens = next_context_tokens + context_tokens
+                    raw_text = prev_chat + raw_text
+                else:
+                    break
+
+            context_tokens = system_tokens + context_tokens
+            raw_text = f"{im_start}{system_text}{im_end}" + raw_text
+            context_tokens += (
+                nl_tokens
+                + im_start_tokens
+                + _tokenize_str("user", query)[1]
+                + im_end_tokens
+                + nl_tokens
+                + im_start_tokens
+                + tokenizer.encode("assistant")
+                + nl_tokens
+            )
+            raw_text += f"\n{im_start}user\n{query}{im_end}\n{im_start}assistant\n"
+
+        elif chat_format == "raw":
+            raw_text = query
+            context_tokens = tokenizer.encode(raw_text)
+        else:
+            raise NotImplementedError(f"Unknown chat format {chat_format!r}")
+
+        return raw_text, context_tokens
+
+    def _get_full_prompt(self, prompt, system_prompt, chat_history, tools):
+        prompt, qwen_history = self._get_prompt_and_chat_history(
+            prompt, chat_history=chat_history
+        )
+        _, context_tokens = self.make_context(self._tokenizer, prompt, qwen_history)
+        return context_tokens
+
+    def prepare_sanitize_generate_config(self, req: InferenceRequest):
+        """
+        Refer to https://huggingface.co/Qwen/Qwen-VL-Chat/blob/main/generation_config.json
+        """
+        raw_config = req.inference_kwargs.get("raw_params", {})
+        top_p = raw_config.get("top_p", None)
+        if top_p is None:
+            raw_config["top_p"] = 0.3
+        top_k = raw_config.get("top_k", None)
+        if top_k is None:
+            raw_config["top_k"] = 0
+        return raw_config
+
+    def build_prefill_inputs(self, prompts: List, req_list: List[InferenceRequest]):
+        context_len = self.get_context_len()
+        inputs = pad_prefill_tokens(prompts, context_len, req_list)
+        input_ids = torch.as_tensor(
+            pad_prefill_tokens(inputs, context_len, req_list), device=self._device
+        )
+        return input_ids
+
+    def build_prefill_position_ids(
+        self, batch_size: int, seq_length: int, reqs: List[InferenceRequest]
+    ):
+        """
+        Qwen-vl fill `1` for position_ids padding
+        """
+        res = []
+        for r in reqs:
+            real_seq_len = seq_length - r.padding_len
+            res.append(
+                torch.cat(
+                    [
+                        torch.full((r.padding_len,), 1, dtype=torch.long),
+                        torch.arange(0, real_seq_len, dtype=torch.long),
+                    ]
+                )
+            )
+            r.extra_kwargs["max_position_id"] = real_seq_len - 1
+        return torch.stack(res).to(self._device)
