@@ -23,6 +23,7 @@ class CacheTrackerActor(xo.Actor):
     def __init__(self):
         super().__init__()
         self._model_name_to_version_info: Dict[str, List[Dict]] = {}  # type: ignore
+        self._register_name_to_worker_ip: Dict[str, str] = {}
 
     @classmethod
     def uid(cls) -> str:
@@ -49,12 +50,13 @@ class CacheTrackerActor(xo.Actor):
             origin_version_info["model_file_location"].update(data)
 
     def record_model_version(
-        self, version_info: Dict[str, List[Dict]], address: str, worker_ip: str
+        self, version_info: Dict[str, List[Dict]], address: str, worker_ip: Optional[str] = None
     ):
         self._map_address_to_file_location(version_info, address)
         for model_name, model_versions in version_info.items():
             if model_name not in self._model_name_to_version_info:
                 self._model_name_to_version_info[model_name] = model_versions
+                self._register_name_to_worker_ip[model_name] = worker_ip
             else:
                 assert len(model_versions) == len(
                     self._model_name_to_version_info[model_name]
@@ -70,7 +72,6 @@ class CacheTrackerActor(xo.Actor):
                         self._update_file_location(
                             version["model_file_location"], origin_version
                         )
-                        origin_version["worker_ip"] = worker_ip
 
     def update_cache_status(
         self,
@@ -103,6 +104,13 @@ class CacheTrackerActor(xo.Actor):
 
     def get_model_version_count(self, model_name: str) -> int:
         return len(self.get_model_versions(model_name))
+
+    def get_register_workerip(self, model_name: str) -> str:
+        if model_name not in self._register_name_to_worker_ip:
+            logger.warning(f"Not register_name for model_name: {model_name}")
+            return []
+        else:
+            return self._register_name_to_worker_ip[model_name]
 
     def list_cached_models(
         self, worker_ip: str, model_name: Optional[str] = None
