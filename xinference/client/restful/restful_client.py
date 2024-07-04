@@ -182,8 +182,6 @@ class RESTfulRerankModelHandle(RESTfulModelHandle):
                 f"Failed to rerank documents, detail: {response.json()['detail']}"
             )
         response_data = response.json()
-        for r in response_data["results"]:
-            r["document"] = documents[r["index"]]
         return response_data
 
 
