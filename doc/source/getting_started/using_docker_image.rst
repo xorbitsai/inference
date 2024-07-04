@@ -11,7 +11,7 @@ Prerequisites
 =============
 * The image can only run in an environment with GPUs and CUDA installed, because Xinference in the image relies on Nvidia GPUs for acceleration.
 * CUDA must be successfully installed on the host machine. This can be determined by whether you can successfully execute the ``nvidia-smi`` command.
-* The CUDA version in the docker image is ``12.1``, and the CUDA version on the host machine should ideally be consistent with it. Be sure to keep the CUDA version on your host machine between ``11.8`` and ``12.2``, even if it is inconsistent.
+* The CUDA version in the docker image is ``12.4``, and the CUDA version on the host machine should be ``12.4`` or above, and the NVIDIA driver version should be ``550`` or above.
 
 
 Docker Image
