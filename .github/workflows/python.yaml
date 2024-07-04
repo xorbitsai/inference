@@ -82,6 +82,7 @@ jobs:
           - { os: windows-latest, python-version: 3.10 }
         include:
           - { os: self-hosted, module: gpu, python-version: 3.9}
+          - { os: macos-latest, module: metal, python-version: "3.10" }
 
     steps:
       - name: Check out code
@@ -162,6 +163,10 @@ jobs:
             ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=1500 \
               -W ignore::PendingDeprecationWarning \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/audio/tests/test_chattts.py
+          elif [ "$MODULE" == "metal" ]; then
+            pytest --timeout=1500 \
+              -W ignore::PendingDeprecationWarning \
+              --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/llm/mlx/tests/test_mlx.py
           else
             pytest --timeout=1500 \
               -W ignore::PendingDeprecationWarning \
