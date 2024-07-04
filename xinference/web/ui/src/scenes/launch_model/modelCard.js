@@ -51,7 +51,7 @@ import { useNavigate } from 'react-router-dom'
 import { ApiContext } from '../../components/apiContext'
 import CopyComponent from '../../components/copyComponent/copyComponent'
 import DeleteDialog from '../../components/deleteDialog'
-import fetcher from '../../components/fetcher'
+import fetchWrapper from '../../components/fetchWrapper'
 import TitleTypography from '../../components/titleTypography'
 import AddPair from './components/addPair'
 
@@ -248,37 +248,23 @@ const ModelCard = ({
   }
 
   const getModelEngine = (model_name) => {
-    fetcher(url + `/v1/engines/${model_name}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    })
-      .then((response) => {
-        if (!response.ok) {
-          // Assuming the server returns error details in JSON format
-          response.json().then((errorData) => {
-            setErrorMsg(
-              `Server error: ${response.status} - ${
-                errorData.detail || 'Unknown error'
-              }`
-            )
-          })
-        } else {
-          response.json().then((data) => {
-            setEnginesObj(data)
-            setEngineOptions(Object.keys(data))
-          })
-        }
+    fetchWrapper
+      .get(`/v1/engines/${model_name}`)
+      .then((data) => {
+        setEnginesObj(data)
+        setEngineOptions(Object.keys(data))
         setIsCallingApi(false)
       })
       .catch((error) => {
         console.error('Error:', error)
+        if (error.response.status !== 403) {
+          setErrorMsg(error.message)
+        }
         setIsCallingApi(false)
       })
   }
 
-  const launchModel = (url) => {
+  const launchModel = () => {
     if (isCallingApi || isUpdatingModel) {
       return
     }
@@ -369,53 +355,39 @@ const ModelCard = ({
       modelType === 'LLM' ? modelDataWithID_LLM : modelDataWithID_other
 
     // First fetcher request to initiate the model
-    fetcher(url + '/v1/models', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(modelDataWithID),
-    })
-      .then((response) => {
-        if (!response.ok) {
-          // Assuming the server returns error details in JSON format
-          response.json().then((errorData) => {
-            setErrorMsg(
-              `Server error: ${response.status} - ${
-                errorData.detail || 'Unknown error'
-              }`
-            )
-          })
-        } else {
-          navigate(`/running_models/${modelType}`)
-          sessionStorage.setItem(
-            'runningModelType',
-            `/running_models/${modelType}`
-          )
+    fetchWrapper
+      .post('/v1/models', modelDataWithID)
+      .then(() => {
+        navigate(`/running_models/${modelType}`)
+        sessionStorage.setItem(
+          'runningModelType',
+          `/running_models/${modelType}`
+        )
 
-          if (
-            isHistory ||
-            ((modelType === 'embedding' || modelType === 'rerank') &&
-              (modelUID !== '' || replica !== 1 || workerIp !== '')) ||
-            ((modelType === 'image' || modelType === 'audio') &&
-              modelUID !== '') ||
-            modelType === 'LLM'
-          ) {
-            let historyArr =
-              JSON.parse(localStorage.getItem('historyArr')) || []
-            if (!historyArr.some((item) => deepEqual(item, modelDataWithID))) {
-              historyArr = historyArr.filter(
-                (item) => item.model_name !== modelDataWithID.model_name
-              )
-              historyArr.push(modelDataWithID)
-            }
-            localStorage.setItem('historyArr', JSON.stringify(historyArr))
+        if (
+          isHistory ||
+          ((modelType === 'embedding' || modelType === 'rerank') &&
+            (modelUID !== '' || replica !== 1 || workerIp !== '')) ||
+          ((modelType === 'image' || modelType === 'audio') &&
+            modelUID !== '') ||
+          modelType === 'LLM'
+        ) {
+          let historyArr = JSON.parse(localStorage.getItem('historyArr')) || []
+          if (!historyArr.some((item) => deepEqual(item, modelDataWithID))) {
+            historyArr = historyArr.filter(
+              (item) => item.model_name !== modelDataWithID.model_name
+            )
+            historyArr.push(modelDataWithID)
           }
+          localStorage.setItem('historyArr', JSON.stringify(historyArr))
         }
         setIsCallingApi(false)
       })
       .catch((error) => {
         console.error('Error:', error)
+        if (error.response.status !== 403) {
+          setErrorMsg(error.message)
+        }
         setIsCallingApi(false)
       })
   }
@@ -433,24 +405,23 @@ const ModelCard = ({
     const subType = sessionStorage.getItem('subType').split('/')
     if (subType) {
       subType[3]
-      fetcher(
-        url +
+      fetchWrapper
+        .delete(
           `/v1/model_registrations/${
             subType[3] === 'llm' ? 'LLM' : subType[3]
-          }/${modelData.model_name}`,
-        {
-          method: 'DELETE',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        }
-      )
+          }/${modelData.model_name}`
+        )
         .then(() => {
           setCustomDeleted(true)
           onHandlecustomDelete(modelData.model_name)
           setIsDeleteCustomModel(false)
         })
-        .catch(console.error)
+        .catch((error) => {
+          console.error(error)
+          if (error.response.status !== 403) {
+            setErrorMsg(error.message)
+          }
+        })
     }
   }
 
@@ -512,29 +483,14 @@ const ModelCard = ({
   }
 
   const getCachedList = () => {
-    fetcher(url + `/v1/cache/models?model_name=${modelData.model_name}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    })
-      .then((response) => {
-        if (!response.ok) {
-          response.json().then((errorData) => {
-            setErrorMsg(
-              `Server error: ${response.status} - ${
-                errorData.detail || 'Unknown error'
-              }`
-            )
-          })
-        } else {
-          response.json().then((data) => {
-            setCachedListArr(data.list)
-          })
-        }
-      })
+    fetchWrapper
+      .get(`/v1/cache/models?model_name=${modelData.model_name}`)
+      .then((data) => setCachedListArr(data.list))
       .catch((error) => {
-        console.error('Error:', error)
+        console.error(error)
+        if (error.response.status !== 403) {
+          setErrorMsg(error.message)
+        }
       })
   }
 
@@ -545,41 +501,28 @@ const ModelCard = ({
   }
 
   const handleDeleteCached = () => {
-    fetcher(url + `/v1/cache/models?model_version=${cachedModelVersion}`, {
-      method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    })
-      .then((response) => {
-        if (!response.ok) {
-          response.json().then((errorData) => {
-            setErrorMsg(
-              `Server error: ${response.status} - ${
-                errorData.detail || 'Unknown error'
-              }`
-            )
-          })
-        } else {
-          response.json().then(() => {
-            const cachedArr = cachedListArr.filter(
-              (item) => item.real_path !== cachedRealPath
-            )
-            setCachedListArr(cachedArr)
-            setIsDeleteCached(false)
-            if (cachedArr.length) {
-              if (
-                (page + 1) * 5 >= cachedListArr.length &&
-                cachedArr.length % 5 === 0
-              ) {
-                setPage(cachedArr.length / 5 - 1)
-              }
-            }
-          })
+    fetchWrapper
+      .delete(`/v1/cache/models?model_version=${cachedModelVersion}`)
+      .then(() => {
+        const cachedArr = cachedListArr.filter(
+          (item) => item.real_path !== cachedRealPath
+        )
+        setCachedListArr(cachedArr)
+        setIsDeleteCached(false)
+        if (cachedArr.length) {
+          if (
+            (page + 1) * 5 >= cachedListArr.length &&
+            cachedArr.length % 5 === 0
+          ) {
+            setPage(cachedArr.length / 5 - 1)
+          }
         }
       })
       .catch((error) => {
-        console.error('Error:', error)
+        console.error(error)
+        if (error.response.status !== 403) {
+          setErrorMsg(error.message)
+        }
       })
   }
 
