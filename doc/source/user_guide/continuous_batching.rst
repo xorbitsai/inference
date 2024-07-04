@@ -54,16 +54,20 @@ Currently, this feature can be enabled under the following conditions:
     print('Model uid: ' + model_uid)
 
 
-Once this feature is enabled, all ``chat`` requests will be managed by continuous batching,
+Once this feature is enabled, all requests for LLMs will be managed by continuous batching,
 and the average throughput of requests made to a single model will increase.
-The usage of the ``chat`` interface remains exactly the same as before, with no differences.
+The usage of the LLM interface remains exactly the same as before, with no differences.
 
 Note
 ====
 
-* Currently, this feature only supports the ``chat`` interface for ``LLM`` models.
+* Currently, this feature only supports the ``generate``, ``chat`` and ``vision`` tasks for ``LLM`` models. The ``tool call`` tasks are not supported.
+
+* For ``vision`` tasks, currently only ``qwen-vl-chat``, ``cogvlm2``, and ``glm-4v`` models are supported. More models will be supported in the future. Please let us know your requirements.
 
 * If using GPU inference, this method will consume more GPU memory. Please be cautious when increasing the number of concurrent requests to the same model.
   The ``launch_model`` interface provides the ``max_num_seqs`` parameter to adjust the concurrency level, with a default value of ``16``.
 
 * This feature is still in the experimental stage, and we welcome your active feedback on any issues.
+
+* After a period of testing, this method will remain enabled by default, and the original inference method will be deprecated.

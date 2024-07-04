@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-04-30 14:54+0800\n"
+"POT-Creation-Date: 2024-07-04 15:14+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -17,7 +17,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Generated-By: Babel 2.14.0\n"
+"Generated-By: Babel 2.11.0\n"
 
 #: ../../source/getting_started/using_docker_image.rst:5
 msgid "Xinference Docker Image"
@@ -25,7 +25,7 @@ msgstr "Docker 镜像"
 
 #: ../../source/getting_started/using_docker_image.rst:7
 msgid "Xinference provides official images for use on Dockerhub."
-msgstr "Xinference 在 Dockerhub 中上传了官方镜像。"
+msgstr "Xinference 在 Dockerhub 和 阿里云容器镜像服务 中上传了官方镜像。"
 
 #: ../../source/getting_started/using_docker_image.rst:11
 msgid "Prerequisites"
@@ -48,13 +48,12 @@ msgstr "保证 CUDA 在机器上正确安装。可以使用 ``nvidia-smi`` 检�
 
 #: ../../source/getting_started/using_docker_image.rst:14
 msgid ""
-"The CUDA version in the docker image is ``12.1``, and the CUDA version on"
-" the host machine should ideally be consistent with it. Be sure to keep "
-"the CUDA version on your host machine between ``11.8`` and ``12.2``, even"
-" if it is inconsistent."
+"The CUDA version in the docker image is ``12.4``, and the CUDA version on"
+" the host machine should be ``12.4`` or above, and the NVIDIA driver "
+"version should be ``550`` or above."
 msgstr ""
-"镜像中的 CUDA 版本是 ``12.1`` ，推荐机器上的版本与之保持一致。如果不一致"
-"，需要保证CUDA 版本在 ``11.8`` 与 ``12.2`` 之间。"
+"镜像中的 CUDA 版本为 ``12.4`` 。为了不出现预期之外的问题，请将宿主机的 CUDA 版本和 NVIDIA Driver 版本分别"
+"升级到 ``12.4`` 和 ``550`` 以上。"
 
 #: ../../source/getting_started/using_docker_image.rst:18
 msgid "Docker Image"
@@ -65,7 +64,10 @@ msgid ""
 "The official image of Xinference is available on DockerHub in the "
 "repository ``xprobe/xinference``. Available tags include:"
 msgstr ""
-"Xinference 的官方镜像在 Dockerhub 的 ``xprobe/xinference`` 仓库里。目前可用版本包括："
+"当前，可以通过两个渠道拉取 Xinference 的官方镜像。"
+"1. 在 Dockerhub 的 ``xprobe/xinference`` 仓库里。"
+"2. Dockerhub 中的镜像会同步上传一份到阿里云公共镜像仓库中，供访问 Dockerhub 有困难的用户拉取。"
+"拉取命令：``docker pull registry.cn-hangzhou.aliyuncs.com/xprobe_xinference/xinference:<tag>`` 。目前可用的标签包括："
 
 #: ../../source/getting_started/using_docker_image.rst:22
 msgid ""
