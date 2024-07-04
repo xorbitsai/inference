@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-07-04 15:44+0800\n"
+"POT-Creation-Date: 2024-07-04 16:08+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -64,11 +64,39 @@ msgstr ""
 "一旦此功能开启，LLM 模型的所有接口将被此功能接管。所有接口的使用方式没有"
 "任何变化。"
 
-#: ../../source/user_guide/continuous_batching.rst:62
+#: ../../source/user_guide/continuous_batching.rst:63
+msgid "Abort your request"
+msgstr "中止请求"
+
+#: ../../source/user_guide/continuous_batching.rst:64
+msgid "In this mode, you can abort requests that are in the process of inference."
+msgstr ""
+"此功能中，你可以优雅地中止正在推理中的请求。"
+
+#: ../../source/user_guide/continuous_batching.rst:66
+msgid "First, add ``request_id`` option in ``generate_config``. For example:"
+msgstr ""
+"首先，在推理请求的 ``generate_config`` 中指定 ``request_id`` 选项。例如："
+
+#: ../../source/user_guide/continuous_batching.rst:75
+msgid ""
+"Then, abort the request using the ``request_id`` you have set. For "
+"example:"
+msgstr ""
+"接着，带着你指定的 ``request_id`` 去中止该请求。例如："
+
+#: ../../source/user_guide/continuous_batching.rst:83
+msgid ""
+"Note that if your request has already finished, aborting the request will"
+" be a no-op."
+msgstr ""
+"注意，如果你的请求已经结束，那么此操作将什么都不做。"
+
+#: ../../source/user_guide/continuous_batching.rst:86
 msgid "Note"
 msgstr "注意事项"
 
-#: ../../source/user_guide/continuous_batching.rst:64
+#: ../../source/user_guide/continuous_batching.rst:88
 msgid ""
 "Currently, this feature only supports the ``generate``, ``chat`` and "
 "``vision`` tasks for ``LLM`` models. The ``tool call`` tasks are not "
@@ -77,15 +105,16 @@ msgstr ""
 "当前，此功能仅支持 LLM 模型的 ``generate``, ``chat`` 和 ``vision`` （多"
 "模态） 功能。``tool call`` （工具调用）暂时不支持。"
 
-#: ../../source/user_guide/continuous_batching.rst:66
+#: ../../source/user_guide/continuous_batching.rst:90
 msgid ""
 "For ``vision`` tasks, currently only ``qwen-vl-chat``, ``cogvlm2``, and "
 "``glm-4v`` models are supported. More models will be supported in the "
 "future. Please let us know your requirements."
 msgstr ""
-"对于多模态任务，当前支持 ``qwen-vl-chat`` ，``cogvlm2`` 和 ``glm-4v`` 模型。未来将加入更多模型，敬请期待。"
+"对于多模态任务，当前支持 ``qwen-vl-chat`` ，``cogvlm2`` 和 ``glm-4v`` "
+"模型。未来将加入更多模型，敬请期待。"
 
-#: ../../source/user_guide/continuous_batching.rst:68
+#: ../../source/user_guide/continuous_batching.rst:92
 msgid ""
 "If using GPU inference, this method will consume more GPU memory. Please "
 "be cautious when increasing the number of concurrent requests to the same"
@@ -97,13 +126,13 @@ msgstr ""
 "请求量。``launch_model`` 接口提供可选参数 ``max_num_seqs`` 用于调整并发度"
 "，默认值为 ``16`` 。"
 
-#: ../../source/user_guide/continuous_batching.rst:71
+#: ../../source/user_guide/continuous_batching.rst:95
 msgid ""
 "This feature is still in the experimental stage, and we welcome your "
 "active feedback on any issues."
 msgstr "此功能仍处于实验阶段，欢迎反馈任何问题。"
 
-#: ../../source/user_guide/continuous_batching.rst:73
+#: ../../source/user_guide/continuous_batching.rst:97
 msgid ""
 "After a period of testing, this method will remain enabled by default, "
 "and the original inference method will be deprecated."

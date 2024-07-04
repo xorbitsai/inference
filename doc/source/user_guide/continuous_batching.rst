@@ -58,6 +58,30 @@ Once this feature is enabled, all requests for LLMs will be managed by continuou
 and the average throughput of requests made to a single model will increase.
 The usage of the LLM interface remains exactly the same as before, with no differences.
 
+
+Abort your request
+==================
+In this mode, you can abort requests that are in the process of inference.
+
+#. First, add ``request_id`` option in ``generate_config``. For example:
+
+.. code-block:: bash
+
+    from xinference.client import Client
+    client = Client("http://127.0.0.1:9997")
+    model = client.get_model("<model_uid>")
+    model.chat("<prompt>", generate_config={"request_id": "<your_unique_request_id>"})
+
+#. Then, abort the request using the ``request_id`` you have set. For example:
+
+.. code-block:: bash
+
+    from xinference.client import Client
+    client = Client("http://127.0.0.1:9997")
+    client.abort_request("<model_uid>", "<your_unique_request_id>")
+
+Note that if your request has already finished, aborting the request will be a no-op.
+
 Note
 ====
 
