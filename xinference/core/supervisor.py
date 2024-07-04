@@ -678,7 +678,7 @@ class SupervisorActor(xo.StatelessActor):
             try:
                 register_fn(model_spec, persist)
                 await self._cache_tracker_ref.record_model_version(
-                    generate_fn(model_spec), self.address
+                    generate_fn(model_spec), self.address, worker_ip
                 )
             except Exception as e:
                 unregister_fn(model_spec.model_name, raise_error=False)
@@ -818,6 +818,33 @@ class SupervisorActor(xo.StatelessActor):
                 )
             replica_gpu_idx = assign_replica_gpu(_replica_model_uid, gpu_idx)
             nonlocal model_type
+
+            from ..model.audio.custom import get_user_defined_audios
+            from ..model.embedding.custom import get_user_defined_embeddings
+            from ..model.image.custom import get_user_defined_images
+            from ..model.llm import get_user_defined_llm_families
+            from ..model.rerank.custom import get_user_defined_reranks
+
+            model_functions = [
+                get_user_defined_llm_families,
+                get_user_defined_embeddings,
+                get_user_defined_images,
+                get_user_defined_audios,
+                get_user_defined_reranks,
+            ]
+
+            for model_func in model_functions:
+                for model_spec in model_func():
+                    if model_spec.model_name == model_name:
+                        version_info = await self.get_model_versions(
+                            model_spec.model_type, model_name
+                        )
+                        for version in version_info:
+                            target_ip_worker_ref = version["worker_ip"]
+                            logger.info(
+                                f"register model should launch by worker_ip: {target_ip_worker_ref}"
+                            )
+
             worker_ref = (
                 target_ip_worker_ref
                 if target_ip_worker_ref is not None
