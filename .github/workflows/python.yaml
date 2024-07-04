@@ -110,6 +110,9 @@ jobs:
             sudo rm -rf "/usr/local/share/boost"
             sudo rm -rf "$AGENT_TOOLSDIRECTORY"
           fi
+          if [ "$MODULE" == "metal" ]; then
+            pip install mlx-lm
+          fi
           pip install "llama-cpp-python==0.2.77"
           pip install transformers
           pip install attrdict
