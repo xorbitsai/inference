@@ -10,6 +10,7 @@ import { useNavigate } from 'react-router-dom'
 import { ApiContext } from '../../components/apiContext'
 import ErrorMessageSnackBar from '../../components/errorMessageSnackBar'
 import fetcher from '../../components/fetcher'
+import fetchWrapper from '../../components/fetchWrapper'
 import Title from '../../components/Title'
 
 const RunningModels = () => {
@@ -59,55 +60,46 @@ const RunningModels = () => {
       ])
     } else {
       setIsUpdatingModel(true)
-      fetcher(`${endPoint}/v1/models`, {
-        method: 'GET',
-      })
+
+      fetchWrapper
+        .get('/v1/models')
         .then((response) => {
-          if (!response.ok) {
-            response.json().then((errorData) => {
-              setErrorMsg(
-                `Login failed: ${response.status} - ${
-                  errorData.detail || 'Unknown error'
-                }`
-              )
-            })
-          } else {
-            response.json().then((response) => {
-              const newLlmData = []
-              const newEmbeddingModelData = []
-              const newImageModelData = []
-              const newAudioModelData = []
-              const newRerankModelData = []
-              response.data.forEach((model) => {
-                let newValue = {
-                  ...model,
-                  id: model.id,
-                  url: model.id,
-                }
-                if (newValue.model_type === 'LLM') {
-                  newLlmData.push(newValue)
-                } else if (newValue.model_type === 'embedding') {
-                  newEmbeddingModelData.push(newValue)
-                } else if (newValue.model_type === 'audio') {
-                  newAudioModelData.push(newValue)
-                } else if (newValue.model_type === 'image') {
-                  newImageModelData.push(newValue)
-                } else if (newValue.model_type === 'rerank') {
-                  newRerankModelData.push(newValue)
-                }
-              })
-              setLlmData(newLlmData)
-              setEmbeddingModelData(newEmbeddingModelData)
-              setAudioModelData(newAudioModelData)
-              setImageModelData(newImageModelData)
-              setRerankModelData(newRerankModelData)
-              setIsUpdatingModel(false)
-            })
-          }
+          const newLlmData = []
+          const newEmbeddingModelData = []
+          const newImageModelData = []
+          const newAudioModelData = []
+          const newRerankModelData = []
+          response.data.forEach((model) => {
+            let newValue = {
+              ...model,
+              id: model.id,
+              url: model.id,
+            }
+            if (newValue.model_type === 'LLM') {
+              newLlmData.push(newValue)
+            } else if (newValue.model_type === 'embedding') {
+              newEmbeddingModelData.push(newValue)
+            } else if (newValue.model_type === 'audio') {
+              newAudioModelData.push(newValue)
+            } else if (newValue.model_type === 'image') {
+              newImageModelData.push(newValue)
+            } else if (newValue.model_type === 'rerank') {
+              newRerankModelData.push(newValue)
+            }
+          })
+          setLlmData(newLlmData)
+          setEmbeddingModelData(newEmbeddingModelData)
+          setAudioModelData(newAudioModelData)
+          setImageModelData(newImageModelData)
+          setRerankModelData(newRerankModelData)
+          setIsUpdatingModel(false)
         })
         .catch((error) => {
           console.error('Error:', error)
           setIsUpdatingModel(false)
+          if (error.response.status !== 403 && error.response.status !== 401) {
+            setErrorMsg(error.message)
+          }
         })
     }
   }

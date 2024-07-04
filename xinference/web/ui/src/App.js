@@ -15,7 +15,6 @@ function App() {
   const [theme] = useMode()
   const [cookie, setCookie, removeCookie] = useCookies(['token'])
   const [msg, setMsg] = useState('')
-  const [authority, setAuthority] = useState(true)
 
   const endPoint = getEndpoint()
 
@@ -37,11 +36,12 @@ function App() {
         })
       } else {
         res.json().then((data) => {
-          setAuthority(data.auth)
           if (!data.auth && cookie.token !== 'no_auth') {
             setCookie('token', 'no_auth', { path: '/' })
           } else if (data.auth && !sessionStorage.getItem('token')) {
             removeCookie('token', { path: '/' })
+          } else if (!data.auth && sessionStorage.getItem('token')) {
+            sessionStorage.removeItem('token')
           }
         })
       }
@@ -69,7 +69,7 @@ function App() {
       </Snackbar>
       <HashRouter>
         <ThemeProvider theme={theme}>
-          <ApiContextProvider authority={authority}>
+          <ApiContextProvider>
             <CssBaseline />
             <AuthAlertDialog />
             <WraperRoutes />

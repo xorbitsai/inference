@@ -349,7 +349,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
         })
         .catch((error) => {
           console.error('Error:', error)
-          if (error.response.status !== 403) {
+          if (error.response.status !== 403 && error.response.status !== 401) {
             setErrorMsg(error.message)
           }
         })
@@ -522,7 +522,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
       .then(() => handleClick())
       .catch((error) => {
         console.error('Error:', error)
-        if (error.response.status !== 403) {
+        if (error.response.status !== 403 && error.response.status !== 401) {
           setErrorMsg(error.message)
         }
       })

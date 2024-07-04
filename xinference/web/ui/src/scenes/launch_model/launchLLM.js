@@ -113,7 +113,7 @@ const LaunchLLM = ({ gpuAvailable }) => {
         })
         .catch((error) => {
           console.error('Error:', error)
-          if (error.response.status !== 403) {
+          if (error.response.status !== 403 && error.response.status !== 401) {
             setErrorMsg(error.message)
           }
         })

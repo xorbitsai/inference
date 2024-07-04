@@ -1,4 +1,4 @@
-import { useContext, useEffect } from 'react'
+import { useContext, useEffect, useState } from 'react'
 import { Navigate, useRoutes } from 'react-router-dom'
 import { useNavigate } from 'react-router-dom'
 
@@ -11,12 +11,29 @@ import RegisterModel from '../scenes/register_model'
 import RunningModels from '../scenes/running_models'
 
 const LoginAuth = () => {
+  const [authority, setAuthority] = useState(true)
+
   const navigate = useNavigate()
-  const { auth } = useContext(ApiContext)
+  const { endPoint } = useContext(ApiContext)
 
   useEffect(() => {
-    if (!auth) navigate('/launch_model/llm')
-  }, [navigate])
+    fetch(endPoint + '/v1/cluster/auth', {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    }).then((res) => {
+      if (res.ok) {
+        res.json().then((data) => {
+          setAuthority(data.auth)
+        })
+      }
+    })
+  }, [])
+
+  useEffect(() => {
+    if (!authority) navigate('/launch_model/llm')
+  }, [authority])
 
   return <Login />
 }
