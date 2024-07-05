@@ -17,6 +17,7 @@ import logging
 import os
 import uuid
 from collections import defaultdict
+from collections.abc import Sequence
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
@@ -217,7 +218,11 @@ class RerankModel:
             if similarity_scores.dtype == torch.bfloat16:
                 similarity_scores = similarity_scores.float()
         else:
+            # Related issue: https://github.com/xorbitsai/inference/issues/1775
             similarity_scores = self._model.compute_score(sentence_combinations)
+            if not isinstance(similarity_scores, Sequence):
+                similarity_scores = [similarity_scores]
+
         sim_scores_argsort = list(reversed(np.argsort(similarity_scores)))
         if top_n is not None:
             sim_scores_argsort = sim_scores_argsort[:top_n]
