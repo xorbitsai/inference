@@ -765,6 +765,16 @@ Begin!"""
             "usage": usage,
         }
 
+    @classmethod
+    def get_full_prompt(cls, model_family, prompt, system_prompt, chat_history, tools):
+        assert model_family.prompt_style is not None
+        prompt_style = model_family.prompt_style.copy()
+        if system_prompt:
+            prompt_style.system_prompt = system_prompt
+        chat_history = chat_history or []
+        full_prompt = cls.get_prompt(prompt, chat_history, prompt_style, tools=tools)
+        return full_prompt
+
 
 def get_file_location(
     llm_family: LLMFamilyV1, spec: LLMSpecV1, quantization: str
@@ -781,7 +791,7 @@ def get_file_location(
         is_cached = cache_status
     assert isinstance(is_cached, bool)
 
-    if spec.model_format in ["pytorch", "gptq", "awq"]:
+    if spec.model_format in ["pytorch", "gptq", "awq", "mlx"]:
         return cache_dir, is_cached
     elif spec.model_format in ["ggmlv3", "ggufv2"]:
         assert isinstance(spec, GgmlLLMSpecV1)

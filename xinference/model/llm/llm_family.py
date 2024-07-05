@@ -107,6 +107,28 @@ class PytorchLLMSpecV1(BaseModel):
         return v
 
 
+class MLXLLMSpecV1(BaseModel):
+    model_format: Literal["mlx"]
+    # Must in order that `str` first, then `int`
+    model_size_in_billions: Union[str, int]
+    quantizations: List[str]
+    model_id: Optional[str]
+    model_hub: str = "huggingface"
+    model_uri: Optional[str]
+    model_revision: Optional[str]
+
+    @validator("model_size_in_billions", pre=False)
+    def validate_model_size_with_radix(cls, v: object) -> object:
+        if isinstance(v, str):
+            if (
+                "_" in v
+            ):  # for example, "1_8" just returns "1_8", otherwise int("1_8") returns 18
+                return v
+            else:
+                return int(v)
+        return v
+
+
 class PromptStyleV1(BaseModel):
     style_name: str
     system_prompt: str = ""
@@ -226,7 +248,7 @@ class CustomLLMFamilyV1(LLMFamilyV1):
 
 
 LLMSpecV1 = Annotated[
-    Union[GgmlLLMSpecV1, PytorchLLMSpecV1],
+    Union[GgmlLLMSpecV1, PytorchLLMSpecV1, MLXLLMSpecV1],
     Field(discriminator="model_format"),
 ]
 
@@ -248,6 +270,8 @@ UD_LLM_FAMILIES: List["LLMFamilyV1"] = []
 UD_LLM_FAMILIES_LOCK = Lock()
 
 VLLM_CLASSES: List[Type[LLM]] = []
+
+MLX_CLASSES: List[Type[LLM]] = []
 
 LLM_ENGINES: Dict[str, Dict[str, List[Dict[str, Any]]]] = {}
 SUPPORTED_ENGINES: Dict[str, List[Type[LLM]]] = {}
@@ -549,7 +573,7 @@ def _get_meta_path(
             return os.path.join(cache_dir, "__valid_download")
         else:
             return os.path.join(cache_dir, f"__valid_download_{model_hub}")
-    elif model_format in ["ggmlv3", "ggufv2", "gptq", "awq"]:
+    elif model_format in ["ggmlv3", "ggufv2", "gptq", "awq", "mlx"]:
         assert quantization is not None
         if model_hub == "huggingface":
             return os.path.join(cache_dir, f"__valid_download_{quantization}")
@@ -588,7 +612,7 @@ def _skip_download(
                     logger.warning(f"Cache {cache_dir} exists, but it was from {hub}")
                     return True
             return False
-    elif model_format in ["ggmlv3", "ggufv2", "gptq", "awq"]:
+    elif model_format in ["ggmlv3", "ggufv2", "gptq", "awq", "mlx"]:
         assert quantization is not None
         return os.path.exists(
             _get_meta_path(cache_dir, model_format, model_hub, quantization)
@@ -683,7 +707,7 @@ def cache_from_csghub(
     ):
         return cache_dir
 
-    if llm_spec.model_format in ["pytorch", "gptq", "awq"]:
+    if llm_spec.model_format in ["pytorch", "gptq", "awq", "mlx"]:
         download_dir = retry_download(
             snapshot_download,
             llm_family.model_name,
@@ -751,7 +775,7 @@ def cache_from_modelscope(
     ):
         return cache_dir
 
-    if llm_spec.model_format in ["pytorch", "gptq", "awq"]:
+    if llm_spec.model_format in ["pytorch", "gptq", "awq", "mlx"]:
         download_dir = retry_download(
             snapshot_download,
             llm_family.model_name,
@@ -820,8 +844,8 @@ def cache_from_huggingface(
     if not IS_NEW_HUGGINGFACE_HUB:
         use_symlinks = {"local_dir_use_symlinks": True, "local_dir": cache_dir}
 
-    if llm_spec.model_format in ["pytorch", "gptq", "awq"]:
-        assert isinstance(llm_spec, PytorchLLMSpecV1)
+    if llm_spec.model_format in ["pytorch", "gptq", "awq", "mlx"]:
+        assert isinstance(llm_spec, (PytorchLLMSpecV1, MLXLLMSpecV1))
         download_dir = retry_download(
             huggingface_hub.snapshot_download,
             llm_family.model_name,
@@ -910,7 +934,7 @@ def get_cache_status(
         ]
         return any(revisions)
     # just check meta file for ggml and gptq model
-    elif llm_spec.model_format in ["ggmlv3", "ggufv2", "gptq", "awq"]:
+    elif llm_spec.model_format in ["ggmlv3", "ggufv2", "gptq", "awq", "mlx"]:
         ret = []
         for q in llm_spec.quantizations:
             assert q is not None
