@@ -199,6 +199,14 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         elif not self._kwargs.get("device_map"):
             logger.debug("Loading model to available device")
             self._model = move_model_to_available_device(self._model)
+        try:
+            from DeepCache import DeepCacheSDHelper
+
+            helper = DeepCacheSDHelper(pipe=self._model)
+            helper.set_params(cache_interval=3, cache_branch_id=0)
+            helper.enable()
+        except:
+            pass
         # Recommended if your computer has < 64 GB of RAM
         self._model.enable_attention_slicing()
         self._apply_lora()

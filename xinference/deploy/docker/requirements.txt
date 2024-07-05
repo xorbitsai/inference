@@ -74,6 +74,7 @@ ormsgpack  # For Fish Speech
 qwen-vl-utils # For qwen2-vl
 datamodel_code_generator # for minicpm-4B
 jsonschema # for minicpm-4B
+deepcache # for sd
 
 # sglang
 outlines>=0.0.44
