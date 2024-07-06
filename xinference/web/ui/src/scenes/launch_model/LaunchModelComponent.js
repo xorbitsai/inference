@@ -9,7 +9,7 @@ import {
 import React, { useContext, useEffect, useState } from 'react'
 
 import { ApiContext } from '../../components/apiContext'
-import fetcher from '../../components/fetcher'
+import fetchWrapper from '../../components/fetchWrapper'
 import HotkeyFocusTextField from '../../components/hotkeyFocusTextField'
 import ModelCard from './modelCard'
 
@@ -72,21 +72,18 @@ const LaunchModelComponent = ({ modelType, gpuAvailable }) => {
     try {
       setIsCallingApi(true)
 
-      const response = await fetcher(
-        `${endPoint}/v1/model_registrations/${modelType}?detailed=true`,
-        {
-          method: 'GET',
-        }
-      )
-
-      const registrations = await response.json()
-
-      const builtinModels = registrations.filter((v) => {
-        return v.is_builtin
-      })
-      setRegistrationData(builtinModels)
-      const collectionData = JSON.parse(localStorage.getItem('collectionArr'))
-      setCollectionArr(collectionData)
+      fetchWrapper
+        .get(`/v1/model_registrations/${modelType}?detailed=true`)
+        .then((data) => {
+          const builtinModels = data.filter((v) => {
+            return v.is_builtin
+          })
+          setRegistrationData(builtinModels)
+          const collectionData = JSON.parse(
+            localStorage.getItem('collectionArr')
+          )
+          setCollectionArr(collectionData)
+        })
     } catch (error) {
       console.error('Error:', error)
     } finally {
