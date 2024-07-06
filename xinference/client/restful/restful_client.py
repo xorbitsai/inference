@@ -692,6 +692,7 @@ class RESTfulAudioModelHandle(RESTfulModelHandle):
         voice: str = "",
         response_format: str = "mp3",
         speed: float = 1.0,
+        stream: bool = False,
     ):
         """
         Generates audio from the input text.
@@ -707,6 +708,8 @@ class RESTfulAudioModelHandle(RESTfulModelHandle):
             The format to audio in.
         speed: str
             The speed of the generated audio.
+        stream: bool
+            Use stream or not.
 
         Returns
         -------
@@ -720,12 +723,16 @@ class RESTfulAudioModelHandle(RESTfulModelHandle):
             "voice": voice,
             "response_format": response_format,
             "speed": speed,
+            "stream": stream,
         }
         response = requests.post(url, json=params, headers=self.auth_headers)
         if response.status_code != 200:
             raise RuntimeError(
                 f"Failed to speech the text, detail: {_get_error_string(response)}"
             )
+
+        if stream:
+            return response.iter_content(chunk_size=1024)
 
         return response.content
 
