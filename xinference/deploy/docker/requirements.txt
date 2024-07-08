@@ -46,11 +46,10 @@ timm>=0.9.16  # For deepseek VL
 torchvision  # For deepseek VL
 FlagEmbedding  # For rerank
 omegaconf~=2.3.0  # For ChatTTS
-vector_quantize_pytorch  # For ChatTTS
-vocos  # For ChatTTS
 nemo_text_processing  # For ChatTTS
 WeTextProcessing  # For ChatTTS
 librosa  # For ChatTTS
+ChatTTS>0.1
 xxhash  # For ChatTTS
 boto3>=1.28.55,<1.28.65 # For tensorizer
 tensorizer~=2.9.0
