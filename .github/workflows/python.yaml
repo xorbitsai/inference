@@ -66,6 +66,7 @@ jobs:
     env:
       CONDA_ENV: test
       SELF_HOST_PYTHON: /root/miniconda3/envs/inference_test/bin/python
+      SELF_HOST_CONDA: /root/miniconda3/condabin/conda
     defaults:
       run:
         shell: bash -l {0}
@@ -149,8 +150,8 @@ jobs:
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U "aioprometheus[starlette]"
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U "pynvml"
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U "transformers"
-            ${{ env.SELF_HOST_PYTHON }} -m conda install -c conda-forge pynini=2.1.5
-            ${{ env.SELF_HOST_PYTHON }} -m conda install -c conda-forge "ffmpeg<7"
+            ${{ env.SELF_HOST_CONDA }} install -c conda-forge pynini=2.1.5
+            ${{ env.SELF_HOST_CONDA }} install -c conda-forge "ffmpeg<7"
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U nemo_text_processing
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U omegaconf~=2.3.0
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U WeTextProcessing
