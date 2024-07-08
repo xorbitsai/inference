@@ -38,21 +38,19 @@ class ChatTTSModel:
         self._kwargs = kwargs
 
     def load(self):
+        import ChatTTS
         import torch
-
-        from xinference.thirdparty import ChatTTS
 
         torch._dynamo.config.cache_size_limit = 64
         torch._dynamo.config.suppress_errors = True
         torch.set_float32_matmul_precision("high")
         self._model = ChatTTS.Chat()
-        self._model.load_models(
-            source="local", local_path=self._model_path, compile=True
-        )
+        self._model.load(source="custom", custom_path=self._model_path, compile=True)
 
     def speech(
         self, input: str, voice: str, response_format: str = "mp3", speed: float = 1.0
     ):
+        import ChatTTS
         import numpy as np
         import torch
         import torchaudio
@@ -71,7 +69,9 @@ class ChatTTSModel:
 
         default = 5
         infer_speed = int(default * speed)
-        params_infer_code = {"spk_emb": rnd_spk_emb, "prompt": f"[speed_{infer_speed}]"}
+        params_infer_code = ChatTTS.Chat.InferCodeParams(
+            prompt=f"[speed_{infer_speed}]", spk_emb=rnd_spk_emb
+        )
 
         assert self._model is not None
         wavs = self._model.infer([input], params_infer_code=params_infer_code)
