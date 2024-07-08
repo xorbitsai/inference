@@ -64,6 +64,7 @@ const llmAllDataKey = [
   'model_size_in_billions',
   'quantization',
   'n_gpu',
+  'n_gpu_layers',
   'replica',
   'request_limits',
   'worker_ip',
@@ -186,7 +187,11 @@ const ModelCard = ({
         ),
       ]
       setSizeOptions(sizes)
-      if (!isHistory || !sizes.includes(Number(modelSize))) {
+      if (
+        !isHistory ||
+        (sizeOptions.length &&
+          JSON.stringify(sizes) !== JSON.stringify(sizeOptions))
+      ) {
         setModelSize('')
       }
       if (sizes.length === 1) {
@@ -363,24 +368,15 @@ const ModelCard = ({
           'runningModelType',
           `/running_models/${modelType}`
         )
-
-        if (
-          isHistory ||
-          ((modelType === 'embedding' || modelType === 'rerank') &&
-            (modelUID !== '' || replica !== 1 || workerIp !== '')) ||
-          ((modelType === 'image' || modelType === 'audio') &&
-            modelUID !== '') ||
-          modelType === 'LLM'
-        ) {
-          let historyArr = JSON.parse(localStorage.getItem('historyArr')) || []
-          if (!historyArr.some((item) => deepEqual(item, modelDataWithID))) {
-            historyArr = historyArr.filter(
-              (item) => item.model_name !== modelDataWithID.model_name
-            )
-            historyArr.push(modelDataWithID)
-          }
-          localStorage.setItem('historyArr', JSON.stringify(historyArr))
+        let historyArr = JSON.parse(localStorage.getItem('historyArr')) || []
+        if (!historyArr.some((item) => deepEqual(item, modelDataWithID))) {
+          historyArr = historyArr.filter(
+            (item) => item.model_name !== modelDataWithID.model_name
+          )
+          historyArr.push(modelDataWithID)
         }
+        localStorage.setItem('historyArr', JSON.stringify(historyArr))
+
         setIsCallingApi(false)
       })
       .catch((error) => {
@@ -550,6 +546,7 @@ const ModelCard = ({
         model_size_in_billions,
         quantization,
         n_gpu,
+        n_gpu_layers,
         replica,
         model_uid,
         request_limits,
@@ -558,11 +555,20 @@ const ModelCard = ({
         peft_model_config,
       } = arr[0]
 
-      setModelEngine(model_engine || '')
+      if (!engineOptions.includes(model_engine)) {
+        setModelEngine('')
+      } else {
+        setModelEngine(model_engine || '')
+      }
       setModelFormat(model_format || '')
       setModelSize(String(model_size_in_billions) || '')
       setQuantization(quantization || '')
       setNGPU(n_gpu || 'auto')
+      if (n_gpu_layers >= 0) {
+        setNGPULayers(n_gpu_layers)
+      } else {
+        setNGPULayers(-1)
+      }
       setReplica(replica || 1)
       setModelUID(model_uid || '')
       setRequestLimits(request_limits || '')
