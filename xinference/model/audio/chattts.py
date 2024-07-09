@@ -48,7 +48,7 @@ class ChatTTSModel:
         self._model.load(source="custom", custom_path=self._model_path, compile=True)
 
     def speech(
-        self, input: str, voice: str, response_format: str = "mp3", speed: float = 1.0
+        self, input: str = "Hello world!", voice: str = "echo", response_format: str = "mp3", speed: float = 1.0
     ):
         import ChatTTS
         import numpy as np
