@@ -187,7 +187,7 @@ class FlexibleModel:
 
     @property
     def model_path(self):
-        return self.model_path
+        return self._model_path
 
     @property
     def device(self):

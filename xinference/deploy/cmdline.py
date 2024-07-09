@@ -1578,5 +1578,51 @@ def cal_model_mem(
     print("  total: %d MB (%d GB)" % (mem_info.total, total_mem_g))
 
 
+@cli.command(
+    "stop-cluster",
+    help="Stop a cluster using the Xinference framework with the given parameters.",
+)
+@click.option(
+    "--endpoint",
+    "-e",
+    type=str,
+    required=True,
+    help="Xinference endpoint.",
+)
+@click.option(
+    "--api-key",
+    "-ak",
+    default=None,
+    type=str,
+    help="API key for accessing the Xinference API with authorization.",
+)
+@click.option("--check", is_flag=True, help="Confirm the deletion of the cache.")
+def stop_cluster(endpoint: str, api_key: Optional[str], check: bool):
+    endpoint = get_endpoint(endpoint)
+    client = RESTfulClient(base_url=endpoint, api_key=api_key)
+    if api_key is None:
+        client._set_token(get_stored_token(endpoint, client))
+
+    if not check:
+        click.echo(
+            f"This command will stop Xinference cluster in {endpoint}.", err=True
+        )
+        supervisor_info = client.get_supervisor_info()
+        click.echo("Supervisor information: ")
+        click.echo(supervisor_info)
+
+        workers_info = client.get_workers_info()
+        click.echo("Workers information:")
+        click.echo(workers_info)
+
+        click.confirm("Continue?", abort=True)
+    try:
+        result = client.abort_cluster()
+        result = result.get("result")
+        click.echo(f"Cluster stopped: {result}")
+    except Exception as e:
+        click.echo(e)
+
+
 if __name__ == "__main__":
     cli()

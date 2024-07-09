@@ -10,6 +10,7 @@ import { useNavigate } from 'react-router-dom'
 import { ApiContext } from '../../components/apiContext'
 import ErrorMessageSnackBar from '../../components/errorMessageSnackBar'
 import fetcher from '../../components/fetcher'
+import fetchWrapper from '../../components/fetchWrapper'
 import Title from '../../components/Title'
 
 const RunningModels = () => {
@@ -37,6 +38,7 @@ const RunningModels = () => {
 
   const update = (isCallingApi) => {
     if (cookie.token === '' || cookie.token === undefined) {
+      navigate('/login', { replace: true })
       return
     }
     if (cookie.token !== 'no_auth' && !sessionStorage.getItem('token')) {
@@ -62,9 +64,9 @@ const RunningModels = () => {
       ])
     } else {
       setIsUpdatingModel(true)
-      fetcher(`${endPoint}/v1/models`, {
-        method: 'GET',
-      })
+
+      fetchWrapper
+        .get('/v1/models')
         .then((response) => {
           if (!response.ok) {
             response.json().then((errorData) => {
@@ -111,10 +113,42 @@ const RunningModels = () => {
               setIsUpdatingModel(false)
             })
           }
+          const newLlmData = []
+          const newEmbeddingModelData = []
+          const newImageModelData = []
+          const newAudioModelData = []
+          const newRerankModelData = []
+          response.data.forEach((model) => {
+            let newValue = {
+              ...model,
+              id: model.id,
+              url: model.id,
+            }
+            if (newValue.model_type === 'LLM') {
+              newLlmData.push(newValue)
+            } else if (newValue.model_type === 'embedding') {
+              newEmbeddingModelData.push(newValue)
+            } else if (newValue.model_type === 'audio') {
+              newAudioModelData.push(newValue)
+            } else if (newValue.model_type === 'image') {
+              newImageModelData.push(newValue)
+            } else if (newValue.model_type === 'rerank') {
+              newRerankModelData.push(newValue)
+            }
+          })
+          setLlmData(newLlmData)
+          setEmbeddingModelData(newEmbeddingModelData)
+          setAudioModelData(newAudioModelData)
+          setImageModelData(newImageModelData)
+          setRerankModelData(newRerankModelData)
+          setIsUpdatingModel(false)
         })
         .catch((error) => {
           console.error('Error:', error)
           setIsUpdatingModel(false)
+          if (error.response.status !== 403 && error.response.status !== 401) {
+            setErrorMsg(error.message)
+          }
         })
     }
   }
@@ -641,8 +675,7 @@ const RunningModels = () => {
       sx={{
         height: '100%',
         width: '100%',
-        paddingLeft: '20px',
-        paddingTop: '20px',
+        padding: '20px 20px 0 20px',
       }}
     >
       <Title title="Running Models" />

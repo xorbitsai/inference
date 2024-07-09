@@ -135,6 +135,7 @@ class RESTfulRerankModelHandle(RESTfulModelHandle):
         top_n: Optional[int] = None,
         max_chunks_per_doc: Optional[int] = None,
         return_documents: Optional[bool] = None,
+        return_len: Optional[bool] = None,
         **kwargs,
     ):
         """
@@ -152,6 +153,8 @@ class RESTfulRerankModelHandle(RESTfulModelHandle):
             The maximum number of chunks derived from a document
         return_documents: bool
             if return documents
+        return_len: bool
+            if return tokens len
         Returns
         -------
         Scores
@@ -170,6 +173,7 @@ class RESTfulRerankModelHandle(RESTfulModelHandle):
             "top_n": top_n,
             "max_chunks_per_doc": max_chunks_per_doc,
             "return_documents": return_documents,
+            "return_len": return_len,
         }
         request_body.update(kwargs)
         response = requests.post(url, json=request_body, headers=self.auth_headers)
@@ -178,8 +182,6 @@ class RESTfulRerankModelHandle(RESTfulModelHandle):
                 f"Failed to rerank documents, detail: {response.json()['detail']}"
             )
         response_data = response.json()
-        for r in response_data["results"]:
-            r["document"] = documents[r["index"]]
         return response_data
 
 
@@ -1359,3 +1361,33 @@ class Client:
 
         response_data = response.json()
         return response_data
+
+    def get_workers_info(self):
+        url = f"{self.base_url}/v1/workers"
+        response = requests.get(url, headers=self._headers)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to get workers info, detail: {_get_error_string(response)}"
+            )
+        response_data = response.json()
+        return response_data
+
+    def get_supervisor_info(self):
+        url = f"{self.base_url}/v1/supervisor"
+        response = requests.get(url, headers=self._headers)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to get supervisor info, detail: {_get_error_string(response)}"
+            )
+        response_json = response.json()
+        return response_json
+
+    def abort_cluster(self):
+        url = f"{self.base_url}/v1/clusters"
+        response = requests.delete(url, headers=self._headers)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to abort cluster, detail: {_get_error_string(response)}"
+            )
+        response_json = response.json()
+        return response_json

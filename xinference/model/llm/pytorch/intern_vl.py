@@ -56,9 +56,18 @@ class InternVLChatModel(PytorchChatModel):
             return True
         return False
 
+    def _get_model_class(self):
+        from transformers import AutoModel
+
+        return AutoModel
+
     def load(self, **kwargs):
         from transformers import AutoModel, AutoTokenizer
         from transformers.generation import GenerationConfig
+
+        if self._check_tensorizer_integrity():
+            self._model, self._tokenizer = self._load_tensorizer()
+            return
 
         device = self._pytorch_model_config.get("device", "auto")
         device = select_device(device)
@@ -92,6 +101,7 @@ class InternVLChatModel(PytorchChatModel):
             self.model_path,
             trust_remote_code=True,
         )
+        self._save_tensorizer()
 
     def _message_content_to_intern(self, content):
         def _load_image(_url):

@@ -1,7 +1,6 @@
 import './styles/registerModelStyle.css'
 
 import CheckIcon from '@mui/icons-material/Check'
-import FilterNoneIcon from '@mui/icons-material/FilterNone'
 import KeyboardDoubleArrowRightIcon from '@mui/icons-material/KeyboardDoubleArrowRight'
 import NotesIcon from '@mui/icons-material/Notes'
 import {
@@ -17,19 +16,18 @@ import {
   Radio,
   RadioGroup,
   Select,
-  Snackbar,
   Stack,
   Switch,
   TextField,
   Tooltip,
 } from '@mui/material'
-import ClipboardJS from 'clipboard'
 import React, { useContext, useEffect, useRef, useState } from 'react'
 import { useCookies } from 'react-cookie'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 
 import { ApiContext } from '../../components/apiContext'
-import fetcher from '../../components/fetcher'
+import CopyComponent from '../../components/copyComponent/copyComponent'
+import fetchWrapper from '../../components/fetchWrapper'
 import AddControlnet from './components/addControlnet'
 import AddModelSpecs from './components/addModelSpecs'
 import languages from './data/languages'
@@ -48,20 +46,152 @@ const RegisterModelComponent = ({ modelType, customData }) => {
     chat: [],
     generate: [],
   })
-  const [isShow, setIsShow] = useState(false)
   const [languagesArr, setLanguagesArr] = useState([])
   const [isContextLengthAlert, setIsContextLengthAlert] = useState(false)
   const [isDimensionsAlert, setIsDimensionsAlert] = useState(false)
   const [isMaxTokensAlert, setIsMaxTokensAlert] = useState(false)
   const [jsonData, setJsonData] = useState('')
-  const [isCopySuccess, setIsCopySuccess] = useState(false)
   const [isSpecsArrError, setIsSpecsArrError] = useState(false)
+
   const scrollRef = useRef(null)
   const [cookie] = useCookies(['token'])
   const navigate = useNavigate()
 
+  const { registerModelType, model_name } = useParams()
+  const [isShow, setIsShow] = useState(model_name ? true : false)
+  const [specsArr, setSpecsArr] = useState(
+    model_name
+      ? JSON.parse(sessionStorage.getItem('customJsonData')).model_specs
+      : []
+  )
+  const [controlnetArr, setControlnetArr] = useState(
+    model_name
+      ? JSON.parse(sessionStorage.getItem('customJsonData')).controlnet
+      : []
+  )
+  const [contrastObj, setContrastObj] = useState({})
+  const [isEqual, setIsEqual] = useState(true)
+
+  useEffect(() => {
+    if (model_name) {
+      const data = JSON.parse(sessionStorage.getItem('customJsonData'))
+
+      if (modelType === 'LLM') {
+        const lagArr = data.model_lang.filter(
+          (item) => item !== 'en' && item !== 'zh'
+        )
+        setLanguagesArr(lagArr)
+
+        const {
+          version,
+          model_name,
+          model_description,
+          context_length,
+          model_lang,
+          model_ability,
+          model_family,
+          model_specs,
+          prompt_style,
+        } = data
+        const specsDataArr = model_specs.map((item) => {
+          const {
+            model_uri,
+            model_size_in_billions,
+            model_format,
+            quantizations,
+            model_file_name_template,
+          } = item
+          return {
+            model_uri,
+            model_size_in_billions,
+            model_format,
+            quantizations,
+            model_file_name_template,
+          }
+        })
+        const llmData = {
+          version,
+          model_name,
+          model_description,
+          context_length,
+          model_lang,
+          model_ability,
+          model_family,
+          model_specs: specsDataArr,
+        }
+        prompt_style ? (llmData.prompt_style = prompt_style) : ''
+        setFormData(llmData)
+        setContrastObj(llmData)
+        setSpecsArr(specsDataArr)
+      } else {
+        if (modelType === 'embedding') {
+          const lagArr = data.language.filter(
+            (item) => item !== 'en' && item !== 'zh'
+          )
+          setLanguagesArr(lagArr)
+
+          const { model_name, dimensions, max_tokens, model_uri, language } =
+            data
+          const embeddingData = {
+            model_name,
+            dimensions,
+            max_tokens,
+            model_uri,
+            language,
+          }
+          setFormData(embeddingData)
+          setContrastObj(embeddingData)
+        } else if (modelType === 'rerank') {
+          const lagArr = data.language.filter(
+            (item) => item !== 'en' && item !== 'zh'
+          )
+          setLanguagesArr(lagArr)
+
+          const { model_name, model_uri, language } = data
+          const rerankData = {
+            model_name,
+            model_uri,
+            language,
+          }
+          setFormData(rerankData)
+          setContrastObj(rerankData)
+        } else if (modelType === 'image') {
+          const { model_name, model_uri, model_family, controlnet } = data
+          const controlnetArr = controlnet.map((item) => {
+            const { model_name, model_uri, model_family } = item
+            return {
+              model_name,
+              model_uri,
+              model_family,
+            }
+          })
+          const imageData = {
+            model_name,
+            model_uri,
+            model_family,
+            controlnet: controlnetArr,
+          }
+          setFormData(imageData)
+          setContrastObj(imageData)
+          setControlnetArr(controlnetArr)
+        } else if (modelType === 'audio') {
+          const { model_name, model_uri, multilingual, model_family } = data
+          const audioData = {
+            model_name,
+            model_uri,
+            multilingual,
+            model_family,
+          }
+          setFormData(audioData)
+          setContrastObj(audioData)
+        }
+      }
+    }
+  }, [model_name])
+
   useEffect(() => {
     if (cookie.token === '' || cookie.token === undefined) {
+      navigate('/login', { replace: true })
       return
     }
     if (cookie.token !== 'no_auth' && !sessionStorage.getItem('token')) {
@@ -145,6 +275,9 @@ const RegisterModelComponent = ({ modelType, customData }) => {
 
   useEffect(() => {
     setJsonData(JSON.stringify(formData, null, 4))
+    if (contrastObj.model_name) {
+      deepEqual(contrastObj, formData) ? setIsEqual(true) : setIsEqual(false)
+    }
   }, [formData])
 
   const getFamilyByAbility = () => {
@@ -201,34 +334,25 @@ const RegisterModelComponent = ({ modelType, customData }) => {
     }
 
     try {
-      const response = await fetcher(
-        endPoint + `/v1/model_registrations/${modelType}`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: JSON.stringify(formData),
-            persist: true,
-          }),
-        }
-      )
-      if (!response.ok) {
-        const errorData = await response.json() // Assuming the server returns error details in JSON format
-        setErrorMsg(
-          `Server error: ${response.status} - ${
-            errorData.detail || 'Unknown error'
-          }`
-        )
-      } else {
-        navigate(`/launch_model/custom/${modelType.toLowerCase()}`)
-        sessionStorage.setItem('modelType', '/launch_model/custom/llm')
-        sessionStorage.setItem(
-          'subType',
-          `/launch_model/custom/${modelType.toLowerCase()}`
-        )
-      }
+      fetchWrapper
+        .post(`/v1/model_registrations/${modelType}`, {
+          model: JSON.stringify(formData),
+          persist: true,
+        })
+        .then(() => {
+          navigate(`/launch_model/custom/${modelType.toLowerCase()}`)
+          sessionStorage.setItem('modelType', '/launch_model/custom/llm')
+          sessionStorage.setItem(
+            'subType',
+            `/launch_model/custom/${modelType.toLowerCase()}`
+          )
+        })
+        .catch((error) => {
+          console.error('Error:', error)
+          if (error.response.status !== 403 && error.response.status !== 401) {
+            setErrorMsg(error.message)
+          }
+        })
     } catch (error) {
       console.error('There was a problem with the fetch operation:', error)
       setErrorMsg(error.message || 'An unexpected error occurred.')
@@ -240,11 +364,6 @@ const RegisterModelComponent = ({ modelType, customData }) => {
     setIsDimensionsAlert(false)
     setIsMaxTokensAlert(false)
     setFormData({ ...formData, [parameterName]: value })
-
-    // if(value !== '' && Number(value) > 0) {
-    //   console.log(111);
-    //   setFormData({ ...formData, [parameterName]: Number(value) })
-    // }
 
     if (
       value !== '' &&
@@ -326,7 +445,25 @@ const RegisterModelComponent = ({ modelType, customData }) => {
         prompt_style,
       })
     } else {
-      setFormData({ ...formData, model_family: value })
+      const {
+        version,
+        model_name,
+        model_description,
+        context_length,
+        model_lang,
+        model_ability,
+        model_specs,
+      } = formData
+      setFormData({
+        version,
+        model_name,
+        model_description,
+        context_length,
+        model_lang,
+        model_ability,
+        model_family: value,
+        model_specs,
+      })
     }
   }
 
@@ -371,15 +508,46 @@ const RegisterModelComponent = ({ modelType, customData }) => {
     setFormData({ ...formData, controlnet: arr })
   }
 
-  const handleCopy = () => {
-    const clipboard = new ClipboardJS('.copyIcon', {
-      text: () => jsonData,
-    })
+  const handleCancel = () => {
+    navigate(`/launch_model/custom/${registerModelType}`)
+  }
 
-    clipboard.on('success', function (event) {
-      event.clearSelection()
-      setIsCopySuccess(true)
-    })
+  const handleEdit = () => {
+    fetchWrapper
+      .delete(
+        `/v1/model_registrations/${
+          registerModelType === 'llm' ? 'LLM' : registerModelType
+        }/${model_name}`
+      )
+      .then(() => handleClick())
+      .catch((error) => {
+        console.error('Error:', error)
+        if (error.response.status !== 403 && error.response.status !== 401) {
+          setErrorMsg(error.message)
+        }
+      })
+  }
+
+  const deepEqual = (obj1, obj2) => {
+    if (obj1 === obj2) return true
+    if (
+      typeof obj1 !== 'object' ||
+      typeof obj2 !== 'object' ||
+      obj1 == null ||
+      obj2 == null
+    ) {
+      return false
+    }
+
+    let keysA = Object.keys(obj1)
+    let keysB = Object.keys(obj2)
+    if (keysA.length !== keysB.length) return false
+    for (let key of keysA) {
+      if (!keysB.includes(key) || !deepEqual(obj1[key], obj2[key])) {
+        return false
+      }
+    }
+    return true
   }
 
   return (
@@ -404,7 +572,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
       </div>
       <div ref={scrollRef} className={isShow ? 'formBox' : 'formBox broaden'}>
         {/* Base Information */}
-        <FormControl sx={styles.baseFormControl}>
+        <FormControl style={{ width: '100%' }}>
           {/* name */}
           {customData.model_name && (
             <>
@@ -538,7 +706,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
               >
                 Model Languages
               </label>
-              <Box sx={styles.checkboxWrapper}>
+              <Box className="checkboxWrapper">
                 {SUPPORTED_LANGUAGES.map((lang) => (
                   <Box key={lang} sx={{ marginRight: '10px' }}>
                     <FormControlLabel
@@ -610,7 +778,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
               </label>
               <FormControlLabel
                 style={{ marginLeft: 0, width: 50 }}
-                control={<Switch />}
+                control={<Switch checked={formData.multilingual} />}
                 onChange={(e) =>
                   setFormData({ ...formData, multilingual: e.target.checked })
                 }
@@ -631,7 +799,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
               >
                 Model Abilities
               </label>
-              <Box sx={styles.checkboxWrapper}>
+              <Box className="checkboxWrapper">
                 {SUPPORTED_FEATURES.map((ability) => (
                   <Box key={ability} sx={{ marginRight: '10px' }}>
                     <FormControlLabel
@@ -658,7 +826,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
 
           {/* family */}
           {(customData.model_family === '' || customData.model_family) && (
-            <FormControl sx={styles.baseFormControl}>
+            <FormControl>
               <label
                 style={{
                   paddingLeft: 5,
@@ -693,7 +861,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                 }}
               >
                 <Box
-                  sx={styles.checkboxWrapper}
+                  className="checkboxWrapper"
                   style={{ paddingLeft: '10px' }}
                 >
                   {modelType === 'LLM' &&
@@ -724,7 +892,9 @@ const RegisterModelComponent = ({ modelType, customData }) => {
           {customData.model_specs && (
             <>
               <AddModelSpecs
+                isJump={model_name ? true : false}
                 formData={customData.model_specs[0]}
+                specsDataArr={specsArr}
                 onGetArr={getSpecsArr}
                 scrollRef={scrollRef}
               />
@@ -736,6 +906,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
           {customData.controlnet && (
             <>
               <AddControlnet
+                controlnetDataArr={controlnetArr}
                 onGetControlnetArr={getControlnetArr}
                 scrollRef={scrollRef}
               />
@@ -782,53 +953,51 @@ const RegisterModelComponent = ({ modelType, customData }) => {
           )}
         </FormControl>
 
-        <Box width={'100%'}>
-          <Button
-            variant="contained"
-            color="primary"
-            type="submit"
-            onClick={handleClick}
-          >
-            Register Model
-          </Button>
-        </Box>
+        {model_name ? (
+          <>
+            <Button
+              variant="contained"
+              color="primary"
+              type="submit"
+              onClick={handleEdit}
+              disabled={isEqual}
+            >
+              Edit
+            </Button>
+            <Button
+              style={{ marginLeft: 30 }}
+              variant="outlined"
+              color="primary"
+              type="submit"
+              onClick={handleCancel}
+            >
+              Cancel
+            </Button>
+          </>
+        ) : (
+          <Box width={'100%'}>
+            <Button
+              variant="contained"
+              color="primary"
+              type="submit"
+              onClick={handleClick}
+            >
+              Register Model
+            </Button>
+          </Box>
+        )}
       </div>
 
       {/* JSON */}
       <div className={isShow ? 'jsonBox' : 'jsonBox hide'}>
-        <div className="jsonBox-header">JSON Format</div>
-        <Tooltip title="Copy all" placement="top">
-          <FilterNoneIcon className="copyIcon" onClick={handleCopy} />
-        </Tooltip>
+        <div className="jsonBox-header">
+          <div className="jsonBox-title">JSON Format</div>
+          <CopyComponent tip={'Copy all'} text={jsonData} />
+        </div>
         <textarea readOnly className="textarea" value={jsonData} />
       </div>
-
-      <Snackbar
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-        open={isCopySuccess}
-        autoHideDuration={1500}
-        onClose={() => setIsCopySuccess(false)}
-      >
-        <Alert severity="success" variant="filled" sx={{ width: '100%' }}>
-          Copied to clipboard!
-        </Alert>
-      </Snackbar>
     </Box>
   )
 }
 
 export default RegisterModelComponent
-
-const styles = {
-  baseFormControl: {
-    width: '100%',
-    margin: 'normal',
-    size: 'small',
-  },
-  checkboxWrapper: {
-    display: 'flex',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    width: '100%',
-  },
-}

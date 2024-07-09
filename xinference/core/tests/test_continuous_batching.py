@@ -71,9 +71,10 @@ class InferenceThread(BaseThread):
             assert isinstance(res, dict)
             choices = res["choices"]
             assert isinstance(choices, list)
-            choice = choices[0]["text"]
-            assert isinstance(choice, str)
-            assert len(choice) > 0
+            choice = choices[0]["message"]
+            assert isinstance(choice, dict)
+            content = choice["content"]
+            assert len(content) > 0
 
 
 class InferenceThreadWithError(InferenceThread):

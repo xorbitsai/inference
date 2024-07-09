@@ -65,6 +65,9 @@ except ImportError:
     OutOfMemoryError = _OutOfMemoryError
 
 
+XINFERENCE_BATCHING_ALLOWED_VISION_MODELS = ["qwen-vl-chat", "cogvlm2", "glm-4v"]
+
+
 def request_limit(fn):
     """
     Used by ModelActor.
@@ -268,11 +271,25 @@ class ModelActor(xo.StatelessActor):
 
         model_ability = self._model_description.get("model_ability", [])
 
-        return (
-            XINFERENCE_TRANSFORMERS_ENABLE_BATCHING
-            and isinstance(self._model, PytorchModel)
-            and "vision" not in model_ability
+        condition = XINFERENCE_TRANSFORMERS_ENABLE_BATCHING and isinstance(
+            self._model, PytorchModel
         )
+        if condition and "vision" in model_ability:
+            if (
+                self._model.model_family.model_name
+                in XINFERENCE_BATCHING_ALLOWED_VISION_MODELS
+                or self._model.model_family.model_family
+                in XINFERENCE_BATCHING_ALLOWED_VISION_MODELS
+            ):
+                return True
+            else:
+                logger.warning(
+                    f"Currently for multimodal models, "
+                    f"xinference only supports {', '.join(XINFERENCE_BATCHING_ALLOWED_VISION_MODELS)} for batching. "
+                    f"Your model {self._model.model_family.model_name} with model family {self._model.model_family.model_family} is disqualified."
+                )
+                return False
+        return condition
 
     async def load(self):
         self._model.load()
@@ -302,7 +319,7 @@ class ModelActor(xo.StatelessActor):
                 if time_to_first_token is None:
                     time_to_first_token = (time.time() - start_time) * 1000
                 final_usage = v.get("usage", None)
-                v = dict(data=json.dumps(v))
+                v = dict(data=json.dumps(v, ensure_ascii=False))
                 yield sse_starlette.sse.ensure_bytes(v, None)
         except OutOfMemoryError:
             logger.exception(
@@ -543,6 +560,7 @@ class ModelActor(xo.StatelessActor):
         top_n: Optional[int],
         max_chunks_per_doc: Optional[int],
         return_documents: Optional[bool],
+        return_len: Optional[bool],
         *args,
         **kwargs,
     ):
@@ -554,6 +572,7 @@ class ModelActor(xo.StatelessActor):
                 top_n,
                 max_chunks_per_doc,
                 return_documents,
+                return_len,
                 *args,
                 **kwargs,
             )

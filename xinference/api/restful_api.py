@@ -109,6 +109,7 @@ class RerankRequest(BaseModel):
     documents: List[str]
     top_n: Optional[int] = None
     return_documents: Optional[bool] = False
+    return_len: Optional[bool] = False
     max_chunks_per_doc: Optional[int] = None
 
 
@@ -246,13 +247,34 @@ class RESTfulAPI:
             methods=["GET"],
         )
         self._router.add_api_route(
-            "/v1/cluster/info", self.get_cluster_device_info, methods=["GET"]
+            "/v1/cluster/info",
+            self.get_cluster_device_info,
+            methods=["GET"],
+            dependencies=(
+                [Security(self._auth_service, scopes=["admin"])]
+                if self.is_authenticated()
+                else None
+            ),
         )
         self._router.add_api_route(
-            "/v1/cluster/version", self.get_cluster_version, methods=["GET"]
+            "/v1/cluster/version",
+            self.get_cluster_version,
+            methods=["GET"],
+            dependencies=(
+                [Security(self._auth_service, scopes=["admin"])]
+                if self.is_authenticated()
+                else None
+            ),
         )
         self._router.add_api_route(
-            "/v1/cluster/devices", self._get_devices_count, methods=["GET"]
+            "/v1/cluster/devices",
+            self._get_devices_count,
+            methods=["GET"],
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:list"])]
+                if self.is_authenticated()
+                else None
+            ),
         )
         self._router.add_api_route("/v1/address", self.get_address, methods=["GET"])
 
@@ -557,6 +579,36 @@ class RESTfulAPI:
             methods=["DELETE"],
             dependencies=(
                 [Security(self._auth_service, scopes=["cache:delete"])]
+                if self.is_authenticated()
+                else None
+            ),
+        )
+        self._router.add_api_route(
+            "/v1/workers",
+            self.get_workers_info,
+            methods=["GET"],
+            dependencies=(
+                [Security(self._auth_service, scopes=["admin"])]
+                if self.is_authenticated()
+                else None
+            ),
+        )
+        self._router.add_api_route(
+            "/v1/supervisor",
+            self.get_supervisor_info,
+            methods=["GET"],
+            dependencies=(
+                [Security(self._auth_service, scopes=["admin"])]
+                if self.is_authenticated()
+                else None
+            ),
+        )
+        self._router.add_api_route(
+            "/v1/clusters",
+            self.abort_cluster,
+            methods=["DELETE"],
+            dependencies=(
+                [Security(self._auth_service, scopes=["admin"])]
                 if self.is_authenticated()
                 else None
             ),
@@ -1126,6 +1178,7 @@ class RESTfulAPI:
                 top_n=body.top_n,
                 max_chunks_per_doc=body.max_chunks_per_doc,
                 return_documents=body.return_documents,
+                return_len=body.return_len,
                 **kwargs,
             )
             return Response(scores, media_type="application/json")
@@ -1468,17 +1521,14 @@ class RESTfulAPI:
             await self._report_error_event(model_uid, str(e))
             raise HTTPException(status_code=500, detail=str(e))
 
+        from ..model.llm.utils import GLM4_TOOL_CALL_FAMILY, QWEN_TOOL_CALL_FAMILY
+
         model_family = desc.get("model_family", "")
-        function_call_models = [
-            "chatglm3",
-            "glm4-chat",
-            "gorilla-openfunctions-v1",
-            "qwen-chat",
-            "qwen1.5-chat",
-            "qwen1.5-moe-chat",
-            "qwen2-instruct",
-            "qwen2-moe-instruct",
-        ]
+        function_call_models = (
+            ["chatglm3", "gorilla-openfunctions-v1"]
+            + QWEN_TOOL_CALL_FAMILY
+            + GLM4_TOOL_CALL_FAMILY
+        )
 
         is_qwen = desc.get("model_format") == "ggmlv3" and "qwen-chat" == model_family
 
@@ -1500,13 +1550,8 @@ class RESTfulAPI:
                 )
         if body.tools and body.stream:
             is_vllm = await model.is_vllm_backend()
-            if not is_vllm or model_family not in [
-                "qwen-chat",
-                "qwen1.5-chat",
-                "qwen1.5-moe-chat",
-                "qwen2-instruct",
-                "qwen2-moe-instruct",
-            ]:
+
+            if not is_vllm or model_family not in QWEN_TOOL_CALL_FAMILY:
                 raise HTTPException(
                     status_code=400,
                     detail="Streaming support for tool calls is available only when using vLLM backend and Qwen models.",
@@ -1751,6 +1796,43 @@ class RESTfulAPI:
             res = await (await self._get_supervisor_ref()).confirm_and_remove_model(
                 model_version=model_version, worker_ip=worker_ip
             )
+            return JSONResponse(content={"result": res})
+        except ValueError as re:
+            logger.error(re, exc_info=True)
+            raise HTTPException(status_code=400, detail=str(re))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def get_workers_info(self) -> JSONResponse:
+        try:
+            res = await (await self._get_supervisor_ref()).get_workers_info()
+            return JSONResponse(content=res)
+        except ValueError as re:
+            logger.error(re, exc_info=True)
+            raise HTTPException(status_code=400, detail=str(re))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def get_supervisor_info(self) -> JSONResponse:
+        try:
+            res = await (await self._get_supervisor_ref()).get_supervisor_info()
+            return res
+        except ValueError as re:
+            logger.error(re, exc_info=True)
+            raise HTTPException(status_code=400, detail=str(re))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def abort_cluster(self) -> JSONResponse:
+        import os
+        import signal
+
+        try:
+            res = await (await self._get_supervisor_ref()).abort_cluster()
+            os.kill(os.getpid(), signal.SIGINT)
             return JSONResponse(content={"result": res})
         except ValueError as re:
             logger.error(re, exc_info=True)

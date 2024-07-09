@@ -20,51 +20,11 @@ ENV PATH $NVM_DIR/versions/node/v$NODE_VERSION/bin:$PATH
 ARG PIP_INDEX=https://pypi.org/simple
 RUN python -m pip install --upgrade -i "$PIP_INDEX" pip && \
     pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu && \
-    pip install -i "$PIP_INDEX" \
-      "xoscar>=0.3.0" \
-      "gradio==4.26.0" \
-      "typer[all]<0.12.0" \
-      pillow \
-      click \
-      "tqdm>=4.27" \
-      tabulate \
-      requests \
-      pydantic \
-      "fastapi==0.110.3" \
-      uvicorn \
-      "huggingface-hub>=0.19.4" \
-      typing_extensions \
-      "fsspec==2023.10.0" \
-      "s3fs==2023.10.0" \
-      "modelscope>=1.10.0" \
-      "sse_starlette>=1.6.5" \
-      "openai>1" \
-      "python-jose[cryptography]" \
-      "passlib[bcrypt]" \
-      "aioprometheus[starlette]>=23.12.0" \
-      pynvml \
-      async-timeout \
-      "transformers>=4.34.1" \
-      "accelerate>=0.20.3" \
-      sentencepiece \
-      transformers_stream_generator \
-      bitsandbytes \
-      protobuf \
-      einops \
-      tiktoken \
-      "sentence-transformers>=2.3.1" \
-      FlagEmbedding \
-      diffusers \
-      controlnet_aux \
-      orjson \
-      auto-gptq \
-      optimum \
-      peft \
-      timm \
-      opencv-contrib-python-headless && \
-    pip install -i "$PIP_INDEX" -U chatglm-cpp && \
-    pip install "llama-cpp-python>=0.2.25,!=0.2.58" --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu && \
+    pip install -i "$PIP_INDEX" --upgrade-strategy only-if-needed -r /opt/inference/xinference/deploy/docker/requirements_cpu.txt && \
+    pip install "llama-cpp-python==0.2.77" --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu && \
     cd /opt/inference && \
     python setup.py build_web && \
     git restore . && \
-    pip install -i "$PIP_INDEX" --no-deps "."
+    pip install -i "$PIP_INDEX" --no-deps "." && \
+    # clean packages
+    pip cache purge

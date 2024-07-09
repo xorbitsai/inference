@@ -19,7 +19,7 @@ Model Spec 1 (pytorch, 9 Billion)
 
 - **Model Format:** pytorch
 - **Model Size (in billions):** 9
-- **Quantizations:** none
+- **Quantizations:** 4-bit, 8-bit, none
 - **Engines**: Transformers
 - **Model ID:** THUDM/glm-4v-9b
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/THUDM/glm-4v-9b>`__, `ModelScope <https://modelscope.cn/models/ZhipuAI/glm-4v-9b>`__

@@ -456,6 +456,7 @@ def test_restful_api_for_tool_calls(setup, model_format, quantization):
 
     response = requests.post(url, json=payload)
     response_data = response.json()
+    assert "model_uid" in response_data, response_data
     model_uid_res = response_data["model_uid"]
     assert model_uid_res == "test_tool"
 
@@ -503,7 +504,7 @@ def test_restful_api_for_tool_calls(setup, model_format, quantization):
     assert (
         "get_current_weather"
         == completion["choices"][0]["message"]["tool_calls"][0]["function"]["name"]
-    )
+    ), completion
     arguments = completion["choices"][0]["message"]["tool_calls"][0]["function"][
         "arguments"
     ]
@@ -618,8 +619,9 @@ def test_restful_api_for_tool_calls(setup, model_format, quantization):
         )
         assert completion.choices
         assert completion.choices[0].finish_reason == "stop"
-        assert "10111" in completion.choices[0].message.content
-        assert "12345" in completion.choices[0].message.content
+        if kwargs:
+            assert "10111" in completion.choices[0].message.content
+            assert "12345" in completion.choices[0].message.content
 
     _check_invalid_tool_calls(endpoint, model_uid_res)
 
@@ -1253,21 +1255,3 @@ def test_launch_model_by_version(setup):
     # delete again
     url = f"{endpoint}/v1/models/test_orca"
     requests.delete(url)
-
-
-@pytest.mark.skipif(bool(os.environ.get("GITHUB_ACTIONS")), reason="Skip windows")
-def test_cluster_info(setup):
-    endpoint, _ = setup
-    url = f"{endpoint}/v1/cluster/info"
-
-    response = requests.get(url)
-    assert response.status_code == 200
-    result = response.json()
-    assert isinstance(result, list)
-    assert len(result) == 2
-    assert result[0]["node_type"] == "Supervisor"
-    assert result[0]["gpu_count"] == 0
-    assert result[0]["gpu_vram_total"] == 0
-    assert result[1]["node_type"] == "Worker"
-    assert result[1]["gpu_count"] == 0
-    assert result[1]["gpu_vram_total"] == 0

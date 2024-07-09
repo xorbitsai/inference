@@ -3,20 +3,22 @@ import './styles/modelCardStyle.css'
 import {
   ChatOutlined,
   Close,
+  Delete,
   EditNote,
   EditNoteOutlined,
   ExpandLess,
   ExpandMore,
+  Grade,
   HelpCenterOutlined,
   RocketLaunchOutlined,
+  StarBorder,
   UndoOutlined,
 } from '@mui/icons-material'
-import DeleteIcon from '@mui/icons-material/Delete'
-import FilterNoneIcon from '@mui/icons-material/FilterNone'
 import {
   Alert,
   Backdrop,
   Box,
+  Button,
   Chip,
   CircularProgress,
   Collapse,
@@ -43,15 +45,32 @@ import {
   Tooltip,
 } from '@mui/material'
 import { styled } from '@mui/material/styles'
-import ClipboardJS from 'clipboard'
 import React, { useContext, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { ApiContext } from '../../components/apiContext'
+import CopyComponent from '../../components/copyComponent/copyComponent'
 import DeleteDialog from '../../components/deleteDialog'
-import fetcher from '../../components/fetcher'
+import fetchWrapper from '../../components/fetchWrapper'
 import TitleTypography from '../../components/titleTypography'
 import AddPair from './components/addPair'
+
+const llmAllDataKey = [
+  'model_uid',
+  'model_name',
+  'model_type',
+  'model_engine',
+  'model_format',
+  'model_size_in_billions',
+  'quantization',
+  'n_gpu',
+  'n_gpu_layers',
+  'replica',
+  'request_limits',
+  'worker_ip',
+  'gpu_idx',
+  'peft_model_config',
+]
 
 const ModelCard = ({
   url,
@@ -61,6 +80,7 @@ const ModelCard = ({
   is_custom = false,
   onHandleCompleteDelete,
   onHandlecustomDelete,
+  onGetCollectionArr,
 }) => {
   const [hover, setHover] = useState(false)
   const [selected, setSelected] = useState(false)
@@ -104,8 +124,14 @@ const ModelCard = ({
   const [cachedModelVersion, setCachedModelVersion] = useState('')
   const [cachedRealPath, setCachedRealPath] = useState('')
   const [page, setPage] = useState(0)
-  const [isCopySuccess, setIsCopySuccess] = useState(false)
   const [isDeleteCustomModel, setIsDeleteCustomModel] = useState(false)
+  const [isJsonShow, setIsJsonShow] = useState(false)
+  const [isHistory, setIsHistory] = useState(false)
+  const [customArr, setCustomArr] = useState([])
+  const [loraArr, setLoraArr] = useState([])
+  const [imageLoraLoadArr, setImageLoraLoadArr] = useState([])
+  const [imageLoraFuseArr, setImageLoraFuseArr] = useState([])
+  const [customParametersArrLength, setCustomParametersArrLength] = useState(0)
 
   const parentRef = useRef(null)
 
@@ -127,12 +153,24 @@ const ModelCard = ({
   }
 
   useEffect(() => {
-    setModelFormat('')
+    let keyArr = []
+    for (let key in enginesObj) {
+      keyArr.push(key)
+    }
+    if (keyArr.length) {
+      handleLlmHistory()
+    }
+  }, [enginesObj])
+
+  useEffect(() => {
     if (modelEngine) {
       const format = [
         ...new Set(enginesObj[modelEngine].map((item) => item.model_format)),
       ]
       setFormatOptions(format)
+      if (!isHistory || !format.includes(modelFormat)) {
+        setModelFormat('')
+      }
       if (format.length === 1) {
         setModelFormat(format[0])
       }
@@ -140,7 +178,6 @@ const ModelCard = ({
   }, [modelEngine])
 
   useEffect(() => {
-    setModelSize('')
     if (modelEngine && modelFormat) {
       const sizes = [
         ...new Set(
@@ -150,6 +187,13 @@ const ModelCard = ({
         ),
       ]
       setSizeOptions(sizes)
+      if (
+        !isHistory ||
+        (sizeOptions.length &&
+          JSON.stringify(sizes) !== JSON.stringify(sizeOptions))
+      ) {
+        setModelSize('')
+      }
       if (sizes.length === 1) {
         setModelSize(sizes[0])
       }
@@ -157,7 +201,6 @@ const ModelCard = ({
   }, [modelEngine, modelFormat])
 
   useEffect(() => {
-    setQuantization('')
     if (modelEngine && modelFormat && modelSize) {
       const quants = [
         ...new Set(
@@ -171,6 +214,9 @@ const ModelCard = ({
         ),
       ]
       setQuantizationOptions(quants)
+      if (!isHistory || !quants.includes(quantization)) {
+        setQuantization('')
+      }
       if (quants.length === 1) {
         setQuantization(quants[0])
       }
@@ -178,7 +224,11 @@ const ModelCard = ({
   }, [modelEngine, modelFormat, modelSize])
 
   useEffect(() => {
-    if (parentRef.current) {
+    setCustomParametersArrLength(customParametersArr.length)
+    if (
+      parentRef.current &&
+      customParametersArr.length > customParametersArrLength
+    ) {
       parentRef.current.scrollTo({
         top: parentRef.current.scrollHeight,
         behavior: 'smooth',
@@ -203,37 +253,23 @@ const ModelCard = ({
   }
 
   const getModelEngine = (model_name) => {
-    fetcher(url + `/v1/engines/${model_name}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    })
-      .then((response) => {
-        if (!response.ok) {
-          // Assuming the server returns error details in JSON format
-          response.json().then((errorData) => {
-            setErrorMsg(
-              `Server error: ${response.status} - ${
-                errorData.detail || 'Unknown error'
-              }`
-            )
-          })
-        } else {
-          response.json().then((data) => {
-            setEnginesObj(data)
-            setEngineOptions(Object.keys(data))
-          })
-        }
+    fetchWrapper
+      .get(`/v1/engines/${model_name}`)
+      .then((data) => {
+        setEnginesObj(data)
+        setEngineOptions(Object.keys(data))
         setIsCallingApi(false)
       })
       .catch((error) => {
         console.error('Error:', error)
+        if (error.response.status !== 403) {
+          setErrorMsg(error.message)
+        }
         setIsCallingApi(false)
       })
   }
 
-  const launchModel = (url) => {
+  const launchModel = () => {
     if (isCallingApi || isUpdatingModel) {
       return
     }
@@ -257,7 +293,9 @@ const ModelCard = ({
           : parseInt(nGPU, 10),
       replica: replica,
       request_limits:
-        requestLimits.trim() === '' ? null : Number(requestLimits.trim()),
+        String(requestLimits).trim() === ''
+          ? null
+          : Number(String(requestLimits).trim()),
       worker_ip: workerIp.trim() === '' ? null : workerIp.trim(),
       gpu_idx: GPUIdx.trim() === '' ? null : handleGPUIdx(GPUIdx.trim()),
     }
@@ -326,34 +364,30 @@ const ModelCard = ({
       modelType === 'LLM' ? modelDataWithID_LLM : modelDataWithID_other
 
     // First fetcher request to initiate the model
-    fetcher(url + '/v1/models', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(modelDataWithID),
-    })
-      .then((response) => {
-        if (!response.ok) {
-          // Assuming the server returns error details in JSON format
-          response.json().then((errorData) => {
-            setErrorMsg(
-              `Server error: ${response.status} - ${
-                errorData.detail || 'Unknown error'
-              }`
-            )
-          })
-        } else {
-          navigate(`/running_models/${modelType}`)
-          sessionStorage.setItem(
-            'runningModelType',
-            `/running_models/${modelType}`
+    fetchWrapper
+      .post('/v1/models', modelDataWithID)
+      .then(() => {
+        navigate(`/running_models/${modelType}`)
+        sessionStorage.setItem(
+          'runningModelType',
+          `/running_models/${modelType}`
+        )
+        let historyArr = JSON.parse(localStorage.getItem('historyArr')) || []
+        if (!historyArr.some((item) => deepEqual(item, modelDataWithID))) {
+          historyArr = historyArr.filter(
+            (item) => item.model_name !== modelDataWithID.model_name
           )
+          historyArr.push(modelDataWithID)
         }
+        localStorage.setItem('historyArr', JSON.stringify(historyArr))
+
         setIsCallingApi(false)
       })
       .catch((error) => {
         console.error('Error:', error)
+        if (error.response.status !== 403) {
+          setErrorMsg(error.message)
+        }
         setIsCallingApi(false)
       })
   }
@@ -371,24 +405,23 @@ const ModelCard = ({
     const subType = sessionStorage.getItem('subType').split('/')
     if (subType) {
       subType[3]
-      fetcher(
-        url +
+      fetchWrapper
+        .delete(
           `/v1/model_registrations/${
             subType[3] === 'llm' ? 'LLM' : subType[3]
-          }/${modelData.model_name}`,
-        {
-          method: 'DELETE',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        }
-      )
+          }/${modelData.model_name}`
+        )
         .then(() => {
           setCustomDeleted(true)
           onHandlecustomDelete(modelData.model_name)
           setIsDeleteCustomModel(false)
         })
-        .catch(console.error)
+        .catch((error) => {
+          console.error(error)
+          if (error.response.status !== 403) {
+            setErrorMsg(error.message)
+          }
+        })
     }
   }
 
@@ -407,6 +440,7 @@ const ModelCard = ({
   }
 
   const handleValueType = (str) => {
+    str = String(str)
     if (str.toLowerCase() === 'none') {
       return null
     } else if (str.toLowerCase() === 'true') {
@@ -420,22 +454,6 @@ const ModelCard = ({
     }
   }
 
-  const getLoraListArr = (arr) => {
-    setLoraListArr(arr)
-  }
-
-  const getImageLoraLoadKwargsArr = (arr) => {
-    setImageLoraLoadKwargsArr(arr)
-  }
-
-  const getImageLoraFuseKwargsArr = (arr) => {
-    setImageLoraFuseKwargsArr(arr)
-  }
-
-  const getCustomParametersArr = (arr) => {
-    setCustomParametersArr(arr)
-  }
-
   const StyledTableRow = styled(TableRow)(({ theme }) => ({
     '&:nth-of-type(odd)': {
       backgroundColor: theme.palette.action.hover,
@@ -447,17 +465,6 @@ const ModelCard = ({
 
   const handleChangePage = (_, newPage) => {
     setPage(newPage)
-  }
-
-  const handleCopyPath = (path) => {
-    const clipboard = new ClipboardJS('.copyPath', {
-      text: () => path,
-    })
-
-    clipboard.on('success', (e) => {
-      e.clearSelection()
-      setIsCopySuccess(true)
-    })
   }
 
   const handleOpenCachedList = () => {
@@ -476,29 +483,14 @@ const ModelCard = ({
   }
 
   const getCachedList = () => {
-    fetcher(url + `/v1/cache/models?model_name=${modelData.model_name}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    })
-      .then((response) => {
-        if (!response.ok) {
-          response.json().then((errorData) => {
-            setErrorMsg(
-              `Server error: ${response.status} - ${
-                errorData.detail || 'Unknown error'
-              }`
-            )
-          })
-        } else {
-          response.json().then((data) => {
-            setCachedListArr(data.list)
-          })
-        }
-      })
+    fetchWrapper
+      .get(`/v1/cache/models?model_name=${modelData.model_name}`)
+      .then((data) => setCachedListArr(data.list))
       .catch((error) => {
-        console.error('Error:', error)
+        console.error(error)
+        if (error.response.status !== 403) {
+          setErrorMsg(error.message)
+        }
       })
   }
 
@@ -509,56 +501,233 @@ const ModelCard = ({
   }
 
   const handleDeleteCached = () => {
-    fetcher(url + `/v1/cache/models?model_version=${cachedModelVersion}`, {
-      method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    })
-      .then((response) => {
-        if (!response.ok) {
-          response.json().then((errorData) => {
-            setErrorMsg(
-              `Server error: ${response.status} - ${
-                errorData.detail || 'Unknown error'
-              }`
-            )
-          })
-        } else {
-          response.json().then(() => {
-            const cachedArr = cachedListArr.filter(
-              (item) => item.real_path !== cachedRealPath
-            )
-            setCachedListArr(cachedArr)
-            setIsDeleteCached(false)
-            if (cachedArr.length) {
-              if (
-                (page + 1) * 5 >= cachedListArr.length &&
-                cachedArr.length % 5 === 0
-              ) {
-                setPage(cachedArr.length / 5 - 1)
-              }
-            }
-          })
+    fetchWrapper
+      .delete(`/v1/cache/models?model_version=${cachedModelVersion}`)
+      .then(() => {
+        const cachedArr = cachedListArr.filter(
+          (item) => item.real_path !== cachedRealPath
+        )
+        setCachedListArr(cachedArr)
+        setIsDeleteCached(false)
+        if (cachedArr.length) {
+          if (
+            (page + 1) * 5 >= cachedListArr.length &&
+            cachedArr.length % 5 === 0
+          ) {
+            setPage(cachedArr.length / 5 - 1)
+          }
         }
       })
       .catch((error) => {
-        console.error('Error:', error)
+        console.error(error)
+        if (error.response.status !== 403) {
+          setErrorMsg(error.message)
+        }
       })
+  }
+
+  const handleJsonDataPresentation = () => {
+    const arr = sessionStorage.getItem('subType').split('/')
+    sessionStorage.setItem(
+      'registerModelType',
+      `/register_model/${arr[arr.length - 1]}`
+    )
+    sessionStorage.setItem('customJsonData', JSON.stringify(modelData))
+    navigate(`/register_model/${arr[arr.length - 1]}/${modelData.model_name}`)
+  }
+
+  const handleGetHistory = () => {
+    const historyArr = JSON.parse(localStorage.getItem('historyArr')) || []
+    return historyArr.filter((item) => item.model_name === modelData.model_name)
+  }
+
+  const handleLlmHistory = () => {
+    const arr = handleGetHistory()
+    if (arr.length) {
+      const {
+        model_engine,
+        model_format,
+        model_size_in_billions,
+        quantization,
+        n_gpu,
+        n_gpu_layers,
+        replica,
+        model_uid,
+        request_limits,
+        worker_ip,
+        gpu_idx,
+        peft_model_config,
+      } = arr[0]
+
+      if (!engineOptions.includes(model_engine)) {
+        setModelEngine('')
+      } else {
+        setModelEngine(model_engine || '')
+      }
+      setModelFormat(model_format || '')
+      setModelSize(String(model_size_in_billions) || '')
+      setQuantization(quantization || '')
+      setNGPU(n_gpu || 'auto')
+      if (n_gpu_layers >= 0) {
+        setNGPULayers(n_gpu_layers)
+      } else {
+        setNGPULayers(-1)
+      }
+      setReplica(replica || 1)
+      setModelUID(model_uid || '')
+      setRequestLimits(request_limits || '')
+      setWorkerIp(worker_ip || '')
+      setGPUIdx(gpu_idx?.join(',') || '')
+
+      let loraData = []
+      peft_model_config?.lora_list?.forEach((item) => {
+        loraData.push({
+          lora_name: item.lora_name,
+          local_path: item.local_path,
+        })
+      })
+      setLoraArr(loraData)
+
+      let ImageLoraLoadData = []
+      for (let key in peft_model_config?.image_lora_load_kwargs) {
+        ImageLoraLoadData.push({
+          key: key,
+          value: peft_model_config?.image_lora_load_kwargs[key],
+        })
+      }
+      setImageLoraLoadArr(ImageLoraLoadData)
+
+      let ImageLoraFuseData = []
+      for (let key in peft_model_config?.image_lora_fuse_kwargs) {
+        ImageLoraFuseData.push({
+          key: key,
+          value: peft_model_config?.image_lora_fuse_kwargs[key],
+        })
+      }
+      setImageLoraFuseArr(ImageLoraFuseData)
+
+      let customData = []
+      for (let key in arr[0]) {
+        !llmAllDataKey.includes(key) &&
+          customData.push({ key: key, value: arr[0][key] })
+      }
+      setCustomArr(customData)
+
+      if (model_uid || request_limits || worker_ip || gpu_idx?.join(','))
+        setIsOther(true)
+
+      if (
+        loraData.length ||
+        ImageLoraLoadData.length ||
+        ImageLoraFuseData.length
+      ) {
+        setIsOther(true)
+        setIsPeftModelConfig(true)
+      }
+    }
+  }
+
+  const handleOtherHistory = () => {
+    const arr = handleGetHistory()
+    if (arr.length) {
+      if (modelType === 'embedding' || modelType === 'rerank') {
+        setModelUID(arr[0].model_uid || '')
+        setReplica(arr[0].replica || 1)
+        setWorkerIp(arr[0].worker_ip || '')
+      } else {
+        setModelUID(arr[0].model_uid || '')
+      }
+    }
+  }
+
+  const deepEqual = (obj1, obj2) => {
+    if (obj1 === obj2) return true
+    if (
+      typeof obj1 !== 'object' ||
+      typeof obj2 !== 'object' ||
+      obj1 == null ||
+      obj2 == null
+    ) {
+      return false
+    }
+
+    let keysA = Object.keys(obj1)
+    let keysB = Object.keys(obj2)
+    if (keysA.length !== keysB.length) return false
+    for (let key of keysA) {
+      if (!keysB.includes(key) || !deepEqual(obj1[key], obj2[key])) {
+        return false
+      }
+    }
+    return true
+  }
+
+  const handleCollection = (bool) => {
+    setHover(false)
+
+    let collectionArr = JSON.parse(localStorage.getItem('collectionArr')) || []
+    if (bool) {
+      collectionArr.push(modelData.model_name)
+    } else {
+      collectionArr = collectionArr.filter(
+        (item) => item !== modelData.model_name
+      )
+    }
+    localStorage.setItem('collectionArr', JSON.stringify(collectionArr))
+
+    onGetCollectionArr(collectionArr)
+  }
+
+  const handleDeleteChip = () => {
+    const arr = JSON.parse(localStorage.getItem('historyArr'))
+    const newArr = arr.filter(
+      (item) => item.model_name !== modelData.model_name
+    )
+    localStorage.setItem('historyArr', JSON.stringify(newArr))
+    setIsHistory(false)
+    if (modelType === 'LLM') {
+      setModelEngine('')
+      setModelFormat('')
+      setModelSize('')
+      setQuantization('')
+      setNGPU('auto')
+      setReplica(1)
+      setModelUID('')
+      setRequestLimits('')
+      setWorkerIp('')
+      setGPUIdx('')
+      setLoraArr([])
+      setImageLoraLoadArr([])
+      setImageLoraFuseArr([])
+      setCustomArr([])
+      setIsOther(false)
+      setIsPeftModelConfig(false)
+    } else if (modelType === 'embedding' || modelType === 'rerank') {
+      setModelUID('')
+      setReplica(1)
+      setWorkerIp('')
+    } else {
+      setModelUID('')
+    }
   }
 
   // Set two different states based on mouse hover
   return (
     <>
       <Paper
+        id={modelData.model_name}
         className="container"
         onMouseEnter={() => setHover(true)}
         onMouseLeave={() => setHover(false)}
         onClick={() => {
           if (!selected && !customDeleted) {
+            const arr = handleGetHistory()
+            if (arr.length) setIsHistory(true)
             setSelected(true)
             if (modelType === 'LLM') {
               getModelEngine(modelData.model_name)
+            } else {
+              handleOtherHistory()
             }
           }
         }}
@@ -567,21 +736,68 @@ const ModelCard = ({
         {modelType === 'LLM' ? (
           <Box className="descriptionCard">
             {is_custom && (
-              <Stack direction="row" spacing={1} useFlexGap>
+              <div className="cardTitle">
                 <TitleTypography value={modelData.model_name} />
-                <IconButton
-                  aria-label="delete"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setIsDeleteCustomModel(true)
-                  }}
-                  disabled={customDeleted}
-                >
-                  <DeleteIcon />
-                </IconButton>
-              </Stack>
+                <div className="iconButtonBox">
+                  <Tooltip title={'Edit'} placement="top">
+                    <IconButton
+                      aria-label="show"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setIsJsonShow(true)
+                      }}
+                    >
+                      <EditNote />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title={'delete'} placement="top">
+                    <IconButton
+                      aria-label="delete"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setIsDeleteCustomModel(true)
+                      }}
+                    >
+                      <Delete />
+                    </IconButton>
+                  </Tooltip>
+                </div>
+              </div>
             )}
-            {!is_custom && <TitleTypography value={modelData.model_name} />}
+            {!is_custom && (
+              <div className="cardTitle">
+                <TitleTypography value={modelData.model_name} />
+                <div className="iconButtonBox">
+                  {JSON.parse(localStorage.getItem('collectionArr'))?.includes(
+                    modelData.model_name
+                  ) ? (
+                    <Tooltip title={'Unfavorite'} placement="top">
+                      <IconButton
+                        aria-label="collection"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleCollection(false)
+                        }}
+                      >
+                        <Grade style={{ color: 'rgb(255, 206, 0)' }} />
+                      </IconButton>
+                    </Tooltip>
+                  ) : (
+                    <Tooltip title={'Favorite'} placement="top">
+                      <IconButton
+                        aria-label="cancellation-of-collections"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleCollection(true)
+                        }}
+                      >
+                        <StarBorder />
+                      </IconButton>
+                    </Tooltip>
+                  )}
+                </div>
+              </div>
+            )}
 
             <Stack
               spacing={1}
@@ -671,21 +887,70 @@ const ModelCard = ({
           <Box className="descriptionCard">
             <div className="titleContainer">
               {is_custom && (
-                <Stack direction="row" spacing={1} useFlexGap>
+                <div className="cardTitle">
                   <TitleTypography value={modelData.model_name} />
-                  <IconButton
-                    aria-label="delete"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setIsDeleteCustomModel(true)
-                    }}
-                    disabled={customDeleted}
-                  >
-                    <DeleteIcon />
-                  </IconButton>
-                </Stack>
+                  <div className="iconButtonBox">
+                    <Tooltip title={'Edit'} placement="top">
+                      <IconButton
+                        aria-label="show"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setIsJsonShow(true)
+                        }}
+                      >
+                        <EditNote />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title={'delete'} placement="top">
+                      <IconButton
+                        aria-label="delete"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setIsDeleteCustomModel(true)
+                        }}
+                        disabled={customDeleted}
+                      >
+                        <Delete />
+                      </IconButton>
+                    </Tooltip>
+                  </div>
+                </div>
               )}
-              {!is_custom && <TitleTypography value={modelData.model_name} />}
+              {!is_custom && (
+                <div className="cardTitle">
+                  <TitleTypography value={modelData.model_name} />
+                  <div className="iconButtonBox">
+                    {JSON.parse(
+                      localStorage.getItem('collectionArr')
+                    )?.includes(modelData.model_name) ? (
+                      <Tooltip title={'Unfavorite'} placement="top">
+                        <IconButton
+                          aria-label="collection"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleCollection(false)
+                          }}
+                        >
+                          <Grade style={{ color: 'rgb(255, 206, 0)' }} />
+                        </IconButton>
+                      </Tooltip>
+                    ) : (
+                      <Tooltip title={'Favorite'} placement="top">
+                        <IconButton
+                          aria-label="cancellation-of-collections"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleCollection(true)
+                          }}
+                        >
+                          <StarBorder />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <Stack
                 spacing={1}
                 direction="row"
@@ -773,7 +1038,19 @@ const ModelCard = ({
         anchor={'right'}
       >
         <div className="drawerCard">
-          <TitleTypography value={modelData.model_name} />
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <TitleTypography value={modelData.model_name} />
+            {isHistory && (
+              <Chip
+                label="Last Config"
+                variant="outlined"
+                size="small"
+                color="primary"
+                onDelete={handleDeleteChip}
+              />
+            )}
+          </div>
+
           {modelType === 'LLM' ? (
             <Box
               ref={parentRef}
@@ -988,8 +1265,13 @@ const ModelCard = ({
                   </FormControl>
                 </Grid>
                 <ListItemButton onClick={() => setIsOther(!isOther)}>
-                  <ListItemText primary="Optional Configurations" />
-                  {isOther ? <ExpandLess /> : <ExpandMore />}
+                  <div style={{ display: 'flex', alignItems: 'center' }}>
+                    <ListItemText
+                      primary="Optional Configurations"
+                      style={{ marginRight: 10 }}
+                    />
+                    {isOther ? <ExpandLess /> : <ExpandMore />}
+                  </div>
                 </ListItemButton>
                 <Collapse in={isOther} timeout="auto" unmountOnExit>
                   <Grid item xs={12}>
@@ -1081,8 +1363,11 @@ const ModelCard = ({
                         key: 'lora_name',
                         value: 'local_path',
                       }}
-                      onGetArr={getLoraListArr}
+                      onGetArr={(arr) => {
+                        setLoraListArr(arr)
+                      }}
                       onJudgeArr={judgeArr}
+                      pairData={loraArr}
                     />
                     <AddPair
                       customData={{
@@ -1090,8 +1375,11 @@ const ModelCard = ({
                         key: 'key',
                         value: 'value',
                       }}
-                      onGetArr={getImageLoraLoadKwargsArr}
+                      onGetArr={(arr) => {
+                        setImageLoraLoadKwargsArr(arr)
+                      }}
                       onJudgeArr={judgeArr}
+                      pairData={imageLoraLoadArr}
                     />
                     <AddPair
                       customData={{
@@ -1099,8 +1387,11 @@ const ModelCard = ({
                         key: 'key',
                         value: 'value',
                       }}
-                      onGetArr={getImageLoraFuseKwargsArr}
+                      onGetArr={(arr) => {
+                        setImageLoraFuseKwargsArr(arr)
+                      }}
                       onJudgeArr={judgeArr}
+                      pairData={imageLoraFuseArr}
                     />
                   </Collapse>
                 </Collapse>
@@ -1112,8 +1403,11 @@ const ModelCard = ({
                     key: 'key',
                     value: 'value',
                   }}
-                  onGetArr={getCustomParametersArr}
+                  onGetArr={(arr) => {
+                    setCustomParametersArr(arr)
+                  }}
                   onJudgeArr={judgeArr}
+                  pairData={customArr}
                 />
               </Grid>
             </Box>
@@ -1281,11 +1575,43 @@ const ModelCard = ({
           </Box>
         </div>
       </Drawer>
+      <Backdrop
+        sx={{ color: '#fff', zIndex: (theme) => theme.zIndex.drawer + 1 }}
+        open={isJsonShow}
+      >
+        <div className="jsonDialog">
+          <div className="jsonDialog-title">
+            <div className="title-name">{modelData.model_name}</div>
+            <CopyComponent
+              tip={'Copy Json'}
+              text={JSON.stringify(modelData, null, 4)}
+            />
+          </div>
+          <div className="main-box">
+            <textarea
+              readOnly
+              className="textarea-box"
+              value={JSON.stringify(modelData, null, 4)}
+            />
+          </div>
+          <div className="but-box">
+            <Button
+              onClick={() => {
+                setIsJsonShow(false)
+              }}
+              style={{ marginRight: 30 }}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleJsonDataPresentation}>Edit</Button>
+          </div>
+        </div>
+      </Backdrop>
       <Snackbar
         anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
         open={openSnackbar}
         onClose={() => setOpenSnackbar(false)}
-        message="Please fill in the complete parameters before adding!!"
+        message="Please fill in the complete parameters before adding!"
         key={'top' + 'center'}
       />
 
@@ -1367,12 +1693,10 @@ const ModelCard = ({
                       </Tooltip>
                     </TableCell>
                     <TableCell>
-                      <Tooltip title="Copy real_path" placement="top">
-                        <FilterNoneIcon
-                          className="copyPath"
-                          onClick={() => handleCopyPath(row.real_path)}
-                        />
-                      </Tooltip>
+                      <CopyComponent
+                        tip={'Copy real_path'}
+                        text={row.real_path}
+                      />
                     </TableCell>
                     <TableCell>
                       <Tooltip title={row.path}>
@@ -1386,12 +1710,7 @@ const ModelCard = ({
                       </Tooltip>
                     </TableCell>
                     <TableCell>
-                      <Tooltip title="Copy path" placement="top">
-                        <FilterNoneIcon
-                          className="copyPath"
-                          onClick={() => handleCopyPath(row.path)}
-                        />
-                      </Tooltip>
+                      <CopyComponent tip={'Copy path'} text={row.path} />
                     </TableCell>
                     <TableCell>{row.actor_ip_address}</TableCell>
                     <TableCell align={modelType === 'LLM' ? 'center' : 'left'}>
@@ -1405,7 +1724,7 @@ const ModelCard = ({
                           )
                         }
                       >
-                        <DeleteIcon />
+                        <Delete />
                       </IconButton>
                     </TableCell>
                   </StyledTableRow>
@@ -1437,16 +1756,6 @@ const ModelCard = ({
         onHandleIsDelete={() => setIsDeleteCached(false)}
         onHandleDelete={handleDeleteCached}
       />
-      <Snackbar
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-        open={isCopySuccess}
-        autoHideDuration={1500}
-        onClose={() => setIsCopySuccess(false)}
-      >
-        <Alert severity="success" variant="filled" sx={{ width: '100%' }}>
-          Copied to clipboard!
-        </Alert>
-      </Snackbar>
     </>
   )
 }

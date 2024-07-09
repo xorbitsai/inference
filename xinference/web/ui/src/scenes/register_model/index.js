@@ -9,12 +9,17 @@ import Title from '../../components/Title'
 import RegisterModelComponent from './registerModel'
 
 const RegisterModel = () => {
-  const [tabValue, setTabValue] = React.useState('/register_model/llm')
+  const [tabValue, setTabValue] = React.useState(
+    sessionStorage.getItem('registerModelType')
+      ? sessionStorage.getItem('registerModelType')
+      : '/register_model/llm'
+  )
   const [cookie] = useCookies(['token'])
   const navigate = useNavigate()
 
   useEffect(() => {
     if (cookie.token === '' || cookie.token === undefined) {
+      navigate('/login', { replace: true })
       return
     }
     if (cookie.token !== 'no_auth' && !sessionStorage.getItem('token')) {
@@ -23,17 +28,21 @@ const RegisterModel = () => {
     }
   }, [cookie.token])
 
+  const handleTabChange = (_, newValue) => {
+    setTabValue(newValue)
+    navigate(newValue)
+    sessionStorage.setItem('registerModelType', newValue)
+  }
+
   return (
-    <Box m="20px">
+    <Box m="20px" style={{ overflow: 'hidden' }}>
       <Title title="Register Model" />
       <ErrorMessageSnackBar />
       <TabContext value={tabValue}>
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
           <TabList
             value={tabValue}
-            onChange={(e, v) => {
-              setTabValue(v)
-            }}
+            onChange={handleTabChange}
             aria-label="tabs"
           >
             <Tab label="Language Model" value="/register_model/llm" />
@@ -57,7 +66,7 @@ const RegisterModel = () => {
               model_family: '',
               model_specs: [
                 {
-                  model_uri: '/path/to/llama-2',
+                  model_uri: '/path/to/llama-1',
                   model_size_in_billions: 7,
                   model_format: 'pytorch',
                   quantizations: ['none'],
