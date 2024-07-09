@@ -68,56 +68,12 @@ const RunningModels = () => {
       fetchWrapper
         .get('/v1/models')
         .then((response) => {
-          if (!response.ok) {
-            response.json().then((errorData) => {
-              setErrorMsg(
-                `Login failed: ${response.status} - ${
-                  errorData.detail || 'Unknown error'
-                }`
-              )
-            })
-          } else {
-            response.json().then((response) => {
-              const newLlmData = []
-              const newEmbeddingModelData = []
-              const newImageModelData = []
-              const newAudioModelData = []
-              const newRerankModelData = []
-              const newFlexibleModelData = []
-              response.data.forEach((model) => {
-                let newValue = {
-                  ...model,
-                  id: model.id,
-                  url: model.id,
-                }
-                if (newValue.model_type === 'LLM') {
-                  newLlmData.push(newValue)
-                } else if (newValue.model_type === 'embedding') {
-                  newEmbeddingModelData.push(newValue)
-                } else if (newValue.model_type === 'audio') {
-                  newAudioModelData.push(newValue)
-                } else if (newValue.model_type === 'image') {
-                  newImageModelData.push(newValue)
-                } else if (newValue.model_type === 'rerank') {
-                  newRerankModelData.push(newValue)
-                } else if (newValue.model_type === 'flexible') {
-                  newFlexibleModelData.push(newValue)
-                }
-              })
-              setLlmData(newLlmData)
-              setEmbeddingModelData(newEmbeddingModelData)
-              setAudioModelData(newAudioModelData)
-              setImageModelData(newImageModelData)
-              setRerankModelData(newRerankModelData)
-              setFlexibleModelData(newFlexibleModelData)
-              setIsUpdatingModel(false)
-            })
-          }
           const newLlmData = []
           const newEmbeddingModelData = []
           const newImageModelData = []
           const newAudioModelData = []
           const newRerankModelData = []
+          const newFlexibleModelData = []
           response.data.forEach((model) => {
             let newValue = {
               ...model,
@@ -134,6 +90,8 @@ const RunningModels = () => {
               newImageModelData.push(newValue)
             } else if (newValue.model_type === 'rerank') {
               newRerankModelData.push(newValue)
+            } else if (newValue.model_type === 'flexible') {
+              newFlexibleModelData.push(newValue)
             }
           })
           setLlmData(newLlmData)
@@ -141,6 +99,7 @@ const RunningModels = () => {
           setAudioModelData(newAudioModelData)
           setImageModelData(newImageModelData)
           setRerankModelData(newRerankModelData)
+          setFlexibleModelData(newFlexibleModelData)
           setIsUpdatingModel(false)
         })
         .catch((error) => {
