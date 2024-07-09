@@ -277,7 +277,7 @@ msgstr "以命令行的方式"
 msgid ""
 "Note that replace the ``<model_type>`` above with ``LLM``, ``embedding`` "
 "or ``rerank``. The same as below."
-msgstr "注意将以下部分的 ``<model_type>`` 替换为 ``LLM`` 或者 ``embedding`` 。"
+msgstr "注意将以下部分的 ``<model_type>`` 替换为 ``LLM``、``embedding`` 或 ``rerank`` 。"
 
 #: ../../source/models/custom.rst:239
 msgid "List the Built-in and Custom Models"
