@@ -91,7 +91,7 @@ const RunningModels = () => {
         console.error('Error:', error)
         setIsUpdatingModel(false)
         if (error.response.status !== 403 && error.response.status !== 401) {
-            setErrorMsg(error.message)
+          setErrorMsg(error.message)
         }
       })
   }
