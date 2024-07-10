@@ -20,7 +20,17 @@ import time
 import typing
 from dataclasses import dataclass
 from logging import getLogger
-from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Tuple, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    Iterator,
+    List,
+    Literal,
+    Optional,
+    Tuple,
+    Union,
+)
 
 import xoscar as xo
 
@@ -752,6 +762,7 @@ class SupervisorActor(xo.StatelessActor):
         peft_model_config: Optional[PeftModelConfig] = None,
         worker_ip: Optional[str] = None,
         gpu_idx: Optional[Union[int, List[int]]] = None,
+        download_hub: Optional[Literal["huggingface", "modelscope", "csghub"]] = None,
         **kwargs,
     ) -> str:
         target_ip_worker_ref = (
@@ -825,6 +836,7 @@ class SupervisorActor(xo.StatelessActor):
                 request_limits=request_limits,
                 peft_model_config=peft_model_config,
                 gpu_idx=replica_gpu_idx,
+                download_hub=download_hub,
                 **kwargs,
             )
             self._replica_model_uid_to_worker[_replica_model_uid] = worker_ref

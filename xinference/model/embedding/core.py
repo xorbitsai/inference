@@ -16,7 +16,7 @@ import gc
 import logging
 import os
 from collections import defaultdict
-from typing import Dict, List, Optional, Tuple, Union, no_type_check
+from typing import Dict, List, Literal, Optional, Tuple, Union, no_type_check
 
 import numpy as np
 
@@ -305,7 +305,10 @@ class EmbeddingModel:
         )
 
 
-def match_embedding(model_name: str) -> EmbeddingModelSpec:
+def match_embedding(
+    model_name: str,
+    download_hub: Optional[Literal["huggingface", "modelscope", "csghub"]] = None,
+) -> EmbeddingModelSpec:
     from ..utils import download_from_modelscope
     from . import BUILTIN_EMBEDDING_MODELS, MODELSCOPE_EMBEDDING_MODELS
     from .custom import get_user_defined_embeddings
@@ -315,29 +318,35 @@ def match_embedding(model_name: str) -> EmbeddingModelSpec:
         if model_name == model_spec.model_name:
             return model_spec
 
-    if download_from_modelscope():
-        if model_name in MODELSCOPE_EMBEDDING_MODELS:
-            logger.debug(f"Embedding model {model_name} found in ModelScope.")
-            return MODELSCOPE_EMBEDDING_MODELS[model_name]
-        else:
-            logger.debug(
-                f"Embedding model {model_name} not found in ModelScope, "
-                f"now try to load it via builtin way."
-            )
-
-    if model_name in BUILTIN_EMBEDDING_MODELS:
+    if download_hub == "modelscope" and model_name in MODELSCOPE_EMBEDDING_MODELS:
+        logger.debug(f"Embedding model {model_name} found in ModelScope.")
+        return MODELSCOPE_EMBEDDING_MODELS[model_name]
+    elif download_hub == "huggingface" and model_name in BUILTIN_EMBEDDING_MODELS:
+        logger.debug(f"Embedding model {model_name} found in Huggingface.")
+        return BUILTIN_EMBEDDING_MODELS[model_name]
+    elif download_from_modelscope() and model_name in MODELSCOPE_EMBEDDING_MODELS:
+        logger.debug(f"Embedding model {model_name} found in ModelScope.")
+        return MODELSCOPE_EMBEDDING_MODELS[model_name]
+    elif model_name in BUILTIN_EMBEDDING_MODELS:
+        logger.debug(f"Embedding model {model_name} found in Huggingface.")
         return BUILTIN_EMBEDDING_MODELS[model_name]
     else:
         raise ValueError(
             f"Embedding model {model_name} not found, available"
-            f"model list: {BUILTIN_EMBEDDING_MODELS.keys()}"
+            f"Huggingface: {BUILTIN_EMBEDDING_MODELS.keys()}"
+            f"ModelScopet: {MODELSCOPE_EMBEDDING_MODELS.keys()}"
         )
 
 
 def create_embedding_model_instance(
-    subpool_addr: str, devices: List[str], model_uid: str, model_name: str, **kwargs
+    subpool_addr: str,
+    devices: List[str],
+    model_uid: str,
+    model_name: str,
+    download_hub: Optional[Literal["huggingface", "modelscope", "csghub"]] = None,
+    **kwargs,
 ) -> Tuple[EmbeddingModel, EmbeddingModelDescription]:
-    model_spec = match_embedding(model_name)
+    model_spec = match_embedding(model_name, download_hub)
     model_path = cache(model_spec)
     model = EmbeddingModel(model_uid, model_path, **kwargs)
     model_description = EmbeddingModelDescription(

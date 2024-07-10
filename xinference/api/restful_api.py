@@ -772,6 +772,7 @@ class RESTfulAPI:
         peft_model_config = payload.get("peft_model_config", None)
         worker_ip = payload.get("worker_ip", None)
         gpu_idx = payload.get("gpu_idx", None)
+        download_hub = payload.get("download_hub", None)
 
         exclude_keys = {
             "model_uid",
@@ -787,6 +788,7 @@ class RESTfulAPI:
             "peft_model_config",
             "worker_ip",
             "gpu_idx",
+            "download_hub",
         }
 
         kwargs = {
@@ -834,9 +836,9 @@ class RESTfulAPI:
                 peft_model_config=peft_model_config,
                 worker_ip=worker_ip,
                 gpu_idx=gpu_idx,
+                download_hub=download_hub,
                 **kwargs,
             )
-
         except ValueError as ve:
             logger.error(str(ve), exc_info=True)
             raise HTTPException(status_code=400, detail=str(ve))
