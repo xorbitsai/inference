@@ -19,6 +19,7 @@ const RegisterModel = () => {
 
   useEffect(() => {
     if (cookie.token === '' || cookie.token === undefined) {
+      navigate('/login', { replace: true })
       return
     }
     if (cookie.token !== 'no_auth' && !sessionStorage.getItem('token')) {

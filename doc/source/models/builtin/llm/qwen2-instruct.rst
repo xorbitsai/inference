@@ -206,7 +206,71 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name qwen2-instruct --size-in-billions 72 --model-format awq --quantization ${quantization}
 
 
-Model Spec 13 (ggufv2, 0_5 Billion)
+Model Spec 13 (mlx, 0_5 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** mlx
+- **Model Size (in billions):** 0_5
+- **Quantizations:** 4-bit
+- **Engines**: MLX
+- **Model ID:** Qwen/Qwen2-0.5B-Instruct-MLX
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen2-0.5B-Instruct-MLX>`__, `ModelScope <https://modelscope.cn/models/qwen/Qwen2-0.5B-Instruct-MLX>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen2-instruct --size-in-billions 0_5 --model-format mlx --quantization ${quantization}
+
+
+Model Spec 14 (mlx, 1_5 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** mlx
+- **Model Size (in billions):** 1_5
+- **Quantizations:** 4-bit
+- **Engines**: MLX
+- **Model ID:** Qwen/Qwen2-1.5B-Instruct-MLX
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen2-1.5B-Instruct-MLX>`__, `ModelScope <https://modelscope.cn/models/qwen/Qwen2-1.5B-Instruct-MLX>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen2-instruct --size-in-billions 1_5 --model-format mlx --quantization ${quantization}
+
+
+Model Spec 15 (mlx, 7 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** mlx
+- **Model Size (in billions):** 7
+- **Quantizations:** 4-bit
+- **Engines**: MLX
+- **Model ID:** Qwen/Qwen2-7B-Instruct-MLX
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen2-7B-Instruct-MLX>`__, `ModelScope <https://modelscope.cn/models/qwen/Qwen2-7B-Instruct-MLX>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen2-instruct --size-in-billions 7 --model-format mlx --quantization ${quantization}
+
+
+Model Spec 16 (mlx, 72 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** mlx
+- **Model Size (in billions):** 72
+- **Quantizations:** 4-bit
+- **Engines**: MLX
+- **Model ID:** mlx-community/Qwen2-72B-4bit
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Qwen2-72B-4bit>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen2-instruct --size-in-billions 72 --model-format mlx --quantization ${quantization}
+
+
+Model Spec 17 (ggufv2, 0_5 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** ggufv2
@@ -220,4 +284,52 @@ Execute the following command to launch the model, remember to replace ``${quant
 chosen quantization method from the options listed above::
 
    xinference launch --model-engine ${engine} --model-name qwen2-instruct --size-in-billions 0_5 --model-format ggufv2 --quantization ${quantization}
+
+
+Model Spec 18 (ggufv2, 1_5 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** ggufv2
+- **Model Size (in billions):** 1_5
+- **Quantizations:** q2_k, q3_k_m, q4_0, q4_k_m, q5_0, q5_k_m, q6_k, q8_0, fp16
+- **Engines**: llama.cpp
+- **Model ID:** Qwen/Qwen2-1.5B-Instruct-GGUF
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen2-1.5B-Instruct-GGUF>`__, `ModelScope <https://modelscope.cn/models/qwen/Qwen2-1.5B-Instruct-GGUF>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen2-instruct --size-in-billions 1_5 --model-format ggufv2 --quantization ${quantization}
+
+
+Model Spec 19 (ggufv2, 7 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** ggufv2
+- **Model Size (in billions):** 7
+- **Quantizations:** q2_k, q3_k_m, q4_0, q4_k_m, q5_0, q5_k_m, q6_k, q8_0, fp16
+- **Engines**: llama.cpp
+- **Model ID:** Qwen/Qwen2-7B-Instruct-GGUF
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen2-7B-Instruct-GGUF>`__, `ModelScope <https://modelscope.cn/models/qwen/Qwen2-7B-Instruct-GGUF>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen2-instruct --size-in-billions 7 --model-format ggufv2 --quantization ${quantization}
+
+
+Model Spec 20 (ggufv2, 72 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** ggufv2
+- **Model Size (in billions):** 72
+- **Quantizations:** q2_k, q3_k_m, q4_0, q4_k_m, q5_0, q5_k_m, q6_k, q8_0, fp16
+- **Engines**: llama.cpp
+- **Model ID:** Qwen/Qwen2-72B-Instruct-GGUF
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen2-72B-Instruct-GGUF>`__, `ModelScope <https://modelscope.cn/models/qwen/Qwen2-72B-Instruct-GGUF>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen2-instruct --size-in-billions 72 --model-format ggufv2 --quantization ${quantization}
 

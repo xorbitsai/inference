@@ -36,6 +36,7 @@ from .llm_family import (
     BUILTIN_MODELSCOPE_LLM_FAMILIES,
     LLAMA_CLASSES,
     LLM_ENGINES,
+    MLX_CLASSES,
     SGLANG_CLASSES,
     SUPPORTED_ENGINES,
     TRANSFORMERS_CLASSES,
@@ -46,9 +47,9 @@ from .llm_family import (
     GgmlLLMSpecV1,
     LLMFamilyV1,
     LLMSpecV1,
+    MLXLLMSpecV1,
     PromptStyleV1,
     PytorchLLMSpecV1,
-    RepoLevelCodeCompletionSpecV1,
     get_cache_status,
     get_user_defined_llm_families,
     match_llm,
@@ -117,6 +118,7 @@ def generate_engine_config_by_model_family(model_family):
 def _install():
     from .ggml.chatglm import ChatglmCppChatModel
     from .ggml.llamacpp import LlamaCppChatModel, LlamaCppCodeModel, LlamaCppModel
+    from .mlx.core import MLXChatModel, MLXModel
     from .pytorch.baichuan import BaichuanPytorchChatModel
     from .pytorch.chatglm import ChatglmPytorchChatModel
     from .pytorch.cogvlm2 import CogVLM2Model
@@ -153,6 +155,7 @@ def _install():
     )
     SGLANG_CLASSES.extend([SGLANGModel, SGLANGChatModel])
     VLLM_CLASSES.extend([VLLMModel, VLLMChatModel, VLLMCodeModel])
+    MLX_CLASSES.extend([MLXModel, MLXChatModel])
     TRANSFORMERS_CLASSES.extend(
         [
             BaichuanPytorchChatModel,
@@ -183,6 +186,7 @@ def _install():
     SUPPORTED_ENGINES["SGLang"] = SGLANG_CLASSES
     SUPPORTED_ENGINES["Transformers"] = TRANSFORMERS_CLASSES
     SUPPORTED_ENGINES["llama.cpp"] = LLAMA_CLASSES
+    SUPPORTED_ENGINES["MLX"] = MLX_CLASSES
 
     json_path = os.path.join(
         os.path.dirname(os.path.abspath(__file__)), "llm_family.json"

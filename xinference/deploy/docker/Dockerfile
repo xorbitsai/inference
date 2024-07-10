@@ -1,6 +1,7 @@
-FROM pytorch/pytorch:2.1.2-cuda12.1-cudnn8-devel
+FROM vllm/vllm-openai:latest
 
 COPY . /opt/inference
+WORKDIR /opt/inference
 
 ENV NVM_DIR /usr/local/nvm
 ENV NODE_VERSION 14.21.1
@@ -16,21 +17,20 @@ RUN apt-get -y update \
   && apt-get -yq clean
 
 ENV PATH $NVM_DIR/versions/node/v$NODE_VERSION/bin:$PATH
+ENV LD_LIBRARY_PATH $LD_LIBRARY_PATH:/usr/local/lib/python3.10/dist-packages/nvidia/cublas/lib
 
 ARG PIP_INDEX=https://pypi.org/simple
-RUN python -m pip install --upgrade -i "$PIP_INDEX" pip && \
-    # uninstall builtin torchvision, and let xinference decide which version to be installed
-    pip uninstall -y torchvision torchaudio && \
+RUN pip install --upgrade -i "$PIP_INDEX" pip && \
     pip install -i "$PIP_INDEX" "diskcache>=5.6.1" "jinja2>=2.11.3" && \
     # use pre-built whl package for llama-cpp-python, otherwise may core dump when init llama in some envs
-    pip install "llama-cpp-python" -i https://abetlen.github.io/llama-cpp-python/whl/cu121 && \
-    CMAKE_ARGS="-DGGML_CUBLAS=ON" pip install -i "$PIP_INDEX" -U "chatglm-cpp<0.4.0" && \
+    pip install "llama-cpp-python==0.2.77" -i https://abetlen.github.io/llama-cpp-python/whl/cu124 && \
+    pip install -i "$PIP_INDEX" --upgrade-strategy only-if-needed -r /opt/inference/xinference/deploy/docker/requirements.txt && \
+    pip install -i "$PIP_INDEX" --no-deps sglang && \
     cd /opt/inference && \
-    python setup.py build_web && \
+    python3 setup.py build_web && \
     git restore . && \
-    pip install -i "$PIP_INDEX" ".[all]" && \
-    pip uninstall -y opencv-contrib-python && \
-    pip install -i "$PIP_INDEX" opencv-contrib-python-headless && \
+    pip install -i "$PIP_INDEX" --no-deps "." && \
     # clean packages
-    pip cache purge && \
-    conda clean --force-pkgs-dirs -y
+    pip cache purge
+
+ENTRYPOINT []

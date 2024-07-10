@@ -10,6 +10,7 @@ import { useNavigate } from 'react-router-dom'
 import { ApiContext } from '../../components/apiContext'
 import ErrorMessageSnackBar from '../../components/errorMessageSnackBar'
 import fetcher from '../../components/fetcher'
+import fetchWrapper from '../../components/fetchWrapper'
 import Title from '../../components/Title'
 
 const RunningModels = () => {
@@ -35,9 +36,8 @@ const RunningModels = () => {
   }
 
   function get_models(code_prompts) {
-    fetcher(`${endPoint}/v1/models`, {
-      method: 'GET',
-    })
+    fetchWrapper
+      .get('/v1/models')
       .then((response) => {
         if (!response.ok) {
           response.json().then((errorData) => {
@@ -90,11 +90,15 @@ const RunningModels = () => {
       .catch((error) => {
         console.error('Error:', error)
         setIsUpdatingModel(false)
+        if (error.response.status !== 403 && error.response.status !== 401) {
+            setErrorMsg(error.message)
+        }
       })
   }
 
   const update = (isCallingApi) => {
     if (cookie.token === '' || cookie.token === undefined) {
+      navigate('/login', { replace: true })
       return
     }
     if (cookie.token !== 'no_auth' && !sessionStorage.getItem('token')) {
@@ -118,9 +122,8 @@ const RunningModels = () => {
     } else {
       setIsUpdatingModel(true)
 
-      fetcher(`${endPoint}/v1/models/code_prompts`, {
-        method: 'GET',
-      })
+      fetchWrapper
+        .get('/v1/models/code_prompts')
         .then((response) => {
           if (!response.ok) {
             response.json().then((errorData) => {
@@ -139,6 +142,9 @@ const RunningModels = () => {
         .catch((error) => {
           console.error('Error:', error)
           setIsUpdatingModel(false)
+          if (error.response.status !== 403 && error.response.status !== 401) {
+            setErrorMsg(error.message)
+          }
         })
     }
   }
@@ -666,8 +672,7 @@ const RunningModels = () => {
       sx={{
         height: '100%',
         width: '100%',
-        paddingLeft: '20px',
-        paddingTop: '20px',
+        padding: '20px 20px 0 20px',
       }}
     >
       <Title title="Running Models" />
