@@ -112,8 +112,8 @@ const RunningModels = () => {
 
       fetchWrapper
         .get('/v1/models/code_prompts')
-        .then((response) => {
-          get_models(response.data)
+        .then((code_prompts) => {
+          get_models(code_prompts)
         })
         .catch((error) => {
           console.error('Error:', error)
