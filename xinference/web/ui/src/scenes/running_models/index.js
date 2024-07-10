@@ -39,53 +39,41 @@ const RunningModels = () => {
     fetchWrapper
       .get('/v1/models')
       .then((response) => {
-        if (!response.ok) {
-          response.json().then((errorData) => {
-            setErrorMsg(
-              `Login failed: ${response.status} - ${
-                errorData.detail || 'Unknown error'
-              }`
-            )
-          })
-        } else {
-          response.json().then((response) => {
-            const newLlmData = []
-            const newEmbeddingModelData = []
-            const newImageModelData = []
-            const newAudioModelData = []
-            const newRerankModelData = []
-            response.data.forEach((model) => {
-              let newValue = {
-                ...model,
-                id: model.id,
-                url: model.id,
-              }
-              if (newValue.model_type === 'LLM') {
-                if (model.model_name in code_prompts) {
-                  newValue['infill_supported'] =
-                    'fim_spec' in code_prompts[model.model_name]
-                  newValue['repo_level_supported'] =
-                    'repo_level_spec' in code_prompts[model.model_name]
-                }
-                newLlmData.push(newValue)
-              } else if (newValue.model_type === 'embedding') {
-                newEmbeddingModelData.push(newValue)
-              } else if (newValue.model_type === 'audio') {
-                newAudioModelData.push(newValue)
-              } else if (newValue.model_type === 'image') {
-                newImageModelData.push(newValue)
-              } else if (newValue.model_type === 'rerank') {
-                newRerankModelData.push(newValue)
-              }
-            })
-            setLlmData(newLlmData)
-            setEmbeddingModelData(newEmbeddingModelData)
-            setAudioModelData(newAudioModelData)
-            setImageModelData(newImageModelData)
-            setRerankModelData(newRerankModelData)
-            setIsUpdatingModel(false)
-          })
-        }
+        const newLlmData = []
+        const newEmbeddingModelData = []
+        const newImageModelData = []
+        const newAudioModelData = []
+        const newRerankModelData = []
+        response.data.forEach((model) => {
+          let newValue = {
+            ...model,
+            id: model.id,
+            url: model.id,
+          }
+          if (newValue.model_type === 'LLM') {
+            if (model.model_name in code_prompts) {
+              newValue['infill_supported'] =
+                'fim_spec' in code_prompts[model.model_name]
+              newValue['repo_level_supported'] =
+                'repo_level_spec' in code_prompts[model.model_name]
+            }
+            newLlmData.push(newValue)
+          } else if (newValue.model_type === 'embedding') {
+            newEmbeddingModelData.push(newValue)
+          } else if (newValue.model_type === 'audio') {
+            newAudioModelData.push(newValue)
+          } else if (newValue.model_type === 'image') {
+            newImageModelData.push(newValue)
+          } else if (newValue.model_type === 'rerank') {
+            newRerankModelData.push(newValue)
+          }
+        })
+        setLlmData(newLlmData)
+        setEmbeddingModelData(newEmbeddingModelData)
+        setAudioModelData(newAudioModelData)
+        setImageModelData(newImageModelData)
+        setRerankModelData(newRerankModelData)
+        setIsUpdatingModel(false)
       })
       .catch((error) => {
         console.error('Error:', error)
@@ -125,19 +113,7 @@ const RunningModels = () => {
       fetchWrapper
         .get('/v1/models/code_prompts')
         .then((response) => {
-          if (!response.ok) {
-            response.json().then((errorData) => {
-              setErrorMsg(
-                `Login failed: ${response.status} - ${
-                  errorData.detail || 'Unknown error'
-                }`
-              )
-            })
-          } else {
-            response.json().then((code_prompts) => {
-              get_models(code_prompts)
-            })
-          }
+          get_models(response.data)
         })
         .catch((error) => {
           console.error('Error:', error)
