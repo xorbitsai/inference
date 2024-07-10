@@ -111,6 +111,11 @@ def register_flexible_model(model_spec: FlexibleModelSpec, persist: bool):
             raise ValueError(f"Invalid model launcher args {model_spec.launcher_args}.")
 
     with FLEXIBLE_MODEL_LOCK:
+        for model_name in [spec.model_name for spec in FLEXIBLE_MODELS]:
+            if model_spec.model_name == model_name:
+                raise ValueError(
+                    f"Model name conflicts with existing model {model_spec.model_name}"
+                )
         FLEXIBLE_MODELS.append(model_spec)
 
     if persist:
