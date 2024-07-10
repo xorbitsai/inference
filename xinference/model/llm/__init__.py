@@ -50,6 +50,7 @@ from .llm_family import (
     MLXLLMSpecV1,
     PromptStyleV1,
     PytorchLLMSpecV1,
+    RepoLevelCodeCompletionSpecV1,
     get_cache_status,
     get_user_defined_llm_families,
     match_llm,
