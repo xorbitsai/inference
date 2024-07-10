@@ -29,6 +29,23 @@ body:
       required: true
 
   - type: textarea
+    id: commandline
+    attributes:
+      label: The command used to start Xinference / 用以启动 xinference 的命令
+      description: |
+        Please provide the command used to start Xinference. 
+        If it is a distributed scenario, the commands for starting the supervisor and worker need to be listed separately. 
+        If it is a Docker scenario, please provide the complete command for starting Xinference through Docker. 
+        If it is another method, please describe it specifically.
+
+        请提供启动 xinference 的命令。
+        如果是分布式场景，启动 supervisor 和 worker 的命令需要分别列出。
+        如果是docker场景，请提供通过 docker 启动 xinference 的完整命令。
+        如果是其他方式，请具体描述。
+    validations:
+      required: true
+
+  - type: textarea
     id: reproduction
     validations:
       required: true
