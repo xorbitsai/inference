@@ -1,5 +1,5 @@
 name: "Bug Report"
-description: Submit a bug report to help us improve Xinference. Note that you should provide useful information as much as possible rather than simply describing what happened. Otherwise, this issue will not be processed. / 提交一个 Bug 问题报告来帮助我们改进 Xinference。注意，尽可能提供有用的信息而不是简单地描述发生的现象，否则将不予处理。
+description: Submit a bug report to help us improve Xinference. Note that you should provide useful information as much as possible rather than simply describing what happened. / 提交一个 Bug 问题报告来帮助我们改进 Xinference。注意，尽可能提供有用的信息而不是简单地描述发生的现象，否则将不予处理。
 body:
   - type: textarea
     id: system-info
