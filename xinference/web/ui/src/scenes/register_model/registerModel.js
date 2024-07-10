@@ -52,7 +52,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
   const [isMaxTokensAlert, setIsMaxTokensAlert] = useState(false)
   const [jsonData, setJsonData] = useState('')
   const [isSpecsArrError, setIsSpecsArrError] = useState(false)
-
+  const [isValidLauncherArgsAlert, setIsValidLauncherArgsAlert] = useState(false)
   const scrollRef = useRef(null)
   const [cookie] = useCookies(['token'])
   const navigate = useNavigate()
@@ -184,6 +184,17 @@ const RegisterModelComponent = ({ modelType, customData }) => {
           }
           setFormData(audioData)
           setContrastObj(audioData)
+        } else if (modelType === 'flexible') {
+          const { model_name, model_uri, model_description, launcher, launcher_args } = data
+          const flexibleData = {
+            model_name,
+            model_uri,
+            model_description,
+            launcher,
+            launcher_args,
+          }
+          setFormData(flexibleData)
+          setContrastObj(flexibleData)
         }
       }
     }
@@ -939,15 +950,27 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                 value={formData.launcher_args}
                 size="small"
                 helperText="A JSON-formatted dictionary representing the arguments passed to the Launcher."
-                onChange={(event) =>
-                  setFormData({
-                    ...formData,
-                    launcher_args: event.target.value,
-                  })
+                onChange={(event) => {
+                    try {
+                      JSON.parse(event.target.value);
+                      setIsValidLauncherArgsAlert(false);
+                    } catch {
+                      setIsValidLauncherArgsAlert(true);
+                    }
+                    return setFormData({
+                      ...formData,
+                      launcher_args: event.target.value,
+                    })
+                  }
                 }
                 multiline
                 rows={4}
               />
+              {isValidLauncherArgsAlert && (
+                <Alert severity="error">
+                  Please enter the JSON-formatted dictionary.
+                </Alert>
+              )}
               <Box padding="15px"></Box>
             </>
           )}
