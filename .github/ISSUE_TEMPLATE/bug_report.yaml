@@ -1,12 +1,12 @@
 name: "Bug Report"
-description: Submit a bug report to help us improve Xinference. Note that you should provide useful information as much as possible rather than simply describing what happened. / 提交一个 Bug 问题报告来帮助我们改进 Xinference。注意，尽可能提供有用的信息而不是简单地描述发生的现象，否则将不予处理。
+description: Submit a bug report to help us improve Xinference. You should provide useful information AMAP rather than simply describing what happened. / 提交一个问题报告来帮助我们改进 Xinference。你必须提供有用的信息而不只是描述发生的现象，否则将不予处理。
 body:
   - type: textarea
     id: system-info
     attributes:
       label: System Info / 系統信息
       description: Your operating environment / 您的运行环境信息
-      placeholder: Includes Cuda version, transformers / llama-cpp-python / vllm version, Python version, operating system, hardware information (if you suspect a hardware problem)... / 包括Cuda版本，transformers / llama-cpp-python / vllm版本，Python版本，操作系统，硬件信息(如果您怀疑是硬件方面的问题)...
+      placeholder: Includes Cuda version, transformers / llama-cpp-python / vllm version, Python version, operating system... / 包括Cuda版本，transformers / llama-cpp-python / vllm版本，Python版本，操作系统等。
     validations:
       required: true
 
