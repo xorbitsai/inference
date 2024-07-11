@@ -334,7 +334,7 @@ def match_embedding(
         raise ValueError(
             f"Embedding model {model_name} not found, available"
             f"Huggingface: {BUILTIN_EMBEDDING_MODELS.keys()}"
-            f"ModelScopet: {MODELSCOPE_EMBEDDING_MODELS.keys()}"
+            f"ModelScope: {MODELSCOPE_EMBEDDING_MODELS.keys()}"
         )
 
 
