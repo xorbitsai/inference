@@ -920,9 +920,7 @@ def _check_revision(
                 if (
                     spec.model_format == "pytorch"
                     and spec.model_size_in_billions == llm_spec.model_size_in_billions
-                    and True
-                    if quantization is None
-                    else quantization in spec.quantizations
+                    and (quantization is None or quantization in spec.quantizations)
                 ):
                     return valid_model_revision(meta_path, spec.model_revision)
     return False
