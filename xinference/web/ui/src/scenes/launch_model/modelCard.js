@@ -144,10 +144,10 @@ const ModelCard = ({
   }
 
   const isCached = (spec) => {
-    if (spec.model_format === 'pytorch') {
-      return spec.cache_status && spec.cache_status === true
+    if (Array.isArray(spec.cache_status)) {
+      return spec.cache_status.some((cs) => cs);
     } else {
-      return spec.cache_status && spec.cache_status.some((cs) => cs)
+      return spec.cache_status === true;
     }
   }
 
