@@ -113,6 +113,7 @@ jobs:
           if [ "$MODULE" == "metal" ]; then
             pip install mlx-lm
           fi
+          pip install "llama-cpp-python>=0.2.82" --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
           pip install transformers
           pip install attrdict
           pip install "timm>=0.9.16"
@@ -129,7 +130,6 @@ jobs:
           pip install protobuf
           pip install FlagEmbedding
           pip install "tenacity>=8.2.0,<8.4.0"
-          pip install "llama-cpp-python>=0.2.82" -i https://abetlen.github.io/llama-cpp-python/whl/cpu
           pip install -e ".[dev]"
           pip install "jinja2==3.1.2"
           pip install tensorizer
