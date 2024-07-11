@@ -80,9 +80,9 @@ const LaunchLLM = ({ gpuAvailable }) => {
 
   const filterCache = (spec) => {
     if (Array.isArray(spec.cache_status)) {
-      return spec.cache_status.some((cs) => cs);
+      return spec.cache_status.some((cs) => cs)
     } else {
-      return spec.cache_status === true;
+      return spec.cache_status === true
     }
   }
 
