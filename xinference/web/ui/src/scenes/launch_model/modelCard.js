@@ -363,7 +363,7 @@ const ModelCard = ({
     const modelDataWithID =
       modelType === 'LLM' ? modelDataWithID_LLM : modelDataWithID_other
 
-      console.log('modelDataWithID----', modelDataWithID);
+    console.log('modelDataWithID----', modelDataWithID)
 
     // First fetcher request to initiate the model
     fetchWrapper
@@ -617,7 +617,13 @@ const ModelCard = ({
       }
       setCustomArr(customData)
 
-      if (model_uid || request_limits || worker_ip || gpu_idx?.join(',') || download_hub)
+      if (
+        model_uid ||
+        request_limits ||
+        worker_ip ||
+        gpu_idx?.join(',') ||
+        download_hub
+      )
         setIsOther(true)
 
       if (
@@ -1347,31 +1353,34 @@ const ModelCard = ({
                   </Grid>
                   <Grid item xs={12}>
                     <FormControl variant="outlined" margin="normal" fullWidth>
-                    <InputLabel id="quantization-label">
-                      (Optional) Download_hub
-                    </InputLabel>
-                    <Select
-                      labelId="download_hub-label"
-                      value={downloadHub}
-                      onChange={(e) => setDownloadHub(e.target.value)}
-                      label="(Optional) Download_hub"
-                    >
-                      {["huggingface", "modelscope", "csghub"].map(item => {
-                        return (
-                          <MenuItem key={item} value={item}>
-                            {item}
-                          </MenuItem>
-                        )
-                      })}
-                    </Select>
+                      <InputLabel id="quantization-label">
+                        (Optional) Download_hub
+                      </InputLabel>
+                      <Select
+                        labelId="download_hub-label"
+                        value={downloadHub}
+                        onChange={(e) => setDownloadHub(e.target.value)}
+                        label="(Optional) Download_hub"
+                      >
+                        {['huggingface', 'modelscope', 'csghub'].map((item) => {
+                          return (
+                            <MenuItem key={item} value={item}>
+                              {item}
+                            </MenuItem>
+                          )
+                        })}
+                      </Select>
                     </FormControl>
                   </Grid>
                   <ListItemButton
                     onClick={() => setIsPeftModelConfig(!isPeftModelConfig)}
                   >
                     <div style={{ display: 'flex', alignItems: 'center' }}>
-                    <ListItemText primary="Lora Config" style={{ marginRight: 10 }} />
-                    {isPeftModelConfig ? <ExpandLess /> : <ExpandMore />}
+                      <ListItemText
+                        primary="Lora Config"
+                        style={{ marginRight: 10 }}
+                      />
+                      {isPeftModelConfig ? <ExpandLess /> : <ExpandMore />}
                     </div>
                   </ListItemButton>
                   <Collapse
@@ -1518,7 +1527,7 @@ const ModelCard = ({
                   onChange={(e) => setDownloadHub(e.target.value)}
                   label="(Optional) Download_hub"
                 >
-                  {["huggingface", "modelscope"].map(item => {
+                  {['huggingface', 'modelscope'].map((item) => {
                     return (
                       <MenuItem key={item} value={item}>
                         {item}
