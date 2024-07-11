@@ -112,7 +112,6 @@ def generate_engine_config_by_model_family(model_family):
 
 
 def _install():
-    from .ggml.chatglm import ChatglmCppChatModel
     from .ggml.llamacpp import LlamaCppChatModel, LlamaCppModel
     from .mlx.core import MLXChatModel, MLXModel
     from .pytorch.baichuan import BaichuanPytorchChatModel
@@ -143,7 +142,6 @@ def _install():
     # register llm classes.
     LLAMA_CLASSES.extend(
         [
-            ChatglmCppChatModel,
             LlamaCppChatModel,
             LlamaCppModel,
         ]
