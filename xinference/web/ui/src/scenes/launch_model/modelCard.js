@@ -363,8 +363,6 @@ const ModelCard = ({
     const modelDataWithID =
       modelType === 'LLM' ? modelDataWithID_LLM : modelDataWithID_other
 
-    console.log('modelDataWithID----', modelDataWithID)
-
     // First fetcher request to initiate the model
     fetchWrapper
       .post('/v1/models', modelDataWithID)
