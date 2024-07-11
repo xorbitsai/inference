@@ -1006,6 +1006,7 @@ def match_llm(
     model_format: Optional[str] = None,
     model_size_in_billions: Optional[Union[int, str]] = None,
     quantization: Optional[str] = None,
+    download_hub: Optional[Literal["huggingface", "modelscope", "csghub"]] = None,
 ) -> Optional[Tuple[LLMFamilyV1, LLMSpecV1, str]]:
     """
     Find an LLM family, spec, and quantization that satisfy given criteria.
@@ -1029,7 +1030,22 @@ def match_llm(
             spec.model_id = spec.model_id.format(quantization=q)
         return spec
 
-    if download_from_modelscope():
+    # priority: download_hub > download_from_modelscope() and download_from_csghub()
+    if download_hub == "modelscope":
+        all_families = (
+            BUILTIN_MODELSCOPE_LLM_FAMILIES
+            + BUILTIN_LLM_FAMILIES
+            + user_defined_llm_families
+        )
+    elif download_hub == "csghub":
+        all_families = (
+            BUILTIN_CSGHUB_LLM_FAMILIES
+            + BUILTIN_LLM_FAMILIES
+            + user_defined_llm_families
+        )
+    elif download_hub == "huggingface":
+        all_families = BUILTIN_LLM_FAMILIES + user_defined_llm_families
+    elif download_from_modelscope():
         all_families = (
             BUILTIN_MODELSCOPE_LLM_FAMILIES
             + BUILTIN_LLM_FAMILIES

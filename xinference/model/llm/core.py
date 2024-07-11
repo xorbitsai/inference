@@ -20,7 +20,7 @@ import platform
 from abc import abstractmethod
 from collections import defaultdict
 from functools import lru_cache
-from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Dict, List, Literal, Optional, Tuple, Union
 
 from ...core.utils import parse_replica_model_uid
 from ...types import PeftModelConfig
@@ -193,6 +193,7 @@ def create_llm_model_instance(
     model_size_in_billions: Optional[Union[int, str]] = None,
     quantization: Optional[str] = None,
     peft_model_config: Optional[PeftModelConfig] = None,
+    download_hub: Optional[Literal["huggingface", "modelscope", "csghub"]] = None,
     **kwargs,
 ) -> Tuple[LLM, LLMDescription]:
     from .llm_family import cache, check_engine_by_spec_parameters, match_llm
@@ -200,7 +201,7 @@ def create_llm_model_instance(
     if model_engine is None:
         raise ValueError("model_engine is required for LLM model")
     match_result = match_llm(
-        model_name, model_format, model_size_in_billions, quantization
+        model_name, model_format, model_size_in_billions, quantization, download_hub
     )
 
     if not match_result:

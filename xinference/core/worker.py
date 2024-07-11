@@ -22,7 +22,7 @@ import threading
 import time
 from collections import defaultdict
 from logging import getLogger
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, List, Literal, Optional, Set, Tuple, Union
 
 import xoscar as xo
 from async_timeout import timeout
@@ -587,6 +587,7 @@ class WorkerActor(xo.StatelessActor):
         peft_model_config: Optional[PeftModelConfig] = None,
         request_limits: Optional[int] = None,
         gpu_idx: Optional[Union[int, List[int]]] = None,
+        download_hub: Optional[Literal["huggingface", "modelscope", "csghub"]] = None,
         **kwargs,
     ):
         # !!! Note that The following code must be placed at the very beginning of this function,
@@ -669,6 +670,7 @@ class WorkerActor(xo.StatelessActor):
                     model_size_in_billions,
                     quantization,
                     peft_model_config,
+                    download_hub,
                     **kwargs,
                 )
                 await self.update_cache_status(model_name, model_description)
