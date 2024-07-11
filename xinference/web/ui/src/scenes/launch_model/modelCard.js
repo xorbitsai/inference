@@ -707,6 +707,7 @@ const ModelCard = ({
       setRequestLimits('')
       setWorkerIp('')
       setGPUIdx('')
+      setDownloadHub('')
       setLoraArr([])
       setImageLoraLoadArr([])
       setImageLoraFuseArr([])
@@ -717,8 +718,10 @@ const ModelCard = ({
       setModelUID('')
       setReplica(1)
       setWorkerIp('')
+      setDownloadHub('')
     } else {
       setModelUID('')
+      setDownloadHub('')
     }
   }
 
@@ -1359,12 +1362,16 @@ const ModelCard = ({
                       <Select
                         labelId="download_hub-label"
                         value={downloadHub}
-                        onChange={(e) => setDownloadHub(e.target.value)}
+                        onChange={(e) => {
+                          e.target.value === 'none'
+                            ? setDownloadHub('')
+                            : setDownloadHub(e.target.value)
+                        }}
                         label="(Optional) Download_hub"
                       >
                         {(csghubArr.includes(modelData.model_name)
-                          ? ['huggingface', 'modelscope', 'csghub']
-                          : ['huggingface', 'modelscope']
+                          ? ['none', 'huggingface', 'modelscope', 'csghub']
+                          : ['none', 'huggingface', 'modelscope']
                         ).map((item) => {
                           return (
                             <MenuItem key={item} value={item}>
@@ -1527,10 +1534,14 @@ const ModelCard = ({
                 <Select
                   labelId="download_hub-label"
                   value={downloadHub}
-                  onChange={(e) => setDownloadHub(e.target.value)}
+                  onChange={(e) => {
+                    e.target.value === 'none'
+                      ? setDownloadHub('')
+                      : setDownloadHub(e.target.value)
+                  }}
                   label="(Optional) Download_hub"
                 >
-                  {['huggingface', 'modelscope'].map((item) => {
+                  {['none', 'huggingface', 'modelscope'].map((item) => {
                     return (
                       <MenuItem key={item} value={item}>
                         {item}
