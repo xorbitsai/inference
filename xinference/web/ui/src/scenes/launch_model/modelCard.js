@@ -73,6 +73,8 @@ const llmAllDataKey = [
   'peft_model_config',
 ]
 
+const csghubArr = ['qwen2-instruct']
+
 const ModelCard = ({
   url,
   modelData,
@@ -1360,7 +1362,10 @@ const ModelCard = ({
                         onChange={(e) => setDownloadHub(e.target.value)}
                         label="(Optional) Download_hub"
                       >
-                        {['huggingface', 'modelscope', 'csghub'].map((item) => {
+                        {(csghubArr.includes(modelData.model_name)
+                          ? ['huggingface', 'modelscope', 'csghub']
+                          : ['huggingface', 'modelscope']
+                        ).map((item) => {
                           return (
                             <MenuItem key={item} value={item}>
                               {item}
