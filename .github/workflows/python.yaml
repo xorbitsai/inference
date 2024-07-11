@@ -113,6 +113,7 @@ jobs:
           if [ "$MODULE" == "metal" ]; then
             pip install mlx-lm
           fi
+          pip install "typing-extensions>=4.5.0"
           pip install "llama-cpp-python>=0.2.82" -i https://abetlen.github.io/llama-cpp-python/whl/cpu
           pip install transformers
           pip install attrdict
