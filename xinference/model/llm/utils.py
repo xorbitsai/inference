@@ -779,8 +779,10 @@ Begin!"""
 def get_file_location(
     llm_family: LLMFamilyV1, spec: LLMSpecV1, quantization: str
 ) -> Tuple[str, bool]:
-    cache_dir = _get_cache_dir(llm_family, spec, create_if_not_exist=False)
-    cache_status = get_cache_status(llm_family, spec)
+    cache_dir = _get_cache_dir(
+        llm_family, spec, quantization, create_if_not_exist=False
+    )
+    cache_status = get_cache_status(llm_family, spec, quantization)
     if isinstance(cache_status, list):
         is_cached = None
         for q, cs in zip(spec.quantizations, cache_status):
