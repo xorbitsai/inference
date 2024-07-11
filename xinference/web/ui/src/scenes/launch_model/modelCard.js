@@ -69,8 +69,11 @@ const llmAllDataKey = [
   'request_limits',
   'worker_ip',
   'gpu_idx',
+  'download_hub',
   'peft_model_config',
 ]
+
+const csghubArr = ['qwen2-instruct']
 
 const ModelCard = ({
   url,
@@ -107,6 +110,7 @@ const ModelCard = ({
   const [requestLimits, setRequestLimits] = useState('')
   const [workerIp, setWorkerIp] = useState('')
   const [GPUIdx, setGPUIdx] = useState('')
+  const [downloadHub, setDownloadHub] = useState('')
 
   const [enginesObj, setEnginesObj] = useState({})
   const [engineOptions, setEngineOptions] = useState([])
@@ -298,12 +302,14 @@ const ModelCard = ({
           : Number(String(requestLimits).trim()),
       worker_ip: workerIp.trim() === '' ? null : workerIp.trim(),
       gpu_idx: GPUIdx.trim() === '' ? null : handleGPUIdx(GPUIdx.trim()),
+      download_hub: downloadHub === '' ? null : downloadHub,
     }
 
     let modelDataWithID_other = {
       model_uid: modelUID.trim() === '' ? null : modelUID.trim(),
       model_name: modelData.model_name,
       model_type: modelType,
+      download_hub: downloadHub === '' ? null : downloadHub,
     }
 
     if (modelType === 'embedding' || modelType === 'rerank') {
@@ -552,6 +558,7 @@ const ModelCard = ({
         request_limits,
         worker_ip,
         gpu_idx,
+        download_hub,
         peft_model_config,
       } = arr[0]
 
@@ -574,6 +581,7 @@ const ModelCard = ({
       setRequestLimits(request_limits || '')
       setWorkerIp(worker_ip || '')
       setGPUIdx(gpu_idx?.join(',') || '')
+      setDownloadHub(download_hub || '')
 
       let loraData = []
       peft_model_config?.lora_list?.forEach((item) => {
@@ -609,7 +617,13 @@ const ModelCard = ({
       }
       setCustomArr(customData)
 
-      if (model_uid || request_limits || worker_ip || gpu_idx?.join(','))
+      if (
+        model_uid ||
+        request_limits ||
+        worker_ip ||
+        gpu_idx?.join(',') ||
+        download_hub
+      )
         setIsOther(true)
 
       if (
@@ -633,6 +647,7 @@ const ModelCard = ({
       } else {
         setModelUID(arr[0].model_uid || '')
       }
+      setDownloadHub(arr[0].download_hub)
     }
   }
 
@@ -1336,11 +1351,40 @@ const ModelCard = ({
                       )}
                     </FormControl>
                   </Grid>
+                  <Grid item xs={12}>
+                    <FormControl variant="outlined" margin="normal" fullWidth>
+                      <InputLabel id="quantization-label">
+                        (Optional) Download_hub
+                      </InputLabel>
+                      <Select
+                        labelId="download_hub-label"
+                        value={downloadHub}
+                        onChange={(e) => setDownloadHub(e.target.value)}
+                        label="(Optional) Download_hub"
+                      >
+                        {(csghubArr.includes(modelData.model_name)
+                          ? ['huggingface', 'modelscope', 'csghub']
+                          : ['huggingface', 'modelscope']
+                        ).map((item) => {
+                          return (
+                            <MenuItem key={item} value={item}>
+                              {item}
+                            </MenuItem>
+                          )
+                        })}
+                      </Select>
+                    </FormControl>
+                  </Grid>
                   <ListItemButton
                     onClick={() => setIsPeftModelConfig(!isPeftModelConfig)}
                   >
-                    <ListItemText primary="Lora Config" />
-                    {isPeftModelConfig ? <ExpandLess /> : <ExpandMore />}
+                    <div style={{ display: 'flex', alignItems: 'center' }}>
+                      <ListItemText
+                        primary="Lora Config"
+                        style={{ marginRight: 10 }}
+                      />
+                      {isPeftModelConfig ? <ExpandLess /> : <ExpandMore />}
+                    </div>
                   </ListItemButton>
                   <Collapse
                     in={isPeftModelConfig}
@@ -1476,6 +1520,25 @@ const ModelCard = ({
                   </FormControl>
                 </>
               )}
+              <FormControl variant="outlined" margin="normal" fullWidth>
+                <InputLabel id="quantization-label">
+                  (Optional) Download_hub
+                </InputLabel>
+                <Select
+                  labelId="download_hub-label"
+                  value={downloadHub}
+                  onChange={(e) => setDownloadHub(e.target.value)}
+                  label="(Optional) Download_hub"
+                >
+                  {['huggingface', 'modelscope'].map((item) => {
+                    return (
+                      <MenuItem key={item} value={item}>
+                        {item}
+                      </MenuItem>
+                    )
+                  })}
+                </Select>
+              </FormControl>
             </FormControl>
           )}
           <Box className="buttonsContainer">
