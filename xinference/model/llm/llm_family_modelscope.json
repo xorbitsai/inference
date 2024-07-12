@@ -4143,7 +4143,7 @@
       "zh"
     ],
     "model_ability": [
-      "generate"
+      "chat"
     ],
     "model_description": "Aquila2-chat series models are the chat models",
     "model_specs": [
