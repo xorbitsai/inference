@@ -133,7 +133,7 @@ class SpeechRequest(BaseModel):
 
 class RegisterModelRequest(BaseModel):
     model: str
-    worker_ip: str
+    worker_ip: Optional[str]
     persist: bool
 
 

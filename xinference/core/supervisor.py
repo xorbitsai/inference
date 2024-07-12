@@ -680,6 +680,8 @@ class SupervisorActor(xo.StatelessActor):
                 await self._cache_tracker_ref.record_model_version(
                     generate_fn(model_spec), self.address, worker_ip
                 )
+            except ValueError as e:
+                raise e
             except Exception as e:
                 unregister_fn(model_spec.model_name, raise_error=False)
                 raise e
@@ -766,26 +768,8 @@ class SupervisorActor(xo.StatelessActor):
         gpu_idx: Optional[Union[int, List[int]]] = None,
         **kwargs,
     ) -> str:
-        
-        from ..model.audio.custom import get_user_defined_audios
-        from ..model.embedding.custom import get_user_defined_embeddings
-        from ..model.image.custom import get_user_defined_images
-        from ..model.llm import get_user_defined_llm_families
-        from ..model.rerank.custom import get_user_defined_reranks
+        worker_ip = await self._cache_tracker_ref.get_register_workerip(model_name)
 
-        model_functions = [
-            get_user_defined_llm_families,
-            get_user_defined_embeddings,
-            get_user_defined_images,
-            get_user_defined_audios,
-            get_user_defined_reranks,
-        ]
-
-        for model_func in model_functions:
-            for model_spec in model_func():
-                if model_spec.model_name == model_name:
-                    worker_ip = await self._cache_tracker_ref.get_register_workerip(model_name)
-   
         target_ip_worker_ref = (
             self._get_worker_ref_by_ip(worker_ip) if worker_ip is not None else None
         )
@@ -838,7 +822,7 @@ class SupervisorActor(xo.StatelessActor):
                 )
             replica_gpu_idx = assign_replica_gpu(_replica_model_uid, gpu_idx)
             nonlocal model_type
-        
+
             worker_ref = (
                 target_ip_worker_ref
                 if target_ip_worker_ref is not None
