@@ -14,7 +14,6 @@
 
 import logging
 import os
-import platform
 import shutil
 from threading import Lock
 from typing import Any, Dict, List, Optional, Set, Tuple, Type, Union
@@ -971,18 +970,6 @@ def get_cache_status(
             if llm_spec.model_format != "pytorch"
             else handle_quantization(None)
         )
-
-
-def _is_linux():
-    return platform.system() == "Linux"
-
-
-def _has_cuda_device():
-    # `cuda_count` method already contains the logic for the
-    # number of GPUs specified by `CUDA_VISIBLE_DEVICES`.
-    from ...utils import cuda_count
-
-    return cuda_count() > 0
 
 
 def get_user_defined_llm_families():
