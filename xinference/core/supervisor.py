@@ -695,7 +695,7 @@ class SupervisorActor(xo.StatelessActor):
             try:
                 register_fn(model_spec, persist)
                 await self._cache_tracker_ref.record_model_version(
-                    generate_fn(model_spec), self.address, worker_ip
+                    generate_fn(model_spec), self.address
                 )
             except ValueError as e:
                 raise e
@@ -709,12 +709,14 @@ class SupervisorActor(xo.StatelessActor):
     async def unregister_model(self, model_type: str, model_name: str):
         if model_type in self._custom_register_type_to_cls:
             _, _, unregister_fn, _ = self._custom_register_type_to_cls[model_type]
-            unregister_fn(model_name)
-            await self._cache_tracker_ref.unregister_model_version(model_name)
+            unregister_fn(model_name, False)
 
-            workers = list(self._worker_address_to_worker.values())
-            for worker in workers:
-                await worker.unregister_model(model_name)
+            if not self.is_local_deployment():
+                workers = list(self._worker_address_to_worker.values())
+                for worker in workers:
+                    await worker.unregister_model(model_type, model_name)
+
+            await self._cache_tracker_ref.unregister_model_version(model_name)
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
 
@@ -787,7 +789,7 @@ class SupervisorActor(xo.StatelessActor):
         # search in worker first
         workers = list(self._worker_address_to_worker.values())
         for worker in workers:
-            res = await worker.get_model_registration(model_type, model_uid)
+            res = await worker.get_model_registration(model_type, model_name)
             if res is not None:
                 worker_ip = worker.address.split(":")[0]
 

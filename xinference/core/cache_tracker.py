@@ -23,7 +23,6 @@ class CacheTrackerActor(xo.Actor):
     def __init__(self):
         super().__init__()
         self._model_name_to_version_info: Dict[str, List[Dict]] = {}  # type: ignore
-        self._register_name_to_worker_ip: Dict[str, str] = {}  # type: ignore
 
     @classmethod
     def uid(cls) -> str:
@@ -53,14 +52,11 @@ class CacheTrackerActor(xo.Actor):
         self,
         version_info: Dict[str, List[Dict]],
         address: str,
-        worker_ip: Optional[str] = None,
     ):
         self._map_address_to_file_location(version_info, address)
         for model_name, model_versions in version_info.items():
             if model_name not in self._model_name_to_version_info:
                 self._model_name_to_version_info[model_name] = model_versions
-                if worker_ip is not None:
-                    self._register_name_to_worker_ip[model_name] = worker_ip
             else:
                 assert len(model_versions) == len(
                     self._model_name_to_version_info[model_name]

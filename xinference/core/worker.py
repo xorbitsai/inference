@@ -209,48 +209,70 @@ class WorkerActor(xo.StatelessActor):
 
         from ..model.audio import (
             CustomAudioModelFamilyV1,
+            generate_audio_description,
             get_audio_model_descriptions,
             register_audio,
             unregister_audio,
         )
         from ..model.embedding import (
             CustomEmbeddingModelSpec,
+            generate_embedding_description,
             get_embedding_model_descriptions,
             register_embedding,
             unregister_embedding,
         )
         from ..model.image import (
             CustomImageModelFamilyV1,
+            generate_image_description,
             get_image_model_descriptions,
             register_image,
             unregister_image,
         )
         from ..model.llm import (
             CustomLLMFamilyV1,
+            generate_llm_description,
             get_llm_model_descriptions,
             register_llm,
             unregister_llm,
         )
         from ..model.rerank import (
             CustomRerankModelSpec,
+            generate_rerank_description,
             get_rerank_model_descriptions,
             register_rerank,
             unregister_rerank,
         )
 
         self._custom_register_type_to_cls: Dict[str, Tuple] = {  # type: ignore
-            "LLM": (CustomLLMFamilyV1, register_llm, unregister_llm),
+            "LLM": (
+                CustomLLMFamilyV1,
+                register_llm,
+                unregister_llm,
+                generate_llm_description,
+            ),
             "embedding": (
                 CustomEmbeddingModelSpec,
                 register_embedding,
                 unregister_embedding,
+                generate_embedding_description,
             ),
-            "rerank": (CustomRerankModelSpec, register_rerank, unregister_rerank),
-            "audio": (CustomAudioModelFamilyV1, register_audio, unregister_audio),
+            "rerank": (
+                CustomRerankModelSpec,
+                register_rerank,
+                unregister_rerank,
+                generate_rerank_description,
+            ),
             "image": (
                 CustomImageModelFamilyV1,
                 register_image,
                 unregister_image,
+                generate_image_description,
+            ),
+            "audio": (
+                CustomAudioModelFamilyV1,
+                register_audio,
+                unregister_audio,
+                generate_audio_description,
             ),
         }
 
@@ -526,7 +548,7 @@ class WorkerActor(xo.StatelessActor):
             try:
                 register_fn(model_spec, persist)
                 await self._cache_tracker_ref.record_model_version(
-                    generate_fn(model_spec), self.address, worker_ip
+                    generate_fn(model_spec), self.address
                 )
             except ValueError as e:
                 raise e
@@ -541,8 +563,7 @@ class WorkerActor(xo.StatelessActor):
         # TODO: centralized model registrations
         if model_type in self._custom_register_type_to_cls:
             _, _, unregister_fn = self._custom_register_type_to_cls[model_type]
-            unregister_fn(model_name)
-            await self._cache_tracker_ref.unregister_model_version(model_name)
+            unregister_fn(model_name, False)
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
 
