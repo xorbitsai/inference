@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-01-05 16:10+0800\n"
+"POT-Creation-Date: 2024-07-09 14:56+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -17,7 +17,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Generated-By: Babel 2.11.0\n"
+"Generated-By: Babel 2.15.0\n"
 
 #: ../../source/models/custom.rst:5
 msgid "Custom Models"
@@ -38,6 +38,7 @@ msgid "Define a custom LLM model based on the following template:"
 msgstr "基于以下模板定义一个自定义大语言模型："
 
 #: ../../source/models/custom.rst:52 ../../source/models/custom.rst:181
+#: ../../source/models/custom.rst:204
 msgid ""
 "model_name: A string defining the name of the model. The name must start "
 "with a letter or a digit and can only contain letters, digits, "
@@ -217,7 +218,7 @@ msgid ""
 "embedding model supports."
 msgstr "max_tokens: 表示 embedding 模型支持的最大输入序列长度的整型值。"
 
-#: ../../source/models/custom.rst:184
+#: ../../source/models/custom.rst:184 ../../source/models/custom.rst:206
 msgid ""
 "language: A list of strings representing the supported languages for the "
 "model. Example: [\"en\"], which means that the model supports English."
@@ -225,7 +226,7 @@ msgstr ""
 "model_lang: 一个字符串列表，表示模型支持的语言。例如：['en']，表示该模型"
 "支持英语。"
 
-#: ../../source/models/custom.rst:185
+#: ../../source/models/custom.rst:185 ../../source/models/custom.rst:207
 msgid ""
 "model_id: A string representing the model ID, possibly referring to an "
 "identifier used by Hugging Face."
@@ -233,7 +234,7 @@ msgstr ""
 "model_id: 一个表示模型标识的字符串，类似 HuggingFace 或 ModelScope 使用的"
 "标识符。"
 
-#: ../../source/models/custom.rst:186
+#: ../../source/models/custom.rst:186 ../../source/models/custom.rst:208
 msgid ""
 "model_uri: A string representing the URI where the model can be loaded "
 "from, such as \"file:///path/to/your_model\". If model URI is absent, "
@@ -244,62 +245,77 @@ msgstr ""
 "如果模型 URI 不存在，Xinference 将尝试使用 model_id 从 HuggingFace 或 "
 "ModelScope 下载模型。"
 
-#: ../../source/models/custom.rst:189
+#: ../../source/models/custom.rst:190
+msgid "Define a custom Rerank model"
+msgstr "定义自定义 rerank 模型"
+
+#: ../../source/models/custom.rst:192
+msgid "Define a custom rerank model based on the following template:"
+msgstr "基于以下模板定义一个自定义大语言模型："
+
+#: ../../source/models/custom.rst:205
+msgid ""
+"type: A string defining the type of the model, including ``normal``, "
+"``LLM-based`` and ``LLM-based layerwise``."
+msgstr ""
+"type: 表示模型的类型，可选值包括 ``normal``、``LLM-based`` 和 ``LLM-based layerwise``。"
+
+#: ../../source/models/custom.rst:212
 msgid "Register a Custom Model"
 msgstr "注册一个自定义模型"
 
-#: ../../source/models/custom.rst:191
+#: ../../source/models/custom.rst:214
 msgid "Register a custom model programmatically:"
 msgstr "以代码的方式注册自定义模型"
 
-#: ../../source/models/custom.rst:206 ../../source/models/custom.rst:224
-#: ../../source/models/custom.rst:239 ../../source/models/custom.rst:294
+#: ../../source/models/custom.rst:229 ../../source/models/custom.rst:247
+#: ../../source/models/custom.rst:262 ../../source/models/custom.rst:317
 msgid "Or via CLI:"
 msgstr "以命令行的方式"
 
-#: ../../source/models/custom.rst:212
+#: ../../source/models/custom.rst:235
 msgid ""
-"Note that replace the ``<model_type>`` above with ``LLM`` or "
-"``embedding``. The same as below."
-msgstr "注意将以下部分的 ``<model_type>`` 替换为 ``LLM`` 或者 ``embedding`` 。"
+"Note that replace the ``<model_type>`` above with ``LLM``, ``embedding`` "
+"or ``rerank``. The same as below."
+msgstr "注意将以下部分的 ``<model_type>`` 替换为 ``LLM``、``embedding`` 或 ``rerank`` 。"
 
-#: ../../source/models/custom.rst:216
+#: ../../source/models/custom.rst:239
 msgid "List the Built-in and Custom Models"
 msgstr "列举内置和自定义模型"
 
-#: ../../source/models/custom.rst:218
+#: ../../source/models/custom.rst:241
 msgid "List built-in and custom models programmatically:"
 msgstr "以代码的方式列举内置和自定义模型"
 
-#: ../../source/models/custom.rst:231
+#: ../../source/models/custom.rst:254
 msgid "Launch the Custom Model"
 msgstr "启动自定义模型"
 
-#: ../../source/models/custom.rst:233
+#: ../../source/models/custom.rst:256
 msgid "Launch the custom model programmatically:"
 msgstr "以代码的方式启动自定义模型"
 
-#: ../../source/models/custom.rst:246
+#: ../../source/models/custom.rst:269
 msgid "Interact with the Custom Model"
 msgstr "使用自定义模型"
 
-#: ../../source/models/custom.rst:248
+#: ../../source/models/custom.rst:271
 msgid "Invoke the model programmatically:"
 msgstr "以代码的方式调用模型"
 
-#: ../../source/models/custom.rst:255
+#: ../../source/models/custom.rst:278
 msgid "Result:"
 msgstr "结果为："
 
-#: ../../source/models/custom.rst:279
+#: ../../source/models/custom.rst:302
 msgid "Or via CLI, replace ``${UID}`` with real model UID:"
 msgstr "或者以命令行的方式，用实际的模型 UID 替换 ``${UID}``："
 
-#: ../../source/models/custom.rst:286
+#: ../../source/models/custom.rst:309
 msgid "Unregister the Custom Model"
 msgstr "注销自定义模型"
 
-#: ../../source/models/custom.rst:288
+#: ../../source/models/custom.rst:311
 msgid "Unregister the custom model programmatically:"
 msgstr "以代码的方式注销自定义模型"
 

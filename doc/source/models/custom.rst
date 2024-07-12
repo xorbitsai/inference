@@ -185,6 +185,29 @@ Define a custom embedding model based on the following template:
 * model_id: A string representing the model ID, possibly referring to an identifier used by Hugging Face.
 * model_uri: A string representing the URI where the model can be loaded from, such as "file:///path/to/your_model". If model URI is absent, Xinference will try to download the model from Hugging Face with the model ID.
 
+
+Define a custom Rerank model
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Define a custom rerank model based on the following template:
+
+.. code-block:: json
+
+    {
+        "model_name": "custom-bge-reranker-v2-m3",
+        "type": "normal",
+        "language": ["en", "zh", "multilingual"],
+        "model_id": "BAAI/bge-reranker-v2-m3",
+        "model_uri": "file:///path/to/bge-reranker-v2-m3"
+    }
+
+* model_name: A string defining the name of the model. The name must start with a letter or a digit and can only contain letters, digits, underscores, or dashes.
+* type: A string defining the type of the model, including ``normal``, ``LLM-based`` and ``LLM-based layerwise``.
+* language: A list of strings representing the supported languages for the model. Example: ["en"], which means that the model supports English.
+* model_id: A string representing the model ID, possibly referring to an identifier used by Hugging Face.
+* model_uri: A string representing the URI where the model can be loaded from, such as "file:///path/to/your_model". If model URI is absent, Xinference will try to download the model from Hugging Face with the model ID.
+
+
 Register a Custom Model
 ~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -209,7 +232,7 @@ Or via CLI:
 
    xinference register --model-type <model_type> --file model.json --persist
 
-Note that replace the ``<model_type>`` above with ``LLM`` or ``embedding``. The same as below.
+Note that replace the ``<model_type>`` above with ``LLM``, ``embedding`` or ``rerank``. The same as below.
 
 
 List the Built-in and Custom Models

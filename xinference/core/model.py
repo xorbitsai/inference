@@ -722,6 +722,21 @@ class ModelActor(xo.StatelessActor):
             f"Model {self._model.model_spec} is not for creating image."
         )
 
+    @log_async(logger=logger)
+    @request_limit
+    async def infer(
+        self,
+        **kwargs,
+    ):
+        if hasattr(self._model, "infer"):
+            return await self._call_wrapper(
+                self._model.infer,
+                **kwargs,
+            )
+        raise AttributeError(
+            f"Model {self._model.model_spec} is not for flexible infer."
+        )
+
     async def record_metrics(self, name, op, kwargs):
         worker_ref = await self._get_worker_ref()
         await worker_ref.record_metrics(name, op, kwargs)

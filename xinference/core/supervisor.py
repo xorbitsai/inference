@@ -20,7 +20,17 @@ import time
 import typing
 from dataclasses import dataclass
 from logging import getLogger
-from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Tuple, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    Iterator,
+    List,
+    Literal,
+    Optional,
+    Tuple,
+    Union,
+)
 
 import xoscar as xo
 
@@ -50,6 +60,7 @@ from .utils import (
 if TYPE_CHECKING:
     from ..model.audio import AudioModelFamilyV1
     from ..model.embedding import EmbeddingModelSpec
+    from ..model.flexible import FlexibleModelSpec
     from ..model.image import ImageModelFamilyV1
     from ..model.llm import LLMFamilyV1
     from ..model.rerank import RerankModelSpec
@@ -153,6 +164,13 @@ class SupervisorActor(xo.StatelessActor):
             register_embedding,
             unregister_embedding,
         )
+        from ..model.flexible import (
+            FlexibleModelSpec,
+            generate_flexible_model_description,
+            get_flexible_model_descriptions,
+            register_flexible_model,
+            unregister_flexible_model,
+        )
         from ..model.image import (
             CustomImageModelFamilyV1,
             generate_image_description,
@@ -206,6 +224,12 @@ class SupervisorActor(xo.StatelessActor):
                 unregister_audio,
                 generate_audio_description,
             ),
+            "flexible": (
+                FlexibleModelSpec,
+                register_flexible_model,
+                unregister_flexible_model,
+                generate_flexible_model_description,
+            ),
         }
 
         # record model version
@@ -215,6 +239,7 @@ class SupervisorActor(xo.StatelessActor):
         model_version_infos.update(get_rerank_model_descriptions())
         model_version_infos.update(get_image_model_descriptions())
         model_version_infos.update(get_audio_model_descriptions())
+        model_version_infos.update(get_flexible_model_descriptions())
         await self._cache_tracker_ref.record_model_version(
             model_version_infos, self.address
         )
@@ -459,6 +484,27 @@ class SupervisorActor(xo.StatelessActor):
         res["model_instance_count"] = instance_cnt
         return res
 
+    async def _to_flexible_model_reg(
+        self, model_spec: "FlexibleModelSpec", is_builtin: bool
+    ) -> Dict[str, Any]:
+        instance_cnt = await self.get_instance_count(model_spec.model_name)
+        version_cnt = await self.get_model_version_count(model_spec.model_name)
+
+        if self.is_local_deployment():
+            res = {
+                **model_spec.dict(),
+                "cache_status": True,
+                "is_builtin": is_builtin,
+            }
+        else:
+            res = {
+                **model_spec.dict(),
+                "is_builtin": is_builtin,
+            }
+        res["model_version_count"] = version_cnt
+        res["model_instance_count"] = instance_cnt
+        return res
+
     @log_async(logger=logger)
     async def list_model_registrations(
         self, model_type: str, detailed: bool = False
@@ -579,6 +625,23 @@ class SupervisorActor(xo.StatelessActor):
 
             ret.sort(key=sort_helper)
             return ret
+        elif model_type == "flexible":
+            from ..model.flexible import get_flexible_models
+
+            ret = []
+
+            for model_spec in get_flexible_models():
+                if detailed:
+                    ret.append(
+                        await self._to_flexible_model_reg(model_spec, is_builtin=False)
+                    )
+                else:
+                    ret.append(
+                        {"model_name": model_spec.model_name, "is_builtin": False}
+                    )
+
+            ret.sort(key=sort_helper)
+            return ret
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
 
@@ -623,6 +686,13 @@ class SupervisorActor(xo.StatelessActor):
             from ..model.rerank.custom import get_user_defined_reranks
 
             for f in list(BUILTIN_RERANK_MODELS.values()) + get_user_defined_reranks():
+                if f.model_name == model_name:
+                    return f
+            raise ValueError(f"Model {model_name} not found")
+        elif model_type == "flexible":
+            from ..model.flexible import get_flexible_models
+
+            for f in get_flexible_models():
                 if f.model_name == model_name:
                     return f
             raise ValueError(f"Model {model_name} not found")
@@ -752,6 +822,7 @@ class SupervisorActor(xo.StatelessActor):
         peft_model_config: Optional[PeftModelConfig] = None,
         worker_ip: Optional[str] = None,
         gpu_idx: Optional[Union[int, List[int]]] = None,
+        download_hub: Optional[Literal["huggingface", "modelscope", "csghub"]] = None,
         **kwargs,
     ) -> str:
         target_ip_worker_ref = (
@@ -825,6 +896,7 @@ class SupervisorActor(xo.StatelessActor):
                 request_limits=request_limits,
                 peft_model_config=peft_model_config,
                 gpu_idx=replica_gpu_idx,
+                download_hub=download_hub,
                 **kwargs,
             )
             self._replica_model_uid_to_worker[_replica_model_uid] = worker_ref

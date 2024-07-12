@@ -22,7 +22,7 @@ import threading
 import time
 from collections import defaultdict
 from logging import getLogger
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, List, Literal, Optional, Set, Tuple, Union
 
 import xoscar as xo
 from async_timeout import timeout
@@ -222,6 +222,12 @@ class WorkerActor(xo.StatelessActor):
             register_embedding,
             unregister_embedding,
         )
+        from ..model.flexible import (
+            FlexibleModelSpec,
+            get_flexible_model_descriptions,
+            register_flexible_model,
+            unregister_flexible_model,
+        )
         from ..model.image import (
             CustomImageModelFamilyV1,
             get_image_model_descriptions,
@@ -255,6 +261,11 @@ class WorkerActor(xo.StatelessActor):
                 register_image,
                 unregister_image,
             ),
+            "flexible": (
+                FlexibleModelSpec,
+                register_flexible_model,
+                unregister_flexible_model,
+            ),
         }
 
         # record model version
@@ -264,6 +275,7 @@ class WorkerActor(xo.StatelessActor):
         model_version_infos.update(get_rerank_model_descriptions())
         model_version_infos.update(get_image_model_descriptions())
         model_version_infos.update(get_audio_model_descriptions())
+        model_version_infos.update(get_flexible_model_descriptions())
         await self._cache_tracker_ref.record_model_version(
             model_version_infos, self.address
         )
@@ -551,6 +563,8 @@ class WorkerActor(xo.StatelessActor):
             return ["text_to_image"]
         elif model_type == "audio":
             return ["audio_to_text"]
+        elif model_type == "flexible":
+            return ["flexible"]
         else:
             assert model_type == "LLM"
             assert isinstance(model, LLM)
@@ -587,6 +601,7 @@ class WorkerActor(xo.StatelessActor):
         peft_model_config: Optional[PeftModelConfig] = None,
         request_limits: Optional[int] = None,
         gpu_idx: Optional[Union[int, List[int]]] = None,
+        download_hub: Optional[Literal["huggingface", "modelscope", "csghub"]] = None,
         **kwargs,
     ):
         # !!! Note that The following code must be placed at the very beginning of this function,
@@ -669,6 +684,7 @@ class WorkerActor(xo.StatelessActor):
                     model_size_in_billions,
                     quantization,
                     peft_model_config,
+                    download_hub,
                     **kwargs,
                 )
                 await self.update_cache_status(model_name, model_description)

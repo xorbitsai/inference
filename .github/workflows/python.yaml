@@ -114,7 +114,7 @@ jobs:
           if [ "$MODULE" == "metal" ]; then
             pip install mlx-lm
           fi
-          pip install "llama-cpp-python==0.2.77"
+          pip install "llama-cpp-python==0.2.77" --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
           pip install transformers
           pip install attrdict
           pip install "timm>=0.9.16"

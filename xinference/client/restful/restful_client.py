@@ -738,6 +738,41 @@ class RESTfulAudioModelHandle(RESTfulModelHandle):
         return response.content
 
 
+class RESTfulFlexibleModelHandle(RESTfulModelHandle):
+    def infer(
+        self,
+        **kwargs,
+    ):
+        """
+        Call flexible model.
+
+        Parameters
+        ----------
+
+        kwargs: dict
+            The inference arguments.
+
+
+        Returns
+        -------
+        bytes
+            The inference result.
+        """
+        url = f"{self._base_url}/v1/flexible/infers"
+        params = {
+            "model": self._model_uid,
+        }
+        params.update(kwargs)
+
+        response = requests.post(url, json=params, headers=self.auth_headers)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to predict, detail: {_get_error_string(response)}"
+            )
+
+        return response.content
+
+
 class Client:
     def __init__(self, base_url, api_key: Optional[str] = None):
         self.base_url = base_url
@@ -1015,6 +1050,10 @@ class Client:
             )
         elif desc["model_type"] == "audio":
             return RESTfulAudioModelHandle(
+                model_uid, self.base_url, auth_headers=self._headers
+            )
+        elif desc["model_type"] == "flexible":
+            return RESTfulFlexibleModelHandle(
                 model_uid, self.base_url, auth_headers=self._headers
             )
         else:

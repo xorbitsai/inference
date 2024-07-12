@@ -34,9 +34,6 @@ from ....types import (
     CompletionChoice,
     CompletionChunk,
     CreateCompletionTorch,
-    Embedding,
-    EmbeddingData,
-    EmbeddingUsage,
     LoRA,
     PytorchGenerateConfig,
     PytorchModelConfig,
@@ -672,83 +669,6 @@ class PytorchModel(LLM):
             self, req_list, self.model_uid, self._model, self._tokenizer
         )
         self.handle_batch_inference_results(req_list)
-
-    def create_embedding(self, input: Union[str, List[str]]) -> Embedding:
-        try:
-            import torch
-            import torch.nn.functional as F
-        except ImportError as e:
-            raise ImportError(
-                "Could not import torch. Please install it with `pip install torch`."
-            ) from e
-
-        if isinstance(input, str):
-            inputs = [input]
-        else:
-            inputs = input
-
-        tokenizer = self._tokenizer
-        tokenizer.pad_token = tokenizer.eos_token
-        is_llama = "llama" in str(type(self._model))  # llama supports batch inference
-        is_chatglm = "chatglm" in str(type(self._model))
-        if is_llama:
-            encoding = tokenizer.batch_encode_plus(
-                inputs, padding=True, return_tensors="pt"
-            )
-            input_ids = encoding["input_ids"].to(self._device)
-            attention_mask = encoding["attention_mask"].to(self._device)
-            model_output = self._model(
-                input_ids, attention_mask, output_hidden_states=True
-            )
-            data = model_output.hidden_states[-1]
-            mask = attention_mask.unsqueeze(-1).expand(data.size()).float()
-            masked_embeddings = data * mask
-            sum_embeddings = torch.sum(masked_embeddings, dim=1)
-            seq_length = torch.sum(mask, dim=1)
-            embedding = sum_embeddings / seq_length
-            normalized_embeddings = F.normalize(embedding, p=2, dim=1)
-            normalized_embeddings = normalized_embeddings.tolist()
-            token_num = torch.sum(attention_mask).item()
-
-            embedding_list = []
-            for index, data in enumerate(normalized_embeddings):
-                embedding_list.append(
-                    EmbeddingData(index=index, object="embedding", embedding=data)
-                )
-
-            usage = EmbeddingUsage(prompt_tokens=token_num, total_tokens=token_num)
-
-            ret = Embedding(
-                object="list",
-                model=self.model_uid,
-                data=embedding_list,
-                usage=usage,
-            )
-
-        else:
-            embedding = []
-            token_num = 0
-            for index, text in enumerate(inputs):
-                input_ids = tokenizer.encode(text, return_tensors="pt").to(self._device)
-                model_output = self._model(input_ids, output_hidden_states=True)
-                if is_chatglm:
-                    data = (model_output.hidden_states[-1].transpose(0, 1))[0]
-                else:
-                    data = model_output.hidden_states[-1][0]
-                data = F.normalize(torch.mean(data, dim=0), p=2, dim=0)
-                data = data.tolist()
-
-                embedding.append(
-                    EmbeddingData(index=index, object="embedding", embedding=data)
-                )
-                token_num += len(input_ids[0])
-
-            usage = EmbeddingUsage(prompt_tokens=token_num, total_tokens=token_num)
-            ret = Embedding(
-                object="list", model=self.model_uid, data=embedding, usage=usage
-            )
-
-        return ret
 
 
 class PytorchChatModel(PytorchModel, ChatModelMixin):
