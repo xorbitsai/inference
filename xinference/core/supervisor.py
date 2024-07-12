@@ -467,10 +467,14 @@ class SupervisorActor(xo.StatelessActor):
             assert isinstance(item["model_name"], str)
             return item.get("model_name").lower()
 
+        ret = []
+        workers = list(self._worker_address_to_worker.values())
+        for worker in workers:
+            ret.append(await worker.list_model_registrations(model_type, detailed))
+
         if model_type == "LLM":
             from ..model.llm import BUILTIN_LLM_FAMILIES, get_user_defined_llm_families
 
-            ret = []
             for family in BUILTIN_LLM_FAMILIES:
                 if detailed:
                     ret.append(await self._to_llm_reg(family, True))
@@ -489,7 +493,6 @@ class SupervisorActor(xo.StatelessActor):
             from ..model.embedding import BUILTIN_EMBEDDING_MODELS
             from ..model.embedding.custom import get_user_defined_embeddings
 
-            ret = []
             for model_name, family in BUILTIN_EMBEDDING_MODELS.items():
                 if detailed:
                     ret.append(
@@ -514,7 +517,6 @@ class SupervisorActor(xo.StatelessActor):
             from ..model.image import BUILTIN_IMAGE_MODELS
             from ..model.image.custom import get_user_defined_images
 
-            ret = []
             for model_name, family in BUILTIN_IMAGE_MODELS.items():
                 if detailed:
                     ret.append(await self._to_image_model_reg(family, is_builtin=True))
@@ -537,7 +539,6 @@ class SupervisorActor(xo.StatelessActor):
             from ..model.audio import BUILTIN_AUDIO_MODELS
             from ..model.audio.custom import get_user_defined_audios
 
-            ret = []
             for model_name, family in BUILTIN_AUDIO_MODELS.items():
                 if detailed:
                     ret.append(await self._to_audio_model_reg(family, is_builtin=True))
@@ -560,7 +561,6 @@ class SupervisorActor(xo.StatelessActor):
             from ..model.rerank import BUILTIN_RERANK_MODELS
             from ..model.rerank.custom import get_user_defined_reranks
 
-            ret = []
             for model_name, family in BUILTIN_RERANK_MODELS.items():
                 if detailed:
                     ret.append(await self._to_rerank_model_reg(family, is_builtin=True))
@@ -673,6 +673,7 @@ class SupervisorActor(xo.StatelessActor):
 
             if target_ip_worker_ref:
                 await target_ip_worker_ref.register_model(model_type, model, persist)
+                return
 
             model_spec = model_spec_cls.parse_raw(model)
             try:

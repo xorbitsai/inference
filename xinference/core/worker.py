@@ -522,6 +522,8 @@ class WorkerActor(xo.StatelessActor):
             model_spec = model_spec_cls.parse_raw(model)
             try:
                 register_fn(model_spec, persist)
+            except ValueError as e:
+                raise e
             except Exception as e:
                 unregister_fn(model_spec.model_name, raise_error=False)
                 raise e
@@ -534,6 +536,129 @@ class WorkerActor(xo.StatelessActor):
         if model_type in self._custom_register_type_to_cls:
             _, _, unregister_fn = self._custom_register_type_to_cls[model_type]
             unregister_fn(model_name)
+        else:
+            raise ValueError(f"Unsupported model type: {model_type}")
+
+    @log_async(logger=logger)
+    async def list_model_registrations(
+        self, model_type: str, detailed: bool = False
+    ) -> List[Dict[str, Any]]:
+        def sort_helper(item):
+            assert isinstance(item["model_name"], str)
+            return item.get("model_name").lower()
+
+        if model_type == "LLM":
+            from ..model.llm import BUILTIN_LLM_FAMILIES, get_user_defined_llm_families
+
+            ret = []
+            for family in BUILTIN_LLM_FAMILIES:
+                if detailed:
+                    ret.append(await self._to_llm_reg(family, True))
+                else:
+                    ret.append({"model_name": family.model_name, "is_builtin": True})
+
+            for family in get_user_defined_llm_families():
+                if detailed:
+                    ret.append(await self._to_llm_reg(family, False))
+                else:
+                    ret.append({"model_name": family.model_name, "is_builtin": False})
+
+            ret.sort(key=sort_helper)
+            return ret
+        elif model_type == "embedding":
+            from ..model.embedding import BUILTIN_EMBEDDING_MODELS
+            from ..model.embedding.custom import get_user_defined_embeddings
+
+            ret = []
+            for model_name, family in BUILTIN_EMBEDDING_MODELS.items():
+                if detailed:
+                    ret.append(
+                        await self._to_embedding_model_reg(family, is_builtin=True)
+                    )
+                else:
+                    ret.append({"model_name": model_name, "is_builtin": True})
+
+            for model_spec in get_user_defined_embeddings():
+                if detailed:
+                    ret.append(
+                        await self._to_embedding_model_reg(model_spec, is_builtin=False)
+                    )
+                else:
+                    ret.append(
+                        {"model_name": model_spec.model_name, "is_builtin": False}
+                    )
+
+            ret.sort(key=sort_helper)
+            return ret
+        elif model_type == "image":
+            from ..model.image import BUILTIN_IMAGE_MODELS
+            from ..model.image.custom import get_user_defined_images
+
+            ret = []
+            for model_name, family in BUILTIN_IMAGE_MODELS.items():
+                if detailed:
+                    ret.append(await self._to_image_model_reg(family, is_builtin=True))
+                else:
+                    ret.append({"model_name": model_name, "is_builtin": True})
+
+            for model_spec in get_user_defined_images():
+                if detailed:
+                    ret.append(
+                        await self._to_image_model_reg(model_spec, is_builtin=False)
+                    )
+                else:
+                    ret.append(
+                        {"model_name": model_spec.model_name, "is_builtin": False}
+                    )
+
+            ret.sort(key=sort_helper)
+            return ret
+        elif model_type == "audio":
+            from ..model.audio import BUILTIN_AUDIO_MODELS
+            from ..model.audio.custom import get_user_defined_audios
+
+            ret = []
+            for model_name, family in BUILTIN_AUDIO_MODELS.items():
+                if detailed:
+                    ret.append(await self._to_audio_model_reg(family, is_builtin=True))
+                else:
+                    ret.append({"model_name": model_name, "is_builtin": True})
+
+            for model_spec in get_user_defined_audios():
+                if detailed:
+                    ret.append(
+                        await self._to_audio_model_reg(model_spec, is_builtin=False)
+                    )
+                else:
+                    ret.append(
+                        {"model_name": model_spec.model_name, "is_builtin": False}
+                    )
+
+            ret.sort(key=sort_helper)
+            return ret
+        elif model_type == "rerank":
+            from ..model.rerank import BUILTIN_RERANK_MODELS
+            from ..model.rerank.custom import get_user_defined_reranks
+
+            ret = []
+            for model_name, family in BUILTIN_RERANK_MODELS.items():
+                if detailed:
+                    ret.append(await self._to_rerank_model_reg(family, is_builtin=True))
+                else:
+                    ret.append({"model_name": model_name, "is_builtin": True})
+
+            for model_spec in get_user_defined_reranks():
+                if detailed:
+                    ret.append(
+                        await self._to_rerank_model_reg(model_spec, is_builtin=False)
+                    )
+                else:
+                    ret.append(
+                        {"model_name": model_spec.model_name, "is_builtin": False}
+                    )
+
+            ret.sort(key=sort_helper)
+            return ret
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
 
