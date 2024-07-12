@@ -4,11 +4,11 @@ import React, { useContext, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { ApiContext } from '../../components/apiContext'
-import fetcher from '../../components/fetcher'
+import fetchWrapper from '../../components/fetchWrapper'
 import HotkeyFocusTextField from '../../components/hotkeyFocusTextField'
 import ModelCard from './modelCard'
 
-const customType = ['llm', 'embedding', 'rerank', 'image', 'audio']
+const customType = ['llm', 'embedding', 'rerank', 'image', 'audio', 'flexible']
 
 const LaunchCustom = ({ gpuAvailable }) => {
   let endPoint = useContext(ApiContext).endPoint
@@ -51,28 +51,18 @@ const LaunchCustom = ({ gpuAvailable }) => {
     if (isCallingApi || isUpdatingModel) return
     try {
       setIsCallingApi(true)
-      const response = await fetcher(
-        `${endPoint}/v1/model_registrations/${type}`,
-        {
-          method: 'GET',
-        }
-      )
-      const registrations = await response.json()
-      const customRegistrations = registrations.filter(
-        (data) => !data.is_builtin
-      )
+
+      const data = await fetchWrapper.get(`/v1/model_registrations/${type}`)
+      const customRegistrations = data.filter((data) => !data.is_builtin)
 
       const newData = await Promise.all(
         customRegistrations.map(async (registration) => {
-          const desc = await fetcher(
-            `${endPoint}/v1/model_registrations/${type}/${registration.model_name}`,
-            {
-              method: 'GET',
-            }
+          const desc = await fetchWrapper.get(
+            `/v1/model_registrations/${type}/${registration.model_name}`
           )
 
           return {
-            ...(await desc.json()),
+            ...desc,
             is_builtin: registration.is_builtin,
           }
         })
@@ -114,6 +104,10 @@ const LaunchCustom = ({ gpuAvailable }) => {
             <Tab label="Rerank Models" value="/launch_model/custom/rerank" />
             <Tab label="Image Models" value="/launch_model/custom/image" />
             <Tab label="Audio Models" value="/launch_model/custom/audio" />
+            <Tab
+              label="Flexible Models"
+              value="/launch_model/custom/flexible"
+            />
           </TabList>
         </Box>
         {customType.map((item) => (

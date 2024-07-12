@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import os.path
 import tempfile
 
 
@@ -40,5 +40,6 @@ def test_chattts(setup):
     response = client.audio.speech.create(
         model=model_uid, input=input_string, voice="echo"
     )
-    with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as f:
+    with tempfile.NamedTemporaryFile(suffix=".mp3", delete=True) as f:
         response.stream_to_file(f.name)
+        assert os.stat(f.name).st_size > 0

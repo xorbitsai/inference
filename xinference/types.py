@@ -285,7 +285,6 @@ class LlamaCppModelConfig(TypedDict, total=False):
     vocab_only: bool
     use_mmap: bool
     use_mlock: bool
-    embedding: bool
     n_threads: Optional[int]
     n_batch: int
     last_n_tokens_size: int

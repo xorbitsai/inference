@@ -6,14 +6,13 @@ import { useNavigate } from 'react-router-dom'
 
 import { ApiContext } from '../../components/apiContext'
 import ErrorMessageSnackBar from '../../components/errorMessageSnackBar'
-import fetcher from '../../components/fetcher'
+import fetchWrapper from '../../components/fetchWrapper'
 import Title from '../../components/Title'
 import LaunchCustom from './launchCustom'
 import LaunchLLM from './launchLLM'
 import LaunchModelComponent from './LaunchModelComponent'
 
 const LaunchModel = () => {
-  let endPoint = useContext(ApiContext).endPoint
   const [value, setValue] = React.useState(
     sessionStorage.getItem('modelType')
       ? sessionStorage.getItem('modelType')
@@ -36,6 +35,7 @@ const LaunchModel = () => {
 
   useEffect(() => {
     if (cookie.token === '' || cookie.token === undefined) {
+      navigate('/login', { replace: true })
       return
     }
     if (cookie.token !== 'no_auth' && !sessionStorage.getItem('token')) {
@@ -44,27 +44,15 @@ const LaunchModel = () => {
     }
 
     if (gpuAvailable === -1) {
-      fetcher(endPoint + '/v1/cluster/devices', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      }).then((res) => {
-        if (!res.ok) {
-          // Usually, if some errors happen here, check if the cluster is available
-          res.json().then((errorData) => {
-            setErrorMsg(
-              `Server error: ${res.status} - ${
-                errorData.detail || 'Unknown error'
-              }`
-            )
-          })
-        } else {
-          res.json().then((data) => {
-            setGPUAvailable(parseInt(data, 10))
-          })
-        }
-      })
+      fetchWrapper
+        .get('/v1/cluster/devices')
+        .then((data) => setGPUAvailable(parseInt(data, 10)))
+        .catch((error) => {
+          console.error('Error:', error)
+          if (error.response.status !== 403 && error.response.status !== 401) {
+            setErrorMsg(error.message)
+          }
+        })
     }
   }, [cookie.token])
 

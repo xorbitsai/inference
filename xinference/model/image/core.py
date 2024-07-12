@@ -15,7 +15,7 @@ import collections.abc
 import logging
 import os
 from collections import defaultdict
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Literal, Optional, Tuple
 
 from ...constants import XINFERENCE_CACHE_DIR
 from ...types import PeftModelConfig
@@ -117,7 +117,10 @@ def generate_image_description(
     return res
 
 
-def match_diffusion(model_name: str) -> ImageModelFamilyV1:
+def match_diffusion(
+    model_name: str,
+    download_hub: Optional[Literal["huggingface", "modelscope", "csghub"]] = None,
+) -> ImageModelFamilyV1:
     from ..utils import download_from_modelscope
     from . import BUILTIN_IMAGE_MODELS, MODELSCOPE_IMAGE_MODELS
     from .custom import get_user_defined_images
@@ -126,17 +129,17 @@ def match_diffusion(model_name: str) -> ImageModelFamilyV1:
         if model_spec.model_name == model_name:
             return model_spec
 
-    if download_from_modelscope():
-        if model_name in MODELSCOPE_IMAGE_MODELS:
-            logger.debug(f"Image model {model_name} found in ModelScope.")
-            return MODELSCOPE_IMAGE_MODELS[model_name]
-        else:
-            logger.debug(
-                f"Image model {model_name} not found in ModelScope, "
-                f"now try to load it via builtin way."
-            )
-
-    if model_name in BUILTIN_IMAGE_MODELS:
+    if download_hub == "modelscope" and model_name in MODELSCOPE_IMAGE_MODELS:
+        logger.debug(f"Image model {model_name} found in ModelScope.")
+        return MODELSCOPE_IMAGE_MODELS[model_name]
+    elif download_hub == "huggingface" and model_name in BUILTIN_IMAGE_MODELS:
+        logger.debug(f"Image model {model_name} found in Huggingface.")
+        return BUILTIN_IMAGE_MODELS[model_name]
+    elif download_from_modelscope() and model_name in MODELSCOPE_IMAGE_MODELS:
+        logger.debug(f"Image model {model_name} found in ModelScope.")
+        return MODELSCOPE_IMAGE_MODELS[model_name]
+    elif model_name in BUILTIN_IMAGE_MODELS:
+        logger.debug(f"Image model {model_name} found in Huggingface.")
         return BUILTIN_IMAGE_MODELS[model_name]
     else:
         raise ValueError(
@@ -183,9 +186,10 @@ def create_image_model_instance(
     model_uid: str,
     model_name: str,
     peft_model_config: Optional[PeftModelConfig] = None,
+    download_hub: Optional[Literal["huggingface", "modelscope", "csghub"]] = None,
     **kwargs,
 ) -> Tuple[DiffusionModel, ImageModelDescription]:
-    model_spec = match_diffusion(model_name)
+    model_spec = match_diffusion(model_name, download_hub)
     controlnet = kwargs.get("controlnet")
     # Handle controlnet
     if controlnet is not None:
