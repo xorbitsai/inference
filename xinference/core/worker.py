@@ -562,7 +562,7 @@ class WorkerActor(xo.StatelessActor):
     async def unregister_model(self, model_type: str, model_name: str):
         # TODO: centralized model registrations
         if model_type in self._custom_register_type_to_cls:
-            _, _, unregister_fn = self._custom_register_type_to_cls[model_type]
+            _, _, unregister_fn, _ = self._custom_register_type_to_cls[model_type]
             unregister_fn(model_name, False)
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
