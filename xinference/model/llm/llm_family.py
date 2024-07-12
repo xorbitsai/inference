@@ -544,16 +544,8 @@ def _get_cache_dir(
     quantization: Optional[str] = None,
     create_if_not_exist=True,
 ):
-    # If the model id contains quantization, then we should give each
-    # quantization a dedicated cache dir.
-
-    if llm_spec.model_id is None:
-        raise ValueError(
-            f"Model id is required for read cache dir: {llm_family.model_name}"
-        )
-
     quant_suffix = ""
-    if "{" in llm_spec.model_id and quantization is not None:
+    if llm_spec.model_id and "{" in llm_spec.model_id and quantization is not None:
         quant_suffix = quantization
     else:
         for q in llm_spec.quantizations:
@@ -933,18 +925,6 @@ def get_cache_status(
     Checks if a model's cache status is available based on the model format and quantization.
     Supports different directories and model formats.
     """
-    if llm_spec.model_format not in [
-        "pytorch",
-        "ggmlv3",
-        "ggufv2",
-        "gptq",
-        "awq",
-        "mlx",
-    ]:
-        raise ValueError(f"Unsupported model format: {llm_spec.model_format}")
-
-    if llm_spec.model_id is None:
-        raise ValueError("Model ID is required to check cache status.")
 
     def check_file_status(meta_path: str) -> bool:
         return os.path.exists(meta_path)
@@ -977,7 +957,7 @@ def get_cache_status(
                 meta_paths["modelscope"]
             )
 
-    if "{" in llm_spec.model_id:
+    if llm_spec.model_id and "{" in llm_spec.model_id:
         return (
             [handle_quantization(q) for q in llm_spec.quantizations]
             if quantization is None
