@@ -48,11 +48,7 @@ class CacheTrackerActor(xo.Actor):
             assert isinstance(origin_version_info["model_file_location"], dict)
             origin_version_info["model_file_location"].update(data)
 
-    def record_model_version(
-        self,
-        version_info: Dict[str, List[Dict]],
-        address: str,
-    ):
+    def record_model_version(self, version_info: Dict[str, List[Dict]], address: str):
         self._map_address_to_file_location(version_info, address)
         for model_name, model_versions in version_info.items():
             if model_name not in self._model_name_to_version_info:
@@ -104,13 +100,6 @@ class CacheTrackerActor(xo.Actor):
 
     def get_model_version_count(self, model_name: str) -> int:
         return len(self.get_model_versions(model_name))
-
-    def get_register_workerip(self, model_name: str) -> str | None:
-        if model_name not in self._register_name_to_worker_ip:
-            logger.warning(f"Not register_name for model_name: {model_name}")
-            return None
-        else:
-            return self._register_name_to_worker_ip[model_name]
 
     def list_cached_models(
         self, worker_ip: str, model_name: Optional[str] = None
