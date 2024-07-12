@@ -1065,7 +1065,11 @@ class Client:
         return response.json()
 
     def register_model(
-        self, model_type: str, model: str, worker_ip: str, persist: bool
+        self,
+        model_type: str,
+        model: str,
+        persist: bool,
+        worker_ip: Optional[str] = None,
     ):
         """
         Register a custom model.
@@ -1076,7 +1080,7 @@ class Client:
             The type of model.
         model: str
             The model definition. (refer to: https://inference.readthedocs.io/en/latest/models/custom.html)
-        worker_ip: str
+        worker_ip: Optional[str]
             The IP address of the worker on which the model is running.
         persist: bool
 
