@@ -25,7 +25,6 @@ from ....types import (
     CompletionChunk,
     CompletionUsage,
     CreateCompletionLlamaCpp,
-    Embedding,
     LlamaCppGenerateConfig,
     LlamaCppModelConfig,
 )
@@ -65,7 +64,6 @@ class LlamaCppModel(LLM):
 
         if self.model_family.context_length:
             llamacpp_model_config.setdefault("n_ctx", self.model_family.context_length)
-        llamacpp_model_config.setdefault("embedding", True)
         llamacpp_model_config.setdefault("use_mmap", False)
         llamacpp_model_config.setdefault("use_mlock", True)
 
@@ -185,7 +183,7 @@ class LlamaCppModel(LLM):
     ) -> bool:
         if llm_spec.model_format not in ["ggmlv3", "ggufv2"]:
             return False
-        if "chatglm" in llm_family.model_name or "qwen" in llm_family.model_name:
+        if "qwen" in llm_family.model_name:
             return False
         if "generate" not in llm_family.model_ability:
             return False
@@ -261,11 +259,6 @@ class LlamaCppModel(LLM):
         else:
             return generator_wrapper(prompt, generate_config)
 
-    def create_embedding(self, input: Union[str, List[str]]) -> Embedding:
-        assert self._llm is not None
-        embedding = self._llm.create_embedding(input)
-        return embedding
-
 
 class LlamaCppChatModel(LlamaCppModel, ChatModelMixin):
     def __init__(
@@ -291,8 +284,6 @@ class LlamaCppChatModel(LlamaCppModel, ChatModelMixin):
         cls, llm_family: LLMFamilyV1, llm_spec: LLMSpecV1, quantization: str
     ) -> bool:
         if llm_spec.model_format not in ["ggmlv3", "ggufv2"]:
-            return False
-        if "chatglm" in llm_family.model_name:
             return False
         if "chat" not in llm_family.model_ability:
             return False

@@ -575,19 +575,6 @@
     "model_description": "ChatGLM is an open-source General Language Model (GLM) based LLM trained on both Chinese and English data.",
     "model_specs": [
       {
-        "model_format": "ggmlv3",
-        "model_size_in_billions": 6,
-        "quantizations": [
-          "q4_0",
-          "q4_1",
-          "q5_0",
-          "q5_1",
-          "q8_0"
-        ],
-        "model_id": "Xorbits/chatglm-6B-GGML",
-        "model_file_name_template": "chatglm-ggml-{quantization}.bin"
-      },
-      {
         "model_format": "pytorch",
         "model_size_in_billions": 6,
         "quantizations": [
@@ -622,19 +609,6 @@
     ],
     "model_description": "ChatGLM2 is the second generation of ChatGLM, still open-source and trained on Chinese and English data.",
     "model_specs": [
-      {
-        "model_format": "ggmlv3",
-        "model_size_in_billions": 6,
-        "quantizations": [
-          "q4_0",
-          "q4_1",
-          "q5_0",
-          "q5_1",
-          "q8_0"
-        ],
-        "model_id": "Xorbits/chatglm2-6B-GGML",
-        "model_file_name_template": "chatglm2-ggml-{quantization}.bin"
-      },
       {
         "model_format": "pytorch",
         "model_size_in_billions": 6,
@@ -706,15 +680,6 @@
     ],
     "model_description": "ChatGLM3 is the third generation of ChatGLM, still open-source and trained on Chinese and English data.",
     "model_specs": [
-      {
-        "model_format": "ggmlv3",
-        "model_size_in_billions": 6,
-        "quantizations": [
-          "q4_0"
-        ],
-        "model_id": "Xorbits/chatglm3-6B-GGML",
-        "model_file_name_template": "chatglm3-ggml-{quantization}.bin"
-      },
       {
         "model_format": "pytorch",
         "model_size_in_billions": 6,
@@ -855,6 +820,32 @@
         ],
         "model_id": "THUDM/glm-4-9b-chat",
         "model_revision": "b84dc74294ccd507a3d78bde8aebf628221af9bd"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 9,
+        "quantizations": [
+          "Q2_K",
+          "IQ3_XS",
+          "IQ3_S",
+          "IQ3_M",
+          "Q3_K_S",
+          "Q3_K_L",
+          "Q3_K",
+          "IQ4_XS",
+          "IQ4_NL",
+          "Q4_K_S",
+          "Q4_K",
+          "Q5_K_S",
+          "Q5_K",
+          "Q6_K",
+          "Q8_0",
+          "BF16",
+          "FP16"
+        ],
+        "model_file_name_template": "glm-4-9b-chat.{quantization}.gguf",
+        "model_id": "legraphista/glm-4-9b-chat-GGUF",
+        "model_revision": "0155a14edf0176863e9a003cdd78ce599e4d62c0"
       }
     ],
     "prompt_style": {
@@ -900,6 +891,32 @@
         ],
         "model_id": "THUDM/glm-4-9b-chat-1m",
         "model_revision": "715ddbe91082f976ff6a4ca06d59e5bbff6c3642"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 9,
+        "quantizations": [
+          "Q2_K",
+          "IQ3_XS",
+          "IQ3_S",
+          "IQ3_M",
+          "Q3_K_S",
+          "Q3_K_L",
+          "Q3_K",
+          "IQ4_XS",
+          "IQ4_NL",
+          "Q4_K_S",
+          "Q4_K",
+          "Q5_K_S",
+          "Q5_K",
+          "Q6_K",
+          "Q8_0",
+          "BF16",
+          "FP16"
+        ],
+        "model_file_name_template": "glm-4-9b-chat-1m.{quantization}.gguf",
+        "model_id": "legraphista/glm-4-9b-chat-1m-GGUF",
+        "model_revision": "782e28bd5eee3c514c07108da15e0b5e06dcf776"
       }
     ],
     "prompt_style": {

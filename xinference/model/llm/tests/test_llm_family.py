@@ -1196,7 +1196,6 @@ def test_quert_engine_SGLang():
 
 
 def test_query_engine_general():
-    from ..ggml.chatglm import ChatglmCppChatModel
     from ..ggml.llamacpp import LlamaCppChatModel
     from ..llm_family import (
         LLM_ENGINES,
@@ -1269,17 +1268,6 @@ def test_query_engine_general():
     assert (
         str(exif.value)
         == "Model qwen1.5-chat cannot be run on engine llama.cpp, with format ggmlv3, size 1_8 and quantization q2_k."
-    )
-
-    assert (
-        check_engine_by_spec_parameters(
-            model_engine="llama.cpp",
-            model_name="chatglm",
-            model_format="ggmlv3",
-            model_size_in_billions=6,
-            quantization="q4_0",
-        )
-        is ChatglmCppChatModel
     )
 
     spec = GgmlLLMSpecV1(
