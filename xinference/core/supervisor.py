@@ -470,7 +470,7 @@ class SupervisorActor(xo.StatelessActor):
         ret = []
         workers = list(self._worker_address_to_worker.values())
         for worker in workers:
-            ret.append(await worker.list_model_registrations(model_type, detailed))
+            ret.extend(await worker.list_model_registrations(model_type, detailed))
 
         if model_type == "LLM":
             from ..model.llm import BUILTIN_LLM_FAMILIES, get_user_defined_llm_families
@@ -583,7 +583,14 @@ class SupervisorActor(xo.StatelessActor):
             raise ValueError(f"Unsupported model type: {model_type}")
 
     @log_sync(logger=logger)
-    def get_model_registration(self, model_type: str, model_name: str) -> Any:
+    async def get_model_registration(self, model_type: str, model_name: str) -> Any:
+        # search in worker first
+        workers = list(self._worker_address_to_worker.values())
+        for worker in workers:
+            f = await worker.get_model_registration(model_type, model_name)
+            if f is not None:
+                return f
+
         if model_type == "LLM":
             from ..model.llm import BUILTIN_LLM_FAMILIES, get_user_defined_llm_families
 
@@ -635,6 +642,13 @@ class SupervisorActor(xo.StatelessActor):
 
         from ..model.llm.llm_family import LLM_ENGINES
 
+        # search in worker first
+        workers = list(self._worker_address_to_worker.values())
+        for worker in workers:
+            res = await worker.query_engines_by_model_name(model_name)
+            if res is not None:
+                return res
+
         if model_name not in LLM_ENGINES:
             raise ValueError(f"Model {model_name} not found")
 
@@ -672,7 +686,9 @@ class SupervisorActor(xo.StatelessActor):
                 )
 
             if target_ip_worker_ref:
-                await target_ip_worker_ref.register_model(model_type, model, persist)
+                await target_ip_worker_ref.register_model(
+                    model_type, model, worker_ip, persist
+                )
                 return
 
             model_spec = model_spec_cls.parse_raw(model)
@@ -696,10 +712,9 @@ class SupervisorActor(xo.StatelessActor):
             unregister_fn(model_name)
             await self._cache_tracker_ref.unregister_model_version(model_name)
 
-            if not self.is_local_deployment():
-                workers = list(self._worker_address_to_worker.values())
-                for worker in workers:
-                    await worker.unregister_model(model_name)
+            workers = list(self._worker_address_to_worker.values())
+            for worker in workers:
+                await worker.unregister_model(model_name)
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
 
@@ -769,7 +784,12 @@ class SupervisorActor(xo.StatelessActor):
         gpu_idx: Optional[Union[int, List[int]]] = None,
         **kwargs,
     ) -> str:
-        worker_ip = await self._cache_tracker_ref.get_register_workerip(model_name)
+        # search in worker first
+        workers = list(self._worker_address_to_worker.values())
+        for worker in workers:
+            res = await worker.get_model_registration(model_type, model_uid)
+            if res is not None:
+                worker_ip = worker.address.split(":")[0]
 
         target_ip_worker_ref = (
             self._get_worker_ref_by_ip(worker_ip) if worker_ip is not None else None

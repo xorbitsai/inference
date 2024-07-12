@@ -511,17 +511,23 @@ class WorkerActor(xo.StatelessActor):
                 raise ValueError(f"{model_name} model can't run on Darwin system.")
 
     @log_sync(logger=logger)
-    def register_model(self, model_type: str, model: str, persist: bool):
+    async def register_model(
+        self, model_type: str, model: str, worker_ip: str, persist: bool
+    ):
         # TODO: centralized model registrations
         if model_type in self._custom_register_type_to_cls:
             (
                 model_spec_cls,
                 register_fn,
                 unregister_fn,
+                generate_fn,
             ) = self._custom_register_type_to_cls[model_type]
             model_spec = model_spec_cls.parse_raw(model)
             try:
                 register_fn(model_spec, persist)
+                await self._cache_tracker_ref.record_model_version(
+                    generate_fn(model_spec), self.address, worker_ip
+                )
             except ValueError as e:
                 raise e
             except Exception as e:
@@ -531,11 +537,12 @@ class WorkerActor(xo.StatelessActor):
             raise ValueError(f"Unsupported model type: {model_type}")
 
     @log_sync(logger=logger)
-    def unregister_model(self, model_type: str, model_name: str):
+    async def unregister_model(self, model_type: str, model_name: str):
         # TODO: centralized model registrations
         if model_type in self._custom_register_type_to_cls:
             _, _, unregister_fn = self._custom_register_type_to_cls[model_type]
             unregister_fn(model_name)
+            await self._cache_tracker_ref.unregister_model_version(model_name)
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
 
@@ -548,119 +555,109 @@ class WorkerActor(xo.StatelessActor):
             return item.get("model_name").lower()
 
         if model_type == "LLM":
-            from ..model.llm import BUILTIN_LLM_FAMILIES, get_user_defined_llm_families
+            from ..model.llm import get_user_defined_llm_families
 
             ret = []
-            for family in BUILTIN_LLM_FAMILIES:
-                if detailed:
-                    ret.append(await self._to_llm_reg(family, True))
-                else:
-                    ret.append({"model_name": family.model_name, "is_builtin": True})
 
             for family in get_user_defined_llm_families():
-                if detailed:
-                    ret.append(await self._to_llm_reg(family, False))
-                else:
-                    ret.append({"model_name": family.model_name, "is_builtin": False})
+                ret.append({"model_name": family.model_name, "is_builtin": False})
 
             ret.sort(key=sort_helper)
             return ret
         elif model_type == "embedding":
-            from ..model.embedding import BUILTIN_EMBEDDING_MODELS
             from ..model.embedding.custom import get_user_defined_embeddings
 
             ret = []
-            for model_name, family in BUILTIN_EMBEDDING_MODELS.items():
-                if detailed:
-                    ret.append(
-                        await self._to_embedding_model_reg(family, is_builtin=True)
-                    )
-                else:
-                    ret.append({"model_name": model_name, "is_builtin": True})
 
             for model_spec in get_user_defined_embeddings():
-                if detailed:
-                    ret.append(
-                        await self._to_embedding_model_reg(model_spec, is_builtin=False)
-                    )
-                else:
-                    ret.append(
-                        {"model_name": model_spec.model_name, "is_builtin": False}
-                    )
+                ret.append({"model_name": model_spec.model_name, "is_builtin": False})
 
             ret.sort(key=sort_helper)
             return ret
         elif model_type == "image":
-            from ..model.image import BUILTIN_IMAGE_MODELS
             from ..model.image.custom import get_user_defined_images
 
             ret = []
-            for model_name, family in BUILTIN_IMAGE_MODELS.items():
-                if detailed:
-                    ret.append(await self._to_image_model_reg(family, is_builtin=True))
-                else:
-                    ret.append({"model_name": model_name, "is_builtin": True})
 
             for model_spec in get_user_defined_images():
-                if detailed:
-                    ret.append(
-                        await self._to_image_model_reg(model_spec, is_builtin=False)
-                    )
-                else:
-                    ret.append(
-                        {"model_name": model_spec.model_name, "is_builtin": False}
-                    )
+                ret.append({"model_name": model_spec.model_name, "is_builtin": False})
 
             ret.sort(key=sort_helper)
             return ret
         elif model_type == "audio":
-            from ..model.audio import BUILTIN_AUDIO_MODELS
             from ..model.audio.custom import get_user_defined_audios
 
             ret = []
-            for model_name, family in BUILTIN_AUDIO_MODELS.items():
-                if detailed:
-                    ret.append(await self._to_audio_model_reg(family, is_builtin=True))
-                else:
-                    ret.append({"model_name": model_name, "is_builtin": True})
 
             for model_spec in get_user_defined_audios():
-                if detailed:
-                    ret.append(
-                        await self._to_audio_model_reg(model_spec, is_builtin=False)
-                    )
-                else:
-                    ret.append(
-                        {"model_name": model_spec.model_name, "is_builtin": False}
-                    )
+                ret.append({"model_name": model_spec.model_name, "is_builtin": False})
 
             ret.sort(key=sort_helper)
             return ret
         elif model_type == "rerank":
-            from ..model.rerank import BUILTIN_RERANK_MODELS
             from ..model.rerank.custom import get_user_defined_reranks
 
             ret = []
-            for model_name, family in BUILTIN_RERANK_MODELS.items():
-                if detailed:
-                    ret.append(await self._to_rerank_model_reg(family, is_builtin=True))
-                else:
-                    ret.append({"model_name": model_name, "is_builtin": True})
 
             for model_spec in get_user_defined_reranks():
-                if detailed:
-                    ret.append(
-                        await self._to_rerank_model_reg(model_spec, is_builtin=False)
-                    )
-                else:
-                    ret.append(
-                        {"model_name": model_spec.model_name, "is_builtin": False}
-                    )
+                ret.append({"model_name": model_spec.model_name, "is_builtin": False})
 
             ret.sort(key=sort_helper)
             return ret
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
+
+    @log_sync(logger=logger)
+    async def get_model_registration(self, model_type: str, model_name: str) -> Any:
+        if model_type == "LLM":
+            from ..model.llm import get_user_defined_llm_families
+
+            for f in get_user_defined_llm_families():
+                if f.model_name == model_name:
+                    return f
+        elif model_type == "embedding":
+            from ..model.embedding.custom import get_user_defined_embeddings
+
+            for f in get_user_defined_embeddings():
+                if f.model_name == model_name:
+                    return f
+        elif model_type == "image":
+            from ..model.image.custom import get_user_defined_images
+
+            for f in get_user_defined_images():
+                if f.model_name == model_name:
+                    return f
+        elif model_type == "audio":
+            from ..model.audio.custom import get_user_defined_audios
+
+            for f in get_user_defined_audios():
+                if f.model_name == model_name:
+                    return f
+        elif model_type == "rerank":
+            from ..model.rerank.custom import get_user_defined_reranks
+
+            for f in get_user_defined_reranks():
+                if f.model_name == model_name:
+                    return f
+        return None
+
+    @log_async(logger=logger)
+    async def query_engines_by_model_name(self, model_name: str):
+        from copy import deepcopy
+
+        from ..model.llm.llm_family import LLM_ENGINES
+
+        if model_name not in LLM_ENGINES:
+            return None
+
+        # filter llm_class
+        engine_params = deepcopy(LLM_ENGINES[model_name])
+        for engine in engine_params:
+            params = engine_params[engine]
+            for param in params:
+                del param["llm_class"]
+
+        return engine_params
 
     async def _get_model_ability(self, model: Any, model_type: str) -> List[str]:
         from ..model.llm.core import LLM
