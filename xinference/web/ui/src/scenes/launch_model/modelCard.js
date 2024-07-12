@@ -51,7 +51,7 @@ import { useNavigate } from 'react-router-dom'
 import { ApiContext } from '../../components/apiContext'
 import CopyComponent from '../../components/copyComponent/copyComponent'
 import DeleteDialog from '../../components/deleteDialog'
-import fetcher from '../../components/fetcher'
+import fetchWrapper from '../../components/fetchWrapper'
 import TitleTypography from '../../components/titleTypography'
 import AddPair from './components/addPair'
 
@@ -64,12 +64,16 @@ const llmAllDataKey = [
   'model_size_in_billions',
   'quantization',
   'n_gpu',
+  'n_gpu_layers',
   'replica',
   'request_limits',
   'worker_ip',
   'gpu_idx',
+  'download_hub',
   'peft_model_config',
 ]
+
+const csghubArr = ['qwen2-instruct']
 
 const ModelCard = ({
   url,
@@ -106,6 +110,7 @@ const ModelCard = ({
   const [requestLimits, setRequestLimits] = useState('')
   const [workerIp, setWorkerIp] = useState('')
   const [GPUIdx, setGPUIdx] = useState('')
+  const [downloadHub, setDownloadHub] = useState('')
 
   const [enginesObj, setEnginesObj] = useState({})
   const [engineOptions, setEngineOptions] = useState([])
@@ -139,10 +144,10 @@ const ModelCard = ({
   }
 
   const isCached = (spec) => {
-    if (spec.model_format === 'pytorch') {
-      return spec.cache_status && spec.cache_status === true
+    if (Array.isArray(spec.cache_status)) {
+      return spec.cache_status.some((cs) => cs)
     } else {
-      return spec.cache_status && spec.cache_status.some((cs) => cs)
+      return spec.cache_status === true
     }
   }
 
@@ -186,7 +191,11 @@ const ModelCard = ({
         ),
       ]
       setSizeOptions(sizes)
-      if (!isHistory || !sizes.includes(Number(modelSize))) {
+      if (
+        !isHistory ||
+        (sizeOptions.length &&
+          JSON.stringify(sizes) !== JSON.stringify(sizeOptions))
+      ) {
         setModelSize('')
       }
       if (sizes.length === 1) {
@@ -248,37 +257,23 @@ const ModelCard = ({
   }
 
   const getModelEngine = (model_name) => {
-    fetcher(url + `/v1/engines/${model_name}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    })
-      .then((response) => {
-        if (!response.ok) {
-          // Assuming the server returns error details in JSON format
-          response.json().then((errorData) => {
-            setErrorMsg(
-              `Server error: ${response.status} - ${
-                errorData.detail || 'Unknown error'
-              }`
-            )
-          })
-        } else {
-          response.json().then((data) => {
-            setEnginesObj(data)
-            setEngineOptions(Object.keys(data))
-          })
-        }
+    fetchWrapper
+      .get(`/v1/engines/${model_name}`)
+      .then((data) => {
+        setEnginesObj(data)
+        setEngineOptions(Object.keys(data))
         setIsCallingApi(false)
       })
       .catch((error) => {
         console.error('Error:', error)
+        if (error.response.status !== 403) {
+          setErrorMsg(error.message)
+        }
         setIsCallingApi(false)
       })
   }
 
-  const launchModel = (url) => {
+  const launchModel = () => {
     if (isCallingApi || isUpdatingModel) {
       return
     }
@@ -307,15 +302,21 @@ const ModelCard = ({
           : Number(String(requestLimits).trim()),
       worker_ip: workerIp.trim() === '' ? null : workerIp.trim(),
       gpu_idx: GPUIdx.trim() === '' ? null : handleGPUIdx(GPUIdx.trim()),
+      download_hub: downloadHub === '' ? null : downloadHub,
     }
 
     let modelDataWithID_other = {
       model_uid: modelUID.trim() === '' ? null : modelUID.trim(),
       model_name: modelData.model_name,
       model_type: modelType,
+      download_hub: downloadHub === '' ? null : downloadHub,
     }
 
-    if (modelType === 'embedding' || modelType === 'rerank') {
+    if (
+      modelType === 'embedding' ||
+      modelType === 'rerank' ||
+      modelType === 'flexible'
+    ) {
       modelDataWithID_other = {
         ...modelDataWithID_other,
         replica: replica,
@@ -369,53 +370,30 @@ const ModelCard = ({
       modelType === 'LLM' ? modelDataWithID_LLM : modelDataWithID_other
 
     // First fetcher request to initiate the model
-    fetcher(url + '/v1/models', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(modelDataWithID),
-    })
-      .then((response) => {
-        if (!response.ok) {
-          // Assuming the server returns error details in JSON format
-          response.json().then((errorData) => {
-            setErrorMsg(
-              `Server error: ${response.status} - ${
-                errorData.detail || 'Unknown error'
-              }`
-            )
-          })
-        } else {
-          navigate(`/running_models/${modelType}`)
-          sessionStorage.setItem(
-            'runningModelType',
-            `/running_models/${modelType}`
+    fetchWrapper
+      .post('/v1/models', modelDataWithID)
+      .then(() => {
+        navigate(`/running_models/${modelType}`)
+        sessionStorage.setItem(
+          'runningModelType',
+          `/running_models/${modelType}`
+        )
+        let historyArr = JSON.parse(localStorage.getItem('historyArr')) || []
+        if (!historyArr.some((item) => deepEqual(item, modelDataWithID))) {
+          historyArr = historyArr.filter(
+            (item) => item.model_name !== modelDataWithID.model_name
           )
-
-          if (
-            isHistory ||
-            ((modelType === 'embedding' || modelType === 'rerank') &&
-              (modelUID !== '' || replica !== 1 || workerIp !== '')) ||
-            ((modelType === 'image' || modelType === 'audio') &&
-              modelUID !== '') ||
-            modelType === 'LLM'
-          ) {
-            let historyArr =
-              JSON.parse(localStorage.getItem('historyArr')) || []
-            if (!historyArr.some((item) => deepEqual(item, modelDataWithID))) {
-              historyArr = historyArr.filter(
-                (item) => item.model_name !== modelDataWithID.model_name
-              )
-              historyArr.push(modelDataWithID)
-            }
-            localStorage.setItem('historyArr', JSON.stringify(historyArr))
-          }
+          historyArr.push(modelDataWithID)
         }
+        localStorage.setItem('historyArr', JSON.stringify(historyArr))
+
         setIsCallingApi(false)
       })
       .catch((error) => {
         console.error('Error:', error)
+        if (error.response.status !== 403) {
+          setErrorMsg(error.message)
+        }
         setIsCallingApi(false)
       })
   }
@@ -433,24 +411,23 @@ const ModelCard = ({
     const subType = sessionStorage.getItem('subType').split('/')
     if (subType) {
       subType[3]
-      fetcher(
-        url +
+      fetchWrapper
+        .delete(
           `/v1/model_registrations/${
             subType[3] === 'llm' ? 'LLM' : subType[3]
-          }/${modelData.model_name}`,
-        {
-          method: 'DELETE',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        }
-      )
+          }/${modelData.model_name}`
+        )
         .then(() => {
           setCustomDeleted(true)
           onHandlecustomDelete(modelData.model_name)
           setIsDeleteCustomModel(false)
         })
-        .catch(console.error)
+        .catch((error) => {
+          console.error(error)
+          if (error.response.status !== 403) {
+            setErrorMsg(error.message)
+          }
+        })
     }
   }
 
@@ -512,29 +489,14 @@ const ModelCard = ({
   }
 
   const getCachedList = () => {
-    fetcher(url + `/v1/cache/models?model_name=${modelData.model_name}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    })
-      .then((response) => {
-        if (!response.ok) {
-          response.json().then((errorData) => {
-            setErrorMsg(
-              `Server error: ${response.status} - ${
-                errorData.detail || 'Unknown error'
-              }`
-            )
-          })
-        } else {
-          response.json().then((data) => {
-            setCachedListArr(data.list)
-          })
-        }
-      })
+    fetchWrapper
+      .get(`/v1/cache/models?model_name=${modelData.model_name}`)
+      .then((data) => setCachedListArr(data.list))
       .catch((error) => {
-        console.error('Error:', error)
+        console.error(error)
+        if (error.response.status !== 403) {
+          setErrorMsg(error.message)
+        }
       })
   }
 
@@ -545,41 +507,28 @@ const ModelCard = ({
   }
 
   const handleDeleteCached = () => {
-    fetcher(url + `/v1/cache/models?model_version=${cachedModelVersion}`, {
-      method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    })
-      .then((response) => {
-        if (!response.ok) {
-          response.json().then((errorData) => {
-            setErrorMsg(
-              `Server error: ${response.status} - ${
-                errorData.detail || 'Unknown error'
-              }`
-            )
-          })
-        } else {
-          response.json().then(() => {
-            const cachedArr = cachedListArr.filter(
-              (item) => item.real_path !== cachedRealPath
-            )
-            setCachedListArr(cachedArr)
-            setIsDeleteCached(false)
-            if (cachedArr.length) {
-              if (
-                (page + 1) * 5 >= cachedListArr.length &&
-                cachedArr.length % 5 === 0
-              ) {
-                setPage(cachedArr.length / 5 - 1)
-              }
-            }
-          })
+    fetchWrapper
+      .delete(`/v1/cache/models?model_version=${cachedModelVersion}`)
+      .then(() => {
+        const cachedArr = cachedListArr.filter(
+          (item) => item.real_path !== cachedRealPath
+        )
+        setCachedListArr(cachedArr)
+        setIsDeleteCached(false)
+        if (cachedArr.length) {
+          if (
+            (page + 1) * 5 >= cachedListArr.length &&
+            cachedArr.length % 5 === 0
+          ) {
+            setPage(cachedArr.length / 5 - 1)
+          }
         }
       })
       .catch((error) => {
-        console.error('Error:', error)
+        console.error(error)
+        if (error.response.status !== 403) {
+          setErrorMsg(error.message)
+        }
       })
   }
 
@@ -607,24 +556,36 @@ const ModelCard = ({
         model_size_in_billions,
         quantization,
         n_gpu,
+        n_gpu_layers,
         replica,
         model_uid,
         request_limits,
         worker_ip,
         gpu_idx,
+        download_hub,
         peft_model_config,
       } = arr[0]
 
-      setModelEngine(model_engine || '')
+      if (!engineOptions.includes(model_engine)) {
+        setModelEngine('')
+      } else {
+        setModelEngine(model_engine || '')
+      }
       setModelFormat(model_format || '')
       setModelSize(String(model_size_in_billions) || '')
       setQuantization(quantization || '')
       setNGPU(n_gpu || 'auto')
+      if (n_gpu_layers >= 0) {
+        setNGPULayers(n_gpu_layers)
+      } else {
+        setNGPULayers(-1)
+      }
       setReplica(replica || 1)
       setModelUID(model_uid || '')
       setRequestLimits(request_limits || '')
       setWorkerIp(worker_ip || '')
       setGPUIdx(gpu_idx?.join(',') || '')
+      setDownloadHub(download_hub || '')
 
       let loraData = []
       peft_model_config?.lora_list?.forEach((item) => {
@@ -660,7 +621,13 @@ const ModelCard = ({
       }
       setCustomArr(customData)
 
-      if (model_uid || request_limits || worker_ip || gpu_idx?.join(','))
+      if (
+        model_uid ||
+        request_limits ||
+        worker_ip ||
+        gpu_idx?.join(',') ||
+        download_hub
+      )
         setIsOther(true)
 
       if (
@@ -684,6 +651,7 @@ const ModelCard = ({
       } else {
         setModelUID(arr[0].model_uid || '')
       }
+      setDownloadHub(arr[0].download_hub)
     }
   }
 
@@ -743,6 +711,7 @@ const ModelCard = ({
       setRequestLimits('')
       setWorkerIp('')
       setGPUIdx('')
+      setDownloadHub('')
       setLoraArr([])
       setImageLoraLoadArr([])
       setImageLoraFuseArr([])
@@ -753,8 +722,10 @@ const ModelCard = ({
       setModelUID('')
       setReplica(1)
       setWorkerIp('')
+      setDownloadHub('')
     } else {
       setModelUID('')
+      setDownloadHub('')
     }
   }
 
@@ -1041,6 +1012,11 @@ const ModelCard = ({
                   }
                 })()}
               </Stack>
+              {modelData.model_description && (
+                <p className="p" title={modelData.model_description}>
+                  {modelData.model_description}
+                </p>
+              )}
             </div>
             {modelData.dimensions && (
               <div className="iconRow">
@@ -1220,7 +1196,7 @@ const ModelCard = ({
                       onChange={(e) => setQuantization(e.target.value)}
                       label="Quantization"
                     >
-                      {quantizationOptions.map((quant, index) => {
+                      {quantizationOptions.map((quant) => {
                         const specs = modelData.model_specs
                           .filter((spec) => spec.model_format === modelFormat)
                           .filter(
@@ -1229,10 +1205,12 @@ const ModelCard = ({
                               convertModelSize(modelSize)
                           )
 
-                        const cached =
-                          modelFormat === 'pytorch'
-                            ? specs[0]?.cache_status ?? false === true
-                            : specs[0]?.cache_status?.[index] ?? false === true
+                        const spec = specs.find((s) => {
+                          return s.quantizations.includes(quant)
+                        })
+                        const cached = Array.isArray(spec.cache_status)
+                          ? spec.cache_status[spec.quantizations.indexOf(quant)]
+                          : spec.cache_status
 
                         const displayedQuant = cached
                           ? quant + ' (cached)'
@@ -1387,11 +1365,44 @@ const ModelCard = ({
                       )}
                     </FormControl>
                   </Grid>
+                  <Grid item xs={12}>
+                    <FormControl variant="outlined" margin="normal" fullWidth>
+                      <InputLabel id="quantization-label">
+                        (Optional) Download_hub
+                      </InputLabel>
+                      <Select
+                        labelId="download_hub-label"
+                        value={downloadHub}
+                        onChange={(e) => {
+                          e.target.value === 'none'
+                            ? setDownloadHub('')
+                            : setDownloadHub(e.target.value)
+                        }}
+                        label="(Optional) Download_hub"
+                      >
+                        {(csghubArr.includes(modelData.model_name)
+                          ? ['none', 'huggingface', 'modelscope', 'csghub']
+                          : ['none', 'huggingface', 'modelscope']
+                        ).map((item) => {
+                          return (
+                            <MenuItem key={item} value={item}>
+                              {item}
+                            </MenuItem>
+                          )
+                        })}
+                      </Select>
+                    </FormControl>
+                  </Grid>
                   <ListItemButton
                     onClick={() => setIsPeftModelConfig(!isPeftModelConfig)}
                   >
-                    <ListItemText primary="Lora Config" />
-                    {isPeftModelConfig ? <ExpandLess /> : <ExpandMore />}
+                    <div style={{ display: 'flex', alignItems: 'center' }}>
+                      <ListItemText
+                        primary="Lora Config"
+                        style={{ marginRight: 10 }}
+                      />
+                      {isPeftModelConfig ? <ExpandLess /> : <ExpandMore />}
+                    </div>
                   </ListItemButton>
                   <Collapse
                     in={isPeftModelConfig}
@@ -1461,7 +1472,9 @@ const ModelCard = ({
                 label="(Optional) Model UID, model name by default"
                 onChange={(e) => setModelUID(e.target.value)}
               />
-              {(modelType === 'embedding' || modelType === 'rerank') && (
+              {(modelType === 'embedding' ||
+                modelType === 'rerank' ||
+                modelType === 'flexible') && (
                 <>
                   <TextField
                     style={{ marginTop: '25px' }}
@@ -1527,6 +1540,29 @@ const ModelCard = ({
                   </FormControl>
                 </>
               )}
+              <FormControl variant="outlined" margin="normal" fullWidth>
+                <InputLabel id="quantization-label">
+                  (Optional) Download_hub
+                </InputLabel>
+                <Select
+                  labelId="download_hub-label"
+                  value={downloadHub}
+                  onChange={(e) => {
+                    e.target.value === 'none'
+                      ? setDownloadHub('')
+                      : setDownloadHub(e.target.value)
+                  }}
+                  label="(Optional) Download_hub"
+                >
+                  {['none', 'huggingface', 'modelscope'].map((item) => {
+                    return (
+                      <MenuItem key={item} value={item}>
+                        {item}
+                      </MenuItem>
+                    )
+                  })}
+                </Select>
+              </FormControl>
             </FormControl>
           )}
           <Box className="buttonsContainer">

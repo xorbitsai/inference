@@ -40,6 +40,8 @@ function App() {
             setCookie('token', 'no_auth', { path: '/' })
           } else if (data.auth && !sessionStorage.getItem('token')) {
             removeCookie('token', { path: '/' })
+          } else if (!data.auth && sessionStorage.getItem('token')) {
+            sessionStorage.removeItem('token')
           }
         })
       }

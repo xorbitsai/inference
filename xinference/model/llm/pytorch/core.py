@@ -18,6 +18,8 @@ import os
 from functools import lru_cache
 from typing import Iterable, Iterator, List, Optional, Tuple, Union
 
+import torch
+
 from ....core.scheduler import InferenceRequest
 from ....device_utils import (
     get_device_preferred_dtype,
@@ -32,9 +34,6 @@ from ....types import (
     CompletionChoice,
     CompletionChunk,
     CreateCompletionTorch,
-    Embedding,
-    EmbeddingData,
-    EmbeddingUsage,
     LoRA,
     PytorchGenerateConfig,
     PytorchModelConfig,
@@ -43,7 +42,7 @@ from ...utils import select_device
 from ..core import LLM
 from ..llm_family import LLMFamilyV1, LLMSpecV1
 from ..utils import QWEN_TOOL_CALL_FAMILY, ChatModelMixin
-from .utils import get_context_length, get_max_src_len
+from .utils import get_context_length, get_max_src_len, pad_prefill_tokens
 
 logger = logging.getLogger(__name__)
 
@@ -409,9 +408,171 @@ class PytorchModel(LLM):
         else:
             return generator_wrapper(prompt, generate_config)
 
+    def build_prefill_attention_mask(
+        self, batch_size: int, seq_length: int, reqs: List[InferenceRequest]
+    ):
+        """
+        Build attention mask for prefill phase.
+        Padding `0` on the left.
+        Note that the parameter `seq_length` is from `input_ids`.
+        """
+        data = []
+        for r in reqs:
+            real_len = seq_length - r.padding_len
+            x = torch.cat(
+                [
+                    torch.full((r.padding_len,), 0, dtype=torch.long),
+                    torch.ones((real_len,), dtype=torch.long),
+                ]
+            )
+            data.append(x)
+            r.extra_kwargs["attention_mask_seq_len"] = real_len
+        return torch.stack(data).to(self._device)
+
+    def build_decode_attention_mask(
+        self, batch_size: int, seq_length: int, reqs: List[InferenceRequest]
+    ):
+        """
+        Build attention mask for decode phase.
+        Note that the `seq_length` parameter is from merged kv_cache.
+        So we need pad `0` on the left again.
+        """
+        data = []
+        for r in reqs:
+            r.extra_kwargs["attention_mask_seq_len"] += 1
+            attention_mask_seq_len = r.extra_kwargs["attention_mask_seq_len"]
+            pad_len = seq_length - attention_mask_seq_len
+            x = torch.cat(
+                [
+                    torch.full((pad_len,), 0, dtype=torch.long),
+                    torch.ones((attention_mask_seq_len,), dtype=torch.long),
+                ]
+            )
+            data.append(x)
+        return torch.stack(data).to(self._device)
+
+    def build_prefill_position_ids(
+        self, batch_size: int, seq_length: int, reqs: List[InferenceRequest]
+    ):
+        """
+        Build position ids for prefill phase.
+        Padding `0` on the left.
+        Note that the parameter `seq_length` is from `input_ids`.
+        Record the `max_position_id` on request for the decode phase.
+        """
+        res = []
+        for r in reqs:
+            real_seq_len = seq_length - r.padding_len
+            res.append(
+                torch.cat(
+                    [
+                        torch.full((r.padding_len,), 0, dtype=torch.long),
+                        torch.arange(0, real_seq_len, dtype=torch.long),
+                    ]
+                )
+            )
+            r.extra_kwargs["max_position_id"] = real_seq_len - 1
+        return torch.stack(res).to(self._device)
+
+    def build_decode_position_ids(
+        self, batch_size: int, seq_length: int, reqs: List[InferenceRequest]
+    ):
+        """
+        Build position ids for decode phase.
+        For most models, just let the `max_position_id` in previous step += 1 and use the latest `max_position_id`
+        """
+        data = []
+        for r in reqs:
+            r.extra_kwargs["max_position_id"] += 1
+            data.append([r.extra_kwargs["max_position_id"]])
+        position_ids = torch.as_tensor(data, dtype=torch.long, device=self._device)
+        return position_ids
+
+    def build_prefill_token_type_ids(
+        self, batch_size: int, seq_length: int, reqs: List[InferenceRequest]
+    ):
+        """
+        Build token_type_ids for prefill phase.
+        For most models, this is not required.
+        """
+        return None
+
+    def build_decode_token_type_ids(
+        self, batch_size: int, seq_length: int, reqs: List[InferenceRequest]
+    ):
+        """
+        Build token_type_ids for decode phase.
+        For most models, this is not required.
+        """
+        return None
+
+    def build_prefill_inputs(self, prompts: List, req_list: List[InferenceRequest]):
+        """
+        Get inputs for inference. Models may have their own impl.
+        """
+        assert isinstance(prompts[0], str)
+        inputs = self._tokenizer(prompts, padding=False).input_ids
+        context_len = self.get_context_len()
+        input_ids = torch.as_tensor(
+            pad_prefill_tokens(inputs, context_len, req_list), device=self._device
+        )
+        return input_ids
+
+    def build_prefill_kwargs(self, prompts: List, req_list: List[InferenceRequest]):
+        """
+        Get all inputs parameters for prefill phase. Models may have their own impl.
+        """
+        input_ids = self.build_prefill_inputs(prompts, req_list)
+        res = {"input_ids": input_ids}
+        batch_size, seq_len = input_ids.shape
+        attention_mask = self.build_prefill_attention_mask(
+            batch_size, seq_len, req_list
+        )
+        if attention_mask is not None:
+            res["attention_mask"] = attention_mask
+        position_ids = self.build_prefill_position_ids(batch_size, seq_len, req_list)
+        if position_ids is not None:
+            res["position_ids"] = position_ids
+        token_type_ids = self.build_prefill_token_type_ids(
+            batch_size, seq_len, req_list
+        )
+        if token_type_ids is not None:
+            res["token_type_ids"] = token_type_ids
+        return res
+
+    def build_decode_kwargs(
+        self,
+        prompts: List,
+        req_list: List[InferenceRequest],
+        batch_size: int,
+        seq_len: int,
+    ):
+        """
+        Get all inputs parameters for decode phase. Models may have their own impl.
+        """
+        res = {"input_ids": torch.as_tensor(prompts, device=self._device)}
+        attention_mask = self.build_decode_attention_mask(batch_size, seq_len, req_list)
+        if attention_mask is not None:
+            res["attention_mask"] = attention_mask
+        position_ids = self.build_decode_position_ids(batch_size, seq_len, req_list)
+        if position_ids is not None:
+            res["position_ids"] = position_ids
+        token_type_ids = self.build_decode_token_type_ids(batch_size, seq_len, req_list)
+        if token_type_ids is not None:
+            res["token_type_ids"] = token_type_ids
+        return res
+
     @staticmethod
-    def require_attention_mask():
-        return False
+    def get_batch_size_and_seq_len_indexes_from_kv() -> Tuple[int, int]:
+        """
+        From huggingface transformers document, the `pask_key_values` has the shape of
+        `(batch_size, num_heads, sequence_length, embed_size_per_head)`.
+        However, for some models, the shape may be changed.
+        """
+        return 0, 2
+
+    def get_dtype(self):
+        raise NotImplementedError("Not implemented.")
 
     @lru_cache
     def get_context_len(self):
@@ -426,28 +587,38 @@ class PytorchModel(LLM):
     def prepare_batch_inference(self, req_list: List[InferenceRequest]):
         # check some parameters
         for r in req_list:
-            if r.sanitized_generate_config is None:
-                r.sanitized_generate_config = self.prepare_sanitize_generate_config(r)
-            if r.is_prefill:
-                # check some generate params
-                max_src_len = get_max_src_len(self.get_context_len(), r)  # type: ignore
-                if max_src_len < 0:
-                    r.stopped = True
-                    r.error_msg = "Max tokens exceeds model's max length"
-                    continue
-                if r.stream_interval <= 0:
-                    r.stopped = True
-                    r.error_msg = "`stream_interval` must be greater than 0"
-                    continue
-                stop_str = r.sanitized_generate_config.get("stop", None)
-                if stop_str and (
-                    not (isinstance(stop_str, str) or isinstance(stop_str, Iterable))
-                ):
-                    r.stopped = True
-                    r.error_msg = "Invalid `stop` field type"
-                    continue
+            try:
+                if r.sanitized_generate_config is None:
+                    r.sanitized_generate_config = self.prepare_sanitize_generate_config(
+                        r
+                    )
+                if r.is_prefill:
+                    # check some generate params
+                    max_src_len = get_max_src_len(self.get_context_len(), r)  # type: ignore
+                    if max_src_len < 0:
+                        r.stopped = True
+                        r.error_msg = "Max tokens exceeds model's max length"
+                        continue
+                    if r.stream_interval <= 0:
+                        r.stopped = True
+                        r.error_msg = "`stream_interval` must be greater than 0"
+                        continue
+                    stop_str = r.sanitized_generate_config.get("stop", None)
+                    if stop_str and (
+                        not (
+                            isinstance(stop_str, str) or isinstance(stop_str, Iterable)
+                        )
+                    ):
+                        r.stopped = True
+                        r.error_msg = "Invalid `stop` field type"
+                        continue
+            # Catch exception here. If not catch exception, the request would hang.
+            except Exception as e:
+                logger.exception(f"prepare inference error with {e}")
+                r.stopped = True
+                r.error_msg = str(e)
 
-    def _get_builtin_stop_token_ids(self) -> Tuple:
+    def get_builtin_stop_token_ids(self) -> Tuple:
         return (
             tuple(self.model_family.prompt_style.stop_token_ids)
             if self.model_family.prompt_style
@@ -494,96 +665,10 @@ class PytorchModel(LLM):
         from .utils import batch_inference_one_step
 
         self.prepare_batch_inference(req_list)
-        context_len = self.get_context_len()
-        assert isinstance(context_len, int)
         batch_inference_one_step(
-            req_list,
-            self.model_uid,
-            self._model,
-            self._tokenizer,
-            self._device,
-            context_len,
-            self._get_builtin_stop_token_ids(),
-            require_attention_mask=self.require_attention_mask(),
+            self, req_list, self.model_uid, self._model, self._tokenizer
         )
         self.handle_batch_inference_results(req_list)
-
-    def create_embedding(self, input: Union[str, List[str]]) -> Embedding:
-        try:
-            import torch
-            import torch.nn.functional as F
-        except ImportError as e:
-            raise ImportError(
-                "Could not import torch. Please install it with `pip install torch`."
-            ) from e
-
-        if isinstance(input, str):
-            inputs = [input]
-        else:
-            inputs = input
-
-        tokenizer = self._tokenizer
-        tokenizer.pad_token = tokenizer.eos_token
-        is_llama = "llama" in str(type(self._model))  # llama supports batch inference
-        is_chatglm = "chatglm" in str(type(self._model))
-        if is_llama:
-            encoding = tokenizer.batch_encode_plus(
-                inputs, padding=True, return_tensors="pt"
-            )
-            input_ids = encoding["input_ids"].to(self._device)
-            attention_mask = encoding["attention_mask"].to(self._device)
-            model_output = self._model(
-                input_ids, attention_mask, output_hidden_states=True
-            )
-            data = model_output.hidden_states[-1]
-            mask = attention_mask.unsqueeze(-1).expand(data.size()).float()
-            masked_embeddings = data * mask
-            sum_embeddings = torch.sum(masked_embeddings, dim=1)
-            seq_length = torch.sum(mask, dim=1)
-            embedding = sum_embeddings / seq_length
-            normalized_embeddings = F.normalize(embedding, p=2, dim=1)
-            normalized_embeddings = normalized_embeddings.tolist()
-            token_num = torch.sum(attention_mask).item()
-
-            embedding_list = []
-            for index, data in enumerate(normalized_embeddings):
-                embedding_list.append(
-                    EmbeddingData(index=index, object="embedding", embedding=data)
-                )
-
-            usage = EmbeddingUsage(prompt_tokens=token_num, total_tokens=token_num)
-
-            ret = Embedding(
-                object="list",
-                model=self.model_uid,
-                data=embedding_list,
-                usage=usage,
-            )
-
-        else:
-            embedding = []
-            token_num = 0
-            for index, text in enumerate(inputs):
-                input_ids = tokenizer.encode(text, return_tensors="pt").to(self._device)
-                model_output = self._model(input_ids, output_hidden_states=True)
-                if is_chatglm:
-                    data = (model_output.hidden_states[-1].transpose(0, 1))[0]
-                else:
-                    data = model_output.hidden_states[-1][0]
-                data = F.normalize(torch.mean(data, dim=0), p=2, dim=0)
-                data = data.tolist()
-
-                embedding.append(
-                    EmbeddingData(index=index, object="embedding", embedding=data)
-                )
-                token_num += len(input_ids[0])
-
-            usage = EmbeddingUsage(prompt_tokens=token_num, total_tokens=token_num)
-            ret = Embedding(
-                object="list", model=self.model_uid, data=embedding, usage=usage
-            )
-
-        return ret
 
 
 class PytorchChatModel(PytorchModel, ChatModelMixin):
@@ -696,14 +781,20 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
     def prepare_batch_inference(self, req_list: List[InferenceRequest]):
         super().prepare_batch_inference(req_list)
         for r in req_list:
-            r.full_prompt = self._get_full_prompt(
-                r.prompt, r.system_prompt, r.chat_history, None
-            )
+            try:
+                if not r.stopped and r.is_prefill:
+                    r.full_prompt = self._get_full_prompt(
+                        r.prompt, r.system_prompt, r.chat_history, None
+                    )
+            except Exception as e:
+                logger.exception(f"prepare inference error with {e}")
+                r.stopped = True
+                r.error_msg = str(e)
 
     def handle_batch_inference_results(self, req_list: List[InferenceRequest]):
         for req in req_list:
-            if req.stream and req.error_msg is None:
-                if req.completion:
+            if req.error_msg is None and req.completion:
+                if req.stream:
                     results = []
                     for i, c in enumerate(req.completion):
                         if c == "<bos_stream>":
@@ -722,3 +813,5 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
                             self._get_final_chat_completion_chunk(req.completion[-1])
                         )
                     req.completion = results
+                else:
+                    req.completion[0] = self._to_chat_completion(req.completion[0])

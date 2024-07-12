@@ -14,7 +14,7 @@
 import logging
 import os
 from collections import defaultdict
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Literal, Optional, Tuple, Union
 
 from ...constants import XINFERENCE_CACHE_DIR
 from ..core import CacheableModelSpec, ModelDescription
@@ -94,7 +94,10 @@ def generate_audio_description(
     return res
 
 
-def match_audio(model_name: str) -> AudioModelFamilyV1:
+def match_audio(
+    model_name: str,
+    download_hub: Optional[Literal["huggingface", "modelscope", "csghub"]] = None,
+) -> AudioModelFamilyV1:
     from ..utils import download_from_modelscope
     from . import BUILTIN_AUDIO_MODELS, MODELSCOPE_AUDIO_MODELS
     from .custom import get_user_defined_audios
@@ -103,17 +106,17 @@ def match_audio(model_name: str) -> AudioModelFamilyV1:
         if model_spec.model_name == model_name:
             return model_spec
 
-    if download_from_modelscope():
-        if model_name in MODELSCOPE_AUDIO_MODELS:
-            logger.debug(f"Audio model {model_name} found in ModelScope.")
-            return MODELSCOPE_AUDIO_MODELS[model_name]
-        else:
-            logger.debug(
-                f"Audio model {model_name} not found in ModelScope, "
-                f"now try to load it via builtin way."
-            )
-
-    if model_name in BUILTIN_AUDIO_MODELS:
+    if download_hub == "huggingface" and model_name in BUILTIN_AUDIO_MODELS:
+        logger.debug(f"Audio model {model_name} found in huggingface.")
+        return BUILTIN_AUDIO_MODELS[model_name]
+    elif download_hub == "modelscope" and model_name in MODELSCOPE_AUDIO_MODELS:
+        logger.debug(f"Audio model {model_name} found in ModelScope.")
+        return MODELSCOPE_AUDIO_MODELS[model_name]
+    elif download_from_modelscope() and model_name in MODELSCOPE_AUDIO_MODELS:
+        logger.debug(f"Audio model {model_name} found in ModelScope.")
+        return MODELSCOPE_AUDIO_MODELS[model_name]
+    elif model_name in BUILTIN_AUDIO_MODELS:
+        logger.debug(f"Audio model {model_name} found in huggingface.")
         return BUILTIN_AUDIO_MODELS[model_name]
     else:
         raise ValueError(
@@ -141,9 +144,14 @@ def get_cache_status(
 
 
 def create_audio_model_instance(
-    subpool_addr: str, devices: List[str], model_uid: str, model_name: str, **kwargs
+    subpool_addr: str,
+    devices: List[str],
+    model_uid: str,
+    model_name: str,
+    download_hub: Optional[Literal["huggingface", "modelscope", "csghub"]] = None,
+    **kwargs,
 ) -> Tuple[Union[WhisperModel, ChatTTSModel], AudioModelDescription]:
-    model_spec = match_audio(model_name)
+    model_spec = match_audio(model_name, download_hub)
     model_path = cache(model_spec)
     model: Union[WhisperModel, ChatTTSModel]
     if model_spec.model_family == "whisper":

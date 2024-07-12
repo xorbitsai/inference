@@ -6,7 +6,7 @@ import Grid from '@mui/material/Unstable_Grid2'
 import PropTypes from 'prop-types'
 import React from 'react'
 
-import fetcher from '../../components/fetcher'
+import fetchWrapper from '../../components/fetchWrapper'
 import { toReadableSize } from '../../components/utils'
 import { StyledTableCell, StyledTableRow } from './style'
 
@@ -22,46 +22,44 @@ class NodeInfo extends React.Component {
   }
 
   refreshInfo() {
-    fetcher(`${this.endpoint}/v1/cluster/info?detailed=true`, { method: 'GET' })
-      .then((res) => {
-        if (!res.ok) {
-          res.json().then((errorData) => {
-            if (errorData.detail === 'Not enough permissions') {
-              console.log('Not enough permissions')
-              // window.history.back();
-            }
-          })
-        }
-        if (res.ok) {
-          res.json().then((data) => {
-            const { state } = this
-            state['info'] = data
-            this.setState(state)
-          })
-        }
+    if (
+      this.props.cookie.token === '' ||
+      this.props.cookie.token === undefined ||
+      (this.props.cookie.token !== 'no_auth' &&
+        !sessionStorage.getItem('token'))
+    ) {
+      return
+    }
+    fetchWrapper
+      .get('/v1/cluster/info?detailed=true')
+      .then((data) => {
+        const { state } = this
+        state['info'] = data
+        this.setState(state)
       })
-      .catch((err) => {
-        console.error('Error:', err)
+      .catch((error) => {
+        console.error('Error:', error)
+        if (error.response.status == 403) {
+          this.props.handleGoBack()
+        }
       })
 
     if (JSON.stringify(this.state.version) === '{}') {
-      fetcher(`${this.endpoint}/v1/cluster/version`, {
-        method: 'GET',
-      })
-        .then((res) => {
-          if (res.ok) {
-            res.json().then((data) => {
-              const { state } = this
-              state['version'] = {
-                release: 'v' + data['version'],
-                commit: data['full-revisionid'],
-              }
-              this.setState(state)
-            })
+      fetchWrapper
+        .get('/v1/cluster/version')
+        .then((data) => {
+          const { state } = this
+          state['version'] = {
+            release: 'v' + data['version'],
+            commit: data['full-revisionid'],
           }
+          this.setState(state)
         })
-        .catch((err) => {
-          console.error('Error:', err)
+        .catch((error) => {
+          console.error('Error:', error)
+          if (error.response.status == 403) {
+            this.props.handleGoBack()
+          }
         })
     }
   }

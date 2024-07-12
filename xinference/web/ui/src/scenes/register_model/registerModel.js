@@ -27,7 +27,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 
 import { ApiContext } from '../../components/apiContext'
 import CopyComponent from '../../components/copyComponent/copyComponent'
-import fetcher from '../../components/fetcher'
+import fetchWrapper from '../../components/fetchWrapper'
 import AddControlnet from './components/addControlnet'
 import AddModelSpecs from './components/addModelSpecs'
 import languages from './data/languages'
@@ -52,7 +52,8 @@ const RegisterModelComponent = ({ modelType, customData }) => {
   const [isMaxTokensAlert, setIsMaxTokensAlert] = useState(false)
   const [jsonData, setJsonData] = useState('')
   const [isSpecsArrError, setIsSpecsArrError] = useState(false)
-
+  const [isValidLauncherArgsAlert, setIsValidLauncherArgsAlert] =
+    useState(false)
   const scrollRef = useRef(null)
   const [cookie] = useCookies(['token'])
   const navigate = useNavigate()
@@ -184,6 +185,23 @@ const RegisterModelComponent = ({ modelType, customData }) => {
           }
           setFormData(audioData)
           setContrastObj(audioData)
+        } else if (modelType === 'flexible') {
+          const {
+            model_name,
+            model_uri,
+            model_description,
+            launcher,
+            launcher_args,
+          } = data
+          const flexibleData = {
+            model_name,
+            model_uri,
+            model_description,
+            launcher,
+            launcher_args,
+          }
+          setFormData(flexibleData)
+          setContrastObj(flexibleData)
         }
       }
     }
@@ -191,6 +209,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
 
   useEffect(() => {
     if (cookie.token === '' || cookie.token === undefined) {
+      navigate('/login', { replace: true })
       return
     }
     if (cookie.token !== 'no_auth' && !sessionStorage.getItem('token')) {
@@ -333,34 +352,25 @@ const RegisterModelComponent = ({ modelType, customData }) => {
     }
 
     try {
-      const response = await fetcher(
-        endPoint + `/v1/model_registrations/${modelType}`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: JSON.stringify(formData),
-            persist: true,
-          }),
-        }
-      )
-      if (!response.ok) {
-        const errorData = await response.json() // Assuming the server returns error details in JSON format
-        setErrorMsg(
-          `Server error: ${response.status} - ${
-            errorData.detail || 'Unknown error'
-          }`
-        )
-      } else {
-        navigate(`/launch_model/custom/${modelType.toLowerCase()}`)
-        sessionStorage.setItem('modelType', '/launch_model/custom/llm')
-        sessionStorage.setItem(
-          'subType',
-          `/launch_model/custom/${modelType.toLowerCase()}`
-        )
-      }
+      fetchWrapper
+        .post(`/v1/model_registrations/${modelType}`, {
+          model: JSON.stringify(formData),
+          persist: true,
+        })
+        .then(() => {
+          navigate(`/launch_model/custom/${modelType.toLowerCase()}`)
+          sessionStorage.setItem('modelType', '/launch_model/custom/llm')
+          sessionStorage.setItem(
+            'subType',
+            `/launch_model/custom/${modelType.toLowerCase()}`
+          )
+        })
+        .catch((error) => {
+          console.error('Error:', error)
+          if (error.response.status !== 403 && error.response.status !== 401) {
+            setErrorMsg(error.message)
+          }
+        })
     } catch (error) {
       console.error('There was a problem with the fetch operation:', error)
       setErrorMsg(error.message || 'An unexpected error occurred.')
@@ -521,23 +531,18 @@ const RegisterModelComponent = ({ modelType, customData }) => {
   }
 
   const handleEdit = () => {
-    fetcher(
-      endPoint +
+    fetchWrapper
+      .delete(
         `/v1/model_registrations/${
           registerModelType === 'llm' ? 'LLM' : registerModelType
-        }/${model_name}`,
-      {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      }
-    )
-      .then(() => {
-        handleClick()
-      })
+        }/${model_name}`
+      )
+      .then(() => handleClick())
       .catch((error) => {
         console.error('Error:', error)
+        if (error.response.status !== 403 && error.response.status !== 401) {
+          setErrorMsg(error.message)
+        }
       })
   }
 
@@ -923,6 +928,55 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                 onGetControlnetArr={getControlnetArr}
                 scrollRef={scrollRef}
               />
+              <Box padding="15px"></Box>
+            </>
+          )}
+
+          {/* launcher */}
+          {customData.launcher && (
+            <>
+              <TextField
+                label="Launcher"
+                error={formData.launcher ? false : true}
+                value={formData.launcher}
+                size="small"
+                helperText="Provide the model launcher."
+                onChange={(event) =>
+                  setFormData({ ...formData, launcher: event.target.value })
+                }
+              />
+              <Box padding="15px"></Box>
+            </>
+          )}
+
+          {/* launcher_args */}
+          {customData.launcher_args && (
+            <>
+              <TextField
+                label="Launcher Arguments (Optional)"
+                value={formData.launcher_args}
+                size="small"
+                helperText="A JSON-formatted dictionary representing the arguments passed to the Launcher."
+                onChange={(event) => {
+                  try {
+                    JSON.parse(event.target.value)
+                    setIsValidLauncherArgsAlert(false)
+                  } catch {
+                    setIsValidLauncherArgsAlert(true)
+                  }
+                  return setFormData({
+                    ...formData,
+                    launcher_args: event.target.value,
+                  })
+                }}
+                multiline
+                rows={4}
+              />
+              {isValidLauncherArgsAlert && (
+                <Alert severity="error">
+                  Please enter the JSON-formatted dictionary.
+                </Alert>
+              )}
               <Box padding="15px"></Box>
             </>
           )}
