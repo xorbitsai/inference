@@ -167,6 +167,13 @@ Speech
 The Speech API mimics OpenAI's `create speech API <https://platform.openai.com/docs/api-reference/audio/createSpeech>`_.
 We can try Speech API out either via cURL, OpenAI Client, or Xinference's python client:
 
+Speech API use non-stream by default as
+
+1. The stream output of ChatTTS is not as good as the non-stream output, please refer to: https://github.com/2noise/ChatTTS/pull/564
+2. The stream requires ffmpeg<7: https://pytorch.org/audio/stable/installation.html#optional-dependencies
+
+User can change the default to stream by `export XINFERENCE_AUDIO_SPEECH_DEFAULT_STREAM=1`
+
 .. tabs::
 
   .. code-tab:: bash cURL
@@ -179,6 +186,7 @@ We can try Speech API out either via cURL, OpenAI Client, or Xinference's python
         "model": "<MODEL_UID>",
         "text": "<The text to generate audio for>",
         "voice": "echo",
+        "stream": True,
       }'
 
 
@@ -205,7 +213,8 @@ We can try Speech API out either via cURL, OpenAI Client, or Xinference's python
     model = client.get_model("<MODEL_UID>")
     model.speech(
         input=<The text to generate audio for>,
-        voice="echo"
+        voice="echo",
+        stream: True,
     )
 
 
