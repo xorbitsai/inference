@@ -544,6 +544,8 @@ def _get_cache_dir(
     quantization: Optional[str] = None,
     create_if_not_exist=True,
 ):
+    # If the model id contains quantization, then we should give each
+    # quantization a dedicated cache dir.
     quant_suffix = ""
     if llm_spec.model_id and "{" in llm_spec.model_id and quantization is not None:
         quant_suffix = quantization
