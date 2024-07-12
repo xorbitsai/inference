@@ -1599,7 +1599,7 @@ class RESTfulAPI:
 
         try:
             await (await self._get_supervisor_ref()).register_model(
-                model_type, model, worker_ip, persist
+                model_type, model, persist, worker_ip
             )
         except ValueError as re:
             logger.error(re, exc_info=True)

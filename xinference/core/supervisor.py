@@ -665,7 +665,11 @@ class SupervisorActor(xo.StatelessActor):
 
     @log_async(logger=logger)
     async def register_model(
-        self, model_type: str, model: str, worker_ip: str, persist: bool
+        self,
+        model_type: str,
+        model: str,
+        persist: bool,
+        worker_ip: Optional[str] = None,
     ):
         if model_type in self._custom_register_type_to_cls:
             (
@@ -688,9 +692,7 @@ class SupervisorActor(xo.StatelessActor):
                 )
 
             if target_ip_worker_ref:
-                await target_ip_worker_ref.register_model(
-                    model_type, model, worker_ip, persist
-                )
+                await target_ip_worker_ref.register_model(model_type, model, persist)
                 return
 
             model_spec = model_spec_cls.parse_raw(model)

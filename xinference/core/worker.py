@@ -533,9 +533,7 @@ class WorkerActor(xo.StatelessActor):
                 raise ValueError(f"{model_name} model can't run on Darwin system.")
 
     @log_sync(logger=logger)
-    async def register_model(
-        self, model_type: str, model: str, worker_ip: str, persist: bool
-    ):
+    async def register_model(self, model_type: str, model: str, persist: bool):
         # TODO: centralized model registrations
         if model_type in self._custom_register_type_to_cls:
             (
