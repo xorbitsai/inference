@@ -513,10 +513,15 @@ class SupervisorActor(xo.StatelessActor):
             assert isinstance(item["model_name"], str)
             return item.get("model_name").lower()
 
+        ret = []
+        if not self.is_local_deployment():
+            workers = list(self._worker_address_to_worker.values())
+            for worker in workers:
+                ret.extend(await worker.list_model_registrations(model_type, detailed))
+
         if model_type == "LLM":
             from ..model.llm import BUILTIN_LLM_FAMILIES, get_user_defined_llm_families
 
-            ret = []
             for family in BUILTIN_LLM_FAMILIES:
                 if detailed:
                     ret.append(await self._to_llm_reg(family, True))
@@ -535,7 +540,6 @@ class SupervisorActor(xo.StatelessActor):
             from ..model.embedding import BUILTIN_EMBEDDING_MODELS
             from ..model.embedding.custom import get_user_defined_embeddings
 
-            ret = []
             for model_name, family in BUILTIN_EMBEDDING_MODELS.items():
                 if detailed:
                     ret.append(
@@ -560,7 +564,6 @@ class SupervisorActor(xo.StatelessActor):
             from ..model.image import BUILTIN_IMAGE_MODELS
             from ..model.image.custom import get_user_defined_images
 
-            ret = []
             for model_name, family in BUILTIN_IMAGE_MODELS.items():
                 if detailed:
                     ret.append(await self._to_image_model_reg(family, is_builtin=True))
@@ -583,7 +586,6 @@ class SupervisorActor(xo.StatelessActor):
             from ..model.audio import BUILTIN_AUDIO_MODELS
             from ..model.audio.custom import get_user_defined_audios
 
-            ret = []
             for model_name, family in BUILTIN_AUDIO_MODELS.items():
                 if detailed:
                     ret.append(await self._to_audio_model_reg(family, is_builtin=True))
@@ -606,7 +608,6 @@ class SupervisorActor(xo.StatelessActor):
             from ..model.rerank import BUILTIN_RERANK_MODELS
             from ..model.rerank.custom import get_user_defined_reranks
 
-            ret = []
             for model_name, family in BUILTIN_RERANK_MODELS.items():
                 if detailed:
                     ret.append(await self._to_rerank_model_reg(family, is_builtin=True))
@@ -646,7 +647,15 @@ class SupervisorActor(xo.StatelessActor):
             raise ValueError(f"Unsupported model type: {model_type}")
 
     @log_sync(logger=logger)
-    def get_model_registration(self, model_type: str, model_name: str) -> Any:
+    async def get_model_registration(self, model_type: str, model_name: str) -> Any:
+        # search in worker first
+        if not self.is_local_deployment():
+            workers = list(self._worker_address_to_worker.values())
+            for worker in workers:
+                f = await worker.get_model_registration(model_type, model_name)
+                if f is not None:
+                    return f
+
         if model_type == "LLM":
             from ..model.llm import BUILTIN_LLM_FAMILIES, get_user_defined_llm_families
 
@@ -705,6 +714,13 @@ class SupervisorActor(xo.StatelessActor):
 
         from ..model.llm.llm_family import LLM_ENGINES
 
+        # search in worker first
+        workers = list(self._worker_address_to_worker.values())
+        for worker in workers:
+            res = await worker.query_engines_by_model_name(model_name)
+            if res is not None:
+                return res
+
         if model_name not in LLM_ENGINES:
             raise ValueError(f"Model {model_name} not found")
 
@@ -718,7 +734,13 @@ class SupervisorActor(xo.StatelessActor):
         return engine_params
 
     @log_async(logger=logger)
-    async def register_model(self, model_type: str, model: str, persist: bool):
+    async def register_model(
+        self,
+        model_type: str,
+        model: str,
+        persist: bool,
+        worker_ip: Optional[str] = None,
+    ):
         if model_type in self._custom_register_type_to_cls:
             (
                 model_spec_cls,
@@ -727,10 +749,21 @@ class SupervisorActor(xo.StatelessActor):
                 generate_fn,
             ) = self._custom_register_type_to_cls[model_type]
 
-            if not self.is_local_deployment():
-                workers = list(self._worker_address_to_worker.values())
-                for worker in workers:
-                    await worker.register_model(model_type, model, persist)
+            target_ip_worker_ref = (
+                self._get_worker_ref_by_ip(worker_ip) if worker_ip is not None else None
+            )
+            if (
+                worker_ip is not None
+                and not self.is_local_deployment()
+                and target_ip_worker_ref is None
+            ):
+                raise ValueError(
+                    f"Worker ip address {worker_ip} is not in the cluster."
+                )
+
+            if target_ip_worker_ref:
+                await target_ip_worker_ref.register_model(model_type, model, persist)
+                return
 
             model_spec = model_spec_cls.parse_raw(model)
             try:
@@ -738,6 +771,8 @@ class SupervisorActor(xo.StatelessActor):
                 await self._cache_tracker_ref.record_model_version(
                     generate_fn(model_spec), self.address
                 )
+            except ValueError as e:
+                raise e
             except Exception as e:
                 unregister_fn(model_spec.model_name, raise_error=False)
                 raise e
@@ -748,13 +783,14 @@ class SupervisorActor(xo.StatelessActor):
     async def unregister_model(self, model_type: str, model_name: str):
         if model_type in self._custom_register_type_to_cls:
             _, _, unregister_fn, _ = self._custom_register_type_to_cls[model_type]
-            unregister_fn(model_name)
-            await self._cache_tracker_ref.unregister_model_version(model_name)
+            unregister_fn(model_name, False)
 
             if not self.is_local_deployment():
                 workers = list(self._worker_address_to_worker.values())
                 for worker in workers:
-                    await worker.unregister_model(model_name)
+                    await worker.unregister_model(model_type, model_name)
+
+            await self._cache_tracker_ref.unregister_model_version(model_name)
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
 
@@ -825,6 +861,14 @@ class SupervisorActor(xo.StatelessActor):
         download_hub: Optional[Literal["huggingface", "modelscope", "csghub"]] = None,
         **kwargs,
     ) -> str:
+        # search in worker first
+        if not self.is_local_deployment():
+            workers = list(self._worker_address_to_worker.values())
+            for worker in workers:
+                res = await worker.get_model_registration(model_type, model_name)
+                if res is not None:
+                    worker_ip = worker.address.split(":")[0]
+
         target_ip_worker_ref = (
             self._get_worker_ref_by_ip(worker_ip) if worker_ip is not None else None
         )
@@ -877,6 +921,7 @@ class SupervisorActor(xo.StatelessActor):
                 )
             replica_gpu_idx = assign_replica_gpu(_replica_model_uid, gpu_idx)
             nonlocal model_type
+
             worker_ref = (
                 target_ip_worker_ref
                 if target_ip_worker_ref is not None

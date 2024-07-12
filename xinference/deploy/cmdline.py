@@ -371,6 +371,9 @@ def worker(
 )
 @click.option("--file", "-f", type=str, help="Path to the model configuration file.")
 @click.option(
+    "--worker-ip", "-w", type=str, help="Specify the ip address of the worker."
+)
+@click.option(
     "--persist",
     "-p",
     is_flag=True,
@@ -387,6 +390,7 @@ def register_model(
     endpoint: Optional[str],
     model_type: str,
     file: str,
+    worker_ip: str,
     persist: bool,
     api_key: Optional[str],
 ):
@@ -400,6 +404,7 @@ def register_model(
     client.register_model(
         model_type=model_type,
         model=model,
+        worker_ip=worker_ip,
         persist=persist,
     )
 
