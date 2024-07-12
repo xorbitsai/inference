@@ -22,6 +22,7 @@ const RunningModels = () => {
   const [imageModelData, setImageModelData] = useState([])
   const [audioModelData, setAudioModelData] = useState([])
   const [rerankModelData, setRerankModelData] = useState([])
+  const [flexibleModelData, setFlexibleModelData] = useState([])
   const { isCallingApi, setIsCallingApi } = useContext(ApiContext)
   const { isUpdatingModel, setIsUpdatingModel } = useContext(ApiContext)
   const { setErrorMsg } = useContext(ApiContext)
@@ -58,6 +59,9 @@ const RunningModels = () => {
       setRerankModelData([
         { id: 'Loading, do not refresh page...', url: 'IS_LOADING' },
       ])
+      setFlexibleModelData([
+        { id: 'Loading, do not refresh page...', url: 'IS_LOADING' },
+      ])
     } else {
       setIsUpdatingModel(true)
 
@@ -69,6 +73,7 @@ const RunningModels = () => {
           const newImageModelData = []
           const newAudioModelData = []
           const newRerankModelData = []
+          const newFlexibleModelData = []
           response.data.forEach((model) => {
             let newValue = {
               ...model,
@@ -85,6 +90,8 @@ const RunningModels = () => {
               newImageModelData.push(newValue)
             } else if (newValue.model_type === 'rerank') {
               newRerankModelData.push(newValue)
+            } else if (newValue.model_type === 'flexible') {
+              newFlexibleModelData.push(newValue)
             }
           })
           setLlmData(newLlmData)
@@ -92,6 +99,7 @@ const RunningModels = () => {
           setAudioModelData(newAudioModelData)
           setImageModelData(newImageModelData)
           setRerankModelData(newRerankModelData)
+          setFlexibleModelData(newFlexibleModelData)
           setIsUpdatingModel(false)
         })
         .catch((error) => {
@@ -583,6 +591,7 @@ const RunningModels = () => {
   ]
   const audioModelColumns = embeddingModelColumns
   const rerankModelColumns = embeddingModelColumns
+  const flexibleModelColumns = embeddingModelColumns
 
   const dataGridStyle = {
     '& .MuiDataGrid-cell': {
@@ -642,6 +651,7 @@ const RunningModels = () => {
             <Tab label="Rerank models" value="/running_models/rerank" />
             <Tab label="Image models" value="/running_models/image" />
             <Tab label="Audio models" value="/running_models/audio" />
+            <Tab label="Flexible models" value="/running_models/flexible" />
           </TabList>
         </Box>
         <TabPanel value="/running_models/LLM" sx={{ padding: 0 }}>
@@ -705,6 +715,20 @@ const RunningModels = () => {
             <DataGrid
               rows={audioModelData}
               columns={audioModelColumns}
+              autoHeight={true}
+              sx={dataGridStyle}
+              slots={{
+                noRowsOverlay: noRowsOverlay,
+                noResultsOverlay: noResultsOverlay,
+              }}
+            />
+          </Box>
+        </TabPanel>
+        <TabPanel value="/running_models/flexible" sx={{ padding: 0 }}>
+          <Box sx={{ height: '100%', width: '100%' }}>
+            <DataGrid
+              rows={flexibleModelData}
+              columns={flexibleModelColumns}
               autoHeight={true}
               sx={dataGridStyle}
               slots={{

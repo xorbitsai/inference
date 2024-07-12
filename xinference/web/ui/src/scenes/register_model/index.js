@@ -50,6 +50,7 @@ const RegisterModel = () => {
             <Tab label="Rerank Model" value="/register_model/rerank" />
             <Tab label="Image Model" value="/register_model/image" />
             <Tab label="Audio Model" value="/register_model/audio" />
+            <Tab label="Flexible Model" value="/register_model/flexible" />
           </TabList>
         </Box>
         <TabPanel value="/register_model/llm" sx={{ padding: 0 }}>
@@ -116,6 +117,18 @@ const RegisterModel = () => {
               model_uri: '/path/to/audio-model',
               multilingual: false,
               model_family: 'whisper',
+            }}
+          />
+        </TabPanel>
+        <TabPanel value="/register_model/flexible" sx={{ padding: 0 }}>
+          <RegisterModelComponent
+            modelType="flexible"
+            customData={{
+              model_name: 'flexible-model',
+              model_description: 'This is a model description.',
+              model_uri: '/path/to/model',
+              launcher: 'xinference.model.flexible.launchers.transformers',
+              launcher_args: '{}',
             }}
           />
         </TabPanel>
