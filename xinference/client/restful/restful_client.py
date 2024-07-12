@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Union
 
 import requests
 
+from ...constants import XINFERENCE_AUDIO_SPEECH_DEFAULT_STREAM
 from ..common import streaming_response_iterator
 
 if TYPE_CHECKING:
@@ -692,7 +693,7 @@ class RESTfulAudioModelHandle(RESTfulModelHandle):
         voice: str = "",
         response_format: str = "mp3",
         speed: float = 1.0,
-        stream: bool = False,
+        stream: bool = XINFERENCE_AUDIO_SPEECH_DEFAULT_STREAM,
     ):
         """
         Generates audio from the input text.
