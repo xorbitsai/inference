@@ -468,9 +468,10 @@ class SupervisorActor(xo.StatelessActor):
             return item.get("model_name").lower()
 
         ret = []
-        workers = list(self._worker_address_to_worker.values())
-        for worker in workers:
-            ret.extend(await worker.list_model_registrations(model_type, detailed))
+        if not self.is_local_deployment():
+            workers = list(self._worker_address_to_worker.values())
+            for worker in workers:
+                ret.extend(await worker.list_model_registrations(model_type, detailed))
 
         if model_type == "LLM":
             from ..model.llm import BUILTIN_LLM_FAMILIES, get_user_defined_llm_families
@@ -585,11 +586,12 @@ class SupervisorActor(xo.StatelessActor):
     @log_sync(logger=logger)
     async def get_model_registration(self, model_type: str, model_name: str) -> Any:
         # search in worker first
-        workers = list(self._worker_address_to_worker.values())
-        for worker in workers:
-            f = await worker.get_model_registration(model_type, model_name)
-            if f is not None:
-                return f
+        if not self.is_local_deployment():
+            workers = list(self._worker_address_to_worker.values())
+            for worker in workers:
+                f = await worker.get_model_registration(model_type, model_name)
+                if f is not None:
+                    return f
 
         if model_type == "LLM":
             from ..model.llm import BUILTIN_LLM_FAMILIES, get_user_defined_llm_families
@@ -787,11 +789,12 @@ class SupervisorActor(xo.StatelessActor):
         **kwargs,
     ) -> str:
         # search in worker first
-        workers = list(self._worker_address_to_worker.values())
-        for worker in workers:
-            res = await worker.get_model_registration(model_type, model_name)
-            if res is not None:
-                worker_ip = worker.address.split(":")[0]
+        if not self.is_local_deployment():
+            workers = list(self._worker_address_to_worker.values())
+            for worker in workers:
+                res = await worker.get_model_registration(model_type, model_name)
+                if res is not None:
+                    worker_ip = worker.address.split(":")[0]
 
         target_ip_worker_ref = (
             self._get_worker_ref_by_ip(worker_ip) if worker_ip is not None else None
