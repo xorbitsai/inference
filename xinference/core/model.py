@@ -599,8 +599,8 @@ class ModelActor(xo.StatelessActor):
             return await self._scheduler_ref.abort_request(request_id)
         return AbortRequestMessage.NO_OP.name
 
-    @log_async(logger=logger)
     @request_limit
+    @log_async(logger=logger)
     async def create_embedding(self, input: Union[str, List[str]], *args, **kwargs):
         kwargs.pop("request_id", None)
         if hasattr(self._model, "create_embedding"):
@@ -612,8 +612,8 @@ class ModelActor(xo.StatelessActor):
             f"Model {self._model.model_spec} is not for creating embedding."
         )
 
-    @log_async(logger=logger)
     @request_limit
+    @log_async(logger=logger)
     async def rerank(
         self,
         documents: List[str],
@@ -640,8 +640,8 @@ class ModelActor(xo.StatelessActor):
             )
         raise AttributeError(f"Model {self._model.model_spec} is not for reranking.")
 
-    @log_async(logger=logger, args_formatter=lambda _, kwargs: kwargs.pop("audio"))
     @request_limit
+    @log_async(logger=logger, ignore_kwargs=["audio"])
     async def transcriptions(
         self,
         audio: bytes,
@@ -667,8 +667,8 @@ class ModelActor(xo.StatelessActor):
             f"Model {self._model.model_spec} is not for creating transcriptions."
         )
 
-    @log_async(logger=logger, args_formatter=lambda _, kwargs: kwargs.pop("audio"))
     @request_limit
+    @log_async(logger=logger, ignore_kwargs=["audio"])
     async def translations(
         self,
         audio: bytes,
@@ -696,10 +696,7 @@ class ModelActor(xo.StatelessActor):
 
     @request_limit
     @xo.generator
-    @log_async(
-        logger=logger,
-        args_formatter=lambda _, kwargs: kwargs.pop("prompt_speech", None),
-    )
+    @log_async(logger=logger, ignore_kwargs=["prompt_speech"])
     async def speech(
         self,
         input: str,
@@ -724,8 +721,8 @@ class ModelActor(xo.StatelessActor):
             f"Model {self._model.model_spec} is not for creating speech."
         )
 
-    @log_async(logger=logger)
     @request_limit
+    @log_async(logger=logger)
     async def text_to_image(
         self,
         prompt: str,
@@ -750,6 +747,10 @@ class ModelActor(xo.StatelessActor):
             f"Model {self._model.model_spec} is not for creating image."
         )
 
+    @log_async(
+        logger=logger,
+        ignore_kwargs=["image"],
+    )
     async def image_to_image(
         self,
         image: "PIL.Image",
@@ -778,6 +779,10 @@ class ModelActor(xo.StatelessActor):
             f"Model {self._model.model_spec} is not for creating image."
         )
 
+    @log_async(
+        logger=logger,
+        ignore_kwargs=["image"],
+    )
     async def inpainting(
         self,
         image: "PIL.Image",
@@ -808,8 +813,8 @@ class ModelActor(xo.StatelessActor):
             f"Model {self._model.model_spec} is not for creating image."
         )
 
-    @log_async(logger=logger)
     @request_limit
+    @log_async(logger=logger, ignore_kwargs=["image"])
     async def infer(
         self,
         **kwargs,
@@ -824,8 +829,8 @@ class ModelActor(xo.StatelessActor):
             f"Model {self._model.model_spec} is not for flexible infer."
         )
 
-    @log_async(logger=logger)
     @request_limit
+    @log_async(logger=logger)
     async def text_to_video(
         self,
         prompt: str,
