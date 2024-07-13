@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import asyncio
+import logging
 import os
 import platform
 import queue
@@ -770,7 +771,7 @@ class WorkerActor(xo.StatelessActor):
                 version_info["model_file_location"],
             )
 
-    @log_async(logger=logger)
+    @log_async(logger=logger, level=logging.INFO)
     async def launch_builtin_model(
         self,
         model_uid: str,
@@ -917,7 +918,7 @@ class WorkerActor(xo.StatelessActor):
             {"model_ability": abilities, "status": LaunchStatus.READY.name},
         )
 
-    @log_async(logger=logger)
+    @log_async(logger=logger, level=logging.INFO)
     async def terminate_model(self, model_uid: str, is_model_die=False):
         # Terminate model while its launching is not allow
         if model_uid in self._model_uid_launching_guard:
