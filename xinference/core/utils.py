@@ -26,7 +26,7 @@ from .._compat import BaseModel
 logger = logging.getLogger(__name__)
 
 
-def log_async(logger, args_formatter=None):
+def log_async(logger, args_formatter=None, level=logging.DEBUG, log_exception=False):
     import time
     from functools import wraps
 
@@ -38,35 +38,58 @@ def log_async(logger, args_formatter=None):
                 args_formatter(formatted_args, formatted_kwargs)
             else:
                 formatted_args, formatted_kwargs = args, kwargs
-            logger.debug(
-                f"Enter {func.__name__}, args: {formatted_args}, kwargs: {formatted_kwargs}"
+            logger.log(
+                level,
+                f"Enter {func.__name__}, args: {formatted_args}, kwargs: {formatted_kwargs}",
             )
             start = time.time()
-            ret = await func(*args, **kwargs)
-            logger.debug(
-                f"Leave {func.__name__}, elapsed time: {int(time.time() - start)} s"
-            )
-            return ret
+            try:
+                ret = await func(*args, **kwargs)
+                logger.log(
+                    level,
+                    f"Leave {func.__name__}, elapsed time: {int(time.time() - start)} s",
+                )
+                return ret
+            except Exception as e:
+                if log_exception:
+                    logger.exception(e)
+                else:
+                    logger.log(
+                        level,
+                        f"Leave {func.__name__}, error: {e}, elapsed time: {int(time.time() - start)} s",
+                    )
+                raise
 
         return wrapped
 
     return decorator
 
 
-def log_sync(logger):
+def log_sync(logger, level=logging.DEBUG, log_exception=False):
     import time
     from functools import wraps
 
     def decorator(func):
         @wraps(func)
         def wrapped(*args, **kwargs):
-            logger.debug(f"Enter {func.__name__}, args: {args}, kwargs: {kwargs}")
+            logger.log(level, f"Enter {func.__name__}, args: {args}, kwargs: {kwargs}")
             start = time.time()
-            ret = func(*args, **kwargs)
-            logger.debug(
-                f"Leave {func.__name__}, elapsed time: {int(time.time() - start)} s"
-            )
-            return ret
+            try:
+                ret = func(*args, **kwargs)
+                logger.log(
+                    level,
+                    f"Leave {func.__name__}, elapsed time: {int(time.time() - start)} s",
+                )
+                return ret
+            except Exception as e:
+                if log_exception:
+                    logger.exception(e)
+                else:
+                    logger.log(
+                        level,
+                        f"Leave {func.__name__}, error: {e}, elapsed time: {int(time.time() - start)} s",
+                    )
+                raise
 
         return wrapped
 
