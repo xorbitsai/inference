@@ -264,6 +264,9 @@ class ModelActor(xo.StatelessActor):
                 uid=FluxBatchSchedulerActor.gen_uid(self.model_uid()),
             )
 
+    def __repr__(self) -> str:
+        return f"ModelActor({self._replica_model_uid})"
+
     async def _record_completion_metrics(
         self, duration, completion_tokens, prompt_tokens
     ):
@@ -413,6 +416,7 @@ class ModelActor(xo.StatelessActor):
             logger.debug(
                 f"Batching enabled for model: {self.model_uid()}, max_num_images: {self._model.get_max_num_images_for_batching()}"
             )
+        logger.info(f"{self} loaded")
 
     def model_uid(self):
         return (
