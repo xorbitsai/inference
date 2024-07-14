@@ -222,6 +222,9 @@ class ModelActor(xo.StatelessActor):
                 uid=SchedulerActor.gen_uid(self.model_uid(), self._model.rep_id),
             )
 
+    def __repr__(self) -> str:
+        return f"ModelActor({self._replica_model_uid})"
+
     async def _record_completion_metrics(
         self, duration, completion_tokens, prompt_tokens
     ):
@@ -326,6 +329,7 @@ class ModelActor(xo.StatelessActor):
             logger.debug(
                 f"Batching enabled for model: {self.model_uid()}, max_num_seqs: {self._model.get_max_num_seqs()}"
             )
+        logger.info(f"{self} loaded")
 
     def model_uid(self):
         return (
