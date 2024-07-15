@@ -881,10 +881,13 @@ class WorkerActor(xo.StatelessActor):
                     **kwargs,
                 )
                 await self.update_cache_status(model_name, model_description)
+                # There's only once Actor inside subpool, set uid to fixed 'model',
+                # for the convenience of API directly connect through ModelActor address
+                # (Since actor_uid must be matched)
                 model_ref = await xo.create_actor(
                     ModelActor,
                     address=subpool_address,
-                    uid=model_uid,
+                    uid="model",
                     worker_address=self.address,
                     model=model,
                     model_description=model_description,
