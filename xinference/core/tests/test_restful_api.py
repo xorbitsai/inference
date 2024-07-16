@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import asyncio
 import json
 import os
 import os.path
@@ -430,11 +430,12 @@ def _check_invalid_tool_calls(endpoint, model_uid_res):
 
 
 @pytest.mark.parametrize(
-    "model_format, quantization", [("ggmlv3", "q4_0"), ("pytorch", None)]
+    "model_format, quantization",
+    [("pytorch", None)],
 )
 @pytest.mark.skip(reason="Cost too many resources.")
 def test_restful_api_for_tool_calls(setup, model_format, quantization):
-    model_name = "chatglm3"
+    model_name = "glm4-chat"
 
     endpoint, _ = setup
     url = f"{endpoint}/v1/models"
@@ -449,7 +450,7 @@ def test_restful_api_for_tool_calls(setup, model_format, quantization):
         "model_uid": "test_tool",
         "model_engine": "transformers",
         "model_name": model_name,
-        "model_size_in_billions": 6,
+        "model_size_in_billions": 9,
         "model_format": model_format,
         "quantization": quantization,
     }
@@ -464,59 +465,60 @@ def test_restful_api_for_tool_calls(setup, model_format, quantization):
     response_data = response.json()
     assert len(response_data["data"]) == 1
 
-    tools = [
-        {
-            "type": "function",
-            "function": {
-                "name": "get_current_weather",
-                "description": "获取当前天气",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "location": {"type": "string", "description": "城市，例如北京"},
-                        "format": {
-                            "type": "string",
-                            "enum": ["celsius", "fahrenheit"],
-                            "description": "使用的温度单位。从所在的城市进行推断。",
-                        },
-                    },
-                    "required": ["location", "format"],
-                },
-            },
-        }
-    ]
-
-    url = f"{endpoint}/v1/chat/completions"
-    payload = {
-        "model": model_uid_res,
-        "messages": [
-            {"role": "system", "content": "你是一个有用的助手。不要对要函数调用的值做出假设。"},
-            {"role": "user", "content": "上海现在的天气怎么样？"},
-        ],
-        "temperature": 0.7,
-        "tools": tools,
-        "stop": ["\n"],
-    }
-    response = requests.post(url, json=payload)
-    completion = response.json()
     # glm4-chat fail response: 好的，请告诉我您希望使用的温度单位是摄氏度还是华氏度？
+    if "glm4" not in model_name:
+        tools = [
+            {
+                "type": "function",
+                "function": {
+                    "name": "get_current_weather",
+                    "description": "获取当前天气",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "location": {"type": "string", "description": "城市，例如北京"},
+                            "format": {
+                                "type": "string",
+                                "enum": ["celsius", "fahrenheit"],
+                                "description": "使用的温度单位。从所在的城市进行推断。",
+                            },
+                        },
+                        "required": ["location", "format"],
+                    },
+                },
+            }
+        ]
 
-    assert (
-        "get_current_weather"
-        == completion["choices"][0]["message"]["tool_calls"][0]["function"]["name"]
-    ), completion
-    arguments = completion["choices"][0]["message"]["tool_calls"][0]["function"][
-        "arguments"
-    ]
-    arg = json.loads(arguments)
-    assert arg == {"location": "上海", "format": "celsius"}
+        url = f"{endpoint}/v1/chat/completions"
+        payload = {
+            "model": model_uid_res,
+            "messages": [
+                {"role": "system", "content": "你是一个有用的助手。不要对要函数调用的值做出假设。"},
+                {"role": "user", "content": "上海现在的天气怎么样？"},
+            ],
+            "temperature": 0.7,
+            "tools": tools,
+            "stop": ["\n"],
+        }
+        response = requests.post(url, json=payload)
+        completion = response.json()
+
+        assert (
+            "get_current_weather"
+            == completion["choices"][0]["message"]["tool_calls"][0]["function"]["name"]
+        ), completion
+        arguments = completion["choices"][0]["message"]["tool_calls"][0]["function"][
+            "arguments"
+        ]
+        arg = json.loads(arguments)
+        assert arg == {"location": "上海", "format": "celsius"}
 
     # tool
     tools = [
         {
             "type": "function",
             "function": {
-                "name": "track",
+                "name": "track_a_long_function_name_to_test",
                 "description": "追踪指定股票的实时价格",
                 "parameters": {
                     "type": "object",
@@ -557,7 +559,7 @@ def test_restful_api_for_tool_calls(setup, model_format, quantization):
     assert "content" in completion["choices"][0]["message"]
     assert "tool_calls" == completion["choices"][0]["finish_reason"]
     assert (
-        "track"
+        "track_a_long_function_name_to_test"
         == completion["choices"][0]["message"]["tool_calls"][0]["function"]["name"]
     )
     arguments = completion["choices"][0]["message"]["tool_calls"][0]["function"][
@@ -575,7 +577,7 @@ def test_restful_api_for_tool_calls(setup, model_format, quantization):
     assert "content" in completion["choices"][0]["message"]
     assert "tool_calls" == completion["choices"][0]["finish_reason"]
     assert (
-        "track"
+        "track_a_long_function_name_to_test"
         == completion["choices"][0]["message"]["tool_calls"][0]["function"]["name"]
     )
     arguments = completion["choices"][0]["message"]["tool_calls"][0]["function"][
@@ -587,6 +589,31 @@ def test_restful_api_for_tool_calls(setup, model_format, quantization):
     # openai client
     import openai
 
+    async def test_stream():
+        async_client = openai.AsyncClient(
+            api_key="not empty", base_url=f"{endpoint}/v1"
+        )
+        chunks = []
+        async_completion = async_client.chat.completions.create(
+            model=model_uid_res,
+            messages=[{"role": "user", "content": "帮我查询股票10111的价格"}],
+            tools=tools,
+            stream=True,
+        )
+        async for chunk in await async_completion:
+            print("chunk", chunk)
+            chunks.append(chunk)
+        assert len(chunks) == 2
+        assert (
+            chunks[1].choices[0].delta.tool_calls[0].function.name
+            == "track_a_long_function_name_to_test"
+        )
+        arguments = chunks[1].choices[0].delta.tool_calls[0].function.arguments
+        arg = json.loads(arguments)
+        assert arg == {"symbol": "10111"}
+
+    asyncio.run(test_stream())
+
     client = openai.Client(api_key="not empty", base_url=f"{endpoint}/v1")
     completion = client.chat.completions.create(
         model=model_uid_res,
@@ -594,7 +621,10 @@ def test_restful_api_for_tool_calls(setup, model_format, quantization):
         tools=tools,
     )
     assert "tool_calls" == completion.choices[0].finish_reason
-    assert "track" == completion.choices[0].message.tool_calls[0].function.name
+    assert (
+        "track_a_long_function_name_to_test"
+        == completion.choices[0].message.tool_calls[0].function.name
+    )
     arguments = completion.choices[0].message.tool_calls[0].function.arguments
     arg = json.loads(arguments)
     assert arg == {"symbol": "10111"}

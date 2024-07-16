@@ -330,9 +330,15 @@ class ChatglmPytorchChatModel(PytorchChatModel):
         history.append({"role": role, "content": query})
         response = ""
         tools = history[0]["role"] == "system" and history[0].get("tools")
-        tools = [
-            t.get("function", {}).get("name", "") for t in tools if isinstance(t, dict)
-        ]
+        tools = (
+            [
+                t.get("function", {}).get("name", "")
+                for t in tools
+                if isinstance(t, dict)
+            ]
+            if tools
+            else None
+        )
         for outputs in self._model.stream_generate(
             **inputs,
             past_key_values=past_key_values,
