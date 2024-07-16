@@ -84,7 +84,7 @@ Model Spec 5 (mlx, 9 Billion)
 - **Model Format:** mlx
 - **Model Size (in billions):** 9
 - **Quantizations:** 4-bit
-- **Engines**: 
+- **Engines**: MLX
 - **Model ID:** mlx-community/gemma-2-9b-it-4bit
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/gemma-2-9b-it-4bit>`__
 
@@ -100,7 +100,7 @@ Model Spec 6 (mlx, 9 Billion)
 - **Model Format:** mlx
 - **Model Size (in billions):** 9
 - **Quantizations:** 8-bit
-- **Engines**: 
+- **Engines**: MLX
 - **Model ID:** mlx-community/gemma-2-9b-it-8bit
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/gemma-2-9b-it-8bit>`__
 
@@ -116,7 +116,7 @@ Model Spec 7 (mlx, 9 Billion)
 - **Model Format:** mlx
 - **Model Size (in billions):** 9
 - **Quantizations:** None
-- **Engines**: 
+- **Engines**: MLX
 - **Model ID:** mlx-community/gemma-2-9b-it-fp16
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/gemma-2-9b-it-fp16>`__
 
@@ -132,7 +132,7 @@ Model Spec 8 (mlx, 27 Billion)
 - **Model Format:** mlx
 - **Model Size (in billions):** 27
 - **Quantizations:** 4-bit
-- **Engines**: 
+- **Engines**: MLX
 - **Model ID:** mlx-community/gemma-2-27b-it-4bit
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/gemma-2-27b-it-4bit>`__
 
@@ -148,7 +148,7 @@ Model Spec 9 (mlx, 27 Billion)
 - **Model Format:** mlx
 - **Model Size (in billions):** 27
 - **Quantizations:** 8-bit
-- **Engines**: 
+- **Engines**: MLX
 - **Model ID:** mlx-community/gemma-2-27b-it-8bit
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/gemma-2-27b-it-8bit>`__
 
@@ -164,7 +164,7 @@ Model Spec 10 (mlx, 27 Billion)
 - **Model Format:** mlx
 - **Model Size (in billions):** 27
 - **Quantizations:** None
-- **Engines**: 
+- **Engines**: MLX
 - **Model ID:** mlx-community/gemma-2-27b-it-fp16
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/gemma-2-27b-it-fp16>`__
 
