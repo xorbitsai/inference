@@ -271,7 +271,7 @@ class ChatglmPytorchChatModel(PytorchChatModel):
         self,
         tokenizer,
         query: str,
-        history: List[Dict] = None,
+        history: Optional[List[Dict]] = None,
         role: str = "user",
         past_key_values=None,
         max_length: int = 8192,
@@ -337,7 +337,7 @@ class ChatglmPytorchChatModel(PytorchChatModel):
                 if isinstance(t, dict)
             ]
             if tools
-            else None
+            else []
         )
         for outputs in self._model.stream_generate(
             **inputs,
