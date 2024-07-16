@@ -236,6 +236,7 @@ def create_image_model_instance(
         lora_model_paths=lora_model,
         lora_load_kwargs=lora_load_kwargs,
         lora_fuse_kwargs=lora_fuse_kwargs,
+        ability=model_spec.ability,
         **kwargs,
     )
     model_description = ImageModelDescription(

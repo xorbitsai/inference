@@ -99,5 +99,12 @@
     "model_id": "runwayml/stable-diffusion-inpainting",
     "model_revision": "51388a731f57604945fddd703ecb5c50e8e7b49d",
     "ability": "inpainting"
+  },
+  {
+    "model_name": "stable-diffusion-2-inpainting",
+    "model_family": "stable_diffusion",
+    "model_id": "stabilityai/stable-diffusion-2-inpainting",
+    "model_revision": "81a84f49b15956b60b4272a405ad3daef3da4590",
+    "ability": "inpainting"
   }
 ]

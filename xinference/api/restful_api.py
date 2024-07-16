@@ -1452,9 +1452,9 @@ class RESTfulAPI:
                 parsed_kwargs = {}
             im = Image.open(image.file)
             mask_im = Image.open(mask_image.file)
-            if size is None:
+            if not size:
                 w, h = im.size
-                size = f"f{w}*{h}"
+                size = f"{w}*{h}"
             image_list = await model_ref.inpainting(
                 image=im,
                 mask_image=mask_im,

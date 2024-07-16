@@ -89,6 +89,7 @@ class DiffusionModel:
             self._kwargs["torch_dtype"] = torch.float16
             self._kwargs["use_safetensors"] = True
 
+        logger.debug("Loading model %s", AutoPipelineModel)
         self._model = AutoPipelineModel.from_pretrained(
             self._model_path,
             **self._kwargs,
