@@ -20,15 +20,15 @@ import time
 import aiohttp
 from typing import List, Dict
 from datasets import load_dataset
+import numpy as np
+from utils import ConcurrentBenchmarkRunner
 
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-REQUEST_LATENCY: List[float] = []
 
-
-class BenchmarkRunner:
+class RerankBenchmarkRunner(ConcurrentBenchmarkRunner):
     def __init__(
         self,
         api_url: str,
@@ -37,48 +37,36 @@ class BenchmarkRunner:
         top_n: int,
         concurrency: int,
     ):
-        self.api_url = api_url
-        self.model_uid = model_uid
-        self.input_requests = input_requests
+        super().__init__(api_url, model_uid, input_requests, concurrency)
         self.top_n = top_n
-        self.concurrency = concurrency
-        self.sent = 0
-        self.left = len(input_requests)
 
-    async def run(self):
+    async def _run(self):
         tasks = []
-        for i in range(0, self.concurrency):
+        for i in range(self.concurrency):
             tasks.append(asyncio.create_task(self.worker(i)))
-        await asyncio.gather(*tasks)
+
+        await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
 
     async def worker(self, i: int):
         r = random.Random(i)
         index = r.randint(0, len(self.input_requests) - 1)
-        while self.sent < len(self.input_requests):
-            item = self.input_requests[index]
-            prompt, documents = item["query"], item["positive"]
+        while self.left > 0:
+            request = self.input_requests[index]
             index += 1
-            self.sent += 1
             index = index % len(self.input_requests)
-            await self.send_request(
-                self.api_url,
-                self.model_uid,
-                prompt,
-                documents,
-            )
+            await self.send_request(request)
             self.left -= 1
             # pring longer space to overwrite the previous when left decrease
             print("\rdone_request, left %d    " % (self.left), end="")
         # The last one
         print("")
 
-    async def send_request(
-        self, api_url: str, model_uid: str, prompt: str, documents: List[str]
-    ):
+    async def send_request(self, request):
+        prompt, documents = request["query"], request["positive"]
         request_start_time = time.time()
 
         pload = {
-            "model": model_uid,
+            "model": self.model_uid,
             "top_n": self.top_n,
             "query": prompt,
             "documents": documents,
@@ -88,18 +76,23 @@ class BenchmarkRunner:
 
         timeout = aiohttp.ClientTimeout(total=3 * 3600)
         async with aiohttp.ClientSession(timeout=timeout) as session:
-            async with session.post(api_url, headers=headers, json=pload) as response:
+            async with session.post(
+                self.api_url, headers=headers, json=pload
+            ) as response:
                 resp = await response.json()
                 if response.status == 200:
                     request_end_time = time.time()
                     request_latency = request_end_time - request_start_time
-                    REQUEST_LATENCY.append(request_latency)
+                    self.request_latency.append(request_latency)
                 else:
                     logger.error(f"Failed to create chat completion: {resp}")
 
 
 def main(args: argparse.Namespace):
     print(args)
+
+    random.seed(args.seed)
+    np.random.seed(args.seed)
 
     api_url = f"http://{args.host}:{args.port}/v1/rerank"
     model_uid = args.model_uid
@@ -113,9 +106,8 @@ def main(args: argparse.Namespace):
         args.num_query = len(input_requests)
 
     logger.info("Benchmark starts.")
-    benchmark_start_time = time.time()
 
-    benchmark = BenchmarkRunner(
+    benchmark = RerankBenchmarkRunner(
         api_url,
         model_uid,
         input_requests,
@@ -123,11 +115,8 @@ def main(args: argparse.Namespace):
         concurrency=args.concurrency,
     )
     asyncio.run(benchmark.run())
-    benchmark_end_time = time.time()
-    benchmark_time = benchmark_end_time - benchmark_start_time
-    print(f"Total time: {benchmark_time:.2f} s")
-    print(f"Throughput: {args.num_query / benchmark_time:.2f} requests/s")
-    # TODO(codingl2k1): We should calculate the tokens / s in the future.
+
+    benchmark.print_stats()
 
 
 if __name__ == "__main__":
@@ -161,5 +150,6 @@ if __name__ == "__main__":
         help="Trust remote code from huggingface.",
     )
     parser.add_argument("--model-uid", type=str, help="Xinference model UID.")
+    parser.add_argument("--seed", type=int, default=0)
     args = parser.parse_args()
     main(args)

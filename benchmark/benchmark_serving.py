@@ -16,52 +16,42 @@ import argparse
 import asyncio
 import logging
 import random
-import time
 from typing import List, Tuple
 
 import numpy as np
 
-from utils import sample_requests, get_tokenizer, send_request
+from utils import (
+    ConcurrentBenchmarkRunner,
+    sample_requests,
+    get_tokenizer,
+)
 
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-REQUEST_LATENCY: List[Tuple[int, int, float]] = []
 
-
-class BenchmarkRunner:
-
+class ServingBenchmarkRunner(ConcurrentBenchmarkRunner):
     def __init__(
         self,
         api_url: str,
         model_uid: str,
         input_requests: List[Tuple[str, int, int]],
-        request_rate: float,
         concurrency: int,
+        request_rate: float,
     ):
-
-        self.api_url = api_url
-        self.model_uid = model_uid
-        self.input_requests = input_requests
-        self.concurrency = concurrency
+        super().__init__(api_url, model_uid, input_requests, concurrency)
         self.request_rate = request_rate
         self.queue = asyncio.Queue(concurrency or 100)
-        self.left = len(input_requests)
 
-    async def run(self):
+    async def _run(self):
         tasks = []
-        for _i in range(0, self.concurrency):
+        for _ in range(self.concurrency):
             tasks.append(asyncio.create_task(self.worker()))
 
         for req in iter(self.input_requests):
-            if self.request_rate != float("inf"):
-                # If the request rate is infinity, then we don't need to wait.
-                # Sample the request interval from the exponential distribution.
-                interval = np.random.exponential(1.0 / self.request_rate)
-                # The next request will be sent after the interval.
-                await asyncio.sleep(interval)
             await self.queue.put(req)
+
         await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
 
     async def worker(self):
@@ -70,19 +60,17 @@ class BenchmarkRunner:
         When all request is done, most worker will hang on self.queue,
         but at least one worker will exit"""
         while self.left > 0:
-            prompt, prompt_len, output_len = await self.queue.get()
-            await send_request(
-                self.api_url,
-                self.model_uid,
-                prompt,
-                prompt_len,
-                output_len,
-                REQUEST_LATENCY,
-            )
+            request = await self.queue.get()
+            await self.send_request(request)
             self.left -= 1
-            # pring longer space to overwrite the previous when left decrease
             print("\rdone_request, left %d    " % (self.left), end="")
-        # The last one
+
+            if self.request_rate != float("inf"):
+                # If the request rate is infinity, then we don't need to wait.
+                # Sample the request interval from the exponential distribution.
+                interval = np.random.exponential(1.0 / self.request_rate)
+                # The next request will be sent after the interval.
+                await asyncio.sleep(interval)
         print("")
 
 
@@ -100,12 +88,16 @@ def main(args: argparse.Namespace):
 
     logger.info("Preparing for benchmark.")
     tokenizer = get_tokenizer(args.tokenizer, trust_remote_code=args.trust_remote_code)
-    input_requests = sample_requests(args.dataset, args.num_prompts, tokenizer, prompt_len_limit=args.prompt_len_limit)
+    input_requests = sample_requests(
+        args.dataset,
+        args.num_prompts,
+        tokenizer,
+        prompt_len_limit=args.prompt_len_limit,
+    )
 
     logger.info("Benchmark starts.")
-    benchmark_start_time = time.time()
 
-    benchmark = BenchmarkRunner(
+    benchmark = ServingBenchmarkRunner(
         api_url,
         model_uid,
         input_requests,
@@ -113,29 +105,8 @@ def main(args: argparse.Namespace):
         concurrency=args.concurrency,
     )
     asyncio.run(benchmark.run())
-    benchmark_end_time = time.time()
-    benchmark_time = benchmark_end_time - benchmark_start_time
-    print(f"Total time: {benchmark_time:.2f} s")
-    print(f"Throughput: {args.num_prompts / benchmark_time:.2f} requests/s")
 
-    # Compute the latency statistics.
-    avg_latency = np.mean([latency for _, _, latency in REQUEST_LATENCY])
-    print(f"Average latency: {avg_latency:.2f} s")
-    avg_per_token_latency = np.mean(
-        [
-            latency / (prompt_len + output_len)
-            for prompt_len, output_len, latency in REQUEST_LATENCY
-        ]
-    )
-    print(f"Average latency per token: {avg_per_token_latency:.2f} s")
-    avg_per_output_token_latency = np.mean(
-        [latency / output_len for _, output_len, latency in REQUEST_LATENCY]
-    )
-    print("Average latency per output token: " f"{avg_per_output_token_latency:.2f} s")
-    throughput = (
-        sum([output_len for _, output_len, _ in REQUEST_LATENCY]) / benchmark_time
-    )
-    print(f"Throughput: {throughput} tokens/s")
+    benchmark.print_stats()
 
 
 if __name__ == "__main__":

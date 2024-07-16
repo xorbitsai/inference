@@ -16,28 +16,18 @@ import argparse
 import asyncio
 import logging
 import random
-import time
-from typing import List, Tuple
 
 import numpy as np
-from utils import get_tokenizer, sample_requests, send_request
+from utils import BenchmarkRunner, get_tokenizer, sample_requests
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-REQUEST_LATENCY: List[Tuple[int, int, float]] = []
 
-
-async def benchmark(
-    api_url: str,
-    model_uid: str,
-    input_requests: List[Tuple[str, int, int]],
-) -> None:
-    for request in input_requests:
-        prompt, prompt_len, output_len = request
-        await send_request(
-            api_url, model_uid, prompt, prompt_len, output_len, REQUEST_LATENCY
-        )
+class LatencyBenchmarkRunner(BenchmarkRunner):
+    async def _run(self):
+        for request in self.input_requests:
+            await self.send_request(request)
 
 
 def main(args: argparse.Namespace):
@@ -53,35 +43,15 @@ def main(args: argparse.Namespace):
     input_requests = sample_requests(args.dataset, args.num_prompts, tokenizer)
 
     logger.info("Benchmark starts.")
-    benchmark_start_time = time.time()
 
-    asyncio.run(
-        benchmark(
-            api_url,
-            model_uid,
-            input_requests,
-        )
+    benchmark = LatencyBenchmarkRunner(
+        api_url,
+        model_uid,
+        input_requests,
     )
+    asyncio.run(benchmark.run())
 
-    benchmark_end_time = time.time()
-    benchmark_time = benchmark_end_time - benchmark_start_time
-    print(f"Total time: {benchmark_time:.2f} s")
-    print(f"Throughput: {len(REQUEST_LATENCY) / benchmark_time:.2f} requests/s")
-
-    # Compute the latency statistics.
-    avg_latency = np.mean([latency for _, _, latency in REQUEST_LATENCY])
-    print(f"Average latency: {avg_latency:.2f} s")
-    avg_per_token_latency = np.mean(
-        [
-            latency / (prompt_len + output_len)
-            for prompt_len, output_len, latency in REQUEST_LATENCY
-        ]
-    )
-    print(f"Average latency per token: {avg_per_token_latency:.2f} s")
-    avg_per_output_token_latency = np.mean(
-        [latency / output_len for _, output_len, latency in REQUEST_LATENCY]
-    )
-    print("Average latency per output token: " f"{avg_per_output_token_latency:.2f} s")
+    benchmark.print_stats()
 
 
 if __name__ == "__main__":
