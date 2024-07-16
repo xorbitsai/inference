@@ -357,7 +357,7 @@ class ModelActor(xo.StatelessActor):
                     time_to_first_token = (time.time() - start_time) * 1000
                 final_usage = v.get("usage", None)
                 if output_type == "json":
-                    v = await asyncio.to_thread(json.dumps, v)
+                    v = await asyncio.to_thread(json.dumps, v, ensure_ascii=False)
                     v = dict(data=v)  # noqa: F821
                 else:
                     assert (

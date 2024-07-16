@@ -66,7 +66,7 @@ def register_image(model_spec: CustomImageModelFamilyV1, persist: bool):
             raise ValueError(f"Invalid model URI {model_uri}")
 
         persist_path = os.path.join(
-            XINFERENCE_MODEL_DIR, "image", f"{model_spec.model_id}.json"
+            XINFERENCE_MODEL_DIR, "image", f"{model_spec.model_name}.json"
         )
         os.makedirs(os.path.dirname(persist_path), exist_ok=True)
         with open(persist_path, "w") as f:

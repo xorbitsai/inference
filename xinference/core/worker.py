@@ -212,12 +212,14 @@ class WorkerActor(xo.StatelessActor):
 
         from ..model.audio import (
             CustomAudioModelFamilyV1,
+            generate_audio_description,
             get_audio_model_descriptions,
             register_audio,
             unregister_audio,
         )
         from ..model.embedding import (
             CustomEmbeddingModelSpec,
+            generate_embedding_description,
             get_embedding_model_descriptions,
             register_embedding,
             unregister_embedding,
@@ -230,36 +232,56 @@ class WorkerActor(xo.StatelessActor):
         )
         from ..model.image import (
             CustomImageModelFamilyV1,
+            generate_image_description,
             get_image_model_descriptions,
             register_image,
             unregister_image,
         )
         from ..model.llm import (
             CustomLLMFamilyV1,
+            generate_llm_description,
             get_llm_model_descriptions,
             register_llm,
             unregister_llm,
         )
         from ..model.rerank import (
             CustomRerankModelSpec,
+            generate_rerank_description,
             get_rerank_model_descriptions,
             register_rerank,
             unregister_rerank,
         )
 
         self._custom_register_type_to_cls: Dict[str, Tuple] = {  # type: ignore
-            "LLM": (CustomLLMFamilyV1, register_llm, unregister_llm),
+            "LLM": (
+                CustomLLMFamilyV1,
+                register_llm,
+                unregister_llm,
+                generate_llm_description,
+            ),
             "embedding": (
                 CustomEmbeddingModelSpec,
                 register_embedding,
                 unregister_embedding,
+                generate_embedding_description,
             ),
-            "rerank": (CustomRerankModelSpec, register_rerank, unregister_rerank),
-            "audio": (CustomAudioModelFamilyV1, register_audio, unregister_audio),
+            "rerank": (
+                CustomRerankModelSpec,
+                register_rerank,
+                unregister_rerank,
+                generate_rerank_description,
+            ),
             "image": (
                 CustomImageModelFamilyV1,
                 register_image,
                 unregister_image,
+                generate_image_description,
+            ),
+            "audio": (
+                CustomAudioModelFamilyV1,
+                register_audio,
+                unregister_audio,
+                generate_audio_description,
             ),
             "flexible": (
                 FlexibleModelSpec,
@@ -526,17 +548,23 @@ class WorkerActor(xo.StatelessActor):
                 raise ValueError(f"{model_name} model can't run on Darwin system.")
 
     @log_sync(logger=logger)
-    def register_model(self, model_type: str, model: str, persist: bool):
+    async def register_model(self, model_type: str, model: str, persist: bool):
         # TODO: centralized model registrations
         if model_type in self._custom_register_type_to_cls:
             (
                 model_spec_cls,
                 register_fn,
                 unregister_fn,
+                generate_fn,
             ) = self._custom_register_type_to_cls[model_type]
             model_spec = model_spec_cls.parse_raw(model)
             try:
                 register_fn(model_spec, persist)
+                await self._cache_tracker_ref.record_model_version(
+                    generate_fn(model_spec), self.address
+                )
+            except ValueError as e:
+                raise e
             except Exception as e:
                 unregister_fn(model_spec.model_name, raise_error=False)
                 raise e
@@ -544,13 +572,126 @@ class WorkerActor(xo.StatelessActor):
             raise ValueError(f"Unsupported model type: {model_type}")
 
     @log_sync(logger=logger)
-    def unregister_model(self, model_type: str, model_name: str):
+    async def unregister_model(self, model_type: str, model_name: str):
         # TODO: centralized model registrations
         if model_type in self._custom_register_type_to_cls:
-            _, _, unregister_fn = self._custom_register_type_to_cls[model_type]
-            unregister_fn(model_name)
+            _, _, unregister_fn, _ = self._custom_register_type_to_cls[model_type]
+            unregister_fn(model_name, False)
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
+
+    @log_async(logger=logger)
+    async def list_model_registrations(
+        self, model_type: str, detailed: bool = False
+    ) -> List[Dict[str, Any]]:
+        def sort_helper(item):
+            assert isinstance(item["model_name"], str)
+            return item.get("model_name").lower()
+
+        if model_type == "LLM":
+            from ..model.llm import get_user_defined_llm_families
+
+            ret = []
+
+            for family in get_user_defined_llm_families():
+                ret.append({"model_name": family.model_name, "is_builtin": False})
+
+            ret.sort(key=sort_helper)
+            return ret
+        elif model_type == "embedding":
+            from ..model.embedding.custom import get_user_defined_embeddings
+
+            ret = []
+
+            for model_spec in get_user_defined_embeddings():
+                ret.append({"model_name": model_spec.model_name, "is_builtin": False})
+
+            ret.sort(key=sort_helper)
+            return ret
+        elif model_type == "image":
+            from ..model.image.custom import get_user_defined_images
+
+            ret = []
+
+            for model_spec in get_user_defined_images():
+                ret.append({"model_name": model_spec.model_name, "is_builtin": False})
+
+            ret.sort(key=sort_helper)
+            return ret
+        elif model_type == "audio":
+            from ..model.audio.custom import get_user_defined_audios
+
+            ret = []
+
+            for model_spec in get_user_defined_audios():
+                ret.append({"model_name": model_spec.model_name, "is_builtin": False})
+
+            ret.sort(key=sort_helper)
+            return ret
+        elif model_type == "rerank":
+            from ..model.rerank.custom import get_user_defined_reranks
+
+            ret = []
+
+            for model_spec in get_user_defined_reranks():
+                ret.append({"model_name": model_spec.model_name, "is_builtin": False})
+
+            ret.sort(key=sort_helper)
+            return ret
+        else:
+            raise ValueError(f"Unsupported model type: {model_type}")
+
+    @log_sync(logger=logger)
+    async def get_model_registration(self, model_type: str, model_name: str) -> Any:
+        if model_type == "LLM":
+            from ..model.llm import get_user_defined_llm_families
+
+            for f in get_user_defined_llm_families():
+                if f.model_name == model_name:
+                    return f
+        elif model_type == "embedding":
+            from ..model.embedding.custom import get_user_defined_embeddings
+
+            for f in get_user_defined_embeddings():
+                if f.model_name == model_name:
+                    return f
+        elif model_type == "image":
+            from ..model.image.custom import get_user_defined_images
+
+            for f in get_user_defined_images():
+                if f.model_name == model_name:
+                    return f
+        elif model_type == "audio":
+            from ..model.audio.custom import get_user_defined_audios
+
+            for f in get_user_defined_audios():
+                if f.model_name == model_name:
+                    return f
+        elif model_type == "rerank":
+            from ..model.rerank.custom import get_user_defined_reranks
+
+            for f in get_user_defined_reranks():
+                if f.model_name == model_name:
+                    return f
+        return None
+
+    @log_async(logger=logger)
+    async def query_engines_by_model_name(self, model_name: str):
+        from copy import deepcopy
+
+        from ..model.llm.llm_family import LLM_ENGINES
+
+        if model_name not in LLM_ENGINES:
+            return None
+
+        # filter llm_class
+        engine_params = deepcopy(LLM_ENGINES[model_name])
+        for engine in engine_params:
+            params = engine_params[engine]
+            for param in params:
+                del param["llm_class"]
+
+        return engine_params
 
     async def _get_model_ability(self, model: Any, model_type: str) -> List[str]:
         from ..model.llm.core import LLM
