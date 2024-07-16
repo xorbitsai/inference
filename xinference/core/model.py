@@ -697,6 +697,35 @@ class ModelActor(xo.StatelessActor):
             f"Model {self._model.model_spec} is not for creating image."
         )
 
+    async def inpainting(
+        self,
+        image: "PIL.Image",
+        mask_image: "PIL.Image",
+        prompt: str,
+        negative_prompt: str,
+        n: int = 1,
+        size: str = "1024*1024",
+        response_format: str = "url",
+        *args,
+        **kwargs,
+    ):
+        if hasattr(self._model, "inpainting"):
+            return await self._call_wrapper(
+                self._model.inpainting,
+                image,
+                mask_image,
+                prompt,
+                negative_prompt,
+                n,
+                size,
+                response_format,
+                *args,
+                **kwargs,
+            )
+        raise AttributeError(
+            f"Model {self._model.model_spec} is not for creating image."
+        )
+
     @log_async(logger=logger)
     @request_limit
     async def infer(
