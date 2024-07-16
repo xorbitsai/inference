@@ -16,6 +16,7 @@ import base64
 import logging
 import os
 import re
+import sys
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
@@ -39,6 +40,7 @@ class DiffusionModel:
         lora_model: Optional[List[LoRA]] = None,
         lora_load_kwargs: Optional[Dict] = None,
         lora_fuse_kwargs: Optional[Dict] = None,
+        ability: Optional[str] = None,
         **kwargs,
     ):
         self._model_uid = model_uid
@@ -48,6 +50,7 @@ class DiffusionModel:
         self._lora_model = lora_model
         self._lora_load_kwargs = lora_load_kwargs or {}
         self._lora_fuse_kwargs = lora_fuse_kwargs or {}
+        self._ability = ability
         self._kwargs = kwargs
 
     def _apply_lora(self):
@@ -64,8 +67,14 @@ class DiffusionModel:
             logger.info(f"Successfully loaded the LoRA for model {self._model_uid}.")
 
     def load(self):
-        # import torch
-        from diffusers import AutoPipelineForText2Image
+        import torch
+
+        if self._ability in [None, "text2image", "image2image"]:
+            from diffusers import AutoPipelineForText2Image as AutoPipelineModel
+        elif self._ability == "inpainting":
+            from diffusers import AutoPipelineForInpainting as AutoPipelineModel
+        else:
+            raise ValueError(f"Unknown ability: {self._ability}")
 
         controlnet = self._kwargs.get("controlnet")
         if controlnet is not None:
@@ -74,12 +83,15 @@ class DiffusionModel:
             logger.debug("Loading controlnet %s", controlnet)
             self._kwargs["controlnet"] = ControlNetModel.from_pretrained(controlnet)
 
-        self._model = AutoPipelineForText2Image.from_pretrained(
+        torch_dtype = self._kwargs.get("torch_dtype")
+        if sys.platform != "darwin" and torch_dtype is None:
+            # The following params crashes on Mac M2
+            self._kwargs["torch_dtype"] = torch.float16
+            self._kwargs["use_safetensors"] = True
+
+        self._model = AutoPipelineModel.from_pretrained(
             self._model_path,
             **self._kwargs,
-            # The following params crashes on Mac M2
-            # torch_dtype=torch.float16,
-            # use_safetensors=True,
         )
         self._model = move_model_to_available_device(self._model)
         # Recommended if your computer has < 64 GB of RAM
@@ -166,6 +178,30 @@ class DiffusionModel:
         width, height = map(int, re.split(r"[^\d]+", size))
         return self._call_model(
             image=image,
+            prompt=prompt,
+            negative_prompt=negative_prompt,
+            height=height,
+            width=width,
+            num_images_per_prompt=n,
+            response_format=response_format,
+            **kwargs,
+        )
+
+    def inpainting(
+        self,
+        image: bytes,
+        mask_image: bytes,
+        prompt: Optional[Union[str, List[str]]] = None,
+        negative_prompt: Optional[Union[str, List[str]]] = None,
+        n: int = 1,
+        size: str = "1024*1024",
+        response_format: str = "url",
+        **kwargs,
+    ):
+        width, height = map(int, re.split(r"[^\d]+", size))
+        return self._call_model(
+            image=image,
+            mask_image=mask_image,
             prompt=prompt,
             negative_prompt=negative_prompt,
             height=height,
