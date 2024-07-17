@@ -167,6 +167,9 @@ jobs:
             ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=1500 \
               -W ignore::PendingDeprecationWarning \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/audio/tests/test_chattts.py
+            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=1500 \
+              -W ignore::PendingDeprecationWarning \
+              --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/audio/tests/test_cosyvoice.py
           elif [ "$MODULE" == "metal" ]; then
             pytest --timeout=1500 \
               -W ignore::PendingDeprecationWarning \
@@ -177,6 +180,6 @@ jobs:
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/client/tests/test_client.py
             pytest --timeout=1500 \
               -W ignore::PendingDeprecationWarning \
-              --cov-config=setup.cfg --cov-report=xml --cov=xinference --ignore xinference/client/tests/test_client.py --ignore xinference/model/image/tests/test_stable_diffusion.py --ignore xinference/model/audio/tests/test_whisper.py --ignore xinference/model/audio/tests/test_chattts.py xinference
+              --cov-config=setup.cfg --cov-report=xml --cov=xinference --ignore xinference/client/tests/test_client.py --ignore xinference/model/image/tests/test_stable_diffusion.py --ignore xinference/model/audio/tests/test_whisper.py --ignore xinference/model/audio/tests/test_chattts.py --ignore xinference/model/audio/tests/test_cosyvoice.py xinference
           fi
         working-directory: .

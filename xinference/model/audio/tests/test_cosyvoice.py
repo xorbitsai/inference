@@ -22,7 +22,7 @@ def test_cosyvoice(setup):
     client = Client(endpoint)
 
     model_uid = client.launch_model(
-        model_name="CosyVoice-SFT",
+        model_name="CosyVoice-300M-SFT",
         model_type="audio",
     )
     model = client.get_model(model_uid)
