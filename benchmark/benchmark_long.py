@@ -19,11 +19,9 @@ import random
 
 import numpy as np
 
-from utils import (
-    ConcurrentBenchmarkRunner,
-    generate_sorting_prompts,
-    get_tokenizer,
-)
+from utils import generate_sorting_prompts, get_tokenizer
+from benchmark_runner import ConcurrentBenchmarkRunner
+
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

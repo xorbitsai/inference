@@ -21,7 +21,7 @@ import aiohttp
 from typing import List, Dict
 from datasets import load_dataset
 import numpy as np
-from utils import ConcurrentBenchmarkRunner
+from benchmark_runner import ConcurrentBenchmarkRunner
 
 
 logging.basicConfig(level=logging.INFO)
@@ -83,7 +83,7 @@ class RerankBenchmarkRunner(ConcurrentBenchmarkRunner):
                 if response.status == 200:
                     request_end_time = time.time()
                     request_latency = request_end_time - request_start_time
-                    self.request_latency.append(request_latency)
+                    self.outputs.append(request_latency)
                 else:
                     logger.error(f"Failed to create chat completion: {resp}")
 
@@ -98,7 +98,7 @@ def main(args: argparse.Namespace):
     model_uid = args.model_uid
 
     logger.info("Preparing for benchmark.")
-    dataset = load_dataset("mteb/scidocs-reranking")
+    dataset = load_dataset(args.dataset)
     input_requests = dataset["test"].remove_columns("negative").to_list()
     if args.num_query > 0:
         input_requests = input_requests[: args.num_query]
@@ -116,13 +116,22 @@ def main(args: argparse.Namespace):
     )
     asyncio.run(benchmark.run())
 
-    benchmark.print_stats()
+    # TODO: Print the results of request_latency in detail.
+    # benchmark.print_stats() needs to be overridden
+    print(f"Total time: {benchmark.benchmark_time:.2f} s")
+    print(f"Throughput: {args.num_query / benchmark.benchmark_time:.2f} requests/s")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Stress test the rerank model.")
     parser.add_argument("--host", type=str, default="localhost")
     parser.add_argument("--port", type=int, default=9997)
+    parser.add_argument(
+        "--dataset",
+        type=str,
+        default="mteb/scidocs-reranking",
+        help="Path to the dataset.",
+    )
     parser.add_argument(
         "--concurrency",
         "-c",
@@ -149,7 +158,9 @@ if __name__ == "__main__":
         action="store_true",
         help="Trust remote code from huggingface.",
     )
-    parser.add_argument("--model-uid", type=str, help="Xinference model UID.")
+    parser.add_argument(
+        "--model-uid", type=str, required=True, help="Xinference model UID."
+    )
     parser.add_argument("--seed", type=int, default=0)
     args = parser.parse_args()
     main(args)

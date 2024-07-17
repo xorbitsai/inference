@@ -18,7 +18,9 @@ import logging
 import random
 
 import numpy as np
-from utils import BenchmarkRunner, get_tokenizer, sample_requests
+from utils import get_tokenizer, sample_requests
+from benchmark_runner import BenchmarkRunner
+
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

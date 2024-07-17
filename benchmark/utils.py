@@ -12,18 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import asyncio
-import aiohttp
 import json
 import logging
 import random
-import time
 from typing import TYPE_CHECKING, List, Tuple
 
-import numpy as np
-import openai
 from transformers import AutoTokenizer, PreTrainedTokenizerFast
 
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -169,132 +165,3 @@ def generate_sorting_prompts(
         prompt_len = len(prompt_token_ids[i])
         dataset.append((prompts[i], prompt_len, context_length - prompt_len))
     return dataset
-
-
-class BenchmarkRunner:
-    def __init__(
-        self,
-        api_url: str,
-        model_uid: str,
-        input_requests: List[Tuple[str, int, int]],
-    ):
-        self.api_url = api_url
-        self.model_uid = model_uid
-        self.input_requests = input_requests
-        self.request_latency = []
-        self.benchmark_time = None
-
-    async def run(self):
-        await self.warm_up()
-        start_time = time.time()
-        await self._run()
-        end_time = time.time()
-        self.benchmark_time = end_time - start_time
-
-    async def warm_up(self, num_requests: int = 5):
-        logger.info("Warming up...")
-        for i in range(min(num_requests, len(self.input_requests))):
-            request = self.input_requests[i]
-            await self.send_request(request)
-        logger.info("Warm-up completed.")
-
-    async def _run(self):
-        pass
-
-    async def send_request(
-        self,
-        request: tuple,
-    ) -> None:
-        prompt, prompt_len, output_len = request
-        request_start_time = time.time()
-
-        pload = {
-            "model": self.model_uid,
-            "n": 1,
-            "temperature": 1.0,
-            "top_p": 1.0,
-            "max_tokens": output_len,
-            "stream": False,
-            "messages": [{"role": "user", "content": prompt}],
-        }
-
-        headers = {"User-Agent": "Benchmark Client"}
-
-        timeout = aiohttp.ClientTimeout(total=3 * 3600)
-        async with aiohttp.ClientSession(timeout=timeout) as session:
-            async with session.post(
-                self.api_url, headers=headers, json=pload
-            ) as response:
-                resp = await response.json()
-                if response.status == 200:
-                    completion_tokens = resp["usage"]["completion_tokens"]
-                    request_end_time = time.time()
-                    request_latency = request_end_time - request_start_time
-                    self.request_latency.append(
-                        (prompt_len, completion_tokens, request_latency)
-                    )
-                else:
-                    logger.error(f"Failed to create chat completion: {resp}")
-
-    def print_stats(self):
-        total_time = self.benchmark_time
-
-        # Calculate latencies
-        latencies = [latency for _, _, latency in self.request_latency]
-        prompt_output_lengths = [prompt_len + output_len for prompt_len, output_len, _ in self.request_latency]
-
-        # Calculate additional latency statistics
-        mean_ttft = np.mean(latencies)
-        median_ttft = np.median(latencies)
-        p99_ttft = np.percentile(latencies, 99)
-
-        mean_tpot = np.mean([latency / output_len for _, output_len, latency in self.request_latency])
-        median_tpot = np.median([latency / output_len for _, output_len, latency in self.request_latency])
-        p99_tpot = np.percentile([latency / output_len for _, output_len, latency in self.request_latency], 99)
-
-        mean_itl = np.mean([latency / length for latency, length in zip(latencies, prompt_output_lengths)])
-        median_itl = np.median([latency / length for latency, length in zip(latencies, prompt_output_lengths)])
-        p99_itl = np.percentile([latency / length for latency, length in zip(latencies, prompt_output_lengths)], 99)
-
-        # Print benchmark results
-        print("{s:{c}^{n}}".format(s=" Serving Benchmark Result ", n=50, c="="))
-        print("{:<40} {:<10}".format("Successful requests:", len(self.request_latency)))
-        print("{:<40} {:<10.2f}".format("Benchmark duration (s):", total_time))
-        print("{:<40} {:<10}".format("Total input tokens:", sum(prompt_len for prompt_len, _, _ in self.request_latency)))
-        print("{:<40} {:<10}".format("Total generated tokens:", sum(output_len for _, output_len, _ in self.request_latency)))
-        print("{:<40} {:<10.2f}".format("Request throughput (req/s):", len(self.request_latency) / total_time))
-        print("{:<40} {:<10.2f}".format("Input token throughput (tok/s):", sum(prompt_len for prompt_len, _, _ in self.request_latency) / total_time))
-        print("{:<40} {:<10.2f}".format("Output token throughput (tok/s):", sum(output_len for _, output_len, _ in self.request_latency) / total_time))
-        
-        print("{s:{c}^{n}}".format(s="Time to First Token", n=50, c="-"))
-        print("{:<40} {:<10.2f}".format("Mean TTFT (s):", mean_ttft))
-        print("{:<40} {:<10.2f}".format("Median TTFT (s):", median_ttft))
-        print("{:<40} {:<10.2f}".format("P99 TTFT (s):", p99_ttft))
-        
-        print("{s:{c}^{n}}".format(s="Time per Output Token (excl. 1st token)", n=50, c="-"))
-        print("{:<40} {:<10.2f}".format("Mean TPOT (s):", mean_tpot))
-        print("{:<40} {:<10.2f}".format("Median TPOT (s):", median_tpot))
-        print("{:<40} {:<10.2f}".format("P99 TPOT (s):", p99_tpot))
-        
-        print("{s:{c}^{n}}".format(s="Inter-token Latency", n=50, c="-"))
-        print("{:<40} {:<10.2f}".format("Mean ITL (s):", mean_itl))
-        print("{:<40} {:<10.2f}".format("Median ITL (s):", median_itl))
-        print("{:<40} {:<10.2f}".format("P99 ITL (s):", p99_itl))
-        
-        print("=" * 50)
-
-
-class ConcurrentBenchmarkRunner(BenchmarkRunner):
-    def __init__(
-        self,
-        api_url: str,
-        model_uid: str,
-        input_requests: List[Tuple[str, int, int]],
-        concurrency: int,
-    ):
-        super().__init__(api_url, model_uid, input_requests)
-        self.concurrency = concurrency
-        self.left = len(input_requests)
-
-    async def worker(self):
-        pass

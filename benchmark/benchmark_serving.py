@@ -20,11 +20,8 @@ from typing import List, Tuple
 
 import numpy as np
 
-from utils import (
-    ConcurrentBenchmarkRunner,
-    sample_requests,
-    get_tokenizer,
-)
+from utils import sample_requests, get_tokenizer
+from benchmark_runner import ConcurrentBenchmarkRunner
 
 
 logging.basicConfig(level=logging.INFO)
