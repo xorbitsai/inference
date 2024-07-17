@@ -43,8 +43,16 @@ class CosyVoiceModel:
         self._model = CosyVoice(self._model_path)
 
     def speech(
-        self, input: str, voice: str, response_format: str = "mp3", speed: float = 1.0
+        self,
+        input: str,
+        voice: str,
+        response_format: str = "mp3",
+        speed: float = 1.0,
+        stream: bool = False,
+        **kwargs,
     ):
+        if stream:
+            raise Exception("CosyVoiceModel does not support stream.")
         import torchaudio
 
         assert self._model is not None
