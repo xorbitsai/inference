@@ -61,7 +61,7 @@ class RerankBenchmarkRunner(ConcurrentBenchmarkRunner):
         # The last one
         print("")
 
-    async def send_request(self, request):
+    async def send_request(self, request, warming_up: bool = False):
         prompt, documents = request["query"], request["positive"]
         request_start_time = time.time()
 
@@ -83,7 +83,8 @@ class RerankBenchmarkRunner(ConcurrentBenchmarkRunner):
                 if response.status == 200:
                     request_end_time = time.time()
                     request_latency = request_end_time - request_start_time
-                    self.outputs.append(request_latency)
+                    if not warming_up:
+                        self.outputs.append(request_latency)
                 else:
                     logger.error(f"Failed to create chat completion: {resp}")
 

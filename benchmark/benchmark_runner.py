@@ -32,8 +32,8 @@ AIOHTTP_TIMEOUT = aiohttp.ClientTimeout(total=3 * 3600)
 
 def remove_prefix(text: str, prefix: str) -> str:
     if text.startswith(prefix):
-        return text[len(prefix) :]
-    return text
+        return text[len(prefix) :].strip()
+    return text.strip()
 
 
 @dataclass
@@ -71,23 +71,24 @@ class BenchmarkRunner:
         logger.info("Warming up...")
         for i in range(min(num_requests, len(self.input_requests))):
             request = self.input_requests[i]
-            await self.send_request(request)
+            await self.send_request(request, warming_up=True)
         logger.info("Warm-up completed.")
 
     async def _run(self):
         pass
 
-    async def send_request(self, request: tuple) -> None:
+    async def send_request(self, request: tuple, warming_up: bool = False):
         prompt, prompt_len, output_len = request
 
         pload = {
             "model": self.model_uid,
             "n": 1,
-            "temperature": 1.0,
-            "top_p": 1.0,
+            "temperature": 0.01,
+            "top_p": 0.99,
             "max_tokens": output_len,
             "stream": True,
             "messages": [{"role": "user", "content": prompt}],
+            "stream_options": {"include_usage": True},
         }
 
         headers = {"User-Agent": "Benchmark Client"}
@@ -102,32 +103,45 @@ class BenchmarkRunner:
                 async with session.post(
                     self.api_url, headers=headers, json=pload
                 ) as response:
-                    if response.status != 200:
+                    if response.status == 200:
                         async for chunk_bytes in response.content:
+                            # {
+                            #     "id": "chataec79465-dfea-46af-81b9-c28124063fc0",
+                            #     "model": "llama-3-instruct",
+                            #     "created": 1721202668,
+                            #     "object": "chat.completion.chunk",
+                            #     "choices": [
+                            #         {
+                            #             "index": 0,
+                            #             "delta": {"role": "assistant", "content": ""},
+                            #             "finish_reason": null,
+                            #         }
+                            #     ],
+                            # }
                             chunk_bytes = chunk_bytes.strip()
                             if not chunk_bytes:
                                 continue
-                            chunk_bytes = chunk_bytes.decode("utf-8")
 
-                            # NOTE: Sometimes TGI returns a ping response without
-                            # any data, we should skip it.
-                            if chunk_bytes.startswith(":"):
-                                continue
-                            chunk = remove_prefix(chunk_bytes, "data:")
+                            chunk = remove_prefix(chunk_bytes.decode("utf-8"), "data:")
 
-                            data = json.loads(chunk)
-                            timestamp = time.perf_counter()
-                            # First token
-                            if ttft == 0.0:
-                                ttft = time.perf_counter() - st
-                                output.ttft = ttft
-
-                            # Decoding phase
+                            if chunk == "[DONE]":
+                                latency = time.perf_counter() - st
                             else:
-                                output.itl.append(timestamp - most_recent_timestamp)
+                                timestamp = time.perf_counter()
+                                data = json.loads(chunk)
 
-                            most_recent_timestamp = timestamp
-                        output.latency = most_recent_timestamp - st
+                                # First token
+                                if ttft == 0.0:
+                                    ttft = time.perf_counter() - st
+                                    output.ttft = ttft
+
+                                # Decoding phase
+                                else:
+                                    output.itl.append(timestamp - most_recent_timestamp)
+
+                                most_recent_timestamp = timestamp
+
+                        output.latency = latency
                         output.success = True
                         output.completion_tokens = data["usage"]["completion_tokens"]
             except Exception:
@@ -135,7 +149,8 @@ class BenchmarkRunner:
                 exc_info = sys.exc_info()
                 output.error = "".join(traceback.format_exception(*exc_info))
 
-            self.outputs.append(output)
+            if not warming_up:
+                self.outputs.append(output)
 
     def print_stats(self):
         total_time = self.benchmark_time
