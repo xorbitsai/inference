@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Union
 
 import requests
 
+from ...constants import XINFERENCE_AUDIO_SPEECH_DEFAULT_STREAM
 from ..common import streaming_response_iterator
 
 if TYPE_CHECKING:
@@ -289,6 +290,81 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
         if response.status_code != 200:
             raise RuntimeError(
                 f"Failed to variants the images, detail: {_get_error_string(response)}"
+            )
+
+        response_data = response.json()
+        return response_data
+
+    def inpainting(
+        self,
+        image: Union[str, bytes],
+        mask_image: Union[str, bytes],
+        prompt: str,
+        negative_prompt: Optional[str] = None,
+        n: int = 1,
+        size: Optional[str] = None,
+        response_format: str = "url",
+        **kwargs,
+    ) -> "ImageList":
+        """
+        Inpaint an image by the input text.
+
+        Parameters
+        ----------
+        image: `Union[str, bytes]`
+            an image batch to be inpainted (which parts of the image to
+            be masked out with `mask_image` and repainted according to `prompt`). For both numpy array and pytorch
+            tensor, the expected value range is between `[0, 1]` If it's a tensor or a list or tensors, the
+            expected shape should be `(B, C, H, W)` or `(C, H, W)`. If it is a numpy array or a list of arrays, the
+            expected shape should be `(B, H, W, C)` or `(H, W, C)` It can also accept image latents as `image`, but
+            if passing latents directly it is not encoded again.
+        mask_image: `Union[str, bytes]`
+            representing an image batch to mask `image`. White pixels in the mask
+            are repainted while black pixels are preserved. If `mask_image` is a PIL image, it is converted to a
+            single channel (luminance) before use. If it's a numpy array or pytorch tensor, it should contain one
+            color channel (L) instead of 3, so the expected shape for pytorch tensor would be `(B, 1, H, W)`, `(B,
+            H, W)`, `(1, H, W)`, `(H, W)`. And for numpy array would be for `(B, H, W, 1)`, `(B, H, W)`, `(H, W,
+            1)`, or `(H, W)`.
+        prompt: `str` or `List[str]`
+            The prompt or prompts to guide image generation. If not defined, you need to pass `prompt_embeds`.
+        negative_prompt (`str` or `List[str]`, *optional*):
+            The prompt or prompts not to guide the image generation. If not defined, one has to pass
+            `negative_prompt_embeds` instead. Ignored when not using guidance (i.e., ignored if `guidance_scale` is
+            less than `1`).
+        n: `int`, defaults to 1
+            The number of images to generate per prompt. Must be between 1 and 10.
+        size: `str`, defaults to None
+            The width*height in pixels of the generated image.
+        response_format: `str`, defaults to `url`
+            The format in which the generated images are returned. Must be one of url or b64_json.
+        Returns
+        -------
+        ImageList
+            A list of image objects.
+            :param prompt:
+            :param image:
+        """
+        url = f"{self._base_url}/v1/images/inpainting"
+        params = {
+            "model": self._model_uid,
+            "prompt": prompt,
+            "negative_prompt": negative_prompt,
+            "n": n,
+            "size": size,
+            "response_format": response_format,
+            "kwargs": json.dumps(kwargs),
+        }
+        files: List[Any] = []
+        for key, value in params.items():
+            files.append((key, (None, value)))
+        files.append(("image", ("image", image, "application/octet-stream")))
+        files.append(
+            ("mask_image", ("mask_image", mask_image, "application/octet-stream"))
+        )
+        response = requests.post(url, files=files, headers=self.auth_headers)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to inpaint the images, detail: {_get_error_string(response)}"
             )
 
         response_data = response.json()
@@ -692,6 +768,7 @@ class RESTfulAudioModelHandle(RESTfulModelHandle):
         voice: str = "",
         response_format: str = "mp3",
         speed: float = 1.0,
+        stream: bool = XINFERENCE_AUDIO_SPEECH_DEFAULT_STREAM,
     ):
         """
         Generates audio from the input text.
@@ -707,6 +784,8 @@ class RESTfulAudioModelHandle(RESTfulModelHandle):
             The format to audio in.
         speed: str
             The speed of the generated audio.
+        stream: bool
+            Use stream or not.
 
         Returns
         -------
@@ -720,12 +799,16 @@ class RESTfulAudioModelHandle(RESTfulModelHandle):
             "voice": voice,
             "response_format": response_format,
             "speed": speed,
+            "stream": stream,
         }
         response = requests.post(url, json=params, headers=self.auth_headers)
         if response.status_code != 200:
             raise RuntimeError(
                 f"Failed to speech the text, detail: {_get_error_string(response)}"
             )
+
+        if stream:
+            return response.iter_content(chunk_size=1024)
 
         return response.content
 

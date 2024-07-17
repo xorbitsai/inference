@@ -42,3 +42,10 @@ optimum
 peft
 timm
 opencv-contrib-python-headless
+omegaconf~=2.3.0  # For ChatTTS
+nemo_text_processing  # For ChatTTS
+WeTextProcessing  # For ChatTTS
+librosa  # For ChatTTS
+torchaudio  # For ChatTTS
+ChatTTS>0.1
+xxhash  # For ChatTTS

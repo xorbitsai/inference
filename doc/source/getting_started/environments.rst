@@ -46,3 +46,8 @@ XINFERENCE_DISABLE_METRICS
 Xinference will by default enable the metrics exporter on the supervisor and worker.
 Setting this environment to 1 will disable the /metrics endpoint on the supervisor
 and the HTTP service (only provide the /metrics endpoint) on the worker.
+
+XINFERENCE_AUDIO_SPEECH_DEFAULT_STREAM
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Xinference audio Speech API will use non-stream by default. Setting this environment
+to 1 will use stream by default.
