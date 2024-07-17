@@ -52,7 +52,11 @@ from xoscar.utils import get_next_port
 
 from .._compat import BaseModel, Field
 from .._version import get_versions
-from ..constants import XINFERENCE_DEFAULT_ENDPOINT_PORT, XINFERENCE_DISABLE_METRICS
+from ..constants import (
+    XINFERENCE_AUDIO_SPEECH_DEFAULT_STREAM,
+    XINFERENCE_DEFAULT_ENDPOINT_PORT,
+    XINFERENCE_DISABLE_METRICS,
+)
 from ..core.event import Event, EventCollectorActor, EventType
 from ..core.supervisor import SupervisorActor
 from ..core.utils import json_dumps
@@ -129,6 +133,7 @@ class SpeechRequest(BaseModel):
     voice: Optional[str]
     response_format: Optional[str] = "mp3"
     speed: Optional[float] = 1.0
+    stream: Optional[bool] = XINFERENCE_AUDIO_SPEECH_DEFAULT_STREAM
 
 
 class RegisterModelRequest(BaseModel):
@@ -1328,8 +1333,14 @@ class RESTfulAPI:
                 voice=body.voice,
                 response_format=body.response_format,
                 speed=body.speed,
+                stream=body.stream,
             )
-            return Response(media_type="application/octet-stream", content=out)
+            if body.stream:
+                return EventSourceResponse(
+                    media_type="application/octet-stream", content=out
+                )
+            else:
+                return Response(media_type="application/octet-stream", content=out)
         except RuntimeError as re:
             logger.error(re, exc_info=True)
             await self._report_error_event(model_uid, str(re))
