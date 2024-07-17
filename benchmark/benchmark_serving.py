@@ -46,11 +46,11 @@ class ServingBenchmarkRunner(ConcurrentBenchmarkRunner):
 
     async def _run(self):
         tasks = []
-        for _ in range(self.concurrency):
-            tasks.append(asyncio.create_task(self.worker()))
-
         for req in iter(self.input_requests):
             await self.queue.put(req)
+
+        for _ in range(self.concurrency):
+            tasks.append(asyncio.create_task(self.worker()))
 
         await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
 
