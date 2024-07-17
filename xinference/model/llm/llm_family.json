@@ -985,6 +985,74 @@
   },
   {
     "version": 1,
+    "context_length": 131072,
+    "model_name": "codegeex4",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "the open-source version of the latest CodeGeeX4 model series",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 9,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "THUDM/codegeex4-all-9b",
+        "model_revision": "8c4ec1d2f2888412640825a7aa23355939a8f4c6"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 9,
+        "quantizations": [
+          "Q2_K",
+          "Q2_K_L",
+          "Q3_K_L",
+          "Q3_K_M",
+          "Q3_K_S",
+          "Q4_K_L",
+          "Q4_K_M",
+          "Q4_K_S",
+          "Q5_K_L",
+          "Q5_K_M",
+          "Q5_K_S",
+          "Q6_K",
+          "Q6_K_L",
+          "Q8_0",
+          "f32"
+        ],
+        "model_file_name_template": "codegeex4-all-9b-{quantization}.gguf",
+        "model_id": "bartowski/codegeex4-all-9b-GGUF",
+        "model_revision": "43c2e7a98379a9c6aedb6492c0aa17d0fc714060"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "CHATGLM3",
+      "system_prompt": "",
+      "roles": [
+        "user",
+        "assistant"
+      ],
+      "stop_token_ids": [
+        151329,
+        151336,
+        151338
+      ],
+      "stop": [
+        "<|endoftext|>",
+        "<|user|>",
+        "<|observation|>"
+      ]
+    }
+  },
+  {
+    "version": 1,
     "context_length": 2048,
     "model_name": "xverse-chat",
     "model_lang": [
