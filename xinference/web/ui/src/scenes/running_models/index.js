@@ -69,7 +69,7 @@ const RunningModels = () => {
           } else if (newValue.model_type === 'rerank') {
             newRerankModelData.push(newValue)
           } else if (newValue.model_type === 'flexible') {
-              newFlexibleModelData.push(newValue)
+            newFlexibleModelData.push(newValue)
           }
         })
         setLlmData(newLlmData)
