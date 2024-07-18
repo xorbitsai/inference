@@ -106,6 +106,11 @@ The following is a list of built-in LLM in Xinference:
      - 100000
      - Code-Llama-Python is a fine-tuned version of the Code-Llama LLM, specializing in Python.
 
+   * - :ref:`codegeex4 <models_llm_codegeex4>`
+     - chat
+     - 131072
+     - the open-source version of the latest CodeGeeX4 model series
+
    * - :ref:`codeqwen1.5 <models_llm_codeqwen1.5>`
      - generate
      - 65536
@@ -170,6 +175,11 @@ The following is a list of built-in LLM in Xinference:
      - chat
      - 2048
      - Falcon-instruct is a fine-tuned version of the Falcon LLM, specializing in chatting.
+
+   * - :ref:`gemma-2-it <models_llm_gemma-2-it>`
+     - chat
+     - 8192
+     - Gemma is a family of lightweight, state-of-the-art open models from Google, built from the same research and technology used to create the Gemini models.
 
    * - :ref:`gemma-it <models_llm_gemma-it>`
      - chat
@@ -587,6 +597,8 @@ The following is a list of built-in LLM in Xinference:
   
    code-llama-python
   
+   codegeex4
+  
    codeqwen1.5
   
    codeqwen1.5-chat
@@ -612,6 +624,8 @@ The following is a list of built-in LLM in Xinference:
    falcon
   
    falcon-instruct
+  
+   gemma-2-it
   
    gemma-it
   
