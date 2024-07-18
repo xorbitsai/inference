@@ -18,7 +18,7 @@ import os
 import uuid
 from collections import defaultdict
 from collections.abc import Sequence
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Literal, Optional, Tuple
 
 import numpy as np
 import torch
@@ -285,7 +285,12 @@ def cache(model_spec: RerankModelSpec):
 
 
 def create_rerank_model_instance(
-    subpool_addr: str, devices: List[str], model_uid: str, model_name: str, **kwargs
+    subpool_addr: str,
+    devices: List[str],
+    model_uid: str,
+    model_name: str,
+    download_hub: Optional[Literal["huggingface", "modelscope", "csghub"]] = None,
+    **kwargs,
 ) -> Tuple[RerankModel, RerankModelDescription]:
     from ..utils import download_from_modelscope
     from . import BUILTIN_RERANK_MODELS, MODELSCOPE_RERANK_MODELS
@@ -298,30 +303,24 @@ def create_rerank_model_instance(
             break
 
     if model_spec is None:
-        if download_from_modelscope():
-            if model_name in MODELSCOPE_RERANK_MODELS:
-                logger.debug(f"Rerank model {model_name} found in ModelScope.")
-                model_spec = MODELSCOPE_RERANK_MODELS[model_name]
-            else:
-                logger.debug(
-                    f"Rerank model {model_name} not found in ModelScope, "
-                    f"now try to download from huggingface."
-                )
-                if model_name in BUILTIN_RERANK_MODELS:
-                    model_spec = BUILTIN_RERANK_MODELS[model_name]
-                else:
-                    raise ValueError(
-                        f"Rerank model {model_name} not found, available"
-                        f"model list: {BUILTIN_RERANK_MODELS.keys()}"
-                    )
+        if download_hub == "huggingface" and model_name in BUILTIN_RERANK_MODELS:
+            logger.debug(f"Rerank model {model_name} found in Huggingface.")
+            model_spec = BUILTIN_RERANK_MODELS[model_name]
+        elif download_hub == "modelscope" and model_name in MODELSCOPE_RERANK_MODELS:
+            logger.debug(f"Rerank model {model_name} found in ModelScope.")
+            model_spec = MODELSCOPE_RERANK_MODELS[model_name]
+        elif download_from_modelscope() and model_name in MODELSCOPE_RERANK_MODELS:
+            logger.debug(f"Rerank model {model_name} found in ModelScope.")
+            model_spec = MODELSCOPE_RERANK_MODELS[model_name]
+        elif model_name in BUILTIN_RERANK_MODELS:
+            logger.debug(f"Rerank model {model_name} found in Huggingface.")
+            model_spec = BUILTIN_RERANK_MODELS[model_name]
         else:
-            if model_name in BUILTIN_RERANK_MODELS:
-                model_spec = BUILTIN_RERANK_MODELS[model_name]
-            else:
-                raise ValueError(
-                    f"Rerank model {model_name} not found, available"
-                    f"model list: {BUILTIN_RERANK_MODELS.keys()}"
-                )
+            raise ValueError(
+                f"Rerank model {model_name} not found, available"
+                f"Huggingface: {BUILTIN_RERANK_MODELS.keys()}"
+                f"ModelScope: {MODELSCOPE_RERANK_MODELS.keys()}"
+            )
 
     model_path = cache(model_spec)
     use_fp16 = kwargs.pop("use_fp16", False)

@@ -20,7 +20,17 @@ import time
 import typing
 from dataclasses import dataclass
 from logging import getLogger
-from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Tuple, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    Iterator,
+    List,
+    Literal,
+    Optional,
+    Tuple,
+    Union,
+)
 
 import xoscar as xo
 
@@ -50,6 +60,7 @@ from .utils import (
 if TYPE_CHECKING:
     from ..model.audio import AudioModelFamilyV1
     from ..model.embedding import EmbeddingModelSpec
+    from ..model.flexible import FlexibleModelSpec
     from ..model.image import ImageModelFamilyV1
     from ..model.llm import LLMFamilyV1
     from ..model.rerank import RerankModelSpec
@@ -153,6 +164,13 @@ class SupervisorActor(xo.StatelessActor):
             register_embedding,
             unregister_embedding,
         )
+        from ..model.flexible import (
+            FlexibleModelSpec,
+            generate_flexible_model_description,
+            get_flexible_model_descriptions,
+            register_flexible_model,
+            unregister_flexible_model,
+        )
         from ..model.image import (
             CustomImageModelFamilyV1,
             generate_image_description,
@@ -206,6 +224,12 @@ class SupervisorActor(xo.StatelessActor):
                 unregister_audio,
                 generate_audio_description,
             ),
+            "flexible": (
+                FlexibleModelSpec,
+                register_flexible_model,
+                unregister_flexible_model,
+                generate_flexible_model_description,
+            ),
         }
 
         # record model version
@@ -215,6 +239,7 @@ class SupervisorActor(xo.StatelessActor):
         model_version_infos.update(get_rerank_model_descriptions())
         model_version_infos.update(get_image_model_descriptions())
         model_version_infos.update(get_audio_model_descriptions())
+        model_version_infos.update(get_flexible_model_descriptions())
         await self._cache_tracker_ref.record_model_version(
             model_version_infos, self.address
         )
@@ -470,6 +495,27 @@ class SupervisorActor(xo.StatelessActor):
         res["model_instance_count"] = instance_cnt
         return res
 
+    async def _to_flexible_model_reg(
+        self, model_spec: "FlexibleModelSpec", is_builtin: bool
+    ) -> Dict[str, Any]:
+        instance_cnt = await self.get_instance_count(model_spec.model_name)
+        version_cnt = await self.get_model_version_count(model_spec.model_name)
+
+        if self.is_local_deployment():
+            res = {
+                **model_spec.dict(),
+                "cache_status": True,
+                "is_builtin": is_builtin,
+            }
+        else:
+            res = {
+                **model_spec.dict(),
+                "is_builtin": is_builtin,
+            }
+        res["model_version_count"] = version_cnt
+        res["model_instance_count"] = instance_cnt
+        return res
+
     @log_async(logger=logger)
     async def list_model_registrations(
         self, model_type: str, detailed: bool = False
@@ -478,10 +524,15 @@ class SupervisorActor(xo.StatelessActor):
             assert isinstance(item["model_name"], str)
             return item.get("model_name").lower()
 
+        ret = []
+        if not self.is_local_deployment():
+            workers = list(self._worker_address_to_worker.values())
+            for worker in workers:
+                ret.extend(await worker.list_model_registrations(model_type, detailed))
+
         if model_type == "LLM":
             from ..model.llm import BUILTIN_LLM_FAMILIES, get_user_defined_llm_families
 
-            ret = []
             for family in BUILTIN_LLM_FAMILIES:
                 if detailed:
                     ret.append(await self._to_llm_reg(family, True))
@@ -500,7 +551,6 @@ class SupervisorActor(xo.StatelessActor):
             from ..model.embedding import BUILTIN_EMBEDDING_MODELS
             from ..model.embedding.custom import get_user_defined_embeddings
 
-            ret = []
             for model_name, family in BUILTIN_EMBEDDING_MODELS.items():
                 if detailed:
                     ret.append(
@@ -525,7 +575,6 @@ class SupervisorActor(xo.StatelessActor):
             from ..model.image import BUILTIN_IMAGE_MODELS
             from ..model.image.custom import get_user_defined_images
 
-            ret = []
             for model_name, family in BUILTIN_IMAGE_MODELS.items():
                 if detailed:
                     ret.append(await self._to_image_model_reg(family, is_builtin=True))
@@ -548,7 +597,6 @@ class SupervisorActor(xo.StatelessActor):
             from ..model.audio import BUILTIN_AUDIO_MODELS
             from ..model.audio.custom import get_user_defined_audios
 
-            ret = []
             for model_name, family in BUILTIN_AUDIO_MODELS.items():
                 if detailed:
                     ret.append(await self._to_audio_model_reg(family, is_builtin=True))
@@ -571,7 +619,6 @@ class SupervisorActor(xo.StatelessActor):
             from ..model.rerank import BUILTIN_RERANK_MODELS
             from ..model.rerank.custom import get_user_defined_reranks
 
-            ret = []
             for model_name, family in BUILTIN_RERANK_MODELS.items():
                 if detailed:
                     ret.append(await self._to_rerank_model_reg(family, is_builtin=True))
@@ -590,11 +637,36 @@ class SupervisorActor(xo.StatelessActor):
 
             ret.sort(key=sort_helper)
             return ret
+        elif model_type == "flexible":
+            from ..model.flexible import get_flexible_models
+
+            ret = []
+
+            for model_spec in get_flexible_models():
+                if detailed:
+                    ret.append(
+                        await self._to_flexible_model_reg(model_spec, is_builtin=False)
+                    )
+                else:
+                    ret.append(
+                        {"model_name": model_spec.model_name, "is_builtin": False}
+                    )
+
+            ret.sort(key=sort_helper)
+            return ret
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
 
     @log_sync(logger=logger)
-    def get_model_registration(self, model_type: str, model_name: str) -> Any:
+    async def get_model_registration(self, model_type: str, model_name: str) -> Any:
+        # search in worker first
+        if not self.is_local_deployment():
+            workers = list(self._worker_address_to_worker.values())
+            for worker in workers:
+                f = await worker.get_model_registration(model_type, model_name)
+                if f is not None:
+                    return f
+
         if model_type == "LLM":
             from ..model.llm import BUILTIN_LLM_FAMILIES, get_user_defined_llm_families
 
@@ -637,6 +709,13 @@ class SupervisorActor(xo.StatelessActor):
                 if f.model_name == model_name:
                     return f
             raise ValueError(f"Model {model_name} not found")
+        elif model_type == "flexible":
+            from ..model.flexible import get_flexible_models
+
+            for f in get_flexible_models():
+                if f.model_name == model_name:
+                    return f
+            raise ValueError(f"Model {model_name} not found")
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
 
@@ -645,6 +724,13 @@ class SupervisorActor(xo.StatelessActor):
         from copy import deepcopy
 
         from ..model.llm.llm_family import LLM_ENGINES
+
+        # search in worker first
+        workers = list(self._worker_address_to_worker.values())
+        for worker in workers:
+            res = await worker.query_engines_by_model_name(model_name)
+            if res is not None:
+                return res
 
         if model_name not in LLM_ENGINES:
             raise ValueError(f"Model {model_name} not found")
@@ -659,7 +745,13 @@ class SupervisorActor(xo.StatelessActor):
         return engine_params
 
     @log_async(logger=logger)
-    async def register_model(self, model_type: str, model: str, persist: bool):
+    async def register_model(
+        self,
+        model_type: str,
+        model: str,
+        persist: bool,
+        worker_ip: Optional[str] = None,
+    ):
         if model_type in self._custom_register_type_to_cls:
             (
                 model_spec_cls,
@@ -668,10 +760,21 @@ class SupervisorActor(xo.StatelessActor):
                 generate_fn,
             ) = self._custom_register_type_to_cls[model_type]
 
-            if not self.is_local_deployment():
-                workers = list(self._worker_address_to_worker.values())
-                for worker in workers:
-                    await worker.register_model(model_type, model, persist)
+            target_ip_worker_ref = (
+                self._get_worker_ref_by_ip(worker_ip) if worker_ip is not None else None
+            )
+            if (
+                worker_ip is not None
+                and not self.is_local_deployment()
+                and target_ip_worker_ref is None
+            ):
+                raise ValueError(
+                    f"Worker ip address {worker_ip} is not in the cluster."
+                )
+
+            if target_ip_worker_ref:
+                await target_ip_worker_ref.register_model(model_type, model, persist)
+                return
 
             model_spec = model_spec_cls.parse_raw(model)
             try:
@@ -679,6 +782,8 @@ class SupervisorActor(xo.StatelessActor):
                 await self._cache_tracker_ref.record_model_version(
                     generate_fn(model_spec), self.address
                 )
+            except ValueError as e:
+                raise e
             except Exception as e:
                 unregister_fn(model_spec.model_name, raise_error=False)
                 raise e
@@ -689,13 +794,14 @@ class SupervisorActor(xo.StatelessActor):
     async def unregister_model(self, model_type: str, model_name: str):
         if model_type in self._custom_register_type_to_cls:
             _, _, unregister_fn, _ = self._custom_register_type_to_cls[model_type]
-            unregister_fn(model_name)
-            await self._cache_tracker_ref.unregister_model_version(model_name)
+            unregister_fn(model_name, False)
 
             if not self.is_local_deployment():
                 workers = list(self._worker_address_to_worker.values())
                 for worker in workers:
-                    await worker.unregister_model(model_name)
+                    await worker.unregister_model(model_type, model_name)
+
+            await self._cache_tracker_ref.unregister_model_version(model_name)
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
 
@@ -763,8 +869,17 @@ class SupervisorActor(xo.StatelessActor):
         peft_model_config: Optional[PeftModelConfig] = None,
         worker_ip: Optional[str] = None,
         gpu_idx: Optional[Union[int, List[int]]] = None,
+        download_hub: Optional[Literal["huggingface", "modelscope", "csghub"]] = None,
         **kwargs,
     ) -> str:
+        # search in worker first
+        if not self.is_local_deployment():
+            workers = list(self._worker_address_to_worker.values())
+            for worker in workers:
+                res = await worker.get_model_registration(model_type, model_name)
+                if res is not None:
+                    worker_ip = worker.address.split(":")[0]
+
         target_ip_worker_ref = (
             self._get_worker_ref_by_ip(worker_ip) if worker_ip is not None else None
         )
@@ -817,6 +932,7 @@ class SupervisorActor(xo.StatelessActor):
                 )
             replica_gpu_idx = assign_replica_gpu(_replica_model_uid, gpu_idx)
             nonlocal model_type
+
             worker_ref = (
                 target_ip_worker_ref
                 if target_ip_worker_ref is not None
@@ -836,6 +952,7 @@ class SupervisorActor(xo.StatelessActor):
                 request_limits=request_limits,
                 peft_model_config=peft_model_config,
                 gpu_idx=replica_gpu_idx,
+                download_hub=download_hub,
                 **kwargs,
             )
             self._replica_model_uid_to_worker[_replica_model_uid] = worker_ref

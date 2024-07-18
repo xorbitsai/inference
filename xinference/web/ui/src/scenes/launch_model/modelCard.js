@@ -70,8 +70,11 @@ const llmAllDataKey = [
   'request_limits',
   'worker_ip',
   'gpu_idx',
+  'download_hub',
   'peft_model_config',
 ]
+
+const csghubArr = ['qwen2-instruct']
 
 const ModelCard = ({
   url,
@@ -108,6 +111,7 @@ const ModelCard = ({
   const [requestLimits, setRequestLimits] = useState('')
   const [workerIp, setWorkerIp] = useState('')
   const [GPUIdx, setGPUIdx] = useState('')
+  const [downloadHub, setDownloadHub] = useState('')
 
   const [enginesObj, setEnginesObj] = useState({})
   const [engineOptions, setEngineOptions] = useState([])
@@ -141,10 +145,10 @@ const ModelCard = ({
   }
 
   const isCached = (spec) => {
-    if (spec.model_format === 'pytorch') {
-      return spec.cache_status && spec.cache_status === true
+    if (Array.isArray(spec.cache_status)) {
+      return spec.cache_status.some((cs) => cs)
     } else {
-      return spec.cache_status && spec.cache_status.some((cs) => cs)
+      return spec.cache_status === true
     }
   }
 
@@ -299,15 +303,21 @@ const ModelCard = ({
           : Number(String(requestLimits).trim()),
       worker_ip: workerIp.trim() === '' ? null : workerIp.trim(),
       gpu_idx: GPUIdx.trim() === '' ? null : handleGPUIdx(GPUIdx.trim()),
+      download_hub: downloadHub === '' ? null : downloadHub,
     }
 
     let modelDataWithID_other = {
       model_uid: modelUID.trim() === '' ? null : modelUID.trim(),
       model_name: modelData.model_name,
       model_type: modelType,
+      download_hub: downloadHub === '' ? null : downloadHub,
     }
 
-    if (modelType === 'embedding' || modelType === 'rerank') {
+    if (
+      modelType === 'embedding' ||
+      modelType === 'rerank' ||
+      modelType === 'flexible'
+    ) {
       modelDataWithID_other = {
         ...modelDataWithID_other,
         replica: replica,
@@ -553,6 +563,7 @@ const ModelCard = ({
         request_limits,
         worker_ip,
         gpu_idx,
+        download_hub,
         peft_model_config,
       } = arr[0]
 
@@ -575,6 +586,7 @@ const ModelCard = ({
       setRequestLimits(request_limits || '')
       setWorkerIp(worker_ip || '')
       setGPUIdx(gpu_idx?.join(',') || '')
+      setDownloadHub(download_hub || '')
 
       let loraData = []
       peft_model_config?.lora_list?.forEach((item) => {
@@ -610,7 +622,13 @@ const ModelCard = ({
       }
       setCustomArr(customData)
 
-      if (model_uid || request_limits || worker_ip || gpu_idx?.join(','))
+      if (
+        model_uid ||
+        request_limits ||
+        worker_ip ||
+        gpu_idx?.join(',') ||
+        download_hub
+      )
         setIsOther(true)
 
       if (
@@ -634,6 +652,7 @@ const ModelCard = ({
       } else {
         setModelUID(arr[0].model_uid || '')
       }
+      setDownloadHub(arr[0].download_hub)
     }
   }
 
@@ -693,6 +712,7 @@ const ModelCard = ({
       setRequestLimits('')
       setWorkerIp('')
       setGPUIdx('')
+      setDownloadHub('')
       setLoraArr([])
       setImageLoraLoadArr([])
       setImageLoraFuseArr([])
@@ -703,8 +723,10 @@ const ModelCard = ({
       setModelUID('')
       setReplica(1)
       setWorkerIp('')
+      setDownloadHub('')
     } else {
       setModelUID('')
+      setDownloadHub('')
     }
   }
 
@@ -1001,6 +1023,11 @@ const ModelCard = ({
                   }
                 })()}
               </Stack>
+              {modelData.model_description && (
+                <p className="p" title={modelData.model_description}>
+                  {modelData.model_description}
+                </p>
+              )}
             </div>
             {modelData.dimensions && (
               <div className="iconRow">
@@ -1180,7 +1207,7 @@ const ModelCard = ({
                       onChange={(e) => setQuantization(e.target.value)}
                       label="Quantization"
                     >
-                      {quantizationOptions.map((quant, index) => {
+                      {quantizationOptions.map((quant) => {
                         const specs = modelData.model_specs
                           .filter((spec) => spec.model_format === modelFormat)
                           .filter(
@@ -1189,10 +1216,12 @@ const ModelCard = ({
                               convertModelSize(modelSize)
                           )
 
-                        const cached =
-                          modelFormat === 'pytorch'
-                            ? specs[0]?.cache_status ?? false === true
-                            : specs[0]?.cache_status?.[index] ?? false === true
+                        const spec = specs.find((s) => {
+                          return s.quantizations.includes(quant)
+                        })
+                        const cached = Array.isArray(spec.cache_status)
+                          ? spec.cache_status[spec.quantizations.indexOf(quant)]
+                          : spec.cache_status
 
                         const displayedQuant = cached
                           ? quant + ' (cached)'
@@ -1347,11 +1376,44 @@ const ModelCard = ({
                       )}
                     </FormControl>
                   </Grid>
+                  <Grid item xs={12}>
+                    <FormControl variant="outlined" margin="normal" fullWidth>
+                      <InputLabel id="quantization-label">
+                        (Optional) Download_hub
+                      </InputLabel>
+                      <Select
+                        labelId="download_hub-label"
+                        value={downloadHub}
+                        onChange={(e) => {
+                          e.target.value === 'none'
+                            ? setDownloadHub('')
+                            : setDownloadHub(e.target.value)
+                        }}
+                        label="(Optional) Download_hub"
+                      >
+                        {(csghubArr.includes(modelData.model_name)
+                          ? ['none', 'huggingface', 'modelscope', 'csghub']
+                          : ['none', 'huggingface', 'modelscope']
+                        ).map((item) => {
+                          return (
+                            <MenuItem key={item} value={item}>
+                              {item}
+                            </MenuItem>
+                          )
+                        })}
+                      </Select>
+                    </FormControl>
+                  </Grid>
                   <ListItemButton
                     onClick={() => setIsPeftModelConfig(!isPeftModelConfig)}
                   >
-                    <ListItemText primary="Lora Config" />
-                    {isPeftModelConfig ? <ExpandLess /> : <ExpandMore />}
+                    <div style={{ display: 'flex', alignItems: 'center' }}>
+                      <ListItemText
+                        primary="Lora Config"
+                        style={{ marginRight: 10 }}
+                      />
+                      {isPeftModelConfig ? <ExpandLess /> : <ExpandMore />}
+                    </div>
                   </ListItemButton>
                   <Collapse
                     in={isPeftModelConfig}
@@ -1421,7 +1483,9 @@ const ModelCard = ({
                 label="(Optional) Model UID, model name by default"
                 onChange={(e) => setModelUID(e.target.value)}
               />
-              {(modelType === 'embedding' || modelType === 'rerank') && (
+              {(modelType === 'embedding' ||
+                modelType === 'rerank' ||
+                modelType === 'flexible') && (
                 <>
                   <TextField
                     style={{ marginTop: '25px' }}
@@ -1487,6 +1551,29 @@ const ModelCard = ({
                   </FormControl>
                 </>
               )}
+              <FormControl variant="outlined" margin="normal" fullWidth>
+                <InputLabel id="quantization-label">
+                  (Optional) Download_hub
+                </InputLabel>
+                <Select
+                  labelId="download_hub-label"
+                  value={downloadHub}
+                  onChange={(e) => {
+                    e.target.value === 'none'
+                      ? setDownloadHub('')
+                      : setDownloadHub(e.target.value)
+                  }}
+                  label="(Optional) Download_hub"
+                >
+                  {['none', 'huggingface', 'modelscope'].map((item) => {
+                    return (
+                      <MenuItem key={item} value={item}>
+                        {item}
+                      </MenuItem>
+                    )
+                  })}
+                </Select>
+              </FormControl>
             </FormControl>
           )}
           <Box className="buttonsContainer">
