@@ -889,6 +889,7 @@ class WorkerActor(xo.StatelessActor):
                     uid=model_uid,
                     supervisor_address=self._supervisor_address,
                     worker_address=self.address,
+                    replica_model_uid=model_uid,
                     model=model,
                     model_description=model_description,
                     request_limits=request_limits,

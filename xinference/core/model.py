@@ -137,6 +137,8 @@ def oom_check(fn):
 
 
 class ModelActor(xo.StatelessActor):
+    _replica_model_uid: Optional[str]
+
     @classmethod
     def gen_uid(cls, model: "LLM"):
         return f"{model.__class__}-model-actor"
@@ -194,6 +196,7 @@ class ModelActor(xo.StatelessActor):
         self,
         supervisor_address: str,
         worker_address: str,
+        replica_model_uid: str,
         model: "LLM",
         model_description: Optional["ModelDescription"] = None,
         request_limits: Optional[int] = None,
@@ -206,6 +209,7 @@ class ModelActor(xo.StatelessActor):
 
         self._supervisor_address = supervisor_address
         self._worker_address = worker_address
+        self._replica_model_uid = replica_model_uid
         self._model = model
         self._model_description = (
             model_description.to_dict() if model_description else {}
@@ -377,6 +381,13 @@ class ModelActor(xo.StatelessActor):
         return condition
 
     async def load(self):
+        try:
+            # Change process title for model
+            import setproctitle
+
+            setproctitle.setproctitle(f"Model: {self._replica_model_uid}")
+        except ImportError:
+            pass
         i = 0
         while True:
             i += 1
