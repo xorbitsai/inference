@@ -590,7 +590,7 @@ class ModelActor(xo.StatelessActor):
                 )
                 return response
             if hasattr(self._model, "async_code_generate"):
-                response = await self._call_wrapper(
+                response = await self._call_wrapper_json(
                     self._model.async_code_generate,
                     mode,
                     prompt,
@@ -638,7 +638,7 @@ class ModelActor(xo.StatelessActor):
         from ..model.llm.utils import CodeModelMixin
 
         if isinstance(self._model, CodeModelMixin):
-            return await self._call_wrapper(
+            return await self._call_wrapper_json(
                 self._model.get_code_prompt,
                 mode,
                 prompt,

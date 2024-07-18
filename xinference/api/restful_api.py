@@ -1821,7 +1821,7 @@ class RESTfulAPI:
                 detail="mode must be one of 'completion' or 'infill'",
             )
 
-        body = CreateCodeCompletion.parse_obj(json_data)
+        body = CreateCodeCompletion.model_validate_json(json_data)
 
         model_uid = body.model
 
