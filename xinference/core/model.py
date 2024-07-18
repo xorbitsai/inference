@@ -577,7 +577,7 @@ class ModelActor(xo.StatelessActor):
         response = None
         try:
             if hasattr(self._model, "code_generate"):
-                response = await self._call_wrapper(
+                response = await self._call_wrapper_json(
                     self._model.code_generate,
                     mode,
                     prompt,
