@@ -39,6 +39,12 @@ class CosyVoiceModel:
         self._kwargs = kwargs
 
     def load(self):
+        import os
+        import sys
+
+        # Some model code import the thirdparty module directly.
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__), "thirdparty"))
+
         from cosyvoice.cli.cosyvoice import CosyVoice
 
         self._model = CosyVoice(self._model_path)

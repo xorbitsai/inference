@@ -12,13 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
-import sys
-
-# Some model code import the thirdparty module directly.
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "thirdparty"))
-
-
 from . import _version
 
 __version__ = _version.get_versions()["version"]
