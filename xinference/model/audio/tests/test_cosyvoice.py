@@ -15,7 +15,7 @@ import os.path
 import tempfile
 
 
-def test_cosyvoice(setup):
+def test_cosyvoice_sft(setup):
     endpoint, _ = setup
     from ....client import Client
 
@@ -44,3 +44,28 @@ def test_cosyvoice(setup):
     with tempfile.NamedTemporaryFile(suffix=".mp3", delete=True) as f:
         response.stream_to_file(f.name)
         assert os.stat(f.name).st_size > 0
+
+
+def test_cosyvoice(setup):
+    endpoint, _ = setup
+    from ....client import Client
+
+    zero_shot_prompt_file = os.path.join(
+        os.path.dirname(__file__), "zero_shot_prompt.wav"
+    )
+
+    client = Client(endpoint)
+
+    model_uid = client.launch_model(
+        model_name="CosyVoice-300M",
+        model_type="audio",
+    )
+    model = client.get_model(model_uid)
+    with open(zero_shot_prompt_file, "rb") as f:
+        zero_shot_prompt = f.read()
+    input_string = (
+        "chat T T S is a text to speech model designed for dialogue applications.",
+    )
+    response = model.speech(input_string, prompt_speech=zero_shot_prompt)
+    assert type(response) is bytes
+    assert len(response) > 0

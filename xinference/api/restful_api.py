@@ -1321,7 +1321,11 @@ class RESTfulAPI:
         ),
         kwargs: Optional[str] = Form(None),
     ) -> Response:
-        body = SpeechRequest.parse_obj(await request.json())
+        if prompt_speech:
+            f = await request.form()
+        else:
+            f = await request.json()
+        body = SpeechRequest.parse_obj(f)
         model_uid = body.model
         try:
             model = await (await self._get_supervisor_ref()).get_model(model_uid)
