@@ -57,6 +57,7 @@ Currently, supported model includes:
 - ``codeqwen1.5``, ``codeqwen1.5-chat``
 - ``vicuna-v1.3``, ``vicuna-v1.5``
 - ``internlm2-chat``
+- ``internlm2.5-chat``, ``internlm2.5-chat-1m``
 - ``qwen-chat``
 - ``mixtral-instruct-v0.1``, ``mixtral-8x22B-instruct-v0.1``
 - ``chatglm3``, ``chatglm3-32k``, ``chatglm3-128k``
