@@ -127,6 +127,7 @@ VLLM_SUPPORTED_CHAT_MODELS = [
     "chatglm3-128k",
     "glm4-chat",
     "glm4-chat-1m",
+    "codegeex4",
     "deepseek-chat",
     "deepseek-coder-instruct",
 ]

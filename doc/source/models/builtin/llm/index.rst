@@ -106,6 +106,11 @@ The following is a list of built-in LLM in Xinference:
      - 100000
      - Code-Llama-Python is a fine-tuned version of the Code-Llama LLM, specializing in Python.
 
+   * - :ref:`codegeex4 <models_llm_codegeex4>`
+     - chat
+     - 131072
+     - the open-source version of the latest CodeGeeX4 model series
+
    * - :ref:`codeqwen1.5 <models_llm_codeqwen1.5>`
      - generate
      - 65536
@@ -591,6 +596,8 @@ The following is a list of built-in LLM in Xinference:
    code-llama-instruct
   
    code-llama-python
+  
+   codegeex4
   
    codeqwen1.5
   
