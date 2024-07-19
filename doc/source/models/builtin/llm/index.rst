@@ -243,8 +243,18 @@ The following is a list of built-in LLM in Xinference:
 
    * - :ref:`internlm2-chat <models_llm_internlm2-chat>`
      - chat
-     - 204800
+     - 32768
      - The second generation of the InternLM model, InternLM2.
+
+   * - :ref:`internlm2.5-chat <models_llm_internlm2.5-chat>`
+     - chat
+     - 32768
+     - InternLM2.5 series of the InternLM model.
+
+   * - :ref:`internlm2.5-chat-1m <models_llm_internlm2.5-chat-1m>`
+     - chat
+     - 262144
+     - InternLM2.5 series of the InternLM model supports 1M long-context
 
    * - :ref:`internvl-chat <models_llm_internvl-chat>`
      - chat, vision
@@ -652,6 +662,10 @@ The following is a list of built-in LLM in Xinference:
    internlm-chat-7b
   
    internlm2-chat
+  
+   internlm2.5-chat
+  
+   internlm2.5-chat-1m
   
    internvl-chat
   
