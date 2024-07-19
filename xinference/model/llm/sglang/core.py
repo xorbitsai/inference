@@ -269,8 +269,13 @@ class SGLANGModel(LLM):
         )
         stream = sanitized_generate_config.pop("stream")
         stream_options = sanitized_generate_config.pop("stream_options")
-        if isinstance(stream_options, dict):
-            include_usage = stream_options.pop("include_usage", False)
+
+        include_usage = (
+            stream_options.pop("include_usage")
+            if isinstance(stream_options, dict)
+            else False
+        )
+
         request_id = str(uuid.uuid1())
         state = pipeline.run(
             question=prompt,
