@@ -52,11 +52,7 @@ from xoscar.utils import get_next_port
 
 from .._compat import BaseModel, Field
 from .._version import get_versions
-from ..constants import (
-    XINFERENCE_AUDIO_SPEECH_DEFAULT_STREAM,
-    XINFERENCE_DEFAULT_ENDPOINT_PORT,
-    XINFERENCE_DISABLE_METRICS,
-)
+from ..constants import XINFERENCE_DEFAULT_ENDPOINT_PORT, XINFERENCE_DISABLE_METRICS
 from ..core.event import Event, EventCollectorActor, EventType
 from ..core.supervisor import SupervisorActor
 from ..core.utils import json_dumps
@@ -133,7 +129,7 @@ class SpeechRequest(BaseModel):
     voice: Optional[str]
     response_format: Optional[str] = "mp3"
     speed: Optional[float] = 1.0
-    stream: Optional[bool] = XINFERENCE_AUDIO_SPEECH_DEFAULT_STREAM
+    stream: Optional[bool] = False
 
 
 class RegisterModelRequest(BaseModel):

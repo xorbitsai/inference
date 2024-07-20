@@ -50,10 +50,12 @@ Currently, supported models include:
 - ``codeqwen1.5``, ``codeqwen1.5-chat``
 - ``vicuna-v1.3``, ``vicuna-v1.5``
 - ``internlm2-chat``
+- ``internlm2.5-chat``, ``internlm2.5-chat-1m``
 - ``qwen-chat``
 - ``mixtral-instruct-v0.1``, ``mixtral-8x22B-instruct-v0.1``
 - ``chatglm3``, ``chatglm3-32k``, ``chatglm3-128k``
 - ``glm4-chat``, ``glm4-chat-1m``
+- ``codegeex4``
 - ``qwen1.5-chat``, ``qwen1.5-moe-chat``
 - ``qwen2-instruct``, ``qwen2-moe-instruct``
 - ``gemma-it``
