@@ -647,7 +647,8 @@ class ModelActor(xo.StatelessActor):
         )
 
     @log_async(
-        logger=logger, args_formatter=lambda _, kwargs: kwargs.pop("prompt_speech")
+        logger=logger,
+        args_formatter=lambda _, kwargs: kwargs.pop("prompt_speech", None),
     )
     @request_limit
     @xo.generator

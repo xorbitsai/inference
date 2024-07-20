@@ -26,9 +26,9 @@ def test_cosyvoice_sft(setup):
         model_type="audio",
     )
     model = client.get_model(model_uid)
-    input_string = (
-        "chat T T S is a text to speech model designed for dialogue applications."
-    )
+    input_string = "你好，我是通义生成式语音大模型，请问有什么可以帮您的吗？"
+
+    # inference_sft
     response = model.speech(input_string)
     assert type(response) is bytes
     assert len(response) > 0
@@ -53,6 +53,9 @@ def test_cosyvoice(setup):
     zero_shot_prompt_file = os.path.join(
         os.path.dirname(__file__), "zero_shot_prompt.wav"
     )
+    cross_lingual_prompt_file = os.path.join(
+        os.path.dirname(__file__), "cross_lingual_prompt.wav"
+    )
 
     client = Client(endpoint)
 
@@ -63,9 +66,55 @@ def test_cosyvoice(setup):
     model = client.get_model(model_uid)
     with open(zero_shot_prompt_file, "rb") as f:
         zero_shot_prompt = f.read()
+    with open(cross_lingual_prompt_file, "rb") as f:
+        cross_lingual_prompt = f.read()
     input_string = (
-        "chat T T S is a text to speech model designed for dialogue applications.",
+        "<|en|>And then later on, fully acquiring that company. So keeping management in line, interest in "
+        "line with the asset that's coming into the family is a reason why sometimes we don't buy the whole thing.",
     )
-    response = model.speech(input_string, prompt_speech=zero_shot_prompt)
+
+    # inference_cross_lingual
+    response = model.speech(input_string, prompt_speech=cross_lingual_prompt)
+    assert type(response) is bytes, response
+    assert len(response) > 0
+    with tempfile.NamedTemporaryFile(suffix=".mp3", delete=True) as f:
+        f.write(response)
+        assert os.stat(f.name).st_size > 0
+
+    # inference_zero_shot
+    response = model.speech(
+        "收到好友从远方寄来的生日礼物，那份意外的惊喜与深深的祝福让我心中充满了甜蜜的快乐，笑容如花儿般绽放。",
+        prompt_text="希望你以后能够做的比我还好呦。",
+        prompt_speech=zero_shot_prompt,
+    )
+    assert type(response) is bytes, response
+    assert len(response) > 0
+    with tempfile.NamedTemporaryFile(suffix=".mp3", delete=True) as f:
+        f.write(response)
+        assert os.stat(f.name).st_size > 0
+
+
+def test_cosyvoice_instruct(setup):
+    endpoint, _ = setup
+    from ....client import Client
+
+    client = Client(endpoint)
+
+    model_uid = client.launch_model(
+        model_name="CosyVoice-300M-Instruct",
+        model_type="audio",
+    )
+    model = client.get_model(model_uid)
+
+    # inference_instruct
+    response = model.speech(
+        "在面对挑战时，他展现了非凡的<strong>勇气</strong>与<strong>智慧</strong>。",
+        voice="中文男",
+        instruct_text="Theo 'Crimson', is a fiery, passionate rebel leader. "
+        "Fights with fervor for justice, but struggles with impulsiveness.",
+    )
     assert type(response) is bytes
     assert len(response) > 0
+    with tempfile.NamedTemporaryFile(suffix=".mp3", delete=True) as f:
+        f.write(response)
+        assert os.stat(f.name).st_size > 0

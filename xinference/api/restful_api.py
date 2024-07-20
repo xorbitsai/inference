@@ -130,6 +130,7 @@ class SpeechRequest(BaseModel):
     response_format: Optional[str] = "mp3"
     speed: Optional[float] = 1.0
     stream: Optional[bool] = False
+    kwargs: Optional[str] = None
 
 
 class RegisterModelRequest(BaseModel):
@@ -1315,7 +1316,6 @@ class RESTfulAPI:
         prompt_speech: Optional[UploadFile] = File(
             None, media_type="application/octet-stream"
         ),
-        kwargs: Optional[str] = Form(None),
     ) -> Response:
         if prompt_speech:
             f = await request.form()
@@ -1335,8 +1335,8 @@ class RESTfulAPI:
             raise HTTPException(status_code=500, detail=str(e))
 
         try:
-            if kwargs is not None:
-                parsed_kwargs = json.loads(kwargs)
+            if body.kwargs is not None:
+                parsed_kwargs = json.loads(body.kwargs)
             else:
                 parsed_kwargs = {}
             if prompt_speech is not None:
