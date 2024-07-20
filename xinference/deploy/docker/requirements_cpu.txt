@@ -53,3 +53,4 @@ HyperPyYAML  # For CosyVoice
 matcha-tts  # For CosyVoice
 onnxruntime-gpu==1.16.0; sys_platform == 'linux'  # For CosyVoice
 onnxruntime==1.16.0; sys_platform == 'darwin' or sys_platform == 'windows'  # For CosyVoice
+whisper  # For CosyVoice
