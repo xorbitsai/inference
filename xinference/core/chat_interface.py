@@ -428,7 +428,7 @@ class GradioInterface:
                     }
 
             hist.append(response_content)
-            return {
+            yield {
                 textbox: response_content,
                 history: hist,
             }
@@ -467,7 +467,7 @@ class GradioInterface:
                     }
 
             hist.append(response_content)
-            return {
+            yield {
                 textbox: response_content,
                 history: hist,
             }
