@@ -43,7 +43,7 @@ class CosyVoiceModel:
         import sys
 
         # Some model code import the thirdparty module directly.
-        sys.path.insert(0, os.path.join(os.path.dirname(__file__), "thirdparty"))
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../thirdparty"))
 
         from cosyvoice.cli.cosyvoice import CosyVoice
 
