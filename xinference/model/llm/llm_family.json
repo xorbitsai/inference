@@ -1652,6 +1652,54 @@
           "none"
         ],
         "model_id": "meta-llama/Meta-Llama-3-70B-Instruct"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 8,
+        "quantizations": [
+          "4-bit"
+        ],
+        "model_id": "mlx-community/Meta-Llama-3-8B-Instruct-4bit"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 8,
+        "quantizations": [
+          "8-bit"
+        ],
+        "model_id": "mlx-community/Meta-Llama-3-8B-Instruct-8bit"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 8,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "mlx-community/Meta-Llama-3-8B-Instruct"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 70,
+        "quantizations": [
+          "4-bit"
+        ],
+        "model_id": "mlx-community/Meta-Llama-3-70B-Instruct-4bit-mlx"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 70,
+        "quantizations": [
+          "8-bit"
+        ],
+        "model_id": "mlx-community/Meta-Llama-3-70B-Instruct-8bit"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 70,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "mlx-community/Meta-Llama-3-70B-Instruct-mlx-unquantized"
       }
     ],
     "prompt_style": {
@@ -3928,6 +3976,24 @@
         ],
         "model_id": "bartowski/Codestral-22B-v0.1-GGUF",
         "model_file_name_template": "Codestral-22B-v0.1-{quantization}.gguf"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 22,
+        "quantizations": [
+          "4-bit"
+        ],
+        "model_id": "mlx-community/Codestral-22B-v0.1-4bit",
+        "model_revision": "544626b38eb1c9524f0fa570ec7b29550c26b78d"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 22,
+        "quantizations": [
+          "8-bit"
+        ],
+        "model_id": "mlx-community/Codestral-22B-v0.1-8bit",
+        "model_revision": "0399a53970663950d57010e61a2796af524a1588"
       }
     ]
   },
@@ -7049,6 +7115,15 @@
         "model_revision": "16881ccde1c68bbc7041280e6a66637bc46bfe88"
       },
       {
+        "model_format": "pytorch",
+        "model_size_in_billions": 35,
+        "quantizations": [
+          "4-bit"
+        ],
+        "model_id": "CohereForAI/c4ai-command-r-v01-4bit",
+        "model_revision": "f2e87936a146643c9dd143422dcafb9cb1552611"
+      },
+      {
         "model_format": "ggufv2",
         "model_size_in_billions": 35,
         "quantizations": [
@@ -7067,79 +7142,6 @@
         ],
         "model_id": "andrewcanis/c4ai-command-r-v01-GGUF",
         "model_file_name_template": "c4ai-command-r-v01-{quantization}.gguf"
-      },
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": 104,
-        "quantizations": [
-          "none"
-        ],
-        "model_id": "CohereForAI/c4ai-command-r-plus",
-        "model_revision": "ba7f1d954c9d1609013677d87e4142ab95c34e62"
-      },
-      {
-        "model_format": "gptq",
-        "model_size_in_billions": 104,
-        "quantizations": [
-          "Int4"
-        ],
-        "model_id": "alpindale/c4ai-command-r-plus-GPTQ",
-        "model_revision": "35febfc08f723ac0df32480eb4af349a7d08656e"
-      }
-    ],
-    "prompt_style": {
-      "style_name": "c4ai-command-r",
-      "system_prompt": "You are Command-R, a brilliant, sophisticated, AI-assistant trained to assist human users by providing thorough responses. You are trained by Cohere.",
-      "roles": [
-        "<|USER_TOKEN|>",
-        "<|CHATBOT_TOKEN|>"
-      ],
-      "intra_message_sep": "",
-      "inter_message_sep": "<|END_OF_TURN_TOKEN|><|START_OF_TURN_TOKEN|>",
-      "stop_token_ids": [
-        6,
-        255001
-      ]
-    }
-  },
-  {
-    "version": 1,
-    "context_length": 131072,
-    "model_name": "c4ai-command-r-v01-4bit",
-    "model_lang": [
-      "en",
-      "fr",
-      "de",
-      "es",
-      "it",
-      "pt",
-      "ja",
-      "ko",
-      "zh",
-      "ar"
-    ],
-    "model_ability": [
-      "generate"
-    ],
-    "model_description": "This model is 4bit quantized version of C4AI Command-R using bitsandbytes.",
-    "model_specs": [
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": 35,
-        "quantizations": [
-          "none"
-        ],
-        "model_id": "CohereForAI/c4ai-command-r-v01-4bit",
-        "model_revision": "f2e87936a146643c9dd143422dcafb9cb1552611"
-      },
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": 104,
-        "quantizations": [
-          "none"
-        ],
-        "model_id": "CohereForAI/c4ai-command-r-plus-4bit",
-        "model_revision": "bb63b5b7005ecedb30b0cfd0d5953b02a5817f7b"
       }
     ],
     "prompt_style": {
