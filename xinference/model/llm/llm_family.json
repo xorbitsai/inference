@@ -4734,6 +4734,61 @@
         "model_id": "modelscope/Yi-1.5-34B-Chat-AWQ",
         "model_revision": "26234fea6ac49d456f32f8017289021fb1087a04"
       }
+      ,
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 6,
+        "quantizations": [
+          "4-bit"
+        ],
+        "model_id": "mlx-community/Yi-1.5-6B-Chat-4bit",
+        "model_revision": "0177c9a12b869d6bc73f772b5a1981a7c966adb6"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 6,
+        "quantizations": [
+          "8-bit"
+        ],
+        "model_id": "mlx-community/Yi-1.5-6B-Chat-8bit",
+        "model_revision": "7756e65d1bf1e2e6e97aef6bc9484307225f536b"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 9,
+        "quantizations": [
+          "4-bit"
+        ],
+        "model_id": "mlx-community/Yi-1.5-9B-Chat-4bit",
+        "model_revision": "e15f886479c44e7d90f0ac13ace69b2319b71c2f"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 9,
+        "quantizations": [
+          "8-bit"
+        ],
+        "model_id": "mlx-community/Yi-1.5-9B-Chat-8bit",
+        "model_revision": "c1f742fcf3683edbe2d2c2fd1ad7ac2bb6c5ca36"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 34,
+        "quantizations": [
+          "4-bit"
+        ],
+        "model_id": "mlx-community/Yi-1.5-34B-Chat-4bit",
+        "model_revision": "945e3b306ef37c46ab444fdc857d1f3ea7247374"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 34,
+        "quantizations": [
+          "8-bit"
+        ],
+        "model_id": "mlx-community/Yi-1.5-34B-Chat-8bit",
+        "model_revision": "3c12761a2c6663f216caab6dff84b0dd29b472ac"
+      }
     ],
     "prompt_style": {
       "style_name": "CHATML",
@@ -7142,6 +7197,33 @@
         ],
         "model_id": "andrewcanis/c4ai-command-r-v01-GGUF",
         "model_file_name_template": "c4ai-command-r-v01-{quantization}.gguf"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 104,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "CohereForAI/c4ai-command-r-plus",
+        "model_revision": "ba7f1d954c9d1609013677d87e4142ab95c34e62"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 104,
+        "quantizations": [
+          "4-bit"
+        ],
+        "model_id": "CohereForAI/c4ai-command-r-plus-4bit",
+        "model_revision": "bb63b5b7005ecedb30b0cfd0d5953b02a5817f7b"
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 104,
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "alpindale/c4ai-command-r-plus-GPTQ",
+        "model_revision": "35febfc08f723ac0df32480eb4af349a7d08656e"
       }
     ],
     "prompt_style": {
