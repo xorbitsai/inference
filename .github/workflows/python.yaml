@@ -157,8 +157,7 @@ jobs:
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U WeTextProcessing
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U librosa
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U xxhash
-            ${{ env.SELF_HOST_PYTHON }} -m pip install -U torch==2.1.0
-            ${{ env.SELF_HOST_PYTHON }} -m pip install -U "ChatTTS>0.1"
+            ${{ env.SELF_HOST_PYTHON }} -m pip install -U "ChatTTS>0.1" "torch==2.1.0"
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U HyperPyYAML
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U matcha-tts
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U onnxruntime-gpu==1.16.0; sys_platform == 'linux'
