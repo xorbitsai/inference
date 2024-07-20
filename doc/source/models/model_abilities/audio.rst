@@ -52,6 +52,7 @@ The audio API is supported with the following models in Xinference:
 * Belle-whisper-large-v2-zh
 * Belle-whisper-large-v3-zh
 * ChatTTS
+* CosyVoice
 
 Quickstart
 ===================
@@ -171,8 +172,6 @@ Speech API use non-stream by default as
 
 1. The stream output of ChatTTS is not as good as the non-stream output, please refer to: https://github.com/2noise/ChatTTS/pull/564
 2. The stream requires ffmpeg<7: https://pytorch.org/audio/stable/installation.html#optional-dependencies
-
-User can change the default to stream by `export XINFERENCE_AUDIO_SPEECH_DEFAULT_STREAM=1`
 
 .. tabs::
 
