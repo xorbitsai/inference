@@ -283,6 +283,7 @@ class ChatglmPytorchChatModel(PytorchChatModel):
         **kwargs,
     ):
         from transformers import TextIteratorStreamer
+
         # Copy from https://huggingface.co/THUDM/glm-4-9b-chat/blob/main/modeling_chatglm.py
         if history is None:
             history = []
@@ -329,7 +330,6 @@ class ChatglmPytorchChatModel(PytorchChatModel):
             )
             inputs["attention_mask"] = attention_mask
         history.append({"role": role, "content": query})
-        response = ""
         tools = history[0]["role"] == "system" and history[0].get("tools")
         tools = (
             [
@@ -341,7 +341,9 @@ class ChatglmPytorchChatModel(PytorchChatModel):
             else []
         )
 
-        streamer = TextIteratorStreamer(tokenizer, skip_prompt=True, skip_special_tokens=True)
+        streamer = TextIteratorStreamer(
+            tokenizer, skip_prompt=True, skip_special_tokens=True
+        )
         kwargs = dict(inputs)
         kwargs["past_key_values"] = past_key_values
         kwargs["eos_token_id"] = eos_token_id
@@ -366,6 +368,90 @@ class ChatglmPytorchChatModel(PytorchChatModel):
             )
             if new_response:
                 yield new_response, new_history
+
+    @torch.inference_mode()
+    def non_stream_chat(
+        self,
+        tokenizer,
+        query: str,
+        history: Optional[List[Dict]] = None,
+        role: str = "user",
+        past_key_values=None,
+        max_length: int = 8192,
+        do_sample=True,
+        top_p=0.8,
+        temperature=0.8,
+        logits_processor=None,
+        **kwargs,
+    ):
+        from transformers import TextIteratorStreamer
+
+        # Copy from https://huggingface.co/THUDM/glm-4-9b-chat/blob/main/modeling_chatglm.py
+        if history is None:
+            history = []
+        if logits_processor is None:
+            logits_processor = LogitsProcessorList()
+        logits_processor.append(InvalidScoreLogitsProcessor())
+        eos_token_id = [
+            tokenizer.eos_token_id,
+            tokenizer.convert_tokens_to_ids("<|user|>"),
+            tokenizer.convert_tokens_to_ids("<|observation|>"),
+        ]
+        gen_kwargs = {
+            "max_length": max_length,
+            "do_sample": do_sample,
+            "top_p": top_p,
+            "temperature": temperature,
+            "logits_processor": logits_processor,
+            **kwargs,
+        }
+        if past_key_values is None:
+            inputs = tokenizer.apply_chat_template(
+                history + [{"role": role, "content": query}],
+                add_generation_prompt=True,
+                tokenize=True,
+                return_tensors="pt",
+                return_dict=True,
+            )
+        else:
+            inputs = tokenizer.apply_chat_template(
+                [{"role": role, "content": query}],
+                add_special_tokens=False,
+                add_generation_prompt=True,
+                tokenize=True,
+                return_tensors="pt",
+                return_dict=True,
+            )
+        inputs = inputs.to(self._model.device)
+        if past_key_values is not None:
+            past_length = past_key_values[0][0].shape[2]
+            inputs.position_ids += past_length
+            attention_mask = inputs.attention_mask
+            attention_mask = torch.cat(
+                (attention_mask.new_ones(1, past_length), attention_mask), dim=1
+            )
+            inputs["attention_mask"] = attention_mask
+        history.append({"role": role, "content": query})
+        tools = history[0]["role"] == "system" and history[0].get("tools")
+        tools = (
+            [
+                t.get("function", {}).get("name", "")
+                for t in tools
+                if isinstance(t, dict)
+            ]
+            if tools
+            else []
+        )
+
+        outputs = self._model.generate(
+            **inputs,
+            past_key_values=past_key_values,
+            eos_token_id=eos_token_id,
+            **gen_kwargs,
+        )
+        outputs = outputs[:, inputs["input_ids"].shape[1] :]
+        response = tokenizer.decode(outputs[0], skip_special_tokens=True)
+        return self._process_response(response, history, tools, end=True)
 
     def chat(
         self,
@@ -480,7 +566,12 @@ class ChatglmPytorchChatModel(PytorchChatModel):
 
             return self._to_chat_completion_chunks(_stream_generator())
         else:
-            response = self._model.chat(self._tokenizer, prompt, chat_history, **kwargs)
+            if self.model_family.model_name in GLM4_TOOL_CALL_FAMILY:
+                chat = self.non_stream_chat
+            else:
+                chat = self._model.chat
+
+            response = chat(self._tokenizer, prompt, chat_history, **kwargs)
             if tools:
                 return self._tool_calls_completion(
                     self.model_family, self.model_uid, response, tools
