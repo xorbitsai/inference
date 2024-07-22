@@ -25,3 +25,5 @@ The following is a list of built-in image models in Xinference:
   
    stable-diffusion-xl-base-1.0
   
+   stable-diffusion-xl-inpainting
+  
