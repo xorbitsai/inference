@@ -193,6 +193,7 @@ def main():
             if not available_controlnet:
                 available_controlnet = None
             model["available_controlnet"] = available_controlnet
+            model["model_ability"] = model.get("ability", "text-to-image")
             rendered = env.get_template('image.rst.jinja').render(model)
             output_file_path = os.path.join(output_dir, f"{model['model_name'].lower()}.rst")
             with open(output_file_path, 'w') as output_file:

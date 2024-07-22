@@ -112,6 +112,8 @@ VLLM_SUPPORTED_CHAT_MODELS = [
     "internlm-chat-8k",
     "internlm-chat-20b",
     "internlm2-chat",
+    "internlm2.5-chat",
+    "internlm2.5-chat-1m",
     "qwen-chat",
     "Yi-chat",
     "Yi-1.5-chat",
@@ -127,6 +129,7 @@ VLLM_SUPPORTED_CHAT_MODELS = [
     "chatglm3-128k",
     "glm4-chat",
     "glm4-chat-1m",
+    "codegeex4",
     "deepseek-chat",
     "deepseek-coder-instruct",
 ]

@@ -17,7 +17,13 @@ The following is a list of built-in image models in Xinference:
   
    sdxl-turbo
   
+   stable-diffusion-2-inpainting
+  
+   stable-diffusion-inpainting
+  
    stable-diffusion-v1.5
   
    stable-diffusion-xl-base-1.0
+  
+   stable-diffusion-xl-inpainting
   

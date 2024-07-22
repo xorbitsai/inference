@@ -92,5 +92,26 @@
         "model_revision": "62134b9d8e703b5d6f74f1534457287a8bba77ef"
       }
     ]
+  },
+  {
+    "model_name": "stable-diffusion-inpainting",
+    "model_family": "stable_diffusion",
+    "model_id": "runwayml/stable-diffusion-inpainting",
+    "model_revision": "51388a731f57604945fddd703ecb5c50e8e7b49d",
+    "ability": "inpainting"
+  },
+  {
+    "model_name": "stable-diffusion-2-inpainting",
+    "model_family": "stable_diffusion",
+    "model_id": "stabilityai/stable-diffusion-2-inpainting",
+    "model_revision": "81a84f49b15956b60b4272a405ad3daef3da4590",
+    "ability": "inpainting"
+  },
+  {
+    "model_name": "stable-diffusion-xl-inpainting",
+    "model_family": "stable_diffusion",
+    "model_id": "diffusers/stable-diffusion-xl-1.0-inpainting-0.1",
+    "model_revision": "115134f363124c53c7d878647567d04daf26e41e",
+    "ability": "inpainting"
   }
 ]

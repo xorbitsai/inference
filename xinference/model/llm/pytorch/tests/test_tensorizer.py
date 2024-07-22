@@ -20,7 +20,7 @@ class TestTensorizerSerializeModel:
     def setup_and_teardown(self):
         # Setup: Load the model and tokenizer
         model_full_name = "qwen1.5-chat-pytorch-0_5b"
-        self.model_path = f"{XINFERENCE_CACHE_DIR}/{model_full_name}"
+        self.model_path = f"{XINFERENCE_CACHE_DIR}/{model_full_name.replace('.', '_')}"
         self.tensorizer_dir = get_tensorizer_dir(self.model_path)
         spec = PytorchLLMSpecV1(
             model_format="pytorch",

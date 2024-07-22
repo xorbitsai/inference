@@ -129,6 +129,7 @@ class SpeechRequest(BaseModel):
     voice: Optional[str]
     response_format: Optional[str] = "mp3"
     speed: Optional[float] = 1.0
+    stream: Optional[bool] = False
 
 
 class RegisterModelRequest(BaseModel):
@@ -483,6 +484,17 @@ class RESTfulAPI:
         self._router.add_api_route(
             "/v1/images/variations",
             self.create_variations,
+            methods=["POST"],
+            response_model=ImageList,
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:read"])]
+                if self.is_authenticated()
+                else None
+            ),
+        )
+        self._router.add_api_route(
+            "/v1/images/inpainting",
+            self.create_inpainting,
             methods=["POST"],
             response_model=ImageList,
             dependencies=(
@@ -1326,8 +1338,14 @@ class RESTfulAPI:
                 voice=body.voice,
                 response_format=body.response_format,
                 speed=body.speed,
+                stream=body.stream,
             )
-            return Response(media_type="application/octet-stream", content=out)
+            if body.stream:
+                return EventSourceResponse(
+                    media_type="application/octet-stream", content=out
+                )
+            else:
+                return Response(media_type="application/octet-stream", content=out)
         except RuntimeError as re:
             logger.error(re, exc_info=True)
             await self._report_error_event(model_uid, str(re))
@@ -1402,6 +1420,60 @@ class RESTfulAPI:
                 parsed_kwargs = {}
             image_list = await model_ref.image_to_image(
                 image=Image.open(image.file),
+                prompt=prompt,
+                negative_prompt=negative_prompt,
+                n=n,
+                size=size,
+                response_format=response_format,
+                **parsed_kwargs,
+            )
+            return Response(content=image_list, media_type="application/json")
+        except RuntimeError as re:
+            logger.error(re, exc_info=True)
+            await self._report_error_event(model_uid, str(re))
+            raise HTTPException(status_code=400, detail=str(re))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            await self._report_error_event(model_uid, str(e))
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def create_inpainting(
+        self,
+        model: str = Form(...),
+        image: UploadFile = File(media_type="application/octet-stream"),
+        mask_image: UploadFile = File(media_type="application/octet-stream"),
+        prompt: Optional[Union[str, List[str]]] = Form(None),
+        negative_prompt: Optional[Union[str, List[str]]] = Form(None),
+        n: Optional[int] = Form(1),
+        response_format: Optional[str] = Form("url"),
+        size: Optional[str] = Form(None),
+        kwargs: Optional[str] = Form(None),
+    ) -> Response:
+        model_uid = model
+        try:
+            model_ref = await (await self._get_supervisor_ref()).get_model(model_uid)
+        except ValueError as ve:
+            logger.error(str(ve), exc_info=True)
+            await self._report_error_event(model_uid, str(ve))
+            raise HTTPException(status_code=400, detail=str(ve))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            await self._report_error_event(model_uid, str(e))
+            raise HTTPException(status_code=500, detail=str(e))
+
+        try:
+            if kwargs is not None:
+                parsed_kwargs = json.loads(kwargs)
+            else:
+                parsed_kwargs = {}
+            im = Image.open(image.file)
+            mask_im = Image.open(mask_image.file)
+            if not size:
+                w, h = im.size
+                size = f"{w}*{h}"
+            image_list = await model_ref.inpainting(
+                image=im,
+                mask_image=mask_im,
                 prompt=prompt,
                 negative_prompt=negative_prompt,
                 n=n,

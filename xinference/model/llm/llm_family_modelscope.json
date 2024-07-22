@@ -690,6 +690,66 @@
   },
   {
     "version": 1,
+    "context_length": 131072,
+    "model_name": "codegeex4",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "the open-source version of the latest CodeGeeX4 model series",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 9,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "ZhipuAI/codegeex4-all-9b",
+        "model_hub": "modelscope",
+        "model_revision": "master"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 9,
+        "quantizations": [
+          "IQ2_M",
+          "IQ3_M",
+          "Q4_K_M",
+          "Q5_K_M",
+          "Q6_K_L",
+          "Q8_0"
+        ],
+        "model_file_name_template": "codegeex4-all-9b-{quantization}.gguf",
+        "model_id": "ZhipuAI/codegeex4-all-9b-GGUF",
+        "model_hub": "modelscope"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "CHATGLM3",
+      "system_prompt": "",
+      "roles": [
+        "user",
+        "assistant"
+      ],
+      "stop_token_ids": [
+        151329,
+        151336,
+        151338
+      ],
+      "stop": [
+        "<|endoftext|>",
+        "<|user|>",
+        "<|observation|>"
+      ]
+    }
+  },
+  {
+    "version": 1,
     "context_length": 2048,
     "model_name": "xverse-chat",
     "model_lang": [
@@ -925,6 +985,88 @@
       ],
       "stop": [
         "<eoa>"
+      ]
+    }
+  },
+  {
+    "version": 1,
+    "context_length": 32768,
+    "model_name": "internlm2.5-chat",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "InternLM2.5 series of the InternLM model.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "Shanghai_AI_Laboratory/internlm2_5-7b-chat",
+        "model_hub": "modelscope"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "INTERNLM2",
+      "system_prompt": "You are InternLM (书生·浦语), a helpful, honest, and harmless AI assistant developed by Shanghai AI Laboratory (上海人工智能实验室).",
+      "roles": [
+        "<|im_start|>user",
+        "<|im_start|>assistant"
+      ],
+      "intra_message_sep": "<|im_end|>",
+      "stop_token_ids": [
+        2,
+        92542
+      ],
+      "stop": [
+        "</s>",
+        "<|im_end|>"
+      ]
+    }
+  },
+  {
+    "version": 1,
+    "context_length": 262144,
+    "model_name": "internlm2.5-chat-1m",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "InternLM2.5 series of the InternLM model supports 1M long-context",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "Shanghai_AI_Laboratory/internlm2_5-7b-chat-1m",
+        "model_hub": "modelscope"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "INTERNLM2",
+      "system_prompt": "You are InternLM (书生·浦语), a helpful, honest, and harmless AI assistant developed by Shanghai AI Laboratory (上海人工智能实验室).",
+      "roles": [
+        "<|im_start|>user",
+        "<|im_start|>assistant"
+      ],
+      "intra_message_sep": "<|im_end|>",
+      "stop_token_ids": [
+        2,
+        92542
+      ],
+      "stop": [
+        "</s>",
+        "<|im_end|>"
       ]
     }
   },
@@ -3798,6 +3940,29 @@
           "8-bit"
         ],
         "model_id": "AI-ModelScope/gemma-2-27b-it",
+        "model_hub": "modelscope"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 9,
+        "quantizations": [
+          "Q2_K",
+          "Q3_K_L",
+          "Q3_K_M",
+          "Q3_K_S",
+          "Q4_K_L",
+          "Q4_K_M",
+          "Q4_K_S",
+          "Q5_K_L",
+          "Q5_K_M",
+          "Q5_K_S",
+          "Q6_K",
+          "Q6_K_L",
+          "Q8_0",
+          "f32"
+        ],
+        "model_id": "LLM-Research/gemma-2-9b-it-GGUF",
+        "model_file_name_template": "gemma-2-9b-it-{quantization}.gguf",
         "model_hub": "modelscope"
       }
     ],
