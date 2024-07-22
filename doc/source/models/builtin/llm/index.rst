@@ -141,6 +141,11 @@ The following is a list of built-in LLM in Xinference:
      - 8192
      - CogVLM2 have achieved good results in many lists compared to the previous generation of CogVLM open source models. Its excellent performance can compete with some non-open source models.
 
+   * - :ref:`csg-wukong-chat-v0.1 <models_llm_csg-wukong-chat-v0.1>`
+     - chat
+     - 32768
+     - csg-wukong-1B is a 1 billion-parameter small language model(SLM) pretrained on 1T tokens.
+
    * - :ref:`deepseek <models_llm_deepseek>`
      - generate
      - 4096
@@ -620,6 +625,8 @@ The following is a list of built-in LLM in Xinference:
    codestral-v0.1
   
    cogvlm2
+  
+   csg-wukong-chat-v0.1
   
    deepseek
   
