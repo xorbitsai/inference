@@ -13,6 +13,7 @@
 # limitations under the License.
 import copy
 import json
+import threading
 import time
 import uuid
 from typing import Any, Dict, Iterator, List, Optional, Union
@@ -281,6 +282,7 @@ class ChatglmPytorchChatModel(PytorchChatModel):
         logits_processor=None,
         **kwargs,
     ):
+        from transformers import TextIteratorStreamer
         # Copy from https://huggingface.co/THUDM/glm-4-9b-chat/blob/main/modeling_chatglm.py
         if history is None:
             history = []
@@ -338,15 +340,19 @@ class ChatglmPytorchChatModel(PytorchChatModel):
             if tools
             else []
         )
-        for outputs in self._model.generate(
-            **inputs,
-            past_key_values=past_key_values,
-            eos_token_id=eos_token_id,
-            **gen_kwargs,
-        ):
-            outputs = outputs[:, inputs["input_ids"].shape[1] :]
-            outputs = outputs.tolist()[0][len(inputs["input_ids"][0]) : -1]
-            response = tokenizer.decode(outputs[0], skip_special_tokens=True)
+
+        streamer = TextIteratorStreamer(tokenizer, skip_prompt=True, skip_special_tokens=True)
+        kwargs = dict(inputs)
+        kwargs["past_key_values"] = past_key_values
+        kwargs["eos_token_id"] = eos_token_id
+        kwargs["streamer"] = streamer
+        kwargs.update(gen_kwargs)
+        thread = threading.Thread(target=self._model.generate, kwargs=kwargs)
+        thread.start()
+
+        response = ""
+        for token in streamer:
+            response += token
             if response and response[-1] != "�":
                 new_response, new_history = self._process_response(
                     response, history, tools, end=False
