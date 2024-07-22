@@ -743,6 +743,7 @@ class WorkerActor(xo.StatelessActor):
         request_limits: Optional[int] = None,
         gpu_idx: Optional[Union[int, List[int]]] = None,
         download_hub: Optional[Literal["huggingface", "modelscope", "csghub"]] = None,
+        model_path: Optional[str] = None,
         **kwargs,
     ):
         # !!! Note that The following code must be placed at the very beginning of this function,
@@ -826,6 +827,7 @@ class WorkerActor(xo.StatelessActor):
                     quantization,
                     peft_model_config,
                     download_hub,
+                    model_path,
                     **kwargs,
                 )
                 await self.update_cache_status(model_name, model_description)

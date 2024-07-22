@@ -107,7 +107,7 @@ class RerankModel:
         self,
         model_spec: RerankModelSpec,
         model_uid: str,
-        model_path: str,
+        model_path: Optional[str] = None,
         device: Optional[str] = None,
         use_fp16: bool = False,
         model_config: Optional[Dict] = None,
@@ -290,6 +290,7 @@ def create_rerank_model_instance(
     model_uid: str,
     model_name: str,
     download_hub: Optional[Literal["huggingface", "modelscope", "csghub"]] = None,
+    model_path: Optional[str] = None,
     **kwargs,
 ) -> Tuple[RerankModel, RerankModelDescription]:
     from ..utils import download_from_modelscope
@@ -321,8 +322,8 @@ def create_rerank_model_instance(
                 f"Huggingface: {BUILTIN_RERANK_MODELS.keys()}"
                 f"ModelScope: {MODELSCOPE_RERANK_MODELS.keys()}"
             )
-
-    model_path = cache(model_spec)
+    if model_path is None or model_path == "":
+        model_path = cache(model_spec)
     use_fp16 = kwargs.pop("use_fp16", False)
     model = RerankModel(
         model_spec, model_uid, model_path, use_fp16=use_fp16, model_config=kwargs

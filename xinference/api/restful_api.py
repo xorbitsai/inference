@@ -784,6 +784,7 @@ class RESTfulAPI:
         worker_ip = payload.get("worker_ip", None)
         gpu_idx = payload.get("gpu_idx", None)
         download_hub = payload.get("download_hub", None)
+        model_path = payload.get("model_path", None)
 
         exclude_keys = {
             "model_uid",
@@ -800,6 +801,7 @@ class RESTfulAPI:
             "worker_ip",
             "gpu_idx",
             "download_hub",
+            "model_path",
         }
 
         kwargs = {
@@ -826,6 +828,12 @@ class RESTfulAPI:
                     detail="Invalid input. Allocated gpu must be a multiple of replica.",
                 )
 
+        if model_path is not None:
+            if not os.path.exists(model_path):
+                raise ValueError(
+                    f"Invalid input. `model_path`: {model_path} File or directory does not exist."
+                )
+
         if peft_model_config is not None:
             peft_model_config = PeftModelConfig.from_dict(peft_model_config)
         else:
@@ -848,6 +856,7 @@ class RESTfulAPI:
                 worker_ip=worker_ip,
                 gpu_idx=gpu_idx,
                 download_hub=download_hub,
+                model_path=model_path,
                 **kwargs,
             )
         except ValueError as ve:

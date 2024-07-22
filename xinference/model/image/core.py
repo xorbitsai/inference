@@ -187,6 +187,7 @@ def create_image_model_instance(
     model_name: str,
     peft_model_config: Optional[PeftModelConfig] = None,
     download_hub: Optional[Literal["huggingface", "modelscope", "csghub"]] = None,
+    model_path: Optional[str] = None,
     **kwargs,
 ) -> Tuple[DiffusionModel, ImageModelDescription]:
     model_spec = match_diffusion(model_name, download_hub)
@@ -207,7 +208,8 @@ def create_image_model_instance(
         for name in controlnet:
             for cn_model_spec in model_spec.controlnet:
                 if cn_model_spec.model_name == name:
-                    model_path = cache(cn_model_spec)
+                    if model_path is None or model_path == "":
+                        model_path = cache(cn_model_spec)
                     controlnet_model_paths.append(model_path)
                     break
             else:
@@ -218,7 +220,8 @@ def create_image_model_instance(
             kwargs["controlnet"] = controlnet_model_paths[0]
         else:
             kwargs["controlnet"] = controlnet_model_paths
-    model_path = cache(model_spec)
+    if model_path is None or model_path == "":
+        model_path = cache(model_spec)
     if peft_model_config is not None:
         lora_model = peft_model_config.peft_model
         lora_load_kwargs = peft_model_config.image_lora_load_kwargs

@@ -210,10 +210,16 @@ def match_flexible_model(model_name):
 
 
 def create_flexible_model_instance(
-    subpool_addr: str, devices: List[str], model_uid: str, model_name: str, **kwargs
+    subpool_addr: str,
+    devices: List[str],
+    model_uid: str,
+    model_name: str,
+    model_path: Optional[str] = None,
+    **kwargs,
 ) -> Tuple[FlexibleModel, FlexibleModelDescription]:
     model_spec = match_flexible_model(model_name)
-    model_path = model_spec.model_uri
+    if model_path is None or model_path == "":
+        model_path = model_spec.model_uri
     launcher_name = model_spec.launcher
     launcher_args = model_spec.parser_args()
     kwargs.update(launcher_args)

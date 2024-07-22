@@ -1255,3 +1255,49 @@ def test_launch_model_by_version(setup):
     # delete again
     url = f"{endpoint}/v1/models/test_orca"
     requests.delete(url)
+
+
+def test_restful_api_for_rerank(setup):
+    model_name = "bce-reranker-base_v1"
+    endpoint, _ = setup
+    url = f"{endpoint}/v1/models"
+
+    # list
+    response = requests.get(url)
+    response_data = response.json()
+    assert len(response_data["data"]) == 0
+
+    # launch
+    payload = {
+        "model_uid": "test_rerank",
+        "model_name": model_name,
+        "model_type": "rerank",
+        # test model_path
+        # "model_path": "/path/to/bce-reranker-base_v1",
+    }
+
+    response = requests.post(url, json=payload)
+    response_data = response.json()
+    model_uid_res = response_data["model_uid"]
+    assert model_uid_res == "test_rerank"
+
+    response = requests.get(url)
+    response_data = response.json()
+    assert len(response_data["data"]) == 1
+
+    # test embedding
+    url = f"{endpoint}/v1/rerank"
+    payload = {
+        "model": "test_rerank",
+        "query": "A man is eating pasta.",
+        "documents": [
+            "A man is eating food.",
+            "A man is eating a piece of bread.",
+            "The girl is carrying a baby.",
+            "A man is riding a horse.",
+            "A woman is playing violin.",
+        ],
+    }
+    response = requests.post(url, json=payload)
+    rerank_res = response.json()
+    assert len(rerank_res["results"]) == 5

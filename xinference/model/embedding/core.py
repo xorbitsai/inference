@@ -118,7 +118,12 @@ def get_cache_status(
 
 
 class EmbeddingModel:
-    def __init__(self, model_uid: str, model_path: str, device: Optional[str] = None):
+    def __init__(
+        self,
+        model_uid: str,
+        model_path: Optional[str] = None,
+        device: Optional[str] = None,
+    ):
         self._model_uid = model_uid
         self._model_path = model_path
         self._device = device
@@ -344,10 +349,13 @@ def create_embedding_model_instance(
     model_uid: str,
     model_name: str,
     download_hub: Optional[Literal["huggingface", "modelscope", "csghub"]] = None,
+    model_path: Optional[str] = None,
     **kwargs,
 ) -> Tuple[EmbeddingModel, EmbeddingModelDescription]:
     model_spec = match_embedding(model_name, download_hub)
-    model_path = cache(model_spec)
+    if model_path is None or model_path == "":
+        model_path = cache(model_spec)
+
     model = EmbeddingModel(model_uid, model_path, **kwargs)
     model_description = EmbeddingModelDescription(
         subpool_addr, devices, model_spec, model_path=model_path
