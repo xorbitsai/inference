@@ -819,7 +819,7 @@
           "none"
         ],
         "model_id": "THUDM/glm-4-9b-chat",
-        "model_revision": "b84dc74294ccd507a3d78bde8aebf628221af9bd"
+        "model_revision": "76f3474a854145aa4a9ed2612fee9bc8d4a8966b"
       },
       {
         "model_format": "ggufv2",

@@ -279,7 +279,6 @@ class ChatglmPytorchChatModel(PytorchChatModel):
         top_p=0.8,
         temperature=0.8,
         logits_processor=None,
-        return_past_key_values=False,
         **kwargs,
     ):
         # Copy from https://huggingface.co/THUDM/glm-4-9b-chat/blob/main/modeling_chatglm.py
@@ -339,29 +338,23 @@ class ChatglmPytorchChatModel(PytorchChatModel):
             if tools
             else []
         )
-        for outputs in self._model.stream_generate(
+        for outputs in self._model.generate(
             **inputs,
             past_key_values=past_key_values,
             eos_token_id=eos_token_id,
-            return_past_key_values=return_past_key_values,
             **gen_kwargs,
         ):
-            if return_past_key_values:
-                outputs, past_key_values = outputs
+            outputs = outputs[:, inputs["input_ids"].shape[1] :]
             outputs = outputs.tolist()[0][len(inputs["input_ids"][0]) : -1]
-            response = tokenizer.decode(outputs)
+            response = tokenizer.decode(outputs[0], skip_special_tokens=True)
             if response and response[-1] != "�":
                 new_response, new_history = self._process_response(
                     response, history, tools, end=False
                 )
                 if new_response is None:
                     continue
-                if return_past_key_values:
-                    yield new_response, new_history, past_key_values
-                else:
-                    yield new_response, new_history
+                yield new_response, new_history
         if tools:
-            assert not return_past_key_values
             new_response, new_history = self._process_response(
                 response, history, tools, end=True
             )
