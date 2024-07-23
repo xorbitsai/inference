@@ -42,7 +42,7 @@ class CosyVoiceModel:
         import os
         import sys
 
-        # Some model code import the thirdparty module directly.
+        # The yaml config loaded from model has hard-coded the import paths. please refer to: load_hyperpyyaml
         sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../thirdparty"))
 
         from cosyvoice.cli.cosyvoice import CosyVoice
