@@ -601,7 +601,6 @@ def test_restful_api_for_tool_calls(setup, model_format, quantization):
             stream=True,
         )
         async for chunk in await async_completion:
-            print("chunk", chunk)
             chunks.append(chunk)
         assert len(chunks) == 2
         assert (
