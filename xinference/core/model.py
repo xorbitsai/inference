@@ -740,7 +740,7 @@ class ModelActor(xo.StatelessActor):
         **kwargs,
     ):
         if hasattr(self._model, "inpainting"):
-            return await self._call_wrapper(
+            return await self._call_wrapper_json(
                 self._model.inpainting,
                 image,
                 mask_image,
@@ -763,7 +763,7 @@ class ModelActor(xo.StatelessActor):
         **kwargs,
     ):
         if hasattr(self._model, "infer"):
-            return await self._call_wrapper(
+            return await self._call_wrapper_json(
                 self._model.infer,
                 **kwargs,
             )
