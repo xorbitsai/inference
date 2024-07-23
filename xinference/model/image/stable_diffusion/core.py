@@ -35,7 +35,7 @@ class DiffusionModel:
     def __init__(
         self,
         model_uid: str,
-        model_path: str,
+        model_path: Optional[str] = None,
         device: Optional[str] = None,
         lora_model: Optional[List[LoRA]] = None,
         lora_load_kwargs: Optional[Dict] = None,

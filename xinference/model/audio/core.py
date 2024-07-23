@@ -153,7 +153,7 @@ def create_audio_model_instance(
     **kwargs,
 ) -> Tuple[Union[WhisperModel, ChatTTSModel], AudioModelDescription]:
     model_spec = match_audio(model_name, download_hub)
-    if model_path is None or model_path == "":
+    if model_path is None:
         model_path = cache(model_spec)
     model: Union[WhisperModel, ChatTTSModel]
     if model_spec.model_family == "whisper":
