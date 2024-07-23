@@ -1626,10 +1626,14 @@ class RESTfulAPI:
         if body.tools and body.stream:
             is_vllm = await model.is_vllm_backend()
 
-            if not is_vllm or model_family not in QWEN_TOOL_CALL_FAMILY:
+            if not (
+                (is_vllm and model_family in QWEN_TOOL_CALL_FAMILY)
+                or (not is_vllm and model_family in GLM4_TOOL_CALL_FAMILY)
+            ):
                 raise HTTPException(
                     status_code=400,
-                    detail="Streaming support for tool calls is available only when using vLLM backend and Qwen models.",
+                    detail="Streaming support for tool calls is available only when using "
+                    "Qwen models with vLLM backend or GLM4-chat models without vLLM backend.",
                 )
 
         if body.stream:
