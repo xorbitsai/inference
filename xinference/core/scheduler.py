@@ -81,7 +81,7 @@ class InferenceRequest:
         self.future_or_queue = future_or_queue
         # Record error message when this request has error.
         # Must set stopped=True when this field is set.
-        self.error_msg: Optional[str] = None
+        self.error_msg: Optional[str] = None  # type: ignore
         # For compatibility. Record some extra parameters for some special cases.
         self.extra_kwargs = {}
 
@@ -295,11 +295,11 @@ class SchedulerActor(xo.StatelessActor):
 
     def __init__(self):
         super().__init__()
-        self._waiting_queue: deque[InferenceRequest] = deque()
-        self._running_queue: deque[InferenceRequest] = deque()
+        self._waiting_queue: deque[InferenceRequest] = deque()  # type: ignore
+        self._running_queue: deque[InferenceRequest] = deque()  # type: ignore
         self._model = None
         self._id_to_req = {}
-        self._abort_req_ids: Set[str] = set()
+        self._abort_req_ids: Set[str] = set()  # type: ignore
         self._isolation = None
 
     async def __post_create__(self):

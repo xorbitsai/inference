@@ -25,7 +25,7 @@ from ..core import FlexibleModel, FlexibleModelSpec
 class ImageRemoveBackgroundModel(FlexibleModel):
     def infer(self, **kwargs):
         invert = kwargs.get("invert", False)
-        b64_image: str = kwargs.get("image")
+        b64_image: str = kwargs.get("image")  # type: ignore
         only_mask = kwargs.pop("only_mask", True)
         image_format = kwargs.pop("image_format", "PNG")
         if not b64_image:
@@ -62,7 +62,7 @@ def launcher(model_uid: str, model_spec: FlexibleModelSpec, **kwargs) -> Flexibl
     if task == "remove_background":
         return ImageRemoveBackgroundModel(
             model_uid=model_uid,
-            model_path=model_spec.model_uri,
+            model_path=model_spec.model_uri,  # type: ignore
             device=device,
             config=kwargs,
         )
