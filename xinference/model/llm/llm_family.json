@@ -7387,5 +7387,67 @@
         160132
       ]
     }
+  },
+  {
+    "version": 1,
+    "context_length": 32768,
+    "model_name": "csg-wukong-chat-v0.1",
+    "model_lang": [
+      "en"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "csg-wukong-1B is a 1 billion-parameter small language model(SLM) pretrained on 1T tokens.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 1,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "opencsg/csg-wukong-1B-chat-v0.1",
+        "model_revision": "2443c903d46074af0856e2ba11398dcd01d35536"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 1,
+        "quantizations": [
+          "Q2_K",
+          "Q3_K",
+          "Q3_K_S",
+          "Q3_K_M",
+          "Q3_K_L",
+          "Q4_0",
+          "Q4_1",
+          "Q4_K_S",
+          "Q4_K_M",
+          "Q5_0",
+          "Q5_1",
+          "Q5_K_S",
+          "Q5_K_M",
+          "Q6_K",
+          "Q8_0"
+        ],
+        "model_id": "RichardErkhov/opencsg_-_csg-wukong-1B-chat-v0.1-gguf",
+        "model_file_name_template": "csg-wukong-1B-chat-v0.1.{quantization}.gguf"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "NO_COLON_TWO",
+      "system_prompt": "<|system|>\nYou are a creative super artificial intelligence assistant, possessing all the knowledge of humankind. Your name is csg-wukong, developed by OpenCSG. You need to understand and infer the true intentions of users based on the topics discussed in the chat history, and respond to user questions correctly as required. You enjoy responding to users with accurate and insightful answers. Please pay attention to the appropriate style and format when replying, try to avoid repetitive words and sentences, and keep your responses as concise and profound as possible. You carefully consider the context of the discussion when replying to users. When the user says \"continue,\" please proceed with the continuation of the previous assistant's response.</s>\n",
+      "roles": [
+        "<|user|>\n",
+        "<|assistant|>\n"
+      ],
+      "intra_message_sep": "</s>\n",
+      "inter_message_sep": "</s>\n",
+      "stop_token_ids": [
+        2
+      ],
+      "stop": [
+        "</s>"
+      ]
+    }
   }
 ]
