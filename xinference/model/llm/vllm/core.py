@@ -151,6 +151,8 @@ if VLLM_INSTALLED and vllm.__version__ >= "0.4.0":
     VLLM_SUPPORTED_CHAT_MODELS.append("qwen2-moe-instruct")
     VLLM_SUPPORTED_CHAT_MODELS.append("c4ai-command-r-v01")
 
+if VLLM_INSTALLED and vllm.__version__ >= "0.5.3":
+    VLLM_SUPPORTED_CHAT_MODELS.append("gemma-2-it")
 
 class VLLMModel(LLM):
     def __init__(

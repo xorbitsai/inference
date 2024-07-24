@@ -72,6 +72,7 @@ SGLANG_SUPPORTED_CHAT_MODELS = [
     "mistral-instruct-v0.2",
     "mixtral-instruct-v0.1",
     "gemma-it",
+    "gemma-2-it",
 ]
 
 
