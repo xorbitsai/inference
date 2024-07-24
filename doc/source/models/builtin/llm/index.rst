@@ -56,11 +56,6 @@ The following is a list of built-in LLM in Xinference:
      - 131072
      - C4AI Command-R(+) is a research release of a 35 and 104 billion parameter highly performant generative model.
 
-   * - :ref:`c4ai-command-r-v01-4bit <models_llm_c4ai-command-r-v01-4bit>`
-     - generate
-     - 131072
-     - This model is 4bit quantized version of C4AI Command-R using bitsandbytes.
-
    * - :ref:`chatglm <models_llm_chatglm>`
      - chat
      - 2048
@@ -591,8 +586,6 @@ The following is a list of built-in LLM in Xinference:
    baichuan-chat
   
    c4ai-command-r-v01
-  
-   c4ai-command-r-v01-4bit
   
    chatglm
   
