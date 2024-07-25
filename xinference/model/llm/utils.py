@@ -483,6 +483,27 @@ Begin!"""
                 else:
                     ret += role
             return ret
+        elif prompt_style.style_name == "mistral-nemo":
+            seps = [prompt_style.intra_message_sep, prompt_style.inter_message_sep]
+            ret = "<s>"
+            for i, message in enumerate(chat_history):
+                role = get_role(message["role"])
+                content = message["content"]
+                if content:
+                    if i == len(chat_history) - 2 and prompt_style.system_prompt:
+                        ret += (
+                            role
+                            + " "
+                            + prompt_style.system_prompt
+                            + "\n\n"
+                            + content
+                            + seps[i % 2]
+                        )
+                    else:
+                        ret += role + " " + content + seps[i % 2]
+                else:
+                    ret += role
+            return ret
         else:
             raise ValueError(f"Invalid prompt style: {prompt_style.style_name}")
 
