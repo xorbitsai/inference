@@ -1789,7 +1789,14 @@
     "context_length": 131072,
     "model_name": "llama-3.1-instruct",
     "model_lang": [
-      "en"
+      "en",
+      "de",
+      "fr",
+      "it",
+      "pt",
+      "hi",
+      "es",
+      "th"
     ],
     "model_ability": [
       "chat"
