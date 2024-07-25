@@ -1723,10 +1723,17 @@
   },
   {
     "version": 1,
-    "context_length": 8192,
+    "context_length": 131072,
     "model_name": "llama-3.1",
     "model_lang": [
-      "en"
+      "en",
+      "de",
+      "fr",
+      "it",
+      "pt",
+      "hi",
+      "es",
+      "th"
     ],
     "model_ability": [
       "generate"
@@ -1821,13 +1828,25 @@
           "IQ4_XS",
           "Q2_K",
           "Q3_K_S",
-          "Q4_K_M",
-          "Q5_K_M",
-          "Q6_K",
-          "Q8_0"
+          "Q4_K_M"
         ],
+        "quantization_parts": {
+          "Q5_K_M": [
+            "00001-of-00002",
+            "00002-of-00002"
+          ],
+          "Q6_K": [
+            "00001-of-00002",
+            "00002-of-00002"
+          ],
+          "Q8_0": [
+            "00001-of-00002",
+            "00002-of-00002"
+          ]
+        },
         "model_id": "lmstudio-community/Meta-Llama-3.1-70B-Instruct-GGUF",
-        "model_file_name_template": "Meta-Llama-3.1-70B-Instruct-{quantization}.gguf"
+        "model_file_name_template": "Meta-Llama-3.1-70B-Instruct-{quantization}.gguf",
+        "model_file_name_split_template": "Meta-Llama-3.1-70B-Instruct-{quantization}-{part}.gguf"
       },
       {
         "model_format": "pytorch",
