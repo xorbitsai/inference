@@ -17,7 +17,7 @@ import json
 import logging
 import random
 import time
-from typing import TYPE_CHECKING, List, Tuple
+from typing import TYPE_CHECKING, List, Tuple, Optional
 
 import openai
 from transformers import AutoTokenizer, PreTrainedTokenizerFast
@@ -173,6 +173,7 @@ async def send_request(
     prompt_len: int,
     output_len: int,
     stats: List[Tuple[int, int, float]],  # output.
+    api_key: Optional[str]=None,
 ) -> None:
     request_start_time = time.time()
 
@@ -187,6 +188,8 @@ async def send_request(
     }
 
     headers = {"User-Agent": "Benchmark Client"}
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
 
     timeout = aiohttp.ClientTimeout(total=3 * 3600)
     async with aiohttp.ClientSession(timeout=timeout) as session:

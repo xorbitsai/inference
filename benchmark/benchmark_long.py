@@ -17,7 +17,7 @@ import asyncio
 import logging
 import random
 import time
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 
 import numpy as np
 
@@ -38,6 +38,7 @@ class BenchmarkRunner:
         model_uid: str,
         input_requests: List[Tuple[str, int, int]],
         concurrency: int,
+        api_key: Optional[str]=None,
     ):
 
         self.api_url = api_url
@@ -46,6 +47,7 @@ class BenchmarkRunner:
         self.concurrency = concurrency
         self.sent = 0
         self.left = len(input_requests)
+        self.api_key = api_key
 
     async def run(self):
         tasks = []
@@ -68,6 +70,7 @@ class BenchmarkRunner:
                 prompt_len,
                 output_len,
                 REQUEST_LATENCY,
+                api_key=self.api_key,
             )
             self.left -= 1
             # pring longer space to overwrite the previous when left decrease
@@ -101,6 +104,7 @@ def main(args: argparse.Namespace):
         model_uid,
         input_requests,
         concurrency=args.concurrency,
+        api_key=args.api_key,
     )
     asyncio.run(benchmark.run())
     benchmark_end_time = time.time()
@@ -160,5 +164,8 @@ if __name__ == "__main__":
         help="Trust remote code from huggingface.",
     )
     parser.add_argument("--model-uid", type=str, help="Xinference model UID.")
+    parser.add_argument(
+        "--api-key", type=str, default=None, help="Authorization api key",
+    )
     args = parser.parse_args()
     main(args)
