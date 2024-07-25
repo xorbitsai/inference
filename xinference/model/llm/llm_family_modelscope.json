@@ -217,7 +217,7 @@
   },
   {
     "version": 1,
-    "context_length": 8192,
+    "context_length": 131072,
     "model_name": "llama-3.1-instruct",
     "model_lang": [
       "en"
