@@ -281,6 +281,16 @@ The following is a list of built-in LLM in Xinference:
      - 8192
      - The Llama 3 instruction tuned models are optimized for dialogue use cases and outperform many of the available open source chat models on common industry benchmarks..
 
+   * - :ref:`llama-3.1 <models_llm_llama-3.1>`
+     - generate
+     - 131072
+     - Llama 3.1 is an auto-regressive language model that uses an optimized transformer architecture
+
+   * - :ref:`llama-3.1-instruct <models_llm_llama-3.1-instruct>`
+     - chat
+     - 131072
+     - The Llama 3.1 instruction tuned models are optimized for dialogue use cases and outperform many of the available open source chat models on common industry benchmarks..
+
    * - :ref:`minicpm-2b-dpo-bf16 <models_llm_minicpm-2b-dpo-bf16>`
      - chat
      - 4096
@@ -681,6 +691,10 @@ The following is a list of built-in LLM in Xinference:
    llama-3
   
    llama-3-instruct
+  
+   llama-3.1
+  
+   llama-3.1-instruct
   
    minicpm-2b-dpo-bf16
   
