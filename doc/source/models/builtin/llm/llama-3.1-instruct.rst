@@ -36,7 +36,7 @@ Model Spec 2 (pytorch, 8 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 8
 - **Quantizations:** none
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers
 - **Model ID:** meta-llama/Meta-Llama-3.1-8B-Instruct
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/meta-llama/Meta-Llama-3.1-8B-Instruct>`__, `ModelScope <https://modelscope.cn/models/LLM-Research/Meta-Llama-3.1-8B-Instruct>`__
 
@@ -68,7 +68,7 @@ Model Spec 4 (gptq, 8 Billion)
 - **Model Format:** gptq
 - **Model Size (in billions):** 8
 - **Quantizations:** Int4
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers
 - **Model ID:** hugging-quants/Meta-Llama-3.1-8B-Instruct-GPTQ-INT4
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/hugging-quants/Meta-Llama-3.1-8B-Instruct-GPTQ-INT4>`__, `ModelScope <https://modelscope.cn/models/LLM-Research/Meta-Llama-3.1-8B-Instruct-GPTQ-INT4>`__
 
@@ -84,7 +84,7 @@ Model Spec 5 (awq, 8 Billion)
 - **Model Format:** awq
 - **Model Size (in billions):** 8
 - **Quantizations:** Int4
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers
 - **Model ID:** hugging-quants/Meta-Llama-3.1-8B-Instruct-AWQ-INT4
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/hugging-quants/Meta-Llama-3.1-8B-Instruct-AWQ-INT4>`__, `ModelScope <https://modelscope.cn/models/LLM-Research/Meta-Llama-3.1-8B-Instruct-AWQ-INT4>`__
 
@@ -116,7 +116,7 @@ Model Spec 7 (pytorch, 70 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 70
 - **Quantizations:** none
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers
 - **Model ID:** meta-llama/Meta-Llama-3.1-70B-Instruct
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/meta-llama/Meta-Llama-3.1-70B-Instruct>`__, `ModelScope <https://modelscope.cn/models/LLM-Research/Meta-Llama-3.1-70B-Instruct>`__
 
@@ -148,7 +148,7 @@ Model Spec 9 (gptq, 70 Billion)
 - **Model Format:** gptq
 - **Model Size (in billions):** 70
 - **Quantizations:** Int4
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers
 - **Model ID:** hugging-quants/Meta-Llama-3.1-70B-Instruct-GPTQ-INT4
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/hugging-quants/Meta-Llama-3.1-70B-Instruct-GPTQ-INT4>`__, `ModelScope <https://modelscope.cn/models/LLM-Research/Meta-Llama-3.1-70B-Instruct-GPTQ-INT4>`__
 
@@ -164,7 +164,7 @@ Model Spec 10 (awq, 70 Billion)
 - **Model Format:** awq
 - **Model Size (in billions):** 70
 - **Quantizations:** Int4
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers
 - **Model ID:** hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4>`__, `ModelScope <https://modelscope.cn/models/LLM-Research/Meta-Llama-3.1-70B-Instruct-AWQ-INT4>`__
 
