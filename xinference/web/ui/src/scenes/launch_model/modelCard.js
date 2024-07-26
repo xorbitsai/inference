@@ -1208,9 +1208,14 @@ const ModelCard = ({
                         const spec = specs.find((s) => {
                           return s.quantizations.includes(quant)
                         })
-                        const cached = spec && Array.isArray(spec.cache_status)
-                          ? spec.cache_status[spec.quantizations.indexOf(quant)]
-                          : spec ? spec.cache_status : false;
+                        const cached =
+                          spec && Array.isArray(spec.cache_status)
+                            ? spec.cache_status[
+                                spec.quantizations.indexOf(quant)
+                              ]
+                            : spec
+                            ? spec.cache_status
+                            : false
 
                         const displayedQuant = cached
                           ? quant + ' (cached)'
