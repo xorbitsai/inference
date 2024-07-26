@@ -20,6 +20,7 @@ from ...constants import XINFERENCE_CACHE_DIR
 from ..core import CacheableModelSpec, ModelDescription
 from ..utils import valid_model_revision
 from .chattts import ChatTTSModel
+from .cosyvoice import CosyVoiceModel
 from .whisper import WhisperModel
 
 MAX_ATTEMPTS = 3
@@ -150,14 +151,16 @@ def create_audio_model_instance(
     model_name: str,
     download_hub: Optional[Literal["huggingface", "modelscope", "csghub"]] = None,
     **kwargs,
-) -> Tuple[Union[WhisperModel, ChatTTSModel], AudioModelDescription]:
+) -> Tuple[Union[WhisperModel, ChatTTSModel, CosyVoiceModel], AudioModelDescription]:
     model_spec = match_audio(model_name, download_hub)
     model_path = cache(model_spec)
-    model: Union[WhisperModel, ChatTTSModel]
+    model: Union[WhisperModel, ChatTTSModel, CosyVoiceModel]
     if model_spec.model_family == "whisper":
         model = WhisperModel(model_uid, model_path, model_spec, **kwargs)
     elif model_spec.model_family == "ChatTTS":
         model = ChatTTSModel(model_uid, model_path, model_spec, **kwargs)
+    elif model_spec.model_family == "CosyVoice":
+        model = CosyVoiceModel(model_uid, model_path, model_spec, **kwargs)
     else:
         raise Exception(f"Unsupported audio model family: {model_spec.model_family}")
     model_description = AudioModelDescription(
