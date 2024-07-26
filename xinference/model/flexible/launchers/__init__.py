@@ -12,4 +12,5 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from .image_process_launcher import launcher as image_process
 from .transformers_launcher import launcher as transformers
