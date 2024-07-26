@@ -743,7 +743,7 @@ const ModelCard = ({
             if (arr.length) setIsHistory(true)
             setSelected(true)
             if (modelType === 'LLM') {
-              getModelEngine(modelData.model_name)
+              getModelEngine(modelData.model_family || modelData.model_name)
             } else {
               handleOtherHistory()
             }
@@ -1208,9 +1208,9 @@ const ModelCard = ({
                         const spec = specs.find((s) => {
                           return s.quantizations.includes(quant)
                         })
-                        const cached = Array.isArray(spec.cache_status)
+                        const cached = spec && Array.isArray(spec.cache_status)
                           ? spec.cache_status[spec.quantizations.indexOf(quant)]
-                          : spec.cache_status
+                          : spec ? spec.cache_status : false;
 
                         const displayedQuant = cached
                           ? quant + ' (cached)'
