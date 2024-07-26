@@ -63,11 +63,15 @@ try:
 except ImportError:
     SGLANG_INSTALLED = False
 
-SGLANG_SUPPORTED_MODELS = ["llama-2", "mistral-v0.1", "mixtral-v0.1"]
+SGLANG_SUPPORTED_MODELS = ["llama-2", "llama-3", "llama-3.1", "mistral-v0.1", "mixtral-v0.1"]
 SGLANG_SUPPORTED_CHAT_MODELS = [
     "llama-2-chat",
+    "llama-3-instruct",
+    "llama-3.1-instruct",
     "qwen-chat",
     "qwen1.5-chat",
+    "qwen2-instruct",
+    "qwen2-moe-instruct",
     "mistral-instruct-v0.1",
     "mistral-instruct-v0.2",
     "mixtral-instruct-v0.1",
