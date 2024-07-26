@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 123 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 123
 - **Quantizations:** none
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers
 - **Model ID:** mistralai/Mistral-Large-Instruct-2407
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/mistralai/Mistral-Large-Instruct-2407>`__, `ModelScope <https://modelscope.cn/models/LLM-Research/Mistral-Large-Instruct-2407-bnb-4bit>`__
 
@@ -52,7 +52,7 @@ Model Spec 3 (gptq, 123 Billion)
 - **Model Format:** gptq
 - **Model Size (in billions):** 123
 - **Quantizations:** Int4
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers
 - **Model ID:** ModelCloud/Mistral-Large-Instruct-2407-gptq-4bit
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/ModelCloud/Mistral-Large-Instruct-2407-gptq-4bit>`__
 
@@ -68,7 +68,7 @@ Model Spec 4 (awq, 123 Billion)
 - **Model Format:** awq
 - **Model Size (in billions):** 123
 - **Quantizations:** Int4
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers
 - **Model ID:** TechxGenus/Mistral-Large-Instruct-2407-AWQ
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/TechxGenus/Mistral-Large-Instruct-2407-AWQ>`__
 
