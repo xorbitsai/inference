@@ -153,6 +153,7 @@ if VLLM_INSTALLED and vllm.__version__ >= "0.4.0":
 
 if VLLM_INSTALLED and vllm.__version__ >= "0.5.3":
     VLLM_SUPPORTED_CHAT_MODELS.append("mistral-nemo-instruct")
+    VLLM_SUPPORTED_CHAT_MODELS.append("mistral-large-instruct")
 
 
 class VLLMModel(LLM):

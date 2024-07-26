@@ -2156,6 +2156,63 @@
   },
   {
     "version": 1,
+    "context_length": 131072,
+    "model_name": "mistral-large-instruct",
+    "model_lang": [
+      "en",
+      "fr",
+      "de",
+      "es",
+      "it",
+      "pt",
+      "zh",
+      "ru",
+      "ja",
+      "ko"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "Mistral-Large-Instruct-2407 is an advanced dense Large Language Model (LLM) of 123B parameters with state-of-the-art reasoning, knowledge and coding capabilities.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 123,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "LLM-Research/Mistral-Large-Instruct-2407",
+        "model_hub": "modelscope"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 123,
+        "quantizations": [
+          "4-bit"
+        ],
+        "model_id": "LLM-Research/Mistral-Large-Instruct-2407-bnb-4bit",
+        "model_hub": "modelscope"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "mistral-nemo",
+      "system_prompt": "",
+      "roles": [
+        "[INST]",
+        "[/INST]"
+      ],
+      "intra_message_sep": "",
+      "inter_message_sep": "</s>",
+      "stop_token_ids": [
+        2
+      ],
+      "stop": [
+        "</s>"
+      ]
+    }
+  },
+  {
+    "version": 1,
     "context_length": 2048,
     "model_name": "falcon-instruct",
     "model_lang": [

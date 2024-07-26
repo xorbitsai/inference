@@ -326,6 +326,11 @@ The following is a list of built-in LLM in Xinference:
      - 32768
      - The Mistral-7B-Instruct-v0.2 Large Language Model (LLM) is an improved instruct fine-tuned version of Mistral-7B-Instruct-v0.1.
 
+   * - :ref:`mistral-large-instruct <models_llm_mistral-large-instruct>`
+     - chat
+     - 131072
+     - Mistral-Large-Instruct-2407 is an advanced dense Large Language Model (LLM) of 123B parameters with state-of-the-art reasoning, knowledge and coding capabilities.
+
    * - :ref:`mistral-nemo-instruct <models_llm_mistral-nemo-instruct>`
      - chat
      - 1024000
@@ -699,6 +704,8 @@ The following is a list of built-in LLM in Xinference:
    mistral-instruct-v0.2
   
    mistral-instruct-v0.3
+  
+   mistral-large-instruct
   
    mistral-nemo-instruct
   

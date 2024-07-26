@@ -4078,6 +4078,163 @@
   },
   {
     "version": 1,
+    "context_length": 131072,
+    "model_name": "mistral-large-instruct",
+    "model_lang": [
+      "en",
+      "fr",
+      "de",
+      "es",
+      "it",
+      "pt",
+      "zh",
+      "ru",
+      "ja",
+      "ko"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "Mistral-Large-Instruct-2407 is an advanced dense Large Language Model (LLM) of 123B parameters with state-of-the-art reasoning, knowledge and coding capabilities.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 123,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "mistralai/Mistral-Large-Instruct-2407"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 123,
+        "quantizations": [
+          "4-bit"
+        ],
+        "model_id": "unsloth/Mistral-Large-Instruct-2407-bnb-4bit"
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 123,
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "ModelCloud/Mistral-Large-Instruct-2407-gptq-4bit"
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 123,
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "TechxGenus/Mistral-Large-Instruct-2407-AWQ"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 123,
+        "quantizations": [
+          "Q2_K",
+          "Q3_K_S",
+          "Q3_K_M",
+          "Q3_K_L",
+          "Q4_K_S",
+          "Q4_K_M"
+        ],
+        "model_id": "MaziyarPanahi/Mistral-Large-Instruct-2407-GGUF",
+        "model_file_name_template": "Mistral-Large-Instruct-2407.{quantization}.gguf",
+        "model_file_name_split_template": "Mixtral-8x22B-Instruct-v0.1.{quantization}-{part}.gguf",
+        "quantization_parts": {
+          "Q3_K_L": [
+            "00001-of-00007",
+            "00002-of-00007",
+            "00003-of-00007",
+            "00004-of-00007",
+            "00005-of-00007",
+            "00006-of-00007",
+            "00007-of-00007"
+          ],
+          "Q3_K_M": [
+            "00001-of-00007",
+            "00002-of-00007",
+            "00003-of-00007",
+            "00004-of-00007",
+            "00005-of-00007",
+            "00006-of-00007",
+            "00007-of-00007"
+          ],
+          "Q3_K_S": [
+            "00001-of-00007",
+            "00002-of-00007",
+            "00003-of-00007",
+            "00004-of-00007",
+            "00005-of-00007",
+            "00006-of-00007",
+            "00007-of-00007"
+          ],
+          "Q4_K_M": [
+            "00001-of-00007",
+            "00002-of-00007",
+            "00003-of-00007",
+            "00004-of-00007",
+            "00005-of-00007",
+            "00006-of-00007",
+            "00007-of-00007"
+          ],
+          "Q4_K_S": [
+            "00001-of-00007",
+            "00002-of-00007",
+            "00003-of-00007",
+            "00004-of-00007",
+            "00005-of-00007",
+            "00006-of-00007",
+            "00007-of-00007"
+          ]
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 123,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "mlx-community/Mistral-Large-Instruct-2407-bf16"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 123,
+        "quantizations": [
+          "4-bit"
+        ],
+        "model_id": "mlx-community/Mistral-Large-Instruct-2407-4bit"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 123,
+        "quantizations": [
+          "8-bit"
+        ],
+        "model_id": "mlx-community/Mistral-Large-Instruct-2407-8bit"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "mistral-nemo",
+      "system_prompt": "",
+      "roles": [
+        "[INST]",
+        "[/INST]"
+      ],
+      "intra_message_sep": "",
+      "inter_message_sep": "</s>",
+      "stop_token_ids": [
+        2
+      ],
+      "stop": [
+        "</s>"
+      ]
+    }
+  },
+  {
+    "version": 1,
     "context_length": 32768,
     "model_name": "codestral-v0.1",
     "model_lang": [
