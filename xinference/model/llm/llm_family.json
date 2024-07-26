@@ -3954,6 +3954,130 @@
   },
   {
     "version": 1,
+    "context_length": 1024000,
+    "model_name": "mistral-nemo-instruct",
+    "model_lang": [
+      "en",
+      "fr",
+      "de",
+      "es",
+      "it",
+      "pt",
+      "zh",
+      "ru",
+      "ja"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "The Mistral-Nemo-Instruct-2407 Large Language Model (LLM) is an instruct fine-tuned version of the Mistral-Nemo-Base-2407",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 12,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "mistralai/Mistral-Nemo-Instruct-2407",
+        "model_revision": "05b1e4f3e189ec1b5189fb3c973d4cf3369c27af"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 12,
+        "quantizations": [
+          "4-bit"
+        ],
+        "model_id": "unsloth/Mistral-Nemo-Instruct-2407-bnb-4bit",
+        "model_revision": "1d85adc9e0fff0b8e4479a037bd75fe1346333ca"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 12,
+        "quantizations": [
+          "8-bit"
+        ],
+        "model_id": "afrizalha/Mistral-Nemo-Instruct-2407-bnb-8bit",
+        "model_revision": "1d2dacf18a486c745219317d1507441406bc7e25"
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 12,
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "ModelCloud/Mistral-Nemo-Instruct-2407-gptq-4bit"
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 12,
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "casperhansen/mistral-nemo-instruct-2407-awq"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 12,
+        "quantizations": [
+          "Q2_K",
+          "Q3_K_S",
+          "Q3_K_M",
+          "Q3_K_L",
+          "Q4_K_S",
+          "Q4_K_M",
+          "Q5_K_S",
+          "Q5_K_M",
+          "Q6_K",
+          "Q8_0",
+          "fp16"
+        ],
+        "model_id": "MaziyarPanahi/Mistral-Nemo-Instruct-2407-GGUF",
+        "model_file_name_template": "Mistral-Nemo-Instruct-2407.{quantization}.gguf"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 12,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "mlx-community/Mistral-Nemo-Instruct-2407-bf16"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 12,
+        "quantizations": [
+          "4-bit"
+        ],
+        "model_id": "mlx-community/Mistral-Nemo-Instruct-2407-4bit"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 12,
+        "quantizations": [
+          "8-bit"
+        ],
+        "model_id": "mlx-community/Mistral-Nemo-Instruct-2407-8bit"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "mistral-nemo",
+      "system_prompt": "",
+      "roles": [
+        "[INST]",
+        "[/INST]"
+      ],
+      "intra_message_sep": "",
+      "inter_message_sep": "</s>",
+      "stop_token_ids": [
+        2
+      ],
+      "stop": [
+        "</s>"
+      ]
+    }
+  },
+  {
+    "version": 1,
     "context_length": 32768,
     "model_name": "codestral-v0.1",
     "model_lang": [
