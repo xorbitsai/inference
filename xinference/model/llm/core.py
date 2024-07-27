@@ -222,7 +222,7 @@ def create_llm_model_instance(
     )
     logger.debug(f"Launching {model_uid} with {llm_cls.__name__}")
 
-    if model_path is None or model_path == "":
+    if not model_path:
         model_path = cache(llm_family, llm_spec, quantization)
 
     peft_model = peft_model_config.peft_model if peft_model_config else None

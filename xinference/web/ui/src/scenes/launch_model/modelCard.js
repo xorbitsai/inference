@@ -304,7 +304,7 @@ const ModelCard = ({
       worker_ip: workerIp.trim() === '' ? null : workerIp.trim(),
       gpu_idx: GPUIdx.trim() === '' ? null : handleGPUIdx(GPUIdx.trim()),
       download_hub: downloadHub === '' ? null : downloadHub,
-      model_path: modelPath === '' ? null : modelPath,
+      model_path: modelPath.trim() === '' ? null : modelPath.trim(),
     }
 
     let modelDataWithID_other = {
@@ -316,7 +316,7 @@ const ModelCard = ({
       worker_ip: workerIp.trim() === '' ? null : workerIp.trim(),
       gpu_idx: GPUIdx.trim() === '' ? null : handleGPUIdx(GPUIdx.trim()),
       download_hub: downloadHub === '' ? null : downloadHub,
-      model_path: modelPath === '' ? null : modelPath,
+      model_path: modelPath.trim() === '' ? null : modelPath.trim(),
     }
 
     if (nGPULayers >= 0) {

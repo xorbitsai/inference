@@ -322,7 +322,7 @@ def create_rerank_model_instance(
                 f"Huggingface: {BUILTIN_RERANK_MODELS.keys()}"
                 f"ModelScope: {MODELSCOPE_RERANK_MODELS.keys()}"
             )
-    if model_path is None or model_path == "":
+    if not model_path:
         model_path = cache(model_spec)
     use_fp16 = kwargs.pop("use_fp16", False)
     model = RerankModel(

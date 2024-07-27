@@ -353,7 +353,7 @@ def create_embedding_model_instance(
     **kwargs,
 ) -> Tuple[EmbeddingModel, EmbeddingModelDescription]:
     model_spec = match_embedding(model_name, download_hub)
-    if model_path is None or model_path == "":
+    if not model_path:
         model_path = cache(model_spec)
 
     model = EmbeddingModel(model_uid, model_path, **kwargs)

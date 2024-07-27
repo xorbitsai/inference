@@ -800,6 +800,11 @@ class WorkerActor(xo.StatelessActor):
                 raise ValueError(
                     f"PEFT adaptors can only be applied to pytorch-like models"
                 )
+        if model_path is not None:
+            if not os.path.exists(model_path):
+                raise ValueError(
+                    f"Invalid input. `model_path`: {model_path} File or directory does not exist."
+                )
 
         assert model_uid not in self._model_uid_to_model
         self._check_model_is_valid(model_name, model_format)

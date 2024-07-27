@@ -218,7 +218,7 @@ def create_flexible_model_instance(
     **kwargs,
 ) -> Tuple[FlexibleModel, FlexibleModelDescription]:
     model_spec = match_flexible_model(model_name)
-    if model_path is None or model_path == "":
+    if not model_path:
         model_path = model_spec.model_uri
     launcher_name = model_spec.launcher
     launcher_args = model_spec.parser_args()
