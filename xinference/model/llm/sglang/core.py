@@ -68,7 +68,7 @@ SGLANG_SUPPORTED_MODELS = [
     "llama-3",
     "llama-3.1",
     "mistral-v0.1",
-    "mixtral-v0.1"
+    "mixtral-v0.1",
 ]
 SGLANG_SUPPORTED_CHAT_MODELS = [
     "llama-2-chat",
