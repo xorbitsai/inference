@@ -153,7 +153,13 @@ if VLLM_INSTALLED and vllm.__version__ >= "0.4.0":
 
 if VLLM_INSTALLED and vllm.__version__ >= "0.5.3":
     VLLM_SUPPORTED_CHAT_MODELS.append("gemma-2-it")
+    VLLM_SUPPORTED_CHAT_MODELS.append("mistral-nemo-instruct")
+    VLLM_SUPPORTED_CHAT_MODELS.append("mistral-large-instruct")
 
+if VLLM_INSTALLED and vllm.__version__ > "0.5.3":
+    VLLM_SUPPORTED_CHAT_MODELS.append("llama-3.1")
+    VLLM_SUPPORTED_CHAT_MODELS.append("llama-3.1-instruct")
+    
 class VLLMModel(LLM):
     def __init__(
         self,
