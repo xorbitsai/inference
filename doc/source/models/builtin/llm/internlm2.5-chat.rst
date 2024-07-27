@@ -61,3 +61,35 @@ chosen quantization method from the options listed above::
 
    xinference launch --model-engine ${engine} --model-name internlm2.5-chat --size-in-billions 7 --model-format ggufv2 --quantization ${quantization}
 
+
+Model Spec 4 (mlx, 7 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** mlx
+- **Model Size (in billions):** 7
+- **Quantizations:** 4-bit
+- **Engines**: MLX
+- **Model ID:** mlx-community/internlm2_5-7b-chat-4bit
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/internlm2_5-7b-chat-4bit>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name internlm2.5-chat --size-in-billions 7 --model-format mlx --quantization ${quantization}
+
+
+Model Spec 5 (mlx, 7 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** mlx
+- **Model Size (in billions):** 7
+- **Quantizations:** 8-bit
+- **Engines**: MLX
+- **Model ID:** mlx-community/internlm2_5-7b-chat-8bit
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/internlm2_5-7b-chat-8bit>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name internlm2.5-chat --size-in-billions 7 --model-format mlx --quantization ${quantization}
+

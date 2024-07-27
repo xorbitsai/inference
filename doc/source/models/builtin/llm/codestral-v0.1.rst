@@ -45,3 +45,35 @@ chosen quantization method from the options listed above::
 
    xinference launch --model-engine ${engine} --model-name codestral-v0.1 --size-in-billions 22 --model-format ggufv2 --quantization ${quantization}
 
+
+Model Spec 3 (mlx, 22 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** mlx
+- **Model Size (in billions):** 22
+- **Quantizations:** 4-bit
+- **Engines**: MLX
+- **Model ID:** mlx-community/Codestral-22B-v0.1-4bit
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Codestral-22B-v0.1-4bit>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name codestral-v0.1 --size-in-billions 22 --model-format mlx --quantization ${quantization}
+
+
+Model Spec 4 (mlx, 22 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** mlx
+- **Model Size (in billions):** 22
+- **Quantizations:** 8-bit
+- **Engines**: MLX
+- **Model ID:** mlx-community/Codestral-22B-v0.1-8bit
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Codestral-22B-v0.1-8bit>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name codestral-v0.1 --size-in-billions 22 --model-format mlx --quantization ${quantization}
+

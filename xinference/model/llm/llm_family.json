@@ -1652,6 +1652,329 @@
           "none"
         ],
         "model_id": "meta-llama/Meta-Llama-3-70B-Instruct"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 8,
+        "quantizations": [
+          "4-bit"
+        ],
+        "model_id": "mlx-community/Meta-Llama-3-8B-Instruct-4bit"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 8,
+        "quantizations": [
+          "8-bit"
+        ],
+        "model_id": "mlx-community/Meta-Llama-3-8B-Instruct-8bit"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 8,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "mlx-community/Meta-Llama-3-8B-Instruct"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 70,
+        "quantizations": [
+          "4-bit"
+        ],
+        "model_id": "mlx-community/Meta-Llama-3-70B-Instruct-4bit-mlx"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 70,
+        "quantizations": [
+          "8-bit"
+        ],
+        "model_id": "mlx-community/Meta-Llama-3-70B-Instruct-8bit"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 70,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "mlx-community/Meta-Llama-3-70B-Instruct-mlx-unquantized"
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 8,
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "TechxGenus/Meta-Llama-3-8B-Instruct-GPTQ"
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 70,
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "TechxGenus/Meta-Llama-3-70B-Instruct-GPTQ"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "LLAMA3",
+      "system_prompt": "You are a helpful assistant.",
+      "roles": [
+        "user",
+        "assistant"
+      ],
+      "intra_message_sep": "\n\n",
+      "inter_message_sep": "<|eot_id|>",
+      "stop_token_ids": [
+        128001,
+        128009
+      ],
+      "stop": [
+        "<|end_of_text|>",
+        "<|eot_id|>"
+      ]
+    }
+  },
+  {
+    "version": 1,
+    "context_length": 131072,
+    "model_name": "llama-3.1",
+    "model_lang": [
+      "en",
+      "de",
+      "fr",
+      "it",
+      "pt",
+      "hi",
+      "es",
+      "th"
+    ],
+    "model_ability": [
+      "generate"
+    ],
+    "model_description": "Llama 3.1 is an auto-regressive language model that uses an optimized transformer architecture",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 8,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "meta-llama/Meta-Llama-3.1-8B"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 8,
+        "quantizations": [
+          "Q2_K",
+          "Q3_K_L",
+          "Q3_K_M",
+          "Q3_K_S",
+          "Q4_0",
+          "Q4_1",
+          "Q4_K_M",
+          "Q4_K_S",
+          "Q5_0",
+          "Q5_1",
+          "Q5_K_M",
+          "Q5_K_S",
+          "Q6_K",
+          "Q8_0"
+        ],
+        "model_id": "QuantFactory/Meta-Llama-3.1-8B-GGUF",
+        "model_file_name_template": "Meta-Llama-3.1-8B.{quantization}.gguf"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 70,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "meta-llama/Meta-Llama-3.1-70B"
+      }
+    ]
+  },
+  {
+    "version": 1,
+    "context_length": 131072,
+    "model_name": "llama-3.1-instruct",
+    "model_lang": [
+      "en",
+      "de",
+      "fr",
+      "it",
+      "pt",
+      "hi",
+      "es",
+      "th"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "The Llama 3.1 instruction tuned models are optimized for dialogue use cases and outperform many of the available open source chat models on common industry benchmarks..",
+    "model_specs": [
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 8,
+        "quantizations": [
+          "Q3_K_L",
+          "IQ4_XS",
+          "Q4_K_M",
+          "Q5_K_M",
+          "Q6_K",
+          "Q8_0"
+        ],
+        "model_id": "lmstudio-community/Meta-Llama-3.1-8B-Instruct-GGUF",
+        "model_file_name_template": "Meta-Llama-3.1-8B-Instruct-{quantization}.gguf"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 8,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "meta-llama/Meta-Llama-3.1-8B-Instruct"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 8,
+        "quantizations": [
+          "4-bit"
+        ],
+        "model_id": "unsloth/Meta-Llama-3.1-8B-Instruct-bnb-4bit"
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 8,
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "hugging-quants/Meta-Llama-3.1-8B-Instruct-GPTQ-INT4"
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 8,
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "hugging-quants/Meta-Llama-3.1-8B-Instruct-AWQ-INT4"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 70,
+        "quantizations": [
+          "IQ2_M",
+          "IQ4_XS",
+          "Q2_K",
+          "Q3_K_S",
+          "Q4_K_M",
+          "Q5_K_M",
+          "Q6_K",
+          "Q8_0"
+        ],
+        "quantization_parts": {
+          "Q5_K_M": [
+            "00001-of-00002",
+            "00002-of-00002"
+          ],
+          "Q6_K": [
+            "00001-of-00002",
+            "00002-of-00002"
+          ],
+          "Q8_0": [
+            "00001-of-00002",
+            "00002-of-00002"
+          ]
+        },
+        "model_id": "lmstudio-community/Meta-Llama-3.1-70B-Instruct-GGUF",
+        "model_file_name_template": "Meta-Llama-3.1-70B-Instruct-{quantization}.gguf",
+        "model_file_name_split_template": "Meta-Llama-3.1-70B-Instruct-{quantization}-{part}.gguf"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 70,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "meta-llama/Meta-Llama-3.1-70B-Instruct"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 70,
+        "quantizations": [
+          "4-bit"
+        ],
+        "model_id": "unsloth/Meta-Llama-3.1-70B-Instruct-bnb-4bit"
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 70,
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "hugging-quants/Meta-Llama-3.1-70B-Instruct-GPTQ-INT4"
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 70,
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 8,
+        "quantizations": [
+          "4-bit"
+        ],
+        "model_id": "mlx-community/Meta-Llama-3.1-8B-Instruct-4bit"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 8,
+        "quantizations": [
+          "8-bit"
+        ],
+        "model_id": "mlx-community/Meta-Llama-3.1-8B-Instruct-8bit"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 8,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "mlx-community/Meta-Llama-3.1-8B-Instruct"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 70,
+        "quantizations": [
+          "4-bit"
+        ],
+        "model_id": "mlx-community/Meta-Llama-3.1-70B-Instruct-4bit"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 70,
+        "quantizations": [
+          "8-bit"
+        ],
+        "model_id": "mlx-community/Meta-Llama-3.1-70B-Instruct-8bit"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 70,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "mlx-community/Meta-Llama-3.1-70B-Instruct-bf16"
       }
     ],
     "prompt_style": {
@@ -3890,6 +4213,287 @@
   },
   {
     "version": 1,
+    "context_length": 1024000,
+    "model_name": "mistral-nemo-instruct",
+    "model_lang": [
+      "en",
+      "fr",
+      "de",
+      "es",
+      "it",
+      "pt",
+      "zh",
+      "ru",
+      "ja"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "The Mistral-Nemo-Instruct-2407 Large Language Model (LLM) is an instruct fine-tuned version of the Mistral-Nemo-Base-2407",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 12,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "mistralai/Mistral-Nemo-Instruct-2407",
+        "model_revision": "05b1e4f3e189ec1b5189fb3c973d4cf3369c27af"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 12,
+        "quantizations": [
+          "4-bit"
+        ],
+        "model_id": "unsloth/Mistral-Nemo-Instruct-2407-bnb-4bit",
+        "model_revision": "1d85adc9e0fff0b8e4479a037bd75fe1346333ca"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 12,
+        "quantizations": [
+          "8-bit"
+        ],
+        "model_id": "afrizalha/Mistral-Nemo-Instruct-2407-bnb-8bit",
+        "model_revision": "1d2dacf18a486c745219317d1507441406bc7e25"
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 12,
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "ModelCloud/Mistral-Nemo-Instruct-2407-gptq-4bit"
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 12,
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "casperhansen/mistral-nemo-instruct-2407-awq"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 12,
+        "quantizations": [
+          "Q2_K",
+          "Q3_K_S",
+          "Q3_K_M",
+          "Q3_K_L",
+          "Q4_K_S",
+          "Q4_K_M",
+          "Q5_K_S",
+          "Q5_K_M",
+          "Q6_K",
+          "Q8_0",
+          "fp16"
+        ],
+        "model_id": "MaziyarPanahi/Mistral-Nemo-Instruct-2407-GGUF",
+        "model_file_name_template": "Mistral-Nemo-Instruct-2407.{quantization}.gguf"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 12,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "mlx-community/Mistral-Nemo-Instruct-2407-bf16"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 12,
+        "quantizations": [
+          "4-bit"
+        ],
+        "model_id": "mlx-community/Mistral-Nemo-Instruct-2407-4bit"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 12,
+        "quantizations": [
+          "8-bit"
+        ],
+        "model_id": "mlx-community/Mistral-Nemo-Instruct-2407-8bit"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "mistral-nemo",
+      "system_prompt": "",
+      "roles": [
+        "[INST]",
+        "[/INST]"
+      ],
+      "intra_message_sep": "",
+      "inter_message_sep": "</s>",
+      "stop_token_ids": [
+        2
+      ],
+      "stop": [
+        "</s>"
+      ]
+    }
+  },
+  {
+    "version": 1,
+    "context_length": 131072,
+    "model_name": "mistral-large-instruct",
+    "model_lang": [
+      "en",
+      "fr",
+      "de",
+      "es",
+      "it",
+      "pt",
+      "zh",
+      "ru",
+      "ja",
+      "ko"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "Mistral-Large-Instruct-2407 is an advanced dense Large Language Model (LLM) of 123B parameters with state-of-the-art reasoning, knowledge and coding capabilities.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 123,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "mistralai/Mistral-Large-Instruct-2407"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 123,
+        "quantizations": [
+          "4-bit"
+        ],
+        "model_id": "unsloth/Mistral-Large-Instruct-2407-bnb-4bit"
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 123,
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "ModelCloud/Mistral-Large-Instruct-2407-gptq-4bit"
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 123,
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "TechxGenus/Mistral-Large-Instruct-2407-AWQ"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 123,
+        "quantizations": [
+          "Q2_K",
+          "Q3_K_S",
+          "Q3_K_M",
+          "Q3_K_L",
+          "Q4_K_S",
+          "Q4_K_M"
+        ],
+        "model_id": "MaziyarPanahi/Mistral-Large-Instruct-2407-GGUF",
+        "model_file_name_template": "Mistral-Large-Instruct-2407.{quantization}.gguf",
+        "model_file_name_split_template": "Mixtral-8x22B-Instruct-v0.1.{quantization}-{part}.gguf",
+        "quantization_parts": {
+          "Q3_K_L": [
+            "00001-of-00007",
+            "00002-of-00007",
+            "00003-of-00007",
+            "00004-of-00007",
+            "00005-of-00007",
+            "00006-of-00007",
+            "00007-of-00007"
+          ],
+          "Q3_K_M": [
+            "00001-of-00007",
+            "00002-of-00007",
+            "00003-of-00007",
+            "00004-of-00007",
+            "00005-of-00007",
+            "00006-of-00007",
+            "00007-of-00007"
+          ],
+          "Q3_K_S": [
+            "00001-of-00007",
+            "00002-of-00007",
+            "00003-of-00007",
+            "00004-of-00007",
+            "00005-of-00007",
+            "00006-of-00007",
+            "00007-of-00007"
+          ],
+          "Q4_K_M": [
+            "00001-of-00007",
+            "00002-of-00007",
+            "00003-of-00007",
+            "00004-of-00007",
+            "00005-of-00007",
+            "00006-of-00007",
+            "00007-of-00007"
+          ],
+          "Q4_K_S": [
+            "00001-of-00007",
+            "00002-of-00007",
+            "00003-of-00007",
+            "00004-of-00007",
+            "00005-of-00007",
+            "00006-of-00007",
+            "00007-of-00007"
+          ]
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 123,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "mlx-community/Mistral-Large-Instruct-2407-bf16"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 123,
+        "quantizations": [
+          "4-bit"
+        ],
+        "model_id": "mlx-community/Mistral-Large-Instruct-2407-4bit"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 123,
+        "quantizations": [
+          "8-bit"
+        ],
+        "model_id": "mlx-community/Mistral-Large-Instruct-2407-8bit"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "mistral-nemo",
+      "system_prompt": "",
+      "roles": [
+        "[INST]",
+        "[/INST]"
+      ],
+      "intra_message_sep": "",
+      "inter_message_sep": "</s>",
+      "stop_token_ids": [
+        2
+      ],
+      "stop": [
+        "</s>"
+      ]
+    }
+  },
+  {
+    "version": 1,
     "context_length": 32768,
     "model_name": "codestral-v0.1",
     "model_lang": [
@@ -3928,6 +4532,24 @@
         ],
         "model_id": "bartowski/Codestral-22B-v0.1-GGUF",
         "model_file_name_template": "Codestral-22B-v0.1-{quantization}.gguf"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 22,
+        "quantizations": [
+          "4-bit"
+        ],
+        "model_id": "mlx-community/Codestral-22B-v0.1-4bit",
+        "model_revision": "544626b38eb1c9524f0fa570ec7b29550c26b78d"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 22,
+        "quantizations": [
+          "8-bit"
+        ],
+        "model_id": "mlx-community/Codestral-22B-v0.1-8bit",
+        "model_revision": "0399a53970663950d57010e61a2796af524a1588"
       }
     ]
   },
@@ -4667,6 +5289,61 @@
         ],
         "model_id": "modelscope/Yi-1.5-34B-Chat-AWQ",
         "model_revision": "26234fea6ac49d456f32f8017289021fb1087a04"
+      }
+      ,
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 6,
+        "quantizations": [
+          "4-bit"
+        ],
+        "model_id": "mlx-community/Yi-1.5-6B-Chat-4bit",
+        "model_revision": "0177c9a12b869d6bc73f772b5a1981a7c966adb6"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 6,
+        "quantizations": [
+          "8-bit"
+        ],
+        "model_id": "mlx-community/Yi-1.5-6B-Chat-8bit",
+        "model_revision": "7756e65d1bf1e2e6e97aef6bc9484307225f536b"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 9,
+        "quantizations": [
+          "4-bit"
+        ],
+        "model_id": "mlx-community/Yi-1.5-9B-Chat-4bit",
+        "model_revision": "e15f886479c44e7d90f0ac13ace69b2319b71c2f"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 9,
+        "quantizations": [
+          "8-bit"
+        ],
+        "model_id": "mlx-community/Yi-1.5-9B-Chat-8bit",
+        "model_revision": "c1f742fcf3683edbe2d2c2fd1ad7ac2bb6c5ca36"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 34,
+        "quantizations": [
+          "4-bit"
+        ],
+        "model_id": "mlx-community/Yi-1.5-34B-Chat-4bit",
+        "model_revision": "945e3b306ef37c46ab444fdc857d1f3ea7247374"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 34,
+        "quantizations": [
+          "8-bit"
+        ],
+        "model_id": "mlx-community/Yi-1.5-34B-Chat-8bit",
+        "model_revision": "3c12761a2c6663f216caab6dff84b0dd29b472ac"
       }
     ],
     "prompt_style": {
@@ -5945,6 +6622,24 @@
         ],
         "model_id": "internlm/internlm2_5-7b-chat-gguf",
         "model_file_name_template": "internlm2_5-7b-chat-{quantization}.gguf"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "4-bit"
+        ],
+        "model_id": "mlx-community/internlm2_5-7b-chat-4bit",
+        "model_revision": "d12097a867721978142a6048399f470a3d18beee"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "8-bit"
+        ],
+        "model_id": "mlx-community/internlm2_5-7b-chat-8bit",
+        "model_revision": "0ec94d61d30ab161b49c69f9bf92ec2b9986d234"
       }
     ],
     "prompt_style": {
@@ -7049,6 +7744,15 @@
         "model_revision": "16881ccde1c68bbc7041280e6a66637bc46bfe88"
       },
       {
+        "model_format": "pytorch",
+        "model_size_in_billions": 35,
+        "quantizations": [
+          "4-bit"
+        ],
+        "model_id": "CohereForAI/c4ai-command-r-v01-4bit",
+        "model_revision": "f2e87936a146643c9dd143422dcafb9cb1552611"
+      },
+      {
         "model_format": "ggufv2",
         "model_size_in_billions": 35,
         "quantizations": [
@@ -7078,6 +7782,15 @@
         "model_revision": "ba7f1d954c9d1609013677d87e4142ab95c34e62"
       },
       {
+        "model_format": "pytorch",
+        "model_size_in_billions": 104,
+        "quantizations": [
+          "4-bit"
+        ],
+        "model_id": "CohereForAI/c4ai-command-r-plus-4bit",
+        "model_revision": "bb63b5b7005ecedb30b0cfd0d5953b02a5817f7b"
+      },
+      {
         "model_format": "gptq",
         "model_size_in_billions": 104,
         "quantizations": [
@@ -7085,61 +7798,6 @@
         ],
         "model_id": "alpindale/c4ai-command-r-plus-GPTQ",
         "model_revision": "35febfc08f723ac0df32480eb4af349a7d08656e"
-      }
-    ],
-    "prompt_style": {
-      "style_name": "c4ai-command-r",
-      "system_prompt": "You are Command-R, a brilliant, sophisticated, AI-assistant trained to assist human users by providing thorough responses. You are trained by Cohere.",
-      "roles": [
-        "<|USER_TOKEN|>",
-        "<|CHATBOT_TOKEN|>"
-      ],
-      "intra_message_sep": "",
-      "inter_message_sep": "<|END_OF_TURN_TOKEN|><|START_OF_TURN_TOKEN|>",
-      "stop_token_ids": [
-        6,
-        255001
-      ]
-    }
-  },
-  {
-    "version": 1,
-    "context_length": 131072,
-    "model_name": "c4ai-command-r-v01-4bit",
-    "model_lang": [
-      "en",
-      "fr",
-      "de",
-      "es",
-      "it",
-      "pt",
-      "ja",
-      "ko",
-      "zh",
-      "ar"
-    ],
-    "model_ability": [
-      "generate"
-    ],
-    "model_description": "This model is 4bit quantized version of C4AI Command-R using bitsandbytes.",
-    "model_specs": [
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": 35,
-        "quantizations": [
-          "none"
-        ],
-        "model_id": "CohereForAI/c4ai-command-r-v01-4bit",
-        "model_revision": "f2e87936a146643c9dd143422dcafb9cb1552611"
-      },
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": 104,
-        "quantizations": [
-          "none"
-        ],
-        "model_id": "CohereForAI/c4ai-command-r-plus-4bit",
-        "model_revision": "bb63b5b7005ecedb30b0cfd0d5953b02a5817f7b"
       }
     ],
     "prompt_style": {
@@ -7385,6 +8043,68 @@
       "stop_token_ids": [
         160133,
         160132
+      ]
+    }
+  },
+  {
+    "version": 1,
+    "context_length": 32768,
+    "model_name": "csg-wukong-chat-v0.1",
+    "model_lang": [
+      "en"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "csg-wukong-1B is a 1 billion-parameter small language model(SLM) pretrained on 1T tokens.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 1,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "opencsg/csg-wukong-1B-chat-v0.1",
+        "model_revision": "2443c903d46074af0856e2ba11398dcd01d35536"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 1,
+        "quantizations": [
+          "Q2_K",
+          "Q3_K",
+          "Q3_K_S",
+          "Q3_K_M",
+          "Q3_K_L",
+          "Q4_0",
+          "Q4_1",
+          "Q4_K_S",
+          "Q4_K_M",
+          "Q5_0",
+          "Q5_1",
+          "Q5_K_S",
+          "Q5_K_M",
+          "Q6_K",
+          "Q8_0"
+        ],
+        "model_id": "RichardErkhov/opencsg_-_csg-wukong-1B-chat-v0.1-gguf",
+        "model_file_name_template": "csg-wukong-1B-chat-v0.1.{quantization}.gguf"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "NO_COLON_TWO",
+      "system_prompt": "<|system|>\nYou are a creative super artificial intelligence assistant, possessing all the knowledge of humankind. Your name is csg-wukong, developed by OpenCSG. You need to understand and infer the true intentions of users based on the topics discussed in the chat history, and respond to user questions correctly as required. You enjoy responding to users with accurate and insightful answers. Please pay attention to the appropriate style and format when replying, try to avoid repetitive words and sentences, and keep your responses as concise and profound as possible. You carefully consider the context of the discussion when replying to users. When the user says \"continue,\" please proceed with the continuation of the previous assistant's response.</s>\n",
+      "roles": [
+        "<|user|>\n",
+        "<|assistant|>\n"
+      ],
+      "intra_message_sep": "</s>\n",
+      "inter_message_sep": "</s>\n",
+      "stop_token_ids": [
+        2
+      ],
+      "stop": [
+        "</s>"
       ]
     }
   }

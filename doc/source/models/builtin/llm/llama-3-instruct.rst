@@ -77,3 +77,99 @@ chosen quantization method from the options listed above::
 
    xinference launch --model-engine ${engine} --model-name llama-3-instruct --size-in-billions 70 --model-format pytorch --quantization ${quantization}
 
+
+Model Spec 5 (mlx, 8 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** mlx
+- **Model Size (in billions):** 8
+- **Quantizations:** 4-bit
+- **Engines**: MLX
+- **Model ID:** mlx-community/Meta-Llama-3-8B-Instruct-4bit
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Meta-Llama-3-8B-Instruct-4bit>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name llama-3-instruct --size-in-billions 8 --model-format mlx --quantization ${quantization}
+
+
+Model Spec 6 (mlx, 8 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** mlx
+- **Model Size (in billions):** 8
+- **Quantizations:** 8-bit
+- **Engines**: MLX
+- **Model ID:** mlx-community/Meta-Llama-3-8B-Instruct-8bit
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Meta-Llama-3-8B-Instruct-8bit>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name llama-3-instruct --size-in-billions 8 --model-format mlx --quantization ${quantization}
+
+
+Model Spec 7 (mlx, 8 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** mlx
+- **Model Size (in billions):** 8
+- **Quantizations:** none
+- **Engines**: MLX
+- **Model ID:** mlx-community/Meta-Llama-3-8B-Instruct
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Meta-Llama-3-8B-Instruct>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name llama-3-instruct --size-in-billions 8 --model-format mlx --quantization ${quantization}
+
+
+Model Spec 8 (mlx, 70 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** mlx
+- **Model Size (in billions):** 70
+- **Quantizations:** 4-bit
+- **Engines**: MLX
+- **Model ID:** mlx-community/Meta-Llama-3-70B-Instruct-4bit-mlx
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Meta-Llama-3-70B-Instruct-4bit-mlx>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name llama-3-instruct --size-in-billions 70 --model-format mlx --quantization ${quantization}
+
+
+Model Spec 9 (mlx, 70 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** mlx
+- **Model Size (in billions):** 70
+- **Quantizations:** 8-bit
+- **Engines**: MLX
+- **Model ID:** mlx-community/Meta-Llama-3-70B-Instruct-8bit
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Meta-Llama-3-70B-Instruct-8bit>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name llama-3-instruct --size-in-billions 70 --model-format mlx --quantization ${quantization}
+
+
+Model Spec 10 (mlx, 70 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** mlx
+- **Model Size (in billions):** 70
+- **Quantizations:** none
+- **Engines**: MLX
+- **Model ID:** mlx-community/Meta-Llama-3-70B-Instruct-mlx-unquantized
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Meta-Llama-3-70B-Instruct-mlx-unquantized>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name llama-3-instruct --size-in-billions 70 --model-format mlx --quantization ${quantization}
+

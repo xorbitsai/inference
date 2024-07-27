@@ -56,11 +56,6 @@ The following is a list of built-in LLM in Xinference:
      - 131072
      - C4AI Command-R(+) is a research release of a 35 and 104 billion parameter highly performant generative model.
 
-   * - :ref:`c4ai-command-r-v01-4bit <models_llm_c4ai-command-r-v01-4bit>`
-     - generate
-     - 131072
-     - This model is 4bit quantized version of C4AI Command-R using bitsandbytes.
-
    * - :ref:`chatglm <models_llm_chatglm>`
      - chat
      - 2048
@@ -140,6 +135,11 @@ The following is a list of built-in LLM in Xinference:
      - chat, vision
      - 8192
      - CogVLM2 have achieved good results in many lists compared to the previous generation of CogVLM open source models. Its excellent performance can compete with some non-open source models.
+
+   * - :ref:`csg-wukong-chat-v0.1 <models_llm_csg-wukong-chat-v0.1>`
+     - chat
+     - 32768
+     - csg-wukong-1B is a 1 billion-parameter small language model(SLM) pretrained on 1T tokens.
 
    * - :ref:`deepseek <models_llm_deepseek>`
      - generate
@@ -281,6 +281,16 @@ The following is a list of built-in LLM in Xinference:
      - 8192
      - The Llama 3 instruction tuned models are optimized for dialogue use cases and outperform many of the available open source chat models on common industry benchmarks..
 
+   * - :ref:`llama-3.1 <models_llm_llama-3.1>`
+     - generate
+     - 131072
+     - Llama 3.1 is an auto-regressive language model that uses an optimized transformer architecture
+
+   * - :ref:`llama-3.1-instruct <models_llm_llama-3.1-instruct>`
+     - chat
+     - 131072
+     - The Llama 3.1 instruction tuned models are optimized for dialogue use cases and outperform many of the available open source chat models on common industry benchmarks..
+
    * - :ref:`minicpm-2b-dpo-bf16 <models_llm_minicpm-2b-dpo-bf16>`
      - chat
      - 4096
@@ -325,6 +335,16 @@ The following is a list of built-in LLM in Xinference:
      - chat
      - 32768
      - The Mistral-7B-Instruct-v0.2 Large Language Model (LLM) is an improved instruct fine-tuned version of Mistral-7B-Instruct-v0.1.
+
+   * - :ref:`mistral-large-instruct <models_llm_mistral-large-instruct>`
+     - chat
+     - 131072
+     - Mistral-Large-Instruct-2407 is an advanced dense Large Language Model (LLM) of 123B parameters with state-of-the-art reasoning, knowledge and coding capabilities.
+
+   * - :ref:`mistral-nemo-instruct <models_llm_mistral-nemo-instruct>`
+     - chat
+     - 1024000
+     - The Mistral-Nemo-Instruct-2407 Large Language Model (LLM) is an instruct fine-tuned version of the Mistral-Nemo-Base-2407
 
    * - :ref:`mistral-v0.1 <models_llm_mistral-v0.1>`
      - generate
@@ -587,8 +607,6 @@ The following is a list of built-in LLM in Xinference:
   
    c4ai-command-r-v01
   
-   c4ai-command-r-v01-4bit
-  
    chatglm
   
    chatglm2
@@ -620,6 +638,8 @@ The following is a list of built-in LLM in Xinference:
    codestral-v0.1
   
    cogvlm2
+  
+   csg-wukong-chat-v0.1
   
    deepseek
   
@@ -677,6 +697,10 @@ The following is a list of built-in LLM in Xinference:
   
    llama-3-instruct
   
+   llama-3.1
+  
+   llama-3.1-instruct
+  
    minicpm-2b-dpo-bf16
   
    minicpm-2b-dpo-fp16
@@ -694,6 +718,10 @@ The following is a list of built-in LLM in Xinference:
    mistral-instruct-v0.2
   
    mistral-instruct-v0.3
+  
+   mistral-large-instruct
+  
+   mistral-nemo-instruct
   
    mistral-v0.1
   

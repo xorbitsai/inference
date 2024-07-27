@@ -387,7 +387,7 @@ class CogVLM2Model(PytorchChatModel):
             prompt, system_prompt=system_prompt, chat_history=chat_history
         )
 
-        input_by_model: dict = self._model.build_conversation_input_ids(
+        input_by_model: dict = self._model.build_conversation_input_ids(  # type: ignore
             self._tokenizer,
             query=query,
             history=history,

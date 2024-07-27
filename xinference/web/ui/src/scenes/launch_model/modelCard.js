@@ -311,22 +311,12 @@ const ModelCard = ({
       model_uid: modelUID.trim() === '' ? null : modelUID.trim(),
       model_name: modelData.model_name,
       model_type: modelType,
+      replica: replica,
+      n_gpu: nGpu === 'GPU' ? 'auto' : null,
+      worker_ip: workerIp.trim() === '' ? null : workerIp.trim(),
+      gpu_idx: GPUIdx.trim() === '' ? null : handleGPUIdx(GPUIdx.trim()),
       download_hub: downloadHub === '' ? null : downloadHub,
       model_path: modelPath === '' ? null : modelPath,
-    }
-
-    if (
-      modelType === 'embedding' ||
-      modelType === 'rerank' ||
-      modelType === 'flexible'
-    ) {
-      modelDataWithID_other = {
-        ...modelDataWithID_other,
-        replica: replica,
-        n_gpu: nGpu === 'GPU' ? 'auto' : null,
-        worker_ip: workerIp.trim() === '' ? null : workerIp.trim(),
-        gpu_idx: GPUIdx.trim() === '' ? null : handleGPUIdx(GPUIdx.trim()),
-      }
     }
 
     if (nGPULayers >= 0) {
@@ -649,13 +639,11 @@ const ModelCard = ({
   const handleOtherHistory = () => {
     const arr = handleGetHistory()
     if (arr.length) {
-      if (modelType === 'embedding' || modelType === 'rerank') {
-        setModelUID(arr[0].model_uid || '')
-        setReplica(arr[0].replica || 1)
-        setWorkerIp(arr[0].worker_ip || '')
-      } else {
-        setModelUID(arr[0].model_uid || '')
-      }
+      setModelUID(arr[0].model_uid || '')
+      setReplica(arr[0].replica || 1)
+      setNGpu(arr[0].n_gpu === 'auto' ? 'GPU' : 'CPU')
+      setGPUIdx(arr[0].gpu_idx || '')
+      setWorkerIp(arr[0].worker_ip || '')
       setDownloadHub(arr[0].download_hub)
       setModelPath(arr[0].model_path)
     }
@@ -725,14 +713,12 @@ const ModelCard = ({
       setCustomArr([])
       setIsOther(false)
       setIsPeftModelConfig(false)
-    } else if (modelType === 'embedding' || modelType === 'rerank') {
-      setModelUID('')
-      setReplica(1)
-      setWorkerIp('')
-      setDownloadHub('')
-      setModelPath('')
     } else {
       setModelUID('')
+      setReplica(1)
+      setNGpu(gpuAvailable === 0 ? 'CPU' : 'GPU')
+      setGPUIdx('')
+      setWorkerIp('')
       setDownloadHub('')
       setModelPath('')
     }
@@ -1491,74 +1477,68 @@ const ModelCard = ({
                 label="(Optional) Model UID, model name by default"
                 onChange={(e) => setModelUID(e.target.value)}
               />
-              {(modelType === 'embedding' ||
-                modelType === 'rerank' ||
-                modelType === 'flexible') && (
-                <>
+              <TextField
+                style={{ marginTop: '25px' }}
+                type="number"
+                InputProps={{
+                  inputProps: {
+                    min: 1,
+                  },
+                }}
+                label="Replica"
+                value={replica}
+                onChange={(e) => setReplica(parseInt(e.target.value, 10))}
+              />
+              <FormControl variant="outlined" margin="normal" fullWidth>
+                <InputLabel id="n-gpu-label">Device</InputLabel>
+                <Select
+                  labelId="n-gpu-label"
+                  value={nGpu}
+                  onChange={(e) => setNGpu(e.target.value)}
+                  label="N-GPU"
+                >
+                  {getNewNGPURange().map((v) => {
+                    return (
+                      <MenuItem key={v} value={v}>
+                        {v}
+                      </MenuItem>
+                    )
+                  })}
+                </Select>
+              </FormControl>
+              {nGpu === 'GPU' && (
+                <FormControl variant="outlined" margin="normal" fullWidth>
                   <TextField
-                    style={{ marginTop: '25px' }}
-                    type="number"
-                    InputProps={{
-                      inputProps: {
-                        min: 1,
-                      },
+                    value={GPUIdx}
+                    label="GPU Idx, Specify the GPU index where the model is located"
+                    onChange={(e) => {
+                      setGPUIdxAlert(false)
+                      setGPUIdx(e.target.value)
+                      const regular = /^\d+(?:,\d+)*$/
+                      if (
+                        e.target.value !== '' &&
+                        !regular.test(e.target.value)
+                      ) {
+                        setGPUIdxAlert(true)
+                      }
                     }}
-                    label="Replica"
-                    value={replica}
-                    onChange={(e) => setReplica(parseInt(e.target.value, 10))}
                   />
-                  <FormControl variant="outlined" margin="normal" fullWidth>
-                    <InputLabel id="n-gpu-label">Device</InputLabel>
-                    <Select
-                      labelId="n-gpu-label"
-                      value={nGpu}
-                      onChange={(e) => setNGpu(e.target.value)}
-                      label="N-GPU"
-                    >
-                      {getNewNGPURange().map((v) => {
-                        return (
-                          <MenuItem key={v} value={v}>
-                            {v}
-                          </MenuItem>
-                        )
-                      })}
-                    </Select>
-                  </FormControl>
-                  {nGpu === 'GPU' && (
-                    <FormControl variant="outlined" margin="normal" fullWidth>
-                      <TextField
-                        value={GPUIdx}
-                        label="GPU Idx, Specify the GPU index where the model is located"
-                        onChange={(e) => {
-                          setGPUIdxAlert(false)
-                          setGPUIdx(e.target.value)
-                          const regular = /^\d+(?:,\d+)*$/
-                          if (
-                            e.target.value !== '' &&
-                            !regular.test(e.target.value)
-                          ) {
-                            setGPUIdxAlert(true)
-                          }
-                        }}
-                      />
-                      {GPUIdxAlert && (
-                        <Alert severity="error">
-                          Please enter numeric data separated by commas, for
-                          example: 0,1,2
-                        </Alert>
-                      )}
-                    </FormControl>
+                  {GPUIdxAlert && (
+                    <Alert severity="error">
+                      Please enter numeric data separated by commas, for
+                      example: 0,1,2
+                    </Alert>
                   )}
-                  <FormControl variant="outlined" margin="normal" fullWidth>
-                    <TextField
-                      variant="outlined"
-                      value={workerIp}
-                      label="Worker Ip, specify the worker ip where the model is located in a distributed scenario"
-                      onChange={(e) => setWorkerIp(e.target.value)}
-                    />
-                  </FormControl>
-                </>
+                </FormControl>
               )}
+              <FormControl variant="outlined" margin="normal" fullWidth>
+                <TextField
+                  variant="outlined"
+                  value={workerIp}
+                  label="Worker Ip, specify the worker ip where the model is located in a distributed scenario"
+                  onChange={(e) => setWorkerIp(e.target.value)}
+                />
+              </FormControl>
               <FormControl variant="outlined" margin="normal" fullWidth>
                 <InputLabel id="quantization-label">
                   (Optional) Download_hub
