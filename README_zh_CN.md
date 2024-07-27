@@ -31,14 +31,14 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 - 支持语音识别模型: [#929](https://github.com/xorbitsai/inference/pull/929)
 - 增加 Metrics 统计信息: [#906](https://github.com/xorbitsai/inference/pull/906)
 ### 新模型
+- 内置 [Mistral Large 2](https://mistral.ai/news/mistral-large-2407/): [#1944](https://github.com/xorbitsai/inference/pull/1944)
+- 内置 [llama3.1](https://ai.meta.com/blog/meta-llama-3-1/): [#1932](https://github.com/xorbitsai/inference/pull/1932)
+- 内置 [Mistral Nemo](https://mistral.ai/news/mistral-nemo/): [#1936](https://github.com/xorbitsai/inference/pull/1936)
+- 内置 [CosyVoice](https://github.com/FunAudioLLM/CosyVoice): [#1881](https://github.com/xorbitsai/inference/pull/1881)
+- 内置 [codegeex4](https://github.com/THUDM/CodeGeeX4): [#1888](https://github.com/xorbitsai/inference/pull/1888)
 - 内置 [Gemma-2-it](https://huggingface.co/blog/gemma2): [#1774](https://github.com/xorbitsai/inference/pull/1774)
 - 内置 [jina-reranker-v2](https://huggingface.co/jinaai/jina-reranker-v2-base-multilingual): [#1733](https://github.com/xorbitsai/inference/pull/1733)
 - 内置 [Qwen2](https://github.com/QwenLM/Qwen2): [#1509](https://github.com/xorbitsai/inference/pull/1597)
-- 内置 [ChatTTS](https://github.com/2noise/ChatTTS): [#1578](https://github.com/xorbitsai/inference/pull/1578)
-- 内置 [GLM-4 & GLM-4V](https://github.com/THUDM/GLM-4): [#1584](https://github.com/xorbitsai/inference/pull/1584) 
-- 内置 [Mistral-7B-Instruct-v0.3](https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.3): [#1576](https://github.com/xorbitsai/inference/pull/1576) 
-- 内置 [Codestral-22B-v0.1](https://huggingface.co/mistralai/Codestral-22B-v0.1): [#1575](https://github.com/xorbitsai/inference/pull/1575) 
-- 内置 [MiniCPM-Llama3-V 2.5](https://github.com/OpenBMB/MiniCPM-V): [#1577](https://github.com/xorbitsai/inference/pull/1577)
 ### 集成
 - [FastGPT](https://doc.fastai.site/docs/development/custom-models/xinference/)：一个基于 LLM 大模型的开源 AI 知识库构建平台。提供了开箱即用的数据处理、模型调用、RAG 检索、可视化 AI 工作流编排等能力，帮助您轻松实现复杂的问答场景。
 - [Dify](https://docs.dify.ai/advanced/model-configuration/xinference): 一个涵盖了大型语言模型开发、部署、维护和优化的 LLMOps 平台。
