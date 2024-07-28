@@ -193,20 +193,24 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
             self._model_path,
             **self._kwargs,
         )
+        if self._kwargs.get("deepcache", True):
+            # NOTE: DeepCache should be loaded first before cpu_offloading
+            try:
+                from DeepCache import DeepCacheSDHelper
+
+                helper = DeepCacheSDHelper(pipe=self._model)
+                helper.set_params(cache_interval=3, cache_branch_id=0)
+                helper.enable()
+            except ImportError:
+                logger.debug("deepcache is not installed")
+                pass
+
         if self._kwargs.get("cpu_offload", False):
             logger.debug("CPU offloading model")
             self._model.enable_model_cpu_offload()
         elif not self._kwargs.get("device_map"):
             logger.debug("Loading model to available device")
             self._model = move_model_to_available_device(self._model)
-        try:
-            from DeepCache import DeepCacheSDHelper
-
-            helper = DeepCacheSDHelper(pipe=self._model)
-            helper.set_params(cache_interval=3, cache_branch_id=0)
-            helper.enable()
-        except:
-            pass
         # Recommended if your computer has < 64 GB of RAM
         self._model.enable_attention_slicing()
         self._apply_lora()
