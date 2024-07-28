@@ -52,8 +52,8 @@ class DeepSeekVLChatModel(PytorchChatModel):
     def match(
         cls, model_family: "LLMFamilyV1", model_spec: "LLMSpecV1", quantization: str
     ) -> bool:
-        model_family = model_family.model_family or model_family.model_name
-        if "deepseek-vl" in model_family:
+        llm_family = model_family.model_family or model_family.model_name
+        if "deepseek-vl" in llm_family:
             return True
         return False
 
