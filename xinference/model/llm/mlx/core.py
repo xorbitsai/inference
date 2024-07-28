@@ -140,6 +140,7 @@ class MLXModel(LLM):
             "revision", self.model_spec.model_revision
         )
         kwargs["trust_remote_code"] = self._model_config.get("trust_remote_code")
+        kwargs["cache_limit_gb"] = self._model_config.pop("cache_limit_gb", None)
 
         self._model, self._tokenizer = self._load_model(**kwargs)
 
