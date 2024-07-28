@@ -44,7 +44,8 @@ class OmniLMMModel(PytorchChatModel):
     def match(
         cls, model_family: "LLMFamilyV1", model_spec: "LLMSpecV1", quantization: str
     ) -> bool:
-        if "OmniLMM" in model_family.model_name:
+        model_family = model_family.model_family or model_family.model_name
+        if "OmniLMM" in model_family:
             return True
         return False
 
