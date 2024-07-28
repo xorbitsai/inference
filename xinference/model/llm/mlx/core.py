@@ -101,6 +101,7 @@ class MLXModel(LLM):
 
     def _load_model(self, **kwargs):
         try:
+            import mlx.core as mx
             from mlx_lm import load
         except ImportError:
             error_message = "Failed to import module 'mlx_lm'"
@@ -121,6 +122,11 @@ class MLXModel(LLM):
             tokenizer_config,
             self._model_config,
         )
+
+        cache_limit_gb = kwargs.get("cache_limit_gb", None)
+        if cache_limit_gb:
+            logger.debug(f"Setting cache limit to {cache_limit_gb} GB")
+            mx.metal.set_cache_limit(cache_limit_gb * 1024 * 1024 * 1024)
 
         return load(
             self.model_path,
