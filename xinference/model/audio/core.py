@@ -158,11 +158,11 @@ def create_audio_model_instance(
         model_path = cache(model_spec)
     model: Union[WhisperModel, ChatTTSModel, CosyVoiceModel]
     if model_spec.model_family == "whisper":
-        model = WhisperModel(model_uid, model_path, model_spec, **kwargs)
+        model = WhisperModel(model_uid, model_spec, model_path, **kwargs)
     elif model_spec.model_family == "ChatTTS":
-        model = ChatTTSModel(model_uid, model_path, model_spec, **kwargs)
+        model = ChatTTSModel(model_uid, model_spec, model_path, **kwargs)
     elif model_spec.model_family == "CosyVoice":
-        model = CosyVoiceModel(model_uid, model_path, model_spec, **kwargs)
+        model = CosyVoiceModel(model_uid, model_spec, model_path, **kwargs)
     else:
         raise Exception(f"Unsupported audio model family: {model_spec.model_family}")
     model_description = AudioModelDescription(

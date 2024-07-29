@@ -25,9 +25,9 @@ class ChatTTSModel:
     def __init__(
         self,
         model_uid: str,
-        model_path: str,
         model_spec: "AudioModelFamilyV1",
         device: Optional[str] = None,
+        model_path: Optional[str] = None,
         **kwargs,
     ):
         self._model_uid = model_uid
