@@ -121,7 +121,7 @@ class EmbeddingModel:
     def __init__(
         self,
         model_uid: str,
-        model_path: Optional[str] = None,
+        model_path: str,
         device: Optional[str] = None,
     ):
         self._model_uid = model_uid
@@ -353,7 +353,7 @@ def create_embedding_model_instance(
     **kwargs,
 ) -> Tuple[EmbeddingModel, EmbeddingModelDescription]:
     model_spec = match_embedding(model_name, download_hub)
-    if not model_path:
+    if model_path is None:
         model_path = cache(model_spec)
 
     model = EmbeddingModel(model_uid, model_path, **kwargs)
