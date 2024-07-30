@@ -17,7 +17,6 @@ import time
 import uuid
 from typing import AsyncGenerator, Dict, List, Optional, TypedDict, Union
 
-from ....constants import XINFERENCE_ENABLE_SGLANG
 from ....types import (
     ChatCompletion,
     ChatCompletionChunk,
@@ -178,8 +177,6 @@ class SGLANGModel(LLM):
     def match(
         cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
-        if not XINFERENCE_ENABLE_SGLANG:
-            return False
         if not cls._has_cuda_device():
             return False
         if not cls._is_linux():
@@ -342,8 +339,6 @@ class SGLANGChatModel(SGLANGModel, ChatModelMixin):
     def match(
         cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
-        if not XINFERENCE_ENABLE_SGLANG:
-            return False
         if llm_spec.model_format not in ["pytorch", "gptq", "awq"]:
             return False
         if llm_spec.model_format == "pytorch":
