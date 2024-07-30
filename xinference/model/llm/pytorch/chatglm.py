@@ -430,7 +430,10 @@ class ChatglmPytorchChatModel(PytorchChatModel):
         outputs = self._model.generate(**kwargs)
         outputs = outputs[:, kwargs["input_ids"].shape[1] :]
         response = tokenizer.decode(outputs[0], skip_special_tokens=True)
-        return self._process_response(response, history, tools, end=True)
+        if tools:
+            return self._process_response(response, history, tools, end=True)
+        else:
+            return self._process_response(response, history, tools)
 
     def chat(
         self,

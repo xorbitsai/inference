@@ -18,7 +18,7 @@ import logging
 import random
 import time
 import aiohttp
-from typing import List, Dict
+from typing import List, Dict, Optional
 from datasets import load_dataset
 
 
@@ -36,6 +36,7 @@ class BenchmarkRunner:
         input_requests: List[Dict],
         top_n: int,
         concurrency: int,
+        api_key: Optional[str]=None,
     ):
         self.api_url = api_url
         self.model_uid = model_uid
@@ -44,6 +45,7 @@ class BenchmarkRunner:
         self.concurrency = concurrency
         self.sent = 0
         self.left = len(input_requests)
+        self.api_key = api_key
 
     async def run(self):
         tasks = []
@@ -73,7 +75,8 @@ class BenchmarkRunner:
         print("")
 
     async def send_request(
-        self, api_url: str, model_uid: str, prompt: str, documents: List[str]
+        self, api_url: str, model_uid: str, prompt: str, documents: List[str],
+            api_key: Optional[str]=None,
     ):
         request_start_time = time.time()
 
@@ -85,6 +88,8 @@ class BenchmarkRunner:
         }
 
         headers = {"User-Agent": "Benchmark Client"}
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
 
         timeout = aiohttp.ClientTimeout(total=3 * 3600)
         async with aiohttp.ClientSession(timeout=timeout) as session:
@@ -121,6 +126,7 @@ def main(args: argparse.Namespace):
         input_requests,
         top_n=args.top_n,
         concurrency=args.concurrency,
+        api_key=args.api_key,
     )
     asyncio.run(benchmark.run())
     benchmark_end_time = time.time()
@@ -161,5 +167,8 @@ if __name__ == "__main__":
         help="Trust remote code from huggingface.",
     )
     parser.add_argument("--model-uid", type=str, help="Xinference model UID.")
+    parser.add_argument(
+        "--api-key", type=str, default=None, help="Authorization api key",
+    )
     args = parser.parse_args()
     main(args)
