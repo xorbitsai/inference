@@ -61,7 +61,8 @@ class VicunaPytorchChatModel(PytorchChatModel):
     ) -> bool:
         if llm_spec.model_format != "pytorch":
             return False
-        if "vicuna" not in llm_family.model_name:
+        model_family = llm_family.model_family or llm_family.model_name
+        if "vicuna" not in model_family:
             return False
         if "chat" not in llm_family.model_ability:
             return False

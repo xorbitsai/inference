@@ -55,7 +55,8 @@ class LlamaPytorchModel(PytorchModel):
     ) -> bool:
         if llm_spec.model_format != "pytorch":
             return False
-        if "llama-2" not in llm_family.model_name:
+        model_family = llm_family.model_family or llm_family.model_name
+        if "llama-2" not in model_family:
             return False
         if "generate" not in llm_family.model_ability:
             return False
@@ -99,7 +100,8 @@ class LlamaPytorchChatModel(PytorchChatModel):
     ) -> bool:
         if llm_spec.model_format != "pytorch":
             return False
-        if "llama-2" not in llm_family.model_name:
+        model_family = llm_family.model_family or llm_family.model_name
+        if "llama-2" not in model_family:
             return False
         if "chat" not in llm_family.model_ability:
             return False
