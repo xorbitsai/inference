@@ -99,3 +99,17 @@ SGLang has a high-performance inference runtime with RadixAttention. It signific
 Initial setup::
 
    pip install 'xinference[sglang]'
+
+
+MLX Backend
+~~~~~~~~~~~
+MLX-lm is designed for Apple silicon users to run LLM efficiently.
+
+Initial setup::
+
+   pip install 'xinference[mlx]'
+
+Other Platforms
+~~~~~~~~~~~~~~~
+
+* :ref:`Ascend NPU <installation_npu>`

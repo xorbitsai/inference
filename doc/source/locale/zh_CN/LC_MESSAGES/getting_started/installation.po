@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-05-31 11:46+0800\n"
+"POT-Creation-Date: 2024-07-30 17:00+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -116,7 +116,9 @@ msgid "Currently, supported models include:"
 msgstr "目前，支持的模型包括："
 
 #: ../../source/getting_started/installation.rst:42
-msgid "``llama-2``, ``llama-3``, ``llama-2-chat``, ``llama-3-instruct``"
+msgid ""
+"``llama-2``, ``llama-3``, ``llama-2-chat``, ``llama-3-instruct``, "
+"``llama-3.1``, ``llama-3.1-instruct``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:43
@@ -130,72 +132,95 @@ msgid ""
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:45
-msgid "``mistral-v0.1``, ``mistral-instruct-v0.1``, ``mistral-instruct-v0.2``"
+msgid ""
+"``mistral-v0.1``, ``mistral-instruct-v0.1``, ``mistral-instruct-v0.2``, "
+"``mistral-instruct-v0.3``, ``mistral-nemo-instruct``, ``mistral-large-"
+"instruct``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:46
-msgid "``Yi``, ``Yi-1.5``, ``Yi-chat``, ``Yi-1.5-chat``, ``Yi-1.5-chat-16k``"
+msgid "``codestral-v0.1``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:47
-msgid "``code-llama``, ``code-llama-python``, ``code-llama-instruct``"
+msgid "``Yi``, ``Yi-1.5``, ``Yi-chat``, ``Yi-1.5-chat``, ``Yi-1.5-chat-16k``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:48
+msgid "``code-llama``, ``code-llama-python``, ``code-llama-instruct``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:49
 msgid ""
 "``deepseek``, ``deepseek-coder``, ``deepseek-chat``, ``deepseek-coder-"
 "instruct``"
 msgstr ""
 
-#: ../../source/getting_started/installation.rst:49
+#: ../../source/getting_started/installation.rst:50
 msgid "``codeqwen1.5``, ``codeqwen1.5-chat``"
 msgstr ""
 
-#: ../../source/getting_started/installation.rst:50
+#: ../../source/getting_started/installation.rst:51
 msgid "``vicuna-v1.3``, ``vicuna-v1.5``"
 msgstr ""
 
-#: ../../source/getting_started/installation.rst:51
+#: ../../source/getting_started/installation.rst:52
 msgid "``internlm2-chat``"
 msgstr ""
 
-#: ../../source/getting_started/installation.rst:52
-msgid "``qwen-chat``"
-msgstr ""
-
 #: ../../source/getting_started/installation.rst:53
-msgid "``mixtral-instruct-v0.1``, ``mixtral-8x22B-instruct-v0.1``"
+msgid "``internlm2.5-chat``, ``internlm2.5-chat-1m``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:54
-msgid "``chatglm3``, ``chatglm3-32k``, ``chatglm3-128k``"
+msgid "``qwen-chat``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:55
-msgid "``qwen1.5-chat``, ``qwen1.5-moe-chat``"
+msgid "``mixtral-instruct-v0.1``, ``mixtral-8x22B-instruct-v0.1``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:56
-msgid "``gemma-it``"
+msgid "``chatglm3``, ``chatglm3-32k``, ``chatglm3-128k``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:57
-msgid "``orion-chat``, ``orion-chat-rag``"
+msgid "``glm4-chat``, ``glm4-chat-1m``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:58
-msgid "``c4ai-command-r-v01``"
+msgid "``codegeex4``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:59
+msgid "``qwen1.5-chat``, ``qwen1.5-moe-chat``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:60
+msgid "``qwen2-instruct``, ``qwen2-moe-instruct``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:61
+msgid "``gemma-it``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:62
+msgid "``orion-chat``, ``orion-chat-rag``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:63
+msgid "``c4ai-command-r-v01``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:66
 msgid "To install Xinference and vLLM::"
 msgstr "安装 xinference 和 vLLM："
 
-#: ../../source/getting_started/installation.rst:68
+#: ../../source/getting_started/installation.rst:73
 msgid "Llama.cpp Backend"
 msgstr "Llama.cpp 引擎"
 
-#: ../../source/getting_started/installation.rst:69
+#: ../../source/getting_started/installation.rst:74
 msgid ""
 "Xinference supports models in ``gguf`` and ``ggml`` format via ``llama-"
 "cpp-python``. It's advised to install the llama.cpp-related dependencies "
@@ -204,32 +229,33 @@ msgstr ""
 "Xinference 通过 ``llama-cpp-python`` 支持 ``gguf`` 和 ``ggml`` 格式的模型"
 "。建议根据当前使用的硬件手动安装依赖，从而获得最佳的加速效果。"
 
-#: ../../source/getting_started/installation.rst:71
-#: ../../source/getting_started/installation.rst:94
+#: ../../source/getting_started/installation.rst:76
+#: ../../source/getting_started/installation.rst:99
+#: ../../source/getting_started/installation.rst:108
 msgid "Initial setup::"
 msgstr "初始步骤："
 
-#: ../../source/getting_started/installation.rst:75
+#: ../../source/getting_started/installation.rst:80
 msgid "Hardware-Specific installations:"
 msgstr "不同硬件的安装方式："
 
-#: ../../source/getting_started/installation.rst:77
+#: ../../source/getting_started/installation.rst:82
 msgid "Apple Silicon::"
 msgstr "Apple M系列"
 
-#: ../../source/getting_started/installation.rst:81
+#: ../../source/getting_started/installation.rst:86
 msgid "Nvidia cards::"
 msgstr "英伟达显卡："
 
-#: ../../source/getting_started/installation.rst:85
+#: ../../source/getting_started/installation.rst:90
 msgid "AMD cards::"
 msgstr "AMD 显卡："
 
-#: ../../source/getting_started/installation.rst:91
+#: ../../source/getting_started/installation.rst:96
 msgid "SGLang Backend"
 msgstr "SGLang 引擎"
 
-#: ../../source/getting_started/installation.rst:92
+#: ../../source/getting_started/installation.rst:97
 msgid ""
 "SGLang has a high-performance inference runtime with RadixAttention. It "
 "significantly accelerates the execution of complex LLM programs by "
@@ -239,6 +265,23 @@ msgstr ""
 "SGLang 具有基于 RadixAttention 的高性能推理运行时。它通过在多个调用之间"
 "自动重用KV缓存，显著加速了复杂 LLM 程序的执行。它还支持其他常见推理技术，"
 "如连续批处理和张量并行处理。"
+
+#: ../../source/getting_started/installation.rst:105
+#, fuzzy
+msgid "MLX Backend"
+msgstr "vLLM 引擎"
+
+#: ../../source/getting_started/installation.rst:106
+msgid "MLX-lm is designed for Apple silicon users to run LLM efficiently."
+msgstr "MLX-lm 用来在苹果 silicon 芯片上提供高效的 LLM 推理。"
+
+#: ../../source/getting_started/installation.rst:113
+msgid "Other Platforms"
+msgstr "其他平台"
+
+#: ../../source/getting_started/installation.rst:115
+msgid ":ref:`Ascend NPU <installation_npu>`"
+msgstr ""
 
 #~ msgid "``Yi``, ``Yi-chat``"
 #~ msgstr ""
@@ -250,5 +293,11 @@ msgstr ""
 #~ msgstr ""
 
 #~ msgid "``codeqwen1.5-chat``"
+#~ msgstr ""
+
+#~ msgid "``llama-2``, ``llama-3``, ``llama-2-chat``, ``llama-3-instruct``"
+#~ msgstr ""
+
+#~ msgid "``mistral-v0.1``, ``mistral-instruct-v0.1``, ``mistral-instruct-v0.2``"
 #~ msgstr ""
 

@@ -1,0 +1,79 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2024-07-30 17:00+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: zh_CN\n"
+"Language-Team: zh_CN <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.14.0\n"
+
+#: ../../source/getting_started/installation_npu.rst:6
+msgid "Installation Guide for Ascend NPU"
+msgstr "在昇腾 NPU 上安装"
+
+#: ../../source/getting_started/installation_npu.rst:7
+msgid "Xinference can run on Ascend NPU, follow below instructions to install."
+msgstr "Xinference 能在昇腾 NPU 上运行，使用如下命令安装。"
+
+#: ../../source/getting_started/installation_npu.rst:11
+msgid "Installing PyTorch and Ascend extension for PyTorch"
+msgstr "安装 PyTorch 和昇腾扩展"
+
+#: ../../source/getting_started/installation_npu.rst:12
+msgid "Install PyTorch CPU version and corresponding Ascend extension."
+msgstr "安装 PyTorch CPU 版本和相应的昇腾扩展。"
+
+#: ../../source/getting_started/installation_npu.rst:14
+msgid "Take PyTorch v2.1.0 as example."
+msgstr "以 PyTorch v2.1.0 为例。"
+
+#: ../../source/getting_started/installation_npu.rst:20
+msgid ""
+"Then install `Ascend extension for PyTorch "
+"<https://github.com/Ascend/pytorch>`_."
+msgstr ""
+"接着安装 `昇腾 PyTorch 扩展"
+"<https://gitee.com/ascend/pytorch>`_."
+
+#: ../../source/getting_started/installation_npu.rst:28
+msgid "Running below command to see if it correctly prints the Ascend NPU count."
+msgstr "运行如下命令查看，如果正常运行，会打印昇腾 NPU 的个数。"
+
+#: ../../source/getting_started/installation_npu.rst:35
+msgid "Installing Xinference"
+msgstr "安装 Xinference"
+
+#: ../../source/getting_started/installation_npu.rst:41
+msgid ""
+"Now you can use xinference according to :ref:`doc <using_xinference>`. "
+"``Transformers`` backend is the only available engine supported for "
+"Ascend NPU for open source version."
+msgstr ""
+"现在你可以参考 :ref:`文档 <using_xinference>` 来使用 Xinference。"
+"``Transformers`` 是开源唯一支持的昇腾 NPU 的引擎。"
+
+#: ../../source/getting_started/installation_npu.rst:45
+msgid "Enterprise Support"
+msgstr "企业支持"
+
+#: ../../source/getting_started/installation_npu.rst:46
+msgid ""
+"If you encounter any performance or other issues for Ascend NPU, please "
+"reach out to us via `link <https://xorbits.io/community>`_."
+msgstr ""
+"如果你在昇腾 NPU 遇到任何性能和其他问题，欢迎垂询 Xinference 企业版，"
+"在 `这里 <https://xorbits.cn/community>`_ 可以找到我们，亦可以 "
+"`填写表单 <https://w8v6grm432.feishu.cn/share/base/form/shrcn9u1EBXQxmGMqILEjguuGoh>`_ 申请企业版试用。"
+
