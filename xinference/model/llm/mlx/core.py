@@ -101,6 +101,7 @@ class MLXModel(LLM):
 
     def _load_model(self, **kwargs):
         try:
+            import mlx.core as mx
             from mlx_lm import load
         except ImportError:
             error_message = "Failed to import module 'mlx_lm'"
@@ -122,6 +123,11 @@ class MLXModel(LLM):
             self._model_config,
         )
 
+        cache_limit_gb = kwargs.get("cache_limit_gb", None)
+        if cache_limit_gb:
+            logger.debug(f"Setting cache limit to {cache_limit_gb} GB")
+            mx.metal.set_cache_limit(cache_limit_gb * 1024 * 1024 * 1024)
+
         return load(
             self.model_path,
             tokenizer_config=tokenizer_config,
@@ -134,6 +140,7 @@ class MLXModel(LLM):
             "revision", self.model_spec.model_revision
         )
         kwargs["trust_remote_code"] = self._model_config.get("trust_remote_code")
+        kwargs["cache_limit_gb"] = self._model_config.pop("cache_limit_gb", None)
 
         self._model, self._tokenizer = self._load_model(**kwargs)
 

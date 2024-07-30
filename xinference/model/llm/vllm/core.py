@@ -28,7 +28,6 @@ from typing import (
     Union,
 )
 
-from ....constants import XINFERENCE_DISABLE_VLLM
 from ....types import (
     ChatCompletion,
     ChatCompletionChunk,
@@ -296,8 +295,6 @@ class VLLMModel(LLM):
     def match(
         cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
-        if XINFERENCE_DISABLE_VLLM:
-            return False
         if not cls._has_cuda_device():
             return False
         if not cls._is_linux():
@@ -522,8 +519,6 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
     def match(
         cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
-        if XINFERENCE_DISABLE_VLLM:
-            return False
         if llm_spec.model_format not in ["pytorch", "gptq", "awq"]:
             return False
         if llm_spec.model_format == "pytorch":
