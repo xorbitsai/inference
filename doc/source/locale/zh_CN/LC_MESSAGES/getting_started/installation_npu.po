@@ -44,7 +44,7 @@ msgid ""
 "Then install `Ascend extension for PyTorch "
 "<https://github.com/Ascend/pytorch>`_."
 msgstr ""
-"接着安装 `昇腾 PyTorch 扩展"
+"接着安装 `昇腾 PyTorch 扩展 "
 "<https://gitee.com/ascend/pytorch>`_."
 
 #: ../../source/getting_started/installation_npu.rst:28
