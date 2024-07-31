@@ -618,8 +618,6 @@ class VLLMCodeModel(VLLMModel, CodeModelMixin):
     def match(
         cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
-        if XINFERENCE_DISABLE_VLLM:
-            return False
         if llm_spec.model_format not in ["pytorch", "gptq", "awq"]:
             return False
         if llm_spec.model_format == "pytorch":
