@@ -187,9 +187,14 @@ class DiffusionModel:
         if "controlnet" in self._kwargs:
             model = self._model
         else:
-            from diffusers import AutoPipelineForImage2Image
+            if self._i2i_model is not None:
+                model = self._i2i_model
+            else:
+                from diffusers import AutoPipelineForImage2Image
 
-            self._i2i_model = model = AutoPipelineForImage2Image.from_pipe(self._model)
+                self._i2i_model = model = AutoPipelineForImage2Image.from_pipe(
+                    self._model
+                )
         width, height = map(int, re.split(r"[^\d]+", size))
         return self._call_model(
             image=image,

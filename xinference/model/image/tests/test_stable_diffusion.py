@@ -211,7 +211,7 @@ def test_restful_api_for_sd_image2image(setup):
     bio = io.BytesIO()
     image.save(bio, format="png")
 
-    r = model.iamge_to_image(
+    r = model.image_to_image(
         prompt="desert, clear sky, white clouds",
         image=bio.getvalue(),
         num_inference_steps=10,

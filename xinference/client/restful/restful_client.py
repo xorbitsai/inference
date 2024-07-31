@@ -234,7 +234,7 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
         self,
         image: Union[str, bytes],
         prompt: str,
-        negative_prompt: str,
+        negative_prompt: Optional[str] = None,
         n: int = 1,
         size: str = "1024*1024",
         response_format: str = "url",
