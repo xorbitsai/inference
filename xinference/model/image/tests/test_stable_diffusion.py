@@ -189,6 +189,42 @@ def test_restful_api_for_sd_turbo(setup, model_name):
 
 
 @pytest.mark.skip(reason="Stable diffusion inpainting requires too many GRAM.")
+def test_restful_api_for_sd_image2image(setup):
+    endpoint, _ = setup
+    from ....client import Client
+
+    client = Client(endpoint)
+
+    model_uid = client.launch_model(
+        model_uid="my_image2image",
+        model_name="stable-diffusion-xl-base-1.0",
+        model_type="image",
+    )
+    model = client.get_model(model_uid)
+
+    from diffusers.utils import load_image
+
+    # Replace the image path for your test.
+    image_path = os.path.expanduser("~/raw.jpg")
+    logger.info("Image path: %s", image_path)
+    image = load_image(image_path)
+    bio = io.BytesIO()
+    image.save(bio, format="png")
+
+    r = model.iamge_to_image(
+        prompt="desert, clear sky, white clouds",
+        image=bio.getvalue(),
+        num_inference_steps=10,
+    )
+    logger.info("test result %s", r)
+    from PIL import Image
+
+    with open(r["data"][0]["url"], "rb") as f:
+        img = Image.open(f)
+        assert img.size == image.size
+
+
+@pytest.mark.skip(reason="Stable diffusion inpainting requires too many GRAM.")
 def test_restful_api_for_sd_inpainting(setup):
     endpoint, _ = setup
     from ....client import Client

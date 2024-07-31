@@ -40,17 +40,18 @@ class DiffusionModel:
         lora_model: Optional[List[LoRA]] = None,
         lora_load_kwargs: Optional[Dict] = None,
         lora_fuse_kwargs: Optional[Dict] = None,
-        ability: Optional[str] = None,
+        abilities: Optional[List[str]] = None,
         **kwargs,
     ):
         self._model_uid = model_uid
         self._model_path = model_path
         self._device = device
         self._model = None
+        self._i2i_model = None  # image to image model
         self._lora_model = lora_model
         self._lora_load_kwargs = lora_load_kwargs or {}
         self._lora_fuse_kwargs = lora_fuse_kwargs or {}
-        self._ability = ability
+        self._abilities = abilities
         self._kwargs = kwargs
 
     def _apply_lora(self):
@@ -69,12 +70,12 @@ class DiffusionModel:
     def load(self):
         import torch
 
-        if self._ability in [None, "text2image", "image2image"]:
+        if "text2image" in self._abilities or "image2image" in self._abilities:
             from diffusers import AutoPipelineForText2Image as AutoPipelineModel
-        elif self._ability == "inpainting":
+        elif "inpainting" in self._abilities:
             from diffusers import AutoPipelineForInpainting as AutoPipelineModel
         else:
-            raise ValueError(f"Unknown ability: {self._ability}")
+            raise ValueError(f"Unknown ability: {self._abilities}")
 
         controlnet = self._kwargs.get("controlnet")
         if controlnet is not None:
@@ -110,6 +111,7 @@ class DiffusionModel:
         width: int,
         num_images_per_prompt: int,
         response_format: str,
+        model=None,
         **kwargs,
     ):
         logger.debug(
@@ -121,8 +123,9 @@ class DiffusionModel:
                 num_images_per_prompt=num_images_per_prompt,
             ),
         )
-        assert callable(self._model)
-        images = self._model(
+        model = model if model is not None else self._model
+        assert callable(model)
+        images = model(
             height=height,
             width=width,
             num_images_per_prompt=num_images_per_prompt,
@@ -181,6 +184,12 @@ class DiffusionModel:
         response_format: str = "url",
         **kwargs,
     ):
+        if "controlnet" in self._kwargs:
+            model = self._model
+        else:
+            from diffusers import AutoPipelineForImage2Image
+
+            self._i2i_model = model = AutoPipelineForImage2Image.from_pipe(self._model)
         width, height = map(int, re.split(r"[^\d]+", size))
         return self._call_model(
             image=image,
@@ -190,6 +199,7 @@ class DiffusionModel:
             width=width,
             num_images_per_prompt=n,
             response_format=response_format,
+            model=model,
             **kwargs,
         )
 
