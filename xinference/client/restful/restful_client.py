@@ -236,7 +236,7 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
         prompt: str,
         negative_prompt: Optional[str] = None,
         n: int = 1,
-        size: str = "1024*1024",
+        size: Optional[str] = None,
         response_format: str = "url",
         **kwargs,
     ) -> "ImageList":

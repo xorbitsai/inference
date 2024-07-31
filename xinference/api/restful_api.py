@@ -1407,7 +1407,7 @@ class RESTfulAPI:
         negative_prompt: Optional[Union[str, List[str]]] = Form(None),
         n: Optional[int] = Form(1),
         response_format: Optional[str] = Form("url"),
-        size: Optional[str] = Form("1024*1024"),
+        size: Optional[str] = Form(None),
         kwargs: Optional[str] = Form(None),
     ) -> Response:
         model_uid = model

@@ -107,30 +107,17 @@ class DiffusionModel:
 
     def _call_model(
         self,
-        height: int,
-        width: int,
-        num_images_per_prompt: int,
         response_format: str,
         model=None,
         **kwargs,
     ):
         logger.debug(
             "stable diffusion args: %s",
-            dict(
-                kwargs,
-                height=height,
-                width=width,
-                num_images_per_prompt=num_images_per_prompt,
-            ),
+            kwargs,
         )
         model = model if model is not None else self._model
         assert callable(model)
-        images = model(
-            height=height,
-            width=width,
-            num_images_per_prompt=num_images_per_prompt,
-            **kwargs,
-        ).images
+        images = model(**kwargs).images
         if response_format == "url":
             os.makedirs(XINFERENCE_IMAGE_DIR, exist_ok=True)
             image_list = []
@@ -180,7 +167,7 @@ class DiffusionModel:
         prompt: Optional[Union[str, List[str]]] = None,
         negative_prompt: Optional[Union[str, List[str]]] = None,
         n: int = 1,
-        size: str = "1024*1024",
+        size: Optional[str] = None,
         response_format: str = "url",
         **kwargs,
     ):
@@ -195,13 +182,14 @@ class DiffusionModel:
                 self._i2i_model = model = AutoPipelineForImage2Image.from_pipe(
                     self._model
                 )
-        width, height = map(int, re.split(r"[^\d]+", size))
+        if size:
+            width, height = map(int, re.split(r"[^\d]+", size))
+            kwargs["width"] = width
+            kwargs["height"] = height
         return self._call_model(
             image=image,
             prompt=prompt,
             negative_prompt=negative_prompt,
-            height=height,
-            width=width,
             num_images_per_prompt=n,
             response_format=response_format,
             model=model,
