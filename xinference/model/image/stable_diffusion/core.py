@@ -135,7 +135,7 @@ class DiffusionModel:
                 return base64.b64encode(buffered.getvalue()).decode()
 
             with ThreadPoolExecutor() as executor:
-                results = list(map(partial(executor.submit, _gen_base64_image), images))
+                results = list(map(partial(executor.submit, _gen_base64_image), images))  # type: ignore
                 image_list = [Image(url=None, b64_json=s.result()) for s in results]
             return ImageList(created=int(time.time()), data=image_list)
         else:
