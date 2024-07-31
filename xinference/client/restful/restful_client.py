@@ -17,7 +17,6 @@ from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Union
 
 import requests
 
-from ...constants import XINFERENCE_AUDIO_SPEECH_DEFAULT_STREAM
 from ..common import streaming_response_iterator
 
 if TYPE_CHECKING:
@@ -907,7 +906,9 @@ class RESTfulAudioModelHandle(RESTfulModelHandle):
         voice: str = "",
         response_format: str = "mp3",
         speed: float = 1.0,
-        stream: bool = XINFERENCE_AUDIO_SPEECH_DEFAULT_STREAM,
+        stream: bool = False,
+        prompt_speech: Optional[bytes] = None,
+        **kwargs,
     ):
         """
         Generates audio from the input text.
@@ -939,8 +940,21 @@ class RESTfulAudioModelHandle(RESTfulModelHandle):
             "response_format": response_format,
             "speed": speed,
             "stream": stream,
+            "kwargs": json.dumps(kwargs),
         }
-        response = requests.post(url, json=params, headers=self.auth_headers)
+        if prompt_speech:
+            files: List[Any] = []
+            files.append(
+                (
+                    "prompt_speech",
+                    ("prompt_speech", prompt_speech, "application/octet-stream"),
+                )
+            )
+            response = requests.post(
+                url, data=params, files=files, headers=self.auth_headers
+            )
+        else:
+            response = requests.post(url, json=params, headers=self.auth_headers)
         if response.status_code != 200:
             raise RuntimeError(
                 f"Failed to speech the text, detail: {_get_error_string(response)}"

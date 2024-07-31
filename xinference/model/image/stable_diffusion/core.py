@@ -94,7 +94,12 @@ class DiffusionModel:
             self._model_path,
             **self._kwargs,
         )
-        self._model = move_model_to_available_device(self._model)
+        if self._kwargs.get("cpu_offload", False):
+            logger.debug("CPU offloading model")
+            self._model.enable_model_cpu_offload()
+        else:
+            logger.debug("Loading model to available device")
+            self._model = move_model_to_available_device(self._model)
         # Recommended if your computer has < 64 GB of RAM
         self._model.enable_attention_slicing()
         self._apply_lora()

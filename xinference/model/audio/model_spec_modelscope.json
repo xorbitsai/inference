@@ -16,5 +16,32 @@
     "model_revision": "master",
     "ability": "text-to-audio",
     "multilingual": true
+  },
+  {
+    "model_name": "CosyVoice-300M",
+    "model_family": "CosyVoice",
+    "model_hub": "modelscope",
+    "model_id": "iic/CosyVoice-300M",
+    "model_revision": "master",
+    "ability": "audio-to-audio",
+    "multilingual": true
+  },
+  {
+    "model_name": "CosyVoice-300M-SFT",
+    "model_family": "CosyVoice",
+    "model_hub": "modelscope",
+    "model_id": "iic/CosyVoice-300M-SFT",
+    "model_revision": "master",
+    "ability": "text-to-audio",
+    "multilingual": true
+  },
+  {
+    "model_name": "CosyVoice-300M-Instruct",
+    "model_family": "CosyVoice",
+    "model_hub": "modelscope",
+    "model_id": "iic/CosyVoice-300M-Instruct",
+    "model_revision": "master",
+    "ability": "text-to-audio",
+    "multilingual": true
   }
 ]

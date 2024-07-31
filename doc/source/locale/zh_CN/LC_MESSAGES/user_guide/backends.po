@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-05-31 11:46+0800\n"
+"POT-Creation-Date: 2024-07-30 17:04+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -139,7 +139,9 @@ msgid "Currently, supported model includes:"
 msgstr "目前，支持的模型包括："
 
 #: ../../source/user_guide/backends.rst:49
-msgid "``llama-2``, ``llama-3``, ``llama-2-chat``, ``llama-3-instruct``"
+msgid ""
+"``llama-2``, ``llama-3``, ``llama-2-chat``, ``llama-3-instruct``, "
+"``llama-3.1``, ``llama-3.1-instruct``"
 msgstr ""
 
 #: ../../source/user_guide/backends.rst:50
@@ -153,68 +155,91 @@ msgid ""
 msgstr ""
 
 #: ../../source/user_guide/backends.rst:52
-msgid "``mistral-v0.1``, ``mistral-instruct-v0.1``, ``mistral-instruct-v0.2``"
+msgid ""
+"``mistral-v0.1``, ``mistral-instruct-v0.1``, ``mistral-instruct-v0.2``, "
+"``mistral-instruct-v0.3``, ``mistral-nemo-instruct``, ``mistral-large-"
+"instruct``"
 msgstr ""
 
 #: ../../source/user_guide/backends.rst:53
-msgid "``Yi``, ``Yi-1.5``, ``Yi-chat``, ``Yi-1.5-chat``, ``Yi-1.5-chat-16k``"
+msgid "``codestral-v0.1``"
 msgstr ""
 
 #: ../../source/user_guide/backends.rst:54
-msgid "``code-llama``, ``code-llama-python``, ``code-llama-instruct``"
+msgid "``Yi``, ``Yi-1.5``, ``Yi-chat``, ``Yi-1.5-chat``, ``Yi-1.5-chat-16k``"
 msgstr ""
 
 #: ../../source/user_guide/backends.rst:55
+msgid "``code-llama``, ``code-llama-python``, ``code-llama-instruct``"
+msgstr ""
+
+#: ../../source/user_guide/backends.rst:56
 msgid ""
 "``deepseek``, ``deepseek-coder``, ``deepseek-chat``, ``deepseek-coder-"
 "instruct``"
 msgstr ""
 
-#: ../../source/user_guide/backends.rst:56
+#: ../../source/user_guide/backends.rst:57
 msgid "``codeqwen1.5``, ``codeqwen1.5-chat``"
 msgstr ""
 
-#: ../../source/user_guide/backends.rst:57
+#: ../../source/user_guide/backends.rst:58
 msgid "``vicuna-v1.3``, ``vicuna-v1.5``"
 msgstr ""
 
-#: ../../source/user_guide/backends.rst:58
+#: ../../source/user_guide/backends.rst:59
 msgid "``internlm2-chat``"
 msgstr ""
 
-#: ../../source/user_guide/backends.rst:59
-msgid "``qwen-chat``"
-msgstr ""
-
 #: ../../source/user_guide/backends.rst:60
-msgid "``mixtral-instruct-v0.1``, ``mixtral-8x22B-instruct-v0.1``"
+msgid "``internlm2.5-chat``, ``internlm2.5-chat-1m``"
 msgstr ""
 
 #: ../../source/user_guide/backends.rst:61
-msgid "``chatglm3``, ``chatglm3-32k``, ``chatglm3-128k``"
+msgid "``qwen-chat``"
 msgstr ""
 
 #: ../../source/user_guide/backends.rst:62
-msgid "``qwen1.5-chat``, ``qwen1.5-moe-chat``"
+msgid "``mixtral-instruct-v0.1``, ``mixtral-8x22B-instruct-v0.1``"
 msgstr ""
 
 #: ../../source/user_guide/backends.rst:63
-msgid "``gemma-it``"
+msgid "``chatglm3``, ``chatglm3-32k``, ``chatglm3-128k``"
 msgstr ""
 
 #: ../../source/user_guide/backends.rst:64
-msgid "``orion-chat``, ``orion-chat-rag``"
+msgid "``glm4-chat``, ``glm4-chat-1m``"
 msgstr ""
 
 #: ../../source/user_guide/backends.rst:65
-msgid "``c4ai-command-r-v01``"
+msgid "``codegeex4``"
+msgstr ""
+
+#: ../../source/user_guide/backends.rst:66
+msgid "``qwen1.5-chat``, ``qwen1.5-moe-chat``"
+msgstr ""
+
+#: ../../source/user_guide/backends.rst:67
+msgid "``qwen2-instruct``, ``qwen2-moe-instruct``"
+msgstr ""
+
+#: ../../source/user_guide/backends.rst:68
+msgid "``gemma-it``"
 msgstr ""
 
 #: ../../source/user_guide/backends.rst:69
-msgid "SGLang"
+msgid "``orion-chat``, ``orion-chat-rag``"
 msgstr ""
 
 #: ../../source/user_guide/backends.rst:70
+msgid "``c4ai-command-r-v01``"
+msgstr ""
+
+#: ../../source/user_guide/backends.rst:74
+msgid "SGLang"
+msgstr ""
+
+#: ../../source/user_guide/backends.rst:75
 msgid ""
 "`SGLang <https://github.com/sgl-project/sglang>`_ has a high-performance "
 "inference runtime with RadixAttention. It significantly accelerates the "
@@ -225,4 +250,25 @@ msgstr ""
 "`SGLang <https://github.com/sgl-project/sglang>`_ 具有基于 RadixAttention"
 " 的高性能推理运行时。它通过在多个调用之间自动重用KV缓存，显著加速了复杂 "
 "LLM 程序的执行。它还支持其他常见推理技术，如连续批处理和张量并行处理。"
+
+#: ../../source/user_guide/backends.rst:80
+msgid "MLX"
+msgstr ""
+
+#: ../../source/user_guide/backends.rst:81
+msgid ""
+"`MLX <https://github.com/ml-explore/mlx-examples/tree/main/llms>`_ "
+"provides efficient runtime to run LLM on Apple silicon. It's recommended "
+"to use for Mac users when running on Apple silicon if the model has MLX "
+"format support."
+msgstr ""
+"`MLX <https://github.com/ml-explore/mlx-examples/tree/main/llms>`_ "
+"提供在苹果 silicon 芯片上高效运行 LLM 的方式。在模型包含 MLX 格式的时候，"
+"推荐使用苹果 silicon 芯片的 Mac 用户使用 MLX 引擎。"
+
+#~ msgid "``llama-2``, ``llama-3``, ``llama-2-chat``, ``llama-3-instruct``"
+#~ msgstr ""
+
+#~ msgid "``mistral-v0.1``, ``mistral-instruct-v0.1``, ``mistral-instruct-v0.2``"
+#~ msgstr ""
 

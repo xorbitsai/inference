@@ -102,5 +102,29 @@
     "model_revision": "ce5913842aebd78e4a01a02d47244b8d62ac4ee3",
     "ability": "text-to-audio",
     "multilingual": true
+  },
+  {
+    "model_name": "CosyVoice-300M",
+    "model_family": "CosyVoice",
+    "model_id": "model-scope/CosyVoice-300M",
+    "model_revision": "ca4e036d2db2aa4731cc1747859a68044b6a4694",
+    "ability": "audio-to-audio",
+    "multilingual": true
+  },
+  {
+    "model_name": "CosyVoice-300M-SFT",
+    "model_family": "CosyVoice",
+    "model_id": "model-scope/CosyVoice-300M-SFT",
+    "model_revision": "ab918940c6c134b1fc1f069246e67bad6b66abcb",
+    "ability": "text-to-audio",
+    "multilingual": true
+  },
+  {
+    "model_name": "CosyVoice-300M-Instruct",
+    "model_family": "CosyVoice",
+    "model_id": "model-scope/CosyVoice-300M-Instruct",
+    "model_revision": "fb5f676733139f35670bed9b59a77d476b1aa898",
+    "ability": "text-to-audio",
+    "multilingual": true
   }
 ]

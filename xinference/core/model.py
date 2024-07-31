@@ -741,7 +741,10 @@ class ModelActor(xo.StatelessActor):
             f"Model {self._model.model_spec} is not for creating translations."
         )
 
-    @log_async(logger=logger)
+    @log_async(
+        logger=logger,
+        args_formatter=lambda _, kwargs: kwargs.pop("prompt_speech", None),
+    )
     @request_limit
     @xo.generator
     async def speech(
@@ -751,6 +754,7 @@ class ModelActor(xo.StatelessActor):
         response_format: str = "mp3",
         speed: float = 1.0,
         stream: bool = False,
+        **kwargs,
     ):
         if hasattr(self._model, "speech"):
             return await self._call_wrapper_binary(
@@ -760,6 +764,7 @@ class ModelActor(xo.StatelessActor):
                 response_format,
                 speed,
                 stream,
+                **kwargs,
             )
         raise AttributeError(
             f"Model {self._model.model_spec} is not for creating speech."
@@ -830,7 +835,7 @@ class ModelActor(xo.StatelessActor):
         **kwargs,
     ):
         if hasattr(self._model, "inpainting"):
-            return await self._call_wrapper(
+            return await self._call_wrapper_json(
                 self._model.inpainting,
                 image,
                 mask_image,
@@ -853,7 +858,7 @@ class ModelActor(xo.StatelessActor):
         **kwargs,
     ):
         if hasattr(self._model, "infer"):
-            return await self._call_wrapper(
+            return await self._call_wrapper_json(
                 self._model.infer,
                 **kwargs,
             )

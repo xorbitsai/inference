@@ -4,7 +4,7 @@
 internlm2-chat
 ========================================
 
-- **Context Length:** 204800
+- **Context Length:** 32768
 - **Model Name:** internlm2-chat
 - **Languages:** en, zh
 - **Abilities:** chat

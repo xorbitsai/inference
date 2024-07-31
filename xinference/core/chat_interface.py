@@ -871,7 +871,7 @@ class GradioInterface:
                     }
 
             hist.append(response_content)
-            return {
+            return {  # type: ignore
                 textbox: response_content,
                 history: hist,
             }
@@ -910,7 +910,7 @@ class GradioInterface:
                     }
 
             hist.append(response_content)
-            return {
+            return {  # type: ignore
                 textbox: response_content,
                 history: hist,
             }

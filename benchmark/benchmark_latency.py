@@ -17,7 +17,7 @@ import asyncio
 import logging
 import random
 import time
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 
 import numpy as np
 from utils import get_tokenizer, sample_requests, send_request
@@ -32,6 +32,7 @@ async def benchmark(
     api_url: str,
     model_uid: str,
     input_requests: List[Tuple[str, int, int]],
+    api_key: Optional[str] = None,
 ) -> None:
     for request in input_requests:
         prompt, prompt_len, output_len = request
@@ -60,6 +61,7 @@ def main(args: argparse.Namespace):
             api_url,
             model_uid,
             input_requests,
+            api_key=args.api_key,
         )
     )
 
@@ -106,6 +108,9 @@ if __name__ == "__main__":
         help="Trust remote code from huggingface.",
     )
     parser.add_argument("--model-uid", type=str, help="Xinference model UID.")
+    parser.add_argument(
+        "--api-key", type=str, default=None, help="Authorization api key",
+    )
 
     args = parser.parse_args()
     main(args)

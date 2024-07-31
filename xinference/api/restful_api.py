@@ -52,11 +52,7 @@ from xoscar.utils import get_next_port
 
 from .._compat import BaseModel, Field
 from .._version import get_versions
-from ..constants import (
-    XINFERENCE_AUDIO_SPEECH_DEFAULT_STREAM,
-    XINFERENCE_DEFAULT_ENDPOINT_PORT,
-    XINFERENCE_DISABLE_METRICS,
-)
+from ..constants import XINFERENCE_DEFAULT_ENDPOINT_PORT, XINFERENCE_DISABLE_METRICS
 from ..core.event import Event, EventCollectorActor, EventType
 from ..core.supervisor import SupervisorActor
 from ..core.utils import json_dumps
@@ -134,7 +130,8 @@ class SpeechRequest(BaseModel):
     voice: Optional[str]
     response_format: Optional[str] = "mp3"
     speed: Optional[float] = 1.0
-    stream: Optional[bool] = XINFERENCE_AUDIO_SPEECH_DEFAULT_STREAM
+    stream: Optional[bool] = False
+    kwargs: Optional[str] = None
 
 
 class RegisterModelRequest(BaseModel):
@@ -1356,8 +1353,18 @@ class RESTfulAPI:
             await self._report_error_event(model_uid, str(e))
             raise HTTPException(status_code=500, detail=str(e))
 
-    async def create_speech(self, request: Request) -> Response:
-        body = SpeechRequest.parse_obj(await request.json())
+    async def create_speech(
+        self,
+        request: Request,
+        prompt_speech: Optional[UploadFile] = File(
+            None, media_type="application/octet-stream"
+        ),
+    ) -> Response:
+        if prompt_speech:
+            f = await request.form()
+        else:
+            f = await request.json()
+        body = SpeechRequest.parse_obj(f)
         model_uid = body.model
         try:
             model = await (await self._get_supervisor_ref()).get_model(model_uid)
@@ -1371,12 +1378,19 @@ class RESTfulAPI:
             raise HTTPException(status_code=500, detail=str(e))
 
         try:
+            if body.kwargs is not None:
+                parsed_kwargs = json.loads(body.kwargs)
+            else:
+                parsed_kwargs = {}
+            if prompt_speech is not None:
+                parsed_kwargs["prompt_speech"] = await prompt_speech.read()
             out = await model.speech(
                 input=body.input,
                 voice=body.voice,
                 response_format=body.response_format,
                 speed=body.speed,
                 stream=body.stream,
+                **parsed_kwargs,
             )
             if body.stream:
                 return EventSourceResponse(
@@ -1673,10 +1687,14 @@ class RESTfulAPI:
         if body.tools and body.stream:
             is_vllm = await model.is_vllm_backend()
 
-            if not is_vllm or model_family not in QWEN_TOOL_CALL_FAMILY:
+            if not (
+                (is_vllm and model_family in QWEN_TOOL_CALL_FAMILY)
+                or (not is_vllm and model_family in GLM4_TOOL_CALL_FAMILY)
+            ):
                 raise HTTPException(
                     status_code=400,
-                    detail="Streaming support for tool calls is available only when using vLLM backend and Qwen models.",
+                    detail="Streaming support for tool calls is available only when using "
+                    "Qwen models with vLLM backend or GLM4-chat models without vLLM backend.",
                 )
 
         if body.stream:

@@ -29,7 +29,6 @@ from typing import (
     Union,
 )
 
-from ....constants import XINFERENCE_DISABLE_VLLM
 from ....types import (
     ChatCompletion,
     ChatCompletionChunk,
@@ -114,6 +113,8 @@ VLLM_SUPPORTED_CHAT_MODELS = [
     "internlm-chat-8k",
     "internlm-chat-20b",
     "internlm2-chat",
+    "internlm2.5-chat",
+    "internlm2.5-chat-1m",
     "qwen-chat",
     "Yi-chat",
     "Yi-1.5-chat",
@@ -129,6 +130,7 @@ VLLM_SUPPORTED_CHAT_MODELS = [
     "chatglm3-128k",
     "glm4-chat",
     "glm4-chat-1m",
+    "codegeex4",
     "deepseek-chat",
     "deepseek-coder-instruct",
 ]
@@ -153,6 +155,14 @@ if VLLM_INSTALLED and vllm.__version__ >= "0.4.0":
     VLLM_SUPPORTED_CHAT_MODELS.append("qwen1.5-moe-chat")
     VLLM_SUPPORTED_CHAT_MODELS.append("qwen2-moe-instruct")
     VLLM_SUPPORTED_CHAT_MODELS.append("c4ai-command-r-v01")
+
+if VLLM_INSTALLED and vllm.__version__ >= "0.5.3":
+    VLLM_SUPPORTED_CHAT_MODELS.append("mistral-nemo-instruct")
+    VLLM_SUPPORTED_CHAT_MODELS.append("mistral-large-instruct")
+
+if VLLM_INSTALLED and vllm.__version__ > "0.5.3":
+    VLLM_SUPPORTED_MODELS.append("llama-3.1")
+    VLLM_SUPPORTED_CHAT_MODELS.append("llama-3.1-instruct")
 
 
 class VLLMModel(LLM):
@@ -291,8 +301,6 @@ class VLLMModel(LLM):
     def match(
         cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
-        if XINFERENCE_DISABLE_VLLM:
-            return False
         if not cls._has_cuda_device():
             return False
         if not cls._is_linux():
@@ -517,8 +525,6 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
     def match(
         cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
-        if XINFERENCE_DISABLE_VLLM:
-            return False
         if llm_spec.model_format not in ["pytorch", "gptq", "awq"]:
             return False
         if llm_spec.model_format == "pytorch":

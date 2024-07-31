@@ -36,18 +36,8 @@ XINFERENCE_DISABLE_HEALTH_CHECK
 Xinference will automatically report health check at Xinference startup.
 Setting this environment to 1 can disable health check.
 
-XINFERENCE_DISABLE_VLLM
-~~~~~~~~~~~~~~~~~~~~~~~~
-Xinference will automatically use vLLM as backend if conditions are met.
-Setting this environment to 1 can disable the use of vLLM.
-
 XINFERENCE_DISABLE_METRICS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 Xinference will by default enable the metrics exporter on the supervisor and worker.
 Setting this environment to 1 will disable the /metrics endpoint on the supervisor
 and the HTTP service (only provide the /metrics endpoint) on the worker.
-
-XINFERENCE_AUDIO_SPEECH_DEFAULT_STREAM
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Xinference audio Speech API will use non-stream by default. Setting this environment
-to 1 will use stream by default.
