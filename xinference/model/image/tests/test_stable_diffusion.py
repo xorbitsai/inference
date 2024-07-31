@@ -188,7 +188,7 @@ def test_restful_api_for_sd_turbo(setup, model_name):
     assert img.size == (512, 512)
 
 
-@pytest.mark.skip(reason="Stable diffusion inpainting requires too many GRAM.")
+@pytest.mark.skip(reason="Stable diffusion image2image requires too many GRAM.")
 def test_restful_api_for_sd_image2image(setup):
     endpoint, _ = setup
     from ....client import Client
