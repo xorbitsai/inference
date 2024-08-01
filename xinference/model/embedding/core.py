@@ -316,7 +316,7 @@ class EmbeddingModel:
 
             return all_embeddings, all_token_nums
 
-        if "" in self._model_uid:
+        if "gte-Qwen2" in self._model_uid:
             all_embeddings, all_token_nums = encode(
                 self._model,
                 sentences,
