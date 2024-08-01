@@ -239,6 +239,6 @@
     "max_tokens": 32000,
     "language": ["zh", "en"],
     "model_id": "iic/gte_Qwen2-7B-instruct",
-    "model_revision": "modelscope"
+    "model_hub": "modelscope"
   }
 ]
