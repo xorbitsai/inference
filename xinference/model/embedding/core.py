@@ -134,12 +134,18 @@ class EmbeddingModel:
                 "Please make sure 'sentence-transformers' is installed. ",
                 "You can install it by `pip install sentence-transformers`\n",
             ]
-
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
+
+        class XSentenceTransformer(SentenceTransformer):
+            def to(self, *args, **kwargs):
+                pass
+
         from ..utils import patch_trust_remote_code
 
         patch_trust_remote_code()
-        self._model = SentenceTransformer(self._model_path, device=self._device)
+        self._model = XSentenceTransformer(
+            self._model_path, device=self._device, model_kwargs={"device_map": "auto"}
+        )
 
     def create_embedding(self, sentences: Union[str, List[str]], **kwargs):
         self._counter += 1
@@ -209,13 +215,13 @@ class EmbeddingModel:
             if prompt is None:
                 if prompt_name is not None:
                     try:
-                        prompt = self.prompts[prompt_name]
+                        prompt = model.prompts[prompt_name]
                     except KeyError:
                         raise ValueError(
-                            f"Prompt name '{prompt_name}' not found in the configured prompts dictionary with keys {list(self.prompts.keys())!r}."
+                            f"Prompt name '{prompt_name}' not found in the configured prompts dictionary with keys {list(model.prompts.keys())!r}."
                         )
-                elif self.default_prompt_name is not None:
-                    prompt = self.prompts.get(self.default_prompt_name, None)
+                elif model.default_prompt_name is not None:
+                    prompt = model.prompts.get(model.default_prompt_name, None)
             else:
                 if prompt_name is not None:
                     logger.warning(
@@ -229,7 +235,7 @@ class EmbeddingModel:
 
                 # Some models (e.g. INSTRUCTOR, GRIT) require removing the prompt before pooling
                 # Tracking the prompt length allow us to remove the prompt during pooling
-                tokenized_prompt = self.tokenize([prompt])
+                tokenized_prompt = model.tokenize([prompt])
                 if "input_ids" in tokenized_prompt:
                     extra_features["prompt_length"] = (
                         tokenized_prompt["input_ids"].shape[-1] - 1
@@ -238,7 +244,7 @@ class EmbeddingModel:
             if device is None:
                 device = model._target_device
 
-            model.to(device)
+            # model.to(device)
 
             all_embeddings = []
             all_token_nums = 0
