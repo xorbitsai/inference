@@ -797,6 +797,7 @@ class RESTfulAPI:
         worker_ip = payload.get("worker_ip", None)
         gpu_idx = payload.get("gpu_idx", None)
         download_hub = payload.get("download_hub", None)
+        model_path = payload.get("model_path", None)
 
         exclude_keys = {
             "model_uid",
@@ -813,6 +814,7 @@ class RESTfulAPI:
             "worker_ip",
             "gpu_idx",
             "download_hub",
+            "model_path",
         }
 
         kwargs = {
@@ -861,6 +863,7 @@ class RESTfulAPI:
                 worker_ip=worker_ip,
                 gpu_idx=gpu_idx,
                 download_hub=download_hub,
+                model_path=model_path,
                 **kwargs,
             )
         except ValueError as ve:
