@@ -1183,7 +1183,7 @@ const ModelCard = ({
                       onChange={(e) => setQuantization(e.target.value)}
                       label="Quantization"
                     >
-                      {quantizationOptions.map((quant) => {
+                      {quantizationOptions.map((quant) => {             
                         const specs = modelData.model_specs
                           .filter((spec) => spec.model_format === modelFormat)
                           .filter(
@@ -1195,9 +1195,9 @@ const ModelCard = ({
                         const spec = specs.find((s) => {
                           return s.quantizations.includes(quant)
                         })
-                        const cached = Array.isArray(spec.cache_status)
-                          ? spec.cache_status[spec.quantizations.indexOf(quant)]
-                          : spec.cache_status
+                        const cached = Array.isArray(spec?.cache_status)
+                          ? spec?.cache_status[spec?.quantizations.indexOf(quant)]
+                          : spec?.cache_status
 
                         const displayedQuant = cached
                           ? quant + ' (cached)'
