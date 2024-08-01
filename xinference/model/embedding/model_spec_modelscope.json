@@ -232,5 +232,13 @@
     "language": ["zh", "en"],
     "model_id": "AI-ModelScope/m3e-large",
     "model_hub": "modelscope"
+  },
+    {
+    "model_name": "gte-Qwen2",
+    "dimensions": 4096,
+    "max_tokens": 32000,
+    "language": ["zh", "en"],
+    "model_id": "iic/gte_Qwen2-7B-instruct",
+    "model_revision": "modelscope"
   }
 ]
