@@ -118,12 +118,19 @@ def get_cache_status(
 
 
 class EmbeddingModel:
-    def __init__(self, model_uid: str, model_path: str, device: Optional[str] = None):
+    def __init__(
+        self,
+        model_uid: str,
+        model_path: str,
+        model_spec: EmbeddingModelSpec,
+        device: Optional[str] = None,
+    ):
         self._model_uid = model_uid
         self._model_path = model_path
         self._device = device
         self._model = None
         self._counter = 0
+        self._model_spec = model_spec
 
     def load(self):
         try:
@@ -143,9 +150,17 @@ class EmbeddingModel:
         from ..utils import patch_trust_remote_code
 
         patch_trust_remote_code()
-        self._model = XSentenceTransformer(
-            self._model_path, device=self._device, model_kwargs={"device_map": "auto"}
-        )
+        if (
+            "gte-Qwen2" in self._model_spec.model_id
+            or "gte-Qwen2" in self._model_spec.model_name
+        ):
+            self._model = XSentenceTransformer(
+                self._model_path,
+                device=self._device,
+                model_kwargs={"device_map": "auto"},
+            )
+        else:
+            self._model = SentenceTransformer(self._model_path, device=self._device)
 
     def create_embedding(self, sentences: Union[str, List[str]], **kwargs):
         self._counter += 1
@@ -244,7 +259,11 @@ class EmbeddingModel:
             if device is None:
                 device = model._target_device
 
-            # model.to(device)
+            if (
+                "gte-Qwen2" not in self._model_spec.model_id
+                and "gte-Qwen2" not in self._model_spec.model_name
+            ):
+                model.to(device)
 
             all_embeddings = []
             all_token_nums = 0
@@ -322,7 +341,10 @@ class EmbeddingModel:
 
             return all_embeddings, all_token_nums
 
-        if "gte-Qwen2" in self._model_uid:
+        if (
+            "gte-Qwen2" in self._model_spec.model_id
+            or "gte-Qwen2" in self._model_spec.model_name
+        ):
             all_embeddings, all_token_nums = encode(
                 self._model,
                 sentences,
@@ -398,7 +420,7 @@ def create_embedding_model_instance(
 ) -> Tuple[EmbeddingModel, EmbeddingModelDescription]:
     model_spec = match_embedding(model_name, download_hub)
     model_path = cache(model_spec)
-    model = EmbeddingModel(model_uid, model_path, **kwargs)
+    model = EmbeddingModel(model_uid, model_path, model_spec, **kwargs)
     model_description = EmbeddingModelDescription(
         subpool_addr, devices, model_spec, model_path=model_path
     )
