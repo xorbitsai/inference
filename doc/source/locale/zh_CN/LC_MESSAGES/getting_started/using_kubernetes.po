@@ -47,7 +47,7 @@ msgid ""
 "Enable GPU support in Kubernetes, refer to `here "
 "<https://kubernetes.io/docs/tasks/manage-gpus/scheduling-gpus/>`_."
 msgstr ""
-"在 Kubernetes 中开启 GPU 支持，参考`这里 <https://kubernetes.io/zh-cn/docs/tasks/manage-gpus/scheduling-gpus/>`_ 。"
+"在 Kubernetes 中开启 GPU 支持，参考 `这里 <https://kubernetes.io/zh-cn/docs/tasks/manage-gpus/scheduling-gpus/>`_ 。"
 
 #: ../../source/getting_started/using_kubernetes.rst:17
 msgid "``Helm`` is correctly installed."
@@ -120,8 +120,8 @@ msgid ""
 "found `here <https://github.com/xorbitsai/xinference-helm-"
 "charts/tree/main/examples>`_."
 msgstr ""
-"默认安装方式对应的 ``values.yaml`` 文件位于`这里<https://github.com/xorbitsai/xinference-helm-charts/blob/main/charts/xinference/values.yaml>`_ 。"
-"而`这里<https://github.com/xorbitsai/xinference-helm-charts/tree/main/examples>`_ 有一些示例供参考。"
+"默认安装方式对应的 ``values.yaml`` 文件位于 `这里 <https://github.com/xorbitsai/xinference-helm-charts/blob/main/charts/xinference/values.yaml>`_ 。"
+"而 `这里 <https://github.com/xorbitsai/xinference-helm-charts/tree/main/examples>`_ 有一些示例供参考。"
 
 #: ../../source/getting_started/using_kubernetes.rst:78
 msgid "KubeBlocks Support"
@@ -136,5 +136,5 @@ msgid ""
 "/kubeblocks-for-xinference/manage-xinference>`_."
 msgstr ""
 "你也可以通过第三方的 ``KubeBlocks`` 来在 K8s 集群中安装 Xinference 。这种方式不是 Xinference 官方维护的，"
-"因此无法严格保证实时更新和可用性。请参考`文档<https://kubeblocks.io/docs/preview/user_docs/kubeblocks-for-xinference/manage-xinference>`_ 。"
+"因此无法严格保证实时更新和可用性。请参考 `文档 <https://kubeblocks.io/docs/preview/user_docs/kubeblocks-for-xinference/manage-xinference>`_ 。"
 
