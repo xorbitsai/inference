@@ -122,6 +122,7 @@ class EmbeddingModel:
         self,
         model_uid: str,
         model_path: str,
+        model_spec: EmbeddingModelSpec,
         device: Optional[str] = None,
     ):
         self._model_uid = model_uid
@@ -129,6 +130,7 @@ class EmbeddingModel:
         self._device = device
         self._model = None
         self._counter = 0
+        self._model_spec = model_spec
 
     def load(self):
         try:
@@ -139,12 +141,26 @@ class EmbeddingModel:
                 "Please make sure 'sentence-transformers' is installed. ",
                 "You can install it by `pip install sentence-transformers`\n",
             ]
-
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
+
+        class XSentenceTransformer(SentenceTransformer):
+            def to(self, *args, **kwargs):
+                pass
+
         from ..utils import patch_trust_remote_code
 
         patch_trust_remote_code()
-        self._model = SentenceTransformer(self._model_path, device=self._device)
+        if (
+            "gte-Qwen2" in self._model_spec.model_id
+            or "gte-Qwen2" in self._model_spec.model_name
+        ):
+            self._model = XSentenceTransformer(
+                self._model_path,
+                device=self._device,
+                model_kwargs={"device_map": "auto"},
+            )
+        else:
+            self._model = SentenceTransformer(self._model_path, device=self._device)
 
     def create_embedding(self, sentences: Union[str, List[str]], **kwargs):
         self._counter += 1
@@ -161,6 +177,8 @@ class EmbeddingModel:
         def encode(
             model: SentenceTransformer,
             sentences: Union[str, List[str]],
+            prompt_name: Optional[str] = None,
+            prompt: Optional[str] = None,
             batch_size: int = 32,
             show_progress_bar: bool = None,
             output_value: str = "sentence_embedding",
@@ -209,10 +227,43 @@ class EmbeddingModel:
                 sentences = [sentences]
                 input_was_string = True
 
+            if prompt is None:
+                if prompt_name is not None:
+                    try:
+                        prompt = model.prompts[prompt_name]
+                    except KeyError:
+                        raise ValueError(
+                            f"Prompt name '{prompt_name}' not found in the configured prompts dictionary with keys {list(model.prompts.keys())!r}."
+                        )
+                elif model.default_prompt_name is not None:
+                    prompt = model.prompts.get(model.default_prompt_name, None)
+            else:
+                if prompt_name is not None:
+                    logger.warning(
+                        "Encode with either a `prompt`, a `prompt_name`, or neither, but not both. "
+                        "Ignoring the `prompt_name` in favor of `prompt`."
+                    )
+
+            extra_features = {}
+            if prompt is not None:
+                sentences = [prompt + sentence for sentence in sentences]
+
+                # Some models (e.g. INSTRUCTOR, GRIT) require removing the prompt before pooling
+                # Tracking the prompt length allow us to remove the prompt during pooling
+                tokenized_prompt = model.tokenize([prompt])
+                if "input_ids" in tokenized_prompt:
+                    extra_features["prompt_length"] = (
+                        tokenized_prompt["input_ids"].shape[-1] - 1
+                    )
+
             if device is None:
                 device = model._target_device
 
-            model.to(device)
+            if (
+                "gte-Qwen2" not in self._model_spec.model_id
+                and "gte-Qwen2" not in self._model_spec.model_name
+            ):
+                model.to(device)
 
             all_embeddings = []
             all_token_nums = 0
@@ -233,6 +284,7 @@ class EmbeddingModel:
                 ]
                 features = model.tokenize(sentences_batch)
                 features = batch_to_device(features, device)
+                features.update(extra_features)
                 all_token_nums += sum([len(f) for f in features])
 
                 with torch.no_grad():
@@ -277,7 +329,10 @@ class EmbeddingModel:
             ]
 
             if convert_to_tensor:
-                all_embeddings = torch.stack(all_embeddings)
+                if len(all_embeddings):
+                    all_embeddings = torch.stack(all_embeddings)
+                else:
+                    all_embeddings = torch.Tensor()
             elif convert_to_numpy:
                 all_embeddings = np.asarray([emb.numpy() for emb in all_embeddings])
 
@@ -286,12 +341,24 @@ class EmbeddingModel:
 
             return all_embeddings, all_token_nums
 
-        all_embeddings, all_token_nums = encode(
-            self._model,
-            sentences,
-            convert_to_numpy=False,
-            **kwargs,
-        )
+        if (
+            "gte-Qwen2" in self._model_spec.model_id
+            or "gte-Qwen2" in self._model_spec.model_name
+        ):
+            all_embeddings, all_token_nums = encode(
+                self._model,
+                sentences,
+                prompt_name="query",
+                convert_to_numpy=False,
+                **kwargs,
+            )
+        else:
+            all_embeddings, all_token_nums = encode(
+                self._model,
+                sentences,
+                convert_to_numpy=False,
+                **kwargs,
+            )
         if isinstance(sentences, str):
             all_embeddings = [all_embeddings]
         embedding_list = []
@@ -356,7 +423,7 @@ def create_embedding_model_instance(
     if model_path is None:
         model_path = cache(model_spec)
 
-    model = EmbeddingModel(model_uid, model_path, **kwargs)
+    model = EmbeddingModel(model_uid, model_path, model_spec, **kwargs)
     model_description = EmbeddingModelDescription(
         subpool_addr, devices, model_spec, model_path=model_path
     )
