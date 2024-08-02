@@ -743,6 +743,7 @@ class WorkerActor(xo.StatelessActor):
         request_limits: Optional[int] = None,
         gpu_idx: Optional[Union[int, List[int]]] = None,
         download_hub: Optional[Literal["huggingface", "modelscope", "csghub"]] = None,
+        model_path: Optional[str] = None,
         **kwargs,
     ):
         # !!! Note that The following code must be placed at the very beginning of this function,
@@ -799,6 +800,11 @@ class WorkerActor(xo.StatelessActor):
                 raise ValueError(
                     f"PEFT adaptors can only be applied to pytorch-like models"
                 )
+        if model_path is not None:
+            if not os.path.exists(model_path):
+                raise ValueError(
+                    f"Invalid input. `model_path`: {model_path} File or directory does not exist."
+                )
 
         assert model_uid not in self._model_uid_to_model
         self._check_model_is_valid(model_name, model_format)
@@ -826,6 +832,7 @@ class WorkerActor(xo.StatelessActor):
                     quantization,
                     peft_model_config,
                     download_hub,
+                    model_path,
                     **kwargs,
                 )
                 await self.update_cache_status(model_name, model_description)

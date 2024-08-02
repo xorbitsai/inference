@@ -76,4 +76,10 @@ SGLang
 It significantly accelerates the execution of complex LLM programs by automatic KV cache reuse across multiple calls.
 And it also supports other common techniques like continuous batching and tensor parallelism.
 
+MLX
+~~~
+`MLX <https://github.com/ml-explore/mlx-examples/tree/main/llms>`_ provides efficient runtime
+to run LLM on Apple silicon. It's recommended to use for Mac users when running on Apple silicon
+if the model has MLX format support.
+
 

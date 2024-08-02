@@ -416,10 +416,13 @@ def create_embedding_model_instance(
     model_uid: str,
     model_name: str,
     download_hub: Optional[Literal["huggingface", "modelscope", "csghub"]] = None,
+    model_path: Optional[str] = None,
     **kwargs,
 ) -> Tuple[EmbeddingModel, EmbeddingModelDescription]:
     model_spec = match_embedding(model_name, download_hub)
-    model_path = cache(model_spec)
+    if model_path is None:
+        model_path = cache(model_spec)
+
     model = EmbeddingModel(model_uid, model_path, model_spec, **kwargs)
     model_description = EmbeddingModelDescription(
         subpool_addr, devices, model_spec, model_path=model_path

@@ -706,7 +706,7 @@ class ModelActor(xo.StatelessActor):
         prompt: str,
         negative_prompt: str,
         n: int = 1,
-        size: str = "1024*1024",
+        size: Optional[str] = None,
         response_format: str = "url",
         *args,
         **kwargs,

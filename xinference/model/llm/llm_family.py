@@ -699,12 +699,12 @@ def _generate_model_file_names(
 def _merge_cached_files(
     cache_dir: str, input_file_names: List[str], output_file_name: str
 ):
-    with open(os.path.join(cache_dir, output_file_name), "wb") as output_file:
-        for file_name in input_file_names:
-            logger.info(f"Merging file {file_name} into {output_file_name} ...")
-
-            with open(os.path.join(cache_dir, file_name), "rb") as input_file:
-                shutil.copyfileobj(input_file, output_file)
+    # now llama.cpp can find the gguf parts automatically
+    # we only need to provide the first part
+    # thus we create the symlink to the first part
+    symlink_local_file(
+        os.path.join(cache_dir, input_file_names[0]), cache_dir, output_file_name
+    )
 
     logger.info(f"Merge complete.")
 

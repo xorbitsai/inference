@@ -797,6 +797,7 @@ class RESTfulAPI:
         worker_ip = payload.get("worker_ip", None)
         gpu_idx = payload.get("gpu_idx", None)
         download_hub = payload.get("download_hub", None)
+        model_path = payload.get("model_path", None)
 
         exclude_keys = {
             "model_uid",
@@ -813,6 +814,7 @@ class RESTfulAPI:
             "worker_ip",
             "gpu_idx",
             "download_hub",
+            "model_path",
         }
 
         kwargs = {
@@ -861,6 +863,7 @@ class RESTfulAPI:
                 worker_ip=worker_ip,
                 gpu_idx=gpu_idx,
                 download_hub=download_hub,
+                model_path=model_path,
                 **kwargs,
             )
         except ValueError as ve:
@@ -1407,7 +1410,7 @@ class RESTfulAPI:
         negative_prompt: Optional[Union[str, List[str]]] = Form(None),
         n: Optional[int] = Form(1),
         response_format: Optional[str] = Form("url"),
-        size: Optional[str] = Form("1024*1024"),
+        size: Optional[str] = Form(None),
         kwargs: Optional[str] = Form(None),
     ) -> Response:
         model_uid = model
