@@ -123,7 +123,7 @@ helm search repo xinference/xinference --devel --versions
 helm install xinference xinference/xinference -n xinference --version 0.0.1-v<xinference_release_version>
 ```
 
-For more customized installation methods on K8s, please refer to the documentation.
+For more customized installation methods on K8s, please refer to the [documentation](https://inference.readthedocs.io/en/latest/getting_started/using_kubernetes.html).
 
 ### Quick Start
 

@@ -107,7 +107,7 @@ helm search repo xinference/xinference --devel --versions
 helm install xinference xinference/xinference -n xinference --version 0.0.1-v<xinference_release_version>
 ```
 
-更多定制化安装方式，请参考文档。
+更多定制化安装方式，请参考[文档](https://inference.readthedocs.io/en/latest/getting_started/using_kubernetes.html)。
 
 ### 快速开始
 
