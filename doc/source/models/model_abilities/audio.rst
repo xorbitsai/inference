@@ -245,7 +245,7 @@ Basic usage, launch model ``CosyVoice-300M-SFT``.
       -H 'Content-Type: application/json' \
       -d '{
         "model": "<MODEL_UID>",
-        "text": "<The text to generate audio for>",
+        "input": "<The text to generate audio for>",
         # ['中文女', '中文男', '日语男', '粤语女', '英文女', '英文男', '韩语女']
         "voice": "中文女"
       }'

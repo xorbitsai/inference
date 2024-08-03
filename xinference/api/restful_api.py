@@ -46,7 +46,7 @@ from fastapi.staticfiles import StaticFiles
 from PIL import Image
 from sse_starlette.sse import EventSourceResponse
 from starlette.responses import JSONResponse as StarletteJSONResponse
-from starlette.responses import RedirectResponse
+from starlette.responses import PlainTextResponse, RedirectResponse
 from uvicorn import Config, Server
 from xoscar.utils import get_next_port
 
@@ -234,6 +234,13 @@ class RESTfulAPI:
             allow_methods=["*"],
             allow_headers=["*"],
         )
+
+        @self._app.exception_handler(500)
+        async def internal_exception_handler(request: Request, exc: Exception):
+            logger.exception("Handling request %s failed: %s", request.url, exc)
+            return PlainTextResponse(
+                status_code=500, content=f"Internal Server Error: {exc}"
+            )
 
         # internal interface
         self._router.add_api_route("/status", self.get_status, methods=["GET"])
@@ -1320,6 +1327,7 @@ class RESTfulAPI:
             None, media_type="application/octet-stream"
         ),
     ) -> Response:
+        print("create_speech")
         if prompt_speech:
             f = await request.form()
         else:
