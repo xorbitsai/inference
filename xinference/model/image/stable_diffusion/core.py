@@ -90,6 +90,39 @@ class DiffusionModel:
             self._kwargs["torch_dtype"] = torch.float16
             self._kwargs["use_safetensors"] = True
 
+        quantize_text_encoder = self._kwargs.pop("quantize_text_encoder", None)
+        if quantize_text_encoder:
+            try:
+                from transformers import BitsAndBytesConfig, T5EncoderModel
+            except ImportError:
+                error_message = "Failed to import module 'transformers'"
+                installation_guide = [
+                    "Please make sure 'transformers' is installed. ",
+                    "You can install it by `pip install transformers`\n",
+                ]
+
+                raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
+
+            try:
+                import bitsandbytes  # noqa: F401
+            except ImportError:
+                error_message = "Failed to import module 'bitsandbytes'"
+                installation_guide = [
+                    "Please make sure 'bitsandbytes' is installed. ",
+                    "You can install it by `pip install bitsandbytes`\n",
+                ]
+
+                raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
+
+            for text_encoder_name in quantize_text_encoder.split(","):
+                quantization_config = BitsAndBytesConfig(load_in_8bit=True)
+                text_encoder = T5EncoderModel.from_pretrained(
+                    self._model_path,
+                    subfolder=text_encoder_name,
+                    quantization_config=quantization_config,
+                )
+                self._kwargs[text_encoder_name] = text_encoder
+
         logger.debug("Loading model %s", AutoPipelineModel)
         self._model = AutoPipelineModel.from_pretrained(
             self._model_path,

@@ -1,5 +1,25 @@
 [
   {
+    "model_name": "FLUX.1-schnell",
+    "model_family": "stable_diffusion",
+    "model_id": "black-forest-labs/FLUX.1-schnell",
+    "model_revision": "768d12a373ed5cc9ef9a9dea7504dc09fcc14842",
+    "abilities": [
+      "text2iamge",
+      "image2image"
+    ]
+  },
+  {
+    "model_name": "FLUX.1-dev",
+    "model_family": "stable_diffusion",
+    "model_id": "black-forest-labs/FLUX.1-dev",
+    "model_revision": "01aa605f2c300568dd6515476f04565a954fcb59",
+    "abilities": [
+      "text2iamge",
+      "image2image"
+    ]
+  },
+  {
     "model_name": "sd3-medium",
     "model_family": "stable_diffusion",
     "model_id": "stabilityai/stable-diffusion-3-medium-diffusers",

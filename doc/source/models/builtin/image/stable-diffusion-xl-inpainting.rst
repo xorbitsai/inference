@@ -6,7 +6,7 @@ stable-diffusion-xl-inpainting
 
 - **Model Name:** stable-diffusion-xl-inpainting
 - **Model Family:** stable_diffusion
-- **Abilities:** inpainting
+- **Abilities:** text-to-image
 - **Available ControlNet:** None
 
 Specifications

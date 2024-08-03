@@ -1,5 +1,27 @@
 [
   {
+    "model_name": "FLUX.1-schnell",
+    "model_family": "stable_diffusion",
+    "model_hub": "modelscope",
+    "model_id": "AI-ModelScope/FLUX.1-schnell",
+    "model_revision": "master",
+    "abilities": [
+      "text2iamge",
+      "image2image"
+    ]
+  },
+  {
+    "model_name": "FLUX.1-dev",
+    "model_family": "stable_diffusion",
+    "model_hub": "modelscope",
+    "model_id": "AI-ModelScope/FLUX.1-dev",
+    "model_revision": "master",
+    "abilities": [
+      "text2iamge",
+      "image2image"
+    ]
+  },
+  {
     "model_name": "sd3-medium",
     "model_family": "stable_diffusion",
     "model_hub": "modelscope",
