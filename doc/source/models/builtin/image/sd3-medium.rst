@@ -6,7 +6,7 @@ sd3-medium
 
 - **Model Name:** sd3-medium
 - **Model Family:** stable_diffusion
-- **Abilities:** text-to-image
+- **Abilities:** text2iamge, image2image
 - **Available ControlNet:** None
 
 Specifications
