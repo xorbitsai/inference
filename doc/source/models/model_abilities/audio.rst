@@ -54,6 +54,7 @@ Audio to text
 * Belle-distilwhisper-large-v2-zh
 * Belle-whisper-large-v2-zh
 * Belle-whisper-large-v3-zh
+* SenseVoiceSmall
 
 
 Text to audio
