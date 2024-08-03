@@ -17,7 +17,7 @@
     "model_id": "AI-ModelScope/FLUX.1-dev",
     "model_revision": "master",
     "abilities": [
-      "text2iamge",
+      "text2image",
       "image2image"
     ]
   },
@@ -28,7 +28,7 @@
     "model_id": "AI-ModelScope/stable-diffusion-3-medium-diffusers",
     "model_revision": "master",
     "abilities": [
-      "text2iamge",
+      "text2image",
       "image2image"
     ]
   },
@@ -39,7 +39,7 @@
     "model_id": "AI-ModelScope/sd-turbo",
     "model_revision": "master",
     "abilities": [
-      "text2iamge"
+      "text2image"
     ]
   },
   {
@@ -49,7 +49,7 @@
     "model_id": "AI-ModelScope/sdxl-turbo",
     "model_revision": "master",
     "abilities": [
-      "text2iamge"
+      "text2image"
     ]
   },
   {
@@ -59,7 +59,7 @@
     "model_id": "AI-ModelScope/stable-diffusion-v1-5",
     "model_revision": "master",
     "abilities": [
-      "text2iamge",
+      "text2image",
       "image2image"
     ],
     "controlnet": [
@@ -114,7 +114,7 @@
     "model_id": "AI-ModelScope/stable-diffusion-xl-base-1.0",
     "model_revision": "master",
     "abilities": [
-      "text2iamge",
+      "text2image",
       "image2image"
     ],
     "controlnet": [

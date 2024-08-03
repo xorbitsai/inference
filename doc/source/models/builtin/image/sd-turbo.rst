@@ -6,7 +6,7 @@ sd-turbo
 
 - **Model Name:** sd-turbo
 - **Model Family:** stable_diffusion
-- **Abilities:** text2iamge
+- **Abilities:** text2image
 - **Available ControlNet:** None
 
 Specifications
