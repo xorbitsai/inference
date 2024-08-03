@@ -6,7 +6,7 @@ SenseVoiceSmall
 
 - **Model Name:** SenseVoiceSmall
 - **Model Family:** funasr
-- **Abilities:** audio-to_text
+- **Abilities:** audio-to-text
 - **Multilingual:** True
 
 Specifications

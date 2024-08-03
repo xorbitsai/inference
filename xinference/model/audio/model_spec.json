@@ -100,7 +100,7 @@
     "model_family": "funasr",
     "model_id": "FunAudioLLM/SenseVoiceSmall",
     "model_revision": "3eb3b4eeffc2f2dde6051b853983753db33e35c3",
-    "ability": "audio-to_text",
+    "ability": "audio-to-text",
     "multilingual": true,
     "default_model_config": {
       "vad_model": "fsmn-vad",

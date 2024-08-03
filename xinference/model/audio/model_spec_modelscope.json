@@ -14,7 +14,7 @@
     "model_hub": "modelscope",
     "model_id": "iic/SenseVoiceSmall",
     "model_revision": "master",
-    "ability": "audio-to_text",
+    "ability": "audio-to-text",
     "multilingual": true,
     "default_model_config": {
       "vad_model": "fsmn-vad",
