@@ -178,7 +178,6 @@ def get_cache_status(
             ]
         )
     else:  # Usually for UT
-        logger.warning(f"Cannot find builtin image model spec: {model_name}")
         return valid_model_revision(meta_path, model_spec.model_revision)
 
 
