@@ -86,7 +86,7 @@ class FunASRModel:
 
         language = "auto" if language is None else language
 
-        with tempfile.NamedTemporaryFile() as f:
+        with tempfile.NamedTemporaryFile(buffering=0) as f:
             f.write(audio)
 
             kw = self._model_spec.default_transcription_config.copy()  # type: ignore
