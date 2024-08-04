@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import logging
-import os
 import tempfile
 from typing import TYPE_CHECKING, List, Optional
 
@@ -87,10 +86,9 @@ class FunASRModel:
 
         language = "auto" if language is None else language
 
-        with tempfile.NamedTemporaryFile(delete=False) as f:
+        with tempfile.NamedTemporaryFile() as f:
             f.write(audio)
 
-        try:
             kw = self._model_spec.default_transcription_config.copy()  # type: ignore
             kw.update(kwargs)
             logger.debug("Calling FunASR model with kwargs: %s", kw)
@@ -103,8 +101,6 @@ class FunASRModel:
                 return {"text": text}
             else:
                 raise ValueError(f"Unsupported response format: {response_format}")
-        finally:
-            os.remove(f.name)
 
     def translations(
         self,
