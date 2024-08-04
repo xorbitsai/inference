@@ -191,7 +191,7 @@ Speech API use non-stream by default as
       -H 'Content-Type: application/json' \
       -d '{
         "model": "<MODEL_UID>",
-        "text": "<The text to generate audio for>",
+        "input": "<The text to generate audio for>",
         "voice": "echo",
         "stream": True,
       }'

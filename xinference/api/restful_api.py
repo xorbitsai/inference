@@ -1327,7 +1327,6 @@ class RESTfulAPI:
             None, media_type="application/octet-stream"
         ),
     ) -> Response:
-        print("create_speech")
         if prompt_speech:
             f = await request.form()
         else:
