@@ -226,6 +226,7 @@ class WorkerActor(xo.StatelessActor):
         )
         from ..model.flexible import (
             FlexibleModelSpec,
+            generate_flexible_model_description,
             get_flexible_model_descriptions,
             register_flexible_model,
             unregister_flexible_model,
@@ -287,6 +288,7 @@ class WorkerActor(xo.StatelessActor):
                 FlexibleModelSpec,
                 register_flexible_model,
                 unregister_flexible_model,
+                generate_flexible_model_description,
             ),
         }
 
