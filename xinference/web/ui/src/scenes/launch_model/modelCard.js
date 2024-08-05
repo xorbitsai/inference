@@ -112,6 +112,7 @@ const ModelCard = ({
   const [workerIp, setWorkerIp] = useState('')
   const [GPUIdx, setGPUIdx] = useState('')
   const [downloadHub, setDownloadHub] = useState('')
+  const [modelPath, setModelPath] = useState('')
 
   const [enginesObj, setEnginesObj] = useState({})
   const [engineOptions, setEngineOptions] = useState([])
@@ -304,6 +305,7 @@ const ModelCard = ({
       worker_ip: workerIp.trim() === '' ? null : workerIp.trim(),
       gpu_idx: GPUIdx.trim() === '' ? null : handleGPUIdx(GPUIdx.trim()),
       download_hub: downloadHub === '' ? null : downloadHub,
+      model_path: modelPath.trim() === '' ? null : modelPath.trim(),
     }
 
     let modelDataWithID_other = {
@@ -315,6 +317,7 @@ const ModelCard = ({
       worker_ip: workerIp.trim() === '' ? null : workerIp.trim(),
       gpu_idx: GPUIdx.trim() === '' ? null : handleGPUIdx(GPUIdx.trim()),
       download_hub: downloadHub === '' ? null : downloadHub,
+      model_path: modelPath.trim() === '' ? null : modelPath.trim(),
     }
 
     if (nGPULayers >= 0) {
@@ -554,6 +557,7 @@ const ModelCard = ({
         worker_ip,
         gpu_idx,
         download_hub,
+        model_path,
         peft_model_config,
       } = arr[0]
 
@@ -577,6 +581,7 @@ const ModelCard = ({
       setWorkerIp(worker_ip || '')
       setGPUIdx(gpu_idx?.join(',') || '')
       setDownloadHub(download_hub || '')
+      setModelPath(model_path || '')
 
       let loraData = []
       peft_model_config?.lora_list?.forEach((item) => {
@@ -641,6 +646,7 @@ const ModelCard = ({
       setGPUIdx(arr[0].gpu_idx || '')
       setWorkerIp(arr[0].worker_ip || '')
       setDownloadHub(arr[0].download_hub)
+      setModelPath(arr[0].model_path)
     }
   }
 
@@ -701,6 +707,7 @@ const ModelCard = ({
       setWorkerIp('')
       setGPUIdx('')
       setDownloadHub('')
+      setModelPath('')
       setLoraArr([])
       setImageLoraLoadArr([])
       setImageLoraFuseArr([])
@@ -714,6 +721,7 @@ const ModelCard = ({
       setGPUIdx('')
       setWorkerIp('')
       setDownloadHub('')
+      setModelPath('')
     }
   }
 
@@ -1206,9 +1214,11 @@ const ModelCard = ({
                         const spec = specs.find((s) => {
                           return s.quantizations.includes(quant)
                         })
-                        const cached = Array.isArray(spec.cache_status)
-                          ? spec.cache_status[spec.quantizations.indexOf(quant)]
-                          : spec.cache_status
+                        const cached = Array.isArray(spec?.cache_status)
+                          ? spec?.cache_status[
+                              spec?.quantizations.indexOf(quant)
+                            ]
+                          : spec?.cache_status
 
                         const displayedQuant = cached
                           ? quant + ' (cached)'
@@ -1391,6 +1401,16 @@ const ModelCard = ({
                       </Select>
                     </FormControl>
                   </Grid>
+                  <Grid item xs={12}>
+                    <FormControl variant="outlined" margin="normal" fullWidth>
+                      <TextField
+                        variant="outlined"
+                        value={modelPath}
+                        label="(Optional) Model Path, For PyTorch, provide the model directory. For GGML/GGUF, provide the model file path."
+                        onChange={(e) => setModelPath(e.target.value)}
+                      />
+                    </FormControl>
+                  </Grid>
                   <ListItemButton
                     onClick={() => setIsPeftModelConfig(!isPeftModelConfig)}
                   >
@@ -1554,6 +1574,14 @@ const ModelCard = ({
                     )
                   })}
                 </Select>
+              </FormControl>
+              <FormControl variant="outlined" margin="normal" fullWidth>
+                <TextField
+                  variant="outlined"
+                  value={modelPath}
+                  label="(Optional) Model Path, For PyTorch, provide the model directory. For GGML/GGUF, provide the model file path."
+                  onChange={(e) => setModelPath(e.target.value)}
+                />
               </FormControl>
             </FormControl>
           )}

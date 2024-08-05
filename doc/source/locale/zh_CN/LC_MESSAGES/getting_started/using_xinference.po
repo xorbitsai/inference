@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-05-11 10:26+0800\n"
+"POT-Creation-Date: 2024-08-02 15:15+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -132,7 +132,8 @@ msgid ""
 "the inference engine you want to run. Currently, xinference supports the "
 "following inference engines:"
 msgstr ""
-"自 ``v0.11.0`` 版本开始，在加载 LLM 模型之前，你需要指定具体的推理引擎。当前，Xinference 支持以下推理引擎："
+"自 ``v0.11.0`` 版本开始，在加载 LLM 模型之前，你需要指定具体的推理引擎。"
+"当前，Xinference 支持以下推理引擎："
 
 #: ../../source/getting_started/using_xinference.rst:109
 msgid "``vllm``"
@@ -154,8 +155,7 @@ msgstr ""
 msgid ""
 "About the details of these inference engine, please refer to :ref:`here "
 "<inference_backend>`."
-msgstr ""
-"关于这些推理引擎的详细信息，请参考 :ref:`这里 <inference_backend>` 。"
+msgstr "关于这些推理引擎的详细信息，请参考 :ref:`这里 <inference_backend>` 。"
 
 #: ../../source/getting_started/using_xinference.rst:116
 msgid ""
@@ -163,15 +163,15 @@ msgid ""
 "``quantization`` of the model you want to launch is closely related to "
 "the inference engine."
 msgstr ""
-"注意，当加载 LLM 模型时，所能运行的引擎与 ``model_format`` 和 ``quantization`` 参数息息相关。"
+"注意，当加载 LLM 模型时，所能运行的引擎与 ``model_format`` 和 ``"
+"quantization`` 参数息息相关。"
 
 #: ../../source/getting_started/using_xinference.rst:119
 msgid ""
 "You can use ``xinference engine`` command to query the combination of "
 "parameters of the model you want to launch. This will demonstrate under "
 "what conditions a model can run on which inference engines."
-msgstr ""
-"Xinference 提供了 ``xinference engine`` 命令帮助你查询相关的参数组合。"
+msgstr "Xinference 提供了 ``xinference engine`` 命令帮助你查询相关的参数组合。"
 
 #: ../../source/getting_started/using_xinference.rst:122
 msgid "For example:"
@@ -182,21 +182,22 @@ msgid ""
 "I would like to query about which inference engines the ``qwen-chat`` "
 "model can run on, and what are their respective parameters."
 msgstr ""
-"我想查询与 ``qwen-chat`` 模型相关的参数组合，以决定它能够怎样跑在各种推理引擎上。"
+"我想查询与 ``qwen-chat`` 模型相关的参数组合，以决定它能够怎样跑在各种推理"
+"引擎上。"
 
 #: ../../source/getting_started/using_xinference.rst:130
 msgid ""
 "I want to run ``qwen-chat`` with ``VLLM`` as the inference engine, but I "
 "don't know how to configure the other parameters."
 msgstr ""
-"我想将 ``qwen-chat`` 跑在 ``VLLM`` 推理引擎上，但是我不知道什么样的其他参数符合这个要求。"
+"我想将 ``qwen-chat`` 跑在 ``VLLM`` 推理引擎上，但是我不知道什么样的其他"
+"参数符合这个要求。"
 
 #: ../../source/getting_started/using_xinference.rst:136
 msgid ""
 "I want to launch the ``qwen-chat`` model in the ``GGUF`` format, and I "
 "need to know how to configure the remaining parameters."
-msgstr ""
-"我想加载 ``GGUF`` 格式的 ``qwen-chat`` 模型，我需要知道其余的参数组合。"
+msgstr "我想加载 ``GGUF`` 格式的 ``qwen-chat`` 模型，我需要知道其余的参数组合。"
 
 #: ../../source/getting_started/using_xinference.rst:143
 msgid ""
@@ -205,8 +206,9 @@ msgid ""
 "retrieve information about the supported inference engines and their "
 "related parameter combinations through the ``xinference engine`` command."
 msgstr ""
-"总之，相比于之前的版本，当加载 LLM 模型时，需要额外传入 ``model_engine`` 参数。"
-"你可以通过 ``xinference engine`` 命令查询你想运行的推理引擎与其他参数组合的关系。"
+"总之，相比于之前的版本，当加载 LLM 模型时，需要额外传入 ``model_engine`` "
+"参数。你可以通过 ``xinference engine`` 命令查询你想运行的推理引擎与其他"
+"参数组合的关系。"
 
 #: ../../source/getting_started/using_xinference.rst:150
 msgid "Run Llama-2"
@@ -440,67 +442,10 @@ msgid ""
 msgstr "更多 docker 使用，请参考 :ref:`使用 docker 镜像 <using_docker_image>`。"
 
 #: ../../source/getting_started/using_xinference.rst:428
-msgid "Using Xinference On Kubernetes"
-msgstr "在 Kubernetes 环境中运行 Xinference"
-
-#: ../../source/getting_started/using_xinference.rst:430
-msgid ""
-"To use Xinference on Kubernetes, `KubeBlocks <https://kubeblocks.io/>`_ "
-"is required to help the installation."
-msgstr ""
-"如果想在 Kubernetes 中运行 Xinference，需要通过 `KubeBlocks <https://"
-"kubeblocks.io/>`_ 来帮助安装。"
-
-#: ../../source/getting_started/using_xinference.rst:432
-msgid "The following steps assume Kubernetes is already installed."
-msgstr "假设已经有一个可以使用的 Kubernetes 环境。"
-
-#: ../../source/getting_started/using_xinference.rst:434
-msgid ""
-"Download cli tool kbcli for KubeBlocks, see `install kbcli "
-"<https://kubeblocks.io/docs/preview/user_docs/installation/install-with-"
-"kbcli/install-kbcli/>`_."
-msgstr ""
-"下载 KubeBlocks 的命令行工具，可以参考 `文档 <https://kubeblocks.io/docs/"
-"preview/user_docs/installation/install-with-kbcli/install-kbcli/>`_. "
-
-#: ../../source/getting_started/using_xinference.rst:436
-msgid "Make sure kbcli version is at least v0.7.1."
-msgstr "确保 kbcli 的版本至少为 v0.7.1。"
-
-#: ../../source/getting_started/using_xinference.rst:438
-msgid ""
-"Install KubeBlocks using kbcli command, see `install KubeBlocks with "
-"kbcli <https://kubeblocks.io/docs/preview/user_docs/installation/install-"
-"with-kbcli/install-kubeblocks-with-kbcli/>`_."
-msgstr ""
-"通过 kbcli 安装 KubeBlocks，参考 `文档 kbcli <https://kubeblocks.io/docs/"
-"preview/user_docs/installation/install-with-kbcli/install-kubeblocks-with"
-"-kbcli/>`_."
-
-#: ../../source/getting_started/using_xinference.rst:440
-msgid "Enable Xinference addon, run the following command:"
-msgstr "用以下命令打开 Xinference 插件："
-
-#: ../../source/getting_started/using_xinference.rst:446
-msgid "Use kbcli to start Xinference cluster, run the following command:"
-msgstr "使用 kbcli 来拉起 Xinference 集群："
-
-#: ../../source/getting_started/using_xinference.rst:452
-msgid ""
-"If the Kubernetes node doesn't have GPU on it, run the command with extra"
-" flag:"
-msgstr "如果 Kubernetes 节点没有 GPU 设备，需要加上额外的参数："
-
-#: ../../source/getting_started/using_xinference.rst:458
-msgid "Use -h to read the help documentation for more options:"
-msgstr "使用 -h 获取帮助文档"
-
-#: ../../source/getting_started/using_xinference.rst:465
 msgid "What's Next?"
 msgstr "更多"
 
-#: ../../source/getting_started/using_xinference.rst:467
+#: ../../source/getting_started/using_xinference.rst:430
 msgid ""
 "Congratulations on getting started with Xinference! To help you navigate "
 "and make the most out of this powerful tool, here are some resources and "
@@ -509,12 +454,12 @@ msgstr ""
 "恭喜你，已经初步掌握了 Xinference 的用法！为了帮助你更好地使用工具，下面"
 "是其他的一些文档和指导资源："
 
-#: ../../source/getting_started/using_xinference.rst:470
+#: ../../source/getting_started/using_xinference.rst:433
 msgid ""
 ":ref:`How to Use Client APIs for Different Types of Models "
 "<user_guide_client_api>`"
 msgstr ":ref:`如何使用 Python 创建不同类型的模型 <user_guide_client_api>`"
 
-#: ../../source/getting_started/using_xinference.rst:472
+#: ../../source/getting_started/using_xinference.rst:435
 msgid ":ref:`Choosing the Right Backends for Your Needs <user_guide_backends>`"
 msgstr ":ref:`选择正确的推理引擎 <user_guide_backends>` "

@@ -1,0 +1,140 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2024-08-02 15:15+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.11.0\n"
+
+#: ../../source/getting_started/using_kubernetes.rst:5
+msgid "Xinference on Kubernetes"
+msgstr "在 Kubernetes 集群中安装 Xinference"
+
+#: ../../source/getting_started/using_kubernetes.rst:9
+msgid "Helm Support"
+msgstr "基于原生 Helm 的方式"
+
+#: ../../source/getting_started/using_kubernetes.rst:10
+msgid ""
+"Xinference provides a method for installation in a Kubernetes cluster via"
+" ``Helm`` ."
+msgstr ""
+"Xinference 提供基于原生 Helm 在 Kubernetes 集群中安装的方式。"
+
+#: ../../source/getting_started/using_kubernetes.rst:14
+msgid "Prerequisites"
+msgstr ""
+"准备条件"
+
+#: ../../source/getting_started/using_kubernetes.rst:15
+msgid "You have a fully functional Kubernetes cluster."
+msgstr ""
+"一个可用的 Kubernetes 集群。"
+
+#: ../../source/getting_started/using_kubernetes.rst:16
+msgid ""
+"Enable GPU support in Kubernetes, refer to `here "
+"<https://kubernetes.io/docs/tasks/manage-gpus/scheduling-gpus/>`_."
+msgstr ""
+"在 Kubernetes 中开启 GPU 支持，参考 `这里 <https://kubernetes.io/zh-cn/docs/tasks/manage-gpus/scheduling-gpus/>`_ 。"
+
+#: ../../source/getting_started/using_kubernetes.rst:17
+msgid "``Helm`` is correctly installed."
+msgstr ""
+"正确安装 ``Helm`` 。"
+
+#: ../../source/getting_started/using_kubernetes.rst:21
+msgid "Steps"
+msgstr ""
+"具体步骤"
+
+#: ../../source/getting_started/using_kubernetes.rst:22
+msgid "Add xinference helm repo."
+msgstr "新增 Xinference Helm 仓库"
+
+#: ../../source/getting_started/using_kubernetes.rst:28
+msgid "Update xinference helm repo indexes and query versions."
+msgstr "更新仓库索引，查询可安装版本"
+
+#: ../../source/getting_started/using_kubernetes.rst:35
+msgid "Install"
+msgstr "安装"
+
+#: ../../source/getting_started/using_kubernetes.rst:43
+msgid "Customized Installation"
+msgstr "自定义安装"
+
+#: ../../source/getting_started/using_kubernetes.rst:44
+msgid ""
+"The installation method mentioned above sets up a Xinference cluster "
+"similar to a single-machine setup, with only one worker and all startup "
+"parameters at their default values. However, this is usually not the "
+"desired setup."
+msgstr ""
+"上述安装方式安装了一个类似单机的 Xinference ，也就是只有一个节点，同时其他启动参数均保持默认。"
+
+#: ../../source/getting_started/using_kubernetes.rst:48
+msgid "Below are some common custom installation configurations."
+msgstr "下面展示了一些常见的自定义安装配置。"
+
+#: ../../source/getting_started/using_kubernetes.rst:50
+msgid "I need to download models from ``ModelScope``."
+msgstr "我需要从 ``ModelScope`` 下载模型。"
+
+#: ../../source/getting_started/using_kubernetes.rst:56
+msgid ""
+"I want to use cpu image of xinference (or use any other version of "
+"xinference images)."
+msgstr "我想使用 cpu 版本的 Xinference 镜像（或者其他版本的镜像）。"
+
+#: ../../source/getting_started/using_kubernetes.rst:62
+msgid "I want to have 4 Xinference workers, with each worker managing 4 GPUs."
+msgstr "我需要启动 4 个 Xinference worker 节点，每个 worker 管理 4 个 GPU。"
+
+#: ../../source/getting_started/using_kubernetes.rst:68
+msgid ""
+"The above installation method is based on Helm ``--set`` option. For more"
+" complex custom installations, such as multiple workers with shared "
+"storage, it is highly recommended to use your own ``values.yaml`` file "
+"with Helm ``-f`` option for installation."
+msgstr ""
+"上面的安装方式基于 Helm ``--set`` 选项。对于更加复杂的自定义安装场景，例如多个 worker 共享存储，"
+"非常推荐使用你自己的 ``values.yaml`` 文件，然后通过 Helm ``-f`` 选项进行安装。"
+
+#: ../../source/getting_started/using_kubernetes.rst:72
+msgid ""
+"The default ``values.yaml`` file is located `here "
+"<https://github.com/xorbitsai/xinference-helm-"
+"charts/blob/main/charts/xinference/values.yaml>`_. Some examples can be "
+"found `here <https://github.com/xorbitsai/xinference-helm-"
+"charts/tree/main/examples>`_."
+msgstr ""
+"默认安装方式对应的 ``values.yaml`` 文件位于 `这里 <https://github.com/xorbitsai/xinference-helm-charts/blob/main/charts/xinference/values.yaml>`_ 。"
+"而 `这里 <https://github.com/xorbitsai/xinference-helm-charts/tree/main/examples>`_ 有一些示例供参考。"
+
+#: ../../source/getting_started/using_kubernetes.rst:78
+msgid "KubeBlocks Support"
+msgstr "基于第三方 KubeBlocks 的方式"
+
+#: ../../source/getting_started/using_kubernetes.rst:79
+msgid ""
+"You can also install Xinference in Kubernetes using the third-party "
+"``KubeBlocks``. This method is not maintained by Xinference and does not "
+"guarantee timely updates or availability. Please refer to the "
+"documentation at `here <https://kubeblocks.io/docs/preview/user_docs"
+"/kubeblocks-for-xinference/manage-xinference>`_."
+msgstr ""
+"你也可以通过第三方的 ``KubeBlocks`` 来在 K8s 集群中安装 Xinference 。这种方式不是 Xinference 官方维护的，"
+"因此无法严格保证实时更新和可用性。请参考 `文档 <https://kubeblocks.io/docs/preview/user_docs/kubeblocks-for-xinference/manage-xinference>`_ 。"
+
