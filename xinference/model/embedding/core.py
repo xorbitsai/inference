@@ -152,7 +152,7 @@ class EmbeddingModel:
         patch_trust_remote_code()
         if (
             "gte" in self._model_spec.model_name.lower()
-            or "qwen2" in self._model_spec.model_name.lower()
+            and "qwen2" in self._model_spec.model_name.lower()
         ):
             self._model = XSentenceTransformer(
                 self._model_path,
@@ -261,7 +261,7 @@ class EmbeddingModel:
 
             if (
                 "gte" in self._model_spec.model_name.lower()
-                or "qwen2" in self._model_spec.model_name.lower()
+                and "qwen2" in self._model_spec.model_name.lower()
             ):
                 model.to(device)
 
@@ -343,7 +343,7 @@ class EmbeddingModel:
 
         if (
             "gte" in self._model_spec.model_name.lower()
-            or "qwen2" in self._model_spec.model_name.lower()
+            and "qwen2" in self._model_spec.model_name.lower()
         ):
             all_embeddings, all_token_nums = encode(
                 self._model,
