@@ -158,6 +158,7 @@ class BuildGradioImageInterfaceRequest(BaseModel):
     model_id: str
     controlnet: Union[None, List[Dict[str, Union[str, None]]]]
     model_revision: str
+    model_ability: List[str]
 
 
 class RESTfulAPI:
@@ -1024,6 +1025,7 @@ class RESTfulAPI:
                 model_revision=body.model_revision,
                 controlnet=body.controlnet,
                 access_token=access_token,
+                model_ability=body.model_ability,
             ).build()
 
             gr.mount_gradio_app(self._app, interface, f"/{model_uid}")

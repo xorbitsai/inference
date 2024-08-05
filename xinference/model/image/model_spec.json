@@ -4,9 +4,8 @@
     "model_family": "stable_diffusion",
     "model_id": "black-forest-labs/FLUX.1-schnell",
     "model_revision": "768d12a373ed5cc9ef9a9dea7504dc09fcc14842",
-    "abilities": [
-      "text2iamge",
-      "image2image"
+    "model_ability": [
+      "text2image"
     ]
   },
   {
@@ -14,9 +13,8 @@
     "model_family": "stable_diffusion",
     "model_id": "black-forest-labs/FLUX.1-dev",
     "model_revision": "01aa605f2c300568dd6515476f04565a954fcb59",
-    "abilities": [
-      "text2iamge",
-      "image2image"
+    "model_ability": [
+      "text2image"
     ]
   },
   {
@@ -24,7 +22,7 @@
     "model_family": "stable_diffusion",
     "model_id": "stabilityai/stable-diffusion-3-medium-diffusers",
     "model_revision": "ea42f8cef0f178587cf766dc8129abd379c90671",
-    "abilities": [
+    "model_ability": [
       "text2image",
       "image2image"
     ]
@@ -34,7 +32,7 @@
     "model_family": "stable_diffusion",
     "model_id": "stabilityai/sd-turbo",
     "model_revision": "1681ed09e0cff58eeb41e878a49893228b78b94c",
-    "abilities": [
+    "model_ability": [
       "text2image"
     ]
   },
@@ -43,7 +41,7 @@
     "model_family": "stable_diffusion",
     "model_id": "stabilityai/sdxl-turbo",
     "model_revision": "f4b0486b498f84668e828044de1d0c8ba486e05b",
-    "abilities": [
+    "model_ability": [
       "text2image"
     ]
   },
@@ -52,7 +50,7 @@
     "model_family": "stable_diffusion",
     "model_id": "runwayml/stable-diffusion-v1-5",
     "model_revision": "1d0c4ebf6ff58a5caecab40fa1406526bca4b5b9",
-    "abilities": [
+    "model_ability": [
       "text2image",
       "image2image"
     ],
@@ -106,7 +104,7 @@
     "model_family": "stable_diffusion",
     "model_id": "stabilityai/stable-diffusion-xl-base-1.0",
     "model_revision": "f898a3e026e802f68796b95e9702464bac78d76f",
-    "abilities": [
+    "model_ability": [
       "text2image",
       "image2image"
     ],
@@ -136,7 +134,7 @@
     "model_family": "stable_diffusion",
     "model_id": "Kwai-Kolors/Kolors-diffusers",
     "model_revision": "7e091c75199e910a26cd1b51ed52c28de5db3711",
-    "abilities": [
+    "model_ability": [
       "text2image",
       "image2image"
     ]
@@ -146,7 +144,7 @@
     "model_family": "stable_diffusion",
     "model_id": "runwayml/stable-diffusion-inpainting",
     "model_revision": "51388a731f57604945fddd703ecb5c50e8e7b49d",
-    "abilities": [
+    "model_ability": [
       "inpainting"
     ]
   },
@@ -155,7 +153,7 @@
     "model_family": "stable_diffusion",
     "model_id": "stabilityai/stable-diffusion-2-inpainting",
     "model_revision": "81a84f49b15956b60b4272a405ad3daef3da4590",
-    "abilities": [
+    "model_ability": [
       "inpainting"
     ]
   },
@@ -164,7 +162,7 @@
     "model_family": "stable_diffusion",
     "model_id": "diffusers/stable-diffusion-xl-1.0-inpainting-0.1",
     "model_revision": "115134f363124c53c7d878647567d04daf26e41e",
-    "abilities": [
+    "model_ability": [
       "inpainting"
     ]
   }

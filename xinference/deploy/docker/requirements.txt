@@ -35,7 +35,7 @@ protobuf
 einops
 tiktoken
 sentence-transformers>=2.7.0
-diffusers
+diffusers>=0.29.0
 controlnet_aux
 orjson
 auto-gptq
