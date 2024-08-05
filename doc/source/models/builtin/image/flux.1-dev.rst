@@ -6,7 +6,7 @@ FLUX.1-dev
 
 - **Model Name:** FLUX.1-dev
 - **Model Family:** stable_diffusion
-- **Abilities:** text2iamge, image2image
+- **Abilities:** text2image
 - **Available ControlNet:** None
 
 Specifications

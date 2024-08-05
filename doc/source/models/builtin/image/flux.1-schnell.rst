@@ -6,7 +6,7 @@ FLUX.1-schnell
 
 - **Model Name:** FLUX.1-schnell
 - **Model Family:** stable_diffusion
-- **Abilities:** text2iamge, image2image
+- **Abilities:** text2image
 - **Available ControlNet:** None
 
 Specifications
