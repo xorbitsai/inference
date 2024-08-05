@@ -46,7 +46,7 @@ from fastapi.staticfiles import StaticFiles
 from PIL import Image
 from sse_starlette.sse import EventSourceResponse
 from starlette.responses import JSONResponse as StarletteJSONResponse
-from starlette.responses import RedirectResponse
+from starlette.responses import PlainTextResponse, RedirectResponse
 from uvicorn import Config, Server
 from xoscar.utils import get_next_port
 
@@ -234,6 +234,13 @@ class RESTfulAPI:
             allow_methods=["*"],
             allow_headers=["*"],
         )
+
+        @self._app.exception_handler(500)
+        async def internal_exception_handler(request: Request, exc: Exception):
+            logger.exception("Handling request %s failed: %s", request.url, exc)
+            return PlainTextResponse(
+                status_code=500, content=f"Internal Server Error: {exc}"
+            )
 
         # internal interface
         self._router.add_api_route("/status", self.get_status, methods=["GET"])
@@ -797,6 +804,7 @@ class RESTfulAPI:
         worker_ip = payload.get("worker_ip", None)
         gpu_idx = payload.get("gpu_idx", None)
         download_hub = payload.get("download_hub", None)
+        model_path = payload.get("model_path", None)
 
         exclude_keys = {
             "model_uid",
@@ -813,6 +821,7 @@ class RESTfulAPI:
             "worker_ip",
             "gpu_idx",
             "download_hub",
+            "model_path",
         }
 
         kwargs = {
@@ -861,6 +870,7 @@ class RESTfulAPI:
                 worker_ip=worker_ip,
                 gpu_idx=gpu_idx,
                 download_hub=download_hub,
+                model_path=model_path,
                 **kwargs,
             )
         except ValueError as ve:
@@ -1407,7 +1417,7 @@ class RESTfulAPI:
         negative_prompt: Optional[Union[str, List[str]]] = Form(None),
         n: Optional[int] = Form(1),
         response_format: Optional[str] = Form("url"),
-        size: Optional[str] = Form("1024*1024"),
+        size: Optional[str] = Form(None),
         kwargs: Optional[str] = Form(None),
     ) -> Response:
         model_uid = model

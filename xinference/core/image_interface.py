@@ -153,7 +153,10 @@ class ImageInterface:
             model = client.get_model(self.model_uid)
             assert isinstance(model, RESTfulImageModelHandle)
 
-            size = f"{int(size_width)}*{int(size_height)}"
+            if size_width > 0 and size_height > 0:
+                size = f"{int(size_width)}*{int(size_height)}"
+            else:
+                size = None
 
             bio = io.BytesIO()
             image.save(bio, format="png")
@@ -195,8 +198,8 @@ class ImageInterface:
 
                 with gr.Row():
                     n = gr.Number(label="Number of image", value=1)
-                    size_width = gr.Number(label="Width", value=512)
-                    size_height = gr.Number(label="Height", value=512)
+                    size_width = gr.Number(label="Width", value=-1)
+                    size_height = gr.Number(label="Height", value=-1)
 
                 with gr.Row():
                     with gr.Column(scale=1):

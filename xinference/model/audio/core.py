@@ -150,10 +150,12 @@ def create_audio_model_instance(
     model_uid: str,
     model_name: str,
     download_hub: Optional[Literal["huggingface", "modelscope", "csghub"]] = None,
+    model_path: Optional[str] = None,
     **kwargs,
 ) -> Tuple[Union[WhisperModel, ChatTTSModel, CosyVoiceModel], AudioModelDescription]:
     model_spec = match_audio(model_name, download_hub)
-    model_path = cache(model_spec)
+    if model_path is None:
+        model_path = cache(model_spec)
     model: Union[WhisperModel, ChatTTSModel, CosyVoiceModel]
     if model_spec.model_family == "whisper":
         model = WhisperModel(model_uid, model_path, model_spec, **kwargs)
@@ -164,6 +166,6 @@ def create_audio_model_instance(
     else:
         raise Exception(f"Unsupported audio model family: {model_spec.model_family}")
     model_description = AudioModelDescription(
-        subpool_addr, devices, model_spec, model_path=model_path
+        subpool_addr, devices, model_spec, model_path
     )
     return model, model_description

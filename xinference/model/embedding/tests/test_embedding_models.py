@@ -54,7 +54,7 @@ def test_model():
     model_path = None
     try:
         model_path = cache(TEST_MODEL_SPEC)
-        model = EmbeddingModel("mock", model_path)
+        model = EmbeddingModel("mock", model_path, TEST_MODEL_SPEC)
         # input is a string
         input_text = "what is the capital of China?"
         model.load()
@@ -83,7 +83,7 @@ def test_model():
 
 def test_model_from_modelscope():
     model_path = cache(TEST_MODEL_SPEC_FROM_MODELSCOPE)
-    model = EmbeddingModel("mock", model_path)
+    model = EmbeddingModel("mock", model_path, TEST_MODEL_SPEC_FROM_MODELSCOPE)
     # input is a string
     input_text = "乱条犹未变初黄，倚得东风势便狂。解把飞花蒙日月，不知天地有清霜。"
     model.load()
@@ -108,7 +108,7 @@ def test_meta_file():
         assert valid_model_revision(meta_path, TEST_MODEL_SPEC2.model_revision)
 
         # test functionality of the new version model
-        model = EmbeddingModel("mock", cache_dir)
+        model = EmbeddingModel("mock", cache_dir, TEST_MODEL_SPEC2)
         input_text = "I can do this all day."
         model.load()
         r = model.create_embedding(input_text)

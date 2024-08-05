@@ -859,6 +859,7 @@ class SupervisorActor(xo.StatelessActor):
         worker_ip: Optional[str] = None,
         gpu_idx: Optional[Union[int, List[int]]] = None,
         download_hub: Optional[Literal["huggingface", "modelscope", "csghub"]] = None,
+        model_path: Optional[str] = None,
         **kwargs,
     ) -> str:
         # search in worker first
@@ -942,6 +943,7 @@ class SupervisorActor(xo.StatelessActor):
                 peft_model_config=peft_model_config,
                 gpu_idx=replica_gpu_idx,
                 download_hub=download_hub,
+                model_path=model_path,
                 **kwargs,
             )
             self._replica_model_uid_to_worker[_replica_model_uid] = worker_ref

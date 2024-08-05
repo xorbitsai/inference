@@ -35,22 +35,23 @@ class DiffusionModel:
     def __init__(
         self,
         model_uid: str,
-        model_path: str,
+        model_path: Optional[str] = None,
         device: Optional[str] = None,
         lora_model: Optional[List[LoRA]] = None,
         lora_load_kwargs: Optional[Dict] = None,
         lora_fuse_kwargs: Optional[Dict] = None,
-        ability: Optional[str] = None,
+        abilities: Optional[List[str]] = None,
         **kwargs,
     ):
         self._model_uid = model_uid
         self._model_path = model_path
         self._device = device
         self._model = None
+        self._i2i_model = None  # image to image model
         self._lora_model = lora_model
         self._lora_load_kwargs = lora_load_kwargs or {}
         self._lora_fuse_kwargs = lora_fuse_kwargs or {}
-        self._ability = ability
+        self._abilities = abilities
         self._kwargs = kwargs
 
     def _apply_lora(self):
@@ -69,12 +70,12 @@ class DiffusionModel:
     def load(self):
         import torch
 
-        if self._ability in [None, "text2image", "image2image"]:
+        if "text2image" in self._abilities or "image2image" in self._abilities:
             from diffusers import AutoPipelineForText2Image as AutoPipelineModel
-        elif self._ability == "inpainting":
+        elif "inpainting" in self._abilities:
             from diffusers import AutoPipelineForInpainting as AutoPipelineModel
         else:
-            raise ValueError(f"Unknown ability: {self._ability}")
+            raise ValueError(f"Unknown ability: {self._abilities}")
 
         controlnet = self._kwargs.get("controlnet")
         if controlnet is not None:
@@ -106,28 +107,17 @@ class DiffusionModel:
 
     def _call_model(
         self,
-        height: int,
-        width: int,
-        num_images_per_prompt: int,
         response_format: str,
+        model=None,
         **kwargs,
     ):
         logger.debug(
             "stable diffusion args: %s",
-            dict(
-                kwargs,
-                height=height,
-                width=width,
-                num_images_per_prompt=num_images_per_prompt,
-            ),
+            kwargs,
         )
-        assert callable(self._model)
-        images = self._model(
-            height=height,
-            width=width,
-            num_images_per_prompt=num_images_per_prompt,
-            **kwargs,
-        ).images
+        model = model if model is not None else self._model
+        assert callable(model)
+        images = model(**kwargs).images
         if response_format == "url":
             os.makedirs(XINFERENCE_IMAGE_DIR, exist_ok=True)
             image_list = []
@@ -145,7 +135,7 @@ class DiffusionModel:
                 return base64.b64encode(buffered.getvalue()).decode()
 
             with ThreadPoolExecutor() as executor:
-                results = list(map(partial(executor.submit, _gen_base64_image), images))
+                results = list(map(partial(executor.submit, _gen_base64_image), images))  # type: ignore
                 image_list = [Image(url=None, b64_json=s.result()) for s in results]
             return ImageList(created=int(time.time()), data=image_list)
         else:
@@ -177,19 +167,32 @@ class DiffusionModel:
         prompt: Optional[Union[str, List[str]]] = None,
         negative_prompt: Optional[Union[str, List[str]]] = None,
         n: int = 1,
-        size: str = "1024*1024",
+        size: Optional[str] = None,
         response_format: str = "url",
         **kwargs,
     ):
-        width, height = map(int, re.split(r"[^\d]+", size))
+        if "controlnet" in self._kwargs:
+            model = self._model
+        else:
+            if self._i2i_model is not None:
+                model = self._i2i_model
+            else:
+                from diffusers import AutoPipelineForImage2Image
+
+                self._i2i_model = model = AutoPipelineForImage2Image.from_pipe(
+                    self._model
+                )
+        if size:
+            width, height = map(int, re.split(r"[^\d]+", size))
+            kwargs["width"] = width
+            kwargs["height"] = height
         return self._call_model(
             image=image,
             prompt=prompt,
             negative_prompt=negative_prompt,
-            height=height,
-            width=width,
             num_images_per_prompt=n,
             response_format=response_format,
+            model=model,
             **kwargs,
         )
 

@@ -91,6 +91,24 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 
 Nvidia GPU 用户可以使用[Xinference Docker 镜像](https://inference.readthedocs.io/zh-cn/latest/getting_started/using_docker_image.html) 启动 Xinference 服务器。在执行安装命令之前，确保你的系统中已经安装了 [Docker](https://docs.docker.com/get-docker/) 和 [CUDA](https://developer.nvidia.com/cuda-downloads)。
 
+### Kubernetes
+
+确保你的 Kubernetes 集群开启了 GPU 支持，然后通过 `helm` 进行如下方式的安装。
+
+```
+# 新增xinference仓库
+helm repo add xinference https://xorbitsai.github.io/xinference-helm-charts
+
+# 更新仓库，查询可安装的版本
+helm repo update xinference
+helm search repo xinference/xinference --devel --versions
+
+# 在K8s中安装xinference
+helm install xinference xinference/xinference -n xinference --version 0.0.1-v<xinference_release_version>
+```
+
+更多定制化安装方式，请参考[文档](https://inference.readthedocs.io/en/latest/getting_started/using_kubernetes.html)。
+
 ### 快速开始
 
 使用 pip 安装 Xinference，操作如下。（更多选项，请参阅[安装页面](https://inference.readthedocs.io/zh-cn/latest/getting_started/installation.html)。）
