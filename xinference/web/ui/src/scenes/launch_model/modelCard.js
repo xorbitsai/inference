@@ -70,6 +70,7 @@ const llmAllDataKey = [
   'worker_ip',
   'gpu_idx',
   'download_hub',
+  'model_path',
   'peft_model_config',
 ]
 
@@ -283,7 +284,7 @@ const ModelCard = ({
 
     const modelDataWithID_LLM = {
       // If user does not fill model_uid, pass null (None) to server and server generates it.
-      model_uid: modelUID.trim() === '' ? null : modelUID.trim(),
+      model_uid: modelUID?.trim() === '' ? null : modelUID?.trim(),
       model_name: modelData.model_name,
       model_type: modelType,
       model_engine: modelEngine,
@@ -298,25 +299,25 @@ const ModelCard = ({
           : parseInt(nGPU, 10),
       replica: replica,
       request_limits:
-        String(requestLimits).trim() === ''
+        String(requestLimits)?.trim() === ''
           ? null
-          : Number(String(requestLimits).trim()),
-      worker_ip: workerIp.trim() === '' ? null : workerIp.trim(),
-      gpu_idx: GPUIdx.trim() === '' ? null : handleGPUIdx(GPUIdx.trim()),
+          : Number(String(requestLimits)?.trim()),
+      worker_ip: workerIp?.trim() === '' ? null : workerIp?.trim(),
+      gpu_idx: GPUIdx?.trim() === '' ? null : handleGPUIdx(GPUIdx?.trim()),
       download_hub: downloadHub === '' ? null : downloadHub,
-      model_path: modelPath.trim() === '' ? null : modelPath.trim(),
+      model_path: modelPath?.trim() === '' ? null : modelPath?.trim(),
     }
 
     let modelDataWithID_other = {
-      model_uid: modelUID.trim() === '' ? null : modelUID.trim(),
+      model_uid: modelUID?.trim() === '' ? null : modelUID?.trim(),
       model_name: modelData.model_name,
       model_type: modelType,
       replica: replica,
       n_gpu: nGpu === 'GPU' ? 'auto' : null,
-      worker_ip: workerIp.trim() === '' ? null : workerIp.trim(),
-      gpu_idx: GPUIdx.trim() === '' ? null : handleGPUIdx(GPUIdx.trim()),
+      worker_ip: workerIp?.trim() === '' ? null : workerIp.trim(),
+      gpu_idx: GPUIdx?.trim() === '' ? null : handleGPUIdx(GPUIdx?.trim()),
       download_hub: downloadHub === '' ? null : downloadHub,
-      model_path: modelPath.trim() === '' ? null : modelPath.trim(),
+      model_path: modelPath?.trim() === '' ? null : modelPath?.trim(),
     }
 
     if (nGPULayers >= 0) {
@@ -621,7 +622,8 @@ const ModelCard = ({
         request_limits ||
         worker_ip ||
         gpu_idx?.join(',') ||
-        download_hub
+        download_hub ||
+        model_path
       )
         setIsOther(true)
 
@@ -645,7 +647,7 @@ const ModelCard = ({
       setGPUIdx(arr[0].gpu_idx || '')
       setWorkerIp(arr[0].worker_ip || '')
       setDownloadHub(arr[0].download_hub)
-      setModelPath(arr[0].model_path)
+      setModelPath(arr[0].model_path || '')
     }
   }
 
