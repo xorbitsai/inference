@@ -45,6 +45,7 @@ attrdict  # For deepseek VL
 timm>=0.9.16  # For deepseek VL
 torchvision  # For deepseek VL
 FlagEmbedding  # For rerank
+funasr
 omegaconf~=2.3.0  # For ChatTTS
 nemo_text_processing  # For ChatTTS
 WeTextProcessing  # For ChatTTS

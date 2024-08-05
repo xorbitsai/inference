@@ -14,7 +14,7 @@
 import logging
 from typing import TYPE_CHECKING, Dict, List, Optional, Union
 
-from xinference.device_utils import (
+from ...device_utils import (
     get_available_device,
     get_device_preferred_dtype,
     is_device_available,
