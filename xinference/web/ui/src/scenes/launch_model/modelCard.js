@@ -363,17 +363,15 @@ const ModelCard = ({
     const modelDataWithID =
       modelType === 'LLM' ? modelDataWithID_LLM : modelDataWithID_other
 
-      console.log('modelDataWithID', modelDataWithID);
-
     // First fetcher request to initiate the model
-    // fetchWrapper
-    //   .post('/v1/models', modelDataWithID)
-    //   .then(() => {
-    //     navigate(`/running_models/${modelType}`)
-    //     sessionStorage.setItem(
-    //       'runningModelType',
-    //       `/running_models/${modelType}`
-    //     )
+    fetchWrapper
+      .post('/v1/models', modelDataWithID)
+      .then(() => {
+        navigate(`/running_models/${modelType}`)
+        sessionStorage.setItem(
+          'runningModelType',
+          `/running_models/${modelType}`
+        )
         let historyArr = JSON.parse(localStorage.getItem('historyArr')) || []
         if (!historyArr.some((item) => deepEqual(item, modelDataWithID))) {
           historyArr = historyArr.filter(
@@ -383,15 +381,15 @@ const ModelCard = ({
         }
         localStorage.setItem('historyArr', JSON.stringify(historyArr))
 
-      //   setIsCallingApi(false)
-      // })
-      // .catch((error) => {
-      //   console.error('Error:', error)
-      //   if (error.response.status !== 403) {
-      //     setErrorMsg(error.message)
-      //   }
-      //   setIsCallingApi(false)
-      // })
+        setIsCallingApi(false)
+      })
+      .catch((error) => {
+        console.error('Error:', error)
+        if (error.response.status !== 403) {
+          setErrorMsg(error.message)
+        }
+        setIsCallingApi(false)
+      })
   }
 
   const handleGPUIdx = (data) => {
