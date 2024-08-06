@@ -51,7 +51,7 @@ class DiffusionModel:
         self._lora_model = lora_model
         self._lora_load_kwargs = lora_load_kwargs or {}
         self._lora_fuse_kwargs = lora_fuse_kwargs or {}
-        self._abilities = abilities
+        self._abilities = abilities or []
         self._kwargs = kwargs
 
     def _apply_lora(self):
@@ -89,6 +89,46 @@ class DiffusionModel:
             # The following params crashes on Mac M2
             self._kwargs["torch_dtype"] = torch.float16
             self._kwargs["use_safetensors"] = True
+        if isinstance(torch_dtype, str):
+            self._kwargs["torch_dtype"] = getattr(torch, torch_dtype)
+
+        quantize_text_encoder = self._kwargs.pop("quantize_text_encoder", None)
+        if quantize_text_encoder:
+            try:
+                from transformers import BitsAndBytesConfig, T5EncoderModel
+            except ImportError:
+                error_message = "Failed to import module 'transformers'"
+                installation_guide = [
+                    "Please make sure 'transformers' is installed. ",
+                    "You can install it by `pip install transformers`\n",
+                ]
+
+                raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
+
+            try:
+                import bitsandbytes  # noqa: F401
+            except ImportError:
+                error_message = "Failed to import module 'bitsandbytes'"
+                installation_guide = [
+                    "Please make sure 'bitsandbytes' is installed. ",
+                    "You can install it by `pip install bitsandbytes`\n",
+                ]
+
+                raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
+
+            for text_encoder_name in quantize_text_encoder.split(","):
+                quantization_config = BitsAndBytesConfig(load_in_8bit=True)
+                quantization_kwargs = {}
+                if torch_dtype:
+                    quantization_kwargs["torch_dtype"] = torch_dtype
+                text_encoder = T5EncoderModel.from_pretrained(
+                    self._model_path,
+                    subfolder=text_encoder_name,
+                    quantization_config=quantization_config,
+                    **quantization_kwargs,
+                )
+                self._kwargs[text_encoder_name] = text_encoder
+                self._kwargs["device_map"] = "balanced"
 
         logger.debug("Loading model %s", AutoPipelineModel)
         self._model = AutoPipelineModel.from_pretrained(
@@ -98,7 +138,7 @@ class DiffusionModel:
         if self._kwargs.get("cpu_offload", False):
             logger.debug("CPU offloading model")
             self._model.enable_model_cpu_offload()
-        else:
+        elif not self._kwargs.get("device_map"):
             logger.debug("Loading model to available device")
             self._model = move_model_to_available_device(self._model)
         # Recommended if your computer has < 64 GB of RAM
@@ -141,6 +181,12 @@ class DiffusionModel:
         else:
             raise ValueError(f"Unsupported response format: {response_format}")
 
+    @classmethod
+    def _filter_kwargs(cls, kwargs: dict):
+        for arg in ["negative_prompt", "num_inference_steps"]:
+            if not kwargs.get(arg):
+                kwargs.pop(arg, None)
+
     def text_to_image(
         self,
         prompt: str,
@@ -152,6 +198,7 @@ class DiffusionModel:
         # References:
         # https://huggingface.co/docs/diffusers/main/en/api/pipelines/controlnet_sdxl
         width, height = map(int, re.split(r"[^\d]+", size))
+        self._filter_kwargs(kwargs)
         return self._call_model(
             prompt=prompt,
             height=height,
@@ -174,6 +221,8 @@ class DiffusionModel:
         if "controlnet" in self._kwargs:
             model = self._model
         else:
+            if "image2image" not in self._abilities:
+                raise RuntimeError(f"{self._model_uid} does not support image2image")
             if self._i2i_model is not None:
                 model = self._i2i_model
             else:
@@ -186,6 +235,7 @@ class DiffusionModel:
             width, height = map(int, re.split(r"[^\d]+", size))
             kwargs["width"] = width
             kwargs["height"] = height
+        self._filter_kwargs(kwargs)
         return self._call_model(
             image=image,
             prompt=prompt,
