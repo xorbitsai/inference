@@ -162,6 +162,7 @@ class ImageInterface:
             n: int,
             size_width: int,
             size_height: int,
+            num_inference_steps: int,
         ) -> PIL.Image.Image:
             from ..client import RESTfulClient
 
@@ -174,6 +175,9 @@ class ImageInterface:
                 size = f"{int(size_width)}*{int(size_height)}"
             else:
                 size = None
+            num_inference_steps = (
+                None if num_inference_steps == -1 else num_inference_steps  # type: ignore
+            )
 
             bio = io.BytesIO()
             image.save(bio, format="png")
@@ -185,6 +189,7 @@ class ImageInterface:
                 image=bio.getvalue(),
                 size=size,
                 response_format="b64_json",
+                num_inference_steps=num_inference_steps,
             )
 
             images = []
@@ -217,6 +222,9 @@ class ImageInterface:
                     n = gr.Number(label="Number of image", value=1)
                     size_width = gr.Number(label="Width", value=-1)
                     size_height = gr.Number(label="Height", value=-1)
+                    num_inference_steps = gr.Number(
+                        label="Inference Step Number", value=-1
+                    )
 
                 with gr.Row():
                     with gr.Column(scale=1):
@@ -233,6 +241,7 @@ class ImageInterface:
                     n,
                     size_width,
                     size_height,
+                    num_inference_steps,
                 ],
                 outputs=output_gallery,
             )
