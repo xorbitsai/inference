@@ -1,10 +1,10 @@
-.. _models_builtin_sdxl-turbo:
+.. _models_builtin_flux.1-dev:
 
 ==========
-sdxl-turbo
+FLUX.1-dev
 ==========
 
-- **Model Name:** sdxl-turbo
+- **Model Name:** FLUX.1-dev
 - **Model Family:** stable_diffusion
 - **Abilities:** text2image
 - **Available ControlNet:** None
@@ -12,8 +12,8 @@ sdxl-turbo
 Specifications
 ^^^^^^^^^^^^^^
 
-- **Model ID:** stabilityai/sdxl-turbo
+- **Model ID:** black-forest-labs/FLUX.1-dev
 
 Execute the following command to launch the model::
 
-   xinference launch --model-name sdxl-turbo --model-type image
+   xinference launch --model-name FLUX.1-dev --model-type image

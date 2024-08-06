@@ -33,7 +33,7 @@ einops
 tiktoken
 sentence-transformers>=2.3.1
 FlagEmbedding
-diffusers
+diffusers>=0.29.0
 controlnet_aux
 orjson
 auto-gptq
@@ -42,6 +42,7 @@ optimum
 peft
 timm
 opencv-contrib-python-headless
+funasr
 omegaconf~=2.3.0  # For ChatTTS
 nemo_text_processing  # For ChatTTS
 WeTextProcessing  # For ChatTTS
