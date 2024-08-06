@@ -6800,6 +6800,40 @@
         ],
         "model_id":"openbmb/MiniCPM-Llama3-V-2_5-{quantization}",
         "model_revision":"f92aff28552de35de3be204e8fe292dd4824e544"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 8,
+        "quantizations": [
+          "BF16",
+          "F16",
+          "IQ3_M",
+          "IQ3_S",
+          "IQ3_XS",
+          "IQ4_NL",
+          "IQ4_XS",
+          "Q2_K",
+          "Q3_K",
+          "Q3_K_L",
+          "Q3_K_M",
+          "Q3_K_S",
+          "Q4_0",
+          "Q4_1",
+          "Q4_K",
+          "Q4_K_M",
+          "Q4_K_M_for_pr",
+          "Q4_K_S",
+          "Q5_0",
+          "Q5_1",
+          "Q5_K",
+          "Q5_K_M",
+          "Q5_K_S",
+          "Q6_K",
+          "Q8_0"
+        ],
+        "model_id": "openbmb/MiniCPM-Llama3-V-2_5-gguf",
+        "model_file_name_template": "ggml-model-{quantization}.gguf",
+        "model_revision":"b1c2a5ce7a010aa3261c57a49db595f875abd042"
       }
     ],
     "prompt_style":{
