@@ -88,6 +88,7 @@ class DiffusionModel:
         if sys.platform != "darwin" and torch_dtype is None:
             # The following params crashes on Mac M2
             self._kwargs["torch_dtype"] = torch.float16
+            self._kwargs["variant"] = "fp16"
             self._kwargs["use_safetensors"] = True
         if isinstance(torch_dtype, str):
             self._kwargs["torch_dtype"] = getattr(torch, torch_dtype)
