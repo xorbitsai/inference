@@ -70,6 +70,7 @@ const llmAllDataKey = [
   'worker_ip',
   'gpu_idx',
   'download_hub',
+  'model_path',
   'peft_model_config',
 ]
 
@@ -111,6 +112,7 @@ const ModelCard = ({
   const [workerIp, setWorkerIp] = useState('')
   const [GPUIdx, setGPUIdx] = useState('')
   const [downloadHub, setDownloadHub] = useState('')
+  const [modelPath, setModelPath] = useState('')
 
   const [enginesObj, setEnginesObj] = useState({})
   const [engineOptions, setEngineOptions] = useState([])
@@ -282,7 +284,7 @@ const ModelCard = ({
 
     const modelDataWithID_LLM = {
       // If user does not fill model_uid, pass null (None) to server and server generates it.
-      model_uid: modelUID.trim() === '' ? null : modelUID.trim(),
+      model_uid: modelUID?.trim() === '' ? null : modelUID?.trim(),
       model_name: modelData.model_name,
       model_type: modelType,
       model_engine: modelEngine,
@@ -297,33 +299,25 @@ const ModelCard = ({
           : parseInt(nGPU, 10),
       replica: replica,
       request_limits:
-        String(requestLimits).trim() === ''
+        String(requestLimits)?.trim() === ''
           ? null
-          : Number(String(requestLimits).trim()),
-      worker_ip: workerIp.trim() === '' ? null : workerIp.trim(),
-      gpu_idx: GPUIdx.trim() === '' ? null : handleGPUIdx(GPUIdx.trim()),
+          : Number(String(requestLimits)?.trim()),
+      worker_ip: workerIp?.trim() === '' ? null : workerIp?.trim(),
+      gpu_idx: GPUIdx?.trim() === '' ? null : handleGPUIdx(GPUIdx?.trim()),
       download_hub: downloadHub === '' ? null : downloadHub,
+      model_path: modelPath?.trim() === '' ? null : modelPath?.trim(),
     }
 
     let modelDataWithID_other = {
-      model_uid: modelUID.trim() === '' ? null : modelUID.trim(),
+      model_uid: modelUID?.trim() === '' ? null : modelUID?.trim(),
       model_name: modelData.model_name,
       model_type: modelType,
+      replica: replica,
+      n_gpu: nGpu === 'GPU' ? 'auto' : null,
+      worker_ip: workerIp?.trim() === '' ? null : workerIp.trim(),
+      gpu_idx: GPUIdx?.trim() === '' ? null : handleGPUIdx(GPUIdx?.trim()),
       download_hub: downloadHub === '' ? null : downloadHub,
-    }
-
-    if (
-      modelType === 'embedding' ||
-      modelType === 'rerank' ||
-      modelType === 'flexible'
-    ) {
-      modelDataWithID_other = {
-        ...modelDataWithID_other,
-        replica: replica,
-        n_gpu: nGpu === 'GPU' ? 'auto' : null,
-        worker_ip: workerIp.trim() === '' ? null : workerIp.trim(),
-        gpu_idx: GPUIdx.trim() === '' ? null : handleGPUIdx(GPUIdx.trim()),
-      }
+      model_path: modelPath?.trim() === '' ? null : modelPath?.trim(),
     }
 
     if (nGPULayers >= 0) {
@@ -563,6 +557,7 @@ const ModelCard = ({
         worker_ip,
         gpu_idx,
         download_hub,
+        model_path,
         peft_model_config,
       } = arr[0]
 
@@ -586,6 +581,7 @@ const ModelCard = ({
       setWorkerIp(worker_ip || '')
       setGPUIdx(gpu_idx?.join(',') || '')
       setDownloadHub(download_hub || '')
+      setModelPath(model_path || '')
 
       let loraData = []
       peft_model_config?.lora_list?.forEach((item) => {
@@ -626,7 +622,8 @@ const ModelCard = ({
         request_limits ||
         worker_ip ||
         gpu_idx?.join(',') ||
-        download_hub
+        download_hub ||
+        model_path
       )
         setIsOther(true)
 
@@ -644,14 +641,13 @@ const ModelCard = ({
   const handleOtherHistory = () => {
     const arr = handleGetHistory()
     if (arr.length) {
-      if (modelType === 'embedding' || modelType === 'rerank') {
-        setModelUID(arr[0].model_uid || '')
-        setReplica(arr[0].replica || 1)
-        setWorkerIp(arr[0].worker_ip || '')
-      } else {
-        setModelUID(arr[0].model_uid || '')
-      }
+      setModelUID(arr[0].model_uid || '')
+      setReplica(arr[0].replica || 1)
+      setNGpu(arr[0].n_gpu === 'auto' ? 'GPU' : 'CPU')
+      setGPUIdx(arr[0].gpu_idx || '')
+      setWorkerIp(arr[0].worker_ip || '')
       setDownloadHub(arr[0].download_hub)
+      setModelPath(arr[0].model_path || '')
     }
   }
 
@@ -712,20 +708,21 @@ const ModelCard = ({
       setWorkerIp('')
       setGPUIdx('')
       setDownloadHub('')
+      setModelPath('')
       setLoraArr([])
       setImageLoraLoadArr([])
       setImageLoraFuseArr([])
       setCustomArr([])
       setIsOther(false)
       setIsPeftModelConfig(false)
-    } else if (modelType === 'embedding' || modelType === 'rerank') {
-      setModelUID('')
-      setReplica(1)
-      setWorkerIp('')
-      setDownloadHub('')
     } else {
       setModelUID('')
+      setReplica(1)
+      setNGpu(gpuAvailable === 0 ? 'CPU' : 'GPU')
+      setGPUIdx('')
+      setWorkerIp('')
       setDownloadHub('')
+      setModelPath('')
     }
   }
 
@@ -1208,9 +1205,11 @@ const ModelCard = ({
                         const spec = specs.find((s) => {
                           return s.quantizations.includes(quant)
                         })
-                        const cached = Array.isArray(spec.cache_status)
-                          ? spec.cache_status[spec.quantizations.indexOf(quant)]
-                          : spec.cache_status
+                        const cached = Array.isArray(spec?.cache_status)
+                          ? spec?.cache_status[
+                              spec?.quantizations.indexOf(quant)
+                            ]
+                          : spec?.cache_status
 
                         const displayedQuant = cached
                           ? quant + ' (cached)'
@@ -1393,6 +1392,16 @@ const ModelCard = ({
                       </Select>
                     </FormControl>
                   </Grid>
+                  <Grid item xs={12}>
+                    <FormControl variant="outlined" margin="normal" fullWidth>
+                      <TextField
+                        variant="outlined"
+                        value={modelPath}
+                        label="(Optional) Model Path, For PyTorch, provide the model directory. For GGML/GGUF, provide the model file path."
+                        onChange={(e) => setModelPath(e.target.value)}
+                      />
+                    </FormControl>
+                  </Grid>
                   <ListItemButton
                     onClick={() => setIsPeftModelConfig(!isPeftModelConfig)}
                   >
@@ -1472,74 +1481,68 @@ const ModelCard = ({
                 label="(Optional) Model UID, model name by default"
                 onChange={(e) => setModelUID(e.target.value)}
               />
-              {(modelType === 'embedding' ||
-                modelType === 'rerank' ||
-                modelType === 'flexible') && (
-                <>
+              <TextField
+                style={{ marginTop: '25px' }}
+                type="number"
+                InputProps={{
+                  inputProps: {
+                    min: 1,
+                  },
+                }}
+                label="Replica"
+                value={replica}
+                onChange={(e) => setReplica(parseInt(e.target.value, 10))}
+              />
+              <FormControl variant="outlined" margin="normal" fullWidth>
+                <InputLabel id="n-gpu-label">Device</InputLabel>
+                <Select
+                  labelId="n-gpu-label"
+                  value={nGpu}
+                  onChange={(e) => setNGpu(e.target.value)}
+                  label="N-GPU"
+                >
+                  {getNewNGPURange().map((v) => {
+                    return (
+                      <MenuItem key={v} value={v}>
+                        {v}
+                      </MenuItem>
+                    )
+                  })}
+                </Select>
+              </FormControl>
+              {nGpu === 'GPU' && (
+                <FormControl variant="outlined" margin="normal" fullWidth>
                   <TextField
-                    style={{ marginTop: '25px' }}
-                    type="number"
-                    InputProps={{
-                      inputProps: {
-                        min: 1,
-                      },
+                    value={GPUIdx}
+                    label="GPU Idx, Specify the GPU index where the model is located"
+                    onChange={(e) => {
+                      setGPUIdxAlert(false)
+                      setGPUIdx(e.target.value)
+                      const regular = /^\d+(?:,\d+)*$/
+                      if (
+                        e.target.value !== '' &&
+                        !regular.test(e.target.value)
+                      ) {
+                        setGPUIdxAlert(true)
+                      }
                     }}
-                    label="Replica"
-                    value={replica}
-                    onChange={(e) => setReplica(parseInt(e.target.value, 10))}
                   />
-                  <FormControl variant="outlined" margin="normal" fullWidth>
-                    <InputLabel id="n-gpu-label">Device</InputLabel>
-                    <Select
-                      labelId="n-gpu-label"
-                      value={nGpu}
-                      onChange={(e) => setNGpu(e.target.value)}
-                      label="N-GPU"
-                    >
-                      {getNewNGPURange().map((v) => {
-                        return (
-                          <MenuItem key={v} value={v}>
-                            {v}
-                          </MenuItem>
-                        )
-                      })}
-                    </Select>
-                  </FormControl>
-                  {nGpu === 'GPU' && (
-                    <FormControl variant="outlined" margin="normal" fullWidth>
-                      <TextField
-                        value={GPUIdx}
-                        label="GPU Idx, Specify the GPU index where the model is located"
-                        onChange={(e) => {
-                          setGPUIdxAlert(false)
-                          setGPUIdx(e.target.value)
-                          const regular = /^\d+(?:,\d+)*$/
-                          if (
-                            e.target.value !== '' &&
-                            !regular.test(e.target.value)
-                          ) {
-                            setGPUIdxAlert(true)
-                          }
-                        }}
-                      />
-                      {GPUIdxAlert && (
-                        <Alert severity="error">
-                          Please enter numeric data separated by commas, for
-                          example: 0,1,2
-                        </Alert>
-                      )}
-                    </FormControl>
+                  {GPUIdxAlert && (
+                    <Alert severity="error">
+                      Please enter numeric data separated by commas, for
+                      example: 0,1,2
+                    </Alert>
                   )}
-                  <FormControl variant="outlined" margin="normal" fullWidth>
-                    <TextField
-                      variant="outlined"
-                      value={workerIp}
-                      label="Worker Ip, specify the worker ip where the model is located in a distributed scenario"
-                      onChange={(e) => setWorkerIp(e.target.value)}
-                    />
-                  </FormControl>
-                </>
+                </FormControl>
               )}
+              <FormControl variant="outlined" margin="normal" fullWidth>
+                <TextField
+                  variant="outlined"
+                  value={workerIp}
+                  label="Worker Ip, specify the worker ip where the model is located in a distributed scenario"
+                  onChange={(e) => setWorkerIp(e.target.value)}
+                />
+              </FormControl>
               <FormControl variant="outlined" margin="normal" fullWidth>
                 <InputLabel id="quantization-label">
                   (Optional) Download_hub
@@ -1562,6 +1565,14 @@ const ModelCard = ({
                     )
                   })}
                 </Select>
+              </FormControl>
+              <FormControl variant="outlined" margin="normal" fullWidth>
+                <TextField
+                  variant="outlined"
+                  value={modelPath}
+                  label="(Optional) Model Path, For PyTorch, provide the model directory. For GGML/GGUF, provide the model file path."
+                  onChange={(e) => setModelPath(e.target.value)}
+                />
               </FormControl>
             </FormControl>
           )}

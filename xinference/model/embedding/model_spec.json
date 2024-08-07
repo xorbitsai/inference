@@ -230,5 +230,13 @@
     "language": ["zh", "en"],
     "model_id": "moka-ai/m3e-large",
     "model_revision": "12900375086c37ba5d83d1e417b21dc7d1d1f388"
+  },
+  {
+    "model_name": "gte-Qwen2",
+    "dimensions": 3584,
+    "max_tokens": 32000,
+    "language": ["zh", "en"],
+    "model_id": "Alibaba-NLP/gte-Qwen2-7B-instruct",
+    "model_revision": "e26182b2122f4435e8b3ebecbf363990f409b45b"
   }
 ]

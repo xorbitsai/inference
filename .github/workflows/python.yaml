@@ -66,6 +66,7 @@ jobs:
     env:
       CONDA_ENV: test
       SELF_HOST_PYTHON: /root/miniconda3/envs/inference_test/bin/python
+      SELF_HOST_CONDA: /root/miniconda3/condabin/conda
     defaults:
       run:
         shell: bash -l {0}
@@ -149,13 +150,20 @@ jobs:
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U "aioprometheus[starlette]"
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U "pynvml"
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U "transformers"
-            ${{ env.SELF_HOST_PYTHON }} -m conda install -c conda-forge pynini=2.1.5
+            ${{ env.SELF_HOST_CONDA }} install -c conda-forge pynini=2.1.5
+            ${{ env.SELF_HOST_CONDA }} install -c conda-forge "ffmpeg<7"
+            ${{ env.SELF_HOST_PYTHON }} -m pip install -U funasr
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U nemo_text_processing
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U omegaconf~=2.3.0
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U WeTextProcessing
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U librosa
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U xxhash
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U "ChatTTS>0.1"
+            ${{ env.SELF_HOST_PYTHON }} -m pip install -U HyperPyYAML
+            ${{ env.SELF_HOST_PYTHON }} -m pip install -U matcha-tts
+            ${{ env.SELF_HOST_PYTHON }} -m pip install -U onnxruntime-gpu==1.16.0; sys_platform == 'linux'
+            ${{ env.SELF_HOST_PYTHON }} -m pip install -U openai-whisper
+            ${{ env.SELF_HOST_PYTHON }} -m pip install -U "torch==2.1.0" "torchaudio==2.1.0"
             ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=1500 \
               -W ignore::PendingDeprecationWarning \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/image/tests/test_stable_diffusion.py
@@ -164,7 +172,13 @@ jobs:
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/audio/tests/test_whisper.py
             ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=1500 \
               -W ignore::PendingDeprecationWarning \
+              --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/audio/tests/test_funasr.py
+            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=1500 \
+              -W ignore::PendingDeprecationWarning \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/audio/tests/test_chattts.py
+            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=1500 \
+              -W ignore::PendingDeprecationWarning \
+              --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/audio/tests/test_cosyvoice.py
           elif [ "$MODULE" == "metal" ]; then
             pytest --timeout=1500 \
               -W ignore::PendingDeprecationWarning \
@@ -175,6 +189,6 @@ jobs:
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/client/tests/test_client.py
             pytest --timeout=1500 \
               -W ignore::PendingDeprecationWarning \
-              --cov-config=setup.cfg --cov-report=xml --cov=xinference --ignore xinference/client/tests/test_client.py --ignore xinference/model/image/tests/test_stable_diffusion.py --ignore xinference/model/audio/tests/test_whisper.py --ignore xinference/model/audio/tests/test_chattts.py xinference
+              --cov-config=setup.cfg --cov-report=xml --cov=xinference --ignore xinference/client/tests/test_client.py --ignore xinference/model/image/tests/test_stable_diffusion.py --ignore xinference/model/audio/tests xinference
           fi
         working-directory: .

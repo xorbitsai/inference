@@ -554,16 +554,36 @@ def _get_cache_dir(
                 quant_suffix = q
                 break
 
-    cache_dir_name = (
+    # some model name includes ".", e.g. qwen1.5-chat
+    # if the model does not require trust_remote_code, it's OK
+    # because no need to import modeling_xxx.py from the path
+    # but when the model need to trust_remote_code,
+    # e.g. internlm2.5-chat, the import will fail,
+    # but before the model may have been downloaded,
+    # thus we check it first, if exist, return it,
+    # otherwise, we replace the "." with "_" in model name
+    old_cache_dir_name = (
         f"{llm_family.model_name}-{llm_spec.model_format}"
         f"-{llm_spec.model_size_in_billions}b"
     )
     if quant_suffix:
-        cache_dir_name += f"-{quant_suffix}"
-    cache_dir = os.path.realpath(os.path.join(XINFERENCE_CACHE_DIR, cache_dir_name))
-    if create_if_not_exist and not os.path.exists(cache_dir):
-        os.makedirs(cache_dir, exist_ok=True)
-    return cache_dir
+        old_cache_dir_name += f"-{quant_suffix}"
+    old_cache_dir = os.path.realpath(
+        os.path.join(XINFERENCE_CACHE_DIR, old_cache_dir_name)
+    )
+    if os.path.exists(old_cache_dir):
+        return old_cache_dir
+    else:
+        cache_dir_name = (
+            f"{llm_family.model_name.replace('.', '_')}-{llm_spec.model_format}"
+            f"-{llm_spec.model_size_in_billions}b"
+        )
+        if quant_suffix:
+            cache_dir_name += f"-{quant_suffix}"
+        cache_dir = os.path.realpath(os.path.join(XINFERENCE_CACHE_DIR, cache_dir_name))
+        if create_if_not_exist and not os.path.exists(cache_dir):
+            os.makedirs(cache_dir, exist_ok=True)
+        return cache_dir
 
 
 def _get_meta_path(
@@ -679,12 +699,12 @@ def _generate_model_file_names(
 def _merge_cached_files(
     cache_dir: str, input_file_names: List[str], output_file_name: str
 ):
-    with open(os.path.join(cache_dir, output_file_name), "wb") as output_file:
-        for file_name in input_file_names:
-            logger.info(f"Merging file {file_name} into {output_file_name} ...")
-
-            with open(os.path.join(cache_dir, file_name), "rb") as input_file:
-                shutil.copyfileobj(input_file, output_file)
+    # now llama.cpp can find the gguf parts automatically
+    # we only need to provide the first part
+    # thus we create the symlink to the first part
+    symlink_local_file(
+        os.path.join(cache_dir, input_file_names[0]), cache_dir, output_file_name
+    )
 
     logger.info(f"Merge complete.")
 

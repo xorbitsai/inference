@@ -9,10 +9,58 @@
     "multilingual": true
   },
   {
+    "model_name": "SenseVoiceSmall",
+    "model_family": "funasr",
+    "model_hub": "modelscope",
+    "model_id": "iic/SenseVoiceSmall",
+    "model_revision": "master",
+    "ability": "audio-to-text",
+    "multilingual": true,
+    "default_model_config": {
+      "vad_model": "fsmn-vad",
+      "vad_kwargs": {
+        "max_single_segment_time": 30000
+      }
+    },
+    "default_transcription_config": {
+      "use_itn": true,
+      "batch_size_s": 60,
+      "merge_vad": true,
+      "merge_length_s": 15
+    }
+  },
+  {
     "model_name": "ChatTTS",
     "model_family": "ChatTTS",
     "model_hub": "modelscope",
     "model_id": "pzc163/chatTTS",
+    "model_revision": "master",
+    "ability": "text-to-audio",
+    "multilingual": true
+  },
+  {
+    "model_name": "CosyVoice-300M",
+    "model_family": "CosyVoice",
+    "model_hub": "modelscope",
+    "model_id": "iic/CosyVoice-300M",
+    "model_revision": "master",
+    "ability": "audio-to-audio",
+    "multilingual": true
+  },
+  {
+    "model_name": "CosyVoice-300M-SFT",
+    "model_family": "CosyVoice",
+    "model_hub": "modelscope",
+    "model_id": "iic/CosyVoice-300M-SFT",
+    "model_revision": "master",
+    "ability": "text-to-audio",
+    "multilingual": true
+  },
+  {
+    "model_name": "CosyVoice-300M-Instruct",
+    "model_family": "CosyVoice",
+    "model_hub": "modelscope",
+    "model_id": "iic/CosyVoice-300M-Instruct",
     "model_revision": "master",
     "ability": "text-to-audio",
     "multilingual": true

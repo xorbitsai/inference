@@ -16,6 +16,7 @@ import base64
 import logging
 import os
 import re
+import sys
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
@@ -34,20 +35,23 @@ class DiffusionModel:
     def __init__(
         self,
         model_uid: str,
-        model_path: str,
+        model_path: Optional[str] = None,
         device: Optional[str] = None,
         lora_model: Optional[List[LoRA]] = None,
         lora_load_kwargs: Optional[Dict] = None,
         lora_fuse_kwargs: Optional[Dict] = None,
+        abilities: Optional[List[str]] = None,
         **kwargs,
     ):
         self._model_uid = model_uid
         self._model_path = model_path
         self._device = device
         self._model = None
+        self._i2i_model = None  # image to image model
         self._lora_model = lora_model
         self._lora_load_kwargs = lora_load_kwargs or {}
         self._lora_fuse_kwargs = lora_fuse_kwargs or {}
+        self._abilities = abilities or []
         self._kwargs = kwargs
 
     def _apply_lora(self):
@@ -64,8 +68,14 @@ class DiffusionModel:
             logger.info(f"Successfully loaded the LoRA for model {self._model_uid}.")
 
     def load(self):
-        # import torch
-        from diffusers import AutoPipelineForText2Image
+        import torch
+
+        if "text2image" in self._abilities or "image2image" in self._abilities:
+            from diffusers import AutoPipelineForText2Image as AutoPipelineModel
+        elif "inpainting" in self._abilities:
+            from diffusers import AutoPipelineForInpainting as AutoPipelineModel
+        else:
+            raise ValueError(f"Unknown ability: {self._abilities}")
 
         controlnet = self._kwargs.get("controlnet")
         if controlnet is not None:
@@ -74,42 +84,81 @@ class DiffusionModel:
             logger.debug("Loading controlnet %s", controlnet)
             self._kwargs["controlnet"] = ControlNetModel.from_pretrained(controlnet)
 
-        self._model = AutoPipelineForText2Image.from_pretrained(
+        torch_dtype = self._kwargs.get("torch_dtype")
+        if sys.platform != "darwin" and torch_dtype is None:
+            # The following params crashes on Mac M2
+            self._kwargs["torch_dtype"] = torch.float16
+            self._kwargs["variant"] = "fp16"
+            self._kwargs["use_safetensors"] = True
+        if isinstance(torch_dtype, str):
+            self._kwargs["torch_dtype"] = getattr(torch, torch_dtype)
+
+        quantize_text_encoder = self._kwargs.pop("quantize_text_encoder", None)
+        if quantize_text_encoder:
+            try:
+                from transformers import BitsAndBytesConfig, T5EncoderModel
+            except ImportError:
+                error_message = "Failed to import module 'transformers'"
+                installation_guide = [
+                    "Please make sure 'transformers' is installed. ",
+                    "You can install it by `pip install transformers`\n",
+                ]
+
+                raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
+
+            try:
+                import bitsandbytes  # noqa: F401
+            except ImportError:
+                error_message = "Failed to import module 'bitsandbytes'"
+                installation_guide = [
+                    "Please make sure 'bitsandbytes' is installed. ",
+                    "You can install it by `pip install bitsandbytes`\n",
+                ]
+
+                raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
+
+            for text_encoder_name in quantize_text_encoder.split(","):
+                quantization_config = BitsAndBytesConfig(load_in_8bit=True)
+                quantization_kwargs = {}
+                if torch_dtype:
+                    quantization_kwargs["torch_dtype"] = torch_dtype
+                text_encoder = T5EncoderModel.from_pretrained(
+                    self._model_path,
+                    subfolder=text_encoder_name,
+                    quantization_config=quantization_config,
+                    **quantization_kwargs,
+                )
+                self._kwargs[text_encoder_name] = text_encoder
+                self._kwargs["device_map"] = "balanced"
+
+        logger.debug("Loading model %s", AutoPipelineModel)
+        self._model = AutoPipelineModel.from_pretrained(
             self._model_path,
             **self._kwargs,
-            # The following params crashes on Mac M2
-            # torch_dtype=torch.float16,
-            # use_safetensors=True,
         )
-        self._model = move_model_to_available_device(self._model)
+        if self._kwargs.get("cpu_offload", False):
+            logger.debug("CPU offloading model")
+            self._model.enable_model_cpu_offload()
+        elif not self._kwargs.get("device_map"):
+            logger.debug("Loading model to available device")
+            self._model = move_model_to_available_device(self._model)
         # Recommended if your computer has < 64 GB of RAM
         self._model.enable_attention_slicing()
         self._apply_lora()
 
     def _call_model(
         self,
-        height: int,
-        width: int,
-        num_images_per_prompt: int,
         response_format: str,
+        model=None,
         **kwargs,
     ):
         logger.debug(
             "stable diffusion args: %s",
-            dict(
-                kwargs,
-                height=height,
-                width=width,
-                num_images_per_prompt=num_images_per_prompt,
-            ),
+            kwargs,
         )
-        assert callable(self._model)
-        images = self._model(
-            height=height,
-            width=width,
-            num_images_per_prompt=num_images_per_prompt,
-            **kwargs,
-        ).images
+        model = model if model is not None else self._model
+        assert callable(model)
+        images = model(**kwargs).images
         if response_format == "url":
             os.makedirs(XINFERENCE_IMAGE_DIR, exist_ok=True)
             image_list = []
@@ -127,11 +176,17 @@ class DiffusionModel:
                 return base64.b64encode(buffered.getvalue()).decode()
 
             with ThreadPoolExecutor() as executor:
-                results = list(map(partial(executor.submit, _gen_base64_image), images))
+                results = list(map(partial(executor.submit, _gen_base64_image), images))  # type: ignore
                 image_list = [Image(url=None, b64_json=s.result()) for s in results]
             return ImageList(created=int(time.time()), data=image_list)
         else:
             raise ValueError(f"Unsupported response format: {response_format}")
+
+    @classmethod
+    def _filter_kwargs(cls, kwargs: dict):
+        for arg in ["negative_prompt", "num_inference_steps"]:
+            if not kwargs.get(arg):
+                kwargs.pop(arg, None)
 
     def text_to_image(
         self,
@@ -144,6 +199,7 @@ class DiffusionModel:
         # References:
         # https://huggingface.co/docs/diffusers/main/en/api/pipelines/controlnet_sdxl
         width, height = map(int, re.split(r"[^\d]+", size))
+        self._filter_kwargs(kwargs)
         return self._call_model(
             prompt=prompt,
             height=height,
@@ -159,6 +215,45 @@ class DiffusionModel:
         prompt: Optional[Union[str, List[str]]] = None,
         negative_prompt: Optional[Union[str, List[str]]] = None,
         n: int = 1,
+        size: Optional[str] = None,
+        response_format: str = "url",
+        **kwargs,
+    ):
+        if "controlnet" in self._kwargs:
+            model = self._model
+        else:
+            if "image2image" not in self._abilities:
+                raise RuntimeError(f"{self._model_uid} does not support image2image")
+            if self._i2i_model is not None:
+                model = self._i2i_model
+            else:
+                from diffusers import AutoPipelineForImage2Image
+
+                self._i2i_model = model = AutoPipelineForImage2Image.from_pipe(
+                    self._model
+                )
+        if size:
+            width, height = map(int, re.split(r"[^\d]+", size))
+            kwargs["width"] = width
+            kwargs["height"] = height
+        self._filter_kwargs(kwargs)
+        return self._call_model(
+            image=image,
+            prompt=prompt,
+            negative_prompt=negative_prompt,
+            num_images_per_prompt=n,
+            response_format=response_format,
+            model=model,
+            **kwargs,
+        )
+
+    def inpainting(
+        self,
+        image: bytes,
+        mask_image: bytes,
+        prompt: Optional[Union[str, List[str]]] = None,
+        negative_prompt: Optional[Union[str, List[str]]] = None,
+        n: int = 1,
         size: str = "1024*1024",
         response_format: str = "url",
         **kwargs,
@@ -166,6 +261,7 @@ class DiffusionModel:
         width, height = map(int, re.split(r"[^\d]+", size))
         return self._call_model(
             image=image,
+            mask_image=mask_image,
             prompt=prompt,
             negative_prompt=negative_prompt,
             height=height,

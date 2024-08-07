@@ -35,7 +35,7 @@ protobuf
 einops
 tiktoken
 sentence-transformers>=2.7.0
-diffusers
+diffusers>=0.29.0
 controlnet_aux
 orjson
 auto-gptq
@@ -45,13 +45,19 @@ attrdict  # For deepseek VL
 timm>=0.9.16  # For deepseek VL
 torchvision  # For deepseek VL
 FlagEmbedding  # For rerank
+funasr
 omegaconf~=2.3.0  # For ChatTTS
-vector_quantize_pytorch  # For ChatTTS
-vocos  # For ChatTTS
 nemo_text_processing  # For ChatTTS
 WeTextProcessing  # For ChatTTS
 librosa  # For ChatTTS
+torchaudio  # For ChatTTS
+ChatTTS>0.1
 xxhash  # For ChatTTS
+HyperPyYAML  # For CosyVoice
+matcha-tts  # For CosyVoice
+onnxruntime-gpu==1.16.0; sys_platform == 'linux'  # For CosyVoice
+onnxruntime==1.16.0; sys_platform == 'darwin' or sys_platform == 'windows'  # For CosyVoice
+openai-whisper  # For CosyVoice
 boto3>=1.28.55,<1.28.65 # For tensorizer
 tensorizer~=2.9.0
 

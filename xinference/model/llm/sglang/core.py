@@ -17,7 +17,6 @@ import time
 import uuid
 from typing import AsyncGenerator, Dict, List, Optional, TypedDict, Union
 
-from ....constants import XINFERENCE_ENABLE_SGLANG
 from ....types import (
     ChatCompletion,
     ChatCompletionChunk,
@@ -63,15 +62,26 @@ try:
 except ImportError:
     SGLANG_INSTALLED = False
 
-SGLANG_SUPPORTED_MODELS = ["llama-2", "mistral-v0.1", "mixtral-v0.1"]
+SGLANG_SUPPORTED_MODELS = [
+    "llama-2",
+    "llama-3",
+    "llama-3.1",
+    "mistral-v0.1",
+    "mixtral-v0.1",
+]
 SGLANG_SUPPORTED_CHAT_MODELS = [
     "llama-2-chat",
+    "llama-3-instruct",
+    "llama-3.1-instruct",
     "qwen-chat",
     "qwen1.5-chat",
+    "qwen2-instruct",
+    "qwen2-moe-instruct",
     "mistral-instruct-v0.1",
     "mistral-instruct-v0.2",
     "mixtral-instruct-v0.1",
     "gemma-it",
+    "gemma-2-it",
 ]
 
 
@@ -168,8 +178,6 @@ class SGLANGModel(LLM):
     def match(
         cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
-        if not XINFERENCE_ENABLE_SGLANG:
-            return False
         if not cls._has_cuda_device():
             return False
         if not cls._is_linux():
@@ -269,8 +277,13 @@ class SGLANGModel(LLM):
         )
         stream = sanitized_generate_config.pop("stream")
         stream_options = sanitized_generate_config.pop("stream_options")
-        if isinstance(stream_options, dict):
-            include_usage = stream_options.pop("include_usage", False)
+
+        include_usage = (
+            stream_options.pop("include_usage")
+            if isinstance(stream_options, dict)
+            else False
+        )
+
         request_id = str(uuid.uuid1())
         state = pipeline.run(
             question=prompt,
@@ -327,8 +340,6 @@ class SGLANGChatModel(SGLANGModel, ChatModelMixin):
     def match(
         cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
-        if not XINFERENCE_ENABLE_SGLANG:
-            return False
         if llm_spec.model_format not in ["pytorch", "gptq", "awq"]:
             return False
         if llm_spec.model_format == "pytorch":

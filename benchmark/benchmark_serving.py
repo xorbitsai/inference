@@ -16,7 +16,7 @@ import argparse
 import asyncio
 import logging
 import random
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 
 import numpy as np
 
@@ -37,10 +37,12 @@ class ServingBenchmarkRunner(ConcurrentBenchmarkRunner):
         stream: bool,
         concurrency: int,
         request_rate: float,
+        api_key: Optional[str] = None,
     ):
-        super().__init__(api_url, model_uid, input_requests, stream, concurrency)
+        super().__init__(api_url, model_uid, input_requests, stream, concurrency, api_key)
         self.request_rate = request_rate
         self.queue = asyncio.Queue(concurrency or 100)
+        self.left = len(input_requests)
 
     async def _run(self):
         tasks = []
@@ -102,6 +104,7 @@ def main(args: argparse.Namespace):
         args.stream,
         request_rate=args.request_rate,
         concurrency=args.concurrency,
+        api_key=args.api_key,
     )
     asyncio.run(benchmark.run())
 
@@ -125,6 +128,9 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--prompt-len-limit", type=int, default=1024, help="Prompt length limitation."
+    )
+    parser.add_argument(
+        "--api-key", type=str, default=None, help="Authorization api key",
     )
     parser.add_argument(
         "--concurrency",

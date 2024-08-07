@@ -11,7 +11,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import os.path
+import inspect
+import os
 import tempfile
 
 
@@ -33,13 +34,22 @@ def test_chattts(setup):
     assert type(response) is bytes
     assert len(response) > 0
 
+    response = model.speech(input_string, stream=True)
+    assert inspect.isgenerator(response)
+    i = 0
+    for chunk in response:
+        i += 1
+        assert type(chunk) is bytes
+        assert len(chunk) > 0
+    assert i > 5
+
     # Test openai API
     import openai
 
     client = openai.Client(api_key="not empty", base_url=f"{endpoint}/v1")
-    response = client.audio.speech.create(
+    with client.audio.speech.with_streaming_response.create(
         model=model_uid, input=input_string, voice="echo"
-    )
-    with tempfile.NamedTemporaryFile(suffix=".mp3", delete=True) as f:
-        response.stream_to_file(f.name)
-        assert os.stat(f.name).st_size > 0
+    ) as response:
+        with tempfile.NamedTemporaryFile(suffix=".mp3", delete=True) as f:
+            response.stream_to_file(f.name)
+            assert os.stat(f.name).st_size > 0

@@ -45,6 +45,7 @@ class ImageModelFamilyV1(CacheableModelSpec):
     model_id: str
     model_revision: str
     model_hub: str = "huggingface"
+    model_ability: Optional[List[str]]
     controlnet: Optional[List["ImageModelFamilyV1"]]
 
 
@@ -71,6 +72,7 @@ class ImageModelDescription(ModelDescription):
             "model_name": self._model_spec.model_name,
             "model_family": self._model_spec.model_family,
             "model_revision": self._model_spec.model_revision,
+            "model_ability": self._model_spec.model_ability,
             "controlnet": controlnet,
         }
 
@@ -176,7 +178,6 @@ def get_cache_status(
             ]
         )
     else:  # Usually for UT
-        logger.warning(f"Cannot find builtin image model spec: {model_name}")
         return valid_model_revision(meta_path, model_spec.model_revision)
 
 
@@ -187,6 +188,7 @@ def create_image_model_instance(
     model_name: str,
     peft_model_config: Optional[PeftModelConfig] = None,
     download_hub: Optional[Literal["huggingface", "modelscope", "csghub"]] = None,
+    model_path: Optional[str] = None,
     **kwargs,
 ) -> Tuple[DiffusionModel, ImageModelDescription]:
     model_spec = match_diffusion(model_name, download_hub)
@@ -207,7 +209,8 @@ def create_image_model_instance(
         for name in controlnet:
             for cn_model_spec in model_spec.controlnet:
                 if cn_model_spec.model_name == name:
-                    model_path = cache(cn_model_spec)
+                    if not model_path:
+                        model_path = cache(cn_model_spec)
                     controlnet_model_paths.append(model_path)
                     break
             else:
@@ -218,7 +221,8 @@ def create_image_model_instance(
             kwargs["controlnet"] = controlnet_model_paths[0]
         else:
             kwargs["controlnet"] = controlnet_model_paths
-    model_path = cache(model_spec)
+    if not model_path:
+        model_path = cache(model_spec)
     if peft_model_config is not None:
         lora_model = peft_model_config.peft_model
         lora_load_kwargs = peft_model_config.image_lora_load_kwargs
@@ -234,6 +238,7 @@ def create_image_model_instance(
         lora_model_paths=lora_model,
         lora_load_kwargs=lora_load_kwargs,
         lora_fuse_kwargs=lora_fuse_kwargs,
+        abilities=model_spec.model_ability,
         **kwargs,
     )
     model_description = ImageModelDescription(

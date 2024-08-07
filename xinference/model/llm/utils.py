@@ -483,11 +483,40 @@ Begin!"""
                 else:
                     ret += role
             return ret
+        elif prompt_style.style_name == "mistral-nemo":
+            seps = [prompt_style.intra_message_sep, prompt_style.inter_message_sep]
+            ret = "<s>"
+            for i, message in enumerate(chat_history):
+                role = get_role(message["role"])
+                content = message["content"]
+                if content:
+                    if i == len(chat_history) - 2 and prompt_style.system_prompt:
+                        ret += (
+                            role
+                            + " "
+                            + prompt_style.system_prompt
+                            + "\n\n"
+                            + content
+                            + seps[i % 2]
+                        )
+                    else:
+                        ret += role + " " + content + seps[i % 2]
+                else:
+                    ret += role
+            return ret
         else:
             raise ValueError(f"Invalid prompt style: {prompt_style.style_name}")
 
     @classmethod
     def _to_chat_completion_chunk(cls, chunk: CompletionChunk) -> ChatCompletionChunk:
+        choices = chunk.get("choices")
+        if (
+            chunk.get("object") == "chat.completion.chunk"
+            and choices
+            and "delta" in choices[0]
+        ):
+            # Already a ChatCompletionChunk, we don't need to convert chunk.
+            return cast(ChatCompletionChunk, chunk)
         chat_chunk = {
             "id": "chat" + chunk["id"],
             "model": chunk["model"],
@@ -497,7 +526,7 @@ Begin!"""
                 {
                     "index": i,
                     "delta": {
-                        "content": choice["text"],
+                        "content": choice.get("text"),
                         **(
                             {"tool_calls": choice["tool_calls"]}
                             if "tool_calls" in choice
@@ -717,6 +746,54 @@ Begin!"""
             return process_tokens
         else:
             return lambda tokens, delta: delta
+
+    @classmethod
+    def _tool_calls_completion_chunk(cls, model_family, model_uid, c, tools):
+        _id = str(uuid.uuid4())
+        content, func, args = cls._eval_tool_arguments(model_family, c, tools)
+        if func:
+            d = {
+                "role": "assistant",
+                "content": content,
+                "tool_calls": [
+                    {
+                        "id": f"call_{_id}",
+                        "type": "function",
+                        "function": {
+                            "name": func,
+                            "arguments": json.dumps(args),
+                        },
+                    }
+                ],
+            }
+            finish_reason = "tool_calls"
+        else:
+            d = {"role": "assistant", "content": content, "tool_calls": []}
+            finish_reason = "stop"
+        try:
+            usage = c.get("usage")
+            assert "prompt_tokens" in usage
+        except Exception:
+            usage = {
+                "prompt_tokens": -1,
+                "completion_tokens": -1,
+                "total_tokens": -1,
+            }
+        return {
+            "id": "chat" + f"cmpl-{_id}",
+            "model": model_uid,
+            "object": "chat.completion.chunk",
+            "created": int(time.time()),
+            "choices": [
+                {
+                    "index": 0,
+                    "delta": d,
+                    "logprobs": None,
+                    "finish_reason": finish_reason,
+                }
+            ],
+            "usage": usage,
+        }
 
     @classmethod
     def _tool_calls_completion(cls, model_family, model_uid, c, tools):

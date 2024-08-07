@@ -34,14 +34,14 @@ potential of cutting-edge AI models.
 - Support speech recognition model: [#929](https://github.com/xorbitsai/inference/pull/929)
 - Metrics support: [#906](https://github.com/xorbitsai/inference/pull/906)
 ### New Models
+- Built-in support for [Mistral Large 2](https://mistral.ai/news/mistral-large-2407/): [#1944](https://github.com/xorbitsai/inference/pull/1944)
+- Built-in support for [llama3.1](https://ai.meta.com/blog/meta-llama-3-1/): [#1932](https://github.com/xorbitsai/inference/pull/1932)
+- Built-in support for [Mistral Nemo](https://mistral.ai/news/mistral-nemo/): [#1936](https://github.com/xorbitsai/inference/pull/1936)
+- Built-in support for [CosyVoice](https://github.com/FunAudioLLM/CosyVoice): [#1881](https://github.com/xorbitsai/inference/pull/1881)
+- Built-in support for [codegeex4](https://github.com/THUDM/CodeGeeX4): [#1888](https://github.com/xorbitsai/inference/pull/1888)
 - Built-in support for [Gemma-2-it](https://huggingface.co/blog/gemma2): [#1774](https://github.com/xorbitsai/inference/pull/1774)
 - Built-in support for [jina-reranker-v2](https://huggingface.co/jinaai/jina-reranker-v2-base-multilingual): [#1733](https://github.com/xorbitsai/inference/pull/1733)
 - Built-in support for [Qwen2](https://github.com/QwenLM/Qwen2): [#1509](https://github.com/xorbitsai/inference/pull/1597)
-- Built-in support for [ChatTTS](https://github.com/2noise/ChatTTS): [#1578](https://github.com/xorbitsai/inference/pull/1578)
-- Built-in support for [GLM-4 & GLM-4V](https://github.com/THUDM/GLM-4): [#1584](https://github.com/xorbitsai/inference/pull/1584) 
-- Built-in support for [Mistral-7B-Instruct-v0.3](https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.3): [#1576](https://github.com/xorbitsai/inference/pull/1576) 
-- Built-in support for [Codestral-22B-v0.1](https://huggingface.co/mistralai/Codestral-22B-v0.1): [#1575](https://github.com/xorbitsai/inference/pull/1575) 
-- Built-in support for [MiniCPM-Llama3-V 2.5](https://github.com/OpenBMB/MiniCPM-V): [#1577](https://github.com/xorbitsai/inference/pull/1577)
 ### Integrations
 - [Dify](https://docs.dify.ai/advanced/model-configuration/xinference): an LLMOps platform that enables developers (and even non-developers) to quickly build useful applications based on large language models, ensuring they are visual, operable, and improvable.
 - [FastGPT](https://github.com/labring/FastGPT): a knowledge-based platform built on the LLM, offers out-of-the-box data processing and model invocation capabilities, allows for workflow orchestration through Flow visualization.
@@ -106,6 +106,24 @@ Nvidia GPU users can start Xinference server using [Xinference Docker Image](htt
 ```bash
 docker run --name xinference -d -p 9997:9997 -e XINFERENCE_HOME=/data -v </on/your/host>:/data --gpus all xprobe/xinference:latest xinference-local -H 0.0.0.0
 ```
+
+### K8s via helm
+
+Ensure that you have GPU support in your Kubernetes cluster, then install as follows.
+
+```
+# add repo
+helm repo add xinference https://xorbitsai.github.io/xinference-helm-charts
+
+# update indexes and query xinference versions
+helm repo update xinference
+helm search repo xinference/xinference --devel --versions
+
+# install xinference
+helm install xinference xinference/xinference -n xinference --version 0.0.1-v<xinference_release_version>
+```
+
+For more customized installation methods on K8s, please refer to the [documentation](https://inference.readthedocs.io/en/latest/getting_started/using_kubernetes.html).
 
 ### Quick Start
 

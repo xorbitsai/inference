@@ -78,6 +78,7 @@ def main(args: argparse.Namespace):
         input_requests,
         args.stream,
         concurrency=args.concurrency,
+        api_key=args.api_key,
     )
     asyncio.run(benchmark.run())
 
@@ -112,6 +113,9 @@ if __name__ == "__main__":
         help="Trust remote code from huggingface.",
     )
     parser.add_argument("--model-uid", type=str, help="Xinference model UID.")
+    parser.add_argument(
+        "--api-key", type=str, default=None, help="Authorization api key",
+    )
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument(
         "--stream", action="store_true", help="Enable streaming responses."

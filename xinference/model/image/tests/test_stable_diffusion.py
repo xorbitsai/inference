@@ -188,6 +188,84 @@ def test_restful_api_for_sd_turbo(setup, model_name):
     assert img.size == (512, 512)
 
 
+@pytest.mark.skip(reason="Stable diffusion image2image requires too many GRAM.")
+def test_restful_api_for_sd_image2image(setup):
+    endpoint, _ = setup
+    from ....client import Client
+
+    client = Client(endpoint)
+
+    model_uid = client.launch_model(
+        model_uid="my_image2image",
+        model_name="stable-diffusion-xl-base-1.0",
+        model_type="image",
+    )
+    model = client.get_model(model_uid)
+
+    from diffusers.utils import load_image
+
+    # Replace the image path for your test.
+    image_path = os.path.expanduser("~/raw.jpg")
+    logger.info("Image path: %s", image_path)
+    image = load_image(image_path)
+    bio = io.BytesIO()
+    image.save(bio, format="png")
+
+    r = model.image_to_image(
+        prompt="desert, clear sky, white clouds",
+        image=bio.getvalue(),
+        num_inference_steps=10,
+    )
+    logger.info("test result %s", r)
+    from PIL import Image
+
+    with open(r["data"][0]["url"], "rb") as f:
+        img = Image.open(f)
+        assert img.size == image.size
+
+
+@pytest.mark.skip(reason="Stable diffusion inpainting requires too many GRAM.")
+def test_restful_api_for_sd_inpainting(setup):
+    endpoint, _ = setup
+    from ....client import Client
+
+    client = Client(endpoint)
+
+    model_uid = client.launch_model(
+        model_uid="my_inpainting",
+        model_name="stable-diffusion-2-inpainting",
+        model_type="image",
+    )
+    model = client.get_model(model_uid)
+
+    from diffusers.utils import load_image
+
+    # Replace the image path for your test.
+    image_path = os.path.expanduser("~/raw.jpg")
+    logger.info("Image path: %s", image_path)
+    image = load_image(image_path)
+    bio = io.BytesIO()
+    image.save(bio, format="png")
+    mask_image_path = os.path.expanduser("~/mask.jpg")
+    logger.info("Mask image path: %s", mask_image_path)
+    mask_image = load_image(mask_image_path)
+    bio2 = io.BytesIO()
+    mask_image.save(bio2, format="png")
+
+    r = model.inpainting(
+        prompt="desert, clear sky, white clouds",
+        image=bio.getvalue(),
+        mask_image=bio2.getvalue(),
+        num_inference_steps=10,
+    )
+    logger.info("test result %s", r)
+    from PIL import Image
+
+    with open(r["data"][0]["url"], "rb") as f:
+        img = Image.open(f)
+        assert img.size == image.size
+
+
 def test_get_cache_status():
     from ..core import get_cache_status
 

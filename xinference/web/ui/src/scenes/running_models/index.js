@@ -498,6 +498,7 @@ const RunningModels = () => {
                           controlnet: row.controlnet,
                           model_revision: row.model_revision,
                           model_name: row.model_name,
+                          model_ability: row.model_ability,
                         }),
                       })
                         .then((response) => response.json())

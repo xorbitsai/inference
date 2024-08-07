@@ -19,6 +19,14 @@ The following is a list of built-in audio models in Xinference:
   
    chattts
   
+   cosyvoice-300m
+  
+   cosyvoice-300m-instruct
+  
+   cosyvoice-300m-sft
+  
+   sensevoicesmall
+  
    whisper-base
   
    whisper-base.en

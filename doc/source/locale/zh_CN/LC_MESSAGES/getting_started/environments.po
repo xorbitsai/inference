@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-05-31 11:46+0800\n"
+"POT-Creation-Date: 2024-07-28 22:01+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -100,29 +100,17 @@ msgstr ""
 "禁用健康检查。"
 
 #: ../../source/getting_started/environments.rst:40
-msgid "XINFERENCE_DISABLE_VLLM"
-msgstr "XINFERENCE_DISABLE_VLLM"
-
-#: ../../source/getting_started/environments.rst:41
-msgid ""
-"Xinference will automatically use vLLM as backend if conditions are met. "
-"Setting this environment to 1 can disable the use of vLLM."
-msgstr ""
-"在满足条件时，Xinference 会自动使用 vLLM 作为推理引擎提供推理效率，设置改"
-"环境变量为 1可以禁用 vLLM。"
-
-#: ../../source/getting_started/environments.rst:45
 #, fuzzy
 msgid "XINFERENCE_DISABLE_METRICS"
 msgstr "XINFERENCE_DISABLE_VLLM"
 
-#: ../../source/getting_started/environments.rst:46
+#: ../../source/getting_started/environments.rst:41
 msgid ""
 "Xinference will by default enable the metrics exporter on the supervisor "
 "and worker. Setting this environment to 1 will disable the /metrics "
 "endpoint on the supervisor and the HTTP service (only provide the "
 "/metrics endpoint) on the worker."
 msgstr ""
-"Xinference 会默认在 supervisor 和 worker 上启用 metrics exporter。"
-"设置环境变量为 1可以在 supervisor 上禁用 /metrics 端点，"
-"并在 worker 上禁用 HTTP 服务（仅提供 /metrics 端点）"
+"Xinference 会默认在 supervisor 和 worker 上启用 metrics exporter。设置"
+"环境变量为 1可以在 supervisor 上禁用 /metrics 端点，并在 worker 上禁用 "
+"HTTP 服务（仅提供 /metrics 端点）"

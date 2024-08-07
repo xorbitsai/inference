@@ -18,7 +18,7 @@ import logging
 import random
 import time
 import aiohttp
-from typing import List, Dict
+from typing import List, Dict, Optional
 from datasets import load_dataset
 import numpy as np
 from benchmark_runner import ConcurrentBenchmarkRunner
@@ -37,8 +37,16 @@ class RerankBenchmarkRunner(ConcurrentBenchmarkRunner):
         stream: bool,
         top_n: int,
         concurrency: int,
+        api_key: Optional[str] = None,
     ):
-        super().__init__(api_url, model_uid, input_requests, stream, concurrency)
+        super().__init__(
+            api_url,
+            model_uid,
+            input_requests,
+            stream,
+            concurrency,
+            api_key,
+        )
         self.top_n = top_n
 
     async def _run(self):
@@ -74,6 +82,8 @@ class RerankBenchmarkRunner(ConcurrentBenchmarkRunner):
         }
 
         headers = {"User-Agent": "Benchmark Client"}
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
 
         timeout = aiohttp.ClientTimeout(total=3 * 3600)
         async with aiohttp.ClientSession(timeout=timeout) as session:
@@ -116,6 +126,7 @@ def main(args: argparse.Namespace):
         args.stream,
         top_n=args.top_n,
         concurrency=args.concurrency,
+        api_key=args.api_key,
     )
     asyncio.run(benchmark.run())
 
@@ -167,6 +178,9 @@ if __name__ == "__main__":
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument(
         "--stream", action="store_true", help="Enable streaming responses."
+    )
+    parser.add_argument(
+        "--api-key", type=str, default=None, help="Authorization api key",
     )
     args = parser.parse_args()
     main(args)

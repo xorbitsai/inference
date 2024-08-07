@@ -14,23 +14,7 @@ Specifications
 ^^^^^^^^^^^^^^
 
 
-Model Spec 1 (ggmlv3, 6 Billion)
-++++++++++++++++++++++++++++++++++++++++
-
-- **Model Format:** ggmlv3
-- **Model Size (in billions):** 6
-- **Quantizations:** q4_0
-- **Engines**: llama.cpp
-- **Model ID:** Xorbits/chatglm3-6B-GGML
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/Xorbits/chatglm3-6B-GGML>`__, `ModelScope <https://modelscope.cn/models/Xorbits/chatglm3-ggml>`__
-
-Execute the following command to launch the model, remember to replace ``${quantization}`` with your
-chosen quantization method from the options listed above::
-
-   xinference launch --model-engine ${engine} --model-name chatglm3 --size-in-billions 6 --model-format ggmlv3 --quantization ${quantization}
-
-
-Model Spec 2 (pytorch, 6 Billion)
+Model Spec 1 (pytorch, 6 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** pytorch
