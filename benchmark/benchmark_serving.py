@@ -39,20 +39,31 @@ class ServingBenchmarkRunner(ConcurrentBenchmarkRunner):
         request_rate: float,
         api_key: Optional[str] = None,
     ):
-        super().__init__(api_url, model_uid, input_requests, stream, concurrency, api_key)
+        super().__init__(
+            api_url,
+            model_uid,
+            input_requests,
+            stream,
+            concurrency,
+            api_key,
+        )
         self.request_rate = request_rate
         self.queue = asyncio.Queue(concurrency or 100)
         self.left = len(input_requests)
 
     async def _run(self):
         tasks = []
-        for req in iter(self.input_requests):
-            await self.queue.put(req)
 
         for _ in range(self.concurrency):
             tasks.append(asyncio.create_task(self.worker()))
 
         await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+
+    async def warm_up(self, num_requests: int = 5):
+        logger.info(f"Enqueuing {len(self.input_requests)} requests.")
+        for req in iter(self.input_requests):
+            await self.queue.put(req)
+        await super().warm_up(num_requests)
 
     async def worker(self):
         """
@@ -130,7 +141,10 @@ if __name__ == "__main__":
         "--prompt-len-limit", type=int, default=1024, help="Prompt length limitation."
     )
     parser.add_argument(
-        "--api-key", type=str, default=None, help="Authorization api key",
+        "--api-key",
+        type=str,
+        default=None,
+        help="Authorization api key",
     )
     parser.add_argument(
         "--concurrency",

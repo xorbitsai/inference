@@ -20,7 +20,7 @@ import warnings
 import logging
 from dataclasses import dataclass, field
 import time
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 import numpy as np
 
@@ -54,6 +54,7 @@ class BenchmarkRunner:
         model_uid: str,
         input_requests: List[Tuple[str, int, int]],
         stream: bool,
+        api_key: Optional[str]=None,
     ):
         self.api_url = api_url
         self.model_uid = model_uid
@@ -61,6 +62,7 @@ class BenchmarkRunner:
         self.outputs: List[RequestOutput] = []
         self.benchmark_time = None
         self.stream = stream
+        self.api_key = api_key
 
     async def run(self):
         await self.warm_up()
@@ -105,6 +107,8 @@ class BenchmarkRunner:
             }
 
         headers = {"User-Agent": "Benchmark Client"}
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
 
         async with aiohttp.ClientSession(timeout=AIOHTTP_TIMEOUT) as session:
             output = RequestOutput(prompt_len=prompt_len)
@@ -300,8 +304,9 @@ class ConcurrentBenchmarkRunner(BenchmarkRunner):
         input_requests: List[Tuple[str, int, int]],
         stream: bool,
         concurrency: int,
+        api_key: Optional[str]=None,
     ):
-        super().__init__(api_url, model_uid, input_requests, stream)
+        super().__init__(api_url, model_uid, input_requests, stream, api_key)
         self.concurrency = concurrency
         self.left = len(input_requests)
 
