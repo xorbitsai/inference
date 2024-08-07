@@ -125,6 +125,7 @@ def _install():
     from .pytorch.internlm2 import Internlm2PytorchChatModel
     from .pytorch.llama_2 import LlamaPytorchChatModel, LlamaPytorchModel
     from .pytorch.minicpmv25 import MiniCPMV25Model
+    from .pytorch.minicpmv26 import MiniCPMV26Model
     from .pytorch.qwen_vl import QwenVLChatModel
     from .pytorch.vicuna import VicunaPytorchChatModel
     from .pytorch.yi_vl import YiVLChatModel
@@ -167,6 +168,7 @@ def _install():
             PytorchModel,
             CogVLM2Model,
             MiniCPMV25Model,
+            MiniCPMV26Model,
             Glm4VModel,
         ]
     )
