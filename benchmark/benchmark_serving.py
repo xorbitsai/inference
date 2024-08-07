@@ -48,8 +48,7 @@ class ServingBenchmarkRunner(ConcurrentBenchmarkRunner):
             api_key,
         )
         self.request_rate = request_rate
-        self.queue = asyncio.Queue(concurrency or 100)
-        self.left = len(input_requests)
+        self.queue = asyncio.Queue(len(input_requests))
 
     async def _run(self):
         tasks = []
