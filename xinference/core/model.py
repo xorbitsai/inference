@@ -40,7 +40,10 @@ from typing import (
 import sse_starlette.sse
 import xoscar as xo
 
-from ..constants import XINFERENCE_TRANSFORMERS_ENABLE_BATCHING
+from ..constants import (
+    XINFERENCE_LAUNCH_MODEL_RETRY,
+    XINFERENCE_TRANSFORMERS_ENABLE_BATCHING,
+)
 
 if TYPE_CHECKING:
     from .worker import WorkerActor
@@ -126,6 +129,8 @@ def oom_check(fn):
 
 
 class ModelActor(xo.StatelessActor):
+    _replica_model_uid: Optional[str]
+
     @classmethod
     def gen_uid(cls, model: "LLM"):
         return f"{model.__class__}-model-actor"
@@ -168,6 +173,7 @@ class ModelActor(xo.StatelessActor):
     def __init__(
         self,
         worker_address: str,
+        replica_model_uid: str,
         model: "LLM",
         model_description: Optional["ModelDescription"] = None,
         request_limits: Optional[int] = None,
@@ -177,6 +183,7 @@ class ModelActor(xo.StatelessActor):
         from ..model.llm.vllm.core import VLLMModel
 
         self._worker_address = worker_address
+        self._replica_model_uid = replica_model_uid
         self._model = model
         self._model_description = (
             model_description.to_dict() if model_description else {}
@@ -214,6 +221,9 @@ class ModelActor(xo.StatelessActor):
                 address=self.address,
                 uid=SchedulerActor.gen_uid(self.model_uid(), self._model.rep_id),
             )
+
+    def __repr__(self) -> str:
+        return f"ModelActor({self._replica_model_uid})"
 
     async def _record_completion_metrics(
         self, duration, completion_tokens, prompt_tokens
@@ -292,12 +302,34 @@ class ModelActor(xo.StatelessActor):
         return condition
 
     async def load(self):
-        self._model.load()
+        try:
+            # Change process title for model
+            import setproctitle
+
+            setproctitle.setproctitle(f"Model: {self._replica_model_uid}")
+        except ImportError:
+            pass
+        i = 0
+        while True:
+            i += 1
+            try:
+                self._model.load()
+                break
+            except Exception as e:
+                if (
+                    i < XINFERENCE_LAUNCH_MODEL_RETRY
+                    and str(e).find("busy or unavailable") >= 0
+                ):
+                    await asyncio.sleep(5)
+                    logger.warning("Retry to load model {model_uid}: %d times", i)
+                    continue
+                raise
         if self.allow_batching():
             await self._scheduler_ref.set_model(self._model)
             logger.debug(
                 f"Batching enabled for model: {self.model_uid()}, max_num_seqs: {self._model.get_max_num_seqs()}"
             )
+        logger.info(f"{self} loaded")
 
     def model_uid(self):
         return (
