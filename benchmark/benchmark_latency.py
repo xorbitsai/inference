@@ -28,8 +28,15 @@ logger = logging.getLogger(__name__)
 
 class LatencyBenchmarkRunner(BenchmarkRunner):
     async def _run(self):
-        for request in self.input_requests:
+        total_requests = len(self.input_requests)
+        for i, request in enumerate(self.input_requests):
             await self.send_request(request)
+            remaining = total_requests - (i + 1)
+            print(
+                f"\rProcessed {i + 1}/{total_requests} requests, {remaining} remaining.",
+                end="",
+            )
+        print("")
 
 
 def main(args: argparse.Namespace):

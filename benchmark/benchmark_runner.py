@@ -38,7 +38,7 @@ def remove_prefix(text: str, prefix: str) -> str:
 
 @dataclass
 class RequestOutput:
-    success: bool = True
+    success: bool = False
     prompt_len: int = 0
     completion_tokens: int = 0
     latency: float = 0.0
@@ -164,8 +164,8 @@ class BenchmarkRunner:
                             output.completion_tokens = data["usage"]["completion_tokens"]
                         else:
                             resp = await response.json()
-                            latency = time.perf_counter() - st
-                            output.latency = latency
+                            output.latency = time.perf_counter() - st
+                            output.success = True
                             output.completion_tokens = resp["usage"]["completion_tokens"]
             except Exception:
                 output.success = False
@@ -193,7 +193,8 @@ class BenchmarkRunner:
                     total_input += output.prompt_len
                     if output.completion_tokens > 1:
                         tpots.append(
-                            (output.latency - output.ttft) / (output.completion_tokens - 1)
+                            (output.latency - output.ttft)
+                            / (output.completion_tokens - 1)
                         )
                     itls += output.itl
                     ttfts.append(output.ttft)
@@ -214,20 +215,20 @@ class BenchmarkRunner:
             input_throughput = total_input / total_time if total_time > 0 else 0
             output_throughput = total_output / total_time if total_time > 0 else 0
 
-            mean_ttft = np.mean(ttfts) if ttfts else 0
-            median_ttft = np.median(ttfts) if ttfts else 0
-            std_ttft = np.std(ttfts) if ttfts else 0
-            p99_ttft = np.percentile(ttfts, 99) if ttfts else 0
+            mean_ttft = np.mean(ttfts) * 1000 if ttfts else 0
+            median_ttft = np.median(ttfts) * 1000 if ttfts else 0
+            std_ttft = np.std(ttfts) * 1000 if ttfts else 0
+            p99_ttft = np.percentile(ttfts, 99) * 1000 if ttfts else 0
 
-            mean_tpot = np.mean(tpots) if tpots else 0
-            median_tpot = np.median(tpots) if tpots else 0
-            std_tpot = np.std(tpots) if tpots else 0
-            p99_tpot = np.percentile(tpots, 99) if tpots else 0
+            mean_tpot = np.mean(tpots) * 1000 if tpots else 0
+            median_tpot = np.median(tpots) * 1000 if tpots else 0
+            std_tpot = np.std(tpots) * 1000 if tpots else 0
+            p99_tpot = np.percentile(tpots, 99) * 1000 if tpots else 0
 
-            mean_itl = np.mean(itls) if itls else 0
-            median_itl = np.median(itls) if itls else 0
-            std_itl = np.std(itls) if itls else 0
-            p99_itl = np.percentile(itls, 99) if itls else 0
+            mean_itl = np.mean(itls) * 1000 if itls else 0
+            median_itl = np.median(itls) * 1000 if itls else 0
+            std_itl = np.std(itls) * 1000 if itls else 0
+            p99_itl = np.percentile(itls, 99) * 1000 if itls else 0
 
             # Print benchmark results
             print("{s:{c}^{n}}".format(s=" Serving Benchmark Result ", n=50, c="="))
@@ -236,7 +237,9 @@ class BenchmarkRunner:
             print("{:<40} {:<10}".format("Total input tokens:", total_input))
             print("{:<40} {:<10}".format("Total generated tokens:", total_output))
             print(
-                "{:<40} {:<10.2f}".format("Request throughput (req/s):", request_throughput)
+                "{:<40} {:<10.2f}".format(
+                    "Request throughput (req/s):", request_throughput
+                )
             )
             print(
                 "{:<40} {:<10.2f}".format(
@@ -250,51 +253,114 @@ class BenchmarkRunner:
             )
 
             print("{s:{c}^{n}}".format(s="Time to First Token", n=50, c="-"))
-            print("{:<40} {:<10.4f}".format("Mean TTFT (s):", mean_ttft))
-            print("{:<40} {:<10.4f}".format("Median TTFT (s):", median_ttft))
-            print("{:<40} {:<10.4f}".format("Std TTFT (s):", std_ttft))
-            print("{:<40} {:<10.4f}".format("P99 TTFT (s):", p99_ttft))
+            print("{:<40} {:<10.4f}".format("Mean TTFT (ms):", mean_ttft))
+            print("{:<40} {:<10.4f}".format("Median TTFT (ms):", median_ttft))
+            print("{:<40} {:<10.4f}".format("Std TTFT (ms):", std_ttft))
+            print("{:<40} {:<10.4f}".format("P99 TTFT (ms):", p99_ttft))
 
             print(
                 "{s:{c}^{n}}".format(
                     s="Time per Output Token (excl. 1st token)", n=50, c="-"
                 )
             )
-            print("{:<40} {:<10.4f}".format("Mean TPOT (s):", mean_tpot))
-            print("{:<40} {:<10.4f}".format("Median TPOT (s):", median_tpot))
-            print("{:<40} {:<10.4f}".format("Std TPOT (s):", std_tpot))
-            print("{:<40} {:<10.4f}".format("P99 TPOT (s):", p99_tpot))
+            print("{:<40} {:<10.4f}".format("Mean TPOT (ms):", mean_tpot))
+            print("{:<40} {:<10.4f}".format("Median TPOT (ms):", median_tpot))
+            print("{:<40} {:<10.4f}".format("Std TPOT (ms):", std_tpot))
+            print("{:<40} {:<10.4f}".format("P99 TPOT (ms):", p99_tpot))
 
             print("{s:{c}^{n}}".format(s="Inter-token Latency", n=50, c="-"))
-            print("{:<40} {:<10.4f}".format("Mean ITL (s):", mean_itl))
-            print("{:<40} {:<10.4f}".format("Median ITL (s):", median_itl))
-            print("{:<40} {:<10.4f}".format("Std ITL (s):", std_itl))
-            print("{:<40} {:<10.4f}".format("P99 ITL (s):", p99_itl))
+            print("{:<40} {:<10.4f}".format("Mean ITL (ms):", mean_itl))
+            print("{:<40} {:<10.4f}".format("Median ITL (ms):", median_itl))
+            print("{:<40} {:<10.4f}".format("Std ITL (ms):", std_itl))
+            print("{:<40} {:<10.4f}".format("P99 ITL (ms):", p99_itl))
 
             print("=" * 50)
         else:
+            # Initialize variables for metrics
+            total_input = 0
+            completed = 0
+            actual_output_lens = []
+            latencies = []
+            per_token_latencies = []
+            per_output_token_latencies = []
+
+            for output in self.outputs:
+                if output.success:
+                    actual_output_lens.append(output.completion_tokens)
+                    total_input += output.prompt_len
+                    latencies.append(output.latency)
+                    per_token_latencies.append(
+                        output.latency / (output.prompt_len + output.completion_tokens)
+                    )
+                    if output.completion_tokens > 0:
+                        per_output_token_latencies.append(
+                            output.latency / output.completion_tokens
+                        )
+                    completed += 1
+                else:
+                    actual_output_lens.append(0)
+
+            if completed == 0:
+                warnings.warn(
+                    "All requests failed. This is likely due to a misconfiguration "
+                    "on the benchmark arguments.",
+                    stacklevel=2,
+                )
+
+            # Calculate statistics
+            total_output = sum(actual_output_lens)
+            request_throughput = len(self.outputs) / total_time if total_time > 0 else 0
+            input_throughput = total_input / total_time if total_time > 0 else 0
+            output_throughput = total_output / total_time if total_time > 0 else 0
+
+            mean_latency = np.mean(latencies) if latencies else 0
+            mean_per_token_latency = (
+                np.mean(per_token_latencies) if per_token_latencies else 0
+            )
+            mean_per_output_token_latency = (
+                np.mean(per_output_token_latencies) if per_output_token_latencies else 0
+            )
+
+            # Print benchmark results
+            print("{s:{c}^{n}}".format(s=" Benchmark Result ", n=50, c="="))
+            print("{:<40} {:<10}".format("Successful requests:", completed))
+            print("{:<40} {:<10.2f}".format("Benchmark duration (s):", total_time))
+            print("{:<40} {:<10}".format("Total input tokens:", total_input))
+            print("{:<40} {:<10}".format("Total generated tokens:", total_output))
+            print(
+                "{:<40} {:<10.2f}".format(
+                    "Request throughput (req/s):", request_throughput
+                )
+            )
+            print(
+                "{:<40} {:<10.2f}".format(
+                    "Input token throughput (tok/s):", input_throughput
+                )
+            )
+            print(
+                "{:<40} {:<10.2f}".format(
+                    "Output token throughput (tok/s):", output_throughput
+                )
+            )
+
+            print("{s:{c}^{n}}".format(s="Latency Statistics", n=50, c="-"))
+            print("{:<40} {:<10.4f}".format("Mean latency (s):", mean_latency))
+            print(
+                "{:<40} {:<10.4f}".format(
+                    "Mean latency per token (s):", mean_per_token_latency
+                )
+            )
+            print(
+                "{:<40} {:<10.4f}".format(
+                    "Mean latency per output token (s):", mean_per_output_token_latency
+                )
+            )
+
+            print("=" * 50)
+
             print(f"Total time: {total_time:.2f} s")
             print(f"Throughput: {len(self.outputs) / total_time:.2f} requests/s")
 
-            # Compute the latency statistics.
-            avg_latency = np.mean([output.latency for output in self.outputs])
-            print(f"Average latency: {avg_latency:.2f} s")
-            avg_per_token_latency = np.mean(
-                [
-                    output.latency / (output.prompt_len + output.completion_tokens)
-                    for output in self.outputs
-                ]
-            )
-            print(f"Average latency per token: {avg_per_token_latency:.2f} s")
-            avg_per_output_token_latency = np.mean(
-                [output.latency / output.completion_tokens for output in self.outputs]
-            )
-            print("Average latency per output token: " f"{avg_per_output_token_latency:.2f} s")
-            throughput = (
-                sum([output.completion_tokens for output in self.outputs])
-                / total_time
-            )
-            print(f"Throughput: {throughput} tokens/s")
 
 class ConcurrentBenchmarkRunner(BenchmarkRunner):
     def __init__(
