@@ -86,8 +86,8 @@ class BenchmarkRunner:
             pload = {
                 "model": self.model_uid,
                 "n": 1,
-                "temperature": 0.01,
-                "top_p": 0.99,
+                "temperature": 0.6,
+                "top_p": 0.9,
                 "max_tokens": output_len,
                 "stream": True,
                 "messages": [{"role": "user", "content": prompt}],
@@ -97,8 +97,8 @@ class BenchmarkRunner:
             pload = {
                 "model": self.model_uid,
                 "n": 1,
-                "temperature": 0.01,
-                "top_p": 0.99,
+                "temperature": 0.6,
+                "top_p": 0.9,
                 "max_tokens": output_len,
                 "stream": False,
                 "messages": [{"role": "user", "content": prompt}],

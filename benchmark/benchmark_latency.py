@@ -47,9 +47,7 @@ def main(args: argparse.Namespace):
     logger.info("Benchmark starts.")
 
     benchmark = LatencyBenchmarkRunner(
-        api_url,
-        model_uid,
-        input_requests,
+        api_url, model_uid, input_requests, args.stream
     )
     asyncio.run(benchmark.run())
 
@@ -78,6 +76,9 @@ if __name__ == "__main__":
         help="Trust remote code from huggingface.",
     )
     parser.add_argument("--model-uid", type=str, help="Xinference model UID.")
+    parser.add_argument(
+        "--stream", action="store_true", help="Enable streaming responses."
+    )
 
     args = parser.parse_args()
     main(args)

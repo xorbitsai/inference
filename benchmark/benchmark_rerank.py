@@ -34,10 +34,11 @@ class RerankBenchmarkRunner(ConcurrentBenchmarkRunner):
         api_url: str,
         model_uid: str,
         input_requests: List[Dict],
+        stream: bool,
         top_n: int,
         concurrency: int,
     ):
-        super().__init__(api_url, model_uid, input_requests, concurrency)
+        super().__init__(api_url, model_uid, input_requests, stream, concurrency)
         self.top_n = top_n
 
     async def _run(self):
@@ -112,6 +113,7 @@ def main(args: argparse.Namespace):
         api_url,
         model_uid,
         input_requests,
+        args.stream,
         top_n=args.top_n,
         concurrency=args.concurrency,
     )
@@ -163,5 +165,8 @@ if __name__ == "__main__":
         "--model-uid", type=str, required=True, help="Xinference model UID."
     )
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument(
+        "--stream", action="store_true", help="Enable streaming responses."
+    )
     args = parser.parse_args()
     main(args)

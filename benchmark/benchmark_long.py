@@ -76,6 +76,7 @@ def main(args: argparse.Namespace):
         api_url,
         model_uid,
         input_requests,
+        args.stream,
         concurrency=args.concurrency,
     )
     asyncio.run(benchmark.run())
@@ -112,5 +113,8 @@ if __name__ == "__main__":
     )
     parser.add_argument("--model-uid", type=str, help="Xinference model UID.")
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument(
+        "--stream", action="store_true", help="Enable streaming responses."
+    )
     args = parser.parse_args()
     main(args)
