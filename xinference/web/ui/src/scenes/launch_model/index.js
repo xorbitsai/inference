@@ -34,13 +34,11 @@ const LaunchModel = () => {
   }
 
   useEffect(() => {
-    if (cookie.token === '' || cookie.token === undefined) {
-      navigate('/login', { replace: true })
-      return
-    }
-    if (cookie.token !== 'no_auth' && !sessionStorage.getItem('token')) {
-      navigate('/login', { replace: true })
-      return
+    if (!sessionStorage.getItem('auth') &&
+        (sessionStorage.getItem('token') !== 'no_auth' && cookie.token !== 'no_auth')
+    ){
+        navigate('/login', { replace: true })
+        return
     }
 
     if (gpuAvailable === -1) {

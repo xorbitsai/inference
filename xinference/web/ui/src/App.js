@@ -36,17 +36,18 @@ function App() {
         })
       } else {
         res.json().then((data) => {
-          if (!data.auth && cookie.token !== 'no_auth') {
+          if (!data.auth) {
             setCookie('token', 'no_auth', { path: '/' })
-          } else if (data.auth && !sessionStorage.getItem('token')) {
+            sessionStorage.setItem('token', 'no_auth')
+          } else if (data.auth && sessionStorage.getItem('token') === 'no_auth') {
             removeCookie('token', { path: '/' })
-          } else if (!data.auth && sessionStorage.getItem('token')) {
             sessionStorage.removeItem('token')
           }
+          sessionStorage.setItem('auth', data.auth)
         })
       }
     })
-  }, [])
+  }, [cookie])
 
   const handleClose = (event, reason) => {
     if (reason === 'clickaway') {
