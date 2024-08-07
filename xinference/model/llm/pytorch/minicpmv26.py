@@ -176,9 +176,6 @@ class MiniCPMV26Model(PytorchChatModel):
             image = images_history[0]
         msgs.append({"role": "user", "content": content})
 
-        stop_tokens = generate_config.get("stop", [])
-        stop_token_ids = [self._tokenizer.convert_tokens_to_ids(i) for i in stop_tokens]
-
         chat = self._model.chat(
             image=image,
             msgs=json.dumps(msgs, ensure_ascii=True),
