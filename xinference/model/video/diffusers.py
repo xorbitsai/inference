@@ -94,7 +94,7 @@ class DiffUsersVideoModel:
             "diffusers text_to_video args: %s",
             kwargs,
         )
-        # assert callable(self._model)
+        assert self._model is not None
         prompt_embeds, _ = self._model.encode_prompt(
             prompt=prompt,
             do_classifier_free_guidance=True,
@@ -103,6 +103,7 @@ class DiffUsersVideoModel:
             device=self._model.device,
             dtype=torch.float16,
         )
+        assert callable(self._model)
         output = self._model(
             num_inference_steps=50,
             guidance_scale=6,

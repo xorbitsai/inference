@@ -164,6 +164,7 @@ def create_video_model_instance(
     model_spec = match_diffusion(model_name, download_hub)
     if not model_path:
         model_path = cache(model_spec)
+    assert model_path is not None
 
     model = DiffUsersVideoModel(
         model_uid,
