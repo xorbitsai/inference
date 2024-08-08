@@ -6850,7 +6850,7 @@
   {
     "version":1,
     "context_length":2048,
-    "model_name":"MiniCPM-V-2_6",
+    "model_name":"MiniCPM-V-2.6",
     "model_lang":[
       "en",
       "zh"
