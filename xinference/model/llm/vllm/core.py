@@ -242,7 +242,9 @@ class VLLMModel(LLM):
         )
         self._engine = AsyncLLMEngine.from_engine_args(engine_args)
 
-        self._check_health_task = asyncio.create_task(self._check_healthy())
+        if hasattr(self._engine, "check_health"):
+            # vLLM introduced `check_health` since v0.4.1
+            self._check_health_task = asyncio.create_task(self._check_healthy())
 
     def stop(self):
         # though the vLLM engine will shutdown when deleted,
