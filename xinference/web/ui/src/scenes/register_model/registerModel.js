@@ -208,11 +208,13 @@ const RegisterModelComponent = ({ modelType, customData }) => {
   }, [model_name])
 
   useEffect(() => {
-    if (!sessionStorage.getItem('auth') &&
-        (sessionStorage.getItem('token') !== 'no_auth' && cookie.token !== 'no_auth')
-    ){
-        navigate('/login', { replace: true })
-        return
+    if (
+      !sessionStorage.getItem('auth') &&
+      sessionStorage.getItem('token') !== 'no_auth' &&
+      cookie.token !== 'no_auth'
+    ) {
+      navigate('/login', { replace: true })
+      return
     }
 
     const getBuiltinFamilies = async () => {

@@ -37,11 +37,13 @@ const RunningModels = () => {
   }
 
   const update = (isCallingApi) => {
-    if (!sessionStorage.getItem('auth') &&
-        (sessionStorage.getItem('token') !== 'no_auth' && cookie.token !== 'no_auth')
-    ){
-        navigate('/login', { replace: true })
-        return
+    if (
+      !sessionStorage.getItem('auth') &&
+      sessionStorage.getItem('token') !== 'no_auth' &&
+      cookie.token !== 'no_auth'
+    ) {
+      navigate('/login', { replace: true })
+      return
     }
     if (isCallingApi) {
       setLlmData([{ id: 'Loading, do not refresh page...', url: 'IS_LOADING' }])

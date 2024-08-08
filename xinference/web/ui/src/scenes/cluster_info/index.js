@@ -16,10 +16,12 @@ const ClusterInfo = () => {
   const navigate = useNavigate()
 
   useEffect(() => {
-    if (!sessionStorage.getItem('auth') &&
-        (sessionStorage.getItem('token') !== 'no_auth' && cookie.token !== 'no_auth')
-    ){
-        navigate('/login', { replace: true })
+    if (
+      !sessionStorage.getItem('auth') &&
+      sessionStorage.getItem('token') !== 'no_auth' &&
+      cookie.token !== 'no_auth'
+    ) {
+      navigate('/login', { replace: true })
     }
   }, [cookie.token])
 

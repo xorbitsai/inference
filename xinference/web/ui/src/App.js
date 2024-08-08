@@ -39,7 +39,10 @@ function App() {
           if (!data.auth) {
             setCookie('token', 'no_auth', { path: '/' })
             sessionStorage.setItem('token', 'no_auth')
-          } else if (data.auth && sessionStorage.getItem('token') === 'no_auth') {
+          } else if (
+            data.auth &&
+            sessionStorage.getItem('token') === 'no_auth'
+          ) {
             removeCookie('token', { path: '/' })
             sessionStorage.removeItem('token')
           }
