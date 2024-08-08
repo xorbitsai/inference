@@ -64,6 +64,7 @@ from ..types import (
     CreateChatCompletion,
     CreateCompletion,
     ImageList,
+    VideoList,
     PeftModelConfig,
     max_tokens_field,
 )
@@ -514,6 +515,17 @@ class RESTfulAPI:
             self.create_inpainting,
             methods=["POST"],
             response_model=ImageList,
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:read"])]
+                if self.is_authenticated()
+                else None
+            ),
+        )
+        self._router.add_api_route(
+            "/v1/video/generations",
+            self.create_videos,
+            methods=["POST"],
+            response_model=VideoList,
             dependencies=(
                 [Security(self._auth_service, scopes=["models:read"])]
                 if self.is_authenticated()

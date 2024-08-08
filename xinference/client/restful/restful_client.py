@@ -392,7 +392,7 @@ class RESTfulVideoModelHandle(RESTfulModelHandle):
         ImageList
             A list of image objects.
         """
-        url = f"{self._base_url}/v1/images/generations"
+        url = f"{self._base_url}/v1/video/generations"
         request_body = {
             "model": self._model_uid,
             "prompt": prompt,
@@ -1052,6 +1052,10 @@ class Client:
             )
         elif desc["model_type"] == "audio":
             return RESTfulAudioModelHandle(
+                model_uid, self.base_url, auth_headers=self._headers
+            )
+        elif desc["model_type"] == "video":
+            return RESTfulVideoModelHandle(
                 model_uid, self.base_url, auth_headers=self._headers
             )
         elif desc["model_type"] == "flexible":
