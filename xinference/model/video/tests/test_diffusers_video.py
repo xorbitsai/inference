@@ -13,6 +13,8 @@
 # limitations under the License.
 import logging
 
+import pytest
+
 from .. import BUILTIN_VIDEO_MODELS
 from ..core import cache
 from ..diffusers import DiffUsersVideoModel
@@ -20,6 +22,7 @@ from ..diffusers import DiffUsersVideoModel
 logger = logging.getLogger(__name__)
 
 
+@pytest.mark.skip(reason="Video model requires too many GRAM.")
 def test_model():
     test_model_spec = next(iter(BUILTIN_VIDEO_MODELS.values()))
     model_path = cache(test_model_spec)
@@ -31,6 +34,7 @@ def test_model():
     assert r
 
 
+@pytest.mark.skip(reason="Video model requires too many GRAM.")
 def test_client(setup):
     endpoint, _ = setup
     from ....client import Client
@@ -56,4 +60,4 @@ def test_client(setup):
         "The background includes a small, flowing stream and vibrant green foliage, "
         "enhancing the peaceful and magical atmosphere of this unique musical performance."
     )
-    print(r)
+    assert r
