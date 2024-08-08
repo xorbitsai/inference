@@ -69,6 +69,7 @@ const LaunchModel = () => {
             <Tab label="Rerank Models" value="/launch_model/rerank" />
             <Tab label="Image Models" value="/launch_model/image" />
             <Tab label="Audio Models" value="/launch_model/audio" />
+            <Tab label="Video Models" value="/launch_model/video" />
             <Tab label="Custom Models" value="/launch_model/custom/llm" />
           </TabList>
         </Box>
@@ -92,6 +93,9 @@ const LaunchModel = () => {
         </TabPanel>
         <TabPanel value="/launch_model/audio" sx={{ padding: 0 }}>
           <LaunchModelComponent modelType={'audio'} />
+        </TabPanel>
+        <TabPanel value="/launch_model/video" sx={{ padding: 0 }}>
+          <LaunchModelComponent modelType={'video'} />
         </TabPanel>
         <TabPanel value="/launch_model/custom/llm" sx={{ padding: 0 }}>
           <LaunchCustom gpuAvailable={gpuAvailable} />
