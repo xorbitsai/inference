@@ -97,7 +97,7 @@ with popular third-party libraries including [LangChain](https://python.langchai
 
 ### Jupyter Notebook
 
-The lightest way to experience Xinference is to try our [Juypter Notebook on Google Colab](https://colab.research.google.com/github/xorbitsai/inference/blob/main/examples/Xinference_Quick_Start.ipynb).
+The lightest way to experience Xinference is to try our [Jupyter Notebook on Google Colab](https://colab.research.google.com/github/xorbitsai/inference/blob/main/examples/Xinference_Quick_Start.ipynb).
 
 ### Docker 
 
