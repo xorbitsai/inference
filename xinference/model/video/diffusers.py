@@ -17,9 +17,11 @@ import os
 import sys
 import uuid
 import torch
+import time
 
 from ...constants import XINFERENCE_VIDEO_DIR
 from ...device_utils import move_model_to_available_device
+from ...types import VideoList
 
 logger = logging.getLogger(__name__)
 
@@ -75,7 +77,7 @@ class DiffUsersVideoModel:
         prompt: str,
         n: int = 1,
         **kwargs,
-    ):
+    ) -> VideoList:
         from diffusers.utils import export_to_video
 
         logger.debug(
@@ -91,10 +93,14 @@ class DiffUsersVideoModel:
             device=self._model.device,
             dtype=torch.float16,
         )
-        video = self._model(
+        output = self._model(
             num_inference_steps=50,
             guidance_scale=6,
             prompt_embeds=prompt_embeds,
-        ).frames[0]
-        path = os.path.join(XINFERENCE_VIDEO_DIR, uuid.uuid4().hex + ".jpg")
-        export_to_video(video, path, fps=8)
+        )
+        urls = []
+        for f in output.frames:
+            path = os.path.join(XINFERENCE_VIDEO_DIR, uuid.uuid4().hex + ".jpg")
+            p = export_to_video(f, path, fps=8)
+            urls.append(p)
+        return VideoList(created=int(time.time()), data=urls)

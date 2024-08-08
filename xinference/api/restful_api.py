@@ -123,6 +123,14 @@ class TextToImageRequest(BaseModel):
     user: Optional[str] = None
 
 
+class TextToVideoRequest(BaseModel):
+    model: str
+    prompt: Union[str, List[str]] = Field(description="The input to embed.")
+    n: Optional[int] = 1
+    kwargs: Optional[str] = None
+    user: Optional[str] = None
+
+
 class SpeechRequest(BaseModel):
     model: str
     input: str
@@ -1536,6 +1544,38 @@ class RESTfulAPI:
         try:
             result = await model.infer(**kwargs)
             return Response(result, media_type="application/json")
+        except RuntimeError as re:
+            logger.error(re, exc_info=True)
+            await self._report_error_event(model_uid, str(re))
+            self.handle_request_limit_error(re)
+            raise HTTPException(status_code=400, detail=str(re))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            await self._report_error_event(model_uid, str(e))
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def create_videos(self, request: Request) -> Response:
+        body = TextToVideoRequest.parse_obj(await request.json())
+        model_uid = body.model
+        try:
+            model = await (await self._get_supervisor_ref()).get_model(model_uid)
+        except ValueError as ve:
+            logger.error(str(ve), exc_info=True)
+            await self._report_error_event(model_uid, str(ve))
+            raise HTTPException(status_code=400, detail=str(ve))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            await self._report_error_event(model_uid, str(e))
+            raise HTTPException(status_code=500, detail=str(e))
+
+        try:
+            kwargs = json.loads(body.kwargs) if body.kwargs else {}
+            video_list = await model.text_to_video(
+                prompt=body.prompt,
+                n=body.n,
+                **kwargs,
+            )
+            return Response(content=video_list, media_type="application/json")
         except RuntimeError as re:
             logger.error(re, exc_info=True)
             await self._report_error_event(model_uid, str(re))

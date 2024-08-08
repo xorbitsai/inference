@@ -52,6 +52,11 @@ class ImageList(TypedDict):
     data: List[Image]
 
 
+class VideoList(TypedDict):
+    created: int
+    data: List[str]
+
+
 class EmbeddingUsage(TypedDict):
     prompt_tokens: int
     total_tokens: int

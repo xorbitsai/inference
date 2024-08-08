@@ -29,6 +29,7 @@ if TYPE_CHECKING:
         CompletionChunk,
         Embedding,
         ImageList,
+        VideoList,
         LlamaCppGenerateConfig,
         PytorchGenerateConfig,
     )
@@ -364,6 +365,44 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
         if response.status_code != 200:
             raise RuntimeError(
                 f"Failed to inpaint the images, detail: {_get_error_string(response)}"
+            )
+
+        response_data = response.json()
+        return response_data
+
+
+class RESTfulVideoModelHandle(RESTfulModelHandle):
+    def text_to_video(
+        self,
+        prompt: str,
+        n: int = 1,
+        **kwargs,
+    ) -> "VideoList":
+        """
+        Creates an image by the input text.
+
+        Parameters
+        ----------
+        prompt: `str` or `List[str]`
+            The prompt or prompts to guide image generation. If not defined, you need to pass `prompt_embeds`.
+        n: `int`, defaults to 1
+            The number of images to generate per prompt. Must be between 1 and 10.
+        Returns
+        -------
+        ImageList
+            A list of image objects.
+        """
+        url = f"{self._base_url}/v1/images/generations"
+        request_body = {
+            "model": self._model_uid,
+            "prompt": prompt,
+            "n": n,
+            "kwargs": json.dumps(kwargs),
+        }
+        response = requests.post(url, json=request_body, headers=self.auth_headers)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to create the images, detail: {_get_error_string(response)}"
             )
 
         response_data = response.json()
