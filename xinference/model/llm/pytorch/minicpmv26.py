@@ -52,7 +52,7 @@ class MiniCPMV26Model(PytorchChatModel):
         cls, model_family: "LLMFamilyV1", model_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         family = model_family.model_family or model_family.model_name
-        if "MiniCPM-V-2_6".lower() in family.lower():
+        if "MiniCPM-V-2.6".lower() in family.lower():
             return True
         return False
 
