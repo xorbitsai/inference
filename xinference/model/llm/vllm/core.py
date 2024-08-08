@@ -252,11 +252,11 @@ class VLLMModel(LLM):
         # but some issue e.g. GH#1682 reported
         # when deleting, the engine exists still
         logger.info("Stopping vLLM engine")
-        self._engine = None
         if self._check_health_task:
             self._check_health_task.cancel()
         if model_executor := getattr(self._engine, "model_executor", None):
             model_executor.shutdown()
+        self._engine = None
 
     async def _check_healthy(self, interval: int = 30):
         from vllm.engine.async_llm_engine import AsyncEngineDeadError
