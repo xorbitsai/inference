@@ -29,9 +29,9 @@ if TYPE_CHECKING:
         CompletionChunk,
         Embedding,
         ImageList,
-        VideoList,
         LlamaCppGenerateConfig,
         PytorchGenerateConfig,
+        VideoList,
     )
 
 

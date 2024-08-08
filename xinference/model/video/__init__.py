@@ -19,15 +19,14 @@ from itertools import chain
 
 from .core import (
     BUILTIN_VIDEO_MODELS,
-    VIDEO_MODEL_DESCRIPTIONS,
     MODEL_NAME_TO_REVISION,
     MODELSCOPE_VIDEO_MODELS,
+    VIDEO_MODEL_DESCRIPTIONS,
     VideoModelFamilyV1,
     generate_video_description,
     get_cache_status,
     get_video_model_descriptions,
 )
-
 
 _model_spec_json = os.path.join(os.path.dirname(__file__), "model_spec.json")
 _model_spec_modelscope_json = os.path.join(

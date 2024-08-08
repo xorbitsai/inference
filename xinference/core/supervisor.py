@@ -59,12 +59,12 @@ from .utils import (
 
 if TYPE_CHECKING:
     from ..model.audio import AudioModelFamilyV1
-    from ..model.video import VideoModelFamilyV1
     from ..model.embedding import EmbeddingModelSpec
     from ..model.flexible import FlexibleModelSpec
     from ..model.image import ImageModelFamilyV1
     from ..model.llm import LLMFamilyV1
     from ..model.rerank import RerankModelSpec
+    from ..model.video import VideoModelFamilyV1
     from .worker import WorkerActor
 
 

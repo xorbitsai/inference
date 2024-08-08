@@ -64,8 +64,8 @@ from ..types import (
     CreateChatCompletion,
     CreateCompletion,
     ImageList,
-    VideoList,
     PeftModelConfig,
+    VideoList,
     max_tokens_field,
 )
 from .oauth2.auth_service import AuthService

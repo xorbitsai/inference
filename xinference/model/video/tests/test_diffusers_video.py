@@ -19,10 +19,9 @@ from io import BytesIO
 
 from PIL import Image
 
+from .. import BUILTIN_VIDEO_MODELS
 from ..core import cache
 from ..diffusers import DiffUsersVideoModel
-from .. import BUILTIN_VIDEO_MODELS
-
 
 logger = logging.getLogger(__name__)
 

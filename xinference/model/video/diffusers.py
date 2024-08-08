@@ -15,9 +15,10 @@
 import logging
 import os
 import sys
-import uuid
-import torch
 import time
+import uuid
+
+import torch
 
 from ...constants import XINFERENCE_VIDEO_DIR
 from ...device_utils import move_model_to_available_device
