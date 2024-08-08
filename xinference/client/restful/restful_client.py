@@ -379,18 +379,18 @@ class RESTfulVideoModelHandle(RESTfulModelHandle):
         **kwargs,
     ) -> "VideoList":
         """
-        Creates an image by the input text.
+        Creates a video by the input text.
 
         Parameters
         ----------
         prompt: `str` or `List[str]`
-            The prompt or prompts to guide image generation. If not defined, you need to pass `prompt_embeds`.
+            The prompt or prompts to guide video generation. If not defined, you need to pass `prompt_embeds`.
         n: `int`, defaults to 1
-            The number of images to generate per prompt. Must be between 1 and 10.
+            The number of videos to generate per prompt. Must be between 1 and 10.
         Returns
         -------
-        ImageList
-            A list of image objects.
+        VideoList
+            A list of video objects.
         """
         url = f"{self._base_url}/v1/video/generations"
         request_body = {
