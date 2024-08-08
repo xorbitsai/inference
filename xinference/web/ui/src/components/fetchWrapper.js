@@ -22,7 +22,7 @@ const fetchWrapper = {
       'Content-Type': 'application/json',
       ...config.headers,
     }
-    if (cookies.get('token') !== 'no_auth') {
+    if (cookies.get('token') !== 'no_auth' && sessionStorage.getItem('token') !== 'no_auth') {
       headers.Authorization = 'Bearer ' + sessionStorage.getItem('token')
     }
     const response = await fetch(url, {
@@ -40,7 +40,7 @@ const fetchWrapper = {
       'Content-Type': 'application/json',
       ...config.headers,
     }
-    if (cookies.get('token') !== 'no_auth') {
+    if (cookies.get('token') !== 'no_auth' && sessionStorage.getItem('token') !== 'no_auth') {
       headers.Authorization = 'Bearer ' + sessionStorage.getItem('token')
     }
     const response = await fetch(url, {
@@ -59,7 +59,7 @@ const fetchWrapper = {
       'Content-Type': 'application/json',
       ...config.headers,
     }
-    if (cookies.get('token') !== 'no_auth') {
+    if (cookies.get('token') !== 'no_auth' && sessionStorage.getItem('token') !== 'no_auth') {
       headers.Authorization = 'Bearer ' + sessionStorage.getItem('token')
     }
     const response = await fetch(url, {
@@ -78,7 +78,7 @@ const fetchWrapper = {
       'Content-Type': 'application/json',
       ...config.headers,
     }
-    if (cookies.get('token') !== 'no_auth') {
+    if (cookies.get('token') !== 'no_auth' && sessionStorage.getItem('token') !== 'no_auth') {
       headers.Authorization = 'Bearer ' + sessionStorage.getItem('token')
     }
     const response = await fetch(url, {
