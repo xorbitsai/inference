@@ -2,9 +2,6 @@ from .restful.restful_client import (  # noqa: F401
     RESTfulAudioModelHandle as AudioModelHandle,
 )
 from .restful.restful_client import (  # noqa: F401
-    RESTfulChatglmCppChatModelHandle as ChatglmCppChatModelHandle,
-)
-from .restful.restful_client import (  # noqa: F401
     RESTfulChatModelHandle as ChatModelHandle,
 )
 from .restful.restful_client import (  # noqa: F401
