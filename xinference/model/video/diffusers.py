@@ -17,12 +17,17 @@ import os
 import sys
 import time
 import uuid
+from typing import TYPE_CHECKING
 
 import torch
 
 from ...constants import XINFERENCE_VIDEO_DIR
 from ...device_utils import move_model_to_available_device
 from ...types import VideoList
+
+if TYPE_CHECKING:
+    from .core import VideoModelFamilyV1
+
 
 logger = logging.getLogger(__name__)
 
