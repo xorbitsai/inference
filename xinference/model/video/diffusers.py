@@ -40,6 +40,10 @@ class DiffUsersVideoModel:
         self._model = None
         self._kwargs = kwargs
 
+    @property
+    def model_spec(self):
+        return self._model_spec
+
     def load(self):
         import torch
 
@@ -72,7 +76,7 @@ class DiffUsersVideoModel:
         # Recommended if your computer has < 64 GB of RAM
         self._model.enable_attention_slicing()
 
-    def text_to_image(
+    def text_to_video(
         self,
         prompt: str,
         n: int = 1,
@@ -81,7 +85,7 @@ class DiffUsersVideoModel:
         from diffusers.utils import export_to_video
 
         logger.debug(
-            "diffusers args: %s",
+            "diffusers text_to_video args: %s",
             kwargs,
         )
         # assert callable(self._model)
@@ -100,7 +104,7 @@ class DiffUsersVideoModel:
         )
         urls = []
         for f in output.frames:
-            path = os.path.join(XINFERENCE_VIDEO_DIR, uuid.uuid4().hex + ".jpg")
+            path = os.path.join(XINFERENCE_VIDEO_DIR, uuid.uuid4().hex + ".mp4")
             p = export_to_video(f, path, fps=8)
             urls.append(p)
         return VideoList(created=int(time.time()), data=urls)
