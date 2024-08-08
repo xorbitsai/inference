@@ -5,6 +5,50 @@ Custom Models
 =============
 Xinference provides a flexible and comprehensive way to integrate, manage, and utilize custom models.
 
+
+Directly launch an existing model
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Since ``v0.14.0``, you can directly launch an existing model by passing ``model_path`` to the launch interface without downloading it.
+This way requires that the model's ``model_family`` is among the built-in supported models,
+and eliminates the hassle of registering the model.
+
+For example:
+
+.. tabs::
+
+  .. code-tab:: bash shell
+
+    xinference launch --model_path <model_file_path> --model-engine <engine> -n qwen1.5-chat
+
+  .. code-tab:: bash cURL
+
+    curl -X 'POST' \
+      'http://127.0.0.1:9997/v1/models' \
+      -H 'accept: application/json' \
+      -H 'Content-Type: application/json' \
+      -d '{
+      "model_engine": "<engine>",
+      "model_name": "qwen1.5-chat",
+      "model_path": "<model_file_path>"
+    }'
+
+  .. code-tab:: python
+
+    from xinference.client import RESTfulClient
+    client = RESTfulClient("http://127.0.0.1:9997")
+    model_uid = client.launch_model(
+      model_engine="<inference_engine>",
+      model_name="qwen1.5-chat",
+      model_path="<model_file_path>"
+    )
+    print('Model uid: ' + model_uid)
+
+
+The above example demonstrates how to directly launch a qwen1.5-chat model file without registering it.
+
+For distributed scenarios, if your model file is on a specific worker,
+you can directly launch it using the ``worker_ip`` and ``model_path`` parameters with the launch interface.
+
 Define a custom LLM model
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 

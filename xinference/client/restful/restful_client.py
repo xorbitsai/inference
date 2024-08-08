@@ -13,6 +13,7 @@
 # limitations under the License.
 import json
 import typing
+import warnings
 from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Union
 
 import requests
@@ -24,7 +25,6 @@ if TYPE_CHECKING:
         ChatCompletion,
         ChatCompletionChunk,
         ChatCompletionMessage,
-        ChatglmCppGenerateConfig,
         Completion,
         CompletionChunk,
         Embedding,
@@ -470,6 +470,13 @@ class RESTfulChatModelHandle(RESTfulGenerateModelHandle):
             Report the failure to generate the chat from the server. Detailed information provided in error message.
 
         """
+        warnings.warn(
+            "The parameters `prompt`, `system_prompt` and `chat_history` will be deprecated in version v0.15.0, "
+            "and will be replaced by the parameter `messages`, "
+            "similar to the OpenAI API: https://platform.openai.com/docs/guides/chat-completions/getting-started",
+            category=DeprecationWarning,
+            stacklevel=2,
+        )
 
         url = f"{self._base_url}/v1/chat/completions"
 
@@ -497,134 +504,6 @@ class RESTfulChatModelHandle(RESTfulGenerateModelHandle):
         if response.status_code != 200:
             raise RuntimeError(
                 f"Failed to generate chat completion, detail: {_get_error_string(response)}"
-            )
-
-        if stream:
-            return streaming_response_iterator(response.iter_lines())
-
-        response_data = response.json()
-        return response_data
-
-
-class RESTfulChatglmCppChatModelHandle(RESTfulModelHandle):
-    def chat(
-        self,
-        prompt: str,
-        system_prompt: Optional[str] = None,
-        chat_history: Optional[List["ChatCompletionMessage"]] = None,
-        tools: Optional[List[Dict]] = None,
-        generate_config: Optional["ChatglmCppGenerateConfig"] = None,
-    ) -> Union["ChatCompletion", Iterator["ChatCompletionChunk"]]:
-        """
-        Given a list of messages comprising a conversation, the ChatGLM model will return a response via RESTful APIs.
-
-        Parameters
-        ----------
-        prompt: str
-            The user's input.
-        system_prompt: Optional[str]
-            The system context provide to Model prior to any chats.
-        chat_history: Optional[List["ChatCompletionMessage"]]
-            A list of messages comprising the conversation so far.
-        tools: Optional[List[Dict]]
-            A tool list.
-        generate_config: Optional["ChatglmCppGenerateConfig"]
-            Additional configuration for ChatGLM chat generation.
-
-        Returns
-        -------
-        Union["ChatCompletion", Iterator["ChatCompletionChunk"]]
-            Stream is a parameter in generate_config.
-            When stream is set to True, the function will return Iterator["ChatCompletionChunk"].
-            When stream is set to False, the function will return "ChatCompletion".
-
-        Raises
-        ------
-        RuntimeError
-            Report the failure to generate the chat from the server. Detailed information provided in error message.
-
-        """
-
-        url = f"{self._base_url}/v1/chat/completions"
-
-        if chat_history is None:
-            chat_history = []
-
-        chat_history = handle_system_prompts(chat_history, system_prompt)
-        chat_history.append({"role": "user", "content": prompt})  # type: ignore
-
-        request_body: Dict[str, Any] = {
-            "model": self._model_uid,
-            "messages": chat_history,
-        }
-        if tools is not None:
-            request_body["tools"] = tools
-        if generate_config is not None:
-            for key, value in generate_config.items():
-                request_body[key] = value
-
-        stream = bool(generate_config and generate_config.get("stream"))
-        response = requests.post(
-            url, json=request_body, stream=stream, headers=self.auth_headers
-        )
-
-        if response.status_code != 200:
-            raise RuntimeError(
-                f"Failed to generate chat completion, detail: {_get_error_string(response)}"
-            )
-
-        if stream:
-            return streaming_response_iterator(response.iter_lines())
-
-        response_data = response.json()
-        return response_data
-
-
-class RESTfulChatglmCppGenerateModelHandle(RESTfulChatglmCppChatModelHandle):
-    def generate(
-        self,
-        prompt: str,
-        generate_config: Optional["ChatglmCppGenerateConfig"] = None,
-    ) -> Union["Completion", Iterator["CompletionChunk"]]:
-        """
-        Given a prompt, the ChatGLM model will generate a response via RESTful APIs.
-
-        Parameters
-        ----------
-        prompt: str
-            The user's input.
-        generate_config: Optional["ChatglmCppGenerateConfig"]
-            Additional configuration for ChatGLM chat generation.
-
-        Returns
-        -------
-        Union["Completion", Iterator["CompletionChunk"]]
-            Stream is a parameter in generate_config.
-            When stream is set to True, the function will return Iterator["CompletionChunk"].
-            When stream is set to False, the function will return "Completion".
-
-        Raises
-        ------
-        RuntimeError
-            Report the failure to generate the content from the server. Detailed information provided in error message.
-
-        """
-
-        url = f"{self._base_url}/v1/completions"
-
-        request_body: Dict[str, Any] = {"model": self._model_uid, "prompt": prompt}
-        if generate_config is not None:
-            for key, value in generate_config.items():
-                request_body[key] = value
-
-        stream = bool(generate_config and generate_config.get("stream"))
-
-        response = requests.post(
-            url, json=request_body, stream=stream, headers=self.auth_headers
-        )
-        if response.status_code != 200:
-            raise RuntimeError(
-                f"Failed to generate completion, detail: {response.json()['detail']}"
             )
 
         if stream:
@@ -1090,7 +969,6 @@ class Client:
         -------
         ModelHandle
             The corresponding Model Handler based on the Model specified in the uid:
-              - :obj:`xinference.client.handlers.ChatglmCppChatModelHandle` -> provide handle to ChatGLM Model
               - :obj:`xinference.client.handlers.GenerateModelHandle` -> provide handle to basic generate Model. e.g. Baichuan.
               - :obj:`xinference.client.handlers.ChatModelHandle` -> provide handle to chat Model. e.g. Baichuan-chat.
 
@@ -1111,11 +989,7 @@ class Client:
         desc = response.json()
 
         if desc["model_type"] == "LLM":
-            if desc["model_format"] == "ggmlv3" and "chatglm" in desc["model_name"]:
-                return RESTfulChatglmCppGenerateModelHandle(
-                    model_uid, self.base_url, auth_headers=self._headers
-                )
-            elif "chat" in desc["model_ability"]:
+            if "chat" in desc["model_ability"]:
                 return RESTfulChatModelHandle(
                     model_uid, self.base_url, auth_headers=self._headers
                 )

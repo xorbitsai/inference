@@ -24,7 +24,6 @@ from gradio.components import Markdown, Textbox
 from gradio.layouts import Accordion, Column, Row
 
 from ..client.restful.restful_client import (
-    RESTfulChatglmCppChatModelHandle,
     RESTfulChatModelHandle,
     RESTfulGenerateModelHandle,
 )
@@ -116,9 +115,7 @@ class GradioInterface:
             client = RESTfulClient(self.endpoint)
             client._set_token(self._access_token)
             model = client.get_model(self.model_uid)
-            assert isinstance(
-                model, (RESTfulChatModelHandle, RESTfulChatglmCppChatModelHandle)
-            )
+            assert isinstance(model, RESTfulChatModelHandle)
 
             response_content = ""
             for chunk in model.chat(
