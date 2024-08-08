@@ -23,9 +23,9 @@ from .core import (
     MODEL_NAME_TO_REVISION,
     MODELSCOPE_VIDEO_MODELS,
     VideoModelFamilyV1,
-    generate_image_description,
+    generate_video_description,
     get_cache_status,
-    get_image_model_descriptions,
+    get_video_model_descriptions,
 )
 
 
@@ -57,7 +57,7 @@ for model_name, model_spec in MODELSCOPE_VIDEO_MODELS.items():
 for model_name, model_spec in chain(
     MODELSCOPE_VIDEO_MODELS.items(), BUILTIN_VIDEO_MODELS.items()
 ):
-    VIDEO_MODEL_DESCRIPTIONS.update(generate_image_description(model_spec))
+    VIDEO_MODEL_DESCRIPTIONS.update(generate_video_description(model_spec))
 
 del _model_spec_json
 del _model_spec_modelscope_json

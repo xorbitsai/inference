@@ -31,7 +31,7 @@ BUILTIN_VIDEO_MODELS: Dict[str, "VideoModelFamilyV1"] = {}
 MODELSCOPE_VIDEO_MODELS: Dict[str, "VideoModelFamilyV1"] = {}
 
 
-def get_image_model_descriptions():
+def get_video_model_descriptions():
     import copy
 
     return copy.deepcopy(VIDEO_MODEL_DESCRIPTIONS)
@@ -59,7 +59,7 @@ class VideoModelDescription(ModelDescription):
 
     def to_dict(self):
         return {
-            "model_type": "image",
+            "model_type": "video",
             "address": self.address,
             "accelerators": self.devices,
             "model_name": self._model_spec.model_name,
@@ -85,12 +85,12 @@ class VideoModelDescription(ModelDescription):
         ]
 
 
-def generate_image_description(
-    image_model: VideoModelFamilyV1,
+def generate_video_description(
+    video_model: VideoModelFamilyV1,
 ) -> Dict[str, List[Dict]]:
     res = defaultdict(list)
-    res[image_model.model_name].extend(
-        VideoModelDescription(None, None, image_model).to_version_info()
+    res[video_model.model_name].extend(
+        VideoModelDescription(None, None, video_model).to_version_info()
     )
     return res
 
@@ -103,20 +103,20 @@ def match_diffusion(
     from . import BUILTIN_VIDEO_MODELS, MODELSCOPE_VIDEO_MODELS
 
     if download_hub == "modelscope" and model_name in MODELSCOPE_VIDEO_MODELS:
-        logger.debug(f"Image model {model_name} found in ModelScope.")
+        logger.debug(f"Video model {model_name} found in ModelScope.")
         return MODELSCOPE_VIDEO_MODELS[model_name]
     elif download_hub == "huggingface" and model_name in BUILTIN_VIDEO_MODELS:
-        logger.debug(f"Image model {model_name} found in Huggingface.")
+        logger.debug(f"Video model {model_name} found in Huggingface.")
         return BUILTIN_VIDEO_MODELS[model_name]
     elif download_from_modelscope() and model_name in MODELSCOPE_VIDEO_MODELS:
-        logger.debug(f"Image model {model_name} found in ModelScope.")
+        logger.debug(f"Video model {model_name} found in ModelScope.")
         return MODELSCOPE_VIDEO_MODELS[model_name]
     elif model_name in BUILTIN_VIDEO_MODELS:
-        logger.debug(f"Image model {model_name} found in Huggingface.")
+        logger.debug(f"Video model {model_name} found in Huggingface.")
         return BUILTIN_VIDEO_MODELS[model_name]
     else:
         raise ValueError(
-            f"Image model {model_name} not found, available"
+            f"Video model {model_name} not found, available"
             f"model list: {BUILTIN_VIDEO_MODELS.keys()}"
         )
 
