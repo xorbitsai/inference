@@ -145,6 +145,9 @@ class ModelActor(xo.StatelessActor):
                     f"Destroy scheduler actor failed, address: {self.address}, error: {e}"
                 )
 
+        if hasattr(self._model, "stop") and callable(self._model.stop):
+            self._model.stop()
+
         if (
             isinstance(self._model, (LLMPytorchModel, LLMVLLMModel))
             and self._model.model_spec.model_format == "pytorch"
