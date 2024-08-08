@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import logging
 import time
 import uuid
@@ -132,18 +133,20 @@ class SGLANGModel(LLM):
         model_config.setdefault("tokenizer_mode", "auto")
         model_config.setdefault("trust_remote_code", True)
         model_config.setdefault("tp_size", cuda_count)
-        # See https://github.com/sgl-project/sglang/blob/main/python/sglang/srt/server_args.py#L37
-        mem_fraction_static = model_config.pop("mem_fraction_static", None)
+        # See https://github.com/sgl-project/sglang/blob/00023d622a6d484e67ef4a0e444f708b8fc861c8/python/sglang/srt/server_args.py#L100-L109
+        mem_fraction_static = model_config.get("mem_fraction_static")
         if mem_fraction_static is None:
             tp_size = model_config.get("tp_size", cuda_count)
-            if tp_size >= 8:
-                model_config["mem_fraction_static"] = 0.80
+            if tp_size >= 16:
+                model_config["mem_fraction_static"] = 0.79
+            elif tp_size >= 8:
+                model_config["mem_fraction_static"] = 0.83
             elif tp_size >= 4:
-                model_config["mem_fraction_static"] = 0.82
-            elif tp_size >= 2:
                 model_config["mem_fraction_static"] = 0.85
+            elif tp_size >= 2:
+                model_config["mem_fraction_static"] = 0.87
             else:
-                model_config["mem_fraction_static"] = 0.90
+                model_config["mem_fraction_static"] = 0.88
         model_config.setdefault("log_level", "info")
         model_config.setdefault("attention_reduce_in_fp32", False)
 
@@ -249,28 +252,64 @@ class SGLANGModel(LLM):
             usage=usage,
         )
 
+    @classmethod
+    def _filter_sampling_params(cls, sampling_params: dict):
+        if not sampling_params.get("lora_name"):
+            sampling_params.pop("lora_name", None)
+        return sampling_params
+
+    async def _stream_generate(self, prompt: str, **sampling_params):
+        import aiohttp
+
+        sampling_params = self._filter_sampling_params(sampling_params)
+        json_data = {
+            "text": prompt,
+            "sampling_params": sampling_params,
+            "stream": True,
+        }
+        pos = 0
+
+        timeout = aiohttp.ClientTimeout(total=3 * 3600)
+        async with aiohttp.ClientSession(timeout=timeout, trust_env=True) as session:
+            async with session.post(
+                self._engine.generate_url, json=json_data  # type: ignore
+            ) as response:
+                async for chunk, _ in response.content.iter_chunks():
+                    chunk = chunk.decode("utf-8")
+                    if chunk and chunk.startswith("data:"):
+                        stop = "data: [DONE]\n\n"
+                        need_stop = False
+                        if chunk.endswith(stop):
+                            chunk = chunk[: -len(stop)]
+                            need_stop = True
+                        if chunk:
+                            data = json.loads(chunk[5:].strip("\n"))
+                            cur = data["text"][pos:]
+                            if cur:
+                                yield data["meta_info"], cur
+                            pos += len(cur)
+                            if need_stop:
+                                break
+
+    async def _non_stream_generate(self, prompt: str, **sampling_params) -> dict:
+        import aiohttp
+
+        sampling_params = self._filter_sampling_params(sampling_params)
+        json_data = {
+            "text": prompt,
+            "sampling_params": sampling_params,
+        }
+        async with aiohttp.ClientSession(trust_env=True) as session:
+            async with session.post(
+                self._engine.generate_url, json=json_data  # type: ignore
+            ) as response:
+                return await response.json()
+
     async def async_generate(
         self,
         prompt: str,
         generate_config: Optional[SGLANGGenerateConfig] = None,
     ) -> Union[Completion, AsyncGenerator[CompletionChunk, None]]:
-        try:
-            import sglang as sgl
-            from sglang import assistant, gen, user
-        except ImportError:
-            error_message = "Failed to import module 'sglang'"
-            installation_guide = [
-                "Please make sure 'sglang' is installed. ",
-                "You can install it by `pip install sglang[all]`\n",
-            ]
-
-            raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
-
-        @sgl.function
-        def pipeline(s, question):
-            s += user(question)
-            s += assistant(gen("answer"))
-
         sanitized_generate_config = self._sanitize_generate_config(generate_config)
         logger.debug(
             "Enter generate, prompt: %s, generate config: %s", prompt, generate_config
@@ -285,25 +324,20 @@ class SGLANGModel(LLM):
         )
 
         request_id = str(uuid.uuid1())
-        state = pipeline.run(
-            question=prompt,
-            backend=self._engine,
-            stream=stream,
-            **sanitized_generate_config,
-        )
         if not stream:
+            state = await self._non_stream_generate(prompt, **sanitized_generate_config)
             return self._convert_state_to_completion(
                 request_id,
                 model=self.model_uid,
-                output_text=state["answer"],
-                meta_info=state.get_meta_info(name="answer"),
+                output_text=state["text"],
+                meta_info=state["meta_info"],
             )
         else:
 
             async def stream_results() -> AsyncGenerator[CompletionChunk, None]:
                 prompt_tokens, completion_tokens, total_tokens = 0, 0, 0
-                async for out, meta_info in state.text_async_iter(
-                    var_name="answer", return_meta_data=True
+                async for meta_info, out in self._stream_generate(
+                    prompt, **sanitized_generate_config
                 ):
                     chunk = self._convert_state_to_completion_chunk(
                         request_id, self.model_uid, output_text=out
