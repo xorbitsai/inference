@@ -206,30 +206,6 @@ class ChatCompletionChunk(TypedDict):
     usage: NotRequired[CompletionUsage]
 
 
-class ChatglmCppModelConfig(TypedDict, total=False):
-    pass
-
-
-class ChatglmCppGenerateConfig(TypedDict, total=False):
-    max_tokens: int
-    top_p: float
-    temperature: float
-    stream: bool
-    lora_name: Optional[str]
-    stream_options: Optional[Union[dict, None]]
-
-
-class QWenCppModelConfig(TypedDict, total=False):
-    pass
-
-
-class QWenCppGenerateConfig(TypedDict, total=False):
-    max_tokens: int
-    top_p: float
-    temperature: float
-    stream: bool
-
-
 StoppingCriteria = Callable[[List[int], List[float]], bool]
 
 

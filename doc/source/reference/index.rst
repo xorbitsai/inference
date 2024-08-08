@@ -27,16 +27,6 @@ Model Handles
 ~~~~~~~~~~~~~
 
 
-ChatglmCppChatModelHandle
-^^^^^^^^^^^^^^^^^^^^^^^^^
-.. autosummary::
-   :toctree: generated/
-
-   xinference.client.handlers.ChatglmCppChatModelHandle
-
-   xinference.client.handlers.ChatglmCppChatModelHandle.chat
-
-
 ChatModelHandle
 ^^^^^^^^^^^^^^^
 .. autosummary::
