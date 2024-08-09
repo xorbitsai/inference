@@ -172,9 +172,7 @@ class DiffUsersVideoModel:
             def _gen_base64_video(_video_url):
                 try:
                     with open(_video_url, "rb") as f:
-                        buffered = BytesIO()
-                        buffered.write(f.read())
-                        return base64.b64encode(buffered.getvalue()).decode()
+                        return base64.b64encode(f.read()).decode()
                 finally:
                     os.remove(_video_url)
 
