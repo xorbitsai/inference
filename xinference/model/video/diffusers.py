@@ -41,7 +41,7 @@ logger = logging.getLogger(__name__)
 
 def export_to_video_imageio(
     video_frames: Union[List[np.ndarray], List["PIL.Image.Image"]],
-    output_video_path: Optional[str] = None,
+    output_video_path: str,
     fps: int = 8,
 ) -> str:
     """
@@ -49,8 +49,6 @@ def export_to_video_imageio(
     """
     import imageio
 
-    if output_video_path is None:
-        output_video_path = tempfile.NamedTemporaryFile(suffix=".mp4").name
     if isinstance(video_frames[0], PIL.Image.Image):
         video_frames = [np.array(frame) for frame in video_frames]
     with imageio.get_writer(output_video_path, fps=fps) as writer:
