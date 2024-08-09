@@ -12,24 +12,51 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import base64
 import logging
 import os
 import sys
+import tempfile
 import time
 import uuid
-from typing import TYPE_CHECKING
+from concurrent.futures import ThreadPoolExecutor
+from functools import partial
+from io import BytesIO
+from typing import TYPE_CHECKING, List, Optional, Union
 
+import numpy as np
+import PIL.Image
 import torch
 
 from ...constants import XINFERENCE_VIDEO_DIR
 from ...device_utils import move_model_to_available_device
-from ...types import VideoList
+from ...types import Video, VideoList
 
 if TYPE_CHECKING:
     from .core import VideoModelFamilyV1
 
 
 logger = logging.getLogger(__name__)
+
+
+def export_to_video_imageio(
+    video_frames: Union[List[np.ndarray], List["PIL.Image.Image"]],
+    output_video_path: Optional[str] = None,
+    fps: int = 8,
+) -> str:
+    """
+    Export the video frames to a video file using imageio lib to Avoid "green screen" issue (for example CogVideoX)
+    """
+    import imageio
+
+    if output_video_path is None:
+        output_video_path = tempfile.NamedTemporaryFile(suffix=".mp4").name
+    if isinstance(video_frames[0], PIL.Image.Image):
+        video_frames = [np.array(frame) for frame in video_frames]
+    with imageio.get_writer(output_video_path, fps=fps) as writer:
+        for frame in video_frames:
+            writer.append_data(frame)
+    return output_video_path
 
 
 class DiffUsersVideoModel:
@@ -66,7 +93,7 @@ class DiffUsersVideoModel:
             from diffusers import CogVideoXPipeline
 
             self._model = CogVideoXPipeline.from_pretrained(
-                self._model_path, torch_dtype=torch.float16
+                self._model_path, **self._kwargs
             )
         else:
             raise Exception(
@@ -86,32 +113,74 @@ class DiffUsersVideoModel:
         self,
         prompt: str,
         n: int = 1,
+        num_inference_steps: int = 50,
+        guidance_scale: int = 6,
+        response_format: str = "b64_json",
         **kwargs,
     ) -> VideoList:
-        from diffusers.utils import export_to_video
+        import gc
+
+        # cv2 bug will cause the video cannot be normally displayed
+        # thus we use the imageio one
+        # from diffusers.utils import export_to_video
+        from ...device_utils import empty_cache
 
         logger.debug(
             "diffusers text_to_video args: %s",
             kwargs,
         )
         assert self._model is not None
+        if self._kwargs.get("cpu_offload"):
+            # if enabled cpu offload,
+            # the model.device would be CPU
+            device = "cuda"
+        else:
+            device = self._model.device
         prompt_embeds, _ = self._model.encode_prompt(
             prompt=prompt,
             do_classifier_free_guidance=True,
             num_videos_per_prompt=n,
             max_sequence_length=226,
-            device=self._model.device,
+            device=device,
             dtype=torch.float16,
         )
         assert callable(self._model)
         output = self._model(
-            num_inference_steps=50,
-            guidance_scale=6,
+            num_inference_steps=num_inference_steps,
+            guidance_scale=guidance_scale,
             prompt_embeds=prompt_embeds,
+            **kwargs,
         )
+
+        # clean cache
+        gc.collect()
+        empty_cache()
+
+        os.makedirs(XINFERENCE_VIDEO_DIR, exist_ok=True)
         urls = []
         for f in output.frames:
             path = os.path.join(XINFERENCE_VIDEO_DIR, uuid.uuid4().hex + ".mp4")
-            p = export_to_video(f, path, fps=8)
+            p = export_to_video_imageio(f, path, fps=8)
             urls.append(p)
-        return VideoList(created=int(time.time()), data=urls)
+        if response_format == "url":
+            return VideoList(
+                created=int(time.time()),
+                data=[Video(url=url, b64_json=None) for url in urls],
+            )
+        elif response_format == "b64_json":
+
+            def _gen_base64_video(_video_url):
+                try:
+                    with open(_video_url, "rb") as f:
+                        buffered = BytesIO()
+                        buffered.write(f.read())
+                        return base64.b64encode(buffered.getvalue()).decode()
+                finally:
+                    os.remove(_video_url)
+
+            with ThreadPoolExecutor() as executor:
+                results = list(map(partial(executor.submit, _gen_base64_video), urls))  # type: ignore
+                video_list = [Video(url=None, b64_json=s.result()) for s in results]
+            return VideoList(created=int(time.time()), data=video_list)
+        else:
+            raise ValueError(f"Unsupported response format: {response_format}")

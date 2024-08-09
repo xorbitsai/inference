@@ -52,9 +52,14 @@ class ImageList(TypedDict):
     data: List[Image]
 
 
+class Video(TypedDict):
+    url: Optional[str]
+    b64_json: Optional[str]
+
+
 class VideoList(TypedDict):
     created: int
-    data: List[str]
+    data: List[Video]
 
 
 class EmbeddingUsage(TypedDict):

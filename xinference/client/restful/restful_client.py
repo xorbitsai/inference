@@ -402,7 +402,7 @@ class RESTfulVideoModelHandle(RESTfulModelHandle):
         response = requests.post(url, json=request_body, headers=self.auth_headers)
         if response.status_code != 200:
             raise RuntimeError(
-                f"Failed to create the images, detail: {_get_error_string(response)}"
+                f"Failed to create the video, detail: {_get_error_string(response)}"
             )
 
         response_data = response.json()
