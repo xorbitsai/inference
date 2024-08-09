@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-06-05 12:48+0800\n"
+"POT-Creation-Date: 2024-07-28 22:01+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -79,11 +79,15 @@ msgstr ""
 msgid ":ref:`MiniCPM-Llama3-V 2.5 <models_llm_minicpm-llama3-v-2_5>`"
 msgstr ""
 
-#: ../../source/models/model_abilities/vision.rst:33
+#: ../../source/models/model_abilities/vision.rst:30
+msgid ":ref:`GLM-4V <models_llm_glm-4v>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/vision.rst:34
 msgid "Quickstart"
 msgstr "快速入门"
 
-#: ../../source/models/model_abilities/vision.rst:35
+#: ../../source/models/model_abilities/vision.rst:36
 msgid ""
 "Images are made available to the model in two main ways: by passing a "
 "link to the image or by passing the base64 encoded image directly in the "
@@ -92,23 +96,23 @@ msgstr ""
 "模型可以通过两种主要方式获取图像：通过传递图像的链接或直接在请求中传递 "
 "base64 编码的图像。"
 
-#: ../../source/models/model_abilities/vision.rst:39
+#: ../../source/models/model_abilities/vision.rst:40
 msgid "Example using OpenAI Client"
 msgstr "使用 OpenAI 客户端的示例"
 
-#: ../../source/models/model_abilities/vision.rst:70
+#: ../../source/models/model_abilities/vision.rst:71
 msgid "Uploading base 64 encoded images"
 msgstr "上传 Base64 编码的图片"
 
-#: ../../source/models/model_abilities/vision.rst:112
+#: ../../source/models/model_abilities/vision.rst:113
 msgid "You can find more examples of ``vision`` ability in the tutorial notebook:"
 msgstr "你可以在教程笔记本中找到更多关于 ``vision`` 能力的示例。"
 
-#: ../../source/models/model_abilities/vision.rst:116
+#: ../../source/models/model_abilities/vision.rst:117
 msgid "Qwen VL Chat"
 msgstr ""
 
-#: ../../source/models/model_abilities/vision.rst:119
+#: ../../source/models/model_abilities/vision.rst:120
 msgid "Learn vision ability from a example using qwen-vl-chat"
 msgstr "通过使用 qwen-vl-chat 的示例来学习使用 LLM 的视觉能力"
 
