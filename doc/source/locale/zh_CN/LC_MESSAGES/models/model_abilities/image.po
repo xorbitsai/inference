@@ -21,7 +21,7 @@ msgstr ""
 
 #: ../../source/models/model_abilities/image.rst:5
 msgid "Images"
-msgstr ""
+msgstr "图像"
 
 #: ../../source/models/model_abilities/image.rst:7
 msgid "Learn how to generate images with Xinference."
@@ -129,7 +129,7 @@ msgstr ""
 
 #: ../../source/models/model_abilities/image.rst:109
 msgid "Tips for Large Image models including sd3-medium, FLUX.1"
-msgstr "大型图像模型部署，如 sd3-medium、FLUX.1 系列"
+msgstr "大型图像模型部署（sd3-medium、FLUX.1 系列）贴士"
 
 #: ../../source/models/model_abilities/image.rst:111
 msgid "Useful extra parameters can be passed to launch including:"
@@ -178,7 +178,7 @@ msgstr "对于 FLUX.1 系列，尝试应用量化。"
 
 #: ../../source/models/model_abilities/image.rst:134
 msgid "For sd3-medium, apply quantization to ``text_encoder_3``."
-msgstr "对于 sd3-medium 模型，对 ``text_encoder_3`` 引用量化。"
+msgstr "对于 sd3-medium 模型，对 ``text_encoder_3`` 应用量化。"
 
 #: ../../source/models/model_abilities/image.rst:141
 msgid "Or removing memory-intensive T5-XXL text encoder for sd3-medium."
@@ -200,30 +200,4 @@ msgstr ""
 msgid "Learn from a Stable Diffusion ControlNet example"
 msgstr "学习一个 Stable Diffusion 控制网络的示例"
 
-#~ msgid "Images (Experimental)"
-#~ msgstr "图像（实验性质）"
-
-#~ msgid ""
-#~ "If you are running ``sd3-medium`` on "
-#~ "a GPU less than 24GB and "
-#~ "encountering out of memory, consider to"
-#~ " add an extra param for launching "
-#~ "according to `this article "
-#~ "<https://huggingface.co/docs/diffusers/v0.29.1/en/api/pipelines/stable_diffusion/stable_diffusion_3"
-#~ "#dropping-the-t5-text-encoder-during-"
-#~ "inference>`_."
-#~ msgstr ""
-#~ "如果你在小于 24GB 的显卡上运行 `"
-#~ "`sd3-medium`` 碰到内存不足的问题时"
-#~ "，根据 `这篇文章 <https://"
-#~ "huggingface.co/docs/diffusers/v0.29.1"
-#~ "/en/api/pipelines/stable_diffusion/"
-#~ "stable_diffusion_3#dropping-the-t5-"
-#~ "text-encoder-during-inference>`_ 考虑"
-#~ "在加载模型时增加额外选项。"
-
-#~ msgid ""
-#~ "xinference launch --model-name sd3-medium "
-#~ "--model-type image --text_encoder_3 None"
-#~ msgstr ""
 
