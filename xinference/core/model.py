@@ -776,6 +776,27 @@ class ModelActor(xo.StatelessActor):
             f"Model {self._model.model_spec} is not for flexible infer."
         )
 
+    @log_async(logger=logger)
+    @request_limit
+    async def text_to_video(
+        self,
+        prompt: str,
+        n: int = 1,
+        *args,
+        **kwargs,
+    ):
+        if hasattr(self._model, "text_to_video"):
+            return await self._call_wrapper_json(
+                self._model.text_to_video,
+                prompt,
+                n,
+                *args,
+                **kwargs,
+            )
+        raise AttributeError(
+            f"Model {self._model.model_spec} is not for creating video."
+        )
+
     async def record_metrics(self, name, op, kwargs):
         worker_ref = await self._get_worker_ref()
         await worker_ref.record_metrics(name, op, kwargs)

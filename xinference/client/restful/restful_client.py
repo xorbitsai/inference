@@ -31,6 +31,7 @@ if TYPE_CHECKING:
         ImageList,
         LlamaCppGenerateConfig,
         PytorchGenerateConfig,
+        VideoList,
     )
 
 
@@ -364,6 +365,44 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
         if response.status_code != 200:
             raise RuntimeError(
                 f"Failed to inpaint the images, detail: {_get_error_string(response)}"
+            )
+
+        response_data = response.json()
+        return response_data
+
+
+class RESTfulVideoModelHandle(RESTfulModelHandle):
+    def text_to_video(
+        self,
+        prompt: str,
+        n: int = 1,
+        **kwargs,
+    ) -> "VideoList":
+        """
+        Creates a video by the input text.
+
+        Parameters
+        ----------
+        prompt: `str` or `List[str]`
+            The prompt or prompts to guide video generation. If not defined, you need to pass `prompt_embeds`.
+        n: `int`, defaults to 1
+            The number of videos to generate per prompt. Must be between 1 and 10.
+        Returns
+        -------
+        VideoList
+            A list of video objects.
+        """
+        url = f"{self._base_url}/v1/video/generations"
+        request_body = {
+            "model": self._model_uid,
+            "prompt": prompt,
+            "n": n,
+            "kwargs": json.dumps(kwargs),
+        }
+        response = requests.post(url, json=request_body, headers=self.auth_headers)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to create the video, detail: {_get_error_string(response)}"
             )
 
         response_data = response.json()
@@ -1013,6 +1052,10 @@ class Client:
             )
         elif desc["model_type"] == "audio":
             return RESTfulAudioModelHandle(
+                model_uid, self.base_url, auth_headers=self._headers
+            )
+        elif desc["model_type"] == "video":
+            return RESTfulVideoModelHandle(
                 model_uid, self.base_url, auth_headers=self._headers
             )
         elif desc["model_type"] == "flexible":
