@@ -16,13 +16,11 @@ import base64
 import logging
 import os
 import sys
-import tempfile
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial
-from io import BytesIO
-from typing import TYPE_CHECKING, List, Optional, Union
+from typing import TYPE_CHECKING, List, Union
 
 import numpy as np
 import PIL.Image
