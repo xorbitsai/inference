@@ -4549,7 +4549,7 @@
   },
   {
     "version":1,
-    "context_length":2048,
+    "context_length":8192,
     "model_name":"MiniCPM-Llama3-V-2_5",
     "model_lang":[
       "en",
@@ -4593,7 +4593,7 @@
   },
   {
     "version":1,
-    "context_length":2048,
+    "context_length":32768,
     "model_name":"MiniCPM-V-2.6",
     "model_lang":[
       "en",
@@ -4619,10 +4619,10 @@
         "model_format":"pytorch",
         "model_size_in_billions":8,
         "quantizations":[
-          "int4"
+          "4-bit"
         ],
         "model_hub": "modelscope",
-        "model_id":"OpenBMB/MiniCPM-V-2_6-{quantization}",
+        "model_id":"OpenBMB/MiniCPM-V-2_6-int4",
         "model_revision":"master"
       }
     ],

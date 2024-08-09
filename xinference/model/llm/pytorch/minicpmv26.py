@@ -67,7 +67,11 @@ class MiniCPMV26Model(PytorchChatModel):
 
         device = self._pytorch_model_config.get("device", "auto")
         self._device = select_device(device)
-        self._device = "auto" if self._device == "cuda" else self._device
+        self._device = (
+            "auto"
+            if self._device == "cuda" and self.quantization is None
+            else self._device
+        )
 
         if "int4" in self.model_path and device == "mps":
             logger.error(
