@@ -6807,7 +6807,7 @@
   },
   {
     "version":1,
-    "context_length":2048,
+    "context_length":8192,
     "model_name":"MiniCPM-Llama3-V-2_5",
     "model_lang":[
       "en",
@@ -6844,6 +6844,52 @@
       "roles":[
         "user",
         "assistant"
+      ]
+    }
+  },
+  {
+    "version":1,
+    "context_length":32768,
+    "model_name":"MiniCPM-V-2.6",
+    "model_lang":[
+      "en",
+      "zh"
+    ],
+    "model_ability":[
+      "chat",
+      "vision"
+    ],
+    "model_description":"MiniCPM-V 2.6 is the latest model in the MiniCPM-V series. The model is built on SigLip-400M and Qwen2-7B with a total of 8B parameters.",
+    "model_specs":[
+      {
+        "model_format":"pytorch",
+        "model_size_in_billions":8,
+        "quantizations":[
+          "none"
+        ],
+        "model_id":"openbmb/MiniCPM-V-2_6",
+        "model_revision":"3f7a8da1b7a8b928b5ee229fae33cf43fd64cf31"
+      },
+      {
+        "model_format":"pytorch",
+        "model_size_in_billions":8,
+        "quantizations":[
+          "4-bit"
+        ],
+        "model_id":"openbmb/MiniCPM-V-2_6-int4",
+        "model_revision":"051e2df6505f1fc4305f2c9bd42ed90db8bf4874"
+      }
+    ],
+    "prompt_style":{
+      "style_name":"QWEN",
+      "system_prompt":"You are a helpful assistant",
+      "roles":[
+        "user",
+        "assistant"
+      ],
+      "stop": [
+        "<|im_end|>",
+        "<|endoftext|>"
       ]
     }
   },
