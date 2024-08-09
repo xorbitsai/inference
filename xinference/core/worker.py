@@ -158,6 +158,8 @@ class WorkerActor(xo.StatelessActor):
                             except Exception as e:
                                 # Report callback error can be log and ignore, should not interrupt the Process
                                 logger.error("report_event error: %s" % (e))
+                            finally:
+                                del event_model_uid
 
                             self._model_uid_to_recover_count[model_uid] = (
                                 recover_count - 1

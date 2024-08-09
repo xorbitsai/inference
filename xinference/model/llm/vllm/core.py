@@ -12,9 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import json
 import logging
 import multiprocessing
+import os
 import time
 import uuid
 from typing import (
@@ -239,6 +241,42 @@ class VLLMModel(LLM):
             **self._model_config,
         )
         self._engine = AsyncLLMEngine.from_engine_args(engine_args)
+
+        self._check_health_task = None
+        if hasattr(self._engine, "check_health"):
+            # vLLM introduced `check_health` since v0.4.1
+            self._check_health_task = asyncio.create_task(self._check_healthy())
+
+    def stop(self):
+        # though the vLLM engine will shutdown when deleted,
+        # but some issue e.g. GH#1682 reported
+        # when deleting, the engine exists still
+        logger.info("Stopping vLLM engine")
+        if self._check_health_task:
+            self._check_health_task.cancel()
+        if model_executor := getattr(self._engine, "model_executor", None):
+            model_executor.shutdown()
+        self._engine = None
+
+    async def _check_healthy(self, interval: int = 30):
+        from vllm.engine.async_llm_engine import AsyncEngineDeadError
+
+        logger.debug("Begin to check health of vLLM")
+
+        while self._engine is not None:
+            try:
+                await self._engine.check_health()
+            except (AsyncEngineDeadError, RuntimeError):
+                logger.info("Detecting vLLM is not health, prepare to quit the process")
+                try:
+                    self.stop()
+                except:
+                    # ignore error when stop
+                    pass
+                # Just kill the process and let xinference auto-recover the model
+                os._exit(1)
+            else:
+                await asyncio.sleep(interval)
 
     def _sanitize_model_config(
         self, model_config: Optional[VLLMModelConfig]
