@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom'
 import { ApiContext } from '../../components/apiContext'
 import TableTitle from '../../components/tableTitle'
 import Title from '../../components/Title'
+import { isValidBearerToken } from '../../components/utils'
 import NodeInfo from './nodeInfo'
 
 const ClusterInfo = () => {
@@ -17,9 +18,9 @@ const ClusterInfo = () => {
 
   useEffect(() => {
     if (
-      cookie.token === '' ||
-      cookie.token === undefined ||
-      (cookie.token !== 'no_auth' && !sessionStorage.getItem('token'))
+      sessionStorage.getItem('auth') === 'true' &&
+      !isValidBearerToken(sessionStorage.getItem('token')) &&
+      !isValidBearerToken(cookie.token)
     ) {
       navigate('/login', { replace: true })
     }

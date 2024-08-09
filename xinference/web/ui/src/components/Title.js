@@ -13,6 +13,7 @@ const Title = ({ title }) => {
   const handleLogout = () => {
     removeCookie('token', { path: '/' })
     sessionStorage.removeItem('token')
+    sessionStorage.removeItem('auth')
     sessionStorage.removeItem('modelType')
     sessionStorage.removeItem('lastActiveUrl')
     sessionStorage.removeItem('runningModelType')
@@ -31,7 +32,8 @@ const Title = ({ title }) => {
         >
           {title}
         </Typography>
-        {isValidBearerToken(cookie.token) && (
+        {(isValidBearerToken(cookie.token) ||
+          isValidBearerToken(sessionStorage.getItem('token'))) && (
           <Button
             variant="outlined"
             size="large"

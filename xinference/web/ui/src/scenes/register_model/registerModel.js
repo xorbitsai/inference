@@ -28,6 +28,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { ApiContext } from '../../components/apiContext'
 import CopyComponent from '../../components/copyComponent/copyComponent'
 import fetchWrapper from '../../components/fetchWrapper'
+import { isValidBearerToken } from '../../components/utils'
 import AddControlnet from './components/addControlnet'
 import AddModelSpecs from './components/addModelSpecs'
 import languages from './data/languages'
@@ -208,11 +209,11 @@ const RegisterModelComponent = ({ modelType, customData }) => {
   }, [model_name])
 
   useEffect(() => {
-    if (cookie.token === '' || cookie.token === undefined) {
-      navigate('/login', { replace: true })
-      return
-    }
-    if (cookie.token !== 'no_auth' && !sessionStorage.getItem('token')) {
+    if (
+      sessionStorage.getItem('auth') === 'true' &&
+      !isValidBearerToken(sessionStorage.getItem('token')) &&
+      !isValidBearerToken(cookie.token)
+    ) {
       navigate('/login', { replace: true })
       return
     }

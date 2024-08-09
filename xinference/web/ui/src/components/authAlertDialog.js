@@ -41,6 +41,7 @@ export default function AuthAlertDialog() {
     setAuthStatus('')
     if (code === '401') {
       removeCookie('token', { path: '/' })
+      sessionStorage.removeItem('token')
       navigate('/login', { replace: true })
     }
   }
