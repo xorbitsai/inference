@@ -254,7 +254,7 @@ class VLLMModel(LLM):
         logger.info("Stopping vLLM engine")
         if self._check_health_task:
             self._check_health_task.cancel()
-        if model_executor := getattr(self._engine, "model_executor", None):
+        if model_executor := getattr(self._engine.engine, "model_executor", None):
             model_executor.shutdown()
         self._engine = None
 

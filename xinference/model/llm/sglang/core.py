@@ -123,6 +123,10 @@ class SGLANGModel(LLM):
             **self._model_config,
         )
 
+    def stop(self):
+        logger.info("Stopping SGLang engine")
+        self._engine.shutdown()
+
     def _sanitize_model_config(
         self, model_config: Optional[SGLANGModelConfig]
     ) -> SGLANGModelConfig:
