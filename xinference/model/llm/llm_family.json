@@ -6882,7 +6882,7 @@
     ],
     "prompt_style":{
       "style_name":"QWEN",
-      "system_prompt":"The role of first msg should be user",
+      "system_prompt":"You are a helpful assistant",
       "roles":[
         "user",
         "assistant"

@@ -4627,8 +4627,8 @@
       }
     ],
     "prompt_style":{
-      "style_name":"OmniLMM",
-      "system_prompt":"The role of first msg should be user",
+      "style_name":"QWEN",
+      "system_prompt":"You are a helpful assistant",
       "roles":[
         "user",
         "assistant"
