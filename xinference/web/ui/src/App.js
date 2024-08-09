@@ -46,7 +46,7 @@ function App() {
             removeCookie('token', { path: '/' })
             sessionStorage.removeItem('token')
           }
-          sessionStorage.setItem('auth', data.auth)
+          sessionStorage.setItem('auth', String(data.auth)) // sessionStorage only can set string value
         })
       }
     })

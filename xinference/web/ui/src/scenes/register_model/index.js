@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom'
 
 import ErrorMessageSnackBar from '../../components/errorMessageSnackBar'
 import Title from '../../components/Title'
+import { isValidBearerToken } from '../../components/utils'
 import RegisterModelComponent from './registerModel'
 
 const RegisterModel = () => {
@@ -19,9 +20,9 @@ const RegisterModel = () => {
 
   useEffect(() => {
     if (
-      !sessionStorage.getItem('auth') &&
-      sessionStorage.getItem('token') !== 'no_auth' &&
-      cookie.token !== 'no_auth'
+      sessionStorage.getItem('auth') === 'true' &&
+      !isValidBearerToken(sessionStorage.getItem('token')) &&
+      !isValidBearerToken(cookie.token)
     ) {
       navigate('/login', { replace: true })
     }

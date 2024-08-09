@@ -26,7 +26,7 @@ const LoginAuth = () => {
       if (res.ok) {
         res.json().then((data) => {
           setAuthority(data.auth)
-          sessionStorage.setItem('auth', data.auth)
+          sessionStorage.setItem('auth', String(data.auth)) // sessionStorage only can set string value
         })
       }
     })
