@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-07-30 21:20+0800\n"
+"POT-Creation-Date: 2024-08-09 19:13+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -131,27 +131,31 @@ msgstr ""
 msgid "Belle-whisper-large-v3-zh"
 msgstr ""
 
-#: ../../source/models/model_abilities/audio.rst:60
+#: ../../source/models/model_abilities/audio.rst:57
+msgid "SenseVoiceSmall"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:61
 msgid "Text to audio"
 msgstr "文本转语音"
 
-#: ../../source/models/model_abilities/audio.rst:62
+#: ../../source/models/model_abilities/audio.rst:63
 msgid "ChatTTS"
 msgstr ""
 
-#: ../../source/models/model_abilities/audio.rst:63
+#: ../../source/models/model_abilities/audio.rst:64
 msgid "CosyVoice"
 msgstr ""
 
-#: ../../source/models/model_abilities/audio.rst:66
+#: ../../source/models/model_abilities/audio.rst:67
 msgid "Quickstart"
 msgstr "快速入门"
 
-#: ../../source/models/model_abilities/audio.rst:69
+#: ../../source/models/model_abilities/audio.rst:70
 msgid "Transcription"
 msgstr "转录"
 
-#: ../../source/models/model_abilities/audio.rst:71
+#: ../../source/models/model_abilities/audio.rst:72
 msgid ""
 "The Transcription API mimics OpenAI's `create transcriptions API "
 "<https://platform.openai.com/docs/api-"
@@ -163,11 +167,11 @@ msgstr ""
 "可以通过 cURL、OpenAI Client 或者 Xinference 的 Python 客户端来尝试 "
 "Transcription API："
 
-#: ../../source/models/model_abilities/audio.rst:122
+#: ../../source/models/model_abilities/audio.rst:123
 msgid "Translation"
 msgstr "翻译"
 
-#: ../../source/models/model_abilities/audio.rst:124
+#: ../../source/models/model_abilities/audio.rst:125
 msgid ""
 "The Translation API mimics OpenAI's `create translations API "
 "<https://platform.openai.com/docs/api-"
@@ -179,11 +183,11 @@ msgstr ""
 "通过 cURL、OpenAI Client 或 Xinference 的 Python 客户端来尝试使用 "
 "Translation API："
 
-#: ../../source/models/model_abilities/audio.rst:174
+#: ../../source/models/model_abilities/audio.rst:175
 msgid "Speech"
 msgstr "语音"
 
-#: ../../source/models/model_abilities/audio.rst:176
+#: ../../source/models/model_abilities/audio.rst:177
 msgid ""
 "The Speech API mimics OpenAI's `create speech API "
 "<https://platform.openai.com/docs/api-reference/audio/createSpeech>`_. We"
@@ -194,44 +198,47 @@ msgstr ""
 "openai.com/docs/api-reference/audio/createSpeech>`_。你可以通过 cURL、"
 "OpenAI Client 或者 Xinference 的 Python 客户端来尝试 Speech API："
 
-#: ../../source/models/model_abilities/audio.rst:179
+#: ../../source/models/model_abilities/audio.rst:180
 msgid "Speech API use non-stream by default as"
 msgstr "Speech API 默认使用非流式"
 
-#: ../../source/models/model_abilities/audio.rst:181
+#: ../../source/models/model_abilities/audio.rst:182
 msgid ""
 "The stream output of ChatTTS is not as good as the non-stream output, "
 "please refer to: https://github.com/2noise/ChatTTS/pull/564"
 msgstr ""
-"ChatTTS 的流式输出不如非流式的效果好，参考：https://github.com/2noise/ChatTTS/pull/564"
+"ChatTTS 的流式输出不如非流式的效果好，参考：https://github.com/2noise/"
+"ChatTTS/pull/564"
 
-#: ../../source/models/model_abilities/audio.rst:182
+#: ../../source/models/model_abilities/audio.rst:183
 msgid ""
 "The stream requires ffmpeg<7: "
 "https://pytorch.org/audio/stable/installation.html#optional-dependencies"
-msgstr "流式要求 ffmpeg<7：https://pytorch.org/audio/stable/installation.html#optional-dependencies"
+msgstr ""
+"流式要求 ffmpeg<7：https://pytorch.org/audio/stable/installation.html#"
+"optional-dependencies"
 
-#: ../../source/models/model_abilities/audio.rst:234
+#: ../../source/models/model_abilities/audio.rst:235
 msgid "CosyVoice Usage"
 msgstr "CosyVoice 模型使用"
 
-#: ../../source/models/model_abilities/audio.rst:236
+#: ../../source/models/model_abilities/audio.rst:237
 msgid "Basic usage, launch model ``CosyVoice-300M-SFT``."
 msgstr "基本使用，加载模型 ``CosyVoice-300M-SFT``。"
 
-#: ../../source/models/model_abilities/audio.rst:285
+#: ../../source/models/model_abilities/audio.rst:286
 msgid "Clone voice, launch model ``CosyVoice-300M``."
 msgstr "克隆声音，加载模型 ``CosyVoice-300M``。"
 
-#: ../../source/models/model_abilities/audio.rst:308
+#: ../../source/models/model_abilities/audio.rst:309
 msgid "Cross lingual usage, launch model ``CosyVoice-300M``."
 msgstr "跨语言使用，加载模型 ``CosyVoice-300M``。"
 
-#: ../../source/models/model_abilities/audio.rst:327
+#: ../../source/models/model_abilities/audio.rst:328
 msgid "Instruction based, launch model ``CosyVoice-300M-Instruct``."
 msgstr "基于指令的声音合成，加载模型 ``CosyVoice-300M-Instruct``。"
 
-#: ../../source/models/model_abilities/audio.rst:344
+#: ../../source/models/model_abilities/audio.rst:345
 msgid ""
 "More instructions and examples, could be found at https://fun-audio-"
 "llm.github.io/ ."
