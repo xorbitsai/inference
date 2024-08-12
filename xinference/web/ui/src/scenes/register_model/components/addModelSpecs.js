@@ -233,7 +233,12 @@ const AddModelSpecs = ({
   const handleQuantization = (model_format, index, value, id) => {
     setQuantizationAlertId(quantizationAlertId.filter((item) => item !== id))
     handleUpdateSpecsArr(index, 'quantizations', value)
-    if ((model_format === 'gptq' || model_format === 'awq' || model_format === 'fp8') && value === '') {
+    if (
+      (model_format === 'gptq' ||
+        model_format === 'awq' ||
+        model_format === 'fp8') &&
+      value === ''
+    ) {
       const quantizationAlertIdArr = Array.from(
         new Set([...quantizationAlertId, id])
       )
@@ -276,7 +281,11 @@ const AddModelSpecs = ({
               value={item.model_format}
               onChange={(e) => {
                 handleUpdateSpecsArr(index, 'model_format', e.target.value)
-                if (e.target.value === 'gptq' || e.target.value === 'awq' || e.target.value === 'fp8') {
+                if (
+                  e.target.value === 'gptq' ||
+                  e.target.value === 'awq' ||
+                  e.target.value === 'fp8'
+                ) {
                   const quantizationAlertIdArr = Array.from(
                     new Set([...quantizationAlertId, item.id])
                   )
@@ -336,7 +345,9 @@ const AddModelSpecs = ({
                 <TextField
                   style={{ minWidth: '60%' }}
                   label={
-                    item.model_format === 'gptq' || item.model_format === 'awq' || item.model_format === 'fp8'
+                    item.model_format === 'gptq' ||
+                    item.model_format === 'awq' ||
+                    item.model_format === 'fp8'
                       ? 'Quantization'
                       : 'Quantization (Optional)'
                   }
@@ -351,7 +362,9 @@ const AddModelSpecs = ({
                     )
                   }}
                   helperText={
-                    item.model_format === 'gptq' || item.model_format === 'awq' || item.model_format === 'fp8'
+                    item.model_format === 'gptq' ||
+                    item.model_format === 'awq' ||
+                    item.model_format === 'fp8'
                       ? 'For GPTQ/AWQ/FP8 models, please be careful to fill in the quantization corresponding to the model you want to register.'
                       : ''
                   }
