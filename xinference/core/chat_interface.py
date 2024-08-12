@@ -24,6 +24,7 @@ from gradio.components import Markdown, Textbox
 from gradio.layouts import Accordion, Column, Row
 
 from ..client.restful.restful_client import (
+    RESTfulChatglmCppChatModelHandle,
     RESTfulChatModelHandle,
     RESTfulGenerateModelHandle,
 )
@@ -115,7 +116,9 @@ class GradioInterface:
             client = RESTfulClient(self.endpoint)
             client._set_token(self._access_token)
             model = client.get_model(self.model_uid)
-            assert isinstance(model, RESTfulChatModelHandle)
+            assert isinstance(
+                model, (RESTfulChatModelHandle, RESTfulChatglmCppChatModelHandle)
+            )
 
             response_content = ""
             for chunk in model.chat(
@@ -236,8 +239,9 @@ class GradioInterface:
                 bot[-1][1] = history[-1]["content"]
                 yield history, bot
 
-        def add_text(history, bot, text, image):
+        def add_text(history, bot, text, image, video):
             logger.debug("Add text, text: %s, image: %s", text, image)
+            logger.debug("Add text, video: %s", video)
             if image:
                 buffered = BytesIO()
                 with PIL.Image.open(image) as img:
@@ -257,16 +261,48 @@ class GradioInterface:
                         },
                     ],
                 }
+            elif video:
+                # 读取视频文件并转换为Base64
+                def video_to_base64(video_path):
+                    with open(video_path, "rb") as video_file:
+                        encoded_string = base64.b64encode(video_file.read()).decode(
+                            "utf-8"
+                        )
+                    return encoded_string
+
+                # 将视频路径转换为Base64并嵌入HTML中
+                def generate_html_video(video_path):
+                    base64_video = video_to_base64(video_path)
+                    video_format = video_path.split(".")[-1]  # 获取视频格式 (如 mp4, webm 等)
+                    html_code = f"""
+                    <video controls>
+                        <source src="data:video/{video_format};base64,{base64_video}" type="video/{video_format}">
+                        Your browser does not support the video tag.
+                    </video>
+                    """
+                    return html_code
+
+                display_content = f"{generate_html_video(video)}\n{text}"
+                message = {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": text},
+                        {
+                            "type": "video_url",
+                            "video_url": {"url": video},
+                        },
+                    ],
+                }
             else:
                 display_content = text
                 message = {"role": "user", "content": text}
             history = history + [message]
             bot = bot + [[display_content, None]]
-            return history, bot, "", None
+            return history, bot, "", None, None
 
         def clear_history():
             logger.debug("Clear history.")
-            return [], None, "", None
+            return [], None, "", None, None
 
         def update_button(text):
             return gr.update(interactive=bool(text))
@@ -313,6 +349,7 @@ class GradioInterface:
                 )
                 with gr.Column(scale=3):
                     imagebox = gr.Image(type="filepath")
+                    videobox = gr.Video()
                     textbox = gr.Textbox(
                         show_label=False,
                         placeholder="Enter text and press ENTER",
@@ -340,8 +377,8 @@ class GradioInterface:
 
             textbox.submit(
                 add_text,
-                [state, chatbot, textbox, imagebox],
-                [state, chatbot, textbox, imagebox],
+                [state, chatbot, textbox, imagebox, videobox],
+                [state, chatbot, textbox, imagebox, videobox],
                 queue=False,
             ).then(
                 predict,
@@ -351,8 +388,8 @@ class GradioInterface:
 
             submit_btn.click(
                 add_text,
-                [state, chatbot, textbox, imagebox],
-                [state, chatbot, textbox, imagebox],
+                [state, chatbot, textbox, imagebox, videobox],
+                [state, chatbot, textbox, imagebox, videobox],
                 queue=False,
             ).then(
                 predict,
@@ -361,7 +398,10 @@ class GradioInterface:
             )
 
             clear_btn.click(
-                clear_history, None, [state, chatbot, textbox, imagebox], queue=False
+                clear_history,
+                None,
+                [state, chatbot, textbox, imagebox, videobox],
+                queue=False,
             )
 
         return chat_vl_interface

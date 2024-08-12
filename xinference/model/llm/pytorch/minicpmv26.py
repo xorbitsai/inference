@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import base64
-import json
 import logging
 import time
 import uuid
@@ -22,6 +21,7 @@ from typing import Dict, Iterator, List, Optional, Union
 
 import requests
 import torch
+from decord import VideoReader, cpu
 from PIL import Image
 
 from ....types import (
@@ -124,29 +124,58 @@ class MiniCPMV26Model(PytorchChatModel):
                 else:
                     return Image.open(BytesIO(response.content)).convert("RGB")
 
+        MAX_NUM_FRAMES = 64
+
+        def encode_video(video_path):
+            def uniform_sample(l, n):
+                gap = len(l) / n
+                idxs = [int(i * gap + gap / 2) for i in range(n)]
+                return [l[i] for i in idxs]
+
+            vr = VideoReader(video_path, ctx=cpu(0))
+            sample_fps = round(vr.get_avg_fps() / 1)  # FPS
+            frame_idx = [i for i in range(0, len(vr), sample_fps)]
+            if len(frame_idx) > MAX_NUM_FRAMES:
+                frame_idx = uniform_sample(frame_idx, MAX_NUM_FRAMES)
+            frames = vr.get_batch(frame_idx).asnumpy()
+            frames = [Image.fromarray(v.astype("uint8")) for v in frames]
+            print("num frames:", len(frames))
+            return frames
+
+        def _load_video(_url):
+            frames = None
+            if _url.startswith("data:"):
+                raise RuntimeError("Only video url format is supported")
+            else:
+                frames = encode_video(_url)
+            return frames
+
         if not isinstance(content, str):
             texts = []
             image_urls = []
+            video_urls = []
             for c in content:
                 c_type = c.get("type")
                 if c_type == "text":
                     texts.append(c["text"])
                 elif c_type == "image_url":
                     image_urls.append(c["image_url"]["url"])
+                elif c_type == "video_url":
+                    video_urls.append(c["video_url"]["url"])
             image_futures = []
             with ThreadPoolExecutor() as executor:
                 for image_url in image_urls:
                     fut = executor.submit(_load_image, image_url)
                     image_futures.append(fut)
             images = [fut.result() for fut in image_futures]
+            frames = []
+            if len(video_urls) > 1:
+                raise RuntimeError("Only one video per message is supported")
+            for v in video_urls:
+                frames = _load_video(v)
             text = " ".join(texts)
-            if len(images) == 0:
-                return text, []
-            elif len(images) == 1:
-                return text, images
-            else:
-                raise RuntimeError("Only one image per message is supported")
-        return content, []
+            return text, images, frames
+        return content, [], []
 
     def chat(
         self,
@@ -156,36 +185,59 @@ class MiniCPMV26Model(PytorchChatModel):
         generate_config: Optional[PytorchGenerateConfig] = None,
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
         stream = generate_config.get("stream", False) if generate_config else False
-        content, images_chat = self._message_content_to_chat(prompt)
+        videoExisted = False
+
+        content, images_chat, video_frames = self._message_content_to_chat(prompt)
+        if len(video_frames) > 0:
+            videoExisted = True
+            images_chat = video_frames
 
         msgs = []
         query_to_response: List[Dict] = []
-        images_history = []
+        logger.debug("历史信息===========")
         for h in chat_history or []:
+            images_history = []
             role = h["role"]
-            content_h, images_tmp = self._message_content_to_chat(h["content"])
+            content_h, images_tmp, video_frames_h = self._message_content_to_chat(
+                h["content"]
+            )
             if images_tmp != []:
                 images_history = images_tmp
+            if len(video_frames_h) > 0:
+                videoExisted = True
+                images_history = video_frames_h
             if len(query_to_response) == 0 and role == "user":
-                query_to_response.append({"role": "user", "content": content_h})
+                query_to_response.append(
+                    {"role": "user", "content": images_history + [content_h]}
+                )
+                logger.debug(f"角色：user, 内容: {content_h}, 图片数量: {len(images_history)}")
             if len(query_to_response) == 1 and role == "assistant":
-                query_to_response.append({"role": "assistant", "content": content_h})
+                query_to_response.append(
+                    {"role": "assistant", "content": images_history + [content_h]}
+                )
+                logger.debug(
+                    f"角色：assistant, 内容: {content_h}, 图片数量: {len(images_history)}"
+                )
             if len(query_to_response) == 2:
                 msgs.extend(query_to_response)
                 query_to_response = []
-        image = None
-        if len(images_chat) > 0:
-            image = images_chat[0]
-        elif len(images_history) > 0:
-            image = images_history[0]
-        msgs.append({"role": "user", "content": content})
+        msgs.append({"role": "user", "content": images_chat + [content]})
+        logger.debug("提问信息===========")
+        logger.debug(f"角色：user, 内容: {content}, 图片数量: {len(images_chat)}")
+
+        # Set decode params for video
+        params = {}
+        if videoExisted:
+            params["use_image_id"] = False
+            params["max_slice_nums"] = 1  # 如果cuda OOM且视频分辨率大于448*448 可设为1
 
         chat = self._model.chat(
-            image=image,
-            msgs=json.dumps(msgs, ensure_ascii=True),
+            image=None,
+            msgs=msgs,
             tokenizer=self._tokenizer,
             sampling=True,
-            **generate_config
+            **generate_config,
+            **params,
         )
         if stream:
             it = self.chat_stream(chat)
