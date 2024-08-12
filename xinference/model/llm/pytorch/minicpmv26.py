@@ -221,10 +221,7 @@ class MiniCPMV26Model(PytorchChatModel):
         # Set decode params for video
         params = {}
         if videoExisted:
-            params = {
-                "use_image_id": False,
-                "max_slice_nums": 1
-            }
+            params = {"use_image_id": False, "max_slice_nums": 1}
 
         chat = self._model.chat(
             image=None,
