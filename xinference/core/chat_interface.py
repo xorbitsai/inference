@@ -24,7 +24,6 @@ from gradio.components import Markdown, Textbox
 from gradio.layouts import Accordion, Column, Row
 
 from ..client.restful.restful_client import (
-    RESTfulChatglmCppChatModelHandle,
     RESTfulChatModelHandle,
     RESTfulGenerateModelHandle,
 )
@@ -116,9 +115,7 @@ class GradioInterface:
             client = RESTfulClient(self.endpoint)
             client._set_token(self._access_token)
             model = client.get_model(self.model_uid)
-            assert isinstance(
-                model, (RESTfulChatModelHandle, RESTfulChatglmCppChatModelHandle)
-            )
+            assert isinstance(model, RESTfulChatModelHandle)
 
             response_content = ""
             for chunk in model.chat(
@@ -240,8 +237,7 @@ class GradioInterface:
                 yield history, bot
 
         def add_text(history, bot, text, image, video):
-            logger.debug("Add text, text: %s, image: %s", text, image)
-            logger.debug("Add text, video: %s", video)
+            logger.debug("Add text, text: %s, image: %s, video: %s", text, image, video)
             if image:
                 buffered = BytesIO()
                 with PIL.Image.open(image) as img:

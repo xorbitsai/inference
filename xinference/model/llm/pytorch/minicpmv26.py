@@ -194,7 +194,6 @@ class MiniCPMV26Model(PytorchChatModel):
 
         msgs = []
         query_to_response: List[Dict] = []
-        logger.debug("历史信息===========")
         for h in chat_history or []:
             images_history = []
             role = h["role"]
@@ -210,26 +209,22 @@ class MiniCPMV26Model(PytorchChatModel):
                 query_to_response.append(
                     {"role": "user", "content": images_history + [content_h]}
                 )
-                logger.debug(f"角色：user, 内容: {content_h}, 图片数量: {len(images_history)}")
             if len(query_to_response) == 1 and role == "assistant":
                 query_to_response.append(
                     {"role": "assistant", "content": images_history + [content_h]}
-                )
-                logger.debug(
-                    f"角色：assistant, 内容: {content_h}, 图片数量: {len(images_history)}"
                 )
             if len(query_to_response) == 2:
                 msgs.extend(query_to_response)
                 query_to_response = []
         msgs.append({"role": "user", "content": images_chat + [content]})
-        logger.debug("提问信息===========")
-        logger.debug(f"角色：user, 内容: {content}, 图片数量: {len(images_chat)}")
 
         # Set decode params for video
         params = {}
         if videoExisted:
-            params["use_image_id"] = False
-            params["max_slice_nums"] = 1  # 如果cuda OOM且视频分辨率大于448*448 可设为1
+            params = {
+                "use_image_id": False,
+                "max_slice_nums": 1
+            }
 
         chat = self._model.chat(
             image=None,
