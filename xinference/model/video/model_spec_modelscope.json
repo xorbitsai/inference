@@ -1,0 +1,12 @@
+[
+  {
+    "model_name": "CogVideoX-2b",
+    "model_family": "CogVideoX",
+    "model_hub": "modelscope",
+    "model_id": "ZhipuAI/CogVideoX-2b",
+    "model_revision": "master",
+    "model_ability": [
+      "text2video"
+    ]
+  }
+]

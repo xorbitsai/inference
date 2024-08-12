@@ -141,7 +141,7 @@ jobs:
           MODULE: ${{ matrix.module }}
         run: |
           if [ "$MODULE" == "gpu" ]; then
-            ${{ env.SELF_HOST_PYTHON }} -m pip install -U "openai>1"
+            ${{ env.SELF_HOST_PYTHON }} -m pip install -U "openai>1,<1.40"
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U modelscope
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U sse_starlette
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U xoscar

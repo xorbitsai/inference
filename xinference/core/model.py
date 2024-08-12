@@ -133,6 +133,7 @@ class ModelActor(xo.StatelessActor):
     async def __pre_destroy__(self):
         from ..model.embedding.core import EmbeddingModel
         from ..model.llm.pytorch.core import PytorchModel as LLMPytorchModel
+        from ..model.llm.sglang.core import SGLANGModel
         from ..model.llm.vllm.core import VLLMModel as LLMVLLMModel
 
         if self.allow_batching():
@@ -145,8 +146,11 @@ class ModelActor(xo.StatelessActor):
                     f"Destroy scheduler actor failed, address: {self.address}, error: {e}"
                 )
 
+        if hasattr(self._model, "stop") and callable(self._model.stop):
+            self._model.stop()
+
         if (
-            isinstance(self._model, (LLMPytorchModel, LLMVLLMModel))
+            isinstance(self._model, (LLMPytorchModel, LLMVLLMModel, SGLANGModel))
             and self._model.model_spec.model_format == "pytorch"
         ) or isinstance(self._model, EmbeddingModel):
             try:
@@ -174,6 +178,7 @@ class ModelActor(xo.StatelessActor):
     ):
         super().__init__()
         from ..model.llm.pytorch.core import PytorchModel
+        from ..model.llm.sglang.core import SGLANGModel
         from ..model.llm.vllm.core import VLLMModel
 
         self._worker_address = worker_address
@@ -187,7 +192,7 @@ class ModelActor(xo.StatelessActor):
         self._current_generator = lambda: None
         self._lock = (
             None
-            if isinstance(self._model, (PytorchModel, VLLMModel))
+            if isinstance(self._model, (PytorchModel, VLLMModel, SGLANGModel))
             else asyncio.locks.Lock()
         )
         self._worker_ref = None
@@ -769,6 +774,27 @@ class ModelActor(xo.StatelessActor):
             )
         raise AttributeError(
             f"Model {self._model.model_spec} is not for flexible infer."
+        )
+
+    @log_async(logger=logger)
+    @request_limit
+    async def text_to_video(
+        self,
+        prompt: str,
+        n: int = 1,
+        *args,
+        **kwargs,
+    ):
+        if hasattr(self._model, "text_to_video"):
+            return await self._call_wrapper_json(
+                self._model.text_to_video,
+                prompt,
+                n,
+                *args,
+                **kwargs,
+            )
+        raise AttributeError(
+            f"Model {self._model.model_spec} is not for creating video."
         )
 
     async def record_metrics(self, name, op, kwargs):
