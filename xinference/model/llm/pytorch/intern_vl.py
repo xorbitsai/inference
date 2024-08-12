@@ -11,34 +11,167 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import base64
 import logging
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
-from io import BytesIO
-from typing import Dict, Iterator, List, Optional, Tuple, Union
+from typing import Dict, Iterator, List, Optional, Union
 
-import requests
 import torch
-from PIL import Image
 
-from ....model.utils import select_device
 from ....types import (
     ChatCompletion,
     ChatCompletionChunk,
     ChatCompletionMessage,
     Completion,
     CompletionChoice,
+    CompletionChunk,
     CompletionUsage,
 )
 from ..llm_family import LLMFamilyV1, LLMSpecV1
 from .core import PytorchChatModel, PytorchGenerateConfig
+from .utils import _decode_image
 
 logger = logging.getLogger(__name__)
 
 IMAGENET_MEAN = (0.485, 0.456, 0.406)
 IMAGENET_STD = (0.229, 0.224, 0.225)
+
+
+def _message_content_to_intern(content, image_cnt):
+    if not isinstance(content, str):
+        texts = []
+        image_urls = []
+        for c in content:
+            c_type = c.get("type")
+            if c_type == "text":
+                texts.append(c["text"])
+            elif c_type == "image_url":
+                image_urls.append(c["image_url"]["url"])
+        image_futures = []
+        with ThreadPoolExecutor() as executor:
+            for image_url in image_urls:
+                fut = executor.submit(_decode_image, image_url)
+                image_futures.append(fut)
+        images = [fut.result() for fut in image_futures]
+        prefix = ""
+        for i, _ in enumerate(images):
+            prefix += f"Image-{image_cnt + i + 1}: <image>\n\n"
+        text = prefix + " ".join(texts)
+        if len(images) == 0:
+            return text, []
+        else:
+            return text, images
+    return content, []
+
+
+def _get_prompt_and_chat_history(
+    prompt: Union[str, List[Dict]],
+    chat_history: Optional[List[ChatCompletionMessage]] = None,
+):
+    # Convert openai history to intern vl history
+    images = []
+    history = []
+    image_cnt = 0
+    for h1, h2 in zip(*[iter(chat_history or [])] * 2):
+        content1, img = _message_content_to_intern(h1["content"], image_cnt)
+        content2, _ = _message_content_to_intern(h2["content"], image_cnt)
+        history.append([content1, content2])
+        images.extend(img)
+        image_cnt += len(img)
+
+    question, img = _message_content_to_intern(prompt, image_cnt)
+    images.extend(img)
+    return question, history, images
+
+
+def _build_transform(input_size=448):
+    import torchvision.transforms as T
+    from torchvision.transforms.functional import InterpolationMode
+
+    MEAN, STD = IMAGENET_MEAN, IMAGENET_STD
+    transform = T.Compose(
+        [
+            T.Lambda(lambda img: img.convert("RGB") if img.mode != "RGB" else img),
+            T.Resize((input_size, input_size), interpolation=InterpolationMode.BICUBIC),
+            T.ToTensor(),
+            T.Normalize(mean=MEAN, std=STD),
+        ]
+    )
+    return transform
+
+
+def _find_closest_aspect_ratio(aspect_ratio, target_ratios, width, height, image_size):
+    best_ratio_diff = float("inf")
+    best_ratio = (1, 1)
+    area = width * height
+    for ratio in target_ratios:
+        target_aspect_ratio = ratio[0] / ratio[1]
+        ratio_diff = abs(aspect_ratio - target_aspect_ratio)
+        if ratio_diff < best_ratio_diff:
+            best_ratio_diff = ratio_diff
+            best_ratio = ratio
+        elif ratio_diff == best_ratio_diff:
+            if area > 0.5 * image_size * image_size * ratio[0] * ratio[1]:
+                best_ratio = ratio
+    return best_ratio
+
+
+def _dynamic_preprocess(
+    image, min_num=1, max_num=12, image_size=448, use_thumbnail=False
+):
+    orig_width, orig_height = image.size
+    aspect_ratio = orig_width / orig_height
+
+    # calculate the existing image aspect ratio
+    target_ratios = set(
+        (i, j)
+        for n in range(min_num, max_num + 1)
+        for i in range(1, n + 1)
+        for j in range(1, n + 1)
+        if i * j <= max_num and i * j >= min_num
+    )
+    target_ratios = sorted(target_ratios, key=lambda x: x[0] * x[1])
+
+    # find the closest aspect ratio to the target
+    target_aspect_ratio = _find_closest_aspect_ratio(
+        aspect_ratio, target_ratios, orig_width, orig_height, image_size
+    )
+
+    # calculate the target width and height
+    target_width = image_size * target_aspect_ratio[0]
+    target_height = image_size * target_aspect_ratio[1]
+    blocks = target_aspect_ratio[0] * target_aspect_ratio[1]
+
+    # resize the image
+    resized_img = image.resize((target_width, target_height))
+    processed_images = []
+    for i in range(blocks):
+        box = (
+            (i % (target_width // image_size)) * image_size,
+            (i // (target_width // image_size)) * image_size,
+            ((i % (target_width // image_size)) + 1) * image_size,
+            ((i // (target_width // image_size)) + 1) * image_size,
+        )
+        # split the image
+        split_img = resized_img.crop(box)
+        processed_images.append(split_img)
+    assert len(processed_images) == blocks
+    if use_thumbnail and len(processed_images) != 1:
+        thumbnail_img = image.resize((image_size, image_size))
+        processed_images.append(thumbnail_img)
+    return processed_images
+
+
+def _load_image(image_file, input_size=448, max_num=12):
+    image = image_file.convert("RGB")
+    transform = _build_transform(input_size=input_size)
+    images = _dynamic_preprocess(
+        image, image_size=input_size, use_thumbnail=True, max_num=max_num
+    )
+    pixel_values = [transform(image) for image in images]
+    pixel_values = torch.stack(pixel_values)
+    return pixel_values
 
 
 class InternVLChatModel(PytorchChatModel):
@@ -61,240 +194,78 @@ class InternVLChatModel(PytorchChatModel):
 
         return AutoModel
 
+    # Copy from InternVL page
+    # reference: https://huggingface.co/OpenGVLab/InternVL2-8B
+    def _split_model(self):
+        import math
+
+        device_map = {}
+        world_size = torch.cuda.device_count()
+        # single gpu
+        if world_size == 1:
+            return None
+        model_size = f"{self.model_spec.model_size_in_billions}B"
+        num_layers = {
+            "1B": 24,
+            "2B": 24,
+            "4B": 32,
+            "8B": 32,
+            "26B": 48,
+            "40B": 60,
+            "76B": 80,
+        }[model_size]
+        # Since the first GPU will be used for ViT, treat it as half a GPU.
+        num_layers_per_gpu = math.ceil(num_layers / (world_size - 0.5))
+        num_layers_per_gpu = [num_layers_per_gpu] * world_size
+        num_layers_per_gpu[0] = math.ceil(num_layers_per_gpu[0] * 0.5)
+        layer_cnt = 0
+        for i, num_layer in enumerate(num_layers_per_gpu):
+            for j in range(num_layer):
+                device_map[f"language_model.model.layers.{layer_cnt}"] = i
+                layer_cnt += 1
+        device_map["vision_model"] = 0
+        device_map["mlp1"] = 0
+        device_map["language_model.model.tok_embeddings"] = 0
+        device_map["language_model.model.embed_tokens"] = 0
+        device_map["language_model.output"] = 0
+        device_map["language_model.model.norm"] = 0
+        device_map["language_model.lm_head"] = 0
+        device_map[f"language_model.model.layers.{num_layers - 1}"] = 0
+        return device_map
+
     def load(self, **kwargs):
         from transformers import AutoModel, AutoTokenizer
-        from transformers.generation import GenerationConfig
 
         if self._check_tensorizer_integrity():
             self._model, self._tokenizer = self._load_tensorizer()
             return
 
-        device = self._pytorch_model_config.get("device", "auto")
-        device = select_device(device)
-        # for multiple GPU, set back to auto to make multiple devices work
-        device = "auto" if device == "cuda" else device
-
-        self._tokenizer = AutoTokenizer.from_pretrained(
-            self.model_path,
-            trust_remote_code=True,
-        )
+        device = self._split_model()
 
         kwargs = {
             "torch_dtype": torch.bfloat16,
             "low_cpu_mem_usage": True,
             "trust_remote_code": True,
-            "device_map": device,
         }
 
-        if "int8" in self.quantization.lower():
+        if device is not None:
+            kwargs["device_map"] = device
+
+        if "8-bit" in self.quantization.lower():
             kwargs["load_in_8bit"] = True
-        elif 2 == self.model_spec.model_size_in_billions:
-            kwargs.pop("device_map")
+        elif "4-bit" in self.quantization.lower():
+            kwargs["load_in_4bit"] = True
 
         self._model = AutoModel.from_pretrained(self.model_path, **kwargs).eval()
 
-        if "int8" not in self.quantization.lower():
+        if device is None and "none" in self.quantization.lower():
             self._model.cuda()
 
-        # Specify hyperparameters for generation
-        self._model.generation_config = GenerationConfig.from_pretrained(
+        self._tokenizer = AutoTokenizer.from_pretrained(
             self.model_path,
             trust_remote_code=True,
+            use_fast=False,
         )
-        self._save_tensorizer()
-
-    def _message_content_to_intern(self, content):
-        def _load_image(_url):
-            if _url.startswith("data:"):
-                logging.info("Parse url by base64 decoder.")
-                # https://platform.openai.com/docs/guides/vision/uploading-base-64-encoded-images
-                # e.g. f"data:image/jpeg;base64,{base64_image}"
-                _type, data = _url.split(";")
-                _, ext = _type.split("/")
-                data = data[len("base64,") :]
-                data = base64.b64decode(data.encode("utf-8"))
-                return Image.open(BytesIO(data)).convert("RGB")
-            else:
-                try:
-                    response = requests.get(_url)
-                except requests.exceptions.MissingSchema:
-                    return Image.open(_url).convert("RGB")
-                else:
-                    return Image.open(BytesIO(response.content)).convert("RGB")
-
-        if not isinstance(content, str):
-            texts = []
-            image_urls = []
-            for c in content:
-                c_type = c.get("type")
-                if c_type == "text":
-                    texts.append(c["text"])
-                elif c_type == "image_url":
-                    image_urls.append(c["image_url"]["url"])
-            image_futures = []
-            with ThreadPoolExecutor() as executor:
-                for image_url in image_urls:
-                    fut = executor.submit(_load_image, image_url)
-                    image_futures.append(fut)
-            images = [fut.result() for fut in image_futures]
-            text = " ".join(texts)
-            if len(images) == 0:
-                return text, None
-            else:
-                return text, images
-        return content, None
-
-    def _history_content_to_intern(
-        self,
-        chat_history: List[ChatCompletionMessage],
-        IMG_START_TOKEN="<img>",
-        IMG_END_TOKEN="</img>",
-        IMG_CONTEXT_TOKEN="<IMG_CONTEXT>",
-    ):
-        def _image_to_piexl_values(images):
-            load_images = []
-            for image in images:
-                if image.startswith("data:"):
-                    logging.info("Parse url by base64 decoder.")
-                    # https://platform.openai.com/docs/guides/vision/uploading-base-64-encoded-images
-                    # e.g. f"data:image/jpeg;base64,{base64_image}"
-                    _type, data = image.split(";")
-                    _, ext = _type.split("/")
-                    data = data[len("base64,") :]
-                    data = base64.b64decode(data.encode("utf-8"))
-                    img = Image.open(BytesIO(data)).convert("RGB")
-                    pixel_value = (
-                        self._load_image(img, max_num=6).to(torch.bfloat16).cuda()
-                    )
-                    load_images.append(pixel_value)
-                else:
-                    try:
-                        response = requests.get(image)
-                    except requests.exceptions.MissingSchema:
-                        img = Image.open(image).convert("RGB")
-                    else:
-                        img = Image.open(BytesIO(response.content)).convert("RGB")
-                    pixel_value = (
-                        self._load_image(img, max_num=6).to(torch.bfloat16).cuda()
-                    )
-                    load_images.append(pixel_value)
-            return torch.cat(tuple(load_images), dim=0)
-
-        history: List[Tuple] = []
-        pixel_values = None
-        for i in range(0, len(chat_history), 2):
-            tmp = []
-            images: List[str] = []
-            user = chat_history[i]["content"]
-            if isinstance(user, List):
-                for content in user:
-                    c_type = content.get("type")
-                    if c_type == "text":
-                        tmp.append(content["text"])
-                    elif c_type == "image_url" and not history:
-                        images.append(content["image_url"]["url"])
-                if not history:
-                    pixel_values = _image_to_piexl_values(images)
-                    image_bs = pixel_values.shape[0]
-                    image_tokens = (
-                        IMG_START_TOKEN
-                        + IMG_CONTEXT_TOKEN * self._model.num_image_token * image_bs
-                        + IMG_END_TOKEN
-                    )
-                    tmp[0] = image_tokens + "\n" + tmp[0]
-            else:
-                tmp.append(user)
-            tmp.append(chat_history[i + 1]["content"])
-            history.append(tuple(tmp))
-        return history, pixel_values
-
-    def _find_closest_aspect_ratio(
-        self, aspect_ratio, target_ratios, width, height, image_size
-    ):
-        best_ratio_diff = float("inf")
-        best_ratio = (1, 1)
-        area = width * height
-        for ratio in target_ratios:
-            target_aspect_ratio = ratio[0] / ratio[1]
-            ratio_diff = abs(aspect_ratio - target_aspect_ratio)
-            if ratio_diff < best_ratio_diff:
-                best_ratio_diff = ratio_diff
-                best_ratio = ratio
-            elif ratio_diff == best_ratio_diff:
-                if area > 0.5 * image_size * image_size * ratio[0] * ratio[1]:
-                    best_ratio = ratio
-        return best_ratio
-
-    def _dynamic_preprocess(
-        self, image, min_num=1, max_num=6, image_size=448, use_thumbnail=False
-    ):
-        orig_width, orig_height = image.size
-        aspect_ratio = orig_width / orig_height
-
-        # calculate the existing image aspect ratio
-        target_ratios = set(
-            (i, j)
-            for n in range(min_num, max_num + 1)
-            for i in range(1, n + 1)
-            for j in range(1, n + 1)
-            if i * j <= max_num and i * j >= min_num
-        )
-        target_ratios = sorted(target_ratios, key=lambda x: x[0] * x[1])
-
-        # find the closest aspect ratio to the target
-        target_aspect_ratio = self._find_closest_aspect_ratio(
-            aspect_ratio, target_ratios, orig_width, orig_height, image_size
-        )
-
-        # calculate the target width and height
-        target_width = image_size * target_aspect_ratio[0]
-        target_height = image_size * target_aspect_ratio[1]
-        blocks = target_aspect_ratio[0] * target_aspect_ratio[1]
-
-        # resize the image
-        resized_img = image.resize((target_width, target_height))
-        processed_images = []
-        for i in range(blocks):
-            box = (
-                (i % (target_width // image_size)) * image_size,
-                (i // (target_width // image_size)) * image_size,
-                ((i % (target_width // image_size)) + 1) * image_size,
-                ((i // (target_width // image_size)) + 1) * image_size,
-            )
-            # split the image
-            split_img = resized_img.crop(box)
-            processed_images.append(split_img)
-        assert len(processed_images) == blocks
-        if use_thumbnail and len(processed_images) != 1:
-            thumbnail_img = image.resize((image_size, image_size))
-            processed_images.append(thumbnail_img)
-        return processed_images
-
-    def _build_transform(self, input_size):
-        import torchvision.transforms as T
-        from torchvision.transforms.functional import InterpolationMode
-
-        MEAN, STD = IMAGENET_MEAN, IMAGENET_STD
-        transform = T.Compose(
-            [
-                T.Lambda(lambda img: img.convert("RGB") if img.mode != "RGB" else img),
-                T.Resize(
-                    (input_size, input_size), interpolation=InterpolationMode.BICUBIC
-                ),
-                T.ToTensor(),
-                T.Normalize(mean=MEAN, std=STD),
-            ]
-        )
-        return transform
-
-    def _load_image(self, image_file, input_size=448, max_num=6):
-        transform = self._build_transform(input_size=input_size)
-        images = self._dynamic_preprocess(
-            image_file, image_size=input_size, use_thumbnail=True, max_num=max_num
-        )
-        pixel_values = [transform(image) for image in images]
-        pixel_values = torch.stack(pixel_values)
-        return pixel_values
 
     def chat(
         self,
@@ -303,37 +274,79 @@ class InternVLChatModel(PytorchChatModel):
         chat_history: Optional[List[ChatCompletionMessage]] = None,
         generate_config: Optional[PytorchGenerateConfig] = None,
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
-        if generate_config and generate_config.get("stream"):
-            raise Exception(
-                f"Chat with model {self.model_family.model_name} does not support stream."
-            )
-        sanitized_config = {
-            "num_beams": 1,
-            "max_new_tokens": generate_config.get("max_tokens", 512)
+        generation_config = {
+            "max_new_tokens": generate_config.get("max_tokens", 1024)
             if generate_config
-            else 512,
+            else 1024,
             "do_sample": False,
         }
 
-        content, image = self._message_content_to_intern(prompt)
+        stream = (
+            generate_config.get("stream", False)
+            if isinstance(generate_config, dict)
+            else False
+        )
+        stream_options = (
+            generate_config.get("stream_options", None)
+            if isinstance(generate_config, dict)
+            else False
+        )
+        include_usage = (
+            stream_options["include_usage"]
+            if isinstance(stream_options, dict)
+            else False
+        )
 
-        history = None
-        if chat_history:
-            history, pixel_values = self._history_content_to_intern(chat_history)
+        content, history, images = _get_prompt_and_chat_history(prompt, chat_history)
+
+        num_patches_list = None
+        if len(images) == 1:
+            content = content.replace("Image-1: <image>\n\n", "<image>\n")
+            history = [
+                [item[0].replace("Image-1: <image>\n\n", "<image>\n"), item[1]]
+                for item in history
+            ]
+            pixel_values = _load_image(images[-1], max_num=12).to(torch.bfloat16).cuda()
+        elif len(images) > 1:
+            pixel_values = [
+                _load_image(img, max_num=12).to(torch.bfloat16).cuda() for img in images
+            ]
+            num_patches_list = [values.size(0) for values in pixel_values]
+            pixel_values = torch.cat(pixel_values, dim=0)
         else:
-            load_images = []
-            for img in image:
-                pixel_value = self._load_image(img, max_num=6).to(torch.bfloat16).cuda()
-                load_images.append(pixel_value)
-            pixel_values = torch.cat(tuple(load_images), dim=0)
+            pixel_values = None
 
-        response, history = self._model.chat(
+        if stream:
+            chunk = self._generate_stream(
+                pixel_values,
+                content,
+                generation_config,
+                num_patches_list,
+                history,
+                include_usage,
+            )
+            return self._to_chat_completion_chunks(chunk)
+        else:
+            chunk = self._generate(
+                pixel_values,
+                content,
+                generation_config,
+                num_patches_list,
+                history,
+            )
+            return self._to_chat_completion(chunk)
+
+    def _generate(
+        self, pixel_values, content, generation_config, num_patches_list, history
+    ):
+        response = self._model.chat(
             self._tokenizer,
             pixel_values,
             content,
-            sanitized_config,
+            generation_config,
+            num_patches_list=num_patches_list,
             history=history,
-            return_history=True,
+            return_history=False,
         )
         chunk = Completion(
             id=str(uuid.uuid1()),
@@ -349,4 +362,113 @@ class InternVLChatModel(PytorchChatModel):
                 prompt_tokens=-1, completion_tokens=-1, total_tokens=-1
             ),
         )
-        return self._to_chat_completion(chunk)
+        return chunk
+
+    def _generate_stream(
+        self,
+        pixel_values,
+        content,
+        generation_config,
+        num_patches_list,
+        history,
+        include_usage,
+    ):
+        from threading import Thread
+
+        from transformers import TextIteratorStreamer
+
+        # Initialize the streamer
+        streamer = TextIteratorStreamer(
+            self._tokenizer, skip_prompt=True, skip_special_tokens=True, timeout=10
+        )
+        # Define the generation configuration
+        generation_config["streamer"] = streamer
+        # Start the model chat in a separate thread
+        thread = Thread(
+            target=self._model.chat,
+            kwargs=dict(
+                tokenizer=self._tokenizer,
+                pixel_values=pixel_values,
+                question=content,
+                num_patches_list=num_patches_list,
+                history=history,
+                return_history=False,
+                generation_config=generation_config,
+            ),
+        )
+        thread.start()
+
+        completion_id = str(uuid.uuid1())
+        prompt_tokens, completion_tokens, total_tokens = 0, 0, 0
+        prompt_tokens = self._get_input_tokens(content, history, num_patches_list)
+        # Loop through the streamer to get the new text as it is generated
+        for i, new_text in enumerate(streamer):
+            if new_text == self._model.conv_template.sep:
+                break
+            completion_choice = CompletionChoice(
+                text=new_text, index=0, logprobs=None, finish_reason=None
+            )
+            chunk = CompletionChunk(
+                id=completion_id,
+                object="text_completion",
+                created=int(time.time()),
+                model=self.model_uid,
+                choices=[completion_choice],
+            )
+            completion_tokens = i
+            total_tokens = prompt_tokens + completion_tokens
+            completion_usage = CompletionUsage(
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                total_tokens=total_tokens,
+            )
+            chunk["usage"] = completion_usage
+            yield chunk
+            if include_usage:
+                chunk = CompletionChunk(
+                    id=completion_id,
+                    object="text_completion",
+                    created=int(time.time()),
+                    model=self.model_uid,
+                    choices=[],
+                )
+                chunk["usage"] = CompletionUsage(
+                    prompt_tokens=prompt_tokens,
+                    completion_tokens=completion_tokens,
+                    total_tokens=total_tokens,
+                )
+                yield chunk
+
+    def _get_input_tokens(
+        self,
+        question,
+        history,
+        num_patches_list,
+        IMG_START_TOKEN="<img>",
+        IMG_END_TOKEN="</img>",
+        IMG_CONTEXT_TOKEN="<IMG_CONTEXT>",
+    ):
+        from ....thirdparty.internvl.conversation import get_conv_template
+
+        template = get_conv_template(self._model.template)
+        template.system_message = self._model.system_message
+
+        history = [] if history is None else history
+        for old_question, old_answer in history:
+            template.append_message(template.roles[0], old_question)
+            template.append_message(template.roles[1], old_answer)
+        template.append_message(template.roles[0], question)
+        template.append_message(template.roles[1], None)
+        query = template.get_prompt()
+
+        for num_patches in num_patches_list or []:
+            image_tokens = (
+                IMG_START_TOKEN
+                + IMG_CONTEXT_TOKEN * self._model.num_image_token * num_patches
+                + IMG_END_TOKEN
+            )
+            query = query.replace("<image>", image_tokens, 1)
+
+        model_inputs = self._tokenizer(query, return_tensors="pt")
+        input_ids = model_inputs["input_ids"].cuda()
+        return len(input_ids)

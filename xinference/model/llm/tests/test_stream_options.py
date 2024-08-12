@@ -831,11 +831,10 @@ async def test_openai_stream_options_sgalng(setup):
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="Too large model to be tested")
+# @pytest.mark.skip(reason="Too large model to be tested")
 async def test_openai_stream_options_vllm(setup):
     endpoint, _ = setup
     url = f"{endpoint}/v1/models"
-    os.environ.get(XINFERENCE_ENV_MODEL_SRC, "modelscope")
 
     # list
     response = requests.get(url)
@@ -845,11 +844,12 @@ async def test_openai_stream_options_vllm(setup):
     # launch
     payload = {
         "model_uid": "test_restful_api",
-        "model_engine": "vLLM",
-        "model_name": "qwen-chat",
-        "model_size_in_billions": "7",
+        "model_engine": "Transformers",
+        "model_name": "internvl2",
+        "model_size_in_billions": "2",
         "quantization": "none",
         "model_format": "pytorch",
+        "download_hub": "modelscope",
     }
 
     response = requests.post(url, json=payload)
@@ -860,9 +860,18 @@ async def test_openai_stream_options_vllm(setup):
     # chat
     messages = [
         {"role": "system", "content": "You are a helpful assistant."},
-        {"role": "user", "content": "Hello!"},
-        {"role": "assistant", "content": "Hi what can I help you?"},
-        {"role": "user", "content": "法国的首都是哪里?"},
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "分析一下这张图"},
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": "https://i0.hdslb.com/bfs/new_dyn/dd9e3e37f73e73c1ed6db02b14e8265550329118.png",
+                    },
+                },
+            ],
+        },
     ]
 
     if version.parse(openai.__version__) < version.parse("1.0"):

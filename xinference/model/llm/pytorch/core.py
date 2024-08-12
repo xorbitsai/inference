@@ -69,7 +69,7 @@ NON_DEFAULT_MODEL_LIST: List[str] = [
     "yi-vl-chat",
     "deepseek-vl-chat",
     "internvl-chat",
-    "mini-internvl-chat",
+    "internvl2",
     "cogvlm2",
     "MiniCPM-Llama3-V-2_5",
     "glm-4v",

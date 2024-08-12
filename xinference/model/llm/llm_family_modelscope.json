@@ -4909,6 +4909,122 @@
   },
   {
     "version": 1,
+    "context_length": 32768,
+    "model_name": "internvl2",
+    "model_lang": [
+        "en",
+        "zh"
+    ],
+    "model_ability": [
+        "chat",
+        "vision"
+    ],
+    "model_description": "InternVL 2 is an open-source multimodal large language model (MLLM) to bridge the capability gap between open-source and proprietary commercial models in multimodal understanding. ",
+    "model_specs": [
+
+        {
+            "model_format": "pytorch",
+            "model_size_in_billions": 1,
+            "quantizations": [
+              "4-bit",
+              "8-bit",
+              "none"
+            ],
+          "model_hub": "modelscope",
+            "model_id": "OpenGVLab/InternVL2-1B",
+            "model_revision": "master"
+        },
+      {
+            "model_format": "pytorch",
+            "model_size_in_billions": 2,
+            "quantizations": [
+              "4-bit",
+              "8-bit",
+              "none"
+            ],
+          "model_hub": "modelscope",
+            "model_id": "OpenGVLab/InternVL2-2B",
+            "model_revision": "master"
+        },
+        {
+            "model_format": "pytorch",
+            "model_size_in_billions": 4,
+            "quantizations": [
+              "4-bit",
+              "8-bit",
+              "none"
+            ],
+          "model_hub": "modelscope",
+            "model_id": "OpenGVLab/InternVL2-4B",
+            "model_revision": "master"
+        },
+        {
+            "model_format": "pytorch",
+            "model_size_in_billions": 8,
+            "quantizations": [
+              "4-bit",
+              "8-bit",
+              "none"
+            ],
+          "model_hub": "modelscope",
+            "model_id": "OpenGVLab/InternVL2-8B",
+            "model_revision": "master"
+        },
+        {
+            "model_format": "pytorch",
+            "model_size_in_billions": 26,
+            "quantizations": [
+              "4-bit",
+              "8-bit",
+              "none"
+            ],
+          "model_hub": "modelscope",
+            "model_id": "OpenGVLab/InternVL2-26B",
+            "model_revision": "master"
+        },
+        {
+            "model_format": "pytorch",
+            "model_size_in_billions": 40,
+            "quantizations": [
+              "4-bit",
+              "8-bit",
+              "none"
+            ],
+          "model_hub": "modelscope",
+            "model_id": "OpenGVLab/InternVL2-40B",
+            "model_revision": "master"
+        },
+        {
+            "model_format": "pytorch",
+            "model_size_in_billions": 76,
+            "quantizations": [
+              "4-bit",
+              "8-bit",
+              "none"
+            ],
+          "model_hub": "modelscope",
+            "model_id": "OpenGVLab/InternVL2-Llama3-76B",
+            "model_revision": "master"
+        }
+    ],
+    "prompt_style": {
+        "style_name": "INTERNLM2",
+        "system_prompt": "You are InternLM (书生·浦语), a helpful, honest, and harmless AI assistant developed by Shanghai AI Laboratory (上海人工智能实验室).",
+        "roles": [
+            "<|im_start|>user",
+            "<|im_start|>assistant"
+        ],
+        "intra_message_sep": "<|im_end|>",
+        "stop_token_ids": [
+            92542
+        ],
+        "stop": [
+            "<|im_end|>"
+        ]
+    }
+  },
+  {
+    "version": 1,
     "context_length": 8192,
     "model_name": "cogvlm2",
     "model_lang": [

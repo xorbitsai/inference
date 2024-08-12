@@ -7873,28 +7873,141 @@
           "model_format": "pytorch",
           "model_size_in_billions": 2,
           "quantizations": [
-              "none"
+              "4-bit",
+            "8-bit",
+            "none"
           ],
           "model_id": "OpenGVLab/Mini-InternVL-Chat-2B-V1-5",
-          "model_revision": "ce3f67acff17281bacbf4b156f402a0580fb9605"
+          "model_revision": "ecbbd21dcf38caa74d925967b997167b0c7b3f47"
+        },
+        {
+          "model_format": "pytorch",
+          "model_size_in_billions": 4,
+          "quantizations": [
+              "4-bit",
+            "8-bit",
+            "none"
+          ],
+          "model_id": "OpenGVLab/Mini-InternVL-Chat-4B-V1-5",
+          "model_revision": "ce1559ddf9d87f5130aa5233b0e93b95e4e4161a"
         },
         {
           "model_format": "pytorch",
           "model_size_in_billions": 26,
           "quantizations": [
-              "none"
+              "8-bit",
+            "none"
           ],
           "model_id": "OpenGVLab/InternVL-Chat-V1-5",
-          "model_revision": "e822119e5806946ce128043023a73d715ecabf8d"
+          "model_revision": "9db32d9127cac0c85961e169d75da57a18a847b1"
+        }
+    ],
+    "prompt_style": {
+        "style_name": "INTERNLM2",
+        "system_prompt": "You are InternLM (书生·浦语), a helpful, honest, and harmless AI assistant developed by Shanghai AI Laboratory (上海人工智能实验室).",
+        "roles": [
+            "<|im_start|>user",
+            "<|im_start|>assistant"
+        ],
+        "intra_message_sep": "<|im_end|>",
+        "stop_token_ids": [
+            92542
+        ],
+        "stop": [
+            "<|im_end|>"
+        ]
+    }
+  },
+  {
+    "version": 1,
+    "context_length": 32768,
+    "model_name": "internvl2",
+    "model_lang": [
+        "en",
+        "zh"
+    ],
+    "model_ability": [
+        "chat",
+        "vision"
+    ],
+    "model_description": "InternVL 2 is an open-source multimodal large language model (MLLM) to bridge the capability gap between open-source and proprietary commercial models in multimodal understanding. ",
+    "model_specs": [
+      {
+          "model_format": "pytorch",
+          "model_size_in_billions": 1,
+          "quantizations": [
+            "4-bit",
+            "8-bit",
+            "none"
+          ],
+          "model_id": "OpenGVLab/InternVL2-1B",
+          "model_revision": "a9fc14aea824b6ea1d44f8778cad6b35512c4ce1"
+        },
+        {
+          "model_format": "pytorch",
+          "model_size_in_billions": 2,
+          "quantizations": [
+            "4-bit",
+            "8-bit",
+            "none"
+          ],
+          "model_id": "OpenGVLab/InternVL2-2B",
+          "model_revision": "422ad7c6335917bfb514958233955512338485a6"
+        },
+        {
+          "model_format": "pytorch",
+          "model_size_in_billions": 4,
+          "quantizations": [
+            "4-bit",
+            "8-bit",
+            "none"
+          ],
+          "model_id": "OpenGVLab/InternVL2-4B",
+          "model_revision": "b50544dafada6c41e80bfde2f57cc9b0140fc21c"
+        },
+        {
+          "model_format": "pytorch",
+          "model_size_in_billions": 8,
+          "quantizations": [
+            "4-bit",
+            "8-bit",
+            "none"
+          ],
+          "model_id": "OpenGVLab/InternVL2-8B",
+          "model_revision": "3bfd3664dea4f3da628785f5125d30f889701253"
         },
         {
           "model_format": "pytorch",
           "model_size_in_billions": 26,
           "quantizations": [
-              "Int8"
+            "4-bit",
+            "8-bit",
+            "none"
           ],
-          "model_id": "OpenGVLab/InternVL-Chat-V1-5-{quantization}",
-          "model_revision": "acaaed06937c603ab04f084216ecb0268160f538"
+          "model_id": "OpenGVLab/InternVL2-26B",
+          "model_revision": "b9f3c7e6d575b0115e076a3ffc46fd20b7586899"
+        },
+        {
+          "model_format": "pytorch",
+          "model_size_in_billions": 40,
+          "quantizations": [
+            "4-bit",
+            "8-bit",
+            "none"
+          ],
+          "model_id": "OpenGVLab/InternVL2-40B",
+          "model_revision": "725a12063bb855c966e30a0617d0ccd9e870d772"
+        },
+        {
+          "model_format": "pytorch",
+          "model_size_in_billions": 76,
+          "quantizations": [
+            "4-bit",
+            "8-bit",
+            "none"
+          ],
+          "model_id": "OpenGVLab/InternVL2-Llama3-76B",
+          "model_revision": "cf7914905f78e9e3560ddbd6f5dfc39becac494f"
         }
     ],
     "prompt_style": {
