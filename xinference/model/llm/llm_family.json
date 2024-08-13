@@ -7873,7 +7873,7 @@
           "model_format": "pytorch",
           "model_size_in_billions": 2,
           "quantizations": [
-              "4-bit",
+            "4-bit",
             "8-bit",
             "none"
           ],
@@ -7884,7 +7884,7 @@
           "model_format": "pytorch",
           "model_size_in_billions": 4,
           "quantizations": [
-              "4-bit",
+            "4-bit",
             "8-bit",
             "none"
           ],
@@ -7895,7 +7895,7 @@
           "model_format": "pytorch",
           "model_size_in_billions": 26,
           "quantizations": [
-              "8-bit",
+            "8-bit",
             "none"
           ],
           "model_id": "OpenGVLab/InternVL-Chat-V1-5",
@@ -7903,18 +7903,22 @@
         }
     ],
     "prompt_style": {
-        "style_name": "INTERNLM2",
+        "style_name": "internlm2-chat",
         "system_prompt": "You are InternLM (书生·浦语), a helpful, honest, and harmless AI assistant developed by Shanghai AI Laboratory (上海人工智能实验室).",
         "roles": [
-            "<|im_start|>user",
-            "<|im_start|>assistant"
+            "<|im_start|>user\n",
+            "<|im_start|>assistant\n"
         ],
         "intra_message_sep": "<|im_end|>",
         "stop_token_ids": [
+            2,
+            92543,
             92542
         ],
         "stop": [
-            "<|im_end|>"
+            "</s>",
+            "<|im_end|>",
+            "<|im_start|>"
         ]
     }
   },
@@ -8011,18 +8015,22 @@
         }
     ],
     "prompt_style": {
-        "style_name": "INTERNLM2",
+        "style_name": "internlm2-chat",
         "system_prompt": "You are InternLM (书生·浦语), a helpful, honest, and harmless AI assistant developed by Shanghai AI Laboratory (上海人工智能实验室).",
         "roles": [
-            "<|im_start|>user",
-            "<|im_start|>assistant"
+            "<|im_start|>user\n",
+            "<|im_start|>assistant\n"
         ],
         "intra_message_sep": "<|im_end|>",
         "stop_token_ids": [
+            2,
+            92543,
             92542
         ],
         "stop": [
-            "<|im_end|>"
+            "</s>",
+            "<|im_end|>",
+            "<|im_start|>"
         ]
     }
   },

@@ -4874,36 +4874,32 @@
             "model_format": "pytorch",
             "model_size_in_billions": 26,
             "quantizations": [
-                "none"
+              "4-bit",
+              "8-bit",
+              "none"
             ],
-          "model_hub": "modelscope",
-            "model_id": "AI-ModelScope/InternVL-Chat-V1-5",
-            "model_revision": "master"
-        },
-        {
-            "model_format": "pytorch",
-            "model_size_in_billions": 26,
-            "quantizations": [
-                "Int8"
-            ],
-          "model_hub": "modelscope",
-            "model_id": "AI-ModelScope/InternVL-Chat-V1-5-{quantization}",
+            "model_hub": "modelscope",
+            "model_id": "OpenGVLab/InternVL-Chat-V1-5",
             "model_revision": "master"
         }
     ],
     "prompt_style": {
-        "style_name": "INTERNLM2",
+        "style_name": "internlm2-chat",
         "system_prompt": "You are InternLM (书生·浦语), a helpful, honest, and harmless AI assistant developed by Shanghai AI Laboratory (上海人工智能实验室).",
         "roles": [
-            "<|im_start|>user",
-            "<|im_start|>assistant"
+            "<|im_start|>user\n",
+            "<|im_start|>assistant\n"
         ],
         "intra_message_sep": "<|im_end|>",
         "stop_token_ids": [
+            2,
+            92543,
             92542
         ],
         "stop": [
-            "<|im_end|>"
+            "</s>",
+            "<|im_end|>",
+            "<|im_start|>"
         ]
     }
   },
@@ -4930,7 +4926,7 @@
               "8-bit",
               "none"
             ],
-          "model_hub": "modelscope",
+            "model_hub": "modelscope",
             "model_id": "OpenGVLab/InternVL2-1B",
             "model_revision": "master"
         },
@@ -4942,7 +4938,7 @@
               "8-bit",
               "none"
             ],
-          "model_hub": "modelscope",
+            "model_hub": "modelscope",
             "model_id": "OpenGVLab/InternVL2-2B",
             "model_revision": "master"
         },
@@ -4954,7 +4950,7 @@
               "8-bit",
               "none"
             ],
-          "model_hub": "modelscope",
+            "model_hub": "modelscope",
             "model_id": "OpenGVLab/InternVL2-4B",
             "model_revision": "master"
         },
@@ -4966,7 +4962,7 @@
               "8-bit",
               "none"
             ],
-          "model_hub": "modelscope",
+            "model_hub": "modelscope",
             "model_id": "OpenGVLab/InternVL2-8B",
             "model_revision": "master"
         },
@@ -4978,7 +4974,7 @@
               "8-bit",
               "none"
             ],
-          "model_hub": "modelscope",
+            "model_hub": "modelscope",
             "model_id": "OpenGVLab/InternVL2-26B",
             "model_revision": "master"
         },
@@ -4990,7 +4986,7 @@
               "8-bit",
               "none"
             ],
-          "model_hub": "modelscope",
+            "model_hub": "modelscope",
             "model_id": "OpenGVLab/InternVL2-40B",
             "model_revision": "master"
         },
@@ -5002,24 +4998,28 @@
               "8-bit",
               "none"
             ],
-          "model_hub": "modelscope",
+            "model_hub": "modelscope",
             "model_id": "OpenGVLab/InternVL2-Llama3-76B",
             "model_revision": "master"
         }
     ],
     "prompt_style": {
-        "style_name": "INTERNLM2",
+        "style_name": "internlm2-chat",
         "system_prompt": "You are InternLM (书生·浦语), a helpful, honest, and harmless AI assistant developed by Shanghai AI Laboratory (上海人工智能实验室).",
         "roles": [
-            "<|im_start|>user",
-            "<|im_start|>assistant"
+            "<|im_start|>user\n",
+            "<|im_start|>assistant\n"
         ],
         "intra_message_sep": "<|im_end|>",
         "stop_token_ids": [
+            2,
+            92543,
             92542
         ],
         "stop": [
-            "<|im_end|>"
+            "</s>",
+            "<|im_end|>",
+            "<|im_start|>"
         ]
     }
   },
