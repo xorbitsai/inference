@@ -37,7 +37,7 @@ diffusers>=0.25.0  # fix conflict with matcha-tts
 controlnet_aux
 orjson
 auto-gptq
-autoawq
+autoawq<0.2.6  # autoawq 0.2.6 pinned torch to 2.3
 optimum
 peft
 timm
