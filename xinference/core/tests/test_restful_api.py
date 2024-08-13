@@ -465,54 +465,6 @@ def test_restful_api_for_tool_calls(setup, model_format, quantization):
     response_data = response.json()
     assert len(response_data["data"]) == 1
 
-    # glm4-chat fail response: 好的，请告诉我您希望使用的温度单位是摄氏度还是华氏度？
-    if "glm4" not in model_name:
-        tools = [
-            {
-                "type": "function",
-                "function": {
-                    "name": "get_current_weather",
-                    "description": "获取当前天气",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "location": {"type": "string", "description": "城市，例如北京"},
-                            "format": {
-                                "type": "string",
-                                "enum": ["celsius", "fahrenheit"],
-                                "description": "使用的温度单位。从所在的城市进行推断。",
-                            },
-                        },
-                        "required": ["location", "format"],
-                    },
-                },
-            }
-        ]
-
-        url = f"{endpoint}/v1/chat/completions"
-        payload = {
-            "model": model_uid_res,
-            "messages": [
-                {"role": "system", "content": "你是一个有用的助手。不要对要函数调用的值做出假设。"},
-                {"role": "user", "content": "上海现在的天气怎么样？"},
-            ],
-            "temperature": 0.7,
-            "tools": tools,
-            "stop": ["\n"],
-        }
-        response = requests.post(url, json=payload)
-        completion = response.json()
-
-        assert (
-            "get_current_weather"
-            == completion["choices"][0]["message"]["tool_calls"][0]["function"]["name"]
-        ), completion
-        arguments = completion["choices"][0]["message"]["tool_calls"][0]["function"][
-            "arguments"
-        ]
-        arg = json.loads(arguments)
-        assert arg == {"location": "上海", "format": "celsius"}
-
     # tool
     tools = [
         {

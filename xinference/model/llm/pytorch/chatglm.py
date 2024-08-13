@@ -344,7 +344,7 @@ class ChatglmPytorchChatModel(PytorchChatModel):
         return kwargs, tools
 
     @torch.inference_mode()
-    def stream_chat(
+    def _stream_chat(
         self,
         tokenizer,
         query: str,
@@ -399,7 +399,7 @@ class ChatglmPytorchChatModel(PytorchChatModel):
                 yield new_response, new_history
 
     @torch.inference_mode()
-    def non_stream_chat(
+    def _non_stream_chat(
         self,
         tokenizer,
         query: str,
@@ -475,10 +475,6 @@ class ChatglmPytorchChatModel(PytorchChatModel):
         if stream and (
             not tools or self.model_family.model_name in GLM4_TOOL_CALL_FAMILY
         ):
-            if self.model_family.model_name in GLM4_TOOL_CALL_FAMILY:
-                stream_chat = self.stream_chat
-            else:
-                stream_chat = self._model.stream_chat
 
             def _stream_generator():
                 last_chunk_text_length = 0
@@ -487,7 +483,7 @@ class ChatglmPytorchChatModel(PytorchChatModel):
                 inputs = self._tokenizer([prompt], return_tensors="pt")
                 inputs = inputs.to(self._model.device)
                 prompt_tokens = len(inputs["input_ids"][0])
-                for chunk_text, _ in stream_chat(
+                for chunk_text, _ in self._stream_chat(
                     self._tokenizer, prompt, chat_history, **kwargs
                 ):
                     if tools and isinstance(chunk_text, dict):
@@ -548,12 +544,9 @@ class ChatglmPytorchChatModel(PytorchChatModel):
 
             return self._to_chat_completion_chunks(_stream_generator())
         else:
-            if self.model_family.model_name in GLM4_TOOL_CALL_FAMILY:
-                chat = self.non_stream_chat
-            else:
-                chat = self._model.chat
-
-            response = chat(self._tokenizer, prompt, chat_history, **kwargs)
+            response = self._non_stream_chat(
+                self._tokenizer, prompt, chat_history, **kwargs
+            )
             if tools:
                 return self._tool_calls_completion(
                     self.model_family, self.model_uid, response, tools
