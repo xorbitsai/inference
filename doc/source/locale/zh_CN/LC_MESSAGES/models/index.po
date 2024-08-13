@@ -204,7 +204,6 @@ msgid "Video"
 msgstr "视频"
 
 #: ../../source/models/index.rst:221
-#, fuzzy
 msgid "Learn how to generate video with Xinference."
-msgstr "学习如何使用Xinference生成图像。"
+msgstr "学习如何使用Xinference生成视频。"
 
