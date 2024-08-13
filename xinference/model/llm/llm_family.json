@@ -6626,12 +6626,30 @@
     "model_specs": [
       {
         "model_format": "pytorch",
+        "model_size_in_billions": "1_8",
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "internlm/internlm2_5-1_8b-chat",
+        "model_revision": "4426f00b854561fa60d555d2b628064b56bcb758"
+      },
+      {
+        "model_format": "pytorch",
         "model_size_in_billions": 7,
         "quantizations": [
           "none"
         ],
         "model_id": "internlm/internlm2_5-7b-chat",
         "model_revision": "9dc8536a922ab4954726aad1b37fa199004a291a"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 20,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "internlm/internlm2_5-20b-chat",
+        "model_revision": "ef17bde929761255fee76d95e2c25969ccd93b0d"
       },
       {
         "model_format": "gptq",
@@ -6641,6 +6659,23 @@
         ],
         "model_id": "ModelCloud/internlm-2.5-7b-chat-gptq-4bit",
         "model_revision": "2e2dda735c326544921a4035bbeb6c6e316a8254"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": "1_8",
+        "quantizations": [
+          "q2_k",
+          "q3_k_m",
+          "q4_0",
+          "q4_k_m",
+          "q5_0",
+          "q5_k_m",
+          "q6_k",
+          "q8_0",
+          "fp16"
+        ],
+        "model_id": "internlm/internlm2_5-1_8b-chat-gguf",
+        "model_file_name_template": "internlm2_5-1_8b-chat-{quantization}.gguf"
       },
       {
         "model_format": "ggufv2",
@@ -6658,6 +6693,23 @@
         ],
         "model_id": "internlm/internlm2_5-7b-chat-gguf",
         "model_file_name_template": "internlm2_5-7b-chat-{quantization}.gguf"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 20,
+        "quantizations": [
+          "q2_k",
+          "q3_k_m",
+          "q4_0",
+          "q4_k_m",
+          "q5_0",
+          "q5_k_m",
+          "q6_k",
+          "q8_0",
+          "fp16"
+        ],
+        "model_id": "internlm/internlm2_5-20b-chat-gguf",
+        "model_file_name_template": "internlm2_5-20b-chat-{quantization}.gguf"
       },
       {
         "model_format": "mlx",
@@ -7144,6 +7196,16 @@
     "model_specs": [
       {
         "model_format": "pytorch",
+        "model_size_in_billions": 2,
+        "quantizations": [
+          "none",
+          "4-bit",
+          "8-bit"
+        ],
+        "model_id": "google/gemma-2-2b-it"
+      },
+      {
+        "model_format": "pytorch",
         "model_size_in_billions": 9,
         "quantizations": [
           "none",
@@ -7161,6 +7223,23 @@
           "8-bit"
         ],
         "model_id": "google/gemma-2-27b-it"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 2,
+        "quantizations": [
+          "Q3_K_L",
+          "Q4_K_M",
+          "Q4_K_S",
+          "Q5_K_M",
+          "Q5_K_S",
+          "Q6_K",
+          "Q6_K_L",
+          "Q8_0",
+          "f32"
+        ],
+        "model_id": "bartowski/gemma-2-2b-it-GGUF",
+        "model_file_name_template": "gemma-2-2b-it-{quantization}.gguf"
       },
       {
         "model_format": "ggufv2",
@@ -7207,6 +7286,30 @@
         ],
         "model_id": "bartowski/gemma-2-27b-it-GGUF",
         "model_file_name_template": "gemma-2-27b-it-{quantization}.gguf"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 2,
+        "quantizations": [
+          "4-bit"
+        ],
+        "model_id": "mlx-community/gemma-2-2b-it-4bit"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 2,
+        "quantizations": [
+          "8-bit"
+        ],
+        "model_id": "mlx-community/gemma-2-2b-it-8bit"
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 2,
+        "quantizations": [
+          "None"
+        ],
+        "model_id": "mlx-community/gemma-2-2b-it"
       },
       {
         "model_format": "mlx",
