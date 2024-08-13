@@ -20,7 +20,7 @@ Model Spec {{ loop.index }} ({{ spec.model_format }}, {{ spec.model_size_in_bill
 - **Model Format:** {{ spec.model_format }}
 - **Model Size (in billions):** {{ spec.model_size_in_billions }}
 - **Quantizations:** {{ spec.quantizations | join(', ') }}
-{%  if spec.model_format == 'pytorch' and 'vLLM' in spec.engines and '4-bit' in spec.quantizations %}- **Engines**: {{ spec.engines | join(', ') }} (vLLM only available for quantization none){% else %}- **Engines**: {{ spec.engines | join(', ') }}{% endif %}
+{%  if spec.model_format == 'pytorch' and 'vLLM' in spec.engines and '4-bit' in spec.quantizations %}- **Engines**: {{ spec.engines | join(', ') }} (vLLM and SGLang only available for quantization none){% else %}- **Engines**: {{ spec.engines | join(', ') }}{% endif %}
 - **Model ID:** {{ spec.model_id }}
 - **Model Hubs**:  {% for hub in spec.model_hubs -%}`{{ hub.name }} <{{ hub.url }}>`__{% if not loop.last %}, {% endif %} {%- endfor %}
 
