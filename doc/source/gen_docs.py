@@ -222,6 +222,25 @@ def main():
             rendered_index = env.get_template('audio_index.rst.jinja').render(models=sorted_models)
             file.write(rendered_index)
 
+    with open('../../xinference/model/video/model_spec.json', 'r') as file:
+        models = json.load(file)
+
+        sorted_models = sorted(models, key=lambda x: x['model_name'].lower())
+        output_dir = './models/builtin/video'
+        os.makedirs(output_dir, exist_ok=True)
+
+        for model in sorted_models:
+            model["model_ability"] = ', '.join(model.get("model_ability"))
+            rendered = env.get_template('video.rst.jinja').render(model)
+            output_file_path = os.path.join(output_dir, f"{model['model_name'].lower()}.rst")
+            with open(output_file_path, 'w') as output_file:
+                output_file.write(rendered)
+
+        index_file_path = os.path.join(output_dir, "index.rst")
+        with open(index_file_path, "w") as file:
+            rendered_index = env.get_template('video_index.rst.jinja').render(models=sorted_models)
+            file.write(rendered_index)
+
     if VLLM_INSTALLED:
         vllm_models = gen_vllm_models()
         groups = [', '.join("``%s``" % m for m in group) for group in vllm_models]
