@@ -3,7 +3,6 @@ import os
 import pickle
 from io import BytesIO
 
-import cv2
 import numpy as np
 import torch
 import torch.distributed as dist
@@ -75,6 +74,8 @@ def autocontrast_func(img, cutoff=0):
     """
     same output as PIL.ImageOps.autocontrast
     """
+    import cv2
+
     n_bins = 256
 
     def tune_channel(ch):
@@ -108,6 +109,8 @@ def equalize_func(img):
     same output as PIL.ImageOps.equalize
     PIL's implementation is different from cv2.equalize
     """
+    import cv2
+
     n_bins = 256
 
     def tune_channel(ch):
@@ -131,6 +134,8 @@ def rotate_func(img, degree, fill=(0, 0, 0)):
     """
     like PIL, rotate by degree, not radians
     """
+    import cv2
+
     H, W = img.shape[0], img.shape[1]
     center = W / 2, H / 2
     M = cv2.getRotationMatrix2D(center, degree, 1)
@@ -194,6 +199,8 @@ def sharpness_func(img, factor):
     The differences the this result and PIL are all on the 4 boundaries, the center
     areas are same
     """
+    import cv2
+
     kernel = np.ones((3, 3), dtype=np.float32)
     kernel[1][1] = 5
     kernel /= 13
@@ -211,6 +218,8 @@ def sharpness_func(img, factor):
 
 
 def shear_x_func(img, factor, fill=(0, 0, 0)):
+    import cv2
+
     H, W = img.shape[0], img.shape[1]
     M = np.float32([[1, factor, 0], [0, 1, 0]])
     out = cv2.warpAffine(
@@ -223,6 +232,8 @@ def translate_x_func(img, offset, fill=(0, 0, 0)):
     """
     same output as PIL.Image.transform
     """
+    import cv2
+
     H, W = img.shape[0], img.shape[1]
     M = np.float32([[1, 0, -offset], [0, 1, 0]])
     out = cv2.warpAffine(
@@ -235,6 +246,8 @@ def translate_y_func(img, offset, fill=(0, 0, 0)):
     """
     same output as PIL.Image.transform
     """
+    import cv2
+
     H, W = img.shape[0], img.shape[1]
     M = np.float32([[1, 0, 0], [0, 1, -offset]])
     out = cv2.warpAffine(
@@ -252,6 +265,8 @@ def posterize_func(img, bits):
 
 
 def shear_y_func(img, factor, fill=(0, 0, 0)):
+    import cv2
+
     H, W = img.shape[0], img.shape[1]
     M = np.float32([[1, 0, 0], [factor, 1, 0]])
     out = cv2.warpAffine(
