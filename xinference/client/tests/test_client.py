@@ -493,7 +493,7 @@ def test_auto_recover(set_auto_recover_limit, setup_cluster):
             assert "text" in completion["choices"][0]
             break
         except Exception:
-            time.sleep(1)
+            time.sleep(6)
     else:
         expect_failed = True
     assert expect_failed
