@@ -132,8 +132,8 @@ class ModelActor(xo.StatelessActor):
 
     async def __pre_destroy__(self):
         from ..model.embedding.core import EmbeddingModel
-        from ..model.llm.pytorch.core import PytorchModel as LLMPytorchModel
         from ..model.llm.sglang.core import SGLANGModel
+        from ..model.llm.transformers.core import PytorchModel as LLMPytorchModel
         from ..model.llm.vllm.core import VLLMModel as LLMVLLMModel
 
         if self.allow_batching():
@@ -177,8 +177,8 @@ class ModelActor(xo.StatelessActor):
         request_limits: Optional[int] = None,
     ):
         super().__init__()
-        from ..model.llm.pytorch.core import PytorchModel
         from ..model.llm.sglang.core import SGLANGModel
+        from ..model.llm.transformers.core import PytorchModel
         from ..model.llm.vllm.core import VLLMModel
 
         self._worker_address = worker_address
@@ -272,7 +272,7 @@ class ModelActor(xo.StatelessActor):
         return isinstance(self._model, VLLMModel)
 
     def allow_batching(self) -> bool:
-        from ..model.llm.pytorch.core import PytorchModel
+        from ..model.llm.transformers.core import PytorchModel
 
         model_ability = self._model_description.get("model_ability", [])
 
