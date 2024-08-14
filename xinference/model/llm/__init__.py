@@ -130,7 +130,7 @@ def _install():
     from .vllm.core import VLLMChatModel, VLLMModel
 
     try:
-        from .pytorch.omnilmm import OmniLMMModel
+        from .transformers.omnilmm import OmniLMMModel
     except ImportError as e:
         # For quite old transformers version,
         # import will generate error
