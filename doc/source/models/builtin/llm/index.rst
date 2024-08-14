@@ -318,8 +318,13 @@ The following is a list of built-in LLM in Xinference:
 
    * - :ref:`minicpm-llama3-v-2_5 <models_llm_minicpm-llama3-v-2_5>`
      - chat, vision
-     - 2048
+     - 8192
      - MiniCPM-Llama3-V 2.5 is the latest model in the MiniCPM-V series. The model is built on SigLip-400M and Llama3-8B-Instruct with a total of 8B parameters.
+
+   * - :ref:`minicpm-v-2.6 <models_llm_minicpm-v-2.6>`
+     - chat, vision
+     - 32768
+     - MiniCPM-V 2.6 is the latest model in the MiniCPM-V series. The model is built on SigLip-400M and Qwen2-7B with a total of 8B parameters.
 
    * - :ref:`mistral-instruct-v0.1 <models_llm_mistral-instruct-v0.1>`
      - chat
@@ -712,6 +717,8 @@ The following is a list of built-in LLM in Xinference:
    minicpm-2b-sft-fp32
   
    minicpm-llama3-v-2_5
+  
+   minicpm-v-2.6
   
    mistral-instruct-v0.1
   

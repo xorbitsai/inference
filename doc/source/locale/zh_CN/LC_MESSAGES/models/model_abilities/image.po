@@ -128,7 +128,7 @@ msgstr ""
 "API。"
 
 #: ../../source/models/model_abilities/image.rst:109
-msgid "Tips for Large Image models including sd3-medium, FLUX.1"
+msgid "Tips for Large Image Models including SD3-Medium, FLUX.1"
 msgstr "大型图像模型部署（sd3-medium、FLUX.1 系列）贴士"
 
 #: ../../source/models/model_abilities/image.rst:111

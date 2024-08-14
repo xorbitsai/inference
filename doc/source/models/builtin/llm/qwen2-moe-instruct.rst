@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 14 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 14
 - **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: vLLM, Transformers (vLLM only available for quantization none)
+- **Engines**: vLLM, Transformers, SGLang (vLLM and SGLang only available for quantization none)
 - **Model ID:** Qwen/Qwen2-57B-A14B-Instruct
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen2-57B-A14B-Instruct>`__, `ModelScope <https://modelscope.cn/models/qwen/Qwen2-57B-A14B-Instruct>`__
 
@@ -36,7 +36,7 @@ Model Spec 2 (gptq, 14 Billion)
 - **Model Format:** gptq
 - **Model Size (in billions):** 14
 - **Quantizations:** Int4
-- **Engines**: vLLM, Transformers
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** Qwen/Qwen2-57B-A14B-Instruct-GPTQ-Int4
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen2-57B-A14B-Instruct-GPTQ-Int4>`__, `ModelScope <https://modelscope.cn/models/qwen/Qwen2-57B-A14B-Instruct-GPTQ-Int4>`__
 
