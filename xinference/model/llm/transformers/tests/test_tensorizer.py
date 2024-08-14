@@ -98,8 +98,8 @@ def mock_environment(tmp_path):
     return model_path, tensorizer_dir, tensor_path
 
 
-@patch("xinference.model.llm.pytorch.tensorizer_utils.get_tensorizer_dir")
-@patch("xinference.model.llm.pytorch.tensorizer_utils.logger")
+@patch("xinference.model.llm.transformers.tensorizer_utils.get_tensorizer_dir")
+@patch("xinference.model.llm.transformers.tensorizer_utils.logger")
 def test_tensorizer_serialize_model_cache_exists(
     mock_logger, mock_get_tensorizer_dir, mock_environment
 ):

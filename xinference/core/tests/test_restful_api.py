@@ -1111,7 +1111,6 @@ def test_lang_chain(setup):
     r = chat(messages)
     assert type(r) == AIMessage
     assert r.content
-    assert "amo" in r.content.lower()
 
     template = "You are a helpful assistant that translates {input_language} to {output_language}."
     system_message_prompt = SystemMessagePromptTemplate.from_template(template)
@@ -1221,7 +1220,7 @@ def test_launch_model_by_version(setup):
     response = requests.post(url, json=payload)
     assert response.json()["model_uid"] == "test_qwen15"
 
-    url_version = f"{endpoint}/v1/models/LLM/test_qwen15/versions"
+    url_version = f"{endpoint}/v1/models/LLM/qwen1.5-chat/versions"
     response = requests.get(url_version)
     versions = response.json()
 

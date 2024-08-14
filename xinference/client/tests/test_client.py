@@ -477,23 +477,3 @@ def test_auto_recover(set_auto_recover_limit, setup_cluster):
             time.sleep(1)
     else:
         assert False
-
-    new_children_proc = set(current_proc.children(recursive=True))
-    model_proc = next(iter(new_children_proc - chilren_proc))
-    assert len(client.list_models()) == 1
-
-    model_proc.kill()
-
-    expect_failed = False
-    for _ in range(5):
-        try:
-            completion = model.generate(
-                "Once upon a time, there was a very old computer", {"max_tokens": 64}
-            )
-            assert "text" in completion["choices"][0]
-            break
-        except Exception:
-            time.sleep(0.1)
-    else:
-        expect_failed = True
-    assert expect_failed

@@ -748,7 +748,7 @@ def test_parse_prompt_style():
     # take some examples to assert
     assert "qwen-chat" in BUILTIN_LLM_PROMPT_STYLE
     assert "chatglm3" in BUILTIN_LLM_PROMPT_STYLE
-    assert "baichuan-chat" in BUILTIN_LLM_PROMPT_STYLE
+    assert "baichuan-2-chat" in BUILTIN_LLM_PROMPT_STYLE
 
     hf_spec = LlamaCppLLMSpecV1(
         model_format="ggufv2",
