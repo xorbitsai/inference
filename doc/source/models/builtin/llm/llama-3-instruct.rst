@@ -36,7 +36,7 @@ Model Spec 2 (pytorch, 8 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 8
 - **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: vLLM, Transformers (vLLM only available for quantization none)
+- **Engines**: vLLM, Transformers, SGLang (vLLM and SGLang only available for quantization none)
 - **Model ID:** meta-llama/Meta-Llama-3-8B-Instruct
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/meta-llama/Meta-Llama-3-8B-Instruct>`__, `ModelScope <https://modelscope.cn/models/LLM-Research/Meta-Llama-3-8B-Instruct>`__
 
@@ -68,7 +68,7 @@ Model Spec 4 (pytorch, 70 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 70
 - **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: vLLM, Transformers (vLLM only available for quantization none)
+- **Engines**: vLLM, Transformers, SGLang (vLLM and SGLang only available for quantization none)
 - **Model ID:** meta-llama/Meta-Llama-3-70B-Instruct
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/meta-llama/Meta-Llama-3-70B-Instruct>`__, `ModelScope <https://modelscope.cn/models/LLM-Research/Meta-Llama-3-70B-Instruct>`__
 
@@ -172,4 +172,36 @@ Execute the following command to launch the model, remember to replace ``${quant
 chosen quantization method from the options listed above::
 
    xinference launch --model-engine ${engine} --model-name llama-3-instruct --size-in-billions 70 --model-format mlx --quantization ${quantization}
+
+
+Model Spec 11 (gptq, 8 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** gptq
+- **Model Size (in billions):** 8
+- **Quantizations:** Int4
+- **Engines**: vLLM, Transformers, SGLang
+- **Model ID:** TechxGenus/Meta-Llama-3-8B-Instruct-GPTQ
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/TechxGenus/Meta-Llama-3-8B-Instruct-GPTQ>`__, `ModelScope <https://modelscope.cn/models/swift/Meta-Llama-3-8B-Instruct-GPTQ-{quantization}>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name llama-3-instruct --size-in-billions 8 --model-format gptq --quantization ${quantization}
+
+
+Model Spec 12 (gptq, 70 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** gptq
+- **Model Size (in billions):** 70
+- **Quantizations:** Int4
+- **Engines**: vLLM, Transformers, SGLang
+- **Model ID:** TechxGenus/Meta-Llama-3-70B-Instruct-GPTQ
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/TechxGenus/Meta-Llama-3-70B-Instruct-GPTQ>`__, `ModelScope <https://modelscope.cn/models/swift/Meta-Llama-3-70B-Instruct-GPTQ-{quantization}>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name llama-3-instruct --size-in-billions 70 --model-format gptq --quantization ${quantization}
 

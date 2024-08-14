@@ -105,7 +105,7 @@ We can try Text-to-image API out either via cURL, OpenAI Client, or Xinference's
     }
 
 
-Tips for Large Image models including sd3-medium, FLUX.1
+Tips for Large Image Models including SD3-Medium, FLUX.1
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Useful extra parameters can be passed to launch including:
