@@ -68,7 +68,7 @@ Model Spec 4 (pytorch, 7 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 7
 - **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: vLLM, Transformers (vLLM only available for quantization none)
+- **Engines**: vLLM, Transformers, SGLang (vLLM and SGLang only available for quantization none)
 - **Model ID:** meta-llama/Llama-2-7b-chat-hf
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/meta-llama/Llama-2-7b-chat-hf>`__, `ModelScope <https://modelscope.cn/models/modelscope/Llama-2-7b-chat-ms>`__
 
@@ -84,7 +84,7 @@ Model Spec 5 (gptq, 7 Billion)
 - **Model Format:** gptq
 - **Model Size (in billions):** 7
 - **Quantizations:** Int4
-- **Engines**: vLLM
+- **Engines**: vLLM, SGLang
 - **Model ID:** TheBloke/Llama-2-7B-Chat-GPTQ
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/Llama-2-7B-Chat-GPTQ>`__
 
@@ -100,7 +100,7 @@ Model Spec 6 (gptq, 70 Billion)
 - **Model Format:** gptq
 - **Model Size (in billions):** 70
 - **Quantizations:** Int4
-- **Engines**: vLLM
+- **Engines**: vLLM, SGLang
 - **Model ID:** TheBloke/Llama-2-70B-Chat-GPTQ
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/Llama-2-70B-Chat-GPTQ>`__
 
@@ -116,7 +116,7 @@ Model Spec 7 (awq, 70 Billion)
 - **Model Format:** awq
 - **Model Size (in billions):** 70
 - **Quantizations:** Int4
-- **Engines**: vLLM
+- **Engines**: vLLM, SGLang
 - **Model ID:** TheBloke/Llama-2-70B-Chat-AWQ
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/Llama-2-70B-Chat-AWQ>`__
 
@@ -132,7 +132,7 @@ Model Spec 8 (awq, 7 Billion)
 - **Model Format:** awq
 - **Model Size (in billions):** 7
 - **Quantizations:** Int4
-- **Engines**: vLLM
+- **Engines**: vLLM, SGLang
 - **Model ID:** TheBloke/Llama-2-7B-Chat-AWQ
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/Llama-2-7B-Chat-AWQ>`__
 
@@ -148,7 +148,7 @@ Model Spec 9 (pytorch, 13 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 13
 - **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: vLLM, Transformers (vLLM only available for quantization none)
+- **Engines**: vLLM, Transformers, SGLang (vLLM and SGLang only available for quantization none)
 - **Model ID:** meta-llama/Llama-2-13b-chat-hf
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/meta-llama/Llama-2-13b-chat-hf>`__, `ModelScope <https://modelscope.cn/models/modelscope/Llama-2-13b-chat-ms>`__
 
@@ -164,7 +164,7 @@ Model Spec 10 (gptq, 13 Billion)
 - **Model Format:** gptq
 - **Model Size (in billions):** 13
 - **Quantizations:** Int4
-- **Engines**: vLLM
+- **Engines**: vLLM, SGLang
 - **Model ID:** TheBloke/Llama-2-13B-chat-GPTQ
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/Llama-2-13B-chat-GPTQ>`__
 
@@ -180,7 +180,7 @@ Model Spec 11 (awq, 13 Billion)
 - **Model Format:** awq
 - **Model Size (in billions):** 13
 - **Quantizations:** Int4
-- **Engines**: vLLM
+- **Engines**: vLLM, SGLang
 - **Model ID:** TheBloke/Llama-2-13B-chat-AWQ
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/Llama-2-13B-chat-AWQ>`__
 
@@ -196,7 +196,7 @@ Model Spec 12 (pytorch, 70 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 70
 - **Quantizations:** 4-bit, 8-bit, none
-- **Engines**: vLLM, Transformers (vLLM only available for quantization none)
+- **Engines**: vLLM, Transformers, SGLang (vLLM and SGLang only available for quantization none)
 - **Model ID:** meta-llama/Llama-2-70b-chat-hf
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/meta-llama/Llama-2-70b-chat-hf>`__, `ModelScope <https://modelscope.cn/models/modelscope/Llama-2-70b-chat-ms>`__
 

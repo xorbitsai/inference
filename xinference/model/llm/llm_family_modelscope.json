@@ -1215,11 +1215,47 @@
     "model_specs": [
       {
         "model_format": "pytorch",
+        "model_size_in_billions": "1_8",
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "Shanghai_AI_Laboratory/internlm2_5-1_8b-chat",
+        "model_hub": "modelscope"
+      },
+      {
+        "model_format": "pytorch",
         "model_size_in_billions": 7,
         "quantizations": [
           "none"
         ],
         "model_id": "Shanghai_AI_Laboratory/internlm2_5-7b-chat",
+        "model_hub": "modelscope"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "q2_k",
+          "q3_k_m",
+          "q4_0",
+          "q4_k_m",
+          "q5_0",
+          "q5_k_m",
+          "q6_k",
+          "q8_0",
+          "fp16"
+        ],
+        "model_id": "Shanghai_AI_Laboratory/internlm2_5-7b-chat-gguf",
+        "model_file_name_template": "internlm2_5-7b-chat-{quantization}.gguf",
+        "model_hub": "modelscope"
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 20,
+        "quantizations": [
+          "none"
+        ],
+        "model_id": "Shanghai_AI_Laboratory/internlm2_5-20b-chat",
         "model_hub": "modelscope"
       }
     ],
@@ -4245,6 +4281,17 @@
     ],
     "model_description": "Gemma is a family of lightweight, state-of-the-art open models from Google, built from the same research and technology used to create the Gemini models.",
     "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 2,
+        "quantizations": [
+          "none",
+          "4-bit",
+          "8-bit"
+        ],
+        "model_id": "LLM-Research/gemma-2-2b-it",
+        "model_hub": "modelscope"
+      },
       {
         "model_format": "pytorch",
         "model_size_in_billions": 9,

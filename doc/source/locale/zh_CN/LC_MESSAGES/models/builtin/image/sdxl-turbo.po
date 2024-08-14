@@ -1,0 +1,53 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2024-08-09 19:13+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: zh_CN\n"
+"Language-Team: zh_CN <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.14.0\n"
+
+#: ../../source/models/builtin/image/sdxl-turbo.rst:5
+msgid "sdxl-turbo"
+msgstr ""
+
+#: ../../source/models/builtin/image/sdxl-turbo.rst:7
+msgid "**Model Name:** sdxl-turbo"
+msgstr ""
+
+#: ../../source/models/builtin/image/sdxl-turbo.rst:8
+msgid "**Model Family:** stable_diffusion"
+msgstr ""
+
+#: ../../source/models/builtin/image/sdxl-turbo.rst:9
+msgid "**Abilities:** text2image"
+msgstr ""
+
+#: ../../source/models/builtin/image/sdxl-turbo.rst:10
+msgid "**Available ControlNet:** None"
+msgstr ""
+
+#: ../../source/models/builtin/image/sdxl-turbo.rst:13
+msgid "Specifications"
+msgstr ""
+
+#: ../../source/models/builtin/image/sdxl-turbo.rst:15
+msgid "**Model ID:** stabilityai/sdxl-turbo"
+msgstr ""
+
+#: ../../source/models/builtin/image/sdxl-turbo.rst:17
+msgid "Execute the following command to launch the model::"
+msgstr ""
+
