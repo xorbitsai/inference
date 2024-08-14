@@ -358,7 +358,7 @@ class SchedulerActor(xo.StatelessActor):
 
     @staticmethod
     def _empty_cache():
-        from ..model.llm.pytorch.utils import empty_cache
+        from ..model.llm.transformers.utils import empty_cache
 
         empty_cache()
 

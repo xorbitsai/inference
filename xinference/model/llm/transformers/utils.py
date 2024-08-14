@@ -40,7 +40,7 @@ from ....types import (
 )
 
 if TYPE_CHECKING:
-    from ...llm.pytorch.core import PytorchModel
+    from ...llm.transformers.core import PytorchModel
 
 
 logger = logging.getLogger(__name__)
