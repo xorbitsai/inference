@@ -18,6 +18,13 @@ export default function AuthAlertDialog() {
 
   const handleAuthStatus = () => {
     const status = localStorage.getItem('authStatus')
+    if (status === '401') {
+      removeCookie('token', { path: '/' })
+      localStorage.removeItem('authStatus')
+      sessionStorage.removeItem('token')
+      navigate('/login', { replace: true })
+      return
+    }
     if (status) {
       setAuthStatus(status)
     } else {
