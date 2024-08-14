@@ -415,7 +415,7 @@ class ModelActor(xo.StatelessActor):
                     ret = await asyncio.to_thread(fn, *args, **kwargs)
 
         if self._lock is not None and self._current_generator():
-            raise Exception("Parallel generation is not supported by ggml.")
+            raise Exception("Parallel generation is not supported by llama-cpp-python.")
 
         if inspect.isgenerator(ret):
             gen = self._to_generator(output_type, ret)

@@ -830,7 +830,7 @@ class WorkerActor(xo.StatelessActor):
                 raise ValueError(
                     f"PEFT adaptors cannot be applied to embedding or rerank models."
                 )
-            if model_type == "LLM" and model_format in ("ggufv2", "ggmlv3"):
+            if model_type == "LLM" and model_format in ("ggufv2",):
                 raise ValueError(
                     f"PEFT adaptors can only be applied to pytorch-like models"
                 )

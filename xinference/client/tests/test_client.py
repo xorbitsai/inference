@@ -93,7 +93,7 @@ def test_RESTful_client(setup):
         for _ in range(2):
             r = executor.submit(_check_stream)
             results.append(r)
-    # Parallel generation is not supported by ggml.
+    # Parallel generation is not supported by llama-cpp-python.
     error_count = 0
     for r in results:
         try:
@@ -173,34 +173,6 @@ def test_list_cached_models(setup):
     client = RESTfulClient(endpoint)
     res = client.list_cached_models()
     assert len(res) > 0
-
-
-@pytest.mark.skipif(os.name == "nt", reason="Skip windows")
-def test_list_deletable_models(setup):
-    endpoint, local_host = setup
-    client = RESTfulClient(endpoint)
-    response = client.list_deletable_models("orca--3B--ggmlv3--q4_0")
-    paths = response.get("paths", [])
-
-    expected_path = os.path.join(
-        os.environ["HOME"],
-        ".xinference",
-        "cache",
-        "orca-ggmlv3-3b",
-        "orca-mini-3b.ggmlv3.q4_0.bin",
-    )
-
-    normalized_expected_path = os.path.normpath(expected_path)
-
-    assert normalized_expected_path in paths
-
-
-@pytest.mark.skipif(os.name == "nt", reason="Skip windows")
-def test_remove_cached_models(setup):
-    endpoint, local_host = setup
-    client = RESTfulClient(endpoint)
-    responses = client.confirm_and_remove_model("orca--3B--ggmlv3--q4_0")
-    assert responses
 
 
 def test_RESTful_client_for_embedding(setup):

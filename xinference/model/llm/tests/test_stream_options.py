@@ -37,10 +37,9 @@ async def test_openai_stream_options_llamacpp_chatglm(setup):
     payload = {
         "model_uid": "test_restful_api",
         "model_engine": "llama.cpp",
-        "model_name": "chatglm3",
-        "model_size_in_billions": "6",
-        "quantization": "q4_0",
-        "model_format": "ggmlv3",
+        "model_name": "qwen1.5-chat",
+        "model_size_in_billions": "0_5",
+        "model_format": "ggufv2",
     }
 
     response = requests.post(url, json=payload)

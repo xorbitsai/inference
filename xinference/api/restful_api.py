@@ -1685,13 +1685,6 @@ class RESTfulAPI:
             ["gorilla-openfunctions-v1"] + QWEN_TOOL_CALL_FAMILY + GLM4_TOOL_CALL_FAMILY
         )
 
-        is_qwen = desc.get("model_format") == "ggmlv3" and "qwen-chat" == model_family
-
-        if is_qwen and system_prompt is not None:
-            raise HTTPException(
-                status_code=400, detail="Qwen ggml does not have system prompt"
-            )
-
         if model_family not in function_call_models:
             if body.tools:
                 raise HTTPException(
@@ -1722,18 +1715,13 @@ class RESTfulAPI:
                 iterator = None
                 try:
                     try:
-                        if is_qwen:
-                            iterator = await model.chat(
-                                prompt, chat_history, kwargs, raw_params=raw_kwargs
-                            )
-                        else:
-                            iterator = await model.chat(
-                                prompt,
-                                system_prompt,
-                                chat_history,
-                                kwargs,
-                                raw_params=raw_kwargs,
-                            )
+                        iterator = await model.chat(
+                            prompt,
+                            system_prompt,
+                            chat_history,
+                            kwargs,
+                            raw_params=raw_kwargs,
+                        )
                     except RuntimeError as re:
                         await self._report_error_event(model_uid, str(re))
                         self.handle_request_limit_error(re)
@@ -1761,18 +1749,13 @@ class RESTfulAPI:
             return EventSourceResponse(stream_results())
         else:
             try:
-                if is_qwen:
-                    data = await model.chat(
-                        prompt, chat_history, kwargs, raw_params=raw_kwargs
-                    )
-                else:
-                    data = await model.chat(
-                        prompt,
-                        system_prompt,
-                        chat_history,
-                        kwargs,
-                        raw_params=raw_kwargs,
-                    )
+                data = await model.chat(
+                    prompt,
+                    system_prompt,
+                    chat_history,
+                    kwargs,
+                    raw_params=raw_kwargs,
+                )
                 return Response(content=data, media_type="application/json")
             except Exception as e:
                 logger.error(e, exc_info=True)

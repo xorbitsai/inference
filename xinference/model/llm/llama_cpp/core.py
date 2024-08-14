@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import datetime
 import logging
 import os
 import time
@@ -104,35 +103,6 @@ class LlamaCppModel(LLM):
         generate_config.pop("lora_name", None)  # type: ignore
         return generate_config
 
-    def _convert_ggml_to_gguf(self, model_path: str) -> str:
-        from .tools import convert
-
-        root_dir = os.path.dirname(os.path.dirname(model_path))
-        gguf_dir = os.path.join(
-            root_dir,
-            "{}-ggufv2-{}b".format(
-                self.model_family.model_name, self.model_spec.model_size_in_billions
-            ),
-        )
-        os.makedirs(gguf_dir, exist_ok=True)
-        gguf_path = os.path.join(
-            gguf_dir,
-            "{}.{}.ggufv2".format(self.model_family.model_name, self.quantization),
-        )
-        # trick for validation, use a mark file to make sure the gguf file is converted
-        mark_file = os.path.join(gguf_dir, f"__valid_{self.quantization}")
-        if os.path.exists(mark_file):
-            return gguf_path
-        else:
-            logger.warning(
-                "You are using a model with ggmlv3, "
-                "and it will take some time to convert to ggufv2"
-            )
-            convert(model_path, gguf_path)
-            with open(mark_file, "w") as f:
-                f.write(str(datetime.datetime.now()))
-            return gguf_path
-
     def load(self):
         try:
             import llama_cpp
@@ -167,9 +137,6 @@ class LlamaCppModel(LLM):
         if os.path.exists(legacy_model_file_path):
             model_path = legacy_model_file_path
 
-        if self.model_spec.model_format == "ggmlv3":
-            model_path = self._convert_ggml_to_gguf(model_path)
-
         try:
             self._llm = Llama(
                 model_path=model_path,
@@ -183,7 +150,7 @@ class LlamaCppModel(LLM):
     def match(
         cls, llm_family: LLMFamilyV1, llm_spec: LLMSpecV1, quantization: str
     ) -> bool:
-        if llm_spec.model_format not in ["ggmlv3", "ggufv2"]:
+        if llm_spec.model_format not in ["ggufv2"]:
             return False
         if "qwen" in llm_family.model_name:
             return False
@@ -285,7 +252,7 @@ class LlamaCppChatModel(LlamaCppModel, ChatModelMixin):
     def match(
         cls, llm_family: LLMFamilyV1, llm_spec: LLMSpecV1, quantization: str
     ) -> bool:
-        if llm_spec.model_format not in ["ggmlv3", "ggufv2"]:
+        if llm_spec.model_format not in ["ggufv2"]:
             return False
         if "chat" not in llm_family.model_ability:
             return False

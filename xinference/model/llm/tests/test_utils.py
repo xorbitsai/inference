@@ -46,36 +46,6 @@ def test_prompt_style_add_colon_single():
     )
 
 
-def test_prompt_style_add_colon_two():
-    prompt_style = PromptStyleV1(
-        style_name="ADD_COLON_TWO",
-        system_prompt=(
-            "A chat between a curious user and an artificial intelligence assistant. The "
-            "assistant gives helpful, detailed, and polite answers to the user's questions."
-        ),
-        roles=["USER", "ASSISTANT"],
-        intra_message_sep=" ",
-        inter_message_sep="</s>",
-    )
-    chat_history = [
-        ChatCompletionMessage(role=prompt_style.roles[0], content="Hi there."),
-        ChatCompletionMessage(
-            role=prompt_style.roles[1], content="Hello, how may I help you?"
-        ),
-    ]
-    expected = (
-        "A chat between a curious user and an artificial intelligence assistant. The "
-        "assistant gives helpful, detailed, and polite answers to the user's questions. "
-        "USER: Hi there. "
-        "ASSISTANT: Hello, how may I help you?</s>"
-        "USER: Write a poem. "
-        "ASSISTANT:"
-    )
-    assert expected == ChatModelMixin.get_prompt(
-        "Write a poem.", chat_history, prompt_style
-    )
-
-
 def test_prompt_style_no_colon_two():
     prompt_style = PromptStyleV1(
         style_name="NO_COLON_TWO",
@@ -176,82 +146,6 @@ def test_prompt_style_llama3():
         "<|start_header_id|>assistant<|end_header_id|>\n\nHello, how may I help you?<|eot_id|>"
         "<|start_header_id|>user<|end_header_id|>\n\nWrite a poem.<|eot_id|>"
         "<|start_header_id|>assistant<|end_header_id|>\n\n"
-    )
-    assert expected == ChatModelMixin.get_prompt(
-        "Write a poem.", chat_history, prompt_style
-    )
-
-
-def test_prompt_style_falcon():
-    prompt_style = PromptStyleV1(
-        style_name="FALCON",
-        system_prompt="",
-        roles=["User", "Assistant"],
-        intra_message_sep="\n",
-        inter_message_sep="<|endoftext|>",
-        stop=["\nUser"],
-        stop_token_ids=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
-    )
-    chat_history = [
-        ChatCompletionMessage(role=prompt_style.roles[0], content="Hi there."),
-        ChatCompletionMessage(
-            role=prompt_style.roles[1], content="Hello, how may I help you?"
-        ),
-    ]
-    expected = (
-        "User: Hi there.\n\n"
-        "Assistant: Hello, how may I help you?\n\n"
-        "User: Write a poem.\n\n"
-        "Assistant:"
-    )
-
-    assert expected == ChatModelMixin.get_prompt(
-        "Write a poem.", chat_history, prompt_style
-    )
-
-
-def test_prompt_style_chatglm_v1():
-    prompt_style = PromptStyleV1(
-        style_name="CHATGLM",
-        system_prompt="",
-        roles=["问", "答"],
-        intra_message_sep="\n",
-    )
-    chat_history = [
-        ChatCompletionMessage(role=prompt_style.roles[0], content="Hi there."),
-        ChatCompletionMessage(
-            role=prompt_style.roles[1], content="Hello, how may I help you?"
-        ),
-    ]
-    expected = (
-        "[Round 0]\n问：Hi there.\n"
-        "答：Hello, how may I help you?\n"
-        "[Round 1]\n问：Write a poem.\n"
-        "答："
-    )
-    assert expected == ChatModelMixin.get_prompt(
-        "Write a poem.", chat_history, prompt_style
-    )
-
-
-def test_prompt_style_chatglm_v2():
-    prompt_style = PromptStyleV1(
-        style_name="CHATGLM",
-        system_prompt="",
-        roles=["问", "答"],
-        intra_message_sep="\n\n",
-    )
-    chat_history = [
-        ChatCompletionMessage(role=prompt_style.roles[0], content="Hi there."),
-        ChatCompletionMessage(
-            role=prompt_style.roles[1], content="Hello, how may I help you?"
-        ),
-    ]
-    expected = (
-        "[Round 1]\n\n问：Hi there.\n\n"
-        "答：Hello, how may I help you?\n\n"
-        "[Round 2]\n\n问：Write a poem.\n\n"
-        "答："
     )
     assert expected == ChatModelMixin.get_prompt(
         "Write a poem.", chat_history, prompt_style

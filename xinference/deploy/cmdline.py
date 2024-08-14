@@ -750,7 +750,7 @@ def remove_cache(
     "-f",
     default=None,
     type=str,
-    help="Specify the format of the model, e.g. pytorch, ggmlv3, etc.",
+    help="Specify the format of the model, e.g. pytorch, ggufv2, etc.",
 )
 @click.option(
     "--quantization",
@@ -1516,7 +1516,7 @@ def query_engine_by_model_name(
     "-f",
     type=str,
     required=True,
-    help="Specify the format of the model, e.g. pytorch, ggmlv3, etc.",
+    help="Specify the format of the model, e.g. pytorch, ggufv2, etc.",
 )
 @click.option(
     "--quantization",

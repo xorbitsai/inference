@@ -47,15 +47,6 @@ from .utils import get_context_length, get_max_src_len, pad_prefill_tokens
 logger = logging.getLogger(__name__)
 
 NON_DEFAULT_MODEL_LIST: List[str] = [
-    "baichuan-chat",
-    "baichuan-2-chat",
-    "vicuna-v1.3",
-    "falcon",
-    "falcon-instruct",
-    "chatglm",
-    "chatglm2",
-    "chatglm2-32k",
-    "chatglm2-128k",
     "chatglm3",
     "chatglm3-32k",
     "chatglm3-128k",
