@@ -59,6 +59,7 @@ class ChatTTSModel:
         response_format: str = "mp3",
         speed: float = 1.0,
         stream: bool = False,
+        speaker: str = "",
     ):
         import ChatTTS
         import numpy as np
@@ -66,19 +67,10 @@ class ChatTTSModel:
         import torchaudio
         import xxhash
 
-        try:
-            seed_id = int(voice)
-            if not self._speakers:
-                npzfiles = np.load(EVAL_RESULTS_FILE)
-                self._speakers = dict(zip(npzfiles["seed_id"], npzfiles["emb_data"]))
-            arr = self._speakers[seed_id]
-            tensor = torch.Tensor(arr)
-            assert self._model is not None
-            rnd_spk_emb = self._model._encode_spk_emb(tensor)
-            logger.info("Speech by eval speaker %s", seed_id)
-        except (KeyError, ValueError) as e:
-            if isinstance(e, KeyError):
-                logger.info("Unrecognised speaker id %s, fallback to random.", voice)
+        if speaker:
+            rnd_spk_emb = speaker
+            logger.info("Speech by input speaker")
+        else:
             seed = xxhash.xxh32_intdigest(voice)
 
             torch.manual_seed(seed)
