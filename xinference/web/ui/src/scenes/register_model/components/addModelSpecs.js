@@ -98,9 +98,7 @@ const AddModelSpecs = ({
       let handleQuantization = quantizations
       if (modelFormat === 'pytorch') {
         handleQuantization = ['none']
-      } else if (
-        handleQuantization[0] === '' && modelFormat === 'ggufv2'
-      ) {
+      } else if (handleQuantization[0] === '' && modelFormat === 'ggufv2') {
         handleQuantization = ['default']
       }
 
@@ -138,9 +136,7 @@ const AddModelSpecs = ({
   const handleUpdateSpecsArr = (index, type, newValue) => {
     if (type === 'model_format') {
       const subPathArr = [...pathArr]
-      if (
-        specsArr[index].model_format !== 'ggufv2'
-      ) {
+      if (specsArr[index].model_format !== 'ggufv2') {
         pathArr[index] = specsArr[index].model_uri
       } else {
         pathArr[index] =
@@ -182,9 +178,7 @@ const AddModelSpecs = ({
             const subPathArr = [...pathArr]
             subPathArr[index] = newValue
             setPathArr(subPathArr)
-            if (
-              item.model_format === 'ggufv2'
-            ) {
+            if (item.model_format === 'ggufv2') {
               const { baseDir, filename } = getPathComponents(newValue)
               const obj = {
                 ...item,
