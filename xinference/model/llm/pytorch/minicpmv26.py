@@ -21,7 +21,6 @@ from typing import Dict, Iterator, List, Optional, Union
 
 import requests
 import torch
-from decord import VideoReader, cpu
 from PIL import Image
 
 from ....types import (
@@ -127,6 +126,7 @@ class MiniCPMV26Model(PytorchChatModel):
         MAX_NUM_FRAMES = 64
 
         def encode_video(video_path):
+            from decord import VideoReader, cpu
             def uniform_sample(l, n):
                 gap = len(l) / n
                 idxs = [int(i * gap + gap / 2) for i in range(n)]
