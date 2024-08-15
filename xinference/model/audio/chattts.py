@@ -14,9 +14,11 @@
 import logging
 import os.path
 from io import BytesIO
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Dict, Optional
 
 if TYPE_CHECKING:
+    import numpy as np
+
     from .core import AudioModelFamilyV1
 
 logger = logging.getLogger(__name__)
@@ -38,7 +40,7 @@ class ChatTTSModel:
         self._device = device
         self._model = None
         self._kwargs = kwargs
-        self._speakers = {}
+        self._speakers: Dict[int, np.array] = {}
 
     def load(self):
         import ChatTTS
