@@ -12,17 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import logging
-import os.path
 from io import BytesIO
-from typing import TYPE_CHECKING, Dict, Optional
+from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
-    import numpy as np
-
     from .core import AudioModelFamilyV1
 
 logger = logging.getLogger(__name__)
-EVAL_RESULTS_FILE = os.path.join(os.path.dirname(__file__), "evaluation_results.npz")
 
 
 class ChatTTSModel:
@@ -40,7 +36,6 @@ class ChatTTSModel:
         self._device = device
         self._model = None
         self._kwargs = kwargs
-        self._speakers: Dict[int, np.array] = {}
 
     def load(self):
         import ChatTTS
