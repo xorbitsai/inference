@@ -870,7 +870,7 @@ def get_file_location(
         is_cached = cache_status
     assert isinstance(is_cached, bool)
 
-    if spec.model_format in ["pytorch", "gptq", "awq", "mlx"]:
+    if spec.model_format in ["pytorch", "gptq", "awq", "fp8", "mlx"]:
         return cache_dir, is_cached
     elif spec.model_format in ["ggmlv3", "ggufv2"]:
         assert isinstance(spec, GgmlLLMSpecV1)
