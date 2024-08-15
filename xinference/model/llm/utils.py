@@ -510,14 +510,14 @@ Begin!"""
                     ret += role
             return ret
         elif prompt_style.style_name == "INTERNVL":
-            ret = []
-            images = []
+            ret = []  # type: ignore
+            images = []  # type: ignore
             for message in chat_history:
                 role = get_role(message["role"])
                 content = message["content"]
                 if isinstance(content, str):
-                    ret.append(message)
-                else:
+                    ret.append(message)  # type: ignore
+                elif isinstance(content, list):
                     text = ""
                     image_urls = []
                     for c in content:
