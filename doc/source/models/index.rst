@@ -64,6 +64,12 @@ The following ``MODEL_TYPE`` is supported by Xinference:
 
       Rerank models
 
+    .. grid-item-card::  video
+      :link: models_video_index
+      :link-type: ref
+
+      Video models
+
 
 
 You can see all the built-in models supported by xinference :ref:`here <models_builtin_index>`. If the model 
@@ -207,6 +213,12 @@ Model Usage
       :link-type: ref
 
       Learn how to turn audio into text or text into audio with Xinference.
+
+    .. grid-item-card::  Video
+      :link: video
+      :link-type: ref
+
+      Learn how to generate video with Xinference.
 
 
 .. toctree::
