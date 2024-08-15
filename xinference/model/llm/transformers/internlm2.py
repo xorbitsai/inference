@@ -85,14 +85,10 @@ class Internlm2PytorchChatModel(PytorchChatModel):
     def match(
         cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
-        if llm_spec.model_format != "pytorch":
-            return False
         model_family = llm_family.model_family or llm_family.model_name
-        if model_family != "internlm2-chat":
-            return False
-        if "chat" not in llm_family.model_ability:
-            return False
-        return True
+        if model_family in ["internlm2-chat", "internlm2.5-chat"]:
+            return True
+        return False
 
     def prepare_sanitize_generate_config(self, req: InferenceRequest):
         """
@@ -153,7 +149,7 @@ class Internlm2PytorchChatModel(PytorchChatModel):
                 inputs = inputs.to(self._model.device)
                 prompt_tokens = len(inputs["input_ids"][0])
                 for chunk_text, _ in self._model.stream_chat(
-                    self._tokenizer, prompt, chat_history, **kwargs
+                    self._tokenizer, prompt, input_history, **kwargs
                 ):
                     completion_tokens = completion_tokens + 1
                     total_tokens = prompt_tokens + completion_tokens
