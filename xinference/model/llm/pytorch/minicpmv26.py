@@ -127,6 +127,7 @@ class MiniCPMV26Model(PytorchChatModel):
 
         def encode_video(video_path):
             from decord import VideoReader, cpu
+
             def uniform_sample(l, n):
                 gap = len(l) / n
                 idxs = [int(i * gap + gap / 2) for i in range(n)]
