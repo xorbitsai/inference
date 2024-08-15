@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import logging
+import os.path
 from io import BytesIO
 from typing import TYPE_CHECKING, Optional
 
@@ -19,6 +20,7 @@ if TYPE_CHECKING:
     from .core import AudioModelFamilyV1
 
 logger = logging.getLogger(__name__)
+EVAL_RESULTS_FILE = os.path.join(os.path.dirname(__file__), "evaluation_results.npz")
 
 
 class ChatTTSModel:
@@ -36,6 +38,7 @@ class ChatTTSModel:
         self._device = device
         self._model = None
         self._kwargs = kwargs
+        self._speakers = {}
 
     def load(self):
         import ChatTTS
@@ -61,16 +64,30 @@ class ChatTTSModel:
         import torchaudio
         import xxhash
 
-        seed = xxhash.xxh32_intdigest(voice)
+        try:
+            seed_id = int(voice)
+            if not self._speakers:
+                npzfiles = np.load(EVAL_RESULTS_FILE)
+                self._speakers = dict(zip(npzfiles["seed_id"], npzfiles["emb_data"]))
+            arr = self._speakers[seed_id]
+            tensor = torch.Tensor(arr)
+            assert self._model is not None
+            rnd_spk_emb = self._model._encode_spk_emb(tensor)
+            logger.info("Speech by eval speaker %s", seed_id)
+        except (KeyError, ValueError) as e:
+            if isinstance(e, KeyError):
+                logger.info("Unrecognised speaker id %s, fallback to random.", voice)
+            seed = xxhash.xxh32_intdigest(voice)
 
-        torch.manual_seed(seed)
-        np.random.seed(seed)
-        torch.cuda.manual_seed(seed)
-        torch.backends.cudnn.deterministic = True
-        torch.backends.cudnn.benchmark = False
+            torch.manual_seed(seed)
+            np.random.seed(seed)
+            torch.cuda.manual_seed(seed)
+            torch.backends.cudnn.deterministic = True
+            torch.backends.cudnn.benchmark = False
 
-        assert self._model is not None
-        rnd_spk_emb = self._model.sample_random_speaker()
+            assert self._model is not None
+            rnd_spk_emb = self._model.sample_random_speaker()
+            logger.info("Speech by speaker %s", voice)
 
         default = 5
         infer_speed = int(default * speed)

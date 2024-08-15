@@ -11,9 +11,15 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import base64
 import inspect
+import io
 import os
 import tempfile
+
+import numpy as np
+import pandas as pd
+import torch
 
 
 def test_chattts(setup):
@@ -53,3 +59,26 @@ def test_chattts(setup):
         with tempfile.NamedTemporaryFile(suffix=".mp3", delete=True) as f:
             response.stream_to_file(f.name)
             assert os.stat(f.name).st_size > 0
+
+
+def test_gen_evaluation_results():
+    out = os.path.join(os.path.dirname(__file__), "../evaluation_results.npz")
+    df = pd.read_csv(
+        "https://raw.githubusercontent.com/6drf21e/ChatTTS_Speaker/main/evaluation_results.csv"
+    )
+
+    def _f(x):
+        b = base64.b64decode(x)
+        bio = io.BytesIO(b)
+        t = torch.load(bio, map_location="cpu")
+        return t.detach().tolist()
+
+    arr1 = np.array(df["seed_id"].apply(lambda x: int(x.split("_")[1])), dtype=np.int16)
+    arr2 = np.array(df["emb_data"].apply(_f).tolist(), dtype=np.float16)
+
+    with open(out, "wb") as f:
+        np.savez_compressed(f, seed_id=arr1, emb_data=arr2)
+
+    npzfiles = np.load(out)
+    assert npzfiles["seed_id"].shape == (2646,)
+    assert npzfiles["emb_data"].shape == (2646, 768)
