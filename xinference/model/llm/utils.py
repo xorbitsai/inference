@@ -11,13 +11,18 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import base64
 import functools
 import json
 import logging
 import os
 import time
 import uuid
+from io import BytesIO
 from typing import AsyncGenerator, Dict, Iterator, List, Optional, Tuple, cast
+
+import requests
+from PIL import Image
 
 from ...types import (
     SPECIAL_TOOL_PROMPT,
@@ -60,7 +65,7 @@ class ChatModelMixin:
         chat_history: List[ChatCompletionMessage],
         prompt_style: PromptStyleV1,
         tools: Optional[List[Dict]] = None,
-    ) -> str:
+    ):
         """
         Inspired by FastChat. Format chat history into a prompt according to the prompty style of
         different models.
@@ -504,6 +509,37 @@ Begin!"""
                 else:
                     ret += role
             return ret
+        elif prompt_style.style_name == "INTERNVL":
+            ret = []
+            images = []
+            for message in chat_history:
+                role = get_role(message["role"])
+                content = message["content"]
+                if isinstance(content, str):
+                    ret.append(message)
+                else:
+                    text = ""
+                    image_urls = []
+                    for c in content:
+                        c_type = c.get("type")
+                        if c_type == "text":
+                            text = c["text"]
+                        elif c_type == "image_url":
+                            image_urls.append(c["image_url"]["url"])
+                    image_futures = []
+                    from concurrent.futures import ThreadPoolExecutor
+
+                    with ThreadPoolExecutor() as executor:
+                        for image_url in image_urls:
+                            fut = executor.submit(_decode_image, image_url)
+                            image_futures.append(fut)
+                    images = [fut.result() for fut in image_futures]
+                    if len(image_futures) == 0:
+                        msg = {"role": role, "content": text}
+                    else:
+                        msg = {"role": role, "content": f"<image>\n{text}"}
+                    ret.append(msg)
+            return (ret, images)
         else:
             raise ValueError(f"Invalid prompt style: {prompt_style.style_name}")
 
@@ -885,3 +921,22 @@ def get_model_version(
     llm_family: LLMFamilyV1, llm_spec: LLMSpecV1, quantization: str
 ) -> str:
     return f"{llm_family.model_name}--{llm_spec.model_size_in_billions}B--{llm_spec.model_format}--{quantization}"
+
+
+def _decode_image(_url):
+    if _url.startswith("data:"):
+        logging.info("Parse url by base64 decoder.")
+        # https://platform.openai.com/docs/guides/vision/uploading-base-64-encoded-images
+        # e.g. f"data:image/jpeg;base64,{base64_image}"
+        _type, data = _url.split(";")
+        _, ext = _type.split("/")
+        data = data[len("base64,") :]
+        data = base64.b64decode(data.encode("utf-8"))
+        return Image.open(BytesIO(data)).convert("RGB")
+    else:
+        try:
+            response = requests.get(_url)
+        except requests.exceptions.MissingSchema:
+            return Image.open(_url).convert("RGB")
+        else:
+            return Image.open(BytesIO(response.content)).convert("RGB")

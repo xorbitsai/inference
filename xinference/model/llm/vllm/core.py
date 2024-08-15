@@ -19,6 +19,7 @@ import time
 import uuid
 from typing import (
     TYPE_CHECKING,
+    Any,
     AsyncGenerator,
     Dict,
     Iterable,
@@ -27,6 +28,8 @@ from typing import (
     TypedDict,
     Union,
 )
+
+from transformers import AutoTokenizer
 
 from ....types import (
     ChatCompletion,
@@ -86,6 +89,9 @@ try:
 except ImportError:
     VLLM_INSTALLED = False
 
+VLLM_SUPPORTED_VISION_MODEL_LIST: List[str] = [
+    "internvl2",
+]
 VLLM_SUPPORTED_MODELS = [
     "llama-2",
     "llama-3",
@@ -158,6 +164,7 @@ if VLLM_INSTALLED and vllm.__version__ >= "0.5.3":
 if VLLM_INSTALLED and vllm.__version__ > "0.5.3":
     VLLM_SUPPORTED_MODELS.append("llama-3.1")
     VLLM_SUPPORTED_CHAT_MODELS.append("llama-3.1-instruct")
+    VLLM_SUPPORTED_CHAT_MODELS.append("internvl2")
 
 
 class VLLMModel(LLM):
@@ -383,7 +390,7 @@ class VLLMModel(LLM):
 
     async def async_generate(
         self,
-        prompt: str,
+        prompt: str | Dict[str, Any],
         generate_config: Optional[Dict] = None,
         tools: object = False,
     ) -> Union[Completion, AsyncGenerator[CompletionChunk, None]]:
@@ -520,6 +527,11 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
     def match(
         cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
+        if (
+            llm_family.model_name in VLLM_SUPPORTED_VISION_MODEL_LIST
+            or llm_family.model_family in VLLM_SUPPORTED_VISION_MODEL_LIST
+        ):
+            return False
         if llm_spec.model_format not in ["pytorch", "gptq", "awq"]:
             return False
         if llm_spec.model_format == "pytorch":
@@ -605,4 +617,134 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
                 return self._tool_calls_completion(
                     self.model_family, self.model_uid, c, tools
                 )
+            return self._to_chat_completion(c)
+
+
+class VLLMVisionModel(VLLMModel, ChatModelMixin):
+    def __init__(
+        self,
+        model_uid: str,
+        model_family: "LLMFamilyV1",
+        model_spec: "LLMSpecV1",
+        quantization: str,
+        model_path: str,
+        model_config: Optional[VLLMModelConfig],
+        peft_model: Optional[List[LoRA]] = None,
+    ):
+        super().__init__(
+            model_uid,
+            model_family,
+            model_spec,
+            quantization,
+            model_path,
+            model_config,
+            peft_model,
+        )
+        self._tokenizer = None
+
+    def load(self):
+        try:
+            import vllm
+            from vllm.engine.arg_utils import AsyncEngineArgs
+            from vllm.engine.async_llm_engine import AsyncLLMEngine
+        except ImportError:
+            error_message = "Failed to import module 'vllm'"
+            installation_guide = [
+                "Please make sure 'vllm' is installed. ",
+                "You can install it by `pip install vllm`\n",
+            ]
+
+            raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
+
+        if vllm.__version__ >= "0.3.1":
+            # from vllm v0.3.1, it uses cupy as NCCL backend
+            # in which cupy will fork a process
+            # only for xoscar >= 0.3.0, new process is allowed in subpool
+            # besides, xinference set start method as forkserver for unix
+            # we need to set it to fork to make cupy NCCL work
+            multiprocessing.set_start_method("fork", force=True)
+
+        self._model_config = self._sanitize_model_config(self._model_config)
+
+        logger.info(
+            f"Loading {self.model_uid} with following model config: {self._model_config}"
+        )
+
+        engine_args = AsyncEngineArgs(
+            model=self.model_path,
+            **self._model_config,
+        )
+        self._engine = AsyncLLMEngine.from_engine_args(engine_args)
+        self._tokenizer = AutoTokenizer.from_pretrained(
+            self.model_path, trust_remote_code=True
+        )
+
+    @classmethod
+    def match(
+        cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
+    ) -> bool:
+        if llm_spec.model_format != "pytorch":
+            return False
+        if llm_spec.model_format == "pytorch":
+            if quantization != "none" and not (quantization is None):
+                return False
+        if isinstance(llm_family, CustomLLMFamilyV1):
+            if llm_family.model_family not in VLLM_SUPPORTED_VISION_MODEL_LIST:
+                return False
+        else:
+            if llm_family.model_name not in VLLM_SUPPORTED_VISION_MODEL_LIST:
+                return False
+        if "chat" not in llm_family.model_ability:
+            return False
+        return VLLM_INSTALLED
+
+    def _sanitize_chat_config(
+        self,
+        generate_config: Optional[Dict] = None,
+    ) -> Dict:
+        if not generate_config:
+            generate_config = {}
+        if self.model_family.prompt_style:
+            if self.model_family.prompt_style.stop_token_ids:
+                generate_config.setdefault(
+                    "stop_token_ids",
+                    self.model_family.prompt_style.stop_token_ids.copy(),
+                )
+        return generate_config
+
+    async def async_chat(
+        self,
+        prompt: str,
+        system_prompt: Optional[str] = None,
+        chat_history: Optional[List[ChatCompletionMessage]] = None,
+        generate_config: Optional[Dict] = None,
+    ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
+        # only support single image, waiting vllm support multi images
+        assert self.model_family.prompt_style is not None
+        prompt_style = self.model_family.prompt_style.copy()
+        chat_history = chat_history or []
+        messages, images = self.get_prompt(prompt, chat_history, prompt_style)
+        prompt = self._tokenizer.apply_chat_template(  # type: ignore
+            messages, tokenize=False, add_generation_prompt=True
+        )
+        if len(images) == 0:
+            inputs = {
+                "prompt": prompt,
+            }
+        else:
+            inputs = {
+                "prompt": prompt,
+                "multi_modal_data": {"image": images[-1]},  # type: ignore
+            }
+        generate_config = self._sanitize_chat_config(generate_config)
+
+        stream = generate_config.get("stream", None)
+
+        if stream:
+            agen = await self.async_generate(inputs, generate_config)
+            assert isinstance(agen, AsyncGenerator)
+            return self._async_to_chat_completion_chunks(agen)
+        else:
+            c = await self.async_generate(inputs, generate_config)
+            assert not isinstance(c, AsyncGenerator)
             return self._to_chat_completion(c)

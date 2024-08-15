@@ -782,29 +782,3 @@ def batch_inference_one_step(
         for r in req_list:
             r.stopped = True
             r.error_msg = str(e)
-
-
-def _decode_image(_url):
-    import base64
-    from io import BytesIO
-
-    import requests
-    from PIL import Image
-
-    if _url.startswith("data:"):
-        logging.info("Parse url by base64 decoder.")
-        # https://platform.openai.com/docs/guides/vision/uploading-base-64-encoded-images
-        # e.g. f"data:image/jpeg;base64,{base64_image}"
-        _type, data = _url.split(";")
-        _, ext = _type.split("/")
-        data = data[len("base64,") :]
-        data = base64.b64decode(data.encode("utf-8"))
-
-        return Image.open(BytesIO(data))
-    else:
-        try:
-            response = requests.get(_url)
-        except requests.exceptions.MissingSchema:
-            return Image.open(_url)
-        else:
-            return Image.open(BytesIO(response.content))

@@ -7903,11 +7903,11 @@
         }
     ],
     "prompt_style": {
-        "style_name": "internlm2-chat",
+        "style_name": "INTERNVL",
         "system_prompt": "You are InternLM (书生·浦语), a helpful, honest, and harmless AI assistant developed by Shanghai AI Laboratory (上海人工智能实验室).",
         "roles": [
-            "<|im_start|>user\n",
-            "<|im_start|>assistant\n"
+            "<|im_start|>user",
+            "<|im_start|>assistant"
         ],
         "intra_message_sep": "<|im_end|>",
         "stop_token_ids": [
@@ -7959,6 +7959,15 @@
           "model_revision": "422ad7c6335917bfb514958233955512338485a6"
         },
         {
+          "model_format": "awq",
+          "model_size_in_billions": 2,
+          "quantizations": [
+            "Int4"
+          ],
+          "model_id": "OpenGVLab/InternVL2-2B-AWQ",
+          "model_revision": "701bc3fc098a8a3b686b3b4135cfb77202be89e0"
+        },
+        {
           "model_format": "pytorch",
           "model_size_in_billions": 4,
           "quantizations": [
@@ -7968,6 +7977,15 @@
           ],
           "model_id": "OpenGVLab/InternVL2-4B",
           "model_revision": "b50544dafada6c41e80bfde2f57cc9b0140fc21c"
+        },
+        {
+          "model_format": "awq",
+          "model_size_in_billions": 4,
+          "quantizations": [
+            "Int4"
+          ],
+          "model_id": "OpenGVLab/InternVL2-8B-AWQ",
+          "model_revision": "9f1a4756b7ae18eb26d8a22b618dfc283e8193b3"
         },
         {
           "model_format": "pytorch",
@@ -7992,6 +8010,15 @@
           "model_revision": "b9f3c7e6d575b0115e076a3ffc46fd20b7586899"
         },
         {
+          "model_format": "awq",
+          "model_size_in_billions": 26,
+          "quantizations": [
+            "Int4"
+          ],
+          "model_id": "OpenGVLab/InternVL2-26B-AWQ",
+          "model_revision": "469e0019ffd251e22ff6501a5c2321964e86ef0d"
+        },
+        {
           "model_format": "pytorch",
           "model_size_in_billions": 40,
           "quantizations": [
@@ -8003,6 +8030,15 @@
           "model_revision": "725a12063bb855c966e30a0617d0ccd9e870d772"
         },
         {
+          "model_format": "awq",
+          "model_size_in_billions": 40,
+          "quantizations": [
+            "Int4"
+          ],
+          "model_id": "OpenGVLab/InternVL2-40B-AWQ",
+          "model_revision": "d92e140f6dfe8ea9679924c6a31898f42c4e1846"
+        },
+        {
           "model_format": "pytorch",
           "model_size_in_billions": 76,
           "quantizations": [
@@ -8012,14 +8048,23 @@
           ],
           "model_id": "OpenGVLab/InternVL2-Llama3-76B",
           "model_revision": "cf7914905f78e9e3560ddbd6f5dfc39becac494f"
+        },
+        {
+          "model_format": "awq",
+          "model_size_in_billions": 76,
+          "quantizations": [
+            "Int4"
+          ],
+          "model_id": "OpenGVLab/InternVL2-Llama3-76B-AWQ",
+          "model_revision": "1bc796bf80f2ebc7d6a14c15f55217a4600d50a4"
         }
     ],
     "prompt_style": {
-        "style_name": "internlm2-chat",
+        "style_name": "INTERNVL",
         "system_prompt": "You are InternLM (书生·浦语), a helpful, honest, and harmless AI assistant developed by Shanghai AI Laboratory (上海人工智能实验室).",
         "roles": [
-            "<|im_start|>user\n",
-            "<|im_start|>assistant\n"
+            "<|im_start|>user",
+            "<|im_start|>assistant"
         ],
         "intra_message_sep": "<|im_end|>",
         "stop_token_ids": [

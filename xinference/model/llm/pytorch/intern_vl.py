@@ -29,8 +29,8 @@ from ....types import (
     CompletionUsage,
 )
 from ..llm_family import LLMFamilyV1, LLMSpecV1
+from ..utils import _decode_image
 from .core import PytorchChatModel, PytorchGenerateConfig
-from .utils import _decode_image
 
 logger = logging.getLogger(__name__)
 
@@ -185,9 +185,11 @@ class InternVLChatModel(PytorchChatModel):
         cls, model_family: "LLMFamilyV1", model_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         family = model_family.model_family or model_family.model_name
-        if "internvl" in family.lower():
-            return True
-        return False
+        if "internvl" not in family.lower():
+            return False
+        if "pytorch" not in model_spec.model_format:
+            return False
+        return True
 
     def _get_model_class(self):
         from transformers import AutoModel
@@ -348,6 +350,8 @@ class InternVLChatModel(PytorchChatModel):
             history=history,
             return_history=False,
         )
+        prompt_tokens = self._get_input_tokens(content, history, num_patches_list)
+        completion_tokens = self._get_output_tokens(response)
         chunk = Completion(
             id=str(uuid.uuid1()),
             object="text_completion",
@@ -359,7 +363,9 @@ class InternVLChatModel(PytorchChatModel):
                 )
             ],
             usage=CompletionUsage(
-                prompt_tokens=-1, completion_tokens=-1, total_tokens=-1
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                total_tokens=prompt_tokens + completion_tokens,
             ),
         )
         return chunk
@@ -469,6 +475,9 @@ class InternVLChatModel(PytorchChatModel):
             )
             query = query.replace("<image>", image_tokens, 1)
 
-        model_inputs = self._tokenizer(query, return_tensors="pt")
-        input_ids = model_inputs["input_ids"].cuda()
-        return len(input_ids)
+        model_inputs = self._tokenizer.encode(query, return_tensors="pt")
+        return len(model_inputs[0])
+
+    def _get_output_tokens(self, response):
+        output_ids = self._tokenizer.encode(response, return_tensors="pt")
+        return len(output_ids[0])

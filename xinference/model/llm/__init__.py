@@ -129,7 +129,7 @@ def _install():
     from .pytorch.vicuna import VicunaPytorchChatModel
     from .pytorch.yi_vl import YiVLChatModel
     from .sglang.core import SGLANGChatModel, SGLANGModel
-    from .vllm.core import VLLMChatModel, VLLMModel
+    from .vllm.core import VLLMChatModel, VLLMModel, VLLMVisionModel
 
     try:
         from .pytorch.omnilmm import OmniLMMModel
@@ -147,7 +147,7 @@ def _install():
         ]
     )
     SGLANG_CLASSES.extend([SGLANGModel, SGLANGChatModel])
-    VLLM_CLASSES.extend([VLLMModel, VLLMChatModel])
+    VLLM_CLASSES.extend([VLLMModel, VLLMChatModel, VLLMVisionModel])
     MLX_CLASSES.extend([MLXModel, MLXChatModel])
     TRANSFORMERS_CLASSES.extend(
         [
