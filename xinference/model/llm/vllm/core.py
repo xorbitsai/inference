@@ -390,7 +390,7 @@ class VLLMModel(LLM):
 
     async def async_generate(
         self,
-        prompt: str | Dict[str, Any],
+        prompt: Union[str, Dict[str, Any]],
         generate_config: Optional[Dict] = None,
         tools: object = False,
     ) -> Union[Completion, AsyncGenerator[CompletionChunk, None]]:
