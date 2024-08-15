@@ -706,7 +706,7 @@ Begin!"""
         family = model_family.model_family or model_family.model_name
         if family in ["gorilla-openfunctions-v1", "gorilla-openfunctions-v2"]:
             content, func, args = cls._eval_gorilla_openfunctions_arguments(c, tools)
-        elif family in ["chatglm3"] + GLM4_TOOL_CALL_FAMILY:
+        elif family in GLM4_TOOL_CALL_FAMILY:
             content, func, args = cls._eval_glm_chat_arguments(c, tools)
         elif family in QWEN_TOOL_CALL_FAMILY:
             content, func, args = cls._eval_qwen_chat_arguments(c, tools)

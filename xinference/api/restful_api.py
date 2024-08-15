@@ -1682,9 +1682,7 @@ class RESTfulAPI:
 
         model_family = desc.get("model_family", "")
         function_call_models = (
-            ["chatglm3", "gorilla-openfunctions-v1"]
-            + QWEN_TOOL_CALL_FAMILY
-            + GLM4_TOOL_CALL_FAMILY
+            ["gorilla-openfunctions-v1"] + QWEN_TOOL_CALL_FAMILY + GLM4_TOOL_CALL_FAMILY
         )
 
         is_qwen = desc.get("model_format") == "ggmlv3" and "qwen-chat" == model_family

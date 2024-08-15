@@ -819,7 +819,7 @@
           "none"
         ],
         "model_id": "THUDM/glm-4-9b-chat",
-        "model_revision": "76f3474a854145aa4a9ed2612fee9bc8d4a8966b"
+        "model_revision": "aae8bd74af5c6dff63a49d7fbdcc89349ebf87aa"
       },
       {
         "model_format": "ggufv2",
@@ -890,7 +890,7 @@
           "none"
         ],
         "model_id": "THUDM/glm-4-9b-chat-1m",
-        "model_revision": "715ddbe91082f976ff6a4ca06d59e5bbff6c3642"
+        "model_revision": "0aa722c7e0745dd21453427dd44c257dd253304f"
       },
       {
         "model_format": "ggufv2",
