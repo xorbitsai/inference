@@ -68,6 +68,7 @@ class ChatTTSModel:
         # We check length here > 400.
         if len(voice) > 400:
             try:
+                assert self._model is not None
                 self._model._decode_spk_emb(voice)
                 rnd_spk_emb = voice
                 logger.info("Speech by input speaker")
