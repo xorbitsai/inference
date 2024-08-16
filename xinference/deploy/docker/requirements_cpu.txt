@@ -56,3 +56,4 @@ onnxruntime-gpu==1.16.0; sys_platform == 'linux'  # For CosyVoice
 onnxruntime==1.16.0; sys_platform == 'darwin' or sys_platform == 'windows'  # For CosyVoice
 openai-whisper  # For CosyVoice
 imageio-ffmpeg  # For video
+eva-decord  # For video in VL
