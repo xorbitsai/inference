@@ -29,8 +29,6 @@ from typing import (
     Union,
 )
 
-from transformers import AutoTokenizer
-
 from ....types import (
     ChatCompletion,
     ChatCompletionChunk,
@@ -164,7 +162,6 @@ if VLLM_INSTALLED and vllm.__version__ >= "0.5.3":
 if VLLM_INSTALLED and vllm.__version__ > "0.5.3":
     VLLM_SUPPORTED_MODELS.append("llama-3.1")
     VLLM_SUPPORTED_CHAT_MODELS.append("llama-3.1-instruct")
-    VLLM_SUPPORTED_CHAT_MODELS.append("internvl2")
 
 
 class VLLMModel(LLM):
@@ -527,11 +524,6 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
     def match(
         cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
-        if (
-            llm_family.model_name in VLLM_SUPPORTED_VISION_MODEL_LIST
-            or llm_family.model_family in VLLM_SUPPORTED_VISION_MODEL_LIST
-        ):
-            return False
         if llm_spec.model_format not in ["pytorch", "gptq", "awq"]:
             return False
         if llm_spec.model_format == "pytorch":
@@ -621,27 +613,6 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
 
 
 class VLLMVisionModel(VLLMModel, ChatModelMixin):
-    def __init__(
-        self,
-        model_uid: str,
-        model_family: "LLMFamilyV1",
-        model_spec: "LLMSpecV1",
-        quantization: str,
-        model_path: str,
-        model_config: Optional[VLLMModelConfig],
-        peft_model: Optional[List[LoRA]] = None,
-    ):
-        super().__init__(
-            model_uid,
-            model_family,
-            model_spec,
-            quantization,
-            model_path,
-            model_config,
-            peft_model,
-        )
-        self._tokenizer = None
-
     def load(self):
         try:
             import vllm
@@ -653,7 +624,6 @@ class VLLMVisionModel(VLLMModel, ChatModelMixin):
                 "Please make sure 'vllm' is installed. ",
                 "You can install it by `pip install vllm`\n",
             ]
-
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
         if vllm.__version__ >= "0.3.1":
@@ -675,9 +645,6 @@ class VLLMVisionModel(VLLMModel, ChatModelMixin):
             **self._model_config,
         )
         self._engine = AsyncLLMEngine.from_engine_args(engine_args)
-        self._tokenizer = AutoTokenizer.from_pretrained(
-            self.model_path, trust_remote_code=True
-        )
 
     @classmethod
     def match(
@@ -694,7 +661,7 @@ class VLLMVisionModel(VLLMModel, ChatModelMixin):
         else:
             if llm_family.model_name not in VLLM_SUPPORTED_VISION_MODEL_LIST:
                 return False
-        if "chat" not in llm_family.model_ability:
+        if "vision" not in llm_family.model_ability:
             return False
         return VLLM_INSTALLED
 
@@ -723,10 +690,8 @@ class VLLMVisionModel(VLLMModel, ChatModelMixin):
         assert self.model_family.prompt_style is not None
         prompt_style = self.model_family.prompt_style.copy()
         chat_history = chat_history or []
-        messages, images = self.get_prompt(prompt, chat_history, prompt_style)
-        prompt = self._tokenizer.apply_chat_template(  # type: ignore
-            messages, tokenize=False, add_generation_prompt=True
-        )
+        prompt, images = self.get_prompt(prompt, chat_history, prompt_style)
+        logger.info(f"messages:{prompt}")
         if len(images) == 0:
             inputs = {
                 "prompt": prompt,

@@ -276,6 +276,12 @@ class InternVLChatModel(PytorchChatModel):
         chat_history: Optional[List[ChatCompletionMessage]] = None,
         generate_config: Optional[PytorchGenerateConfig] = None,
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
+        from ....thirdparty.internvl.conversation import get_conv_template
+
+        IMG_START_TOKEN = "<img>"
+        IMG_END_TOKEN = "</img>"
+        IMG_CONTEXT_TOKEN = "<IMG_CONTEXT>"
+
         generation_config = {
             "max_new_tokens": generate_config.get("max_tokens", 1024)
             if generate_config
@@ -301,7 +307,7 @@ class InternVLChatModel(PytorchChatModel):
 
         content, history, images = _get_prompt_and_chat_history(prompt, chat_history)
 
-        num_patches_list = None
+        num_patches_list = []
         if len(images) == 1:
             content = content.replace("Image-1: <image>\n\n", "<image>\n")
             history = [
@@ -309,6 +315,9 @@ class InternVLChatModel(PytorchChatModel):
                 for item in history
             ]
             pixel_values = _load_image(images[-1], max_num=12).to(torch.bfloat16).cuda()
+            num_patches_list = (
+                [pixel_values.shape[0]] if pixel_values is not None else []
+            )
         elif len(images) > 1:
             pixel_values = [
                 _load_image(img, max_num=12).to(torch.bfloat16).cuda() for img in images
@@ -318,40 +327,57 @@ class InternVLChatModel(PytorchChatModel):
         else:
             pixel_values = None
 
-        if stream:
-            chunk = self._generate_stream(
-                pixel_values,
-                content,
-                generation_config,
-                num_patches_list,
-                history,
-                include_usage,
+        assert pixel_values is None or len(pixel_values) == sum(num_patches_list)
+
+        img_context_token_id = self._tokenizer.convert_tokens_to_ids(IMG_CONTEXT_TOKEN)
+        self._model.img_context_token_id = img_context_token_id
+
+        template = get_conv_template(self._model.template)
+        template.system_message = self._model.system_message
+        eos_token_id = self._tokenizer.convert_tokens_to_ids(template.sep)
+
+        history = [] if history is None else history
+        for old_question, old_answer in history:
+            template.append_message(template.roles[0], old_question)
+            template.append_message(template.roles[1], old_answer)
+        template.append_message(template.roles[0], content)
+        template.append_message(template.roles[1], None)
+        query = template.get_prompt()
+
+        for num_patches in num_patches_list:
+            image_tokens = (
+                IMG_START_TOKEN
+                + IMG_CONTEXT_TOKEN * self._model.num_image_token * num_patches
+                + IMG_END_TOKEN
             )
+            query = query.replace("<image>", image_tokens, 1)
+
+        model_inputs = self._tokenizer(query, return_tensors="pt")
+        input_ids = model_inputs["input_ids"].cuda()
+        attention_mask = model_inputs["attention_mask"].cuda()
+        generation_config["eos_token_id"] = eos_token_id
+        generate_kwargs = {
+            "pixel_values": pixel_values,
+            "input_ids": input_ids,
+            "attention_mask": attention_mask,
+        }
+        generate_kwargs.update(generation_config)
+
+        if stream:
+            chunk = self._generate_stream(generate_kwargs, input_ids, include_usage)
             return self._to_chat_completion_chunks(chunk)
         else:
-            chunk = self._generate(
-                pixel_values,
-                content,
-                generation_config,
-                num_patches_list,
-                history,
-            )
+            chunk = self._generate(generate_kwargs, input_ids, template)
             return self._to_chat_completion(chunk)
 
-    def _generate(
-        self, pixel_values, content, generation_config, num_patches_list, history
-    ):
-        response = self._model.chat(
-            self._tokenizer,
-            pixel_values,
-            content,
-            generation_config,
-            num_patches_list=num_patches_list,
-            history=history,
-            return_history=False,
-        )
-        prompt_tokens = self._get_input_tokens(content, history, num_patches_list)
-        completion_tokens = self._get_output_tokens(response)
+    def _generate(self, generate_kwargs, input_ids, template):
+        prompt_tokens = len(input_ids[0])
+        generation_output = self._model.generate(**generate_kwargs)
+        completion_tokens = len(generation_output[0])
+        response = self._tokenizer.batch_decode(
+            generation_output, skip_special_tokens=True
+        )[0]
+        response = response.split(template.sep)[0].strip()
         chunk = Completion(
             id=str(uuid.uuid1()),
             object="text_completion",
@@ -370,15 +396,7 @@ class InternVLChatModel(PytorchChatModel):
         )
         return chunk
 
-    def _generate_stream(
-        self,
-        pixel_values,
-        content,
-        generation_config,
-        num_patches_list,
-        history,
-        include_usage,
-    ):
+    def _generate_stream(self, generate_kwargs, input_ids, include_usage):
         from threading import Thread
 
         from transformers import TextIteratorStreamer
@@ -388,25 +406,17 @@ class InternVLChatModel(PytorchChatModel):
             self._tokenizer, skip_prompt=True, skip_special_tokens=True, timeout=10
         )
         # Define the generation configuration
-        generation_config["streamer"] = streamer
+        generate_kwargs["streamer"] = streamer
         # Start the model chat in a separate thread
         thread = Thread(
-            target=self._model.chat,
-            kwargs=dict(
-                tokenizer=self._tokenizer,
-                pixel_values=pixel_values,
-                question=content,
-                num_patches_list=num_patches_list,
-                history=history,
-                return_history=False,
-                generation_config=generation_config,
-            ),
+            target=self._model.generate,
+            kwargs=generate_kwargs,
         )
         thread.start()
 
         completion_id = str(uuid.uuid1())
-        prompt_tokens, completion_tokens, total_tokens = 0, 0, 0
-        prompt_tokens = self._get_input_tokens(content, history, num_patches_list)
+        prompt_tokens = len(input_ids[0])
+        completion_tokens = 0
         # Loop through the streamer to get the new text as it is generated
         for i, new_text in enumerate(streamer):
             if new_text == self._model.conv_template.sep:
@@ -421,7 +431,7 @@ class InternVLChatModel(PytorchChatModel):
                 model=self.model_uid,
                 choices=[completion_choice],
             )
-            completion_tokens = i
+            completion_tokens = max(completion_tokens, len(streamer.token_cache))
             total_tokens = prompt_tokens + completion_tokens
             completion_usage = CompletionUsage(
                 prompt_tokens=prompt_tokens,
@@ -430,54 +440,18 @@ class InternVLChatModel(PytorchChatModel):
             )
             chunk["usage"] = completion_usage
             yield chunk
-            if include_usage:
-                chunk = CompletionChunk(
-                    id=completion_id,
-                    object="text_completion",
-                    created=int(time.time()),
-                    model=self.model_uid,
-                    choices=[],
-                )
-                chunk["usage"] = CompletionUsage(
-                    prompt_tokens=prompt_tokens,
-                    completion_tokens=completion_tokens,
-                    total_tokens=total_tokens,
-                )
-                yield chunk
 
-    def _get_input_tokens(
-        self,
-        question,
-        history,
-        num_patches_list,
-        IMG_START_TOKEN="<img>",
-        IMG_END_TOKEN="</img>",
-        IMG_CONTEXT_TOKEN="<IMG_CONTEXT>",
-    ):
-        from ....thirdparty.internvl.conversation import get_conv_template
-
-        template = get_conv_template(self._model.template)
-        template.system_message = self._model.system_message
-
-        history = [] if history is None else history
-        for old_question, old_answer in history:
-            template.append_message(template.roles[0], old_question)
-            template.append_message(template.roles[1], old_answer)
-        template.append_message(template.roles[0], question)
-        template.append_message(template.roles[1], None)
-        query = template.get_prompt()
-
-        for num_patches in num_patches_list or []:
-            image_tokens = (
-                IMG_START_TOKEN
-                + IMG_CONTEXT_TOKEN * self._model.num_image_token * num_patches
-                + IMG_END_TOKEN
+        if include_usage:
+            chunk = CompletionChunk(
+                id=completion_id,
+                object="text_completion",
+                created=int(time.time()),
+                model=self.model_uid,
+                choices=[],
             )
-            query = query.replace("<image>", image_tokens, 1)
-
-        model_inputs = self._tokenizer.encode(query, return_tensors="pt")
-        return len(model_inputs[0])
-
-    def _get_output_tokens(self, response):
-        output_ids = self._tokenizer.encode(response, return_tensors="pt")
-        return len(output_ids[0])
+            chunk["usage"] = CompletionUsage(
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                total_tokens=total_tokens,
+            )
+            yield chunk

@@ -510,13 +510,20 @@ Begin!"""
                     ret += role
             return ret
         elif prompt_style.style_name == "INTERNVL":
-            ret = []  # type: ignore
+            ret = (
+                "<s>"
+                if prompt_style.system_prompt == ""
+                else "<s><|im_start|>system\n"
+                + prompt_style.system_prompt
+                + prompt_style.intra_message_sep
+                + "\n"
+            )
             images = []  # type: ignore
             for message in chat_history:
                 role = get_role(message["role"])
                 content = message["content"]
                 if isinstance(content, str):
-                    ret.append(message)  # type: ignore
+                    ret += role + "\n" + content + prompt_style.intra_message_sep + "\n"
                 elif isinstance(content, list):
                     text = ""
                     image_urls = []
@@ -535,10 +542,18 @@ Begin!"""
                             image_futures.append(fut)
                     images = [fut.result() for fut in image_futures]
                     if len(image_futures) == 0:
-                        msg = {"role": role, "content": text}
+                        ret += (
+                            role + "\n" + text + prompt_style.intra_message_sep + "\n"
+                        )
                     else:
-                        msg = {"role": role, "content": f"<image>\n{text}"}
-                    ret.append(msg)
+                        ret += (
+                            role
+                            + "\n"
+                            + f"<image>\n{text}"
+                            + prompt_style.intra_message_sep
+                            + "\n"
+                        )
+
             return (ret, images)
         else:
             raise ValueError(f"Invalid prompt style: {prompt_style.style_name}")
