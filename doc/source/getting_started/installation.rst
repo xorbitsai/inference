@@ -10,7 +10,7 @@ If you aim to serve all supported models, you can install all the necessary depe
    pip install "xinference[all]"
 
 .. note::
-   If you want to serve models in GGML format, it's advised to install the GGML dependencies manually based on your hardware specifications to enable acceleration. For more details, see the :ref:`installation_ggml` section.
+   If you want to serve models in GGUF format, it's advised to install the ``llama-cpp-python`` dependency manually based on your hardware specifications to enable acceleration. For more details, see the :ref:`installation_gguf` section.
 
 
 If you want to install only the necessary backends, here's a breakdown of how to do it.
@@ -73,11 +73,11 @@ To install Xinference and vLLM::
    # For other CUDA & torch versions, please check https://docs.flashinfer.ai/installation.html
    
 
-.. _installation_ggml:
+.. _installation_gguf:
 
 Llama.cpp Backend
 ~~~~~~~~~~~~~~~~~
-Xinference supports models in ``gguf`` and ``ggml`` format via ``llama-cpp-python``. It's advised to install the llama.cpp-related dependencies manually based on your hardware specifications to enable acceleration.
+Xinference supports models in ``gguf`` format via ``llama-cpp-python``. It's advised to install the llama.cpp-related dependencies manually based on your hardware specifications to enable acceleration.
 
 Initial setup::
 

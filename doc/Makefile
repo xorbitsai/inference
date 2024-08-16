@@ -11,7 +11,7 @@ BUILDDIR      = build
 
 # the i18n builder cannot share the environment and doctrees with the others
 I18NSPHINXOPTS  = $(PAPEROPT_$(PAPER)) $(SPHINXOPTS) $(SOURCEDIR)
-I18NSPHINXLANGS = -l zh_CN -l ja_JP
+I18NSPHINXLANGS = -l zh_CN
 
 # Put it first so that "make" without argument is like "make help".
 help:
@@ -21,9 +21,6 @@ help:
 
 html_zh_cn:
 	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) -t zh_cn -D language='zh_CN' "$(SOURCEDIR)" $(BUILDDIR)/html_zh_cn
-
-html_ja_jp:
-	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) -t ja_jp -D language='ja_JP' "$(SOURCEDIR)" $(BUILDDIR)/html_ja_jp
 
 gettext:
 	$(SPHINXBUILD) -b gettext $(I18NSPHINXOPTS) $(BUILDDIR)/locale

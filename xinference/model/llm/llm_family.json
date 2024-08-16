@@ -1,105 +1,6 @@
 [
   {
     "version": 1,
-    "context_length": 4096,
-    "model_name": "baichuan",
-    "model_lang": [
-      "en",
-      "zh"
-    ],
-    "model_ability": [
-      "generate"
-    ],
-    "model_description": "Baichuan is an open-source Transformer based LLM that is trained on both Chinese and English data.",
-    "model_specs": [
-      {
-        "model_format": "ggmlv3",
-        "model_size_in_billions": 7,
-        "quantizations": [
-          "q2_K",
-          "q3_K_L",
-          "q3_K_M",
-          "q3_K_S",
-          "q4_0",
-          "q4_1",
-          "q4_K_M",
-          "q4_K_S",
-          "q5_0",
-          "q5_1",
-          "q5_K_M",
-          "q5_K_S",
-          "q6_K",
-          "q8_0"
-        ],
-        "model_id": "TheBloke/baichuan-llama-7B-GGML",
-        "model_file_name_template": "baichuan-llama-7b.ggmlv3.{quantization}.bin"
-      },
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": 7,
-        "quantizations": [
-          "4-bit",
-          "8-bit",
-          "none"
-        ],
-        "model_id": "baichuan-inc/Baichuan-7B",
-        "model_revision": "c1a5c7d5b7f50ecc51bb0e08150a9f12e5656756"
-      },
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": 13,
-        "quantizations": [
-          "4-bit",
-          "8-bit",
-          "none"
-        ],
-        "model_id": "baichuan-inc/Baichuan-13B-Base",
-        "model_revision": "0ef0739c7bdd34df954003ef76d80f3dabca2ff9"
-      }
-    ]
-  },
-  {
-    "version": 1,
-    "context_length": 4096,
-    "model_name": "baichuan-chat",
-    "model_lang": [
-      "en",
-      "zh"
-    ],
-    "model_ability": [
-      "chat"
-    ],
-    "model_description": "Baichuan-chat is a fine-tuned version of the Baichuan LLM, specializing in chatting.",
-    "model_specs": [
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": 13,
-        "quantizations": [
-          "4-bit",
-          "8-bit",
-          "none"
-        ],
-        "model_id": "baichuan-inc/Baichuan-13B-Chat",
-        "model_revision": "19ef51ba5bad8935b03acd20ff04a269210983bc"
-      }
-    ],
-    "prompt_style": {
-      "style_name": "NO_COLON_TWO",
-      "system_prompt": "",
-      "roles": [
-        " <reserved_102> ",
-        " <reserved_103> "
-      ],
-      "intra_message_sep": "",
-      "inter_message_sep": "</s>",
-      "stop_token_ids": [
-        2,
-        195
-      ]
-    }
-  },
-  {
-    "version": 1,
     "context_length": 8194,
     "model_name": "codeshell",
     "model_lang": [
@@ -162,258 +63,6 @@
         "|||",
         "|<end>|"
       ]
-    }
-  },
-  {
-    "version": 1,
-    "context_length": 2048,
-    "model_name": "wizardlm-v1.0",
-    "model_lang": [
-      "en"
-    ],
-    "model_ability": [
-      "chat"
-    ],
-    "model_description": "WizardLM is an open-source LLM trained by fine-tuning LLaMA with Evol-Instruct.",
-    "model_specs": [
-      {
-        "model_format": "ggmlv3",
-        "model_size_in_billions": 7,
-        "quantizations": [
-          "q2_K",
-          "q3_K_L",
-          "q3_K_M",
-          "q3_K_S",
-          "q4_0",
-          "q4_1",
-          "q4_K_M",
-          "q4_K_S",
-          "q5_0",
-          "q5_1",
-          "q5_K_M",
-          "q5_K_S",
-          "q6_K",
-          "q8_0"
-        ],
-        "model_id": "TheBloke/WizardLM-7B-V1.0-Uncensored-GGML",
-        "model_file_name_template": "wizardlm-7b-v1.0-uncensored.ggmlv3.{quantization}.bin"
-      },
-      {
-        "model_format": "ggmlv3",
-        "model_size_in_billions": 13,
-        "quantizations": [
-          "q2_K",
-          "q3_K_L",
-          "q3_K_M",
-          "q3_K_S",
-          "q4_0",
-          "q4_1",
-          "q4_K_M",
-          "q4_K_S",
-          "q5_0",
-          "q5_1",
-          "q5_K_M",
-          "q5_K_S",
-          "q6_K",
-          "q8_0"
-        ],
-        "model_id": "TheBloke/WizardLM-13B-V1.0-Uncensored-GGML",
-        "model_file_name_template": "wizardlm-13b-v1.0-uncensored.ggmlv3.{quantization}.bin"
-      }
-    ],
-    "prompt_style": {
-      "style_name": "ADD_COLON_SINGLE",
-      "system_prompt": "You are a helpful AI assistant.",
-      "roles": [
-        "USER",
-        "ASSISTANT"
-      ],
-      "intra_message_sep": "\n"
-    }
-  },
-  {
-    "version": 1,
-    "context_length": 2048,
-    "model_name": "vicuna-v1.3",
-    "model_lang": [
-      "en"
-    ],
-    "model_ability": [
-      "chat"
-    ],
-    "model_description": "Vicuna is an open-source LLM trained by fine-tuning LLaMA on data collected from ShareGPT.",
-    "model_specs": [
-      {
-        "model_format": "ggmlv3",
-        "model_size_in_billions": 7,
-        "quantizations": [
-          "q2_K",
-          "q3_K_L",
-          "q3_K_M",
-          "q3_K_S",
-          "q4_0",
-          "q4_1",
-          "q4_K_M",
-          "q4_K_S",
-          "q5_0",
-          "q5_1",
-          "q5_K_M",
-          "q5_K_S",
-          "q6_K",
-          "q8_0"
-        ],
-        "model_id": "TheBloke/vicuna-7B-v1.3-GGML",
-        "model_file_name_template": "vicuna-7b-v1.3.ggmlv3.{quantization}.bin"
-      },
-      {
-        "model_format": "ggmlv3",
-        "model_size_in_billions": 13,
-        "quantizations": [
-          "q2_K",
-          "q3_K_L",
-          "q3_K_M",
-          "q3_K_S",
-          "q4_0",
-          "q4_1",
-          "q4_K_M",
-          "q4_K_S",
-          "q5_0",
-          "q5_1",
-          "q5_K_M",
-          "q5_K_S",
-          "q6_K",
-          "q8_0"
-        ],
-        "model_id": "TheBloke/vicuna-13b-v1.3.0-GGML",
-        "model_file_name_template": "vicuna-13b-v1.3.0.ggmlv3.{quantization}.bin"
-      },
-      {
-        "model_format": "ggmlv3",
-        "model_size_in_billions": 33,
-        "quantizations": [
-          "q2_K",
-          "q3_K_L",
-          "q3_K_M",
-          "q3_K_S",
-          "q4_0",
-          "q4_1",
-          "q4_K_M",
-          "q4_K_S",
-          "q5_0",
-          "q5_1",
-          "q5_K_M",
-          "q5_K_S",
-          "q6_K",
-          "q8_0"
-        ],
-        "model_id": "TheBloke/vicuna-33B-GGML",
-        "model_file_name_template": "vicuna-33b.ggmlv3.{quantization}.bin"
-      },
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": 33,
-        "quantizations": [
-          "4-bit",
-          "8-bit",
-          "none"
-        ],
-        "model_id": "lmsys/vicuna-33b-v1.3",
-        "model_revision": "ef8d6becf883fb3ce52e3706885f761819477ab4"
-      },
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": 13,
-        "quantizations": [
-          "4-bit",
-          "8-bit",
-          "none"
-        ],
-        "model_id": "lmsys/vicuna-13b-v1.3",
-        "model_revision": "6566e9cb1787585d1147dcf4f9bc48f29e1328d2"
-      },
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": 7,
-        "quantizations": [
-          "4-bit",
-          "8-bit",
-          "none"
-        ],
-        "model_id": "lmsys/vicuna-7b-v1.3",
-        "model_revision": "236eeeab96f0dc2e463f2bebb7bb49809279c6d6"
-      }
-    ],
-    "prompt_style": {
-      "style_name": "ADD_COLON_TWO",
-      "system_prompt": "A chat between a curious human and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the human's questions.",
-      "roles": [
-        "USER",
-        "ASSISTANT"
-      ],
-      "intra_message_sep": " ",
-      "inter_message_sep": "</s>"
-    }
-  },
-  {
-    "version": 1,
-    "context_length": 2048,
-    "model_name": "orca",
-    "model_lang": [
-      "en"
-    ],
-    "model_ability": [
-      "chat"
-    ],
-    "model_description": "Orca is an LLM trained by fine-tuning LLaMA on explanation traces obtained from GPT-4.",
-    "model_specs": [
-      {
-        "model_format": "ggmlv3",
-        "model_size_in_billions": 3,
-        "quantizations": [
-          "q4_0",
-          "q4_1",
-          "q5_0",
-          "q5_1",
-          "q8_0"
-        ],
-        "model_id": "TheBloke/orca_mini_3B-GGML",
-        "model_file_name_template": "orca-mini-3b.ggmlv3.{quantization}.bin"
-      },
-      {
-        "model_format": "ggmlv3",
-        "model_size_in_billions": 7,
-        "quantizations": [
-          "q4_0",
-          "q4_1",
-          "q5_0",
-          "q5_1",
-          "q8_0"
-        ],
-        "model_id": "TheBloke/orca_mini_7B-GGML",
-        "model_file_name_template": "orca-mini-7b.ggmlv3.{quantization}.bin"
-      },
-      {
-        "model_format": "ggmlv3",
-        "model_size_in_billions": 13,
-        "quantizations": [
-          "q4_0",
-          "q4_1",
-          "q5_0",
-          "q5_1",
-          "q8_0"
-        ],
-        "model_id": "TheBloke/orca_mini_13B-GGML",
-        "model_file_name_template": "orca-mini-13b.ggmlv3.{quantization}.bin"
-      }
-    ],
-    "prompt_style": {
-      "style_name": "ADD_COLON_SINGLE",
-      "system_prompt": "You are an AI assistant that follows instruction extremely well. Help as much as you can.",
-      "roles": [
-        "User",
-        "Response"
-      ],
-      "intra_message_sep": "\n\n### "
     }
   },
   {
@@ -559,111 +208,6 @@
         "<|assistant|>",
         "<|end|>"
       ]
-    }
-  },
-  {
-    "version": 1,
-    "context_length": 2048,
-    "model_name": "chatglm",
-    "model_lang": [
-      "en",
-      "zh"
-    ],
-    "model_ability": [
-      "chat"
-    ],
-    "model_description": "ChatGLM is an open-source General Language Model (GLM) based LLM trained on both Chinese and English data.",
-    "model_specs": [
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": 6,
-        "quantizations": [
-          "4-bit",
-          "8-bit",
-          "none"
-        ],
-        "model_id": "THUDM/chatglm-6b",
-        "model_revision": "8b7d33596d18c5e83e2da052d05ca4db02e60620"
-      }
-    ],
-    "prompt_style": {
-      "style_name": "CHATGLM",
-      "system_prompt": "",
-      "roles": [
-        "问",
-        "答"
-      ],
-      "intra_message_sep": "\n"
-    }
-  },
-  {
-    "version": 1,
-    "context_length": 8192,
-    "model_name": "chatglm2",
-    "model_lang": [
-      "en",
-      "zh"
-    ],
-    "model_ability": [
-      "chat"
-    ],
-    "model_description": "ChatGLM2 is the second generation of ChatGLM, still open-source and trained on Chinese and English data.",
-    "model_specs": [
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": 6,
-        "quantizations": [
-          "4-bit",
-          "8-bit",
-          "none"
-        ],
-        "model_id": "THUDM/chatglm2-6b",
-        "model_revision": "7fabe56db91e085c9c027f56f1c654d137bdba40"
-      }
-    ],
-    "prompt_style": {
-      "style_name": "CHATGLM",
-      "system_prompt": "",
-      "roles": [
-        "问",
-        "答"
-      ],
-      "intra_message_sep": "\n\n"
-    }
-  },
-  {
-    "version": 1,
-    "context_length": 32768,
-    "model_name": "chatglm2-32k",
-    "model_lang": [
-      "en",
-      "zh"
-    ],
-    "model_ability": [
-      "chat"
-    ],
-    "model_description": "ChatGLM2-32k is a special version of ChatGLM2, with a context window of 32k tokens instead of 8k.",
-    "model_specs": [
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": 6,
-        "quantizations": [
-          "4-bit",
-          "8-bit",
-          "none"
-        ],
-        "model_id": "THUDM/chatglm2-6b-32k",
-        "model_revision": "a2065f5dc8253f036a209e642d7220a942d92765"
-      }
-    ],
-    "prompt_style": {
-      "style_name": "CHATGLM",
-      "system_prompt": "",
-      "roles": [
-        "问",
-        "答"
-      ],
-      "intra_message_sep": "\n\n"
     }
   },
   {
@@ -1148,70 +692,73 @@
     "model_description": "Llama-2-Chat is a fine-tuned version of the Llama-2 LLM, specializing in chatting.",
     "model_specs": [
       {
-        "model_format": "ggmlv3",
+        "model_format": "ggufv2",
         "model_size_in_billions": 7,
         "quantizations": [
-          "q2_K",
-          "q3_K_L",
-          "q3_K_M",
-          "q3_K_S",
-          "q4_0",
-          "q4_1",
-          "q4_K_M",
-          "q4_K_S",
-          "q5_0",
-          "q5_1",
-          "q5_K_M",
-          "q5_K_S",
-          "q6_K",
-          "q8_0"
+          "Q2_K",
+          "Q3_K_S",
+          "Q3_K_M",
+          "Q3_K_L",
+          "Q4_0",
+          "Q4_K_S",
+          "Q4_K_M",
+          "Q5_0",
+          "Q5_K_S",
+          "Q5_K_M",
+          "Q6_K",
+          "Q8_0"
         ],
-        "model_id": "TheBloke/Llama-2-7B-Chat-GGML",
-        "model_file_name_template": "llama-2-7b-chat.ggmlv3.{quantization}.bin"
+        "model_id": "TheBloke/Llama-2-7B-Chat-GGUF",
+        "model_file_name_template": "llama-2-7b-chat.{quantization}.gguf"
       },
       {
-        "model_format": "ggmlv3",
+        "model_format": "ggufv2",
         "model_size_in_billions": 13,
         "quantizations": [
-          "q2_K",
-          "q3_K_L",
-          "q3_K_M",
-          "q3_K_S",
-          "q4_0",
-          "q4_1",
-          "q4_K_M",
-          "q4_K_S",
-          "q5_0",
-          "q5_1",
-          "q5_K_M",
-          "q5_K_S",
-          "q6_K",
-          "q8_0"
+          "Q2_K",
+          "Q3_K_S",
+          "Q3_K_M",
+          "Q3_K_L",
+          "Q4_0",
+          "Q4_K_S",
+          "Q4_K_M",
+          "Q5_0",
+          "Q5_K_S",
+          "Q5_K_M",
+          "Q6_K",
+          "Q8_0"
         ],
-        "model_id": "TheBloke/Llama-2-13B-chat-GGML",
-        "model_file_name_template": "llama-2-13b-chat.ggmlv3.{quantization}.bin"
+        "model_id": "TheBloke/Llama-2-13B-chat-GGUF",
+        "model_file_name_template": "llama-2-13b-chat.{quantization}.gguf"
       },
       {
-        "model_format": "ggmlv3",
+        "model_format": "ggufv2",
         "model_size_in_billions": 70,
         "quantizations": [
-          "q2_K",
-          "q3_K_L",
-          "q3_K_M",
-          "q3_K_S",
-          "q4_0",
-          "q4_1",
-          "q4_K_M",
-          "q4_K_S",
-          "q5_0",
-          "q5_1",
-          "q5_K_M",
-          "q5_K_S",
-          "q6_K",
-          "q8_0"
+          "Q2_K",
+          "Q3_K_S",
+          "Q3_K_M",
+          "Q3_K_L",
+          "Q4_0",
+          "Q4_K_S",
+          "Q4_K_M",
+          "Q5_0",
+          "Q5_K_S",
+          "Q5_K_M"
         ],
-        "model_id": "TheBloke/Llama-2-70B-Chat-GGML",
-        "model_file_name_template": "llama-2-70b-chat.ggmlv3.{quantization}.bin"
+        "quantization_parts": {
+          "Q6_K": [
+            "split-a",
+            "split-b"
+          ],
+          "Q8_0": [
+            "split-a",
+            "split-b"
+          ]
+        },
+        "model_id": "TheBloke/Llama-2-70B-Chat-GGUF",
+        "model_file_name_template": "llama-2-70b-chat.{quantization}.gguf",
+        "model_file_name_split_template": "llama-2-70b-chat.{quantization}.gguf-{part}"
       },
       {
         "model_format": "pytorch",
@@ -1293,64 +840,6 @@
         ],
         "model_id": "meta-llama/Llama-2-70b-chat-hf",
         "model_revision": "36d9a7388cc80e5f4b3e9701ca2f250d21a96c30"
-      },
-      {
-        "model_format": "ggufv2",
-        "model_size_in_billions": 7,
-        "quantizations": [
-          "Q2_K",
-          "Q3_K_S",
-          "Q3_K_M",
-          "Q3_K_L",
-          "Q4_0",
-          "Q4_K_S",
-          "Q4_K_M",
-          "Q5_0",
-          "Q5_K_S",
-          "Q5_K_M",
-          "Q6_K",
-          "Q8_0"
-        ],
-        "model_id": "TheBloke/Llama-2-7B-Chat-GGUF",
-        "model_file_name_template": "llama-2-7b-chat.{quantization}.gguf"
-      },
-      {
-        "model_format": "ggufv2",
-        "model_size_in_billions": 13,
-        "quantizations": [
-          "Q2_K",
-          "Q3_K_S",
-          "Q3_K_M",
-          "Q3_K_L",
-          "Q4_0",
-          "Q4_K_S",
-          "Q4_K_M",
-          "Q5_0",
-          "Q5_K_S",
-          "Q5_K_M",
-          "Q6_K",
-          "Q8_0"
-        ],
-        "model_id": "TheBloke/Llama-2-13B-chat-GGUF",
-        "model_file_name_template": "llama-2-13b-chat.{quantization}.gguf"
-      },
-      {
-        "model_format": "ggufv2",
-        "model_size_in_billions": 70,
-        "quantizations": [
-          "Q2_K",
-          "Q3_K_S",
-          "Q3_K_M",
-          "Q3_K_L",
-          "Q4_0",
-          "Q4_K_S",
-          "Q4_K_M",
-          "Q5_0",
-          "Q5_K_S",
-          "Q5_K_M"
-        ],
-        "model_id": "TheBloke/Llama-2-70B-Chat-GGUF",
-        "model_file_name_template": "llama-2-70b-chat.{quantization}.gguf"
       }
     ],
     "prompt_style": {
@@ -1383,26 +872,24 @@
     "model_description": "Llama-2 is the second generation of Llama, open-source and trained on a larger amount of data.",
     "model_specs": [
       {
-        "model_format": "ggmlv3",
+        "model_format": "ggufv2",
         "model_size_in_billions": 7,
         "quantizations": [
-          "q2_K",
-          "q3_K_L",
-          "q3_K_M",
-          "q3_K_S",
-          "q4_0",
-          "q4_1",
-          "q4_K_M",
-          "q4_K_S",
-          "q5_0",
-          "q5_1",
-          "q5_K_M",
-          "q5_K_S",
-          "q6_K",
-          "q8_0"
+          "Q2_K",
+          "Q3_K_S",
+          "Q3_K_M",
+          "Q3_K_L",
+          "Q4_0",
+          "Q4_K_S",
+          "Q4_K_M",
+          "Q5_0",
+          "Q5_K_S",
+          "Q5_K_M",
+          "Q6_K",
+          "Q8_0"
         ],
-        "model_id": "TheBloke/Llama-2-7B-GGML",
-        "model_file_name_template": "llama-2-7b.ggmlv3.{quantization}.bin"
+        "model_id": "TheBloke/Llama-2-7B-GGUF",
+        "model_file_name_template": "llama-2-7b.{quantization}.gguf"
       },
       {
         "model_format": "gptq",
@@ -1421,48 +908,53 @@
         "model_id": "TheBloke/Llama-2-7B-AWQ"
       },
       {
-        "model_format": "ggmlv3",
+        "model_format": "ggufv2",
         "model_size_in_billions": 13,
         "quantizations": [
-          "q2_K",
-          "q3_K_L",
-          "q3_K_M",
-          "q3_K_S",
-          "q4_0",
-          "q4_1",
-          "q4_K_M",
-          "q4_K_S",
-          "q5_0",
-          "q5_1",
-          "q5_K_M",
-          "q5_K_S",
-          "q6_K",
-          "q8_0"
+          "Q2_K",
+          "Q3_K_S",
+          "Q3_K_M",
+          "Q3_K_L",
+          "Q4_0",
+          "Q4_K_S",
+          "Q4_K_M",
+          "Q5_0",
+          "Q5_K_S",
+          "Q5_K_M",
+          "Q6_K",
+          "Q8_0"
         ],
-        "model_id": "TheBloke/Llama-2-13B-GGML",
-        "model_file_name_template": "llama-2-13b.ggmlv3.{quantization}.bin"
+        "model_id": "TheBloke/Llama-2-13B-GGUF",
+        "model_file_name_template": "llama-2-13b.{quantization}.gguf"
       },
       {
-        "model_format": "ggmlv3",
+        "model_format": "ggufv2",
         "model_size_in_billions": 70,
         "quantizations": [
-          "q2_K",
-          "q3_K_L",
-          "q3_K_M",
-          "q3_K_S",
-          "q4_0",
-          "q4_1",
-          "q4_K_M",
-          "q4_K_S",
-          "q5_0",
-          "q5_1",
-          "q5_K_M",
-          "q5_K_S",
-          "q6_K",
-          "q8_0"
+          "Q2_K",
+          "Q3_K_S",
+          "Q3_K_M",
+          "Q3_K_L",
+          "Q4_0",
+          "Q4_K_S",
+          "Q4_K_M",
+          "Q5_0",
+          "Q5_K_S",
+          "Q5_K_M"
         ],
-        "model_id": "TheBloke/Llama-2-70B-GGML",
-        "model_file_name_template": "llama-2-70b.ggmlv3.{quantization}.bin"
+        "quantization_parts": {
+          "Q6_K": [
+            "split-a",
+            "split-b"
+          ],
+          "Q8_0": [
+            "split-a",
+            "split-b"
+          ]
+        },
+        "model_id": "TheBloke/Llama-2-70B-GGUF",
+        "model_file_name_template": "llama-2-70b.{quantization}.gguf",
+        "model_file_name_split_template": "llama-2-70b.{quantization}.gguf-{part}"
       },
       {
         "model_format": "pytorch",
@@ -2056,169 +1548,6 @@
         "model_revision": "3d2b5f275bdf882b8775f902e1bfdb790e2cfc32"
       }
     ]
-  },
-  {
-    "version": 1,
-    "context_length": 2048,
-    "model_name": "falcon",
-    "model_lang": [
-      "en"
-    ],
-    "model_ability": [
-      "generate"
-    ],
-    "model_description": "Falcon is an open-source Transformer based LLM trained on the RefinedWeb dataset.",
-    "model_specs": [
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": 40,
-        "quantizations": [
-          "4-bit",
-          "8-bit",
-          "none"
-        ],
-        "model_id": "tiiuae/falcon-40b",
-        "model_revision": "561820f7eef0cc56a31ea38af15ca1acb07fab5d"
-      },
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": 7,
-        "quantizations": [
-          "4-bit",
-          "8-bit",
-          "none"
-        ],
-        "model_id": "tiiuae/falcon-7b",
-        "model_revision": "378337427557d1df3e742264a2901a49f25d4eb1"
-      }
-    ]
-  },
-  {
-    "version": 1,
-    "context_length": 2048,
-    "model_name": "falcon-instruct",
-    "model_lang": [
-      "en"
-    ],
-    "model_ability": [
-      "chat"
-    ],
-    "model_description": "Falcon-instruct is a fine-tuned version of the Falcon LLM, specializing in chatting.",
-    "model_specs": [
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": 7,
-        "quantizations": [
-          "4-bit",
-          "8-bit",
-          "none"
-        ],
-        "model_id": "tiiuae/falcon-7b-instruct",
-        "model_revision": "eb410fb6ffa9028e97adb801f0d6ec46d02f8b07"
-      },
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": 40,
-        "quantizations": [
-          "4-bit",
-          "8-bit",
-          "none"
-        ],
-        "model_id": "tiiuae/falcon-40b-instruct",
-        "model_revision": "ca78eac0ed45bf64445ff0687fabba1598daebf3"
-      }
-    ],
-    "prompt_style": {
-      "style_name": "FALCON",
-      "system_prompt": "",
-      "roles": [
-        "User",
-        "Assistant"
-      ],
-      "intra_message_sep": "\n",
-      "inter_message_sep": "<|endoftext|>",
-      "stop": [
-        "\nUser"
-      ],
-      "stop_token_ids": [
-        0,
-        1,
-        2,
-        3,
-        4,
-        5,
-        6,
-        7,
-        8,
-        9,
-        10,
-        11
-      ]
-    }
-  },
-  {
-    "version": 1,
-    "context_length": 8192,
-    "model_name": "starcoderplus",
-    "model_lang": [
-      "en"
-    ],
-    "model_ability": [
-      "generate"
-    ],
-    "model_description": "Starcoderplus is an open-source LLM trained by fine-tuning Starcoder on RedefinedWeb and StarCoderData datasets.",
-    "model_specs": [
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": 16,
-        "quantizations": [
-          "4-bit",
-          "8-bit",
-          "none"
-        ],
-        "model_id": "bigcode/starcoderplus",
-        "model_revision": "95be82087c33f14ee9941c812a154a9dd66efe72"
-      }
-    ],
-    "prompt_style": null
-  },
-  {
-    "version": 1,
-    "context_length": 8192,
-    "model_name": "starchat-beta",
-    "model_lang": [
-      "en"
-    ],
-    "model_ability": [
-      "chat"
-    ],
-    "model_description": "Starchat-beta is a fine-tuned version of the Starcoderplus LLM, specializing in coding assistance.",
-    "model_specs": [
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": 16,
-        "quantizations": [
-          "4-bit",
-          "8-bit",
-          "none"
-        ],
-        "model_id": "HuggingFaceH4/starchat-beta",
-        "model_revision": "b1bcda690655777373f57ea6614eb095ec2c886f"
-      }
-    ],
-    "prompt_style": {
-      "style_name": "CHATML",
-      "system_prompt": "<system>{system_message}\n",
-      "roles": [
-        "<|user|>",
-        "<|assistant|>"
-      ],
-      "intra_message_sep": "<|end|>",
-      "stop_token_ids": [
-        0,
-        49155
-      ]
-    }
   },
   {
     "version": 1,
@@ -3253,33 +2582,6 @@
   },
   {
     "version": 1,
-    "context_length": 8192,
-    "model_name": "starcoder",
-    "model_lang": [
-      "en"
-    ],
-    "model_ability": [
-      "generate"
-    ],
-    "model_description": "Starcoder is an open-source Transformer based LLM that is trained on permissively licensed data from GitHub.",
-    "model_specs": [
-      {
-        "model_format": "ggmlv3",
-        "model_size_in_billions": 16,
-        "quantizations": [
-          "q4_0",
-          "q4_1",
-          "q5_0",
-          "q5_1",
-          "q8_0"
-        ],
-        "model_id": "TheBloke/starcoder-GGML",
-        "model_file_name_template": "starcoder.ggmlv3.{quantization}.bin"
-      }
-    ]
-  },
-  {
-    "version": 1,
     "context_length": 1024,
     "model_name": "gpt-2",
     "model_lang": [
@@ -3300,236 +2602,6 @@
         "model_revision": "607a30d783dfa663caf39e06633721c8d4cfcd7e"
       }
     ]
-  },
-  {
-    "version": 1,
-    "context_length": 8192,
-    "model_name": "internlm-7b",
-    "model_lang": [
-      "en",
-      "zh"
-    ],
-    "model_ability": [
-      "generate"
-    ],
-    "model_description": "InternLM is a Transformer-based LLM that is trained on both Chinese and English data, focusing on practical scenarios.",
-    "model_specs": [
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": 7,
-        "quantizations": [
-          "4-bit",
-          "8-bit",
-          "none"
-        ],
-        "model_id": "internlm/internlm-7b",
-        "model_revision": "592b0efc83be3eb1cba8990c4caf41ce604b958c"
-      }
-    ]
-  },
-  {
-    "version": 1,
-    "context_length": 4096,
-    "model_name": "internlm-chat-7b",
-    "model_lang": [
-      "en",
-      "zh"
-    ],
-    "model_ability": [
-      "chat"
-    ],
-    "model_description": "Internlm-chat is a fine-tuned version of the Internlm LLM, specializing in chatting.",
-    "model_specs": [
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": 7,
-        "quantizations": [
-          "4-bit",
-          "8-bit",
-          "none"
-        ],
-        "model_id": "internlm/internlm-chat-7b",
-        "model_revision": "d4fa2dbcbd2fa4edfa6735aa2ba0f0577fed6a62"
-      }
-    ],
-    "prompt_style": {
-      "style_name": "INTERNLM",
-      "system_prompt": "",
-      "roles": [
-        "<|User|>",
-        "<|Bot|>"
-      ],
-      "intra_message_sep": "<eoh>\n",
-      "inter_message_sep": "<eoa>\n",
-      "stop_token_ids": [
-        1,
-        103028
-      ],
-      "stop": [
-        "<eoa>"
-      ]
-    }
-  },
-  {
-    "version": 1,
-    "context_length": 16384,
-    "model_name": "internlm-20b",
-    "model_lang": [
-      "en",
-      "zh"
-    ],
-    "model_ability": [
-      "generate"
-    ],
-    "model_description": "Pre-trained on over 2.3T Tokens containing high-quality English, Chinese, and code data.",
-    "model_specs": [
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": 20,
-        "quantizations": [
-          "4-bit",
-          "8-bit",
-          "none"
-        ],
-        "model_id": "internlm/internlm-20b",
-        "model_revision": "c56a72957239b490ea206ea857e86611b3f65f3a"
-      }
-    ]
-  },
-  {
-    "version": 1,
-    "context_length": 16384,
-    "model_name": "internlm-chat-20b",
-    "model_lang": [
-      "en",
-      "zh"
-    ],
-    "model_ability": [
-      "chat"
-    ],
-    "model_description": "Pre-trained on over 2.3T Tokens containing high-quality English, Chinese, and code data. The Chat version has undergone SFT and RLHF training.",
-    "model_specs": [
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": 20,
-        "quantizations": [
-          "4-bit",
-          "8-bit",
-          "none"
-        ],
-        "model_id": "internlm/internlm-chat-20b",
-        "model_revision": "c67e80e42c4950ebae18a955c9fe138c5ceb5b10"
-      }
-    ],
-    "prompt_style": {
-      "style_name": "INTERNLM",
-      "system_prompt": "",
-      "roles": [
-        "<|User|>",
-        "<|Bot|>"
-      ],
-      "intra_message_sep": "<eoh>\n",
-      "inter_message_sep": "<eoa>\n",
-      "stop_token_ids": [
-        1,
-        103028
-      ],
-      "stop": [
-        "<eoa>"
-      ]
-    }
-  },
-  {
-    "version": 1,
-    "context_length": 4096,
-    "model_name": "vicuna-v1.5",
-    "model_lang": [
-      "en"
-    ],
-    "model_ability": [
-      "chat"
-    ],
-    "model_description": "Vicuna is an open-source LLM trained by fine-tuning LLaMA on data collected from ShareGPT.",
-    "model_specs": [
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": 7,
-        "quantizations": [
-          "4-bit",
-          "8-bit",
-          "none"
-        ],
-        "model_id": "lmsys/vicuna-7b-v1.5",
-        "model_revision": "de56c35b1763eaae20f4d60efd64af0a9091ebe5"
-      },
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": 13,
-        "quantizations": [
-          "4-bit",
-          "8-bit",
-          "none"
-        ],
-        "model_id": "lmsys/vicuna-13b-v1.5",
-        "model_revision": "3deb0106f72a3a433f0c6ea0cb978bdf14bcd3a6"
-      }
-    ],
-    "prompt_style": {
-      "style_name": "ADD_COLON_TWO",
-      "system_prompt": "A chat between a curious human and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the human's questions.",
-      "roles": [
-        "USER",
-        "ASSISTANT"
-      ],
-      "intra_message_sep": " ",
-      "inter_message_sep": "</s>"
-    }
-  },
-  {
-    "version": 1,
-    "context_length": 16384,
-    "model_name": "vicuna-v1.5-16k",
-    "model_lang": [
-      "en"
-    ],
-    "model_ability": [
-      "chat"
-    ],
-    "model_description": "Vicuna-v1.5-16k is a special version of Vicuna-v1.5, with a context window of 16k tokens instead of 4k.",
-    "model_specs": [
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": 7,
-        "quantizations": [
-          "4-bit",
-          "8-bit",
-          "none"
-        ],
-        "model_id": "lmsys/vicuna-7b-v1.5-16k",
-        "model_revision": "9a93d7d11fac7f3f9074510b80092b53bc1a5bec"
-      },
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": 13,
-        "quantizations": [
-          "4-bit",
-          "8-bit",
-          "none"
-        ],
-        "model_id": "lmsys/vicuna-13b-v1.5-16k",
-        "model_revision": "277697af19d4b267626ebc9f4e078d19a9a0fddf"
-      }
-    ],
-    "prompt_style": {
-      "style_name": "ADD_COLON_TWO",
-      "system_prompt": "A chat between a curious human and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the human's questions.",
-      "roles": [
-        "USER",
-        "ASSISTANT"
-      ],
-      "intra_message_sep": " ",
-      "inter_message_sep": "</s>"
-    }
   },
   {
     "version": 1,
@@ -5541,93 +4613,6 @@
         "<|im_start|>",
         "<|im_end|>",
         "<|im_sep|>"
-      ]
-    }
-  },
-  {
-    "version": 1,
-    "context_length": 2048,
-    "model_name": "OpenBuddy",
-    "model_lang": [
-      "en"
-    ],
-    "model_ability": [
-      "chat"
-    ],
-    "model_description": "OpenBuddy is a powerful open multilingual chatbot model aimed at global users.",
-    "model_specs": [
-      {
-        "model_format": "ggmlv3",
-        "model_size_in_billions": 13,
-        "quantizations": [
-          "Q2_K",
-          "Q3_K_S",
-          "Q3_K_M",
-          "Q3_K_L",
-          "Q4_0",
-          "Q4_1",
-          "Q4_K_S",
-          "Q4_K_M",
-          "Q5_0",
-          "Q5_1",
-          "Q5_K_S",
-          "Q5_K_M",
-          "Q6_K",
-          "Q8_0"
-        ],
-        "model_id": "TheBloke/OpenBuddy-Llama2-13B-v11.1-GGML",
-        "model_file_name_template": "openbuddy-llama2-13b-v11.1.ggmlv3.{quantization}.bin"
-      }
-    ],
-    "prompt_style": {
-      "style_name": "INSTRUCTION",
-      "system_prompt": "You are a professional translator. Be faithful or accurate in translation. Make the translation readable or intelligible. Be elegant or natural in translation. Do not translate person's name. Do not add any additional text to the translation. Do not give me any comments or suggestions.\nUser:\n\n{0}\nAssistant:",
-      "roles": [
-        "User",
-        "Assistant"
-      ],
-      "intra_message_sep": "",
-      "inter_message_sep": ""
-    }
-  },
-  {
-    "version": 1,
-    "context_length": 16384,
-    "model_name": "glaive-coder",
-    "model_description": "A code model trained on a dataset of ~140k programming related problems and solutions generated from Glaive’s synthetic data generation platform.",
-    "model_lang": [
-      "en"
-    ],
-    "model_ability": [
-      "chat"
-    ],
-    "model_specs": [
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": 7,
-        "quantizations": [
-          "4-bit",
-          "8-bit",
-          "none"
-        ],
-        "model_id": "glaiveai/glaive-coder-7b",
-        "model_revision": "72a255a58480ef0713eed988312fe82f77f94f37"
-      }
-    ],
-    "prompt_style": {
-      "style_name": "LLAMA2",
-      "system_prompt": "<s>[INST] <<SYS>>\nWrite code to solve the following coding problem that obeys the constraints and passes the example test cases. Please wrap your code answer using ```:\n<</SYS>>\n\n",
-      "roles": [
-        "[INST]",
-        "[/INST]"
-      ],
-      "intra_message_sep": " ",
-      "inter_message_sep": " </s><s>",
-      "stop_token_ids": [
-        2
-      ],
-      "stop": [
-        "</s>"
       ]
     }
   },

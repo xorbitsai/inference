@@ -37,9 +37,9 @@ def test_RESTful_client(setup):
     assert len(client.list_models()) == 0
 
     model_uid = client.launch_model(
-        model_name="orca",
+        model_name="qwen1.5-chat",
         model_engine="llama.cpp",
-        model_size_in_billions=3,
+        model_size_in_billions="0_5",
         quantization="q4_0",
     )
     assert len(client.list_models()) == 1
@@ -93,7 +93,7 @@ def test_RESTful_client(setup):
         for _ in range(2):
             r = executor.submit(_check_stream)
             results.append(r)
-    # Parallel generation is not supported by ggml.
+    # Parallel generation is not supported by llama-cpp-python.
     error_count = 0
     for r in results:
         try:
@@ -157,9 +157,9 @@ def test_RESTful_client(setup):
         client.terminate_model(model_uid=model_uid)
 
     model_uid2 = client.launch_model(
-        model_name="orca",
+        model_name="qwen1.5-chat",
         model_engine="llama.cpp",
-        model_size_in_billions=3,
+        model_size_in_billions="0_5",
         quantization="q4_0",
     )
 
@@ -173,34 +173,6 @@ def test_list_cached_models(setup):
     client = RESTfulClient(endpoint)
     res = client.list_cached_models()
     assert len(res) > 0
-
-
-@pytest.mark.skipif(os.name == "nt", reason="Skip windows")
-def test_list_deletable_models(setup):
-    endpoint, local_host = setup
-    client = RESTfulClient(endpoint)
-    response = client.list_deletable_models("orca--3B--ggmlv3--q4_0")
-    paths = response.get("paths", [])
-
-    expected_path = os.path.join(
-        os.environ["HOME"],
-        ".xinference",
-        "cache",
-        "orca-ggmlv3-3b",
-        "orca-mini-3b.ggmlv3.q4_0.bin",
-    )
-
-    normalized_expected_path = os.path.normpath(expected_path)
-
-    assert normalized_expected_path in paths
-
-
-@pytest.mark.skipif(os.name == "nt", reason="Skip windows")
-def test_remove_cached_models(setup):
-    endpoint, local_host = setup
-    client = RESTfulClient(endpoint)
-    responses = client.confirm_and_remove_model("orca--3B--ggmlv3--q4_0")
-    assert responses
 
 
 def test_RESTful_client_for_embedding(setup):
@@ -477,9 +449,9 @@ def test_auto_recover(set_auto_recover_limit, setup_cluster):
     client = RESTfulClient(endpoint)
 
     model_uid = client.launch_model(
-        model_name="orca",
+        model_name="qwen1.5-chat",
         model_engine="llama.cpp",
-        model_size_in_billions=3,
+        model_size_in_billions="0_5",
         quantization="q4_0",
     )
     new_children_proc = set(current_proc.children(recursive=True))
@@ -505,23 +477,3 @@ def test_auto_recover(set_auto_recover_limit, setup_cluster):
             time.sleep(1)
     else:
         assert False
-
-    new_children_proc = set(current_proc.children(recursive=True))
-    model_proc = next(iter(new_children_proc - chilren_proc))
-    assert len(client.list_models()) == 1
-
-    model_proc.kill()
-
-    expect_failed = False
-    for _ in range(5):
-        try:
-            completion = model.generate(
-                "Once upon a time, there was a very old computer", {"max_tokens": 64}
-            )
-            assert "text" in completion["choices"][0]
-            break
-        except Exception:
-            time.sleep(1)
-    else:
-        expect_failed = True
-    assert expect_failed

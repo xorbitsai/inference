@@ -125,7 +125,6 @@ jobs:
           pip install transformers_stream_generator
           pip install bitsandbytes
           pip install "sentence-transformers>=2.3.1"
-          pip install s3fs
           pip install modelscope
           pip install diffusers
           pip install protobuf
