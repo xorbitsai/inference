@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import base64
 import logging
 from io import BytesIO
 from typing import TYPE_CHECKING, Optional
@@ -63,14 +64,13 @@ class ChatTTSModel:
 
         rnd_spk_emb = None
 
-        # The speaker tensor is about 768 float16,
-        # then the len of pybase16384 encoded bytes is at least 800
-        # We check length here > 400.
         if len(voice) > 400:
             try:
                 assert self._model is not None
-                self._model._decode_spk_emb(voice)
-                rnd_spk_emb = voice
+                b = base64.b64decode(voice)
+                bio = BytesIO(b)
+                tensor = torch.load(bio, map_location="cpu")
+                rnd_spk_emb = self._model._encode_spk_emb(tensor)
                 logger.info("Speech by input speaker")
             except Exception as e:
                 logger.info("Fallback to random speaker due to %s", e)
@@ -116,7 +116,6 @@ class ChatTTSModel:
                                     if new_last_pos != last_pos:
                                         out.seek(last_pos)
                                         encoded_bytes = out.read()
-                                        print(len(encoded_bytes))
                                         yield encoded_bytes
                                         last_pos = new_last_pos
 
