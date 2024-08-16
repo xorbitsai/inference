@@ -54,7 +54,6 @@ class ChatTTSModel:
         response_format: str = "mp3",
         speed: float = 1.0,
         stream: bool = False,
-        speaker: str = "",
     ):
         import ChatTTS
         import numpy as np
@@ -62,10 +61,20 @@ class ChatTTSModel:
         import torchaudio
         import xxhash
 
-        if speaker:
-            rnd_spk_emb = speaker
-            logger.info("Speech by input speaker")
-        else:
+        rnd_spk_emb = None
+
+        # The speaker tensor is about 768 float16,
+        # then the len of pybase16384 encoded bytes is at least 879
+        # We check length here > 400.
+        if len(voice) > 400:
+            try:
+                self._model._decode_spk_emb(voice)
+                rnd_spk_emb = voice
+                logger.info("Speech by input speaker")
+            except Exception as e:
+                logger.info("Fallback to random speaker due to %s", e)
+
+        if rnd_spk_emb is None:
             seed = xxhash.xxh32_intdigest(voice)
 
             torch.manual_seed(seed)
