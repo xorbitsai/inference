@@ -41,7 +41,7 @@ from fastapi import (
     UploadFile,
 )
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from PIL import Image
 from sse_starlette.sse import EventSourceResponse
@@ -1382,7 +1382,7 @@ class RESTfulAPI:
                 **parsed_kwargs,
             )
             if body.stream:
-                return EventSourceResponse(
+                return StreamingResponse(
                     media_type="application/octet-stream", content=out
                 )
             else:
