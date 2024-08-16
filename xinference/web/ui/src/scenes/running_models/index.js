@@ -12,6 +12,7 @@ import ErrorMessageSnackBar from '../../components/errorMessageSnackBar'
 import fetcher from '../../components/fetcher'
 import fetchWrapper from '../../components/fetchWrapper'
 import Title from '../../components/Title'
+import { isValidBearerToken } from '../../components/utils'
 
 const RunningModels = () => {
   const [tabValue, setTabValue] = React.useState(
@@ -38,11 +39,11 @@ const RunningModels = () => {
   }
 
   const update = (isCallingApi) => {
-    if (cookie.token === '' || cookie.token === undefined) {
-      navigate('/login', { replace: true })
-      return
-    }
-    if (cookie.token !== 'no_auth' && !sessionStorage.getItem('token')) {
+    if (
+      sessionStorage.getItem('auth') === 'true' &&
+      !isValidBearerToken(sessionStorage.getItem('token')) &&
+      !isValidBearerToken(cookie.token)
+    ) {
       navigate('/login', { replace: true })
       return
     }

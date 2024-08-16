@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-08-13 17:44+0800\n"
+"POT-Creation-Date: 2024-08-15 11:43+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -16,7 +16,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Generated-By: Babel 2.14.0\n"
+"Generated-By: Babel 2.11.0\n"
 
 #: ../../source/getting_started/installation.rst:5
 msgid "Installation"
@@ -39,13 +39,13 @@ msgstr "如果你希望能够推理所有支持的模型，可以用以下命令
 
 #: ../../source/getting_started/installation.rst:13
 msgid ""
-"If you want to serve models in GGML format, it's advised to install the "
-"GGML dependencies manually based on your hardware specifications to "
-"enable acceleration. For more details, see the :ref:`installation_ggml` "
-"section."
+"If you want to serve models in GGUF format, it's advised to install the "
+"``llama-cpp-python`` dependency manually based on your hardware "
+"specifications to enable acceleration. For more details, see the "
+":ref:`installation_gguf` section."
 msgstr ""
-"如果你想使用 GGML 格式的模型，建议根据当前使用的硬件手动安装所需要的依赖"
-"，以充分利用硬件的加速能力。更多细节可以参考 :ref:`installation_ggml` "
+"如果你想使用 GGUF 格式的模型，建议根据当前使用的硬件手动安装所需要的依赖"
+"，以充分利用硬件的加速能力。更多细节可以参考 :ref:`installation_gguf` "
 "这一章节。"
 
 #: ../../source/getting_started/installation.rst:16
@@ -222,11 +222,11 @@ msgstr "Llama.cpp 引擎"
 
 #: ../../source/getting_started/installation.rst:80
 msgid ""
-"Xinference supports models in ``gguf`` and ``ggml`` format via ``llama-"
-"cpp-python``. It's advised to install the llama.cpp-related dependencies "
-"manually based on your hardware specifications to enable acceleration."
+"Xinference supports models in ``gguf`` format via ``llama-cpp-python``. "
+"It's advised to install the llama.cpp-related dependencies manually based"
+" on your hardware specifications to enable acceleration."
 msgstr ""
-"Xinference 通过 ``llama-cpp-python`` 支持 ``gguf`` 和 ``ggml`` 格式的模型"
+"Xinference 通过 ``llama-cpp-python`` 支持 ``gguf`` 格式的模型"
 "。建议根据当前使用的硬件手动安装依赖，从而获得最佳的加速效果。"
 
 #: ../../source/getting_started/installation.rst:82
@@ -267,9 +267,8 @@ msgstr ""
 "如连续批处理和张量并行处理。"
 
 #: ../../source/getting_started/installation.rst:115
-#, fuzzy
 msgid "MLX Backend"
-msgstr "vLLM 引擎"
+msgstr "MLX 引擎"
 
 #: ../../source/getting_started/installation.rst:116
 msgid "MLX-lm is designed for Apple silicon users to run LLM efficiently."

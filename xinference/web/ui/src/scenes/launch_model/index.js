@@ -8,6 +8,7 @@ import { ApiContext } from '../../components/apiContext'
 import ErrorMessageSnackBar from '../../components/errorMessageSnackBar'
 import fetchWrapper from '../../components/fetchWrapper'
 import Title from '../../components/Title'
+import { isValidBearerToken } from '../../components/utils'
 import LaunchCustom from './launchCustom'
 import LaunchLLM from './launchLLM'
 import LaunchModelComponent from './LaunchModelComponent'
@@ -34,13 +35,12 @@ const LaunchModel = () => {
   }
 
   useEffect(() => {
-    if (cookie.token === '' || cookie.token === undefined) {
+    if (
+      sessionStorage.getItem('auth') === 'true' &&
+      !isValidBearerToken(sessionStorage.getItem('token')) &&
+      !isValidBearerToken(cookie.token)
+    ) {
       navigate('/login', { replace: true })
-      return
-    }
-    if (cookie.token !== 'no_auth' && !sessionStorage.getItem('token')) {
-      navigate('/login', { replace: true })
-      return
     }
 
     if (gpuAvailable === -1) {

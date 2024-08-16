@@ -189,7 +189,7 @@ class SGLANGModel(LLM):
             return False
         if not cls._is_linux():
             return False
-        if llm_spec.model_format not in ["pytorch", "gptq", "awq"]:
+        if llm_spec.model_format not in ["pytorch", "gptq", "awq", "fp8"]:
             return False
         if llm_spec.model_format == "pytorch":
             if quantization != "none" and not (quantization is None):
@@ -378,7 +378,7 @@ class SGLANGChatModel(SGLANGModel, ChatModelMixin):
     def match(
         cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
-        if llm_spec.model_format not in ["pytorch", "gptq", "awq"]:
+        if llm_spec.model_format not in ["pytorch", "gptq", "awq", "fp8"]:
             return False
         if llm_spec.model_format == "pytorch":
             if quantization != "none" and not (quantization is None):

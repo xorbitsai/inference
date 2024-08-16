@@ -426,7 +426,7 @@ class RESTfulGenerateModelHandle(RESTfulModelHandle):
             The user's message or user's input.
         generate_config: Optional[Union["LlamaCppGenerateConfig", "PytorchGenerateConfig"]]
             Additional configuration for the chat generation.
-            "LlamaCppGenerateConfig" -> Configuration for ggml model
+            "LlamaCppGenerateConfig" -> Configuration for llama-cpp-python model
             "PytorchGenerateConfig" -> Configuration for pytorch model
 
         Returns
@@ -493,7 +493,7 @@ class RESTfulChatModelHandle(RESTfulGenerateModelHandle):
             A tool list.
         generate_config: Optional[Union["LlamaCppGenerateConfig", "PytorchGenerateConfig"]]
             Additional configuration for the chat generation.
-            "LlamaCppGenerateConfig" -> configuration for ggml model
+            "LlamaCppGenerateConfig" -> configuration for llama-cpp-python model
             "PytorchGenerateConfig" -> configuration for pytorch model
 
         Returns

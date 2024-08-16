@@ -3,12 +3,11 @@
 # This file is distributed under the same license as the Xinference package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
 #
-#, fuzzy
 msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-08-08 18:01+0800\n"
+"POT-Creation-Date: 2024-08-15 11:39+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -39,8 +38,10 @@ msgid ""
 "``model_path`` to the launch interface without downloading it. This way "
 "requires that the model's ``model_family`` is among the built-in "
 "supported models, and eliminates the hassle of registering the model."
-msgstr "从 ``v0.14.0`` 版本开始，如果你需要注册的模型的家族是 Xinference 内置支持的模型，"
-"你可以直接通过 launch 接口中的 ``model_path`` 参数来启动它，从而免去注册步骤的麻烦。现在非常推荐使用这种方式。"
+msgstr ""
+"从 ``v0.14.0`` 版本开始，如果你需要注册的模型的家族是 Xinference 内置支持"
+"的模型，你可以直接通过 launch 接口中的 ``model_path`` 参数来启动它，从而"
+"免去注册步骤的麻烦。现在非常推荐使用这种方式。"
 
 #: ../../source/models/custom.rst:15
 msgid "For example:"
@@ -50,8 +51,7 @@ msgstr "例如："
 msgid ""
 "The above example demonstrates how to directly launch a qwen1.5-chat "
 "model file without registering it."
-msgstr ""
-"上面的例子展示了当我已有 qwen1.5-chat 模型文件时，如何直接 launch 它。"
+msgstr "上面的例子展示了当我已有 qwen1.5-chat 模型文件时，如何直接 launch 它。"
 
 #: ../../source/models/custom.rst:49
 msgid ""
@@ -59,8 +59,8 @@ msgid ""
 "you can directly launch it using the ``worker_ip`` and ``model_path`` "
 "parameters with the launch interface."
 msgstr ""
-"对于分布式场景，将你的模型文件置于某个 worker ，然后通过 launch 接口的 ``worker_ip`` 和 ``model_path`` 参数"
-"来达到直接 launch 的效果。"
+"对于分布式场景，将你的模型文件置于某个 worker ，然后通过 launch 接口的 ``"
+"worker_ip`` 和 ``model_path`` 参数来达到直接 launch 的效果。"
 
 #: ../../source/models/custom.rst:53
 msgid "Define a custom LLM model"
@@ -131,9 +131,9 @@ msgstr "model_specs: 一个包含定义模型规格的对象数组。这些规�
 
 #: ../../source/models/custom.rst:102
 msgid ""
-"model_format: A string that defines the model format, could be "
-"\"pytorch\" or \"ggmlv3\"."
-msgstr "model_format: 一个定义模型格式的字符串，可以是 'pytorch' 或 'ggmlv3'。"
+"model_format: A string that defines the model format, like \"pytorch\" or"
+" \"ggufv2\"."
+msgstr "model_format: 一个定义模型格式的字符串，可以是 'pytorch' 或 'ggufv2'。"
 
 #: ../../source/models/custom.rst:103
 msgid ""
@@ -145,11 +145,11 @@ msgstr "model_size_in_billions: 一个整数，定义模型的参数量，以十
 msgid ""
 "quantizations: A list of strings defining the available quantizations for"
 " the model. For PyTorch models, it could be \"4-bit\", \"8-bit\", or "
-"\"none\". For ggmlv3 models, the quantizations should correspond to "
+"\"none\". For ggufv2 models, the quantizations should correspond to "
 "values that work with the ``model_file_name_template``."
 msgstr ""
 "quantizations: 一个字符串列表，定义模型的量化方式。对于 PyTorch 模型，它"
-"可以是 \"4-bit\"、\"8-bit\" 或 \"none\"。对于 ggmlv3 模型，量化方式应与 `"
+"可以是 \"4-bit\"、\"8-bit\" 或 \"none\"。对于 ggufv2 模型，量化方式应与 `"
 "`model_file_name_template`` 中的值对应。"
 
 #: ../../source/models/custom.rst:105
@@ -167,25 +167,24 @@ msgstr ""
 msgid ""
 "model_uri: A string representing the URI where the model can be loaded "
 "from, such as \"file:///path/to/llama-2-7b\". **When the model format is "
-"ggmlv3 or ggufv2, model_uri must be the specific file path. When the "
-"model format is pytorch, model_uri must be the path to the directory "
-"containing the model files.** If model URI is absent, Xinference will try"
-" to download the model from Hugging Face with the model ID."
+"ggufv2, model_uri must be the specific file path. When the model format "
+"is pytorch, model_uri must be the path to the directory containing the "
+"model files.** If model URI is absent, Xinference will try to download "
+"the model from Hugging Face with the model ID."
 msgstr ""
 "model_uri：表示模型文件位置的字符串，例如本地目录：\"file:///path/to/"
-"llama-2-7b\"。当 model_format 是 ggmlv3 或者 ggufv2 ，此字段必须是具体的"
+"llama-2-7b\"。当 model_format 是 ggufv2 ，此字段必须是具体的"
 "模型文件路径。而当 model_format 是 pytorch 时，此字段必须是一个包含所有"
 "模型文件的目录。"
 
 #: ../../source/models/custom.rst:107
 msgid ""
-"model_file_name_template: Required by ggml/gguf models. An f-string "
-"template used for defining the model file name based on the quantization."
-" **Note that this field is just a template for the format of the "
-"ggmlv3/ggufv2 model file, do not fill in the specific path of the model "
-"file.**"
+"model_file_name_template: Required by gguf models. An f-string template "
+"used for defining the model file name based on the quantization. **Note "
+"that this field is just a template for the format of the ggufv2 model "
+"file, do not fill in the specific path of the model file.**"
 msgstr ""
-"model_file_name_template: ggml 模型所需。一个 f-string 模板，用于根据量化"
+"model_file_name_template: gguf 模型所需。一个 f-string 模板，用于根据量化"
 "定义模型文件名。注意，这里不要填入文件的路径。"
 
 #: ../../source/models/custom.rst:108

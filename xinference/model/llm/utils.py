@@ -11,13 +11,18 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import base64
 import functools
 import json
 import logging
 import os
 import time
 import uuid
+from io import BytesIO
 from typing import AsyncGenerator, Dict, Iterator, List, Optional, Tuple, cast
+
+import requests
+from PIL import Image
 
 from ...types import (
     SPECIAL_TOOL_PROMPT,
@@ -28,7 +33,7 @@ from ...types import (
     CompletionChunk,
 )
 from .llm_family import (
-    GgmlLLMSpecV1,
+    LlamaCppLLMSpecV1,
     LLMFamilyV1,
     LLMSpecV1,
     PromptStyleV1,
@@ -60,7 +65,7 @@ class ChatModelMixin:
         chat_history: List[ChatCompletionMessage],
         prompt_style: PromptStyleV1,
         tools: Optional[List[Dict]] = None,
-    ) -> str:
+    ):
         """
         Inspired by FastChat. Format chat history into a prompt according to the prompty style of
         different models.
@@ -89,17 +94,6 @@ class ChatModelMixin:
                 content = message["content"]
                 if content:
                     ret += role + ": " + content + prompt_style.intra_message_sep
-                else:
-                    ret += role + ":"
-            return ret
-        elif prompt_style.style_name == "ADD_COLON_TWO":
-            seps = [prompt_style.intra_message_sep, prompt_style.inter_message_sep]
-            ret = prompt_style.system_prompt + seps[0]
-            for i, message in enumerate(chat_history):
-                role = get_role(message["role"])
-                content = message["content"]
-                if content:
-                    ret += role + ": " + content + seps[i % 2]
                 else:
                     ret += role + ":"
             return ret
@@ -144,21 +138,6 @@ class ChatModelMixin:
                 else:
                     ret += f"<|start_header_id|>{role}<|end_header_id|>{prompt_style.intra_message_sep}"
             return ret
-        elif prompt_style.style_name == "FALCON":
-            ret = prompt_style.system_prompt
-            for message in chat_history:
-                role = get_role(message["role"])
-                content = message["content"]
-                if content:
-                    ret += (
-                        role
-                        + ": "
-                        + content.replace("\r\n", "\n").replace("\n\n", "\n")
-                    )
-                    ret += "\n\n"
-                else:
-                    ret += role + ":"
-            return ret
         elif prompt_style.style_name == "MIXTRAL_V01":
             ret = ""
             for i, message in enumerate(chat_history):
@@ -167,22 +146,6 @@ class ChatModelMixin:
                     ret += f"<s> [INST] {content} [/INST]"
                 else:  # assistant
                     ret += f"{content} </s>"
-            return ret
-        elif prompt_style.style_name == "CHATGLM":
-            round_add_n = 1 if prompt_style.intra_message_sep == "\n\n" else 0
-            if prompt_style.system_prompt:
-                ret = prompt_style.system_prompt + prompt_style.intra_message_sep
-            else:
-                ret = ""
-            for i, message in enumerate(chat_history):
-                role = get_role(message["role"])
-                content = message["content"]
-                if i % 2 == 0:
-                    ret += f"[Round {i // 2 + round_add_n}]{prompt_style.intra_message_sep}"
-                if content:
-                    ret += role + "：" + content + prompt_style.intra_message_sep
-                else:
-                    ret += role + "："
             return ret
         elif prompt_style.style_name == "CHATGLM3":
             prompts = (
@@ -323,25 +286,6 @@ Begin!"""
                 else:
                     ret += role + "\n"
             return ret
-        elif prompt_style.style_name == "INTERNLM":
-            seps = [prompt_style.intra_message_sep, prompt_style.inter_message_sep]
-            ret = ""
-            for i, message in enumerate(chat_history[:-2]):
-                if i % 2 == 0:
-                    ret += "<s>"
-                role = get_role(message["role"])
-                content = message["content"]
-                ret += role + ":" + str(content) + seps[i % 2]
-            if len(ret) == 0:
-                ret += "<s>"
-            ret += (
-                chat_history[-2]["role"]
-                + ":"
-                + str(chat_history[-2]["content"])
-                + seps[0]
-            )
-            ret += chat_history[-1]["role"] + ":"
-            return ret
         elif prompt_style.style_name == "INTERNLM2":
             ret = (
                 "<s>"
@@ -370,9 +314,6 @@ Begin!"""
                 else:
                     ret += role + ": Let's think step by step."
             return ret
-        elif prompt_style.style_name == "INSTRUCTION":
-            message = chat_history[-2]
-            return prompt_style.system_prompt.format(message["content"])
         elif prompt_style.style_name == "DEEPSEEK_CHAT":
             seps = [prompt_style.intra_message_sep, prompt_style.inter_message_sep]
             ret = prompt_style.system_prompt
@@ -504,6 +445,52 @@ Begin!"""
                 else:
                     ret += role
             return ret
+        elif prompt_style.style_name == "INTERNVL":
+            ret = (
+                "<s>"
+                if prompt_style.system_prompt == ""
+                else "<s><|im_start|>system\n"
+                + prompt_style.system_prompt
+                + prompt_style.intra_message_sep
+                + "\n"
+            )
+            images = []  # type: ignore
+            for message in chat_history:
+                role = get_role(message["role"])
+                content = message["content"]
+                if isinstance(content, str):
+                    ret += role + "\n" + content + prompt_style.intra_message_sep + "\n"
+                elif isinstance(content, list):
+                    text = ""
+                    image_urls = []
+                    for c in content:
+                        c_type = c.get("type")
+                        if c_type == "text":
+                            text = c["text"]
+                        elif c_type == "image_url":
+                            image_urls.append(c["image_url"]["url"])
+                    image_futures = []
+                    from concurrent.futures import ThreadPoolExecutor
+
+                    with ThreadPoolExecutor() as executor:
+                        for image_url in image_urls:
+                            fut = executor.submit(_decode_image, image_url)
+                            image_futures.append(fut)
+                    images = [fut.result() for fut in image_futures]
+                    if len(image_futures) == 0:
+                        ret += (
+                            role + "\n" + text + prompt_style.intra_message_sep + "\n"
+                        )
+                    else:
+                        ret += (
+                            role
+                            + "\n"
+                            + f"<image>\n{text}"
+                            + prompt_style.intra_message_sep
+                            + "\n"
+                        )
+
+            return (ret, images)
         else:
             raise ValueError(f"Invalid prompt style: {prompt_style.style_name}")
 
@@ -706,7 +693,7 @@ Begin!"""
         family = model_family.model_family or model_family.model_name
         if family in ["gorilla-openfunctions-v1", "gorilla-openfunctions-v2"]:
             content, func, args = cls._eval_gorilla_openfunctions_arguments(c, tools)
-        elif family in ["chatglm3"] + GLM4_TOOL_CALL_FAMILY:
+        elif family in GLM4_TOOL_CALL_FAMILY:
             content, func, args = cls._eval_glm_chat_arguments(c, tools)
         elif family in QWEN_TOOL_CALL_FAMILY:
             content, func, args = cls._eval_qwen_chat_arguments(c, tools)
@@ -870,10 +857,10 @@ def get_file_location(
         is_cached = cache_status
     assert isinstance(is_cached, bool)
 
-    if spec.model_format in ["pytorch", "gptq", "awq", "mlx"]:
+    if spec.model_format in ["pytorch", "gptq", "awq", "fp8", "mlx"]:
         return cache_dir, is_cached
-    elif spec.model_format in ["ggmlv3", "ggufv2"]:
-        assert isinstance(spec, GgmlLLMSpecV1)
+    elif spec.model_format in ["ggufv2"]:
+        assert isinstance(spec, LlamaCppLLMSpecV1)
         filename = spec.model_file_name_template.format(quantization=quantization)
         model_path = os.path.join(cache_dir, filename)
         return model_path, is_cached
@@ -885,3 +872,22 @@ def get_model_version(
     llm_family: LLMFamilyV1, llm_spec: LLMSpecV1, quantization: str
 ) -> str:
     return f"{llm_family.model_name}--{llm_spec.model_size_in_billions}B--{llm_spec.model_format}--{quantization}"
+
+
+def _decode_image(_url):
+    if _url.startswith("data:"):
+        logging.info("Parse url by base64 decoder.")
+        # https://platform.openai.com/docs/guides/vision/uploading-base-64-encoded-images
+        # e.g. f"data:image/jpeg;base64,{base64_image}"
+        _type, data = _url.split(";")
+        _, ext = _type.split("/")
+        data = data[len("base64,") :]
+        data = base64.b64decode(data.encode("utf-8"))
+        return Image.open(BytesIO(data)).convert("RGB")
+    else:
+        try:
+            response = requests.get(_url)
+        except requests.exceptions.MissingSchema:
+            return Image.open(_url).convert("RGB")
+        else:
+            return Image.open(BytesIO(response.content)).convert("RGB")

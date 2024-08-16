@@ -21,6 +21,7 @@ import time
 import uuid
 from typing import (
     TYPE_CHECKING,
+    Any,
     AsyncGenerator,
     Dict,
     Iterable,
@@ -88,11 +89,12 @@ try:
 except ImportError:
     VLLM_INSTALLED = False
 
+VLLM_SUPPORTED_VISION_MODEL_LIST: List[str] = [
+    "internvl2",
+]
 VLLM_SUPPORTED_MODELS = [
     "llama-2",
     "llama-3",
-    "baichuan",
-    "internlm-16k",
     "mistral-v0.1",
     "codestral-v0.1",
     "Yi",
@@ -105,13 +107,7 @@ VLLM_SUPPORTED_MODELS = [
 VLLM_SUPPORTED_CHAT_MODELS = [
     "llama-2-chat",
     "llama-3-instruct",
-    "vicuna-v1.3",
-    "vicuna-v1.5",
-    "baichuan-chat",
     "baichuan-2-chat",
-    "internlm-chat-7b",
-    "internlm-chat-8k",
-    "internlm-chat-20b",
     "internlm2-chat",
     "internlm2.5-chat",
     "internlm2.5-chat-1m",
@@ -338,7 +334,7 @@ class VLLMModel(LLM):
             return False
         if not cls._is_linux():
             return False
-        if llm_spec.model_format not in ["pytorch", "gptq", "awq"]:
+        if llm_spec.model_format not in ["pytorch", "gptq", "awq", "fp8"]:
             return False
         if llm_spec.model_format == "pytorch":
             if quantization != "none" and not (quantization is None):
@@ -421,7 +417,7 @@ class VLLMModel(LLM):
 
     async def async_generate(
         self,
-        prompt: str,
+        prompt: Union[str, Dict[str, Any]],
         generate_config: Optional[Dict] = None,
         tools: object = False,
     ) -> Union[Completion, AsyncGenerator[CompletionChunk, None]]:
@@ -558,7 +554,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
     def match(
         cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
-        if llm_spec.model_format not in ["pytorch", "gptq", "awq"]:
+        if llm_spec.model_format not in ["pytorch", "gptq", "awq", "fp8"]:
             return False
         if llm_spec.model_format == "pytorch":
             if quantization != "none" and not (quantization is None):
@@ -643,4 +639,107 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
                 return self._tool_calls_completion(
                     self.model_family, self.model_uid, c, tools
                 )
+            return self._to_chat_completion(c)
+
+
+class VLLMVisionModel(VLLMModel, ChatModelMixin):
+    def load(self):
+        try:
+            import vllm
+            from vllm.engine.arg_utils import AsyncEngineArgs
+            from vllm.engine.async_llm_engine import AsyncLLMEngine
+        except ImportError:
+            error_message = "Failed to import module 'vllm'"
+            installation_guide = [
+                "Please make sure 'vllm' is installed. ",
+                "You can install it by `pip install vllm`\n",
+            ]
+            raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
+
+        if vllm.__version__ >= "0.3.1":
+            # from vllm v0.3.1, it uses cupy as NCCL backend
+            # in which cupy will fork a process
+            # only for xoscar >= 0.3.0, new process is allowed in subpool
+            # besides, xinference set start method as forkserver for unix
+            # we need to set it to fork to make cupy NCCL work
+            multiprocessing.set_start_method("fork", force=True)
+
+        self._model_config = self._sanitize_model_config(self._model_config)
+
+        logger.info(
+            f"Loading {self.model_uid} with following model config: {self._model_config}"
+        )
+
+        engine_args = AsyncEngineArgs(
+            model=self.model_path,
+            **self._model_config,
+        )
+        self._engine = AsyncLLMEngine.from_engine_args(engine_args)
+
+    @classmethod
+    def match(
+        cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
+    ) -> bool:
+        if llm_spec.model_format != "pytorch":
+            return False
+        if llm_spec.model_format == "pytorch":
+            if quantization != "none" and not (quantization is None):
+                return False
+        if isinstance(llm_family, CustomLLMFamilyV1):
+            if llm_family.model_family not in VLLM_SUPPORTED_VISION_MODEL_LIST:
+                return False
+        else:
+            if llm_family.model_name not in VLLM_SUPPORTED_VISION_MODEL_LIST:
+                return False
+        if "vision" not in llm_family.model_ability:
+            return False
+        return VLLM_INSTALLED
+
+    def _sanitize_chat_config(
+        self,
+        generate_config: Optional[Dict] = None,
+    ) -> Dict:
+        if not generate_config:
+            generate_config = {}
+        if self.model_family.prompt_style:
+            if self.model_family.prompt_style.stop_token_ids:
+                generate_config.setdefault(
+                    "stop_token_ids",
+                    self.model_family.prompt_style.stop_token_ids.copy(),
+                )
+        return generate_config
+
+    async def async_chat(
+        self,
+        prompt: str,
+        system_prompt: Optional[str] = None,
+        chat_history: Optional[List[ChatCompletionMessage]] = None,
+        generate_config: Optional[Dict] = None,
+    ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
+        # only support single image, waiting vllm support multi images
+        assert self.model_family.prompt_style is not None
+        prompt_style = self.model_family.prompt_style.copy()
+        chat_history = chat_history or []
+        prompt, images = self.get_prompt(prompt, chat_history, prompt_style)
+        logger.info(f"messages:{prompt}")
+        if len(images) == 0:
+            inputs = {
+                "prompt": prompt,
+            }
+        else:
+            inputs = {
+                "prompt": prompt,
+                "multi_modal_data": {"image": images[-1]},  # type: ignore
+            }
+        generate_config = self._sanitize_chat_config(generate_config)
+
+        stream = generate_config.get("stream", None)
+
+        if stream:
+            agen = await self.async_generate(inputs, generate_config)
+            assert isinstance(agen, AsyncGenerator)
+            return self._async_to_chat_completion_chunks(agen)
+        else:
+            c = await self.async_generate(inputs, generate_config)
+            assert not isinstance(c, AsyncGenerator)
             return self._to_chat_completion(c)
