@@ -258,6 +258,7 @@ class GradioInterface:
                     ],
                 }
             elif video:
+
                 def video_to_base64(video_path):
                     with open(video_path, "rb") as video_file:
                         encoded_string = base64.b64encode(video_file.read()).decode(
