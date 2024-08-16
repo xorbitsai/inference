@@ -71,7 +71,6 @@ def test_chattts(setup):
 def test_gen_speaker():
     from ChatTTS.core import Chat
 
-    out = os.path.join(os.path.dirname(__file__), "../evaluation_results.npz")
     df = pd.read_csv(
         "https://raw.githubusercontent.com/6drf21e/ChatTTS_Speaker/main/evaluation_results.csv"
     )

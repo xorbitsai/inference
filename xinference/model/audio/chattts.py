@@ -64,7 +64,7 @@ class ChatTTSModel:
         rnd_spk_emb = None
 
         # The speaker tensor is about 768 float16,
-        # then the len of pybase16384 encoded bytes is at least 879
+        # then the len of pybase16384 encoded bytes is at least 800
         # We check length here > 400.
         if len(voice) > 400:
             try:
