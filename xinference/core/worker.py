@@ -146,7 +146,7 @@ class WorkerActor(xo.StatelessActor):
                 else:
                     recover_count = self._model_uid_to_recover_count.get(model_uid)
                     try:
-                        await self.terminate_model(model_uid)
+                        await self.terminate_model(model_uid, is_model_die=True)
                     except Exception:
                         pass
                     if recover_count is not None:
@@ -914,7 +914,7 @@ class WorkerActor(xo.StatelessActor):
         )
 
     @log_async(logger=logger)
-    async def terminate_model(self, model_uid: str):
+    async def terminate_model(self, model_uid: str, is_model_die=False):
         # Terminate model while its launching is not allow
         if model_uid in self._model_uid_launching_guard:
             raise ValueError(f"{model_uid} is launching")
@@ -963,11 +963,16 @@ class WorkerActor(xo.StatelessActor):
             self._model_uid_to_recover_count.pop(model_uid, None)
             self._model_uid_to_launch_args.pop(model_uid, None)
 
+            if is_model_die:
+                status = LaunchStatus.ERROR.name
+            else:
+                status = LaunchStatus.TERMINATED.name
+
             if self._status_guard_ref is None:
                 _ = await self.get_supervisor_ref()
             assert self._status_guard_ref is not None
             await self._status_guard_ref.update_instance_info(
-                origin_uid, {"status": LaunchStatus.TERMINATED.name}
+                origin_uid, {"status": status}
             )
 
     # Provide an interface for future version of supervisor to call
