@@ -127,7 +127,7 @@ def _install():
     from .transformers.minicpmv26 import MiniCPMV26Model
     from .transformers.qwen_vl import QwenVLChatModel
     from .transformers.yi_vl import YiVLChatModel
-    from .vllm.core import VLLMChatModel, VLLMModel
+    from .vllm.core import VLLMChatModel, VLLMModel, VLLMVisionModel
 
     try:
         from .transformers.omnilmm import OmniLMMModel
@@ -145,7 +145,7 @@ def _install():
         ]
     )
     SGLANG_CLASSES.extend([SGLANGModel, SGLANGChatModel])
-    VLLM_CLASSES.extend([VLLMModel, VLLMChatModel])
+    VLLM_CLASSES.extend([VLLMModel, VLLMChatModel, VLLMVisionModel])
     MLX_CLASSES.extend([MLXModel, MLXChatModel])
     TRANSFORMERS_CLASSES.extend(
         [
