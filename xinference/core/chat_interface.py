@@ -258,7 +258,6 @@ class GradioInterface:
                     ],
                 }
             elif video:
-                # 读取视频文件并转换为Base64
                 def video_to_base64(video_path):
                     with open(video_path, "rb") as video_file:
                         encoded_string = base64.b64encode(video_file.read()).decode(
@@ -266,10 +265,9 @@ class GradioInterface:
                         )
                     return encoded_string
 
-                # 将视频路径转换为Base64并嵌入HTML中
                 def generate_html_video(video_path):
                     base64_video = video_to_base64(video_path)
-                    video_format = video_path.split(".")[-1]  # 获取视频格式 (如 mp4, webm 等)
+                    video_format = video_path.split(".")[-1]
                     html_code = f"""
                     <video controls>
                         <source src="data:video/{video_format};base64,{base64_video}" type="video/{video_format}">
