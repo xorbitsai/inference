@@ -12,9 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import json
 import logging
 import multiprocessing
+import os
 import time
 import uuid
 from typing import (
@@ -93,8 +95,6 @@ VLLM_SUPPORTED_VISION_MODEL_LIST: List[str] = [
 VLLM_SUPPORTED_MODELS = [
     "llama-2",
     "llama-3",
-    "baichuan",
-    "internlm-16k",
     "mistral-v0.1",
     "codestral-v0.1",
     "Yi",
@@ -107,13 +107,7 @@ VLLM_SUPPORTED_MODELS = [
 VLLM_SUPPORTED_CHAT_MODELS = [
     "llama-2-chat",
     "llama-3-instruct",
-    "vicuna-v1.3",
-    "vicuna-v1.5",
-    "baichuan-chat",
     "baichuan-2-chat",
-    "internlm-chat-7b",
-    "internlm-chat-8k",
-    "internlm-chat-20b",
     "internlm2-chat",
     "internlm2.5-chat",
     "internlm2.5-chat-1m",
@@ -244,6 +238,42 @@ class VLLMModel(LLM):
         )
         self._engine = AsyncLLMEngine.from_engine_args(engine_args)
 
+        self._check_health_task = None
+        if hasattr(self._engine, "check_health"):
+            # vLLM introduced `check_health` since v0.4.1
+            self._check_health_task = asyncio.create_task(self._check_healthy())
+
+    def stop(self):
+        # though the vLLM engine will shutdown when deleted,
+        # but some issue e.g. GH#1682 reported
+        # when deleting, the engine exists still
+        logger.info("Stopping vLLM engine")
+        if self._check_health_task:
+            self._check_health_task.cancel()
+        if model_executor := getattr(self._engine.engine, "model_executor", None):
+            model_executor.shutdown()
+        self._engine = None
+
+    async def _check_healthy(self, interval: int = 30):
+        from vllm.engine.async_llm_engine import AsyncEngineDeadError
+
+        logger.debug("Begin to check health of vLLM")
+
+        while self._engine is not None:
+            try:
+                await self._engine.check_health()
+            except (AsyncEngineDeadError, RuntimeError):
+                logger.info("Detecting vLLM is not health, prepare to quit the process")
+                try:
+                    self.stop()
+                except:
+                    # ignore error when stop
+                    pass
+                # Just kill the process and let xinference auto-recover the model
+                os._exit(1)
+            else:
+                await asyncio.sleep(interval)
+
     def _sanitize_model_config(
         self, model_config: Optional[VLLMModelConfig]
     ) -> VLLMModelConfig:
@@ -304,7 +334,7 @@ class VLLMModel(LLM):
             return False
         if not cls._is_linux():
             return False
-        if llm_spec.model_format not in ["pytorch", "gptq", "awq"]:
+        if llm_spec.model_format not in ["pytorch", "gptq", "awq", "fp8"]:
             return False
         if llm_spec.model_format == "pytorch":
             if quantization != "none" and not (quantization is None):
@@ -524,7 +554,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
     def match(
         cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
-        if llm_spec.model_format not in ["pytorch", "gptq", "awq"]:
+        if llm_spec.model_format not in ["pytorch", "gptq", "awq", "fp8"]:
             return False
         if llm_spec.model_format == "pytorch":
             if quantization != "none" and not (quantization is None):

@@ -34,14 +34,14 @@ potential of cutting-edge AI models.
 - Support speech recognition model: [#929](https://github.com/xorbitsai/inference/pull/929)
 - Metrics support: [#906](https://github.com/xorbitsai/inference/pull/906)
 ### New Models
+- Built-in support for [CogVideoX](https://github.com/THUDM/CogVideo): [#2049](https://github.com/xorbitsai/inference/pull/2049)
+- Built-in support for [flux.1-schnell & flux.1-dev](https://www.basedlabs.ai/tools/flux1): [#2007](https://github.com/xorbitsai/inference/pull/2007)
+- Built-in support for [MiniCPM-V 2.6](https://github.com/OpenBMB/MiniCPM-V): [#2031](https://github.com/xorbitsai/inference/pull/2031)
+- Built-in support for [Kolors](https://huggingface.co/Kwai-Kolors/Kolors): [#2028](https://github.com/xorbitsai/inference/pull/2028)
+- Built-in support for [SenseVoice](https://github.com/FunAudioLLM/SenseVoice): [#2008](https://github.com/xorbitsai/inference/pull/2008)
 - Built-in support for [Mistral Large 2](https://mistral.ai/news/mistral-large-2407/): [#1944](https://github.com/xorbitsai/inference/pull/1944)
 - Built-in support for [llama3.1](https://ai.meta.com/blog/meta-llama-3-1/): [#1932](https://github.com/xorbitsai/inference/pull/1932)
 - Built-in support for [Mistral Nemo](https://mistral.ai/news/mistral-nemo/): [#1936](https://github.com/xorbitsai/inference/pull/1936)
-- Built-in support for [CosyVoice](https://github.com/FunAudioLLM/CosyVoice): [#1881](https://github.com/xorbitsai/inference/pull/1881)
-- Built-in support for [codegeex4](https://github.com/THUDM/CodeGeeX4): [#1888](https://github.com/xorbitsai/inference/pull/1888)
-- Built-in support for [Gemma-2-it](https://huggingface.co/blog/gemma2): [#1774](https://github.com/xorbitsai/inference/pull/1774)
-- Built-in support for [jina-reranker-v2](https://huggingface.co/jinaai/jina-reranker-v2-base-multilingual): [#1733](https://github.com/xorbitsai/inference/pull/1733)
-- Built-in support for [Qwen2](https://github.com/QwenLM/Qwen2): [#1509](https://github.com/xorbitsai/inference/pull/1597)
 ### Integrations
 - [Dify](https://docs.dify.ai/advanced/model-configuration/xinference): an LLMOps platform that enables developers (and even non-developers) to quickly build useful applications based on large language models, ensuring they are visual, operable, and improvable.
 - [FastGPT](https://github.com/labring/FastGPT): a knowledge-based platform built on the LLM, offers out-of-the-box data processing and model invocation capabilities, allows for workflow orchestration through Flow visualization.
@@ -97,7 +97,7 @@ with popular third-party libraries including [LangChain](https://python.langchai
 
 ### Jupyter Notebook
 
-The lightest way to experience Xinference is to try our [Juypter Notebook on Google Colab](https://colab.research.google.com/github/xorbitsai/inference/blob/main/examples/Xinference_Quick_Start.ipynb).
+The lightest way to experience Xinference is to try our [Jupyter Notebook on Google Colab](https://colab.research.google.com/github/xorbitsai/inference/blob/main/examples/Xinference_Quick_Start.ipynb).
 
 ### Docker 
 

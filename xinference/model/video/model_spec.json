@@ -1,0 +1,11 @@
+[
+  {
+    "model_name": "CogVideoX-2b",
+    "model_family": "CogVideoX",
+    "model_id": "THUDM/CogVideoX-2b",
+    "model_revision": "4bbfb1de622b80bc1b77b6e9aced75f816be0e38",
+    "model_ability": [
+      "text2video"
+    ]
+  }
+]

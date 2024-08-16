@@ -47,6 +47,7 @@ XINFERENCE_TENSORIZER_DIR = os.path.join(XINFERENCE_HOME, "tensorizer")
 XINFERENCE_MODEL_DIR = os.path.join(XINFERENCE_HOME, "model")
 XINFERENCE_LOG_DIR = os.path.join(XINFERENCE_HOME, "logs")
 XINFERENCE_IMAGE_DIR = os.path.join(XINFERENCE_HOME, "image")
+XINFERENCE_VIDEO_DIR = os.path.join(XINFERENCE_HOME, "video")
 XINFERENCE_AUTH_DIR = os.path.join(XINFERENCE_HOME, "auth")
 XINFERENCE_CSG_ENDPOINT = str(
     os.environ.get(XINFERENCE_ENV_CSG_ENDPOINT, "https://hub-stg.opencsg.com/")

@@ -4,7 +4,7 @@
 MiniCPM-Llama3-V-2_5
 ========================================
 
-- **Context Length:** 2048
+- **Context Length:** 8192
 - **Model Name:** MiniCPM-Llama3-V-2_5
 - **Languages:** en, zh
 - **Abilities:** chat, vision

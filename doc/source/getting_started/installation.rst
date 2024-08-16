@@ -10,7 +10,7 @@ If you aim to serve all supported models, you can install all the necessary depe
    pip install "xinference[all]"
 
 .. note::
-   If you want to serve models in GGML format, it's advised to install the GGML dependencies manually based on your hardware specifications to enable acceleration. For more details, see the :ref:`installation_ggml` section.
+   If you want to serve models in GGUF format, it's advised to install the ``llama-cpp-python`` dependency manually based on your hardware specifications to enable acceleration. For more details, see the :ref:`installation_gguf` section.
 
 
 If you want to install only the necessary backends, here's a breakdown of how to do it.
@@ -39,7 +39,7 @@ Currently, supported models include:
 
 .. vllm_start
 
-- ``llama-2``, ``llama-3``, ``llama-2-chat``, ``llama-3-instruct``, ``llama-3.1``, ``llama-3.1-instruct``
+- ``llama-2``, ``llama-3``, ``llama-3.1``, ``llama-2-chat``, ``llama-3-instruct``, ``llama-3.1-instruct``
 - ``baichuan``, ``baichuan-chat``, ``baichuan-2-chat``
 - ``internlm-16k``, ``internlm-chat-7b``, ``internlm-chat-8k``, ``internlm-chat-20b``
 - ``mistral-v0.1``, ``mistral-instruct-v0.1``, ``mistral-instruct-v0.2``, ``mistral-instruct-v0.3``, ``mistral-nemo-instruct``, ``mistral-large-instruct``
@@ -58,7 +58,7 @@ Currently, supported models include:
 - ``codegeex4``
 - ``qwen1.5-chat``, ``qwen1.5-moe-chat``
 - ``qwen2-instruct``, ``qwen2-moe-instruct``
-- ``gemma-it``
+- ``gemma-it``, ``gemma-2-it``
 - ``orion-chat``, ``orion-chat-rag``
 - ``c4ai-command-r-v01``
 .. vllm_end
@@ -73,11 +73,11 @@ To install Xinference and vLLM::
    # For other CUDA & torch versions, please check https://docs.flashinfer.ai/installation.html
    
 
-.. _installation_ggml:
+.. _installation_gguf:
 
 Llama.cpp Backend
 ~~~~~~~~~~~~~~~~~
-Xinference supports models in ``gguf`` and ``ggml`` format via ``llama-cpp-python``. It's advised to install the llama.cpp-related dependencies manually based on your hardware specifications to enable acceleration.
+Xinference supports models in ``gguf`` format via ``llama-cpp-python``. It's advised to install the llama.cpp-related dependencies manually based on your hardware specifications to enable acceleration.
 
 Initial setup::
 

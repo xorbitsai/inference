@@ -61,7 +61,7 @@ class ModelMemInfo:
 
 QUANT_NORMALIZE = {"int4": "4-bit", "int8": "8-bit", "4-bit": "4-bit", "8-bit": "8-bit"}
 
-GGML_MULTI_FACTOR_DICT = {
+GGUF_MULTI_FACTOR_DICT = {
     "q4_0": 18,
     "q4_1": 20,
     "q5_0": 22,
@@ -70,14 +70,14 @@ GGML_MULTI_FACTOR_DICT = {
     "q8_1": 40,
 }
 
-GGML_MULTI_FACTOR_DICT_64 = {
+GGUF_MULTI_FACTOR_DICT_64 = {
     "q6_K": 54.0,
     "q3": 26.0,
     "q4": 38.0,
     "q5": 46.0,
 }
 
-GGML_MULTI_FACTOR_DICT_COMBINE = {
+GGUF_MULTI_FACTOR_DICT_COMBINE = {
     "q3_K_L": [38.0, 26.0],
     "q3_K_M": [46.0, 26.0],
     "q4_K_S": [46.0, 38.0],
@@ -136,9 +136,9 @@ def estimate_llm_gpu_memory_details(
     else:
         kv_dtype_size = 4
     overhead = 650.0
-    if model_format == "ggmlv3":
+    if model_format == "ggufv2":
         assert quantization is not None and quantization != "none"
-        model_size_in_mb = _compute_model_size_ggml(info, quantization)
+        model_size_in_mb = _compute_model_size_gguf(info, quantization)
         inference_mem = float(
             context_length * kv_dtype_size * info.hidden_dim * info.num_layers
         )
@@ -291,7 +291,7 @@ def _compute_inference_only_activation_memory(
     return ret
 
 
-def _compute_model_size_ggml(info: ModelLayersInfo, quantization: str) -> float:
+def _compute_model_size_gguf(info: ModelLayersInfo, quantization: str) -> float:
     assert quantization is not None
     vocab_size = info.vocab_size
     num_layers = info.num_layers
@@ -310,13 +310,13 @@ def _compute_model_size_ggml(info: ModelLayersInfo, quantization: str) -> float:
     )
 
     total = 0.0
-    v1 = GGML_MULTI_FACTOR_DICT.get(quantization)
+    v1 = GGUF_MULTI_FACTOR_DICT.get(quantization)
     if v1 is not None:
         total = (v1 * total_params) / (32 * 1024 * 1024)
-    v2 = GGML_MULTI_FACTOR_DICT_64.get(quantization)
+    v2 = GGUF_MULTI_FACTOR_DICT_64.get(quantization)
     if v2 is not None:
         total = (v2 * total_params) / (64 * 1024 * 1024)
-    v3 = GGML_MULTI_FACTOR_DICT_COMBINE.get(quantization)
+    v3 = GGUF_MULTI_FACTOR_DICT_COMBINE.get(quantization)
     if v3 is not None:
         factors = v3
         if quantization == "q2_K":

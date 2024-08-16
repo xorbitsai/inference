@@ -25,7 +25,6 @@ from xoscar.utils import get_next_port
 from .. import __version__
 from ..client import RESTfulClient
 from ..client.restful.restful_client import (
-    RESTfulChatglmCppChatModelHandle,
     RESTfulChatModelHandle,
     RESTfulGenerateModelHandle,
 )
@@ -751,7 +750,7 @@ def remove_cache(
     "-f",
     default=None,
     type=str,
-    help="Specify the format of the model, e.g. pytorch, ggmlv3, etc.",
+    help="Specify the format of the model, e.g. pytorch, ggufv2, etc.",
 )
 @click.option(
     "--quantization",
@@ -1268,9 +1267,7 @@ def model_chat(
                 task.exception()
     else:
         restful_model = client.get_model(model_uid=model_uid)
-        if not isinstance(
-            restful_model, (RESTfulChatModelHandle, RESTfulChatglmCppChatModelHandle)
-        ):
+        if not isinstance(restful_model, RESTfulChatModelHandle):
             raise ValueError(f"model {model_uid} has no chat method")
 
         while True:
@@ -1519,7 +1516,7 @@ def query_engine_by_model_name(
     "-f",
     type=str,
     required=True,
-    help="Specify the format of the model, e.g. pytorch, ggmlv3, etc.",
+    help="Specify the format of the model, e.g. pytorch, ggufv2, etc.",
 )
 @click.option(
     "--quantization",

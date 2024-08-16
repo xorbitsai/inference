@@ -40,7 +40,7 @@ from .llm_family import (
     TRANSFORMERS_CLASSES,
     VLLM_CLASSES,
     CustomLLMFamilyV1,
-    GgmlLLMSpecV1,
+    LlamaCppLLMSpecV1,
     LLMFamilyV1,
     LLMSpecV1,
     MLXLLMSpecV1,
@@ -55,10 +55,10 @@ from .llm_family import (
 
 
 def check_format_with_engine(model_format, engine):
-    # only llama-cpp-python support and only support ggufv2 and ggmlv3
-    if model_format in ["ggufv2", "ggmlv3"] and engine != "llama.cpp":
+    # only llama-cpp-python support and only support ggufv2
+    if model_format in ["ggufv2"] and engine != "llama.cpp":
         return False
-    if model_format not in ["ggufv2", "ggmlv3"] and engine == "llama.cpp":
+    if model_format not in ["ggufv2"] and engine == "llama.cpp":
         return False
     return True
 
@@ -112,27 +112,25 @@ def generate_engine_config_by_model_family(model_family):
 
 
 def _install():
-    from .ggml.llamacpp import LlamaCppChatModel, LlamaCppModel
+    from .llama_cpp.core import LlamaCppChatModel, LlamaCppModel
     from .mlx.core import MLXChatModel, MLXModel
-    from .pytorch.baichuan import BaichuanPytorchChatModel
-    from .pytorch.chatglm import ChatglmPytorchChatModel
-    from .pytorch.cogvlm2 import CogVLM2Model
-    from .pytorch.core import PytorchChatModel, PytorchModel
-    from .pytorch.deepseek_vl import DeepSeekVLChatModel
-    from .pytorch.falcon import FalconPytorchChatModel, FalconPytorchModel
-    from .pytorch.glm4v import Glm4VModel
-    from .pytorch.intern_vl import InternVLChatModel
-    from .pytorch.internlm2 import Internlm2PytorchChatModel
-    from .pytorch.llama_2 import LlamaPytorchChatModel, LlamaPytorchModel
-    from .pytorch.minicpmv25 import MiniCPMV25Model
-    from .pytorch.qwen_vl import QwenVLChatModel
-    from .pytorch.vicuna import VicunaPytorchChatModel
-    from .pytorch.yi_vl import YiVLChatModel
     from .sglang.core import SGLANGChatModel, SGLANGModel
+    from .transformers.chatglm import ChatglmPytorchChatModel
+    from .transformers.cogvlm2 import CogVLM2Model
+    from .transformers.core import PytorchChatModel, PytorchModel
+    from .transformers.deepseek_vl import DeepSeekVLChatModel
+    from .transformers.glm4v import Glm4VModel
+    from .transformers.intern_vl import InternVLChatModel
+    from .transformers.internlm2 import Internlm2PytorchChatModel
+    from .transformers.llama_2 import LlamaPytorchChatModel, LlamaPytorchModel
+    from .transformers.minicpmv25 import MiniCPMV25Model
+    from .transformers.minicpmv26 import MiniCPMV26Model
+    from .transformers.qwen_vl import QwenVLChatModel
+    from .transformers.yi_vl import YiVLChatModel
     from .vllm.core import VLLMChatModel, VLLMModel, VLLMVisionModel
 
     try:
-        from .pytorch.omnilmm import OmniLMMModel
+        from .transformers.omnilmm import OmniLMMModel
     except ImportError as e:
         # For quite old transformers version,
         # import will generate error
@@ -151,14 +149,10 @@ def _install():
     MLX_CLASSES.extend([MLXModel, MLXChatModel])
     TRANSFORMERS_CLASSES.extend(
         [
-            BaichuanPytorchChatModel,
-            VicunaPytorchChatModel,
-            FalconPytorchChatModel,
             ChatglmPytorchChatModel,
             LlamaPytorchModel,
             LlamaPytorchChatModel,
             PytorchChatModel,
-            FalconPytorchModel,
             Internlm2PytorchChatModel,
             QwenVLChatModel,
             YiVLChatModel,
@@ -167,6 +161,7 @@ def _install():
             PytorchModel,
             CogVLM2Model,
             MiniCPMV25Model,
+            MiniCPMV26Model,
             Glm4VModel,
         ]
     )
