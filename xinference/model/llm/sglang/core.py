@@ -318,6 +318,7 @@ class SGLANGModel(LLM):
         self,
         prompt: str,
         generate_config: Optional[SGLANGGenerateConfig] = None,
+        request_id: Optional[str] = None,
     ) -> Union[Completion, AsyncGenerator[CompletionChunk, None]]:
         sanitized_generate_config = self._sanitize_generate_config(generate_config)
         logger.debug(
@@ -331,8 +332,8 @@ class SGLANGModel(LLM):
             if isinstance(stream_options, dict)
             else False
         )
-
-        request_id = str(uuid.uuid1())
+        if not request_id:
+            request_id = str(uuid.uuid1())
         if not stream:
             state = await self._non_stream_generate(prompt, **sanitized_generate_config)
             return self._convert_state_to_completion(
@@ -439,6 +440,7 @@ class SGLANGChatModel(SGLANGModel, ChatModelMixin):
         self,
         messages: List[Dict],
         generate_config: Optional[Dict] = None,
+        request_id: Optional[str] = None,
     ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
         assert self.model_family.chat_template is not None
         full_prompt = self.get_full_context(messages, self.model_family.chat_template)

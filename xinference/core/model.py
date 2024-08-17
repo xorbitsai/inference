@@ -19,6 +19,7 @@ import json
 import os
 import time
 import types
+import uuid
 import weakref
 from asyncio.queues import Queue
 from asyncio.tasks import wait_for
@@ -444,18 +445,30 @@ class ModelActor(xo.StatelessActor):
     @log_async(logger=logger)
     async def generate(self, prompt: str, *args, **kwargs):
         if self.allow_batching():
+            # not support request_id
+            kwargs.pop("request_id", None)
             return await self.handle_batching_request(
                 prompt, "generate", *args, **kwargs
             )
         else:
             kwargs.pop("raw_params", None)
             if hasattr(self._model, "generate"):
+                # not support request_id
+                kwargs.pop("request_id", None)
                 return await self._call_wrapper_json(
                     self._model.generate, prompt, *args, **kwargs
                 )
             if hasattr(self._model, "async_generate"):
+                if "request_id" not in kwargs:
+                    kwargs["request_id"] = str(uuid.uuid1())
+                else:
+                    # model only accept string
+                    kwargs["request_id"] = str(kwargs["request_id"])
                 return await self._call_wrapper_json(
-                    self._model.async_generate, prompt, *args, **kwargs
+                    self._model.async_generate,
+                    prompt,
+                    *args,
+                    **kwargs,
                 )
             raise AttributeError(f"Model {self._model.model_spec} is not for generate.")
 
@@ -534,17 +547,26 @@ class ModelActor(xo.StatelessActor):
         response = None
         try:
             if self.allow_batching():
+                # not support request_id
+                kwargs.pop("request_id", None)
                 return await self.handle_batching_request(
                     messages, "chat", *args, **kwargs
                 )
             else:
                 kwargs.pop("raw_params", None)
                 if hasattr(self._model, "chat"):
+                    # not support request_id
+                    kwargs.pop("request_id", None)
                     response = await self._call_wrapper_json(
                         self._model.chat, messages, *args, **kwargs
                     )
                     return response
                 if hasattr(self._model, "async_chat"):
+                    if "request_id" not in kwargs:
+                        kwargs["request_id"] = str(uuid.uuid1())
+                    else:
+                        # model only accept string
+                        kwargs["request_id"] = str(kwargs["request_id"])
                     response = await self._call_wrapper_json(
                         self._model.async_chat, messages, *args, **kwargs
                     )
@@ -580,6 +602,7 @@ class ModelActor(xo.StatelessActor):
     @log_async(logger=logger)
     @request_limit
     async def create_embedding(self, input: Union[str, List[str]], *args, **kwargs):
+        kwargs.pop("request_id", None)
         if hasattr(self._model, "create_embedding"):
             return await self._call_wrapper_json(
                 self._model.create_embedding, input, *args, **kwargs
@@ -602,6 +625,7 @@ class ModelActor(xo.StatelessActor):
         *args,
         **kwargs,
     ):
+        kwargs.pop("request_id", None)
         if hasattr(self._model, "rerank"):
             return await self._call_wrapper_json(
                 self._model.rerank,
@@ -626,7 +650,9 @@ class ModelActor(xo.StatelessActor):
         response_format: str = "json",
         temperature: float = 0,
         timestamp_granularities: Optional[List[str]] = None,
+        **kwargs,
     ):
+        kwargs.pop("request_id", None)
         if hasattr(self._model, "transcriptions"):
             return await self._call_wrapper_json(
                 self._model.transcriptions,
@@ -651,7 +677,9 @@ class ModelActor(xo.StatelessActor):
         response_format: str = "json",
         temperature: float = 0,
         timestamp_granularities: Optional[List[str]] = None,
+        **kwargs,
     ):
+        kwargs.pop("request_id", None)
         if hasattr(self._model, "translations"):
             return await self._call_wrapper_json(
                 self._model.translations,
@@ -681,6 +709,7 @@ class ModelActor(xo.StatelessActor):
         stream: bool = False,
         **kwargs,
     ):
+        kwargs.pop("request_id", None)
         if hasattr(self._model, "speech"):
             return await self._call_wrapper_binary(
                 self._model.speech,
@@ -706,6 +735,7 @@ class ModelActor(xo.StatelessActor):
         *args,
         **kwargs,
     ):
+        kwargs.pop("request_id", None)
         if hasattr(self._model, "text_to_image"):
             return await self._call_wrapper_json(
                 self._model.text_to_image,
@@ -731,6 +761,7 @@ class ModelActor(xo.StatelessActor):
         *args,
         **kwargs,
     ):
+        kwargs.pop("request_id", None)
         if hasattr(self._model, "image_to_image"):
             return await self._call_wrapper_json(
                 self._model.image_to_image,
@@ -759,6 +790,7 @@ class ModelActor(xo.StatelessActor):
         *args,
         **kwargs,
     ):
+        kwargs.pop("request_id", None)
         if hasattr(self._model, "inpainting"):
             return await self._call_wrapper_json(
                 self._model.inpainting,
@@ -782,6 +814,7 @@ class ModelActor(xo.StatelessActor):
         self,
         **kwargs,
     ):
+        kwargs.pop("request_id", None)
         if hasattr(self._model, "infer"):
             return await self._call_wrapper_json(
                 self._model.infer,
@@ -800,6 +833,7 @@ class ModelActor(xo.StatelessActor):
         *args,
         **kwargs,
     ):
+        kwargs.pop("request_id", None)
         if hasattr(self._model, "text_to_video"):
             return await self._call_wrapper_json(
                 self._model.text_to_video,

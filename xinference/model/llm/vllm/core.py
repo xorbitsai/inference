@@ -426,6 +426,7 @@ class VLLMModel(LLM):
         prompt: Union[str, Dict[str, Any]],
         generate_config: Optional[Dict] = None,
         tools: object = False,
+        request_id: Optional[str] = None,
     ) -> Union[Completion, AsyncGenerator[CompletionChunk, None]]:
         try:
             from vllm.sampling_params import SamplingParams
@@ -460,7 +461,8 @@ class VLLMModel(LLM):
             else False
         )
         sampling_params = SamplingParams(**sanitized_generate_config)
-        request_id = str(uuid.uuid1())
+        if not request_id:
+            request_id = str(uuid.uuid1())
 
         assert self._engine is not None
         results_generator = self._engine.generate(
@@ -654,6 +656,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
         self,
         messages: List[Dict],
         generate_config: Optional[Dict] = None,
+        request_id: Optional[str] = None,
     ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
         tools = generate_config.pop("tools", []) if generate_config else None
         model_family = self.model_family.model_family or self.model_family.model_name
@@ -669,13 +672,17 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
         stream = generate_config.get("stream", None)
 
         if stream:
-            agen = await self.async_generate(full_prompt, generate_config, tools)
+            agen = await self.async_generate(
+                full_prompt, generate_config, tools, request_id=request_id
+            )
             assert isinstance(agen, AsyncGenerator)
             if tools:
                 return self._async_to_tool_completion_chunks(agen)
             return self._async_to_chat_completion_chunks(agen)
         else:
-            c = await self.async_generate(full_prompt, generate_config)
+            c = await self.async_generate(
+                full_prompt, generate_config, request_id=request_id
+            )
             assert not isinstance(c, AsyncGenerator)
             if tools:
                 return self._tool_calls_completion(self.model_family, self.model_uid, c)
@@ -725,6 +732,7 @@ class VLLMVisionModel(VLLMModel, ChatModelMixin):
         self,
         messages: List[Dict],
         generate_config: Optional[Dict] = None,
+        request_id: Optional[str] = None,
     ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
         # only support single image, waiting vllm support multi images
         model_family = self.model_family.model_family or self.model_family.model_name
@@ -744,10 +752,14 @@ class VLLMVisionModel(VLLMModel, ChatModelMixin):
         stream = generate_config.get("stream", None)
 
         if stream:
-            agen = await self.async_generate(inputs, generate_config)
+            agen = await self.async_generate(
+                inputs, generate_config, request_id=request_id
+            )
             assert isinstance(agen, AsyncGenerator)
             return self._async_to_chat_completion_chunks(agen)
         else:
-            c = await self.async_generate(inputs, generate_config)
+            c = await self.async_generate(
+                inputs, generate_config, request_id=request_id
+            )
             assert not isinstance(c, AsyncGenerator)
             return self._to_chat_completion(c)
