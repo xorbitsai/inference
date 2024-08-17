@@ -340,7 +340,7 @@ class GradioInterface:
             state = gr.State([])
             with gr.Row():
                 chatbot = gr.Chatbot(
-                    elem_id="chatbot", label=self.model_name, height=550, scale=7
+                    elem_id="chatbot", label=self.model_name, height=700, scale=7
                 )
                 with gr.Column(scale=3):
                     imagebox = gr.Image(type="filepath")
