@@ -205,10 +205,10 @@ Explore the API
       Learn how to turn audio into text or text into audio with Xinference.
 
    .. grid-item-card::  Video
-      :link: video
-      :link-type: ref
+     :link: video
+     :link-type: ref
 
-      Learn how to generate video with Xinference.
+     Learn how to generate video with Xinference.
 
 
 Getting Involved
