@@ -240,7 +240,7 @@ Basic usage, refer to :ref:`audio speech usage <audio_speech>`.
 
 Fixed tone color. We can use fixed tone color provided by
 https://github.com/6drf21e/ChatTTS_Speaker,
-Download the `evaluation_csv <https://github.com/6drf21e/ChatTTS_Speaker/blob/main/evaluation_results.csv>`_ ,
+Download the `evaluation_result.csv <https://github.com/6drf21e/ChatTTS_Speaker/blob/main/evaluation_results.csv>`_ ,
 take ``seed_2155`` as example, we get the ``emb_data`` of it.
 
 .. code-block:: python
