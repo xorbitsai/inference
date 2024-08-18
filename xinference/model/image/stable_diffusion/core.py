@@ -24,6 +24,8 @@ from functools import partial
 from io import BytesIO
 from typing import Dict, List, Optional, Union
 
+import PIL.Image
+
 from ....constants import XINFERENCE_IMAGE_DIR
 from ....device_utils import move_model_to_available_device
 from ....types import Image, ImageList, LoRA
@@ -152,6 +154,10 @@ class DiffusionModel:
         model=None,
         **kwargs,
     ):
+        import gc
+
+        from ....device_utils import empty_cache
+
         logger.debug(
             "stable diffusion args: %s",
             kwargs,
@@ -159,6 +165,11 @@ class DiffusionModel:
         model = model if model is not None else self._model
         assert callable(model)
         images = model(**kwargs).images
+
+        # clean cache
+        gc.collect()
+        empty_cache()
+
         if response_format == "url":
             os.makedirs(XINFERENCE_IMAGE_DIR, exist_ok=True)
             image_list = []
@@ -209,9 +220,18 @@ class DiffusionModel:
             **kwargs,
         )
 
+    @staticmethod
+    def pad_to_eight(image: PIL.Image):
+        width, height = image.size
+        if width % 8 != 0:
+            width += 8 - (width % 8)
+        if height % 8 != 0:
+            height += 8 - (height % 8)
+        return image.resize((width, height))
+
     def image_to_image(
         self,
-        image: bytes,
+        image: PIL.Image,
         prompt: Optional[Union[str, List[str]]] = None,
         negative_prompt: Optional[Union[str, List[str]]] = None,
         n: int = 1,
@@ -236,6 +256,11 @@ class DiffusionModel:
             width, height = map(int, re.split(r"[^\d]+", size))
             kwargs["width"] = width
             kwargs["height"] = height
+        if kwargs.get("process_image") == "padding":
+            # image to image requires image's height and width is times of 8
+            # padding the image if specified
+            image = self.pad_to_eight(image)
+
         self._filter_kwargs(kwargs)
         return self._call_model(
             image=image,
