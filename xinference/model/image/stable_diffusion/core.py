@@ -25,6 +25,7 @@ from io import BytesIO
 from typing import Dict, List, Optional, Union
 
 import PIL.Image
+from PIL import ImageOps
 
 from ....constants import XINFERENCE_IMAGE_DIR
 from ....device_utils import move_model_to_available_device
@@ -221,13 +222,12 @@ class DiffusionModel:
         )
 
     @staticmethod
-    def pad_to_eight(image: PIL.Image):
-        width, height = image.size
-        if width % 8 != 0:
-            width += 8 - (width % 8)
-        if height % 8 != 0:
-            height += 8 - (height % 8)
-        return image.resize((width, height))
+    def pad_to_multiple(image, multiple=8):
+        x, y = image.size
+        padding_x = (multiple - x % multiple) % multiple
+        padding_y = (multiple - y % multiple) % multiple
+        padding = (0, 0, padding_x, padding_y)
+        return ImageOps.expand(image, padding)
 
     def image_to_image(
         self,
@@ -259,7 +259,7 @@ class DiffusionModel:
         if kwargs.get("process_image") == "padding":
             # image to image requires image's height and width is times of 8
             # padding the image if specified
-            image = self.pad_to_eight(image)
+            image = self.pad_to_multiple(image)
 
         self._filter_kwargs(kwargs)
         return self._call_model(
