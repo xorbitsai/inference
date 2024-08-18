@@ -174,6 +174,8 @@ We can try Translation API out either via cURL, OpenAI Client, or Xinference's p
 Speech
 --------------------
 
+.. _audio_speech:
+
 The Speech API mimics OpenAI's `create speech API <https://platform.openai.com/docs/api-reference/audio/createSpeech>`_.
 We can try Speech API out either via cURL, OpenAI Client, or Xinference's python client:
 
@@ -229,6 +231,39 @@ Speech API use non-stream by default as
   .. code-tab:: output
 
     The output will be an audio binary.
+
+
+ChatTTS Usage
+~~~~~~~~~~~~~
+
+Basic usage, refer to :ref:`audio speech usage <audio_speech>`.
+
+Fixed tone color. We can use fixed tone color provided by
+https://github.com/6drf21e/ChatTTS_Speaker,
+Download the `evaluation_csv <https://github.com/6drf21e/ChatTTS_Speaker/blob/main/evaluation_results.csv>`_ ,
+take ``seed_2155`` as example, we get the ``emb_data`` of it.
+
+.. code-block:: python
+
+    import pandas as pd
+
+    df = pd.read_csv("evaluation_results.csv")
+    emb_data_2155 = df[df['seed_id'] == 'seed_2155'].iloc[0]["emb_data"]
+
+
+Use the fixed tone color of ``seed_2155`` to generate speech.
+
+.. code-block:: python
+
+    from xinference.client import Client
+
+    client = Client("http://<XINFERENCE_HOST>:<XINFERENCE_PORT>")
+
+    model = client.get_model("<MODEL_UID>")
+    resp_bytes = model.speech(
+        voice=emb_data_2155,
+        input=<The text to generate audio for>
+    )
 
 
 CosyVoice Usage

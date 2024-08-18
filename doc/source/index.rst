@@ -104,6 +104,15 @@ Developing Real-world AI Applications with Xinference
     ]
     print(model.rerank(corpus, query))
 
+  .. code-tab:: python Video
+
+    from xinference.client import Client
+
+    client = Client("http://localhost:9997")
+    model = client.get_model("MODEL_UID")
+
+    model.text_to_video("")
+
 
 Getting Started
 ---------------
@@ -194,6 +203,12 @@ Explore the API
       :link-type: ref
 
       Learn how to turn audio into text or text into audio with Xinference.
+
+   .. grid-item-card::  Video
+      :link: video
+      :link-type: ref
+
+      Learn how to generate video with Xinference.
 
 
 Getting Involved
