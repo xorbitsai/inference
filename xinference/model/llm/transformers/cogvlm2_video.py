@@ -11,17 +11,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import base64
+import io
 import logging
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
-from io import BytesIO
 from typing import Dict, Iterator, List, Optional, Tuple, Union
 
-import requests
 import torch
-from PIL import Image
 
 from ....core.scheduler import InferenceRequest
 from ....model.utils import select_device
@@ -35,6 +32,7 @@ from ....types import (
     CompletionUsage,
 )
 from ..llm_family import LLMFamilyV1, LLMSpecV1
+from ..utils import _decode_image
 from .core import PytorchChatModel, PytorchGenerateConfig
 from .utils import get_max_src_len
 
@@ -62,7 +60,7 @@ def recur_move_to(item, tgt, criterion_func):
         return item
 
 
-class CogVLM2Model(PytorchChatModel):
+class CogVLM2VideoModel(PytorchChatModel):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._torch_type = None
@@ -75,7 +73,7 @@ class CogVLM2Model(PytorchChatModel):
         cls, model_family: "LLMFamilyV1", model_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         family = model_family.model_family or model_family.model_name
-        if "cogvlm2" in family.lower() and "video" not in family.lower():
+        if "cogvlm2" in family.lower() and "video" in family.lower():
             return True
         return False
 
@@ -95,6 +93,11 @@ class CogVLM2Model(PytorchChatModel):
             self._model, self._tokenizer = self._load_tensorizer()
             return
 
+        if "8-bit" in self.quantization.lower():
+            kwargs["load_in_8bit"] = True
+        elif "4-bit" in self.quantization.lower():
+            kwargs["load_in_4bit"] = True
+
         self._tokenizer = AutoTokenizer.from_pretrained(
             self.model_path,
             trust_remote_code=True,
@@ -106,6 +109,7 @@ class CogVLM2Model(PytorchChatModel):
             trust_remote_code=True,
             low_cpu_mem_usage=True,
             device_map="auto",
+            **kwargs
         ).eval()
 
         # Specify hyperparameters for generation
@@ -115,75 +119,65 @@ class CogVLM2Model(PytorchChatModel):
         )
         self._save_tensorizer()
 
-    def _message_content_to_cogvlm2(self, content):
-        def _load_image(_url):
-            if _url.startswith("data:"):
-                logging.info("Parse url by base64 decoder.")
-                # https://platform.openai.com/docs/guides/vision/uploading-base-64-encoded-images
-                # e.g. f"data:image/jpeg;base64,{base64_image}"
-                _type, data = _url.split(";")
-                _, ext = _type.split("/")
-                data = data[len("base64,") :]
-                data = base64.b64decode(data.encode("utf-8"))
-                return Image.open(BytesIO(data)).convert("RGB")
-            else:
-                try:
-                    response = requests.get(_url)
-                except requests.exceptions.MissingSchema:
-                    return Image.open(_url).convert("RGB")
-                else:
-                    return Image.open(BytesIO(response.content)).convert("RGB")
+    def _load_video(self, video_path):
+        from decord import VideoReader, cpu, bridge
+        import numpy as np
 
+        bridge.set_bridge('torch')
+        num_frames = 24
+
+        decord_vr = VideoReader(video_path, ctx=cpu(0))
+        frame_id_list = None
+        total_frames = len(decord_vr)
+        timestamps = decord_vr.get_frame_timestamp(np.arange(total_frames))
+        timestamps = [i[0] for i in timestamps]
+        max_second = round(max(timestamps)) + 1
+        frame_id_list = []
+        for second in range(max_second):
+            closest_num = min(timestamps, key=lambda x: abs(x - second))
+            index = timestamps.index(closest_num)
+            frame_id_list.append(index)
+            if len(frame_id_list) >= num_frames:
+                break
+        video_data = decord_vr.get_batch(frame_id_list)
+        video_data = video_data.permute(3, 0, 1, 2)
+        return video_data
+
+    def _message_content_to_cogvlm2(self, content):
         if not isinstance(content, str):
             texts = []
             image_urls = []
+            video_urls = []
             for c in content:
                 c_type = c.get("type")
                 if c_type == "text":
                     texts.append(c["text"])
                 elif c_type == "image_url":
                     image_urls.append(c["image_url"]["url"])
+                elif c_type == "video_url":
+                    video_urls.append(c["video_url"]["url"])
+            if len(video_urls) > 1:
+                raise RuntimeError("Only one video per message is supported")
             image_futures = []
+            video = None
             with ThreadPoolExecutor() as executor:
                 for image_url in image_urls:
-                    fut = executor.submit(_load_image, image_url)
+                    fut = executor.submit(_decode_image, image_url)
                     image_futures.append(fut)
             images = [fut.result() for fut in image_futures]
+            for v in video_urls:
+                video = self._load_video(v)
             text = " ".join(texts)
-            if len(images) == 0:
-                return text, None
-            elif len(images) == 1:
-                return text, images
-            else:
-                raise RuntimeError(
-                    "Only one image per message is supported by CogVLM2."
-                )
-        return content, None
+            return text, images, video
+        return content, [], None
 
     def _history_content_to_cogvlm2(
         self, system_prompt: str, chat_history: List[ChatCompletionMessage]
     ):
-        def _image_to_piexl_values(image):
-            if image.startswith("data:"):
-                logging.info("Parse url by base64 decoder.")
-                # https://platform.openai.com/docs/guides/vision/uploading-base-64-encoded-images
-                # e.g. f"data:image/jpeg;base64,{base64_image}"
-                _type, data = image.split(";")
-                _, ext = _type.split("/")
-                data = data[len("base64,") :]
-                data = base64.b64decode(data.encode("utf-8"))
-                return Image.open(BytesIO(data)).convert("RGB")
-            else:
-                try:
-                    response = requests.get(image)
-                except requests.exceptions.MissingSchema:
-                    return Image.open(image).convert("RGB")
-                else:
-                    return Image.open(BytesIO(response.content)).convert("RGB")
-
         query = system_prompt
         history: List[Tuple] = []
         pixel_values = None
+        video_urls = []
         for i in range(0, len(chat_history), 2):
             user = chat_history[i]["content"]
             if isinstance(user, List):
@@ -192,13 +186,20 @@ class CogVLM2Model(PytorchChatModel):
                     if c_type == "text":
                         user = content["text"]
                     elif c_type == "image_url" and not pixel_values:
-                        pixel_values = _image_to_piexl_values(
+                        pixel_values = _decode_image(
                             content["image_url"]["url"]
                         )
+                    elif c_type == "video_url":
+                        video_urls.append(content["video_url"]["url"])
             assistant = chat_history[i + 1]["content"]
             history.append((user, assistant))
             query = assistant  # type: ignore
-        return query, history, [pixel_values]
+        if len(video_urls) > 1:
+                raise RuntimeError("Only one video per message is supported")
+        video = None
+        for v in video_urls:
+            video = self._load_video(v)
+        return query, history, [pixel_values], video
 
     def get_query_and_history(
         self,
@@ -206,12 +207,13 @@ class CogVLM2Model(PytorchChatModel):
         system_prompt: Optional[str] = None,
         chat_history: Optional[List[ChatCompletionMessage]] = None,
     ):
-        content, image = self._message_content_to_cogvlm2(prompt)
+        content, image, video = self._message_content_to_cogvlm2(prompt)
 
         history = []
         history_image = None
+        history_video = None
         if chat_history:
-            query, history, history_image = self._history_content_to_cogvlm2(
+            query, history, history_image, history_video = self._history_content_to_cogvlm2(
                 system_prompt, chat_history  # type: ignore
             )
 
@@ -221,7 +223,15 @@ class CogVLM2Model(PytorchChatModel):
         else:
             image = image if image else history_image
             query = content
-        return query, image, history
+
+        if video is not None and history_video is not None:
+            history = [],
+            query = content
+        else:
+            video = video if video is not None else history_video
+            query = content
+
+        return query, image, video, history
 
     def chat(
         self,
@@ -240,9 +250,12 @@ class CogVLM2Model(PytorchChatModel):
             else 512,
         }
 
-        query, image, history = self.get_query_and_history(
+        query, image, video, history = self.get_query_and_history(
             prompt, system_prompt=system_prompt, chat_history=chat_history
         )
+
+        if video is not None:
+            image = [video]
 
         input_by_model = self._model.build_conversation_input_ids(
             self._tokenizer,
@@ -383,9 +396,12 @@ class CogVLM2Model(PytorchChatModel):
         return self._torch_type
 
     def _get_full_prompt(self, prompt, system_prompt, chat_history, tools):
-        query, image, history = self.get_query_and_history(
+        query, image, video, history = self.get_query_and_history(
             prompt, system_prompt=system_prompt, chat_history=chat_history
         )
+
+        if video:
+            image = [video]
 
         input_by_model: dict = self._model.build_conversation_input_ids(  # type: ignore
             self._tokenizer,
