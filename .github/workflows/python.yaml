@@ -134,7 +134,7 @@ jobs:
           pip install "jinja2==3.1.2"
           pip install tensorizer
           pip install eva-decord
-          pip install git+https://github.com/facebookresearch/pytorchvideo.git # For CogVLM2-video
+          pip install "git+https://github.com/facebookresearch/pytorchvideo.git"
         working-directory: .
 
       - name: Test with pytest
