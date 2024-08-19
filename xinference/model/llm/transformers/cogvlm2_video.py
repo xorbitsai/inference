@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import io
 import logging
 import time
 import uuid
@@ -120,10 +119,10 @@ class CogVLM2VideoModel(PytorchChatModel):
         self._save_tensorizer()
 
     def _load_video(self, video_path):
-        from decord import VideoReader, cpu, bridge
         import numpy as np
+        from decord import VideoReader, bridge, cpu
 
-        bridge.set_bridge('torch')
+        bridge.set_bridge("torch")
         num_frames = 24
 
         decord_vr = VideoReader(video_path, ctx=cpu(0))
@@ -186,16 +185,14 @@ class CogVLM2VideoModel(PytorchChatModel):
                     if c_type == "text":
                         user = content["text"]
                     elif c_type == "image_url" and not pixel_values:
-                        pixel_values = _decode_image(
-                            content["image_url"]["url"]
-                        )
+                        pixel_values = _decode_image(content["image_url"]["url"])
                     elif c_type == "video_url":
                         video_urls.append(content["video_url"]["url"])
             assistant = chat_history[i + 1]["content"]
             history.append((user, assistant))
             query = assistant  # type: ignore
         if len(video_urls) > 1:
-                raise RuntimeError("Only one video per message is supported")
+            raise RuntimeError("Only one video per message is supported")
         video = None
         for v in video_urls:
             video = self._load_video(v)
@@ -213,7 +210,12 @@ class CogVLM2VideoModel(PytorchChatModel):
         history_image = None
         history_video = None
         if chat_history:
-            query, history, history_image, history_video = self._history_content_to_cogvlm2(
+            (
+                query,
+                history,
+                history_image,
+                history_video,
+            ) = self._history_content_to_cogvlm2(
                 system_prompt, chat_history  # type: ignore
             )
 
@@ -225,7 +227,7 @@ class CogVLM2VideoModel(PytorchChatModel):
             query = content
 
         if video is not None and history_video is not None:
-            history = [],
+            history = ([],)
             query = content
         else:
             video = video if video is not None else history_video
