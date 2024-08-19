@@ -120,7 +120,6 @@ class FishSpeechModel:
             GenerateRequest,
             GenerateResponse,
             WrappedGenerateResponse,
-            launch_thread_safe_queue,
         )
         from ...thirdparty.fish_speech.utils import autocast_exclude_mps
 
