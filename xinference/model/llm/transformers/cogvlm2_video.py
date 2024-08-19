@@ -176,7 +176,7 @@ class CogVLM2VideoModel(PytorchChatModel):
         query = system_prompt
         history: List[Tuple] = []
         pixel_values = None
-        video_urls = []
+        video_urls: List[str] = []
         for i in range(0, len(chat_history), 2):
             user = chat_history[i]["content"]
             if isinstance(user, List):
@@ -227,7 +227,7 @@ class CogVLM2VideoModel(PytorchChatModel):
             query = content
 
         if video is not None and history_video is not None:
-            history = ([],)
+            history = []
             query = content
         else:
             video = video if video is not None else history_video
