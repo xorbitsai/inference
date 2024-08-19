@@ -48,7 +48,7 @@ class ServingBenchmarkRunner(ConcurrentBenchmarkRunner):
             api_key,
         )
         self.request_rate = request_rate
-        self.queue = asyncio.Queue(len(input_requests))
+        self.queue = None  # delay the creation of the queue
 
     async def _run(self):
         tasks = []
@@ -59,6 +59,9 @@ class ServingBenchmarkRunner(ConcurrentBenchmarkRunner):
         await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
 
     async def warm_up(self, num_requests: int = 5):
+        if self.queue is None:
+            self.queue = asyncio.Queue(len(self.input_requests))
+
         logger.info(f"Enqueuing {len(self.input_requests)} requests.")
         for req in iter(self.input_requests):
             await self.queue.put(req)
