@@ -231,7 +231,7 @@ class BenchmarkRunner:
             p99_itl = np.percentile(itls, 99) * 1000 if itls else 0
 
             # Print benchmark results
-            print("{s:{c}^{n}}".format(s=" Serving Benchmark Result ", n=50, c="="))
+            print("{s:{c}^{n}}".format(s=" Benchmark Result ", n=50, c="="))
             print("{:<40} {:<10}".format("Successful requests:", completed))
             print("{:<40} {:<10.2f}".format("Benchmark duration (s):", total_time))
             print("{:<40} {:<10}".format("Total input tokens:", total_input))
