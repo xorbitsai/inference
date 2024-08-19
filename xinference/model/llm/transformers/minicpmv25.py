@@ -11,18 +11,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import base64
 import json
 import logging
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
-from io import BytesIO
 from typing import Dict, Iterator, List, Optional, Union
 
-import requests
 import torch
-from PIL import Image
 
 from ....types import (
     ChatCompletion,
@@ -35,6 +31,7 @@ from ....types import (
 )
 from ...utils import select_device
 from ..llm_family import LLMFamilyV1, LLMSpecV1
+from ..utils import _decode_image
 from .core import PytorchChatModel, PytorchGenerateConfig
 
 logger = logging.getLogger(__name__)
@@ -102,24 +99,6 @@ class MiniCPMV25Model(PytorchChatModel):
         self._save_tensorizer()
 
     def _message_content_to_chat(self, content):
-        def _load_image(_url):
-            if _url.startswith("data:"):
-                logging.info("Parse url by base64 decoder.")
-                # https://platform.openai.com/docs/guides/vision/uploading-base-64-encoded-images
-                # e.g. f"data:image/jpeg;base64,{base64_image}"
-                _type, data = _url.split(";")
-                _, ext = _type.split("/")
-                data = data[len("base64,") :]
-                data = base64.b64decode(data.encode("utf-8"))
-                return Image.open(BytesIO(data)).convert("RGB")
-            else:
-                try:
-                    response = requests.get(_url)
-                except requests.exceptions.MissingSchema:
-                    return Image.open(_url).convert("RGB")
-                else:
-                    return Image.open(BytesIO(response.content)).convert("RGB")
-
         if not isinstance(content, str):
             texts = []
             image_urls = []
@@ -132,7 +111,7 @@ class MiniCPMV25Model(PytorchChatModel):
             image_futures = []
             with ThreadPoolExecutor() as executor:
                 for image_url in image_urls:
-                    fut = executor.submit(_load_image, image_url)
+                    fut = executor.submit(_decode_image, image_url)
                     image_futures.append(fut)
             images = [fut.result() for fut in image_futures]
             text = " ".join(texts)

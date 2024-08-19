@@ -15,6 +15,8 @@ import inspect
 import os
 import tempfile
 
+import pandas as pd
+
 
 def test_chattts(setup):
     endpoint, _ = setup
@@ -31,6 +33,15 @@ def test_chattts(setup):
         "chat T T S is a text to speech model designed for dialogue applications."
     )
     response = model.speech(input_string)
+    assert type(response) is bytes
+    assert len(response) > 0
+
+    df = pd.read_csv(
+        "https://raw.githubusercontent.com/6drf21e/ChatTTS_Speaker/main/evaluation_results.csv"
+    )
+    speaker = df["emb_data"][0]
+
+    response = model.speech(input_string, voice=speaker)
     assert type(response) is bytes
     assert len(response) > 0
 
