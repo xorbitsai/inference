@@ -60,6 +60,7 @@ boto3>=1.28.55,<1.28.65 # For tensorizer
 tensorizer~=2.9.0
 imageio-ffmpeg  # For video
 eva-decord  # For video in VL
+git+https://github.com/facebookresearch/pytorchvideo.git # For CogVLM2-video
 
 # sglang
 outlines>=0.0.44

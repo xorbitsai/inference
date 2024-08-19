@@ -55,3 +55,4 @@ onnxruntime==1.16.0; sys_platform == 'darwin' or sys_platform == 'windows'  # Fo
 openai-whisper  # For CosyVoice
 imageio-ffmpeg  # For video
 eva-decord  # For video in VL
+git+https://github.com/facebookresearch/pytorchvideo.git # For CogVLM2-video
