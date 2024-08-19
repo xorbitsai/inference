@@ -163,6 +163,7 @@ class ImageInterface:
             size_width: int,
             size_height: int,
             num_inference_steps: int,
+            padding_image_to_multiple: int,
         ) -> PIL.Image.Image:
             from ..client import RESTfulClient
 
@@ -178,6 +179,7 @@ class ImageInterface:
             num_inference_steps = (
                 None if num_inference_steps == -1 else num_inference_steps  # type: ignore
             )
+            padding_image_to_multiple = None if padding_image_to_multiple == -1 else padding_image_to_multiple  # type: ignore
 
             bio = io.BytesIO()
             image.save(bio, format="png")
@@ -190,6 +192,7 @@ class ImageInterface:
                 size=size,
                 response_format="b64_json",
                 num_inference_steps=num_inference_steps,
+                padding_image_to_multiple=padding_image_to_multiple,
             )
 
             images = []
@@ -222,8 +225,13 @@ class ImageInterface:
                     n = gr.Number(label="Number of image", value=1)
                     size_width = gr.Number(label="Width", value=-1)
                     size_height = gr.Number(label="Height", value=-1)
+
+                with gr.Row():
                     num_inference_steps = gr.Number(
                         label="Inference Step Number", value=-1
+                    )
+                    padding_image_to_multiple = gr.Number(
+                        label="Padding image to multiple", value=-1
                     )
 
                 with gr.Row():
@@ -242,6 +250,7 @@ class ImageInterface:
                     size_width,
                     size_height,
                     num_inference_steps,
+                    padding_image_to_multiple,
                 ],
                 outputs=output_gallery,
             )
