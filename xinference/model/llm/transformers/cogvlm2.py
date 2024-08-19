@@ -11,17 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import base64
 import logging
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
-from io import BytesIO
 from typing import Dict, Iterator, List, Optional, Tuple, Union
 
-import requests
 import torch
-from PIL import Image
 
 from ....core.scheduler import InferenceRequest
 from ....model.utils import select_device
@@ -35,6 +31,7 @@ from ....types import (
     CompletionUsage,
 )
 from ..llm_family import LLMFamilyV1, LLMSpecV1
+from ..utils import _decode_image
 from .core import PytorchChatModel, PytorchGenerateConfig
 from .utils import get_max_src_len
 
@@ -116,24 +113,6 @@ class CogVLM2Model(PytorchChatModel):
         self._save_tensorizer()
 
     def _message_content_to_cogvlm2(self, content):
-        def _load_image(_url):
-            if _url.startswith("data:"):
-                logging.info("Parse url by base64 decoder.")
-                # https://platform.openai.com/docs/guides/vision/uploading-base-64-encoded-images
-                # e.g. f"data:image/jpeg;base64,{base64_image}"
-                _type, data = _url.split(";")
-                _, ext = _type.split("/")
-                data = data[len("base64,") :]
-                data = base64.b64decode(data.encode("utf-8"))
-                return Image.open(BytesIO(data)).convert("RGB")
-            else:
-                try:
-                    response = requests.get(_url)
-                except requests.exceptions.MissingSchema:
-                    return Image.open(_url).convert("RGB")
-                else:
-                    return Image.open(BytesIO(response.content)).convert("RGB")
-
         if not isinstance(content, str):
             texts = []
             image_urls = []
@@ -146,7 +125,7 @@ class CogVLM2Model(PytorchChatModel):
             image_futures = []
             with ThreadPoolExecutor() as executor:
                 for image_url in image_urls:
-                    fut = executor.submit(_load_image, image_url)
+                    fut = executor.submit(_decode_image, image_url)
                     image_futures.append(fut)
             images = [fut.result() for fut in image_futures]
             text = " ".join(texts)
@@ -163,24 +142,6 @@ class CogVLM2Model(PytorchChatModel):
     def _history_content_to_cogvlm2(
         self, system_prompt: str, chat_history: List[ChatCompletionMessage]
     ):
-        def _image_to_piexl_values(image):
-            if image.startswith("data:"):
-                logging.info("Parse url by base64 decoder.")
-                # https://platform.openai.com/docs/guides/vision/uploading-base-64-encoded-images
-                # e.g. f"data:image/jpeg;base64,{base64_image}"
-                _type, data = image.split(";")
-                _, ext = _type.split("/")
-                data = data[len("base64,") :]
-                data = base64.b64decode(data.encode("utf-8"))
-                return Image.open(BytesIO(data)).convert("RGB")
-            else:
-                try:
-                    response = requests.get(image)
-                except requests.exceptions.MissingSchema:
-                    return Image.open(image).convert("RGB")
-                else:
-                    return Image.open(BytesIO(response.content)).convert("RGB")
-
         query = system_prompt
         history: List[Tuple] = []
         pixel_values = None
@@ -192,9 +153,7 @@ class CogVLM2Model(PytorchChatModel):
                     if c_type == "text":
                         user = content["text"]
                     elif c_type == "image_url" and not pixel_values:
-                        pixel_values = _image_to_piexl_values(
-                            content["image_url"]["url"]
-                        )
+                        pixel_values = _decode_image(content["image_url"]["url"])
             assistant = chat_history[i + 1]["content"]
             history.append((user, assistant))
             query = assistant  # type: ignore
