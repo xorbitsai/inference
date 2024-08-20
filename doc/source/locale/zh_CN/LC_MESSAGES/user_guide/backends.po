@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-08-13 17:44+0800\n"
+"POT-Creation-Date: 2024-08-20 11:56+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -145,101 +145,91 @@ msgid ""
 msgstr ""
 
 #: ../../source/user_guide/backends.rst:50
-msgid "``baichuan``, ``baichuan-chat``, ``baichuan-2-chat``"
-msgstr ""
-
-#: ../../source/user_guide/backends.rst:51
-msgid ""
-"``internlm-16k``, ``internlm-chat-7b``, ``internlm-chat-8k``, ``internlm-"
-"chat-20b``"
-msgstr ""
-
-#: ../../source/user_guide/backends.rst:52
 msgid ""
 "``mistral-v0.1``, ``mistral-instruct-v0.1``, ``mistral-instruct-v0.2``, "
 "``mistral-instruct-v0.3``, ``mistral-nemo-instruct``, ``mistral-large-"
 "instruct``"
 msgstr ""
 
-#: ../../source/user_guide/backends.rst:53
+#: ../../source/user_guide/backends.rst:51
 msgid "``codestral-v0.1``"
 msgstr ""
 
-#: ../../source/user_guide/backends.rst:54
+#: ../../source/user_guide/backends.rst:52
 msgid "``Yi``, ``Yi-1.5``, ``Yi-chat``, ``Yi-1.5-chat``, ``Yi-1.5-chat-16k``"
 msgstr ""
 
-#: ../../source/user_guide/backends.rst:55
+#: ../../source/user_guide/backends.rst:53
 msgid "``code-llama``, ``code-llama-python``, ``code-llama-instruct``"
 msgstr ""
 
-#: ../../source/user_guide/backends.rst:56
+#: ../../source/user_guide/backends.rst:54
 msgid ""
 "``deepseek``, ``deepseek-coder``, ``deepseek-chat``, ``deepseek-coder-"
 "instruct``"
 msgstr ""
 
-#: ../../source/user_guide/backends.rst:57
+#: ../../source/user_guide/backends.rst:55
 msgid "``codeqwen1.5``, ``codeqwen1.5-chat``"
 msgstr ""
 
-#: ../../source/user_guide/backends.rst:58
-msgid "``vicuna-v1.3``, ``vicuna-v1.5``"
+#: ../../source/user_guide/backends.rst:56
+msgid "``baichuan-2-chat``"
 msgstr ""
 
-#: ../../source/user_guide/backends.rst:59
+#: ../../source/user_guide/backends.rst:57
 msgid "``internlm2-chat``"
 msgstr ""
 
-#: ../../source/user_guide/backends.rst:60
+#: ../../source/user_guide/backends.rst:58
 msgid "``internlm2.5-chat``, ``internlm2.5-chat-1m``"
 msgstr ""
 
-#: ../../source/user_guide/backends.rst:61
+#: ../../source/user_guide/backends.rst:59
 msgid "``qwen-chat``"
 msgstr ""
 
-#: ../../source/user_guide/backends.rst:62
+#: ../../source/user_guide/backends.rst:60
 msgid "``mixtral-instruct-v0.1``, ``mixtral-8x22B-instruct-v0.1``"
 msgstr ""
 
-#: ../../source/user_guide/backends.rst:63
+#: ../../source/user_guide/backends.rst:61
 msgid "``chatglm3``, ``chatglm3-32k``, ``chatglm3-128k``"
 msgstr ""
 
-#: ../../source/user_guide/backends.rst:64
+#: ../../source/user_guide/backends.rst:62
 msgid "``glm4-chat``, ``glm4-chat-1m``"
 msgstr ""
 
-#: ../../source/user_guide/backends.rst:65
+#: ../../source/user_guide/backends.rst:63
 msgid "``codegeex4``"
 msgstr ""
 
-#: ../../source/user_guide/backends.rst:66
+#: ../../source/user_guide/backends.rst:64
 msgid "``qwen1.5-chat``, ``qwen1.5-moe-chat``"
 msgstr ""
 
-#: ../../source/user_guide/backends.rst:67
+#: ../../source/user_guide/backends.rst:65
 msgid "``qwen2-instruct``, ``qwen2-moe-instruct``"
 msgstr ""
 
-#: ../../source/user_guide/backends.rst:68
+#: ../../source/user_guide/backends.rst:66
 msgid "``gemma-it``, ``gemma-2-it``"
 msgstr ""
 
-#: ../../source/user_guide/backends.rst:69
+#: ../../source/user_guide/backends.rst:67
 msgid "``orion-chat``, ``orion-chat-rag``"
 msgstr ""
 
-#: ../../source/user_guide/backends.rst:70
+#: ../../source/user_guide/backends.rst:68
 msgid "``c4ai-command-r-v01``"
 msgstr ""
 
-#: ../../source/user_guide/backends.rst:74
+#: ../../source/user_guide/backends.rst:72
 msgid "SGLang"
 msgstr ""
 
-#: ../../source/user_guide/backends.rst:75
+#: ../../source/user_guide/backends.rst:73
 msgid ""
 "`SGLang <https://github.com/sgl-project/sglang>`_ has a high-performance "
 "inference runtime with RadixAttention. It significantly accelerates the "
@@ -251,11 +241,11 @@ msgstr ""
 " 的高性能推理运行时。它通过在多个调用之间自动重用KV缓存，显著加速了复杂 "
 "LLM 程序的执行。它还支持其他常见推理技术，如连续批处理和张量并行处理。"
 
-#: ../../source/user_guide/backends.rst:80
+#: ../../source/user_guide/backends.rst:78
 msgid "MLX"
 msgstr ""
 
-#: ../../source/user_guide/backends.rst:81
+#: ../../source/user_guide/backends.rst:79
 msgid ""
 "`MLX <https://github.com/ml-explore/mlx-examples/tree/main/llms>`_ "
 "provides efficient runtime to run LLM on Apple silicon. It's recommended "
@@ -279,5 +269,16 @@ msgstr ""
 #~ msgstr ""
 
 #~ msgid "``gemma-it``"
+#~ msgstr ""
+
+#~ msgid "``baichuan``, ``baichuan-chat``, ``baichuan-2-chat``"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "``internlm-16k``, ``internlm-chat-7b``, "
+#~ "``internlm-chat-8k``, ``internlm-chat-20b``"
+#~ msgstr ""
+
+#~ msgid "``vicuna-v1.3``, ``vicuna-v1.5``"
 #~ msgstr ""
 
