@@ -206,7 +206,87 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name qwen2-instruct --size-in-billions 72 --model-format awq --quantization ${quantization}
 
 
-Model Spec 13 (mlx, 0_5 Billion)
+Model Spec 13 (fp8, 0_5 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** fp8
+- **Model Size (in billions):** 0_5
+- **Quantizations:** fp8
+- **Engines**: vLLM, SGLang
+- **Model ID:** neuralmagic/Qwen2-0.5B-Instruct-FP8
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/neuralmagic/Qwen2-0.5B-Instruct-FP8>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen2-instruct --size-in-billions 0_5 --model-format fp8 --quantization ${quantization}
+
+
+Model Spec 14 (fp8, 0_5 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** fp8
+- **Model Size (in billions):** 0_5
+- **Quantizations:** fp8
+- **Engines**: vLLM, SGLang
+- **Model ID:** neuralmagic/Qwen2-0.5B-Instruct-FP8
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/neuralmagic/Qwen2-0.5B-Instruct-FP8>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen2-instruct --size-in-billions 0_5 --model-format fp8 --quantization ${quantization}
+
+
+Model Spec 15 (fp8, 1_5 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** fp8
+- **Model Size (in billions):** 1_5
+- **Quantizations:** fp8
+- **Engines**: vLLM, SGLang
+- **Model ID:** neuralmagic/Qwen2-1.5B-Instruct-FP8
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/neuralmagic/Qwen2-1.5B-Instruct-FP8>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen2-instruct --size-in-billions 1_5 --model-format fp8 --quantization ${quantization}
+
+
+Model Spec 16 (fp8, 7 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** fp8
+- **Model Size (in billions):** 7
+- **Quantizations:** fp8
+- **Engines**: vLLM, SGLang
+- **Model ID:** neuralmagic/Qwen2-7B-Instruct-FP8
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/neuralmagic/Qwen2-7B-Instruct-FP8>`__, `ModelScope <https://modelscope.cn/models/liuzhenghua/Qwen2-7B-FP8-Instruct>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen2-instruct --size-in-billions 7 --model-format fp8 --quantization ${quantization}
+
+
+Model Spec 17 (fp8, 72 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** fp8
+- **Model Size (in billions):** 72
+- **Quantizations:** fp8
+- **Engines**: vLLM, SGLang
+- **Model ID:** neuralmagic/Qwen2-72B-Instruct-FP8
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/neuralmagic/Qwen2-72B-Instruct-FP8>`__, `ModelScope <https://modelscope.cn/models/liuzhenghua/Qwen2-72B-FP8-Instruct>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen2-instruct --size-in-billions 72 --model-format fp8 --quantization ${quantization}
+
+
+Model Spec 18 (mlx, 0_5 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** mlx
@@ -222,7 +302,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name qwen2-instruct --size-in-billions 0_5 --model-format mlx --quantization ${quantization}
 
 
-Model Spec 14 (mlx, 1_5 Billion)
+Model Spec 19 (mlx, 1_5 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** mlx
@@ -238,7 +318,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name qwen2-instruct --size-in-billions 1_5 --model-format mlx --quantization ${quantization}
 
 
-Model Spec 15 (mlx, 7 Billion)
+Model Spec 20 (mlx, 7 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** mlx
@@ -254,7 +334,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name qwen2-instruct --size-in-billions 7 --model-format mlx --quantization ${quantization}
 
 
-Model Spec 16 (mlx, 72 Billion)
+Model Spec 21 (mlx, 72 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** mlx
@@ -270,7 +350,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name qwen2-instruct --size-in-billions 72 --model-format mlx --quantization ${quantization}
 
 
-Model Spec 17 (ggufv2, 0_5 Billion)
+Model Spec 22 (ggufv2, 0_5 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** ggufv2
@@ -286,7 +366,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name qwen2-instruct --size-in-billions 0_5 --model-format ggufv2 --quantization ${quantization}
 
 
-Model Spec 18 (ggufv2, 1_5 Billion)
+Model Spec 23 (ggufv2, 1_5 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** ggufv2
@@ -302,7 +382,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name qwen2-instruct --size-in-billions 1_5 --model-format ggufv2 --quantization ${quantization}
 
 
-Model Spec 19 (ggufv2, 7 Billion)
+Model Spec 24 (ggufv2, 7 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** ggufv2
@@ -318,7 +398,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name qwen2-instruct --size-in-billions 7 --model-format ggufv2 --quantization ${quantization}
 
 
-Model Spec 20 (ggufv2, 72 Billion)
+Model Spec 25 (ggufv2, 72 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** ggufv2
