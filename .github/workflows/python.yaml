@@ -135,7 +135,6 @@ jobs:
           pip install tensorizer
           pip install eva-decord
           pip install jj-pytorchvideo
-          cd..
         working-directory: .
 
       - name: Test with pytest
