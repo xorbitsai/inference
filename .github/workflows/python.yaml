@@ -134,9 +134,7 @@ jobs:
           pip install "jinja2==3.1.2"
           pip install tensorizer
           pip install eva-decord
-          git clone https://github.com/facebookresearch/pytorchvideo.git
-          cd pytorchvideo
-          python3 setup.py install
+          pip install jj-pytorchvideo
           cd..
         working-directory: .
 
