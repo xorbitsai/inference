@@ -46,8 +46,13 @@ class DiffusionModel:
         self._model_uid = model_uid
         self._model_path = model_path
         self._device = device
+        # when a model has text2image ability,
+        # it will be loaded as AutoPipelineForText2Image
+        # for image2image and inpainting,
+        # we convert to the corresponding model
         self._model = None
         self._i2i_model = None  # image to image model
+        self._inpainting_model = None  # inpainting model
         self._lora_model = lora_model
         self._lora_load_kwargs = lora_load_kwargs or {}
         self._lora_fuse_kwargs = lora_fuse_kwargs or {}
@@ -258,6 +263,20 @@ class DiffusionModel:
         response_format: str = "url",
         **kwargs,
     ):
+        if (
+            "text2image" in self._abilities or "image2image" in self._abilities
+        ) and self._model is not None:
+            from diffusers import AutoPipelineForInpainting
+
+            if self._inpainting_model is not None:
+                model = self._inpainting_model
+            else:
+                model = self._inpainting_model = AutoPipelineForInpainting.from_pipe(
+                    self._model
+                )
+        else:
+            model = self._model
+
         width, height = map(int, re.split(r"[^\d]+", size))
         return self._call_model(
             image=image,
@@ -268,5 +287,6 @@ class DiffusionModel:
             width=width,
             num_images_per_prompt=n,
             response_format=response_format,
+            model=model,
             **kwargs,
         )
