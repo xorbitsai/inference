@@ -61,6 +61,7 @@ def main():
         sorted_models = []
         output_dir = './models/builtin/llm'
         os.makedirs(output_dir, exist_ok=True)
+        current_files = {f for f in os.listdir(output_dir) if os.path.isfile(os.path.join(output_dir, f))}
 
         for model_name in sorted(model_by_names, key=str.lower):
 
@@ -106,10 +107,18 @@ def main():
                         })
 
             rendered = env.get_template('llm.rst.jinja').render(model)
-            output_file_path = os.path.join(output_dir, f"{model['model_name'].lower()}.rst")
+            output_file_name = f"{model['model_name'].lower()}.rst"
+            if output_file_name in current_files:
+                current_files.remove(output_file_name)
+            output_file_path = os.path.join(output_dir, output_file_name)
             with open(output_file_path, 'w') as output_file:
                 output_file.write(rendered)
                 print(output_file_path)
+
+        if current_files:
+            for f in current_files:
+                print(f"remove {f}")
+                os.remove(os.path.join(output_dir, f))
 
         index_file_path = os.path.join(output_dir, "index.rst")
         with open(index_file_path, "w") as file:
