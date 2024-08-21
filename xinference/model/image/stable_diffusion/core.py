@@ -263,6 +263,9 @@ class DiffusionModel:
         response_format: str = "url",
         **kwargs,
     ):
+        if "inpainting" not in self._abilities:
+            raise RuntimeError(f"{self._model_uid} does not support inpainting")
+
         if (
             "text2image" in self._abilities or "image2image" in self._abilities
         ) and self._model is not None:
