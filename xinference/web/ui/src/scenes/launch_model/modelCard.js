@@ -93,6 +93,8 @@ const ModelCard = ({
   const [isOther, setIsOther] = useState(false)
   const [isPeftModelConfig, setIsPeftModelConfig] = useState(false)
   const [openSnackbar, setOpenSnackbar] = useState(false)
+  const [openErrorSnackbar, setOpenErrorSnackbar] = useState(false)
+  const [errorSnackbarValue, setErrorSnackbarValue] = useState('')
   const { isCallingApi, setIsCallingApi } = useContext(ApiContext)
   const { isUpdatingModel } = useContext(ApiContext)
   const { setErrorMsg } = useContext(ApiContext)
@@ -282,114 +284,120 @@ const ModelCard = ({
 
     setIsCallingApi(true)
 
-    const modelDataWithID_LLM = {
-      // If user does not fill model_uid, pass null (None) to server and server generates it.
-      model_uid: modelUID?.trim() === '' ? null : modelUID?.trim(),
-      model_name: modelData.model_name,
-      model_type: modelType,
-      model_engine: modelEngine,
-      model_format: modelFormat,
-      model_size_in_billions: convertModelSize(modelSize),
-      quantization: quantization,
-      n_gpu:
-        parseInt(nGPU, 10) === 0 || nGPU === 'CPU'
-          ? null
-          : nGPU === 'auto'
-          ? 'auto'
-          : parseInt(nGPU, 10),
-      replica: replica,
-      request_limits:
-        String(requestLimits)?.trim() === ''
-          ? null
-          : Number(String(requestLimits)?.trim()),
-      worker_ip: workerIp?.trim() === '' ? null : workerIp?.trim(),
-      gpu_idx: GPUIdx?.trim() === '' ? null : handleGPUIdx(GPUIdx?.trim()),
-      download_hub: downloadHub === '' ? null : downloadHub,
-      model_path: modelPath?.trim() === '' ? null : modelPath?.trim(),
-    }
-
-    let modelDataWithID_other = {
-      model_uid: modelUID?.trim() === '' ? null : modelUID?.trim(),
-      model_name: modelData.model_name,
-      model_type: modelType,
-      replica: replica,
-      n_gpu: nGpu === 'GPU' ? 'auto' : null,
-      worker_ip: workerIp?.trim() === '' ? null : workerIp.trim(),
-      gpu_idx: GPUIdx?.trim() === '' ? null : handleGPUIdx(GPUIdx?.trim()),
-      download_hub: downloadHub === '' ? null : downloadHub,
-      model_path: modelPath?.trim() === '' ? null : modelPath?.trim(),
-    }
-
-    if (nGPULayers >= 0) {
-      modelDataWithID_LLM.n_gpu_layers = nGPULayers
-    }
-
-    if (
-      loraListArr.length ||
-      imageLoraLoadKwargsArr.length ||
-      imageLoraFuseKwargsArr.length
-    ) {
-      const peft_model_config = {}
-      if (imageLoraLoadKwargsArr.length) {
-        const image_lora_load_kwargs = {}
-        imageLoraLoadKwargsArr.forEach((item) => {
-          image_lora_load_kwargs[item.key] = handleValueType(item.value)
-        })
-        peft_model_config['image_lora_load_kwargs'] = image_lora_load_kwargs
+    try {
+      const modelDataWithID_LLM = {
+        // If user does not fill model_uid, pass null (None) to server and server generates it.
+        model_uid: modelUID?.trim() === '' ? null : modelUID?.trim(),
+        model_name: modelData.model_name,
+        model_type: modelType,
+        model_engine: modelEngine,
+        model_format: modelFormat,
+        model_size_in_billions: convertModelSize(modelSize),
+        quantization: quantization,
+        n_gpu:
+          parseInt(nGPU, 10) === 0 || nGPU === 'CPU'
+            ? null
+            : nGPU === 'auto'
+            ? 'auto'
+            : parseInt(nGPU, 10),
+        replica: replica,
+        request_limits:
+          String(requestLimits)?.trim() === ''
+            ? null
+            : Number(String(requestLimits)?.trim()),
+        worker_ip: workerIp?.trim() === '' ? null : workerIp?.trim(),
+        gpu_idx: GPUIdx?.trim() === '' ? null : handleGPUIdx(GPUIdx?.trim()),
+        download_hub: downloadHub === '' ? null : downloadHub,
+        model_path: modelPath?.trim() === '' ? null : modelPath?.trim(),
       }
-      if (imageLoraFuseKwargsArr.length) {
-        const image_lora_fuse_kwargs = {}
-        imageLoraFuseKwargsArr.forEach((item) => {
-          image_lora_fuse_kwargs[item.key] = handleValueType(item.value)
-        })
-        peft_model_config['image_lora_fuse_kwargs'] = image_lora_fuse_kwargs
+
+      const modelDataWithID_other = {
+        model_uid: modelUID?.trim() === '' ? null : modelUID?.trim(),
+        model_name: modelData.model_name,
+        model_type: modelType,
+        replica: replica,
+        n_gpu: nGpu === 'GPU' ? 'auto' : null,
+        worker_ip: workerIp?.trim() === '' ? null : workerIp.trim(),
+        gpu_idx: GPUIdx?.trim() === '' ? null : handleGPUIdx(GPUIdx?.trim()),
+        download_hub: downloadHub === '' ? null : downloadHub,
+        model_path: modelPath?.trim() === '' ? null : modelPath?.trim(),
       }
-      if (loraListArr.length) {
-        const lora_list = loraListArr
-        lora_list.map((item) => {
-          delete item.id
-        })
-        peft_model_config['lora_list'] = lora_list
+
+      if (nGPULayers >= 0) {
+        modelDataWithID_LLM.n_gpu_layers = nGPULayers
       }
-      modelDataWithID_LLM['peft_model_config'] = peft_model_config
-    }
 
-    if (customParametersArr.length) {
-      customParametersArr.forEach((item) => {
-        modelDataWithID_LLM[item.key] = handleValueType(item.value)
-      })
-    }
+      if (
+        loraListArr.length ||
+        imageLoraLoadKwargsArr.length ||
+        imageLoraFuseKwargsArr.length
+      ) {
+        const peft_model_config = {}
+        if (imageLoraLoadKwargsArr.length) {
+          const image_lora_load_kwargs = {}
+          imageLoraLoadKwargsArr.forEach((item) => {
+            image_lora_load_kwargs[item.key] = handleValueType(item.value)
+          })
+          peft_model_config['image_lora_load_kwargs'] = image_lora_load_kwargs
+        }
+        if (imageLoraFuseKwargsArr.length) {
+          const image_lora_fuse_kwargs = {}
+          imageLoraFuseKwargsArr.forEach((item) => {
+            image_lora_fuse_kwargs[item.key] = handleValueType(item.value)
+          })
+          peft_model_config['image_lora_fuse_kwargs'] = image_lora_fuse_kwargs
+        }
+        if (loraListArr.length) {
+          const lora_list = loraListArr
+          lora_list.map((item) => {
+            delete item.id
+          })
+          peft_model_config['lora_list'] = lora_list
+        }
+        modelDataWithID_LLM['peft_model_config'] = peft_model_config
+      }
 
-    const modelDataWithID =
-      modelType === 'LLM' ? modelDataWithID_LLM : modelDataWithID_other
+      const modelDataWithID =
+        modelType === 'LLM' ? modelDataWithID_LLM : modelDataWithID_other
 
-    // First fetcher request to initiate the model
-    fetchWrapper
-      .post('/v1/models', modelDataWithID)
-      .then(() => {
-        navigate(`/running_models/${modelType}`)
-        sessionStorage.setItem(
-          'runningModelType',
-          `/running_models/${modelType}`
-        )
-        let historyArr = JSON.parse(localStorage.getItem('historyArr')) || []
-        if (!historyArr.some((item) => deepEqual(item, modelDataWithID))) {
-          historyArr = historyArr.filter(
-            (item) => item.model_name !== modelDataWithID.model_name
+      if (customParametersArr.length) {
+        customParametersArr.forEach((item) => {
+          modelDataWithID[item.key] = handleValueType(item.value)
+        })
+      }
+
+      // First fetcher request to initiate the model
+      fetchWrapper
+        .post('/v1/models', modelDataWithID)
+        .then(() => {
+          navigate(`/running_models/${modelType}`)
+          sessionStorage.setItem(
+            'runningModelType',
+            `/running_models/${modelType}`
           )
-          historyArr.push(modelDataWithID)
-        }
-        localStorage.setItem('historyArr', JSON.stringify(historyArr))
+          let historyArr = JSON.parse(localStorage.getItem('historyArr')) || []
+          if (!historyArr.some((item) => deepEqual(item, modelDataWithID))) {
+            historyArr = historyArr.filter(
+              (item) => item.model_name !== modelDataWithID.model_name
+            )
+            historyArr.push(modelDataWithID)
+          }
+          localStorage.setItem('historyArr', JSON.stringify(historyArr))
 
-        setIsCallingApi(false)
-      })
-      .catch((error) => {
-        console.error('Error:', error)
-        if (error.response.status !== 403) {
-          setErrorMsg(error.message)
-        }
-        setIsCallingApi(false)
-      })
+          setIsCallingApi(false)
+        })
+        .catch((error) => {
+          console.error('Error:', error)
+          if (error.response.status !== 403) {
+            setErrorMsg(error.message)
+          }
+          setIsCallingApi(false)
+        })
+    } catch (error) {
+      setOpenErrorSnackbar(true)
+      setErrorSnackbarValue(`${error}`)
+      setIsCallingApi(false)
+    }
   }
 
   const handleGPUIdx = (data) => {
@@ -644,10 +652,17 @@ const ModelCard = ({
       setModelUID(arr[0].model_uid || '')
       setReplica(arr[0].replica || 1)
       setNGpu(arr[0].n_gpu === 'auto' ? 'GPU' : 'CPU')
-      setGPUIdx(arr[0].gpu_idx || '')
+      setGPUIdx(arr[0].gpu_idx?.join(',') || '')
       setWorkerIp(arr[0].worker_ip || '')
-      setDownloadHub(arr[0].download_hub)
+      setDownloadHub(arr[0].download_hub || '')
       setModelPath(arr[0].model_path || '')
+
+      let customData = []
+      for (let key in arr[0]) {
+        !llmAllDataKey.includes(key) &&
+          customData.push({ key: key, value: arr[0][key] })
+      }
+      setCustomArr(customData)
     }
   }
 
@@ -1574,6 +1589,18 @@ const ModelCard = ({
                   onChange={(e) => setModelPath(e.target.value)}
                 />
               </FormControl>
+              <AddPair
+                customData={{
+                  title: 'Additional parameters passed to the inference engine',
+                  key: 'key',
+                  value: 'value',
+                }}
+                onGetArr={(arr) => {
+                  setCustomParametersArr(arr)
+                }}
+                onJudgeArr={judgeArr}
+                pairData={customArr}
+              />
             </FormControl>
           )}
           <Box className="buttonsContainer">
@@ -1592,14 +1619,14 @@ const ModelCard = ({
                       (quantization ||
                         (!modelData.is_builtin && modelFormat !== 'pytorch'))
                     ) ||
-                    !judgeArr(customParametersArr, ['key', 'value']) ||
                     !judgeArr(loraListArr, ['lora_name', 'local_path']) ||
                     !judgeArr(imageLoraLoadKwargsArr, ['key', 'value']) ||
                     !judgeArr(imageLoraFuseKwargsArr, ['key', 'value']) ||
                     requestLimitsAlert ||
                     GPUIdxAlert)) ||
                 ((modelType === 'embedding' || modelType === 'rerank') &&
-                  GPUIdxAlert)
+                  GPUIdxAlert) ||
+                !judgeArr(customParametersArr, ['key', 'value'])
               }
             >
               {(() => {
@@ -1701,6 +1728,16 @@ const ModelCard = ({
         message="Please fill in the complete parameters before adding!"
         key={'top' + 'center'}
       />
+      <Snackbar
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+        open={openErrorSnackbar}
+        onClose={() => setOpenErrorSnackbar(false)}
+        key={'top' + 'center'}
+      >
+        <Alert severity="error" variant="filled" sx={{ width: '100%' }}>
+          {errorSnackbarValue}
+        </Alert>
+      </Snackbar>
 
       <Backdrop
         sx={{ color: '#fff', zIndex: (theme) => theme.zIndex.drawer + 1 }}
