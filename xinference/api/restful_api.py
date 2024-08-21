@@ -46,7 +46,7 @@ from fastapi.staticfiles import StaticFiles
 from PIL import Image
 from sse_starlette.sse import EventSourceResponse
 from starlette.responses import JSONResponse as StarletteJSONResponse
-from starlette.responses import RedirectResponse
+from starlette.responses import PlainTextResponse, RedirectResponse
 from uvicorn import Config, Server
 from xoscar.utils import get_next_port
 
@@ -66,6 +66,7 @@ from ..types import (
     CreateCompletion,
     ImageList,
     PeftModelConfig,
+    VideoList,
     max_tokens_field,
 )
 from .oauth2.auth_service import AuthService
@@ -124,6 +125,14 @@ class TextToImageRequest(BaseModel):
     user: Optional[str] = None
 
 
+class TextToVideoRequest(BaseModel):
+    model: str
+    prompt: Union[str, List[str]] = Field(description="The input to embed.")
+    n: Optional[int] = 1
+    kwargs: Optional[str] = None
+    user: Optional[str] = None
+
+
 class SpeechRequest(BaseModel):
     model: str
     input: str
@@ -161,6 +170,7 @@ class BuildGradioImageInterfaceRequest(BaseModel):
     model_id: str
     controlnet: Union[None, List[Dict[str, Union[str, None]]]]
     model_revision: str
+    model_ability: List[str]
 
 
 class RESTfulAPI:
@@ -237,6 +247,13 @@ class RESTfulAPI:
             allow_methods=["*"],
             allow_headers=["*"],
         )
+
+        @self._app.exception_handler(500)
+        async def internal_exception_handler(request: Request, exc: Exception):
+            logger.exception("Handling request %s failed: %s", request.url, exc)
+            return PlainTextResponse(
+                status_code=500, content=f"Internal Server Error: {exc}"
+            )
 
         # internal interface
         self._router.add_api_route("/status", self.get_status, methods=["GET"])
@@ -504,6 +521,17 @@ class RESTfulAPI:
             self.create_inpainting,
             methods=["POST"],
             response_model=ImageList,
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:read"])]
+                if self.is_authenticated()
+                else None
+            ),
+        )
+        self._router.add_api_route(
+            "/v1/video/generations",
+            self.create_videos,
+            methods=["POST"],
+            response_model=VideoList,
             dependencies=(
                 [Security(self._auth_service, scopes=["models:read"])]
                 if self.is_authenticated()
@@ -838,6 +866,7 @@ class RESTfulAPI:
         worker_ip = payload.get("worker_ip", None)
         gpu_idx = payload.get("gpu_idx", None)
         download_hub = payload.get("download_hub", None)
+        model_path = payload.get("model_path", None)
 
         exclude_keys = {
             "model_uid",
@@ -854,6 +883,7 @@ class RESTfulAPI:
             "worker_ip",
             "gpu_idx",
             "download_hub",
+            "model_path",
         }
 
         kwargs = {
@@ -902,6 +932,7 @@ class RESTfulAPI:
                 worker_ip=worker_ip,
                 gpu_idx=gpu_idx,
                 download_hub=download_hub,
+                model_path=model_path,
                 **kwargs,
             )
         except ValueError as ve:
@@ -1064,6 +1095,7 @@ class RESTfulAPI:
                 model_revision=body.model_revision,
                 controlnet=body.controlnet,
                 access_token=access_token,
+                model_ability=body.model_ability,
             ).build()
 
             gr.mount_gradio_app(self._app, interface, f"/{model_uid}")
@@ -1450,7 +1482,7 @@ class RESTfulAPI:
         negative_prompt: Optional[Union[str, List[str]]] = Form(None),
         n: Optional[int] = Form(1),
         response_format: Optional[str] = Form("url"),
-        size: Optional[str] = Form("1024*1024"),
+        size: Optional[str] = Form(None),
         kwargs: Optional[str] = Form(None),
     ) -> Response:
         model_uid = model
@@ -1577,6 +1609,38 @@ class RESTfulAPI:
             await self._report_error_event(model_uid, str(e))
             raise HTTPException(status_code=500, detail=str(e))
 
+    async def create_videos(self, request: Request) -> Response:
+        body = TextToVideoRequest.parse_obj(await request.json())
+        model_uid = body.model
+        try:
+            model = await (await self._get_supervisor_ref()).get_model(model_uid)
+        except ValueError as ve:
+            logger.error(str(ve), exc_info=True)
+            await self._report_error_event(model_uid, str(ve))
+            raise HTTPException(status_code=400, detail=str(ve))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            await self._report_error_event(model_uid, str(e))
+            raise HTTPException(status_code=500, detail=str(e))
+
+        try:
+            kwargs = json.loads(body.kwargs) if body.kwargs else {}
+            video_list = await model.text_to_video(
+                prompt=body.prompt,
+                n=body.n,
+                **kwargs,
+            )
+            return Response(content=video_list, media_type="application/json")
+        except RuntimeError as re:
+            logger.error(re, exc_info=True)
+            await self._report_error_event(model_uid, str(re))
+            self.handle_request_limit_error(re)
+            raise HTTPException(status_code=400, detail=str(re))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            await self._report_error_event(model_uid, str(e))
+            raise HTTPException(status_code=500, detail=str(e))
+
     async def create_chat_completion(self, request: Request) -> Response:
         raw_body = await request.json()
         body = CreateChatCompletion.parse_obj(raw_body)
@@ -1661,17 +1725,8 @@ class RESTfulAPI:
 
         model_family = desc.get("model_family", "")
         function_call_models = (
-            ["chatglm3", "gorilla-openfunctions-v1"]
-            + QWEN_TOOL_CALL_FAMILY
-            + GLM4_TOOL_CALL_FAMILY
+            ["gorilla-openfunctions-v1"] + QWEN_TOOL_CALL_FAMILY + GLM4_TOOL_CALL_FAMILY
         )
-
-        is_qwen = desc.get("model_format") == "ggmlv3" and "qwen-chat" == model_family
-
-        if is_qwen and system_prompt is not None:
-            raise HTTPException(
-                status_code=400, detail="Qwen ggml does not have system prompt"
-            )
 
         if model_family not in function_call_models:
             if body.tools:
@@ -1703,18 +1758,13 @@ class RESTfulAPI:
                 iterator = None
                 try:
                     try:
-                        if is_qwen:
-                            iterator = await model.chat(
-                                prompt, chat_history, kwargs, raw_params=raw_kwargs
-                            )
-                        else:
-                            iterator = await model.chat(
-                                prompt,
-                                system_prompt,
-                                chat_history,
-                                kwargs,
-                                raw_params=raw_kwargs,
-                            )
+                        iterator = await model.chat(
+                            prompt,
+                            system_prompt,
+                            chat_history,
+                            kwargs,
+                            raw_params=raw_kwargs,
+                        )
                     except RuntimeError as re:
                         await self._report_error_event(model_uid, str(re))
                         self.handle_request_limit_error(re)
@@ -1742,18 +1792,13 @@ class RESTfulAPI:
             return EventSourceResponse(stream_results())
         else:
             try:
-                if is_qwen:
-                    data = await model.chat(
-                        prompt, chat_history, kwargs, raw_params=raw_kwargs
-                    )
-                else:
-                    data = await model.chat(
-                        prompt,
-                        system_prompt,
-                        chat_history,
-                        kwargs,
-                        raw_params=raw_kwargs,
-                    )
+                data = await model.chat(
+                    prompt,
+                    system_prompt,
+                    chat_history,
+                    kwargs,
+                    raw_params=raw_kwargs,
+                )
                 return Response(content=data, media_type="application/json")
             except Exception as e:
                 logger.error(e, exc_info=True)

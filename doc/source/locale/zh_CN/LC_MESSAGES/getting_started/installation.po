@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-07-30 17:00+0800\n"
+"POT-Creation-Date: 2024-08-15 11:43+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -16,7 +16,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Generated-By: Babel 2.14.0\n"
+"Generated-By: Babel 2.11.0\n"
 
 #: ../../source/getting_started/installation.rst:5
 msgid "Installation"
@@ -39,13 +39,13 @@ msgstr "如果你希望能够推理所有支持的模型，可以用以下命令
 
 #: ../../source/getting_started/installation.rst:13
 msgid ""
-"If you want to serve models in GGML format, it's advised to install the "
-"GGML dependencies manually based on your hardware specifications to "
-"enable acceleration. For more details, see the :ref:`installation_ggml` "
-"section."
+"If you want to serve models in GGUF format, it's advised to install the "
+"``llama-cpp-python`` dependency manually based on your hardware "
+"specifications to enable acceleration. For more details, see the "
+":ref:`installation_gguf` section."
 msgstr ""
-"如果你想使用 GGML 格式的模型，建议根据当前使用的硬件手动安装所需要的依赖"
-"，以充分利用硬件的加速能力。更多细节可以参考 :ref:`installation_ggml` "
+"如果你想使用 GGUF 格式的模型，建议根据当前使用的硬件手动安装所需要的依赖"
+"，以充分利用硬件的加速能力。更多细节可以参考 :ref:`installation_gguf` "
 "这一章节。"
 
 #: ../../source/getting_started/installation.rst:16
@@ -117,8 +117,8 @@ msgstr "目前，支持的模型包括："
 
 #: ../../source/getting_started/installation.rst:42
 msgid ""
-"``llama-2``, ``llama-3``, ``llama-2-chat``, ``llama-3-instruct``, "
-"``llama-3.1``, ``llama-3.1-instruct``"
+"``llama-2``, ``llama-3``, ``llama-3.1``, ``llama-2-chat``, "
+"``llama-3-instruct``, ``llama-3.1-instruct``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:43
@@ -201,7 +201,7 @@ msgid "``qwen2-instruct``, ``qwen2-moe-instruct``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:61
-msgid "``gemma-it``"
+msgid "``gemma-it``, ``gemma-2-it``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:62
@@ -216,46 +216,46 @@ msgstr ""
 msgid "To install Xinference and vLLM::"
 msgstr "安装 xinference 和 vLLM："
 
-#: ../../source/getting_started/installation.rst:73
+#: ../../source/getting_started/installation.rst:79
 msgid "Llama.cpp Backend"
 msgstr "Llama.cpp 引擎"
 
-#: ../../source/getting_started/installation.rst:74
+#: ../../source/getting_started/installation.rst:80
 msgid ""
-"Xinference supports models in ``gguf`` and ``ggml`` format via ``llama-"
-"cpp-python``. It's advised to install the llama.cpp-related dependencies "
-"manually based on your hardware specifications to enable acceleration."
+"Xinference supports models in ``gguf`` format via ``llama-cpp-python``. "
+"It's advised to install the llama.cpp-related dependencies manually based"
+" on your hardware specifications to enable acceleration."
 msgstr ""
-"Xinference 通过 ``llama-cpp-python`` 支持 ``gguf`` 和 ``ggml`` 格式的模型"
+"Xinference 通过 ``llama-cpp-python`` 支持 ``gguf`` 格式的模型"
 "。建议根据当前使用的硬件手动安装依赖，从而获得最佳的加速效果。"
 
-#: ../../source/getting_started/installation.rst:76
-#: ../../source/getting_started/installation.rst:99
-#: ../../source/getting_started/installation.rst:108
+#: ../../source/getting_started/installation.rst:82
+#: ../../source/getting_started/installation.rst:105
+#: ../../source/getting_started/installation.rst:118
 msgid "Initial setup::"
 msgstr "初始步骤："
 
-#: ../../source/getting_started/installation.rst:80
+#: ../../source/getting_started/installation.rst:86
 msgid "Hardware-Specific installations:"
 msgstr "不同硬件的安装方式："
 
-#: ../../source/getting_started/installation.rst:82
+#: ../../source/getting_started/installation.rst:88
 msgid "Apple Silicon::"
 msgstr "Apple M系列"
 
-#: ../../source/getting_started/installation.rst:86
+#: ../../source/getting_started/installation.rst:92
 msgid "Nvidia cards::"
 msgstr "英伟达显卡："
 
-#: ../../source/getting_started/installation.rst:90
+#: ../../source/getting_started/installation.rst:96
 msgid "AMD cards::"
 msgstr "AMD 显卡："
 
-#: ../../source/getting_started/installation.rst:96
+#: ../../source/getting_started/installation.rst:102
 msgid "SGLang Backend"
 msgstr "SGLang 引擎"
 
-#: ../../source/getting_started/installation.rst:97
+#: ../../source/getting_started/installation.rst:103
 msgid ""
 "SGLang has a high-performance inference runtime with RadixAttention. It "
 "significantly accelerates the execution of complex LLM programs by "
@@ -266,38 +266,19 @@ msgstr ""
 "自动重用KV缓存，显著加速了复杂 LLM 程序的执行。它还支持其他常见推理技术，"
 "如连续批处理和张量并行处理。"
 
-#: ../../source/getting_started/installation.rst:105
-#, fuzzy
+#: ../../source/getting_started/installation.rst:115
 msgid "MLX Backend"
-msgstr "vLLM 引擎"
+msgstr "MLX 引擎"
 
-#: ../../source/getting_started/installation.rst:106
+#: ../../source/getting_started/installation.rst:116
 msgid "MLX-lm is designed for Apple silicon users to run LLM efficiently."
 msgstr "MLX-lm 用来在苹果 silicon 芯片上提供高效的 LLM 推理。"
 
-#: ../../source/getting_started/installation.rst:113
+#: ../../source/getting_started/installation.rst:123
 msgid "Other Platforms"
 msgstr "其他平台"
 
-#: ../../source/getting_started/installation.rst:115
+#: ../../source/getting_started/installation.rst:125
 msgid ":ref:`Ascend NPU <installation_npu>`"
 msgstr ""
-
-#~ msgid "``Yi``, ``Yi-chat``"
-#~ msgstr ""
-
-#~ msgid "``c4ai-command-r-v01``, ``c4ai-command-r-v01-4bit``"
-#~ msgstr ""
-
-#~ msgid "``deepseek-chat``, ``deepseek-coder-instruct``"
-#~ msgstr ""
-
-#~ msgid "``codeqwen1.5-chat``"
-#~ msgstr ""
-
-#~ msgid "``llama-2``, ``llama-3``, ``llama-2-chat``, ``llama-3-instruct``"
-#~ msgstr ""
-
-#~ msgid "``mistral-v0.1``, ``mistral-instruct-v0.1``, ``mistral-instruct-v0.2``"
-#~ msgstr ""
 

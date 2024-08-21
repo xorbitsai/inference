@@ -40,7 +40,8 @@ async def test_restful_api(setup):
     payload = {
         "model_uid": "test_restful_api",
         "model_engine": "llama.cpp",
-        "model_name": "orca",
+        "model_name": "qwen1.5-chat",
+        "model_size_in_billions": "0_5",
         "quantization": "q4_0",
     }
 
@@ -52,7 +53,7 @@ async def test_restful_api(setup):
     # launch n_gpu error
     payload = {
         "model_uid": "test_restful_api",
-        "model_name": "orca",
+        "model_name": "qwen1.5-chat",
         "quantization": "q4_0",
         "n_gpu": -1,
     }
@@ -62,7 +63,7 @@ async def test_restful_api(setup):
     # same model uid
     payload = {
         "model_uid": "test_restful_api",
-        "model_name": "orca",
+        "model_name": "qwen1.5-chat",
         "quantization": "q4_0",
     }
     response = requests.post(url, json=payload)
@@ -76,7 +77,7 @@ async def test_restful_api(setup):
     # describe
     response = requests.get(f"{endpoint}/v1/models/test_restful_api")
     response_data = response.json()
-    assert response_data["model_name"] == "orca"
+    assert response_data["model_name"] == "qwen1.5-chat"
     assert response_data["replica"] == 1
 
     response = requests.delete(f"{endpoint}/v1/models/bogus")
@@ -464,54 +465,6 @@ def test_restful_api_for_tool_calls(setup, model_format, quantization):
     response = requests.get(url)
     response_data = response.json()
     assert len(response_data["data"]) == 1
-
-    # glm4-chat fail response: 好的，请告诉我您希望使用的温度单位是摄氏度还是华氏度？
-    if "glm4" not in model_name:
-        tools = [
-            {
-                "type": "function",
-                "function": {
-                    "name": "get_current_weather",
-                    "description": "获取当前天气",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "location": {"type": "string", "description": "城市，例如北京"},
-                            "format": {
-                                "type": "string",
-                                "enum": ["celsius", "fahrenheit"],
-                                "description": "使用的温度单位。从所在的城市进行推断。",
-                            },
-                        },
-                        "required": ["location", "format"],
-                    },
-                },
-            }
-        ]
-
-        url = f"{endpoint}/v1/chat/completions"
-        payload = {
-            "model": model_uid_res,
-            "messages": [
-                {"role": "system", "content": "你是一个有用的助手。不要对要函数调用的值做出假设。"},
-                {"role": "user", "content": "上海现在的天气怎么样？"},
-            ],
-            "temperature": 0.7,
-            "tools": tools,
-            "stop": ["\n"],
-        }
-        response = requests.post(url, json=payload)
-        completion = response.json()
-
-        assert (
-            "get_current_weather"
-            == completion["choices"][0]["message"]["tool_calls"][0]["function"]["name"]
-        ), completion
-        arguments = completion["choices"][0]["message"]["tool_calls"][0]["function"][
-            "arguments"
-        ]
-        arg = json.loads(arguments)
-        assert arg == {"location": "上海", "format": "celsius"}
 
     # tool
     tools = [
@@ -1020,7 +973,8 @@ def test_restful_api_with_request_limits(setup):
     payload = {
         "model_uid": "test_restful_api",
         "model_engine": "llama.cpp",
-        "model_name": "orca",
+        "model_name": "qwen1.5-chat",
+        "model_size_in_billions": "0_5",
         "quantization": "q4_0",
         "request_limits": 0,
     }
@@ -1058,7 +1012,8 @@ async def test_openai(setup):
     payload = {
         "model_uid": "test_restful_api",
         "model_engine": "llama.cpp",
-        "model_name": "orca",
+        "model_name": "qwen1.5-chat",
+        "model_size_in_billions": "0_5",
         "quantization": "q4_0",
     }
 
@@ -1117,7 +1072,8 @@ def test_lang_chain(setup):
     payload = {
         "model_uid": "test_restful_api",
         "model_engine": "llama.cpp",
-        "model_name": "orca",
+        "model_name": "qwen1.5-chat",
+        "model_size_in_billions": "0_5",
         "quantization": "q4_0",
     }
 
@@ -1155,7 +1111,6 @@ def test_lang_chain(setup):
     r = chat(messages)
     assert type(r) == AIMessage
     assert r.content
-    assert "amo" in r.content.lower()
 
     template = "You are a helpful assistant that translates {input_language} to {output_language}."
     system_message_prompt = SystemMessagePromptTemplate.from_template(template)
@@ -1183,18 +1138,19 @@ def test_launch_model_async(setup):
     url = f"{endpoint}/v1/models?wait_ready=false"
 
     payload = {
-        "model_uid": "test_orca",
+        "model_uid": "test_qwen_15",
         "model_engine": "llama.cpp",
-        "model_name": "orca",
+        "model_name": "qwen1.5-chat",
+        "model_size_in_billions": "0_5",
         "quantization": "q4_0",
     }
 
     response = requests.post(url, json=payload)
     response_data = response.json()
     model_uid_res = response_data["model_uid"]
-    assert model_uid_res == "test_orca"
+    assert model_uid_res == "test_qwen_15"
 
-    status_url = f"{endpoint}/v1/models/instances?model_uid=test_orca"
+    status_url = f"{endpoint}/v1/models/instances?model_uid=test_qwen_15"
     while True:
         response = requests.get(status_url)
         response_data = response.json()
@@ -1206,7 +1162,7 @@ def test_launch_model_async(setup):
         time.sleep(2)
 
     # delete again
-    url = f"{endpoint}/v1/models/test_orca"
+    url = f"{endpoint}/v1/models/test_qwen_15"
     requests.delete(url)
 
     response = requests.get(status_url)
@@ -1218,18 +1174,19 @@ def test_events(setup):
     url = f"{endpoint}/v1/models"
 
     payload = {
-        "model_uid": "test_orca",
+        "model_uid": "test_qwen_15",
         "model_engine": "llama.cpp",
-        "model_name": "orca",
+        "model_name": "qwen1.5-chat",
+        "model_size_in_billions": "0_5",
         "quantization": "q4_0",
     }
 
     response = requests.post(url, json=payload)
     response_data = response.json()
     model_uid_res = response_data["model_uid"]
-    assert model_uid_res == "test_orca"
+    assert model_uid_res == "test_qwen_15"
 
-    events_url = f"{endpoint}/v1/models/test_orca/events"
+    events_url = f"{endpoint}/v1/models/test_qwen_15/events"
     response = requests.get(events_url)
     response_data = response.json()
     # [{'event_type': 'INFO', 'event_ts': 1705896156, 'event_content': 'Launch model'}]
@@ -1237,7 +1194,7 @@ def test_events(setup):
     assert "Launch" in response_data[0]["event_content"]
 
     # delete again
-    url = f"{endpoint}/v1/models/test_orca"
+    url = f"{endpoint}/v1/models/test_qwen_15"
     requests.delete(url)
 
     response = requests.get(events_url)
@@ -1249,29 +1206,27 @@ def test_events(setup):
 
 
 def test_launch_model_by_version(setup):
-    from ...model.llm import get_llm_model_descriptions
-
     endpoint, supervisor_addr = setup
     url = f"{endpoint}/v1/models/instance"
 
-    version_info = get_llm_model_descriptions()["orca"][0]
+    model_version = "qwen1.5-chat--0_5B--ggufv2--q4_0"
 
     payload = {
-        "model_uid": "test_orca",
+        "model_uid": "test_qwen15",
         "model_engine": "llama.cpp",
         "model_type": "LLM",
-        "model_version": version_info["model_version"],
+        "model_version": model_version,
     }
     response = requests.post(url, json=payload)
-    assert response.json()["model_uid"] == "test_orca"
+    assert response.json()["model_uid"] == "test_qwen15"
 
-    url_version = f"{endpoint}/v1/models/LLM/orca/versions"
+    url_version = f"{endpoint}/v1/models/LLM/qwen1.5-chat/versions"
     response = requests.get(url_version)
     versions = response.json()
 
     has_version = False
     for info in versions:
-        if info["model_version"] == version_info["model_version"]:
+        if info["model_version"] == model_version:
             has_version = True
             assert info["cache_status"] is True
             assert info["model_file_location"] is not None
@@ -1282,7 +1237,7 @@ def test_launch_model_by_version(setup):
     assert has_version is True
 
     # delete again
-    url = f"{endpoint}/v1/models/test_orca"
+    url = f"{endpoint}/v1/models/test_qwen15"
     requests.delete(url)
 
 

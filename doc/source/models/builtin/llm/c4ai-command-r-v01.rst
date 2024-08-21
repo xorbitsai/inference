@@ -22,7 +22,7 @@ Model Spec 1 (pytorch, 35 Billion)
 - **Quantizations:** none
 - **Engines**: vLLM, Transformers
 - **Model ID:** CohereForAI/c4ai-command-r-v01
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/CohereForAI/c4ai-command-r-v01>`__, `ModelScope <https://modelscope.cn/models/AI-ModelScope/c4ai-command-r-v01>`__
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/CohereForAI/c4ai-command-r-v01>`__, `ModelScope <https://modelscope.cn/models/mirror013/c4ai-command-r-v01-4bit>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::

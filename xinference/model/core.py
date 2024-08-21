@@ -56,6 +56,7 @@ def create_model_instance(
     quantization: Optional[str] = None,
     peft_model_config: Optional[PeftModelConfig] = None,
     download_hub: Optional[Literal["huggingface", "modelscope", "csghub"]] = None,
+    model_path: Optional[str] = None,
     **kwargs,
 ) -> Tuple[Any, ModelDescription]:
     from .audio.core import create_audio_model_instance
@@ -64,6 +65,7 @@ def create_model_instance(
     from .image.core import create_image_model_instance
     from .llm.core import create_llm_model_instance
     from .rerank.core import create_rerank_model_instance
+    from .video.core import create_video_model_instance
 
     if model_type == "LLM":
         return create_llm_model_instance(
@@ -77,13 +79,20 @@ def create_model_instance(
             quantization,
             peft_model_config,
             download_hub,
+            model_path,
             **kwargs,
         )
     elif model_type == "embedding":
         # embedding model doesn't accept trust_remote_code
         kwargs.pop("trust_remote_code", None)
         return create_embedding_model_instance(
-            subpool_addr, devices, model_uid, model_name, download_hub, **kwargs
+            subpool_addr,
+            devices,
+            model_uid,
+            model_name,
+            download_hub,
+            model_path,
+            **kwargs,
         )
     elif model_type == "image":
         kwargs.pop("trust_remote_code", None)
@@ -94,22 +103,46 @@ def create_model_instance(
             model_name,
             peft_model_config,
             download_hub,
+            model_path,
             **kwargs,
         )
     elif model_type == "rerank":
         kwargs.pop("trust_remote_code", None)
         return create_rerank_model_instance(
-            subpool_addr, devices, model_uid, model_name, download_hub, **kwargs
+            subpool_addr,
+            devices,
+            model_uid,
+            model_name,
+            download_hub,
+            model_path,
+            **kwargs,
         )
     elif model_type == "audio":
         kwargs.pop("trust_remote_code", None)
         return create_audio_model_instance(
-            subpool_addr, devices, model_uid, model_name, download_hub, **kwargs
+            subpool_addr,
+            devices,
+            model_uid,
+            model_name,
+            download_hub,
+            model_path,
+            **kwargs,
+        )
+    elif model_type == "video":
+        kwargs.pop("trust_remote_code", None)
+        return create_video_model_instance(
+            subpool_addr,
+            devices,
+            model_uid,
+            model_name,
+            download_hub,
+            model_path,
+            **kwargs,
         )
     elif model_type == "flexible":
         kwargs.pop("trust_remote_code", None)
         return create_flexible_model_instance(
-            subpool_addr, devices, model_uid, model_name, **kwargs
+            subpool_addr, devices, model_uid, model_name, model_path, **kwargs
         )
     else:
         raise ValueError(f"Unsupported model type: {model_type}.")

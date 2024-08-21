@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import base64
 import logging
 from io import BytesIO
 from typing import TYPE_CHECKING, Optional
@@ -61,16 +62,31 @@ class ChatTTSModel:
         import torchaudio
         import xxhash
 
-        seed = xxhash.xxh32_intdigest(voice)
+        rnd_spk_emb = None
 
-        torch.manual_seed(seed)
-        np.random.seed(seed)
-        torch.cuda.manual_seed(seed)
-        torch.backends.cudnn.deterministic = True
-        torch.backends.cudnn.benchmark = False
+        if len(voice) > 400:
+            try:
+                assert self._model is not None
+                b = base64.b64decode(voice)
+                bio = BytesIO(b)
+                tensor = torch.load(bio, map_location="cpu")
+                rnd_spk_emb = self._model._encode_spk_emb(tensor)
+                logger.info("Speech by input speaker")
+            except Exception as e:
+                logger.info("Fallback to random speaker due to %s", e)
 
-        assert self._model is not None
-        rnd_spk_emb = self._model.sample_random_speaker()
+        if rnd_spk_emb is None:
+            seed = xxhash.xxh32_intdigest(voice)
+
+            torch.manual_seed(seed)
+            np.random.seed(seed)
+            torch.cuda.manual_seed(seed)
+            torch.backends.cudnn.deterministic = True
+            torch.backends.cudnn.benchmark = False
+
+            assert self._model is not None
+            rnd_spk_emb = self._model.sample_random_speaker()
+            logger.info("Speech by voice %s", voice)
 
         default = 5
         infer_speed = int(default * speed)
@@ -100,7 +116,6 @@ class ChatTTSModel:
                                     if new_last_pos != last_pos:
                                         out.seek(last_pos)
                                         encoded_bytes = out.read()
-                                        print(len(encoded_bytes))
                                         yield encoded_bytes
                                         last_pos = new_last_pos
 

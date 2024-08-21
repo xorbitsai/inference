@@ -16,16 +16,15 @@ import json
 import os
 import shutil
 import tempfile
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import patch
 
 import pytest
 
 from ....constants import XINFERENCE_ENV_MODEL_SRC
 from ...utils import is_locale_chinese_simplified, valid_model_revision
 from ..llm_family import (
-    AWSRegion,
     CustomLLMFamilyV1,
-    GgmlLLMSpecV1,
+    LlamaCppLLMSpecV1,
     LLMFamilyV1,
     PromptStyleV1,
     PytorchLLMSpecV1,
@@ -34,7 +33,6 @@ from ..llm_family import (
     _get_meta_path,
     _skip_download,
     convert_model_size_to_float,
-    is_self_hosted,
     is_valid_model_uri,
     match_llm,
     match_model_size,
@@ -55,15 +53,15 @@ def test_deserialize_llm_family_v1():
    ],
    "model_specs":[
       {
-         "model_format":"ggmlv3",
+         "model_format":"ggufv2",
          "model_size_in_billions":2,
          "quantizations": ["q4_0", "q4_1"],
          "quantization_parts": {
             "q4_2": ["a", "b"]
          },
          "model_id":"example/TestModel",
-         "model_file_name_template":"TestModel.{quantization}.ggmlv3.bin",
-         "model_file_name_split_template":"TestModel.{quantization}.ggmlv3.bin.{part}"
+         "model_file_name_template":"TestModel.{quantization}.bin",
+         "model_file_name_split_template":"TestModel.{quantization}.bin.{part}"
       },
       {
          "model_format":"pytorch",
@@ -91,18 +89,18 @@ def test_deserialize_llm_family_v1():
     assert model_family.model_ability == ["embed", "generate"]
     assert len(model_family.model_specs) == 2
 
-    ggml_spec = model_family.model_specs[0]
-    assert ggml_spec.model_format == "ggmlv3"
-    assert ggml_spec.model_size_in_billions == 2
-    assert ggml_spec.model_id == "example/TestModel"
-    assert ggml_spec.model_hub == "huggingface"
-    assert ggml_spec.model_file_name_template == "TestModel.{quantization}.ggmlv3.bin"
+    gguf_spec = model_family.model_specs[0]
+    assert gguf_spec.model_format == "ggufv2"
+    assert gguf_spec.model_size_in_billions == 2
+    assert gguf_spec.model_id == "example/TestModel"
+    assert gguf_spec.model_hub == "huggingface"
+    assert gguf_spec.model_file_name_template == "TestModel.{quantization}.bin"
     assert (
-        ggml_spec.model_file_name_split_template
-        == "TestModel.{quantization}.ggmlv3.bin.{part}"
+        gguf_spec.model_file_name_split_template
+        == "TestModel.{quantization}.bin.{part}"
     )
-    assert ggml_spec.quantization_parts["q4_2"][0] == "a"
-    assert ggml_spec.quantization_parts["q4_2"][1] == "b"
+    assert gguf_spec.quantization_parts["q4_2"][0] == "a"
+    assert gguf_spec.quantization_parts["q4_2"][1] == "b"
 
     pytorch_spec = model_family.model_specs[1]
     assert pytorch_spec.model_format == "pytorch"
@@ -124,15 +122,15 @@ def test_deserialize_llm_family_v1():
 
 
 def test_serialize_llm_family_v1():
-    ggml_spec = GgmlLLMSpecV1(
-        model_format="ggmlv3",
+    gguf_spec = LlamaCppLLMSpecV1(
+        model_format="ggufv2",
         model_size_in_billions=2,
         quantizations=["q4_0", "q4_1"],
         quantization_parts={"q4_2": ["a", "b"]},
         model_id="example/TestModel",
         model_revision="123",
-        model_file_name_template="TestModel.{quantization}.ggmlv3.bin",
-        model_file_name_split_template="TestModel.{quantization}.ggmlv3.bin.{part}",
+        model_file_name_template="TestModel.{quantization}.bin",
+        model_file_name_split_template="TestModel.{quantization}.bin.{part}",
     )
     pytorch_spec = PytorchLLMSpecV1(
         model_format="pytorch",
@@ -157,11 +155,11 @@ def test_serialize_llm_family_v1():
         model_name="TestModel",
         model_lang=["en"],
         model_ability=["embed", "generate"],
-        model_specs=[ggml_spec, pytorch_spec],
+        model_specs=[gguf_spec, pytorch_spec],
         prompt_style=prompt_style,
     )
 
-    expected = """{"version": 1, "context_length": 2048, "model_name": "TestModel", "model_lang": ["en"], "model_ability": ["embed", "generate"], "model_description": null, "model_family": null, "model_specs": [{"model_format": "ggmlv3", "model_hub": "huggingface", "model_size_in_billions": 2, "quantizations": ["q4_0", "q4_1"], "quantization_parts": {"q4_2": ["a", "b"]}, "model_id": "example/TestModel", "model_revision": "123", "model_file_name_template": "TestModel.{quantization}.ggmlv3.bin", "model_file_name_split_template": "TestModel.{quantization}.ggmlv3.bin.{part}", "model_uri": null}, {"model_format": "pytorch", "model_hub": "huggingface", "model_size_in_billions": 3, "quantizations": ["int8", "int4", "none"], "model_id": "example/TestModel", "model_revision": "456", "model_uri": null}], "prompt_style": {"style_name": "ADD_COLON_SINGLE", "system_prompt": "A chat between a curious human and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the human's questions.", "roles": ["user", "assistant"], "intra_message_sep": "\\n### ", "inter_message_sep": "\\n### ", "stop": null, "stop_token_ids": null}, "code_prompt_style": null}"""
+    expected = """{"version": 1, "context_length": 2048, "model_name": "TestModel", "model_lang": ["en"], "model_ability": ["embed", "generate"], "model_description": null, "model_family": null, "model_specs": [{"model_format": "ggufv2", "model_hub": "huggingface", "model_size_in_billions": 2, "quantizations": ["q4_0", "q4_1"], "quantization_parts": {"q4_2": ["a", "b"]}, "model_id": "example/TestModel", "model_revision": "123", "model_file_name_template": "TestModel.{quantization}.bin", "model_file_name_split_template": "TestModel.{quantization}.bin.{part}", "model_uri": null}, {"model_format": "pytorch", "model_hub": "huggingface", "model_size_in_billions": 3, "quantizations": ["int8", "int4", "none"], "model_id": "example/TestModel", "model_revision": "456", "model_uri": null}], "prompt_style": {"style_name": "ADD_COLON_SINGLE", "system_prompt": "A chat between a curious human and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the human's questions.", "roles": ["user", "assistant"], "intra_message_sep": "\\n### ", "inter_message_sep": "\\n### ", "stop": null, "stop_token_ids": null}, "code_prompt_style": null}"""
     assert json.loads(llm_family.json()) == json.loads(expected)
 
     llm_family_context_length = LLMFamilyV1(
@@ -171,7 +169,7 @@ def test_serialize_llm_family_v1():
         model_name="TestModel",
         model_lang=["en"],
         model_ability=["embed", "generate"],
-        model_specs=[ggml_spec, pytorch_spec],
+        model_specs=[gguf_spec, pytorch_spec],
         prompt_style=prompt_style,
     )
 
@@ -214,13 +212,13 @@ def test_cache_from_huggingface_pytorch():
     shutil.rmtree(cache_dir)
 
 
-def test_cache_from_huggingface_ggml():
+def test_cache_from_huggingface_gguf():
     from ..llm_family import cache_from_huggingface
 
-    spec = GgmlLLMSpecV1(
-        model_format="ggmlv3",
-        model_size_in_billions=3,
-        model_id="TheBloke/orca_mini_3B-GGML",
+    spec = LlamaCppLLMSpecV1(
+        model_format="ggufv2",
+        model_size_in_billions="0_5",
+        model_id="Qwen/Qwen1.5-0.5B-Chat-GGUF",
         quantizations=["q4_0"],
         model_file_name_template="README.md",
     )
@@ -228,9 +226,9 @@ def test_cache_from_huggingface_ggml():
         version=1,
         context_length=2048,
         model_type="LLM",
-        model_name="orca",
+        model_name="qwen1.5-chat",
         model_lang=["en"],
-        model_ability=["embed", "chat"],
+        model_ability=["chat"],
         model_specs=[spec],
         prompt_style=None,
     )
@@ -252,8 +250,8 @@ def test_cache_from_uri_local():
     with open("model.bin", "w") as fd:
         fd.write("foo")
 
-    spec = GgmlLLMSpecV1(
-        model_format="ggmlv3",
+    spec = LlamaCppLLMSpecV1(
+        model_format="ggufv2",
         model_size_in_billions=3,
         model_id="TestModel",
         model_uri=os.path.abspath(os.getcwd()),
@@ -324,119 +322,13 @@ def test_parse_uri():
     assert path == "bucket/dir"
 
 
-def test_cache_from_uri_remote():
-    from ..llm_family import cache_from_uri
-
-    spec = GgmlLLMSpecV1(
-        model_format="ggmlv3",
-        model_size_in_billions=3,
-        model_id="TestModel",
-        model_uri="s3://test_bucket",
-        quantizations=[""],
-        model_file_name_template="model.bin",
-    )
-    family = LLMFamilyV1(
-        version=1,
-        context_length=2048,
-        model_type="LLM",
-        model_name="test_cache_from_uri_remote",
-        model_lang=["en"],
-        model_ability=["embed", "chat"],
-        model_specs=[spec],
-        prompt_style=None,
-    )
-
-    from unittest.mock import patch
-
-    import fsspec
-
-    fsspec.real_filesystem = fsspec.filesystem
-
-    def fsspec_filesystem_side_effect(scheme: str, *args, **kwargs):
-        if scheme == "s3":
-            mock_fs = Mock()
-            mock_fs.info.return_value = {"size": 3}
-            mock_fs.walk.return_value = [("test_bucket", None, ["model.bin"])]
-            mock_file = MagicMock()
-            mock_file_descriptor = Mock()
-            mock_file_descriptor.read.side_effect = ["foo".encode(), None]
-            mock_file.__enter__.return_value = mock_file_descriptor
-            mock_fs.open.return_value = mock_file
-            return mock_fs
-        else:
-            return fsspec.real_filesystem(scheme)
-
-    with patch("fsspec.filesystem", side_effect=fsspec_filesystem_side_effect):
-        cache_dir = cache_from_uri(family, spec)
-    assert os.path.exists(cache_dir)
-    assert os.path.exists(os.path.join(cache_dir, "model.bin"))
-    shutil.rmtree(cache_dir, ignore_errors=True)
-
-
-def test_cache_from_uri_remote_exception_handling():
-    from ....constants import XINFERENCE_CACHE_DIR
-    from ..llm_family import cache_from_uri
-
-    spec = GgmlLLMSpecV1(
-        model_format="ggmlv3",
-        model_size_in_billions=3,
-        model_id="TestModel",
-        model_uri="s3://test_bucket",
-        quantizations=[""],
-        model_file_name_template="model.bin",
-    )
-    family = LLMFamilyV1(
-        version=1,
-        context_length=2048,
-        model_type="LLM",
-        model_name="test_cache_from_uri_remote_exception_handling",
-        model_lang=["en"],
-        model_ability=["embed", "chat"],
-        model_specs=[spec],
-        prompt_style=None,
-    )
-
-    from unittest.mock import patch
-
-    import fsspec
-
-    fsspec.real_filesystem = fsspec.filesystem
-
-    def fsspec_filesystem_side_effect(scheme: str, *args, **kwargs):
-        if scheme == "s3":
-            mock_fs = Mock()
-            mock_fs.info.return_value = {"size": 3}
-            mock_fs.walk.return_value = [("test_bucket", None, ["model.bin"])]
-            mock_file = MagicMock()
-            mock_file_descriptor = Mock()
-            mock_file_descriptor.read.side_effect = Exception("Mock exception")
-            mock_file.__enter__.return_value = mock_file_descriptor
-            mock_fs.open.return_value = mock_file
-            return mock_fs
-        else:
-            return fsspec.real_filesystem(scheme)
-
-    with pytest.raises(
-        RuntimeError,
-        match="Failed to download model 'test_cache_from_uri_remote_exception_handling'",
-    ):
-        with patch("fsspec.filesystem", side_effect=fsspec_filesystem_side_effect):
-            cache_from_uri(family, spec)
-
-    cache_dir_name = (
-        f"{family.model_name}-{spec.model_format}" f"-{spec.model_size_in_billions}b"
-    )
-    cache_dir = os.path.realpath(os.path.join(XINFERENCE_CACHE_DIR, cache_dir_name))
-    assert not os.path.exists(cache_dir)
-
-
 def test_legacy_cache():
     from ..llm_family import cache, get_legacy_cache_path
 
-    spec = GgmlLLMSpecV1(
-        model_format="ggmlv3",
-        model_size_in_billions=3,
-        model_id="TheBloke/orca_mini_3B-GGML",
+    spec = LlamaCppLLMSpecV1(
+        model_format="ggufv2",
+        model_size_in_billions="0_5",
+        model_id="Qwen/Qwen1.5-0.5B-Chat-GGUF",
         quantizations=["test_legacy_cache"],
         model_file_name_template="README.md",
     )
@@ -444,9 +336,9 @@ def test_legacy_cache():
         version=1,
         context_length=2048,
         model_type="LLM",
-        model_name="orca",
+        model_name="qwen1.5-chat",
         model_lang=["en"],
-        model_ability=["embed", "chat"],
+        model_ability=["chat"],
         model_specs=[spec],
         prompt_style=None,
     )
@@ -468,41 +360,13 @@ def test_legacy_cache():
     shutil.rmtree(os.path.dirname(cache_path), ignore_errors=True)
 
 
-@pytest.mark.skip(reason="Temporary disabled")
-def test_cache_from_self_hosted_storage():
-    from ..llm_family import cache_from_self_hosted_storage
-
-    spec = GgmlLLMSpecV1(
-        model_format="ggmlv3",
-        model_size_in_billions=3,
-        model_id="TheBloke/orca_mini_3B-GGML",
-        quantizations=[""],
-        model_file_name_template="README.md",
-    )
-    family = LLMFamilyV1(
-        version=1,
-        context_length=2048,
-        model_type="LLM",
-        model_name="orca",
-        model_lang=["en"],
-        model_ability=["embed", "chat"],
-        model_specs=[spec],
-        prompt_style=None,
-    )
-
-    cache_dir = cache_from_self_hosted_storage(family, spec, quantization="")
-    assert os.path.exists(cache_dir)
-    assert os.path.exists(os.path.join(cache_dir, "README.md"))
-    shutil.rmtree(cache_dir, ignore_errors=True)
-
-
 def test_custom_llm():
     from ..llm_family import get_user_defined_llm_families, register_llm, unregister_llm
 
-    spec = GgmlLLMSpecV1(
-        model_format="ggmlv3",
-        model_size_in_billions=3,
-        model_id="TheBloke/orca_mini_3B-GGML",
+    spec = LlamaCppLLMSpecV1(
+        model_format="ggufv2",
+        model_size_in_billions="0_5",
+        model_id="Qwen/Qwen1.5-0.5B-Chat-GGUF",
         quantizations=[""],
         model_file_name_template="README.md",
     )
@@ -510,9 +374,9 @@ def test_custom_llm():
         version=1,
         context_length=2048,
         model_type="LLM",
-        model_name="custom_model",
+        model_name="custom-qwen1.5-chat",
         model_lang=["en"],
-        model_ability=["embed", "chat"],
+        model_ability=["chat"],
         model_specs=[spec],
         prompt_style=None,
     )
@@ -529,10 +393,10 @@ def test_persistent_custom_llm():
     from ....constants import XINFERENCE_MODEL_DIR
     from ..llm_family import get_user_defined_llm_families, register_llm, unregister_llm
 
-    spec = GgmlLLMSpecV1(
-        model_format="ggmlv3",
-        model_size_in_billions=3,
-        model_id="TheBloke/orca_mini_3B-GGML",
+    spec = LlamaCppLLMSpecV1(
+        model_format="ggufv2",
+        model_size_in_billions="0_5",
+        model_id="Qwen/Qwen1.5-0.5B-Chat-GGUF",
         quantizations=[""],
         model_file_name_template="README.md",
     )
@@ -542,7 +406,7 @@ def test_persistent_custom_llm():
         model_type="LLM",
         model_name="custom_model",
         model_lang=["en"],
-        model_ability=["embed", "chat"],
+        model_ability=["chat"],
         model_specs=[spec],
         prompt_style=None,
     )
@@ -575,93 +439,17 @@ def test_is_locale_chinese_simplified():
         assert not is_locale_chinese_simplified()
 
 
-def test_download_from_self_hosted_storage():
-    from ....constants import XINFERENCE_ENV_MODEL_SRC
-    from ..llm_family import download_from_self_hosted_storage
-
-    assert not download_from_self_hosted_storage()
-
-    os.environ[XINFERENCE_ENV_MODEL_SRC] = "xorbits"
-    assert download_from_self_hosted_storage()
-    del os.environ[XINFERENCE_ENV_MODEL_SRC]
-
-
-def test_aws_region_set():
-    with AWSRegion("foo"):
-        assert os.environ["AWS_DEFAULT_REGION"] == "foo"
-
-    # Ensure the region is deleted if it wasn't set before
-    assert "AWS_DEFAULT_REGION" not in os.environ
-
-
-def test_aws_region_restore():
-    # Set an initial region
-    os.environ["AWS_DEFAULT_REGION"] = "us-west-1"
-
-    with AWSRegion("foo"):
-        assert os.environ["AWS_DEFAULT_REGION"] == "foo"
-
-    # Ensure the region is restored to its original value after exiting the context
-    assert os.environ["AWS_DEFAULT_REGION"] == "us-west-1"
-
-
-def test_aws_region_no_restore_if_not_set():
-    # Ensure AWS_DEFAULT_REGION is not set
-    if "AWS_DEFAULT_REGION" in os.environ:
-        del os.environ["AWS_DEFAULT_REGION"]
-
-    with AWSRegion("foo"):
-        assert os.environ["AWS_DEFAULT_REGION"] == "foo"
-
-    # Ensure the region is deleted if it wasn't set before
-    assert "AWS_DEFAULT_REGION" not in os.environ
-
-
-def test_aws_region_exception_handling():
-    with pytest.raises(ValueError):
-        with AWSRegion("foo"):
-            raise ValueError("Test exception")
-
-    # Ensure the region is deleted if it wasn't set before
-    assert "AWS_DEFAULT_REGION" not in os.environ
-
-
-@pytest.mark.skip(reason="Temporary disabled")
-def test_is_self_hosted():
-    spec = GgmlLLMSpecV1(
-        model_format="ggmlv3",
-        model_size_in_billions=3,
-        model_id="TheBloke/orca_mini_3B-GGML",
-        quantizations=[""],
-        model_file_name_template="README.md",
-    )
-    family = LLMFamilyV1(
-        version=1,
-        context_length=2048,
-        model_type="LLM",
-        model_name="orca",
-        model_lang=["en"],
-        model_ability=["embed", "chat"],
-        model_specs=[spec],
-        prompt_style=None,
-    )
-    assert is_self_hosted(family, spec)
-
-    family.model_name = "foo"
-    assert not is_self_hosted(family, spec)
-
-
 def test_match_llm():
     assert match_llm("fake") is None
-    family, spec, q = match_llm("orca", model_format="ggmlv3")
-    assert family.model_name == "orca"
-    assert q == "q4_0"
+    family, spec, q = match_llm("qwen1.5-chat", model_format="ggufv2")
+    assert family.model_name == "qwen1.5-chat"
+    assert q == "q2_k"
 
     family, spec, q = match_llm(
-        "llama-2-chat", model_format="ggmlv3", quantization="Q4_0"
+        "llama-2-chat", model_format="ggufv2", quantization="Q4_0"
     )
     assert family.model_name == "llama-2-chat"
-    assert q == "q4_0"
+    assert q == "Q4_0"
 
     family, spec, q = match_llm(
         "code-llama", model_format="ggufv2", quantization="q4_0"
@@ -787,24 +575,24 @@ def test_skip_download_pytorch():
         assert not os.path.exists(ms_meta_path)
 
 
-def test_skip_download_ggml():
-    hf_spec = GgmlLLMSpecV1(
-        model_format="ggmlv3",
+def test_skip_download_gguf():
+    hf_spec = LlamaCppLLMSpecV1(
+        model_format="ggufv2",
         model_size_in_billions=2,
         quantizations=["q4_0", "q4_1"],
         model_id="example/TestModel",
         model_hub="huggingface",
         model_revision="123",
-        model_file_name_template="TestModel.{quantization}.ggmlv3.bin",
+        model_file_name_template="TestModel.{quantization}.bin",
     )
-    ms_spec = GgmlLLMSpecV1(
-        model_format="ggmlv3",
+    ms_spec = LlamaCppLLMSpecV1(
+        model_format="ggufv2",
         model_size_in_billions=2,
         quantizations=["q4_0", "q4_1"],
         model_id="example/TestModel",
         model_hub="modelscope",
         model_revision="123",
-        model_file_name_template="TestModel.{quantization}.ggmlv3.bin",
+        model_file_name_template="TestModel.{quantization}.bin",
     )
     prompt_style = PromptStyleV1(
         style_name="ADD_COLON_SINGLE",
@@ -916,13 +704,13 @@ def test_get_cache_status_pytorch():
     shutil.rmtree(cache_dir)
 
 
-def test_get_cache_status_ggml():
+def test_get_cache_status_gguf():
     from ..llm_family import cache_from_huggingface, get_cache_status
 
-    spec = GgmlLLMSpecV1(
-        model_format="ggmlv3",
-        model_size_in_billions=3,
-        model_id="TheBloke/orca_mini_3B-GGML",
+    spec = LlamaCppLLMSpecV1(
+        model_format="ggufv2",
+        model_size_in_billions="0_5",
+        model_id="Qwen/Qwen1.5-0.5B-Chat-GGUF",
         quantizations=["q4_0", "q5_0"],
         model_file_name_template="README.md",
     )
@@ -930,9 +718,9 @@ def test_get_cache_status_ggml():
         version=1,
         context_length=2048,
         model_type="LLM",
-        model_name="orca",
+        model_name="qwen1.5-chat",
         model_lang=["en"],
-        model_ability=["embed", "chat"],
+        model_ability=["chat"],
         model_specs=[spec],
         prompt_style=None,
     )
@@ -960,25 +748,25 @@ def test_parse_prompt_style():
     # take some examples to assert
     assert "qwen-chat" in BUILTIN_LLM_PROMPT_STYLE
     assert "chatglm3" in BUILTIN_LLM_PROMPT_STYLE
-    assert "baichuan-chat" in BUILTIN_LLM_PROMPT_STYLE
+    assert "baichuan-2-chat" in BUILTIN_LLM_PROMPT_STYLE
 
-    hf_spec = GgmlLLMSpecV1(
-        model_format="ggmlv3",
+    hf_spec = LlamaCppLLMSpecV1(
+        model_format="ggufv2",
         model_size_in_billions=2,
         quantizations=["q4_0", "q4_1"],
         model_id="example/TestModel",
         model_hub="huggingface",
         model_revision="123",
-        model_file_name_template="TestModel.{quantization}.ggmlv3.bin",
+        model_file_name_template="TestModel.{quantization}.bin",
     )
-    ms_spec = GgmlLLMSpecV1(
-        model_format="ggmlv3",
+    ms_spec = LlamaCppLLMSpecV1(
+        model_format="ggufv2",
         model_size_in_billions=2,
         quantizations=["q4_0", "q4_1"],
         model_id="example/TestModel",
         model_hub="modelscope",
         model_revision="123",
-        model_file_name_template="TestModel.{quantization}.ggmlv3.bin",
+        model_file_name_template="TestModel.{quantization}.bin",
     )
 
     llm_family = CustomLLMFamilyV1(
@@ -1126,7 +914,7 @@ def test_quert_engine_vLLM():
         check_engine_by_spec_parameters(
             model_engine="vLLM",
             model_name=model_name,
-            model_format="ggmlv3",
+            model_format="ggufv2",
             model_size_in_billions="1_8",
             quantization="q2_k",
         )
@@ -1187,7 +975,7 @@ def test_quert_engine_SGLang():
         check_engine_by_spec_parameters(
             model_engine="SGLang",
             model_name=model_name,
-            model_format="ggmlv3",
+            model_format="ggufv2",
             model_size_in_billions="1_8",
             quantization="q2_k",
         )
@@ -1196,7 +984,7 @@ def test_quert_engine_SGLang():
 
 
 def test_query_engine_general():
-    from ..ggml.llamacpp import LlamaCppChatModel
+    from ..llama_cpp.core import LlamaCppChatModel
     from ..llm_family import (
         LLM_ENGINES,
         check_engine_by_spec_parameters,
@@ -1261,19 +1049,19 @@ def test_query_engine_general():
         check_engine_by_spec_parameters(
             model_engine="llama.cpp",
             model_name=model_name,
-            model_format="ggmlv3",
-            model_size_in_billions="1_8",
+            model_format="ggufv2",
+            model_size_in_billions="2_2",
             quantization="q2_k",
         )
     assert (
         str(exif.value)
-        == "Model qwen1.5-chat cannot be run on engine llama.cpp, with format ggmlv3, size 1_8 and quantization q2_k."
+        == "Model qwen1.5-chat cannot be run on engine llama.cpp, with format ggufv2, size 2_2 and quantization q2_k."
     )
 
-    spec = GgmlLLMSpecV1(
-        model_format="ggmlv3",
-        model_size_in_billions=3,
-        model_id="TheBloke/orca_mini_3B-GGML",
+    spec = LlamaCppLLMSpecV1(
+        model_format="ggufv2",
+        model_size_in_billions="0_5",
+        model_id="Qwen/Qwen1.5-0.5B-Chat-GGUF",
         quantizations=[""],
         model_file_name_template="README.md",
     )
@@ -1283,7 +1071,7 @@ def test_query_engine_general():
         model_type="LLM",
         model_name="custom_model",
         model_lang=["en"],
-        model_ability=["embed", "chat"],
+        model_ability=["chat"],
         model_specs=[spec],
         prompt_style=None,
     )
@@ -1295,8 +1083,8 @@ def test_query_engine_general():
     assert check_engine_by_spec_parameters(
         model_engine="llama.cpp",
         model_name="custom_model",
-        model_format="ggmlv3",
-        model_size_in_billions=3,
+        model_format="ggufv2",
+        model_size_in_billions="0_5",
         quantization="",
     )
 
@@ -1304,7 +1092,7 @@ def test_query_engine_general():
     assert family not in get_user_defined_llm_families()
     assert "custom_model" not in LLM_ENGINES
 
-    spec = GgmlLLMSpecV1(
+    spec = LlamaCppLLMSpecV1(
         model_format="ggufv2",
         model_size_in_billions="1_8",
         model_id="null",

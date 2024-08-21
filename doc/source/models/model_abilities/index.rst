@@ -14,4 +14,4 @@ Model Abilities
    rerank
    image
    audio
-
+   video

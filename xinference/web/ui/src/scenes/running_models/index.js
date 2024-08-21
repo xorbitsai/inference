@@ -12,6 +12,7 @@ import ErrorMessageSnackBar from '../../components/errorMessageSnackBar'
 import fetcher from '../../components/fetcher'
 import fetchWrapper from '../../components/fetchWrapper'
 import Title from '../../components/Title'
+import { isValidBearerToken } from '../../components/utils'
 
 const RunningModels = () => {
   const [tabValue, setTabValue] = React.useState(
@@ -21,6 +22,7 @@ const RunningModels = () => {
   const [embeddingModelData, setEmbeddingModelData] = useState([])
   const [imageModelData, setImageModelData] = useState([])
   const [audioModelData, setAudioModelData] = useState([])
+  const [videoModelData, setVideoModelData] = useState([])
   const [rerankModelData, setRerankModelData] = useState([])
   const [flexibleModelData, setFlexibleModelData] = useState([])
   const { isCallingApi, setIsCallingApi } = useContext(ApiContext)
@@ -44,6 +46,7 @@ const RunningModels = () => {
         const newEmbeddingModelData = []
         const newImageModelData = []
         const newAudioModelData = []
+        const newVideoModelData = []
         const newRerankModelData = []
         const newFlexibleModelData = []
         response.data.forEach((model) => {
@@ -64,6 +67,8 @@ const RunningModels = () => {
             newEmbeddingModelData.push(newValue)
           } else if (newValue.model_type === 'audio') {
             newAudioModelData.push(newValue)
+          } else if (newValue.model_type === 'video') {
+            newVideoModelData.push(newValue)
           } else if (newValue.model_type === 'image') {
             newImageModelData.push(newValue)
           } else if (newValue.model_type === 'rerank') {
@@ -75,6 +80,7 @@ const RunningModels = () => {
         setLlmData(newLlmData)
         setEmbeddingModelData(newEmbeddingModelData)
         setAudioModelData(newAudioModelData)
+        setVideoModelData(newVideoModelData)
         setImageModelData(newImageModelData)
         setRerankModelData(newRerankModelData)
         setFlexibleModelData(newFlexibleModelData)
@@ -90,11 +96,11 @@ const RunningModels = () => {
   }
 
   const update = (isCallingApi) => {
-    if (cookie.token === '' || cookie.token === undefined) {
-      navigate('/login', { replace: true })
-      return
-    }
-    if (cookie.token !== 'no_auth' && !sessionStorage.getItem('token')) {
+    if (
+      sessionStorage.getItem('auth') === 'true' &&
+      !isValidBearerToken(sessionStorage.getItem('token')) &&
+      !isValidBearerToken(cookie.token)
+    ) {
       navigate('/login', { replace: true })
       return
     }
@@ -104,6 +110,9 @@ const RunningModels = () => {
         { id: 'Loading, do not refresh page...', url: 'IS_LOADING' },
       ])
       setAudioModelData([
+        { id: 'Loading, do not refresh page...', url: 'IS_LOADING' },
+      ])
+      setVideoModelData([
         { id: 'Loading, do not refresh page...', url: 'IS_LOADING' },
       ])
       setImageModelData([
@@ -521,6 +530,7 @@ const RunningModels = () => {
                           controlnet: row.controlnet,
                           model_revision: row.model_revision,
                           model_name: row.model_name,
+                          model_ability: row.model_ability,
                         }),
                       })
                         .then((response) => response.json())
@@ -613,6 +623,7 @@ const RunningModels = () => {
     },
   ]
   const audioModelColumns = embeddingModelColumns
+  const videoModelColumns = embeddingModelColumns
   const rerankModelColumns = embeddingModelColumns
   const flexibleModelColumns = embeddingModelColumns
 
@@ -674,6 +685,7 @@ const RunningModels = () => {
             <Tab label="Rerank models" value="/running_models/rerank" />
             <Tab label="Image models" value="/running_models/image" />
             <Tab label="Audio models" value="/running_models/audio" />
+            <Tab label="Video models" value="/running_models/video" />
             <Tab label="Flexible models" value="/running_models/flexible" />
           </TabList>
         </Box>
@@ -738,6 +750,20 @@ const RunningModels = () => {
             <DataGrid
               rows={audioModelData}
               columns={audioModelColumns}
+              autoHeight={true}
+              sx={dataGridStyle}
+              slots={{
+                noRowsOverlay: noRowsOverlay,
+                noResultsOverlay: noResultsOverlay,
+              }}
+            />
+          </Box>
+        </TabPanel>
+        <TabPanel value="/running_models/video" sx={{ padding: 0 }}>
+          <Box sx={{ height: '100%', width: '100%' }}>
+            <DataGrid
+              rows={videoModelData}
+              columns={videoModelColumns}
               autoHeight={true}
               sx={dataGridStyle}
               slots={{

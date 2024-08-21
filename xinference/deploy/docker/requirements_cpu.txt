@@ -11,13 +11,11 @@ fastapi==0.110.3
 uvicorn
 huggingface-hub>=0.19.4
 typing_extensions
-fsspec==2023.10.0
-s3fs==2023.10.0
 boto3>=1.28.55,<1.28.65
 tensorizer~=2.9.0
 modelscope>=1.10.0
 sse_starlette>=1.6.5
-openai>1
+openai>1,<1.40
 python-jose[cryptography]
 passlib[bcrypt]
 aioprometheus[starlette]>=23.12.0
@@ -33,15 +31,16 @@ einops
 tiktoken
 sentence-transformers>=2.3.1
 FlagEmbedding
-diffusers
+diffusers>=0.25.0  # fix conflict with matcha-tts
 controlnet_aux
 orjson
 auto-gptq
-autoawq
+autoawq<0.2.6  # autoawq 0.2.6 pinned torch to 2.3
 optimum
 peft
 timm
 opencv-contrib-python-headless
+funasr
 omegaconf~=2.3.0  # For ChatTTS
 nemo_text_processing  # For ChatTTS
 WeTextProcessing  # For ChatTTS
@@ -54,3 +53,5 @@ matcha-tts  # For CosyVoice
 onnxruntime-gpu==1.16.0; sys_platform == 'linux'  # For CosyVoice
 onnxruntime==1.16.0; sys_platform == 'darwin' or sys_platform == 'windows'  # For CosyVoice
 openai-whisper  # For CosyVoice
+imageio-ffmpeg  # For video
+eva-decord  # For video in VL

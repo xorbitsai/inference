@@ -14,13 +14,14 @@
 import logging
 import os
 from collections import defaultdict
-from typing import Dict, List, Literal, Optional, Tuple, Union
+from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 
 from ...constants import XINFERENCE_CACHE_DIR
 from ..core import CacheableModelSpec, ModelDescription
 from ..utils import valid_model_revision
 from .chattts import ChatTTSModel
 from .cosyvoice import CosyVoiceModel
+from .funasr import FunASRModel
 from .whisper import WhisperModel
 
 MAX_ATTEMPTS = 3
@@ -45,6 +46,8 @@ class AudioModelFamilyV1(CacheableModelSpec):
     model_id: str
     model_revision: str
     multilingual: bool
+    default_model_config: Optional[Dict[str, Any]]
+    default_transcription_config: Optional[Dict[str, Any]]
 
 
 class AudioModelDescription(ModelDescription):
@@ -150,13 +153,20 @@ def create_audio_model_instance(
     model_uid: str,
     model_name: str,
     download_hub: Optional[Literal["huggingface", "modelscope", "csghub"]] = None,
+    model_path: Optional[str] = None,
     **kwargs,
-) -> Tuple[Union[WhisperModel, ChatTTSModel, CosyVoiceModel], AudioModelDescription]:
+) -> Tuple[
+    Union[WhisperModel, FunASRModel, ChatTTSModel, CosyVoiceModel],
+    AudioModelDescription,
+]:
     model_spec = match_audio(model_name, download_hub)
-    model_path = cache(model_spec)
-    model: Union[WhisperModel, ChatTTSModel, CosyVoiceModel]
+    if model_path is None:
+        model_path = cache(model_spec)
+    model: Union[WhisperModel, FunASRModel, ChatTTSModel, CosyVoiceModel]
     if model_spec.model_family == "whisper":
         model = WhisperModel(model_uid, model_path, model_spec, **kwargs)
+    elif model_spec.model_family == "funasr":
+        model = FunASRModel(model_uid, model_path, model_spec, **kwargs)
     elif model_spec.model_family == "ChatTTS":
         model = ChatTTSModel(model_uid, model_path, model_spec, **kwargs)
     elif model_spec.model_family == "CosyVoice":
@@ -164,6 +174,6 @@ def create_audio_model_instance(
     else:
         raise Exception(f"Unsupported audio model family: {model_spec.model_family}")
     model_description = AudioModelDescription(
-        subpool_addr, devices, model_spec, model_path=model_path
+        subpool_addr, devices, model_spec, model_path
     )
     return model, model_description

@@ -12,3 +12,4 @@ Builtin Models
    image/index
    audio/index
    rerank/index
+   video/index

@@ -14,7 +14,6 @@
 
 import logging
 import os
-import shutil
 from threading import Lock
 from typing import Any, Dict, List, Optional, Set, Tuple, Type, Union
 
@@ -61,8 +60,8 @@ BUILTIN_LLM_MODEL_TOOL_CALL_FAMILIES: Set[str] = set()
 BUILTIN_LLM_MODEL_CODE_FAMILIES: Set[str] = set()
 
 
-class GgmlLLMSpecV1(BaseModel):
-    model_format: Literal["ggmlv3", "ggufv2"]
+class LlamaCppLLMSpecV1(BaseModel):
+    model_format: Literal["ggufv2"]
     # Must in order that `str` first, then `int`
     model_size_in_billions: Union[str, int]
     quantizations: List[str]
@@ -87,7 +86,7 @@ class GgmlLLMSpecV1(BaseModel):
 
 
 class PytorchLLMSpecV1(BaseModel):
-    model_format: Literal["pytorch", "gptq", "awq"]
+    model_format: Literal["pytorch", "gptq", "awq", "fp8"]
     # Must in order that `str` first, then `int`
     model_size_in_billions: Union[str, int]
     quantizations: List[str]
@@ -269,7 +268,7 @@ class CustomLLMFamilyV1(LLMFamilyV1):
 
 
 LLMSpecV1 = Annotated[
-    Union[GgmlLLMSpecV1, PytorchLLMSpecV1, MLXLLMSpecV1],
+    Union[LlamaCppLLMSpecV1, PytorchLLMSpecV1, MLXLLMSpecV1],
     Field(discriminator="model_format"),
 ]
 
@@ -330,13 +329,10 @@ def cache(
     if os.path.exists(legacy_cache_path):
         logger.info("Legacy cache path exists: %s", legacy_cache_path)
         return os.path.dirname(legacy_cache_path)
-    elif download_from_self_hosted_storage() and is_self_hosted(llm_family, llm_spec):
-        logger.info(f"Caching from self-hosted storage")
-        return cache_from_self_hosted_storage(llm_family, llm_spec, quantization)
     else:
         if llm_spec.model_uri is not None:
             logger.info(f"Caching from URI: {llm_spec.model_uri}")
-            return cache_from_uri(llm_family, llm_spec, quantization)
+            return cache_from_uri(llm_family, llm_spec)
         else:
             if llm_spec.model_hub == "huggingface":
                 logger.info(f"Caching from Hugging Face: {llm_spec.model_id}")
@@ -351,68 +347,10 @@ def cache(
                 raise ValueError(f"Unknown model hub: {llm_spec.model_hub}")
 
 
-SUPPORTED_SCHEMES = ["s3"]
-
-
-class AWSRegion:
-    def __init__(self, region: str):
-        self.region = region
-        self.original_aws_default_region = None
-
-    def __enter__(self):
-        if "AWS_DEFAULT_REGION" in os.environ:
-            self.original_aws_default_region = os.environ["AWS_DEFAULT_REGION"]
-        os.environ["AWS_DEFAULT_REGION"] = self.region
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        if self.original_aws_default_region:
-            os.environ["AWS_DEFAULT_REGION"] = self.original_aws_default_region
-        else:
-            del os.environ["AWS_DEFAULT_REGION"]
-
-
-def is_self_hosted(
-    llm_family: LLMFamilyV1,
-    llm_spec: "LLMSpecV1",
-):
-    from fsspec import AbstractFileSystem, filesystem
-
-    with AWSRegion("cn-northwest-1"):
-        src_fs: AbstractFileSystem = filesystem("s3", anon=True)
-        model_dir = (
-            f"/xinference-models/llm/"
-            f"{llm_family.model_name}-{llm_spec.model_format}-{llm_spec.model_size_in_billions}b"
-        )
-        return src_fs.exists(model_dir)
-
-
-def cache_from_self_hosted_storage(
-    llm_family: LLMFamilyV1,
-    llm_spec: "LLMSpecV1",
-    quantization: Optional[str] = None,
-) -> str:
-    with AWSRegion("cn-northwest-1"):
-        llm_spec = llm_spec.copy()
-        llm_spec.model_uri = (
-            f"s3://xinference-models/llm/"
-            f"{llm_family.model_name}-{llm_spec.model_format}-{llm_spec.model_size_in_billions}b"
-        )
-
-        return cache_from_uri(
-            llm_family, llm_spec, quantization, self_hosted_storage=True
-        )
-
-
 def cache_from_uri(
     llm_family: LLMFamilyV1,
     llm_spec: "LLMSpecV1",
-    quantization: Optional[str] = None,
-    self_hosted_storage: bool = False,
 ) -> str:
-    from fsspec import AbstractFileSystem, filesystem
-
-    from ..utils import copy_from_src_to_dst
-
     cache_dir_name = (
         f"{llm_family.model_name}-{llm_spec.model_format}"
         f"-{llm_spec.model_size_in_billions}b"
@@ -436,69 +374,6 @@ def cache_from_uri(
             return cache_dir
         else:
             os.symlink(src_root, cache_dir, target_is_directory=True)
-        return cache_dir
-    elif src_scheme in SUPPORTED_SCHEMES:
-        # use anonymous connection for self-hosted storage.
-        src_fs: AbstractFileSystem = filesystem(src_scheme, anon=self_hosted_storage)
-        local_fs: AbstractFileSystem = filesystem("file")
-
-        files_to_download = []
-        if llm_spec.model_format == "pytorch":
-            if os.path.exists(cache_dir):
-                logger.info(f"Cache {cache_dir} exists")
-                return cache_dir
-            else:
-                os.makedirs(cache_dir, exist_ok=True)
-
-            for path, _, files in src_fs.walk(llm_spec.model_uri):
-                for file in files:
-                    src_path = f"{path}/{file}"
-                    local_path = src_path.replace(src_root, cache_dir)
-                    files_to_download.append((src_path, local_path))
-        elif llm_spec.model_format == "ggmlv3":
-            file = llm_spec.model_file_name_template.format(quantization=quantization)
-            if os.path.exists(os.path.join(cache_dir, file)):
-                logger.info(f"Cache {os.path.join(cache_dir, file)} exists")
-                return cache_dir
-            else:
-                os.makedirs(cache_dir, exist_ok=True)
-
-            src_path = f"{src_root}/{file}"
-            local_path = f"{cache_dir}/{file}"
-            files_to_download.append((src_path, local_path))
-        else:
-            raise ValueError(f"Unsupported model format: {llm_spec.model_format}")
-
-        from concurrent.futures import ThreadPoolExecutor
-
-        failed = False
-        with ThreadPoolExecutor(max_workers=min(len(files_to_download), 4)) as executor:
-            futures = [
-                (
-                    src_path,
-                    executor.submit(
-                        copy_from_src_to_dst, src_fs, src_path, local_fs, local_path
-                    ),
-                )
-                for src_path, local_path in files_to_download
-            ]
-            for src_path, future in futures:
-                if failed:
-                    future.cancel()
-                else:
-                    try:
-                        future.result()
-                    except:
-                        logger.error(f"Download {src_path} failed", exc_info=True)
-                        failed = True
-
-        if failed:
-            logger.warning(f"Removing cache directory: {cache_dir}")
-            shutil.rmtree(cache_dir, ignore_errors=True)
-            raise RuntimeError(
-                f"Failed to download model '{llm_family.model_name}' "
-                f"(size: {llm_spec.model_size_in_billions}, format: {llm_spec.model_format})"
-            )
         return cache_dir
     else:
         raise ValueError(f"Unsupported URL scheme: {src_scheme}")
@@ -619,7 +494,7 @@ def _get_meta_path(
             return os.path.join(cache_dir, "__valid_download")
         else:
             return os.path.join(cache_dir, f"__valid_download_{model_hub}")
-    elif model_format in ["ggmlv3", "ggufv2", "gptq", "awq", "mlx"]:
+    elif model_format in ["ggufv2", "gptq", "awq", "fp8", "mlx"]:
         assert quantization is not None
         if model_hub == "huggingface":
             return os.path.join(cache_dir, f"__valid_download_{quantization}")
@@ -658,7 +533,7 @@ def _skip_download(
                     logger.warning(f"Cache {cache_dir} exists, but it was from {hub}")
                     return True
             return False
-    elif model_format in ["ggmlv3", "ggufv2", "gptq", "awq", "mlx"]:
+    elif model_format in ["ggufv2", "gptq", "awq", "fp8", "mlx"]:
         assert quantization is not None
         return os.path.exists(
             _get_meta_path(cache_dir, model_format, model_hub, quantization)
@@ -721,12 +596,12 @@ def _generate_model_file_names(
 def _merge_cached_files(
     cache_dir: str, input_file_names: List[str], output_file_name: str
 ):
-    with open(os.path.join(cache_dir, output_file_name), "wb") as output_file:
-        for file_name in input_file_names:
-            logger.info(f"Merging file {file_name} into {output_file_name} ...")
-
-            with open(os.path.join(cache_dir, file_name), "rb") as input_file:
-                shutil.copyfileobj(input_file, output_file)
+    # now llama.cpp can find the gguf parts automatically
+    # we only need to provide the first part
+    # thus we create the symlink to the first part
+    symlink_local_file(
+        os.path.join(cache_dir, input_file_names[0]), cache_dir, output_file_name
+    )
 
     logger.info(f"Merge complete.")
 
@@ -753,7 +628,7 @@ def cache_from_csghub(
     ):
         return cache_dir
 
-    if llm_spec.model_format in ["pytorch", "gptq", "awq", "mlx"]:
+    if llm_spec.model_format in ["pytorch", "gptq", "awq", "fp8", "mlx"]:
         download_dir = retry_download(
             snapshot_download,
             llm_family.model_name,
@@ -767,7 +642,7 @@ def cache_from_csghub(
         )
         create_symlink(download_dir, cache_dir)
 
-    elif llm_spec.model_format in ["ggmlv3", "ggufv2"]:
+    elif llm_spec.model_format in ["ggufv2"]:
         file_names, final_file_name, need_merge = _generate_model_file_names(
             llm_spec, quantization
         )
@@ -821,7 +696,7 @@ def cache_from_modelscope(
     ):
         return cache_dir
 
-    if llm_spec.model_format in ["pytorch", "gptq", "awq", "mlx"]:
+    if llm_spec.model_format in ["pytorch", "gptq", "awq", "fp8", "mlx"]:
         download_dir = retry_download(
             snapshot_download,
             llm_family.model_name,
@@ -834,7 +709,7 @@ def cache_from_modelscope(
         )
         create_symlink(download_dir, cache_dir)
 
-    elif llm_spec.model_format in ["ggmlv3", "ggufv2"]:
+    elif llm_spec.model_format in ["ggufv2"]:
         file_names, final_file_name, need_merge = _generate_model_file_names(
             llm_spec, quantization
         )
@@ -890,7 +765,7 @@ def cache_from_huggingface(
     if not IS_NEW_HUGGINGFACE_HUB:
         use_symlinks = {"local_dir_use_symlinks": True, "local_dir": cache_dir}
 
-    if llm_spec.model_format in ["pytorch", "gptq", "awq", "mlx"]:
+    if llm_spec.model_format in ["pytorch", "gptq", "awq", "fp8", "mlx"]:
         assert isinstance(llm_spec, (PytorchLLMSpecV1, MLXLLMSpecV1))
         download_dir = retry_download(
             huggingface_hub.snapshot_download,
@@ -906,8 +781,8 @@ def cache_from_huggingface(
         if IS_NEW_HUGGINGFACE_HUB:
             create_symlink(download_dir, cache_dir)
 
-    elif llm_spec.model_format in ["ggmlv3", "ggufv2"]:
-        assert isinstance(llm_spec, GgmlLLMSpecV1)
+    elif llm_spec.model_format in ["ggufv2"]:
+        assert isinstance(llm_spec, LlamaCppLLMSpecV1)
         file_names, final_file_name, need_merge = _generate_model_file_names(
             llm_spec, quantization
         )

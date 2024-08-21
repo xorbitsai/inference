@@ -36,6 +36,7 @@ class ImageInterface:
         model_name: str,
         model_id: str,
         model_revision: str,
+        model_ability: List[str],
         controlnet: Union[None, List[Dict[str, Union[str, None]]]],
         access_token: Optional[str],
     ):
@@ -45,6 +46,7 @@ class ImageInterface:
         self.model_name = model_name
         self.model_id = model_id
         self.model_revision = model_revision
+        self.model_ability = model_ability
         self.controlnet = controlnet
         self.access_token = (
             access_token.replace("Bearer ", "") if access_token is not None else None
@@ -76,6 +78,7 @@ class ImageInterface:
             n: int,
             size_width: int,
             size_height: int,
+            num_inference_steps: int,
             negative_prompt: Optional[str] = None,
         ) -> PIL.Image.Image:
             from ..client import RESTfulClient
@@ -86,11 +89,15 @@ class ImageInterface:
             assert isinstance(model, RESTfulImageModelHandle)
 
             size = f"{int(size_width)}*{int(size_height)}"
+            num_inference_steps = (
+                None if num_inference_steps == -1 else num_inference_steps  # type: ignore
+            )
 
             response = model.text_to_image(
                 prompt=prompt,
                 n=n,
                 size=size,
+                num_inference_steps=num_inference_steps,
                 negative_prompt=negative_prompt,
                 response_format="b64_json",
             )
@@ -125,13 +132,23 @@ class ImageInterface:
                     n = gr.Number(label="Number of Images", value=1)
                     size_width = gr.Number(label="Width", value=1024)
                     size_height = gr.Number(label="Height", value=1024)
+                    num_inference_steps = gr.Number(
+                        label="Inference Step Number", value=-1
+                    )
 
                 with gr.Column():
                     image_output = gr.Gallery()
 
             generate_button.click(
                 text_generate_image,
-                inputs=[prompt, n, size_width, size_height, negative_prompt],
+                inputs=[
+                    prompt,
+                    n,
+                    size_width,
+                    size_height,
+                    num_inference_steps,
+                    negative_prompt,
+                ],
                 outputs=image_output,
             )
 
@@ -145,6 +162,7 @@ class ImageInterface:
             n: int,
             size_width: int,
             size_height: int,
+            num_inference_steps: int,
         ) -> PIL.Image.Image:
             from ..client import RESTfulClient
 
@@ -153,7 +171,13 @@ class ImageInterface:
             model = client.get_model(self.model_uid)
             assert isinstance(model, RESTfulImageModelHandle)
 
-            size = f"{int(size_width)}*{int(size_height)}"
+            if size_width > 0 and size_height > 0:
+                size = f"{int(size_width)}*{int(size_height)}"
+            else:
+                size = None
+            num_inference_steps = (
+                None if num_inference_steps == -1 else num_inference_steps  # type: ignore
+            )
 
             bio = io.BytesIO()
             image.save(bio, format="png")
@@ -165,6 +189,7 @@ class ImageInterface:
                 image=bio.getvalue(),
                 size=size,
                 response_format="b64_json",
+                num_inference_steps=num_inference_steps,
             )
 
             images = []
@@ -195,8 +220,11 @@ class ImageInterface:
 
                 with gr.Row():
                     n = gr.Number(label="Number of image", value=1)
-                    size_width = gr.Number(label="Width", value=512)
-                    size_height = gr.Number(label="Height", value=512)
+                    size_width = gr.Number(label="Width", value=-1)
+                    size_height = gr.Number(label="Height", value=-1)
+                    num_inference_steps = gr.Number(
+                        label="Inference Step Number", value=-1
+                    )
 
                 with gr.Row():
                     with gr.Column(scale=1):
@@ -213,6 +241,7 @@ class ImageInterface:
                     n,
                     size_width,
                     size_height,
+                    num_inference_steps,
                 ],
                 outputs=output_gallery,
             )
@@ -244,9 +273,11 @@ class ImageInterface:
                     </div>
                     """
             )
-            with gr.Tab("Text to Image"):
-                self.text2image_interface()
-            with gr.Tab("Image to Image"):
-                self.image2image_interface()
+            if "text2image" in self.model_ability:
+                with gr.Tab("Text to Image"):
+                    self.text2image_interface()
+            if "image2image" in self.model_ability:
+                with gr.Tab("Image to Image"):
+                    self.image2image_interface()
 
         return app

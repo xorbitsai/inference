@@ -8,6 +8,7 @@ import { ApiContext } from '../../components/apiContext'
 import ErrorMessageSnackBar from '../../components/errorMessageSnackBar'
 import fetchWrapper from '../../components/fetchWrapper'
 import Title from '../../components/Title'
+import { isValidBearerToken } from '../../components/utils'
 import LaunchCustom from './launchCustom'
 import LaunchLLM from './launchLLM'
 import LaunchModelComponent from './LaunchModelComponent'
@@ -34,13 +35,12 @@ const LaunchModel = () => {
   }
 
   useEffect(() => {
-    if (cookie.token === '' || cookie.token === undefined) {
+    if (
+      sessionStorage.getItem('auth') === 'true' &&
+      !isValidBearerToken(sessionStorage.getItem('token')) &&
+      !isValidBearerToken(cookie.token)
+    ) {
       navigate('/login', { replace: true })
-      return
-    }
-    if (cookie.token !== 'no_auth' && !sessionStorage.getItem('token')) {
-      navigate('/login', { replace: true })
-      return
     }
 
     if (gpuAvailable === -1) {
@@ -69,6 +69,7 @@ const LaunchModel = () => {
             <Tab label="Rerank Models" value="/launch_model/rerank" />
             <Tab label="Image Models" value="/launch_model/image" />
             <Tab label="Audio Models" value="/launch_model/audio" />
+            <Tab label="Video Models" value="/launch_model/video" />
             <Tab label="Custom Models" value="/launch_model/custom/llm" />
           </TabList>
         </Box>
@@ -92,6 +93,9 @@ const LaunchModel = () => {
         </TabPanel>
         <TabPanel value="/launch_model/audio" sx={{ padding: 0 }}>
           <LaunchModelComponent modelType={'audio'} />
+        </TabPanel>
+        <TabPanel value="/launch_model/video" sx={{ padding: 0 }}>
+          <LaunchModelComponent modelType={'video'} />
         </TabPanel>
         <TabPanel value="/launch_model/custom/llm" sx={{ padding: 0 }}>
           <LaunchCustom gpuAvailable={gpuAvailable} />

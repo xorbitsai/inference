@@ -1,0 +1,101 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2024-08-13 17:44+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: zh_CN\n"
+"Language-Team: zh_CN <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.14.0\n"
+
+#: ../../source/models/model_abilities/video.rst:5
+msgid "Video (Experimental)"
+msgstr "视频（实验性质）"
+
+#: ../../source/models/model_abilities/video.rst:7
+msgid "Learn how to generate videos with Xinference."
+msgstr "学习如何使用 Xinference 生成视频"
+
+#: ../../source/models/model_abilities/video.rst:11
+msgid "Introduction"
+msgstr "介绍"
+
+#: ../../source/models/model_abilities/video.rst:14
+msgid "The Video API provides the ability to interact with videos:"
+msgstr "Video API 提供了和视频交互的方式："
+
+#: ../../source/models/model_abilities/video.rst:17
+msgid ""
+"The text-to-video endpoint create videos from scratch based on a text "
+"prompt."
+msgstr "Text-to-video 端点将一段文本提示词从头开始创建视频"
+
+#: ../../source/models/model_abilities/video.rst:24
+msgid "API ENDPOINT"
+msgstr "API 端点"
+
+#: ../../source/models/model_abilities/video.rst:25
+msgid "OpenAI-compatible ENDPOINT"
+msgstr "OpenAI 兼容端点"
+
+#: ../../source/models/model_abilities/video.rst:27
+msgid "Text-to-Video API"
+msgstr ""
+
+#: ../../source/models/model_abilities/video.rst:28
+msgid "/v1/video/generations"
+msgstr ""
+
+#: ../../source/models/model_abilities/video.rst:31
+msgid "Supported models"
+msgstr "支持的模型列表"
+
+#: ../../source/models/model_abilities/video.rst:33
+msgid ""
+"The Text-to-video API is supported with the following models in "
+"Xinference:"
+msgstr "Text-to-video API 在 Xinference 中支持以下模型："
+
+#: ../../source/models/model_abilities/video.rst:35
+msgid "CogVideoX-2b"
+msgstr ""
+
+#: ../../source/models/model_abilities/video.rst:39
+msgid "Quickstart"
+msgstr "快速入门"
+
+#: ../../source/models/model_abilities/video.rst:42
+msgid "Text-to-video"
+msgstr "文生视频"
+
+#: ../../source/models/model_abilities/video.rst:44
+msgid ""
+"You can try Text-to-video API out either via cURL, or Xinference's python"
+" client:"
+msgstr "可以通过 cURL 或 Xinference 的方式尝试使用 Text-to-video API"
+
+#: ../../source/models/model_abilities/video.rst:72
+msgid "Tips when running on GPU whose memory less than 24GB"
+msgstr "在小于 24GB 显存的 GPU 上运行贴士"
+
+#: ../../source/models/model_abilities/video.rst:74
+msgid ""
+"Text-to-video will occupy huge GPU memory, for instance, running "
+"CogVideoX may require up to around 35 GB GPU memory. When running on GPU "
+"whose memory is less than 24 GB, we recommend to add ``--cpu_offload "
+"True`` when launching model."
+msgstr ""
+"Text-to-video 会占用大量显存，举例来说，运行 CogVideoX 可能会使用到约 35 GB 的显存，"
+"当在小于 24 GB 的 GPU 上运行时，推荐添加 ``--cpu_offload True`` 来加载模型。"
+

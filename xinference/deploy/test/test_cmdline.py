@@ -66,10 +66,10 @@ def test_cmdline(setup, stream, model_uid):
     replica = 1
     original_model_uid = model_uid
     model_uid = client.launch_model(
-        model_name="orca",
+        model_name="qwen1.5-chat",
         model_engine="llama.cpp",
         model_uid=model_uid,
-        model_size_in_billions=3,
+        model_size_in_billions="0_5",
         quantization="q4_0",
         replica=replica,
     )
@@ -249,10 +249,10 @@ def test_rotate_logs(setup_with_file_logging):
     runner = CliRunner()
     replica = 1 if os.name == "nt" else 2
     model_uid = client.launch_model(
-        model_name="orca",
+        model_name="qwen1.5-chat",
         model_engine="llama.cpp",
         model_uid=None,
-        model_size_in_billions=3,
+        model_size_in_billions="0_5",
         quantization="q4_0",
         replica=replica,
     )
@@ -288,7 +288,7 @@ def test_list_cached_models(setup):
 
     result = runner.invoke(
         list_cached_models,
-        ["--endpoint", endpoint, "--model_name", "orca"],
+        ["--endpoint", endpoint, "--model_name", "qwen1.5-chat"],
     )
     assert "model_name" in result.stdout
     assert "model_format" in result.stdout
@@ -305,9 +305,9 @@ def test_remove_cache(setup):
 
     result = runner.invoke(
         remove_cache,
-        ["--endpoint", endpoint, "--model_version", "orca"],
+        ["--endpoint", endpoint, "--model_version", "qwen1.5-chat"],
         input="y\n",
     )
 
     assert result.exit_code == 0
-    assert "Cache directory orca has been deleted."
+    assert "Cache directory qwen1.5-chat has been deleted."

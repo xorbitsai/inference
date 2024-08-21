@@ -64,6 +64,7 @@ if TYPE_CHECKING:
     from ..model.image import ImageModelFamilyV1
     from ..model.llm import LLMFamilyV1
     from ..model.rerank import RerankModelSpec
+    from ..model.video import VideoModelFamilyV1
     from .worker import WorkerActor
 
 
@@ -495,6 +496,31 @@ class SupervisorActor(xo.StatelessActor):
         res["model_instance_count"] = instance_cnt
         return res
 
+    async def _to_video_model_reg(
+        self, model_family: "VideoModelFamilyV1", is_builtin: bool
+    ) -> Dict[str, Any]:
+        from ..model.video import get_cache_status
+
+        instance_cnt = await self.get_instance_count(model_family.model_name)
+        version_cnt = await self.get_model_version_count(model_family.model_name)
+
+        if self.is_local_deployment():
+            # TODO: does not work when the supervisor and worker are running on separate nodes.
+            cache_status = get_cache_status(model_family)
+            res = {
+                **model_family.dict(),
+                "cache_status": cache_status,
+                "is_builtin": is_builtin,
+            }
+        else:
+            res = {
+                **model_family.dict(),
+                "is_builtin": is_builtin,
+            }
+        res["model_version_count"] = version_cnt
+        res["model_instance_count"] = instance_cnt
+        return res
+
     async def _to_flexible_model_reg(
         self, model_spec: "FlexibleModelSpec", is_builtin: bool
     ) -> Dict[str, Any]:
@@ -612,6 +638,17 @@ class SupervisorActor(xo.StatelessActor):
                     ret.append(
                         {"model_name": model_spec.model_name, "is_builtin": False}
                     )
+
+            ret.sort(key=sort_helper)
+            return ret
+        elif model_type == "video":
+            from ..model.video import BUILTIN_VIDEO_MODELS
+
+            for model_name, family in BUILTIN_VIDEO_MODELS.items():
+                if detailed:
+                    ret.append(await self._to_video_model_reg(family, is_builtin=True))
+                else:
+                    ret.append({"model_name": model_name, "is_builtin": True})
 
             ret.sort(key=sort_helper)
             return ret
@@ -870,6 +907,7 @@ class SupervisorActor(xo.StatelessActor):
         worker_ip: Optional[str] = None,
         gpu_idx: Optional[Union[int, List[int]]] = None,
         download_hub: Optional[Literal["huggingface", "modelscope", "csghub"]] = None,
+        model_path: Optional[str] = None,
         **kwargs,
     ) -> str:
         # search in worker first
@@ -953,6 +991,7 @@ class SupervisorActor(xo.StatelessActor):
                 peft_model_config=peft_model_config,
                 gpu_idx=replica_gpu_idx,
                 download_hub=download_hub,
+                model_path=model_path,
                 **kwargs,
             )
             self._replica_model_uid_to_worker[_replica_model_uid] = worker_ref

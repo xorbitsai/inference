@@ -12,13 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import json
 import logging
 import multiprocessing
+import os
 import time
 import uuid
 from typing import (
     TYPE_CHECKING,
+    Any,
     AsyncGenerator,
     Dict,
     Iterable,
@@ -88,11 +91,12 @@ try:
 except ImportError:
     VLLM_INSTALLED = False
 
+VLLM_SUPPORTED_VISION_MODEL_LIST: List[str] = [
+    "internvl2",
+]
 VLLM_SUPPORTED_MODELS = [
     "llama-2",
     "llama-3",
-    "baichuan",
-    "internlm-16k",
     "mistral-v0.1",
     "codestral-v0.1",
     "Yi",
@@ -105,13 +109,7 @@ VLLM_SUPPORTED_MODELS = [
 VLLM_SUPPORTED_CHAT_MODELS = [
     "llama-2-chat",
     "llama-3-instruct",
-    "vicuna-v1.3",
-    "vicuna-v1.5",
-    "baichuan-chat",
     "baichuan-2-chat",
-    "internlm-chat-7b",
-    "internlm-chat-8k",
-    "internlm-chat-20b",
     "internlm2-chat",
     "internlm2.5-chat",
     "internlm2.5-chat-1m",
@@ -157,6 +155,7 @@ if VLLM_INSTALLED and vllm.__version__ >= "0.4.0":
     VLLM_SUPPORTED_CHAT_MODELS.append("c4ai-command-r-v01")
 
 if VLLM_INSTALLED and vllm.__version__ >= "0.5.3":
+    VLLM_SUPPORTED_CHAT_MODELS.append("gemma-2-it")
     VLLM_SUPPORTED_CHAT_MODELS.append("mistral-nemo-instruct")
     VLLM_SUPPORTED_CHAT_MODELS.append("mistral-large-instruct")
 
@@ -245,6 +244,42 @@ class VLLMModel(LLM):
         )
         self._engine = AsyncLLMEngine.from_engine_args(engine_args)
 
+        self._check_health_task = None
+        if hasattr(self._engine, "check_health"):
+            # vLLM introduced `check_health` since v0.4.1
+            self._check_health_task = asyncio.create_task(self._check_healthy())
+
+    def stop(self):
+        # though the vLLM engine will shutdown when deleted,
+        # but some issue e.g. GH#1682 reported
+        # when deleting, the engine exists still
+        logger.info("Stopping vLLM engine")
+        if self._check_health_task:
+            self._check_health_task.cancel()
+        if model_executor := getattr(self._engine.engine, "model_executor", None):
+            model_executor.shutdown()
+        self._engine = None
+
+    async def _check_healthy(self, interval: int = 30):
+        from vllm.engine.async_llm_engine import AsyncEngineDeadError
+
+        logger.debug("Begin to check health of vLLM")
+
+        while self._engine is not None:
+            try:
+                await self._engine.check_health()
+            except (AsyncEngineDeadError, RuntimeError):
+                logger.info("Detecting vLLM is not health, prepare to quit the process")
+                try:
+                    self.stop()
+                except:
+                    # ignore error when stop
+                    pass
+                # Just kill the process and let xinference auto-recover the model
+                os._exit(1)
+            else:
+                await asyncio.sleep(interval)
+
     def _sanitize_model_config(
         self, model_config: Optional[VLLMModelConfig]
     ) -> VLLMModelConfig:
@@ -305,7 +340,7 @@ class VLLMModel(LLM):
             return False
         if not cls._is_linux():
             return False
-        if llm_spec.model_format not in ["pytorch", "gptq", "awq"]:
+        if llm_spec.model_format not in ["pytorch", "gptq", "awq", "fp8"]:
             return False
         if llm_spec.model_format == "pytorch":
             if quantization != "none" and not (quantization is None):
@@ -388,7 +423,7 @@ class VLLMModel(LLM):
 
     async def async_generate(
         self,
-        prompt: str,
+        prompt: Union[str, Dict[str, Any]],
         generate_config: Optional[Dict] = None,
         tools: object = False,
     ) -> Union[Completion, AsyncGenerator[CompletionChunk, None]]:
@@ -525,7 +560,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
     def match(
         cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
-        if llm_spec.model_format not in ["pytorch", "gptq", "awq"]:
+        if llm_spec.model_format not in ["pytorch", "gptq", "awq", "fp8"]:
             return False
         if llm_spec.model_format == "pytorch":
             if quantization != "none" and not (quantization is None):
@@ -613,6 +648,109 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
             return self._to_chat_completion(c)
 
 
+class VLLMVisionModel(VLLMModel, ChatModelMixin):
+    def load(self):
+        try:
+            import vllm
+            from vllm.engine.arg_utils import AsyncEngineArgs
+            from vllm.engine.async_llm_engine import AsyncLLMEngine
+        except ImportError:
+            error_message = "Failed to import module 'vllm'"
+            installation_guide = [
+                "Please make sure 'vllm' is installed. ",
+                "You can install it by `pip install vllm`\n",
+            ]
+            raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
+
+        if vllm.__version__ >= "0.3.1":
+            # from vllm v0.3.1, it uses cupy as NCCL backend
+            # in which cupy will fork a process
+            # only for xoscar >= 0.3.0, new process is allowed in subpool
+            # besides, xinference set start method as forkserver for unix
+            # we need to set it to fork to make cupy NCCL work
+            multiprocessing.set_start_method("fork", force=True)
+
+        self._model_config = self._sanitize_model_config(self._model_config)
+
+        logger.info(
+            f"Loading {self.model_uid} with following model config: {self._model_config}"
+        )
+
+        engine_args = AsyncEngineArgs(
+            model=self.model_path,
+            **self._model_config,
+        )
+        self._engine = AsyncLLMEngine.from_engine_args(engine_args)
+
+    @classmethod
+    def match(
+        cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
+    ) -> bool:
+        if llm_spec.model_format != "pytorch":
+            return False
+        if llm_spec.model_format == "pytorch":
+            if quantization != "none" and not (quantization is None):
+                return False
+        if isinstance(llm_family, CustomLLMFamilyV1):
+            if llm_family.model_family not in VLLM_SUPPORTED_VISION_MODEL_LIST:
+                return False
+        else:
+            if llm_family.model_name not in VLLM_SUPPORTED_VISION_MODEL_LIST:
+                return False
+        if "vision" not in llm_family.model_ability:
+            return False
+        return VLLM_INSTALLED
+
+    def _sanitize_chat_config(
+        self,
+        generate_config: Optional[Dict] = None,
+    ) -> Dict:
+        if not generate_config:
+            generate_config = {}
+        if self.model_family.prompt_style:
+            if self.model_family.prompt_style.stop_token_ids:
+                generate_config.setdefault(
+                    "stop_token_ids",
+                    self.model_family.prompt_style.stop_token_ids.copy(),
+                )
+        return generate_config
+
+    async def async_chat(
+        self,
+        prompt: str,
+        system_prompt: Optional[str] = None,
+        chat_history: Optional[List[ChatCompletionMessage]] = None,
+        generate_config: Optional[Dict] = None,
+    ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
+        # only support single image, waiting vllm support multi images
+        assert self.model_family.prompt_style is not None
+        prompt_style = self.model_family.prompt_style.copy()
+        chat_history = chat_history or []
+        prompt, images = self.get_prompt(prompt, chat_history, prompt_style)
+        logger.info(f"messages:{prompt}")
+        if len(images) == 0:
+            inputs = {
+                "prompt": prompt,
+            }
+        else:
+            inputs = {
+                "prompt": prompt,
+                "multi_modal_data": {"image": images[-1]},  # type: ignore
+            }
+        generate_config = self._sanitize_chat_config(generate_config)
+
+        stream = generate_config.get("stream", None)
+
+        if stream:
+            agen = await self.async_generate(inputs, generate_config)
+            assert isinstance(agen, AsyncGenerator)
+            return self._async_to_chat_completion_chunks(agen)
+        else:
+            c = await self.async_generate(inputs, generate_config)
+            assert not isinstance(c, AsyncGenerator)
+            return self._to_chat_completion(c)
+
+
 class VLLMCodeModel(VLLMModel, CodeModelMixin):
     @classmethod
     def match(
@@ -621,7 +759,7 @@ class VLLMCodeModel(VLLMModel, CodeModelMixin):
         if llm_spec.model_format not in ["pytorch", "gptq", "awq"]:
             return False
         if llm_spec.model_format == "pytorch":
-            if quantization != "none" and not (quantization is None):
+            if quantization != "none" and quantization is not None:
                 return False
         if llm_spec.model_format == "awq":
             # Currently, only 4-bit weight quantization is supported for AWQ, but got 8 bits.
