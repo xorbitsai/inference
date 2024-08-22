@@ -161,11 +161,13 @@ class EmbeddingModel:
                     torch_dtype = getattr(torch, torch_dtype_str)
                     if torch_dtype not in [torch.float16, torch.float32,torch.bfloat16]:
                         logger.warning(
-                            f"Load embedding model with unsupported torch dtype torch dtype:  {torch_dtype_str} "
-                            "Ignored the `torch_dtype` and using fp32 in loading model ."
+                            f"Load embedding model with unsupported torch dtype :  {torch_dtype_str}. Using default torch dtype: fp32."
                         )
-                        raise ValueError(f"Unsupported torch dtype: {torch_dtype_str}")
-                except AttributeError or ValueError:
+                        torch_dtype = torch.float32      
+                except AttributeError:
+                    logger.warning(
+                        f"Load embedding model with  unknown torch dtype '{torch_dtype_str}'. Using default torch dtype: fp32."
+                    )
                     torch_dtype = torch.float32
             else:
                 torch_dtype = "auto"
