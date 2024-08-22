@@ -167,6 +167,7 @@ jobs:
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U "loguru"
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U "natsort"
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U "loralib"
+            ${{ env.SELF_HOST_PYTHON }} -m pip install -U "wandb"
             ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=1500 \
               -W ignore::PendingDeprecationWarning \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/image/tests/test_stable_diffusion.py
