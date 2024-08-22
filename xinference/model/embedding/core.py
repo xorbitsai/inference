@@ -159,7 +159,11 @@ class EmbeddingModel:
             if torch_dtype_str is not None:
                 try:
                     torch_dtype = getattr(torch, torch_dtype_str)
-                    if torch_dtype not in [torch.float16, torch.float32]:
+                    if torch_dtype not in [torch.float16, torch.float32,torch.bfloat16]:
+                        logger.warning(
+                            f"Load embedding model with unsupported torch dtype torch dtype:  {torch_dtype_str} "
+                            "Ignored the `torch_dtype` and using fp32 in loading model ."
+                        )
                         raise ValueError(f"Unsupported torch dtype: {torch_dtype_str}")
                 except AttributeError or ValueError:
                     torch_dtype = torch.float32
@@ -168,7 +172,7 @@ class EmbeddingModel:
             self._model = XSentenceTransformer(
                 self._model_path,
                 device=self._device,
-                model_kwargs={"device_map": "auto"},
+                model_kwargs={"device_map": "auto","torch_dtype": torch_dtype},
             )
         else:
             self._model = SentenceTransformer(self._model_path, device=self._device)
