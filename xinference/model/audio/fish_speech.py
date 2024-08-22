@@ -68,12 +68,8 @@ class FishSpeechModel:
             0, os.path.join(os.path.dirname(__file__), "../../thirdparty/fish_speech")
         )
 
-        from tools.llama.generate import (
-            launch_thread_safe_queue,
-        )
-        from tools.vqgan.inference import (
-            load_model as load_decoder_model,
-        )
+        from tools.llama.generate import launch_thread_safe_queue
+        from tools.vqgan.inference import load_model as load_decoder_model
 
         if self._device is None:
             self._device = get_available_device()
@@ -114,16 +110,13 @@ class FishSpeechModel:
         temperature,
         streaming=False,
     ):
-        from tools.api import (
-            decode_vq_tokens,
-            encode_reference,
-        )
+        from fish_speech.utils import autocast_exclude_mps
+        from tools.api import decode_vq_tokens, encode_reference
         from tools.llama.generate import (
             GenerateRequest,
             GenerateResponse,
             WrappedGenerateResponse,
         )
-        from fish_speech.utils import autocast_exclude_mps
 
         # Parse reference audio aka prompt
         prompt_tokens = encode_reference(
