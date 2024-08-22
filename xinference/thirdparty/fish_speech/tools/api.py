@@ -3,6 +3,7 @@ import io
 import json
 import queue
 import random
+import sys
 import traceback
 import wave
 from argparse import ArgumentParser
@@ -10,11 +11,11 @@ from http import HTTPStatus
 from pathlib import Path
 from typing import Annotated, Literal, Optional
 
-import librosa
 import numpy as np
 # import pyrootutils
 import soundfile as sf
 import torch
+import torchaudio
 # from kui.asgi import (
 #     Body,
 #     HTTPException,
@@ -30,17 +31,17 @@ from pydantic import BaseModel, Field
 
 # pyrootutils.setup_root(__file__, indicator=".project-root", pythonpath=True)
 
-from fish_speech.models.vqgan.lit_module import VQGAN
+# from fish_speech.models.vqgan.lit_module import VQGAN
 from fish_speech.models.vqgan.modules.firefly import FireflyArchitecture
 from fish_speech.utils import autocast_exclude_mps
-from .auto_rerank import batch_asr, calculate_wer, is_chinese, load_model
-from .llama.generate import (
+from tools.auto_rerank import batch_asr, calculate_wer, is_chinese, load_model
+from tools.llama.generate import (
     GenerateRequest,
     GenerateResponse,
     WrappedGenerateResponse,
     launch_thread_safe_queue,
 )
-from .vqgan.inference import load_model as load_decoder_model
+from tools.vqgan.inference import load_model as load_decoder_model
 
 
 def wav_chunk_header(sample_rate=44100, bit_depth=16, channels=1):
@@ -87,7 +88,18 @@ def load_audio(reference_audio, sr):
         except base64.binascii.Error:
             raise ValueError("Invalid path or base64 string")
 
-    audio, _ = librosa.load(reference_audio, sr=sr, mono=True)
+    waveform, original_sr = torchaudio.load(
+        reference_audio, backend="sox" if sys.platform == "linux" else "soundfile"
+    )
+
+    if waveform.shape[0] > 1:
+        waveform = torch.mean(waveform, dim=0, keepdim=True)
+
+    if original_sr != sr:
+        resampler = torchaudio.transforms.Resample(orig_freq=original_sr, new_freq=sr)
+        waveform = resampler(waveform)
+
+    audio = waveform.squeeze().numpy()
     return audio
 
 

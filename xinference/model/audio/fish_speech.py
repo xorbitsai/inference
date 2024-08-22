@@ -64,12 +64,14 @@ class FishSpeechModel:
 
     def load(self):
         # There are too many imports from fish_speech.
-        sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../thirdparty"))
+        sys.path.insert(
+            0, os.path.join(os.path.dirname(__file__), "../../thirdparty/fish_speech")
+        )
 
-        from ...thirdparty.fish_speech.tools.llama.generate import (
+        from tools.llama.generate import (
             launch_thread_safe_queue,
         )
-        from ...thirdparty.fish_speech.tools.vqgan.inference import (
+        from tools.vqgan.inference import (
             load_model as load_decoder_model,
         )
 
@@ -112,16 +114,16 @@ class FishSpeechModel:
         temperature,
         streaming=False,
     ):
-        from ...thirdparty.fish_speech.tools.api import (
+        from tools.api import (
             decode_vq_tokens,
             encode_reference,
         )
-        from ...thirdparty.fish_speech.tools.llama.generate import (
+        from tools.llama.generate import (
             GenerateRequest,
             GenerateResponse,
             WrappedGenerateResponse,
         )
-        from ...thirdparty.fish_speech.utils import autocast_exclude_mps
+        from fish_speech.utils import autocast_exclude_mps
 
         # Parse reference audio aka prompt
         prompt_tokens = encode_reference(

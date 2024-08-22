@@ -22,15 +22,15 @@ from transformers import AutoTokenizer
 from fish_speech.i18n import i18n
 from fish_speech.text.chn_text_norm.text import Text as ChnNormedText
 from fish_speech.utils import autocast_exclude_mps
-from .api import decode_vq_tokens, encode_reference
-from .auto_rerank import batch_asr, calculate_wer, is_chinese, load_model
-from .llama.generate import (
+from tools.api import decode_vq_tokens, encode_reference
+from tools.auto_rerank import batch_asr, calculate_wer, is_chinese, load_model
+from tools.llama.generate import (
     GenerateRequest,
     GenerateResponse,
     WrappedGenerateResponse,
     launch_thread_safe_queue,
 )
-from .vqgan.inference import load_model as load_decoder_model
+from tools.vqgan.inference import load_model as load_decoder_model
 
 # Make einx happy
 os.environ["EINX_FILTER_TRACEBACK"] = "false"

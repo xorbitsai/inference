@@ -10,7 +10,7 @@ from transformers import AutoTokenizer
 from torch.utils.data import DataLoader
 
 from fish_speech.datasets.semantic import AutoAugTextDataset, TextDataCollator
-from ...tools.llama.generate import load_model
+from tools.llama.generate import load_model
 
 
 def smooth(

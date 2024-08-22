@@ -1,5 +1,3 @@
-import os
-from glob import glob
 from pathlib import Path
 from typing import Union
 
@@ -17,6 +15,11 @@ AUDIO_EXTENSIONS = {
     ".aiff",
     ".aif",
     ".aifc",
+}
+
+VIDEO_EXTENSIONS = {
+    ".mp4",
+    ".avi",
 }
 
 
@@ -50,20 +53,6 @@ def list_files(
         files = natsorted(files)
 
     return files
-
-
-def get_latest_checkpoint(path: Path | str) -> Path | None:
-    # Find the latest checkpoint
-    ckpt_dir = Path(path)
-
-    if ckpt_dir.exists() is False:
-        return None
-
-    ckpts = sorted(ckpt_dir.glob("*.ckpt"), key=os.path.getmtime)
-    if len(ckpts) == 0:
-        return None
-
-    return ckpts[-1]
 
 
 def load_filelist(path: Path | str) -> list[tuple[Path, str, str, str]]:
