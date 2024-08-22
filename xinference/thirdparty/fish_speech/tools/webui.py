@@ -11,7 +11,7 @@ from pathlib import Path
 import gradio as gr
 import librosa
 import numpy as np
-import pyrootutils
+# import pyrootutils
 import torch
 from loguru import logger
 from transformers import AutoTokenizer

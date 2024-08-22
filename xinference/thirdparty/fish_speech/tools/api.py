@@ -12,7 +12,7 @@ from typing import Annotated, Literal, Optional
 
 import librosa
 import numpy as np
-import pyrootutils
+# import pyrootutils
 import soundfile as sf
 import torch
 from kui.asgi import (
