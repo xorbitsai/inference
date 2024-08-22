@@ -5,7 +5,7 @@ from typing import Any, Callable
 import lightning as L
 import torch
 import torch.nn.functional as F
-import wandb
+# import wandb
 from lightning.pytorch.loggers import TensorBoardLogger, WandbLogger
 from matplotlib import pyplot as plt
 from torch import nn
