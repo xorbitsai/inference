@@ -57,16 +57,16 @@ def wav_chunk_header(sample_rate=44100, bit_depth=16, channels=1):
 
 
 # Define utils for web server
-async def http_execption_handler(exc: HTTPException):
-    return JSONResponse(
-        dict(
-            statusCode=exc.status_code,
-            message=exc.content,
-            error=HTTPStatus(exc.status_code).phrase,
-        ),
-        exc.status_code,
-        exc.headers,
-    )
+# async def http_execption_handler(exc: HTTPException):
+#     return JSONResponse(
+#         dict(
+#             statusCode=exc.status_code,
+#             message=exc.content,
+#             error=HTTPStatus(exc.status_code).phrase,
+#         ),
+#         exc.status_code,
+#         exc.headers,
+#     )
 
 
 async def other_exception_handler(exc: "Exception"):
@@ -138,7 +138,7 @@ def decode_vq_tokens(
     raise ValueError(f"Unknown model type: {type(decoder_model)}")
 
 
-routes = MultimethodRoutes(base_class=HttpView)
+# routes = MultimethodRoutes(base_class=HttpView)
 
 
 def get_random_paths(base_path, data, speaker, emotion):
@@ -337,51 +337,51 @@ async def buffer_to_async_generator(buffer):
     yield buffer
 
 
-@routes.http.post("/v1/invoke")
-async def api_invoke_model(
-    req: Annotated[InvokeRequest, Body(exclusive=True)],
-):
-    """
-    Invoke model and generate audio
-    """
-
-    if args.max_text_length > 0 and len(req.text) > args.max_text_length:
-        raise HTTPException(
-            HTTPStatus.BAD_REQUEST,
-            content=f"Text is too long, max length is {args.max_text_length}",
-        )
-
-    if req.streaming and req.format != "wav":
-        raise HTTPException(
-            HTTPStatus.BAD_REQUEST,
-            content="Streaming only supports WAV format",
-        )
-
-    if req.streaming:
-        return StreamResponse(
-            iterable=inference_async(req),
-            headers={
-                "Content-Disposition": f"attachment; filename=audio.{req.format}",
-            },
-            content_type=get_content_type(req.format),
-        )
-    else:
-        fake_audios = next(inference(req))
-        buffer = io.BytesIO()
-        sf.write(
-            buffer,
-            fake_audios,
-            decoder_model.spec_transform.sample_rate,
-            format=req.format,
-        )
-
-        return StreamResponse(
-            iterable=buffer_to_async_generator(buffer.getvalue()),
-            headers={
-                "Content-Disposition": f"attachment; filename=audio.{req.format}",
-            },
-            content_type=get_content_type(req.format),
-        )
+# @routes.http.post("/v1/invoke")
+# async def api_invoke_model(
+#     req: Annotated[InvokeRequest, Body(exclusive=True)],
+# ):
+#     """
+#     Invoke model and generate audio
+#     """
+#
+#     if args.max_text_length > 0 and len(req.text) > args.max_text_length:
+#         raise HTTPException(
+#             HTTPStatus.BAD_REQUEST,
+#             content=f"Text is too long, max length is {args.max_text_length}",
+#         )
+#
+#     if req.streaming and req.format != "wav":
+#         raise HTTPException(
+#             HTTPStatus.BAD_REQUEST,
+#             content="Streaming only supports WAV format",
+#         )
+#
+#     if req.streaming:
+#         return StreamResponse(
+#             iterable=inference_async(req),
+#             headers={
+#                 "Content-Disposition": f"attachment; filename=audio.{req.format}",
+#             },
+#             content_type=get_content_type(req.format),
+#         )
+#     else:
+#         fake_audios = next(inference(req))
+#         buffer = io.BytesIO()
+#         sf.write(
+#             buffer,
+#             fake_audios,
+#             decoder_model.spec_transform.sample_rate,
+#             format=req.format,
+#         )
+#
+#         return StreamResponse(
+#             iterable=buffer_to_async_generator(buffer.getvalue()),
+#             headers={
+#                 "Content-Disposition": f"attachment; filename=audio.{req.format}",
+#             },
+#             content_type=get_content_type(req.format),
+#         )
 
 
 @routes.http.post("/v1/health")
@@ -418,20 +418,20 @@ def parse_args():
 
 
 # Define Kui app
-openapi = OpenAPI(
-    {
-        "title": "Fish Speech API",
-    },
-).routes
-
-app = Kui(
-    routes=routes + openapi[1:],  # Remove the default route
-    exception_handlers={
-        HTTPException: http_execption_handler,
-        Exception: other_exception_handler,
-    },
-    cors_config={},
-)
+# openapi = OpenAPI(
+#     {
+#         "title": "Fish Speech API",
+#     },
+# ).routes
+#
+# app = Kui(
+#     routes=routes + openapi[1:],  # Remove the default route
+#     exception_handlers={
+#         HTTPException: http_execption_handler,
+#         Exception: other_exception_handler,
+#     },
+#     cors_config={},
+# )
 
 
 if __name__ == "__main__":
