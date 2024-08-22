@@ -382,15 +382,15 @@ async def buffer_to_async_generator(buffer):
 #             },
 #             content_type=get_content_type(req.format),
 #         )
-
-
-@routes.http.post("/v1/health")
-async def api_health():
-    """
-    Health check
-    """
-
-    return JSONResponse({"status": "ok"})
+#
+#
+# @routes.http.post("/v1/health")
+# async def api_health():
+#     """
+#     Health check
+#     """
+#
+#     return JSONResponse({"status": "ok"})
 
 
 def parse_args():
