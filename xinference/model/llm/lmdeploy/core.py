@@ -14,12 +14,12 @@
 import logging
 import time
 import uuid
-from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, Iterator, List, Optional, TypedDict, Union
 
 from ....types import (
     ChatCompletion,
     ChatCompletionChunk,
+    ChatCompletionChunkChoice,
     ChatCompletionMessage,
     Completion,
     CompletionChoice,
@@ -28,53 +28,12 @@ from ....types import (
 )
 from ..core import LLM
 from ..llm_family import LLMFamilyV1, LLMSpecV1
-from ..utils import ChatModelMixin, _decode_image
+from ..utils import ChatModelMixin
 
 logger = logging.getLogger(__name__)
 
 LMDEPLOY_SUPPORTED_MODELS: List[str] = []
-LMDEPLOY_SUPPORTED_CHAT_MODELS: List[str] = ["internvl2"]
-
-
-def _message_content_to_intern(content):
-    if not isinstance(content, str):
-        texts = []
-        image_urls = []
-        for c in content:
-            c_type = c.get("type")
-            if c_type == "text":
-                texts.append(c["text"])
-            elif c_type == "image_url":
-                image_urls.append(c["image_url"]["url"])
-        image_futures = []
-        with ThreadPoolExecutor() as executor:
-            for image_url in image_urls:
-                fut = executor.submit(_decode_image, image_url)
-                image_futures.append(fut)
-        images = [fut.result() for fut in image_futures]
-        text = " ".join(texts)
-        if len(images) == 0:
-            return text
-        elif len(images) == 1:
-            return (text, images[-1])
-        else:
-            return (text, images)
-    return content
-
-
-def _get_prompt_and_chat_history(
-    prompt: Union[str, List[Dict]],
-    chat_history: Optional[List[ChatCompletionMessage]] = None,
-):
-    # Convert openai history to intern vl history
-    history = []
-    for h1, h2 in zip(*[iter(chat_history or [])] * 2):
-        content1 = _message_content_to_intern(h1["content"])
-        content2 = _message_content_to_intern(h2["content"])
-        history.append((content1, content2))
-
-    question = _message_content_to_intern(prompt)
-    return question, history
+LMDEPLOY_SUPPORTED_CHAT_MODELS = ["internvl2"]
 
 
 class LMDEPLOYModelConfig(TypedDict, total=False):
@@ -132,9 +91,14 @@ class LMDEPLOYModel(LLM):
     def _sanitize_model_config(
         self, model_config: Optional[LMDEPLOYModelConfig]
     ) -> LMDEPLOYModelConfig:
+        import torch
+
         if model_config is None:
             model_config = LMDEPLOYModelConfig()
         model_config.setdefault("session_len", 8192)
+        model_config.setdefault("tp", torch.cuda.device_count())
+        if self.model_spec.model_format == "awq":
+            model_config.setdefault("model_format", "awq")
         return model_config
 
     def load(self):
@@ -173,7 +137,12 @@ class LMDEPLOYModel(LLM):
 class LMDEPLOYChatModel(LMDEPLOYModel, ChatModelMixin):
     def load(self):
         try:
-            from lmdeploy import ChatTemplateConfig, TurbomindEngineConfig, pipeline
+            from lmdeploy import (
+                ChatTemplateConfig,
+                TurbomindEngineConfig,
+                VisionConfig,
+                pipeline,
+            )
         except ImportError:
             error_message = "Failed to import module 'lmdeploy'"
             installation_guide = [
@@ -187,10 +156,12 @@ class LMDEPLOYChatModel(LMDEPLOYModel, ChatModelMixin):
         chat_template_config.meta_instruction = (
             self.model_family.prompt_style.system_prompt
         )
+
         self._model = pipeline(
             self.model_path,
             chat_template_config=chat_template_config,
             backend_config=TurbomindEngineConfig(**self._model_config),
+            vision_config=VisionConfig(thread_safe=True),
         )
 
     @classmethod
@@ -212,17 +183,99 @@ class LMDEPLOYChatModel(LMDEPLOYModel, ChatModelMixin):
         chat_history: Optional[List[ChatCompletionMessage]] = None,
         generate_config: Optional[Dict] = None,
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
-        from lmdeploy.serve.async_engine import Session
+        stream = (
+            generate_config.get("stream", False)
+            if isinstance(generate_config, dict)
+            else False
+        )
+        stream_options = (
+            generate_config.get("stream_options", None)
+            if isinstance(generate_config, dict)
+            else False
+        )
+        include_usage = (
+            stream_options["include_usage"]
+            if isinstance(stream_options, dict)
+            else False
+        )
 
-        question, history = _get_prompt_and_chat_history(prompt, chat_history)
+        chat_history = chat_history or []
 
-        session = Session()
-        session._engine = self._model.engine
-        session.history = history
-        print(f"input session:{session}")
+        if stream:
+            chunk = self._chat_stream(prompt, chat_history, include_usage)
+            return self._async_to_chat_completion_chunks(chunk)
+        else:
+            chunk = await self._chat(prompt, chat_history)
+            return self._to_chat_completion(chunk)
 
-        # gen_config = GenerationConfig(**generate_config)
-        sess = self._model.chat(question, session=session)
+    async def _chat_stream(self, prompt, chat_history, include_usage):
+        from lmdeploy.messages import Response
+
+        prompt_tokens, completion_tokens, total_tokens = 0, 0, 0
+        completion_id = str(uuid.uuid1())
+        async for output in self._generate(
+            prompt,
+            chat_history,
+            session_id=-1,
+            stream_response=True,
+        ):
+            new_text = output.text if isinstance(output, Response) else output.response
+
+            completion_choice = ChatCompletionChunkChoice(
+                text=new_text,
+                index=0,
+                logprobs=None,
+                finish_reason=output.finish_reason,
+            )
+            chunk = ChatCompletionChunk(
+                id=completion_id,
+                object="text_completion",
+                created=int(time.time()),
+                model=self.model_uid,
+                choices=[completion_choice],
+            )
+            prompt_tokens = output.input_token_len
+            completion_tokens = output.generate_token_len
+            total_tokens = prompt_tokens + completion_tokens
+            completion_usage = CompletionUsage(
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                total_tokens=total_tokens,
+            )
+            chunk["usage"] = completion_usage
+            print(chunk)
+            yield chunk
+        if include_usage:
+            chunk = ChatCompletionChunk(
+                id=completion_id,
+                object="text_completion",
+                created=int(time.time()),
+                model=self.model_uid,
+                choices=[],
+            )
+            chunk["usage"] = CompletionUsage(
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                total_tokens=total_tokens,
+            )
+            yield chunk
+
+    async def _chat(self, prompt, chat_history):
+        from lmdeploy.messages import Response
+
+        response, finish_reason = "", ""
+        prompt_tokens, completion_tokens, total_tokens = 0, 0, 0
+        async for output in self._generate(
+            prompt,
+            chat_history,
+            session_id=-1,
+            stream_response=False,
+        ):
+            response += output.text if isinstance(output, Response) else output.response
+            prompt_tokens = output.input_token_len
+            completion_tokens = output.generate_token_len
+            total_tokens = output.input_token_len + output.generate_token_len
+            finish_reason = output.finish_reason
 
         chunk = Completion(
             id=str(uuid.uuid1()),
@@ -231,14 +284,260 @@ class LMDEPLOYChatModel(LMDEPLOYModel, ChatModelMixin):
             model=self.model_uid,
             choices=[
                 CompletionChoice(
-                    index=0,
-                    text=sess.response.text,
-                    finish_reason="stop",
-                    logprobs=None,
+                    index=0, text=response, finish_reason=finish_reason, logprobs=None
                 )
             ],
             usage=CompletionUsage(
-                prompt_tokens=-1, completion_tokens=-1, total_tokens=-1
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                total_tokens=total_tokens,
             ),
         )
-        return self._to_chat_completion(chunk)
+        return chunk
+
+    # copy from lmdeploy
+    # Reference: lmdeploy.serve.async_engine.py
+    async def _generate(
+        self,
+        prompt,
+        chat_history,
+        session_id: int,
+        generate_config: Optional[Dict] = None,
+        tools: Optional[List[object]] = None,
+        stream_response: bool = True,
+        sequence_start: bool = True,
+        sequence_end: bool = True,  # no interactive mode by default
+        step: int = 0,
+        do_preprocess: bool = False,
+        adapter_name: Optional[str] = None,
+        **kwargs,
+    ):
+        import random
+
+        from lmdeploy.messages import EngineGenerationConfig, GenerationConfig
+        from lmdeploy.serve.async_engine import GenOut
+        from lmdeploy.tokenizer import DetokenizeState
+
+        session_id = -1
+
+        if str(session_id) not in self._model.id2step:
+            self._model.id2step[str(session_id)] = 0
+        if generate_config is None:
+            generate_config = GenerationConfig()
+        if type(generate_config) is GenerationConfig:
+            generate_config = EngineGenerationConfig.From(
+                generate_config, self._model.tokenizer
+            )
+        if generate_config.stop_words is None:  # type: ignore
+            generate_config.stop_words = self._model.stop_words  # type: ignore
+        if generate_config.random_seed is None and sequence_start:  # type: ignore
+            generate_config.random_seed = random.getrandbits(64)  # type: ignore
+        if generate_config.n > 1:  # type: ignore
+            logger.warning(
+                f"n({generate_config.n}) > 1 hasn't been supported yet. "  # type: ignore
+                f"Fallback to 1"
+            )
+            generate_config.n = 1  # type: ignore
+
+        prompt_input = await self._get_prompt_input(prompt, chat_history)
+        prompt = prompt_input["prompt"]
+        input_ids = prompt_input["input_ids"]
+        finish_reason = None
+        logger.info(
+            f"prompt={prompt!r}, "
+            f"gen_config={generate_config}, "
+            f"prompt_token_id={input_ids}, "
+            f"adapter_name={adapter_name}."
+        )
+        logger.info(
+            f"session_id={session_id}, "  # type: ignore
+            f"history_tokens={self._model.id2step[str(session_id)]}, "
+            f"input_tokens={len(input_ids)}, "
+            f"max_new_tokens={generate_config.max_new_tokens}, "
+            f"seq_start={sequence_start}, seq_end={sequence_end}, "
+            f"step={step}, prep={do_preprocess}"
+        )
+
+        if generate_config.max_new_tokens is None:  # type: ignore
+            # for interactive endpoint, will try maximum possible token num
+            generate_config.max_new_tokens = max(  # type: ignore
+                128,
+                self._model.session_len
+                - self._model.id2step[str(session_id)]
+                - len(input_ids),
+            )
+        elif (
+            self._model.id2step[str(session_id)]
+            + len(input_ids)
+            + generate_config.max_new_tokens  # type: ignore
+            > self._model.session_len
+        ):
+            generate_config.max_new_tokens = max(  # type: ignore
+                self._model.session_len
+                - self._model.id2step[str(session_id)]
+                - len(input_ids),
+                128,
+            )
+            logger.error(f"Truncate max_new_tokens to {generate_config.max_new_tokens}")  # type: ignore
+
+        if (
+            self._model.id2step[str(session_id)]
+            + len(input_ids)
+            + generate_config.max_new_tokens  # type: ignore
+            > self._model.session_len
+        ):
+            logger.error(f"run out of tokens. session_id={session_id}.")
+            yield GenOut(
+                "", self._model.id2step[str(session_id)], len(input_ids), 0, "length"
+            )
+            if sequence_end is True and sequence_start is False:
+                await self._model.end_session(session_id)
+        else:
+            generator = await self._model.get_generator(False, session_id)
+            async with self._model.safe_run(session_id):
+                state = DetokenizeState(len(input_ids))
+                start_ids_offset = state.ids_offset
+                response = ""
+                async for outputs in generator.async_stream_infer(
+                    session_id=session_id,
+                    **prompt_input,
+                    gen_config=generate_config,
+                    adapter_name=adapter_name,
+                    stream_output=stream_response,
+                    sequence_start=sequence_start,
+                    sequence_end=sequence_end,
+                    step=self._model.id2step[str(session_id)],
+                ):
+                    # decode res
+                    res, tokens = (
+                        input_ids + outputs.token_ids,
+                        outputs.num_token,
+                    )  # noqa
+                    if len(res) <= state.ids_offset:
+                        continue
+
+                    ids_offset = state.ids_offset
+                    response, state = self._model.tokenizer.detokenize_incrementally(
+                        res,
+                        state,
+                        skip_special_tokens=generate_config.skip_special_tokens,  # type: ignore
+                    )
+
+                    res = res[ids_offset:]
+                    logprobs = None
+                    if outputs.logprobs:
+                        log_offset = ids_offset - start_ids_offset
+                        logprobs = outputs.logprobs[log_offset:]
+
+                    # response, history token len,
+                    # input token len, gen token len
+                    yield GenOut(
+                        response,
+                        self._model.id2step[str(session_id)],
+                        len(input_ids),
+                        tokens,
+                        finish_reason,
+                        res,
+                        logprobs,
+                    )
+
+                finish_reason = (
+                    "length" if tokens >= generate_config.max_new_tokens else "stop"  # type: ignore
+                )
+                # utf-8 char at the end means it's a potential unfinished
+                # byte sequence
+                if not response.endswith("�"):
+                    response = ""  # avaid returning the last response twice
+                yield GenOut(
+                    response,
+                    self._model.id2step[str(session_id)],
+                    len(input_ids),
+                    tokens,
+                    finish_reason,
+                )
+                # update step
+                self._model.id2step[str(session_id)] += len(input_ids) + tokens
+                if sequence_end:
+                    self._model.id2step[str(session_id)] = 0
+                # manually end pytorch session
+                # TODO modify pytorch or turbomind api
+                if self._model.backend == "pytorch" and sequence_end:
+                    await self._model.end_session(session_id)
+
+    # copy from lmdeploy
+    # Reference: lmdeploy.serve.vl_async_engine.py
+    async def _get_prompt_input(
+        self,
+        prompt: Union[str, List[Dict]],
+        chat_history: Optional[List[ChatCompletionMessage]] = None,
+        sequence_start: bool = True,
+        tools: Optional[List[object]] = None,
+        **kwargs,
+    ):
+        """get input_ids, embeddings and offsets."""
+        IMAGE_TOKEN = "<IMAGE_TOKEN>"
+        IMAGE_DUMMY_TOKEN_INDEX = 0
+        import numpy as np
+
+        assert self.model_family.prompt_style is not None
+        prompt_style = self.model_family.prompt_style.copy()
+        chat_history = chat_history or []
+
+        decorated, _ = self.get_prompt(prompt, chat_history, prompt_style)  # type: ignore
+        chat_history.append(ChatCompletionMessage(role="user", content=prompt))
+        prompt = chat_history
+
+        decorated = decorated.replace("<image>", "<img><IMAGE_TOKEN></img>")
+
+        segs = decorated.split(IMAGE_TOKEN)
+
+        results = {}
+        input_ids = []  # type: ignore
+        if len(segs) > 1:
+            images = await self._model.vl_prompt_template.async_collect_pil_images(
+                prompt
+            )
+
+            features = await self._model.vl_encoder.async_infer(images)
+
+            from lmdeploy.vl.templates import MiniCPMVTempateWrapper
+
+            if isinstance(self._model.vl_prompt_template, MiniCPMVTempateWrapper):
+                (
+                    decorated,
+                    features,
+                ) = self._model.vl_prompt_template.update_image_token(  # noqa: E501
+                    decorated, features
+                )
+                segs = decorated.split(IMAGE_TOKEN)
+
+            features = [x.cpu().numpy() for x in features]
+            input_ids = []
+            begins = []
+            ends = []
+            if len(segs) != len(features) + 1:
+                logger.error(
+                    f"the number of {IMAGE_TOKEN} is not equal "
+                    f"to input images, {len(segs) - 1} vs {len(features)}"
+                )
+                features = features[: len(segs) - 1]
+            for i, seg in enumerate(segs):
+                if i > 0 and i <= len(features):
+                    image_dim = features[i - 1].shape[0]
+                    begins.append(len(input_ids))
+                    ends.append(begins[-1] + image_dim)
+                    input_ids.extend([IMAGE_DUMMY_TOKEN_INDEX] * image_dim)
+                seg_ids = self._model.tokenizer.encode(
+                    seg, add_bos=((i == 0) and sequence_start)
+                )
+                input_ids.extend(seg_ids)
+            ranges = np.stack([begins, ends], axis=1).tolist()
+            results["input_embeddings"] = features
+            results["input_embedding_ranges"] = ranges
+        else:
+            input_ids = self._model.tokenizer.encode(decorated, add_bos=sequence_start)
+
+        results["input_ids"] = input_ids
+        results["prompt"] = decorated
+
+        return results
