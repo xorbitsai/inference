@@ -33,7 +33,7 @@ protobuf
 einops
 tiktoken
 sentence-transformers>=2.7.0
-diffusers>=0.25.0  # fix conflict with matcha-tts
+diffusers>=0.30.0
 controlnet_aux
 orjson
 auto-gptq
@@ -52,7 +52,7 @@ torchaudio  # For ChatTTS
 ChatTTS>0.1
 xxhash  # For ChatTTS
 HyperPyYAML  # For CosyVoice
-matcha-tts  # For CosyVoice
+matcha-tts>=0.0.7  # For CosyVoice
 onnxruntime-gpu==1.16.0; sys_platform == 'linux'  # For CosyVoice
 onnxruntime==1.16.0; sys_platform == 'darwin' or sys_platform == 'windows'  # For CosyVoice
 openai-whisper  # For CosyVoice
