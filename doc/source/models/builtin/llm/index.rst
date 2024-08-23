@@ -111,6 +111,11 @@ The following is a list of built-in LLM in Xinference:
      - 8192
      - CogVLM2 have achieved good results in many lists compared to the previous generation of CogVLM open source models. Its excellent performance can compete with some non-open source models.
 
+   * - :ref:`cogvlm2-video-llama3-chat <models_llm_cogvlm2-video-llama3-chat>`
+     - chat, vision
+     - 8192
+     - CogVLM2-Video achieves state-of-the-art performance on multiple video question answering tasks.
+
    * - :ref:`csg-wukong-chat-v0.1 <models_llm_csg-wukong-chat-v0.1>`
      - chat
      - 32768
@@ -533,6 +538,8 @@ The following is a list of built-in LLM in Xinference:
    codestral-v0.1
   
    cogvlm2
+  
+   cogvlm2-video-llama3-chat
   
    csg-wukong-chat-v0.1
   
