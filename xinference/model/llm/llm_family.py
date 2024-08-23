@@ -271,6 +271,8 @@ VLLM_CLASSES: List[Type[LLM]] = []
 
 MLX_CLASSES: List[Type[LLM]] = []
 
+LMDEPLOY_CLASSES: List[Type[LLM]] = []
+
 LLM_ENGINES: Dict[str, Dict[str, List[Dict[str, Any]]]] = {}
 SUPPORTED_ENGINES: Dict[str, List[Type[LLM]]] = {}
 
