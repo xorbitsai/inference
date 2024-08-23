@@ -14,7 +14,7 @@
 import logging
 import time
 import uuid
-from typing import Dict, Iterator, List, Optional, TypedDict, Union
+from typing import AsyncGenerator, Dict, Iterator, List, Optional, TypedDict, Union
 
 from ....types import (
     ChatCompletion,
@@ -130,8 +130,19 @@ class LMDEPLOYModel(LLM):
         self,
         prompt: str,
         generate_config: Optional[Dict] = None,
-    ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
-        pass
+    ) -> Union[Completion, Iterator[ChatCompletionChunk]]:
+        return Completion(
+            id=str(uuid.uuid1()),
+            object="text_completion",
+            created=int(time.time()),
+            model=self.model_uid,
+            choices=[],
+            usage=CompletionUsage(
+                prompt_tokens=-1,
+                completion_tokens=-1,
+                total_tokens=-1,
+            ),
+        )
 
 
 class LMDEPLOYChatModel(LMDEPLOYModel, ChatModelMixin):
@@ -182,7 +193,7 @@ class LMDEPLOYChatModel(LMDEPLOYModel, ChatModelMixin):
         system_prompt: Optional[str] = None,
         chat_history: Optional[List[ChatCompletionMessage]] = None,
         generate_config: Optional[Dict] = None,
-    ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
+    ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
         stream = (
             generate_config.get("stream", False)
             if isinstance(generate_config, dict)
@@ -229,7 +240,7 @@ class LMDEPLOYChatModel(LMDEPLOYModel, ChatModelMixin):
             )
             chunk = ChatCompletionChunk(
                 id=completion_id,
-                object="text_completion",
+                object="chat.completion",
                 created=int(time.time()),
                 model=self.model_uid,
                 choices=[completion_choice],
@@ -248,7 +259,7 @@ class LMDEPLOYChatModel(LMDEPLOYModel, ChatModelMixin):
         if include_usage:
             chunk = ChatCompletionChunk(
                 id=completion_id,
-                object="text_completion",
+                object="chat.completion",
                 created=int(time.time()),
                 model=self.model_uid,
                 choices=[],
@@ -277,9 +288,9 @@ class LMDEPLOYChatModel(LMDEPLOYModel, ChatModelMixin):
             total_tokens = output.input_token_len + output.generate_token_len
             finish_reason = output.finish_reason
 
-        chunk = Completion(
+        chunk = ChatCompletion(
             id=str(uuid.uuid1()),
-            object="text_completion",
+            object="chat.completion",
             created=int(time.time()),
             model=self.model_uid,
             choices=[
@@ -484,8 +495,8 @@ class LMDEPLOYChatModel(LMDEPLOYModel, ChatModelMixin):
         chat_history = chat_history or []
 
         decorated, _ = self.get_prompt(prompt, chat_history, prompt_style)  # type: ignore
-        chat_history.append(ChatCompletionMessage(role="user", content=prompt))
-        prompt = chat_history
+        chat_history.append(ChatCompletionMessage(role="user", content=prompt))  # type: ignore
+        prompt = chat_history  # type: ignore
 
         decorated = decorated.replace("<image>", "<img><IMAGE_TOKEN></img>")
 
