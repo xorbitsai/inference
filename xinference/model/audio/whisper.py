@@ -37,7 +37,7 @@ class WhisperModel:
     ):
         self._model_uid = model_uid
         self._model_path = model_path
-        self._model_spec = model_spec
+        self.model_spec = model_spec
         self._device = device
         self._model = None
         self._kwargs = kwargs
@@ -199,9 +199,9 @@ class WhisperModel:
         temperature: float = 0,
         timestamp_granularities: Optional[List[str]] = None,
     ):
-        if not self._model_spec.multilingual:
+        if not self.model_spec.multilingual:
             raise RuntimeError(
-                f"Model {self._model_spec.model_name} is not suitable for translations."
+                f"Model {self.model_spec.model_name} is not suitable for translations."
             )
         if prompt is not None:
             logger.warning(

@@ -33,7 +33,7 @@ class ChatTTSModel:
     ):
         self._model_uid = model_uid
         self._model_path = model_path
-        self._model_spec = model_spec
+        self.model_spec = model_spec
         self._device = device
         self._model = None
         self._kwargs = kwargs

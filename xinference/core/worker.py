@@ -734,7 +734,7 @@ class WorkerActor(xo.StatelessActor):
         elif model_type == "image":
             return ["text_to_image"]
         elif model_type == "audio":
-            return ["audio_to_text"]
+            return [model.model_spec.ability]
         elif model_type == "video":
             return ["text_to_video"]
         elif model_type == "flexible":
