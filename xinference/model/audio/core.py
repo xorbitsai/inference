@@ -47,6 +47,7 @@ class AudioModelFamilyV1(CacheableModelSpec):
     model_id: str
     model_revision: str
     multilingual: bool
+    ability: str
     default_model_config: Optional[Dict[str, Any]]
     default_transcription_config: Optional[Dict[str, Any]]
 
