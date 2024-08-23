@@ -507,7 +507,23 @@ class InternVLChatModel(PytorchChatModel):
             )
             chunk["usage"] = completion_usage
             yield chunk
-
+        completion_choice = CompletionChoice(
+            text="", index=0, logprobs=None, finish_reason="stop"
+        )
+        chunk = CompletionChunk(
+            id=completion_id,
+            object="text_completion",
+            created=int(time.time()),
+            model=self.model_uid,
+            choices=[completion_choice],
+        )
+        completion_usage = CompletionUsage(
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            total_tokens=total_tokens,
+        )
+        chunk["usage"] = completion_usage
+        yield chunk
         if include_usage:
             chunk = CompletionChunk(
                 id=completion_id,

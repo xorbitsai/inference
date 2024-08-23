@@ -7190,15 +7190,6 @@
           "model_revision": "b50544dafada6c41e80bfde2f57cc9b0140fc21c"
         },
         {
-          "model_format": "awq",
-          "model_size_in_billions": 4,
-          "quantizations": [
-            "Int4"
-          ],
-          "model_id": "OpenGVLab/InternVL2-8B-AWQ",
-          "model_revision": "9f1a4756b7ae18eb26d8a22b618dfc283e8193b3"
-        },
-        {
           "model_format": "pytorch",
           "model_size_in_billions": 8,
           "quantizations": [
@@ -7208,6 +7199,15 @@
           ],
           "model_id": "OpenGVLab/InternVL2-8B",
           "model_revision": "3bfd3664dea4f3da628785f5125d30f889701253"
+        },
+        {
+          "model_format": "awq",
+          "model_size_in_billions": 8,
+          "quantizations": [
+            "Int4"
+          ],
+          "model_id": "OpenGVLab/InternVL2-8B-AWQ",
+          "model_revision": "9f1a4756b7ae18eb26d8a22b618dfc283e8193b3"
         },
         {
           "model_format": "pytorch",

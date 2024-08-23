@@ -721,7 +721,7 @@ class VLLMVisionModel(VLLMModel, ChatModelMixin):
         prompt_style = self.model_family.prompt_style.copy()
         chat_history = chat_history or []
         prompt, images = self.get_prompt(prompt, chat_history, prompt_style)
-        logger.info(f"messages:{prompt}")
+
         if len(images) == 0:
             inputs = {
                 "prompt": prompt,

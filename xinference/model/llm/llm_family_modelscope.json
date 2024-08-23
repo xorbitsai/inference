@@ -4778,10 +4778,10 @@
             "model_revision": "master"
         },
         {
-            "model_format": "pytorch",
+            "model_format": "awq",
             "model_size_in_billions": 2,
             "quantizations": [
-              "none"
+              "Int4"
             ],
             "model_hub": "modelscope",
             "model_id": "OpenGVLab/InternVL2-2B-AWQ",
@@ -4812,10 +4812,10 @@
             "model_revision": "master"
         },
         {
-            "model_format": "pytorch",
+            "model_format": "awq",
             "model_size_in_billions": 8,
             "quantizations": [
-              "none"
+              "Int4"
             ],
             "model_hub": "modelscope",
             "model_id": "OpenGVLab/InternVL2-8B-AWQ",
@@ -4834,10 +4834,10 @@
             "model_revision": "master"
         },
         {
-            "model_format": "pytorch",
+            "model_format": "awq",
             "model_size_in_billions": 26,
             "quantizations": [
-              "none"
+              "Int4"
             ],
             "model_hub": "modelscope",
             "model_id": "OpenGVLab/InternVL2-26B-AWQ",
@@ -4856,10 +4856,10 @@
             "model_revision": "master"
         },
         {
-            "model_format": "pytorch",
+            "model_format": "awq",
             "model_size_in_billions": 40,
             "quantizations": [
-              "none"
+              "Int4"
             ],
             "model_hub": "modelscope",
             "model_id": "OpenGVLab/InternVL2-40B-AWQ",
@@ -4878,10 +4878,10 @@
             "model_revision": "master"
         },
         {
-            "model_format": "pytorch",
+            "model_format": "awq",
             "model_size_in_billions": 76,
             "quantizations": [
-              "none"
+              "Int4"
             ],
             "model_hub": "modelscope",
             "model_id": "OpenGVLab/InternVL2-Llama3-76B-AWQ",

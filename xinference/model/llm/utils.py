@@ -459,7 +459,16 @@ Begin!"""
                 role = get_role(message["role"])
                 content = message["content"]
                 if isinstance(content, str):
-                    ret += role + "\n" + content + prompt_style.intra_message_sep + "\n"
+                    if content:
+                        ret += (
+                            role
+                            + "\n"
+                            + content
+                            + prompt_style.intra_message_sep
+                            + "\n"
+                        )
+                    else:
+                        ret += role + "\n"
                 elif isinstance(content, list):
                     text = ""
                     image_urls = []
