@@ -119,6 +119,7 @@ def _install():
     from .sglang.core import SGLANGChatModel, SGLANGModel
     from .transformers.chatglm import ChatglmPytorchChatModel
     from .transformers.cogvlm2 import CogVLM2Model
+    from .transformers.cogvlm2_video import CogVLM2VideoModel
     from .transformers.core import PytorchChatModel, PytorchModel
     from .transformers.deepseek_vl import DeepSeekVLChatModel
     from .transformers.glm4v import Glm4VModel
@@ -163,6 +164,7 @@ def _install():
             InternVLChatModel,
             PytorchModel,
             CogVLM2Model,
+            CogVLM2VideoModel,
             MiniCPMV25Model,
             MiniCPMV26Model,
             Glm4VModel,

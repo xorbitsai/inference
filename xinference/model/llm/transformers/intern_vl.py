@@ -42,27 +42,38 @@ def _message_content_to_intern(content, image_cnt):
     if not isinstance(content, str):
         texts = []
         image_urls = []
+        video_urls = []
         for c in content:
             c_type = c.get("type")
             if c_type == "text":
                 texts.append(c["text"])
             elif c_type == "image_url":
                 image_urls.append(c["image_url"]["url"])
+            elif c_type == "video_url":
+                video_urls.append(c["video_url"]["url"])
+        if len(video_urls) > 1:
+            raise RuntimeError("Only one video per message is supported")
         image_futures = []
         with ThreadPoolExecutor() as executor:
             for image_url in image_urls:
                 fut = executor.submit(_decode_image, image_url)
                 image_futures.append(fut)
         images = [fut.result() for fut in image_futures]
+        videos = []
+        for vid_url in video_urls:
+            videos.append(_load_video(vid_url, num_segments=8, max_num=1))
         prefix = ""
         for i, _ in enumerate(images):
             prefix += f"Image-{image_cnt + i + 1}: <image>\n\n"
+
+        if len(videos) > 0:
+            prefix = "".join(
+                [f"Frame{i+1}: <image>\n" for i in range(len(videos[0][1]))]
+            )
+
         text = prefix + " ".join(texts)
-        if len(images) == 0:
-            return text, []
-        else:
-            return text, images
-    return content, []
+        return text, images, videos
+    return content, [], []
 
 
 def _get_prompt_and_chat_history(
@@ -71,18 +82,21 @@ def _get_prompt_and_chat_history(
 ):
     # Convert openai history to intern vl history
     images = []
+    videos = []
     history = []
     image_cnt = 0
     for h1, h2 in zip(*[iter(chat_history or [])] * 2):
-        content1, img = _message_content_to_intern(h1["content"], image_cnt)
-        content2, _ = _message_content_to_intern(h2["content"], image_cnt)
+        content1, img, vid = _message_content_to_intern(h1["content"], image_cnt)
+        content2, _, _ = _message_content_to_intern(h2["content"], image_cnt)
         history.append([content1, content2])
         images.extend(img)
         image_cnt += len(img)
+        videos.extend(vid)
 
-    question, img = _message_content_to_intern(prompt, image_cnt)
+    question, img, vid = _message_content_to_intern(prompt, image_cnt)
     images.extend(img)
-    return question, history, images
+    videos.extend(vid)
+    return question, history, images, videos
 
 
 def _build_transform(input_size=448):
@@ -172,6 +186,53 @@ def _load_image(image_file, input_size=448, max_num=12):
     pixel_values = [transform(image) for image in images]
     pixel_values = torch.stack(pixel_values)
     return pixel_values
+
+
+# video multi-round conversation
+def _get_index(bound, fps, max_frame, first_idx=0, num_segments=32):
+    import numpy as np
+
+    if bound:
+        start, end = bound[0], bound[1]
+    else:
+        start, end = -100000, 100000
+    start_idx = max(first_idx, round(start * fps))
+    end_idx = min(round(end * fps), max_frame)
+    seg_size = float(end_idx - start_idx) / num_segments
+    frame_indices = np.array(
+        [
+            int(start_idx + (seg_size / 2) + np.round(seg_size * idx))
+            for idx in range(num_segments)
+        ]
+    )
+    return frame_indices
+
+
+def _load_video(video_path, bound=None, input_size=448, max_num=1, num_segments=32):
+    from decord import VideoReader, cpu
+    from PIL import Image
+
+    vr = VideoReader(video_path, ctx=cpu(0), num_threads=1)
+    max_frame = len(vr) - 1
+    fps = float(vr.get_avg_fps())
+
+    pixel_values_list, num_patches_list = [], []
+    transform = _build_transform(input_size=input_size)
+    frame_indices = _get_index(
+        bound, fps, max_frame, first_idx=0, num_segments=num_segments
+    )
+    for frame_index in frame_indices:
+        img = Image.fromarray(vr[frame_index].asnumpy()).convert("RGB")
+        img = _dynamic_preprocess(
+            img, image_size=input_size, use_thumbnail=True, max_num=max_num
+        )
+        pixel_values = [transform(tile) for tile in img]
+        pixel_values = torch.stack(pixel_values)
+        pixel_values = pixel_values.to(torch.bfloat16).cuda()
+        num_patches_list.append(pixel_values.shape[0])
+        pixel_values_list.append(pixel_values)
+    pixel_values = torch.cat(pixel_values_list)
+    return pixel_values, num_patches_list
 
 
 class InternVLChatModel(PytorchChatModel):
@@ -305,7 +366,9 @@ class InternVLChatModel(PytorchChatModel):
             else False
         )
 
-        content, history, images = _get_prompt_and_chat_history(prompt, chat_history)
+        content, history, images, videos = _get_prompt_and_chat_history(
+            prompt, chat_history
+        )
 
         num_patches_list = []
         if len(images) == 1:
@@ -326,6 +389,10 @@ class InternVLChatModel(PytorchChatModel):
             pixel_values = torch.cat(pixel_values, dim=0)
         else:
             pixel_values = None
+
+        if len(videos) > 0:
+            pixel_values = videos[0][0]
+            num_patches_list = videos[0][1]
 
         assert pixel_values is None or len(pixel_values) == sum(num_patches_list)
 
