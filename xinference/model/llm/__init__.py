@@ -114,7 +114,7 @@ def generate_engine_config_by_model_family(model_family):
 
 def _install():
     from .llama_cpp.core import LlamaCppChatModel, LlamaCppModel
-    from .lmdeploy.core import LMDEPLOYChatModel, LMDEPLOYModel
+    from .lmdeploy.core import LMDeployChatModel, LMDeployModel
     from .mlx.core import MLXChatModel, MLXModel
     from .sglang.core import SGLANGChatModel, SGLANGModel
     from .transformers.chatglm import ChatglmPytorchChatModel
@@ -150,7 +150,7 @@ def _install():
     SGLANG_CLASSES.extend([SGLANGModel, SGLANGChatModel])
     VLLM_CLASSES.extend([VLLMModel, VLLMChatModel, VLLMVisionModel])
     MLX_CLASSES.extend([MLXModel, MLXChatModel])
-    LMDEPLOY_CLASSES.extend([LMDEPLOYModel, LMDEPLOYChatModel])
+    LMDEPLOY_CLASSES.extend([LMDeployModel, LMDeployChatModel])
     TRANSFORMERS_CLASSES.extend(
         [
             ChatglmPytorchChatModel,

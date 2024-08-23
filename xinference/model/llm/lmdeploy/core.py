@@ -16,6 +16,8 @@ import time
 import uuid
 from typing import AsyncGenerator, Dict, Iterator, List, Optional, TypedDict, Union
 
+import torch
+
 from ....types import (
     ChatCompletion,
     ChatCompletionChunk,
@@ -34,9 +36,12 @@ logger = logging.getLogger(__name__)
 
 LMDEPLOY_SUPPORTED_MODELS: List[str] = []
 LMDEPLOY_SUPPORTED_CHAT_MODELS = ["internvl2"]
+LMDEPLOY_MODEL_CHAT_TEMPLATE_NAME = {
+    "internvl2": "internvl-internlm2",
+}
 
 
-class LMDEPLOYModelConfig(TypedDict, total=False):
+class LMDeployModelConfig(TypedDict, total=False):
     model_format: Optional[str]
     tp: Optional[int]
     session_len: Optional[int]
@@ -54,7 +59,7 @@ class LMDEPLOYModelConfig(TypedDict, total=False):
     max_prefill_iters: Optional[int]
 
 
-class LMDEPLOYGenerateConfig(TypedDict, total=False):
+class LMDeployGenerateConfig(TypedDict, total=False):
     n: Optional[int]
     max_new_tokens: Optional[int]
     top_p: Optional[float]
@@ -70,7 +75,7 @@ class LMDEPLOYGenerateConfig(TypedDict, total=False):
     logprobs: Optional[int]
 
 
-class LMDEPLOYModel(LLM):
+class LMDeployModel(LLM):
     def __init__(
         self,
         model_uid: str,
@@ -78,25 +83,22 @@ class LMDEPLOYModel(LLM):
         model_spec: "LLMSpecV1",
         quantization: str,
         model_path: str,
-        model_config: Optional[LMDEPLOYModelConfig] = None,
+        model_config: Optional[LMDeployModelConfig] = None,
         peft_model: Optional[List[LoRA]] = None,
     ):
         super().__init__(model_uid, model_family, model_spec, quantization, model_path)
-        self._model_config: LMDEPLOYModelConfig = self._sanitize_model_config(
+        self._model_config: LMDeployModelConfig = self._sanitize_model_config(
             model_config
         )
         if peft_model is not None:
             raise ValueError("LMDEPLOY engine has not supported lora yet.")
 
     def _sanitize_model_config(
-        self, model_config: Optional[LMDEPLOYModelConfig]
-    ) -> LMDEPLOYModelConfig:
-        import torch
-
+        self, model_config: Optional[LMDeployModelConfig]
+    ) -> LMDeployModelConfig:
         if model_config is None:
-            model_config = LMDEPLOYModelConfig()
+            model_config = LMDeployModelConfig()
         model_config.setdefault("session_len", 8192)
-        model_config.setdefault("tp", torch.cuda.device_count())
         if self.model_spec.model_format == "awq":
             model_config.setdefault("model_format", "awq")
         return model_config
@@ -131,21 +133,10 @@ class LMDEPLOYModel(LLM):
         prompt: str,
         generate_config: Optional[Dict] = None,
     ) -> Union[Completion, Iterator[ChatCompletionChunk]]:
-        return Completion(
-            id=str(uuid.uuid1()),
-            object="text_completion",
-            created=int(time.time()),
-            model=self.model_uid,
-            choices=[],
-            usage=CompletionUsage(
-                prompt_tokens=-1,
-                completion_tokens=-1,
-                total_tokens=-1,
-            ),
-        )
+        raise NotImplementedError("LMDeploy generate ablility does not support now.")
 
 
-class LMDEPLOYChatModel(LMDEPLOYModel, ChatModelMixin):
+class LMDeployChatModel(LMDeployModel, ChatModelMixin):
     def load(self):
         try:
             from lmdeploy import (
@@ -163,10 +154,22 @@ class LMDEPLOYChatModel(LMDEPLOYModel, ChatModelMixin):
 
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
-        chat_template_config = ChatTemplateConfig("internvl-internlm2")
+        chat_temp_name = ""
+        family = self.model_family.model_family or self.model_family.model_name
+        for key in LMDEPLOY_MODEL_CHAT_TEMPLATE_NAME.keys():
+            if family in key:
+                chat_temp_name = LMDEPLOY_MODEL_CHAT_TEMPLATE_NAME[key]
+                break
+        if chat_temp_name == "":
+            raise ValueError(f"Can not find correct chat template.")
+
+        chat_template_config = ChatTemplateConfig(chat_temp_name)
         chat_template_config.meta_instruction = (
             self.model_family.prompt_style.system_prompt
         )
+        count = torch.cuda.device_count()
+        if count > 1:
+            self._model_config.setdefault("tp", torch.cuda.device_count())
 
         self._model = pipeline(
             self.model_path,

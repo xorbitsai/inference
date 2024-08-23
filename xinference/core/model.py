@@ -177,7 +177,7 @@ class ModelActor(xo.StatelessActor):
         request_limits: Optional[int] = None,
     ):
         super().__init__()
-        from ..model.llm.lmdeploy.core import LMDEPLOYModel
+        from ..model.llm.lmdeploy.core import LMDeployModel
         from ..model.llm.sglang.core import SGLANGModel
         from ..model.llm.transformers.core import PytorchModel
         from ..model.llm.vllm.core import VLLMModel
@@ -194,7 +194,7 @@ class ModelActor(xo.StatelessActor):
         self._lock = (
             None
             if isinstance(
-                self._model, (PytorchModel, VLLMModel, SGLANGModel, LMDEPLOYModel)
+                self._model, (PytorchModel, VLLMModel, SGLANGModel, LMDeployModel)
             )
             else asyncio.locks.Lock()
         )
