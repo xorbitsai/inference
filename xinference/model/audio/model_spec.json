@@ -146,5 +146,13 @@
     "model_revision": "fb5f676733139f35670bed9b59a77d476b1aa898",
     "ability": "text-to-audio",
     "multilingual": true
+  },
+  {
+    "model_name": "FishSpeech-1.2-SFT",
+    "model_family": "FishAudio",
+    "model_id": "fishaudio/fish-speech-1.2-sft",
+    "model_revision": "180288e21ec5c50cfc564023a22f789e4b88a0e0",
+    "ability": "text-to-audio",
+    "multilingual": true
   }
 ]
