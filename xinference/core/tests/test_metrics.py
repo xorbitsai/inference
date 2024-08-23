@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import os
 
 import pytest
 import requests
@@ -44,7 +44,7 @@ def setup_cluster():
             logging_conf=TEST_FILE_LOGGING_CONF,
         )
         endpoint = f"http://localhost:{port}"
-        if not api_health_check(endpoint, max_attempts=3, sleep_interval=5):
+        if not api_health_check(endpoint, max_attempts=10, sleep_interval=5):
             raise RuntimeError("Endpoint is not available after multiple attempts")
 
         yield f"http://localhost:{port}", f"http://localhost:{metrics_port}/metrics", supervisor_address
@@ -65,7 +65,10 @@ async def test_metrics_exporter_server(setup_cluster):
     client = Client(endpoint)
 
     model_uid = client.launch_model(
-        model_name="orca", model_size_in_billions=3, quantization="q4_0"
+        model_name="qwen1.5-chat",
+        model_engine="llama.cpp",
+        model_size_in_billions="0_5",
+        quantization="q4_0",
     )
 
     # Check the supervisor metrics collected the RESTful API.
@@ -81,4 +84,62 @@ async def test_metrics_exporter_server(setup_cluster):
     )
     response = requests.get(metrics_exporter_address)
     assert response.ok
-    assert 'xinference:input_tokens_total_counter{model="orca"} 1' in response.text
+    assert (
+        'xinference:input_tokens_total_counter{model="qwen1.5-chat"} 1' in response.text
+    )
+
+
+@pytest.fixture
+def disable_metrics():
+    try:
+        os.environ["XINFERENCE_DISABLE_METRICS"] = "1"
+        yield
+    finally:
+        os.environ.pop("XINFERENCE_DISABLE_METRICS", None)
+
+
+@pytest.mark.asyncio
+async def test_disable_metrics_exporter_server(disable_metrics, setup_cluster):
+    endpoint, metrics_exporter_address, supervisor_address = setup_cluster
+
+    from ...client import Client
+
+    client = Client(endpoint)
+
+    client.launch_model(
+        model_name="qwen1.5-chat",
+        model_engine="llama.cpp",
+        model_size_in_billions="0_5",
+        quantization="q4_0",
+    )
+
+    # Check the supervisor metrics collected the RESTful API.
+    response = requests.get(f"{endpoint}/metrics")
+    assert response.status_code == 404
+
+    # Check the worker metrics collected model metrics.
+    with pytest.raises(requests.exceptions.ConnectionError):
+        requests.get(metrics_exporter_address)
+
+
+async def test_metrics_exporter_data(setup_cluster):
+    endpoint, metrics_exporter_address, supervisor_address = setup_cluster
+
+    from ...client import Client
+
+    client = Client(endpoint)
+
+    model_uid = client.launch_model(
+        model_name="qwen1.5-chat",
+        model_engine="llama.cpp",
+        model_size_in_billions="0_5",
+        model_format="ggufv2",
+        quantization="q4_0",
+    )
+
+    model = client.get_model(model_uid)
+    response = model.chat("write a poem.")
+
+    response = requests.get(metrics_exporter_address)
+    assert response.ok
+    assert 'format="ggufv2",model="qwen1.5-chat"' in response.text

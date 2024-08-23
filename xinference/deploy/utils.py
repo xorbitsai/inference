@@ -27,6 +27,9 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# mainly for k8s
+XINFERENCE_POD_NAME_ENV_KEY = "XINFERENCE_POD_NAME"
+
 
 class LoggerNameFilter(logging.Filter):
     def filter(self, record):
@@ -40,6 +43,9 @@ def get_log_file(sub_dir: str):
     """
     sub_dir should contain a timestamp.
     """
+    pod_name = os.environ.get(XINFERENCE_POD_NAME_ENV_KEY, None)
+    if pod_name is not None:
+        sub_dir = sub_dir + "_" + pod_name
     log_dir = os.path.join(XINFERENCE_LOG_DIR, sub_dir)
     # Here should be creating a new directory each time, so `exist_ok=False`
     os.makedirs(log_dir, exist_ok=False)
@@ -79,6 +85,12 @@ def get_config_dict(
                 "stream": "ext://sys.stderr",
                 "filters": ["logger_name_filter"],
             },
+            "console_handler": {
+                "class": "logging.StreamHandler",
+                "formatter": "formatter",
+                "level": log_level,
+                "stream": "ext://sys.stderr",
+            },
             "file_handler": {
                 "class": "logging.handlers.RotatingFileHandler",
                 "formatter": "formatter",
@@ -95,7 +107,32 @@ def get_config_dict(
                 "handlers": ["stream_handler", "file_handler"],
                 "level": log_level,
                 "propagate": False,
-            }
+            },
+            "uvicorn": {
+                "handlers": ["stream_handler", "file_handler"],
+                "level": log_level,
+                "propagate": False,
+            },
+            "uvicorn.error": {
+                "handlers": ["stream_handler", "file_handler"],
+                "level": log_level,
+                "propagate": False,
+            },
+            "uvicorn.access": {
+                "handlers": ["stream_handler", "file_handler"],
+                "level": log_level,
+                "propagate": False,
+            },
+            "transformers": {
+                "handlers": ["console_handler", "file_handler"],
+                "level": log_level,
+                "propagate": False,
+            },
+            "vllm": {
+                "handlers": ["console_handler", "file_handler"],
+                "level": log_level,
+                "propagate": False,
+            },
         },
         "root": {
             "level": "WARN",
@@ -127,9 +164,9 @@ def health_check(address: str, max_attempts: int, sleep_interval: int = 3) -> bo
         while attempts < max_attempts:
             time.sleep(sleep_interval)
             try:
-                from xinference.core.supervisor import SupervisorActor
+                from ..core.supervisor import SupervisorActor
 
-                supervisor_ref: xo.ActorRefType[SupervisorActor] = await xo.actor_ref(
+                supervisor_ref: xo.ActorRefType[SupervisorActor] = await xo.actor_ref(  # type: ignore
                     address=address, uid=SupervisorActor.uid()
                 )
 

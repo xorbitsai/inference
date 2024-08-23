@@ -15,7 +15,7 @@ import collections.abc
 import logging
 import os
 from collections import defaultdict
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Literal, Optional, Tuple
 
 from ...constants import XINFERENCE_CACHE_DIR
 from ...types import PeftModelConfig
@@ -27,6 +27,7 @@ MAX_ATTEMPTS = 3
 
 logger = logging.getLogger(__name__)
 
+MODEL_NAME_TO_REVISION: Dict[str, List[str]] = defaultdict(list)
 IMAGE_MODEL_DESCRIPTIONS: Dict[str, List[Dict]] = defaultdict(list)
 BUILTIN_IMAGE_MODELS: Dict[str, "ImageModelFamilyV1"] = {}
 MODELSCOPE_IMAGE_MODELS: Dict[str, "ImageModelFamilyV1"] = {}
@@ -44,6 +45,7 @@ class ImageModelFamilyV1(CacheableModelSpec):
     model_id: str
     model_revision: str
     model_hub: str = "huggingface"
+    model_ability: Optional[List[str]]
     controlnet: Optional[List["ImageModelFamilyV1"]]
 
 
@@ -70,6 +72,7 @@ class ImageModelDescription(ModelDescription):
             "model_name": self._model_spec.model_name,
             "model_family": self._model_spec.model_family,
             "model_revision": self._model_spec.model_revision,
+            "model_ability": self._model_spec.model_ability,
             "controlnet": controlnet,
         }
 
@@ -116,21 +119,29 @@ def generate_image_description(
     return res
 
 
-def match_diffusion(model_name: str) -> ImageModelFamilyV1:
+def match_diffusion(
+    model_name: str,
+    download_hub: Optional[Literal["huggingface", "modelscope", "csghub"]] = None,
+) -> ImageModelFamilyV1:
     from ..utils import download_from_modelscope
     from . import BUILTIN_IMAGE_MODELS, MODELSCOPE_IMAGE_MODELS
+    from .custom import get_user_defined_images
 
-    if download_from_modelscope():
-        if model_name in MODELSCOPE_IMAGE_MODELS:
-            logger.debug(f"Image model {model_name} found in ModelScope.")
-            return MODELSCOPE_IMAGE_MODELS[model_name]
-        else:
-            logger.debug(
-                f"Image model {model_name} not found in ModelScope, "
-                f"now try to load it via builtin way."
-            )
+    for model_spec in get_user_defined_images():
+        if model_spec.model_name == model_name:
+            return model_spec
 
-    if model_name in BUILTIN_IMAGE_MODELS:
+    if download_hub == "modelscope" and model_name in MODELSCOPE_IMAGE_MODELS:
+        logger.debug(f"Image model {model_name} found in ModelScope.")
+        return MODELSCOPE_IMAGE_MODELS[model_name]
+    elif download_hub == "huggingface" and model_name in BUILTIN_IMAGE_MODELS:
+        logger.debug(f"Image model {model_name} found in Huggingface.")
+        return BUILTIN_IMAGE_MODELS[model_name]
+    elif download_from_modelscope() and model_name in MODELSCOPE_IMAGE_MODELS:
+        logger.debug(f"Image model {model_name} found in ModelScope.")
+        return MODELSCOPE_IMAGE_MODELS[model_name]
+    elif model_name in BUILTIN_IMAGE_MODELS:
+        logger.debug(f"Image model {model_name} found in Huggingface.")
         return BUILTIN_IMAGE_MODELS[model_name]
     else:
         raise ValueError(
@@ -167,7 +178,6 @@ def get_cache_status(
             ]
         )
     else:  # Usually for UT
-        logger.warning(f"Cannot find builtin image model spec: {model_name}")
         return valid_model_revision(meta_path, model_spec.model_revision)
 
 
@@ -177,9 +187,11 @@ def create_image_model_instance(
     model_uid: str,
     model_name: str,
     peft_model_config: Optional[PeftModelConfig] = None,
+    download_hub: Optional[Literal["huggingface", "modelscope", "csghub"]] = None,
+    model_path: Optional[str] = None,
     **kwargs,
 ) -> Tuple[DiffusionModel, ImageModelDescription]:
-    model_spec = match_diffusion(model_name)
+    model_spec = match_diffusion(model_name, download_hub)
     controlnet = kwargs.get("controlnet")
     # Handle controlnet
     if controlnet is not None:
@@ -197,7 +209,8 @@ def create_image_model_instance(
         for name in controlnet:
             for cn_model_spec in model_spec.controlnet:
                 if cn_model_spec.model_name == name:
-                    model_path = cache(cn_model_spec)
+                    if not model_path:
+                        model_path = cache(cn_model_spec)
                     controlnet_model_paths.append(model_path)
                     break
             else:
@@ -208,7 +221,8 @@ def create_image_model_instance(
             kwargs["controlnet"] = controlnet_model_paths[0]
         else:
             kwargs["controlnet"] = controlnet_model_paths
-    model_path = cache(model_spec)
+    if not model_path:
+        model_path = cache(model_spec)
     if peft_model_config is not None:
         lora_model = peft_model_config.peft_model
         lora_load_kwargs = peft_model_config.image_lora_load_kwargs
@@ -224,6 +238,7 @@ def create_image_model_instance(
         lora_model_paths=lora_model,
         lora_load_kwargs=lora_load_kwargs,
         lora_fuse_kwargs=lora_fuse_kwargs,
+        abilities=model_spec.model_ability,
         **kwargs,
     )
     model_description = ImageModelDescription(

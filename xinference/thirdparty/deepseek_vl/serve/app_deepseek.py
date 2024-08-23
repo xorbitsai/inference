@@ -36,12 +36,8 @@ from app_modules.overwrites import reload_javascript
 from app_modules.presets import CONCURRENT_COUNT, description, description_top, title
 from app_modules.utils import configure_logger, is_variable_assigned, strip_stop_words
 
-from .inference import (
-    convert_conversation_to_prompts,
-    deepseek_generate,
-    load_model,
-)
 from ..utils.conversation import SeparatorStyle
+from .inference import convert_conversation_to_prompts, deepseek_generate, load_model
 
 
 def load_models():

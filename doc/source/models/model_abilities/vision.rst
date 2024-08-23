@@ -20,7 +20,16 @@ Supported models
 
 The ``vision`` ability is supported with the following models in Xinference:
 
-* qwen-vl-chat
+* :ref:`qwen-vl-chat <models_llm_qwen-vl-chat>`
+* :ref:`deepseek-vl-chat <models_llm_deepseek-vl-chat>`
+* :ref:`yi-vl-chat <models_llm_yi-vl-chat>`
+* :ref:`omnilmm <models_llm_omnilmm>`
+* :ref:`internvl-chat <models_llm_internvl-chat>`
+* :ref:`cogvlm2 <models_llm_cogvlm2>`
+* :ref:`MiniCPM-Llama3-V 2.5 <models_llm_minicpm-llama3-v-2_5>`
+* :ref:`GLM-4V <models_llm_glm-4v>`
+* :ref:`MiniCPM-Llama3-V 2.6 <models_llm_minicpm-v-2.6>`
+* :ref:`internvl2 <models_llm_internvl2>`
 
 
 Quickstart

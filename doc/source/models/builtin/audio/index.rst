@@ -15,6 +15,20 @@ The following is a list of built-in audio models in Xinference:
   
    belle-whisper-large-v2-zh
   
+   belle-whisper-large-v3-zh
+  
+   chattts
+  
+   cosyvoice-300m
+  
+   cosyvoice-300m-instruct
+  
+   cosyvoice-300m-sft
+  
+   fishspeech-1.2-sft
+  
+   sensevoicesmall
+  
    whisper-base
   
    whisper-base.en

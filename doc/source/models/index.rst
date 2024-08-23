@@ -64,6 +64,12 @@ The following ``MODEL_TYPE`` is supported by Xinference:
 
       Rerank models
 
+    .. grid-item-card::  video
+      :link: models_video_index
+      :link-type: ref
+
+      Video models
+
 
 
 You can see all the built-in models supported by xinference :ref:`here <models_builtin_index>`. If the model 
@@ -84,6 +90,7 @@ You can launch a model in Xinference either via command line or Xinference's Pyt
   .. code-tab:: bash shell
 
     xinference launch --model-name <MODEL_NAME> \
+                      [--model-engine <MODEL_ENGINE>] \
                       [--model-type <MODEL_TYPE>] \
                       [--model-uid <MODEL_UID>] \
                       [--endpoint "http://<XINFERENCE_HOST>:<XINFERENCE_PORT>"] \
@@ -95,7 +102,8 @@ You can launch a model in Xinference either via command line or Xinference's Pyt
 
     client = Client("http://<XINFERENCE_HOST>:<XINFERENCE_PORT>")
     model_uid = client.launch_model(
-      model_name="<MODEL_NAME>", 
+      model_name="<MODEL_NAME>",
+      model_engine="<MODEL_ENGINE>",
       model_type="<MODEL_TYPE>"
       model_uid="<MODEL_UID>"
     )
@@ -103,7 +111,7 @@ You can launch a model in Xinference either via command line or Xinference's Pyt
 
 
 For model type ``LLM``, launching the model requires not only specifying the model name, but also the size of the parameters
-and the model format.  Please refer to the list of LLM :ref:`model families <models_llm_index>`.
+, the model format and the model engine.  Please refer to the list of LLM :ref:`model families <models_llm_index>`.
 
 The following command gives you the currently running models in Xinference:
 
@@ -206,6 +214,12 @@ Model Usage
 
       Learn how to turn audio into text or text into audio with Xinference.
 
+    .. grid-item-card::  Video
+      :link: video
+      :link-type: ref
+
+      Learn how to generate video with Xinference.
+
 
 .. toctree::
    :maxdepth: 2
@@ -215,3 +229,4 @@ Model Usage
    custom
    sources/sources
    lora
+   model_memory

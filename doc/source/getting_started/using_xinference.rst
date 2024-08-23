@@ -99,6 +99,53 @@ Please ensure that the version of the client matches the version of the Xinferen
 
    pip install xinference-client==${SERVER_VERSION}
 
+.. _about_model_engine:
+
+About Model Engine
+------------------
+Since ``v0.11.0`` , before launching the LLM model, you need to specify the inference engine you want to run.
+Currently, xinference supports the following inference engines:
+
+* ``vllm``
+* ``sglang``
+* ``llama.cpp``
+* ``transformers``
+
+About the details of these inference engine, please refer to :ref:`here <inference_backend>`.
+
+Note that when launching a LLM model, the ``model_format`` and ``quantization`` of the model you want to launch
+is closely related to the inference engine.
+
+You can use ``xinference engine`` command to query the combination of parameters of the model you want to launch.
+This will demonstrate under what conditions a model can run on which inference engines.
+
+For example:
+
+#. I would like to query about which inference engines the ``qwen-chat`` model can run on, and what are their respective parameters.
+
+.. code-block:: bash
+
+    xinference engine -e <xinference_endpoint> --model-name qwen-chat
+
+#. I want to run ``qwen-chat`` with ``VLLM`` as the inference engine, but I don't know how to configure the other parameters.
+
+.. code-block:: bash
+
+    xinference engine -e <xinference_endpoint> --model-name qwen-chat --model-engine vllm
+
+#. I want to launch the ``qwen-chat`` model in the ``GGUF`` format, and I need to know how to configure the remaining parameters.
+
+.. code-block:: bash
+
+    xinference engine -e <xinference_endpoint> --model-name qwen-chat -f ggufv2
+
+
+In summary, compared to previous versions, when launching LLM models,
+you need to additionally pass the ``model_engine`` parameter.
+You can retrieve information about the supported inference engines and their related parameter combinations
+through the ``xinference engine`` command.
+
+
 Run Llama-2
 -----------
 
@@ -122,7 +169,7 @@ This create a new model instance with unique ID ``my-llama-2``:
 
   .. code-tab:: bash shell
 
-    xinference launch -u my-llama-2 -n llama-2-chat -s 13 -f pytorch
+    xinference launch --model-engine <inference_engine> -u my-llama-2 -n llama-2-chat -s 13 -f pytorch
 
   .. code-tab:: bash cURL
 
@@ -131,6 +178,7 @@ This create a new model instance with unique ID ``my-llama-2``:
       -H 'accept: application/json' \
       -H 'Content-Type: application/json' \
       -d '{
+      "model_engine": "<inference_engine>",
       "model_uid": "my-llama-2",
       "model_name": "llama-2-chat",
       "model_format": "pytorch",
@@ -142,6 +190,7 @@ This create a new model instance with unique ID ``my-llama-2``:
     from xinference.client import RESTfulClient
     client = RESTfulClient("http://127.0.0.1:9997")
     model_uid = client.launch_model(
+      model_engine="<inference_engine>",
       model_uid="my-llama-2",
       model_name="llama-2-chat",
       model_format="pytorch",
@@ -160,7 +209,7 @@ This create a new model instance with unique ID ``my-llama-2``:
 
   .. code-block:: bash
 
-    xinference launch -u my-llama-2 -n llama-2-chat -s 13 -f pytorch --gpu_memory_utilization 0.9
+    xinference launch --model-engine vllm -u my-llama-2 -n llama-2-chat -s 13 -f pytorch --gpu_memory_utilization 0.9
 
   `gpu_memory_utilization=0.9` will pass to vllm when launching model.
 
@@ -338,8 +387,10 @@ On each of the other servers where you want to run Xinference workers, run the f
 
 .. code-block:: bash
 
-  xinference-worker -e "http://${supervisor_host}:9997"
+  xinference-worker -e "http://${supervisor_host}:9997" -H "${worker_host}"
 
+.. note::
+    Note that you must replace ``${worker_host}``  with the actual host of your worker server.
 
 .. note::
   Note that if you need to interact with the Xinference in a cluster via the command line,
@@ -359,52 +410,19 @@ Run On Nvidia GPU Host
 
 .. code-block:: bash
 
-  docker run -p 9997:9997 --rm --gpus all xprobe/xinference:latest
+  docker run -e XINFERENCE_MODEL_SRC=modelscope -p 9998:9997 --gpus all xprobe/xinference:<your_version> xinference-local -H 0.0.0.0 --log-level debug
 
 Run On CPU Only Host
 -----------------------
 
 .. code-block:: bash
 
-  docker run -p 9997:9997 --rm xprobe/xinference:latest-cpu
+  docker run -e XINFERENCE_MODEL_SRC=modelscope -p 9998:9997 xprobe/xinference:<your_version>-cpu xinference-local -H 0.0.0.0 --log-level debug
 
+Replace ``<your_version>`` with Xinference versions, e.g. ``v0.10.3``, ``latest`` can be used for the latest version.
 
-Using Xinference On Kubernetes
-==============================
+For more docker usage, refer to :ref:`Using Docker Image <using_docker_image>`.
 
-To use Xinference on Kubernetes, `KubeBlocks <https://kubeblocks.io/>`_ is required to help the installation.
-
-The following steps assume Kubernetes is already installed.
-
-1. Download cli tool kbcli for KubeBlocks, see `install kbcli <https://kubeblocks.io/docs/preview/user_docs/installation/install-with-kbcli/install-kbcli/>`_.
-
-Make sure kbcli version is at least v0.7.1.
-
-2. Install KubeBlocks using kbcli command, see `install KubeBlocks with kbcli <https://kubeblocks.io/docs/preview/user_docs/installation/install-with-kbcli/install-kubeblocks-with-kbcli/>`_.
-
-3. Enable Xinference addon, run the following command:
-
-.. code-block:: bash
-
-  kbcli addon enable xinference
-
-4. Use kbcli to start Xinference cluster, run the following command:
-
-.. code-block:: bash
-
-  kbcli cluster create xinference
-
-If the Kubernetes node doesn't have GPU on it, run the command with extra flag:
-
-.. code-block:: bash
-
-  kbcli cluster create xinference --cpu-mode
-
-Use -h to read the help documentation for more options:
-
-.. code-block:: bash
-
-  kbcli cluster create xinference -h
 
 What's Next?
 ============

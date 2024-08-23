@@ -3,7 +3,7 @@ import DeleteIcon from '@mui/icons-material/Delete'
 import { Alert, Box, IconButton, Snackbar, TextField } from '@mui/material'
 import React, { useEffect, useState } from 'react'
 
-const AddPair = ({ customData, onGetArr, onJudgeArr }) => {
+const AddPair = ({ customData, pairData, onGetArr, onJudgeArr }) => {
   const [openSnackbar, setOpenSnackbar] = useState(false)
   const [arr, setArr] = useState([])
   const [arrId, setArrId] = useState(0)
@@ -13,6 +13,19 @@ const AddPair = ({ customData, onGetArr, onJudgeArr }) => {
   useEffect(() => {
     onGetArr(arr)
   }, [arr])
+
+  useEffect(() => {
+    const dataArr = []
+    pairData.forEach((item, index) => {
+      dataArr.push({
+        id: index,
+        [customData.key]: item[customData.key],
+        [customData.value]: item[customData.value],
+      })
+    })
+    setArrId(pairData.length)
+    setArr(dataArr)
+  }, [pairData])
 
   const updateArr = (index, type, newValue) => {
     setArr(

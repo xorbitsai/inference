@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from logging import getLogger
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 import xoscar as xo
 
@@ -22,7 +22,7 @@ logger = getLogger(__name__)
 class CacheTrackerActor(xo.Actor):
     def __init__(self):
         super().__init__()
-        self._model_name_to_version_info: Dict[str, List[Dict]] = {}
+        self._model_name_to_version_info: Dict[str, List[Dict]] = {}  # type: ignore
 
     @classmethod
     def uid(cls) -> str:
@@ -100,3 +100,55 @@ class CacheTrackerActor(xo.Actor):
 
     def get_model_version_count(self, model_name: str) -> int:
         return len(self.get_model_versions(model_name))
+
+    def list_cached_models(
+        self, worker_ip: str, model_name: Optional[str] = None
+    ) -> List[Dict[Any, Any]]:
+        cached_models = []
+        for name, versions in self._model_name_to_version_info.items():
+            # only return assigned cached model if model_name is not none
+            # else return all cached model
+            if model_name and model_name != name:
+                continue
+            for version_info in versions:
+                cache_status = version_info.get("cache_status", False)
+                # search cached model
+                if cache_status:
+                    res = version_info.copy()
+                    res["model_name"] = name
+                    paths = res.get("model_file_location", {})
+                    # only return assigned worker's device path
+                    if worker_ip in paths.keys():
+                        res["model_file_location"] = paths[worker_ip]
+                        cached_models.append(res)
+        return cached_models
+
+    def list_deletable_models(self, model_version: str, worker_ip: str) -> str:
+        model_file_location = ""
+        for model, model_versions in self._model_name_to_version_info.items():
+            for version_info in model_versions:
+                # search assign model version
+                if model_version == version_info.get("model_version", None):
+                    # check if exist
+                    if version_info.get("cache_status", False):
+                        paths = version_info.get("model_file_location", {})
+                        # only return assigned worker's device path
+                        if worker_ip in paths.keys():
+                            model_file_location = paths[worker_ip]
+        return model_file_location
+
+    def confirm_and_remove_model(self, model_version: str, worker_ip: str):
+        # find remove path
+        rm_path = self.list_deletable_models(model_version, worker_ip)
+        # search _model_name_to_version_info if exist this path, and delete
+        for model, model_versions in self._model_name_to_version_info.items():
+            for version_info in model_versions:
+                # check if exist
+                if version_info.get("cache_status", False):
+                    paths = version_info.get("model_file_location", {})
+                    # only delete assigned worker's device path
+                    if worker_ip in paths.keys() and rm_path == paths[worker_ip]:
+                        del paths[worker_ip]
+                        # if path is empty, update cache status
+                        if not paths:
+                            version_info["cache_status"] = False

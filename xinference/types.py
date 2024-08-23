@@ -33,6 +33,7 @@ from .fields import (
     stop_field,
     stream_field,
     stream_interval_field,
+    stream_option_field,
     temperature_field,
     top_k_field,
     top_p_field,
@@ -49,6 +50,16 @@ class Image(TypedDict):
 class ImageList(TypedDict):
     created: int
     data: List[Image]
+
+
+class Video(TypedDict):
+    url: Optional[str]
+    b64_json: Optional[str]
+
+
+class VideoList(TypedDict):
+    created: int
+    data: List[Video]
 
 
 class EmbeddingUsage(TypedDict):
@@ -79,9 +90,37 @@ class DocumentObj(TypedDict):
     document: Optional[Document]
 
 
+# Cohere API compatibility
+class ApiVersion(TypedDict):
+    version: str
+    is_deprecated: bool
+    is_experimental: bool
+
+
+# Cohere API compatibility
+class BilledUnit(TypedDict):
+    input_tokens: int
+    output_tokens: int
+    search_units: int
+    classifications: int
+
+
+class RerankTokens(TypedDict):
+    input_tokens: int
+    output_tokens: int
+
+
+class Meta(TypedDict):
+    api_version: Optional[ApiVersion]
+    billed_units: Optional[BilledUnit]
+    tokens: RerankTokens
+    warnings: Optional[List[str]]
+
+
 class Rerank(TypedDict):
     id: str
     results: List[DocumentObj]
+    meta: Meta
 
 
 class CompletionLogprobs(TypedDict):
@@ -177,28 +216,6 @@ class ChatCompletionChunk(TypedDict):
     usage: NotRequired[CompletionUsage]
 
 
-class ChatglmCppModelConfig(TypedDict, total=False):
-    pass
-
-
-class ChatglmCppGenerateConfig(TypedDict, total=False):
-    max_tokens: int
-    top_p: float
-    temperature: float
-    stream: bool
-
-
-class QWenCppModelConfig(TypedDict, total=False):
-    pass
-
-
-class QWenCppGenerateConfig(TypedDict, total=False):
-    max_tokens: int
-    top_p: float
-    temperature: float
-    stream: bool
-
-
 StoppingCriteria = Callable[[List[int], List[float]], bool]
 
 
@@ -230,6 +247,7 @@ class LlamaCppGenerateConfig(TypedDict, total=False):
     repetition_penalty: float
     top_k: int
     stream: bool
+    stream_options: Optional[Union[dict, None]]
     tfs_z: float
     mirostat_mode: int
     mirostat_tau: float
@@ -253,7 +271,6 @@ class LlamaCppModelConfig(TypedDict, total=False):
     vocab_only: bool
     use_mmap: bool
     use_mlock: bool
-    embedding: bool
     n_threads: Optional[int]
     n_batch: int
     last_n_tokens_size: int
@@ -278,6 +295,9 @@ class PytorchGenerateConfig(TypedDict, total=False):
     stream_interval: int
     model: Optional[str]
     tools: Optional[List[Dict]]
+    lora_name: Optional[str]
+    stream_options: Optional[Union[dict, None]]
+    request_id: Optional[str]
 
 
 class PytorchModelConfig(TypedDict, total=False):
@@ -291,6 +311,8 @@ class PytorchModelConfig(TypedDict, total=False):
     gptq_groupsize: int
     gptq_act_order: bool
     trust_remote_code: bool
+    max_num_seqs: int
+    enable_tensorizer: Optional[bool]
 
 
 def get_pydantic_model_from_method(
@@ -349,10 +371,13 @@ class CreateCompletionTorch(BaseModel):
     stop: Optional[Union[str, List[str]]] = stop_field
     stop_token_ids: Optional[Union[int, List[int]]] = none_field
     stream: bool = stream_field
+    stream_options: Optional[Union[dict, None]] = stream_option_field
     stream_interval: int = stream_interval_field
     temperature: float = temperature_field
     top_p: float = top_p_field
     top_k: int = top_k_field
+    lora_name: Optional[str]
+    request_id: Optional[str]
 
 
 CreateCompletionLlamaCpp: BaseModel
@@ -365,6 +390,8 @@ try:
         include_fields={
             "grammar": (Optional[Any], None),
             "max_tokens": (Optional[int], max_tokens_field),
+            "lora_name": (Optional[str], None),
+            "stream_options": (Optional[Union[dict, None]], None),
         },
     )
 except ImportError:
@@ -392,6 +419,7 @@ class _CreateCompletionOpenAIFallback(BaseModel):
     seed: Optional[int] = none_field
     stop: Optional[Union[str, List[str]]] = stop_field
     stream: bool = stream_field
+    stream_options: Optional[Union[dict, None]] = stream_option_field
     suffix: Optional[str] = none_field
     temperature: float = temperature_field
     top_p: float = top_p_field

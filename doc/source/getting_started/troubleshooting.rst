@@ -100,3 +100,10 @@ You can increase its size by setting the ``--shm-size`` parameter as follows:
 .. code:: bash
 
    docker run --shm-size=128g ...
+
+
+Missing ``model_engine`` parameter when launching LLM models
+============================================================
+
+Since version ``v0.11.0``, launching LLM models requires an additional ``model_engine`` parameter.
+For specific information, please refer to :ref:`here <about_model_engine>`.

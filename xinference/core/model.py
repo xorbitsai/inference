@@ -20,11 +20,17 @@ import os
 import time
 import types
 import weakref
+from asyncio.queues import Queue
+from asyncio.tasks import wait_for
+from concurrent.futures import Future as ConcurrentFuture
 from typing import (
     TYPE_CHECKING,
+    Any,
     AsyncGenerator,
+    AsyncIterator,
     Callable,
     Dict,
+    Generator,
     Iterator,
     List,
     Optional,
@@ -33,6 +39,8 @@ from typing import (
 
 import sse_starlette.sse
 import xoscar as xo
+
+from ..constants import XINFERENCE_TRANSFORMERS_ENABLE_BATCHING
 
 if TYPE_CHECKING:
     from .worker import WorkerActor
@@ -55,6 +63,9 @@ except ImportError:
         pass
 
     OutOfMemoryError = _OutOfMemoryError
+
+
+XINFERENCE_BATCHING_ALLOWED_VISION_MODELS = ["qwen-vl-chat", "cogvlm2", "glm-4v"]
 
 
 def request_limit(fn):
@@ -121,11 +132,25 @@ class ModelActor(xo.StatelessActor):
 
     async def __pre_destroy__(self):
         from ..model.embedding.core import EmbeddingModel
-        from ..model.llm.pytorch.core import PytorchModel as LLMPytorchModel
+        from ..model.llm.sglang.core import SGLANGModel
+        from ..model.llm.transformers.core import PytorchModel as LLMPytorchModel
         from ..model.llm.vllm.core import VLLMModel as LLMVLLMModel
 
+        if self.allow_batching():
+            try:
+                assert self._scheduler_ref is not None
+                await xo.destroy_actor(self._scheduler_ref)
+                del self._scheduler_ref
+            except Exception as e:
+                logger.debug(
+                    f"Destroy scheduler actor failed, address: {self.address}, error: {e}"
+                )
+
+        if hasattr(self._model, "stop") and callable(self._model.stop):
+            self._model.stop()
+
         if (
-            isinstance(self._model, (LLMPytorchModel, LLMVLLMModel))
+            isinstance(self._model, (LLMPytorchModel, LLMVLLMModel, SGLANGModel))
             and self._model.model_spec.model_format == "pytorch"
         ) or isinstance(self._model, EmbeddingModel):
             try:
@@ -152,8 +177,8 @@ class ModelActor(xo.StatelessActor):
         request_limits: Optional[int] = None,
     ):
         super().__init__()
-        from ..model.llm.pytorch.core import PytorchModel
-        from ..model.llm.pytorch.spec_model import SpeculativeModel
+        from ..model.llm.sglang.core import SGLANGModel
+        from ..model.llm.transformers.core import PytorchModel
         from ..model.llm.vllm.core import VLLMModel
 
         self._worker_address = worker_address
@@ -167,7 +192,7 @@ class ModelActor(xo.StatelessActor):
         self._current_generator = lambda: None
         self._lock = (
             None
-            if isinstance(self._model, (PytorchModel, SpeculativeModel, VLLMModel))
+            if isinstance(self._model, (PytorchModel, VLLMModel, SGLANGModel))
             else asyncio.locks.Lock()
         )
         self._worker_ref = None
@@ -181,8 +206,19 @@ class ModelActor(xo.StatelessActor):
         }
         self._loop: Optional[asyncio.AbstractEventLoop] = None
 
+        self._scheduler_ref = None
+
     async def __post_create__(self):
         self._loop = asyncio.get_running_loop()
+
+        if self.allow_batching():
+            from .scheduler import SchedulerActor
+
+            self._scheduler_ref = await xo.create_actor(
+                SchedulerActor,
+                address=self.address,
+                uid=SchedulerActor.gen_uid(self.model_uid(), self._model.rep_id),
+            )
 
     async def _record_completion_metrics(
         self, duration, completion_tokens, prompt_tokens
@@ -235,8 +271,38 @@ class ModelActor(xo.StatelessActor):
 
         return isinstance(self._model, VLLMModel)
 
-    def load(self):
+    def allow_batching(self) -> bool:
+        from ..model.llm.transformers.core import PytorchModel
+
+        model_ability = self._model_description.get("model_ability", [])
+
+        condition = XINFERENCE_TRANSFORMERS_ENABLE_BATCHING and isinstance(
+            self._model, PytorchModel
+        )
+        if condition and "vision" in model_ability:
+            if (
+                self._model.model_family.model_name
+                in XINFERENCE_BATCHING_ALLOWED_VISION_MODELS
+                or self._model.model_family.model_family
+                in XINFERENCE_BATCHING_ALLOWED_VISION_MODELS
+            ):
+                return True
+            else:
+                logger.warning(
+                    f"Currently for multimodal models, "
+                    f"xinference only supports {', '.join(XINFERENCE_BATCHING_ALLOWED_VISION_MODELS)} for batching. "
+                    f"Your model {self._model.model_family.model_name} with model family {self._model.model_family.model_family} is disqualified."
+                )
+                return False
+        return condition
+
+    async def load(self):
         self._model.load()
+        if self.allow_batching():
+            await self._scheduler_ref.set_model(self._model)
+            logger.debug(
+                f"Batching enabled for model: {self.model_uid()}, max_num_seqs: {self._model.get_max_num_seqs()}"
+            )
 
     def model_uid(self):
         return (
@@ -249,7 +315,7 @@ class ModelActor(xo.StatelessActor):
             )
         )
 
-    def _to_json_generator(self, gen: types.GeneratorType):
+    def _to_generator(self, output_type: str, gen: types.GeneratorType):
         start_time = time.time()
         time_to_first_token = None
         final_usage = None
@@ -257,8 +323,13 @@ class ModelActor(xo.StatelessActor):
             for v in gen:
                 if time_to_first_token is None:
                     time_to_first_token = (time.time() - start_time) * 1000
-                final_usage = v.pop("usage", None)
-                v = dict(data=json.dumps(v))
+                if output_type == "json":
+                    final_usage = v.get("usage", None)
+                    v = dict(data=json.dumps(v, ensure_ascii=False))
+                else:
+                    assert (
+                        output_type == "binary"
+                    ), f"Unknown output type '{output_type}'"
                 yield sse_starlette.sse.ensure_bytes(v, None)
         except OutOfMemoryError:
             logger.exception(
@@ -281,7 +352,7 @@ class ModelActor(xo.StatelessActor):
                 )
                 asyncio.run_coroutine_threadsafe(coro, loop=self._loop)
 
-    async def _to_json_async_gen(self, gen: types.AsyncGeneratorType):
+    async def _to_async_gen(self, output_type: str, gen: types.AsyncGeneratorType):
         start_time = time.time()
         time_to_first_token = None
         final_usage = None
@@ -289,9 +360,14 @@ class ModelActor(xo.StatelessActor):
             async for v in gen:
                 if time_to_first_token is None:
                     time_to_first_token = (time.time() - start_time) * 1000
-                final_usage = v.pop("usage", None)
-                v = await asyncio.to_thread(json.dumps, v)
-                v = dict(data=v)  # noqa: F821
+                final_usage = v.get("usage", None)
+                if output_type == "json":
+                    v = await asyncio.to_thread(json.dumps, v, ensure_ascii=False)
+                    v = dict(data=v)  # noqa: F821
+                else:
+                    assert (
+                        output_type == "binary"
+                    ), f"Unknown output type '{output_type}'"
                 yield await asyncio.to_thread(sse_starlette.sse.ensure_bytes, v, None)
         except OutOfMemoryError:
             logger.exception(
@@ -318,8 +394,14 @@ class ModelActor(xo.StatelessActor):
                 )
             await asyncio.gather(*coros)
 
+    async def _call_wrapper_json(self, fn: Callable, *args, **kwargs):
+        return await self._call_wrapper("json", fn, *args, **kwargs)
+
+    async def _call_wrapper_binary(self, fn: Callable, *args, **kwargs):
+        return await self._call_wrapper("binary", fn, *args, **kwargs)
+
     @oom_check
-    async def _call_wrapper(self, fn: Callable, *args, **kwargs):
+    async def _call_wrapper(self, output_type: str, fn: Callable, *args, **kwargs):
         if self._lock is None:
             if inspect.iscoroutinefunction(fn):
                 ret = await fn(*args, **kwargs)
@@ -333,31 +415,101 @@ class ModelActor(xo.StatelessActor):
                     ret = await asyncio.to_thread(fn, *args, **kwargs)
 
         if self._lock is not None and self._current_generator():
-            raise Exception("Parallel generation is not supported by ggml.")
+            raise Exception("Parallel generation is not supported by llama-cpp-python.")
 
         if inspect.isgenerator(ret):
-            gen = self._to_json_generator(ret)
+            gen = self._to_generator(output_type, ret)
             self._current_generator = weakref.ref(gen)
             return gen
         if inspect.isasyncgen(ret):
-            gen = self._to_json_async_gen(ret)
+            gen = self._to_async_gen(output_type, ret)
             self._current_generator = weakref.ref(gen)
             return gen
-        return await asyncio.to_thread(json_dumps, ret)
+        if output_type == "json":
+            return await asyncio.to_thread(json_dumps, ret)
+        else:
+            assert output_type == "binary", f"Unknown output type '{output_type}'"
+            return ret
 
     @log_async(logger=logger)
     @request_limit
     @xo.generator
     async def generate(self, prompt: str, *args, **kwargs):
-        if hasattr(self._model, "generate"):
-            return await self._call_wrapper(
-                self._model.generate, prompt, *args, **kwargs
+        if self.allow_batching():
+            return await self.handle_batching_request(
+                prompt, "generate", *args, **kwargs
             )
-        if hasattr(self._model, "async_generate"):
-            return await self._call_wrapper(
-                self._model.async_generate, prompt, *args, **kwargs
-            )
-        raise AttributeError(f"Model {self._model.model_spec} is not for generate.")
+        else:
+            kwargs.pop("raw_params", None)
+            if hasattr(self._model, "generate"):
+                return await self._call_wrapper_json(
+                    self._model.generate, prompt, *args, **kwargs
+                )
+            if hasattr(self._model, "async_generate"):
+                return await self._call_wrapper_json(
+                    self._model.async_generate, prompt, *args, **kwargs
+                )
+            raise AttributeError(f"Model {self._model.model_spec} is not for generate.")
+
+    @staticmethod
+    async def _queue_consumer(
+        queue: Queue, timeout: Optional[float] = None
+    ) -> AsyncIterator[Any]:
+        from .scheduler import (
+            XINFERENCE_STREAMING_ABORT_FLAG,
+            XINFERENCE_STREAMING_DONE_FLAG,
+            XINFERENCE_STREAMING_ERROR_FLAG,
+        )
+
+        while True:
+            # TODO: timeout setting
+            res = await wait_for(queue.get(), timeout)
+            if res == XINFERENCE_STREAMING_DONE_FLAG:
+                break
+            elif res == XINFERENCE_STREAMING_ABORT_FLAG:
+                raise RuntimeError(
+                    f"This request has been cancelled by another `abort_request` request."
+                )
+            elif isinstance(res, str) and res.startswith(
+                XINFERENCE_STREAMING_ERROR_FLAG
+            ):
+                raise RuntimeError(res[len(XINFERENCE_STREAMING_ERROR_FLAG) :])
+            else:
+                yield res
+
+    @staticmethod
+    def _get_stream_from_args(ability: str, *args) -> bool:
+        if ability == "chat":
+            assert args[2] is None or isinstance(args[2], dict)
+            return False if args[2] is None else args[2].get("stream", False)
+        else:
+            assert args[0] is None or isinstance(args[0], dict)
+            return False if args[0] is None else args[0].get("stream", False)
+
+    async def handle_batching_request(self, prompt: str, ability: str, *args, **kwargs):
+        stream = self._get_stream_from_args(ability, *args)
+        assert self._scheduler_ref is not None
+        if stream:
+            assert self._scheduler_ref is not None
+            queue: Queue[Any] = Queue()
+            ret = self._queue_consumer(queue)
+            await self._scheduler_ref.add_request(prompt, queue, *args, **kwargs)
+            gen = self._to_async_gen("json", ret)
+            self._current_generator = weakref.ref(gen)
+            return gen
+        else:
+            from .scheduler import XINFERENCE_NON_STREAMING_ABORT_FLAG
+
+            assert self._loop is not None
+            future = ConcurrentFuture()
+            await self._scheduler_ref.add_request(prompt, future, *args, **kwargs)
+            fut = asyncio.wrap_future(future, loop=self._loop)
+            result = await fut
+            if result == XINFERENCE_NON_STREAMING_ABORT_FLAG:
+                raise RuntimeError(
+                    f"This request has been cancelled by another `abort_request` request."
+                )
+            return await asyncio.to_thread(json_dumps, result)
 
     @log_async(logger=logger)
     @request_limit
@@ -366,21 +518,32 @@ class ModelActor(xo.StatelessActor):
         start_time = time.time()
         response = None
         try:
-            if hasattr(self._model, "chat"):
-                response = await self._call_wrapper(
-                    self._model.chat, prompt, *args, **kwargs
+            if self.allow_batching():
+                return await self.handle_batching_request(
+                    prompt, "chat", *args, **kwargs
                 )
-                return response
-            if hasattr(self._model, "async_chat"):
-                response = await self._call_wrapper(
-                    self._model.async_chat, prompt, *args, **kwargs
-                )
-                return response
-            raise AttributeError(f"Model {self._model.model_spec} is not for chat.")
+            else:
+                kwargs.pop("raw_params", None)
+                if hasattr(self._model, "chat"):
+                    response = await self._call_wrapper_json(
+                        self._model.chat, prompt, *args, **kwargs
+                    )
+                    return response
+                if hasattr(self._model, "async_chat"):
+                    response = await self._call_wrapper_json(
+                        self._model.async_chat, prompt, *args, **kwargs
+                    )
+                    return response
+                raise AttributeError(f"Model {self._model.model_spec} is not for chat.")
         finally:
             # For the non stream result.
-            if response is not None and isinstance(response, dict):
-                usage = response["usage"]
+            record = None
+            if isinstance(response, Generator) or isinstance(response, AsyncGenerator):
+                record = response
+            elif isinstance(response, bytes):
+                record = json.loads(response)
+            if record and isinstance(record, dict):
+                usage = record["usage"]
                 # Some backends may not have a valid usage, we just skip them.
                 completion_tokens = usage["completion_tokens"]
                 prompt_tokens = usage["prompt_tokens"]
@@ -390,11 +553,20 @@ class ModelActor(xo.StatelessActor):
                     prompt_tokens,
                 )
 
+    async def abort_request(self, request_id: str) -> str:
+        from .scheduler import AbortRequestMessage
+
+        if self.allow_batching():
+            if self._scheduler_ref is None:
+                return AbortRequestMessage.NOT_FOUND.name
+            return await self._scheduler_ref.abort_request(request_id)
+        return AbortRequestMessage.NO_OP.name
+
     @log_async(logger=logger)
     @request_limit
     async def create_embedding(self, input: Union[str, List[str]], *args, **kwargs):
         if hasattr(self._model, "create_embedding"):
-            return await self._call_wrapper(
+            return await self._call_wrapper_json(
                 self._model.create_embedding, input, *args, **kwargs
             )
 
@@ -411,17 +583,19 @@ class ModelActor(xo.StatelessActor):
         top_n: Optional[int],
         max_chunks_per_doc: Optional[int],
         return_documents: Optional[bool],
+        return_len: Optional[bool],
         *args,
         **kwargs,
     ):
         if hasattr(self._model, "rerank"):
-            return await self._call_wrapper(
+            return await self._call_wrapper_json(
                 self._model.rerank,
                 documents,
                 query,
                 top_n,
                 max_chunks_per_doc,
                 return_documents,
+                return_len,
                 *args,
                 **kwargs,
             )
@@ -436,15 +610,17 @@ class ModelActor(xo.StatelessActor):
         prompt: Optional[str] = None,
         response_format: str = "json",
         temperature: float = 0,
+        timestamp_granularities: Optional[List[str]] = None,
     ):
         if hasattr(self._model, "transcriptions"):
-            return await self._call_wrapper(
+            return await self._call_wrapper_json(
                 self._model.transcriptions,
                 audio,
                 language,
                 prompt,
                 response_format,
                 temperature,
+                timestamp_granularities,
             )
         raise AttributeError(
             f"Model {self._model.model_spec} is not for creating transcriptions."
@@ -455,20 +631,53 @@ class ModelActor(xo.StatelessActor):
     async def translations(
         self,
         audio: bytes,
+        language: Optional[str] = None,
         prompt: Optional[str] = None,
         response_format: str = "json",
         temperature: float = 0,
+        timestamp_granularities: Optional[List[str]] = None,
     ):
         if hasattr(self._model, "translations"):
-            return await self._call_wrapper(
+            return await self._call_wrapper_json(
                 self._model.translations,
                 audio,
+                language,
                 prompt,
                 response_format,
                 temperature,
+                timestamp_granularities,
             )
         raise AttributeError(
             f"Model {self._model.model_spec} is not for creating translations."
+        )
+
+    @log_async(
+        logger=logger,
+        args_formatter=lambda _, kwargs: kwargs.pop("prompt_speech", None),
+    )
+    @request_limit
+    @xo.generator
+    async def speech(
+        self,
+        input: str,
+        voice: str,
+        response_format: str = "mp3",
+        speed: float = 1.0,
+        stream: bool = False,
+        **kwargs,
+    ):
+        if hasattr(self._model, "speech"):
+            return await self._call_wrapper_binary(
+                self._model.speech,
+                input,
+                voice,
+                response_format,
+                speed,
+                stream,
+                **kwargs,
+            )
+        raise AttributeError(
+            f"Model {self._model.model_spec} is not for creating speech."
         )
 
     @log_async(logger=logger)
@@ -483,7 +692,7 @@ class ModelActor(xo.StatelessActor):
         **kwargs,
     ):
         if hasattr(self._model, "text_to_image"):
-            return await self._call_wrapper(
+            return await self._call_wrapper_json(
                 self._model.text_to_image,
                 prompt,
                 n,
@@ -502,13 +711,13 @@ class ModelActor(xo.StatelessActor):
         prompt: str,
         negative_prompt: str,
         n: int = 1,
-        size: str = "1024*1024",
+        size: Optional[str] = None,
         response_format: str = "url",
         *args,
         **kwargs,
     ):
         if hasattr(self._model, "image_to_image"):
-            return await self._call_wrapper(
+            return await self._call_wrapper_json(
                 self._model.image_to_image,
                 image,
                 prompt,
@@ -521,6 +730,71 @@ class ModelActor(xo.StatelessActor):
             )
         raise AttributeError(
             f"Model {self._model.model_spec} is not for creating image."
+        )
+
+    async def inpainting(
+        self,
+        image: "PIL.Image",
+        mask_image: "PIL.Image",
+        prompt: str,
+        negative_prompt: str,
+        n: int = 1,
+        size: str = "1024*1024",
+        response_format: str = "url",
+        *args,
+        **kwargs,
+    ):
+        if hasattr(self._model, "inpainting"):
+            return await self._call_wrapper_json(
+                self._model.inpainting,
+                image,
+                mask_image,
+                prompt,
+                negative_prompt,
+                n,
+                size,
+                response_format,
+                *args,
+                **kwargs,
+            )
+        raise AttributeError(
+            f"Model {self._model.model_spec} is not for creating image."
+        )
+
+    @log_async(logger=logger)
+    @request_limit
+    async def infer(
+        self,
+        **kwargs,
+    ):
+        if hasattr(self._model, "infer"):
+            return await self._call_wrapper_json(
+                self._model.infer,
+                **kwargs,
+            )
+        raise AttributeError(
+            f"Model {self._model.model_spec} is not for flexible infer."
+        )
+
+    @log_async(logger=logger)
+    @request_limit
+    async def text_to_video(
+        self,
+        prompt: str,
+        n: int = 1,
+        *args,
+        **kwargs,
+    ):
+        if hasattr(self._model, "text_to_video"):
+            return await self._call_wrapper_json(
+                self._model.text_to_video,
+                prompt,
+                n,
+                *args,
+                **kwargs,
+            )
+        raise AttributeError(
+            f"Model {self._model.model_spec} is not for creating video."
         )
 
     async def record_metrics(self, name, op, kwargs):

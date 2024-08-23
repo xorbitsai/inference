@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-02-01 16:47+0800\n"
+"POT-Creation-Date: 2024-08-18 19:26+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -17,7 +17,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Generated-By: Babel 2.13.1\n"
+"Generated-By: Babel 2.14.0\n"
 
 #: ../../source/models/model_abilities/audio.rst:5
 msgid "Audio (Experimental)"
@@ -32,8 +32,8 @@ msgid "Introduction"
 msgstr "介绍"
 
 #: ../../source/models/model_abilities/audio.rst:14
-msgid "The Audio API provides two methods for interacting with audio:"
-msgstr "Audio API提供了两种与音频交互的方法："
+msgid "The Audio API provides three methods for interacting with audio:"
+msgstr "Audio API提供了三种与音频交互的方法："
 
 #: ../../source/models/model_abilities/audio.rst:17
 msgid "The transcriptions endpoint transcribes audio into the input language."
@@ -43,93 +43,229 @@ msgstr "转录终端将音频转录为输入语言。"
 msgid "The translations endpoint translates audio into English."
 msgstr "翻译端点将音频转换为英文。"
 
-#: ../../source/models/model_abilities/audio.rst:25
+#: ../../source/models/model_abilities/audio.rst:19
+msgid "The speech endpoint generates audio from the input text."
+msgstr "转录终端将音频转录为输入语言。"
+
+#: ../../source/models/model_abilities/audio.rst:26
 msgid "API ENDPOINT"
 msgstr "API 端点"
 
-#: ../../source/models/model_abilities/audio.rst:26
+#: ../../source/models/model_abilities/audio.rst:27
 msgid "OpenAI-compatible ENDPOINT"
 msgstr "OpenAI 兼容端点"
 
-#: ../../source/models/model_abilities/audio.rst:28
+#: ../../source/models/model_abilities/audio.rst:29
 msgid "Transcription API"
 msgstr ""
 
-#: ../../source/models/model_abilities/audio.rst:29
+#: ../../source/models/model_abilities/audio.rst:30
 msgid "/v1/audio/transcriptions"
 msgstr ""
 
-#: ../../source/models/model_abilities/audio.rst:31
+#: ../../source/models/model_abilities/audio.rst:32
 msgid "Translation API"
 msgstr ""
 
-#: ../../source/models/model_abilities/audio.rst:32
+#: ../../source/models/model_abilities/audio.rst:33
 msgid "/v1/audio/translations"
 msgstr ""
 
 #: ../../source/models/model_abilities/audio.rst:35
-msgid "Supported models"
-msgstr "支持的模型列表"
+msgid "Speech API"
+msgstr ""
 
-#: ../../source/models/model_abilities/audio.rst:37
-msgid "The audio API is supported with the following models in Xinference:"
-msgstr "在Xinference中，以下模型支持音频API："
-
-#: ../../source/models/model_abilities/audio.rst:39
-msgid "whisper-tiny"
+#: ../../source/models/model_abilities/audio.rst:36
+msgid "/v1/audio/speech"
 msgstr ""
 
 #: ../../source/models/model_abilities/audio.rst:40
+msgid "Supported models"
+msgstr "支持的模型列表"
+
+#: ../../source/models/model_abilities/audio.rst:42
+msgid "The audio API is supported with the following models in Xinference:"
+msgstr "在Xinference中，以下模型支持音频API："
+
+#: ../../source/models/model_abilities/audio.rst:45
+msgid "Audio to text"
+msgstr "语音转文本"
+
+#: ../../source/models/model_abilities/audio.rst:47
+msgid "whisper-tiny"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:48
 msgid "whisper-tiny.en"
 msgstr ""
 
-#: ../../source/models/model_abilities/audio.rst:41
+#: ../../source/models/model_abilities/audio.rst:49
 msgid "whisper-base"
 msgstr ""
 
-#: ../../source/models/model_abilities/audio.rst:42
+#: ../../source/models/model_abilities/audio.rst:50
 msgid "whisper-base.en"
 msgstr ""
 
-#: ../../source/models/model_abilities/audio.rst:43
+#: ../../source/models/model_abilities/audio.rst:51
 msgid "whisper-medium"
 msgstr ""
 
-#: ../../source/models/model_abilities/audio.rst:44
+#: ../../source/models/model_abilities/audio.rst:52
 msgid "whisper-medium.en"
 msgstr ""
 
-#: ../../source/models/model_abilities/audio.rst:45
+#: ../../source/models/model_abilities/audio.rst:53
 msgid "whisper-large-v3"
 msgstr ""
 
-#: ../../source/models/model_abilities/audio.rst:49
+#: ../../source/models/model_abilities/audio.rst:54
+msgid "Belle-distilwhisper-large-v2-zh"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:55
+msgid "Belle-whisper-large-v2-zh"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:56
+msgid "Belle-whisper-large-v3-zh"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:57
+msgid "SenseVoiceSmall"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:61
+msgid "Text to audio"
+msgstr "文本转语音"
+
+#: ../../source/models/model_abilities/audio.rst:63
+msgid "ChatTTS"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:64
+msgid "CosyVoice"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:67
 msgid "Quickstart"
 msgstr "快速入门"
 
-#: ../../source/models/model_abilities/audio.rst:52
+#: ../../source/models/model_abilities/audio.rst:70
 msgid "Transcription"
 msgstr "转录"
 
-#: ../../source/models/model_abilities/audio.rst:54
+#: ../../source/models/model_abilities/audio.rst:72
 msgid ""
 "The Transcription API mimics OpenAI's `create transcriptions API "
 "<https://platform.openai.com/docs/api-"
 "reference/audio/createTranscription>`_. We can try Transcription API out "
 "either via cURL, OpenAI Client, or Xinference's python client:"
-msgstr "Transcription API 模仿了 OpenAI 的 `create transcriptions API <https://platform.openai.com/docs/api-reference/audio/createTranscription>`_。"
-"你可以通过 cURL、OpenAI Client 或者 Xinference 的 Python 客户端来尝试 Transcription API："
+msgstr ""
+"Transcription API 模仿了 OpenAI 的 `create transcriptions API <https://"
+"platform.openai.com/docs/api-reference/audio/createTranscription>`_。你"
+"可以通过 cURL、OpenAI Client 或者 Xinference 的 Python 客户端来尝试 "
+"Transcription API："
 
-#: ../../source/models/model_abilities/audio.rst:105
+#: ../../source/models/model_abilities/audio.rst:123
 msgid "Translation"
 msgstr "翻译"
 
-#: ../../source/models/model_abilities/audio.rst:107
+#: ../../source/models/model_abilities/audio.rst:125
 msgid ""
 "The Translation API mimics OpenAI's `create translations API "
 "<https://platform.openai.com/docs/api-"
 "reference/audio/createTranslation>`_. We can try Translation API out "
 "either via cURL, OpenAI Client, or Xinference's python client:"
-msgstr "Translation API 模仿了 OpenAI 的 `create translations API <https://platform.openai.com/docs/api-reference/audio/createTranslation>`_。"
-"你可以通过 cURL、OpenAI Client 或 Xinference 的 Python 客户端来尝试使用 Translation API："
+msgstr ""
+"Translation API 模仿了 OpenAI 的 `create translations API <https://"
+"platform.openai.com/docs/api-reference/audio/createTranslation>`_。你可以"
+"通过 cURL、OpenAI Client 或 Xinference 的 Python 客户端来尝试使用 "
+"Translation API："
+
+#: ../../source/models/model_abilities/audio.rst:175
+msgid "Speech"
+msgstr "语音"
+
+#: ../../source/models/model_abilities/audio.rst:179
+msgid ""
+"The Speech API mimics OpenAI's `create speech API "
+"<https://platform.openai.com/docs/api-reference/audio/createSpeech>`_. We"
+" can try Speech API out either via cURL, OpenAI Client, or Xinference's "
+"python client:"
+msgstr ""
+"Transcription API 模仿了 OpenAI 的 `create speech API <https://platform."
+"openai.com/docs/api-reference/audio/createSpeech>`_。你可以通过 cURL、"
+"OpenAI Client 或者 Xinference 的 Python 客户端来尝试 Speech API："
+
+#: ../../source/models/model_abilities/audio.rst:182
+msgid "Speech API use non-stream by default as"
+msgstr "Speech API 默认使用非流式"
+
+#: ../../source/models/model_abilities/audio.rst:184
+msgid ""
+"The stream output of ChatTTS is not as good as the non-stream output, "
+"please refer to: https://github.com/2noise/ChatTTS/pull/564"
+msgstr ""
+"ChatTTS 的流式输出不如非流式的效果好，参考：https://github.com/2noise/"
+"ChatTTS/pull/564"
+
+#: ../../source/models/model_abilities/audio.rst:185
+msgid ""
+"The stream requires ffmpeg<7: "
+"https://pytorch.org/audio/stable/installation.html#optional-dependencies"
+msgstr ""
+"流式要求 ffmpeg<7：https://pytorch.org/audio/stable/installation.html#"
+"optional-dependencies"
+
+#: ../../source/models/model_abilities/audio.rst:237
+msgid "ChatTTS Usage"
+msgstr "ChatTTS 使用"
+
+#: ../../source/models/model_abilities/audio.rst:239
+msgid "Basic usage, refer to :ref:`audio speech usage <audio_speech>`."
+msgstr "基本使用，参考 :ref:`语音使用章节 <audio_speech>`。"
+
+#: ../../source/models/model_abilities/audio.rst:241
+msgid ""
+"Fixed tone color. We can use fixed tone color provided by "
+"https://github.com/6drf21e/ChatTTS_Speaker, Download the "
+"`evaluation_result.csv "
+"<https://github.com/6drf21e/ChatTTS_Speaker/blob/main/evaluation_results.csv>`_"
+" , take ``seed_2155`` as example, we get the ``emb_data`` of it."
+msgstr ""
+"固定音色。我们可以使用由 https://github.com/6drf21e/ChatTTS_Speaker 提供"
+"的固定音色，下载 `evaluation_result.csv <https://github.com/6drf21e/"
+"ChatTTS_Speaker/blob/main/evaluation_results.csv>`_ ，以 ``seed_2155`` "
+"音色作为例子，我们使用 ``emb_data`` 列的数据。"
+
+#: ../../source/models/model_abilities/audio.rst:254
+msgid "Use the fixed tone color of ``seed_2155`` to generate speech."
+msgstr "使用 ``seed_2155`` 固定音色来创建语音。"
+
+#: ../../source/models/model_abilities/audio.rst:270
+msgid "CosyVoice Usage"
+msgstr "CosyVoice 模型使用"
+
+#: ../../source/models/model_abilities/audio.rst:272
+msgid "Basic usage, launch model ``CosyVoice-300M-SFT``."
+msgstr "基本使用，加载模型 ``CosyVoice-300M-SFT``。"
+
+#: ../../source/models/model_abilities/audio.rst:321
+msgid "Clone voice, launch model ``CosyVoice-300M``."
+msgstr "克隆声音，加载模型 ``CosyVoice-300M``。"
+
+#: ../../source/models/model_abilities/audio.rst:344
+msgid "Cross lingual usage, launch model ``CosyVoice-300M``."
+msgstr "跨语言使用，加载模型 ``CosyVoice-300M``。"
+
+#: ../../source/models/model_abilities/audio.rst:363
+msgid "Instruction based, launch model ``CosyVoice-300M-Instruct``."
+msgstr "基于指令的声音合成，加载模型 ``CosyVoice-300M-Instruct``。"
+
+#: ../../source/models/model_abilities/audio.rst:380
+msgid ""
+"More instructions and examples, could be found at https://fun-audio-"
+"llm.github.io/ ."
+msgstr "更多指令和例子，可以参考 https://fun-audio-llm.github.io/ 。"
 

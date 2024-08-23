@@ -4,29 +4,36 @@ repos:
     rev: 23.12.0
     hooks:
       - id: black
+        exclude: thirdparty
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.4.0
     hooks:
       - id: end-of-file-fixer
+        exclude: ^xinference/thirdparty
       - id: trailing-whitespace
+        exclude: thirdparty
   - repo: https://github.com/PyCQA/flake8
     rev: 6.0.0
     hooks:
       - id: flake8
         args: [--config, setup.cfg]
+        exclude: thirdparty
   - repo: https://github.com/pycqa/isort
     rev: 5.12.0
     hooks:
       - id: isort
         args: [--sp, setup.cfg]
+        exclude: thirdparty
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: v1.9.0
     hooks:
       - id: mypy
         additional_dependencies: ["tokenize-rt==3.2.0", "types-requests", "types-tabulate"]
         args: [--ignore-missing-imports, --follow-imports, skip]
+        exclude: thirdparty
   - repo: https://github.com/codespell-project/codespell
     rev: v2.2.2
     hooks:
       - id: codespell
         args: [ --config, setup.cfg]
+        exclude: thirdparty

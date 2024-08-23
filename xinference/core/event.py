@@ -12,8 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import queue
-from collections import defaultdict
+from collections import defaultdict, deque
 from enum import Enum
 from typing import Dict, List, TypedDict
 
@@ -37,8 +36,8 @@ class Event(TypedDict):
 class EventCollectorActor(xo.StatelessActor):
     def __init__(self):
         super().__init__()
-        self._model_uid_to_events: Dict[str, queue.Queue] = defaultdict(
-            lambda: queue.Queue(maxsize=MAX_EVENT_COUNT_PER_MODEL)
+        self._model_uid_to_events: Dict[str, deque] = defaultdict(  # type: ignore
+            lambda: deque(maxlen=MAX_EVENT_COUNT_PER_MODEL)
         )
 
     @classmethod
@@ -50,7 +49,7 @@ class EventCollectorActor(xo.StatelessActor):
         if event_queue is None:
             return []
         else:
-            return [dict(e, event_type=e["event_type"].name) for e in event_queue.queue]
+            return [dict(e, event_type=e["event_type"].name) for e in iter(event_queue)]
 
     def report_event(self, model_uid: str, event: Event):
-        self._model_uid_to_events[model_uid].put(event)
+        self._model_uid_to_events[model_uid].append(event)

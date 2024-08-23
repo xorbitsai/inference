@@ -6,13 +6,14 @@ import { useNavigate } from 'react-router-dom'
 
 import { ApiContext } from '../../components/apiContext'
 import ErrorMessageSnackBar from '../../components/errorMessageSnackBar'
+import fetchWrapper from '../../components/fetchWrapper'
 import Title from '../../components/Title'
+import { isValidBearerToken } from '../../components/utils'
 import LaunchCustom from './launchCustom'
 import LaunchLLM from './launchLLM'
 import LaunchModelComponent from './LaunchModelComponent'
 
 const LaunchModel = () => {
-  let endPoint = useContext(ApiContext).endPoint
   const [value, setValue] = React.useState(
     sessionStorage.getItem('modelType')
       ? sessionStorage.getItem('modelType')
@@ -34,36 +35,24 @@ const LaunchModel = () => {
   }
 
   useEffect(() => {
-    if (cookie.token === '' || cookie.token === undefined) {
-      return
-    }
-    if (cookie.token !== 'no_auth' && !sessionStorage.getItem('token')) {
+    if (
+      sessionStorage.getItem('auth') === 'true' &&
+      !isValidBearerToken(sessionStorage.getItem('token')) &&
+      !isValidBearerToken(cookie.token)
+    ) {
       navigate('/login', { replace: true })
-      return
     }
 
     if (gpuAvailable === -1) {
-      fetch(endPoint + '/v1/cluster/devices', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      }).then((res) => {
-        if (!res.ok) {
-          // Usually, if some errors happen here, check if the cluster is available
-          res.json().then((errorData) => {
-            setErrorMsg(
-              `Server error: ${res.status} - ${
-                errorData.detail || 'Unknown error'
-              }`
-            )
-          })
-        } else {
-          res.json().then((data) => {
-            setGPUAvailable(parseInt(data, 10))
-          })
-        }
-      })
+      fetchWrapper
+        .get('/v1/cluster/devices')
+        .then((data) => setGPUAvailable(parseInt(data, 10)))
+        .catch((error) => {
+          console.error('Error:', error)
+          if (error.response.status !== 403 && error.response.status !== 401) {
+            setErrorMsg(error.message)
+          }
+        })
     }
   }, [cookie.token])
 
@@ -80,6 +69,7 @@ const LaunchModel = () => {
             <Tab label="Rerank Models" value="/launch_model/rerank" />
             <Tab label="Image Models" value="/launch_model/image" />
             <Tab label="Audio Models" value="/launch_model/audio" />
+            <Tab label="Video Models" value="/launch_model/video" />
             <Tab label="Custom Models" value="/launch_model/custom/llm" />
           </TabList>
         </Box>
@@ -87,16 +77,25 @@ const LaunchModel = () => {
           <LaunchLLM gpuAvailable={gpuAvailable} />
         </TabPanel>
         <TabPanel value="/launch_model/embedding" sx={{ padding: 0 }}>
-          <LaunchModelComponent modelType={'embedding'} />
+          <LaunchModelComponent
+            modelType={'embedding'}
+            gpuAvailable={gpuAvailable}
+          />
         </TabPanel>
         <TabPanel value="/launch_model/rerank" sx={{ padding: 0 }}>
-          <LaunchModelComponent modelType={'rerank'} />
+          <LaunchModelComponent
+            modelType={'rerank'}
+            gpuAvailable={gpuAvailable}
+          />
         </TabPanel>
         <TabPanel value="/launch_model/image" sx={{ padding: 0 }}>
           <LaunchModelComponent modelType={'image'} />
         </TabPanel>
         <TabPanel value="/launch_model/audio" sx={{ padding: 0 }}>
           <LaunchModelComponent modelType={'audio'} />
+        </TabPanel>
+        <TabPanel value="/launch_model/video" sx={{ padding: 0 }}>
+          <LaunchModelComponent modelType={'video'} />
         </TabPanel>
         <TabPanel value="/launch_model/custom/llm" sx={{ padding: 0 }}>
           <LaunchCustom gpuAvailable={gpuAvailable} />

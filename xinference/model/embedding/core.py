@@ -12,12 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import gc
 import logging
+import os
 from collections import defaultdict
-from typing import Dict, List, Optional, Tuple, Union, no_type_check
+from typing import Dict, List, Literal, Optional, Tuple, Union, no_type_check
 
 import numpy as np
 
+from ...device_utils import empty_cache
 from ...types import Embedding, EmbeddingData, EmbeddingUsage
 from ..core import CacheableModelSpec, ModelDescription
 from ..utils import get_cache_dir, is_model_cached
@@ -28,6 +31,10 @@ logger = logging.getLogger(__name__)
 # Init when registering all the builtin models.
 MODEL_NAME_TO_REVISION: Dict[str, List[str]] = defaultdict(list)
 EMBEDDING_MODEL_DESCRIPTIONS: Dict[str, List[Dict]] = defaultdict(list)
+EMBEDDING_EMPTY_CACHE_COUNT = int(
+    os.getenv("XINFERENCE_EMBEDDING_EMPTY_CACHE_COUNT", "10")
+)
+assert EMBEDDING_EMPTY_CACHE_COUNT > 0
 
 
 def get_embedding_model_descriptions():
@@ -111,11 +118,19 @@ def get_cache_status(
 
 
 class EmbeddingModel:
-    def __init__(self, model_uid: str, model_path: str, device: Optional[str] = None):
+    def __init__(
+        self,
+        model_uid: str,
+        model_path: str,
+        model_spec: EmbeddingModelSpec,
+        device: Optional[str] = None,
+    ):
         self._model_uid = model_uid
         self._model_path = model_path
         self._device = device
         self._model = None
+        self._counter = 0
+        self._model_spec = model_spec
 
     def load(self):
         try:
@@ -126,14 +141,55 @@ class EmbeddingModel:
                 "Please make sure 'sentence-transformers' is installed. ",
                 "You can install it by `pip install sentence-transformers`\n",
             ]
-
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
+
+        class XSentenceTransformer(SentenceTransformer):
+            def to(self, *args, **kwargs):
+                pass
+
         from ..utils import patch_trust_remote_code
 
         patch_trust_remote_code()
-        self._model = SentenceTransformer(self._model_path, device=self._device)
+        if (
+            "gte" in self._model_spec.model_name.lower()
+            and "qwen2" in self._model_spec.model_name.lower()
+        ):
+            import torch
+
+            torch_dtype_str = self._kwargs.get("torch_dtype")
+            if torch_dtype_str is not None:
+                try:
+                    torch_dtype = getattr(torch, torch_dtype_str)
+                    if torch_dtype not in [
+                        torch.float16,
+                        torch.float32,
+                        torch.bfloat16,
+                    ]:
+                        logger.warning(
+                            f"Load embedding model with unsupported torch dtype :  {torch_dtype_str}. Using default torch dtype: fp32."
+                        )
+                        torch_dtype = torch.float32
+                except AttributeError:
+                    logger.warning(
+                        f"Load embedding model with  unknown torch dtype '{torch_dtype_str}'. Using default torch dtype: fp32."
+                    )
+                    torch_dtype = torch.float32
+            else:
+                torch_dtype = "auto"
+            self._model = XSentenceTransformer(
+                self._model_path,
+                device=self._device,
+                model_kwargs={"device_map": "auto", "torch_dtype": torch_dtype},
+            )
+        else:
+            self._model = SentenceTransformer(self._model_path, device=self._device)
 
     def create_embedding(self, sentences: Union[str, List[str]], **kwargs):
+        self._counter += 1
+        if self._counter % EMBEDDING_EMPTY_CACHE_COUNT == 0:
+            logger.debug("Empty embedding cache.")
+            gc.collect()
+            empty_cache()
         from sentence_transformers import SentenceTransformer
 
         kwargs.setdefault("normalize_embeddings", True)
@@ -143,6 +199,8 @@ class EmbeddingModel:
         def encode(
             model: SentenceTransformer,
             sentences: Union[str, List[str]],
+            prompt_name: Optional[str] = None,
+            prompt: Optional[str] = None,
             batch_size: int = 32,
             show_progress_bar: bool = None,
             output_value: str = "sentence_embedding",
@@ -191,10 +249,43 @@ class EmbeddingModel:
                 sentences = [sentences]
                 input_was_string = True
 
+            if prompt is None:
+                if prompt_name is not None:
+                    try:
+                        prompt = model.prompts[prompt_name]
+                    except KeyError:
+                        raise ValueError(
+                            f"Prompt name '{prompt_name}' not found in the configured prompts dictionary with keys {list(model.prompts.keys())!r}."
+                        )
+                elif model.default_prompt_name is not None:
+                    prompt = model.prompts.get(model.default_prompt_name, None)
+            else:
+                if prompt_name is not None:
+                    logger.warning(
+                        "Encode with either a `prompt`, a `prompt_name`, or neither, but not both. "
+                        "Ignoring the `prompt_name` in favor of `prompt`."
+                    )
+
+            extra_features = {}
+            if prompt is not None:
+                sentences = [prompt + sentence for sentence in sentences]
+
+                # Some models (e.g. INSTRUCTOR, GRIT) require removing the prompt before pooling
+                # Tracking the prompt length allow us to remove the prompt during pooling
+                tokenized_prompt = model.tokenize([prompt])
+                if "input_ids" in tokenized_prompt:
+                    extra_features["prompt_length"] = (
+                        tokenized_prompt["input_ids"].shape[-1] - 1
+                    )
+
             if device is None:
                 device = model._target_device
 
-            model.to(device)
+            if (
+                "gte" in self._model_spec.model_name.lower()
+                and "qwen2" in self._model_spec.model_name.lower()
+            ):
+                model.to(device)
 
             all_embeddings = []
             all_token_nums = 0
@@ -215,6 +306,7 @@ class EmbeddingModel:
                 ]
                 features = model.tokenize(sentences_batch)
                 features = batch_to_device(features, device)
+                features.update(extra_features)
                 all_token_nums += sum([len(f) for f in features])
 
                 with torch.no_grad():
@@ -259,7 +351,10 @@ class EmbeddingModel:
             ]
 
             if convert_to_tensor:
-                all_embeddings = torch.stack(all_embeddings)
+                if len(all_embeddings):
+                    all_embeddings = torch.stack(all_embeddings)
+                else:
+                    all_embeddings = torch.Tensor()
             elif convert_to_numpy:
                 all_embeddings = np.asarray([emb.numpy() for emb in all_embeddings])
 
@@ -268,12 +363,24 @@ class EmbeddingModel:
 
             return all_embeddings, all_token_nums
 
-        all_embeddings, all_token_nums = encode(
-            self._model,
-            sentences,
-            convert_to_numpy=False,
-            **kwargs,
-        )
+        if (
+            "gte" in self._model_spec.model_name.lower()
+            and "qwen2" in self._model_spec.model_name.lower()
+        ):
+            all_embeddings, all_token_nums = encode(
+                self._model,
+                sentences,
+                prompt_name="query",
+                convert_to_numpy=False,
+                **kwargs,
+            )
+        else:
+            all_embeddings, all_token_nums = encode(
+                self._model,
+                sentences,
+                convert_to_numpy=False,
+                **kwargs,
+            )
         if isinstance(sentences, str):
             all_embeddings = [all_embeddings]
         embedding_list = []
@@ -292,7 +399,10 @@ class EmbeddingModel:
         )
 
 
-def match_embedding(model_name: str) -> EmbeddingModelSpec:
+def match_embedding(
+    model_name: str,
+    download_hub: Optional[Literal["huggingface", "modelscope", "csghub"]] = None,
+) -> EmbeddingModelSpec:
     from ..utils import download_from_modelscope
     from . import BUILTIN_EMBEDDING_MODELS, MODELSCOPE_EMBEDDING_MODELS
     from .custom import get_user_defined_embeddings
@@ -302,31 +412,40 @@ def match_embedding(model_name: str) -> EmbeddingModelSpec:
         if model_name == model_spec.model_name:
             return model_spec
 
-    if download_from_modelscope():
-        if model_name in MODELSCOPE_EMBEDDING_MODELS:
-            logger.debug(f"Embedding model {model_name} found in ModelScope.")
-            return MODELSCOPE_EMBEDDING_MODELS[model_name]
-        else:
-            logger.debug(
-                f"Embedding model {model_name} not found in ModelScope, "
-                f"now try to load it via builtin way."
-            )
-
-    if model_name in BUILTIN_EMBEDDING_MODELS:
+    if download_hub == "modelscope" and model_name in MODELSCOPE_EMBEDDING_MODELS:
+        logger.debug(f"Embedding model {model_name} found in ModelScope.")
+        return MODELSCOPE_EMBEDDING_MODELS[model_name]
+    elif download_hub == "huggingface" and model_name in BUILTIN_EMBEDDING_MODELS:
+        logger.debug(f"Embedding model {model_name} found in Huggingface.")
+        return BUILTIN_EMBEDDING_MODELS[model_name]
+    elif download_from_modelscope() and model_name in MODELSCOPE_EMBEDDING_MODELS:
+        logger.debug(f"Embedding model {model_name} found in ModelScope.")
+        return MODELSCOPE_EMBEDDING_MODELS[model_name]
+    elif model_name in BUILTIN_EMBEDDING_MODELS:
+        logger.debug(f"Embedding model {model_name} found in Huggingface.")
         return BUILTIN_EMBEDDING_MODELS[model_name]
     else:
         raise ValueError(
             f"Embedding model {model_name} not found, available"
-            f"model list: {BUILTIN_EMBEDDING_MODELS.keys()}"
+            f"Huggingface: {BUILTIN_EMBEDDING_MODELS.keys()}"
+            f"ModelScope: {MODELSCOPE_EMBEDDING_MODELS.keys()}"
         )
 
 
 def create_embedding_model_instance(
-    subpool_addr: str, devices: List[str], model_uid: str, model_name: str, **kwargs
+    subpool_addr: str,
+    devices: List[str],
+    model_uid: str,
+    model_name: str,
+    download_hub: Optional[Literal["huggingface", "modelscope", "csghub"]] = None,
+    model_path: Optional[str] = None,
+    **kwargs,
 ) -> Tuple[EmbeddingModel, EmbeddingModelDescription]:
-    model_spec = match_embedding(model_name)
-    model_path = cache(model_spec)
-    model = EmbeddingModel(model_uid, model_path, **kwargs)
+    model_spec = match_embedding(model_name, download_hub)
+    if model_path is None:
+        model_path = cache(model_spec)
+
+    model = EmbeddingModel(model_uid, model_path, model_spec, **kwargs)
     model_description = EmbeddingModelDescription(
         subpool_addr, devices, model_spec, model_path=model_path
     )

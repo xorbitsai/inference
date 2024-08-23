@@ -1,17 +1,55 @@
 [
   {
+    "model_name": "FLUX.1-schnell",
+    "model_family": "stable_diffusion",
+    "model_hub": "modelscope",
+    "model_id": "AI-ModelScope/FLUX.1-schnell",
+    "model_revision": "master",
+    "model_ability": [
+      "text2image"
+    ]
+  },
+  {
+    "model_name": "FLUX.1-dev",
+    "model_family": "stable_diffusion",
+    "model_hub": "modelscope",
+    "model_id": "AI-ModelScope/FLUX.1-dev",
+    "model_revision": "master",
+    "model_ability": [
+      "text2image"
+    ]
+  },
+  {
+    "model_name": "sd3-medium",
+    "model_family": "stable_diffusion",
+    "model_hub": "modelscope",
+    "model_id": "AI-ModelScope/stable-diffusion-3-medium-diffusers",
+    "model_revision": "master",
+    "model_ability": [
+      "text2image",
+      "image2image",
+      "inpainting"
+    ]
+  },
+  {
     "model_name": "sd-turbo",
     "model_family": "stable_diffusion",
     "model_hub": "modelscope",
     "model_id": "AI-ModelScope/sd-turbo",
-    "model_revision": "master"
+    "model_revision": "master",
+    "model_ability": [
+      "text2image"
+    ]
   },
   {
     "model_name": "sdxl-turbo",
     "model_family": "stable_diffusion",
     "model_hub": "modelscope",
     "model_id": "AI-ModelScope/sdxl-turbo",
-    "model_revision": "master"
+    "model_revision": "master",
+    "model_ability": [
+      "text2image"
+    ]
   },
   {
     "model_name": "stable-diffusion-v1.5",
@@ -19,6 +57,10 @@
     "model_hub": "modelscope",
     "model_id": "AI-ModelScope/stable-diffusion-v1-5",
     "model_revision": "master",
+    "model_ability": [
+      "text2image",
+      "image2image"
+    ],
     "controlnet": [
       {
         "model_name":"canny",
@@ -70,6 +112,10 @@
     "model_hub": "modelscope",
     "model_id": "AI-ModelScope/stable-diffusion-xl-base-1.0",
     "model_revision": "master",
+    "model_ability": [
+      "text2image",
+      "image2image"
+    ],
     "controlnet": [
       {
         "model_name":"canny",

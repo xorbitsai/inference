@@ -10,7 +10,9 @@ import { useNavigate } from 'react-router-dom'
 import { ApiContext } from '../../components/apiContext'
 import ErrorMessageSnackBar from '../../components/errorMessageSnackBar'
 import fetcher from '../../components/fetcher'
+import fetchWrapper from '../../components/fetchWrapper'
 import Title from '../../components/Title'
+import { isValidBearerToken } from '../../components/utils'
 
 const RunningModels = () => {
   const [tabValue, setTabValue] = React.useState(
@@ -20,7 +22,9 @@ const RunningModels = () => {
   const [embeddingModelData, setEmbeddingModelData] = useState([])
   const [imageModelData, setImageModelData] = useState([])
   const [audioModelData, setAudioModelData] = useState([])
+  const [videoModelData, setVideoModelData] = useState([])
   const [rerankModelData, setRerankModelData] = useState([])
+  const [flexibleModelData, setFlexibleModelData] = useState([])
   const { isCallingApi, setIsCallingApi } = useContext(ApiContext)
   const { isUpdatingModel, setIsUpdatingModel } = useContext(ApiContext)
   const { setErrorMsg } = useContext(ApiContext)
@@ -35,10 +39,11 @@ const RunningModels = () => {
   }
 
   const update = (isCallingApi) => {
-    if (cookie.token === '' || cookie.token === undefined) {
-      return
-    }
-    if (cookie.token !== 'no_auth' && !sessionStorage.getItem('token')) {
+    if (
+      sessionStorage.getItem('auth') === 'true' &&
+      !isValidBearerToken(sessionStorage.getItem('token')) &&
+      !isValidBearerToken(cookie.token)
+    ) {
       navigate('/login', { replace: true })
       return
     }
@@ -50,63 +55,68 @@ const RunningModels = () => {
       setAudioModelData([
         { id: 'Loading, do not refresh page...', url: 'IS_LOADING' },
       ])
+      setVideoModelData([
+        { id: 'Loading, do not refresh page...', url: 'IS_LOADING' },
+      ])
       setImageModelData([
         { id: 'Loading, do not refresh page...', url: 'IS_LOADING' },
       ])
       setRerankModelData([
         { id: 'Loading, do not refresh page...', url: 'IS_LOADING' },
       ])
+      setFlexibleModelData([
+        { id: 'Loading, do not refresh page...', url: 'IS_LOADING' },
+      ])
     } else {
       setIsUpdatingModel(true)
-      fetcher(`${endPoint}/v1/models`, {
-        method: 'GET',
-      })
+
+      fetchWrapper
+        .get('/v1/models')
         .then((response) => {
-          if (!response.ok) {
-            response.json().then((errorData) => {
-              setErrorMsg(
-                `Login failed: ${response.status} - ${
-                  errorData.detail || 'Unknown error'
-                }`
-              )
-            })
-          } else {
-            response.json().then((response) => {
-              const newLlmData = []
-              const newEmbeddingModelData = []
-              const newImageModelData = []
-              const newAudioModelData = []
-              const newRerankModelData = []
-              response.data.forEach((model) => {
-                let newValue = {
-                  ...model,
-                  id: model.id,
-                  url: model.id,
-                }
-                if (newValue.model_type === 'LLM') {
-                  newLlmData.push(newValue)
-                } else if (newValue.model_type === 'embedding') {
-                  newEmbeddingModelData.push(newValue)
-                } else if (newValue.model_type === 'audio') {
-                  newAudioModelData.push(newValue)
-                } else if (newValue.model_type === 'image') {
-                  newImageModelData.push(newValue)
-                } else if (newValue.model_type === 'rerank') {
-                  newRerankModelData.push(newValue)
-                }
-              })
-              setLlmData(newLlmData)
-              setEmbeddingModelData(newEmbeddingModelData)
-              setAudioModelData(newAudioModelData)
-              setImageModelData(newImageModelData)
-              setRerankModelData(newRerankModelData)
-              setIsUpdatingModel(false)
-            })
-          }
+          const newLlmData = []
+          const newEmbeddingModelData = []
+          const newImageModelData = []
+          const newAudioModelData = []
+          const newVideoModelData = []
+          const newRerankModelData = []
+          const newFlexibleModelData = []
+          response.data.forEach((model) => {
+            let newValue = {
+              ...model,
+              id: model.id,
+              url: model.id,
+            }
+            if (newValue.model_type === 'LLM') {
+              newLlmData.push(newValue)
+            } else if (newValue.model_type === 'embedding') {
+              newEmbeddingModelData.push(newValue)
+            } else if (newValue.model_type === 'audio') {
+              newAudioModelData.push(newValue)
+            } else if (newValue.model_type === 'video') {
+              newVideoModelData.push(newValue)
+            } else if (newValue.model_type === 'image') {
+              newImageModelData.push(newValue)
+            } else if (newValue.model_type === 'rerank') {
+              newRerankModelData.push(newValue)
+            } else if (newValue.model_type === 'flexible') {
+              newFlexibleModelData.push(newValue)
+            }
+          })
+          setLlmData(newLlmData)
+          setEmbeddingModelData(newEmbeddingModelData)
+          setAudioModelData(newAudioModelData)
+          setVideoModelData(newVideoModelData)
+          setImageModelData(newImageModelData)
+          setRerankModelData(newRerankModelData)
+          setFlexibleModelData(newFlexibleModelData)
+          setIsUpdatingModel(false)
         })
         .catch((error) => {
           console.error('Error:', error)
           setIsUpdatingModel(false)
+          if (error.response.status !== 403 && error.response.status !== 401) {
+            setErrorMsg(error.message)
+          }
         })
     }
   }
@@ -497,6 +507,7 @@ const RunningModels = () => {
                           controlnet: row.controlnet,
                           model_revision: row.model_revision,
                           model_name: row.model_name,
+                          model_ability: row.model_ability,
                         }),
                       })
                         .then((response) => response.json())
@@ -589,7 +600,9 @@ const RunningModels = () => {
     },
   ]
   const audioModelColumns = embeddingModelColumns
+  const videoModelColumns = embeddingModelColumns
   const rerankModelColumns = embeddingModelColumns
+  const flexibleModelColumns = embeddingModelColumns
 
   const dataGridStyle = {
     '& .MuiDataGrid-cell': {
@@ -632,8 +645,7 @@ const RunningModels = () => {
       sx={{
         height: '100%',
         width: '100%',
-        paddingLeft: '20px',
-        paddingTop: '20px',
+        padding: '20px 20px 0 20px',
       }}
     >
       <Title title="Running Models" />
@@ -650,6 +662,8 @@ const RunningModels = () => {
             <Tab label="Rerank models" value="/running_models/rerank" />
             <Tab label="Image models" value="/running_models/image" />
             <Tab label="Audio models" value="/running_models/audio" />
+            <Tab label="Video models" value="/running_models/video" />
+            <Tab label="Flexible models" value="/running_models/flexible" />
           </TabList>
         </Box>
         <TabPanel value="/running_models/LLM" sx={{ padding: 0 }}>
@@ -713,6 +727,34 @@ const RunningModels = () => {
             <DataGrid
               rows={audioModelData}
               columns={audioModelColumns}
+              autoHeight={true}
+              sx={dataGridStyle}
+              slots={{
+                noRowsOverlay: noRowsOverlay,
+                noResultsOverlay: noResultsOverlay,
+              }}
+            />
+          </Box>
+        </TabPanel>
+        <TabPanel value="/running_models/video" sx={{ padding: 0 }}>
+          <Box sx={{ height: '100%', width: '100%' }}>
+            <DataGrid
+              rows={videoModelData}
+              columns={videoModelColumns}
+              autoHeight={true}
+              sx={dataGridStyle}
+              slots={{
+                noRowsOverlay: noRowsOverlay,
+                noResultsOverlay: noResultsOverlay,
+              }}
+            />
+          </Box>
+        </TabPanel>
+        <TabPanel value="/running_models/flexible" sx={{ padding: 0 }}>
+          <Box sx={{ height: '100%', width: '100%' }}>
+            <DataGrid
+              rows={flexibleModelData}
+              columns={flexibleModelColumns}
               autoHeight={true}
               sx={dataGridStyle}
               slots={{

@@ -46,10 +46,11 @@ Xinference Client
 
     client = Client("http://localhost:9997")
     # The chatglm2 model has the capabilities of "chat" and "embed".
-    model_uid = client.launch_model(model_name="chatglm2", 
-                                    model_format="ggmlv3",
-                                    model_size_in_billions=6,
-                                    quantization="q4_0")
+    model_uid = client.launch_model(model_name="glm4-chat",
+                                    model_engine="llama.cpp",
+                                    model_format="ggufv2",
+                                    model_size_in_billions=9,
+                                    quantization="Q4_K")
     model = client.get_model(model_uid)
 
     chat_history = []

@@ -17,6 +17,7 @@ import os
 from collections import defaultdict
 
 from jinja2 import Environment, FileSystemLoader
+from xinference.model.llm.llm_family import SUPPORTED_ENGINES, check_engine_by_spec_parameters
 from xinference.model.llm.vllm.core import VLLM_INSTALLED, VLLM_SUPPORTED_MODELS, VLLM_SUPPORTED_CHAT_MODELS
 
 MODEL_HUB_HUGGING_FACE = "Hugging Face"
@@ -60,6 +61,7 @@ def main():
         sorted_models = []
         output_dir = './models/builtin/llm'
         os.makedirs(output_dir, exist_ok=True)
+        current_files = {f for f in os.listdir(output_dir) if os.path.isfile(os.path.join(output_dir, f))}
 
         for model_name in sorted(model_by_names, key=str.lower):
 
@@ -71,6 +73,22 @@ def main():
                     'name': MODEL_HUB_HUGGING_FACE, 
                     'url': f"https://huggingface.co/{model_spec['model_id']}"
                 }]
+
+                # model engines
+                engines = []
+                for engine in SUPPORTED_ENGINES:
+                    for quantization in model_spec['quantizations']:
+                        size = model_spec['model_size_in_billions']
+                        if isinstance(size, str) and '_' not in size:
+                            size = int(size)
+                        try:
+                            check_engine_by_spec_parameters(engine, model_name, model_spec['model_format'],
+                                                            size, quantization)
+                        except ValueError:
+                            continue
+                        else:
+                            engines.append(engine)
+                model_spec['engines'] = sorted(list(set(engines)), reverse=True)
 
             # manual merge
             if model_name in model_by_names_modelscope.keys():
@@ -89,10 +107,18 @@ def main():
                         })
 
             rendered = env.get_template('llm.rst.jinja').render(model)
-            output_file_path = os.path.join(output_dir, f"{model['model_name'].lower()}.rst")
+            output_file_name = f"{model['model_name'].lower()}.rst"
+            if output_file_name in current_files:
+                current_files.remove(output_file_name)
+            output_file_path = os.path.join(output_dir, output_file_name)
             with open(output_file_path, 'w') as output_file:
                 output_file.write(rendered)
                 print(output_file_path)
+
+        if current_files:
+            for f in current_files:
+                print(f"remove {f}")
+                os.remove(os.path.join(output_dir, f))
 
         index_file_path = os.path.join(output_dir, "index.rst")
         with open(index_file_path, "w") as file:
@@ -176,6 +202,7 @@ def main():
             if not available_controlnet:
                 available_controlnet = None
             model["available_controlnet"] = available_controlnet
+            model["model_ability"] = ', '.join(model.get("model_ability"))
             rendered = env.get_template('image.rst.jinja').render(model)
             output_file_path = os.path.join(output_dir, f"{model['model_name'].lower()}.rst")
             with open(output_file_path, 'w') as output_file:
@@ -202,6 +229,25 @@ def main():
         index_file_path = os.path.join(output_dir, "index.rst")
         with open(index_file_path, "w") as file:
             rendered_index = env.get_template('audio_index.rst.jinja').render(models=sorted_models)
+            file.write(rendered_index)
+
+    with open('../../xinference/model/video/model_spec.json', 'r') as file:
+        models = json.load(file)
+
+        sorted_models = sorted(models, key=lambda x: x['model_name'].lower())
+        output_dir = './models/builtin/video'
+        os.makedirs(output_dir, exist_ok=True)
+
+        for model in sorted_models:
+            model["model_ability"] = ', '.join(model.get("model_ability"))
+            rendered = env.get_template('video.rst.jinja').render(model)
+            output_file_path = os.path.join(output_dir, f"{model['model_name'].lower()}.rst")
+            with open(output_file_path, 'w') as output_file:
+                output_file.write(rendered)
+
+        index_file_path = os.path.join(output_dir, "index.rst")
+        with open(index_file_path, "w") as file:
+            rendered_index = env.get_template('video_index.rst.jinja').render(models=sorted_models)
             file.write(rendered_index)
 
     if VLLM_INSTALLED:

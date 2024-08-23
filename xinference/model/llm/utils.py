@@ -11,13 +11,18 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import base64
 import functools
 import json
 import logging
 import os
 import time
 import uuid
+from io import BytesIO
 from typing import AsyncGenerator, Dict, Iterator, List, Optional, Tuple, cast
+
+import requests
+from PIL import Image
 
 from ...types import (
     SPECIAL_TOOL_PROMPT,
@@ -28,7 +33,7 @@ from ...types import (
     CompletionChunk,
 )
 from .llm_family import (
-    GgmlLLMSpecV1,
+    LlamaCppLLMSpecV1,
     LLMFamilyV1,
     LLMSpecV1,
     PromptStyleV1,
@@ -39,6 +44,20 @@ from .llm_family import (
 logger = logging.getLogger(__name__)
 
 
+QWEN_TOOL_CALL_FAMILY = [
+    "qwen-chat",
+    "qwen1.5-chat",
+    "qwen1.5-moe-chat",
+    "qwen2-instruct",
+    "qwen2-moe-instruct",
+]
+
+GLM4_TOOL_CALL_FAMILY = [
+    "glm4-chat",
+    "glm4-chat-1m",
+]
+
+
 class ChatModelMixin:
     @staticmethod
     def get_prompt(
@@ -46,7 +65,7 @@ class ChatModelMixin:
         chat_history: List[ChatCompletionMessage],
         prompt_style: PromptStyleV1,
         tools: Optional[List[Dict]] = None,
-    ) -> str:
+    ):
         """
         Inspired by FastChat. Format chat history into a prompt according to the prompty style of
         different models.
@@ -78,17 +97,6 @@ class ChatModelMixin:
                 else:
                     ret += role + ":"
             return ret
-        elif prompt_style.style_name == "ADD_COLON_TWO":
-            seps = [prompt_style.intra_message_sep, prompt_style.inter_message_sep]
-            ret = prompt_style.system_prompt + seps[0]
-            for i, message in enumerate(chat_history):
-                role = get_role(message["role"])
-                content = message["content"]
-                if content:
-                    ret += role + ": " + content + seps[i % 2]
-                else:
-                    ret += role + ":"
-            return ret
         elif prompt_style.style_name == "NO_COLON_TWO":
             seps = [prompt_style.intra_message_sep, prompt_style.inter_message_sep]
             ret = prompt_style.system_prompt
@@ -114,20 +122,21 @@ class ChatModelMixin:
                 else:
                     ret += role
             return ret
-        elif prompt_style.style_name == "FALCON":
-            ret = prompt_style.system_prompt
-            for message in chat_history:
+        elif prompt_style.style_name == "LLAMA3":
+            ret = (
+                f"<|begin_of_text|><|start_header_id|>system<|end_header_id|>"
+                f"{prompt_style.intra_message_sep}{prompt_style.system_prompt}{prompt_style.inter_message_sep}"
+            )
+            for i, message in enumerate(chat_history):
                 role = get_role(message["role"])
                 content = message["content"]
                 if content:
                     ret += (
-                        role
-                        + ": "
-                        + content.replace("\r\n", "\n").replace("\n\n", "\n")
+                        f"<|start_header_id|>{role}<|end_header_id|>"
+                        f"{prompt_style.intra_message_sep}{content}{prompt_style.inter_message_sep}"
                     )
-                    ret += "\n\n"
                 else:
-                    ret += role + ":"
+                    ret += f"<|start_header_id|>{role}<|end_header_id|>{prompt_style.intra_message_sep}"
             return ret
         elif prompt_style.style_name == "MIXTRAL_V01":
             ret = ""
@@ -137,22 +146,6 @@ class ChatModelMixin:
                     ret += f"<s> [INST] {content} [/INST]"
                 else:  # assistant
                     ret += f"{content} </s>"
-            return ret
-        elif prompt_style.style_name == "CHATGLM":
-            round_add_n = 1 if prompt_style.intra_message_sep == "\n\n" else 0
-            if prompt_style.system_prompt:
-                ret = prompt_style.system_prompt + prompt_style.intra_message_sep
-            else:
-                ret = ""
-            for i, message in enumerate(chat_history):
-                role = get_role(message["role"])
-                content = message["content"]
-                if i % 2 == 0:
-                    ret += f"[Round {i // 2 + round_add_n}]{prompt_style.intra_message_sep}"
-                if content:
-                    ret += role + "：" + content + prompt_style.intra_message_sep
-                else:
-                    ret += role + "："
             return ret
         elif prompt_style.style_name == "CHATGLM3":
             prompts = (
@@ -212,16 +205,14 @@ Begin!"""
                 tools_name_text = []
                 for func_info in tools:
                     parameters = []
-                    required_parameters = func_info["function"]["parameters"].get(
-                        "required", []
-                    )
-                    for name, p in func_info["function"]["parameters"][
-                        "properties"
-                    ].items():
-                        param = dict({"name": name}, **p)
-                        if name in required_parameters:
-                            param["required"] = True
-                        parameters.append(param)
+                    fp = func_info["function"].get("parameters", {})
+                    if fp:
+                        required_parameters = fp.get("required", [])
+                        for name, p in fp["properties"].items():
+                            param = dict({"name": name}, **p)
+                            if name in required_parameters:
+                                param["required"] = True
+                            parameters.append(param)
 
                     name = func_info["function"]["name"]
                     desc = func_info["function"]["description"]
@@ -295,25 +286,6 @@ Begin!"""
                 else:
                     ret += role + "\n"
             return ret
-        elif prompt_style.style_name == "INTERNLM":
-            seps = [prompt_style.intra_message_sep, prompt_style.inter_message_sep]
-            ret = ""
-            for i, message in enumerate(chat_history[:-2]):
-                if i % 2 == 0:
-                    ret += "<s>"
-                role = get_role(message["role"])
-                content = message["content"]
-                ret += role + ":" + str(content) + seps[i % 2]
-            if len(ret) == 0:
-                ret += "<s>"
-            ret += (
-                chat_history[-2]["role"]
-                + ":"
-                + str(chat_history[-2]["content"])
-                + seps[0]
-            )
-            ret += chat_history[-1]["role"] + ":"
-            return ret
         elif prompt_style.style_name == "INTERNLM2":
             ret = (
                 "<s>"
@@ -342,9 +314,6 @@ Begin!"""
                 else:
                     ret += role + ": Let's think step by step."
             return ret
-        elif prompt_style.style_name == "INSTRUCTION":
-            message = chat_history[-2]
-            return prompt_style.system_prompt.format(message["content"])
         elif prompt_style.style_name == "DEEPSEEK_CHAT":
             seps = [prompt_style.intra_message_sep, prompt_style.inter_message_sep]
             ret = prompt_style.system_prompt
@@ -431,11 +400,110 @@ Begin!"""
                 else:
                     ret += "<AI>" + content.strip()
             return ret
+        elif prompt_style.style_name == "PHI3":
+            ret = f"<|system|>{prompt_style.intra_message_sep}{prompt_style.system_prompt}{prompt_style.inter_message_sep}"
+            for message in chat_history:
+                content = message["content"] or ""
+                role = get_role(message["role"])
+                if content:
+                    ret += f"<|{role}|>{prompt_style.intra_message_sep}{content}{prompt_style.inter_message_sep}"
+                else:
+                    ret += f"<|{role}|>{prompt_style.intra_message_sep}"
+            ret += "<|assistant|>\n"
+            return ret
+        elif prompt_style.style_name == "c4ai-command-r":
+            ret = (
+                f"<BOS_TOKEN><|START_OF_TURN_TOKEN|><|SYSTEM_TOKEN|>"
+                f"{prompt_style.system_prompt}{prompt_style.inter_message_sep}"
+            )
+            for i, message in enumerate(chat_history):
+                role = get_role(message["role"])
+                content = message["content"]
+                if content:
+                    ret += f"{role}{content}{prompt_style.inter_message_sep}"
+                else:
+                    ret += role
+            return ret
+        elif prompt_style.style_name == "mistral-nemo":
+            seps = [prompt_style.intra_message_sep, prompt_style.inter_message_sep]
+            ret = "<s>"
+            for i, message in enumerate(chat_history):
+                role = get_role(message["role"])
+                content = message["content"]
+                if content:
+                    if i == len(chat_history) - 2 and prompt_style.system_prompt:
+                        ret += (
+                            role
+                            + " "
+                            + prompt_style.system_prompt
+                            + "\n\n"
+                            + content
+                            + seps[i % 2]
+                        )
+                    else:
+                        ret += role + " " + content + seps[i % 2]
+                else:
+                    ret += role
+            return ret
+        elif prompt_style.style_name == "INTERNVL":
+            ret = (
+                "<s>"
+                if prompt_style.system_prompt == ""
+                else "<s><|im_start|>system\n"
+                + prompt_style.system_prompt
+                + prompt_style.intra_message_sep
+                + "\n"
+            )
+            images = []  # type: ignore
+            for message in chat_history:
+                role = get_role(message["role"])
+                content = message["content"]
+                if isinstance(content, str):
+                    ret += role + "\n" + content + prompt_style.intra_message_sep + "\n"
+                elif isinstance(content, list):
+                    text = ""
+                    image_urls = []
+                    for c in content:
+                        c_type = c.get("type")
+                        if c_type == "text":
+                            text = c["text"]
+                        elif c_type == "image_url":
+                            image_urls.append(c["image_url"]["url"])
+                    image_futures = []
+                    from concurrent.futures import ThreadPoolExecutor
+
+                    with ThreadPoolExecutor() as executor:
+                        for image_url in image_urls:
+                            fut = executor.submit(_decode_image, image_url)
+                            image_futures.append(fut)
+                    images = [fut.result() for fut in image_futures]
+                    if len(image_futures) == 0:
+                        ret += (
+                            role + "\n" + text + prompt_style.intra_message_sep + "\n"
+                        )
+                    else:
+                        ret += (
+                            role
+                            + "\n"
+                            + f"<image>\n{text}"
+                            + prompt_style.intra_message_sep
+                            + "\n"
+                        )
+
+            return (ret, images)
         else:
             raise ValueError(f"Invalid prompt style: {prompt_style.style_name}")
 
     @classmethod
     def _to_chat_completion_chunk(cls, chunk: CompletionChunk) -> ChatCompletionChunk:
+        choices = chunk.get("choices")
+        if (
+            chunk.get("object") == "chat.completion.chunk"
+            and choices
+            and "delta" in choices[0]
+        ):
+            # Already a ChatCompletionChunk, we don't need to convert chunk.
+            return cast(ChatCompletionChunk, chunk)
         chat_chunk = {
             "id": "chat" + chunk["id"],
             "model": chunk["model"],
@@ -445,7 +513,7 @@ Begin!"""
                 {
                     "index": i,
                     "delta": {
-                        "content": choice["text"],
+                        "content": choice.get("text"),
                         **(
                             {"tool_calls": choice["tool_calls"]}
                             if "tool_calls" in choice
@@ -457,9 +525,6 @@ Begin!"""
                 for i, choice in enumerate(chunk["choices"])
             ],
         }
-        usage = chunk.get("usage")
-        if usage is not None:
-            chat_chunk["usage"] = usage
         return cast(ChatCompletionChunk, chat_chunk)
 
     @classmethod
@@ -483,6 +548,19 @@ Begin!"""
                 for i, choice in enumerate(chunk["choices"])
             ],
         }
+        return cast(ChatCompletionChunk, chat_chunk)
+
+    @classmethod
+    def _get_final_chat_completion_chunk(
+        cls, chunk: CompletionChunk
+    ) -> ChatCompletionChunk:
+        chat_chunk = {
+            "id": "chat" + chunk["id"],
+            "model": chunk["model"],
+            "created": chunk["created"],
+            "object": "chat.completion.chunk",
+            "choices": [],
+        }
         usage = chunk.get("usage")
         if usage is not None:
             chat_chunk["usage"] = usage
@@ -496,7 +574,12 @@ Begin!"""
         for i, chunk in enumerate(chunks):
             if i == 0:
                 yield cls._get_first_chat_completion_chunk(chunk)
-            yield cls._to_chat_completion_chunk(chunk)
+            # usage
+            choices = chunk.get("choices")
+            if not choices:
+                yield cls._get_final_chat_completion_chunk(chunk)
+            else:
+                yield cls._to_chat_completion_chunk(chunk)
 
     @classmethod
     async def _async_to_chat_completion_chunks(
@@ -507,7 +590,12 @@ Begin!"""
         async for chunk in chunks:
             if i == 0:
                 yield cls._get_first_chat_completion_chunk(chunk)
-            yield cls._to_chat_completion_chunk(chunk)
+            # usage
+            choices = chunk.get("choices")
+            if not choices:
+                yield cls._get_final_chat_completion_chunk(chunk)
+            else:
+                yield cls._to_chat_completion_chunk(chunk)
             i += 1
 
     @staticmethod
@@ -549,10 +637,14 @@ Begin!"""
             return arguments, None, None
 
     @staticmethod
-    def _eval_chatglm3_arguments(c, tools):
-        if isinstance(c[0], str):
-            return c[0], None, None
-        return None, c[0]["name"], c[0]["parameters"]
+    def _eval_glm_chat_arguments(c, tools):
+        try:
+            if isinstance(c[0], str):
+                return c[0], None, None
+            return None, c[0]["name"], c[0]["parameters"]
+        except KeyError:
+            logger.error("Can't parse glm output: %s", c)
+            return str(c), None, None
 
     @staticmethod
     def _eval_qwen_chat_arguments(c, tools):
@@ -601,9 +693,9 @@ Begin!"""
         family = model_family.model_family or model_family.model_name
         if family in ["gorilla-openfunctions-v1", "gorilla-openfunctions-v2"]:
             content, func, args = cls._eval_gorilla_openfunctions_arguments(c, tools)
-        elif "chatglm3" == family:
-            content, func, args = cls._eval_chatglm3_arguments(c, tools)
-        elif family in ["qwen-chat", "qwen1.5-chat"]:
+        elif family in GLM4_TOOL_CALL_FAMILY:
+            content, func, args = cls._eval_glm_chat_arguments(c, tools)
+        elif family in QWEN_TOOL_CALL_FAMILY:
             content, func, args = cls._eval_qwen_chat_arguments(c, tools)
         else:
             raise Exception(
@@ -618,28 +710,77 @@ Begin!"""
         Generates a filter function for Qwen series models to retain outputs after "\nFinal Answer:".
 
         Returns:
-            A function that takes tokens (string output by the model so far) as input
-            returns True if current token is after "\nFinal Answer:", else False.
+            A function that takes tokens (string output by the model so far) and delta (new tokens added) as input,
+            returns the part after "\nFinal Answer:" if found, else returns delta.
         """
         family = model_family.model_family or model_family.model_name
-        if family in ["qwen-chat", "qwen1.5-chat"]:
+        if family in QWEN_TOOL_CALL_FAMILY:
             # Encapsulating function to reset 'found' after each call
             found = False
 
-            def process_token(tokens: str):
+            def process_tokens(tokens: str, delta: str):
                 nonlocal found
                 # Once "Final Answer:" is found, future tokens are allowed.
                 if found:
-                    return True
+                    return delta
                 # Check if the token ends with "\nFinal Answer:" and update `found`.
-                if tokens.endswith("\nFinal Answer:"):
+                final_answer_idx = tokens.lower().rfind("\nfinal answer:")
+                if final_answer_idx != -1:
                     found = True
-                return False
+                    return tokens[final_answer_idx + len("\nfinal answer:") :]
+                return ""
 
-            return process_token
+            return process_tokens
         else:
-            # For other families, allow all tokens.
-            return lambda tokens: True
+            return lambda tokens, delta: delta
+
+    @classmethod
+    def _tool_calls_completion_chunk(cls, model_family, model_uid, c, tools):
+        _id = str(uuid.uuid4())
+        content, func, args = cls._eval_tool_arguments(model_family, c, tools)
+        if func:
+            d = {
+                "role": "assistant",
+                "content": content,
+                "tool_calls": [
+                    {
+                        "id": f"call_{_id}",
+                        "type": "function",
+                        "function": {
+                            "name": func,
+                            "arguments": json.dumps(args),
+                        },
+                    }
+                ],
+            }
+            finish_reason = "tool_calls"
+        else:
+            d = {"role": "assistant", "content": content, "tool_calls": []}
+            finish_reason = "stop"
+        try:
+            usage = c.get("usage")
+            assert "prompt_tokens" in usage
+        except Exception:
+            usage = {
+                "prompt_tokens": -1,
+                "completion_tokens": -1,
+                "total_tokens": -1,
+            }
+        return {
+            "id": "chat" + f"cmpl-{_id}",
+            "model": model_uid,
+            "object": "chat.completion.chunk",
+            "created": int(time.time()),
+            "choices": [
+                {
+                    "index": 0,
+                    "delta": d,
+                    "logprobs": None,
+                    "finish_reason": finish_reason,
+                }
+            ],
+            "usage": usage,
+        }
 
     @classmethod
     def _tool_calls_completion(cls, model_family, model_uid, c, tools):
@@ -664,6 +805,15 @@ Begin!"""
         else:
             m = {"role": "assistant", "content": content, "tool_calls": []}
             finish_reason = "stop"
+        try:
+            usage = c.get("usage")
+            assert "prompt_tokens" in usage
+        except Exception:
+            usage = {
+                "prompt_tokens": -1,
+                "completion_tokens": -1,
+                "total_tokens": -1,
+            }
         return {
             "id": "chat" + f"cmpl-{_id}",
             "model": model_uid,
@@ -676,19 +826,27 @@ Begin!"""
                     "finish_reason": finish_reason,
                 }
             ],
-            "usage": {
-                "prompt_tokens": -1,
-                "completion_tokens": -1,
-                "total_tokens": -1,
-            },
+            "usage": usage,
         }
+
+    @classmethod
+    def get_full_prompt(cls, model_family, prompt, system_prompt, chat_history, tools):
+        assert model_family.prompt_style is not None
+        prompt_style = model_family.prompt_style.copy()
+        if system_prompt:
+            prompt_style.system_prompt = system_prompt
+        chat_history = chat_history or []
+        full_prompt = cls.get_prompt(prompt, chat_history, prompt_style, tools=tools)
+        return full_prompt
 
 
 def get_file_location(
     llm_family: LLMFamilyV1, spec: LLMSpecV1, quantization: str
 ) -> Tuple[str, bool]:
-    cache_dir = _get_cache_dir(llm_family, spec, create_if_not_exist=False)
-    cache_status = get_cache_status(llm_family, spec)
+    cache_dir = _get_cache_dir(
+        llm_family, spec, quantization, create_if_not_exist=False
+    )
+    cache_status = get_cache_status(llm_family, spec, quantization)
     if isinstance(cache_status, list):
         is_cached = None
         for q, cs in zip(spec.quantizations, cache_status):
@@ -699,10 +857,10 @@ def get_file_location(
         is_cached = cache_status
     assert isinstance(is_cached, bool)
 
-    if spec.model_format in ["pytorch", "gptq", "awq"]:
+    if spec.model_format in ["pytorch", "gptq", "awq", "fp8", "mlx"]:
         return cache_dir, is_cached
-    elif spec.model_format in ["ggmlv3", "ggufv2"]:
-        assert isinstance(spec, GgmlLLMSpecV1)
+    elif spec.model_format in ["ggufv2"]:
+        assert isinstance(spec, LlamaCppLLMSpecV1)
         filename = spec.model_file_name_template.format(quantization=quantization)
         model_path = os.path.join(cache_dir, filename)
         return model_path, is_cached
@@ -714,3 +872,22 @@ def get_model_version(
     llm_family: LLMFamilyV1, llm_spec: LLMSpecV1, quantization: str
 ) -> str:
     return f"{llm_family.model_name}--{llm_spec.model_size_in_billions}B--{llm_spec.model_format}--{quantization}"
+
+
+def _decode_image(_url):
+    if _url.startswith("data:"):
+        logging.info("Parse url by base64 decoder.")
+        # https://platform.openai.com/docs/guides/vision/uploading-base-64-encoded-images
+        # e.g. f"data:image/jpeg;base64,{base64_image}"
+        _type, data = _url.split(";")
+        _, ext = _type.split("/")
+        data = data[len("base64,") :]
+        data = base64.b64decode(data.encode("utf-8"))
+        return Image.open(BytesIO(data)).convert("RGB")
+    else:
+        try:
+            response = requests.get(_url)
+        except requests.exceptions.MissingSchema:
+            return Image.open(_url).convert("RGB")
+        else:
+            return Image.open(BytesIO(response.content)).convert("RGB")

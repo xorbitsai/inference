@@ -25,13 +25,13 @@ if TYPE_CHECKING:
         ChatCompletion,
         ChatCompletionChunk,
         ChatCompletionMessage,
-        ChatglmCppGenerateConfig,
         Completion,
         CompletionChunk,
         Embedding,
         ImageList,
         LlamaCppGenerateConfig,
         PytorchGenerateConfig,
+        VideoList,
     )
 
 
@@ -136,6 +136,7 @@ class RESTfulRerankModelHandle(RESTfulModelHandle):
         top_n: Optional[int] = None,
         max_chunks_per_doc: Optional[int] = None,
         return_documents: Optional[bool] = None,
+        return_len: Optional[bool] = None,
         **kwargs,
     ):
         """
@@ -153,6 +154,8 @@ class RESTfulRerankModelHandle(RESTfulModelHandle):
             The maximum number of chunks derived from a document
         return_documents: bool
             if return documents
+        return_len: bool
+            if return tokens len
         Returns
         -------
         Scores
@@ -171,6 +174,7 @@ class RESTfulRerankModelHandle(RESTfulModelHandle):
             "top_n": top_n,
             "max_chunks_per_doc": max_chunks_per_doc,
             "return_documents": return_documents,
+            "return_len": return_len,
         }
         request_body.update(kwargs)
         response = requests.post(url, json=request_body, headers=self.auth_headers)
@@ -179,8 +183,6 @@ class RESTfulRerankModelHandle(RESTfulModelHandle):
                 f"Failed to rerank documents, detail: {response.json()['detail']}"
             )
         response_data = response.json()
-        for r in response_data["results"]:
-            r["document"] = documents[r["index"]]
         return response_data
 
 
@@ -233,9 +235,9 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
         self,
         image: Union[str, bytes],
         prompt: str,
-        negative_prompt: str,
+        negative_prompt: Optional[str] = None,
         n: int = 1,
-        size: str = "1024*1024",
+        size: Optional[str] = None,
         response_format: str = "url",
         **kwargs,
     ) -> "ImageList":
@@ -293,6 +295,119 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
         response_data = response.json()
         return response_data
 
+    def inpainting(
+        self,
+        image: Union[str, bytes],
+        mask_image: Union[str, bytes],
+        prompt: str,
+        negative_prompt: Optional[str] = None,
+        n: int = 1,
+        size: Optional[str] = None,
+        response_format: str = "url",
+        **kwargs,
+    ) -> "ImageList":
+        """
+        Inpaint an image by the input text.
+
+        Parameters
+        ----------
+        image: `Union[str, bytes]`
+            an image batch to be inpainted (which parts of the image to
+            be masked out with `mask_image` and repainted according to `prompt`). For both numpy array and pytorch
+            tensor, the expected value range is between `[0, 1]` If it's a tensor or a list or tensors, the
+            expected shape should be `(B, C, H, W)` or `(C, H, W)`. If it is a numpy array or a list of arrays, the
+            expected shape should be `(B, H, W, C)` or `(H, W, C)` It can also accept image latents as `image`, but
+            if passing latents directly it is not encoded again.
+        mask_image: `Union[str, bytes]`
+            representing an image batch to mask `image`. White pixels in the mask
+            are repainted while black pixels are preserved. If `mask_image` is a PIL image, it is converted to a
+            single channel (luminance) before use. If it's a numpy array or pytorch tensor, it should contain one
+            color channel (L) instead of 3, so the expected shape for pytorch tensor would be `(B, 1, H, W)`, `(B,
+            H, W)`, `(1, H, W)`, `(H, W)`. And for numpy array would be for `(B, H, W, 1)`, `(B, H, W)`, `(H, W,
+            1)`, or `(H, W)`.
+        prompt: `str` or `List[str]`
+            The prompt or prompts to guide image generation. If not defined, you need to pass `prompt_embeds`.
+        negative_prompt (`str` or `List[str]`, *optional*):
+            The prompt or prompts not to guide the image generation. If not defined, one has to pass
+            `negative_prompt_embeds` instead. Ignored when not using guidance (i.e., ignored if `guidance_scale` is
+            less than `1`).
+        n: `int`, defaults to 1
+            The number of images to generate per prompt. Must be between 1 and 10.
+        size: `str`, defaults to None
+            The width*height in pixels of the generated image.
+        response_format: `str`, defaults to `url`
+            The format in which the generated images are returned. Must be one of url or b64_json.
+        Returns
+        -------
+        ImageList
+            A list of image objects.
+            :param prompt:
+            :param image:
+        """
+        url = f"{self._base_url}/v1/images/inpainting"
+        params = {
+            "model": self._model_uid,
+            "prompt": prompt,
+            "negative_prompt": negative_prompt,
+            "n": n,
+            "size": size,
+            "response_format": response_format,
+            "kwargs": json.dumps(kwargs),
+        }
+        files: List[Any] = []
+        for key, value in params.items():
+            files.append((key, (None, value)))
+        files.append(("image", ("image", image, "application/octet-stream")))
+        files.append(
+            ("mask_image", ("mask_image", mask_image, "application/octet-stream"))
+        )
+        response = requests.post(url, files=files, headers=self.auth_headers)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to inpaint the images, detail: {_get_error_string(response)}"
+            )
+
+        response_data = response.json()
+        return response_data
+
+
+class RESTfulVideoModelHandle(RESTfulModelHandle):
+    def text_to_video(
+        self,
+        prompt: str,
+        n: int = 1,
+        **kwargs,
+    ) -> "VideoList":
+        """
+        Creates a video by the input text.
+
+        Parameters
+        ----------
+        prompt: `str` or `List[str]`
+            The prompt or prompts to guide video generation. If not defined, you need to pass `prompt_embeds`.
+        n: `int`, defaults to 1
+            The number of videos to generate per prompt. Must be between 1 and 10.
+        Returns
+        -------
+        VideoList
+            A list of video objects.
+        """
+        url = f"{self._base_url}/v1/video/generations"
+        request_body = {
+            "model": self._model_uid,
+            "prompt": prompt,
+            "n": n,
+            "kwargs": json.dumps(kwargs),
+        }
+        response = requests.post(url, json=request_body, headers=self.auth_headers)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to create the video, detail: {_get_error_string(response)}"
+            )
+
+        response_data = response.json()
+        return response_data
+
 
 class RESTfulGenerateModelHandle(RESTfulModelHandle):
     def generate(
@@ -311,7 +426,7 @@ class RESTfulGenerateModelHandle(RESTfulModelHandle):
             The user's message or user's input.
         generate_config: Optional[Union["LlamaCppGenerateConfig", "PytorchGenerateConfig"]]
             Additional configuration for the chat generation.
-            "LlamaCppGenerateConfig" -> Configuration for ggml model
+            "LlamaCppGenerateConfig" -> Configuration for llama-cpp-python model
             "PytorchGenerateConfig" -> Configuration for pytorch model
 
         Returns
@@ -378,7 +493,7 @@ class RESTfulChatModelHandle(RESTfulGenerateModelHandle):
             A tool list.
         generate_config: Optional[Union["LlamaCppGenerateConfig", "PytorchGenerateConfig"]]
             Additional configuration for the chat generation.
-            "LlamaCppGenerateConfig" -> configuration for ggml model
+            "LlamaCppGenerateConfig" -> configuration for llama-cpp-python model
             "PytorchGenerateConfig" -> configuration for pytorch model
 
         Returns
@@ -394,6 +509,13 @@ class RESTfulChatModelHandle(RESTfulGenerateModelHandle):
             Report the failure to generate the chat from the server. Detailed information provided in error message.
 
         """
+        warnings.warn(
+            "The parameters `prompt`, `system_prompt` and `chat_history` will be deprecated in version v0.15.0, "
+            "and will be replaced by the parameter `messages`, "
+            "similar to the OpenAI API: https://platform.openai.com/docs/guides/chat-completions/getting-started",
+            category=DeprecationWarning,
+            stacklevel=2,
+        )
 
         url = f"{self._base_url}/v1/chat/completions"
 
@@ -421,134 +543,6 @@ class RESTfulChatModelHandle(RESTfulGenerateModelHandle):
         if response.status_code != 200:
             raise RuntimeError(
                 f"Failed to generate chat completion, detail: {_get_error_string(response)}"
-            )
-
-        if stream:
-            return streaming_response_iterator(response.iter_lines())
-
-        response_data = response.json()
-        return response_data
-
-
-class RESTfulChatglmCppChatModelHandle(RESTfulModelHandle):
-    def chat(
-        self,
-        prompt: str,
-        system_prompt: Optional[str] = None,
-        chat_history: Optional[List["ChatCompletionMessage"]] = None,
-        tools: Optional[List[Dict]] = None,
-        generate_config: Optional["ChatglmCppGenerateConfig"] = None,
-    ) -> Union["ChatCompletion", Iterator["ChatCompletionChunk"]]:
-        """
-        Given a list of messages comprising a conversation, the ChatGLM model will return a response via RESTful APIs.
-
-        Parameters
-        ----------
-        prompt: str
-            The user's input.
-        system_prompt: Optional[str]
-            The system context provide to Model prior to any chats.
-        chat_history: Optional[List["ChatCompletionMessage"]]
-            A list of messages comprising the conversation so far.
-        tools: Optional[List[Dict]]
-            A tool list.
-        generate_config: Optional["ChatglmCppGenerateConfig"]
-            Additional configuration for ChatGLM chat generation.
-
-        Returns
-        -------
-        Union["ChatCompletion", Iterator["ChatCompletionChunk"]]
-            Stream is a parameter in generate_config.
-            When stream is set to True, the function will return Iterator["ChatCompletionChunk"].
-            When stream is set to False, the function will return "ChatCompletion".
-
-        Raises
-        ------
-        RuntimeError
-            Report the failure to generate the chat from the server. Detailed information provided in error message.
-
-        """
-
-        url = f"{self._base_url}/v1/chat/completions"
-
-        if chat_history is None:
-            chat_history = []
-
-        chat_history = handle_system_prompts(chat_history, system_prompt)
-        chat_history.append({"role": "user", "content": prompt})  # type: ignore
-
-        request_body: Dict[str, Any] = {
-            "model": self._model_uid,
-            "messages": chat_history,
-        }
-        if tools is not None:
-            request_body["tools"] = tools
-        if generate_config is not None:
-            for key, value in generate_config.items():
-                request_body[key] = value
-
-        stream = bool(generate_config and generate_config.get("stream"))
-        response = requests.post(
-            url, json=request_body, stream=stream, headers=self.auth_headers
-        )
-
-        if response.status_code != 200:
-            raise RuntimeError(
-                f"Failed to generate chat completion, detail: {_get_error_string(response)}"
-            )
-
-        if stream:
-            return streaming_response_iterator(response.iter_lines())
-
-        response_data = response.json()
-        return response_data
-
-
-class RESTfulChatglmCppGenerateModelHandle(RESTfulChatglmCppChatModelHandle):
-    def generate(
-        self,
-        prompt: str,
-        generate_config: Optional["ChatglmCppGenerateConfig"] = None,
-    ) -> Union["Completion", Iterator["CompletionChunk"]]:
-        """
-        Given a prompt, the ChatGLM model will generate a response via RESTful APIs.
-
-        Parameters
-        ----------
-        prompt: str
-            The user's input.
-        generate_config: Optional["ChatglmCppGenerateConfig"]
-            Additional configuration for ChatGLM chat generation.
-
-        Returns
-        -------
-        Union["Completion", Iterator["CompletionChunk"]]
-            Stream is a parameter in generate_config.
-            When stream is set to True, the function will return Iterator["CompletionChunk"].
-            When stream is set to False, the function will return "Completion".
-
-        Raises
-        ------
-        RuntimeError
-            Report the failure to generate the content from the server. Detailed information provided in error message.
-
-        """
-
-        url = f"{self._base_url}/v1/completions"
-
-        request_body: Dict[str, Any] = {"model": self._model_uid, "prompt": prompt}
-        if generate_config is not None:
-            for key, value in generate_config.items():
-                request_body[key] = value
-
-        stream = bool(generate_config and generate_config.get("stream"))
-
-        response = requests.post(
-            url, json=request_body, stream=stream, headers=self.auth_headers
-        )
-        if response.status_code != 200:
-            raise RuntimeError(
-                f"Failed to generate completion, detail: {response.json()['detail']}"
             )
 
         if stream:
@@ -566,6 +560,7 @@ class RESTfulAudioModelHandle(RESTfulModelHandle):
         prompt: Optional[str] = None,
         response_format: Optional[str] = "json",
         temperature: Optional[float] = 0,
+        timestamp_granularities: Optional[List[str]] = None,
     ):
         """
         Transcribes audio into the input language.
@@ -589,6 +584,11 @@ class RESTfulAudioModelHandle(RESTfulModelHandle):
             while lower values like 0.2 will make it more focused and deterministic.
             If set to 0, the model will use log probability to automatically increase the temperature
             until certain thresholds are hit.
+        timestamp_granularities: Optional[List[str]], default is None.
+            The timestamp granularities to populate for this transcription. response_format must be set verbose_json
+            to use timestamp granularities. Either or both of these options are supported: word, or segment.
+            Note: There is no additional latency for segment timestamps, but generating word timestamps incurs
+            additional latency.
 
         Returns
         -------
@@ -601,12 +601,13 @@ class RESTfulAudioModelHandle(RESTfulModelHandle):
             "prompt": prompt,
             "response_format": response_format,
             "temperature": temperature,
+            "timestamp_granularities[]": timestamp_granularities,
         }
         files: List[Any] = []
-        for key, value in params.items():
-            files.append((key, (None, value)))
         files.append(("file", ("file", audio, "application/octet-stream")))
-        response = requests.post(url, files=files, headers=self.auth_headers)
+        response = requests.post(
+            url, data=params, files=files, headers=self.auth_headers
+        )
         if response.status_code != 200:
             raise RuntimeError(
                 f"Failed to transcribe the audio, detail: {_get_error_string(response)}"
@@ -618,9 +619,11 @@ class RESTfulAudioModelHandle(RESTfulModelHandle):
     def translations(
         self,
         audio: bytes,
+        language: Optional[str] = None,
         prompt: Optional[str] = None,
         response_format: Optional[str] = "json",
         temperature: Optional[float] = 0,
+        timestamp_granularities: Optional[List[str]] = None,
     ):
         """
         Translates audio into English.
@@ -631,6 +634,9 @@ class RESTfulAudioModelHandle(RESTfulModelHandle):
         audio: bytes
             The audio file object (not file name) to transcribe, in one of these formats: flac, mp3, mp4, mpeg,
             mpga, m4a, ogg, wav, or webm.
+        language: Optional[str]
+            The language of the input audio. Supplying the input language in ISO-639-1
+            (https://en.wikipedia.org/wiki/List_of_ISO_639_language_codes) format will improve accuracy and latency.
         prompt: Optional[str]
             An optional text to guide the model's style or continue a previous audio segment.
             The prompt should match the audio language.
@@ -641,6 +647,11 @@ class RESTfulAudioModelHandle(RESTfulModelHandle):
             while lower values like 0.2 will make it more focused and deterministic.
             If set to 0, the model will use log probability to automatically increase the temperature
             until certain thresholds are hit.
+        timestamp_granularities: Optional[List[str]], default is None.
+            The timestamp granularities to populate for this transcription. response_format must be set verbose_json
+            to use timestamp granularities. Either or both of these options are supported: word, or segment.
+            Note: There is no additional latency for segment timestamps, but generating word timestamps incurs
+            additional latency.
 
         Returns
         -------
@@ -649,15 +660,17 @@ class RESTfulAudioModelHandle(RESTfulModelHandle):
         url = f"{self._base_url}/v1/audio/translations"
         params = {
             "model": self._model_uid,
+            "language": language,
             "prompt": prompt,
             "response_format": response_format,
             "temperature": temperature,
+            "timestamp_granularities[]": timestamp_granularities,
         }
         files: List[Any] = []
-        for key, value in params.items():
-            files.append((key, (None, value)))
         files.append(("file", ("file", audio, "application/octet-stream")))
-        response = requests.post(url, files=files, headers=self.auth_headers)
+        response = requests.post(
+            url, data=params, files=files, headers=self.auth_headers
+        )
         if response.status_code != 200:
             raise RuntimeError(
                 f"Failed to translate the audio, detail: {_get_error_string(response)}"
@@ -665,6 +678,106 @@ class RESTfulAudioModelHandle(RESTfulModelHandle):
 
         response_data = response.json()
         return response_data
+
+    def speech(
+        self,
+        input: str,
+        voice: str = "",
+        response_format: str = "mp3",
+        speed: float = 1.0,
+        stream: bool = False,
+        prompt_speech: Optional[bytes] = None,
+        **kwargs,
+    ):
+        """
+        Generates audio from the input text.
+
+        Parameters
+        ----------
+
+        input: str
+            The text to generate audio for. The maximum length is 4096 characters.
+        voice: str
+            The voice to use when generating the audio.
+        response_format: str
+            The format to audio in.
+        speed: str
+            The speed of the generated audio.
+        stream: bool
+            Use stream or not.
+
+        Returns
+        -------
+        bytes
+            The generated audio binary.
+        """
+        url = f"{self._base_url}/v1/audio/speech"
+        params = {
+            "model": self._model_uid,
+            "input": input,
+            "voice": voice,
+            "response_format": response_format,
+            "speed": speed,
+            "stream": stream,
+            "kwargs": json.dumps(kwargs),
+        }
+        if prompt_speech:
+            files: List[Any] = []
+            files.append(
+                (
+                    "prompt_speech",
+                    ("prompt_speech", prompt_speech, "application/octet-stream"),
+                )
+            )
+            response = requests.post(
+                url, data=params, files=files, headers=self.auth_headers
+            )
+        else:
+            response = requests.post(url, json=params, headers=self.auth_headers)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to speech the text, detail: {_get_error_string(response)}"
+            )
+
+        if stream:
+            return response.iter_content(chunk_size=1024)
+
+        return response.content
+
+
+class RESTfulFlexibleModelHandle(RESTfulModelHandle):
+    def infer(
+        self,
+        **kwargs,
+    ):
+        """
+        Call flexible model.
+
+        Parameters
+        ----------
+
+        kwargs: dict
+            The inference arguments.
+
+
+        Returns
+        -------
+        bytes
+            The inference result.
+        """
+        url = f"{self._base_url}/v1/flexible/infers"
+        params = {
+            "model": self._model_uid,
+        }
+        params.update(kwargs)
+
+        response = requests.post(url, json=params, headers=self.auth_headers)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to predict, detail: {_get_error_string(response)}"
+            )
+
+        return response.content
 
 
 class Client:
@@ -754,60 +867,11 @@ class Client:
         model_list = response_data["data"]
         return {item["id"]: item for item in model_list}
 
-    def launch_speculative_llm(
-        self,
-        model_name: str,
-        model_size_in_billions: Optional[Union[int, str, float]],
-        quantization: Optional[str],
-        draft_model_name: str,
-        draft_model_size_in_billions: Optional[int],
-        draft_quantization: Optional[str],
-        n_gpu: Optional[Union[int, str]] = "auto",
-    ):
-        """
-        Launch the LLM along with a draft model based on the parameters on the server via RESTful APIs. This is an
-        experimental feature and the API may change in the future.
-
-        Returns
-        -------
-        str
-            The unique model_uid for the launched model.
-
-        """
-        warnings.warn(
-            "`launch_speculative_llm` is an experimental feature and the API may change in the future."
-        )
-
-        # convert float to int or string since the RESTful API does not accept float.
-        if isinstance(model_size_in_billions, float):
-            model_size_in_billions = convert_float_to_int_or_str(model_size_in_billions)
-
-        payload = {
-            "model_uid": None,
-            "model_name": model_name,
-            "model_size_in_billions": model_size_in_billions,
-            "quantization": quantization,
-            "draft_model_name": draft_model_name,
-            "draft_model_size_in_billions": draft_model_size_in_billions,
-            "draft_quantization": draft_quantization,
-            "n_gpu": n_gpu,
-        }
-
-        url = f"{self.base_url}/experimental/speculative_llms"
-        response = requests.post(url, json=payload, headers=self._headers)
-        if response.status_code != 200:
-            raise RuntimeError(
-                f"Failed to launch model, detail: {_get_error_string(response)}"
-            )
-
-        response_data = response.json()
-        model_uid = response_data["model_uid"]
-        return model_uid
-
     def launch_model(
         self,
         model_name: str,
         model_type: str = "LLM",
+        model_engine: Optional[str] = None,
         model_uid: Optional[str] = None,
         model_size_in_billions: Optional[Union[int, str, float]] = None,
         model_format: Optional[str] = None,
@@ -829,6 +893,8 @@ class Client:
             The name of model.
         model_type: str
             type of model.
+        model_engine: Optional[str]
+            Specify the inference engine of the model when launching LLM.
         model_uid: str
             UID of model, auto generate a UUID if is None.
         model_size_in_billions: Optional[Union[int, str, float]]
@@ -872,6 +938,7 @@ class Client:
         payload = {
             "model_uid": model_uid,
             "model_name": model_name,
+            "model_engine": model_engine,
             "peft_model_config": peft_model_config,
             "model_type": model_type,
             "model_size_in_billions": model_size_in_billions,
@@ -941,7 +1008,6 @@ class Client:
         -------
         ModelHandle
             The corresponding Model Handler based on the Model specified in the uid:
-              - :obj:`xinference.client.handlers.ChatglmCppChatModelHandle` -> provide handle to ChatGLM Model
               - :obj:`xinference.client.handlers.GenerateModelHandle` -> provide handle to basic generate Model. e.g. Baichuan.
               - :obj:`xinference.client.handlers.ChatModelHandle` -> provide handle to chat Model. e.g. Baichuan-chat.
 
@@ -962,11 +1028,7 @@ class Client:
         desc = response.json()
 
         if desc["model_type"] == "LLM":
-            if desc["model_format"] == "ggmlv3" and "chatglm" in desc["model_name"]:
-                return RESTfulChatglmCppGenerateModelHandle(
-                    model_uid, self.base_url, auth_headers=self._headers
-                )
-            elif "chat" in desc["model_ability"]:
+            if "chat" in desc["model_ability"]:
                 return RESTfulChatModelHandle(
                     model_uid, self.base_url, auth_headers=self._headers
                 )
@@ -990,6 +1052,14 @@ class Client:
             )
         elif desc["model_type"] == "audio":
             return RESTfulAudioModelHandle(
+                model_uid, self.base_url, auth_headers=self._headers
+            )
+        elif desc["model_type"] == "video":
+            return RESTfulVideoModelHandle(
+                model_uid, self.base_url, auth_headers=self._headers
+            )
+        elif desc["model_type"] == "flexible":
+            return RESTfulFlexibleModelHandle(
                 model_uid, self.base_url, auth_headers=self._headers
             )
         else:
@@ -1045,7 +1115,13 @@ class Client:
             )
         return response.json()
 
-    def register_model(self, model_type: str, model: str, persist: bool):
+    def register_model(
+        self,
+        model_type: str,
+        model: str,
+        persist: bool,
+        worker_ip: Optional[str] = None,
+    ):
         """
         Register a custom model.
 
@@ -1055,6 +1131,8 @@ class Client:
             The type of model.
         model: str
             The model definition. (refer to: https://inference.readthedocs.io/en/latest/models/custom.html)
+        worker_ip: Optional[str]
+            The IP address of the worker on which the model is running.
         persist: bool
 
 
@@ -1064,7 +1142,7 @@ class Client:
             Report failure to register the custom model. Provide details of failure through error message.
         """
         url = f"{self.base_url}/v1/model_registrations/{model_type}"
-        request_body = {"model": model, "persist": persist}
+        request_body = {"model": model, "worker_ip": worker_ip, "persist": persist}
         response = requests.post(url, json=request_body, headers=self._headers)
         if response.status_code != 200:
             raise RuntimeError(
@@ -1130,6 +1208,104 @@ class Client:
         response_data = response.json()
         return response_data
 
+    def list_cached_models(
+        self, model_name: Optional[str] = None, worker_ip: Optional[str] = None
+    ) -> List[Dict[Any, Any]]:
+        """
+        Get a list of cached models.
+        Parameters
+        ----------
+        model_name: Optional[str]
+            The name of model.
+        worker_ip: Optional[str]
+            Specify the worker ip where the model is located in a distributed scenario.
+
+        Returns
+        -------
+        List[Dict[Any, Any]]
+            The collection of cached models on the server.
+
+        Raises
+        ------
+        RuntimeError
+            Raised when the request fails, including the reason for the failure.
+        """
+
+        url = f"{self.base_url}/v1/cache/models"
+        params = {
+            "model_name": model_name,
+            "worker_ip": worker_ip,
+        }
+        response = requests.get(url, headers=self._headers, params=params)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to list cached model, detail: {_get_error_string(response)}"
+            )
+
+        response_data = response.json()
+        response_data = response_data.get("list")
+        return response_data
+
+    def list_deletable_models(
+        self, model_version: str, worker_ip: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Get the cached models with the model path cached on the server.
+        Parameters
+        ----------
+        model_version: str
+            The version of the model.
+        worker_ip: Optional[str]
+            Specify the worker ip where the model is located in a distributed scenario.
+        Returns
+        -------
+        Dict[str, Dict[str,str]]]
+            Dictionary with keys "model_name" and values model_file_location.
+        """
+        url = f"{self.base_url}/v1/cache/models/files"
+        params = {
+            "model_version": model_version,
+            "worker_ip": worker_ip,
+        }
+        response = requests.get(url, headers=self._headers, params=params)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to get paths by model name, detail: {_get_error_string(response)}"
+            )
+
+        response_data = response.json()
+        return response_data
+
+    def confirm_and_remove_model(
+        self, model_version: str, worker_ip: Optional[str] = None
+    ) -> bool:
+        """
+        Remove the cached models with the model name cached on the server.
+        Parameters
+        ----------
+        model_version: str
+            The version of the model.
+        worker_ip: Optional[str]
+            Specify the worker ip where the model is located in a distributed scenario.
+        Returns
+        -------
+        str
+            The response of the server.
+        """
+        url = f"{self.base_url}/v1/cache/models"
+        params = {
+            "model_version": model_version,
+            "worker_ip": worker_ip,
+        }
+        response = requests.delete(url, headers=self._headers, params=params)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to remove cached models, detail: {_get_error_string(response)}"
+            )
+
+        response_data = response.json()
+        return response_data.get("result", False)
+
     def get_model_registration(
         self, model_type: str, model_name: str
     ) -> Dict[str, Any]:
@@ -1157,3 +1333,83 @@ class Client:
 
         response_data = response.json()
         return response_data
+
+    def query_engine_by_model_name(self, model_name: str):
+        """
+        Get the engine parameters with the model name registered on the server.
+
+        Parameters
+        ----------
+        model_name: str
+            The name of the model.
+        Returns
+        -------
+        Dict[str, List[Dict[str, Any]]]
+            The supported engine parameters of registered models on the server.
+        """
+        url = f"{self.base_url}/v1/engines/{model_name}"
+        response = requests.get(url, headers=self._headers)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to query engine parameters by model name, detail: {_get_error_string(response)}"
+            )
+
+        response_data = response.json()
+        return response_data
+
+    def abort_request(self, model_uid: str, request_id: str):
+        """
+        Abort a request.
+        Abort a submitted request. If the request is finished or not found, this method will be a no-op.
+        Currently, this interface is only supported when batching is enabled for models on transformers backend.
+
+        Parameters
+        ----------
+        model_uid: str
+            Model uid.
+        request_id: str
+            Request id.
+        Returns
+        -------
+        Dict
+            Return empty dict.
+        """
+        url = f"{self.base_url}/v1/models/{model_uid}/requests/{request_id}/abort"
+        response = requests.post(url, headers=self._headers)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to abort request, detail: {_get_error_string(response)}"
+            )
+
+        response_data = response.json()
+        return response_data
+
+    def get_workers_info(self):
+        url = f"{self.base_url}/v1/workers"
+        response = requests.get(url, headers=self._headers)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to get workers info, detail: {_get_error_string(response)}"
+            )
+        response_data = response.json()
+        return response_data
+
+    def get_supervisor_info(self):
+        url = f"{self.base_url}/v1/supervisor"
+        response = requests.get(url, headers=self._headers)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to get supervisor info, detail: {_get_error_string(response)}"
+            )
+        response_json = response.json()
+        return response_json
+
+    def abort_cluster(self):
+        url = f"{self.base_url}/v1/clusters"
+        response = requests.delete(url, headers=self._headers)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to abort cluster, detail: {_get_error_string(response)}"
+            )
+        response_json = response.json()
+        return response_json

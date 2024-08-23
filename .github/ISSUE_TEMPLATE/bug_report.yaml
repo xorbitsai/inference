@@ -1,0 +1,77 @@
+name: "Bug Report"
+description: Submit a bug report to help us improve Xinference. You should provide useful information AMAP rather than simply describing what happened. / 提交一个问题报告来帮助我们改进 Xinference。你必须提供有用的信息而不只是描述发生的现象，否则将不予处理。
+body:
+  - type: textarea
+    id: system-info
+    attributes:
+      label: System Info / 系統信息
+      description: Your operating environment / 您的运行环境信息
+      placeholder: Includes Cuda version, transformers / llama-cpp-python / vllm version, Python version, operating system... / 包括Cuda版本，transformers / llama-cpp-python / vllm版本，Python版本，操作系统等。
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: information-scripts-examples
+    attributes:
+      label: Running Xinference with Docker? / 是否使用 Docker 运行 Xinfernece？
+      description: 'How are you using Xinference? / 以何种方式使用 Xinference？'
+      options:
+        - label: docker / docker
+        - label: pip install / 通过 pip install 安装
+        - label: installation from source / 从源码安装
+
+  - type: textarea
+    id: start-way
+    attributes:
+      label: Version info / 版本信息
+      description: The version of Xinference you are running / Xinference 版本
+    validations:
+      required: true
+
+  - type: textarea
+    id: commandline
+    attributes:
+      label: The command used to start Xinference / 用以启动 xinference 的命令
+      description: |
+        Please provide the command used to start Xinference. 
+        If it is a distributed scenario, the commands for starting the supervisor and worker need to be listed separately. 
+        If it is a Docker scenario, please provide the complete command for starting Xinference through Docker. 
+        If it is another method, please describe it specifically.
+
+        请提供启动 xinference 的命令。
+        如果是分布式场景，启动 supervisor 和 worker 的命令需要分别列出。
+        如果是docker场景，请提供通过 docker 启动 xinference 的完整命令。
+        如果是其他方式，请具体描述。
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    validations:
+      required: true
+    attributes:
+      label: Reproduction / 复现过程
+      description: |
+        Please provide a code example that reproduces the problem you encountered, preferably with a minimal reproduction unit.
+        If you have code snippets, error messages, stack traces, please provide them here as well.
+        Please format your code correctly using code tags. See https://help.github.com/en/github/writing-on-github/creating-and-highlighting-code-blocks#syntax-highlighting
+        Do not use screenshots, as they are difficult to read and (more importantly) do not allow others to copy and paste your code.
+        
+        请提供能重现您遇到的问题的代码示例,最好是最小复现单元。
+        如果您有代码片段、错误信息、堆栈跟踪、涉及的命令行操作等也请在此提供。
+        请使用代码标签正确格式化您的代码。请参见 https://help.github.com/en/github/writing-on-github/creating-and-highlighting-code-blocks#syntax-highlighting
+        请勿使用截图，因为截图难以阅读，而且（更重要的是）不允许他人复制粘贴您的代码。
+      placeholder: |
+        Steps to reproduce the behavior/复现Bug的步骤:
+          
+          1.
+          2.
+          3.
+
+  - type: textarea
+    id: expected-behavior
+    validations:
+      required: true
+    attributes:
+      label: Expected behavior / 期待表现
+      description: "A clear and concise description of what you would expect to happen. / 简单描述您期望发生的事情。"

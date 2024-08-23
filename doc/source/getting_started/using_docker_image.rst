@@ -11,16 +11,18 @@ Prerequisites
 =============
 * The image can only run in an environment with GPUs and CUDA installed, because Xinference in the image relies on Nvidia GPUs for acceleration.
 * CUDA must be successfully installed on the host machine. This can be determined by whether you can successfully execute the ``nvidia-smi`` command.
-* The CUDA version in the docker image is ``12.1``, and the CUDA version on the host machine should ideally be consistent with it. Be sure to keep the CUDA version on your host machine between ``11.8`` and ``12.2``, even if it is inconsistent.
+* The CUDA version in the docker image is ``12.4``, and the CUDA version on the host machine should be ``12.4`` or above, and the NVIDIA driver version should be ``550`` or above.
 
 
 Docker Image
 ============
 The official image of Xinference is available on DockerHub in the repository ``xprobe/xinference``.
-There are two kinds of image tags available:
+Available tags include:
 
 * ``nightly-main``: This image is built daily from the `GitHub main branch <https://github.com/xorbitsai/inference>`_ and generally does not guarantee stability.
 * ``v<release version>``: This image is built each time a Xinference release version is published, and it is typically more stable.
+* ``latest``: This image is built with the latest Xinference release version.
+* For CPU version, add ``-cpu`` suffix, e.g. ``nightly-main-cpu``.
 
 
 Dockerfile for custom build

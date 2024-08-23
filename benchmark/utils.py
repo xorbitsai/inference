@@ -12,16 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import aiohttp
 import json
 import logging
 import random
-import time
 from typing import TYPE_CHECKING, List, Tuple
 
-import openai
 from transformers import AutoTokenizer, PreTrainedTokenizerFast
 
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -97,6 +95,7 @@ def sample_requests(
     dataset_path: str,
     num_requests: int,
     tokenizer: "PreTrainedTokenizerBase",
+    prompt_len_limit: int = 1024,
 ) -> List[Tuple[str, int, int]]:
     # Load the dataset.
     with open(dataset_path) as f:
@@ -128,7 +127,10 @@ def sample_requests(
             # This is because TGI causes errors when the input or output length
             # is too short.
             continue
-        if prompt_len > 1024 or prompt_len + output_len > 2048:
+        if (
+            prompt_len > prompt_len_limit
+            or prompt_len + output_len > prompt_len_limit * 2
+        ):
             # Prune too long sequences.
             continue
         filtered_dataset.append((prompt, prompt_len, output_len))
@@ -138,36 +140,28 @@ def sample_requests(
     return sampled_requests
 
 
-async def send_request(
-    api_url: str,
-    model_uid: str,
-    prompt: str,
-    prompt_len: int,
-    output_len: int,
-    stats: List[Tuple[int, int, float]],  # output.
-) -> None:
-    request_start_time = time.time()
-
-    pload = {
-        "model": model_uid,
-        "n": 1,
-        "temperature": 1.0,
-        "top_p": 1.0,
-        "max_tokens": output_len,
-        "stream": False,
-        "messages": [{"role": "user", "content": prompt}]
-    }
-
-    headers = {"User-Agent": "Benchmark Client"}
-
-    timeout = aiohttp.ClientTimeout(total=3 * 3600)
-    async with aiohttp.ClientSession(timeout=timeout) as session:
-        async with session.post(api_url, headers=headers, json=pload) as response:
-            resp = await response.json()
-            if response.status == 200:
-                completion_tokens = resp['usage']['completion_tokens']
-                request_end_time = time.time()
-                request_latency = request_end_time - request_start_time
-                stats.append((prompt_len, completion_tokens, request_latency))
-            else:
-                logger.error(f"Failed to create chat completion: {resp}")
+def generate_sorting_prompts(
+    num_prompts: int,
+    context_length: int,
+    prompt_len_limit: int,
+    tokenizer: "PreTrainedTokenizerBase",
+) -> List[Tuple[str, int, int]]:
+    prompts = []
+    for i in range(0, num_prompts):
+        random_nums = []
+        _prompt_len = 0
+        while True:
+            r_str = "%s" % random.randint(0, 99)
+            r_len = len(r_str) + 1
+            if r_len + _prompt_len > prompt_len_limit:
+                break
+            random_nums.append(r_str)
+            _prompt_len += r_len
+        prompt = "Sort the numbers:" + ",".join(random_nums)
+        prompts.append(prompt)
+    prompt_token_ids = tokenizer(prompts).input_ids
+    dataset = []
+    for i in range(0, len(prompts)):
+        prompt_len = len(prompt_token_ids[i])
+        dataset.append((prompts[i], prompt_len, context_length - prompt_len))
+    return dataset

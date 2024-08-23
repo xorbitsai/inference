@@ -154,6 +154,7 @@ const MenuSide = () => {
                         sessionStorage.setItem('modelType', '/launch_model/llm')
                         navigate('/launch_model/llm')
                         setActive(link)
+                        sessionStorage.setItem('lastActiveUrl', link)
                         console.log(active)
                       } else if (link === 'cluster_information') {
                         navigate('/cluster_info')
@@ -165,6 +166,16 @@ const MenuSide = () => {
                           '/running_models/LLM'
                         )
                         setActive(link)
+                        sessionStorage.setItem('lastActiveUrl', link)
+                        console.log(active)
+                      } else if (link === 'register_model') {
+                        sessionStorage.setItem(
+                          'registerModelType',
+                          '/register_model/llm'
+                        )
+                        navigate('/register_model/llm')
+                        setActive(link)
+                        sessionStorage.setItem('lastActiveUrl', link)
                         console.log(active)
                       } else {
                         navigate(`/${link}`)

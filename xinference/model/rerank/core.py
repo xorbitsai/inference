@@ -12,16 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import gc
 import logging
 import os
 import uuid
 from collections import defaultdict
-from typing import Dict, List, Optional, Tuple
+from collections.abc import Sequence
+from typing import Dict, List, Literal, Optional, Tuple
 
 import numpy as np
+import torch
 
 from ...constants import XINFERENCE_CACHE_DIR
-from ...types import Document, DocumentObj, Rerank
+from ...device_utils import empty_cache
+from ...types import Document, DocumentObj, Rerank, RerankTokens
 from ..core import CacheableModelSpec, ModelDescription
 from ..utils import is_model_cached
 
@@ -31,6 +35,8 @@ logger = logging.getLogger(__name__)
 # Init when registering all the builtin models.
 MODEL_NAME_TO_REVISION: Dict[str, List[str]] = defaultdict(list)
 RERANK_MODEL_DESCRIPTIONS: Dict[str, List[Dict]] = defaultdict(list)
+RERANK_EMPTY_CACHE_COUNT = int(os.getenv("XINFERENCE_RERANK_EMPTY_CACHE_COUNT", "10"))
+assert RERANK_EMPTY_CACHE_COUNT > 0
 
 
 def get_rerank_model_descriptions():
@@ -42,7 +48,7 @@ def get_rerank_model_descriptions():
 class RerankModelSpec(CacheableModelSpec):
     model_name: str
     language: List[str]
-    type: Optional[str] = "normal"
+    type: Optional[str] = "unknown"
     model_id: str
     model_revision: Optional[str]
     model_hub: str = "huggingface"
@@ -101,7 +107,7 @@ class RerankModel:
         self,
         model_spec: RerankModelSpec,
         model_uid: str,
-        model_path: str,
+        model_path: Optional[str] = None,
         device: Optional[str] = None,
         use_fp16: bool = False,
         model_config: Optional[Dict] = None,
@@ -113,28 +119,76 @@ class RerankModel:
         self._model_config = model_config or dict()
         self._use_fp16 = use_fp16
         self._model = None
+        self._counter = 0
+        if model_spec.type == "unknown":
+            model_spec.type = self._auto_detect_type(model_path)
+
+    @staticmethod
+    def _get_tokenizer(model_path):
+        from transformers import AutoTokenizer
+
+        tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
+        return tokenizer
+
+    @staticmethod
+    def _auto_detect_type(model_path):
+        """This method may not be stable due to the fact that the tokenizer name may be changed.
+        Therefore, we only use this method for unknown model types."""
+
+        type_mapper = {
+            "LlamaTokenizerFast": "LLM-based layerwise",
+            "GemmaTokenizerFast": "LLM-based",
+            "XLMRobertaTokenizerFast": "normal",
+        }
+
+        tokenizer = RerankModel._get_tokenizer(model_path)
+        rerank_type = type_mapper.get(type(tokenizer).__name__)
+        if rerank_type is None:
+            logger.warning(
+                f"Can't determine the rerank type based on the tokenizer {tokenizer}, use normal type by default."
+            )
+            return "normal"
+        return rerank_type
 
     def load(self):
-        try:
-            if self._model_spec.type == "normal":
-                from FlagEmbedding import FlagReranker
-            elif self._model_spec.type == "LLM-based":
-                from FlagEmbedding import FlagLLMReranker as FlagReranker
-            elif self._model_spec.type == "LLM-based layerwise":
-                from FlagEmbedding import LayerWiseFlagLLMReranker as FlagReranker
-            else:
-                raise RuntimeError(
-                    f"Unsupported Rank model type: {self._model_spec.type}"
-                )
-        except ImportError:
-            error_message = "Failed to import module 'FlagEmbedding'"
-            installation_guide = [
-                "Please make sure 'FlagEmbedding' is installed. ",
-                "You can install it by `pip install FlagEmbedding`\n",
-            ]
+        if self._model_spec.type == "normal":
+            try:
+                from sentence_transformers.cross_encoder import CrossEncoder
+            except ImportError:
+                error_message = "Failed to import module 'sentence-transformers'"
+                installation_guide = [
+                    "Please make sure 'sentence-transformers' is installed. ",
+                    "You can install it by `pip install sentence-transformers`\n",
+                ]
 
-            raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
-        self._model = FlagReranker(self._model_path, use_fp16=True)
+                raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
+            self._model = CrossEncoder(
+                self._model_path,
+                device=self._device,
+                trust_remote_code=True,
+                **self._model_config,
+            )
+            if self._use_fp16:
+                self._model.model.half()
+        else:
+            try:
+                if self._model_spec.type == "LLM-based":
+                    from FlagEmbedding import FlagLLMReranker as FlagReranker
+                elif self._model_spec.type == "LLM-based layerwise":
+                    from FlagEmbedding import LayerWiseFlagLLMReranker as FlagReranker
+                else:
+                    raise RuntimeError(
+                        f"Unsupported Rank model type: {self._model_spec.type}"
+                    )
+            except ImportError:
+                error_message = "Failed to import module 'FlagEmbedding'"
+                installation_guide = [
+                    "Please make sure 'FlagEmbedding' is installed. ",
+                    "You can install it by `pip install FlagEmbedding`\n",
+                ]
+
+                raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
+            self._model = FlagReranker(self._model_path, use_fp16=self._use_fp16)
 
     def rerank(
         self,
@@ -143,15 +197,32 @@ class RerankModel:
         top_n: Optional[int],
         max_chunks_per_doc: Optional[int],
         return_documents: Optional[bool],
+        return_len: Optional[bool],
         **kwargs,
     ) -> Rerank:
+        self._counter += 1
+        if self._counter % RERANK_EMPTY_CACHE_COUNT == 0:
+            logger.debug("Empty rerank cache.")
+            gc.collect()
+            empty_cache()
         assert self._model is not None
         if kwargs:
             raise ValueError("rerank hasn't support extra parameter.")
         if max_chunks_per_doc is not None:
             raise ValueError("rerank hasn't support `max_chunks_per_doc` parameter.")
         sentence_combinations = [[query, doc] for doc in documents]
-        similarity_scores = self._model.compute_score(sentence_combinations)
+        if self._model_spec.type == "normal":
+            similarity_scores = self._model.predict(
+                sentence_combinations, convert_to_numpy=False, convert_to_tensor=True
+            ).cpu()
+            if similarity_scores.dtype == torch.bfloat16:
+                similarity_scores = similarity_scores.float()
+        else:
+            # Related issue: https://github.com/xorbitsai/inference/issues/1775
+            similarity_scores = self._model.compute_score(sentence_combinations)
+            if not isinstance(similarity_scores, Sequence):
+                similarity_scores = [similarity_scores]
+
         sim_scores_argsort = list(reversed(np.argsort(similarity_scores)))
         if top_n is not None:
             sim_scores_argsort = sim_scores_argsort[:top_n]
@@ -173,7 +244,28 @@ class RerankModel:
                 )
                 for arg in sim_scores_argsort
             ]
-        return Rerank(id=str(uuid.uuid1()), results=docs)
+        if return_len:
+            tokenizer = self._get_tokenizer(self._model_path)
+            input_len = sum([len(tokenizer.tokenize(t)) for t in documents])
+
+            # Rerank Model output is just score or documents
+            # while return_documents = True
+            output_len = input_len
+
+        # api_version, billed_units, warnings
+        # is for Cohere API compatibility, set to None
+        metadata = {
+            "api_version": None,
+            "billed_units": None,
+            "tokens": (
+                RerankTokens(input_tokens=input_len, output_tokens=output_len)
+                if return_len
+                else None
+            ),
+            "warnings": None,
+        }
+
+        return Rerank(id=str(uuid.uuid1()), results=docs, meta=metadata)
 
 
 def get_cache_dir(model_spec: RerankModelSpec):
@@ -193,7 +285,13 @@ def cache(model_spec: RerankModelSpec):
 
 
 def create_rerank_model_instance(
-    subpool_addr: str, devices: List[str], model_uid: str, model_name: str, **kwargs
+    subpool_addr: str,
+    devices: List[str],
+    model_uid: str,
+    model_name: str,
+    download_hub: Optional[Literal["huggingface", "modelscope", "csghub"]] = None,
+    model_path: Optional[str] = None,
+    **kwargs,
 ) -> Tuple[RerankModel, RerankModelDescription]:
     from ..utils import download_from_modelscope
     from . import BUILTIN_RERANK_MODELS, MODELSCOPE_RERANK_MODELS
@@ -206,32 +304,26 @@ def create_rerank_model_instance(
             break
 
     if model_spec is None:
-        if download_from_modelscope():
-            if model_name in MODELSCOPE_RERANK_MODELS:
-                logger.debug(f"Rerank model {model_name} found in ModelScope.")
-                model_spec = MODELSCOPE_RERANK_MODELS[model_name]
-            else:
-                logger.debug(
-                    f"Rerank model {model_name} not found in ModelScope, "
-                    f"now try to download from huggingface."
-                )
-                if model_name in BUILTIN_RERANK_MODELS:
-                    model_spec = BUILTIN_RERANK_MODELS[model_name]
-                else:
-                    raise ValueError(
-                        f"Rerank model {model_name} not found, available"
-                        f"model list: {BUILTIN_RERANK_MODELS.keys()}"
-                    )
+        if download_hub == "huggingface" and model_name in BUILTIN_RERANK_MODELS:
+            logger.debug(f"Rerank model {model_name} found in Huggingface.")
+            model_spec = BUILTIN_RERANK_MODELS[model_name]
+        elif download_hub == "modelscope" and model_name in MODELSCOPE_RERANK_MODELS:
+            logger.debug(f"Rerank model {model_name} found in ModelScope.")
+            model_spec = MODELSCOPE_RERANK_MODELS[model_name]
+        elif download_from_modelscope() and model_name in MODELSCOPE_RERANK_MODELS:
+            logger.debug(f"Rerank model {model_name} found in ModelScope.")
+            model_spec = MODELSCOPE_RERANK_MODELS[model_name]
+        elif model_name in BUILTIN_RERANK_MODELS:
+            logger.debug(f"Rerank model {model_name} found in Huggingface.")
+            model_spec = BUILTIN_RERANK_MODELS[model_name]
         else:
-            if model_name in BUILTIN_RERANK_MODELS:
-                model_spec = BUILTIN_RERANK_MODELS[model_name]
-            else:
-                raise ValueError(
-                    f"Rerank model {model_name} not found, available"
-                    f"model list: {BUILTIN_RERANK_MODELS.keys()}"
-                )
-
-    model_path = cache(model_spec)
+            raise ValueError(
+                f"Rerank model {model_name} not found, available"
+                f"Huggingface: {BUILTIN_RERANK_MODELS.keys()}"
+                f"ModelScope: {MODELSCOPE_RERANK_MODELS.keys()}"
+            )
+    if not model_path:
+        model_path = cache(model_spec)
     use_fp16 = kwargs.pop("use_fp16", False)
     model = RerankModel(
         model_spec, model_uid, model_path, use_fp16=use_fp16, model_config=kwargs

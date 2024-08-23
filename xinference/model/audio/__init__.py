@@ -32,6 +32,9 @@ from .custom import (
 )
 
 _model_spec_json = os.path.join(os.path.dirname(__file__), "model_spec.json")
+_model_spec_modelscope_json = os.path.join(
+    os.path.dirname(__file__), "model_spec_modelscope.json"
+)
 BUILTIN_AUDIO_MODELS = dict(
     (spec["model_name"], AudioModelFamilyV1(**spec))
     for spec in json.load(codecs.open(_model_spec_json, "r", encoding="utf-8"))
@@ -39,8 +42,17 @@ BUILTIN_AUDIO_MODELS = dict(
 for model_name, model_spec in BUILTIN_AUDIO_MODELS.items():
     MODEL_NAME_TO_REVISION[model_name].append(model_spec.model_revision)
 
+MODELSCOPE_AUDIO_MODELS = dict(
+    (spec["model_name"], AudioModelFamilyV1(**spec))
+    for spec in json.load(
+        codecs.open(_model_spec_modelscope_json, "r", encoding="utf-8")
+    )
+)
+for model_name, model_spec in MODELSCOPE_AUDIO_MODELS.items():
+    MODEL_NAME_TO_REVISION[model_name].append(model_spec.model_revision)
+
 # register model description after recording model revision
-for model_spec_info in [BUILTIN_AUDIO_MODELS]:
+for model_spec_info in [BUILTIN_AUDIO_MODELS, MODELSCOPE_AUDIO_MODELS]:
     for model_name, model_spec in model_spec_info.items():
         if model_spec.model_name not in AUDIO_MODEL_DESCRIPTIONS:
             AUDIO_MODEL_DESCRIPTIONS.update(generate_audio_description(model_spec))
@@ -64,3 +76,4 @@ for ud_audio in get_user_defined_audios():
     AUDIO_MODEL_DESCRIPTIONS.update(generate_audio_description(ud_audio))
 
 del _model_spec_json
+del _model_spec_modelscope_json

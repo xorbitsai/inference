@@ -7,7 +7,10 @@ build-backend = "setuptools.build_meta"
 [tool.black]
 include = '\.pyi?$'
 extend-exclude = '''
-^/xinference/(_version.py)
+/(
+| ^/xinference/(_version.py)
+| thirdparty
+)/
 '''
 
 [tool.pytest.ini_options]

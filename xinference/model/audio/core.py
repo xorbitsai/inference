@@ -14,11 +14,15 @@
 import logging
 import os
 from collections import defaultdict
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 
 from ...constants import XINFERENCE_CACHE_DIR
 from ..core import CacheableModelSpec, ModelDescription
 from ..utils import valid_model_revision
+from .chattts import ChatTTSModel
+from .cosyvoice import CosyVoiceModel
+from .fish_speech import FishSpeechModel
+from .funasr import FunASRModel
 from .whisper import WhisperModel
 
 MAX_ATTEMPTS = 3
@@ -43,6 +47,9 @@ class AudioModelFamilyV1(CacheableModelSpec):
     model_id: str
     model_revision: str
     multilingual: bool
+    ability: str
+    default_model_config: Optional[Dict[str, Any]]
+    default_transcription_config: Optional[Dict[str, Any]]
 
 
 class AudioModelDescription(ModelDescription):
@@ -93,15 +100,29 @@ def generate_audio_description(
     return res
 
 
-def match_audio(model_name: str) -> AudioModelFamilyV1:
-    from . import BUILTIN_AUDIO_MODELS
+def match_audio(
+    model_name: str,
+    download_hub: Optional[Literal["huggingface", "modelscope", "csghub"]] = None,
+) -> AudioModelFamilyV1:
+    from ..utils import download_from_modelscope
+    from . import BUILTIN_AUDIO_MODELS, MODELSCOPE_AUDIO_MODELS
     from .custom import get_user_defined_audios
 
     for model_spec in get_user_defined_audios():
         if model_spec.model_name == model_name:
             return model_spec
 
-    if model_name in BUILTIN_AUDIO_MODELS:
+    if download_hub == "huggingface" and model_name in BUILTIN_AUDIO_MODELS:
+        logger.debug(f"Audio model {model_name} found in huggingface.")
+        return BUILTIN_AUDIO_MODELS[model_name]
+    elif download_hub == "modelscope" and model_name in MODELSCOPE_AUDIO_MODELS:
+        logger.debug(f"Audio model {model_name} found in ModelScope.")
+        return MODELSCOPE_AUDIO_MODELS[model_name]
+    elif download_from_modelscope() and model_name in MODELSCOPE_AUDIO_MODELS:
+        logger.debug(f"Audio model {model_name} found in ModelScope.")
+        return MODELSCOPE_AUDIO_MODELS[model_name]
+    elif model_name in BUILTIN_AUDIO_MODELS:
+        logger.debug(f"Audio model {model_name} found in huggingface.")
         return BUILTIN_AUDIO_MODELS[model_name]
     else:
         raise ValueError(
@@ -129,12 +150,36 @@ def get_cache_status(
 
 
 def create_audio_model_instance(
-    subpool_addr: str, devices: List[str], model_uid: str, model_name: str, **kwargs
-) -> Tuple[WhisperModel, AudioModelDescription]:
-    model_spec = match_audio(model_name)
-    model_path = cache(model_spec)
-    model = WhisperModel(model_uid, model_path, model_spec, **kwargs)
+    subpool_addr: str,
+    devices: List[str],
+    model_uid: str,
+    model_name: str,
+    download_hub: Optional[Literal["huggingface", "modelscope", "csghub"]] = None,
+    model_path: Optional[str] = None,
+    **kwargs,
+) -> Tuple[
+    Union[WhisperModel, FunASRModel, ChatTTSModel, CosyVoiceModel, FishSpeechModel],
+    AudioModelDescription,
+]:
+    model_spec = match_audio(model_name, download_hub)
+    if model_path is None:
+        model_path = cache(model_spec)
+    model: Union[
+        WhisperModel, FunASRModel, ChatTTSModel, CosyVoiceModel, FishSpeechModel
+    ]
+    if model_spec.model_family == "whisper":
+        model = WhisperModel(model_uid, model_path, model_spec, **kwargs)
+    elif model_spec.model_family == "funasr":
+        model = FunASRModel(model_uid, model_path, model_spec, **kwargs)
+    elif model_spec.model_family == "ChatTTS":
+        model = ChatTTSModel(model_uid, model_path, model_spec, **kwargs)
+    elif model_spec.model_family == "CosyVoice":
+        model = CosyVoiceModel(model_uid, model_path, model_spec, **kwargs)
+    elif model_spec.model_family == "FishAudio":
+        model = FishSpeechModel(model_uid, model_path, model_spec, **kwargs)
+    else:
+        raise Exception(f"Unsupported audio model family: {model_spec.model_family}")
     model_description = AudioModelDescription(
-        subpool_addr, devices, model_spec, model_path=model_path
+        subpool_addr, devices, model_spec, model_path
     )
     return model, model_description

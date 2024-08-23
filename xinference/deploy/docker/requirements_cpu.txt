@@ -1,0 +1,63 @@
+xoscar>=0.3.0
+gradio==4.26.0
+typer[all]<0.12.0
+pillow
+click
+tqdm>=4.27
+tabulate
+requests
+pydantic
+fastapi==0.110.3
+uvicorn
+huggingface-hub>=0.19.4
+typing_extensions
+boto3>=1.28.55,<1.28.65
+tensorizer~=2.9.0
+modelscope>=1.10.0
+sse_starlette>=1.6.5
+openai>1,<1.40
+python-jose[cryptography]
+passlib[bcrypt]
+aioprometheus[starlette]>=23.12.0
+pynvml
+async-timeout
+transformers>=4.34.1
+accelerate>=0.20.3
+sentencepiece
+transformers_stream_generator
+bitsandbytes
+protobuf
+einops
+tiktoken
+sentence-transformers>=2.3.1
+FlagEmbedding
+diffusers>=0.30.0
+controlnet_aux
+orjson
+auto-gptq
+autoawq<0.2.6  # autoawq 0.2.6 pinned torch to 2.3
+optimum
+peft
+timm
+opencv-contrib-python-headless
+funasr
+omegaconf~=2.3.0  # For ChatTTS
+nemo_text_processing  # For ChatTTS
+WeTextProcessing  # For ChatTTS
+librosa  # For ChatTTS
+torchaudio  # For ChatTTS
+ChatTTS>0.1
+xxhash  # For ChatTTS
+HyperPyYAML  # For CosyVoice
+matcha-tts>=0.0.7  # For CosyVoice
+onnxruntime-gpu==1.16.0; sys_platform == 'linux'  # For CosyVoice
+onnxruntime==1.16.0; sys_platform == 'darwin' or sys_platform == 'windows'  # For CosyVoice
+openai-whisper  # For CosyVoice
+imageio-ffmpeg  # For video
+eva-decord  # For video in VL
+jj-pytorchvideo # For CogVLM2-video
+loguru  # For Fish Speech
+natsort  # For Fish Speech
+loralib  # For Fish Speech
+opencc==1.1.6  # For Fish Speech
+faster_whisper  # For Fish Speech

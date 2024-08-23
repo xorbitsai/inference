@@ -24,7 +24,6 @@ from gradio.components import Markdown, Textbox
 from gradio.layouts import Accordion, Column, Row
 
 from ..client.restful.restful_client import (
-    RESTfulChatglmCppChatModelHandle,
     RESTfulChatModelHandle,
     RESTfulGenerateModelHandle,
 )
@@ -109,15 +108,14 @@ class GradioInterface:
             history: List[List[str]],
             max_tokens: int,
             temperature: float,
+            lora_name: str,
         ) -> Generator:
             from ..client import RESTfulClient
 
             client = RESTfulClient(self.endpoint)
             client._set_token(self._access_token)
             model = client.get_model(self.model_uid)
-            assert isinstance(
-                model, (RESTfulChatModelHandle, RESTfulChatglmCppChatModelHandle)
-            )
+            assert isinstance(model, RESTfulChatModelHandle)
 
             response_content = ""
             for chunk in model.chat(
@@ -127,6 +125,7 @@ class GradioInterface:
                     "max_tokens": int(max_tokens),
                     "temperature": temperature,
                     "stream": True,
+                    "lora_name": lora_name,
                 },
             ):
                 assert isinstance(chunk, dict)
@@ -152,6 +151,7 @@ class GradioInterface:
                 gr.Slider(
                     minimum=0, maximum=2, value=1, step=0.01, label="Temperature"
                 ),
+                gr.Text(label="LoRA Name"),
             ],
             title=f"🚀 Xinference Chat Bot : {self.model_name} 🚀",
             css="""
@@ -183,8 +183,7 @@ class GradioInterface:
     def build_chat_vl_interface(
         self,
     ) -> "gr.Blocks":
-        def predict(history, bot):
-            logger.debug("Predict model: %s, history: %s", self.model_uid, history)
+        def predict(history, bot, max_tokens, temperature, stream):
             from ..client import RESTfulClient
 
             client = RESTfulClient(self.endpoint)
@@ -196,13 +195,49 @@ class GradioInterface:
             assert prompt["role"] == "user"
             prompt = prompt["content"]
             # multimodal chat does not support stream.
-            response = model.chat(prompt=prompt, chat_history=history[:-1])
-            history.append(response["choices"][0]["message"])
-            bot[-1][1] = history[-1]["content"]
-            return history, bot
+            if stream:
+                response_content = ""
+                for chunk in model.chat(
+                    prompt=prompt,
+                    chat_history=history[:-1],
+                    generate_config={
+                        "max_tokens": max_tokens,
+                        "temperature": temperature,
+                        "stream": stream,
+                    },
+                ):
+                    assert isinstance(chunk, dict)
+                    delta = chunk["choices"][0]["delta"]
+                    if "content" not in delta:
+                        continue
+                    else:
+                        response_content += delta["content"]
+                        bot[-1][1] = response_content
+                        yield history, bot
+                history.append(
+                    {
+                        "content": response_content,
+                        "role": "assistant",
+                    }
+                )
+                bot[-1][1] = response_content
+                yield history, bot
+            else:
+                response = model.chat(
+                    prompt=prompt,
+                    chat_history=history[:-1],
+                    generate_config={
+                        "max_tokens": max_tokens,
+                        "temperature": temperature,
+                        "stream": stream,
+                    },
+                )
+                history.append(response["choices"][0]["message"])
+                bot[-1][1] = history[-1]["content"]
+                yield history, bot
 
-        def add_text(history, bot, text, image):
-            logger.debug("Add text, text: %s, image: %s", text, image)
+        def add_text(history, bot, text, image, video):
+            logger.debug("Add text, text: %s, image: %s, video: %s", text, image, video)
             if image:
                 buffered = BytesIO()
                 with PIL.Image.open(image) as img:
@@ -214,19 +249,55 @@ class GradioInterface:
                     "role": "user",
                     "content": [
                         {"type": "text", "text": text},
-                        {"type": "image_url", "image_url": {"url": image}},
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/png;base64,{img_b64_str}"
+                            },
+                        },
+                    ],
+                }
+            elif video:
+
+                def video_to_base64(video_path):
+                    with open(video_path, "rb") as video_file:
+                        encoded_string = base64.b64encode(video_file.read()).decode(
+                            "utf-8"
+                        )
+                    return encoded_string
+
+                def generate_html_video(video_path):
+                    base64_video = video_to_base64(video_path)
+                    video_format = video_path.split(".")[-1]
+                    html_code = f"""
+                    <video controls>
+                        <source src="data:video/{video_format};base64,{base64_video}" type="video/{video_format}">
+                        Your browser does not support the video tag.
+                    </video>
+                    """
+                    return html_code
+
+                display_content = f"{generate_html_video(video)}\n{text}"
+                message = {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": text},
+                        {
+                            "type": "video_url",
+                            "video_url": {"url": video},
+                        },
                     ],
                 }
             else:
                 display_content = text
                 message = {"role": "user", "content": text}
             history = history + [message]
-            bot = bot + [(display_content, None)]
-            return history, bot, "", None
+            bot = bot + [[display_content, None]]
+            return history, bot, "", None, None
 
         def clear_history():
             logger.debug("Clear history.")
-            return [], None, "", None
+            return [], None, "", None, None
 
         def update_button(text):
             return gr.update(interactive=bool(text))
@@ -269,10 +340,11 @@ class GradioInterface:
             state = gr.State([])
             with gr.Row():
                 chatbot = gr.Chatbot(
-                    elem_id="chatbot", label=self.model_name, height=550, scale=7
+                    elem_id="chatbot", label=self.model_name, height=700, scale=7
                 )
                 with gr.Column(scale=3):
                     imagebox = gr.Image(type="filepath")
+                    videobox = gr.Video()
                     textbox = gr.Textbox(
                         show_label=False,
                         placeholder="Enter text and press ENTER",
@@ -283,24 +355,48 @@ class GradioInterface:
                     )
                     clear_btn = gr.Button(value="Clear")
 
+            with gr.Accordion("Additional Inputs", open=False):
+                max_tokens = gr.Slider(
+                    minimum=1,
+                    maximum=self.context_length,
+                    value=512,
+                    step=1,
+                    label="Max Tokens",
+                )
+                temperature = gr.Slider(
+                    minimum=0, maximum=2, value=1, step=0.01, label="Temperature"
+                )
+                stream = gr.Checkbox(label="Stream", value=False)
+
             textbox.change(update_button, [textbox], [submit_btn], queue=False)
 
             textbox.submit(
                 add_text,
-                [state, chatbot, textbox, imagebox],
-                [state, chatbot, textbox, imagebox],
+                [state, chatbot, textbox, imagebox, videobox],
+                [state, chatbot, textbox, imagebox, videobox],
                 queue=False,
-            ).then(predict, [state, chatbot], [state, chatbot])
+            ).then(
+                predict,
+                [state, chatbot, max_tokens, temperature, stream],
+                [state, chatbot],
+            )
 
             submit_btn.click(
                 add_text,
-                [state, chatbot, textbox, imagebox],
-                [state, chatbot, textbox, imagebox],
+                [state, chatbot, textbox, imagebox, videobox],
+                [state, chatbot, textbox, imagebox, videobox],
                 queue=False,
-            ).then(predict, [state, chatbot], [state, chatbot])
+            ).then(
+                predict,
+                [state, chatbot, max_tokens, temperature, stream],
+                [state, chatbot],
+            )
 
             clear_btn.click(
-                clear_history, None, [state, chatbot, textbox, imagebox], queue=False
+                clear_history,
+                None,
+                [state, chatbot, textbox, imagebox, videobox],
+                queue=False,
             )
 
         return chat_vl_interface
@@ -331,7 +427,7 @@ class GradioInterface:
                 history: hist,
             }
 
-        def complete(text, hist, max_tokens, temperature) -> Generator:
+        def complete(text, hist, max_tokens, temperature, lora_name) -> Generator:
             from ..client import RESTfulClient
 
             client = RESTfulClient(self.endpoint)
@@ -349,6 +445,7 @@ class GradioInterface:
                     "max_tokens": max_tokens,
                     "temperature": temperature,
                     "stream": True,
+                    "lora_name": lora_name,
                 },
             ):
                 assert isinstance(chunk, dict)
@@ -363,12 +460,12 @@ class GradioInterface:
                     }
 
             hist.append(response_content)
-            return {
+            return {  # type: ignore
                 textbox: response_content,
                 history: hist,
             }
 
-        def retry(text, hist, max_tokens, temperature) -> Generator:
+        def retry(text, hist, max_tokens, temperature, lora_name) -> Generator:
             from ..client import RESTfulClient
 
             client = RESTfulClient(self.endpoint)
@@ -387,6 +484,7 @@ class GradioInterface:
                     "max_tokens": max_tokens,
                     "temperature": temperature,
                     "stream": True,
+                    "lora_name": lora_name,
                 },
             ):
                 assert isinstance(chunk, dict)
@@ -401,7 +499,7 @@ class GradioInterface:
                     }
 
             hist.append(response_content)
-            return {
+            return {  # type: ignore
                 textbox: response_content,
                 history: hist,
             }
@@ -470,10 +568,11 @@ class GradioInterface:
                     temperature = gr.Slider(
                         minimum=0, maximum=2, value=1, step=0.01, label="Temperature"
                     )
+                    lora_name = gr.Text(label="LoRA Name")
 
                 btn_generate.click(
                     fn=complete,
-                    inputs=[textbox, history, length, temperature],
+                    inputs=[textbox, history, length, temperature, lora_name],
                     outputs=[textbox, history],
                 )
 
@@ -485,7 +584,7 @@ class GradioInterface:
 
                 btn_retry.click(
                     fn=retry,
-                    inputs=[textbox, history, length, temperature],
+                    inputs=[textbox, history, length, temperature, lora_name],
                     outputs=[textbox, history],
                 )
 

@@ -1,8 +1,8 @@
 .. _image:
 
-=====================
-Images (Experimental)
-=====================
+======
+Images
+======
 
 Learn how to generate images with Xinference.
 
@@ -40,6 +40,9 @@ The Text-to-image API is supported with the following models in Xinference:
 * sdxl-turbo
 * stable-diffusion-v1.5
 * stable-diffusion-xl-base-1.0
+* sd3-medium
+* FLUX.1-schnell
+* FLUX.1-dev
 
 
 Quickstart
@@ -102,6 +105,44 @@ We can try Text-to-image API out either via cURL, OpenAI Client, or Xinference's
     }
 
 
+Tips for Large Image Models including SD3-Medium, FLUX.1
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Useful extra parameters can be passed to launch including:
+
+* ``--cpu_offload True``: specifying ``True`` will offload the components of the model to CPU during
+  inference in order to save memory, while seeing a slight increase in inference latency.
+  Model offloading will only move a model component onto the GPU when it needs to be executed,
+  while keeping the remaining components on the CPU.
+* ``--quantize_text_encoder <text encoder layer>``: We leveraged the ``bitsandbytes`` library
+  to load and quantize the T5-XXL text encoder to 8-bit precision.
+  This allows you to keep using all text encoders while only slightly impacting performance.
+* ``--text_encoder_3 None``, for sd3-medium, removing the memory-intensive 4.7B parameter
+  T5-XXL text encoder during inference can significantly decrease the memory requirements
+  with only a slight loss in performance.
+
+If you are trying to run large image models liek sd3-medium or FLUX.1 series on GPU card
+that has less memory than 24GB, you may encounter OOM when launching or inference.
+Try below solutions.
+
+For FLUX.1 series, try to apply quantization.
+
+.. code:: bash
+
+    xinference launch --model-name FLUX.1-dev --model-type image --quantize_text_encoder text_encoder_2
+
+For sd3-medium, apply quantization to ``text_encoder_3``.
+
+.. code:: bash
+
+    xinference launch --model-name sd3-medium --model-type image --quantize_text_encoder text_encoder_3
+
+
+Or removing memory-intensive T5-XXL text encoder for sd3-medium.
+
+.. code:: bash
+
+    xinference launch --model-name sd3-medium --model-type image --text_encoder_3 None
 
 Image-to-image
 --------------------

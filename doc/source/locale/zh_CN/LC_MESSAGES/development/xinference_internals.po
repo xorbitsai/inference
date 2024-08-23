@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-03-23 22:22+0800\n"
+"POT-Creation-Date: 2024-05-31 11:46+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -165,7 +165,7 @@ msgstr "Python 项目会在 `setup.cfg` 或 `setup.py` 中定义命令行控制�
 
 #: ../../source/development/xinference_internals.rst:72
 msgid ""
-"The command-line ``xinference`` can be refered to code in "
+"The command-line ``xinference`` can be referred to code in "
 "``xinference.deploy.cmdline:cli``."
 msgstr "命令行 ``xinference`` 可参考 ``xinference.deploy.cmdline:cli`` 中的代码。"
 
@@ -243,9 +243,9 @@ msgstr ""
 "**引用 Actor 和调用方法**：当创建一个 Actor 时，它会产生一个引用变量，"
 "以便其他 Actor 可以引用它。Actor 也可以用 IP 地址来引用。假设创建了 ``"
 "WorkerActor``，且引用变量为 ``worker_ref``，那么就可以通过调用 ``worker_"
-"ref.launch_model()`` 来调用该 Actor 类的 ``launch_model``。"
-"即使 actor 中的方法原来是一个传统的阻塞式的方法，当我们使用引用变量调用这个方法时，"
-"它也变成了一个异步方法。"
+"ref.launch_model()`` 来调用该 Actor 类的 ``launch_model``。即使 actor 中"
+"的方法原来是一个传统的阻塞式的方法，当我们使用引用变量调用这个方法时，它"
+"也变成了一个异步方法。"
 
 #: ../../source/development/xinference_internals.rst:143
 msgid ""
@@ -279,9 +279,10 @@ msgid ""
 "in the background and results are returned in the future. This enables us"
 " to perform activities concurrently."
 msgstr ""
-"Xinference 和 Xoscar 非常依赖异步编程库 ``asyncio``。异步编程是一种非阻塞的编程范式。"
-"相比于传统的阻塞式的函数调用，异步编程中的请求或函数调用在后台执行，运行结果在未来某个时刻返回。"
-"异步编程的优势是使得可以同时并发进行很多不同的活动或任务。"
+"Xinference 和 Xoscar 非常依赖异步编程库 ``asyncio``。异步编程是一种非阻塞"
+"的编程范式。相比于传统的阻塞式的函数调用，异步编程中的请求或函数调用在"
+"后台执行，运行结果在未来某个时刻返回。异步编程的优势是使得可以同时并发"
+"进行很多不同的活动或任务。"
 
 #: ../../source/development/xinference_internals.rst:159
 msgid ""
@@ -291,12 +292,16 @@ msgstr "如果您不熟悉 Python 的 ``asyncio``，可以查看更多教程以�
 
 #: ../../source/development/xinference_internals.rst:161
 msgid ""
-"`Python Asyncio Tutorial <https://bbc.github.io/cloudfit-public-docs/asyncio/asyncio-part-1.html>`__"
-msgstr "`Python Asyncio 教程 <https://bbc.github.io/cloudfit-public-docs/asyncio/asyncio-part-1.html>`__"
+"`Python Asyncio Tutorial <https://bbc.github.io/cloudfit-public-"
+"docs/asyncio/asyncio-part-1.html>`__"
+msgstr ""
+"`Python Asyncio 教程 <https://bbc.github.io/cloudfit-public-docs/asyncio/"
+"asyncio-part-1.html>`__"
 
 #: ../../source/development/xinference_internals.rst:163
 msgid ""
-"`Real Python's asyncio Tutorial <https://realpython.com/async-io-python/>`__"
+"`Real Python's asyncio Tutorial <https://realpython.com/async-io-"
+"python/>`__"
 msgstr "`Real Python asyncio 教程 <https://realpython.com/async-io-python/>`__"
 
 #: ../../source/development/xinference_internals.rst:165
@@ -333,8 +338,8 @@ msgid ""
 " LLMs."
 msgstr ""
 "以 `model/llm/ <https://github.com/xorbitsai/inference/tree/main/"
-"xinference/model/llm>`_ 为例，它主要管理和启动 LLM，包括加载、配置"
-"和运行大语言模型。"
+"xinference/model/llm>`_ 为例，它主要管理和启动 LLM，包括加载、配置和运行"
+"大语言模型。"
 
 #: ../../source/development/xinference_internals.rst:181
 msgid ""
@@ -732,4 +737,3 @@ msgstr ""
 #~ "Both Xinference and Xoscar highly "
 #~ "utilize coroutine programming of ``asyncio``."
 #~ msgstr "Xinference 和 Xoscar 都高度利用了 ``asyncio`` 进行协程编程。"
-
