@@ -56,3 +56,8 @@ openai-whisper  # For CosyVoice
 imageio-ffmpeg  # For video
 eva-decord  # For video in VL
 jj-pytorchvideo # For CogVLM2-video
+loguru  # For Fish Speech
+natsort  # For Fish Speech
+loralib  # For Fish Speech
+opencc==1.1.6  # For Fish Speech
+faster_whisper  # For Fish Speech
