@@ -60,30 +60,30 @@ class AudioModelDescription(ModelDescription):
         model_path: Optional[str] = None,
     ):
         super().__init__(address, devices, model_path=model_path)
-        self.model_spec = model_spec
+        self._model_spec = model_spec
 
     def to_dict(self):
         return {
             "model_type": "audio",
             "address": self.address,
             "accelerators": self.devices,
-            "model_name": self.model_spec.model_name,
-            "model_family": self.model_spec.model_family,
-            "model_revision": self.model_spec.model_revision,
+            "model_name": self._model_spec.model_name,
+            "model_family": self._model_spec.model_family,
+            "model_revision": self._model_spec.model_revision,
         }
 
     def to_version_info(self):
         from .utils import get_model_version
 
         if self._model_path is None:
-            is_cached = get_cache_status(self.model_spec)
-            file_location = get_cache_dir(self.model_spec)
+            is_cached = get_cache_status(self._model_spec)
+            file_location = get_cache_dir(self._model_spec)
         else:
             is_cached = True
             file_location = self._model_path
 
         return {
-            "model_version": get_model_version(self.model_spec),
+            "model_version": get_model_version(self._model_spec),
             "model_file_location": file_location,
             "cache_status": is_cached,
         }

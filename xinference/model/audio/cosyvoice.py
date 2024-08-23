@@ -33,7 +33,7 @@ class CosyVoiceModel:
     ):
         self._model_uid = model_uid
         self._model_path = model_path
-        self.model_spec = model_spec
+        self._model_spec = model_spec
         self._device = device
         self._model = None
         self._kwargs = kwargs
@@ -68,7 +68,7 @@ class CosyVoiceModel:
         prompt_text: Optional[str] = kwargs.pop("prompt_text", None)
         instruct_text: Optional[str] = kwargs.pop("instruct_text", None)
 
-        if "SFT" in self.model_spec.model_name:
+        if "SFT" in self._model_spec.model_name:
             # inference_sft
             assert (
                 prompt_speech is None
@@ -79,7 +79,7 @@ class CosyVoiceModel:
             assert (
                 instruct_text is None
             ), "CosyVoice SFT model does not support instruct_text"
-        elif "Instruct" in self.model_spec.model_name:
+        elif "Instruct" in self._model_spec.model_name:
             # inference_instruct
             assert (
                 prompt_speech is None
