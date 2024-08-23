@@ -34,6 +34,13 @@ from ..utils import ChatModelMixin
 
 logger = logging.getLogger(__name__)
 
+try:
+    import lmdeploy  # noqa: F401
+
+    LMDEPLOY_INSTALLED = True
+except ImportError:
+    LMDEPLOY_INSTALLED = False
+
 LMDEPLOY_SUPPORTED_CHAT_MODELS = ["internvl2"]
 LMDEPLOY_MODEL_CHAT_TEMPLATE_NAME = {
     "internvl2": "internvl-internlm2",
@@ -104,7 +111,7 @@ class LMDeployModel(LLM):
 
     def load(self):
         try:
-            import lmdeploy  # noqa: F401
+            import lmdeploy  # noqa: F401, F811
         except ImportError:
             error_message = "Failed to import module 'lmdeploy'"
             installation_guide = [
@@ -181,7 +188,7 @@ class LMDeployChatModel(LMDeployModel, ChatModelMixin):
                 return False
         if llm_family.model_name not in LMDEPLOY_SUPPORTED_CHAT_MODELS:
             return False
-        return True
+        return LMDEPLOY_INSTALLED
 
     async def async_chat(
         self,
