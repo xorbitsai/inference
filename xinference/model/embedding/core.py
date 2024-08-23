@@ -154,10 +154,32 @@ class EmbeddingModel:
             "gte" in self._model_spec.model_name.lower()
             and "qwen2" in self._model_spec.model_name.lower()
         ):
+            import torch
+
+            torch_dtype_str = self._kwargs.get("torch_dtype")
+            if torch_dtype_str is not None:
+                try:
+                    torch_dtype = getattr(torch, torch_dtype_str)
+                    if torch_dtype not in [
+                        torch.float16,
+                        torch.float32,
+                        torch.bfloat16,
+                    ]:
+                        logger.warning(
+                            f"Load embedding model with unsupported torch dtype :  {torch_dtype_str}. Using default torch dtype: fp32."
+                        )
+                        torch_dtype = torch.float32
+                except AttributeError:
+                    logger.warning(
+                        f"Load embedding model with  unknown torch dtype '{torch_dtype_str}'. Using default torch dtype: fp32."
+                    )
+                    torch_dtype = torch.float32
+            else:
+                torch_dtype = "auto"
             self._model = XSentenceTransformer(
                 self._model_path,
                 device=self._device,
-                model_kwargs={"device_map": "auto"},
+                model_kwargs={"device_map": "auto", "torch_dtype": torch_dtype},
             )
         else:
             self._model = SentenceTransformer(self._model_path, device=self._device)

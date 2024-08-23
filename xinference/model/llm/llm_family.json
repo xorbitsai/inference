@@ -7190,15 +7190,6 @@
           "model_revision": "b50544dafada6c41e80bfde2f57cc9b0140fc21c"
         },
         {
-          "model_format": "awq",
-          "model_size_in_billions": 4,
-          "quantizations": [
-            "Int4"
-          ],
-          "model_id": "OpenGVLab/InternVL2-8B-AWQ",
-          "model_revision": "9f1a4756b7ae18eb26d8a22b618dfc283e8193b3"
-        },
-        {
           "model_format": "pytorch",
           "model_size_in_billions": 8,
           "quantizations": [
@@ -7208,6 +7199,15 @@
           ],
           "model_id": "OpenGVLab/InternVL2-8B",
           "model_revision": "3bfd3664dea4f3da628785f5125d30f889701253"
+        },
+        {
+          "model_format": "awq",
+          "model_size_in_billions": 8,
+          "quantizations": [
+            "Int4"
+          ],
+          "model_id": "OpenGVLab/InternVL2-8B-AWQ",
+          "model_revision": "9f1a4756b7ae18eb26d8a22b618dfc283e8193b3"
         },
         {
           "model_format": "pytorch",
@@ -7321,6 +7321,51 @@
         ],
         "model_id": "THUDM/cogvlm2-llama3-chinese-chat-19B-{quantization}",
         "model_revision": "7863e362174f4718c2fe9cba4befd0b580a3194f"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "LLAMA3",
+      "system_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions.",
+      "roles": [
+        "user",
+        "assistant"
+      ],
+      "intra_message_sep": "\n\n",
+      "inter_message_sep": "<|eot_id|>",
+      "stop_token_ids": [
+        128001,
+        128009
+      ],
+      "stop": [
+        "<|end_of_text|>",
+        "<|eot_id|>"
+      ]
+    }
+  },
+  {
+    "version": 1,
+    "context_length": 8192,
+    "model_name": "cogvlm2-video-llama3-chat",
+    "model_lang": [
+        "en",
+        "zh"
+    ],
+    "model_ability": [
+        "chat",
+        "vision"
+    ],
+    "model_description": "CogVLM2-Video achieves state-of-the-art performance on multiple video question answering tasks.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 12,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "THUDM/cogvlm2-video-llama3-chat",
+        "model_revision": "f375ead7d8202ebe2c3d09f1068abdddeb2929fa"
       }
     ],
     "prompt_style": {
