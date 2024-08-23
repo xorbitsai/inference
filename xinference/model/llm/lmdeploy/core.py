@@ -34,7 +34,6 @@ from ..utils import ChatModelMixin
 
 logger = logging.getLogger(__name__)
 
-LMDEPLOY_SUPPORTED_MODELS: List[str] = []
 LMDEPLOY_SUPPORTED_CHAT_MODELS = ["internvl2"]
 LMDEPLOY_MODEL_CHAT_TEMPLATE_NAME = {
     "internvl2": "internvl-internlm2",
@@ -120,13 +119,7 @@ class LMDeployModel(LLM):
     def match(
         cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
     ) -> bool:
-        if llm_spec.model_format == "awq":
-            # Currently, only 4-bit weight quantization is supported for AWQ, but got 8 bits.
-            if "4" not in quantization:
-                return False
-        if llm_family.model_name not in LMDEPLOY_SUPPORTED_MODELS:
-            return False
-        return True
+        return False
 
     def generate(
         self,
