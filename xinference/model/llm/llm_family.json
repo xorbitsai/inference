@@ -2616,17 +2616,13 @@
     "model_description": "Starcoder is an open-source Transformer based LLM that is trained on permissively licensed data from GitHub.",
     "model_specs": [
       {
-        "model_format": "ggmlv3",
+        "model_format": "ggufv2",
         "model_size_in_billions": 16,
         "quantizations": [
-          "q4_0",
-          "q4_1",
-          "q5_0",
-          "q5_1",
-          "q8_0"
+          "q5_k_m"
         ],
-        "model_id": "TheBloke/starcoder-GGML",
-        "model_file_name_template": "starcoder.ggmlv3.{quantization}.bin"
+        "model_id": "osukhoroslov-hw/starcoder-Q5_K_M-GGUF",
+        "model_file_name_template": "starcoder-{quantization}.gguf"
       }
     ],
     "code_prompt_style": {
