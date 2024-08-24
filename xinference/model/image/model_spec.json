@@ -24,7 +24,8 @@
     "model_revision": "ea42f8cef0f178587cf766dc8129abd379c90671",
     "model_ability": [
       "text2image",
-      "image2image"
+      "image2image",
+      "inpainting"
     ]
   },
   {

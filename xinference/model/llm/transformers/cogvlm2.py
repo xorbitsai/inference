@@ -72,7 +72,7 @@ class CogVLM2Model(PytorchChatModel):
         cls, model_family: "LLMFamilyV1", model_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         family = model_family.model_family or model_family.model_name
-        if "cogvlm" in family.lower():
+        if "cogvlm2" in family.lower() and "video" not in family.lower():
             return True
         return False
 

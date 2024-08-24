@@ -27,7 +27,8 @@
     "model_revision": "master",
     "model_ability": [
       "text2image",
-      "image2image"
+      "image2image",
+      "inpainting"
     ]
   },
   {

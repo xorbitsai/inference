@@ -24,6 +24,9 @@ from functools import partial
 from io import BytesIO
 from typing import Dict, List, Optional, Union
 
+import PIL.Image
+from PIL import ImageOps
+
 from ....constants import XINFERENCE_IMAGE_DIR
 from ....device_utils import move_model_to_available_device
 from ....types import Image, ImageList, LoRA
@@ -46,8 +49,13 @@ class DiffusionModel:
         self._model_uid = model_uid
         self._model_path = model_path
         self._device = device
+        # when a model has text2image ability,
+        # it will be loaded as AutoPipelineForText2Image
+        # for image2image and inpainting,
+        # we convert to the corresponding model
         self._model = None
         self._i2i_model = None  # image to image model
+        self._inpainting_model = None  # inpainting model
         self._lora_model = lora_model
         self._lora_load_kwargs = lora_load_kwargs or {}
         self._lora_fuse_kwargs = lora_fuse_kwargs or {}
@@ -152,6 +160,10 @@ class DiffusionModel:
         model=None,
         **kwargs,
     ):
+        import gc
+
+        from ....device_utils import empty_cache
+
         logger.debug(
             "stable diffusion args: %s",
             kwargs,
@@ -159,6 +171,11 @@ class DiffusionModel:
         model = model if model is not None else self._model
         assert callable(model)
         images = model(**kwargs).images
+
+        # clean cache
+        gc.collect()
+        empty_cache()
+
         if response_format == "url":
             os.makedirs(XINFERENCE_IMAGE_DIR, exist_ok=True)
             image_list = []
@@ -209,9 +226,17 @@ class DiffusionModel:
             **kwargs,
         )
 
+    @staticmethod
+    def pad_to_multiple(image, multiple=8):
+        x, y = image.size
+        padding_x = (multiple - x % multiple) % multiple
+        padding_y = (multiple - y % multiple) % multiple
+        padding = (0, 0, padding_x, padding_y)
+        return ImageOps.expand(image, padding)
+
     def image_to_image(
         self,
-        image: bytes,
+        image: PIL.Image,
         prompt: Optional[Union[str, List[str]]] = None,
         negative_prompt: Optional[Union[str, List[str]]] = None,
         n: int = 1,
@@ -236,6 +261,11 @@ class DiffusionModel:
             width, height = map(int, re.split(r"[^\d]+", size))
             kwargs["width"] = width
             kwargs["height"] = height
+        if padding_image_to_multiple := kwargs.pop("padding_image_to_multiple", None):
+            # Model like SD3 image to image requires image's height and width is times of 16
+            # padding the image if specified
+            image = self.pad_to_multiple(image, multiple=int(padding_image_to_multiple))
+
         self._filter_kwargs(kwargs)
         return self._call_model(
             image=image,
@@ -258,6 +288,23 @@ class DiffusionModel:
         response_format: str = "url",
         **kwargs,
     ):
+        if "inpainting" not in self._abilities:
+            raise RuntimeError(f"{self._model_uid} does not support inpainting")
+
+        if (
+            "text2image" in self._abilities or "image2image" in self._abilities
+        ) and self._model is not None:
+            from diffusers import AutoPipelineForInpainting
+
+            if self._inpainting_model is not None:
+                model = self._inpainting_model
+            else:
+                model = self._inpainting_model = AutoPipelineForInpainting.from_pipe(
+                    self._model
+                )
+        else:
+            model = self._model
+
         width, height = map(int, re.split(r"[^\d]+", size))
         return self._call_model(
             image=image,
@@ -268,5 +315,6 @@ class DiffusionModel:
             width=width,
             num_images_per_prompt=n,
             response_format=response_format,
+            model=model,
             **kwargs,
         )

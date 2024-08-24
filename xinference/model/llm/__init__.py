@@ -36,6 +36,7 @@ from .llm_family import (
     BUILTIN_MODELSCOPE_LLM_FAMILIES,
     LLAMA_CLASSES,
     LLM_ENGINES,
+    LMDEPLOY_CLASSES,
     MLX_CLASSES,
     SGLANG_CLASSES,
     SUPPORTED_ENGINES,
@@ -118,10 +119,12 @@ def generate_engine_config_by_model_family(model_family):
 
 def _install():
     from .llama_cpp.core import LlamaCppChatModel, LlamaCppCodeModel, LlamaCppModel
+    from .lmdeploy.core import LMDeployChatModel, LMDeployModel
     from .mlx.core import MLXChatModel, MLXModel
     from .sglang.core import SGLANGChatModel, SGLANGModel
     from .transformers.chatglm import ChatglmPytorchChatModel
     from .transformers.cogvlm2 import CogVLM2Model
+    from .transformers.cogvlm2_video import CogVLM2VideoModel
     from .transformers.core import PytorchChatModel, PytorchCodeModel, PytorchModel
     from .transformers.deepseek_vl import DeepSeekVLChatModel
     from .transformers.glm4v import Glm4VModel
@@ -153,6 +156,7 @@ def _install():
     SGLANG_CLASSES.extend([SGLANGModel, SGLANGChatModel])
     VLLM_CLASSES.extend([VLLMModel, VLLMChatModel, VLLMCodeModel, VLLMVisionModel])
     MLX_CLASSES.extend([MLXModel, MLXChatModel])
+    LMDEPLOY_CLASSES.extend([LMDeployModel, LMDeployChatModel])
     TRANSFORMERS_CLASSES.extend(
         [
             ChatglmPytorchChatModel,
@@ -167,6 +171,7 @@ def _install():
             InternVLChatModel,
             PytorchModel,
             CogVLM2Model,
+            CogVLM2VideoModel,
             MiniCPMV25Model,
             MiniCPMV26Model,
             Glm4VModel,
@@ -181,6 +186,7 @@ def _install():
     SUPPORTED_ENGINES["Transformers"] = TRANSFORMERS_CLASSES
     SUPPORTED_ENGINES["llama.cpp"] = LLAMA_CLASSES
     SUPPORTED_ENGINES["MLX"] = MLX_CLASSES
+    SUPPORTED_ENGINES["LMDEPLOY"] = LMDEPLOY_CLASSES
 
     json_path = os.path.join(
         os.path.dirname(os.path.abspath(__file__)), "llm_family.json"
