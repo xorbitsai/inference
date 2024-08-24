@@ -26,8 +26,10 @@ from .core import (
 )
 from .llm_family import (
     BUILTIN_CSGHUB_LLM_FAMILIES,
+    BUILTIN_LLM_CODE_PROMPT_STYLE,
     BUILTIN_LLM_FAMILIES,
     BUILTIN_LLM_MODEL_CHAT_FAMILIES,
+    BUILTIN_LLM_MODEL_CODE_FAMILIES,
     BUILTIN_LLM_MODEL_GENERATE_FAMILIES,
     BUILTIN_LLM_MODEL_TOOL_CALL_FAMILIES,
     BUILTIN_LLM_PROMPT_STYLE,
@@ -40,13 +42,16 @@ from .llm_family import (
     SUPPORTED_ENGINES,
     TRANSFORMERS_CLASSES,
     VLLM_CLASSES,
+    CodePromptStyleV1,
     CustomLLMFamilyV1,
+    FIMSpecV1,
     LlamaCppLLMSpecV1,
     LLMFamilyV1,
     LLMSpecV1,
     MLXLLMSpecV1,
     PromptStyleV1,
     PytorchLLMSpecV1,
+    RepoLevelCodeCompletionSpecV1,
     get_cache_status,
     get_user_defined_llm_families,
     match_llm,
@@ -113,14 +118,14 @@ def generate_engine_config_by_model_family(model_family):
 
 
 def _install():
-    from .llama_cpp.core import LlamaCppChatModel, LlamaCppModel
+    from .llama_cpp.core import LlamaCppChatModel, LlamaCppCodeModel, LlamaCppModel
     from .lmdeploy.core import LMDeployChatModel, LMDeployModel
     from .mlx.core import MLXChatModel, MLXModel
     from .sglang.core import SGLANGChatModel, SGLANGModel
     from .transformers.chatglm import ChatglmPytorchChatModel
     from .transformers.cogvlm2 import CogVLM2Model
     from .transformers.cogvlm2_video import CogVLM2VideoModel
-    from .transformers.core import PytorchChatModel, PytorchModel
+    from .transformers.core import PytorchChatModel, PytorchCodeModel, PytorchModel
     from .transformers.deepseek_vl import DeepSeekVLChatModel
     from .transformers.glm4v import Glm4VModel
     from .transformers.intern_vl import InternVLChatModel
@@ -130,7 +135,7 @@ def _install():
     from .transformers.minicpmv26 import MiniCPMV26Model
     from .transformers.qwen_vl import QwenVLChatModel
     from .transformers.yi_vl import YiVLChatModel
-    from .vllm.core import VLLMChatModel, VLLMModel, VLLMVisionModel
+    from .vllm.core import VLLMChatModel, VLLMCodeModel, VLLMModel, VLLMVisionModel
 
     try:
         from .transformers.omnilmm import OmniLMMModel
@@ -144,11 +149,12 @@ def _install():
     LLAMA_CLASSES.extend(
         [
             LlamaCppChatModel,
+            LlamaCppCodeModel,
             LlamaCppModel,
         ]
     )
     SGLANG_CLASSES.extend([SGLANGModel, SGLANGChatModel])
-    VLLM_CLASSES.extend([VLLMModel, VLLMChatModel, VLLMVisionModel])
+    VLLM_CLASSES.extend([VLLMModel, VLLMChatModel, VLLMCodeModel, VLLMVisionModel])
     MLX_CLASSES.extend([MLXModel, MLXChatModel])
     LMDEPLOY_CLASSES.extend([LMDeployModel, LMDeployChatModel])
     TRANSFORMERS_CLASSES.extend(
@@ -157,6 +163,7 @@ def _install():
             LlamaPytorchModel,
             LlamaPytorchChatModel,
             PytorchChatModel,
+            PytorchCodeModel,
             Internlm2PytorchChatModel,
             QwenVLChatModel,
             YiVLChatModel,
@@ -203,6 +210,16 @@ def _install():
         if "tools" in model_spec.model_ability:
             BUILTIN_LLM_MODEL_TOOL_CALL_FAMILIES.add(model_spec.model_name)
 
+        if "code" in model_spec.model_ability and isinstance(
+            model_spec.code_prompt_style, CodePromptStyleV1
+        ):
+            BUILTIN_LLM_CODE_PROMPT_STYLE[
+                model_spec.model_name
+            ] = model_spec.code_prompt_style
+
+        if "code" in model_spec.model_ability:
+            BUILTIN_LLM_MODEL_CODE_FAMILIES.add(model_spec.model_name)
+
     modelscope_json_path = os.path.join(
         os.path.dirname(os.path.abspath(__file__)), "llm_family_modelscope.json"
     )
@@ -225,6 +242,8 @@ def _install():
             BUILTIN_LLM_MODEL_GENERATE_FAMILIES.add(model_spec.model_name)
         if "tools" in model_spec.model_ability:
             BUILTIN_LLM_MODEL_TOOL_CALL_FAMILIES.add(model_spec.model_name)
+        if "code" in model_spec.model_ability:
+            BUILTIN_LLM_MODEL_CODE_FAMILIES.add(model_spec.model_name)
 
     csghub_json_path = os.path.join(
         os.path.dirname(os.path.abspath(__file__)), "llm_family_csghub.json"

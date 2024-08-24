@@ -19,7 +19,7 @@ import os
 import time
 import uuid
 from io import BytesIO
-from typing import AsyncGenerator, Dict, Iterator, List, Optional, Tuple, cast
+from typing import AsyncGenerator, Dict, Iterator, List, Mapping, Optional, Tuple, cast
 
 import requests
 from PIL import Image
@@ -29,10 +29,14 @@ from ...types import (
     ChatCompletion,
     ChatCompletionChunk,
     ChatCompletionMessage,
+    CodeGenerateMode,
     Completion,
     CompletionChunk,
 )
+from .core import LLM
+from .lang_utils import get_file_separator
 from .llm_family import (
+    CodePromptStyleV1,
     LlamaCppLLMSpecV1,
     LLMFamilyV1,
     LLMSpecV1,
@@ -847,6 +851,131 @@ Begin!"""
         chat_history = chat_history or []
         full_prompt = cls.get_prompt(prompt, chat_history, prompt_style, tools=tools)
         return full_prompt
+
+
+class CodeModelMixin:
+    def get_code_prompt(
+        self,
+        mode: CodeGenerateMode,
+        prompt: str,
+        file_path: Optional[str] = None,
+        suffix: Optional[str] = None,
+        repo_name: Optional[str] = None,
+        files: Optional[Mapping[str, str]] = None,
+    ):
+        code_prompt_style = cast(LLM, self).model_family.code_prompt_style
+        return {
+            "prompt": CodeModelMixin._get_code_prompt(
+                mode, prompt, code_prompt_style, file_path, suffix, repo_name, files
+            )
+        }
+
+    @staticmethod
+    def _get_code_prompt(
+        mode: CodeGenerateMode,
+        prompt: str,
+        code_prompt_style: Optional["CodePromptStyleV1"],
+        file_path: Optional[str] = None,
+        suffix: Optional[str] = None,
+        repo_name: Optional[str] = None,
+        files: Optional[Mapping[str, str]] = None,
+    ) -> str:
+        if code_prompt_style is None:
+            raise ValueError(
+                "code prompt style is not provided, the model spec is wrong."
+            )
+
+        if mode == "completion":
+            if suffix is not None:
+                logger.warning(
+                    "Suffix is only required on generate type is infill, ignored"
+                )
+
+            spec = code_prompt_style.repo_level_spec
+
+            if files is None or len(files) == 0:
+                if file_path is None or len(file_path.strip()) == 0:
+                    return prompt
+                else:
+                    if spec is None:
+                        logger.warning(
+                            "repository level file separator not defined, but file_path provided, ignored"
+                        )
+                        return prompt
+                    else:
+                        repo_file = (
+                            file_path
+                            if spec.file_type == "filepath"
+                            else CodeModelMixin._path_to_name(file_path)
+                        )
+                        return get_file_separator(spec, repo_file)
+
+            if spec is None:
+                logger.warning(
+                    "The model does not support repository level code completion, 'repo_name' and 'files' are ignored"
+                )
+                return prompt
+
+            chunks = []
+            if spec.repo_name is None:
+                if repo_name is not None:
+                    logger.warning(
+                        "'repo_name' is provided but it will not be used in this model, ignored"
+                    )
+            else:
+                if repo_name is None:
+                    raise ValueError(
+                        "The 'repo_name' is required for repository level code completion for this model"
+                    )
+                chunks.append(f"{spec.repo_name}{repo_name}")
+
+            for filepath, content in files.items():
+                repo_file = (
+                    filepath
+                    if spec.file_type == "filepath"
+                    else CodeModelMixin._path_to_name(filepath)
+                )
+                chunks.append(get_file_separator(spec, repo_file))
+                chunks.append(content)
+
+            if file_path is not None and len(file_path.strip()) > 0:
+                repo_file = (
+                    file_path
+                    if spec.file_type == "filepath"
+                    else CodeModelMixin._path_to_name(file_path)
+                )
+                chunks.append(get_file_separator(spec, repo_file))
+            chunks.append(prompt)
+
+            return "\n".join(chunks)
+
+        elif mode == "infill":
+            spec = code_prompt_style.fim_spec
+            if spec is None:
+                raise ValueError("This model is not support infill mode generate")
+
+            if suffix is None:
+                raise ValueError("suffix is required in infill mode")
+
+            if files is not None and len(files) > 0:
+                logger.warning(
+                    "files is only required in repository level code completion, ignored"
+                )
+
+            if spec.style == "PSM":
+                return f"{spec.prefix}{prompt}{spec.suffix}{suffix}{spec.middle}"
+            else:
+                return f"{spec.prefix}{prompt}{spec.middle}{suffix}{spec.suffix}"
+
+        else:
+            raise ValueError(
+                f"Unsupported generate mode: {mode}, only 'completion' and 'infill' are supported now"
+            )
+
+    @staticmethod
+    def _path_to_name(filepath: str) -> str:
+        filepath = filepath.replace("\\", "/")
+        return os.path.split(filepath)[1]
 
 
 def get_file_location(

@@ -2910,32 +2910,6 @@
   {
     "version": 1,
     "context_length": 65536,
-    "model_name": "codeqwen1.5",
-    "model_lang": [
-      "en",
-      "zh"
-    ],
-    "model_ability": [
-      "generate"
-    ],
-    "model_description": "CodeQwen1.5 is the Code-Specific version of Qwen1.5. It is a transformer-based decoder-only language model pretrained on a large amount of data of codes.",
-    "model_specs": [
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": 7,
-        "quantizations": [
-          "4-bit",
-          "8-bit",
-          "none"
-        ],
-        "model_id": "qwen/CodeQwen1.5-7B",
-        "model_hub": "modelscope"
-      }
-    ]
-  },
-  {
-    "version": 1,
-    "context_length": 65536,
     "model_name": "codeqwen1.5-chat",
     "model_lang": [
       "en",
@@ -3002,6 +2976,66 @@
         "<|im_start|>",
         "<|im_end|>"
       ]
+    }
+  },
+  {
+    "version": 1,
+    "context_length": 65536,
+    "model_name": "codeqwen1.5",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "generate",
+      "code"
+    ],
+    "model_description": "CodeQwen1.5 is the Code-Specific version of Qwen1.5. It is a transformer-based decoder-only language model pretrained on a large amount of data of codes.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "qwen/CodeQwen1.5-7B",
+        "model_hub": "modelscope"
+      }
+    ],
+    "prompt_style": {
+      "style_name": "QWEN",
+      "system_prompt": "You are a helpful assistant.",
+      "roles": [
+        "user",
+        "assistant"
+      ],
+      "intra_message_sep": "\n",
+      "stop_token_ids": [
+        2,
+        3,
+        4
+      ],
+      "stop": [
+        "<|endoftext|>",
+        "<|im_start|>",
+        "<|im_end|>"
+      ]
+    },
+    "code_prompt_style": {
+      "style_name": "CODEQWEN",
+      "fim_spec": {
+        "style": "PSM",
+        "prefix": "<fim_prefix>",
+        "middle": "<fim_middle>",
+        "suffix": "<fim_suffix>"
+      },
+      "repo_level_spec": {
+        "repo_name": "<reponame>",
+        "file_type": "filepath",
+        "file_separator": "<file_sep>"
+      }
     }
   },
   {
@@ -3528,7 +3562,8 @@
       "zh"
     ],
     "model_ability": [
-      "generate"
+      "generate",
+      "code"
     ],
     "model_description": "Deepseek Coder is composed of a series of code language models, each trained from scratch on 2T tokens, with a composition of 87% code and 13% natural language in both English and Chinese.",
     "model_specs": [
@@ -3565,7 +3600,20 @@
         "model_id": "deepseek-ai/deepseek-coder-33b-base",
         "model_hub": "modelscope"
       }
-    ]
+    ],
+    "code_prompt_style": {
+      "style_name": "DEEPSEEK_CODER",
+      "fim_spec": {
+        "style": "PMS",
+        "prefix": "<｜fim▁begin｜>",
+        "middle": "<｜fim▁hole｜>",
+        "suffix": "<｜fim▁end｜>"
+      },
+      "repo_level_spec": {
+        "file_type": "filename",
+        "file_separator": "<XINF-SPE>"
+      }
+    }
   },
   {
     "version": 1,
@@ -4066,7 +4114,7 @@
       "chat",
       "vision"
     ],
-    "model_description":"OmniLMM is a family of open-source large multimodal models (LMMs) adept at vision & language modeling.",
+    "model_description":"mniLMM is a family of open-source large multimodal models (LMMs) adept at vision & language modeling.",
     "model_specs":[
       {
         "model_format":"pytorch",

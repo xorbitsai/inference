@@ -38,6 +38,63 @@ const RunningModels = () => {
     sessionStorage.setItem('runningModelType', newValue)
   }
 
+  function get_models(code_prompts) {
+    fetchWrapper
+      .get('/v1/models')
+      .then((response) => {
+        const newLlmData = []
+        const newEmbeddingModelData = []
+        const newImageModelData = []
+        const newAudioModelData = []
+        const newVideoModelData = []
+        const newRerankModelData = []
+        const newFlexibleModelData = []
+        response.data.forEach((model) => {
+          let newValue = {
+            ...model,
+            id: model.id,
+            url: model.id,
+          }
+          if (newValue.model_type === 'LLM') {
+            if (model.model_name in code_prompts) {
+              newValue['infill_supported'] =
+                'fim_spec' in code_prompts[model.model_name]
+              newValue['repo_level_supported'] =
+                'repo_level_spec' in code_prompts[model.model_name]
+            }
+            newLlmData.push(newValue)
+          } else if (newValue.model_type === 'embedding') {
+            newEmbeddingModelData.push(newValue)
+          } else if (newValue.model_type === 'audio') {
+            newAudioModelData.push(newValue)
+          } else if (newValue.model_type === 'video') {
+            newVideoModelData.push(newValue)
+          } else if (newValue.model_type === 'image') {
+            newImageModelData.push(newValue)
+          } else if (newValue.model_type === 'rerank') {
+            newRerankModelData.push(newValue)
+          } else if (newValue.model_type === 'flexible') {
+            newFlexibleModelData.push(newValue)
+          }
+        })
+        setLlmData(newLlmData)
+        setEmbeddingModelData(newEmbeddingModelData)
+        setAudioModelData(newAudioModelData)
+        setVideoModelData(newVideoModelData)
+        setImageModelData(newImageModelData)
+        setRerankModelData(newRerankModelData)
+        setFlexibleModelData(newFlexibleModelData)
+        setIsUpdatingModel(false)
+      })
+      .catch((error) => {
+        console.error('Error:', error)
+        setIsUpdatingModel(false)
+        if (error.response.status !== 403 && error.response.status !== 401) {
+          setErrorMsg(error.message)
+        }
+      })
+  }
+
   const update = (isCallingApi) => {
     if (
       sessionStorage.getItem('auth') === 'true' &&
@@ -71,45 +128,9 @@ const RunningModels = () => {
       setIsUpdatingModel(true)
 
       fetchWrapper
-        .get('/v1/models')
-        .then((response) => {
-          const newLlmData = []
-          const newEmbeddingModelData = []
-          const newImageModelData = []
-          const newAudioModelData = []
-          const newVideoModelData = []
-          const newRerankModelData = []
-          const newFlexibleModelData = []
-          response.data.forEach((model) => {
-            let newValue = {
-              ...model,
-              id: model.id,
-              url: model.id,
-            }
-            if (newValue.model_type === 'LLM') {
-              newLlmData.push(newValue)
-            } else if (newValue.model_type === 'embedding') {
-              newEmbeddingModelData.push(newValue)
-            } else if (newValue.model_type === 'audio') {
-              newAudioModelData.push(newValue)
-            } else if (newValue.model_type === 'video') {
-              newVideoModelData.push(newValue)
-            } else if (newValue.model_type === 'image') {
-              newImageModelData.push(newValue)
-            } else if (newValue.model_type === 'rerank') {
-              newRerankModelData.push(newValue)
-            } else if (newValue.model_type === 'flexible') {
-              newFlexibleModelData.push(newValue)
-            }
-          })
-          setLlmData(newLlmData)
-          setEmbeddingModelData(newEmbeddingModelData)
-          setAudioModelData(newAudioModelData)
-          setVideoModelData(newVideoModelData)
-          setImageModelData(newImageModelData)
-          setRerankModelData(newRerankModelData)
-          setFlexibleModelData(newFlexibleModelData)
-          setIsUpdatingModel(false)
+        .get('/v1/models/code_prompts')
+        .then((code_prompts) => {
+          get_models(code_prompts)
         })
         .catch((error) => {
           console.error('Error:', error)
@@ -228,6 +249,8 @@ const RunningModels = () => {
                           model_ability: row.model_ability,
                           model_description: row.model_description,
                           model_lang: row.model_lang,
+                          infill_supported: row.infill_supported,
+                          repo_level_supported: row.repo_level_supported,
                         }),
                       })
                         .then((response) => response.json())

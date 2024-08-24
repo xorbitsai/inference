@@ -25,6 +25,7 @@ if TYPE_CHECKING:
         ChatCompletion,
         ChatCompletionChunk,
         ChatCompletionMessage,
+        CodeGenerateMode,
         Completion,
         CompletionChunk,
         Embedding,
@@ -552,6 +553,144 @@ class RESTfulChatModelHandle(RESTfulGenerateModelHandle):
         return response_data
 
 
+class RESTfulCodeModelHandle(RESTfulGenerateModelHandle):
+    def code_generate(
+        self,
+        mode: "CodeGenerateMode",
+        prompt: str,
+        file_path: Optional[str] = None,
+        suffix: Optional[str] = None,
+        repo_name: Optional[str] = None,
+        files: Optional[typing.Mapping] = None,
+        generate_config: Optional[
+            Union["LlamaCppGenerateConfig", "PytorchGenerateConfig"]
+        ] = None,
+    ) -> "Completion":
+        """
+        Given code generation hint to complete the code, the model will return a response via RESTful APIs.
+
+        Parameters
+        ----------
+        mode: Literal["completion", "infill"]
+            Code Generation mode
+            Completion includes code fragment completion and repository level code completion
+            Infill is fill in middle completion, complete the code according provided prefix and suffix content.
+        prompt: str
+            The user's input, it presents prefix content in infill mode.
+        file_path: Optional[str]
+            The file path for prompt content file.
+        suffix: Optional[str]
+            The suffix content in infill mode.
+        repo_name: Optional[str]
+            The repository name in repository level code completion mode.
+        files: Optional[Mapping]
+            The file name/path and its content key values in repository level code completion mode
+        generate_config: Optional[Union["LlamaCppGenerateConfig", "PytorchGenerateConfig"]]
+            Additional configuration for the chat generation.
+            "LlamaCppGenerateConfig" -> configuration for ggml model
+            "PytorchGenerateConfig" -> configuration for pytorch model
+
+        Returns
+        -------
+        "Completion"
+
+        Raises
+        ------
+        RuntimeError
+            Report the failure to generate the code from the server. Detailed information provided in error message.
+
+        """
+
+        url = f"{self._base_url}/v1/code/completions"
+
+        request_body: Dict[str, Any] = {
+            "model": self._model_uid,
+            "mode": mode,
+            "prompt": prompt,
+            "file_path": file_path,
+            "suffix": suffix,
+            "repo_name": repo_name,
+            "files": files,
+        }
+
+        if generate_config is not None:
+            for key, value in generate_config.items():
+                request_body[key] = value
+
+        response = requests.post(url, json=request_body, headers=self.auth_headers)
+
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to generate code completion, detail: {_get_error_string(response)}"
+            )
+
+        response_data = response.json()
+        return response_data
+
+    def get_code_prompt(
+        self,
+        mode: "CodeGenerateMode",
+        prompt: str,
+        file_path: Optional[str] = None,
+        suffix: Optional[str] = None,
+        repo_name: Optional[str] = None,
+        files: Optional[typing.Mapping] = None,
+    ) -> str:
+        """
+        Given code generating prompt which can be used to complete the code, the model will return a response via
+        RESTful APIs.
+
+        Parameters
+        ----------
+        mode: Literal["completion", "infill"]
+            Code Generation mode
+            Completion includes code fragment completion and repository level code completion
+            Infill is fill in middle completion, complete the code according provided prefix and suffix content.
+        prompt: str
+            The user's input, it presents prefix content in infill mode.
+        file_path: Optional[str]
+            The file path for prompt
+        suffix: Optional[str]
+            The suffix content in infill mode.
+        repo_name: Optional[str]
+            The repository name in repository level code completion mode.
+        files: Optional[Mapping]
+            The file name/path and its content key values in repository level code completion mode
+
+        Returns
+        -------
+        {"prompt": "generated prompt"}
+
+        Raises
+        ------
+        RuntimeError
+            Report the failure to generate the code prompt from the server.
+            Detailed information provided in error message.
+
+        """
+
+        url = f"{self._base_url}/v1/code/prompt"
+
+        request_body: Dict[str, Any] = {
+            "model": self._model_uid,
+            "mode": mode,
+            "prompt": prompt,
+            "file_path": file_path,
+            "suffix": suffix,
+            "repo_name": repo_name,
+            "files": files,
+        }
+
+        response = requests.post(url, json=request_body, headers=self.auth_headers)
+
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to generate code prompt generating, detail: {_get_error_string(response)}"
+            )
+
+        return response.json()
+
+
 class RESTfulAudioModelHandle(RESTfulModelHandle):
     def transcriptions(
         self,
@@ -1032,6 +1171,10 @@ class Client:
                 return RESTfulChatModelHandle(
                     model_uid, self.base_url, auth_headers=self._headers
                 )
+            elif "code" in desc["model_ability"]:
+                return RESTfulCodeModelHandle(
+                    model_uid, self.base_url, auth_headers=self._headers
+                )
             elif "generate" in desc["model_ability"]:
                 return RESTfulGenerateModelHandle(
                     model_uid, self.base_url, auth_headers=self._headers
@@ -1381,6 +1524,36 @@ class Client:
                 f"Failed to abort request, detail: {_get_error_string(response)}"
             )
 
+        response_data = response.json()
+        return response_data
+
+    def list_builtin_prompts(self):
+        """
+        Get the builtin prompts
+        :return: List[Dict[str, Any]]
+          The builtin prompts
+        """
+        url = f"{self.base_url}/v1/models/prompts"
+        response = requests.get(url, headers=self._headers)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to get builtin prompts, details: {_get_error_string(response)}"
+            )
+        response_data = response.json()
+        return response_data
+
+    def list_builtin_code_prompts(self):
+        """
+        Get the builtin code prompts
+        :return: List[Dict[str, Any]]
+          The builtin code prompts
+        """
+        url = f"{self.base_url}/v1/models/code_prompts"
+        response = requests.get(url, headers=self._headers)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to get builtin code prompts, details: {_get_error_string(response)}"
+            )
         response_data = response.json()
         return response_data
 

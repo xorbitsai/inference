@@ -16,7 +16,7 @@ import json
 import logging
 import os
 from functools import lru_cache
-from typing import Iterable, Iterator, List, Optional, Tuple, Union
+from typing import Iterable, Iterator, List, Mapping, Optional, Tuple, Union
 
 import torch
 
@@ -30,6 +30,7 @@ from ....types import (
     ChatCompletion,
     ChatCompletionChunk,
     ChatCompletionMessage,
+    CodeGenerateMode,
     Completion,
     CompletionChoice,
     CompletionChunk,
@@ -41,7 +42,7 @@ from ....types import (
 from ...utils import select_device
 from ..core import LLM
 from ..llm_family import LLMFamilyV1, LLMSpecV1
-from ..utils import QWEN_TOOL_CALL_FAMILY, ChatModelMixin
+from ..utils import QWEN_TOOL_CALL_FAMILY, ChatModelMixin, CodeModelMixin
 from .utils import get_context_length, get_max_src_len, pad_prefill_tokens
 
 logger = logging.getLogger(__name__)
@@ -809,3 +810,62 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
                     req.completion = results
                 else:
                     req.completion[0] = self._to_chat_completion(req.completion[0])
+
+
+class PytorchCodeModel(PytorchModel, CodeModelMixin):
+    def __init__(
+        self,
+        model_uid: str,
+        model_family: "LLMFamilyV1",
+        model_spec: "LLMSpecV1",
+        quantization: str,
+        model_path: str,
+        pytorch_model_config: Optional[PytorchModelConfig] = None,
+        peft_model: Optional[List[LoRA]] = None,
+    ):
+        super().__init__(
+            model_uid,
+            model_family,
+            model_spec,
+            quantization,
+            model_path,
+            pytorch_model_config,
+            peft_model,
+        )
+
+    @classmethod
+    def match(
+        cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
+    ) -> bool:
+        if llm_spec.model_format not in ["pytorch", "gptq", "awq"]:
+            return False
+        model_family = llm_family.model_family or llm_family.model_name
+        if model_family in NON_DEFAULT_MODEL_LIST:
+            return False
+        if "code" not in llm_family.model_ability:
+            return False
+        return True
+
+    def code_generate(
+        self,
+        mode: CodeGenerateMode,
+        prompt: str,
+        file_path: Optional[str],
+        suffix: Optional[str],
+        repo_name: Optional[str],
+        files: Optional[Mapping[str, str]],
+        generate_config: Optional[PytorchGenerateConfig] = None,
+    ) -> Union[Completion, Iterator[CompletionChunk]]:
+        code_prompt = self.get_code_prompt(
+            mode,
+            prompt,
+            file_path,
+            suffix,
+            repo_name,
+            files,
+        )["prompt"]
+
+        if generate_config is not None and generate_config.get("stream", False):
+            generate_config["stream"] = False
+
+        return self.generate(code_prompt, generate_config)

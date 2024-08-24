@@ -14,7 +14,7 @@
 
 from typing import Any, Callable, Dict, ForwardRef, Iterable, List, Optional, Union
 
-from typing_extensions import Literal, NotRequired, TypedDict
+from typing_extensions import Literal, Mapping, NotRequired, TypedDict
 
 from ._compat import (
     BaseModel,
@@ -533,3 +533,13 @@ class PeftModelConfig:
             image_lora_load_kwargs=data.get("image_lora_load_kwargs"),
             image_lora_fuse_kwargs=data.get("image_lora_fuse_kwargs"),
         )
+
+
+CodeGenerateMode = Literal["completion", "infill"]
+
+
+class CreateCodeCompletion(CreateCompletion):
+    file_path: Optional[str] = none_field
+    mode: CodeGenerateMode = "completion"
+    repo_name: Optional[str] = none_field
+    files: Optional[Mapping[str, str]] = none_field

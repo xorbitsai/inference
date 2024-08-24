@@ -2101,31 +2101,6 @@
   {
     "version": 1,
     "context_length": 65536,
-    "model_name": "codeqwen1.5",
-    "model_lang": [
-      "en",
-      "zh"
-    ],
-    "model_ability": [
-      "generate"
-    ],
-    "model_description": "CodeQwen1.5 is the Code-Specific version of Qwen1.5. It is a transformer-based decoder-only language model pretrained on a large amount of data of codes.",
-    "model_specs": [
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": 7,
-        "quantizations": [
-          "4-bit",
-          "8-bit",
-          "none"
-        ],
-        "model_id": "Qwen/CodeQwen1.5-7B"
-      }
-    ]
-  },
-  {
-    "version": 1,
-    "context_length": 65536,
     "model_name": "codeqwen1.5-chat",
     "model_lang": [
       "en",
@@ -2578,6 +2553,86 @@
         "<|im_start|>",
         "<|im_end|>"
       ]
+    }
+  },
+  {
+    "version": 1,
+    "context_length": 65536,
+    "model_name": "codeqwen1.5",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "code"
+    ],
+    "model_description": "CodeQwen1.5 is the Code-Specific version of Qwen1.5. It is a transformer-based decoder-only language model pretrained on a large amount of data of codes.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "4-bit",
+          "8-bit",
+          "none"
+        ],
+        "model_id": "Qwen/CodeQwen1.5-7B"
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "Int4"
+        ],
+        "model_id": "Qwen/CodeQwen1.5-7B-AWQ"
+      }
+    ],
+    "code_prompt_style": {
+      "style_name": "CODEQWEN",
+      "fim_spec": {
+        "style": "PSM",
+        "prefix": "<fim_prefix>",
+        "middle": "<fim_middle>",
+        "suffix": "<fim_suffix>"
+      },
+      "repo_level_spec": {
+        "repo_name": "<reponame>",
+        "file_type": "filepath",
+        "file_separator": "<file_sep>"
+      }
+    }
+  },
+  {
+    "version": 1,
+    "context_length": 8192,
+    "model_name": "starcoder",
+    "model_lang": [
+      "en"
+    ],
+    "model_ability": [
+      "generate",
+      "code"
+    ],
+    "model_description": "Starcoder is an open-source Transformer based LLM that is trained on permissively licensed data from GitHub.",
+    "model_specs": [
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 16,
+        "quantizations": [
+          "q5_k_m"
+        ],
+        "model_id": "osukhoroslov-hw/starcoder-Q5_K_M-GGUF",
+        "model_file_name_template": "starcoder-{quantization}.gguf"
+      }
+    ],
+    "code_prompt_style": {
+      "style_name": "STARCODER",
+      "fim_spec": {
+        "style": "PSM",
+        "prefix": "<fim_prefix>",
+        "middle": "<fim_middle>",
+        "suffix": "<fim_suffix>"
+      }
     }
   },
   {
@@ -5149,7 +5204,8 @@
       "zh"
     ],
     "model_ability": [
-      "generate"
+      "generate",
+      "code"
     ],
     "model_description": "Deepseek Coder is composed of a series of code language models, each trained from scratch on 2T tokens, with a composition of 87% code and 13% natural language in both English and Chinese. ",
     "model_specs": [
@@ -5330,7 +5386,20 @@
         "model_id": "TheBloke/deepseek-coder-33B-base-AWQ",
         "model_revision": "c7edb2d5868d61a5dcf2591933a8992c8cbe3ef4"
       }
-    ]
+    ],
+    "code_prompt_style": {
+      "style_name": "DEEPSEEK_CODER",
+      "fim_spec": {
+        "style": "PMS",
+        "prefix": "<｜fim▁begin｜>",
+        "middle": "<｜fim▁hole｜>",
+        "suffix": "<｜fim▁end｜>"
+      },
+      "repo_level_spec": {
+        "file_type": "filename",
+        "file_separator": "<XINF-SPE>"
+      }
+    }
   },
   {
     "version": 1,

@@ -26,6 +26,7 @@ from typing import (
     Dict,
     Iterable,
     List,
+    Mapping,
     Optional,
     TypedDict,
     Union,
@@ -35,6 +36,7 @@ from ....types import (
     ChatCompletion,
     ChatCompletionChunk,
     ChatCompletionMessage,
+    CodeGenerateMode,
     Completion,
     CompletionChoice,
     CompletionChunk,
@@ -45,7 +47,7 @@ from ....types import (
 )
 from .. import LLM, LLMFamilyV1, LLMSpecV1
 from ..llm_family import CustomLLMFamilyV1
-from ..utils import QWEN_TOOL_CALL_FAMILY, ChatModelMixin
+from ..utils import QWEN_TOOL_CALL_FAMILY, ChatModelMixin, CodeModelMixin
 
 logger = logging.getLogger(__name__)
 
@@ -129,6 +131,10 @@ VLLM_SUPPORTED_CHAT_MODELS = [
     "codegeex4",
     "deepseek-chat",
     "deepseek-coder-instruct",
+]
+VLLM_SUPPORTED_CODE_MODELS = [
+    "deepseek-coder",
+    "codeqwen1.5",
 ]
 if VLLM_INSTALLED and vllm.__version__ >= "0.3.0":
     VLLM_SUPPORTED_CHAT_MODELS.append("qwen1.5-chat")
@@ -743,3 +749,59 @@ class VLLMVisionModel(VLLMModel, ChatModelMixin):
             c = await self.async_generate(inputs, generate_config)
             assert not isinstance(c, AsyncGenerator)
             return self._to_chat_completion(c)
+
+
+class VLLMCodeModel(VLLMModel, CodeModelMixin):
+    @classmethod
+    def match(
+        cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
+    ) -> bool:
+        if llm_spec.model_format not in ["pytorch", "gptq", "awq"]:
+            return False
+        if llm_spec.model_format == "pytorch":
+            if quantization != "none" and quantization is not None:
+                return False
+        if llm_spec.model_format == "awq":
+            # Currently, only 4-bit weight quantization is supported for AWQ, but got 8 bits.
+            if "4" not in quantization:
+                return False
+        if llm_spec.model_format == "gptq":
+            if VLLM_INSTALLED and vllm.__version__ >= "0.3.3":
+                if not any(q in quantization for q in ("3", "4", "8")):
+                    return False
+            else:
+                if "4" not in quantization:
+                    return False
+        if isinstance(llm_family, CustomLLMFamilyV1):
+            if llm_family.model_family not in VLLM_SUPPORTED_CODE_MODELS:
+                return False
+        else:
+            if llm_family.model_name not in VLLM_SUPPORTED_CODE_MODELS:
+                return False
+        if "code" not in llm_family.model_ability:
+            return False
+        return VLLM_INSTALLED
+
+    async def async_code_generate(
+        self,
+        mode: CodeGenerateMode,
+        prompt: str,
+        file_path: Optional[str],
+        suffix: Optional[str],
+        repo_name: Optional[str],
+        files: Optional[Mapping[str, str]],
+        generate_config: Optional[Dict] = None,
+    ) -> Union[Completion, AsyncGenerator[CompletionChunk, None]]:
+        code_prompt = self.get_code_prompt(
+            mode,
+            prompt,
+            file_path,
+            suffix,
+            repo_name,
+            files,
+        )["prompt"]
+
+        if generate_config is not None and generate_config.get("stream", False):
+            generate_config["stream"] = False
+
+        return await self.async_generate(code_prompt, generate_config)

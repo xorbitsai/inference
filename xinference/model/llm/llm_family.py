@@ -53,9 +53,11 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_CONTEXT_LENGTH = 2048
 BUILTIN_LLM_PROMPT_STYLE: Dict[str, "PromptStyleV1"] = {}
+BUILTIN_LLM_CODE_PROMPT_STYLE: Dict[str, "CodePromptStyleV1"] = {}
 BUILTIN_LLM_MODEL_CHAT_FAMILIES: Set[str] = set()
 BUILTIN_LLM_MODEL_GENERATE_FAMILIES: Set[str] = set()
 BUILTIN_LLM_MODEL_TOOL_CALL_FAMILIES: Set[str] = set()
+BUILTIN_LLM_MODEL_CODE_FAMILIES: Set[str] = set()
 
 
 class LlamaCppLLMSpecV1(BaseModel):
@@ -137,17 +139,37 @@ class PromptStyleV1(BaseModel):
     stop_token_ids: Optional[List[int]]
 
 
+class FIMSpecV1(BaseModel):
+    style: Literal["PSM", "PMS"]
+    prefix: str
+    middle: str
+    suffix: str
+
+
+class RepoLevelCodeCompletionSpecV1(BaseModel):
+    repo_name: Optional[str]
+    file_type: Literal["filepath", "filename"]
+    file_separator: str
+
+
+class CodePromptStyleV1(BaseModel):
+    style_name: str
+    fim_spec: Optional["FIMSpecV1"]
+    repo_level_spec: Optional["RepoLevelCodeCompletionSpecV1"]
+
+
 class LLMFamilyV1(BaseModel):
     version: Literal[1]
     context_length: Optional[int] = DEFAULT_CONTEXT_LENGTH
     model_name: str
     model_lang: List[str]
-    model_ability: List[Literal["embed", "generate", "chat", "tools", "vision"]]
+    model_ability: List[Literal["embed", "generate", "chat", "tools", "vision", "code"]]
     model_description: Optional[str]
     # reason for not required str here: legacy registration
     model_family: Optional[str]
     model_specs: List["LLMSpecV1"]
     prompt_style: Optional["PromptStyleV1"]
+    code_prompt_style: Optional["CodePromptStyleV1"]
 
 
 class CustomLLMFamilyV1(LLMFamilyV1):

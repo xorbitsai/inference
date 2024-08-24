@@ -73,6 +73,7 @@ class CustomDevelop(ExtraCommandMixin, develop):
 class CustomSDist(ExtraCommandMixin, sdist):
     pass
 
+
 class BuildWeb(Command):
     """build_web command"""
 
