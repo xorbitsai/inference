@@ -11,6 +11,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+import functools
+import gc
+import inspect
 import json
 import logging
 import os
@@ -21,7 +25,7 @@ from typing import Any, Callable, Dict, Optional, Tuple, Union
 import huggingface_hub
 
 from ..constants import XINFERENCE_CACHE_DIR, XINFERENCE_ENV_MODEL_SRC
-from ..device_utils import get_available_device, is_device_available
+from ..device_utils import empty_cache, get_available_device, is_device_available
 from .core import CacheableModelSpec
 
 logger = logging.getLogger(__name__)
@@ -348,3 +352,29 @@ def convert_float_to_int_or_str(model_size: float) -> Union[int, str]:
         return int(model_size)
     else:
         return str(model_size)
+
+
+def ensure_cache_cleared(func: Callable):
+    assert not inspect.iscoroutinefunction(func) and not inspect.isasyncgenfunction(
+        func
+    )
+    if inspect.isgeneratorfunction(func):
+
+        @functools.wraps(func)
+        def inner(*args, **kwargs):
+            for obj in func(*args, **kwargs):
+                yield obj
+            gc.collect()
+            empty_cache()
+
+    else:
+
+        @functools.wraps(func)
+        def inner(*args, **kwargs):
+            try:
+                return func(*args, **kwargs)
+            finally:
+                gc.collect()
+                empty_cache()
+
+    return inner
