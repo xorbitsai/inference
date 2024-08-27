@@ -266,7 +266,7 @@ class DiffusionModel:
         if size:
             width, height = map(int, re.split(r"[^\d]+", size))
             if padding_image_to_multiple:
-                width, size = image.size
+                width, height = image.size
             kwargs["width"] = width
             kwargs["height"] = height
 
