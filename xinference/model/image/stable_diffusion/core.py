@@ -312,7 +312,7 @@ class DiffusionModel:
         width, height = map(int, re.split(r"[^\d]+", size))
 
         if padding_image_to_multiple := kwargs.pop("padding_image_to_multiple", None):
-            # Model like SD3 image to image requires image's height and width is times of 16
+            # Model like SD3 inpainting requires image's height and width is times of 16
             # padding the image if specified
             image = self.pad_to_multiple(image, multiple=int(padding_image_to_multiple))
             mask_image = self.pad_to_multiple(
