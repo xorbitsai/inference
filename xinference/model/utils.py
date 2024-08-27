@@ -18,11 +18,14 @@ import inspect
 import json
 import logging
 import os
+import random
 from json import JSONDecodeError
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional, Tuple, Union
 
 import huggingface_hub
+import numpy as np
+import torch
 
 from ..constants import XINFERENCE_CACHE_DIR, XINFERENCE_ENV_MODEL_SRC
 from ..device_utils import empty_cache, get_available_device, is_device_available
@@ -378,3 +381,10 @@ def ensure_cache_cleared(func: Callable):
                 empty_cache()
 
     return inner
+
+
+def set_all_random_seed(seed: int):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)

@@ -16,6 +16,8 @@ import logging
 from io import BytesIO
 from typing import TYPE_CHECKING, Optional
 
+from ..utils import set_all_random_seed
+
 if TYPE_CHECKING:
     from .core import AudioModelFamilyV1
 
@@ -67,6 +69,7 @@ class CosyVoiceModel:
         prompt_speech: Optional[bytes] = kwargs.pop("prompt_speech", None)
         prompt_text: Optional[str] = kwargs.pop("prompt_text", None)
         instruct_text: Optional[str] = kwargs.pop("instruct_text", None)
+        seed: Optional[int] = kwargs.pop("seed", 0)
 
         if "SFT" in self._model_spec.model_name:
             # inference_sft
@@ -96,6 +99,7 @@ class CosyVoiceModel:
             ), "CosyVoice model does not support instruct_text"
 
         assert self._model is not None
+        set_all_random_seed(seed)
         if prompt_speech:
             assert not voice, "voice can't be set with prompt speech."
             with io.BytesIO(prompt_speech) as prompt_speech_io:
