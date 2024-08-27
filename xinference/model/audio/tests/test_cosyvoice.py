@@ -106,6 +106,16 @@ def test_cosyvoice_instruct(setup):
     )
     model = client.get_model(model_uid)
 
+    # inference without instruction
+    response = model.speech(
+        "在面对挑战时，他展现了非凡的<strong>勇气</strong>与<strong>智慧</strong>。", voice="中文男"
+    )
+    assert type(response) is bytes
+    assert len(response) > 0
+    with tempfile.NamedTemporaryFile(suffix=".mp3", delete=True) as f:
+        f.write(response)
+        assert os.stat(f.name).st_size > 0
+
     # inference_instruct
     response = model.speech(
         "在面对挑战时，他展现了非凡的<strong>勇气</strong>与<strong>智慧</strong>。",

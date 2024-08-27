@@ -87,9 +87,6 @@ class CosyVoiceModel:
             assert (
                 prompt_text is None
             ), "CosyVoice Instruct model does not support prompt_text"
-            assert (
-                instruct_text is not None
-            ), "CosyVoice Instruct model expect a instruct_text"
         else:
             # inference_zero_shot
             # inference_cross_lingual
