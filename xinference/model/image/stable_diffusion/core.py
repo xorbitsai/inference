@@ -319,7 +319,7 @@ class DiffusionModel:
                 mask_image, multiple=int(padding_image_to_multiple)
             )
             # calculate actual image size after padding
-            width, length = image.size
+            width, height = image.size
 
         return self._call_model(
             image=image,
