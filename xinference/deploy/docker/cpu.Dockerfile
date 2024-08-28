@@ -28,3 +28,5 @@ RUN python -m pip install --upgrade -i "$PIP_INDEX" pip && \
     pip install -i "$PIP_INDEX" --no-deps "." && \
     # clean packages
     pip cache purge
+
+CMD ["/bin/bash"]
