@@ -643,39 +643,6 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
 
 
 class VLLMVisionModel(VLLMModel, ChatModelMixin):
-    def load(self):
-        try:
-            import vllm
-            from vllm.engine.arg_utils import AsyncEngineArgs
-            from vllm.engine.async_llm_engine import AsyncLLMEngine
-        except ImportError:
-            error_message = "Failed to import module 'vllm'"
-            installation_guide = [
-                "Please make sure 'vllm' is installed. ",
-                "You can install it by `pip install vllm`\n",
-            ]
-            raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
-
-        if vllm.__version__ >= "0.3.1":
-            # from vllm v0.3.1, it uses cupy as NCCL backend
-            # in which cupy will fork a process
-            # only for xoscar >= 0.3.0, new process is allowed in subpool
-            # besides, xinference set start method as forkserver for unix
-            # we need to set it to fork to make cupy NCCL work
-            multiprocessing.set_start_method("fork", force=True)
-
-        self._model_config = self._sanitize_model_config(self._model_config)
-
-        logger.info(
-            f"Loading {self.model_uid} with following model config: {self._model_config}"
-        )
-
-        engine_args = AsyncEngineArgs(
-            model=self.model_path,
-            **self._model_config,
-        )
-        self._engine = AsyncLLMEngine.from_engine_args(engine_args)
-
     @classmethod
     def match(
         cls, llm_family: "LLMFamilyV1", llm_spec: "LLMSpecV1", quantization: str
