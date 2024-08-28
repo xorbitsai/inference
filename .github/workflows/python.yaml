@@ -154,9 +154,9 @@ jobs:
             ${{ env.SELF_HOST_CONDA }} install -c conda-forge pynini=2.1.5
             ${{ env.SELF_HOST_CONDA }} install -c conda-forge "ffmpeg<7"
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U funasr
-            ${{ env.SELF_HOST_PYTHON }} -m pip install -U nemo_text_processing
+            ${{ env.SELF_HOST_PYTHON }} -m pip install -U nemo_text_processing<1.1.0
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U omegaconf~=2.3.0
-            ${{ env.SELF_HOST_PYTHON }} -m pip install -U WeTextProcessing
+            ${{ env.SELF_HOST_PYTHON }} -m pip install -U WeTextProcessing<1.0.4
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U librosa
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U xxhash
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U "ChatTTS>0.1"
