@@ -34,7 +34,7 @@ from pydantic import BaseModel, Field
 # from fish_speech.models.vqgan.lit_module import VQGAN
 from fish_speech.models.vqgan.modules.firefly import FireflyArchitecture
 from fish_speech.utils import autocast_exclude_mps
-from tools.auto_rerank import batch_asr, calculate_wer, is_chinese, load_model
+# from tools.auto_rerank import batch_asr, calculate_wer, is_chinese, load_model
 from tools.llama.generate import (
     GenerateRequest,
     GenerateResponse,
