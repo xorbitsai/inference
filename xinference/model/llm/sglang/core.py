@@ -152,7 +152,7 @@ class SGLANGModel(LLM):
             else:
                 model_config["mem_fraction_static"] = 0.88
         model_config.setdefault("log_level", "info")
-        model_config.setdefault("attention_reduce_in_fp32", False)
+        model_config.setdefault("triton_attention_reduce_in_fp32", False)
 
         return model_config
 
