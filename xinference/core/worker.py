@@ -92,9 +92,9 @@ class WorkerActor(xo.StatelessActor):
         self._gpu_to_model_uid: Dict[int, str] = {}
         self._gpu_to_embedding_model_uids: Dict[int, Set[str]] = defaultdict(set)
         # Dict structure: gpu_index: {(replica_model_uid, model_type)}
-        self._user_specified_gpu_to_model_uids: Dict[int, Set[Tuple[str, str]]] = (
-            defaultdict(set)
-        )
+        self._user_specified_gpu_to_model_uids: Dict[
+            int, Set[Tuple[str, str]]
+        ] = defaultdict(set)
         self._model_uid_to_addr: Dict[str, str] = {}
         self._model_uid_to_recover_count: Dict[str, Optional[int]] = {}
         self._model_uid_to_launch_args: Dict[str, Dict] = {}
