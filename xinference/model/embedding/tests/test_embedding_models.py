@@ -191,7 +191,8 @@ def test_register_custom_embedding():
         model_id="test/custom_test_b",
         model_uri="file:///c/d",
     )
-    register_embedding(model_spec, False)
+    with pytest.raises(ValueError):
+        register_embedding(model_spec, False)
 
     # name conflict
     model_spec = CustomEmbeddingModelSpec(
