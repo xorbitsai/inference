@@ -114,7 +114,7 @@ class SGLANGModel(LLM):
 
         self._model_config = self._sanitize_model_config(self._model_config)
 
-        #Fix 2169
+        # Fix: GH#2169
         if sgl.__version__ >= "0.2.14":
             self._model_config.setdefault("triton_attention_reduce_in_fp32", False)
         else:
