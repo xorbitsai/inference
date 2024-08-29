@@ -319,6 +319,8 @@ class PytorchModel(LLM):
         else:
             self._model, self._tokenizer = self._load_model(**kwargs)
 
+        self._apply_lora()
+
         if not is_device_map_auto:
             self._model.to(self._device)
 
