@@ -48,6 +48,10 @@ def register_rerank(model_spec: CustomRerankModelSpec, persist: bool):
     if not is_valid_model_name(model_spec.model_name):
         raise ValueError(f"Invalid model name {model_spec.model_name}.")
 
+    model_uri = model_spec.model_uri
+    if model_uri and not is_valid_model_uri(model_uri):
+        raise ValueError(f"Invalid model URI {model_uri}.")
+
     with UD_RERANK_LOCK:
         for model_name in (
             list(BUILTIN_RERANK_MODELS.keys())
@@ -62,11 +66,6 @@ def register_rerank(model_spec: CustomRerankModelSpec, persist: bool):
         UD_RERANKS.append(model_spec)
 
     if persist:
-        # We only validate model URL when persist is True.
-        model_uri = model_spec.model_uri
-        if model_uri and not is_valid_model_uri(model_uri):
-            raise ValueError(f"Invalid model URI {model_uri}.")
-
         persist_path = os.path.join(
             XINFERENCE_MODEL_DIR, "rerank", f"{model_spec.model_name}.json"
         )
