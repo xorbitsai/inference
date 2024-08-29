@@ -618,7 +618,11 @@ class PytorchModel(LLM):
         if stop_token_ids is not None:
             return tuple(stop_token_ids)
         else:
-            return tuple(self.model_family.stop_token_ids)
+            return (
+                tuple(self.model_family.stop_token_ids)
+                if self.model_family.stop_token_ids
+                else tuple()
+            )
 
     def handle_batch_inference_results(self, req_list: List[InferenceRequest]):
         for req in req_list:
@@ -724,6 +728,7 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
         full_context_kwargs = {}
         if tools and model_family in QWEN_TOOL_CALL_FAMILY:
             full_context_kwargs["tools"] = tools
+        assert self.model_family.chat_template is not None
         full_prompt = self.get_full_context(
             messages,
             self.model_family.chat_template,
@@ -749,6 +754,7 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
         super().load()
 
     def _get_full_prompt(self, messages: List[Dict], tools):
+        assert self.model_family.chat_template is not None
         full_prompt = self.get_full_context(
             messages, self.model_family.chat_template, tokenizer=self._tokenizer
         )

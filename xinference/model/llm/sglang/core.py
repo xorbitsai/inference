@@ -442,6 +442,7 @@ class SGLANGChatModel(SGLANGModel, ChatModelMixin):
         messages: List[Dict],
         generate_config: Optional[Dict] = None,
     ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
+        assert self.model_family.chat_template is not None
         full_prompt = self.get_full_context(messages, self.model_family.chat_template)
 
         generate_config = self._sanitize_chat_config(generate_config)

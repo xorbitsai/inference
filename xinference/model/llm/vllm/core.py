@@ -662,6 +662,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
         full_context_kwargs = {}
         if tools and model_family in QWEN_TOOL_CALL_FAMILY:
             full_context_kwargs["tools"] = tools
+        assert self.model_family.chat_template is not None
         full_prompt = self.get_full_context(
             messages, self.model_family.chat_template, **full_context_kwargs
         )
@@ -716,9 +717,10 @@ class VLLMVisionModel(VLLMModel, ChatModelMixin):
             if stop_token_ids is not None:
                 generate_config.setdefault("stop_token_ids", stop_token_ids)
             else:
-                generate_config.setdefault(
-                    "stop_token_ids", self.model_family.stop_token_ids.copy()
-                )
+                if self.model_family.stop_token_ids:
+                    generate_config.setdefault(
+                        "stop_token_ids", self.model_family.stop_token_ids.copy()
+                    )
         return generate_config
 
     async def async_chat(

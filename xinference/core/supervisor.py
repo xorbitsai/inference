@@ -1027,7 +1027,7 @@ class SupervisorActor(xo.StatelessActor):
         else:
             task = asyncio.create_task(_launch_model())
             ASYNC_LAUNCH_TASKS[model_uid] = task
-            task.add_done_callback(lambda _: callback_for_async_launch(model_uid))
+            task.add_done_callback(lambda _: callback_for_async_launch(model_uid))  # type: ignore
         return model_uid
 
     async def get_instance_info(
