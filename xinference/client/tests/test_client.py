@@ -83,9 +83,14 @@ def test_RESTful_client(setup):
             generate_config={"stream": True, "max_tokens": 5},
         )
         for chunk in streaming_response:
-            assert ("content" in chunk["choices"][0]["delta"]) or (
-                "role" in chunk["choices"][0]["delta"]
-            )
+            assert "finish_reason" in chunk["choices"][0]
+            finish_reason = chunk["choices"][0]["finish_reason"]
+            if finish_reason is None:
+                assert ("content" in chunk["choices"][0]["delta"]) or (
+                    "role" in chunk["choices"][0]["delta"]
+                )
+            else:
+                assert chunk["choices"][0]["delta"] == {}
 
     _check_stream()
 
@@ -218,7 +223,6 @@ def test_RESTful_client_custom_model(setup):
     "en", "zh"
   ],
   "model_ability": [
-    "embed",
     "chat"
   ],
   "model_family": "other",
@@ -234,15 +238,9 @@ def test_RESTful_client_custom_model(setup):
       "model_id": "ziqingyang/chinese-alpaca-2-7b"
     }
   ],
-  "prompt_style": {
-    "style_name": "ADD_COLON_SINGLE",
-    "system_prompt": "Below is an instruction that describes a task. Write a response that appropriately completes the request.",
-    "roles": [
-      "Instruction",
-      "Response"
-    ],
-    "intra_message_sep": "\\n\\n### "
-  }
+  "chat_template": "xyz",
+  "stop_token_ids": [],
+  "stop": []
 }"""
     client.register_model(model_type="LLM", model=model, persist=False)
 
@@ -266,7 +264,7 @@ def test_RESTful_client_custom_model(setup):
             custom_model_reg = model_reg
     assert custom_model_reg is None
 
-    # test register with string prompt style name
+    # test register with chat_template using model_family
     model_with_prompt = """{
   "version": 1,
   "context_length":2048,
@@ -291,12 +289,12 @@ def test_RESTful_client_custom_model(setup):
       "model_id": "ziqingyang/chinese-alpaca-2-7b"
     }
   ],
-  "prompt_style": "qwen-chat"
+  "chat_template": "qwen-chat"
 }"""
     client.register_model(model_type="LLM", model=model_with_prompt, persist=False)
     client.unregister_model(model_type="LLM", model_name="custom_model")
 
-    model_with_prompt2 = """{
+    model_with_vision = """{
       "version": 1,
       "context_length":2048,
       "model_name": "custom_model",
@@ -304,8 +302,8 @@ def test_RESTful_client_custom_model(setup):
         "en", "zh"
       ],
       "model_ability": [
-        "embed",
-        "chat"
+        "chat",
+        "vision"
       ],
       "model_family": "other",
       "model_specs": [
@@ -320,10 +318,41 @@ def test_RESTful_client_custom_model(setup):
           "model_id": "ziqingyang/chinese-alpaca-2-7b"
         }
       ],
-      "prompt_style": "xyz123"
+      "chat_template": "xyz123"
     }"""
     with pytest.raises(RuntimeError):
-        client.register_model(model_type="LLM", model=model_with_prompt2, persist=False)
+        client.register_model(model_type="LLM", model=model_with_vision, persist=False)
+
+    model_with_tool_call = """{
+          "version": 1,
+          "context_length":2048,
+          "model_name": "custom_model",
+          "model_lang": [
+            "en", "zh"
+          ],
+          "model_ability": [
+            "chat",
+            "tools"
+          ],
+          "model_family": "other",
+          "model_specs": [
+            {
+              "model_format": "pytorch",
+              "model_size_in_billions": 7,
+              "quantizations": [
+                "4-bit",
+                "8-bit",
+                "none"
+              ],
+              "model_id": "ziqingyang/chinese-alpaca-2-7b"
+            }
+          ],
+          "chat_template": "xyz123"
+        }"""
+    with pytest.raises(RuntimeError):
+        client.register_model(
+            model_type="LLM", model=model_with_tool_call, persist=False
+        )
 
 
 def test_client_from_modelscope(setup):

@@ -245,15 +245,13 @@ class MLXModel(LLM):
         )
         if stream:
             yield generate_completion_chunk(
-                None,
+                "",
                 finish_reason=finish_reason,
                 chunk_id=chunk_id,
                 model_uid=model_uid,
                 prompt_tokens=input_echo_len,
                 completion_tokens=i,
                 total_tokens=(input_echo_len + i),
-                has_choice=True,
-                has_content=False,
             ), completion_usage
         else:
             yield generate_completion_chunk(
@@ -264,8 +262,6 @@ class MLXModel(LLM):
                 prompt_tokens=input_echo_len,
                 completion_tokens=i,
                 total_tokens=(input_echo_len + i),
-                has_choice=True,
-                has_content=True,
             ), completion_usage
 
         if include_usage:

@@ -191,7 +191,11 @@ class ChatModelMixin:
                 {
                     "index": i,
                     "delta": {
-                        **({"content": choice["text"]} if "text" in choice else {}),
+                        **(
+                            {"content": choice["text"]}
+                            if ("text" in choice and choice["finish_reason"] is None)
+                            else {}
+                        ),
                         **(
                             {"tool_calls": choice["tool_calls"]}
                             if "tool_calls" in choice

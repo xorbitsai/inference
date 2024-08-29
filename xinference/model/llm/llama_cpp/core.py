@@ -182,13 +182,10 @@ class LlamaCppModel(LLM):
             ):
                 _completion_chunk["model"] = self.model_uid
                 request_id = _completion_chunk["id"]
-                choice = _completion_chunk["choices"][0]
-                if choice["finish_reason"] is not None:
-                    completion_tokens = index
-                    choice.pop("text", None)
+                completion_tokens = index + 1
                 total_tokens = prompt_tokens + completion_tokens
                 _completion_chunk["usage"] = CompletionUsage(
-                    prompt_tokens=total_tokens,
+                    prompt_tokens=prompt_tokens,
                     completion_tokens=completion_tokens,
                     total_tokens=total_tokens,
                 )

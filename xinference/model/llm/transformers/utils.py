@@ -321,7 +321,7 @@ def generate_stream(
 
     if stream:
         completion_choice = CompletionChoice(
-            index=0, logprobs=None, finish_reason=finish_reason
+            text=output, index=0, logprobs=None, finish_reason=finish_reason
         )
     else:
         completion_choice = CompletionChoice(
@@ -692,15 +692,13 @@ def _batch_inference_one_step_internal(
                     if r.stopped:
                         # OpenAI compatible chunk
                         completion_chunk = generate_completion_chunk(
-                            chunk_text=None,
+                            chunk_text="",
                             finish_reason=r.finish_reason,
                             chunk_id=r.chunk_id,
                             model_uid=model_uid,
                             prompt_tokens=len(r.prompt_tokens),
                             completion_tokens=len(r.new_tokens),
                             total_tokens=len(r.prompt_tokens) + len(r.new_tokens),
-                            has_choice=True,
-                            has_content=False,
                         )
                         r.completion.append(completion_chunk)
                         r.completion.append(eos_flag)
