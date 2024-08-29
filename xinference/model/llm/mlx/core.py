@@ -24,7 +24,6 @@ from ....types import (
     ChatCompletion,
     ChatCompletionChunk,
     Completion,
-    CompletionChoice,
     CompletionChunk,
     CompletionUsage,
     LoRA,
@@ -211,23 +210,15 @@ class MLXModel(LLM):
             else:
                 output += out
 
-            completion_choice = CompletionChoice(
-                text=output, index=0, logprobs=None, finish_reason=None
-            )
-            completion_chunk = CompletionChunk(
-                id=chunk_id,
-                object="text_completion",
-                created=int(time.time()),
-                model=model_uid,
-                choices=[completion_choice],
-            )
-            completion_usage = CompletionUsage(
+            yield generate_completion_chunk(
+                chunk_text=output,
+                finish_reason=None,
+                chunk_id=chunk_id,
+                model_uid=model_uid,
                 prompt_tokens=input_echo_len,
                 completion_tokens=i,
                 total_tokens=(input_echo_len + i),
             )
-
-            yield completion_chunk, completion_usage
 
         logger.info(
             f"Average generation speed: {i / (time.time() - start):.2f} tokens/s."

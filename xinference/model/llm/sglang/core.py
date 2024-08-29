@@ -373,15 +373,13 @@ class SGLANGModel(LLM):
                     else finish_reason
                 )
                 yield generate_completion_chunk(
-                    None,
+                    "",
                     finish_reason=finish_reason,
                     chunk_id=request_id,
                     model_uid=self.model_uid,
                     prompt_tokens=prompt_tokens,
                     completion_tokens=completion_tokens,
                     total_tokens=total_tokens,
-                    has_choice=True,
-                    has_content=False,
                 )
 
                 if include_usage:
