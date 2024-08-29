@@ -113,6 +113,13 @@ class SGLANGModel(LLM):
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
         self._model_config = self._sanitize_model_config(self._model_config)
+
+        # Fix: GH#2169
+        if sgl.__version__ >= "0.2.14":
+            self._model_config.setdefault("triton_attention_reduce_in_fp32", False)
+        else:
+            self._model_config.setdefault("attention_reduce_in_fp32", False)
+
         logger.info(
             f"Loading {self.model_uid} with following model config: {self._model_config}"
         )
@@ -152,7 +159,6 @@ class SGLANGModel(LLM):
             else:
                 model_config["mem_fraction_static"] = 0.88
         model_config.setdefault("log_level", "info")
-        model_config.setdefault("attention_reduce_in_fp32", False)
 
         return model_config
 
