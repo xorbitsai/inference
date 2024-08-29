@@ -45,7 +45,6 @@ from .llm_family import (
     LLMFamilyV1,
     LLMSpecV1,
     MLXLLMSpecV1,
-    PromptStyleV1,
     PytorchLLMSpecV1,
     get_cache_status,
     get_user_defined_llm_families,
@@ -141,7 +140,6 @@ def _install():
     from .transformers.glm4v import Glm4VModel
     from .transformers.intern_vl import InternVLChatModel
     from .transformers.internlm2 import Internlm2PytorchChatModel
-    from .transformers.llama_2 import LlamaPytorchChatModel, LlamaPytorchModel
     from .transformers.minicpmv25 import MiniCPMV25Model
     from .transformers.minicpmv26 import MiniCPMV26Model
     from .transformers.qwen_vl import QwenVLChatModel
@@ -170,8 +168,6 @@ def _install():
     TRANSFORMERS_CLASSES.extend(
         [
             ChatglmPytorchChatModel,
-            LlamaPytorchModel,
-            LlamaPytorchChatModel,
             PytorchChatModel,
             Internlm2PytorchChatModel,
             QwenVLChatModel,
@@ -204,13 +200,17 @@ def _install():
         model_spec = LLMFamilyV1.parse_obj(json_obj)
         BUILTIN_LLM_FAMILIES.append(model_spec)
 
-        # register prompt style
+        # register chat_template
         if "chat" in model_spec.model_ability and isinstance(
-            model_spec.prompt_style, PromptStyleV1
+            model_spec.chat_template, str
         ):
             # note that the key is the model name,
             # since there are multiple representations of the same prompt style name in json.
-            BUILTIN_LLM_PROMPT_STYLE[model_spec.model_name] = model_spec.prompt_style
+            BUILTIN_LLM_PROMPT_STYLE[model_spec.model_name] = {
+                "chat_template": model_spec.chat_template,
+                "stop_token_ids": model_spec.stop_token_ids,
+                "stop": model_spec.stop,
+            }
         # register model family
         if "chat" in model_spec.model_ability:
             BUILTIN_LLM_MODEL_CHAT_FAMILIES.add(model_spec.model_name)
@@ -230,10 +230,14 @@ def _install():
         # if duplicated with huggingface json, keep it as the huggingface style
         if (
             "chat" in model_spec.model_ability
-            and isinstance(model_spec.prompt_style, PromptStyleV1)
+            and isinstance(model_spec.chat_template, str)
             and model_spec.model_name not in BUILTIN_LLM_PROMPT_STYLE
         ):
-            BUILTIN_LLM_PROMPT_STYLE[model_spec.model_name] = model_spec.prompt_style
+            BUILTIN_LLM_PROMPT_STYLE[model_spec.model_name] = {
+                "chat_template": model_spec.chat_template,
+                "stop_token_ids": model_spec.stop_token_ids,
+                "stop": model_spec.stop,
+            }
         # register model family
         if "chat" in model_spec.model_ability:
             BUILTIN_LLM_MODEL_CHAT_FAMILIES.add(model_spec.model_name)
@@ -253,10 +257,14 @@ def _install():
         # if duplicated with huggingface json, keep it as the huggingface style
         if (
             "chat" in model_spec.model_ability
-            and isinstance(model_spec.prompt_style, PromptStyleV1)
+            and isinstance(model_spec.chat_template, str)
             and model_spec.model_name not in BUILTIN_LLM_PROMPT_STYLE
         ):
-            BUILTIN_LLM_PROMPT_STYLE[model_spec.model_name] = model_spec.prompt_style
+            BUILTIN_LLM_PROMPT_STYLE[model_spec.model_name] = {
+                "chat_template": model_spec.chat_template,
+                "stop_token_ids": model_spec.stop_token_ids,
+                "stop": model_spec.stop,
+            }
         # register model family
         if "chat" in model_spec.model_ability:
             BUILTIN_LLM_MODEL_CHAT_FAMILIES.add(model_spec.model_name)

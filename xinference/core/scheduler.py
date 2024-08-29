@@ -18,7 +18,7 @@ import logging
 import uuid
 from collections import deque
 from enum import Enum
-from typing import List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple, Union
 
 import xoscar as xo
 
@@ -37,9 +37,11 @@ class AbortRequestMessage(Enum):
 
 
 class InferenceRequest:
-    def __init__(self, prompt, future_or_queue, is_prefill, *args, **kwargs):
-        # original prompt
-        self._prompt = prompt
+    def __init__(
+        self, prompt_or_messages, future_or_queue, is_prefill, *args, **kwargs
+    ):
+        # original prompt, prompt(str) for generate model and messages(List[Dict]) for chat model
+        self._prompt = prompt_or_messages
         # full prompt that contains chat history and applies chat template
         self._full_prompt = None
         # whether the current request is in the prefill phase
@@ -88,29 +90,17 @@ class InferenceRequest:
         self._check_args()
 
     def _check_args(self):
-        # chat
-        if len(self._inference_args) == 3:
-            # system prompt
-            assert self._inference_args[0] is None or isinstance(
-                self._inference_args[0], str
-            )
-            # chat history
-            assert self._inference_args[1] is None or isinstance(
-                self._inference_args[1], list
-            )
-            # generate config
-            assert self._inference_args[2] is None or isinstance(
-                self._inference_args[2], dict
-            )
-        else:  # generate
-            assert len(self._inference_args) == 1
-            # generate config
-            assert self._inference_args[0] is None or isinstance(
-                self._inference_args[0], dict
-            )
+        assert len(self._inference_args) == 1
+        # generate config
+        assert self._inference_args[0] is None or isinstance(
+            self._inference_args[0], dict
+        )
 
     @property
     def prompt(self):
+        """
+        prompt for generate model and messages for chat model
+        """
         return self._prompt
 
     @property
@@ -162,11 +152,7 @@ class InferenceRequest:
 
     @property
     def generate_config(self):
-        return (
-            self._inference_args[2]
-            if len(self._inference_args) == 3
-            else self._inference_args[0]
-        )
+        return self._inference_args[0]
 
     @property
     def sanitized_generate_config(self):
@@ -423,8 +409,16 @@ class SchedulerActor(xo.StatelessActor):
 
         self._empty_cache()
 
-    async def add_request(self, prompt: str, future_or_queue, *args, **kwargs):
-        req = InferenceRequest(prompt, future_or_queue, True, *args, **kwargs)
+    async def add_request(
+        self,
+        prompt_or_messages: Union[str, List[Dict]],
+        future_or_queue,
+        *args,
+        **kwargs,
+    ):
+        req = InferenceRequest(
+            prompt_or_messages, future_or_queue, True, *args, **kwargs
+        )
         rid = req.request_id
         if rid is not None:
             if rid in self._id_to_req:

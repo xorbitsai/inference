@@ -57,9 +57,7 @@ from ..core.event import Event, EventCollectorActor, EventType
 from ..core.supervisor import SupervisorActor
 from ..core.utils import json_dumps
 from ..types import (
-    SPECIAL_TOOL_PROMPT,
     ChatCompletion,
-    ChatCompletionMessage,
     Completion,
     CreateChatCompletion,
     CreateCompletion,
@@ -1627,33 +1625,7 @@ class RESTfulAPI:
                 status_code=400, detail="Invalid input. Please specify the prompt."
             )
 
-        system_messages: List["ChatCompletionMessage"] = []
-        system_messages_contents = []
-        non_system_messages = []
-        for msg in messages:
-            assert (
-                msg.get("content") != SPECIAL_TOOL_PROMPT
-            ), f"Invalid message content {SPECIAL_TOOL_PROMPT}"
-            if msg["role"] == "system":
-                system_messages_contents.append(msg["content"])
-            else:
-                non_system_messages.append(msg)
-        system_messages.append(
-            {"role": "system", "content": ". ".join(system_messages_contents)}
-        )
-
         has_tool_message = messages[-1].get("role") == "tool"
-        if has_tool_message:
-            prompt = SPECIAL_TOOL_PROMPT
-            system_prompt = system_messages[0]["content"] if system_messages else None
-            chat_history = non_system_messages  # exclude the prompt
-        else:
-            prompt = None
-            if non_system_messages:
-                prompt = non_system_messages[-1]["content"]
-            system_prompt = system_messages[0]["content"] if system_messages else None
-            chat_history = non_system_messages[:-1]  # exclude the prompt
-
         model_uid = body.model
 
         try:
@@ -1681,9 +1653,7 @@ class RESTfulAPI:
         from ..model.llm.utils import GLM4_TOOL_CALL_FAMILY, QWEN_TOOL_CALL_FAMILY
 
         model_family = desc.get("model_family", "")
-        function_call_models = (
-            ["gorilla-openfunctions-v1"] + QWEN_TOOL_CALL_FAMILY + GLM4_TOOL_CALL_FAMILY
-        )
+        function_call_models = QWEN_TOOL_CALL_FAMILY + GLM4_TOOL_CALL_FAMILY
 
         if model_family not in function_call_models:
             if body.tools:
@@ -1716,9 +1686,7 @@ class RESTfulAPI:
                 try:
                     try:
                         iterator = await model.chat(
-                            prompt,
-                            system_prompt,
-                            chat_history,
+                            messages,
                             kwargs,
                             raw_params=raw_kwargs,
                         )
@@ -1750,9 +1718,7 @@ class RESTfulAPI:
         else:
             try:
                 data = await model.chat(
-                    prompt,
-                    system_prompt,
-                    chat_history,
+                    messages,
                     kwargs,
                     raw_params=raw_kwargs,
                 )

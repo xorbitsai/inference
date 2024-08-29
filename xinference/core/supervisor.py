@@ -310,10 +310,7 @@ class SupervisorActor(xo.StatelessActor):
     async def get_builtin_prompts() -> Dict[str, Any]:
         from ..model.llm.llm_family import BUILTIN_LLM_PROMPT_STYLE
 
-        data = {}
-        for k, v in BUILTIN_LLM_PROMPT_STYLE.items():
-            data[k] = v.dict()
-        return data
+        return {k: v for k, v in BUILTIN_LLM_PROMPT_STYLE.items()}
 
     @staticmethod
     async def get_builtin_families() -> Dict[str, List[str]]:

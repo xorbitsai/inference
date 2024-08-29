@@ -17,6 +17,7 @@ import json
 import logging
 import os
 import time
+import typing
 import uuid
 from io import BytesIO
 from typing import AsyncGenerator, Dict, Iterator, List, Optional, Tuple, cast
@@ -25,19 +26,19 @@ import requests
 from PIL import Image
 
 from ...types import (
-    SPECIAL_TOOL_PROMPT,
     ChatCompletion,
+    ChatCompletionChoice,
     ChatCompletionChunk,
-    ChatCompletionMessage,
     Completion,
+    CompletionChoice,
     CompletionChunk,
+    CompletionUsage,
 )
 from ..utils import ensure_cache_cleared
 from .llm_family import (
     LlamaCppLLMSpecV1,
     LLMFamilyV1,
     LLMSpecV1,
-    PromptStyleV1,
     _get_cache_dir,
     get_cache_status,
 )
@@ -46,7 +47,6 @@ logger = logging.getLogger(__name__)
 
 
 QWEN_TOOL_CALL_FAMILY = [
-    "qwen-chat",
     "qwen1.5-chat",
     "qwen1.5-moe-chat",
     "qwen2-instruct",
@@ -58,416 +58,90 @@ GLM4_TOOL_CALL_FAMILY = [
     "glm4-chat-1m",
 ]
 
+QWEN_TOOL_CALL_SYMBOLS = ["<tool_call>", "</tool_call>"]
+
 
 class ChatModelMixin:
     @staticmethod
-    def get_prompt(
-        prompt: str,
-        chat_history: List[ChatCompletionMessage],
-        prompt_style: PromptStyleV1,
-        tools: Optional[List[Dict]] = None,
-    ):
+    @functools.lru_cache
+    def _compile_jinja_template(chat_template):
+        """
+        Copied from transformers source code.
+        """
+        try:
+            from jinja2.exceptions import TemplateError
+            from jinja2.sandbox import ImmutableSandboxedEnvironment
+        except ImportError:
+            raise ImportError("xinference requires jinja2 to be installed.")
+
+        def raise_exception(message):
+            raise TemplateError(message)
+
+        jinja_env = ImmutableSandboxedEnvironment(trim_blocks=True, lstrip_blocks=True)
+        jinja_env.globals["raise_exception"] = raise_exception
+        return jinja_env.from_string(chat_template)
+
+    def _build_from_raw_template(
+        self, messages: List, chat_template: str, **kwargs
+    ) -> str:
+        compiled_template = self._compile_jinja_template(chat_template)
+        rendered = compiled_template.render(
+            messages=messages, add_generation_prompt=True, **kwargs
+        )
+        return rendered
+
+    def get_full_context(
+        self, messages: List, chat_template: str, tokenizer=None, **kwargs
+    ) -> str:
+        if tokenizer is not None:
+            try:
+                full_context = tokenizer.apply_chat_template(
+                    messages,
+                    tokenize=False,
+                    chat_template=chat_template,
+                    add_generation_prompt=True,
+                    **kwargs,
+                )
+                return full_context
+            except Exception as e:
+                logger.warning(
+                    f"tokenizer.apply_chat_template error. Maybe this is an old model: {e}"
+                )
+                return self._build_from_raw_template(messages, chat_template, **kwargs)
+        else:
+            # build from jinja
+            # Compilation function uses a cache to avoid recompiling the same template
+            return self._build_from_raw_template(messages, chat_template, **kwargs)
+
+    @staticmethod
+    def get_specific_prompt(model_family: str, messages: List[Dict]):
         """
         Inspired by FastChat. Format chat history into a prompt according to the prompty style of
         different models.
         """
-        assert prompt_style.roles is not None
-        if prompt != SPECIAL_TOOL_PROMPT:
-            chat_history.append(
-                ChatCompletionMessage(role=prompt_style.roles[0], content=prompt)
+        _messages = [x for x in messages]  # copy for not modifying the origin messages
+        _messages.append({"role": "assistant", "content": ""})
+
+        if model_family == "internvl2":
+            system_prompt = (
+                messages[0]["content"] if messages[0]["role"] == "system" else ""
             )
-        chat_history.append(
-            ChatCompletionMessage(role=prompt_style.roles[1], content="")
-        )
-
-        def get_role(role_name: str):
-            if role_name == "user":
-                return prompt_style.roles[0]
-            elif role_name == "assistant":
-                return prompt_style.roles[1]
-            else:
-                return role_name
-
-        if prompt_style.style_name == "ADD_COLON_SINGLE":
-            ret = prompt_style.system_prompt + prompt_style.intra_message_sep
-            for message in chat_history:
-                role = get_role(message["role"])
-                content = message["content"]
-                if content:
-                    ret += role + ": " + content + prompt_style.intra_message_sep
-                else:
-                    ret += role + ":"
-            return ret
-        elif prompt_style.style_name == "NO_COLON_TWO":
-            seps = [prompt_style.intra_message_sep, prompt_style.inter_message_sep]
-            ret = prompt_style.system_prompt
-            for i, message in enumerate(chat_history):
-                role = get_role(message["role"])
-                content = message["content"]
-                if content:
-                    ret += role + content + seps[i % 2]
-                else:
-                    ret += role
-            return ret
-        elif prompt_style.style_name == "LLAMA2":
-            seps = [prompt_style.intra_message_sep, prompt_style.inter_message_sep]
-            ret = ""
-            for i, message in enumerate(chat_history):
-                role = get_role(message["role"])
-                content = message["content"]
-                if content:
-                    if i == 0:
-                        ret += prompt_style.system_prompt + content
-                    else:
-                        ret += role + " " + content + seps[i % 2]
-                else:
-                    ret += role
-            return ret
-        elif prompt_style.style_name == "LLAMA3":
-            ret = (
-                f"<|begin_of_text|><|start_header_id|>system<|end_header_id|>"
-                f"{prompt_style.intra_message_sep}{prompt_style.system_prompt}{prompt_style.inter_message_sep}"
-            )
-            for i, message in enumerate(chat_history):
-                role = get_role(message["role"])
-                content = message["content"]
-                if content:
-                    ret += (
-                        f"<|start_header_id|>{role}<|end_header_id|>"
-                        f"{prompt_style.intra_message_sep}{content}{prompt_style.inter_message_sep}"
-                    )
-                else:
-                    ret += f"<|start_header_id|>{role}<|end_header_id|>{prompt_style.intra_message_sep}"
-            return ret
-        elif prompt_style.style_name == "MIXTRAL_V01":
-            ret = ""
-            for i, message in enumerate(chat_history):
-                content = message["content"]
-                if i % 2 == 0:  # user
-                    ret += f"<s> [INST] {content} [/INST]"
-                else:  # assistant
-                    ret += f"{content} </s>"
-            return ret
-        elif prompt_style.style_name == "CHATGLM3":
-            prompts = (
-                [f"<|system|>\n {prompt_style.system_prompt}"]
-                if prompt_style.system_prompt
-                else []
-            )
-
-            for i, message in enumerate(chat_history):
-                role = get_role(message["role"])
-                content = message.get("content")
-                tool_calls = message.get("tool_calls")
-                if tool_calls:
-                    content = tool_calls[0]["function"]
-                if content:
-                    if role == "tool":
-                        role = "observation"
-                    prompts.append(f"<|{role}|>\n {content}")
-                else:
-                    prompts.append(f"<|{role}|>")
-            return "\n".join(prompts)
-        elif prompt_style.style_name == "XVERSE":
-            ret = (
-                f"<|system|> \n {prompt_style.system_prompt}"
-                if prompt_style.system_prompt
-                else ""
-            )
-            for i, message in enumerate(chat_history):
-                role = get_role(message["role"])
-                content = message["content"]
-                if content:
-                    ret += f"<|{role}|> \n {content}"
-                else:
-                    ret += f"<|{role}|>"
-            return ret
-        elif prompt_style.style_name == "QWEN":
-            if tools:
-                tool_desc = """{name_for_model}: Call this tool to interact with the {name_for_human} API. What is the {name_for_human} API useful for? {description_for_model} Parameters: {parameters} Format the arguments as a JSON object."""
-
-                react_instruction = """Answer the following questions as best you can. You have access to the following APIs:
-
-{tools_text}
-
-Use the following format:
-
-Question: the input question you must answer
-Thought: you should always think about what to do
-Action: the action to take, should be one of [{tools_name_text}]
-Action Input: the input to the action
-Observation: the result of the action
-... (this Thought/Action/Action Input/Observation can be repeated zero or more times)
-Thought: I now know the final answer
-Final Answer: the final answer to the original input question
-
-Begin!"""
-                tools_text = []
-                tools_name_text = []
-                for func_info in tools:
-                    parameters = []
-                    fp = func_info["function"].get("parameters", {})
-                    if fp:
-                        required_parameters = fp.get("required", [])
-                        for name, p in fp["properties"].items():
-                            param = dict({"name": name}, **p)
-                            if name in required_parameters:
-                                param["required"] = True
-                            parameters.append(param)
-
-                    name = func_info["function"]["name"]
-                    desc = func_info["function"]["description"]
-                    tool_string = tool_desc.format(
-                        name_for_model=name,
-                        name_for_human=name,
-                        # Hint: You can add the following format requirements in description:
-                        #   "Format the arguments as a JSON object."
-                        #   "Enclose the code within triple backticks (`) at the beginning and end of the code."
-                        description_for_model=desc,
-                        parameters=json.dumps(parameters, ensure_ascii=False),
-                    )
-                    tools_text.append(tool_string)
-                    tools_name_text.append(name)
-                tools_text_string = "\n\n".join(tools_text)
-                tools_name_text_string = ", ".join(tools_name_text)
-                tool_system = react_instruction.format(
-                    tools_text=tools_text_string,
-                    tools_name_text=tools_name_text_string,
-                )
-            else:
-                tool_system = ""
-
-            ret = f"<|im_start|>system\n{prompt_style.system_prompt}<|im_end|>"
-            for message in chat_history:
-                role = get_role(message["role"])
-                content = message.get("content")
-
-                ret += prompt_style.intra_message_sep
-                if tools:
-                    if role == "user":
-                        if tool_system:
-                            content = tool_system + f"\n\nQuestion: {content}"
-                            tool_system = ""
-                        else:
-                            content = f"Question: {content}"
-                    elif role == "assistant":
-                        tool_calls = message.get("tool_calls")
-                        if tool_calls:
-                            func_call = tool_calls[0]["function"]
-                            f_name, f_args = (
-                                func_call["name"],
-                                func_call["arguments"],
-                            )
-                            content = f"Thought: I can use {f_name}.\nAction: {f_name}\nAction Input: {f_args}"
-                        elif content:
-                            content = f"Thought: I now know the final answer.\nFinal answer: {content}"
-                    elif role == "tool":
-                        role = "function"
-                        content = f"Observation: {content}"
-                    else:
-                        raise Exception(f"Unsupported message role: {role}")
-                if content:
-                    content = content.lstrip("\n").rstrip()
-                    ret += f"<|im_start|>{role}\n{content}<|im_end|>"
-                else:
-                    ret += f"<|im_start|>{role}\n"
-            return ret
-        elif prompt_style.style_name == "CHATML":
-            ret = (
-                ""
-                if prompt_style.system_prompt == ""
-                else prompt_style.system_prompt + prompt_style.intra_message_sep + "\n"
-            )
-            for message in chat_history:
-                role = get_role(message["role"])
-                content = message["content"]
-
-                if content:
-                    ret += role + "\n" + content + prompt_style.intra_message_sep + "\n"
-                else:
-                    ret += role + "\n"
-            return ret
-        elif prompt_style.style_name == "INTERNLM2":
+            intra_message_sep = "<|im_end|>"
             ret = (
                 "<s>"
-                if prompt_style.system_prompt == ""
+                if system_prompt == ""
                 else "<s><|im_start|>system\n"
-                + prompt_style.system_prompt
-                + prompt_style.intra_message_sep
-                + "\n"
-            )
-            for message in chat_history:
-                role = get_role(message["role"])
-                content = message["content"]
-
-                if content:
-                    ret += role + "\n" + content + prompt_style.intra_message_sep + "\n"
-                else:
-                    ret += role + "\n"
-            return ret
-        elif prompt_style.style_name == "ADD_COLON_SINGLE_COT":
-            ret = prompt_style.system_prompt + prompt_style.intra_message_sep
-            for message in chat_history:
-                role = get_role(message["role"])
-                content = message["content"]
-                if content:
-                    ret += role + ": " + content + prompt_style.intra_message_sep
-                else:
-                    ret += role + ": Let's think step by step."
-            return ret
-        elif prompt_style.style_name == "DEEPSEEK_CHAT":
-            seps = [prompt_style.intra_message_sep, prompt_style.inter_message_sep]
-            ret = prompt_style.system_prompt
-            for i, message in enumerate(chat_history):
-                role = get_role(message["role"])
-                content = message["content"]
-                if content:
-                    ret += role + ": " + content + seps[i % 2]
-                else:
-                    ret += role + ":"
-            return ret
-        elif prompt_style.style_name == "DEEPSEEK_CODER":
-            sep = prompt_style.inter_message_sep
-            ret = prompt_style.system_prompt + sep
-            for i, message in enumerate(chat_history):
-                role = get_role(message["role"])
-                content = message["content"]
-                if content:
-                    ret += role + "\n" + content + sep
-                else:
-                    ret += role + "\n"
-            return ret
-        elif prompt_style.style_name == "GORILLA_OPENFUNCTIONS":
-            if tools:
-                gorilla_functions = []
-                for tool in tools:
-                    gorilla_functions.append(
-                        {
-                            "name": tool["function"]["name"],
-                            "api_name": tool["function"]["name"],
-                            "description": tool["function"]["description"],
-                            "parameters": [
-                                dict({"name": name}, **p)
-                                for name, p in tool["function"]["parameters"][
-                                    "properties"
-                                ].items()
-                            ],
-                        }
-                    )
-                tools_string = json.dumps(gorilla_functions)
-                return f"USER: <<question>> {prompt} <<function>> {tools_string}\nASSISTANT: "
-            else:
-                return f"USER: <<question>> {prompt}\nASSISTANT: "
-        elif prompt_style.style_name == "orion":
-            ret = "<s>"
-            for i, message in enumerate(chat_history):
-                content = message["content"]
-                role = get_role(message["role"])
-                if i % 2 == 0:  # Human
-                    assert content is not None
-                    ret += role + ": " + content + "\n\n"
-                else:  # Assistant
-                    if content:
-                        ret += role + ": </s>" + content + "</s>"
-                    else:
-                        ret += role + ": </s>"
-            return ret
-        elif prompt_style.style_name == "gemma":
-            ret = ""
-            for message in chat_history:
-                content = message["content"]
-                role = get_role(message["role"])
-                ret += "<start_of_turn>" + role + "\n"
-                if content:
-                    ret += content + "<end_of_turn>\n"
-            return ret
-        elif prompt_style.style_name == "CodeShell":
-            ret = ""
-            for message in chat_history:
-                content = message["content"]
-                role = get_role(message["role"])
-                if content:
-                    ret += f"{role}{content}|<end>|"
-                else:
-                    ret += f"{role}".rstrip()
-            return ret
-        elif prompt_style.style_name == "MINICPM-2B":
-            ret = ""
-            for message in chat_history:
-                content = message["content"] or ""
-                role = get_role(message["role"])
-                if role == "user":
-                    ret += "<用户>" + content.strip()
-                else:
-                    ret += "<AI>" + content.strip()
-            return ret
-        elif prompt_style.style_name == "PHI3":
-            ret = f"<|system|>{prompt_style.intra_message_sep}{prompt_style.system_prompt}{prompt_style.inter_message_sep}"
-            for message in chat_history:
-                content = message["content"] or ""
-                role = get_role(message["role"])
-                if content:
-                    ret += f"<|{role}|>{prompt_style.intra_message_sep}{content}{prompt_style.inter_message_sep}"
-                else:
-                    ret += f"<|{role}|>{prompt_style.intra_message_sep}"
-            ret += "<|assistant|>\n"
-            return ret
-        elif prompt_style.style_name == "c4ai-command-r":
-            ret = (
-                f"<BOS_TOKEN><|START_OF_TURN_TOKEN|><|SYSTEM_TOKEN|>"
-                f"{prompt_style.system_prompt}{prompt_style.inter_message_sep}"
-            )
-            for i, message in enumerate(chat_history):
-                role = get_role(message["role"])
-                content = message["content"]
-                if content:
-                    ret += f"{role}{content}{prompt_style.inter_message_sep}"
-                else:
-                    ret += role
-            return ret
-        elif prompt_style.style_name == "mistral-nemo":
-            seps = [prompt_style.intra_message_sep, prompt_style.inter_message_sep]
-            ret = "<s>"
-            for i, message in enumerate(chat_history):
-                role = get_role(message["role"])
-                content = message["content"]
-                if content:
-                    if i == len(chat_history) - 2 and prompt_style.system_prompt:
-                        ret += (
-                            role
-                            + " "
-                            + prompt_style.system_prompt
-                            + "\n\n"
-                            + content
-                            + seps[i % 2]
-                        )
-                    else:
-                        ret += role + " " + content + seps[i % 2]
-                else:
-                    ret += role
-            return ret
-        elif prompt_style.style_name == "INTERNVL":
-            ret = (
-                "<s>"
-                if prompt_style.system_prompt == ""
-                else "<s><|im_start|>system\n"
-                + prompt_style.system_prompt
-                + prompt_style.intra_message_sep
+                + system_prompt
+                + intra_message_sep
                 + "\n"
             )
             images = []  # type: ignore
-            for message in chat_history:
-                role = get_role(message["role"])
+            for message in _messages:
+                role = "<|im_start|>" + message["role"]
                 content = message["content"]
                 if isinstance(content, str):
                     if content:
-                        ret += (
-                            role
-                            + "\n"
-                            + content
-                            + prompt_style.intra_message_sep
-                            + "\n"
-                        )
+                        ret += role + "\n" + content + intra_message_sep + "\n"
                     else:
                         ret += role + "\n"
                 elif isinstance(content, list):
@@ -488,21 +162,15 @@ Begin!"""
                             image_futures.append(fut)
                     images = [fut.result() for fut in image_futures]
                     if len(image_futures) == 0:
-                        ret += (
-                            role + "\n" + text + prompt_style.intra_message_sep + "\n"
-                        )
+                        ret += role + "\n" + text + intra_message_sep + "\n"
                     else:
                         ret += (
-                            role
-                            + "\n"
-                            + f"<image>\n{text}"
-                            + prompt_style.intra_message_sep
-                            + "\n"
+                            role + "\n" + f"<image>\n{text}" + intra_message_sep + "\n"
                         )
 
-            return (ret, images)
+            return ret, images
         else:
-            raise ValueError(f"Invalid prompt style: {prompt_style.style_name}")
+            raise ValueError(f"Invalid model family: {model_family}")
 
     @classmethod
     def _to_chat_completion_chunk(cls, chunk: CompletionChunk) -> ChatCompletionChunk:
@@ -523,7 +191,7 @@ Begin!"""
                 {
                     "index": i,
                     "delta": {
-                        "content": choice.get("text"),
+                        **({"content": choice["text"]} if "text" in choice else {}),
                         **(
                             {"tool_calls": choice["tool_calls"]}
                             if "tool_calls" in choice
@@ -632,83 +300,39 @@ Begin!"""
         }
 
     @staticmethod
-    def _eval_gorilla_openfunctions_arguments(c, tools):
-        tool_names = [tool["function"]["name"] for tool in tools]
-        arguments = c["choices"][0]["text"]
-
-        def tool_call(n, **kwargs):
-            return None, n, kwargs
-
+    def _eval_glm_chat_arguments(c):
         try:
-            a, b, c = eval(
-                arguments, {n: functools.partial(tool_call, n) for n in tool_names}
-            )
-            return a, b, c
-        except Exception as e:
-            logger.error("Eval tool calls completion failed: %s", e)
-            return arguments, None, None
-
-    @staticmethod
-    def _eval_glm_chat_arguments(c, tools):
-        try:
-            if isinstance(c[0], str):
-                return c[0], None, None
-            return None, c[0]["name"], c[0]["parameters"]
+            if isinstance(c, dict):
+                return None, c["name"], c["arguments"]
         except KeyError:
             logger.error("Can't parse glm output: %s", c)
             return str(c), None, None
+        else:
+            return str(c), None, None
 
     @staticmethod
-    def _eval_qwen_chat_arguments(c, tools):
+    def _eval_qwen_chat_arguments(c):
         text = c["choices"][0]["text"]
+        text: str = text.strip()
+        if text.startswith(QWEN_TOOL_CALL_SYMBOLS[0]):
+            text = text[len(QWEN_TOOL_CALL_SYMBOLS[0]) :]
+        if text.endswith(QWEN_TOOL_CALL_SYMBOLS[1]):
+            text = text[: -len(QWEN_TOOL_CALL_SYMBOLS[1])]
+        text = text.strip()
         try:
-            # Refer to:
-            # https://github.com/QwenLM/Qwen/blob/main/examples/react_prompt.md
-            # https://github.com/QwenLM/Qwen/blob/main/openai_api.py#L297
-            func_name, func_args, content = "", "", ""
-            i = text.rfind("\nAction:")
-            j = text.rfind("\nAction Input:")
-            k = text.rfind("\nObservation:")
-            t = max(
-                text.rfind("\nThought:", 0, i), text.rfind("Thought:", 0, i)
-            )  # find the last thought just before Action, considering the Thought at the very beginning
-            if 0 <= i < j:  # If the text has `Action` and `Action input`,
-                if k < j:  # but does not contain `Observation`,
-                    # then it is likely that `Observation` is omitted by the LLM,
-                    # because the output text may have discarded the stop word.
-                    text = text.rstrip() + "\nObservation:"  # Add it back.
-                    k = text.rfind("\nObservation:")
-            if 0 <= t < i < j < k:
-                func_name = text[i + len("\nAction:") : j].strip()
-                func_args = text[j + len("\nAction Input:") : k].strip()
-                content = text[
-                    t + len("\nThought:") : i
-                ].strip()  # len("\nThought:") and len("Thought:") both are OK since there is a space after :
-            if func_name:
-                return content, func_name, json.loads(func_args)
+            content = json.loads(text)
+            return None, content["name"], content["arguments"]
         except Exception as e:
-            logger.error("Eval tool calls completion failed: %s", e)
-        t = max(text.rfind("\nThought:"), text.rfind("Thought:"))
-        z = max(text.rfind("\nFinal Answer:"), text.rfind("Final Answer:"))
-        if z >= 0:
-            text = text[
-                z + len("\nFinal Answer:") :
-            ]  # len("\nFinal Answer::") and len("Final Answer::") both are OK since there is a space after :
-        else:
-            text = text[
-                t + len("\nThought:") :
-            ]  # There is only Thought: no Final Answer:
-        return text, None, None
+            logger.error("Can't parse qwen tool call output: %s. Error: %s", text, e)
+            return text, None, None
 
     @classmethod
-    def _eval_tool_arguments(cls, model_family, c, tools):
+    def _eval_tool_arguments(cls, model_family, c):
         family = model_family.model_family or model_family.model_name
-        if family in ["gorilla-openfunctions-v1", "gorilla-openfunctions-v2"]:
-            content, func, args = cls._eval_gorilla_openfunctions_arguments(c, tools)
-        elif family in GLM4_TOOL_CALL_FAMILY:
-            content, func, args = cls._eval_glm_chat_arguments(c, tools)
+        if family in GLM4_TOOL_CALL_FAMILY:
+            content, func, args = cls._eval_glm_chat_arguments(c)
         elif family in QWEN_TOOL_CALL_FAMILY:
-            content, func, args = cls._eval_qwen_chat_arguments(c, tools)
+            content, func, args = cls._eval_qwen_chat_arguments(c)
         else:
             raise Exception(
                 f"Model {model_family.model_name} is not support tool calls."
@@ -747,9 +371,9 @@ Begin!"""
             return lambda tokens, delta: delta
 
     @classmethod
-    def _tool_calls_completion_chunk(cls, model_family, model_uid, c, tools):
+    def _tool_calls_completion_chunk(cls, model_family, model_uid, c):
         _id = str(uuid.uuid4())
-        content, func, args = cls._eval_tool_arguments(model_family, c, tools)
+        content, func, args = cls._eval_tool_arguments(model_family, c)
         if func:
             d = {
                 "role": "assistant",
@@ -760,7 +384,7 @@ Begin!"""
                         "type": "function",
                         "function": {
                             "name": func,
-                            "arguments": json.dumps(args),
+                            "arguments": json.dumps(args, ensure_ascii=False),
                         },
                     }
                 ],
@@ -795,9 +419,9 @@ Begin!"""
         }
 
     @classmethod
-    def _tool_calls_completion(cls, model_family, model_uid, c, tools):
+    def _tool_calls_completion(cls, model_family, model_uid, c):
         _id = str(uuid.uuid4())
-        content, func, args = cls._eval_tool_arguments(model_family, c, tools)
+        content, func, args = cls._eval_tool_arguments(model_family, c)
         if func:
             m = {
                 "role": "assistant",
@@ -808,7 +432,7 @@ Begin!"""
                         "type": "function",
                         "function": {
                             "name": func,
-                            "arguments": json.dumps(args),
+                            "arguments": json.dumps(args, ensure_ascii=False),
                         },
                     }
                 ],
@@ -840,16 +464,6 @@ Begin!"""
             ],
             "usage": usage,
         }
-
-    @classmethod
-    def get_full_prompt(cls, model_family, prompt, system_prompt, chat_history, tools):
-        assert model_family.prompt_style is not None
-        prompt_style = model_family.prompt_style.copy()
-        if system_prompt:
-            prompt_style.system_prompt = system_prompt
-        chat_history = chat_history or []
-        full_prompt = cls.get_prompt(prompt, chat_history, prompt_style, tools=tools)
-        return full_prompt
 
 
 def get_file_location(
@@ -903,3 +517,94 @@ def _decode_image(_url):
             return Image.open(_url).convert("RGB")
         else:
             return Image.open(BytesIO(response.content)).convert("RGB")
+
+
+@typing.no_type_check
+def generate_completion_chunk(
+    chunk_text: Optional[str],
+    finish_reason: Optional[str],
+    chunk_id: str,
+    model_uid: str,
+    prompt_tokens: int,
+    completion_tokens: int,
+    total_tokens: int,
+    has_choice: bool = True,
+    has_content: bool = True,
+):
+    choices = []
+    if has_choice:
+        choices.append(
+            CompletionChoice(
+                text=chunk_text, index=0, logprobs=None, finish_reason=finish_reason
+            )
+            if has_content
+            else CompletionChoice(index=0, logprobs=None, finish_reason=finish_reason)
+        )
+    return CompletionChunk(
+        id=chunk_id,
+        object="text_completion",
+        created=int(time.time()),
+        model=model_uid,
+        choices=choices,
+        usage=CompletionUsage(
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            total_tokens=total_tokens,
+        ),
+    )
+
+
+def generate_chat_completion(
+    model_uid: str,
+    response: str,
+    prompt_tokens=-1,
+    completion_tokens=-1,
+    total_tokens=-1,
+    finish_reason="stop",
+) -> ChatCompletion:
+    return ChatCompletion(
+        id="chat" + str(uuid.uuid1()),
+        object="chat.completion",
+        created=int(time.time()),
+        model=model_uid,
+        choices=[
+            ChatCompletionChoice(
+                index=0,
+                message={"role": "assistant", "content": response},
+                finish_reason=finish_reason,
+            )
+        ],
+        usage=CompletionUsage(
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            total_tokens=total_tokens,
+        ),
+    )
+
+
+@functools.lru_cache
+def get_stop_token_ids_from_config_file(model_path: str) -> Optional[List[int]]:
+    from transformers import GenerationConfig as TransformersGenerationConfig
+
+    transformers_config = TransformersGenerationConfig.from_pretrained(model_path)
+    if transformers_config.eos_token_id is not None:
+        stop_token_ids = (
+            transformers_config.eos_token_id
+            if isinstance(transformers_config.eos_token_id, list)
+            else [transformers_config.eos_token_id]
+        )
+        return stop_token_ids
+    return None
+
+
+def parse_messages(messages: List[Dict]) -> Tuple:
+    """
+    Some older models still follow the old way of parameter passing.
+    This function helps to parse out the needed information from OpenAI-compatible `messages`.
+    """
+    system_messages = [mess["content"] for mess in messages if mess["role"] == "system"]
+    content_messages = [mess for mess in messages if mess["role"] != "system"]
+    prompt = content_messages[-1]["content"]
+    system_prompt = ". ".join(system_messages) if system_messages else None
+    chat_history = content_messages[:-1]
+    return prompt, system_prompt, chat_history

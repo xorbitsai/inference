@@ -37,7 +37,9 @@ class TestTensorizerSerializeModel:
             model_lang=["en", "zh"],
             model_ability=["chat", "tools"],
             model_specs=[spec],
-            prompt_style=None,
+            chat_template=None,
+            stop_token_ids=None,
+            stop=None,
         )
 
         if not os.path.exists(self.model_path):

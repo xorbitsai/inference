@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import asyncio
-import json
 import logging
 import multiprocessing
 import os
@@ -24,9 +23,9 @@ from typing import (
     Any,
     AsyncGenerator,
     Dict,
-    Iterable,
     List,
     Optional,
+    Tuple,
     TypedDict,
     Union,
 )
@@ -34,18 +33,20 @@ from typing import (
 from ....types import (
     ChatCompletion,
     ChatCompletionChunk,
-    ChatCompletionMessage,
     Completion,
     CompletionChoice,
     CompletionChunk,
     CompletionUsage,
     LoRA,
-    ToolCallFunction,
-    ToolCalls,
 )
 from .. import LLM, LLMFamilyV1, LLMSpecV1
 from ..llm_family import CustomLLMFamilyV1
-from ..utils import QWEN_TOOL_CALL_FAMILY, ChatModelMixin
+from ..utils import (
+    QWEN_TOOL_CALL_FAMILY,
+    QWEN_TOOL_CALL_SYMBOLS,
+    ChatModelMixin,
+    generate_completion_chunk,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -363,23 +364,28 @@ class VLLMModel(LLM):
     @staticmethod
     def _convert_request_output_to_completion_chunk(
         request_id: str, model: str, request_output: "RequestOutput"
-    ) -> CompletionChunk:
+    ) -> Tuple[CompletionChunk, Optional[str]]:
         choices: List[CompletionChoice] = []
+        finish_reason = None
         for output in request_output.outputs:
             choices.append(
                 CompletionChoice(
                     text=output.text,
                     index=output.index,
                     logprobs=None,  # TODO: support logprobs.
-                    finish_reason=output.finish_reason,
+                    finish_reason=None,
                 )
             )
-        return CompletionChunk(
-            id=request_id,
-            object="text_completion",
-            created=int(time.time()),
-            model=model,
-            choices=choices,
+            finish_reason = output.finish_reason
+        return (
+            CompletionChunk(
+                id=request_id,
+                object="text_completion",
+                created=int(time.time()),
+                model=model,
+                choices=choices,
+            ),
+            finish_reason,
         )
 
     @staticmethod
@@ -463,10 +469,14 @@ class VLLMModel(LLM):
 
         async def stream_results() -> AsyncGenerator[CompletionChunk, None]:
             previous_texts = [""] * sanitized_generate_config["n"]
-            tools_token_filter = ChatModelMixin._tools_token_filter(self.model_family)
             prompt_tokens, completion_tokens, total_tokens = 0, 0, 0
+            complete_response = ""
+            match_tool_call_tmp_results = []
+            is_match_tool_call = False
+            chunk = None
+            finish_reason = None
             async for _request_output in results_generator:
-                chunk = self._convert_request_output_to_completion_chunk(
+                chunk, finish_reason = self._convert_request_output_to_completion_chunk(
                     request_id=request_id,
                     model=self.model_uid,
                     request_output=_request_output,
@@ -476,40 +486,8 @@ class VLLMModel(LLM):
                     delta = choice["text"][len(previous_texts[i]) :]
                     previous_texts[i] = choice["text"]
                     choice["text"] = delta
+                    complete_response += delta
 
-                if tools:
-                    # only handle the first choice
-                    choice = chunk["choices"][0]
-                    if choice["finish_reason"] is not None:
-                        # use previous text for evaluation temporarily
-                        choice_delta = choice["text"]
-                        choice["text"] = previous_texts[0]
-                        _content, func, args = ChatModelMixin._eval_tool_arguments(
-                            self.model_family, chunk, tools
-                        )
-                        choice["text"] = tools_token_filter(
-                            tokens=previous_texts[0], delta=choice_delta
-                        )
-                        if func is not None:
-                            choice["text"] = None
-                            choice["finish_reason"] = "tool_calls"
-                            choice["tool_calls"] = [
-                                ToolCalls(
-                                    id=str(uuid.uuid4()),
-                                    type="function",
-                                    function=ToolCallFunction(
-                                        name=func,
-                                        arguments=json.dumps(args, ensure_ascii=False),
-                                    ),
-                                )
-                            ]
-                    else:
-                        # use a filter function to skip Qwen's react thought process
-                        choice["text"] = tools_token_filter(
-                            tokens=previous_texts[0], delta=choice["text"]
-                        )
-                        if not choice["text"]:
-                            continue
                 prompt_tokens = len(_request_output.prompt_token_ids)
                 completion_tokens = sum(
                     len(output.token_ids) for output in _request_output.outputs
@@ -520,7 +498,61 @@ class VLLMModel(LLM):
                     completion_tokens=completion_tokens,
                     total_tokens=total_tokens,
                 )
+
+                if tools:
+                    """
+                    The qwen2 tool call returns format like this:
+                    <tool_call>
+                    {...}
+                    </tool_call>
+                    Here is to match this.
+                    """
+                    if (len(QWEN_TOOL_CALL_SYMBOLS[0]) > len(complete_response)) and (
+                        not QWEN_TOOL_CALL_SYMBOLS[0].startswith(complete_response)
+                    ):
+                        for c in match_tool_call_tmp_results:
+                            yield c
+                        match_tool_call_tmp_results.clear()
+                        yield chunk
+                    elif (len(QWEN_TOOL_CALL_SYMBOLS[0]) > len(complete_response)) and (
+                        QWEN_TOOL_CALL_SYMBOLS[0].startswith(complete_response)
+                    ):
+                        match_tool_call_tmp_results.append(chunk)
+                    else:
+                        assert len(QWEN_TOOL_CALL_SYMBOLS[0]) <= len(complete_response)
+                        if not is_match_tool_call and complete_response.startswith(
+                            QWEN_TOOL_CALL_SYMBOLS[0]
+                        ):
+                            is_match_tool_call = True
+                            match_tool_call_tmp_results.clear()
+
+                        if not is_match_tool_call:
+                            for c in match_tool_call_tmp_results:
+                                yield c
+                            match_tool_call_tmp_results.clear()
+                            yield chunk
+                        else:
+                            chunk["choices"][0]["text"] = complete_response
+                else:
+                    yield chunk
+
+            if is_match_tool_call:
+                assert chunk is not None
                 yield chunk
+
+            # match OpenAI API stream
+            yield generate_completion_chunk(
+                chunk_text=None,
+                finish_reason=finish_reason,
+                chunk_id=request_id,
+                model_uid=self.model_uid,
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                total_tokens=total_tokens,
+                has_choice=True,
+                has_content=False,
+            )
+
             if include_usage:
                 chunk = CompletionChunk(
                     id=request_id,
@@ -586,59 +618,68 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
     ) -> Dict:
         if not generate_config:
             generate_config = {}
-        if self.model_family.prompt_style:
-            if (
-                not generate_config.get("stop")
-            ) and self.model_family.prompt_style.stop:
-                generate_config["stop"] = self.model_family.prompt_style.stop.copy()
-            if self.model_family.prompt_style.stop_token_ids:
-                generate_config.setdefault(
-                    "stop_token_ids",
-                    self.model_family.prompt_style.stop_token_ids.copy(),
-                )
+        if not generate_config.get("stop") and self.model_family.stop:
+            generate_config["stop"] = self.model_family.stop.copy()
+        if (
+            not generate_config.get("stop_token_ids")
+            and self.model_family.stop_token_ids
+        ):
+            generate_config["stop_token_ids"] = self.model_family.stop_token_ids.copy()
         return generate_config
+
+    @staticmethod
+    def is_tool_call_chunk(chunk):
+        return chunk["choices"][0]["text"].startswith(QWEN_TOOL_CALL_SYMBOLS[0])
+
+    async def _async_to_tool_completion_chunks(
+        self,
+        chunks: AsyncGenerator[CompletionChunk, None],
+    ) -> AsyncGenerator[ChatCompletionChunk, None]:
+        i = 0
+        async for chunk in chunks:
+            if i == 0:
+                yield self._get_first_chat_completion_chunk(chunk)
+            # usage
+            choices = chunk.get("choices")
+            if not choices:
+                yield self._get_final_chat_completion_chunk(chunk)
+            else:
+                if self.is_tool_call_chunk(chunk):
+                    yield self._tool_calls_completion_chunk(
+                        self.model_family, self.model_uid, chunk
+                    )
+                else:
+                    yield self._to_chat_completion_chunk(chunk)
+            i += 1
 
     async def async_chat(
         self,
-        prompt: str,
-        system_prompt: Optional[str] = None,
-        chat_history: Optional[List[ChatCompletionMessage]] = None,
+        messages: List[Dict],
         generate_config: Optional[Dict] = None,
     ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
-        assert self.model_family.prompt_style is not None
-        prompt_style = self.model_family.prompt_style.copy()
-        if system_prompt:
-            prompt_style.system_prompt = system_prompt
-        chat_history = chat_history or []
         tools = generate_config.pop("tools", []) if generate_config else None
-        full_prompt = self.get_prompt(prompt, chat_history, prompt_style, tools=tools)
+        model_family = self.model_family.model_family or self.model_family.model_name
+        full_context_kwargs = {}
+        if tools and model_family in QWEN_TOOL_CALL_FAMILY:
+            full_context_kwargs["tools"] = tools
+        full_prompt = self.get_full_context(
+            messages, self.model_family.chat_template, **full_context_kwargs
+        )
 
         generate_config = self._sanitize_chat_config(generate_config)
-        # TODO(codingl2k1): qwen hacky to set stop for function call.
-        model_family = self.model_family.model_family or self.model_family.model_name
-        if tools and model_family in QWEN_TOOL_CALL_FAMILY:
-            stop = generate_config.get("stop")
-            if isinstance(stop, str):
-                generate_config["stop"] = [stop, "Observation:"]
-            elif isinstance(stop, Iterable):
-                assert not isinstance(stop, str)
-                generate_config["stop"] = list(stop) + ["Observation:"]
-            else:
-                generate_config["stop"] = "Observation:"
-
         stream = generate_config.get("stream", None)
 
         if stream:
             agen = await self.async_generate(full_prompt, generate_config, tools)
             assert isinstance(agen, AsyncGenerator)
+            if tools:
+                return self._async_to_tool_completion_chunks(agen)
             return self._async_to_chat_completion_chunks(agen)
         else:
             c = await self.async_generate(full_prompt, generate_config)
             assert not isinstance(c, AsyncGenerator)
             if tools:
-                return self._tool_calls_completion(
-                    self.model_family, self.model_uid, c, tools
-                )
+                return self._tool_calls_completion(self.model_family, self.model_uid, c)
             return self._to_chat_completion(c)
 
 
@@ -666,28 +707,28 @@ class VLLMVisionModel(VLLMModel, ChatModelMixin):
         self,
         generate_config: Optional[Dict] = None,
     ) -> Dict:
+        from ..utils import get_stop_token_ids_from_config_file
+
         if not generate_config:
             generate_config = {}
-        if self.model_family.prompt_style:
-            if self.model_family.prompt_style.stop_token_ids:
+        if generate_config.get("stop_token_ids", None) is None:
+            stop_token_ids = get_stop_token_ids_from_config_file(self.model_path)
+            if stop_token_ids is not None:
+                generate_config.setdefault("stop_token_ids", stop_token_ids)
+            else:
                 generate_config.setdefault(
-                    "stop_token_ids",
-                    self.model_family.prompt_style.stop_token_ids.copy(),
+                    "stop_token_ids", self.model_family.stop_token_ids.copy()
                 )
         return generate_config
 
     async def async_chat(
         self,
-        prompt: str,
-        system_prompt: Optional[str] = None,
-        chat_history: Optional[List[ChatCompletionMessage]] = None,
+        messages: List[Dict],
         generate_config: Optional[Dict] = None,
     ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
         # only support single image, waiting vllm support multi images
-        assert self.model_family.prompt_style is not None
-        prompt_style = self.model_family.prompt_style.copy()
-        chat_history = chat_history or []
-        prompt, images = self.get_prompt(prompt, chat_history, prompt_style)
+        model_family = self.model_family.model_family or self.model_family.model_name
+        prompt, images = self.get_specific_prompt(model_family, messages)
 
         if len(images) == 0:
             inputs = {

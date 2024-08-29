@@ -17,13 +17,12 @@ import platform
 import sys
 import time
 import uuid
-from typing import Dict, Iterable, Iterator, List, Optional, TypedDict, Union
+from typing import Dict, Iterator, List, Optional, TypedDict, Union
 
 from ....fields import max_tokens_field
 from ....types import (
     ChatCompletion,
     ChatCompletionChunk,
-    ChatCompletionMessage,
     Completion,
     CompletionChoice,
     CompletionChunk,
@@ -32,7 +31,7 @@ from ....types import (
 )
 from ..core import LLM
 from ..llm_family import LLMFamilyV1, LLMSpecV1
-from ..utils import ChatModelMixin
+from ..utils import QWEN_TOOL_CALL_FAMILY, ChatModelMixin, generate_completion_chunk
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +53,7 @@ class MLXGenerateConfig(TypedDict, total=False):
     stop_token_ids: Optional[Union[int, List[int]]]
     stream: bool
     stream_options: Optional[Union[dict, None]]
+    tools: Optional[List[Dict]]
 
 
 class MLXModel(LLM):
@@ -238,29 +238,35 @@ class MLXModel(LLM):
         else:
             finish_reason = "stop"
 
-        if stream:
-            completion_choice = CompletionChoice(
-                text="", index=0, logprobs=None, finish_reason=finish_reason
-            )
-        else:
-            completion_choice = CompletionChoice(
-                text=output, index=0, logprobs=None, finish_reason=finish_reason
-            )
-
-        completion_chunk = CompletionChunk(
-            id=chunk_id,
-            object="text_completion",
-            created=int(time.time()),
-            model=model_uid,
-            choices=[completion_choice],
-        )
         completion_usage = CompletionUsage(
             prompt_tokens=input_echo_len,
             completion_tokens=i,
             total_tokens=(input_echo_len + i),
         )
-
-        yield completion_chunk, completion_usage
+        if stream:
+            yield generate_completion_chunk(
+                None,
+                finish_reason=finish_reason,
+                chunk_id=chunk_id,
+                model_uid=model_uid,
+                prompt_tokens=input_echo_len,
+                completion_tokens=i,
+                total_tokens=(input_echo_len + i),
+                has_choice=True,
+                has_content=False,
+            ), completion_usage
+        else:
+            yield generate_completion_chunk(
+                output,
+                finish_reason=finish_reason,
+                chunk_id=chunk_id,
+                model_uid=model_uid,
+                prompt_tokens=input_echo_len,
+                completion_tokens=i,
+                total_tokens=(input_echo_len + i),
+                has_choice=True,
+                has_content=True,
+            ), completion_usage
 
         if include_usage:
             completion_chunk = CompletionChunk(
@@ -269,11 +275,6 @@ class MLXModel(LLM):
                 created=int(time.time()),
                 model=model_uid,
                 choices=[],
-            )
-            completion_usage = CompletionUsage(
-                prompt_tokens=input_echo_len,
-                completion_tokens=i,
-                total_tokens=(input_echo_len + i),
             )
             yield completion_chunk, completion_usage
 
@@ -345,20 +346,13 @@ class MLXChatModel(MLXModel, ChatModelMixin):
         generate_config: Optional[MLXGenerateConfig],
     ) -> MLXGenerateConfig:
         generate_config = super()._sanitize_generate_config(generate_config)
-        if (
-            (not generate_config.get("stop"))
-            and self.model_family.prompt_style
-            and self.model_family.prompt_style.stop
-        ):
-            generate_config["stop"] = self.model_family.prompt_style.stop.copy()
+        if (not generate_config.get("stop")) and self.model_family.stop:
+            generate_config["stop"] = self.model_family.stop.copy()
         if (
             generate_config.get("stop_token_ids", None) is None
-            and self.model_family.prompt_style
-            and self.model_family.prompt_style.stop_token_ids
+            and self.model_family.stop_token_ids
         ):
-            generate_config[
-                "stop_token_ids"
-            ] = self.model_family.prompt_style.stop_token_ids.copy()
+            generate_config["stop_token_ids"] = self.model_family.stop_token_ids.copy()
 
         return generate_config
 
@@ -377,28 +371,19 @@ class MLXChatModel(MLXModel, ChatModelMixin):
 
     def chat(
         self,
-        prompt: str,
-        system_prompt: Optional[str] = None,
-        chat_history: Optional[List[ChatCompletionMessage]] = None,
+        messages: List[Dict],
         generate_config: Optional[MLXGenerateConfig] = None,
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
-        tools = generate_config.pop("tools", []) if generate_config else None  # type: ignore
-        full_prompt = self.get_full_prompt(
-            self.model_family, prompt, system_prompt, chat_history, tools
+        model_family = self.model_family.model_family or self.model_family.model_name
+        tools = generate_config.pop("tools", []) if generate_config else None
+        full_context_kwargs = {}
+        if tools and model_family in QWEN_TOOL_CALL_FAMILY:
+            full_context_kwargs["tools"] = tools
+        full_prompt = self.get_full_context(
+            messages, self.model_family.chat_template, **full_context_kwargs
         )
 
         generate_config = self._sanitize_generate_config(generate_config)
-        # TODO(codingl2k1): qwen hacky to set stop for function call.
-        model_family = self.model_family.model_family or self.model_family.model_name
-        if tools and model_family in ["qwen-chat", "qwen1.5-chat"]:
-            stop = generate_config.get("stop")
-            if isinstance(stop, str):
-                generate_config["stop"] = [stop, "Observation:"]
-            elif isinstance(stop, Iterable):
-                assert not isinstance(stop, str)
-                generate_config["stop"] = list(stop) + ["Observation:"]
-            else:
-                generate_config["stop"] = "Observation:"
 
         stream = generate_config.get("stream", False)
         if stream:
@@ -409,7 +394,5 @@ class MLXChatModel(MLXModel, ChatModelMixin):
             c = self.generate(full_prompt, generate_config)
             assert not isinstance(c, Iterator)
             if tools:
-                return self._tool_calls_completion(
-                    self.model_family, self.model_uid, c, tools
-                )
+                return self._tool_calls_completion(self.model_family, self.model_uid, c)
             return self._to_chat_completion(c)

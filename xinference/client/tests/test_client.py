@@ -73,12 +73,13 @@ def test_RESTful_client(setup):
     with pytest.raises(RuntimeError):
         completion = model.chat({"max_tokens": 64})
 
-    completion = model.chat("What is the capital of France?")
+    messages = {"role": "user", "content": "What is the capital of France?"}
+    completion = model.chat(messages)
     assert "content" in completion["choices"][0]["message"]
 
     def _check_stream():
         streaming_response = model.chat(
-            prompt="What is the capital of France?",
+            messages,
             generate_config={"stream": True, "max_tokens": 5},
         )
         for chunk in streaming_response:
