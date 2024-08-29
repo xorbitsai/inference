@@ -39,7 +39,7 @@ def test_model():
     model_path = None
     try:
         model_path = cache(TEST_MODEL_SPEC)
-        model = DiffusionModel("mock", model_path)
+        model = DiffusionModel("mock", model_path, abilities=["text2image"])
         # input is a string
         input_text = "an apple"
         model.load()
@@ -313,12 +313,13 @@ def test_persist_custom_image():
     )
 
     tmp_dir = tempfile.mktemp()
+    os.makedirs(tmp_dir)
 
     model_spec = CustomImageModelFamilyV1(
         model_family="stable_diffusion",
         model_name="my-custom-image",
         model_id="my-custom-image",
-        model_uri=os.path.abspath(tmp_dir),
+        model_uri=f"file://{os.path.abspath(tmp_dir)}",
     )
 
     register_image(model_spec, persist=True)
@@ -349,11 +350,12 @@ def test_launch_custom_image(setup):
         "model_uid": "my_sd",
         "model_name": "my_sd",
         "model_uri": model_path,
+        "model_ability": ["text2image"],
     }
 
     client.register_model(
         model_type="image",
-        model=json_dumps(my_model),
+        model=json_dumps(my_model).decode("utf-8"),
         persist=False,
     )
 
