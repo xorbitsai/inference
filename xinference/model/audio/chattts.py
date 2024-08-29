@@ -11,10 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import base64
 import logging
 from io import BytesIO
 from typing import TYPE_CHECKING, Optional
+
+from ..utils import set_all_random_seed
 
 if TYPE_CHECKING:
     from .core import AudioModelFamilyV1
@@ -78,9 +81,7 @@ class ChatTTSModel:
         if rnd_spk_emb is None:
             seed = xxhash.xxh32_intdigest(voice)
 
-            torch.manual_seed(seed)
-            np.random.seed(seed)
-            torch.cuda.manual_seed(seed)
+            set_all_random_seed(seed)
             torch.backends.cudnn.deterministic = True
             torch.backends.cudnn.benchmark = False
 

@@ -26,7 +26,6 @@ ENV LD_LIBRARY_PATH $LD_LIBRARY_PATH:/usr/local/lib/python3.10/dist-packages/nvi
 ARG PIP_INDEX=https://pypi.org/simple
 RUN pip install --upgrade -i "$PIP_INDEX" pip && \
     pip install -i "$PIP_INDEX" "diskcache>=5.6.1" "jinja2>=2.11.3" && \
-    pip install -i "$PIP_INDEX" matcha-tts && \
     # use pre-built whl package for llama-cpp-python, otherwise may core dump when init llama in some envs
     pip install "llama-cpp-python>=0.2.82" -i https://abetlen.github.io/llama-cpp-python/whl/cu124 && \
     pip install -i "$PIP_INDEX" --upgrade-strategy only-if-needed -r /opt/inference/xinference/deploy/docker/requirements.txt && \
@@ -40,4 +39,4 @@ RUN pip install --upgrade -i "$PIP_INDEX" pip && \
     # clean packages
     pip cache purge
 
-ENTRYPOINT []
+CMD ["/bin/bash"]
