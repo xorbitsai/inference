@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import logging
+import random
 from typing import Dict, Optional
 import torch
 import torch.nn as nn
@@ -77,6 +78,11 @@ class MaskedDiffWithXvec(torch.nn.Module):
 
         # get conditions
         conds = torch.zeros(feat.shape, device=token.device)
+        for i, j in enumerate(feat_len):
+            if random.random() < 0.5:
+                continue
+            index = random.randint(0, int(0.3 * j))
+            conds[i, :index] = feat[i, :index]
         conds = conds.transpose(1, 2)
 
         mask = (~make_pad_mask(feat_len)).to(h)
@@ -133,3 +139,47 @@ class MaskedDiffWithXvec(torch.nn.Module):
         if prompt_feat.shape[1] != 0:
             feat = feat[:, :, prompt_feat.shape[1]:]
         return feat
+
+    @torch.inference_mode()
+    def inference_stream(self,
+                  token,
+                  token_len,
+                  prompt_token,
+                  prompt_token_len,
+                  prompt_feat,
+                  prompt_feat_len,
+                  embedding):
+        assert token.shape[0] == 1
+        # xvec projection
+        embedding = F.normalize(embedding, dim=1)
+        embedding = self.spk_embed_affine_layer(embedding)
+
+        # concat text and prompt_text
+        token, token_len = torch.concat([prompt_token, token], dim=1), prompt_token_len + token_len
+        mask = (~make_pad_mask(token_len)).float().unsqueeze(-1).to(embedding)
+        token = self.input_embedding(torch.clamp(token, min=0)) * mask
+
+        # text encode
+        h, h_lengths = self.encoder(token, token_len)
+        h = self.encoder_proj(h)
+        feat_len = (token_len / 50 * 22050 / 256).int()
+        h, h_lengths = self.length_regulator(h, feat_len)
+
+        # get conditions
+        conds = torch.zeros([1, feat_len.max().item(), self.output_size], device=token.device)
+        if prompt_feat.shape[1] != 0:
+            for i, j in enumerate(prompt_feat_len):
+                conds[i, :j] = prompt_feat[i]
+        conds = conds.transpose(1, 2)
+
+        mask = (~make_pad_mask(feat_len)).to(h)
+        feat = self.decoder(
+            mu=h.transpose(1, 2).contiguous(),
+            mask=mask.unsqueeze(1),
+            spks=embedding,
+            cond=conds,
+            n_timesteps=10
+        )
+        if prompt_feat.shape[1] != 0:
+            feat = feat[:, :, prompt_feat.shape[1]:]
+        yield feat

@@ -389,3 +389,7 @@ class HiFTGenerator(nn.Module):
     @torch.inference_mode()
     def inference(self, mel: torch.Tensor) -> torch.Tensor:
         return self.forward(x=mel)
+    
+    @torch.inference_mode()
+    def inference_stream(self, mel: torch.Tensor) -> torch.Tensor:
+        yield self.forward(x=mel)

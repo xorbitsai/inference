@@ -54,7 +54,57 @@ class CosyVoiceModel:
         from cosyvoice.cli.cosyvoice import CosyVoice
 
         self._model = CosyVoice(self._model_path)
+        
+    def _speech_handle(self, stream, input, instruct_text, prompt_speech, prompt_text, voice, response_format):
+        if prompt_speech:
+            from cosyvoice.utils.file_utils import load_wav
+            with io.BytesIO(prompt_speech) as prompt_speech_io:
+                prompt_speech_16k = load_wav(prompt_speech_io, 16000)  
 
+            if prompt_text:
+                logger.info("CosyVoice inference_zero_shot")
+                output = self._model.inference_zero_shot_stream(input, prompt_text, prompt_speech_16k) \
+                    if stream else self._model.inference_zero_shot(input, prompt_text, prompt_speech_16k)
+            else:
+                logger.info("CosyVoice inference_cross_lingual")
+                output = self._model.inference_cross_lingual_stream(input, prompt_speech_16k) \
+                    if stream else self._model.inference_cross_lingual(input, prompt_speech_16k)
+        else:
+            available_speakers = self._model.list_avaliable_spks()
+            if not voice:
+                voice = available_speakers[0]
+            else:
+                assert (
+                    voice in available_speakers
+                ), f"Invalid voice {voice}, CosyVoice available speakers: {available_speakers}"
+            if instruct_text:
+                logger.info("CosyVoice inference_instruct")
+                output = self._model.inference_instruct_stream(input, voice, instruct_text=instruct_text) \
+                    if stream else self._model.inference_instruct(input, voice, instruct_text=instruct_text)
+            else: 
+                logger.info("CosyVoice inference_sft")
+                output = self._model.inference_sft_stream(input, voice) \
+                    if stream else self._model.inference_sft(input, voice)
+        
+        import torchaudio
+        import torch
+        def _generator_stream():
+            assert isinstance(output, list), "Expected data to be of type list"
+            for audio_data in output:
+                output_data = torch.concat([audio_data], dim=1)
+                buffer = io.BytesIO()
+                torchaudio.save(buffer, output_data, 22050, format = response_format)
+                buffer.seek(0)
+                yield buffer.read()
+                
+        def _generator_block():
+            assert isinstance(output, dict), "Expected data to be of type dict"
+            with BytesIO() as out:
+                torchaudio.save(out, output["tts_speech"], 22050, format = response_format)
+                return out.getvalue()
+         
+        return _generator_stream() if stream else _generator_block()
+        
     def speech(
         self,
         input: str,
@@ -64,17 +114,11 @@ class CosyVoiceModel:
         stream: bool = False,
         **kwargs,
     ):
-        if stream:
-            raise Exception("CosyVoiceModel does not support stream.")
-
-        import torchaudio
-        from cosyvoice.utils.file_utils import load_wav
-
         prompt_speech: Optional[bytes] = kwargs.pop("prompt_speech", None)
         prompt_text: Optional[str] = kwargs.pop("prompt_text", None)
         instruct_text: Optional[str] = kwargs.pop("instruct_text", None)
         seed: Optional[int] = kwargs.pop("seed", 0)
-
+        
         if "SFT" in self._model_spec.model_name:
             # inference_sft
             assert (
@@ -101,41 +145,9 @@ class CosyVoiceModel:
             assert (
                 instruct_text is None
             ), "CosyVoice model does not support instruct_text"
-
+            
         assert self._model is not None
-        set_all_random_seed(seed)
-        if prompt_speech:
-            assert not voice, "voice can't be set with prompt speech."
-            with io.BytesIO(prompt_speech) as prompt_speech_io:
-                prompt_speech_16k = load_wav(prompt_speech_io, 16000)
-                if prompt_text:
-                    logger.info("CosyVoice inference_zero_shot")
-                    output = self._model.inference_zero_shot(
-                        input, prompt_text, prompt_speech_16k
-                    )
-                else:
-                    logger.info("CosyVoice inference_cross_lingual")
-                    output = self._model.inference_cross_lingual(
-                        input, prompt_speech_16k
-                    )
-        else:
-            available_speakers = self._model.list_avaliable_spks()
-            if not voice:
-                voice = available_speakers[0]
-            else:
-                assert (
-                    voice in available_speakers
-                ), f"Invalid voice {voice}, CosyVoice available speakers: {available_speakers}"
-            if instruct_text:
-                logger.info("CosyVoice inference_instruct")
-                output = self._model.inference_instruct(
-                    input, voice, instruct_text=instruct_text
-                )
-            else:
-                logger.info("CosyVoice inference_sft")
-                output = self._model.inference_sft(input, voice)
-
-        # Save the generated audio
-        with BytesIO() as out:
-            torchaudio.save(out, output["tts_speech"], 22050, format=response_format)
-            return out.getvalue()
+        
+        set_all_random_seed(seed)   
+                  
+        return self._speech_handle(stream, input, instruct_text, prompt_speech, prompt_text, voice, response_format)
