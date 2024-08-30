@@ -152,6 +152,7 @@ def test_register_custom_audio():
         model_name="custom_test_a",
         model_id="test/custom_test_a",
         multilingual=True,
+        ability="audio-to-text",
     )
 
     register_audio(family_a, False)
@@ -163,6 +164,7 @@ def test_register_custom_audio():
         model_name="custom_test_b",
         model_id="test/custom_test_b",
         multilingual=True,
+        ability="audio-to-text",
     )
     register_audio(family_b, False)
     assert family_b in get_user_defined_audios()
@@ -194,6 +196,7 @@ def test_persistent_custom_audio():
         model_id="test/custom_test_a",
         multilingual=True,
         model_uri=os.path.abspath(temp_dir),
+        ability="audio-to-text",
     )
 
     register_audio(family, True)
