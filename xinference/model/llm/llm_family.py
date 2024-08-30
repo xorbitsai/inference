@@ -1004,6 +1004,11 @@ def register_llm(llm_family: LLMFamilyV1, persist: bool):
     if not is_valid_model_name(llm_family.model_name):
         raise ValueError(f"Invalid model name {llm_family.model_name}.")
 
+    for spec in llm_family.model_specs:
+        model_uri = spec.model_uri
+        if model_uri and not is_valid_model_uri(model_uri):
+            raise ValueError(f"Invalid model URI {model_uri}.")
+
     with UD_LLM_FAMILIES_LOCK:
         for family in BUILTIN_LLM_FAMILIES + UD_LLM_FAMILIES:
             if llm_family.model_name == family.model_name:
@@ -1015,12 +1020,6 @@ def register_llm(llm_family: LLMFamilyV1, persist: bool):
         generate_engine_config_by_model_family(llm_family)
 
     if persist:
-        # We only validate model URL when persist is True.
-        for spec in llm_family.model_specs:
-            model_uri = spec.model_uri
-            if model_uri and not is_valid_model_uri(model_uri):
-                raise ValueError(f"Invalid model URI {model_uri}.")
-
         persist_path = os.path.join(
             XINFERENCE_MODEL_DIR, "llm", f"{llm_family.model_name}.json"
         )

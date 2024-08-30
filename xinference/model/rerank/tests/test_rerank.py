@@ -121,7 +121,8 @@ def test_register_custom_rerank():
         language=["zh"],
         model_uri="file:///c/d",
     )
-    register_rerank(model_spec, False)
+    with pytest.raises(ValueError):
+        register_rerank(model_spec, False)
 
     # name conflict
     model_spec = CustomRerankModelSpec(
