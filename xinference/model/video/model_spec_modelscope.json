@@ -7,6 +7,30 @@
     "model_revision": "master",
     "model_ability": [
       "text2video"
-    ]
+    ],
+    "default_model_config": {
+      "scheduler": "CogVideoXDDIMScheduler",
+      "torch_dtype": "float16"
+    },
+    "default_generate_config": {
+      "guidance_scale": 6
+    }
+  },
+  {
+    "model_name": "CogVideoX-5b",
+    "model_family": "CogVideoX",
+    "model_hub": "modelscope",
+    "model_id": "ZhipuAI/CogVideoX-5b",
+    "model_revision": "master",
+    "model_ability": [
+      "text2video"
+    ],
+    "default_model_config": {
+      "scheduler": "CogVideoXDPMScheduler",
+      "torch_dtype": "bfloat16"
+    },
+    "default_generate_config": {
+      "guidance_scale": 7
+    }
   }
 ]
