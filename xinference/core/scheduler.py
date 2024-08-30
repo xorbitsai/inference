@@ -38,7 +38,13 @@ class AbortRequestMessage(Enum):
 
 class InferenceRequest:
     def __init__(
-        self, prompt_or_messages, future_or_queue, is_prefill, *args, **kwargs
+        self,
+        prompt_or_messages,
+        future_or_queue,
+        is_prefill,
+        call_ability,
+        *args,
+        **kwargs,
     ):
         # original prompt, prompt(str) for generate model and messages(List[Dict]) for chat model
         self._prompt = prompt_or_messages
@@ -46,6 +52,9 @@ class InferenceRequest:
         self._full_prompt = None
         # whether the current request is in the prefill phase
         self._is_prefill = is_prefill
+        # the ability that the user calls this model for, that is `generate` / `chat` for now,
+        # which is for results formatting
+        self._call_ability = call_ability
         # full prompt tokens
         self._prompt_tokens = None
         # all new generated tokens during decode phase
@@ -104,12 +113,8 @@ class InferenceRequest:
         return self._prompt
 
     @property
-    def system_prompt(self):
-        return self._inference_args[0]
-
-    @property
-    def chat_history(self):
-        return self._inference_args[1]
+    def call_ability(self):
+        return self._call_ability
 
     @property
     def full_prompt(self):
@@ -413,11 +418,12 @@ class SchedulerActor(xo.StatelessActor):
         self,
         prompt_or_messages: Union[str, List[Dict]],
         future_or_queue,
+        call_ability,
         *args,
         **kwargs,
     ):
         req = InferenceRequest(
-            prompt_or_messages, future_or_queue, True, *args, **kwargs
+            prompt_or_messages, future_or_queue, True, call_ability, *args, **kwargs
         )
         rid = req.request_id
         if rid is not None:

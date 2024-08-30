@@ -774,6 +774,20 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
     def handle_batch_inference_results(self, req_list: List[InferenceRequest]):
         for req in req_list:
             if req.error_msg is None and req.completion:
+                # The `generate` function can be called for some chat models.
+                # So that we cannot convert completion chunk to chat completion chunk.
+                if req.call_ability == "generate":
+                    results = []
+                    for c in req.completion:
+                        if c == "<bos_stream>":
+                            continue
+                        elif c == "<eos_stream>":
+                            break
+                        else:
+                            results.append(c)
+                    req.completion = results
+                    continue
+
                 if req.stream:
                     results = []
                     for i, c in enumerate(req.completion):

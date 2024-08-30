@@ -439,7 +439,9 @@ class ModelActor(xo.StatelessActor):
     @log_async(logger=logger)
     async def generate(self, prompt: str, *args, **kwargs):
         if self.allow_batching():
-            return await self.handle_batching_request(prompt, *args, **kwargs)
+            return await self.handle_batching_request(
+                prompt, "generate", *args, **kwargs
+            )
         else:
             kwargs.pop("raw_params", None)
             if hasattr(self._model, "generate"):
@@ -484,7 +486,7 @@ class ModelActor(xo.StatelessActor):
         return False if args[0] is None else args[0].get("stream", False)
 
     async def handle_batching_request(
-        self, prompt_or_messages: Union[str, List[Dict]], *args, **kwargs
+        self, prompt_or_messages: Union[str, List[Dict]], call_ability, *args, **kwargs
     ):
         """
         The input parameter `prompt_or_messages`:
@@ -498,7 +500,7 @@ class ModelActor(xo.StatelessActor):
             queue: Queue[Any] = Queue()
             ret = self._queue_consumer(queue)
             await self._scheduler_ref.add_request(
-                prompt_or_messages, queue, *args, **kwargs
+                prompt_or_messages, queue, call_ability, *args, **kwargs
             )
             gen = self._to_async_gen("json", ret)
             self._current_generator = weakref.ref(gen)
@@ -527,7 +529,9 @@ class ModelActor(xo.StatelessActor):
         response = None
         try:
             if self.allow_batching():
-                return await self.handle_batching_request(messages, *args, **kwargs)
+                return await self.handle_batching_request(
+                    messages, "chat", *args, **kwargs
+                )
             else:
                 kwargs.pop("raw_params", None)
                 if hasattr(self._model, "chat"):
