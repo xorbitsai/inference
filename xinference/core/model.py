@@ -511,7 +511,7 @@ class ModelActor(xo.StatelessActor):
             assert self._loop is not None
             future = ConcurrentFuture()
             await self._scheduler_ref.add_request(
-                prompt_or_messages, future, *args, **kwargs
+                prompt_or_messages, future, call_ability, *args, **kwargs
             )
             fut = asyncio.wrap_future(future, loop=self._loop)
             result = await fut
