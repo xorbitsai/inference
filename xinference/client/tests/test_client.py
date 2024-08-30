@@ -73,7 +73,7 @@ def test_RESTful_client(setup):
     with pytest.raises(RuntimeError):
         completion = model.chat({"max_tokens": 64})
 
-    messages = {"role": "user", "content": "What is the capital of France?"}
+    messages = [{"role": "user", "content": "What is the capital of France?"}]
     completion = model.chat(messages)
     assert "content" in completion["choices"][0]["message"]
 
