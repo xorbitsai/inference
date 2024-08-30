@@ -66,6 +66,7 @@ NON_DEFAULT_MODEL_LIST: List[str] = [
     "llama-2-chat",
     "internlm2-chat",
     "qwen-vl-chat",
+    "qwen2-vl-Instruct",
     "OmniLMM",
     "yi-vl-chat",
     "deepseek-vl-chat",
