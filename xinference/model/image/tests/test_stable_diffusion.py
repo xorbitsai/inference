@@ -287,20 +287,19 @@ def test_register_custom_image():
         unregister_image,
     )
 
-    tmp_dir = tempfile.mktemp()
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        model_spec = CustomImageModelFamilyV1(
+            model_family="stable_diffusion",
+            model_name="my-custom-image",
+            model_id="my-custom-image",
+            model_uri=os.path.abspath(tmp_dir),
+        )
 
-    model_spec = CustomImageModelFamilyV1(
-        model_family="stable_diffusion",
-        model_name="my-custom-image",
-        model_id="my-custom-image",
-        model_uri=os.path.abspath(tmp_dir),
-    )
+        register_image(model_spec, persist=False)
+        assert model_spec in get_user_defined_images()
 
-    register_image(model_spec, persist=False)
-    assert model_spec in get_user_defined_images()
-
-    unregister_image(model_spec.model_name, raise_error=False)
-    assert model_spec not in get_user_defined_images()
+        unregister_image(model_spec.model_name, raise_error=False)
+        assert model_spec not in get_user_defined_images()
 
 
 def test_persist_custom_image():
