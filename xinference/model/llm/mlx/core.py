@@ -210,6 +210,12 @@ class MLXModel(LLM):
             else:
                 output += out
 
+            completion_usage = CompletionUsage(
+                prompt_tokens=input_echo_len,
+                completion_tokens=i,
+                total_tokens=(input_echo_len + i),
+            )
+
             yield generate_completion_chunk(
                 chunk_text=output,
                 finish_reason=None,
@@ -218,7 +224,7 @@ class MLXModel(LLM):
                 prompt_tokens=input_echo_len,
                 completion_tokens=i,
                 total_tokens=(input_echo_len + i),
-            )
+            ), completion_usage
 
         logger.info(
             f"Average generation speed: {i / (time.time() - start):.2f} tokens/s."
