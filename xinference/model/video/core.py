@@ -14,7 +14,7 @@
 import logging
 import os
 from collections import defaultdict
-from typing import Dict, List, Literal, Optional, Tuple
+from typing import Any, Dict, List, Literal, Optional, Tuple
 
 from ...constants import XINFERENCE_CACHE_DIR
 from ..core import CacheableModelSpec, ModelDescription
@@ -44,6 +44,8 @@ class VideoModelFamilyV1(CacheableModelSpec):
     model_revision: str
     model_hub: str = "huggingface"
     model_ability: Optional[List[str]]
+    default_model_config: Optional[Dict[str, Any]]
+    default_generate_config: Optional[Dict[str, Any]]
 
 
 class VideoModelDescription(ModelDescription):

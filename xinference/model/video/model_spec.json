@@ -6,6 +6,29 @@
     "model_revision": "4bbfb1de622b80bc1b77b6e9aced75f816be0e38",
     "model_ability": [
       "text2video"
-    ]
+    ],
+    "default_model_config": {
+      "scheduler": "CogVideoXDDIMScheduler",
+      "torch_dtype": "float16"
+    },
+    "default_generate_config": {
+      "guidance_scale": 6
+    }
+  },
+  {
+    "model_name": "CogVideoX-5b",
+    "model_family": "CogVideoX",
+    "model_id": "THUDM/CogVideoX-5b",
+    "model_revision": "8d6ea3f817438460b25595a120f109b88d5fdfad",
+    "model_ability": [
+      "text2video"
+    ],
+    "default_model_config": {
+      "scheduler": "CogVideoXDPMScheduler",
+      "torch_dtype": "bfloat16"
+    },
+    "default_generate_config": {
+      "guidance_scale": 7
+    }
   }
 ]
