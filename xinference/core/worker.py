@@ -73,15 +73,15 @@ class WorkerActor(xo.StatelessActor):
         self._supervisor_ref: Optional[xo.ActorRefType] = None
         self._main_pool = main_pool
         self._main_pool.recover_sub_pool = self.recover_sub_pool
-        self._status_guard_ref: xo.ActorRefType[  # type: ignore
-            "StatusGuardActor"
-        ] = None
+        self._status_guard_ref: xo.ActorRefType["StatusGuardActor"] = (  # type: ignore
+            None
+        )
         self._event_collector_ref: xo.ActorRefType[  # type: ignore
             EventCollectorActor
         ] = None
-        self._cache_tracker_ref: xo.ActorRefType[  # type: ignore
-            CacheTrackerActor
-        ] = None
+        self._cache_tracker_ref: xo.ActorRefType[CacheTrackerActor] = (  # type: ignore
+            None
+        )
 
         # internal states.
         # temporary placeholder during model launch process:
@@ -664,6 +664,8 @@ class WorkerActor(xo.StatelessActor):
 
             ret.sort(key=sort_helper)
             return ret
+        elif model_type == "video":
+            return []
         elif model_type == "rerank":
             from ..model.rerank.custom import get_user_defined_reranks
 
@@ -703,6 +705,8 @@ class WorkerActor(xo.StatelessActor):
             for f in get_user_defined_audios():
                 if f.model_name == model_name:
                     return f
+        elif model_type == "video":
+            return None
         elif model_type == "rerank":
             from ..model.rerank.custom import get_user_defined_reranks
 
