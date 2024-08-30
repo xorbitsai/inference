@@ -1,3 +1,16 @@
+# Copyright 2022-2023 XProbe Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 import base64
 import logging
 import operator
@@ -40,7 +53,7 @@ class Qwen2VLChatModel(PytorchChatModel):
         cls, model_family: "LLMFamilyV1", model_spec: "LLMSpecV1", quantization: str
     ) -> bool:
         llm_family = model_family.model_family or model_family.model_name
-        if "qwen2" in llm_family and "vision" in model_family.model_ability:
+        if "qwen2-vl-instruct".lower() in llm_family.lower():
             return True
         return False
 
@@ -63,24 +76,13 @@ class Qwen2VLChatModel(PytorchChatModel):
 
         self._tokenizer = AutoProcessor.from_pretrained(
             self.model_path,
-            trust_remote_code=True,
-            code_revision=self.model_spec.model_revision,
+            trust_remote_code=True
         )
         self._model = Qwen2VLForConditionalGeneration.from_pretrained(
             self.model_path,
             device_map=device,
-            trust_remote_code=True,
-            code_revision=self.model_spec.model_revision,
+            trust_remote_code=True
         ).eval()
-
-        # Specify hyperparameters for generation
-        self._model.generation_config = GenerationConfig.from_pretrained(
-            self.model_path,
-            trust_remote_code=True,
-            code_revision=self.model_spec.model_revision,
-        )
-        self._apply_lora()
-        self._save_tensorizer(code_revision=self.model_spec.model_revision)
 
     def _message_content_to_qwen(self, content) -> str:
         def _ensure_url(_url):
