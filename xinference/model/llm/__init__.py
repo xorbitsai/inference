@@ -124,6 +124,7 @@ def _install():
     from .pytorch.llama_2 import LlamaPytorchChatModel, LlamaPytorchModel
     from .pytorch.minicpmv25 import MiniCPMV25Model
     from .pytorch.qwen_vl import QwenVLChatModel
+    from .transformers.qwen2_vl import Qwen2VLChatModel
     from .pytorch.vicuna import VicunaPytorchChatModel
     from .pytorch.yi_vl import YiVLChatModel
     from .sglang.core import SGLANGChatModel, SGLANGModel
@@ -159,6 +160,7 @@ def _install():
             FalconPytorchModel,
             Internlm2PytorchChatModel,
             QwenVLChatModel,
+            Qwen2VLChatModel,
             YiVLChatModel,
             DeepSeekVLChatModel,
             InternVLChatModel,
