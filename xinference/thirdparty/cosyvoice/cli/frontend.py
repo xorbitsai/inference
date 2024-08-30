@@ -40,7 +40,6 @@ class CosyVoiceFrontEnd:
                  feat_extractor: Callable,
                  campplus_model: str,
                  speech_tokenizer_model: str,
-                 resource_path: str,
                  spk2info: str = '',
                  instruct: bool = False,
                  allowed_special: str = 'all'):
@@ -60,10 +59,8 @@ class CosyVoiceFrontEnd:
         self.use_ttsfrd = use_ttsfrd
         if self.use_ttsfrd:
             self.frd = ttsfrd.TtsFrontendEngine()
-            assert self.frd.initialize('{}/../CosyVoice-ttsfrd/resource'.format(resource_path)) is True \
-                , 'failed to initialize ttsfrd resource, you can git clone https://www.modelscope.cn/iic/CosyVoice-ttsfrd.git pretrained_models/CosyVoice-ttsfrd and cd pretrained_models/CosyVoice-ttsfrd/ && unzip resource.zip -d '
-            #ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
-            #assert self.frd.initialize('{}/../../pretrained_models/CosyVoice-ttsfrd/resource'.format(ROOT_DIR)) is True, 'failed to initialize ttsfrd resource'
+            ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+            assert self.frd.initialize('{}/../../pretrained_models/CosyVoice-ttsfrd/resource'.format(ROOT_DIR)) is True, 'failed to initialize ttsfrd resource'
             self.frd.set_lang_type('pinyin')
             self.frd.enable_pinyin_mix(True)
             self.frd.set_breakmodel_index(1)
