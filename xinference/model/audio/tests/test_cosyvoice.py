@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import inspect
 import os.path
 import tempfile
 
@@ -32,6 +33,18 @@ def test_cosyvoice_sft(setup):
     response = model.speech(input_string)
     assert type(response) is bytes
     assert len(response) > 0
+
+    # inference_sft
+    response = model.speech(input_string, stream=True)
+    assert inspect.isgenerator(response)
+    i = 0
+    with tempfile.NamedTemporaryFile(suffix=".mp3", delete=True) as f:
+        for chunk in response:
+            f.write(chunk)
+            i += 1
+            assert type(chunk) is bytes
+            assert len(chunk) > 0
+        assert i > 5
 
     # Test openai API
     import openai

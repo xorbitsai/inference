@@ -53,7 +53,7 @@ class CosyVoiceModel:
 
         from cosyvoice.cli.cosyvoice import CosyVoice
 
-        self._model = CosyVoice(self._model_path)
+        self._model = CosyVoice(self._model_path, load_jit=False)
 
     def _speech_handle(
         self,
@@ -73,21 +73,13 @@ class CosyVoiceModel:
 
             if prompt_text:
                 logger.info("CosyVoice inference_zero_shot")
-                output = (
-                    self._model.inference_zero_shot_stream(
-                        input, prompt_text, prompt_speech_16k
-                    )
-                    if stream
-                    else self._model.inference_zero_shot(
-                        input, prompt_text, prompt_speech_16k
-                    )
+                output = self._model.inference_zero_shot(
+                    input, prompt_text, prompt_speech_16k, stream=stream
                 )
             else:
                 logger.info("CosyVoice inference_cross_lingual")
-                output = (
-                    self._model.inference_cross_lingual_stream(input, prompt_speech_16k)
-                    if stream
-                    else self._model.inference_cross_lingual(input, prompt_speech_16k)
+                output = self._model.inference_cross_lingual(
+                    input, prompt_speech_16k, stream=stream
                 )
         else:
             available_speakers = self._model.list_avaliable_spks()
@@ -99,41 +91,39 @@ class CosyVoiceModel:
                 ), f"Invalid voice {voice}, CosyVoice available speakers: {available_speakers}"
             if instruct_text:
                 logger.info("CosyVoice inference_instruct")
-                output = (
-                    self._model.inference_instruct_stream(
-                        input, voice, instruct_text=instruct_text
-                    )
-                    if stream
-                    else self._model.inference_instruct(
-                        input, voice, instruct_text=instruct_text
-                    )
+                output = self._model.inference_instruct(
+                    input, voice, instruct_text=instruct_text, stream=stream
                 )
             else:
                 logger.info("CosyVoice inference_sft")
-                output = (
-                    self._model.inference_sft_stream(input, voice)
-                    if stream
-                    else self._model.inference_sft(input, voice)
-                )
+                output = self._model.inference_sft(input, voice, stream=stream)
 
-        import torchaudio
         import torch
+        import torchaudio
 
         def _generator_stream():
-            assert isinstance(output, list), "Expected data to be of type list"
-            for audio_data in output:
-                output_data = torch.concat([audio_data], dim=1)
-                buffer = io.BytesIO()
-                torchaudio.save(buffer, output_data, 22050, format=response_format)
-                buffer.seek(0)
-                yield buffer.read()
+            with BytesIO() as out:
+                writer = torchaudio.io.StreamWriter(out, format=response_format)
+                writer.add_audio_stream(sample_rate=22050, num_channels=1)
+                i = 0
+                last_pos = 0
+                with writer.open():
+                    for chunk in output:
+                        chunk = chunk["tts_speech"]
+                        trans_chunk = torch.transpose(chunk, 0, 1)
+                        writer.write_audio_chunk(i, trans_chunk)
+                        new_last_pos = out.tell()
+                        if new_last_pos != last_pos:
+                            out.seek(last_pos)
+                            encoded_bytes = out.read()
+                            yield encoded_bytes
+                            last_pos = new_last_pos
 
         def _generator_block():
-            assert isinstance(output, dict), "Expected data to be of type dict"
+            chunk = next(output)
+            assert isinstance(chunk, dict), "Expected data to be of type dict"
             with BytesIO() as out:
-                torchaudio.save(
-                    out, output["tts_speech"], 22050, format=response_format
-                )
+                torchaudio.save(out, chunk["tts_speech"], 22050, format=response_format)
                 return out.getvalue()
 
         return _generator_stream() if stream else _generator_block()
