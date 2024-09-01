@@ -91,8 +91,8 @@ class CosyVoiceModel:
                                         prompt_feat_len=torch.tensor([prompt_feat.shape[1]], dtype=torch.int32).to(self.device),
                                         embedding=embedding.to(self.device))
             # mel overlap fade in out
-            if self.mel_overlap_dict[uuid] is not None:
-                tts_mel = fade_in_out(tts_mel, self.mel_overlap_dict[uuid], self.mel_window)
+            # if self.mel_overlap_dict[uuid] is not None:
+            #     tts_mel = fade_in_out(tts_mel, self.mel_overlap_dict[uuid], self.mel_window)
             # append hift cache
             if self.hift_cache_dict[uuid] is not None:
                 hift_cache_mel, hift_cache_source = self.hift_cache_dict[uuid]['mel'], self.hift_cache_dict[uuid]['source']
@@ -169,4 +169,5 @@ class CosyVoiceModel:
             self.llm_end_dict.pop(this_uuid)
             self.mel_overlap_dict.pop(this_uuid)
             self.hift_cache_dict.pop(this_uuid)
-        torch.cuda.synchronize()
+        if torch.cuda.is_initialized():
+            torch.cuda.synchronize()
