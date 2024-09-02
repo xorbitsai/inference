@@ -29,4 +29,5 @@ RUN python -m pip install --upgrade -i "$PIP_INDEX" pip && \
     # clean packages
     pip cache purge
 
+ENTRYPOINT []
 CMD ["/bin/bash"]
