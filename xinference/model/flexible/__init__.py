@@ -39,7 +39,7 @@ if os.path.isdir(model_dir):
             try:
                 register_flexible_model(model_spec, persist=False)
             except ValueError as e:
-                logger.warning(str(e))
+                logger.warning(f"{model_dir}/{f} has error, " + str(e))
 
 # register model description
 for model in get_flexible_models():

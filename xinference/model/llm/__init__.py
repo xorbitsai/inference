@@ -282,7 +282,7 @@ def _install():
                 try:
                     register_llm(user_defined_llm_family, persist=False)
                 except ValueError as e:
-                    logger.warning(str(e))
+                    logger.warning(f"{user_defined_llm_dir}/{f} has error, " + str(e))
 
     # register model description
     for ud_llm in get_user_defined_llm_families():

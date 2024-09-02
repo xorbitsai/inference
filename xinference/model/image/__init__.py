@@ -82,7 +82,7 @@ if os.path.isdir(user_defined_image_dir):
             try:
                 register_image(user_defined_image_family, persist=False)
             except ValueError as e:
-                logger.warning(str(e))
+                logger.warning(f"{user_defined_image_dir}/{f} has error, " + str(e))
 
 for ud_image in get_user_defined_images():
     IMAGE_MODEL_DESCRIPTIONS.update(generate_image_description(ud_image))

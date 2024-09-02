@@ -65,15 +65,17 @@ for model_spec_info in [BUILTIN_EMBEDDING_MODELS, MODELSCOPE_EMBEDDING_MODELS]:
 
 from ...constants import XINFERENCE_MODEL_DIR
 
-user_defined_llm_dir = os.path.join(XINFERENCE_MODEL_DIR, "embedding")
-if os.path.isdir(user_defined_llm_dir):
-    for f in os.listdir(user_defined_llm_dir):
-        with codecs.open(os.path.join(user_defined_llm_dir, f), encoding="utf-8") as fd:
+user_defined_embedding_dir = os.path.join(XINFERENCE_MODEL_DIR, "embedding")
+if os.path.isdir(user_defined_embedding_dir):
+    for f in os.listdir(user_defined_embedding_dir):
+        with codecs.open(
+            os.path.join(user_defined_embedding_dir, f), encoding="utf-8"
+        ) as fd:
             user_defined_llm_family = CustomEmbeddingModelSpec.parse_obj(json.load(fd))
             try:
                 register_embedding(user_defined_llm_family, persist=False)
             except ValueError as e:
-                logger.warning(str(e))
+                logger.warning(f"{user_defined_embedding_dir}/{f} has error, " + str(e))
 
 # register model description
 for ud_embedding in get_user_defined_embeddings():
