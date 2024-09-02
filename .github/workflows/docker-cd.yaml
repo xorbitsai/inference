@@ -14,6 +14,7 @@ concurrency:
 
 jobs:
   build:
+    timeout-minutes: 120
     runs-on: self-hosted
     strategy:
       matrix:
@@ -85,10 +86,6 @@ jobs:
         env:
           DOCKER_ORG: registry.cn-hangzhou.aliyuncs.com/xprobe_xinference
         run: |
-          docker tag "xprobe/xinference:${XINFERENCE_IMAGE_TAG}" "${DOCKER_ORG}/xinference:${XINFERENCE_IMAGE_TAG}"
-          docker push "${DOCKER_ORG}/xinference:${XINFERENCE_IMAGE_TAG}"
-          docker tag "xprobe/xinference:${XINFERENCE_IMAGE_TAG}-cpu" "${DOCKER_ORG}/xinference:${XINFERENCE_IMAGE_TAG}-cpu"
-          docker push "${DOCKER_ORG}/xinference:${XINFERENCE_IMAGE_TAG}-cpu"
           if [[ -n "$XINFERENCE_GIT_TAG" ]]; then
             docker tag "xprobe/xinference:${XINFERENCE_GIT_TAG}" "$DOCKER_ORG/xinference:latest"
             docker push "$DOCKER_ORG/xinference:latest"
