@@ -14,6 +14,7 @@
 
 import codecs
 import json
+import logging
 import os
 
 from .core import (
@@ -30,6 +31,9 @@ from .custom import (
     register_embedding,
     unregister_embedding,
 )
+
+logger = logging.getLogger(__name__)
+
 
 _model_spec_json = os.path.join(os.path.dirname(__file__), "model_spec.json")
 _model_spec_modelscope_json = os.path.join(
@@ -66,7 +70,10 @@ if os.path.isdir(user_defined_llm_dir):
     for f in os.listdir(user_defined_llm_dir):
         with codecs.open(os.path.join(user_defined_llm_dir, f), encoding="utf-8") as fd:
             user_defined_llm_family = CustomEmbeddingModelSpec.parse_obj(json.load(fd))
-            register_embedding(user_defined_llm_family, persist=False)
+            try:
+                register_embedding(user_defined_llm_family, persist=False)
+            except ValueError as e:
+                logger.warning(str(e))
 
 # register model description
 for ud_embedding in get_user_defined_embeddings():

@@ -14,6 +14,7 @@
 
 import codecs
 import json
+import logging
 import os
 
 from ...constants import XINFERENCE_MODEL_DIR
@@ -31,6 +32,9 @@ from .custom import (
     register_rerank,
     unregister_rerank,
 )
+
+logger = logging.getLogger(__name__)
+
 
 _model_spec_json = os.path.join(os.path.dirname(__file__), "model_spec.json")
 _model_spec_modelscope_json = os.path.join(
@@ -66,7 +70,10 @@ if os.path.isdir(user_defined_rerank_dir):
             os.path.join(user_defined_rerank_dir, f), encoding="utf-8"
         ) as fd:
             user_defined_rerank_spec = CustomRerankModelSpec.parse_obj(json.load(fd))
-            register_rerank(user_defined_rerank_spec, persist=False)
+            try:
+                register_rerank(user_defined_rerank_spec, persist=False)
+            except ValueError as e:
+                logger.warning(str(e))
 
 # register model description
 for ud_rerank in get_user_defined_reranks():

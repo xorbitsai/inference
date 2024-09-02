@@ -14,6 +14,7 @@
 
 import codecs
 import json
+import logging
 import os
 import warnings
 
@@ -53,6 +54,8 @@ from .llm_family import (
     register_llm,
     unregister_llm,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def check_format_with_engine(model_format, engine):
@@ -276,7 +279,10 @@ def _install():
                 os.path.join(user_defined_llm_dir, f), encoding="utf-8"
             ) as fd:
                 user_defined_llm_family = CustomLLMFamilyV1.parse_obj(json.load(fd))
-                register_llm(user_defined_llm_family, persist=False)
+                try:
+                    register_llm(user_defined_llm_family, persist=False)
+                except ValueError as e:
+                    logger.warning(str(e))
 
     # register model description
     for ud_llm in get_user_defined_llm_families():
