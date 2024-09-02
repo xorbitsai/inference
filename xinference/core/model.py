@@ -265,7 +265,7 @@ class ModelActor(xo.StatelessActor):
 
         if self._worker_ref is None:
             self._worker_ref = await xo.actor_ref(
-                address=self._worker_address, uid=WorkerActor.uid()
+                address=self._worker_address, uid=WorkerActor.default_uid()
             )
         return self._worker_ref
 

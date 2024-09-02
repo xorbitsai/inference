@@ -43,7 +43,7 @@ async def start_worker_components(
     await xo.create_actor(
         WorkerActor,
         address=address,
-        uid=WorkerActor.uid(),
+        uid=WorkerActor.default_uid(),
         supervisor_address=supervisor_address,
         main_pool=main_pool,
         gpu_devices=gpu_device_indices,

@@ -41,7 +41,7 @@ async def _start_supervisor(address: str, logging_conf: Optional[Dict] = None):
             address=address, n_process=0, logging_conf={"dict": logging_conf}
         )
         await xo.create_actor(
-            SupervisorActor, address=address, uid=SupervisorActor.uid()
+            SupervisorActor, address=address, uid=SupervisorActor.default_uid()
         )
         await pool.join()
     except asyncio.exceptions.CancelledError:

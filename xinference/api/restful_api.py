@@ -199,7 +199,7 @@ class RESTfulAPI:
     async def _get_supervisor_ref(self) -> xo.ActorRefType[SupervisorActor]:
         if self._supervisor_ref is None:
             self._supervisor_ref = await xo.actor_ref(
-                address=self._supervisor_address, uid=SupervisorActor.uid()
+                address=self._supervisor_address, uid=SupervisorActor.default_uid()
             )
         return self._supervisor_ref
 

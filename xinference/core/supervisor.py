@@ -105,7 +105,7 @@ class SupervisorActor(xo.StatelessActor):
         self._lock = asyncio.Lock()
 
     @classmethod
-    def uid(cls) -> str:
+    def default_uid(cls) -> str:
         return "supervisor"
 
     def _get_worker_ref_by_ip(
@@ -1233,7 +1233,9 @@ class SupervisorActor(xo.StatelessActor):
             worker_address not in self._worker_address_to_worker
         ), f"Worker {worker_address} exists"
 
-        worker_ref = await xo.actor_ref(address=worker_address, uid=WorkerActor.uid())
+        worker_ref = await xo.actor_ref(
+            address=worker_address, uid=WorkerActor.default_uid()
+        )
         self._worker_address_to_worker[worker_address] = worker_ref
         logger.debug("Worker %s has been added successfully", worker_address)
 

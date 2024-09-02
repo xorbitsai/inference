@@ -144,7 +144,7 @@ async def _start_test_cluster(
             address=f"test://{address}", logging_conf=logging_conf
         )
         await xo.create_actor(
-            SupervisorActor, address=address, uid=SupervisorActor.uid()
+            SupervisorActor, address=address, uid=SupervisorActor.default_uid()
         )
         await start_worker_components(
             address=address,
