@@ -16,6 +16,7 @@ import codecs
 import json
 import logging
 import os
+import warnings
 
 from ...constants import XINFERENCE_MODEL_DIR
 from .core import (
@@ -39,7 +40,7 @@ if os.path.isdir(model_dir):
             try:
                 register_flexible_model(model_spec, persist=False)
             except Exception as e:
-                logger.warning(f"{model_dir}/{f} has error, " + str(e))
+                warnings.warn(f"{model_dir}/{f} has error, {e}")
 
 # register model description
 for model in get_flexible_models():

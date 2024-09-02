@@ -14,8 +14,8 @@
 
 import codecs
 import json
-import logging
 import os
+import warnings
 
 from .core import (
     AUDIO_MODEL_DESCRIPTIONS,
@@ -31,8 +31,6 @@ from .custom import (
     register_audio,
     unregister_audio,
 )
-
-logger = logging.getLogger(__name__)
 
 _model_spec_json = os.path.join(os.path.dirname(__file__), "model_spec.json")
 _model_spec_modelscope_json = os.path.join(
@@ -75,7 +73,7 @@ if os.path.isdir(user_defined_audio_dir):
             try:
                 register_audio(user_defined_audio_family, persist=False)
             except Exception as e:
-                logger.warning(f"{user_defined_audio_dir}/{f} has error, " + str(e))
+                warnings.warn(f"{user_defined_audio_dir}/{f} has error, {e}")
 
 # register model description
 for ud_audio in get_user_defined_audios():

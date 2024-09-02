@@ -14,8 +14,8 @@
 
 import codecs
 import json
-import logging
 import os
+import warnings
 
 from ...constants import XINFERENCE_MODEL_DIR
 from .core import (
@@ -32,9 +32,6 @@ from .custom import (
     register_rerank,
     unregister_rerank,
 )
-
-logger = logging.getLogger(__name__)
-
 
 _model_spec_json = os.path.join(os.path.dirname(__file__), "model_spec.json")
 _model_spec_modelscope_json = os.path.join(
@@ -73,7 +70,7 @@ if os.path.isdir(user_defined_rerank_dir):
             try:
                 register_rerank(user_defined_rerank_spec, persist=False)
             except Exception as e:
-                logger.warning(f"{user_defined_rerank_dir}/{f} has error, " + str(e))
+                warnings.warn(f"{user_defined_rerank_dir}/{f} has error, {e}")
 
 # register model description
 for ud_rerank in get_user_defined_reranks():

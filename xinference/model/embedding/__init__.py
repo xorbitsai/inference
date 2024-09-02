@@ -14,8 +14,8 @@
 
 import codecs
 import json
-import logging
 import os
+import warnings
 
 from .core import (
     EMBEDDING_MODEL_DESCRIPTIONS,
@@ -31,9 +31,6 @@ from .custom import (
     register_embedding,
     unregister_embedding,
 )
-
-logger = logging.getLogger(__name__)
-
 
 _model_spec_json = os.path.join(os.path.dirname(__file__), "model_spec.json")
 _model_spec_modelscope_json = os.path.join(
@@ -75,7 +72,7 @@ if os.path.isdir(user_defined_embedding_dir):
             try:
                 register_embedding(user_defined_llm_family, persist=False)
             except Exception as e:
-                logger.warning(f"{user_defined_embedding_dir}/{f} has error, " + str(e))
+                warnings.warn(f"{user_defined_embedding_dir}/{f} has error, {e}")
 
 # register model description
 for ud_embedding in get_user_defined_embeddings():
