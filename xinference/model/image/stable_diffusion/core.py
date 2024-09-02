@@ -62,6 +62,10 @@ class DiffusionModel:
         self._abilities = abilities or []
         self._kwargs = kwargs
 
+    @property
+    def model_ability(self):
+        return self._abilities
+
     def _apply_lora(self):
         if self._lora_model is not None:
             logger.info(

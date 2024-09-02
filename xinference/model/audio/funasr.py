@@ -40,6 +40,10 @@ class FunASRModel:
         self._model = None
         self._kwargs = kwargs
 
+    @property
+    def model_ability(self):
+        return self._model_spec.model_ability
+
     def load(self):
         try:
             from funasr import AutoModel
