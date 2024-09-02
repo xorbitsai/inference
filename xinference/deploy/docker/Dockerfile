@@ -39,4 +39,6 @@ RUN pip install --upgrade -i "$PIP_INDEX" pip && \
     # clean packages
     pip cache purge
 
+# Overwrite the entrypoint of vllm's base image
+ENTRYPOINT []
 CMD ["/bin/bash"]
