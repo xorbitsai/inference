@@ -72,7 +72,7 @@ if os.path.isdir(user_defined_rerank_dir):
             user_defined_rerank_spec = CustomRerankModelSpec.parse_obj(json.load(fd))
             try:
                 register_rerank(user_defined_rerank_spec, persist=False)
-            except ValueError as e:
+            except Exception as e:
                 logger.warning(f"{user_defined_rerank_dir}/{f} has error, " + str(e))
 
 # register model description

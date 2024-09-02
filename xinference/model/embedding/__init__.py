@@ -74,7 +74,7 @@ if os.path.isdir(user_defined_embedding_dir):
             user_defined_llm_family = CustomEmbeddingModelSpec.parse_obj(json.load(fd))
             try:
                 register_embedding(user_defined_llm_family, persist=False)
-            except ValueError as e:
+            except Exception as e:
                 logger.warning(f"{user_defined_embedding_dir}/{f} has error, " + str(e))
 
 # register model description

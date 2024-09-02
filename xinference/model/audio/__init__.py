@@ -74,7 +74,7 @@ if os.path.isdir(user_defined_audio_dir):
             )
             try:
                 register_audio(user_defined_audio_family, persist=False)
-            except ValueError as e:
+            except Exception as e:
                 logger.warning(f"{user_defined_audio_dir}/{f} has error, " + str(e))
 
 # register model description

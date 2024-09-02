@@ -281,7 +281,7 @@ def _install():
                 user_defined_llm_family = CustomLLMFamilyV1.parse_obj(json.load(fd))
                 try:
                     register_llm(user_defined_llm_family, persist=False)
-                except ValueError as e:
+                except Exception as e:
                     logger.warning(f"{user_defined_llm_dir}/{f} has error, " + str(e))
 
     # register model description

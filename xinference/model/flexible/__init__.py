@@ -38,7 +38,7 @@ if os.path.isdir(model_dir):
             model_spec = FlexibleModelSpec.parse_obj(json.load(fd))
             try:
                 register_flexible_model(model_spec, persist=False)
-            except ValueError as e:
+            except Exception as e:
                 logger.warning(f"{model_dir}/{f} has error, " + str(e))
 
 # register model description

@@ -81,7 +81,7 @@ if os.path.isdir(user_defined_image_dir):
             )
             try:
                 register_image(user_defined_image_family, persist=False)
-            except ValueError as e:
+            except Exception as e:
                 logger.warning(f"{user_defined_image_dir}/{f} has error, " + str(e))
 
 for ud_image in get_user_defined_images():
