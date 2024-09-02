@@ -135,12 +135,12 @@ class SupervisorActor(xo.StatelessActor):
         self._status_guard_ref: xo.ActorRefType[  # type: ignore
             "StatusGuardActor"
         ] = await xo.create_actor(
-            StatusGuardActor, address=self.address, uid=StatusGuardActor.uid()
+            StatusGuardActor, address=self.address, uid=StatusGuardActor.default_uid()
         )
         self._cache_tracker_ref: xo.ActorRefType[  # type: ignore
             "CacheTrackerActor"
         ] = await xo.create_actor(
-            CacheTrackerActor, address=self.address, uid=CacheTrackerActor.uid()
+            CacheTrackerActor, address=self.address, uid=CacheTrackerActor.default_uid()
         )
 
         from .event import EventCollectorActor
@@ -148,7 +148,9 @@ class SupervisorActor(xo.StatelessActor):
         self._event_collector_ref: xo.ActorRefType[  # type: ignore
             EventCollectorActor
         ] = await xo.create_actor(
-            EventCollectorActor, address=self.address, uid=EventCollectorActor.uid()
+            EventCollectorActor,
+            address=self.address,
+            uid=EventCollectorActor.default_uid(),
         )
 
         from ..model.audio import (

@@ -336,13 +336,13 @@ class WorkerActor(xo.StatelessActor):
             logger.info("Connected to supervisor as a fresh worker")
 
         self._status_guard_ref = await xo.actor_ref(
-            address=self._supervisor_address, uid=StatusGuardActor.uid()
+            address=self._supervisor_address, uid=StatusGuardActor.default_uid()
         )
         self._event_collector_ref = await xo.actor_ref(
-            address=self._supervisor_address, uid=EventCollectorActor.uid()
+            address=self._supervisor_address, uid=EventCollectorActor.default_uid()
         )
         self._cache_tracker_ref = await xo.actor_ref(
-            address=self._supervisor_address, uid=CacheTrackerActor.uid()
+            address=self._supervisor_address, uid=CacheTrackerActor.default_uid()
         )
         # cache_tracker is on supervisor
         from ..model.audio import get_audio_model_descriptions

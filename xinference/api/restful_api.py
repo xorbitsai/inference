@@ -206,7 +206,7 @@ class RESTfulAPI:
     async def _get_event_collector_ref(self) -> xo.ActorRefType[EventCollectorActor]:
         if self._event_collector_ref is None:
             self._event_collector_ref = await xo.actor_ref(
-                address=self._supervisor_address, uid=EventCollectorActor.uid()
+                address=self._supervisor_address, uid=EventCollectorActor.default_uid()
             )
         return self._event_collector_ref
 

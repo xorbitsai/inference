@@ -41,7 +41,7 @@ class EventCollectorActor(xo.StatelessActor):
         )
 
     @classmethod
-    def uid(cls) -> str:
+    def default_uid(cls) -> str:
         return "event_collector"
 
     def get_model_events(self, model_uid: str) -> List[Dict]:
