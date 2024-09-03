@@ -222,7 +222,7 @@ def test_register_custom_embedding():
 def test_register_fault_embedding():
     from .. import CustomEmbeddingModelSpec, register_embedding
 
-    with (tempfile.TemporaryDirectory() as tmp_dir,):
+    with tempfile.TemporaryDirectory() as tmp_dir:
         os.makedirs(os.path.join(tmp_dir, "embedding"), exist_ok=True)
         file_path = os.path.join(tmp_dir, "embedding/GTE.json")
         data = {
