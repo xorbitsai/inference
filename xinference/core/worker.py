@@ -185,7 +185,7 @@ class WorkerActor(xo.StatelessActor):
                 break
 
     @classmethod
-    def uid(cls) -> str:
+    def default_uid(cls) -> str:
         return "worker"
 
     async def __post_create__(self):
@@ -270,9 +270,9 @@ class WorkerActor(xo.StatelessActor):
 
         try:
             await self.get_supervisor_ref(add_worker=True)
-        except Exception as e:
+        except Exception:
             # Do not crash the worker if supervisor is down, auto re-connect later
-            logger.error(f"cannot connect to supervisor {e}")
+            logger.error(f"cannot connect to supervisor", exc_info=True)
 
         if not XINFERENCE_DISABLE_HEALTH_CHECK:
             from ..isolation import Isolation
@@ -324,7 +324,7 @@ class WorkerActor(xo.StatelessActor):
         if self._supervisor_ref is not None:
             return self._supervisor_ref
         supervisor_ref = await xo.actor_ref(  # type: ignore
-            address=self._supervisor_address, uid=SupervisorActor.uid()
+            address=self._supervisor_address, uid=SupervisorActor.default_uid()
         )
         # Prevent concurrent operations leads to double initialization, check again.
         if self._supervisor_ref is not None:
@@ -336,13 +336,13 @@ class WorkerActor(xo.StatelessActor):
             logger.info("Connected to supervisor as a fresh worker")
 
         self._status_guard_ref = await xo.actor_ref(
-            address=self._supervisor_address, uid=StatusGuardActor.uid()
+            address=self._supervisor_address, uid=StatusGuardActor.default_uid()
         )
         self._event_collector_ref = await xo.actor_ref(
-            address=self._supervisor_address, uid=EventCollectorActor.uid()
+            address=self._supervisor_address, uid=EventCollectorActor.default_uid()
         )
         self._cache_tracker_ref = await xo.actor_ref(
-            address=self._supervisor_address, uid=CacheTrackerActor.uid()
+            address=self._supervisor_address, uid=CacheTrackerActor.default_uid()
         )
         # cache_tracker is on supervisor
         from ..model.audio import get_audio_model_descriptions
@@ -814,7 +814,7 @@ class WorkerActor(xo.StatelessActor):
                 )
         except Exception as e:
             # Report callback error can be log and ignore, should not interrupt the Process
-            logger.error("report_event error: %s" % (e))
+            logger.error("report_event error: %s" % (e), exc_info=True)
 
         if gpu_idx is not None:
             logger.info(
