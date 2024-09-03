@@ -49,6 +49,7 @@ class RerankModelSpec(CacheableModelSpec):
     model_name: str
     language: List[str]
     type: Optional[str] = "unknown"
+    max_tokens: Optional[int]
     model_id: str
     model_revision: Optional[str]
     model_hub: str = "huggingface"
@@ -166,6 +167,7 @@ class RerankModel:
                 self._model_path,
                 device=self._device,
                 trust_remote_code=True,
+                max_length=getattr(self._model_spec, "max_tokens"),
                 **self._model_config,
             )
             if self._use_fp16:
