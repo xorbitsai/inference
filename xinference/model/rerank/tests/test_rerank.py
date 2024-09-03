@@ -60,12 +60,16 @@ def test_restful_api(model_name, setup):
         == scores["meta"]["tokens"]["output_tokens"]
     )
 
-    print(scores)
-
     scores = model.rerank(corpus, query)
     assert scores["meta"]["tokens"] == None
 
-    print(scores)
+    # testing long input
+    corpus2 = corpus.copy()
+    corpus2[-1] = corpus2[-1] * 50
+    scores = model.rerank(corpus2, query, top_n=3, return_documents=True)
+    assert len(scores["results"]) == 3
+    assert scores["results"][0]["index"] == 0
+    assert scores["results"][0]["document"]["text"] == corpus2[0]
 
     kwargs = {
         "invalid": "invalid",
